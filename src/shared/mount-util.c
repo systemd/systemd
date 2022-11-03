@@ -7,7 +7,9 @@
 #include <sys/statvfs.h>
 #include <unistd.h>
 #include <linux/loop.h>
+#if WANT_LINUX_FS_H
 #include <linux/fs.h>
+#endif
 
 #include "alloc-util.h"
 #include "chase-symlinks.h"
@@ -17,6 +19,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "glyph-util.h"
 #include "hashmap.h"
 #include "label.h"
 #include "libmount-util.h"
@@ -672,8 +675,8 @@ int mount_verbose_full(
                 log_debug("Bind-mounting %s on %s (%s \"%s\")...",
                           what, where, strnull(fl), strempty(o));
         else if (f & MS_MOVE)
-                log_debug("Moving mount %s → %s (%s \"%s\")...",
-                          what, where, strnull(fl), strempty(o));
+                log_debug("Moving mount %s %s %s (%s \"%s\")...",
+                          what, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), where, strnull(fl), strempty(o));
         else
                 log_debug("Mounting %s (%s) on %s (%s \"%s\")...",
                           strna(what), strna(type), where, strnull(fl), strempty(o));
@@ -762,7 +765,9 @@ int mount_option_mangle(
                 }
 
                 /* If 'word' is not a mount flag, then store it in '*ret_remaining_options'. */
-                if (!ent->name && !strextend_with_separator(&ret, ",", word))
+                if (!ent->name &&
+                    !startswith_no_case(word, "x-") &&
+                    !strextend_with_separator(&ret, ",", word))
                         return -ENOMEM;
         }
 
@@ -784,13 +789,13 @@ static int mount_in_namespace(
                 bool is_image) {
 
         _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
-        _cleanup_close_ int self_mntns_fd = -1, mntns_fd = -1, root_fd = -1, pidns_fd = -1, chased_src_fd = -1;
+        _cleanup_close_ int mntns_fd = -1, root_fd = -1, pidns_fd = -1, chased_src_fd = -1;
         char mount_slave[] = "/tmp/propagate.XXXXXX", *mount_tmp, *mount_outside, *p;
         bool mount_slave_created = false, mount_slave_mounted = false,
                 mount_tmp_created = false, mount_tmp_mounted = false,
                 mount_outside_created = false, mount_outside_mounted = false;
         _cleanup_free_ char *chased_src_path = NULL;
-        struct stat st, self_mntns_st;
+        struct stat st;
         pid_t child;
         int r;
 
@@ -805,18 +810,11 @@ static int mount_in_namespace(
         if (r < 0)
                 return log_debug_errno(r, "Failed to retrieve FDs of the target process' namespace: %m");
 
-        if (fstat(mntns_fd, &st) < 0)
-                return log_debug_errno(errno, "Failed to fstat mount namespace FD of target process: %m");
-
-        r = namespace_open(0, NULL, &self_mntns_fd, NULL, NULL, NULL);
+        r = in_same_namespace(target, 0, NAMESPACE_MOUNT);
         if (r < 0)
-                return log_debug_errno(r, "Failed to retrieve FDs of systemd's namespace: %m");
-
-        if (fstat(self_mntns_fd, &self_mntns_st) < 0)
-                return log_debug_errno(errno, "Failed to fstat mount namespace FD of systemd: %m");
-
+                return log_debug_errno(r, "Failed to determine if mount namespaces are equal: %m");
         /* We can't add new mounts at runtime if the process wasn't started in a namespace */
-        if (stat_inode_same(&st, &self_mntns_st))
+        if (r > 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to activate bind mount in target, not running in a mount namespace");
 
         /* One day, when bind mounting /proc/self/fd/n works across namespace boundaries we should rework
@@ -1050,31 +1048,42 @@ int make_mount_point(const char *path) {
         return 1;
 }
 
-static int make_userns(uid_t uid_shift, uid_t uid_range, RemountIdmapFlags flags) {
+static int make_userns(uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping idmapping) {
         _cleanup_close_ int userns_fd = -1;
         _cleanup_free_ char *line = NULL;
 
         /* Allocates a userns file descriptor with the mapping we need. For this we'll fork off a child
          * process whose only purpose is to give us a new user namespace. It's killed when we got it. */
 
-        if (asprintf(&line, UID_FMT " " UID_FMT " " UID_FMT "\n", 0, uid_shift, uid_range) < 0)
-                return log_oom_debug();
-
-        /* If requested we'll include an entry in the mapping so that the host root user can make changes to
-         * the uidmapped mount like it normally would. Specifically, we'll map the user with UID_HOST_ROOT on
-         * the backing fs to UID 0. This is useful, since nspawn code wants to create various missing inodes
-         * in the OS tree before booting into it, and this becomes very easy and straightforward to do if it
-         * can just do it under its own regular UID. Note that in that case the container's runtime uidmap
-         * (i.e. the one the container payload processes run in) will leave this UID unmapped, i.e. if we
-         * accidentally leave files owned by host root in the already uidmapped tree around they'll show up
-         * as owned by 'nobody', which is safe. (Of course, we shouldn't leave such inodes around, but always
-         * chown() them to the container's own UID range, but it's good to have a safety net, in case we
-         * forget it.) */
-        if (flags & REMOUNT_IDMAP_HOST_ROOT)
-                if (strextendf(&line,
-                               UID_FMT " " UID_FMT " " UID_FMT "\n",
-                               UID_MAPPED_ROOT, 0, 1) < 0)
+        if (IN_SET(idmapping, REMOUNT_IDMAPPING_NONE, REMOUNT_IDMAPPING_HOST_ROOT)) {
+                if (asprintf(&line, UID_FMT " " UID_FMT " " UID_FMT "\n", 0u, uid_shift, uid_range) < 0)
                         return log_oom_debug();
+
+                /* If requested we'll include an entry in the mapping so that the host root user can make
+                 * changes to the uidmapped mount like it normally would. Specifically, we'll map the user
+                 * with UID_MAPPED_ROOT on the backing fs to UID 0. This is useful, since nspawn code wants
+                 * to create various missing inodes in the OS tree before booting into it, and this becomes
+                 * very easy and straightforward to do if it can just do it under its own regular UID. Note
+                 * that in that case the container's runtime uidmap (i.e. the one the container payload
+                 * processes run in) will leave this UID unmapped, i.e. if we accidentally leave files owned
+                 * by host root in the already uidmapped tree around they'll show up as owned by 'nobody',
+                 * which is safe. (Of course, we shouldn't leave such inodes around, but always chown() them
+                 * to the container's own UID range, but it's good to have a safety net, in case we
+                 * forget it.) */
+                if (idmapping == REMOUNT_IDMAPPING_HOST_ROOT)
+                        if (strextendf(&line,
+                                       UID_FMT " " UID_FMT " " UID_FMT "\n",
+                                       UID_MAPPED_ROOT, 0u, 1u) < 0)
+                                return log_oom_debug();
+        }
+
+        if (idmapping == REMOUNT_IDMAPPING_HOST_OWNER) {
+                /* Remap the owner of the bind mounted directory to the root user within the container. This
+                 * way every file written by root within the container to the bind-mounted directory will
+                 * be owned by the original user. All other user will remain unmapped. */
+                if (asprintf(&line, UID_FMT " " UID_FMT " " UID_FMT "\n", owner, uid_shift, 1u) < 0)
+                        return log_oom_debug();
+        }
 
         /* We always assign the same UID and GID ranges */
         userns_fd = userns_acquire(line, line);
@@ -1088,7 +1097,8 @@ int remount_idmap(
                 const char *p,
                 uid_t uid_shift,
                 uid_t uid_range,
-                RemountIdmapFlags flags) {
+                uid_t owner,
+                RemountIdmapping idmapping) {
 
         _cleanup_close_ int mount_fd = -1, userns_fd = -1;
         int r;
@@ -1104,7 +1114,7 @@ int remount_idmap(
                 return log_debug_errno(errno, "Failed to open tree of mounted filesystem '%s': %m", p);
 
         /* Create a user namespace mapping */
-        userns_fd = make_userns(uid_shift, uid_range, flags);
+        userns_fd = make_userns(uid_shift, uid_range, owner, idmapping);
         if (userns_fd < 0)
                 return userns_fd;
 
@@ -1135,7 +1145,7 @@ int make_mount_point_inode_from_stat(const struct stat *st, const char *dest, mo
         if (S_ISDIR(st->st_mode))
                 return mkdir_label(dest, mode);
         else
-                return mknod(dest, S_IFREG|(mode & ~0111), 0);
+                return RET_NERRNO(mknod(dest, S_IFREG|(mode & ~0111), 0));
 }
 
 int make_mount_point_inode_from_path(const char *source, const char *dest, mode_t mode) {

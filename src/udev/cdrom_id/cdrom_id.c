@@ -140,9 +140,9 @@ static int set_drive_feature(Context *c, Feature f) {
 }
 
 #define ERRCODE(s)      ((((s)[2] & 0x0F) << 16) | ((s)[12] << 8) | ((s)[13]))
-#define SK(errcode)     (((errcode) >> 16) & 0xF)
-#define ASC(errcode)    (((errcode) >> 8) & 0xFF)
-#define ASCQ(errcode)   ((errcode) & 0xFF)
+#define SK(errcode)     (((errcode) >> 16) & 0xFU)
+#define ASC(errcode)    (((errcode) >> 8) & 0xFFU)
+#define ASCQ(errcode)   ((errcode) & 0xFFU)
 #define CHECK_CONDITION 0x01
 
 static int log_scsi_debug_errno(int error, const char *msg) {
@@ -704,7 +704,7 @@ static int cd_media_toc(Context *c) {
         /* Take care to not iterate beyond the last valid track as specified in
          * the TOC, but also avoid going beyond the TOC length, just in case
          * the last track number is invalidly large */
-        for (size_t i = 4; i + 8 < len && num_tracks > 0; i += 8, --num_tracks) {
+        for (size_t i = 4; i + 8 <= len && num_tracks > 0; i += 8, --num_tracks) {
                 bool is_data_track;
                 uint32_t block;
 
@@ -712,7 +712,7 @@ static int cd_media_toc(Context *c) {
                 block = unaligned_read_be32(&toc[i + 4]);
 
                 log_debug("track=%u info=0x%x(%s) start_block=%"PRIu32,
-                          toc[i + 2], toc[i + 1] & 0x0f, is_data_track ? "data":"audio", block);
+                          toc[i + 2], toc[i + 1] & 0x0FU, is_data_track ? "data":"audio", block);
 
                 if (is_data_track)
                         c->media_track_count_data++;
@@ -743,7 +743,7 @@ static int open_drive(Context *c) {
         assert(c->fd < 0);
 
         for (int cnt = 0;; cnt++) {
-                fd = open(arg_node, O_RDONLY|O_NONBLOCK|O_CLOEXEC);
+                fd = open(arg_node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
                 if (fd >= 0)
                         break;
                 if (++cnt >= 20 || errno != EBUSY)

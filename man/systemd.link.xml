@@ -228,7 +228,7 @@
           <para>Matches against the hostname or machine ID of the host. See <varname>ConditionHost=</varname> in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-          If an empty string is assigned, then previously assigned value is cleared.
+          If an empty string is assigned, the previously assigned value is cleared.
           </para>
         </listitem>
       </varlistentry>
@@ -240,7 +240,7 @@
           whether it is a specific implementation. See <varname>ConditionVirtualization=</varname> in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-          If an empty string is assigned, then previously assigned value is cleared.
+          If an empty string is assigned, the previously assigned value is cleared.
           </para>
         </listitem>
       </varlistentry>
@@ -252,7 +252,7 @@
           <varname>ConditionKernelCommandLine=</varname> in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-          If an empty string is assigned, then previously assigned value is cleared.
+          If an empty string is assigned, the previously assigned value is cleared.
           </para>
         </listitem>
       </varlistentry>
@@ -264,7 +264,19 @@
           expression. See <varname>ConditionKernelVersion=</varname> in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
           details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-          If an empty string is assigned, then previously assigned value is cleared.
+          If an empty string is assigned, the previously assigned value is cleared.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry id='credential'>
+        <term><varname>Credential=</varname></term>
+        <listitem>
+          <para>Checks whether the specified credential was passed to the
+          <filename>systemd-networkd.service</filename> service. See <ulink
+          url="https://systemd.io/CREDENTIALS">System and Service Credentials</ulink> for details. When
+          prefixed with an exclamation mark (<literal>!</literal>), the result is negated.  If an empty
+          string is assigned, the previously assigned value is cleared.
           </para>
         </listitem>
       </varlistentry>
@@ -276,7 +288,7 @@
           <varname>ConditionArchitecture=</varname> in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-          If an empty string is assigned, then previously assigned value is cleared.
+          If an empty string is assigned, the previously assigned value is cleared.
           </para>
         </listitem>
       </varlistentry>
@@ -288,7 +300,7 @@
           <varname>ConditionFirmware=</varname> in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-          If an empty string is assigned, then previously assigned value is cleared.
+          If an empty string is assigned, the previously assigned value is cleared.
           </para>
         </listitem>
       </varlistentry>
@@ -456,15 +468,22 @@
           must either be unset, empty, disabled, or all policies configured there must fail. Also see the
           example below with <literal>Name=dmz0</literal>.</para>
 
-          <para>Note that specifying a name that the kernel might use for another
-          interface (for example <literal>eth0</literal>) is dangerous because the
-          name assignment done by udev will race with the assignment done by the
-          kernel, and only one interface may use the name. Depending on the order of
-          operations, either udev or the kernel will win, making the naming
-          unpredictable. It is best to use some different prefix, for example
-          <literal>internal0</literal>/<literal>external0</literal> or
-          <literal>lan0</literal>/<literal>lan1</literal>/<literal>lan3</literal>.
-          </para>
+          <para>Note that specifying a name that the kernel might use for another interface (for example
+          <literal>eth0</literal>) is dangerous because the name assignment done by udev will race with the
+          assignment done by the kernel, and only one interface may use the name. Depending on the order of
+          operations, either udev or the kernel will win, making the naming unpredictable. It is best to use
+          some different prefix, for example <literal>internal0</literal>/<literal>external0</literal> or
+          <literal>lan0</literal>/<literal>lan1</literal>/<literal>lan3</literal>.</para>
+
+          <para>Interface names must have a minimum length of 1 character and a maximum length of 15
+          characters, and may contain any 7bit ASCII character, with the exception of control characters,
+          <literal>:</literal>, <literal>/</literal> and <literal>%</literal>. While <literal>.</literal> is
+          an allowed character, it's recommended to avoid it when naming interfaces as various tools (such as
+          <citerefentry><refentrytitle>resolvconf</refentrytitle><manvolnum>1</manvolnum></citerefentry>) use
+          it as separator character. Also, fully numeric interface names are not allowed (in order to avoid
+          ambiguity with interface specification by numeric indexes), as are the special strings
+          <literal>.</literal>, <literal>..</literal>, <literal>all</literal> and
+          <literal>default</literal>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -485,6 +504,12 @@
           If the empty string is assigned to this option, the list is reset, and all prior assignments
           have no effect. If the kernel does not support the alternative names, then this setting will
           be ignored.</para>
+
+          <para>Alternative interface names may be used to identify interfaces in various tools. In contrast
+          to the primary name (as configured with <varname>Name=</varname> above) there may be multiple
+          alternative names referring to the same interface. Alternative names may have a maximum length of
+          127 characters, in contrast to the 15 allowed for the primary interface name, but otherwise are
+          subject to the same naming constraints.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

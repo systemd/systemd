@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "architecture.h"
 #include "conf-files.h"
+#include "conf-parser.h"
 #include "def.h"
 #include "device-private.h"
 #include "device-util.h"
@@ -28,7 +29,6 @@
 #include "syslog-util.h"
 #include "udev-builtin.h"
 #include "udev-event.h"
-#include "udev-netlink.h"
 #include "udev-node.h"
 #include "udev-rules.h"
 #include "udev-util.h"
@@ -177,10 +177,10 @@ struct UdevRuleFile {
 };
 
 struct UdevRules {
-        usec_t dirs_ts_usec;
         ResolveNameTiming resolve_name_timing;
         Hashmap *known_users;
         Hashmap *known_groups;
+        Hashmap *stats_by_path;
         UdevRuleFile *current_file;
         LIST_HEAD(UdevRuleFile, rule_files);
 };
@@ -315,6 +315,7 @@ UdevRules *udev_rules_free(UdevRules *rules) {
 
         hashmap_free_free_key(rules->known_users);
         hashmap_free_free_key(rules->known_groups);
+        hashmap_free(rules->stats_by_path);
         return mfree(rules);
 }
 
@@ -1056,21 +1057,19 @@ static int parse_line(char **line, char **ret_key, char **ret_attr, UdevRuleOper
 }
 
 static void sort_tokens(UdevRuleLine *rule_line) {
-        UdevRuleToken *head_old;
-
         assert(rule_line);
 
-        head_old = TAKE_PTR(rule_line->tokens);
+        UdevRuleToken *old_tokens = TAKE_PTR(rule_line->tokens);
         rule_line->current_token = NULL;
 
-        while (!LIST_IS_EMPTY(head_old)) {
+        while (old_tokens) {
                 UdevRuleToken *min_token = NULL;
 
-                LIST_FOREACH(tokens, t, head_old)
+                LIST_FOREACH(tokens, t, old_tokens)
                         if (!min_token || min_token->type > t->type)
                                 min_token = t;
 
-                LIST_REMOVE(tokens, head_old, min_token);
+                LIST_REMOVE(tokens, old_tokens, min_token);
                 rule_line_append_token(rule_line, min_token);
         }
 }
@@ -1178,6 +1177,7 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename) {
         UdevRuleFile *rule_file;
         bool ignore_line = false;
         unsigned line_nr = 0;
+        struct stat st;
         int r;
 
         f = fopen(filename, "re");
@@ -1185,15 +1185,22 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename) {
                 if (errno == ENOENT)
                         return 0;
 
-                return -errno;
+                return log_warning_errno(errno, "Failed to open %s, ignoring: %m", filename);
         }
 
-        (void) fd_warn_permissions(filename, fileno(f));
+        if (fstat(fileno(f), &st) < 0)
+                return log_warning_errno(errno, "Failed to stat %s, ignoring: %m", filename);
 
-        if (null_or_empty_fd(fileno(f))) {
+        if (null_or_empty(&st)) {
                 log_debug("Skipping empty file: %s", filename);
                 return 0;
         }
+
+        r = hashmap_put_stats_by_path(&rules->stats_by_path, filename, &st);
+        if (r < 0)
+                return log_warning_errno(errno, "Failed to save stat for %s, ignoring: %m", filename);
+
+        (void) fd_warn_permissions(filename, fileno(f));
 
         log_debug("Reading rules file: %s", filename);
 
@@ -1298,8 +1305,6 @@ int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing
         if (!rules)
                 return -ENOMEM;
 
-        (void) udev_rules_check_timestamp(rules);
-
         r = conf_files_list_strv(&files, ".rules", NULL, 0, RULES_DIRS);
         if (r < 0)
                 return log_debug_errno(r, "Failed to enumerate rules files: %m");
@@ -1314,11 +1319,25 @@ int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing
         return 0;
 }
 
-bool udev_rules_check_timestamp(UdevRules *rules) {
-        if (!rules)
-                return false;
+bool udev_rules_should_reload(UdevRules *rules) {
+        _cleanup_hashmap_free_ Hashmap *stats_by_path = NULL;
+        int r;
 
-        return paths_check_timestamp(RULES_DIRS, &rules->dirs_ts_usec, true);
+        if (!rules)
+                return true;
+
+        r = config_get_stats_by_path(".rules", NULL, 0, RULES_DIRS, /* check_dropins = */ false, &stats_by_path);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to get stats of udev rules, ignoring: %m");
+                return true;
+        }
+
+        if (!stats_by_path_equal(rules->stats_by_path, stats_by_path)) {
+                log_debug("Udev rules need reloading");
+                return true;
+        }
+
+        return false;
 }
 
 static bool token_match_string(UdevRuleToken *token, const char *str) {
@@ -1399,7 +1418,7 @@ static bool token_match_attr(UdevRules *rules, UdevRuleToken *token, sd_device *
                 name = nbuf;
                 _fallthrough_;
         case SUBST_TYPE_PLAIN:
-                if (device_get_sysattr_value_maybe_from_netlink(dev, &event->rtnl, name, &value) < 0)
+                if (sd_device_get_sysattr_value(dev, name, &value) < 0)
                         return false;
                 break;
         case SUBST_TYPE_SUBSYS:
@@ -1717,7 +1736,7 @@ static int udev_rule_apply_token_to_event(
                 return token->op == (match ? OP_MATCH : OP_NOMATCH);
         }
         case TK_M_PROGRAM: {
-                char buf[UDEV_PATH_SIZE], result[UDEV_LINE_SIZE];
+                char buf[UDEV_LINE_SIZE], result[UDEV_LINE_SIZE];
                 bool truncated;
                 size_t count;
 
@@ -1805,7 +1824,7 @@ static int udev_rule_apply_token_to_event(
         }
         case TK_M_IMPORT_PROGRAM: {
                 _cleanup_strv_free_ char **lines = NULL;
-                char buf[UDEV_PATH_SIZE], result[UDEV_LINE_SIZE];
+                char buf[UDEV_LINE_SIZE], result[UDEV_LINE_SIZE];
                 bool truncated;
 
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
@@ -1873,7 +1892,7 @@ static int udev_rule_apply_token_to_event(
                 UdevBuiltinCommand cmd = PTR_TO_UDEV_BUILTIN_CMD(token->data);
                 assert(cmd >= 0 && cmd < _UDEV_BUILTIN_MAX);
                 unsigned mask = 1U << (int) cmd;
-                char buf[UDEV_PATH_SIZE];
+                char buf[UDEV_LINE_SIZE];
                 bool truncated;
 
                 if (udev_builtin_run_once(cmd)) {
@@ -2128,7 +2147,7 @@ static int udev_rule_apply_token_to_event(
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
-                        return log_rule_error_errno(dev, rules, r, "Failed to store SECLABEL{%s}='%s': %m", name, label);;
+                        return log_rule_error_errno(dev, rules, r, "Failed to store SECLABEL{%s}='%s': %m", name, label);
 
                 log_rule_debug(dev, rules, "SECLABEL{%s}='%s'", name, label);
 
@@ -2369,7 +2388,7 @@ static int udev_rule_apply_token_to_event(
         case TK_A_RUN_BUILTIN:
         case TK_A_RUN_PROGRAM: {
                 _cleanup_free_ char *cmd = NULL;
-                char buf[UDEV_PATH_SIZE];
+                char buf[UDEV_LINE_SIZE];
                 bool truncated;
 
                 if (event->run_final)

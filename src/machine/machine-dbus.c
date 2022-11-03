@@ -4,12 +4,6 @@
 #include <sys/mount.h>
 #include <sys/wait.h>
 
-/* When we include libgen.h because we need dirname() we immediately
- * undefine basename() since libgen.h defines it as a macro to the POSIX
- * version which is really broken. We prefer GNU basename(). */
-#include <libgen.h>
-#undef basename
-
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
@@ -55,11 +49,10 @@ static int property_get_netif(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Machine *m = userdata;
+        Machine *m = ASSERT_PTR(userdata);
 
         assert(bus);
         assert(reply);
-        assert(m);
 
         assert_cc(sizeof(int) == sizeof(int32_t));
 
@@ -67,11 +60,10 @@ static int property_get_netif(
 }
 
 int bus_machine_method_unregister(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Machine *m = userdata;
+        Machine *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(m);
 
         const char *details[] = {
                 "machine", m->name,
@@ -101,11 +93,10 @@ int bus_machine_method_unregister(sd_bus_message *message, void *userdata, sd_bu
 }
 
 int bus_machine_method_terminate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Machine *m = userdata;
+        Machine *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(m);
 
         const char *details[] = {
                 "machine", m->name,
@@ -135,14 +126,13 @@ int bus_machine_method_terminate(sd_bus_message *message, void *userdata, sd_bus
 }
 
 int bus_machine_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Machine *m = userdata;
+        Machine *m = ASSERT_PTR(userdata);
         const char *swho;
         int32_t signo;
         KillWho who;
         int r;
 
         assert(message);
-        assert(m);
 
         r = sd_bus_message_read(message, "si", &swho, &signo);
         if (r < 0)
@@ -188,11 +178,10 @@ int bus_machine_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
 
 int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        Machine *m = userdata;
+        Machine *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(m);
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
@@ -206,15 +195,13 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
 
         case MACHINE_HOST: {
                 _cleanup_free_ struct local_address *addresses = NULL;
-                struct local_address *a;
-                int n, i;
+                int n;
 
                 n = local_addresses(NULL, 0, AF_UNSPEC, &addresses);
                 if (n < 0)
                         return n;
 
-                for (a = addresses, i = 0; i < n; a++, i++) {
-
+                for (int i = 0; i < n; i++) {
                         r = sd_bus_message_open_container(reply, 'r', "iay");
                         if (r < 0)
                                 return r;
@@ -368,11 +355,10 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
 
 int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_strv_free_ char **l = NULL;
-        Machine *m = userdata;
+        Machine *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(m);
 
         switch (m->class) {
 
@@ -451,11 +437,10 @@ int bus_machine_method_open_pty(sd_bus_message *message, void *userdata, sd_bus_
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *pty_name = NULL;
         _cleanup_close_ int master = -1;
-        Machine *m = userdata;
+        Machine *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(m);
 
         const char *details[] = {
                 "machine", m->name,
@@ -542,12 +527,11 @@ int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bu
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *allocated_bus = NULL;
         _cleanup_close_ int master = -1;
         sd_bus *container_bus = NULL;
-        Machine *m = userdata;
+        Machine *m = ASSERT_PTR(userdata);
         const char *p, *getty;
         int r;
 
         assert(message);
-        assert(m);
 
         const char *details[] = {
                 "machine", m->name,
@@ -606,12 +590,11 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         sd_bus *container_bus = NULL;
         _cleanup_close_ int master = -1, slave = -1;
         _cleanup_strv_free_ char **env = NULL, **args_wire = NULL, **args = NULL;
-        Machine *m = userdata;
+        Machine *m = ASSERT_PTR(userdata);
         const char *p, *unit, *user, *path, *description, *utmp_id;
         int r;
 
         assert(message);
-        assert(m);
 
         r = sd_bus_message_read(message, "ss", &user, &path);
         if (r < 0)
@@ -842,12 +825,11 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
 int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         int read_only, make_file_or_directory;
         const char *dest, *src, *propagate_directory;
-        Machine *m = userdata;
+        Machine *m = ASSERT_PTR(userdata);
         uid_t uid;
         int r;
 
         assert(message);
-        assert(m);
 
         if (m->class != MACHINE_CONTAINER)
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Bind mounting is only supported on container machines.");
@@ -904,19 +886,18 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
 }
 
 int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        const char *src, *dest, *host_path, *container_path, *host_basename, *container_basename, *container_dirname;
+        _cleanup_free_ char *host_basename = NULL, *container_basename = NULL;
+        const char *src, *dest, *host_path, *container_path;
         _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
         CopyFlags copy_flags = COPY_REFLINK|COPY_MERGE|COPY_HARDLINKS;
         _cleanup_close_ int hostfd = -1;
-        Machine *m = userdata;
+        Machine *m = ASSERT_PTR(userdata);
         bool copy_from;
         pid_t child;
         uid_t uid_shift;
-        char *t;
         int r;
 
         assert(message);
-        assert(m);
 
         if (m->manager->n_operations >= OPERATIONS_MAX)
                 return sd_bus_error_set(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Too many ongoing copies.");
@@ -927,6 +908,20 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
         r = sd_bus_message_read(message, "ss", &src, &dest);
         if (r < 0)
                 return r;
+
+        if (endswith(sd_bus_message_get_member(message), "WithFlags")) {
+                uint64_t raw_flags;
+
+                r = sd_bus_message_read(message, "t", &raw_flags);
+                if (r < 0)
+                        return r;
+
+                if ((raw_flags & ~_MACHINE_COPY_FLAGS_MASK_PUBLIC) != 0)
+                        return -EINVAL;
+
+                if (raw_flags & MACHINE_COPY_REPLACE)
+                        copy_flags |= COPY_REPLACE;
+        }
 
         if (!path_is_absolute(src))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Source path must be absolute.");
@@ -972,11 +967,13 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
                 container_path = dest;
         }
 
-        host_basename = basename(host_path);
+        r = path_extract_filename(host_path, &host_basename);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to extract file name of '%s' path: %m", host_path);
 
-        container_basename = basename(container_path);
-        t = strdupa_safe(container_path);
-        container_dirname = dirname(t);
+        r = path_extract_filename(container_path, &container_basename);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to extract file name of '%s' path: %m", container_path);
 
         hostfd = open_parent(host_path, O_CLOEXEC, 0);
         if (hostfd < 0)
@@ -1007,9 +1004,9 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
                         goto child_fail;
                 }
 
-                containerfd = open(container_dirname, O_CLOEXEC|O_RDONLY|O_NOCTTY|O_DIRECTORY);
+                containerfd = open_parent(container_path, O_CLOEXEC, 0);
                 if (containerfd < 0) {
-                        r = log_error_errno(errno, "Failed to open destination directory: %m");
+                        r = log_error_errno(containerfd, "Failed to open destination directory: %m");
                         goto child_fail;
                 }
 
@@ -1052,11 +1049,10 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
 
 int bus_machine_method_open_root_directory(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_close_ int fd = -1;
-        Machine *m = userdata;
+        Machine *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(m);
 
         const char *details[] = {
                 "machine", m->name,
@@ -1143,12 +1139,11 @@ int bus_machine_method_open_root_directory(sd_bus_message *message, void *userda
 }
 
 int bus_machine_method_get_uid_shift(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Machine *m = userdata;
+        Machine *m = ASSERT_PTR(userdata);
         uid_t shift = 0;
         int r;
 
         assert(message);
-        assert(m);
 
         /* You wonder why this is a method and not a property? Well, properties are not supposed to return errors, but
          * we kinda have to for this. */
@@ -1169,7 +1164,7 @@ int bus_machine_method_get_uid_shift(sd_bus_message *message, void *userdata, sd
 }
 
 static int machine_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Machine *machine;
         int r;
 
@@ -1177,7 +1172,6 @@ static int machine_object_find(sd_bus *bus, const char *path, const char *interf
         assert(path);
         assert(interface);
         assert(found);
-        assert(m);
 
         if (streq(path, "/org/freedesktop/machine1/machine/self")) {
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
@@ -1325,6 +1319,16 @@ static const sd_bus_vtable machine_vtable[] = {
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("CopyTo",
                                 SD_BUS_ARGS("s", source, "s", destination),
+                                SD_BUS_NO_RESULT,
+                                bus_machine_method_copy,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("CopyFromWithFlags",
+                                SD_BUS_ARGS("s", source, "s", destination, "t", flags),
+                                SD_BUS_NO_RESULT,
+                                bus_machine_method_copy,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("CopyToWithFlags",
+                                SD_BUS_ARGS("s", source, "s", destination, "t", flags),
                                 SD_BUS_NO_RESULT,
                                 bus_machine_method_copy,
                                 SD_BUS_VTABLE_UNPRIVILEGED),

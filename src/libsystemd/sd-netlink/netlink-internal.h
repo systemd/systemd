@@ -109,7 +109,7 @@ struct netlink_attribute {
 };
 
 struct netlink_container {
-        const struct NLTypeSystem *type_system; /* the type system of the container */
+        const struct NLAPolicySet *policy_set; /* the policy set of the container */
         size_t offset; /* offset from hdr to the start of the container */
         struct netlink_attribute *attributes;
         uint16_t max_attribute; /* the maximum attribute in container */
@@ -133,12 +133,17 @@ int message_new_empty(sd_netlink *nl, sd_netlink_message **ret);
 int message_new_full(
                 sd_netlink *nl,
                 uint16_t nlmsg_type,
-                const NLTypeSystem *type_system,
+                const NLAPolicySet *policy_set,
                 size_t header_size,
                 sd_netlink_message **ret);
 int message_new(sd_netlink *nl, sd_netlink_message **ret, uint16_t type);
 int message_new_synthetic_error(sd_netlink *nl, int error, uint32_t serial, sd_netlink_message **ret);
-uint32_t message_get_serial(sd_netlink_message *m);
+
+static inline uint32_t message_get_serial(sd_netlink_message *m) {
+        assert(m);
+        return ASSERT_PTR(m->hdr)->nlmsg_seq;
+}
+
 void message_seal(sd_netlink_message *m);
 
 int netlink_open_family(sd_netlink **ret, int family);
@@ -146,12 +151,10 @@ bool netlink_pid_changed(sd_netlink *nl);
 int netlink_rqueue_make_room(sd_netlink *nl);
 int netlink_rqueue_partial_make_room(sd_netlink *nl);
 
-int socket_open(int family);
 int socket_bind(sd_netlink *nl);
 int socket_broadcast_group_ref(sd_netlink *nl, unsigned group);
 int socket_broadcast_group_unref(sd_netlink *nl, unsigned group);
 int socket_write_message(sd_netlink *nl, sd_netlink_message *m);
-int socket_writev_message(sd_netlink *nl, sd_netlink_message **m, size_t msgcount);
 int socket_read_message(sd_netlink *nl);
 
 int netlink_add_match_internal(
@@ -169,3 +172,42 @@ int netlink_add_match_internal(
 /* Make sure callbacks don't destroy the netlink connection */
 #define NETLINK_DONT_DESTROY(nl) \
         _cleanup_(sd_netlink_unrefp) _unused_ sd_netlink *_dont_destroy_##nl = sd_netlink_ref(nl)
+
+/* nfnl */
+/* TODO: to be exported later */
+int sd_nfnl_socket_open(sd_netlink **ret);
+int sd_nfnl_send_batch(
+                sd_netlink *nfnl,
+                sd_netlink_message **messages,
+                size_t msgcount,
+                uint32_t **ret_serials);
+int sd_nfnl_call_batch(
+                sd_netlink *nfnl,
+                sd_netlink_message **messages,
+                size_t n_messages,
+                uint64_t usec,
+                sd_netlink_message ***ret_messages);
+int sd_nfnl_message_new(
+                sd_netlink *nfnl,
+                sd_netlink_message **ret,
+                int nfproto,
+                uint16_t subsys,
+                uint16_t msg_type,
+                uint16_t flags);
+int sd_nfnl_nft_message_new_table(sd_netlink *nfnl, sd_netlink_message **ret,
+                                  int nfproto, const char *table);
+int sd_nfnl_nft_message_new_basechain(sd_netlink *nfnl, sd_netlink_message **ret,
+                                      int nfproto, const char *table, const char *chain,
+                                      const char *type, uint8_t hook, int prio);
+int sd_nfnl_nft_message_new_rule(sd_netlink *nfnl, sd_netlink_message **ret,
+                                 int nfproto, const char *table, const char *chain);
+int sd_nfnl_nft_message_new_set(sd_netlink *nfnl, sd_netlink_message **ret,
+                                int nfproto, const char *table, const char *set_name,
+                                uint32_t setid, uint32_t klen);
+int sd_nfnl_nft_message_new_setelems(sd_netlink *nfnl, sd_netlink_message **ret,
+                                     int add, int nfproto, const char *table, const char *set_name);
+int sd_nfnl_nft_message_append_setelem(sd_netlink_message *m,
+                                       uint32_t index,
+                                       const void *key, size_t key_len,
+                                       const void *data, size_t data_len,
+                                       uint32_t flags);

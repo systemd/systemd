@@ -1,0 +1,110 @@
+# systemd-cryptenroll(1) completion                   -*- shell-script -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# This file is part of systemd.
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
+
+__contains_word() {
+    local w word=$1; shift
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+    done
+}
+
+__get_fido2_devices() {
+    local i
+    for i in /dev/hidraw*; do
+        [ -c "$i" ] && printf '%s\n' "$i"
+    done
+}
+
+__get_tpm2_devices() {
+    local i
+    for i in /dev/tpmrm*; do
+        [ -c "$i" ] && printf '%s\n' "$i"
+    done
+}
+
+__get_block_devices() {
+    local i
+    for i in /dev/*; do
+        [ -b "$i" ] && printf '%s\n' "$i"
+    done
+}
+
+_systemd-cryptenroll() {
+    local comps
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
+    local -A OPTS=(
+        [STANDALONE]='-h --help --version
+                     --password --recovery-key'
+        [ARG]='--unlock-key-file
+               --pkcs11-token-uri
+               --fido2-credential-algorithm
+               --fido2-device
+               --fido2-with-client-pin
+               --fido2-with-user-presence
+               --fido2-with-user-verification
+               --tpm2-device
+               --tpm2-pcrs
+               --tpm2-public-key
+               --tpm2-public-key-pcrs
+               --tpm2-signature
+               --tpm2-with-pin
+               --wipe-slot'
+    )
+
+    _init_completion || return
+
+    if __contains_word "$prev" ${OPTS[ARG]}; then
+        case $prev in
+            --unlock-key-file|--tpm2-public-key|--tpm2-signature)
+                comps=$(compgen -A file -- "$cur")
+                compopt -o filenames
+                ;;
+            --pkcs11-token-uri)
+                comps='auto list pkcs11:'
+                ;;
+            --fido2-credential-algorithm)
+                comps='es256 rs256 eddsa'
+                ;;
+            --fido2-device)
+                comps="auto list $(__get_fido2_devices)"
+                ;;
+            --fido2-with-client-pin|--fido2-with-user-presence|--fido2-with-user-verification|--tpm2-with-pin)
+                comps='yes no'
+                ;;
+            --tpm2-device)
+                comps="auto list $(__get_tpm2_devices)"
+                ;;
+            --wipe-slot)
+                comps='all empty password recovery pkcs11 fido2 tpm2'
+                ;;
+        esac
+        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+        return 0
+    fi
+
+    if [[ "$cur" = -* ]]; then
+        COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+        return 0
+    fi
+
+    comps=$(__get_block_devices)
+    COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+    return 0
+}
+
+complete -F _systemd-cryptenroll systemd-cryptenroll

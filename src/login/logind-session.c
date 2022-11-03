@@ -36,6 +36,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
+#include "uid-alloc-range.h"
 #include "user-util.h"
 #include "util.h"
 
@@ -150,6 +151,8 @@ Session* session_free(Session *s) {
          * daemon restarts */
         free(s->state_file);
         free(s->fifo_path);
+
+        sd_event_source_unref(s->stop_on_idle_event_source);
 
         return mfree(s);
 }
@@ -359,12 +362,11 @@ fail:
 }
 
 static int session_load_devices(Session *s, const char *devices) {
-        const char *p;
         int r = 0;
 
         assert(s);
 
-        for (p = devices;;) {
+        for (const char *p = devices;;) {
                 _cleanup_free_ char *word = NULL;
                 SessionDevice *sd;
                 dev_t dev;
@@ -551,7 +553,7 @@ int session_load(Session *s) {
                         s->class = c;
         }
 
-        if (state && streq(state, "closing"))
+        if (streq_ptr(state, "closing"))
                 s->stopping = true;
 
         if (s->fifo_path) {
@@ -646,6 +648,7 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
         assert(s->user);
 
         if (!s->scope) {
+                _cleanup_strv_free_ char **after = NULL;
                 _cleanup_free_ char *scope = NULL;
                 const char *description;
 
@@ -657,6 +660,19 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
 
                 description = strjoina("Session ", s->id, " of User ", s->user->user_record->user_name);
 
+                /* We usually want to order session scopes after systemd-user-sessions.service since the
+                 * latter unit is used as login session barrier for unprivileged users. However the barrier
+                 * doesn't apply for root as sysadmin should always be able to log in (and without waiting
+                 * for any timeout to expire) in case something goes wrong during the boot process. Since
+                 * ordering after systemd-user-sessions.service and the user instance is optional we make use
+                 * of STRV_IGNORE with strv_new() to skip these order constraints when needed. */
+                after = strv_new("systemd-logind.service",
+                                 s->user->runtime_dir_service,
+                                 !uid_is_system(s->user->user_record->uid) ? "systemd-user-sessions.service" : STRV_IGNORE,
+                                 s->user->service);
+                if (!after)
+                        return log_oom();
+
                 r = manager_start_scope(
                                 s->manager,
                                 scope,
@@ -666,11 +682,7 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                                 /* These two have StopWhenUnneeded= set, hence add a dep towards them */
                                 STRV_MAKE(s->user->runtime_dir_service,
                                           s->user->service),
-                                /* And order us after some more */
-                                STRV_MAKE("systemd-logind.service",
-                                          "systemd-user-sessions.service",
-                                          s->user->runtime_dir_service,
-                                          s->user->service),
+                                after,
                                 user_record_home_directory(s->user->user_record),
                                 properties,
                                 error,
@@ -683,6 +695,58 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
         }
 
         (void) hashmap_put(s->manager->session_units, s->scope, s);
+
+        return 0;
+}
+
+static int session_dispatch_stop_on_idle(sd_event_source *source, uint64_t t, void *userdata) {
+        Session *s = userdata;
+        dual_timestamp ts;
+        int r, idle;
+
+        assert(s);
+
+        if (s->stopping)
+                return 0;
+
+        idle = session_get_idle_hint(s, &ts);
+        if (idle) {
+                log_debug("Session \"%s\" of user \"%s\" is idle, stopping.", s->id, s->user->user_record->user_name);
+
+                return session_stop(s, /* force */ true);
+        }
+
+        r = sd_event_source_set_time(
+                        source,
+                        usec_add(dual_timestamp_is_set(&ts) ? ts.monotonic : now(CLOCK_MONOTONIC),
+                                 s->manager->stop_idle_session_usec));
+        if (r < 0)
+                return log_error_errno(r, "Failed to configure stop on idle session event source: %m");
+
+        r = sd_event_source_set_enabled(source, SD_EVENT_ONESHOT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable stop on idle session event source: %m");
+
+        return 1;
+}
+
+static int session_setup_stop_on_idle_timer(Session *s) {
+        int r;
+
+        assert(s);
+
+        if (s->manager->stop_idle_session_usec == USEC_INFINITY)
+                return 0;
+
+        r = sd_event_add_time_relative(
+                        s->manager->event,
+                        &s->stop_on_idle_event_source,
+                        CLOCK_MONOTONIC,
+                        s->manager->stop_idle_session_usec,
+                        0,
+                        session_dispatch_stop_on_idle, s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add stop on idle session event source: %m");
 
         return 0;
 }
@@ -706,6 +770,10 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
                 return r;
 
         r = session_start_scope(s, properties, error);
+        if (r < 0)
+                return r;
+
+        r = session_setup_stop_on_idle_timer(s);
         if (r < 0)
                 return r;
 
@@ -876,10 +944,9 @@ int session_finalize(Session *s) {
 }
 
 static int release_timeout_callback(sd_event_source *es, uint64_t usec, void *userdata) {
-        Session *s = userdata;
+        Session *s = ASSERT_PTR(userdata);
 
         assert(es);
-        assert(s);
 
         session_stop(s, /* force = */ false);
         return 0;
@@ -949,7 +1016,7 @@ static int get_process_ctty_atime(pid_t pid, usec_t *atime) {
 }
 
 int session_get_idle_hint(Session *s, dual_timestamp *t) {
-        usec_t atime = 0;
+        usec_t atime = 0, dtime = 0;
         int r;
 
         assert(s);
@@ -986,10 +1053,16 @@ found_atime:
         if (t)
                 dual_timestamp_from_realtime(t, atime);
 
-        if (s->manager->idle_action_usec <= 0)
+        if (s->manager->idle_action_usec > 0 && s->manager->stop_idle_session_usec != USEC_INFINITY)
+                dtime = MIN(s->manager->idle_action_usec, s->manager->stop_idle_session_usec);
+        else if (s->manager->idle_action_usec > 0)
+                dtime = s->manager->idle_action_usec;
+        else if (s->manager->stop_idle_session_usec != USEC_INFINITY)
+                dtime = s->manager->stop_idle_session_usec;
+        else
                 return false;
 
-        return usec_add(atime, s->manager->idle_action_usec) <= now(CLOCK_REALTIME);
+        return usec_add(atime, dtime) <= now(CLOCK_REALTIME);
 }
 
 int session_set_idle_hint(Session *s, bool b) {
@@ -1044,10 +1117,26 @@ void session_set_type(Session *s, SessionType t) {
         session_send_changed(s, "Type", NULL);
 }
 
-static int session_dispatch_fifo(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
-        Session *s = userdata;
+int session_set_display(Session *s, const char *display) {
+        int r;
 
         assert(s);
+        assert(display);
+
+        r = free_and_strdup(&s->display, display);
+        if (r <= 0)  /* 0 means the strings were equal */
+                return r;
+
+        session_save(s);
+
+        session_send_changed(s, "Display", NULL);
+
+        return 1;
+}
+
+static int session_dispatch_fifo(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
+        Session *s = ASSERT_PTR(userdata);
+
         assert(s->fifo_fd == fd);
 
         /* EOF on the FIFO means the session died abnormally. */
@@ -1313,9 +1402,7 @@ void session_leave_vt(Session *s) {
 }
 
 bool session_is_controller(Session *s, const char *sender) {
-        assert(s);
-
-        return streq_ptr(s->controller, sender);
+        return streq_ptr(ASSERT_PTR(s)->controller, sender);
 }
 
 static void session_release_controller(Session *s, bool notify) {
@@ -1340,10 +1427,9 @@ static void session_release_controller(Session *s, bool notify) {
 }
 
 static int on_bus_track(sd_bus_track *track, void *userdata) {
-        Session *s = userdata;
+        Session *s = ASSERT_PTR(userdata);
 
         assert(track);
-        assert(s);
 
         session_drop_controller(s);
 

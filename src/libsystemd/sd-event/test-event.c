@@ -655,7 +655,7 @@ TEST(ratelimit) {
 
         assert_se(sd_event_source_is_ratelimited(s) == 0);
         assert_se(count == 10);
-        log_info("ratelimit_io_handler: called %d times, event source not ratelimited", count);
+        log_info("ratelimit_io_handler: called %u times, event source not ratelimited", count);
 
         assert_se(sd_event_source_set_ratelimit(s, 0, 0) >= 0);
         assert_se(sd_event_source_set_ratelimit(s, 1 * USEC_PER_SEC, 5) >= 0);
@@ -666,7 +666,7 @@ TEST(ratelimit) {
                 assert_se(sd_event_run(e, UINT64_MAX) >= 0);
                 assert_se(usleep(10) >= 0);
         }
-        log_info("ratelimit_io_handler: called %d times, event source got ratelimited", count);
+        log_info("ratelimit_io_handler: called %u times, event source got ratelimited", count);
         assert_se(count < 10);
 
         s = sd_event_source_unref(s);
@@ -680,7 +680,7 @@ TEST(ratelimit) {
                 assert_se(sd_event_run(e, UINT64_MAX) >= 0);
         } while (!sd_event_source_is_ratelimited(s));
 
-        log_info("ratelimit_time_handler: called %d times, event source got ratelimited", count);
+        log_info("ratelimit_time_handler: called %u times, event source got ratelimited", count);
         assert_se(count == 10);
 
         /* In order to get rid of active rate limit client needs to disable it explicitly */
@@ -755,6 +755,58 @@ TEST(inotify_self_destroy) {
         fd = safe_close(fd);
         assert_se(unlink(path) >= 0); /* This will trigger IN_ATTRIB because link count goes to zero */
         assert_se(sd_event_loop(e) >= 0);
+}
+
+struct inotify_process_buffered_data_context {
+        const char *path[2];
+        unsigned i;
+};
+
+static int inotify_process_buffered_data_handler(sd_event_source *s, const struct inotify_event *ev, void *userdata) {
+        struct inotify_process_buffered_data_context *c = ASSERT_PTR(userdata);
+        const char *description;
+
+        assert_se(sd_event_source_get_description(s, &description) >= 0);
+
+        assert_se(c->i < 2);
+        assert_se(streq(c->path[c->i], description));
+        c->i++;
+
+        return 1;
+}
+
+TEST(inotify_process_buffered_data) {
+        _cleanup_(rm_rf_physical_and_freep) char *p = NULL, *q = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *a = NULL, *b = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_free_ char *z = NULL;
+
+        /* For issue #23826 */
+
+        assert_se(sd_event_default(&e) >= 0);
+
+        assert_se(mkdtemp_malloc("/tmp/test-inotify-XXXXXX", &p) >= 0);
+        assert_se(mkdtemp_malloc("/tmp/test-inotify-XXXXXX", &q) >= 0);
+
+        struct inotify_process_buffered_data_context context = {
+                .path = { p, q },
+        };
+
+        assert_se(sd_event_add_inotify(e, &a, p, IN_CREATE, inotify_process_buffered_data_handler, &context) >= 0);
+        assert_se(sd_event_add_inotify(e, &b, q, IN_CREATE, inotify_process_buffered_data_handler, &context) >= 0);
+
+        assert_se(z = path_join(p, "aaa"));
+        assert_se(touch(z) >= 0);
+        z = mfree(z);
+        assert_se(z = path_join(q, "bbb"));
+        assert_se(touch(z) >= 0);
+        z = mfree(z);
+
+        assert_se(sd_event_run(e, 10 * USEC_PER_SEC) > 0);
+        assert_se(sd_event_prepare(e) > 0); /* issue #23826: this was 0. */
+        assert_se(sd_event_dispatch(e) > 0);
+        assert_se(sd_event_prepare(e) == 0);
+        assert_se(sd_event_wait(e, 0) == 0);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

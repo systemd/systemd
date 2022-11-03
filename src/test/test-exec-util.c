@@ -330,11 +330,9 @@ TEST(environment_gathering) {
         assert_se(chmod(name2, 0755) == 0);
         assert_se(chmod(name3, 0755) == 0);
 
-        /* When booting in containers or without initramfs there might not be
-         * any PATH in the environment and if there is no PATH /bin/sh built-in
-         * PATH may leak and override systemd's DEFAULT_PATH which is not
-         * good. Force our own PATH in environment, to prevent expansion of sh
-         * built-in $PATH */
+        /* When booting in containers or without initrd there might not be any PATH in the environment and if
+         * there is no PATH /bin/sh built-in PATH may leak and override systemd's DEFAULT_PATH which is not
+         * good. Force our own PATH in environment, to prevent expansion of sh built-in $PATH */
         old = getenv("PATH");
         r = setenv("PATH", "no-sh-built-in-path", 1);
         assert_se(r >= 0);

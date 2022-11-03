@@ -8,6 +8,7 @@
 #include <syslog.h>
 
 #include "macro.h"
+#include "ratelimit.h"
 
 /* Some structures we reference but don't want to pull in headers for */
 struct iovec;
@@ -367,3 +368,41 @@ int log_syntax_invalid_utf8_internal(
 #define DEBUG_LOGGING _unlikely_(log_get_max_level() >= LOG_DEBUG)
 
 void log_setup(void);
+
+typedef struct LogRateLimit {
+        int error;
+        int level;
+        RateLimit ratelimit;
+} LogRateLimit;
+
+#define log_ratelimit_internal(_level, _error, _format, _file, _line, _func, ...)        \
+({                                                                              \
+        int _log_ratelimit_error = (_error);                                    \
+        int _log_ratelimit_level = (_level);                                    \
+        static LogRateLimit _log_ratelimit = {                                  \
+                .ratelimit = {                                                  \
+                        .interval = 1 * USEC_PER_SEC,                           \
+                        .burst = 1,                                             \
+                },                                                              \
+        };                                                                      \
+        unsigned _num_dropped_errors = ratelimit_num_dropped(&_log_ratelimit.ratelimit); \
+        if (_log_ratelimit_error != _log_ratelimit.error || _log_ratelimit_level != _log_ratelimit.level) { \
+                ratelimit_reset(&_log_ratelimit.ratelimit);                     \
+                _log_ratelimit.error = _log_ratelimit_error;                    \
+                _log_ratelimit.level = _log_ratelimit_level;                    \
+        }                                                                       \
+        if (ratelimit_below(&_log_ratelimit.ratelimit))                         \
+                _log_ratelimit_error = _num_dropped_errors > 0                  \
+                ? log_internal(_log_ratelimit_level, _log_ratelimit_error, _file, _line, _func, _format " (Dropped %u similar message(s))", __VA_ARGS__, _num_dropped_errors) \
+                : log_internal(_log_ratelimit_level, _log_ratelimit_error, _file, _line, _func, _format, __VA_ARGS__); \
+        _log_ratelimit_error;                                                   \
+})
+
+#define log_ratelimit_full_errno(level, error, format, ...)             \
+        ({                                                              \
+                int _level = (level), _e = (error);                     \
+                _e = (log_get_max_level() >= LOG_PRI(_level))           \
+                        ? log_ratelimit_internal(_level, _e, format, PROJECT_FILE, __LINE__, __func__, __VA_ARGS__) \
+                        : -ERRNO_VALUE(_e);                             \
+                _e < 0 ? _e : -ESTRPIPE;                                \
+        })

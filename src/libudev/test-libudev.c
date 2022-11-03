@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "devnum-util.h"
 #include "fd-util.h"
 #include "libudev-list-internal.h"
 #include "libudev-util.h"
@@ -128,7 +129,7 @@ static void test_device_devnum(struct udev *udev) {
         dev_t devnum = makedev(1, 3);
         _cleanup_(udev_device_unrefp) struct udev_device *device;
 
-        log_info("/* %s, device %d:%d */", __func__, major(devnum), minor(devnum));
+        log_info("/* %s, device " DEVNUM_FORMAT_STR " */", __func__, DEVNUM_FORMAT_VAL(devnum));
 
         device = udev_device_new_from_devnum(udev, 'c', devnum);
         if (device)

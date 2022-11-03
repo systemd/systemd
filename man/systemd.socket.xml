@@ -299,7 +299,7 @@
       <varlistentry>
         <term><varname>ListenUSBFunction=</varname></term>
         <listitem><para>Specifies a <ulink
-        url="https://www.kernel.org/doc/Documentation/usb/functionfs.txt">USB
+        url="https://docs.kernel.org/usb/functionfs.html">USB
         FunctionFS</ulink> endpoints location to listen on, for
         implementation of USB gadget functions. This expects an
         absolute file system path of a FunctionFS mount point as the argument.
@@ -615,7 +615,7 @@
         the security label of the FIFO, or the security label for the
         incoming or outgoing connections of the socket, respectively.
         See <ulink
-        url="https://www.kernel.org/doc/Documentation/security/Smack.txt">Smack.txt</ulink>
+        url="https://docs.kernel.org/admin-guide/LSM/Smack.html">Smack</ulink>
         for details.</para></listitem>
       </varlistentry>
 

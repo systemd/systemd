@@ -17,8 +17,8 @@
 
   <refnamediv>
     <refname>pam_systemd_home</refname>
-    <refpurpose>Automatically mount home directories managed by <filename>systemd-homed.service</filename> on
-    login, and unmount them on logout</refpurpose>
+    <refpurpose>Authenticate users and mount home directories via <filename>systemd-homed.service</filename>
+    </refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -31,7 +31,11 @@
     <para><command>pam_systemd_home</command> ensures that home directories managed by
     <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     are automatically activated (mounted) on user login, and are deactivated (unmounted) when the last
-    session of the user ends.</para>
+    session of the user ends. For such users, it also provides authentication (when per-user disk encryption
+    is used, the disk encryption key is derived from the authentication credential supplied at login time),
+    account management (the <ulink url="https://systemd.io/USER_RECORD/">JSON user record</ulink> embedded in
+    the home store contains account details), and implements the updating of the encryption password (which
+    is also used for user authentication).</para>
   </refsect1>
 
   <refsect1>
@@ -93,8 +97,13 @@
   <refsect1>
     <title>Module Types Provided</title>
 
-    <para>The module provides all four management operations: <option>auth</option>, <option>account</option>,
-    <option>session</option>, <option>password</option>.</para>
+    <para>The module implements all four PAM operations: <option>auth</option> (reason: to allow
+    authentication using the encrypted data), <option>account</option> (reason: users with
+    <filename>systemd-homed.service</filename> user accounts are described in a <ulink
+    url="https://systemd.io/USER_RECORD/">JSON user record</ulink> and may be configured in more detail than
+    in the traditional Linux user database), <option>session</option> (user sessions must be tracked in order
+    to implement automatic release when the last session of the user is gone), <option>password</option> (to
+    change the encryption password — also used for user authentication — through PAM).</para>
   </refsect1>
 
   <refsect1>

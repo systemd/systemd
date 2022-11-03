@@ -9,13 +9,11 @@
 #include "terminal-util.h"
 #include "tests.h"
 
-static void test_genuine_random_bytes_one(RandomFlags flags) {
+TEST(random_bytes) {
         uint8_t buf[16] = {};
 
-        log_info("/* %s(%d) */", __func__, flags);
-
         for (size_t i = 1; i < sizeof buf; i++) {
-                assert_se(genuine_random_bytes(buf, i, flags) == 0);
+                random_bytes(buf, i);
                 if (i + 1 < sizeof buf)
                         assert_se(buf[i] == 0);
 
@@ -23,16 +21,11 @@ static void test_genuine_random_bytes_one(RandomFlags flags) {
         }
 }
 
-TEST(genuine_random_bytes) {
-        test_genuine_random_bytes_one(0);
-        test_genuine_random_bytes_one(RANDOM_BLOCK);
-}
-
-TEST(pseudo_random_bytes) {
+TEST(crypto_random_bytes) {
         uint8_t buf[16] = {};
 
         for (size_t i = 1; i < sizeof buf; i++) {
-                pseudo_random_bytes(buf, i);
+                assert_se(crypto_random_bytes(buf, i) == 0);
                 if (i + 1 < sizeof buf)
                         assert_se(buf[i] == 0);
 
@@ -70,7 +63,7 @@ static void test_random_u64_range_one(unsigned mod) {
                 double dev = (count[i] - exp) / sqrt(exp * (mod > 1 ? mod - 1 : 1) / mod);
                 log_debug("%02zu: %5u (%+.3f)%*s",
                           i, count[i], dev,
-                          count[i] / scale, "x");
+                          (int) (count[i] / scale), "x");
 
                 assert_se(fabs(dev) < 6); /* 6 sigma is excessive, but this check should be enough to
                                            * identify catastrophic failure while minimizing false

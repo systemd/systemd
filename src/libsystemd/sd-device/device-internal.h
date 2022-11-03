@@ -21,8 +21,6 @@ struct sd_device {
          */
         unsigned database_version;
 
-        int watch_handle;
-
         sd_device *parent;
 
         OrderedHashmap *properties;
@@ -49,13 +47,17 @@ struct sd_device {
         uint64_t devlinks_iterator_generation; /* generation when iteration was started */
         int devlink_priority;
 
+        Hashmap *children;
+        Iterator children_iterator;
+        bool children_enumerated;
+
         int ifindex;
         char *devtype;
         char *devname;
         dev_t devnum;
 
         char **properties_strv; /* the properties hashmap as a strv */
-        uint8_t *properties_nulstr; /* the same as a nulstr */
+        char *properties_nulstr; /* the same as a nulstr */
         size_t properties_nulstr_len;
 
         char *syspath;

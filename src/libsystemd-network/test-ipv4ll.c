@@ -122,7 +122,7 @@ static void test_public_api_setters(sd_event *e) {
         assert_se(sd_ipv4ll_unref(ll) == NULL);
 }
 
-static void test_basic_request(sd_event *e) {
+static void test_basic_request(sd_event *e, const struct in_addr *start_address) {
 
         sd_ipv4ll *ll;
         struct ether_arp arp;
@@ -133,6 +133,8 @@ static void test_basic_request(sd_event *e) {
                 printf("* %s\n", __func__);
 
         assert_se(sd_ipv4ll_new(&ll) == 0);
+        if (in4_addr_is_set(start_address))
+                assert_se(sd_ipv4ll_set_address(ll, start_address) >= 0);
         assert_se(sd_ipv4ll_start(ll) == -EINVAL);
 
         assert_se(sd_ipv4ll_attach_event(ll, e, 0) == 0);
@@ -168,6 +170,13 @@ static void test_basic_request(sd_event *e) {
 
                 sd_event_run(e, UINT64_MAX);
                 assert_se(basic_request_handler_bind == 1);
+
+                if (in4_addr_is_set(start_address)) {
+                        struct in_addr address;
+
+                        assert_se(sd_ipv4ll_get_address(ll, &address) >= 0);
+                        assert_se(start_address->s_addr == address.s_addr);
+                }
         }
 
         sd_ipv4ll_stop(ll);
@@ -179,6 +188,7 @@ static void test_basic_request(sd_event *e) {
 }
 
 int main(int argc, char *argv[]) {
+        struct in_addr start_address = {};
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
 
         test_setup_logging(LOG_DEBUG);
@@ -186,7 +196,12 @@ int main(int argc, char *argv[]) {
         assert_se(sd_event_new(&e) >= 0);
 
         test_public_api_setters(e);
-        test_basic_request(e);
+        test_basic_request(e, &start_address);
+
+        basic_request_handler_bind = 0;
+        basic_request_handler_stop = 0;
+        start_address.s_addr = htobe32(169U << 24 | 254U << 16 | 1U << 8 | 2U);
+        test_basic_request(e, &start_address);
 
         return 0;
 }

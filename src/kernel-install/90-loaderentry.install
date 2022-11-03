@@ -16,11 +16,13 @@
 # General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
 
-COMMAND="$1"
-KERNEL_VERSION="$2"
-ENTRY_DIR_ABS="$3"
+set -e
+
+COMMAND="${1:?}"
+KERNEL_VERSION="${2:?}"
+ENTRY_DIR_ABS="${3:?}"
 KERNEL_IMAGE="$4"
 INITRD_OPTIONS_SHIFT=4
 
@@ -48,14 +50,14 @@ case "$COMMAND" in
     add)
         ;;
     *)
-        exit 1
+        exit 0
         ;;
 esac
 
-if [ -r /etc/os-release ]; then
+if [ -f /etc/os-release ]; then
     # shellcheck source=/dev/null
     . /etc/os-release
-elif [ -r /usr/lib/os-release ]; then
+elif [ -f /usr/lib/os-release ]; then
     # shellcheck source=/dev/null
     . /usr/lib/os-release
 fi
@@ -65,9 +67,13 @@ fi
 SORT_KEY="$IMAGE_ID"
 [ -z "$SORT_KEY" ] && SORT_KEY="$ID"
 
-if [ -r /etc/kernel/cmdline ]; then
+if [ -n "$KERNEL_INSTALL_CONF_ROOT" ]; then
+    if [ -f "$KERNEL_INSTALL_CONF_ROOT/cmdline" ]; then
+        BOOT_OPTIONS="$(tr -s "$IFS" ' ' <"$KERNEL_INSTALL_CONF_ROOT/cmdline")"
+    fi
+elif [ -f /etc/kernel/cmdline ]; then
     BOOT_OPTIONS="$(tr -s "$IFS" ' ' </etc/kernel/cmdline)"
-elif [ -r /usr/lib/kernel/cmdline ]; then
+elif [ -f /usr/lib/kernel/cmdline ]; then
     BOOT_OPTIONS="$(tr -s "$IFS" ' ' </usr/lib/kernel/cmdline)"
 else
     BOOT_OPTIONS="$(tr -s "$IFS" '\n' </proc/cmdline | grep -ve '^BOOT_IMAGE=' -e '^initrd=' | tr '\n' ' ')"
@@ -83,10 +89,12 @@ if [ "$ENTRY_TOKEN" = "$MACHINE_ID" ]; then
     BOOT_OPTIONS="$BOOT_OPTIONS systemd.machine_id=$MACHINE_ID"
 fi
 
-if [ -r /etc/kernel/tries ]; then
-    read -r TRIES </etc/kernel/tries
+TRIES_FILE="${KERNEL_INSTALL_CONF_ROOT:-/etc/kernel}/tries"
+
+if [ -f "$TRIES_FILE" ]; then
+    read -r TRIES <"$TRIES_FILE"
     if ! echo "$TRIES" | grep -q '^[0-9][0-9]*$'; then
-        echo "/etc/kernel/tries does not contain an integer." >&2
+        echo "$TRIES_FILE does not contain an integer." >&2
         exit 1
     fi
     LOADER_ENTRY="$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION+$TRIES.conf"
@@ -99,10 +107,11 @@ if ! [ -d "$ENTRY_DIR_ABS" ]; then
     exit 1
 fi
 
-install -g root -o root -m 0644 "$KERNEL_IMAGE" "$ENTRY_DIR_ABS/linux" || {
+install -m 0644 "$KERNEL_IMAGE" "$ENTRY_DIR_ABS/linux" || {
     echo "Error: could not copy '$KERNEL_IMAGE' to '$ENTRY_DIR_ABS/linux'." >&2
     exit 1
 }
+chown root:root "$ENTRY_DIR_ABS/linux" || :
 
 shift "$INITRD_OPTIONS_SHIFT"
 # All files listed as arguments, and staged files starting with "initrd" are installed as initrds.
@@ -115,10 +124,11 @@ for initrd in "$@" "${KERNEL_INSTALL_STAGING_AREA}"/initrd*; do
 
     initrd_basename="${initrd##*/}"
     [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Installing $ENTRY_DIR_ABS/$initrd_basename"
-    install -g root -o root -m 0644 "$initrd" "$ENTRY_DIR_ABS/$initrd_basename" || {
+    install -m 0644 "$initrd" "$ENTRY_DIR_ABS/$initrd_basename" || {
         echo "Error: could not copy '$initrd' to '$ENTRY_DIR_ABS/$initrd_basename'." >&2
         exit 1
     }
+    chown root:root "$ENTRY_DIR_ABS/$initrd_basename" || :
 done
 
 mkdir -p "${LOADER_ENTRY%/*}" || {

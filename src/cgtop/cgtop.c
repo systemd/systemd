@@ -631,7 +631,7 @@ static void display(Hashmap *a) {
 
         if (on_tty()) {
                 const char *on, *off;
-                unsigned cpu_len = arg_cpu_type == CPU_PERCENT ? 6 : maxtcpu;
+                int cpu_len = arg_cpu_type == CPU_PERCENT ? 6 : maxtcpu;
 
                 path_columns = columns() - 36 - cpu_len;
                 if (path_columns < 10)
@@ -685,7 +685,9 @@ static void display(Hashmap *a) {
                         else
                                 fputs("      -", stdout);
                 } else
-                        printf(" %*s", maxtcpu, MAYBE_FORMAT_TIMESPAN((usec_t) (g->cpu_usage / NSEC_PER_USEC), 0));
+                        printf(" %*s",
+                               (int) maxtcpu,
+                               MAYBE_FORMAT_TIMESPAN((usec_t) (g->cpu_usage / NSEC_PER_USEC), 0));
 
                 printf(" %8s", MAYBE_FORMAT_BYTES(g->memory_valid, g->memory));
                 printf(" %8s", MAYBE_FORMAT_BYTES(g->io_valid, g->io_input_bps));
@@ -1086,7 +1088,7 @@ static int run(int argc, char *argv[]) {
 
                 default:
                         if (key < ' ')
-                                fprintf(stdout, "\nUnknown key '\\x%x'. Ignoring.", key);
+                                fprintf(stdout, "\nUnknown key '\\x%x'. Ignoring.", (unsigned) key);
                         else
                                 fprintf(stdout, "\nUnknown key '%c'. Ignoring.", key);
                         fflush(stdout);

@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if HAVE_LIBCRYPTSETUP
 #include "alloc-util.h"
 #include "cryptsetup-util.h"
 #include "dlfcn-util.h"
 #include "log.h"
 #include "parse-util.h"
 
+#if HAVE_LIBCRYPTSETUP
 static void *cryptsetup_dl = NULL;
 
 int (*sym_crypt_activate_by_passphrase)(struct crypt_device *cd, const char *name, int keyslot, const char *passphrase, size_t passphrase_size, uint32_t flags);
@@ -49,63 +49,6 @@ int (*sym_crypt_token_max)(const char *type);
 #endif
 crypt_token_info (*sym_crypt_token_status)(struct crypt_device *cd, int token, const char **type);
 int (*sym_crypt_volume_key_get)(struct crypt_device *cd, int keyslot, char *volume_key, size_t *volume_key_size, const char *passphrase, size_t passphrase_size);
-
-int dlopen_cryptsetup(void) {
-        int r;
-
-        r = dlopen_many_sym_or_warn(
-                        &cryptsetup_dl, "libcryptsetup.so.12", LOG_DEBUG,
-                        DLSYM_ARG(crypt_activate_by_passphrase),
-#if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
-                        DLSYM_ARG(crypt_activate_by_signed_key),
-#endif
-                        DLSYM_ARG(crypt_activate_by_volume_key),
-                        DLSYM_ARG(crypt_deactivate_by_name),
-                        DLSYM_ARG(crypt_format),
-                        DLSYM_ARG(crypt_free),
-                        DLSYM_ARG(crypt_get_cipher),
-                        DLSYM_ARG(crypt_get_cipher_mode),
-                        DLSYM_ARG(crypt_get_data_offset),
-                        DLSYM_ARG(crypt_get_device_name),
-                        DLSYM_ARG(crypt_get_dir),
-                        DLSYM_ARG(crypt_get_type),
-                        DLSYM_ARG(crypt_get_uuid),
-                        DLSYM_ARG(crypt_get_verity_info),
-                        DLSYM_ARG(crypt_get_volume_key_size),
-                        DLSYM_ARG(crypt_init),
-                        DLSYM_ARG(crypt_init_by_name),
-                        DLSYM_ARG(crypt_keyslot_add_by_volume_key),
-                        DLSYM_ARG(crypt_keyslot_destroy),
-                        DLSYM_ARG(crypt_keyslot_max),
-                        DLSYM_ARG(crypt_load),
-                        DLSYM_ARG(crypt_resize),
-                        DLSYM_ARG(crypt_resume_by_passphrase),
-                        DLSYM_ARG(crypt_set_data_device),
-                        DLSYM_ARG(crypt_set_debug_level),
-                        DLSYM_ARG(crypt_set_log_callback),
-#if HAVE_CRYPT_SET_METADATA_SIZE
-                        DLSYM_ARG(crypt_set_metadata_size),
-#endif
-                        DLSYM_ARG(crypt_set_pbkdf_type),
-                        DLSYM_ARG(crypt_suspend),
-                        DLSYM_ARG(crypt_token_json_get),
-                        DLSYM_ARG(crypt_token_json_set),
-#if HAVE_CRYPT_TOKEN_MAX
-                        DLSYM_ARG(crypt_token_max),
-#endif
-                        DLSYM_ARG(crypt_token_status),
-                        DLSYM_ARG(crypt_volume_key_get));
-        if (r <= 0)
-                return r;
-
-        /* Redirect the default logging calls of libcryptsetup to our own logging infra. (Note that
-         * libcryptsetup also maintains per-"struct crypt_device" log functions, which we'll also set
-         * whenever allocating a "struct crypt_device" context. Why set both? To be defensive: maybe some
-         * other code loaded into this process also changes the global log functions of libcryptsetup, who
-         * knows? And if so, we still want our own objects to log via our own infra, at the very least.) */
-        cryptsetup_enable_logging(NULL);
-        return 1;
-}
 
 static void cryptsetup_log_glue(int level, const char *msg, void *usrptr) {
 
@@ -224,6 +167,89 @@ int cryptsetup_get_token_as_json(
         return 0;
 }
 
+int cryptsetup_add_token_json(struct crypt_device *cd, JsonVariant *v) {
+        _cleanup_free_ char *text = NULL;
+        int r;
+
+        r = dlopen_cryptsetup();
+        if (r < 0)
+                return r;
+
+        r = json_variant_format(v, 0, &text);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to format token data for LUKS: %m");
+
+        log_debug("Adding token text <%s>", text);
+
+        r = sym_crypt_token_json_set(cd, CRYPT_ANY_TOKEN, text);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write token data to LUKS: %m");
+
+        return 0;
+}
+#endif
+
+int dlopen_cryptsetup(void) {
+#if HAVE_LIBCRYPTSETUP
+        int r;
+
+        r = dlopen_many_sym_or_warn(
+                        &cryptsetup_dl, "libcryptsetup.so.12", LOG_DEBUG,
+                        DLSYM_ARG(crypt_activate_by_passphrase),
+#if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
+                        DLSYM_ARG(crypt_activate_by_signed_key),
+#endif
+                        DLSYM_ARG(crypt_activate_by_volume_key),
+                        DLSYM_ARG(crypt_deactivate_by_name),
+                        DLSYM_ARG(crypt_format),
+                        DLSYM_ARG(crypt_free),
+                        DLSYM_ARG(crypt_get_cipher),
+                        DLSYM_ARG(crypt_get_cipher_mode),
+                        DLSYM_ARG(crypt_get_data_offset),
+                        DLSYM_ARG(crypt_get_device_name),
+                        DLSYM_ARG(crypt_get_dir),
+                        DLSYM_ARG(crypt_get_type),
+                        DLSYM_ARG(crypt_get_uuid),
+                        DLSYM_ARG(crypt_get_verity_info),
+                        DLSYM_ARG(crypt_get_volume_key_size),
+                        DLSYM_ARG(crypt_init),
+                        DLSYM_ARG(crypt_init_by_name),
+                        DLSYM_ARG(crypt_keyslot_add_by_volume_key),
+                        DLSYM_ARG(crypt_keyslot_destroy),
+                        DLSYM_ARG(crypt_keyslot_max),
+                        DLSYM_ARG(crypt_load),
+                        DLSYM_ARG(crypt_resize),
+                        DLSYM_ARG(crypt_resume_by_passphrase),
+                        DLSYM_ARG(crypt_set_data_device),
+                        DLSYM_ARG(crypt_set_debug_level),
+                        DLSYM_ARG(crypt_set_log_callback),
+#if HAVE_CRYPT_SET_METADATA_SIZE
+                        DLSYM_ARG(crypt_set_metadata_size),
+#endif
+                        DLSYM_ARG(crypt_set_pbkdf_type),
+                        DLSYM_ARG(crypt_suspend),
+                        DLSYM_ARG(crypt_token_json_get),
+                        DLSYM_ARG(crypt_token_json_set),
+#if HAVE_CRYPT_TOKEN_MAX
+                        DLSYM_ARG(crypt_token_max),
+#endif
+                        DLSYM_ARG(crypt_token_status),
+                        DLSYM_ARG(crypt_volume_key_get));
+        if (r <= 0)
+                return r;
+
+        /* Redirect the default logging calls of libcryptsetup to our own logging infra. (Note that
+         * libcryptsetup also maintains per-"struct crypt_device" log functions, which we'll also set
+         * whenever allocating a "struct crypt_device" context. Why set both? To be defensive: maybe some
+         * other code loaded into this process also changes the global log functions of libcryptsetup, who
+         * knows? And if so, we still want our own objects to log via our own infra, at the very least.) */
+        cryptsetup_enable_logging(NULL);
+        return 1;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "cryptsetup support is not compiled in.");
+#endif
+}
+
 int cryptsetup_get_keyslot_from_token(JsonVariant *v) {
         int keyslot, r;
         JsonVariant *w;
@@ -252,25 +278,3 @@ int cryptsetup_get_keyslot_from_token(JsonVariant *v) {
 
         return keyslot;
 }
-
-int cryptsetup_add_token_json(struct crypt_device *cd, JsonVariant *v) {
-        _cleanup_free_ char *text = NULL;
-        int r;
-
-        r = dlopen_cryptsetup();
-        if (r < 0)
-                return r;
-
-        r = json_variant_format(v, 0, &text);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to format token data for LUKS: %m");
-
-        log_debug("Adding token text <%s>", text);
-
-        r = sym_crypt_token_json_set(cd, CRYPT_ANY_TOKEN, text);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to write token data to LUKS: %m");
-
-        return 0;
-}
-#endif

@@ -732,14 +732,12 @@ int log_internalv(
                 const char *format,
                 va_list ap) {
 
-        char buffer[LINE_MAX];
-        PROTECT_ERRNO;
-
         if (_likely_(LOG_PRI(level) > log_max_level))
                 return -ERRNO_VALUE(error);
 
         /* Make sure that %m maps to the specified error (or "Success"). */
-        errno = ERRNO_VALUE(error);
+        char buffer[LINE_MAX];
+        LOCAL_ERRNO(ERRNO_VALUE(error));
 
         (void) vsnprintf(buffer, sizeof buffer, format, ap);
 
@@ -777,14 +775,13 @@ int log_object_internalv(
                 const char *format,
                 va_list ap) {
 
-        PROTECT_ERRNO;
         char *buffer, *b;
 
         if (_likely_(LOG_PRI(level) > log_max_level))
                 return -ERRNO_VALUE(error);
 
         /* Make sure that %m maps to the specified error (or "Success"). */
-        errno = ERRNO_VALUE(error);
+        LOCAL_ERRNO(ERRNO_VALUE(error));
 
         /* Prepend the object name before the message */
         if (object) {
@@ -1153,30 +1150,12 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 }
 
 static bool should_parse_proc_cmdline(void) {
-        const char *e;
-        pid_t p;
-
         /* PID1 always reads the kernel command line. */
         if (getpid_cached() == 1)
                 return true;
 
-        /* If the process is directly executed by PID1 (e.g. ExecStart= or generator), systemd-importd,
-         * or systemd-homed, then $SYSTEMD_EXEC_PID= is set, and read the command line. */
-        e = getenv("SYSTEMD_EXEC_PID");
-        if (!e)
-                return false;
-
-        if (streq(e, "*"))
-                /* For testing. */
-                return true;
-
-        if (parse_pid(e, &p) < 0) {
-                /* We know that systemd sets the variable correctly. Something else must have set it. */
-                log_debug("Failed to parse \"$SYSTEMD_EXEC_PID=%s\". Ignoring.", e);
-                return false;
-        }
-
-        return getpid_cached() == p;
+        /* Otherwise, parse the commandline if invoked directly by systemd. */
+        return invoked_by_systemd();
 }
 
 void log_parse_environment_variables(void) {
@@ -1359,17 +1338,18 @@ int log_syntax_internal(
                 const char *func,
                 const char *format, ...) {
 
+        PROTECT_ERRNO;
+
         if (log_syntax_callback)
                 log_syntax_callback(unit, level, log_syntax_callback_userdata);
-
-        PROTECT_ERRNO;
-        char buffer[LINE_MAX];
-        va_list ap;
-        const char *unit_fmt = NULL;
 
         if (_likely_(LOG_PRI(level) > log_max_level) ||
             log_target == LOG_TARGET_NULL)
                 return -ERRNO_VALUE(error);
+
+        char buffer[LINE_MAX];
+        va_list ap;
+        const char *unit_fmt = NULL;
 
         errno = ERRNO_VALUE(error);
 
@@ -1478,7 +1458,7 @@ int log_dup_console(void) {
         /* Duplicate the fd we use for fd logging if it's < 3 and use the copy from now on. This call is useful
          * whenever we want to continue logging through the original fd, but want to rearrange stderr. */
 
-        if (console_fd >= 3)
+        if (console_fd < 0 || console_fd >= 3)
                 return 0;
 
         copy = fcntl(console_fd, F_DUPFD_CLOEXEC, 3);

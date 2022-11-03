@@ -95,7 +95,7 @@
         icon name to <replaceable>NAME</replaceable>. The icon name is used by some
         graphical applications to visualize this host. The icon name
         should follow the <ulink
-        url="http://standards.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html">Icon
+        url="https://standards.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html">Icon
         Naming Specification</ulink>.</para></listitem>
       </varlistentry>
 
@@ -175,7 +175,7 @@
         <listitem><para>If <command>status</command> is invoked (or no explicit command is given) and one of these
         switches is specified, <command>hostnamectl</command> will print out just this selected hostname.</para>
 
-        <para>If used with <command>set-hostname</command>, only the selected hostname(s) will be updated. When more
+        <para>If used with <command>set-hostname</command>, only the selected hostnames will be updated. When more
         than one of these switches are specified, all the specified hostnames will be updated. </para></listitem>
       </varlistentry>
 

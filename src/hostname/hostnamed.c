@@ -415,7 +415,7 @@ static char* context_get_chassis(Context *c) {
         if (!isempty(c->data[PROP_CHASSIS]))
                 return strdup(c->data[PROP_CHASSIS]);
 
-        if (get_dmi_data("ID_CHASSIS", NULL, &dmi) >= 0)
+        if (get_dmi_data("ID_CHASSIS", NULL, &dmi) > 0)
                 return dmi;
 
         fallback = fallback_chassis();
@@ -663,8 +663,7 @@ static int property_get_static_hostname(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Context *c = userdata;
-        assert(c);
+        Context *c = ASSERT_PTR(userdata);
 
         context_read_etc_hostname(c);
 
@@ -707,8 +706,8 @@ static void context_determine_hostname_source(Context *c) {
 
                 /* If the hostname was not set by us, try to figure out where it came from. If we set it to
                  * the default hostname, the file will tell us. We compare the string because it is possible
-                 * that the hostname was set by an older version that had a different fallback, in the
-                 * initramfs or before we reexecuted. */
+                 * that the hostname was set by an older version that had a different fallback, in the initrd
+                 * or before we reexecuted. */
 
                 r = read_one_line_file("/run/systemd/default-hostname", &fallback);
                 if (r < 0 && r != -ENOENT)
@@ -730,8 +729,7 @@ static int property_get_hostname_source(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Context *c = userdata;
-        assert(c);
+        Context *c = ASSERT_PTR(userdata);
 
         context_read_etc_hostname(c);
         context_determine_hostname_source(c);
@@ -851,12 +849,11 @@ static int property_get_uname_field(
 }
 
 static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        Context *c = userdata;
+        Context *c = ASSERT_PTR(userdata);
         const char *name;
         int interactive, r;
 
         assert(m);
-        assert(c);
 
         r = sd_bus_message_read(m, "sb", &name, &interactive);
         if (r < 0)
@@ -898,13 +895,12 @@ static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *
 }
 
 static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        Context *c = userdata;
+        Context *c = ASSERT_PTR(userdata);
         const char *name;
         int interactive;
         int r;
 
         assert(m);
-        assert(c);
 
         r = sd_bus_message_read(m, "sb", &name, &interactive);
         if (r < 0)
@@ -1068,12 +1064,11 @@ static int method_set_location(sd_bus_message *m, void *userdata, sd_bus_error *
 
 static int method_get_product_uuid(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        Context *c = userdata;
+        Context *c = ASSERT_PTR(userdata);
         int interactive, r;
         sd_id128_t uuid;
 
         assert(m);
-        assert(c);
 
         r = sd_bus_message_read(m, "b", &interactive);
         if (r < 0)
@@ -1119,11 +1114,10 @@ static int method_get_product_uuid(sd_bus_message *m, void *userdata, sd_bus_err
 static int method_get_hardware_serial(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *serial = NULL;
-        Context *c = userdata;
+        Context *c = ASSERT_PTR(userdata);
         int r;
 
         assert(m);
-        assert(c);
 
         r = bus_verify_polkit_async(
                         m,
@@ -1160,13 +1154,12 @@ static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *erro
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         sd_id128_t product_uuid = SD_ID128_NULL;
-        Context *c = userdata;
+        Context *c = ASSERT_PTR(userdata);
         bool privileged;
         struct utsname u;
         int r;
 
         assert(m);
-        assert(c);
 
         r = bus_verify_polkit_async(
                         m,

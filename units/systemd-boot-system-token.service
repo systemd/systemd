@@ -10,10 +10,11 @@
 [Unit]
 Description=Store a System Token in an EFI Variable
 Documentation=man:systemd-boot-system-token.service(8)
+
 DefaultDependencies=no
-Conflicts=shutdown.target
 After=local-fs.target systemd-random-seed.service
-Before=shutdown.target
+Conflicts=shutdown.target initrd-switch-root.target
+Before=shutdown.target initrd-switch-root.target
 
 # Don't run this in a VM environment, because there EFI variables are not
 # actually stored in NVRAM, independent of regular storage.

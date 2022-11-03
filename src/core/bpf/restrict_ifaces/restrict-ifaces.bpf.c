@@ -20,7 +20,7 @@ struct {
 #define DROP 0
 #define PASS 1
 
-static inline int restrict_network_interfaces_impl(const struct __sk_buff *sk) {
+static __always_inline int restrict_network_interfaces_impl(const struct __sk_buff *sk) {
         __u32 zero = 0, ifindex;
         __u8 *lookup_result;
 

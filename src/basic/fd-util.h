@@ -98,7 +98,7 @@ static inline int make_null_stdio(void) {
         })
 
 /* Like free_and_replace(), but for file descriptors */
-#define CLOSE_AND_REPLACE(a, b)                 \
+#define close_and_replace(a, b)                 \
         ({                                      \
                 int *_fdp_ = &(a);              \
                 safe_close(*_fdp_);             \
@@ -108,7 +108,6 @@ static inline int make_null_stdio(void) {
 
 int fd_reopen(int fd, int flags);
 int read_nr_open(void);
-int btrfs_defrag_fd(int fd);
 int fd_get_diskseq(int fd, uint64_t *ret);
 
 /* The maximum length a buffer for a /proc/self/fd/<fd> path needs */

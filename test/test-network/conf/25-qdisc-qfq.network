@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 [Match]
-Name=test1
+Name=dummy98
 
 [Network]
 IPv6AcceptRA=no
-Address=10.1.2.4/16
+Address=10.1.2.3/16
 
 [QuickFairQueueing]
 Parent=root

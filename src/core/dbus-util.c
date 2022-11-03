@@ -216,7 +216,7 @@ int bus_read_mount_options(
         if (r < 0)
                 return r;
 
-        if (!LIST_IS_EMPTY(options)) {
+        if (options) {
                 if (ret_format_str) {
                         char *final = strjoin(*ret_format_str, !isempty(*ret_format_str) ? separator : "", format_str);
                         if (!final)
@@ -227,4 +227,36 @@ int bus_read_mount_options(
         }
 
         return 0;
+}
+
+int bus_property_get_activation_details(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ActivationDetails **details = ASSERT_PTR(userdata);
+        _cleanup_strv_free_ char **pairs = NULL;
+        int r;
+
+        assert(reply);
+
+        r = activation_details_append_pair(*details, &pairs);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "(ss)");
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH_PAIR(key, value, pairs) {
+                r = sd_bus_message_append(reply, "(ss)", *key, *value);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
 }

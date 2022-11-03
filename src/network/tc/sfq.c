@@ -46,13 +46,12 @@ int config_parse_stochastic_fairness_queueing_perturb_period(
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         StochasticFairnessQueueing *sfq;
-        Network *network = data;
+        Network *network = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = qdisc_new_static(QDISC_KIND_SFQ, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)

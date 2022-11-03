@@ -115,8 +115,9 @@ __get_all_unit_files () { { __systemctl $1 list-unit-files "$2*"; } | { while re
 
 __get_machines() {
     local a b
-    { machinectl list-images --full --no-legend --no-pager; machinectl list --full --no-legend --no-pager; } | \
-        { while read a b; do echo " $a"; done; }
+    { machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } | \
+	{ while read a b; do echo " $a"; done; } | \
+        sort -u
 }
 
 _systemctl () {
@@ -128,7 +129,7 @@ _systemctl () {
                              --help -h --no-ask-password --no-block --legend=no --no-pager --no-reload --no-wall --now
                              --quiet -q --system --user --version --runtime --recursive -r --firmware-setup
                              --show-types --plain --failed --value --fail --dry-run --wait'
-        [ARG]='--host -H --kill-who --property -p --signal -s --type -t --state --job-mode --root
+        [ARG]='--host -H --kill-whom --property -p --signal -s --type -t --state --job-mode --root
                              --preset-mode -n --lines -o --output -M --machine --message --timestamp --check-inhibitors'
     )
 
@@ -156,7 +157,7 @@ _systemctl () {
                 comps='fail replace replace-irreversibly isolate
                                        ignore-dependencies ignore-requirements flush'
                 ;;
-            --kill-who)
+            --kill-whom|--kill-who)
                 comps='all control main'
                 ;;
             --root)
@@ -215,7 +216,7 @@ _systemctl () {
                              suspend-then-hibernate kexec list-jobs list-sockets
                              list-timers list-units list-unit-files poweroff
                              reboot rescue show-environment suspend get-default
-                             is-system-running preset-all'
+                             is-system-running preset-all list-automounts'
         [FILE]='link switch-root bind mount-image'
         [TARGETS]='set-default'
         [MACHINES]='list-machines'

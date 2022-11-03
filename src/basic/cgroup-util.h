@@ -86,6 +86,7 @@ bool cpu_accounting_is_cheap(void);
 
 /* Special values for all weight knobs on unified hierarchy */
 #define CGROUP_WEIGHT_INVALID UINT64_MAX
+#define CGROUP_WEIGHT_IDLE UINT64_C(0)
 #define CGROUP_WEIGHT_MIN UINT64_C(1)
 #define CGROUP_WEIGHT_MAX UINT64_C(10000)
 #define CGROUP_WEIGHT_DEFAULT UINT64_C(100)

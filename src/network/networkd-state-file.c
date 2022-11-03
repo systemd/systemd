@@ -204,7 +204,7 @@ int manager_save(Manager *m) {
                         const char *domainname;
                         char **domains = NULL;
 
-                        target_domains = (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES) ? &search_domains : &route_domains;
+                        target_domains = link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES ? &search_domains : &route_domains;
                         r = sd_dhcp_lease_get_domainname(link->dhcp_lease, &domainname);
                         if (r >= 0) {
                                 r = ordered_set_put_strdup(target_domains, domainname);
@@ -539,9 +539,6 @@ int link_save(Link *link) {
                 fprintf(f, "NETWORK_FILE=%s\n", link->network->filename);
 
                 /************************************************************/
-
-                /* Make sure to flush out old entries before we use the NDisc data */
-                ndisc_vacuum(link);
 
                 fputs("DNS=", f);
                 if (link->n_dns != UINT_MAX)

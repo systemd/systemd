@@ -22,6 +22,8 @@ Name=nlmon99
 Name=xfrm98 xfrm99
 Name=vxlan98
 Name=hogehogehogehogehogehoge
+Name=testtun99
+Name=testtap99
 
 [Network]
 LinkLocalAddressing=yes

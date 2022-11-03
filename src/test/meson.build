@@ -209,6 +209,10 @@ tests += [
 
         [files('test-macro.c')],
 
+        [files('test-math-util.c'),
+         [],
+         [libm]],
+
         [files('test-mkdir.c')],
 
         [files('test-json.c'),
@@ -227,6 +231,8 @@ tests += [
         [files('test-mountpoint-util.c')],
 
         [files('test-exec-util.c')],
+
+        [files('test-execve.c')],
 
         [files('test-hexdecoct.c')],
 
@@ -609,10 +615,14 @@ tests += [
         [files('test-errno-list.c') +
          generated_gperf_headers],
 
+        [files('test-errno-util.c')],
+
         [files('test-ip-protocol-list.c') +
          shared_generated_gperf_headers],
 
         [files('test-journal-importer.c')],
+
+        [files('test-utmp.c')],
 
         [files('test-udev.c'),
          [libudevd_core,
@@ -668,6 +678,8 @@ tests += [
          [], [], [], 'ENABLE_NSCD', 'manual'],
 
         [files('test-hmac.c')],
+
+        [files('test-sha256.c')],
 ]
 
 ############################################################

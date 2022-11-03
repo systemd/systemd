@@ -169,7 +169,7 @@ _arguments -s \
     '--version[Show package version]' \
     \*{-p+,--property=}'[Show only properties by this name]:unit property' \
     {-a,--all}'[Show all properties, including empty ones]' \
-    '--kill-who=[Who to send signal to]:killwho:(main control all)' \
+    '--kill-whom=[Whom to send signal to]:killwhom:(main control all)' \
     {-s+,--signal=}'[Which signal to send]:signal:_signals' \
     {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
     {-M+,--machine=}'[Operate on local container]:machine:_sd_machines' \

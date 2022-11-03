@@ -13,11 +13,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#if HAVE_PCRE2
-#  define PCRE2_CODE_UNIT_WIDTH 8
-#  include <pcre2.h>
-#endif
-
 #include "sd-bus.h"
 #include "sd-device.h"
 #include "sd-journal.h"
@@ -58,13 +53,14 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "pcre2-dlopen.h"
+#include "pcre2-util.h"
 #include "pretty-print.h"
 #include "qrcode-util.h"
 #include "random-util.h"
 #include "rlimit-util.h"
 #include "set.h"
 #include "sigbus.h"
+#include "static-destruct.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "strv.h"
@@ -132,11 +128,20 @@ static uint64_t arg_vacuum_size = 0;
 static uint64_t arg_vacuum_n_files = 0;
 static usec_t arg_vacuum_time = 0;
 static char **arg_output_fields = NULL;
-#if HAVE_PCRE2
 static const char *arg_pattern = NULL;
 static pcre2_code *arg_compiled_pattern = NULL;
-static int arg_case_sensitive = -1; /* -1 means be smart */
-#endif
+static PatternCompileCase arg_case = PATTERN_COMPILE_CASE_AUTO;
+
+STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_facilities, set_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_verify_key, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_syslog_identifier, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_system_units, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_user_units, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_output_fields, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_compiled_pattern, pattern_freep);
 
 static enum {
         ACTION_SHOW,
@@ -165,32 +170,6 @@ typedef struct BootId {
         uint64_t last;
         LIST_FIELDS(struct BootId, boot_list);
 } BootId;
-
-#if HAVE_PCRE2
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(pcre2_match_data*, sym_pcre2_match_data_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(pcre2_code*, sym_pcre2_code_free, NULL);
-
-static int pattern_compile(const char *pattern, unsigned flags, pcre2_code **out) {
-        int errorcode, r;
-        PCRE2_SIZE erroroffset;
-        pcre2_code *p;
-
-        p = sym_pcre2_compile((PCRE2_SPTR8) pattern,
-                              PCRE2_ZERO_TERMINATED, flags, &errorcode, &erroroffset, NULL);
-        if (!p) {
-                unsigned char buf[LINE_MAX];
-
-                r = sym_pcre2_get_error_message(errorcode, buf, sizeof buf);
-
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Bad pattern \"%s\": %s", pattern,
-                                       r < 0 ? "unknown error" : (char *)buf);
-        }
-
-        *out = p;
-        return 0;
-}
-#endif
 
 static int add_matches_for_device(sd_journal *j, const char *devpath) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
@@ -337,19 +316,23 @@ static int help(void) {
 
         printf("%1$s [OPTIONS...] [MATCHES...]\n\n"
                "%5$sQuery the journal.%6$s\n\n"
-               "%3$sOptions:%4$s\n"
+               "%3$sSource Options:%4$s\n"
                "     --system                Show the system journal\n"
                "     --user                  Show the user journal for the current user\n"
                "  -M --machine=CONTAINER     Operate on local container\n"
+               "  -m --merge                 Show entries from all available journals\n"
+               "  -D --directory=PATH        Show journal files from directory\n"
+               "     --file=PATH             Show journal file\n"
+               "     --root=ROOT             Operate on files below a root directory\n"
+               "     --image=IMAGE           Operate on files in filesystem image\n"
+               "     --namespace=NAMESPACE   Show journal data from specified journal namespace\n"
+               "\n%3$sFiltering Options:%4$s\n"
                "  -S --since=DATE            Show entries not older than the specified date\n"
                "  -U --until=DATE            Show entries not newer than the specified date\n"
                "  -c --cursor=CURSOR         Show entries starting at the specified cursor\n"
                "     --after-cursor=CURSOR   Show entries after the specified cursor\n"
-               "     --show-cursor           Print the cursor after all the entries\n"
                "     --cursor-file=FILE      Show entries after cursor in FILE and update FILE\n"
                "  -b --boot[=ID]             Show current boot or the specified boot\n"
-               "     --list-boots            Show terse information about recorded boots\n"
-               "  -k --dmesg                 Show kernel message log from the current boot\n"
                "  -u --unit=UNIT             Show logs from the specified unit\n"
                "     --user-unit=UNIT        Show logs from the specified user unit\n"
                "  -t --identifier=STRING     Show entries with the specified syslog identifier\n"
@@ -357,30 +340,29 @@ static int help(void) {
                "     --facility=FACILITY...  Show entries with the specified facilities\n"
                "  -g --grep=PATTERN          Show entries with MESSAGE matching PATTERN\n"
                "     --case-sensitive[=BOOL] Force case sensitive or insensitive matching\n"
-               "  -e --pager-end             Immediately jump to the end in the pager\n"
-               "  -f --follow                Follow the journal\n"
-               "  -n --lines[=INTEGER]       Number of journal entries to show\n"
-               "     --no-tail               Show all lines, even in follow mode\n"
-               "  -r --reverse               Show the newest entries first\n"
+               "  -k --dmesg                 Show kernel message log from the current boot\n"
+               "\n%3$sOutput Control Options:%4$s\n"
                "  -o --output=STRING         Change journal output mode (short, short-precise,\n"
                "                               short-iso, short-iso-precise, short-full,\n"
                "                               short-monotonic, short-unix, verbose, export,\n"
                "                               json, json-pretty, json-sse, json-seq, cat,\n"
                "                               with-unit)\n"
                "     --output-fields=LIST    Select fields to print in verbose/export/json modes\n"
+               "  -n --lines[=INTEGER]       Number of journal entries to show\n"
+               "  -r --reverse               Show the newest entries first\n"
+               "     --show-cursor           Print the cursor after all the entries\n"
                "     --utc                   Express time in Coordinated Universal Time (UTC)\n"
                "  -x --catalog               Add message explanations where available\n"
+               "     --no-hostname           Suppress output of hostname field\n"
                "     --no-full               Ellipsize fields\n"
                "  -a --all                   Show all fields, including long and unprintable\n"
+               "  -f --follow                Follow the journal\n"
+               "     --no-tail               Show all lines, even in follow mode\n"
                "  -q --quiet                 Do not show info messages and privilege warning\n"
+               "\n%3$sPager Control Options:%4$s\n"
                "     --no-pager              Do not pipe output into a pager\n"
-               "     --no-hostname           Suppress output of hostname field\n"
-               "  -m --merge                 Show entries from all available journals\n"
-               "  -D --directory=PATH        Show journal files from directory\n"
-               "     --file=PATH             Show journal file\n"
-               "     --root=ROOT             Operate on files below a root directory\n"
-               "     --image=IMAGE           Operate on files in filesystem image\n"
-               "     --namespace=NAMESPACE   Show journal data from specified namespace\n"
+               "  -e --pager-end             Immediately jump to the end in the pager\n"
+               "\n%3$sForward Secure Sealing (FSS) Options:%4$s\n"
                "     --interval=TIME         Time interval for changing the FSS sealing key\n"
                "     --verify-key=KEY        Specify FSS verification key\n"
                "     --force                 Override of the FSS key pair with --setup-keys\n"
@@ -389,6 +371,7 @@ static int help(void) {
                "     --version               Show package version\n"
                "  -N --fields                List all field names currently used\n"
                "  -F --field=FIELD           List all values that a specified field takes\n"
+               "     --list-boots            Show terse information about recorded boots\n"
                "     --disk-usage            Show total disk usage of all journal files\n"
                "     --vacuum-size=BYTES     Reduce disk usage below specified size\n"
                "     --vacuum-files=INT      Leave only the specified number of journal files\n"
@@ -907,7 +890,6 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-#if HAVE_PCRE2
                 case 'g':
                         arg_pattern = optarg;
                         break;
@@ -917,16 +899,11 @@ static int parse_argv(int argc, char *argv[]) {
                                 r = parse_boolean(optarg);
                                 if (r < 0)
                                         return log_error_errno(r, "Bad --case-sensitive= argument \"%s\": %m", optarg);
-                                arg_case_sensitive = r;
+                                arg_case = r ? PATTERN_COMPILE_CASE_SENSITIVE : PATTERN_COMPILE_CASE_INSENSITIVE;
                         } else
-                                arg_case_sensitive = true;
+                                arg_case = PATTERN_COMPILE_CASE_SENSITIVE;
 
                         break;
-#else
-                case 'g':
-                case ARG_CASE_SENSITIVE:
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Compiled without pattern matching support");
-#endif
 
                 case 'S':
                         r = parse_timestamp(optarg, &arg_since);
@@ -1077,7 +1054,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (!!arg_cursor + !!arg_after_cursor + !!arg_since_set > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Please specify only one of --since=, --cursor=, and --after-cursor.");
+                                       "Please specify only one of --since=, --cursor=, and --after-cursor=.");
 
         if (arg_follow && arg_reverse)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -1103,44 +1080,11 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_system_units = strv_free(arg_system_units);
         }
 
-#if HAVE_PCRE2
         if (arg_pattern) {
-                unsigned flags;
-
-                r = dlopen_pcre2();
-                if (r < 0)
-                        return r;
-
-                if (arg_case_sensitive >= 0)
-                        flags = !arg_case_sensitive * PCRE2_CASELESS;
-                else {
-                        _cleanup_(sym_pcre2_match_data_freep) pcre2_match_data *md = NULL;
-                        bool has_case;
-                        _cleanup_(sym_pcre2_code_freep) pcre2_code *cs = NULL;
-
-                        md = sym_pcre2_match_data_create(1, NULL);
-                        if (!md)
-                                return log_oom();
-
-                        r = pattern_compile("[[:upper:]]", 0, &cs);
-                        if (r < 0)
-                                return r;
-
-                        r = sym_pcre2_match(cs, (PCRE2_SPTR8) arg_pattern, PCRE2_ZERO_TERMINATED, 0, 0, md, NULL);
-                        has_case = r >= 0;
-
-                        flags = !has_case * PCRE2_CASELESS;
-                }
-
-                log_debug("Doing case %s matching based on %s",
-                          flags & PCRE2_CASELESS ? "insensitive" : "sensitive",
-                          arg_case_sensitive >= 0 ? "request" : "pattern casing");
-
-                r = pattern_compile(arg_pattern, flags, &arg_compiled_pattern);
+                r = pattern_compile_and_log(arg_pattern, arg_case, &arg_compiled_pattern);
                 if (r < 0)
                         return r;
         }
-#endif
 
         return 1;
 }
@@ -1516,7 +1460,7 @@ static int add_boot(sd_journal *j) {
         r = get_boots(j, NULL, &boot_id, arg_boot_offset);
         assert(r <= 1);
         if (r <= 0) {
-                const char *reason = (r == 0) ? "No such boot ID in journal" : strerror_safe(r);
+                const char *reason = (r == 0) ? "No such boot ID in journal" : STRERROR(r);
 
                 if (sd_id128_is_null(arg_boot_id))
                         log_error("Data from the specified boot (%+i) is not available: %s",
@@ -1909,7 +1853,7 @@ static int setup_keys(void) {
         state = alloca_safe(state_size);
 
         log_info("Generating seed...");
-        r = genuine_random_bytes(seed, seed_size, RANDOM_BLOCK);
+        r = crypto_random_bytes(seed, seed_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire random seed: %m");
 
@@ -2016,7 +1960,7 @@ static int setup_keys(void) {
 #endif
 }
 
-static int verify(sd_journal *j) {
+static int verify(sd_journal *j, bool verbose) {
         int r = 0;
         JournalFile *f;
 
@@ -2033,7 +1977,7 @@ static int verify(sd_journal *j) {
                         log_notice("Journal file %s has sealing enabled but verification key has not been passed using --verify-key=.", f->path);
 #endif
 
-                k = journal_file_verify(f, arg_verify_key, &first, &validated, &last, true);
+                k = journal_file_verify(f, arg_verify_key, &first, &validated, &last, verbose);
                 if (k == -EINVAL)
                         /* If the key was invalid give up right-away. */
                         return k;
@@ -2041,19 +1985,22 @@ static int verify(sd_journal *j) {
                         r = log_warning_errno(k, "FAIL: %s (%m)", f->path);
                 else {
                         char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX];
-                        log_info("PASS: %s", f->path);
+                        log_full(verbose ? LOG_INFO : LOG_DEBUG, "PASS: %s", f->path);
 
                         if (arg_verify_key && JOURNAL_HEADER_SEALED(f->header)) {
                                 if (validated > 0) {
-                                        log_info("=> Validated from %s to %s, final %s entries not sealed.",
+                                        log_full(verbose ? LOG_INFO : LOG_DEBUG,
+                                                 "=> Validated from %s to %s, final %s entries not sealed.",
                                                  format_timestamp_maybe_utc(a, sizeof(a), first),
                                                  format_timestamp_maybe_utc(b, sizeof(b), validated),
                                                  FORMAT_TIMESPAN(last > validated ? last - validated : 0, 0));
                                 } else if (last > 0)
-                                        log_info("=> No sealing yet, %s of entries not sealed.",
+                                        log_full(verbose ? LOG_INFO : LOG_DEBUG,
+                                                 "=> No sealing yet, %s of entries not sealed.",
                                                  FORMAT_TIMESPAN(last - first, 0));
                                 else
-                                        log_info("=> No sealing yet, no entries in file.");
+                                        log_full(verbose ? LOG_INFO : LOG_DEBUG,
+                                                 "=> No sealing yet, no entries in file.");
                         }
                 }
         }
@@ -2148,12 +2095,12 @@ static int wait_for_change(sd_journal *j, int poll_fd) {
 
 int main(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *unlink_dir = NULL;
         bool previous_boot_id_valid = false, first_line = true, ellipsized = false, need_seek = false;
         bool use_cursor = false, after_cursor = false;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        sd_id128_t previous_boot_id;
+        sd_id128_t previous_boot_id = SD_ID128_NULL, previous_boot_id_output = SD_ID128_NULL;
+        dual_timestamp previous_ts_output = DUAL_TIMESTAMP_NULL;
         int n_shown = 0, r, poll_fd = -1;
 
         setlocale(LC_ALL, "");
@@ -2178,8 +2125,7 @@ int main(int argc, char *argv[]) {
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |
                                 (arg_action == ACTION_UPDATE_CATALOG ? DISSECT_IMAGE_FSCK|DISSECT_IMAGE_GROWFS : DISSECT_IMAGE_READ_ONLY),
                                 &unlink_dir,
-                                &loop_device,
-                                &decrypted_image);
+                                &loop_device);
                 if (r < 0)
                         return r;
 
@@ -2354,7 +2300,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
 
         case ACTION_VERIFY:
-                r = verify(j);
+                r = verify(j, !arg_quiet);
                 goto finish;
 
         case ACTION_DISK_USAGE: {
@@ -2692,16 +2638,9 @@ int main(int argc, char *argv[]) {
                                 }
                         }
 
-#if HAVE_PCRE2
                         if (arg_compiled_pattern) {
-                                _cleanup_(sym_pcre2_match_data_freep) pcre2_match_data *md = NULL;
                                 const void *message;
                                 size_t len;
-                                PCRE2_SIZE *ovec;
-
-                                md = sym_pcre2_match_data_create(1, NULL);
-                                if (!md)
-                                        return log_oom();
 
                                 r = sd_journal_get_data(j, "MESSAGE", &message, &len);
                                 if (r < 0) {
@@ -2716,33 +2655,15 @@ int main(int argc, char *argv[]) {
 
                                 assert_se(message = startswith(message, "MESSAGE="));
 
-                                r = sym_pcre2_match(arg_compiled_pattern,
-                                                    message,
-                                                    len - strlen("MESSAGE="),
-                                                    0,      /* start at offset 0 in the subject */
-                                                    0,      /* default options */
-                                                    md,
-                                                    NULL);
-                                if (r == PCRE2_ERROR_NOMATCH) {
+                                r = pattern_matches_and_log(arg_compiled_pattern, message,
+                                                            len - strlen("MESSAGE="), highlight);
+                                if (r < 0)
+                                        goto finish;
+                                if (r == 0) {
                                         need_seek = true;
                                         continue;
                                 }
-                                if (r < 0) {
-                                        unsigned char buf[LINE_MAX];
-                                        int r2;
-
-                                        r2 = sym_pcre2_get_error_message(r, buf, sizeof buf);
-                                        log_error("Pattern matching failed: %s",
-                                                  r2 < 0 ? "unknown error" : (char*) buf);
-                                        r = -EINVAL;
-                                        goto finish;
-                                }
-
-                                ovec = sym_pcre2_get_ovector_pointer(md);
-                                highlight[0] = ovec[0];
-                                highlight[1] = ovec[1];
                         }
-#endif
 
                         flags =
                                 arg_all * OUTPUT_SHOW_ALL |
@@ -2753,7 +2674,8 @@ int main(int argc, char *argv[]) {
                                 arg_no_hostname * OUTPUT_NO_HOSTNAME;
 
                         r = show_journal_entry(stdout, j, arg_output, 0, flags,
-                                               arg_output_fields, highlight, &ellipsized);
+                                               arg_output_fields, highlight, &ellipsized,
+                                               &previous_ts_output, &previous_boot_id_output);
                         need_seek = true;
                         if (r == -EADDRNOTAVAIL)
                                 break;
@@ -2817,29 +2739,12 @@ int main(int argc, char *argv[]) {
 finish:
         pager_close();
 
-        strv_free(arg_file);
-
-        set_free(arg_facilities);
-        strv_free(arg_syslog_identifier);
-        strv_free(arg_system_units);
-        strv_free(arg_user_units);
-        strv_free(arg_output_fields);
-
-        free(arg_root);
-        free(arg_verify_key);
-
-#if HAVE_PCRE2
-        if (arg_compiled_pattern) {
-                sym_pcre2_code_free(arg_compiled_pattern);
-
+        if (arg_compiled_pattern && r == 0 && n_shown == 0)
                 /* --grep was used, no error was thrown, but the pattern didn't
                  * match anything. Let's mimic grep's behavior here and return
                  * a non-zero exit code, so journalctl --grep can be used
                  * in scripts and such */
-                if (r == 0 && n_shown == 0)
-                        r = -ENOENT;
-        }
-#endif
+                r = -ENOENT;
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

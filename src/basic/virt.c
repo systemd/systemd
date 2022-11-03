@@ -156,20 +156,22 @@ static Virtualization detect_vm_dmi_vendor(void) {
                 const char *vendor;
                 Virtualization id;
         } dmi_vendor_table[] = {
-                { "KVM",                 VIRTUALIZATION_KVM       },
-                { "OpenStack",           VIRTUALIZATION_KVM       }, /* Detect OpenStack instance as KVM in non x86 architecture */
-                { "Amazon EC2",          VIRTUALIZATION_AMAZON    },
-                { "QEMU",                VIRTUALIZATION_QEMU      },
-                { "VMware",              VIRTUALIZATION_VMWARE    }, /* https://kb.vmware.com/s/article/1009458 */
-                { "VMW",                 VIRTUALIZATION_VMWARE    },
-                { "innotek GmbH",        VIRTUALIZATION_ORACLE    },
-                { "VirtualBox",          VIRTUALIZATION_ORACLE    },
-                { "Xen",                 VIRTUALIZATION_XEN       },
-                { "Bochs",               VIRTUALIZATION_BOCHS     },
-                { "Parallels",           VIRTUALIZATION_PARALLELS },
+                { "KVM",                  VIRTUALIZATION_KVM       },
+                { "OpenStack",            VIRTUALIZATION_KVM       }, /* Detect OpenStack instance as KVM in non x86 architecture */
+                { "KubeVirt",             VIRTUALIZATION_KVM       }, /* Detect KubeVirt instance as KVM in non x86 architecture */
+                { "Amazon EC2",           VIRTUALIZATION_AMAZON    },
+                { "QEMU",                 VIRTUALIZATION_QEMU      },
+                { "VMware",               VIRTUALIZATION_VMWARE    }, /* https://kb.vmware.com/s/article/1009458 */
+                { "VMW",                  VIRTUALIZATION_VMWARE    },
+                { "innotek GmbH",         VIRTUALIZATION_ORACLE    },
+                { "VirtualBox",           VIRTUALIZATION_ORACLE    },
+                { "Xen",                  VIRTUALIZATION_XEN       },
+                { "Bochs",                VIRTUALIZATION_BOCHS     },
+                { "Parallels",            VIRTUALIZATION_PARALLELS },
                 /* https://wiki.freebsd.org/bhyve */
-                { "BHYVE",               VIRTUALIZATION_BHYVE     },
-                { "Hyper-V",             VIRTUALIZATION_MICROSOFT },
+                { "BHYVE",                VIRTUALIZATION_BHYVE     },
+                { "Hyper-V",              VIRTUALIZATION_MICROSOFT },
+                { "Apple Virtualization", VIRTUALIZATION_APPLE     },
         };
         int r;
 
@@ -436,18 +438,22 @@ Virtualization detect_vm(void) {
 
         /* We have to use the correct order here:
          *
-         * → First, try to detect Oracle Virtualbox and Amazon EC2 Nitro, even if they use KVM, as well as Xen even if
-         *   it cloaks as Microsoft Hyper-V. Attempt to detect uml at this stage also since it runs as a user-process
-         *   nested inside other VMs. Also check for Xen now, because Xen PV mode does not override CPUID when nested
-         *   inside another hypervisor.
+         * → First, try to detect Oracle Virtualbox, Amazon EC2 Nitro, and Parallels, even if they use KVM,
+         *   as well as Xen even if it cloaks as Microsoft Hyper-V. Attempt to detect uml at this stage also
+         *   since it runs as a user-process nested inside other VMs. Also check for Xen now, because Xen PV
+         *   mode does not override CPUID when nested inside another hypervisor.
          *
-         * → Second, try to detect from CPUID, this will report KVM for whatever software is used even if info in DMI is
-         *   overwritten.
+         * → Second, try to detect from CPUID, this will report KVM for whatever software is used even if
+         *   info in DMI is overwritten.
          *
          * → Third, try to detect from DMI. */
 
         dmi = detect_vm_dmi();
-        if (IN_SET(dmi, VIRTUALIZATION_ORACLE, VIRTUALIZATION_XEN, VIRTUALIZATION_AMAZON)) {
+        if (IN_SET(dmi,
+                   VIRTUALIZATION_ORACLE,
+                   VIRTUALIZATION_XEN,
+                   VIRTUALIZATION_AMAZON,
+                   VIRTUALIZATION_PARALLELS)) {
                 v = dmi;
                 goto finish;
         }
@@ -878,68 +884,68 @@ struct cpuid_table_entry {
 };
 
 static const struct cpuid_table_entry leaf1_edx[] = {
-        {  0, "fpu" },
-        {  1, "vme" },
-        {  2, "de" },
-        {  3, "pse" },
-        {  4, "tsc" },
-        {  5, "msr" },
-        {  6, "pae" },
-        {  7, "mce" },
-        {  8, "cx8" },
-        {  9, "apic" },
-        { 11, "sep" },
-        { 12, "mtrr" },
-        { 13, "pge" },
-        { 14, "mca" },
-        { 15, "cmov" },
-        { 16, "pat" },
-        { 17, "pse36" },
+        {  0, "fpu"     },
+        {  1, "vme"     },
+        {  2, "de"      },
+        {  3, "pse"     },
+        {  4, "tsc"     },
+        {  5, "msr"     },
+        {  6, "pae"     },
+        {  7, "mce"     },
+        {  8, "cx8"     },
+        {  9, "apic"    },
+        { 11, "sep"     },
+        { 12, "mtrr"    },
+        { 13, "pge"     },
+        { 14, "mca"     },
+        { 15, "cmov"    },
+        { 16, "pat"     },
+        { 17, "pse36"   },
         { 19, "clflush" },
-        { 23, "mmx" },
-        { 24, "fxsr" },
-        { 25, "sse" },
-        { 26, "sse2" },
-        { 28, "ht" },
+        { 23, "mmx"     },
+        { 24, "fxsr"    },
+        { 25, "sse"     },
+        { 26, "sse2"    },
+        { 28, "ht"      },
 };
 
 static const struct cpuid_table_entry leaf1_ecx[] = {
-        {  0, "pni" },
-        {  1, "pclmul" },
+        {  0, "pni"     },
+        {  1, "pclmul"  },
         {  3, "monitor" },
-        {  9, "ssse3" },
-        { 12, "fma3" },
-        { 13, "cx16" },
-        { 19, "sse4_1" },
-        { 20, "sse4_2" },
-        { 22, "movbe" },
-        { 23, "popcnt" },
-        { 25, "aes" },
-        { 26, "xsave" },
+        {  9, "ssse3"   },
+        { 12, "fma3"    },
+        { 13, "cx16"    },
+        { 19, "sse4_1"  },
+        { 20, "sse4_2"  },
+        { 22, "movbe"   },
+        { 23, "popcnt"  },
+        { 25, "aes"     },
+        { 26, "xsave"   },
         { 27, "osxsave" },
-        { 28, "avx" },
-        { 29, "f16c" },
-        { 30, "rdrand" },
+        { 28, "avx"     },
+        { 29, "f16c"    },
+        { 30, "rdrand"  },
 };
 
 static const struct cpuid_table_entry leaf7_ebx[] = {
-        {  3, "bmi1" },
-        {  5, "avx2" },
-        {  8, "bmi2" },
+        {  3, "bmi1"   },
+        {  5, "avx2"   },
+        {  8, "bmi2"   },
         { 18, "rdseed" },
-        { 19, "adx" },
+        { 19, "adx"    },
         { 29, "sha_ni" },
 };
 
 static const struct cpuid_table_entry leaf81_edx[] = {
         { 11, "syscall" },
-        { 27, "rdtscp" },
-        { 29, "lm" },
+        { 27, "rdtscp"  },
+        { 29, "lm"      },
 };
 
 static const struct cpuid_table_entry leaf81_ecx[] = {
         {  0, "lahf_lm" },
-        {  5, "abm" },
+        {  5, "abm"     },
 };
 
 static const struct cpuid_table_entry leaf87_edx[] = {
@@ -997,34 +1003,35 @@ bool has_cpu_with_flag(const char *flag) {
 }
 
 static const char *const virtualization_table[_VIRTUALIZATION_MAX] = {
-        [VIRTUALIZATION_NONE] = "none",
-        [VIRTUALIZATION_KVM] = "kvm",
-        [VIRTUALIZATION_AMAZON] = "amazon",
-        [VIRTUALIZATION_QEMU] = "qemu",
-        [VIRTUALIZATION_BOCHS] = "bochs",
-        [VIRTUALIZATION_XEN] = "xen",
-        [VIRTUALIZATION_UML] = "uml",
-        [VIRTUALIZATION_VMWARE] = "vmware",
-        [VIRTUALIZATION_ORACLE] = "oracle",
-        [VIRTUALIZATION_MICROSOFT] = "microsoft",
-        [VIRTUALIZATION_ZVM] = "zvm",
-        [VIRTUALIZATION_PARALLELS] = "parallels",
-        [VIRTUALIZATION_BHYVE] = "bhyve",
-        [VIRTUALIZATION_QNX] = "qnx",
-        [VIRTUALIZATION_ACRN] = "acrn",
-        [VIRTUALIZATION_POWERVM] = "powervm",
-        [VIRTUALIZATION_VM_OTHER] = "vm-other",
+        [VIRTUALIZATION_NONE]            = "none",
+        [VIRTUALIZATION_KVM]             = "kvm",
+        [VIRTUALIZATION_AMAZON]          = "amazon",
+        [VIRTUALIZATION_QEMU]            = "qemu",
+        [VIRTUALIZATION_BOCHS]           = "bochs",
+        [VIRTUALIZATION_XEN]             = "xen",
+        [VIRTUALIZATION_UML]             = "uml",
+        [VIRTUALIZATION_VMWARE]          = "vmware",
+        [VIRTUALIZATION_ORACLE]          = "oracle",
+        [VIRTUALIZATION_MICROSOFT]       = "microsoft",
+        [VIRTUALIZATION_ZVM]             = "zvm",
+        [VIRTUALIZATION_PARALLELS]       = "parallels",
+        [VIRTUALIZATION_BHYVE]           = "bhyve",
+        [VIRTUALIZATION_QNX]             = "qnx",
+        [VIRTUALIZATION_ACRN]            = "acrn",
+        [VIRTUALIZATION_POWERVM]         = "powervm",
+        [VIRTUALIZATION_APPLE]           = "apple",
+        [VIRTUALIZATION_VM_OTHER]        = "vm-other",
 
-        [VIRTUALIZATION_SYSTEMD_NSPAWN] = "systemd-nspawn",
-        [VIRTUALIZATION_LXC_LIBVIRT] = "lxc-libvirt",
-        [VIRTUALIZATION_LXC] = "lxc",
-        [VIRTUALIZATION_OPENVZ] = "openvz",
-        [VIRTUALIZATION_DOCKER] = "docker",
-        [VIRTUALIZATION_PODMAN] = "podman",
-        [VIRTUALIZATION_RKT] = "rkt",
-        [VIRTUALIZATION_WSL] = "wsl",
-        [VIRTUALIZATION_PROOT] = "proot",
-        [VIRTUALIZATION_POUCH] = "pouch",
+        [VIRTUALIZATION_SYSTEMD_NSPAWN]  = "systemd-nspawn",
+        [VIRTUALIZATION_LXC_LIBVIRT]     = "lxc-libvirt",
+        [VIRTUALIZATION_LXC]             = "lxc",
+        [VIRTUALIZATION_OPENVZ]          = "openvz",
+        [VIRTUALIZATION_DOCKER]          = "docker",
+        [VIRTUALIZATION_PODMAN]          = "podman",
+        [VIRTUALIZATION_RKT]             = "rkt",
+        [VIRTUALIZATION_WSL]             = "wsl",
+        [VIRTUALIZATION_PROOT]           = "proot",
+        [VIRTUALIZATION_POUCH]           = "pouch",
         [VIRTUALIZATION_CONTAINER_OTHER] = "container-other",
 };
 

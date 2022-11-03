@@ -643,11 +643,7 @@ static int transient_unit_set_properties(sd_bus_message *m, UnitType t, char **p
                         return bus_log_create_error(r);
         }
 
-        r = bus_append_unit_property_assignment_many(m, t, properties);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return bus_append_unit_property_assignment_many(m, t, properties);
 }
 
 static int transient_cgroup_set_properties(sd_bus_message *m) {
@@ -1081,10 +1077,9 @@ static int run_context_update(RunContext *c, const char *path) {
 }
 
 static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        RunContext *c = userdata;
+        RunContext *c = ASSERT_PTR(userdata);
 
         assert(m);
-        assert(c);
 
         return run_context_update(c, sd_bus_message_get_path(m));
 }
@@ -1322,7 +1317,7 @@ static int start_transient_service(
                                 log_info("Finished with result: %s", strna(c.result));
 
                         if (c.exit_code == CLD_EXITED)
-                                log_info("Main processes terminated with: code=%s/status=%i",
+                                log_info("Main processes terminated with: code=%s/status=%u",
                                          sigchld_code_to_string(c.exit_code), c.exit_status);
                         else if (c.exit_code > 0)
                                 log_info("Main processes terminated with: code=%s/status=%s",
@@ -1533,6 +1528,9 @@ static int start_transient_scope(sd_bus *bus) {
                 if (setresuid(uid, uid, uid) < 0)
                         return log_error_errno(errno, "Failed to change UID to " UID_FMT ": %m", uid);
         }
+
+        if (arg_working_directory && chdir(arg_working_directory) < 0)
+                return log_error_errno(errno, "Failed to change directory to '%s': %m", arg_working_directory);
 
         env = strv_env_merge(environ, user_env, arg_environment);
         if (!env)

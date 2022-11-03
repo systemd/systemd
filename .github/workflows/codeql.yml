@@ -1,0 +1,58 @@
+---
+# vi: ts=2 sw=2 et:
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+name: "CodeQL"
+
+on:
+  pull_request:
+    branches:
+      - main
+      - v[0-9]+-stable
+    paths:
+      - '**/meson.build'
+      - '.github/**/codeql*'
+      - 'src/**'
+      - 'test/**'
+      - 'tools/**'
+  push:
+    branches:
+      - main
+      - v[0-9]+-stable
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-22.04
+    concurrency:
+      group: ${{ github.workflow }}-${{ matrix.language }}-${{ github.ref }}
+      cancel-in-progress: true
+    permissions:
+      actions: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['cpp', 'python']
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@ec3cf9c605b848da5f1e41e8452719eb1ccfb9a6
+      with:
+        languages: ${{ matrix.language }}
+        config-file: ./.github/codeql-config.yml
+
+    - run: sudo -E .github/workflows/unit_tests.sh SETUP
+
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@ec3cf9c605b848da5f1e41e8452719eb1ccfb9a6
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@ec3cf9c605b848da5f1e41e8452719eb1ccfb9a6

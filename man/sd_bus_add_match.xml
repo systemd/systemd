@@ -99,7 +99,7 @@
     synchronously when connected to a bus broker, i.e. the call sends a control message requested the match to be added
     to the broker and waits until the broker confirms the match has been installed successfully.</para>
 
-    <para><function>sd_bus_add_match_async()</function> operates very similar to
+    <para><function>sd_bus_add_match_async()</function> operates very similarly to
     <function>sd_bus_add_match()</function>, however it installs the match asynchronously, in a non-blocking
     fashion: a request is sent to the broker, but the call does not wait for a response. The
     <parameter>install_callback</parameter> function is called when the response is later received, with the response

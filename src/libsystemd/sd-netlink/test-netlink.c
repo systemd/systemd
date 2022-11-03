@@ -16,7 +16,6 @@
 #include "macro.h"
 #include "netlink-genl.h"
 #include "netlink-internal.h"
-#include "netlink-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -100,7 +99,7 @@ static void test_address_get(sd_netlink *rtnl, int ifindex) {
 
         assert_se(sd_rtnl_message_new_addr(rtnl, &m, RTM_GETADDR, ifindex, AF_INET) >= 0);
         assert_se(m);
-        assert_se(sd_netlink_message_request_dump(m, true) >= 0);
+        assert_se(sd_netlink_message_set_request_dump(m, true) >= 0);
         assert_se(sd_netlink_call(rtnl, m, -1, &r) == 1);
 
         assert_se(sd_netlink_message_read_in_addr(r, IFA_LOCAL, &in_data) == 0);
@@ -481,7 +480,7 @@ static void test_get_addresses(sd_netlink *rtnl) {
         log_debug("/* %s */", __func__);
 
         assert_se(sd_rtnl_message_new_addr(rtnl, &req, RTM_GETADDR, 0, AF_UNSPEC) >= 0);
-        assert_se(sd_netlink_message_request_dump(req, true) >= 0);
+        assert_se(sd_netlink_message_set_request_dump(req, true) >= 0);
         assert_se(sd_netlink_call(rtnl, req, 0, &reply) >= 0);
 
         for (m = reply; m; m = sd_netlink_message_next(m)) {
@@ -500,7 +499,7 @@ static void test_get_addresses(sd_netlink *rtnl) {
                 assert_se(ifindex > 0);
                 assert_se(IN_SET(family, AF_INET, AF_INET6));
 
-                log_info("got IPv%u address on ifindex %i", family == AF_INET ? 4: 6, ifindex);
+                log_info("got IPv%i address on ifindex %i", family == AF_INET ? 4 : 6, ifindex);
         }
 }
 
@@ -573,7 +572,7 @@ static void test_strv(sd_netlink *rtnl) {
         }
 
         assert_se(sd_netlink_message_open_container(m, IFLA_PROP_LIST) >= 0);
-        assert_se(sd_netlink_message_append_strv(m, IFLA_ALT_IFNAME, names_in) >= 0);
+        assert_se(sd_netlink_message_append_strv(m, IFLA_ALT_IFNAME, (const char**) names_in) >= 0);
         assert_se(sd_netlink_message_close_container(m) >= 0);
 
         message_seal(m);
@@ -657,6 +656,8 @@ static void test_genl(void) {
         (void) sd_genl_message_new(genl, MACSEC_GENL_NAME, 0, &m);
         m = sd_netlink_message_unref(m);
         (void) sd_genl_message_new(genl, NL80211_GENL_NAME, 0, &m);
+        m = sd_netlink_message_unref(m);
+        (void) sd_genl_message_new(genl, NETLBL_NLTYPE_UNLABELED_NAME, 0, &m);
 
         for (;;) {
                 r = sd_event_run(event, 500 * USEC_PER_MSEC);

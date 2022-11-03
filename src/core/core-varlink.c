@@ -202,11 +202,25 @@ static int vl_method_subscribe_managed_oom_cgroups(
                 void *userdata) {
 
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
+        pid_t pid;
+        Unit *u;
         int r;
 
         assert(link);
-        assert(m);
+
+        r = varlink_get_peer_pid(link, &pid);
+        if (r < 0)
+                return r;
+
+        u = manager_get_unit_by_pid(m, pid);
+        if (!u)
+                return varlink_error(link, VARLINK_ERROR_PERMISSION_DENIED, NULL);
+
+        /* This is meant to be a deterrent and not actual security. The alternative is to check for the systemd-oom
+         * user that this unit runs as, but NSS lookups are blocking and not allowed from PID 1. */
+        if (!streq(u->id, "systemd-oomd.service"))
+                return varlink_error(link, VARLINK_ERROR_PERMISSION_DENIED, NULL);
 
         if (json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
@@ -261,12 +275,11 @@ static int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, Var
         };
         _cleanup_free_ char *found_name = NULL;
         uid_t found_uid = UID_INVALID, uid;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *un;
         int r;
 
         assert(parameters);
-        assert(m);
 
         r = json_dispatch(parameters, dispatch_table, NULL, 0, &p);
         if (r < 0)
@@ -369,12 +382,11 @@ static int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, Va
         };
         _cleanup_free_ char *found_name = NULL;
         uid_t found_gid = GID_INVALID, gid;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *gn;
         int r;
 
         assert(parameters);
-        assert(m);
 
         r = json_dispatch(parameters, dispatch_table, NULL, 0, &p);
         if (r < 0)
@@ -464,9 +476,8 @@ static int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, Var
 }
 
 static void vl_disconnect(VarlinkServer *s, Varlink *link, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
-        assert(m);
         assert(s);
         assert(link);
 
@@ -486,24 +497,9 @@ static int manager_varlink_init_system(Manager *m) {
         if (!MANAGER_IS_SYSTEM(m))
                 return 0;
 
-        r = varlink_server_new(&s, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA);
+        r = manager_setup_varlink_server(m, &s);
         if (r < 0)
-                return log_error_errno(r, "Failed to allocate varlink server object: %m");
-
-        varlink_server_set_userdata(s, m);
-
-        r = varlink_server_bind_method_many(
-                        s,
-                        "io.systemd.UserDatabase.GetUserRecord",  vl_method_get_user_record,
-                        "io.systemd.UserDatabase.GetGroupRecord", vl_method_get_group_record,
-                        "io.systemd.UserDatabase.GetMemberships", vl_method_get_memberships,
-                        "io.systemd.ManagedOOM.SubscribeManagedOOMCGroups",  vl_method_subscribe_managed_oom_cgroups);
-        if (r < 0)
-                return log_error_errno(r, "Failed to register varlink methods: %m");
-
-        r = varlink_server_bind_disconnect(s, vl_disconnect);
-        if (r < 0)
-                return log_error_errno(r, "Failed to register varlink disconnect handler: %m");
+                return log_error_errno(r, "Failed to set up varlink server: %m");
 
         if (!MANAGER_IS_TEST_RUN(m)) {
                 (void) mkdir_p_label("/run/systemd/userdb", 0755);
@@ -526,10 +522,8 @@ static int manager_varlink_init_system(Manager *m) {
 }
 
 static int vl_reply(Varlink *link, JsonVariant *parameters, const char *error_id, VarlinkReplyFlags flags, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
-
-        assert(m);
 
         if (error_id)
                 log_debug("varlink systemd-oomd client error: %s", error_id);
@@ -586,6 +580,36 @@ static int manager_varlink_init_user(Manager *m) {
         (void) manager_varlink_send_managed_oom_initial(m);
 
         return 1;
+}
+
+int manager_setup_varlink_server(Manager *m, VarlinkServer **ret) {
+        _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
+        int r;
+
+        assert(m);
+        assert(ret);
+
+        r = varlink_server_new(&s, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to allocate varlink server object: %m");
+
+        varlink_server_set_userdata(s, m);
+
+        r = varlink_server_bind_method_many(
+                        s,
+                        "io.systemd.UserDatabase.GetUserRecord",  vl_method_get_user_record,
+                        "io.systemd.UserDatabase.GetGroupRecord", vl_method_get_group_record,
+                        "io.systemd.UserDatabase.GetMemberships", vl_method_get_memberships,
+                        "io.systemd.ManagedOOM.SubscribeManagedOOMCGroups",  vl_method_subscribe_managed_oom_cgroups);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to register varlink methods: %m");
+
+        r = varlink_server_bind_disconnect(s, vl_disconnect);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to register varlink disconnect handler: %m");
+
+        *ret = TAKE_PTR(s);
+        return 0;
 }
 
 int manager_varlink_init(Manager *m) {

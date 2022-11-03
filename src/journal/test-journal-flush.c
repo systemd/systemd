@@ -13,7 +13,7 @@
 #include "path-util.h"
 #include "string-util.h"
 
-int main(int argc, char *argv[]) {
+static void test_journal_flush(int argc, char *argv[]) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         _cleanup_free_ char *fn = NULL;
         char dn[] = "/var/tmp/test-journal-flush.XXXXXX";
@@ -70,6 +70,14 @@ int main(int argc, char *argv[]) {
 
         unlink(fn);
         assert_se(rmdir(dn) == 0);
+}
+
+int main(int argc, char *argv[]) {
+        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1) >= 0);
+        test_journal_flush(argc, argv);
+
+        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1) >= 0);
+        test_journal_flush(argc, argv);
 
         return 0;
 }

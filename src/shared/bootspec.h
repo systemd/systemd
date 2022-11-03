@@ -39,7 +39,16 @@ typedef struct BootEntry {
         char **initrd;
         char *device_tree;
         char **device_tree_overlay;
+        unsigned tries_left;
+        unsigned tries_done;
 } BootEntry;
+
+#define BOOT_ENTRY_INIT(t)                      \
+        {                                       \
+                .type = (t),                    \
+                .tries_left = UINT_MAX,         \
+                .tries_done = UINT_MAX,         \
+        }
 
 typedef struct BootConfig {
         char *default_pattern;
@@ -100,7 +109,7 @@ int boot_config_load(BootConfig *config, const char *esp_path, const char *xboot
 int boot_config_load_auto(BootConfig *config, const char *override_esp_path, const char *override_xbootldr_path);
 int boot_config_augment_from_loader(BootConfig *config, char **list, bool only_auto);
 
-int boot_config_select_special_entries(BootConfig *config);
+int boot_config_select_special_entries(BootConfig *config, bool skip_efivars);
 
 static inline const char* boot_entry_title(const BootEntry *entry) {
         assert(entry);
@@ -116,3 +125,5 @@ int show_boot_entry(
 int show_boot_entries(
                 const BootConfig *config,
                 JsonFormatFlags json_format);
+
+int boot_filename_extract_tries(const char *fname, char **ret_stripped, unsigned *ret_tries_left, unsigned *ret_tries_done);

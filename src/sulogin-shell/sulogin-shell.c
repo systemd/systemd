@@ -8,6 +8,7 @@
 
 #include "sd-bus.h"
 
+#include "bus-locator.h"
 #include "bus-util.h"
 #include "bus-error.h"
 #include "def.h"
@@ -24,21 +25,16 @@ static int reload_manager(sd_bus *bus) {
 
         log_info("Reloading system manager configuration");
 
-        r = sd_bus_message_new_method_call(
+        r = bus_message_new_method_call(
                         bus,
                         &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
+                        bus_systemd_mgr,
                         "Reload");
         if (r < 0)
                 return bus_log_create_error(r);
 
-        /* Note we use an extra-long timeout here. This is because a reload or reexec means generators are rerun which
-         * are timed out after DEFAULT_TIMEOUT_USEC. Let's use twice that time here, so that the generators can have
-         * their timeout, and for everything else there's the same time budget in place. */
-
-        r = sd_bus_call(bus, m, DEFAULT_TIMEOUT_USEC * 2, &error, NULL);
+        /* Reloading the daemon may take long, hence set a longer timeout here */
+        r = sd_bus_call(bus, m, DAEMON_RELOAD_TIMEOUT_SEC, &error, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to reload daemon: %s", bus_error_message(&error, r));
 
@@ -49,20 +45,19 @@ static int start_default_target(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
-        log_info("Starting default target");
+        log_info("Starting "SPECIAL_DEFAULT_TARGET);
 
-        /* Start these units only if we can replace base.target with it */
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.systemd1",
-                               "/org/freedesktop/systemd1",
-                               "org.freedesktop.systemd1.Manager",
-                               "StartUnit",
-                               &error,
-                               NULL,
-                               "ss", SPECIAL_DEFAULT_TARGET, "isolate");
+        /* Start this unit only if we can replace basic.target with it */
+        r = bus_call_method(
+                        bus,
+                        bus_systemd_mgr,
+                        "StartUnit",
+                        &error,
+                        NULL,
+                        "ss", SPECIAL_DEFAULT_TARGET, "isolate");
 
         if (r < 0)
-                return log_error_errno(r, "Failed to start default target: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to start "SPECIAL_DEFAULT_TARGET": %s", bus_error_message(&error, r));
 
         return 0;
 }

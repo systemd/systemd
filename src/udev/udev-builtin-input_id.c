@@ -50,7 +50,7 @@ static void extract_info(sd_device *dev, bool test) {
         struct input_absinfo xabsinfo = {}, yabsinfo = {};
         _cleanup_close_ int fd = -1;
 
-        fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+        fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
                 return;
 
@@ -288,7 +288,7 @@ static bool test_pointers(sd_device *dev,
                                         num_well_known_keys++;
 
                 if (num_well_known_keys >= 4 || num_joystick_buttons + num_joystick_axes < 2) {
-                        log_device_debug(dev, "Input device has %zd joystick buttons and %zd axes but also %zd keyboard key sets, "
+                        log_device_debug(dev, "Input device has %zu joystick buttons and %zu axes but also %zu keyboard key sets, "
                                          "assuming this is a keyboard, not a joystick.",
                                          num_joystick_buttons, num_joystick_axes, num_well_known_keys);
                         is_joystick = false;

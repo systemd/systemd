@@ -24,6 +24,7 @@
 #include "main-func.h"
 #include "memory-util.h"
 #include "process-util.h"
+#include "reboot-util.h"
 #include "special.h"
 
 #define SERVER_FD_MAX 16
@@ -103,7 +104,7 @@ static int change_runlevel(Server *s, int runlevel) {
         else
                 mode = "replace-irreversibly";
 
-        log_debug("Running request %s/start/%s", target, mode);
+        log_debug("Requesting %s/start/%s", target, mode);
 
         r = sd_bus_call_method(
                         s->bus,

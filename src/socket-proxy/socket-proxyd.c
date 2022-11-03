@@ -95,7 +95,7 @@ static int idle_time_cb(sd_event_source *s, uint64_t usec, void *userdata) {
 }
 
 static int connection_release(Connection *c) {
-        Context *context = c->context;
+        Context *context = ASSERT_PTR(ASSERT_PTR(c)->context);
         int r;
 
         connection_free(c);
@@ -213,12 +213,11 @@ static int connection_shovel(
 static int connection_enable_event_sources(Connection *c);
 
 static int traffic_cb(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        Connection *c = userdata;
+        Connection *c = ASSERT_PTR(userdata);
         int r;
 
         assert(s);
         assert(fd >= 0);
-        assert(c);
 
         r = connection_shovel(c,
                               &c->server_fd, c->server_to_client_buffer, &c->client_fd,
@@ -321,13 +320,12 @@ fail:
 }
 
 static int connect_cb(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        Connection *c = userdata;
+        Connection *c = ASSERT_PTR(userdata);
         socklen_t solen;
         int error, r;
 
         assert(s);
         assert(fd >= 0);
-        assert(c);
 
         solen = sizeof(error);
         r = getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &solen);
@@ -505,13 +503,12 @@ static int add_connection_socket(Context *context, int fd) {
 
 static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_free_ char *peer = NULL;
-        Context *context = userdata;
+        Context *context = ASSERT_PTR(userdata);
         int nfd = -1, r;
 
         assert(s);
         assert(fd >= 0);
         assert(revents & EPOLLIN);
-        assert(context);
 
         nfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
         if (nfd < 0) {

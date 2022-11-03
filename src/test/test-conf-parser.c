@@ -322,7 +322,7 @@ static void test_config_parse_one(unsigned i, const char *s) {
                 {}
         };
 
-        log_info("== %s[%i] ==", __func__, i);
+        log_info("== %s[%u] ==", __func__, i);
 
         assert_se(fmkostemp_safe(name, "r+", &f) == 0);
         assert_se(fwrite(s, strlen(s), 1, f) == 1);

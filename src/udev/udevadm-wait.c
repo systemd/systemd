@@ -7,8 +7,10 @@
 
 #include "alloc-util.h"
 #include "chase-symlinks.h"
+#include "device-monitor-private.h"
 #include "device-util.h"
 #include "errno-util.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "inotify-util.h"
@@ -97,10 +99,17 @@ static bool check(void) {
 }
 
 static int check_and_exit(sd_event *event) {
+        int r;
+
         assert(event);
 
-        if (check())
-                return sd_event_exit(event, 0);
+        if (check()) {
+                r = sd_event_exit(event, 0);
+                if (r < 0)
+                        return r;
+
+                return 1;
+        }
 
         return 0;
 }
@@ -157,28 +166,21 @@ static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device,
         if (path_strv_contains(arg_devices, name))
                 return check_and_exit(sd_device_monitor_get_event(monitor));
 
-        STRV_FOREACH(p, arg_devices) {
-                const char *link;
-
-                if (!path_startswith(*p, "/dev"))
-                        continue;
-
-                FOREACH_DEVICE_DEVLINK(device, link)
-                        if (path_equal(*p, link))
-                                return check_and_exit(sd_device_monitor_get_event(monitor));
-        }
+        FOREACH_DEVICE_DEVLINK(device, name)
+                if (path_strv_contains(arg_devices, name))
+                        return check_and_exit(sd_device_monitor_get_event(monitor));
 
         return 0;
 }
 
-static int setup_monitor(sd_event *event, sd_device_monitor **ret) {
+static int setup_monitor(sd_event *event, MonitorNetlinkGroup group, const char *description, sd_device_monitor **ret) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
         int r;
 
         assert(event);
         assert(ret);
 
-        r = sd_device_monitor_new(&monitor);
+        r = device_monitor_new_full(&monitor, group, /* fd = */ -1);
         if (r < 0)
                 return r;
 
@@ -188,12 +190,11 @@ static int setup_monitor(sd_event *event, sd_device_monitor **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_device_monitor_start(monitor, device_monitor_handler, NULL);
+        r = sd_device_monitor_set_description(monitor, description);
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_description(sd_device_monitor_get_event_source(monitor),
-                                            "device-monitor-event-source");
+        r = sd_device_monitor_start(monitor, device_monitor_handler, NULL);
         if (r < 0)
                 return r;
 
@@ -240,6 +241,58 @@ static int setup_timer(sd_event *event) {
                 return r;
 
         r = sd_event_source_set_description(s, "timeout-event-source");
+        if (r < 0)
+                return r;
+
+        return sd_event_source_set_floating(s, true);
+}
+
+static int reset_timer(sd_event *e, sd_event_source **s);
+
+static int on_periodic_timer(sd_event_source *s, uint64_t usec, void *userdata) {
+        static unsigned counter = 0;
+        sd_event *e;
+        int r;
+
+        assert(s);
+
+        e = sd_event_source_get_event(s);
+
+        /* Even if all devices exists, we try to wait for uevents to be emitted from kernel. */
+        if (check())
+                counter++;
+        else
+                counter = 0;
+
+        if (counter >= 2) {
+                log_debug("All requested devices popped up without receiving kernel uevents.");
+                return sd_event_exit(e, 0);
+        }
+
+        r = reset_timer(e, &s);
+        if (r < 0)
+                log_warning_errno(r, "Failed to reset periodic timer event source, ignoring: %m");
+
+        return 0;
+}
+
+static int reset_timer(sd_event *e, sd_event_source **s) {
+        return event_reset_time_relative(e, s, CLOCK_BOOTTIME, 250 * USEC_PER_MSEC, 0,
+                                         on_periodic_timer, NULL, 0, "periodic-timer-event-source", false);
+}
+
+static int setup_periodic_timer(sd_event *event) {
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        int r;
+
+        assert(event);
+
+        r = reset_timer(event, &s);
+        if (r < 0)
+                return r;
+
+        /* Set the lower priority than device monitor, to make uevents always dispatched first. */
+        r = sd_event_source_set_priority(s, SD_EVENT_PRIORITY_NORMAL + 1);
         if (r < 0)
                 return r;
 
@@ -327,7 +380,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int wait_main(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *udev_monitor = NULL, *kernel_monitor = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int r;
 
@@ -363,9 +416,32 @@ int wait_main(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set up inotify: %m");
 
-        r = setup_monitor(event, &monitor);
+        r = setup_monitor(event, MONITOR_GROUP_UDEV, "udev-uevent-monitor-event-source", &udev_monitor);
         if (r < 0)
-                return log_error_errno(r, "Failed to set up device monitor: %m");
+                return log_error_errno(r, "Failed to set up udev uevent monitor: %m");
+
+        if (arg_wait_until == WAIT_UNTIL_ADDED) {
+                /* If --initialized=no is specified, it is not necessary to wait uevents for the specified
+                 * devices to be processed by udevd. Hence, let's listen on the kernel's uevent stream. Then,
+                 * we may be able to finish this program earlier when udevd is very busy.
+                 * Note, we still need to also setup udev monitor, as this may be invoked with a devlink
+                 * (e.g. /dev/disk/by-id/foo). In that case, the devlink may not exist when we received a
+                 * uevent from kernel, as the udevd may not finish to process the uevent yet. Hence, we need
+                 * to wait until the event is processed by udevd. */
+                r = setup_monitor(event, MONITOR_GROUP_KERNEL, "kernel-uevent-monitor-event-source", &kernel_monitor);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set up kernel uevent monitor: %m");
+
+                /* This is a workaround for issues #24360 and #24450.
+                 * For some reasons, the kernel sometimes does not emit uevents for loop block device on
+                 * attach. Hence, without the periodic timer, no event source for this program will be
+                 * triggered, and this will be timed out.
+                 * Theoretically, inotify watch may be better, but this program typically expected to run in
+                 * a short time. Hence, let's use the simpler periodic timer event source here. */
+                r = setup_periodic_timer(event);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set up periodic timer: %m");
+        }
 
         /* Check before entering the event loop, as devices may be initialized during setting up event sources. */
         if (check())

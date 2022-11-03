@@ -1,63 +1,65 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <fnmatch.h>
-
+#include "device-private.h"
 #include "device-util.h"
-#include "path-util.h"
+#include "devnum-util.h"
+#include "fd-util.h"
+#include "string-util.h"
 
-static bool device_match_sysattr_value(sd_device *device, const char *sysattr, const char *match_value) {
-        const char *value;
+int devname_from_devnum(mode_t mode, dev_t devnum, char **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_free_ char *s = NULL;
+        const char *devname;
+        int r;
 
-        assert(device);
-        assert(sysattr);
+        assert(ret);
 
-        if (sd_device_get_sysattr_value(device, sysattr, &value) < 0)
-                return false;
+        if (major(devnum) == 0 && minor(devnum) == 0)
+                return device_path_make_inaccessible(mode, ret);
 
-        if (!match_value)
-                return true;
+        r = device_new_from_mode_and_devnum(&dev, mode, devnum);
+        if (r < 0)
+                return r;
 
-        if (fnmatch(match_value, value, 0) == 0)
-                return true;
+        r = sd_device_get_devname(dev, &devname);
+        if (r < 0)
+                return r;
 
-        return false;
+        s = strdup(devname);
+        if (!s)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(s);
+        return 0;
 }
 
-bool device_match_sysattr(sd_device *device, Hashmap *match_sysattr, Hashmap *nomatch_sysattr) {
-        const char *sysattr;
-        const char *value;
+int device_open_from_devnum(mode_t mode, dev_t devnum, int flags, char **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_close_ int fd = -1;
+        int r;
 
-        assert(device);
+        r = device_new_from_mode_and_devnum(&dev, mode, devnum);
+        if (r < 0)
+                return r;
 
-        HASHMAP_FOREACH_KEY(value, sysattr, match_sysattr)
-                if (!device_match_sysattr_value(device, sysattr, value))
-                        return false;
+        fd = sd_device_open(dev, flags);
+        if (fd < 0)
+                return fd;
 
-        HASHMAP_FOREACH_KEY(value, sysattr, nomatch_sysattr)
-                if (device_match_sysattr_value(device, sysattr, value))
-                        return false;
+        if (ret) {
+                const char *devname;
+                char *s;
 
-        return true;
-}
+                r = sd_device_get_devname(dev, &devname);
+                if (r < 0)
+                        return r;
 
-bool device_match_parent(sd_device *device, Set *match_parent, Set *nomatch_parent) {
-        const char *syspath_parent, *syspath;
+                s = strdup(devname);
+                if (!s)
+                        return -ENOMEM;
 
-        assert(device);
+                *ret = s;
+        }
 
-        if (sd_device_get_syspath(device, &syspath) < 0)
-                return false;
-
-        SET_FOREACH(syspath_parent, nomatch_parent)
-                if (path_startswith(syspath, syspath_parent))
-                        return false;
-
-        if (set_isempty(match_parent))
-                return true;
-
-        SET_FOREACH(syspath_parent, match_parent)
-                if (path_startswith(syspath, syspath_parent))
-                        return true;
-
-        return false;
+        return TAKE_FD(fd);
 }

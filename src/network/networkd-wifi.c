@@ -123,10 +123,10 @@ int manager_genl_process_nl80211_config(sd_netlink *genl, sd_netlink_message *me
         }
         if (r >= 0) {
                 if (len == 0) {
-                        log_link_debug(link, "nl80211: received SSID has zero length, ignoring the received SSID: %m");
+                        log_link_debug(link, "nl80211: received SSID has zero length, ignoring it: %m");
                         ssid = mfree(ssid);
                 } else if (strlen_ptr(ssid) != len) {
-                        log_link_debug(link, "nl80211: received SSID contains NUL character(s), ignoring the received SSID.");
+                        log_link_debug(link, "nl80211: received SSID contains NUL characters, ignoring it.");
                         ssid = mfree(ssid);
                 }
         }

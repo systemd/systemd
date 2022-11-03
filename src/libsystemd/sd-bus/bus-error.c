@@ -92,7 +92,7 @@ static int bus_error_name_to_errno(const char *name) {
                                 }
                         }
 
-        m = ALIGN_TO_PTR(__start_SYSTEMD_BUS_ERROR_MAP, sizeof(void*));
+        m = ALIGN_PTR(__start_SYSTEMD_BUS_ERROR_MAP);
         while (m < __stop_SYSTEMD_BUS_ERROR_MAP) {
                 /* For magic ELF error maps, the end marker might
                  * appear in the middle of things, since multiple maps
@@ -101,7 +101,7 @@ static int bus_error_name_to_errno(const char *name) {
                  * boundary, which is the selected alignment for the
                  * arrays. */
                 if (m->code == BUS_ERROR_MAP_END_MARKER) {
-                        m = ALIGN_TO_PTR(m + 1, sizeof(void*));
+                        m = ALIGN_PTR(m + 1);
                         continue;
                 }
 
@@ -237,7 +237,7 @@ _public_ int sd_bus_error_set(sd_bus_error *e, const char *name, const char *mes
         return -r;
 }
 
-int bus_error_setfv(sd_bus_error *e, const char *name, const char *format, va_list ap) {
+_public_ int sd_bus_error_setfv(sd_bus_error *e, const char *name, const char *format, va_list ap) {
         int r;
 
         if (!name)
@@ -277,7 +277,7 @@ _public_ int sd_bus_error_setf(sd_bus_error *e, const char *name, const char *fo
                 va_list ap;
 
                 va_start(ap, format);
-                r = bus_error_setfv(e, name, format, ap);
+                r = sd_bus_error_setfv(e, name, format, ap);
                 assert(!name || r < 0);
                 va_end(ap);
 
@@ -494,7 +494,7 @@ _public_ int sd_bus_error_set_errno(sd_bus_error *e, int error) {
                         *e = BUS_ERROR_FAILED;
         }
 
-        /* Now, fill in the message from strerror() if we can */
+        /* Now, fill in the message from strerror_r() if we can */
         bus_error_strerror(e, error);
         return -error;
 }
@@ -555,7 +555,7 @@ _public_ int sd_bus_error_set_errnofv(sd_bus_error *e, int error, const char *fo
         }
 
 fail:
-        /* If that didn't work, use strerror() for the message */
+        /* If that didn't work, use strerror_r() for the message */
         bus_error_strerror(e, error);
         return -error;
 }
@@ -586,19 +586,16 @@ _public_ int sd_bus_error_set_errnof(sd_bus_error *e, int error, const char *for
         return sd_bus_error_set_errno(e, error);
 }
 
-const char *bus_error_message(const sd_bus_error *e, int error) {
+const char* _bus_error_message(const sd_bus_error *e, int error, char buf[static ERRNO_BUF_LEN]) {
+        /* Sometimes, the D-Bus server is a little bit too verbose with
+         * its error messages, so let's override them here */
+        if (sd_bus_error_has_name(e, SD_BUS_ERROR_ACCESS_DENIED))
+                return "Access denied";
 
-        if (e) {
-                /* Sometimes, the D-Bus server is a little bit too verbose with
-                 * its error messages, so let's override them here */
-                if (sd_bus_error_has_name(e, SD_BUS_ERROR_ACCESS_DENIED))
-                        return "Access denied";
+        if (e && e->message)
+                return e->message;
 
-                if (e->message)
-                        return e->message;
-        }
-
-        return strerror_safe(error);
+        return strerror_r(abs(error), buf, ERRNO_BUF_LEN);
 }
 
 static bool map_ok(const sd_bus_error_map *map) {

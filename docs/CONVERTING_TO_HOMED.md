@@ -56,8 +56,8 @@ Here's the step-by-step guide:
 
    This will tell you the `/etc/passwd` and `/etc/shadow` entries for your
    user. For details about the fields, see the respective man pages
-   [passwd(5)](http://man7.org/linux/man-pages/man5/passwd.5.html) and
-   [shadow(5)](http://man7.org/linux/man-pages/man5/shadow.5.html).
+   [passwd(5)](https://man7.org/linux/man-pages/man5/passwd.5.html) and
+   [shadow(5)](https://man7.org/linux/man-pages/man5/shadow.5.html).
 
    The fourth field in the `getent passwd foobar` output tells you the GID of
    your user's main group. Depending on your distribution it's a group private

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <float.h>
-#include <math.h>
 
 #include "alloc-util.h"
 #include "escape.h"
@@ -9,6 +8,7 @@
 #include "fileio.h"
 #include "json-internal.h"
 #include "json.h"
+#include "math-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -50,8 +50,8 @@ static void test_tokenizer_one(const char *data, ...) {
 
                         d = va_arg(ap, double);
 
-                        assert_se(fabsl(d - v.real) < 1e-10 ||
-                                  fabsl((d - v.real) / v.real) < 1e-10);
+                        assert_se(fabs(d - v.real) < 1e-10 ||
+                                  fabs((d - v.real) / v.real) < 1e-10);
 
                 } else if (t == JSON_TOKEN_INTEGER) {
                         int64_t i;
@@ -221,7 +221,7 @@ static void test_2(JsonVariant *v) {
 
         /* has thisisaverylongproperty */
         p = json_variant_by_key(v, "thisisaverylongproperty");
-        assert_se(p && json_variant_type(p) == JSON_VARIANT_REAL && fabsl(json_variant_real(p) - 1.27) < 0.001);
+        assert_se(p && json_variant_type(p) == JSON_VARIANT_REAL && fabs(json_variant_real(p) - 1.27) < 0.001);
 }
 
 static void test_zeroes(JsonVariant *v) {
@@ -239,9 +239,7 @@ static void test_zeroes(JsonVariant *v) {
                 assert_se(json_variant_integer(w) == 0);
                 assert_se(json_variant_unsigned(w) == 0U);
 
-                DISABLE_WARNING_FLOAT_EQUAL;
-                assert_se(json_variant_real(w) == 0.0L);
-                REENABLE_WARNING;
+                assert_se(iszero_safe(json_variant_real(w)));
 
                 assert_se(json_variant_is_integer(w));
                 assert_se(json_variant_is_unsigned(w));
@@ -344,6 +342,24 @@ TEST(build) {
                              )) >= 0);
 
         assert_se(json_variant_equal(a, b));
+}
+
+TEST(json_parse_file_empty) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+        assert_se(fopen_unlocked("/dev/null", "re", &f) >= 0);
+        assert_se(json_parse_file(f, "waldo", 0, &v, NULL, NULL) == -ENODATA);
+        assert_se(v == NULL);
+}
+
+TEST(json_parse_file_invalid) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+        assert_se(f = fmemopen_unlocked((void*) "kookoo", 6, "r"));
+        assert_se(json_parse_file(f, "waldo", 0, &v, NULL, NULL) == -EINVAL);
+        assert_se(v == NULL);
 }
 
 TEST(source) {
@@ -511,14 +527,14 @@ static void test_float_match(JsonVariant *v) {
         const double delta = 0.0001;
 
         assert_se(json_variant_is_array(v));
-        assert_se(json_variant_elements(v) == 9);
-        assert_se(fabsl((double) 1.0 - ((double) DBL_MIN / json_variant_real(json_variant_by_index(v, 0)))) <= delta);
-        assert_se(fabsl((double) 1.0 - ((double) DBL_MAX / json_variant_real(json_variant_by_index(v, 1)))) <= delta);
+        assert_se(json_variant_elements(v) == 11);
+        assert_se(fabs(1.0 - (DBL_MIN / json_variant_real(json_variant_by_index(v, 0)))) <= delta);
+        assert_se(fabs(1.0 - (DBL_MAX / json_variant_real(json_variant_by_index(v, 1)))) <= delta);
         assert_se(json_variant_is_null(json_variant_by_index(v, 2))); /* nan is not supported by json → null */
         assert_se(json_variant_is_null(json_variant_by_index(v, 3))); /* +inf is not supported by json → null */
         assert_se(json_variant_is_null(json_variant_by_index(v, 4))); /* -inf is not supported by json → null */
         assert_se(json_variant_is_null(json_variant_by_index(v, 5)) ||
-                  fabsl((double) 1.0 - ((double) HUGE_VAL / json_variant_real(json_variant_by_index(v, 5)))) <= delta); /* HUGE_VAL might be +inf, but might also be something else */
+                  fabs(1.0 - (HUGE_VAL / json_variant_real(json_variant_by_index(v, 5)))) <= delta); /* HUGE_VAL might be +inf, but might also be something else */
         assert_se(json_variant_is_real(json_variant_by_index(v, 6)) &&
                   json_variant_is_integer(json_variant_by_index(v, 6)) &&
                   json_variant_integer(json_variant_by_index(v, 6)) == 0);
@@ -528,6 +544,12 @@ static void test_float_match(JsonVariant *v) {
         assert_se(json_variant_is_real(json_variant_by_index(v, 8)) &&
                   json_variant_is_integer(json_variant_by_index(v, 8)) &&
                   json_variant_integer(json_variant_by_index(v, 8)) == -10);
+        assert_se(json_variant_is_real(json_variant_by_index(v, 9)) &&
+                  !json_variant_is_integer(json_variant_by_index(v, 9)));
+        assert_se(fabs(1.0 - (DBL_MIN / 2 / json_variant_real(json_variant_by_index(v, 9)))) <= delta);
+        assert_se(json_variant_is_real(json_variant_by_index(v, 10)) &&
+                  !json_variant_is_integer(json_variant_by_index(v, 10)));
+        assert_se(fabs(1.0 - (-DBL_MIN / 2 / json_variant_real(json_variant_by_index(v, 10)))) <= delta);
 }
 
 TEST(float) {
@@ -543,7 +565,9 @@ TEST(float) {
                                              JSON_BUILD_REAL(HUGE_VAL),
                                              JSON_BUILD_REAL(0),
                                              JSON_BUILD_REAL(10),
-                                             JSON_BUILD_REAL(-10))) >= 0);
+                                             JSON_BUILD_REAL(-10),
+                                             JSON_BUILD_REAL(DBL_MIN / 2),
+                                             JSON_BUILD_REAL(-DBL_MIN / 2))) >= 0);
 
         json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
 
@@ -623,6 +647,21 @@ TEST(variant) {
         test_variant_one("{\"foo\" : \"\\u0935\\u093f\\u0935\\u0947\\u0915\\u0916\\u094d\\u092f\\u093e\\u0924\\u093f\\u0930\\u0935\\u093f\\u092a\\u094d\\u0932\\u0935\\u093e\\u0020\\u0939\\u093e\\u0928\\u094b\\u092a\\u093e\\u092f\\u0903\\u0964\"}", NULL);
 
         test_variant_one("[ 0, -0, 0.0, -0.0, 0.000, -0.000, 0e0, -0e0, 0e+0, -0e-0, 0e-0, -0e000, 0e+000 ]", test_zeroes);
+}
+
+TEST(json_append) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
+
+        assert_se(json_build(&v, JSON_BUILD_OBJECT(
+                                             JSON_BUILD_PAIR("b", JSON_BUILD_STRING("x")),
+                                             JSON_BUILD_PAIR("c", JSON_BUILD_CONST_STRING("y")),
+                                             JSON_BUILD_PAIR("a", JSON_BUILD_CONST_STRING("z")))) >= 0);
+
+        assert_se(json_append(&w, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("b", JSON_BUILD_STRING("x")))) >= 0);
+        assert_se(json_append(&w, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("c", JSON_BUILD_STRING("y")))) >= 0);
+        assert_se(json_append(&w, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("a", JSON_BUILD_STRING("z")))) >= 0);
+
+        assert_se(json_variant_equal(v, w));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

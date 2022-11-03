@@ -89,7 +89,7 @@
   <refsect1>
     <title>Options</title>
 
-    <para>Socket files may include a [Unit] section, which is described in
+    <para>Scope files may include a [Unit] section, which is described in
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 

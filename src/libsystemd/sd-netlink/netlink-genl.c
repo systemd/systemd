@@ -12,7 +12,7 @@
 typedef struct GenericNetlinkFamily {
         sd_netlink *genl;
 
-        const NLTypeSystem *type_system;
+        const NLAPolicySet *policy_set;
 
         uint16_t id; /* a.k.a nlmsg_type */
         char *name;
@@ -56,14 +56,14 @@ void genl_clear_family(sd_netlink *nl) {
 static int genl_family_new_unsupported(
                 sd_netlink *nl,
                 const char *family_name,
-                const NLTypeSystem *type_system) {
+                const NLAPolicySet *policy_set) {
 
         _cleanup_(genl_family_freep) GenericNetlinkFamily *f = NULL;
         int r;
 
         assert(nl);
         assert(family_name);
-        assert(type_system);
+        assert(policy_set);
 
         /* Kernel does not support the genl family? To prevent from resolving the family name again,
          * let's store the family with zero id to indicate that. */
@@ -73,7 +73,7 @@ static int genl_family_new_unsupported(
                 return -ENOMEM;
 
         *f = (GenericNetlinkFamily) {
-                .type_system = type_system,
+                .policy_set = policy_set,
         };
 
         f->name = strdup(family_name);
@@ -92,7 +92,7 @@ static int genl_family_new_unsupported(
 static int genl_family_new(
                 sd_netlink *nl,
                 const char *expected_family_name,
-                const NLTypeSystem *type_system,
+                const NLAPolicySet *policy_set,
                 sd_netlink_message *message,
                 const GenericNetlinkFamily **ret) {
 
@@ -103,7 +103,7 @@ static int genl_family_new(
 
         assert(nl);
         assert(expected_family_name);
-        assert(type_system);
+        assert(policy_set);
         assert(message);
         assert(ret);
 
@@ -112,7 +112,7 @@ static int genl_family_new(
                 return -ENOMEM;
 
         *f = (GenericNetlinkFamily) {
-                .type_system = type_system,
+                .policy_set = policy_set,
         };
 
         r = sd_genl_message_get_family_name(nl, message, &family_name);
@@ -205,13 +205,13 @@ static int genl_family_new(
         return 0;
 }
 
-static const NLTypeSystem *genl_family_get_type_system(const GenericNetlinkFamily *family) {
+static const NLAPolicySet *genl_family_get_policy_set(const GenericNetlinkFamily *family) {
         assert(family);
 
-        if (family->type_system)
-                return family->type_system;
+        if (family->policy_set)
+                return family->policy_set;
 
-        return genl_get_type_system_by_name(family->name);
+        return genl_get_policy_set_by_name(family->name);
 }
 
 static int genl_message_new(
@@ -221,7 +221,7 @@ static int genl_message_new(
                 sd_netlink_message **ret) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        const NLTypeSystem *type_system;
+        const NLAPolicySet *policy_set;
         int r;
 
         assert(nl);
@@ -229,11 +229,11 @@ static int genl_message_new(
         assert(family);
         assert(ret);
 
-        type_system = genl_family_get_type_system(family);
-        if (!type_system)
+        policy_set = genl_family_get_policy_set(family);
+        if (!policy_set)
                 return -EOPNOTSUPP;
 
-        r = message_new_full(nl, family->id, type_system,
+        r = message_new_full(nl, family->id, policy_set,
                              sizeof(struct genlmsghdr) + family->additional_header_size, &m);
         if (r < 0)
                 return r;
@@ -254,7 +254,7 @@ static int genl_family_get_by_name_internal(
                 const GenericNetlinkFamily **ret) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
-        const NLTypeSystem *type_system;
+        const NLAPolicySet *policy_set;
         int r;
 
         assert(nl);
@@ -263,8 +263,8 @@ static int genl_family_get_by_name_internal(
         assert(name);
         assert(ret);
 
-        type_system = genl_get_type_system_by_name(name);
-        if (!type_system)
+        policy_set = genl_get_policy_set_by_name(name);
+        if (!policy_set)
                 return -EOPNOTSUPP;
 
         r = genl_message_new(nl, ctrl, CTRL_CMD_GETFAMILY, &req);
@@ -276,11 +276,11 @@ static int genl_family_get_by_name_internal(
                 return r;
 
         if (sd_netlink_call(nl, req, 0, &reply) < 0) {
-                (void) genl_family_new_unsupported(nl, name, type_system);
+                (void) genl_family_new_unsupported(nl, name, policy_set);
                 return -EOPNOTSUPP;
         }
 
-        return genl_family_new(nl, name, type_system, reply, ret);
+        return genl_family_new(nl, name, policy_set, reply, ret);
 }
 
 static int genl_family_get_by_name(sd_netlink *nl, const char *name, const GenericNetlinkFamily **ret) {
@@ -335,10 +335,10 @@ static int genl_family_get_by_id(sd_netlink *nl, uint16_t id, const GenericNetli
         return -ENOENT;
 }
 
-int genl_get_type_system_and_header_size(
+int genl_get_policy_set_and_header_size(
                 sd_netlink *nl,
                 uint16_t id,
-                const NLTypeSystem **ret_type_system,
+                const NLAPolicySet **ret_policy_set,
                 size_t *ret_header_size) {
 
         const GenericNetlinkFamily *f;
@@ -351,14 +351,14 @@ int genl_get_type_system_and_header_size(
         if (r < 0)
                 return r;
 
-        if (ret_type_system) {
-                const NLTypeSystem *t;
+        if (ret_policy_set) {
+                const NLAPolicySet *p;
 
-                t = genl_family_get_type_system(f);
-                if (!t)
+                p = genl_family_get_policy_set(f);
+                if (!p)
                         return -EOPNOTSUPP;
 
-                *ret_type_system = t;
+                *ret_policy_set = p;
         }
         if (ret_header_size)
                 *ret_header_size = sizeof(struct genlmsghdr) + f->additional_header_size;
@@ -420,7 +420,7 @@ int sd_genl_message_get_command(sd_netlink *nl, sd_netlink_message *m, uint8_t *
         if (r < 0)
                 return r;
 
-        r = genl_get_type_system_and_header_size(nl, nlmsg_type, NULL, &size);
+        r = genl_get_policy_set_and_header_size(nl, nlmsg_type, NULL, &size);
         if (r < 0)
                 return r;
 

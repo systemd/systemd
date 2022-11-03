@@ -13,11 +13,10 @@
 static int bus_method_dump_by_fd(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *dump = NULL;
         _cleanup_close_ int fd = -1;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(m);
 
         r = manager_get_dump_string(m, &dump);
         if (r < 0)
@@ -38,6 +37,11 @@ static const sd_bus_vtable manager_vtable[] = {
                                  SD_BUS_PARAM(fd),
                                  bus_method_dump_by_fd,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_SIGNAL_WITH_NAMES("Killed",
+                                 "ss",
+                                 SD_BUS_PARAM(cgroup)
+                                 SD_BUS_PARAM(reason),
+                                 0),
         SD_BUS_VTABLE_END
 };
 

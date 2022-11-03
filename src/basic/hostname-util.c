@@ -75,10 +75,8 @@ int gethostname_full(GetHostnameFlags flags, char **ret) {
 bool valid_ldh_char(char c) {
         /* "LDH" → "Letters, digits, hyphens", as per RFC 5890, Section 2.3.1 */
 
-        return
-                (c >= 'a' && c <= 'z') ||
-                (c >= 'A' && c <= 'Z') ||
-                (c >= '0' && c <= '9') ||
+        return ascii_isalpha(c) ||
+                ascii_isdigit(c) ||
                 c == '-';
 }
 

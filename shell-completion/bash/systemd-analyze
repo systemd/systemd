@@ -16,7 +16,7 @@
 # General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
 
 __contains_word () {
     local w word=$1; shift
@@ -27,7 +27,9 @@ __contains_word () {
 
 __get_machines() {
     local a b
-    machinectl list --full --no-legend --no-pager | { while read a b; do echo " $a"; done; };
+    { machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } | \
+	{ while read a b; do echo " $a"; done; } | \
+        sort -u
 }
 
 __get_units_all() {
@@ -60,9 +62,10 @@ _systemd_analyze() {
     )
 
     local -A VERBS=(
-        [STANDALONE]='time blame plot dump unit-paths exit-status calendar timestamp timespan'
+        [STANDALONE]='time blame plot unit-paths exit-status calendar timestamp timespan'
         [CRITICAL_CHAIN]='critical-chain'
         [DOT]='dot'
+        [DUMP]='dump'
         [VERIFY]='verify'
         [SECCOMP_FILTER]='syscall-filter'
         [CAT_CONFIG]='cat-config'
@@ -123,6 +126,13 @@ _systemd_analyze() {
     elif __contains_word "$verb" ${VERBS[DOT]}; then
         if [[ $cur = -* ]]; then
             comps='--help --version --system --user --global --from-pattern --to-pattern --order --require'
+        fi
+
+    elif __contains_word "$verb" ${VERBS[DUMP]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --system --user --no-pager'
+        else
+            comps=$( __get_units_all )
         fi
 
     elif __contains_word "$verb" ${VERBS[SECCOMP_FILTER]}; then

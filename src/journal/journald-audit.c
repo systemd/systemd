@@ -161,9 +161,8 @@ static int map_generic_field(
                 if (*e == '=')
                         break;
 
-                if (!((*e >= 'a' && *e <= 'z') ||
-                      (*e >= 'A' && *e <= 'Z') ||
-                      (*e >= '0' && *e <= '9') ||
+                if (!(ascii_isalpha(*e) ||
+                      ascii_isdigit(*e) ||
                       IN_SET(*e, '_', '-')))
                         return 0;
         }

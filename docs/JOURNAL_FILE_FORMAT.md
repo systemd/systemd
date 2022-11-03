@@ -71,7 +71,7 @@ thread](https://lists.freedesktop.org/archives/systemd-devel/2012-October/007054
 
 ## Basics
 
-* All offsets, sizes, time values, hashes (and most other numeric values) are 64bit unsigned integers in LE format.
+* All offsets, sizes, time values, hashes (and most other numeric values) are 32bit/64bit unsigned integers in LE format.
 * Offsets are always relative to the beginning of the file.
 * The 64bit hash function siphash24 is used for newer journal files. For older files [Jenkins lookup3](https://en.wikipedia.org/wiki/Jenkins_hash_function) is used, more specifically `jenkins_hashlittle2()` with the first 32bit integer it returns as higher 32bit part of the 64bit value, and the second one uses as lower 32bit part.
 * All structures are aligned to 64bit boundaries and padded to multiples of 64bit
@@ -177,6 +177,9 @@ _packed_ struct Header {
         /* Added in 246 */
         le64_t data_hash_chain_depth;
         le64_t field_hash_chain_depth;
+        /* Added in 252 */
+        le32_t tail_entry_array_offset;                 \
+        le32_t tail_entry_array_n_entries;              \
 };
 ```
 
@@ -231,6 +234,8 @@ became too frequent.
 Similar, **field_hash_chain_depth** is a counter of the deepest chain in the
 field hash table, minus one.
 
+**tail_entry_array_offset** and **tail_entry_array_n_entries** allow immediate
+access to the last entry array in the global entry array chain.
 
 ## Extensibility
 
@@ -259,6 +264,7 @@ enum {
         HEADER_INCOMPATIBLE_COMPRESSED_LZ4  = 1 << 1,
         HEADER_INCOMPATIBLE_KEYED_HASH      = 1 << 2,
         HEADER_INCOMPATIBLE_COMPRESSED_ZSTD = 1 << 3,
+        HEADER_INCOMPATIBLE_COMPACT         = 1 << 4,
 };
 
 enum {
@@ -275,6 +281,9 @@ objects compressed with ZSTD.
 HEADER_INCOMPATIBLE_KEYED_HASH indicates that instead of the unkeyed Jenkins
 hash function the keyed siphash24 hash function is used for the two hash
 tables, see below.
+
+HEADER_INCOMPATIBLE_COMPACT indicates that the journal file uses the new binary
+format that uses less space on disk compared to the original format.
 
 HEADER_COMPATIBLE_SEALED indicates that the file includes TAG objects required
 for Forward Secure Sealing.
@@ -393,7 +402,16 @@ _packed_ struct DataObject {
         le64_t entry_offset; /* the first array entry we store inline */
         le64_t entry_array_offset;
         le64_t n_entries;
-        uint8_t payload[];
+        union {                                                         \
+                struct {                                                \
+                        uint8_t payload[] ;                             \
+                } regular;                                              \
+                struct {                                                \
+                        le32_t tail_entry_array_offset;                 \
+                        le32_t tail_entry_array_n_entries;              \
+                        uint8_t payload[];                              \
+                } compact;                                              \
+        };                                                              \
 };
 ```
 
@@ -426,6 +444,9 @@ OBJECT_COMPRESSED_XZ/OBJECT_COMPRESSED_LZ4/OBJECT_COMPRESSED_ZSTD is set in the
 `ObjectHeader`, in which case the payload is compressed with the indicated
 compression algorithm.
 
+If the `HEADER_INCOMPATIBLE_COMPACT` flag is set, Two extra fields are stored to
+allow immediate access to the tail entry array in the DATA object's entry array
+chain.
 
 ## Field Objects
 
@@ -457,11 +478,6 @@ field name. It is the head of a singly linked list using DATA's
 ## Entry Objects
 
 ```
-_packed_ struct EntryItem {
-        le64_t object_offset;
-        le64_t hash;
-};
-
 _packed_ struct EntryObject {
         ObjectHeader object;
         le64_t seqnum;
@@ -469,7 +485,15 @@ _packed_ struct EntryObject {
         le64_t monotonic;
         sd_id128_t boot_id;
         le64_t xor_hash;
-        EntryItem items[];
+        union {                                 \
+                struct {                        \
+                        le64_t object_offset;   \
+                        le64_t hash;            \
+                } regular[];                    \
+                struct {                        \
+                        le32_t object_offset;   \
+                } compact[];                    \
+        } items;                                \
 };
 ```
 
@@ -494,6 +518,10 @@ timestamps.
 The **items[]** array contains references to all DATA objects of this entry,
 plus their respective hashes (which are calculated the same way as in the DATA
 objects, i.e. keyed by the file ID).
+
+If the `HEADER_INCOMPATIBLE_COMPACT` flag is set, DATA object offsets are stored
+as 32-bit integers instead of 64bit and the unused hash field per data object is
+not stored anymore.
 
 In the file ENTRY objects are written ordered monotonically by sequence
 number. For continuous parts of the file written during the same boot
@@ -548,13 +576,19 @@ creativity rather than runtime parameters.
 _packed_ struct EntryArrayObject {
         ObjectHeader object;
         le64_t next_entry_array_offset;
-        le64_t items[];
+        union {
+                le64_t regular[];
+                le32_t compact[];
+        } items;
 };
 ```
 
 Entry Arrays are used to store a sorted array of offsets to entries. Entry
 arrays are strictly sorted by offsets on disk, and hence by their timestamps
 and sequence numbers (with some restrictions, see above).
+
+If the `HEADER_INCOMPATIBLE_COMPACT` flag is set, offsets are stored as 32-bit
+integers instead of 64bit.
 
 Entry Arrays are chained up. If one entry array is full another one is
 allocated and the **next_entry_array_offset** field of the old one pointed to

@@ -183,14 +183,14 @@ node /org/freedesktop/import1 {
       specified file descriptor will be a tar file in case of <function>ExportTar()</function> or a raw disk
       image in case of <function>ExportRaw()</function>. Note that currently raw disk images may not be
       exported as tar files, and vice versa. This restriction might be lifted eventually. The method
-      returns a transfer identifier and object path for cancelling or tracking the export operation, similar
+      returns a transfer identifier and object path for cancelling or tracking the export operation, similarly
       to <function>ImportTar()</function> or <function>ImportRaw()</function> as described above.</para>
 
       <para><function>PullTar()</function> and <function>PullRaw()</function> may be used to download, verify
       and import a system image from a URL. They take an URL argument which should point to a tar or
       raw file on the <literal>http://</literal> or <literal>https://</literal> protocols, possibly
       compressed with xz, bzip2 or gzip. The second argument is a local name for the image. It should be
-      suitable as a hostname, similar to the matching argument of the <function>ImportTar()</function> and
+      suitable as a hostname, similarly to the matching argument of the <function>ImportTar()</function> and
       <function>ImportRaw()</function> methods above. The third argument indicates the verification mode for
       the image. It may be one of <literal>no</literal>, <literal>checksum</literal>,
       <literal>signature</literal>. <literal>no</literal> turns off any kind of verification of the image;

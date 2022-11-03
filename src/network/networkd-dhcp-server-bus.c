@@ -17,13 +17,12 @@ static int property_get_leases(
                 sd_bus_message *reply,
                 void *userdata,
                 sd_bus_error *error) {
-        Link *l = userdata;
+        Link *l = ASSERT_PTR(userdata);
         sd_dhcp_server *s;
         DHCPLease *lease;
         int r;
 
         assert(reply);
-        assert(l);
 
         s = l->dhcp_server;
         if (!s)
@@ -96,9 +95,7 @@ static int dhcp_server_emit_changed(Link *link, const char *property, ...) {
 }
 
 void dhcp_server_callback(sd_dhcp_server *s, uint64_t event, void *data) {
-        Link *l = data;
-
-        assert(l);
+        Link *l = ASSERT_PTR(data);
 
         if (event & SD_DHCP_SERVER_EVENT_LEASE_CHANGED)
                 (void) dhcp_server_emit_changed(l, "Leases", NULL);

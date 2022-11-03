@@ -331,11 +331,11 @@
 
       <para>For example, target units will complement all configured dependencies of type
       <varname>Wants=</varname> or <varname>Requires=</varname> with dependencies of type
-      <varname>After=</varname> unless <varname>DefaultDependencies=no</varname> is set in the
-      specified units. See
+      <varname>After=</varname>. See
       <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-      for details. Note that this behavior can be turned off by setting
-      <varname>DefaultDependencies=no</varname>.</para>
+      for details. Note that this behavior can be opted out by setting
+      <varname>DefaultDependencies=no</varname> in the specified units, or it can be selectively
+      overridden via an explicit <varname>Before=</varname> dependency.</para>
     </refsect2>
   </refsect1>
 
@@ -705,7 +705,7 @@
         <para>When used in conjunction with <varname>After=</varname> on the same unit the behaviour of
         <varname>BindsTo=</varname> is even stronger. In this case, the unit bound to strictly has to be in active
         state for this unit to also be in active state. This not only means a unit bound to another unit that suddenly
-        enters inactive state, but also one that is bound to another unit that gets skipped due to a failed condition
+        enters inactive state, but also one that is bound to another unit that gets skipped due to an unmet condition
         check (such as <varname>ConditionPathExists=</varname>, <varname>ConditionPathIsSymbolicLink=</varname>, … —
         see below) will be stopped, should it be running. Hence, in many cases it is best to combine
         <varname>BindsTo=</varname> with <varname>After=</varname>.</para>
@@ -1170,7 +1170,7 @@
 
       <para>The <varname>AssertArchitecture=</varname>, <varname>AssertVirtualization=</varname>, … options
       are similar to conditions but cause the start job to fail (instead of being skipped). The failed check
-      is logged. Units with failed conditions are considered to be in a clean state and will be garbage
+      is logged. Units with unmet conditions are considered to be in a clean state and will be garbage
       collected if they are not referenced. This means that when queried, the condition failure may or may
       not show up in the state of the unit.</para>
 
@@ -1235,11 +1235,32 @@
         <varlistentry>
           <term><varname>ConditionFirmware=</varname></term>
 
-          <listitem><para>Check whether the system's firmware is of a certain type. Possible values are:
-          <literal>uefi</literal> (for systems with EFI),
-          <literal>device-tree</literal> (for systems with a device tree) and
-          <literal>device-tree-compatible(xyz)</literal> (for systems with a device tree that is compatible to <literal>xyz</literal>).</para>
-          </listitem>
+          <listitem><para>Check whether the system's firmware is of a certain type. The following values are
+          possible:</para>
+
+          <itemizedlist>
+            <listitem><para><literal>uefi</literal> matches systems with EFI.</para></listitem>
+
+            <listitem><para><literal>device-tree</literal> matches systems with a device tree.
+            </para></listitem>
+
+            <listitem><para><literal>device-tree-compatible(<replaceable>value</replaceable>)</literal>
+            matches systems with a device tree that is compatible with <literal>value</literal>.
+            </para></listitem>
+
+            <listitem><para><literal>smbios-field(<replaceable>field</replaceable>
+            <replaceable>operator</replaceable> <replaceable>value</replaceable>)</literal> matches systems
+            with a SMBIOS field containing a certain value. <replaceable>field</replaceable> is the name of
+            the SMBIOS field exposed as <literal>sysfs</literal> attribute file below
+            <filename>/sys/class/dmi/id/</filename>. <replaceable>operator</replaceable> is one of
+            <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>&gt;=</literal>,
+            <literal>&gt;</literal>, <literal>==</literal>, <literal>&lt;&gt;</literal> for version
+            comparisons, <literal>=</literal> and <literal>!=</literal> for literal string comparisons, or
+            <literal>$=</literal>, <literal>!$=</literal> for shell-style glob comparisons.
+            <replaceable>value</replaceable> is the expected value of the SMBIOS field value (possibly
+            containing shell style globs in case <literal>$=</literal>/<literal>!$=</literal> is used).
+            </para></listitem>
+          </itemizedlist></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1263,6 +1284,7 @@
           <literal>uml</literal>,
           <literal>bhyve</literal>,
           <literal>qnx</literal>,
+          <literal>apple</literal>,
           <literal>openvz</literal>,
           <literal>lxc</literal>,
           <literal>lxc-libvirt</literal>,
@@ -1315,12 +1337,13 @@
           <term><varname>ConditionKernelVersion=</varname></term>
 
           <listitem><para><varname>ConditionKernelVersion=</varname> may be used to check whether the kernel
-          version (as reported by <command>uname -r</command>) matches a certain expression (or if prefixed
-          with the exclamation mark does not match it). The argument must be a list of (potentially quoted)
-          expressions.  For each of the expressions, if it starts with one of <literal>&lt;</literal>,
-          <literal>&lt;=</literal>, <literal>=</literal>, <literal>!=</literal>, <literal>&gt;=</literal>,
-          <literal>&gt;</literal> a relative version comparison is done, otherwise the specified string is
-          matched with shell-style globs.</para>
+          version (as reported by <command>uname -r</command>) matches a certain expression, or if prefixed
+          with the exclamation mark, does not match. The argument must be a list of (potentially quoted)
+          expressions. Each expression starts with one of <literal>=</literal> or <literal>!=</literal> for
+          string comparisons, <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>==</literal>,
+          <literal>&lt;&gt;</literal>, <literal>&gt;=</literal>, <literal>&gt;</literal> for version
+          comparisons, or <literal>$=</literal>, <literal>!$=</literal> for a shell-style glob match. If no
+          operator is specified, <literal>$=</literal> is implied.</para>
 
           <para>Note that using the kernel version string is an unreliable way to determine which features
           are supported by a kernel, because of the widespread practice of backporting drivers, features, and
@@ -1328,6 +1351,19 @@
           is inherently unportable and should not be used for units which may be used on different
           distributions.</para>
           </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>ConditionCredential=</varname></term>
+
+          <listitem><para><varname>ConditionCredential=</varname> may be used to check whether a credential
+          by the specified name was passed into the service manager. See <ulink
+          url="https://systemd.io/CREDENTIALS">System and Service Credentials</ulink> for details about
+          credentials. If used in services for the system service manager this may be used to conditionalize
+          services based on system credentials passed in. If used in services for the per-user service
+          manager this may be used to conditionalize services based on credentials passed into the
+          <filename>unit@.service</filename> service instance belonging to the user. The argument must be a
+          valid credential name.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1424,15 +1460,18 @@
           <term><varname>ConditionFirstBoot=</varname></term>
 
           <listitem><para>Takes a boolean argument. This condition may be used to conditionalize units on
-          whether the system is booting up for the first time.  This roughly means that <filename>/etc/</filename>
-          is unpopulated (for details, see "First Boot Semantics" in
+          whether the system is booting up for the first time. This roughly means that <filename>/etc/</filename>
+          was unpopulated when the system started booting (for details, see "First Boot Semantics" in
           <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
-          This may be used to populate <filename>/etc/</filename> on the first boot after factory reset, or
-          when a new system instance boots up for the first time.</para>
+          First boot is considered finished (this condition will evaluate as false) after the manager
+          has finished the startup phase.</para>
+
+          <para>This condition may be used to populate <filename>/etc/</filename> on the first boot after
+          factory reset, or when a new system instance boots up for the first time.</para>
 
           <para>For robustness, units with <varname>ConditionFirstBoot=yes</varname> should order themselves
           before <filename>first-boot-complete.target</filename> and pull in this passive target with
-          <varname>Wants=</varname>.  This ensures that in a case of an aborted first boot, these units will
+          <varname>Wants=</varname>. This ensures that in a case of an aborted first boot, these units will
           be re-run during the next system startup.</para>
 
           <para>If the <varname>systemd.condition-first-boot=</varname> option is specified on the kernel
@@ -1562,25 +1601,14 @@
           <term><varname>ConditionControlGroupController=</varname></term>
 
           <listitem><para>Check whether given cgroup controllers (e.g. <literal>cpu</literal>) are available
-          for use on the system or whether the legacy v1 cgroup or the modern v2 cgroup hierarchy is used.
-          </para>
+          for use on the system.</para>
 
           <para>Multiple controllers may be passed with a space separating them; in this case the condition
           will only pass if all listed controllers are available for use. Controllers unknown to systemd are
-          ignored. Valid controllers are <literal>cpu</literal>, <literal>cpuacct</literal>,
-          <literal>io</literal>, <literal>blkio</literal>, <literal>memory</literal>,
-          <literal>devices</literal>, and <literal>pids</literal>. Even if available in the kernel, a
-          particular controller may not be available if it was disabled on the kernel command line with
-          <varname>cgroup_disable=controller</varname>.</para>
-
-          <para>Alternatively, two special strings <literal>v1</literal> and <literal>v2</literal> may be
-          specified (without any controller names). <literal>v2</literal> will pass if the unified v2 cgroup
-          hierarchy is used, and <literal>v1</literal> will pass if the legacy v1 hierarchy or the hybrid
-          hierarchy are used (see the discussion of <varname>systemd.unified_cgroup_hierarchy</varname> and
-          <varname>systemd.legacy_systemd_cgroup_controller</varname> in
-          <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          for more information).</para>
-          </listitem>
+          ignored. Valid controllers are <literal>cpu</literal>, <literal>cpuset</literal>,
+          <literal>io</literal>, <literal>memory</literal>, and <literal>pids</literal>. Even if available in
+          the kernel, a particular controller may not be available if it was disabled on the kernel command
+          line with <varname>cgroup_disable=controller</varname>.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1588,10 +1616,11 @@
 
           <listitem><para>Verify that the specified amount of system memory is available to the current
           system. Takes a memory size in bytes as argument, optionally prefixed with a comparison operator
-          <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>=</literal>, <literal>!=</literal>,
-          <literal>&gt;=</literal>, <literal>&gt;</literal>. On bare-metal systems compares the amount of
-          physical memory in the system with the specified size, adhering to the specified comparison
-          operator. In containers compares the amount of memory assigned to the container instead.</para>
+          <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>=</literal> (or <literal>==</literal>),
+          <literal>!=</literal> (or <literal>&lt;&gt;</literal>), <literal>&gt;=</literal>,
+          <literal>&gt;</literal>. On bare-metal systems compares the amount of physical memory in the system
+          with the specified size, adhering to the specified comparison operator. In containers compares the
+          amount of memory assigned to the container instead.</para>
           </listitem>
         </varlistentry>
 
@@ -1600,13 +1629,14 @@
 
           <listitem><para>Verify that the specified number of CPUs is available to the current system. Takes
           a number of CPUs as argument, optionally prefixed with a comparison operator
-          <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>=</literal>, <literal>!=</literal>,
-          <literal>&gt;=</literal>, <literal>&gt;</literal>. Compares the number of CPUs in the CPU affinity
-          mask configured of the service manager itself with the specified number, adhering to the specified
-          comparison operator. On physical systems the number of CPUs in the affinity mask of the service
-          manager usually matches the number of physical CPUs, but in special and virtual environments might
-          differ. In particular, in containers the affinity mask usually matches the number of CPUs assigned
-          to the container and not the physically available ones.</para></listitem>
+          <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>=</literal> (or <literal>==</literal>),
+          <literal>!=</literal> (or <literal>&lt;&gt;</literal>), <literal>&gt;=</literal>,
+          <literal>&gt;</literal>. Compares the number of CPUs in the CPU affinity mask configured of the
+          service manager itself with the specified number, adhering to the specified comparison operator. On
+          physical systems the number of CPUs in the affinity mask of the service manager usually matches the
+          number of physical CPUs, but in special and virtual environments might differ. In particular, in
+          containers the affinity mask usually matches the number of CPUs assigned to the container and not
+          the physically available ones.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1677,10 +1707,12 @@
           <listitem><para>Verify that a specific <literal>key=value</literal> pair is set in the host's
           <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
-          <para>Other than exact matching with <literal>=</literal>, and <literal>!=</literal>, relative
-          comparisons are supported for versioned parameters (e.g. <literal>VERSION_ID</literal>). The
-          comparator can be one of <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>=</literal>,
-          <literal>!=</literal>, <literal>&gt;=</literal> and <literal>&gt;</literal>.</para>
+          <para>Other than exact string matching (with <literal>=</literal> and <literal>!=</literal>),
+          relative comparisons are supported for versioned parameters (e.g. <literal>VERSION_ID</literal>;
+          with <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>==</literal>,
+          <literal>&lt;&gt;</literal>, <literal>&gt;=</literal>, <literal>&gt;</literal>), and shell-style
+          wildcard comparisons (<literal>*</literal>, <literal>?</literal>, <literal>[]</literal>) are
+          supported with the <literal>$=</literal> (match) and <literal>!$=</literal> (non-match).</para>
           </listitem>
         </varlistentry>
 
@@ -1698,7 +1730,7 @@
           limited to <literal>10sec</literal>, <literal>1min</literal> and <literal>5min</literal>. The
           <literal>full</literal> PSI will be checked first, and if not found <literal>some</literal> will be
           checked. For more details, see the documentation on <ulink
-          url="https://www.kernel.org/doc/html/latest/accounting/psi.html">PSI (Pressure Stall Information)
+          url="https://docs.kernel.org/accounting/psi.html">PSI (Pressure Stall Information)
           </ulink>.</para>
 
           <para>Optionally, the threshold value can be prefixed with the slice unit under which the pressure will be checked,
@@ -1713,6 +1745,7 @@
           <term><varname>AssertHost=</varname></term>
           <term><varname>AssertKernelCommandLine=</varname></term>
           <term><varname>AssertKernelVersion=</varname></term>
+          <term><varname>AssertCredential=</varname></term>
           <term><varname>AssertEnvironment=</varname></term>
           <term><varname>AssertSecurity=</varname></term>
           <term><varname>AssertCapability=</varname></term>
@@ -1734,6 +1767,7 @@
           <term><varname>AssertControlGroupController=</varname></term>
           <term><varname>AssertMemory=</varname></term>
           <term><varname>AssertCPUs=</varname></term>
+          <term><varname>AssertCPUFeature=</varname></term>
           <term><varname>AssertOSRelease=</varname></term>
           <term><varname>AssertMemoryPressure=</varname></term>
           <term><varname>AssertCPUPressure=</varname></term>
@@ -2104,7 +2138,7 @@ Note that this setting is <emphasis>not</emphasis> influenced by the <varname>Us
           <row>
             <entry><literal>%s</literal></entry>
             <entry>User shell</entry>
-            <entry>This is the shell of the user running the service manager instance. In case of the system manager this resolves to <literal>/bin/sh</literal>.</entry>
+            <entry>This is the shell of the user running the service manager instance.</entry>
           </row>
           <row>
             <entry><literal>%S</literal></entry>

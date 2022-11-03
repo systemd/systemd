@@ -29,10 +29,25 @@ elif [ -d /sys/firmware/qemu_fw_cfg/by_name ]; then
     # Verify that passing creds through kernel cmdline works
     [ "$(systemd-creds --system cat kernelcmdlinecred)" = "uff" ]
 
+    # And that it also works via SMBIOS
+    [ "$(systemd-creds --system cat smbioscredential)" = "magicdata" ]
+    [ "$(systemd-creds --system cat binarysmbioscredential)" = "magicbinarydata" ]
+
     # If we aren't run in nspawn, we are run in qemu
     systemd-detect-virt -q -v
     expected_credential=myqemucredential
     expected_value=othervalue
+
+    # Verify that writing a sysctl via the kernel cmdline worked
+    [ "$(cat /proc/sys/kernel/domainname)" = "sysctltest" ]
+
+    # Verify that creating a user via sysusers via the kernel cmdline worked
+    grep -q ^credtestuser: /etc/passwd
+
+    # Verify that writing a file via tmpfiles worked
+    [ "$(cat /tmp/sourcedfromcredential)" = "tmpfilessecret" ]
+    [ "$(cat /etc/motd.d/50-provision.conf)" = "hello" ]
+    [ "$(cat /etc/issue.d/50-provision.conf)" = "welcome" ]
 else
     echo "qemu_fw_cfg support missing in kernel. Sniff!"
     expected_credential=""
@@ -51,6 +66,12 @@ if [ "$expected_credential" != "" ] ; then
 
     # Combine it with a fallback (which should have no effect, given the cred should be passed down)
     [ "$(systemd-run -p LoadCredential="$expected_credential" -p SetCredential="$expected_credential":zzz --pipe --wait systemd-creds cat "$expected_credential")" = "$expected_value" ]
+
+    # This should succeed
+    systemd-run -p AssertCredential="$expected_credential" -p Type=oneshot true
+
+    # And this should fail
+    systemd-run -p AssertCredential="undefinedcredential" -p Type=oneshot true && { echo 'unexpected success'; exit 1; }
 fi
 
 # Verify that the creds are immutable

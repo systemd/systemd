@@ -26,6 +26,7 @@
     <cmdsynopsis>
       <command>systemd-sysext</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">COMMAND</arg>
     </cmdsynopsis>
 
     <para><literallayout><filename>systemd-sysext.service</filename></literallayout></para>
@@ -64,7 +65,7 @@
 
     <para>System extensions are supposed to be purely additive, i.e. they are supposed to include only files
     that do not exist in the underlying basic OS image. However, the underlying mechanism (overlayfs) also
-    allows removing files, but it is recommended not to make use of this.</para>
+    allows overlaying or removing files, but it is recommended not to make use of this.</para>
 
     <para>System extension images may be provided in the following formats:</para>
 
@@ -108,17 +109,24 @@
     accessed.</para>
 
     <para>Note that there is no concept of enabling/disabling installed system extension images: all
-    installed extension images are automatically activated at boot.</para>
+    installed extension images are automatically activated at boot. However, you can place an empty directory
+    named like the extension (no <filename>.raw</filename>) in <filename>/etc/extensions/</filename> to "mask"
+    an extension with the same name in a system folder with lower precedence.</para>
 
     <para>A simple mechanism for version compatibility is enforced: a system extension image must carry a
     <filename>/usr/lib/extension-release.d/extension-release.<replaceable>$name</replaceable></filename>
     file, which must match its image name, that is compared with the host <filename>os-release</filename>
-    file: the contained <varname>ID=</varname> fields have to match, as well as the
-    <varname>SYSEXT_LEVEL=</varname> field (if defined). If the latter is not defined, the
-    <varname>VERSION_ID=</varname> field has to match instead. System extensions should not ship a
-    <filename>/usr/lib/os-release</filename> file (as that would be merged into the host
-    <filename>/usr/</filename> tree, overriding the host OS version data, which is not desirable). The
-    <filename>extension-release</filename> file follows the same format and semantics, and carries the same
+    file: the contained <varname>ID=</varname> fields have to match unless <literal>_any</literal> is set
+    for the extension. If the extension <varname>ID=</varname> is not <literal>_any</literal>, the
+    <varname>SYSEXT_LEVEL=</varname> field (if defined) has to match. If the latter is not defined, the
+    <varname>VERSION_ID=</varname> field has to match instead. If the extension defines the
+    <varname>ARCHITECTURE=</varname> field and the value is not <literal>_any</literal> it has to match the kernel's
+    architecture reported by <citerefentry><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+    but the used architecture identifiers are the same as for <varname>ConditionArchitecture=</varname>
+    described in <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    System extensions should not ship a <filename>/usr/lib/os-release</filename> file (as that would be merged
+    into the host <filename>/usr/</filename> tree, overriding the host OS version data, which is not desirable).
+    The <filename>extension-release</filename> file follows the same format and semantics, and carries the same
     content, as the <filename>os-release</filename> file of the OS, but it describes the resources carried
     in the extension image.</para>
   </refsect1>

@@ -7,69 +7,78 @@
 Distribution=opensuse
 Release=tumbleweed
 
-[Packages]
+[Content]
+Packages=
+        dbus-1
+        glibc-locale-base
+        libbpf1
+        libcrypt1
+        libcryptsetup12
+        libdw1
+        libelf1
+        libfido2
+        libgcrypt20
+        libglib-2_0-0
+        libkmod2
+        liblz4-1
+        libmount1
+        libp11-kit0
+        libqrencode4
+        libseccomp2
+        libxkbcommon0
+        pam
+        tpm2-0-tss
+        vim
+
 BuildPackages=
+        audit-devel
+        bpftool
+        dbus-1-devel
         docbook-xsl-stylesheets
+        dwarves
         fdupes
-        gcc
-        gnu-efi
-        gperf
+        gcc-c++
+        glib2-devel
+        glibc-locale
         intltool
         libacl-devel
         libapparmor-devel
         libblkid-devel
+        libbpf-devel
         libbz2-devel
         libcap-devel
         libcryptsetup-devel
         libcurl-devel
+        libdw-devel
+        libelf-devel
+        libfdisk-devel
+        libfido2-devel
         libgcrypt-devel
         libgnutls-devel
         libkmod-devel
-        liblz4-devel
         libmicrohttpd-devel
         libmount-devel
+        libpwquality-devel
         libseccomp-devel
         libselinux-devel
+        libxkbcommon-devel
         libxslt-tools
-        meson
+        liblz4-devel
+        openssl-devel
         pam-devel
-        pciutils-devel
         pcre-devel
-        python3
+        pciutils-devel
         python3-Jinja2
         python3-lxml
         qrencode-devel
         shadow
-        system-user-nobody
-        systemd-sysvinit
-        zlib-devel
-# to satisfy tests
-        acl
-        diffutils
-        glibc-locale
         system-group-obsolete
         system-user-bin
         system-user-daemon
+        system-user-nobody
         system-user-root
+        systemd-sysvinit
         timezone
-
-Packages=
-        gdb
-        # brought in via meson->python3
-        libp11-kit0
-        # --bootable=no
-        dbus-1
-        libapparmor1
-        libcrypt1
-        libcryptsetup12
-        libgcrypt20
-        libgnutls30
-        libkmod2
-        liblz4-1
-        libmount1
-        libqrencode4
-        libseccomp2
-        pam
-        nano
-        strace
-        util-linux
+        tpm2-0-tss-devel
+        xen-devel
+        zlib-devel

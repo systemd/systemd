@@ -26,7 +26,6 @@ DEFINE_STRING_TABLE_LOOKUP_TO_STRING(network_config_source, NetworkConfigSource)
 
 int network_config_state_to_string_alloc(NetworkConfigState s, char **ret) {
         static const char* states[] = {
-                [LOG2U(NETWORK_CONFIG_STATE_PROBING)]     = "probing",
                 [LOG2U(NETWORK_CONFIG_STATE_REQUESTING)]  = "requesting",
                 [LOG2U(NETWORK_CONFIG_STATE_CONFIGURING)] = "configuring",
                 [LOG2U(NETWORK_CONFIG_STATE_CONFIGURED)]  = "configured",
@@ -214,13 +213,12 @@ int config_parse_mud_url(
                 void *userdata) {
 
         _cleanup_free_ char *unescaped = NULL;
-        char **url = data;
+        char **url = ASSERT_PTR(data);
         ssize_t l;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(url);
 
         if (isempty(rvalue)) {
                 *url = mfree(*url);

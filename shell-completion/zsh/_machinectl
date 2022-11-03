@@ -1,15 +1,15 @@
 #compdef machinectl
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-(( $+functions[__machinectl_get_machines] )) ||
-    __machinectl_get_machines () {
+(( $+functions[__machinectl_get_images] )) ||
+    __machinectl_get_images () {
         machinectl --no-legend list-images | {while read -r a b; do echo $a; done;}
     }
 
-(( $+functions[_machinectl_machines] )) ||
-    _machinectl_machines() {
+(( $+functions[_machinectl_images] )) ||
+    _machinectl_images() {
         local -a _machines
-        _machines=("${(fo)$(__machinectl_get_machines)}")
+        _machines=("${(fo)$(__machinectl_get_images)}")
         typeset -U _machines
         if [[ -n "$_machines" ]]; then
             _describe 'machines' _machines
@@ -64,9 +64,9 @@
                     list*|cancel-transfer|pull-tar|pull-raw)
                         msg="no options" ;;
                     clone)
-                        _machinectl_machines ;;
+                        _machinectl_images ;;
                     start)
-                        _machinectl_machines ;;
+                        _machinectl_images ;;
                     *)
                         _sd_machines
                 esac
@@ -95,7 +95,7 @@ _arguments \
     {-a,--all}'[Show all properties.]' \
     {-q,--quiet}'[Suppress output.]' \
     {-l,--full}'[Do not ellipsize cgroup members.]' \
-    '--kill-who=[Who to send signal to.]:killwho:(leader all)' \
+    '--kill-whom=[Whom to send signal to.]:killwhom:(leader all)' \
     {-s+,--signal=}'[Which signal to send.]:signal:_signals' \
     '--read-only[Create read-only bind mount.]' \
     '--mkdir[Create directory before bind mounting, if missing.]' \

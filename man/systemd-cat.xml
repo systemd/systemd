@@ -115,12 +115,10 @@
       <varlistentry>
         <term><option>--level-prefix=</option></term>
 
-        <listitem><para>Controls whether lines read are parsed for
-        syslog priority level prefixes. If enabled (the default), a
-        line prefixed with a priority prefix such as
-        <literal>&lt;5&gt;</literal> is logged at priority 5
-        (<literal>notice</literal>), and similar for the other
-        priority levels. Takes a boolean argument.</para></listitem>
+        <listitem><para>Controls whether lines read are parsed for syslog priority level prefixes. If enabled
+        (the default), a line prefixed with a priority prefix such as <literal>&lt;5&gt;</literal> is logged
+        at priority 5 (<literal>notice</literal>), and similarly for the other priority levels. Takes a
+        boolean argument.</para></listitem>
       </varlistentry>
 
     </variablelist>
@@ -156,10 +154,9 @@
       <programlisting># ls | systemd-cat</programlisting>
     </example>
 
-    <para>Even though the two examples have very similar effects the
-    first is preferable since only one process is running at a time,
-    and both stdout and stderr are captured while in the second
-    example, only stdout is captured.</para>
+    <para>Even though the two examples have very similar effects, the first is preferable, since only one
+    process is running at a time and both stdout and stderr are captured, while in the second example, only
+    stdout is captured.</para>
   </refsect1>
 
   <refsect1>

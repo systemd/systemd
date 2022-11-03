@@ -506,9 +506,9 @@ _public_ int sd_resolve_new(sd_resolve **ret) {
                 resolve->fds[i] = fd_move_above_stdio(resolve->fds[i]);
 
         (void) fd_inc_sndbuf(resolve->fds[REQUEST_SEND_FD], QUERIES_MAX * BUFSIZE);
-        (void) fd_inc_rcvbuf(resolve->fds[REQUEST_RECV_FD], QUERIES_MAX * BUFSIZE);
+        (void) fd_increase_rxbuf(resolve->fds[REQUEST_RECV_FD], QUERIES_MAX * BUFSIZE);
         (void) fd_inc_sndbuf(resolve->fds[RESPONSE_SEND_FD], QUERIES_MAX * BUFSIZE);
-        (void) fd_inc_rcvbuf(resolve->fds[RESPONSE_RECV_FD], QUERIES_MAX * BUFSIZE);
+        (void) fd_increase_rxbuf(resolve->fds[RESPONSE_RECV_FD], QUERIES_MAX * BUFSIZE);
 
         (void) fd_nonblock(resolve->fds[RESPONSE_RECV_FD], true);
 
@@ -1236,10 +1236,8 @@ _public_ int sd_resolve_query_set_floating(sd_resolve_query *q, int b) {
 }
 
 static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        sd_resolve *resolve = userdata;
+        sd_resolve *resolve = ASSERT_PTR(userdata);
         int r;
-
-        assert(resolve);
 
         r = sd_resolve_process(resolve);
         if (r < 0)

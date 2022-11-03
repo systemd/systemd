@@ -781,5 +781,25 @@ global:
 
 LIBSYSTEMD_252 {
 global:
+        sd_bus_message_read_strv_extend;
+        sd_bus_error_setfv;
+
+        sd_device_new_child;
+        sd_device_get_child_first;
+        sd_device_get_child_next;
+        sd_device_monitor_set_description;
+        sd_device_monitor_get_description;
+
+        sd_event_set_signal_exit;
+
+        sd_id128_string_equal;
+
         sd_hwdb_new_from_path;
 } LIBSYSTEMD_251;
+
+LIBSYSTEMD_253 {
+global:
+        sd_bus_emit_signal_to;
+        sd_bus_emit_signal_tov;
+        sd_bus_message_new_signal_to;
+} LIBSYSTEMD_252;

@@ -74,7 +74,7 @@ static void show_pid_array(
                 else
                         printf("%s%s", prefix, special_glyph(((more || i < n_pids-1) ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT)));
 
-                printf("%s%*"PID_PRI" %s%s\n", ansi_grey(), pid_width, pids[i], strna(t), ansi_normal());
+                printf("%s%*"PID_PRI" %s%s\n", ansi_grey(), (int) pid_width, pids[i], strna(t), ansi_normal());
         }
 }
 
@@ -105,7 +105,7 @@ static int show_cgroup_one_by_path(
                 pid_t pid;
 
                 /* libvirt / qemu uses threaded mode and cgroup.procs cannot be read at the lower levels.
-                 * From https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#threads,
+                 * From https://docs.kernel.org/admin-guide/cgroup-v2.html#threads,
                  * “cgroup.procs” in a threaded domain cgroup contains the PIDs of all processes in
                  * the subtree and is not readable in the subtree proper. */
                 r = cg_read_pid(f, &pid);
@@ -135,12 +135,12 @@ static int is_delegated(int cgfd, const char *path) {
         assert(cgfd >= 0 || path);
 
         r = getxattr_malloc(cgfd < 0 ? path : FORMAT_PROC_FD_PATH(cgfd), "trusted.delegate", &b);
-        if (r == -ENODATA) {
+        if (r < 0 && ERRNO_IS_XATTR_ABSENT(r)) {
                 /* If the trusted xattr isn't set (preferred), then check the untrusted one. Under the
                  * assumption that whoever is trusted enough to own the cgroup, is also trusted enough to
                  * decide if it is delegated or not this should be safe. */
                 r = getxattr_malloc(cgfd < 0 ? path : FORMAT_PROC_FD_PATH(cgfd), "user.delegate", &b);
-                if (r == -ENODATA)
+                if (r < 0 && ERRNO_IS_XATTR_ABSENT(r))
                         return false;
         }
         if (r < 0)

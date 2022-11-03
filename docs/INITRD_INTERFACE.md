@@ -8,15 +8,16 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 # The initrd Interface of systemd
 
-The Linux initrd mechanism (short for "initial RAM disk") refers to a small
-file system archive that is unpacked by the kernel and contains the first
-userspace code that runs. It typically finds and transitions into the actual
-root file system to use. systemd supports both initrd and initrd-less boots. If
-an initrd is used, it is a good idea to pass a few bits of runtime information
-from the initrd to systemd in order to avoid duplicate work and to provide
-performance data to the administrator. In this page we attempt to roughly
-describe the interfaces that exist between the initrd and systemd. These
-interfaces are currently used by dracut and the ArchLinux initrds.
+The Linux initrd mechanism (short for "initial RAM disk", also known as
+"initramfs") refers to a small file system archive that is unpacked by the
+kernel and contains the first userspace code that runs. It typically finds and
+transitions into the actual root file system to use. systemd supports both
+initrd and initrd-less boots. If an initrd is used, it is a good idea to pass a
+few bits of runtime information from the initrd to systemd in order to avoid
+duplicate work and to provide performance data to the administrator. In this
+page we attempt to roughly describe the interfaces that exist between the
+initrd and systemd. These interfaces are currently used by dracut and the
+ArchLinux initrds.
 
 * The initrd should mount `/run/` as a tmpfs and pass it pre-mounted when
   jumping into the main system when executing systemd. The mount options should
@@ -57,10 +58,10 @@ It's all already implemented there!
 It is also possible and recommended to implement the initrd itself based on
 systemd. Here are a few terse notes:
 
-* Provide `/etc/initrd-release` in the initrd image. The idea is that it follows
-  the same format as the usual `/etc/os-release` but describes the initial RAM
-  disk implementation rather than the OS. systemd uses the existence of this
-  file as a flag whether to run in initial RAM disk mode, or not.
+* Provide `/etc/initrd-release` in the initrd image. The idea is that it
+  follows the same format as the usual `/etc/os-release` but describes the
+  initrd implementation rather than the OS. systemd uses the existence of this
+  file as a flag whether to run in initrd mode, or not.
 
 * When run in initrd mode, systemd and its components will read a couple of
   additional command line arguments, which are generally prefixed with `rd.`

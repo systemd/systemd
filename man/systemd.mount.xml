@@ -156,16 +156,14 @@
   <refsect1>
     <title><filename>fstab</filename></title>
 
-    <para>Mount units may either be configured via unit files, or via
-    <filename>/etc/fstab</filename> (see
+    <para>Mount units may either be configured via unit files, or via <filename>/etc/fstab</filename> (see
     <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for details). Mounts listed in <filename>/etc/fstab</filename>
-    will be converted into native units dynamically at boot and when
-    the configuration of the system manager is reloaded. In general,
-    configuring mount points through <filename>/etc/fstab</filename>
-    is the preferred approach. See
-    <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    for details about the conversion.</para>
+    for details). Mounts listed in <filename>/etc/fstab</filename> will be converted into native units
+    dynamically at boot and when the configuration of the system manager is reloaded. In general, configuring
+    mount points through <filename>/etc/fstab</filename> is the preferred approach to manage mounts for
+    humans. For tooling, writing mount units should be preferred over editing <filename>/etc/fstab</filename>.
+    See <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    for details about the conversion from <filename>/etc/fstab</filename> to mount units.</para>
 
     <para>The NFS mount option <option>bg</option> for NFS background mounts
     as documented in <citerefentry project='man-pages'><refentrytitle>nfs</refentrytitle><manvolnum>5</manvolnum></citerefentry>
@@ -423,9 +421,8 @@
       <varlistentry>
         <term><option>x-initrd.mount</option></term>
 
-        <listitem><para>An additional filesystem to be mounted in the
-        initramfs. See <filename>initrd-fs.target</filename>
-        description in
+        <listitem><para>An additional filesystem to be mounted in the initrd. See
+        <filename>initrd-fs.target</filename> description in
         <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>

@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <linux/loop.h>
+#include <sys/file.h>
 #include <sys/mount.h>
 #include <unistd.h>
 
@@ -165,7 +166,7 @@ static int verb_status(int argc, char **argv, void *userdata) {
         if (!t)
                 return log_oom();
 
-        (void) table_set_empty_string(t, "-");
+        table_set_ersatz_string(t, TABLE_ERSATZ_DASH);
 
         STRV_FOREACH(p, arg_hierarchies) {
                 _cleanup_free_ char *resolved = NULL, *f = NULL, *buf = NULL;
@@ -513,7 +514,6 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                 case IMAGE_BLOCK: {
                         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
                         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-                        _cleanup_(decrypted_image_unrefp) DecryptedImage *di = NULL;
                         _cleanup_(verity_settings_done) VeritySettings verity_settings = VERITY_SETTINGS_DEFAULT;
                         DissectImageFlags flags =
                                 DISSECT_IMAGE_READ_ONLY |
@@ -533,22 +533,15 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                                         img->path,
                                         O_RDONLY,
                                         FLAGS_SET(flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
+                                        LOCK_SH,
                                         &d);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set up loopback device for %s: %m", img->path);
 
-                        r = loop_device_flock(d, LOCK_SH);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to lock loopback device: %m");
-
-                        r = dissect_image_and_warn(
-                                        d->fd,
-                                        img->path,
+                        r = dissect_loop_device_and_warn(
+                                        d,
                                         &verity_settings,
                                         NULL,
-                                        d->diskseq,
-                                        d->uevent_seqnum_not_before,
-                                        d->timestamp_not_before,
                                         flags,
                                         &m);
                         if (r < 0)
@@ -564,8 +557,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                         r = dissected_image_decrypt_interactively(
                                         m, NULL,
                                         &verity_settings,
-                                        flags,
-                                        &di);
+                                        flags);
                         if (r < 0)
                                 return r;
 
@@ -578,14 +570,9 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                         if (r < 0)
                                 return r;
 
-                        if (di) {
-                                r = decrypted_image_relinquish(di);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to relinquish DM devices: %m");
-                        }
-
-                        dissected_image_relinquish(m);
-                        loop_device_relinquish(d);
+                        r = dissected_image_relinquish(m);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to relinquish DM and loopback block devices: %m");
                         break;
                 }
                 default:
@@ -885,7 +872,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s [OPTIONS...] [DEVICE]\n"
+        printf("%1$s [OPTIONS...] COMMAND\n"
                "\n%5$sMerge extension images into /usr/ and /opt/ hierarchies.%6$s\n"
                "\n%3$sCommands:%4$s\n"
                "  status                  Show current merge status (default)\n"

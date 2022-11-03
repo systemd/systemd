@@ -14,7 +14,7 @@
 
 [Manager]
 #LogLevel=info
-#LogTarget=console
+#LogTarget=auto
 #LogColor=yes
 #LogLocation=no
 #LogTime=no
@@ -47,3 +47,4 @@
 #DefaultLimitNICE=
 #DefaultLimitRTPRIO=
 #DefaultLimitRTTIME=
+#DefaultSmackProcessLabel=

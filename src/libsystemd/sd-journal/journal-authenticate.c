@@ -81,8 +81,8 @@ int journal_file_hmac_start(JournalFile *f) {
         err = gcry_md_setkey(f->hmac, key, sizeof(key));
         if (gcry_err_code(err) != GPG_ERR_NO_ERROR)
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                       "gcry_md_setkey() failed with error code: %d",
-                                       gcry_err_code(err));
+                                       "gcry_md_setkey() failed with error code: %s",
+                                       gcry_strerror(err));
 
         f->hmac_running = true;
 
@@ -248,7 +248,7 @@ int journal_file_hmac_put_object(JournalFile *f, ObjectType type, Object *o, uin
         case OBJECT_DATA:
                 /* All but hash and payload are mutable */
                 gcry_md_write(f->hmac, &o->data.hash, sizeof(o->data.hash));
-                gcry_md_write(f->hmac, o->data.payload, le64toh(o->object.size) - offsetof(Object, data.payload));
+                gcry_md_write(f->hmac, journal_file_data_payload_field(f, o), le64toh(o->object.size) - journal_file_data_payload_offset(f));
                 break;
 
         case OBJECT_FIELD:

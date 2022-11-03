@@ -31,7 +31,7 @@ typedef struct BaseFilesystem {
 static const BaseFilesystem table[] = {
         { "bin",      0, "usr/bin\0",                  NULL },
         { "lib",      0, "usr/lib\0",                  NULL },
-        { "root",  0755, NULL,                         NULL, true },
+        { "root",  0750, NULL,                         NULL, true },
         { "sbin",     0, "usr/sbin\0",                 NULL },
         { "usr",   0755, NULL,                         NULL },
         { "var",   0755, NULL,                         NULL },
@@ -111,7 +111,7 @@ static const BaseFilesystem table[] = {
         /* s390-linux-gnu */
 #elif defined(__s390x__)
         { "lib64",    0, "usr/lib/"LIB_ARCH_TUPLE"\0"
-                         "usr/lib64",                  "ld-lsb-s390x.so.3" },
+                         "usr/lib64\0",                "ld-lsb-s390x.so.3" },
 #    define KNOW_LIB64_DIRS 1
 #elif defined(__sparc__)
 #endif

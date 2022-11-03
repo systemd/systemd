@@ -151,9 +151,38 @@ int specifier_real_directory(char specifier, const void *data, const char *root,
         return path_extract_directory(path, ret);
 }
 
+int specifier_id128(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        const sd_id128_t *id = ASSERT_PTR(data);
+        char *n;
+
+        n = new(char, SD_ID128_STRING_MAX);
+        if (!n)
+                return -ENOMEM;
+
+        *ret = sd_id128_to_string(*id, n);
+        return 0;
+}
+
+int specifier_uuid(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        const sd_id128_t *id = ASSERT_PTR(data);
+        char *n;
+
+        n = new(char, SD_ID128_UUID_STRING_MAX);
+        if (!n)
+                return -ENOMEM;
+
+        *ret = sd_id128_to_uuid_string(*id, n);
+        return 0;
+}
+
+int specifier_uint64(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+        const uint64_t *n = ASSERT_PTR(data);
+
+        return asprintf(ret, "%" PRIu64, *n) < 0 ? -ENOMEM : 0;
+}
+
 int specifier_machine_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         sd_id128_t id;
-        char *n;
         int r;
 
         assert(ret);
@@ -172,17 +201,11 @@ int specifier_machine_id(char specifier, const void *data, const char *root, con
         if (r < 0)
                 return r;
 
-        n = new(char, SD_ID128_STRING_MAX);
-        if (!n)
-                return -ENOMEM;
-
-        *ret = sd_id128_to_string(id, n);
-        return 0;
+        return specifier_id128(specifier, &id, root, userdata, ret);
 }
 
 int specifier_boot_id(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         sd_id128_t id;
-        char *n;
         int r;
 
         assert(ret);
@@ -191,12 +214,7 @@ int specifier_boot_id(char specifier, const void *data, const char *root, const 
         if (r < 0)
                 return r;
 
-        n = new(char, SD_ID128_STRING_MAX);
-        if (!n)
-                return -ENOMEM;
-
-        *ret = sd_id128_to_string(id, n);
-        return 0;
+        return specifier_id128(specifier, &id, root, userdata, ret);
 }
 
 int specifier_hostname(char specifier, const void *data, const char *root, const void *userdata, char **ret) {

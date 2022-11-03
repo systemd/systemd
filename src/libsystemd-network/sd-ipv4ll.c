@@ -212,21 +212,12 @@ int sd_ipv4ll_is_running(sd_ipv4ll *ll) {
         return sd_ipv4acd_is_running(ll->acd);
 }
 
-static bool ipv4ll_address_is_valid(const struct in_addr *address) {
-        assert(address);
-
-        if (!in4_addr_is_link_local(address))
-                return false;
-
-        return !IN_SET(be32toh(address->s_addr) & 0x0000FF00U, 0x0000U, 0xFF00U);
-}
-
 int sd_ipv4ll_set_address(sd_ipv4ll *ll, const struct in_addr *address) {
         int r;
 
         assert_return(ll, -EINVAL);
         assert_return(address, -EINVAL);
-        assert_return(ipv4ll_address_is_valid(address), -EINVAL);
+        assert_return(in4_addr_is_link_local_dynamic(address), -EINVAL);
 
         r = sd_ipv4acd_set_address(ll->acd, address);
         if (r < 0)
@@ -240,7 +231,6 @@ int sd_ipv4ll_set_address(sd_ipv4ll *ll, const struct in_addr *address) {
 #define PICK_HASH_KEY SD_ID128_MAKE(15,ac,82,a6,d6,3f,49,78,98,77,5d,0c,69,02,94,0b)
 
 static int ipv4ll_pick_address(sd_ipv4ll *ll) {
-        _cleanup_free_ char *address = NULL;
         be32_t addr;
 
         assert(ll);
@@ -257,8 +247,7 @@ static int ipv4ll_pick_address(sd_ipv4ll *ll) {
         } while (addr == ll->address ||
                  IN_SET(be32toh(addr) & 0x0000FF00U, 0x0000U, 0xFF00U));
 
-        (void) in_addr_to_string(AF_INET, &(union in_addr_union) { .in.s_addr = addr }, &address);
-        log_ipv4ll(ll, "Picked new IP address %s.", strna(address));
+        log_ipv4ll(ll, "Picked new IP address %s.", IN4_ADDR_TO_STRING((const struct in_addr*) &addr));
 
         return sd_ipv4ll_set_address(ll, &(struct in_addr) { addr });
 }
@@ -324,12 +313,11 @@ static void ipv4ll_client_notify(sd_ipv4ll *ll, int event) {
 }
 
 void ipv4ll_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
-        sd_ipv4ll *ll = userdata;
+        sd_ipv4ll *ll = ASSERT_PTR(userdata);
         IPV4LL_DONT_DESTROY(ll);
         int r;
 
         assert(acd);
-        assert(ll);
 
         switch (event) {
 
@@ -369,9 +357,7 @@ error:
 }
 
 static int ipv4ll_check_mac(sd_ipv4acd *acd, const struct ether_addr *mac, void *userdata) {
-        sd_ipv4ll *ll = userdata;
-
-        assert(ll);
+        sd_ipv4ll *ll = ASSERT_PTR(userdata);
 
         if (ll->check_mac_callback)
                 return ll->check_mac_callback(ll, mac, ll->check_mac_userdata);

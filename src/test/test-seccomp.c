@@ -132,6 +132,8 @@ TEST(architecture_table) {
                        "mips-le\0"
                        "mips64-le\0"
                        "mips64-le-n32\0"
+                       "parisc\0"
+                       "parisc64\0"
                        "ppc\0"
                        "ppc64\0"
                        "ppc64-le\0"
@@ -557,22 +559,32 @@ TEST(restrict_realtime) {
         assert_se(pid >= 0);
 
         if (pid == 0) {
-                assert_se(sched_setscheduler(0, SCHED_FIFO, &(struct sched_param) { .sched_priority = 1 }) >= 0);
-                assert_se(sched_setscheduler(0, SCHED_RR, &(struct sched_param) { .sched_priority = 1 }) >= 0);
+                /* On some CI environments, the restriction may be already enabled. */
+                if (sched_setscheduler(0, SCHED_FIFO, &(struct sched_param) { .sched_priority = 1 }) < 0) {
+                        log_full_errno(errno == EPERM ? LOG_DEBUG : LOG_WARNING, errno,
+                                       "Failed to set scheduler parameter for FIFO: %m");
+                        assert(errno == EPERM);
+                }
+                if (sched_setscheduler(0, SCHED_RR, &(struct sched_param) { .sched_priority = 1 }) < 0) {
+                        log_full_errno(errno == EPERM ? LOG_DEBUG : LOG_WARNING, errno,
+                                       "Failed to set scheduler parameter for RR: %m");
+                        assert(errno == EPERM);
+                }
+
                 assert_se(sched_setscheduler(0, SCHED_IDLE, &(struct sched_param) { .sched_priority = 0 }) >= 0);
                 assert_se(sched_setscheduler(0, SCHED_BATCH, &(struct sched_param) { .sched_priority = 0 }) >= 0);
                 assert_se(sched_setscheduler(0, SCHED_OTHER, &(struct sched_param) {}) >= 0);
 
-                assert_se(seccomp_restrict_realtime() >= 0);
+                assert_se(seccomp_restrict_realtime_full(ENOANO) >= 0);
 
                 assert_se(sched_setscheduler(0, SCHED_IDLE, &(struct sched_param) { .sched_priority = 0 }) >= 0);
                 assert_se(sched_setscheduler(0, SCHED_BATCH, &(struct sched_param) { .sched_priority = 0 }) >= 0);
                 assert_se(sched_setscheduler(0, SCHED_OTHER, &(struct sched_param) {}) >= 0);
 
                 assert_se(sched_setscheduler(0, SCHED_FIFO, &(struct sched_param) { .sched_priority = 1 }) < 0);
-                assert_se(errno == EPERM);
+                assert_se(errno == ENOANO);
                 assert_se(sched_setscheduler(0, SCHED_RR, &(struct sched_param) { .sched_priority = 1 }) < 0);
-                assert_se(errno == EPERM);
+                assert_se(errno == ENOANO);
 
                 _exit(EXIT_SUCCESS);
         }
@@ -934,8 +946,15 @@ TEST(lock_personality) {
         }
 
         assert_se(opinionated_personality(&current) >= 0);
+        /* On ppc64le sanitizers disable ASLR (i.e. by setting ADDR_NO_RANDOMIZE),
+         * which opinionated_personality() doesn't return. Let's tweak the current
+         * personality ourselves in such cases.
+         * See: https://github.com/llvm/llvm-project/commit/78f7a6eaa601bfdd6ae70ffd3da2254c21ff77f9
+         */
+        if (FLAGS_SET(safe_personality(PERSONALITY_INVALID), ADDR_NO_RANDOMIZE))
+                current |= ADDR_NO_RANDOMIZE;
 
-        log_info("current personality=%lu", current);
+        log_info("current personality=0x%lX", current);
 
         pid = fork();
         assert_se(pid >= 0);
@@ -945,13 +964,14 @@ TEST(lock_personality) {
 
                 assert_se((unsigned long) safe_personality(current) == current);
 
-                /* Note, we also test that safe_personality() works correctly, by checkig whether errno is properly
+                /* Note, we also test that safe_personality() works correctly, by checking whether errno is properly
                  * set, in addition to the return value */
                 errno = 0;
-                assert_se(safe_personality(PER_LINUX | ADDR_NO_RANDOMIZE) == -EPERM);
+                assert_se(safe_personality(PER_LINUX | MMAP_PAGE_ZERO) == -EPERM);
                 assert_se(errno == EPERM);
 
-                assert_se(safe_personality(PER_LINUX | MMAP_PAGE_ZERO) == -EPERM);
+                if (!FLAGS_SET(current, ADDR_NO_RANDOMIZE))
+                        assert_se(safe_personality(PER_LINUX | ADDR_NO_RANDOMIZE) == -EPERM);
                 assert_se(safe_personality(PER_LINUX | ADDR_COMPAT_LAYOUT) == -EPERM);
                 assert_se(safe_personality(PER_LINUX | READ_IMPLIES_EXEC) == -EPERM);
                 assert_se(safe_personality(PER_LINUX_32BIT) == -EPERM);

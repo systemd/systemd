@@ -15,7 +15,10 @@
 #include "condition.h"
 #include "cpu-set-util.h"
 #include "efi-loader.h"
+#include "env-util.h"
 #include "errno-util.h"
+#include "fileio.h"
+#include "fs-util.h"
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "ima-util.h"
@@ -24,14 +27,17 @@
 #include "macro.h"
 #include "nulstr-util.h"
 #include "os-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "psi-util.h"
+#include "rm-rf.h"
 #include "selinux-util.h"
 #include "set.h"
 #include "smack-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 #include "tomoyo-util.h"
 #include "udev-util.h"
 #include "uid-alloc-range.h"
@@ -43,7 +49,7 @@ TEST(condition_test_path) {
 
         condition = condition_new(CONDITION_PATH_EXISTS, "/bin/sh", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition, environ));
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_PATH_EXISTS, "/bin/s?", false, false);
@@ -241,8 +247,12 @@ TEST(condition_test_host) {
         _cleanup_free_ char *hostname = NULL;
         Condition *condition;
         sd_id128_t id;
+        int r;
 
-        assert_se(sd_id128_get_machine(&id) >= 0);
+        r = sd_id128_get_machine(&id);
+        if (IN_SET(r, -ENOENT, -ENOMEDIUM))
+                return (void) log_tests_skipped("/etc/machine-id missing");
+        assert_se(r >= 0);
 
         condition = condition_new(CONDITION_HOST, SD_ID128_TO_STRING(id), false, false);
         assert_se(condition);
@@ -295,6 +305,203 @@ TEST(condition_test_architecture) {
         condition_free(condition);
 
         condition = condition_new(CONDITION_ARCHITECTURE, sa, false, true);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+}
+
+TEST(condition_test_firmware) {
+        Condition *condition;
+
+        /* Empty parameter */
+        condition = condition_new(CONDITION_FIRMWARE, "", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+
+        /* uefi parameter */
+        condition = condition_new(CONDITION_FIRMWARE, "uefi", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == is_efi_boot());
+        condition_free(condition);
+}
+
+TEST(condition_test_firmware_device_tree) {
+        Condition *condition;
+        bool is_device_tree_system;
+
+        /* device-tree parameter */
+        is_device_tree_system = (access("/sys/firmware/devicetree/", F_OK) == 0);
+
+        condition = condition_new(CONDITION_FIRMWARE, "device-tree", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == is_device_tree_system);
+        condition_free(condition);
+
+        /* device-tree-compatible parameter */
+        if (!is_device_tree_system) {
+                condition = condition_new(CONDITION_FIRMWARE, "device-tree-compatible()", false, false);
+                assert_se(condition);
+                assert_se(condition_test(condition, environ) == 0);
+                condition_free(condition);
+        } else {
+                _cleanup_free_ char *dtcompat = NULL;
+                _cleanup_strv_free_ char **dtcompatlist = NULL;
+                size_t dtcompat_size;
+                int r;
+
+                r = read_full_virtual_file("/proc/device-tree/compatible", &dtcompat, &dtcompat_size);
+                if (r < 0) {
+                        condition = condition_new(CONDITION_FIRMWARE, "device-tree-compatible()", false, false);
+                        assert_se(condition);
+                        if (r == -ENOENT)
+                                assert_se(condition_test(condition, environ) == 0);
+                        else
+                                assert_se(condition_test(condition, environ) < 0);
+                        condition_free(condition);
+                        return;
+                }
+
+                dtcompatlist = strv_parse_nulstr(dtcompat, dtcompat_size);
+
+                STRV_FOREACH(c, dtcompatlist) {
+                        _cleanup_free_ char *expression = NULL;
+
+                        assert_se(expression = strjoin("device-tree-compatible(", *c, ")"));
+                        condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
+                        assert_se(condition);
+                        assert_se(condition_test(condition, environ) > 0);
+                        condition_free(condition);
+                }
+        }
+}
+
+TEST(condition_test_firmware_smbios) {
+        Condition *condition;
+        _cleanup_free_ char *bios_vendor = NULL, *bios_version = NULL;
+        const char *expression;
+
+        /* smbios-field parameter */
+        /* Test some malformed smbios-field arguments */
+        condition = condition_new(CONDITION_FIRMWARE, "smbios-field()", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == -EINVAL);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == -EINVAL);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == -EINVAL);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed=)", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == -EINVAL);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed=)", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == -EINVAL);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_FIRMWARE, "smbios-field(not_existing=nothing garbage)", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == -EINVAL);
+        condition_free(condition);
+
+        /* Test not existing SMBIOS field */
+        condition = condition_new(CONDITION_FIRMWARE, "smbios-field(not_existing=nothing)", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+
+        /* Test with bios_vendor, if available */
+        if (read_virtual_file("/sys/class/dmi/id/bios_vendor", SIZE_MAX, &bios_vendor, NULL) <= 0)
+                return;
+
+        /* remove trailing newline */
+        strstrip(bios_vendor);
+
+        /* Check if the bios_vendor contains any spaces we should quote */
+        const char *quote = strchr(bios_vendor, ' ') ? "\"" : "";
+
+        /* Test equality / inequality using fnmatch() */
+        expression = strjoina("smbios-field(bios_vendor $= ", quote,  bios_vendor, quote, ")");
+        condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) > 0);
+        condition_free(condition);
+
+        expression = strjoina("smbios-field(bios_vendor$=", quote, bios_vendor, quote, ")");
+        condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) > 0);
+        condition_free(condition);
+
+        expression = strjoina("smbios-field(bios_vendor !$= ", quote, bios_vendor, quote, ")");
+        condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+
+        expression = strjoina("smbios-field(bios_vendor!$=", quote, bios_vendor, quote, ")");
+        condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+
+        expression = strjoina("smbios-field(bios_vendor $= ", quote,  bios_vendor, "*", quote, ")");
+        condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) > 0);
+        condition_free(condition);
+
+        /* Test version comparison with bios_version, if available */
+        if (read_virtual_file("/sys/class/dmi/id/bios_version", SIZE_MAX, &bios_version, NULL) <= 0)
+                return;
+
+        /* remove trailing newline */
+        strstrip(bios_version);
+
+        /* Check if the bios_version contains any spaces we should quote */
+        quote = strchr(bios_version, ' ') ? "\"" : "";
+
+        expression = strjoina("smbios-field(bios_version = ", quote, bios_version, quote, ")");
+        condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) > 0);
+        condition_free(condition);
+
+        expression = strjoina("smbios-field(bios_version != ", quote, bios_version, quote, ")");
+        condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+
+        expression = strjoina("smbios-field(bios_version <= ", quote, bios_version, quote, ")");
+        condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) > 0);
+        condition_free(condition);
+
+        expression = strjoina("smbios-field(bios_version >= ", quote, bios_version, quote, ")");
+        condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) > 0);
+        condition_free(condition);
+
+        expression = strjoina("smbios-field(bios_version < ", quote, bios_version, ".1", quote, ")");
+        condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) > 0);
+        condition_free(condition);
+
+        expression = strjoina("smbios-field(bios_version > ", quote, bios_version, ".1", quote, ")");
+        condition = condition_new(CONDITION_FIRMWARE, expression, false, false);
         assert_se(condition);
         assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
@@ -422,7 +629,7 @@ TEST(condition_test_kernel_version) {
         assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
-        condition = condition_new(CONDITION_KERNEL_VERSION, ">= 4711.8.15", false, false);
+        condition = condition_new(CONDITION_KERNEL_VERSION, " >= 4711.8.15", false, false);
         assert_se(condition);
         assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
@@ -458,6 +665,60 @@ TEST(condition_test_kernel_version) {
         assert_se(condition);
         assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
+}
+
+TEST(condition_test_credential) {
+        _cleanup_(rm_rf_physical_and_freep) char *n1 = NULL, *n2 = NULL;
+        _cleanup_free_ char *d1 = NULL, *d2 = NULL, *j = NULL;
+        Condition *condition;
+
+        assert_se(free_and_strdup(&d1, getenv("CREDENTIALS_DIRECTORY")) >= 0);
+        assert_se(free_and_strdup(&d2, getenv("ENCRYPTED_CREDENTIALS_DIRECTORY")) >= 0);
+
+        assert_se(unsetenv("CREDENTIALS_DIRECTORY") >= 0);
+        assert_se(unsetenv("ENCRYPTED_CREDENTIALS_DIRECTORY") >= 0);
+
+        condition = condition_new(CONDITION_CREDENTIAL, "definitelymissing", /* trigger= */ false, /* negate= */ false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+
+        /* invalid */
+        condition = condition_new(CONDITION_CREDENTIAL, "..", /* trigger= */ false, /* negate= */ false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+
+        assert_se(mkdtemp_malloc(NULL, &n1) >= 0);
+        assert_se(mkdtemp_malloc(NULL, &n2) >= 0);
+
+        assert_se(setenv("CREDENTIALS_DIRECTORY", n1, /* overwrite= */ true) >= 0);
+        assert_se(setenv("ENCRYPTED_CREDENTIALS_DIRECTORY", n2, /* overwrite= */ true) >= 0);
+
+        condition = condition_new(CONDITION_CREDENTIAL, "stillmissing", /* trigger= */ false, /* negate= */ false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+
+        assert_se(j = path_join(n1, "existing"));
+        assert_se(touch(j) >= 0);
+        assert_se(j);
+        condition = condition_new(CONDITION_CREDENTIAL, "existing", /* trigger= */ false, /* negate= */ false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) > 0);
+        condition_free(condition);
+        free(j);
+
+        assert_se(j = path_join(n2, "existing-encrypted"));
+        assert_se(touch(j) >= 0);
+        assert_se(j);
+        condition = condition_new(CONDITION_CREDENTIAL, "existing-encrypted", /* trigger= */ false, /* negate= */ false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) > 0);
+        condition_free(condition);
+
+        assert_se(set_unset_env("CREDENTIALS_DIRECTORY", d1, /* overwrite= */ true) >= 0);
+        assert_se(set_unset_env("ENCRYPTED_CREDENTIALS_DIRECTORY", d2, /* overwrite= */ true) >= 0);
 }
 
 #if defined(__i386__) || defined(__x86_64__)
@@ -836,6 +1097,27 @@ TEST(condition_test_memory) {
         test_condition_test_memory_one("!= 18446744073709547520", true);
         test_condition_test_memory_one("<= 18446744073709547520", true);
 
+        test_condition_test_memory_one("> 100T", false);
+        test_condition_test_memory_one("= 100T", false);
+        test_condition_test_memory_one(">= 100T", false);
+        test_condition_test_memory_one("< 100T", true);
+        test_condition_test_memory_one("!= 100T", true);
+        test_condition_test_memory_one("<= 100T", true);
+
+        test_condition_test_memory_one("> 100 T", false);
+        test_condition_test_memory_one("= 100 T", false);
+        test_condition_test_memory_one(">= 100 T", false);
+        test_condition_test_memory_one("< 100 T", true);
+        test_condition_test_memory_one("!= 100 T", true);
+        test_condition_test_memory_one("<= 100 T", true);
+
+        test_condition_test_memory_one("> 100 T 1 G", false);
+        test_condition_test_memory_one("= 100 T 1 G", false);
+        test_condition_test_memory_one(">= 100 T 1 G", false);
+        test_condition_test_memory_one("< 100 T 1 G", true);
+        test_condition_test_memory_one("!= 100 T 1 G", true);
+        test_condition_test_memory_one("<= 100 T 1 G", true);
+
         assert_se(asprintf(&t, "= %" PRIu64, memory) >= 0);
         test_condition_test_memory_one(t, true);
         t = mfree(t);
@@ -943,7 +1225,7 @@ TEST(condition_test_os_release) {
 
         condition = condition_new(CONDITION_OS_RELEASE, "", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition, environ));
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         /* load_os_release_pairs() removes quotes, we have to add them back,
@@ -953,10 +1235,23 @@ TEST(condition_test_os_release) {
         key_value_pair = strjoina(os_release_pairs[0], "=", quote, os_release_pairs[1], quote);
         condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition, environ));
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         key_value_pair = strjoina(os_release_pairs[0], "!=", quote, os_release_pairs[1], quote);
+        condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
+        condition_free(condition);
+
+        /* Test fnmatch() operators */
+        key_value_pair = strjoina(os_release_pairs[0], "$=", quote, os_release_pairs[1], quote);
+        condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) > 0);
+        condition_free(condition);
+
+        key_value_pair = strjoina(os_release_pairs[0], "!$=", quote, os_release_pairs[1], quote);
         condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
         assert_se(condition);
         assert_se(condition_test(condition, environ) == 0);
@@ -969,7 +1264,7 @@ TEST(condition_test_os_release) {
         key_value_pair = strjoina("VERSION_ID", "=", version_id);
         condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition, environ));
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         key_value_pair = strjoina("VERSION_ID", "!=", version_id);
@@ -981,19 +1276,19 @@ TEST(condition_test_os_release) {
         key_value_pair = strjoina("VERSION_ID", "<=", version_id);
         condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition, environ));
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         key_value_pair = strjoina("VERSION_ID", ">=", version_id);
         condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition, environ));
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         key_value_pair = strjoina("VERSION_ID", "<", version_id, ".1");
         condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition, environ));
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         key_value_pair = strjoina("VERSION_ID", ">", version_id, ".1");
@@ -1005,7 +1300,7 @@ TEST(condition_test_os_release) {
         key_value_pair = strjoina("VERSION_ID", "=", version_id, " ", os_release_pairs[0], "=", quote, os_release_pairs[1], quote);
         condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition, environ));
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         key_value_pair = strjoina("VERSION_ID", "!=", version_id, " ", os_release_pairs[0], "=", quote, os_release_pairs[1], quote);
@@ -1029,7 +1324,7 @@ TEST(condition_test_os_release) {
         key_value_pair = strjoina("VERSION_ID", "<", version_id, ".1", " ", os_release_pairs[0], "=", quote, os_release_pairs[1], quote);
         condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition, environ));
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 }
 

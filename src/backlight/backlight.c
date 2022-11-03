@@ -21,6 +21,8 @@
 #include "terminal-util.h"
 #include "util.h"
 
+#define PCI_CLASS_GRAPHICS_CARD 0x30000
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -42,6 +44,47 @@ static int help(void) {
                link);
 
         return 0;
+}
+
+static int has_multiple_graphics_cards(void) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *dev;
+        bool found = false;
+        int r;
+
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_subsystem(e, "pci", /* match = */ true);
+        if (r < 0)
+                return r;
+
+        /* class is an unsigned number, let's validate the value later. */
+        r = sd_device_enumerator_add_match_sysattr(e, "class", NULL, /* match = */ true);
+        if (r < 0)
+                return r;
+
+        FOREACH_DEVICE(e, dev) {
+                const char *s;
+                unsigned long c;
+
+                if (sd_device_get_sysattr_value(dev, "class", &s) < 0)
+                        continue;
+
+                if (safe_atolu(s, &c) < 0)
+                        continue;
+
+                if (c != PCI_CLASS_GRAPHICS_CARD)
+                        continue;
+
+                if (found)
+                        return true; /* This is the second device. */
+
+                found = true; /* Found the first device. */
+        }
+
+        return false;
 }
 
 static int find_pci_or_platform_parent(sd_device *device, sd_device **ret) {
@@ -72,7 +115,7 @@ static int find_pci_or_platform_parent(sd_device *device, sd_device **ret) {
                         return -ENODATA;
 
                 c += strspn(c, DIGITS);
-                if (*c == '-' && !STARTSWITH_SET(c, "-LVDS-", "-Embedded DisplayPort-"))
+                if (*c == '-' && !STARTSWITH_SET(c, "-LVDS-", "-Embedded DisplayPort-", "-eDP-"))
                         /* A connector DRM device, let's ignore all but LVDS and eDP! */
                         return -EOPNOTSUPP;
 
@@ -86,7 +129,7 @@ static int find_pci_or_platform_parent(sd_device *device, sd_device **ret) {
                                                  value, subsystem, sysname);
 
                 /* Graphics card */
-                if (class == 0x30000) {
+                if (class == PCI_CLASS_GRAPHICS_CARD) {
                         *ret = parent;
                         return 0;
                 }
@@ -130,7 +173,7 @@ static int same_device(sd_device *a, sd_device *b) {
 
 static int validate_device(sd_device *device) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *enumerate = NULL;
-        const char *v, *subsystem;
+        const char *v, *sysname, *subsystem;
         sd_device *parent, *other;
         int r;
 
@@ -145,80 +188,121 @@ static int validate_device(sd_device *device) {
          * device to userspace. However, we still need to make sure that we use "raw" only if no
          * "firmware" or "platform" device for the same device exists. */
 
+        r = sd_device_get_sysname(device, &sysname);
+        if (r < 0)
+                return log_device_debug_errno(device, r, "Failed to get sysname: %m");
+
         r = sd_device_get_subsystem(device, &subsystem);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(device, r, "Failed to get subsystem: %m");
         if (!streq(subsystem, "backlight"))
                 return true;
 
         r = sd_device_get_sysattr_value(device, "type", &v);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(device, r, "Failed to read 'type' sysattr: %m");
         if (!streq(v, "raw"))
                 return true;
 
         r = find_pci_or_platform_parent(device, &parent);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(device, r, "Failed to find PCI or platform parent: %m");
 
         r = sd_device_get_subsystem(parent, &subsystem);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(parent, r, "Failed to get subsystem: %m");
+
+        if (DEBUG_LOGGING) {
+                const char *s = NULL;
+
+                (void) sd_device_get_syspath(parent, &s);
+                log_device_debug(device, "Found %s parent device: %s", subsystem, strna(s));
+        }
 
         r = sd_device_enumerator_new(&enumerate);
         if (r < 0)
-                return r;
+                return log_oom_debug();
 
         r = sd_device_enumerator_allow_uninitialized(enumerate);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to allow uninitialized devices: %m");
 
-        r = sd_device_enumerator_add_match_subsystem(enumerate, "backlight", true);
+        r = sd_device_enumerator_add_match_subsystem(enumerate, "backlight", /* match = */ true);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to add subsystem match: %m");
+
+        r = sd_device_enumerator_add_nomatch_sysname(enumerate, sysname);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to add sysname unmatch: %m");
+
+        r = sd_device_enumerator_add_match_sysattr(enumerate, "type", "platform", /* match = */ true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to add sysattr match: %m");
+
+        r = sd_device_enumerator_add_match_sysattr(enumerate, "type", "firmware", /* match = */ true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to add sysattr match: %m");
+
+        if (streq(subsystem, "pci")) {
+                r = has_multiple_graphics_cards();
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to check if the system has multiple graphics cards: %m");
+                if (r > 0) {
+                        /* If the system has multiple graphics cards, then we cannot associate platform
+                         * devices on non-PCI bus (especially WMI bus) with PCI devices. Let's ignore all
+                         * backlight devices that do not have the same parent PCI device. */
+                        log_debug("Found multiple graphics cards on PCI bus. "
+                                  "Skipping to associate platform backlight devices on non-PCI bus.");
+
+                        r = sd_device_enumerator_add_match_parent(enumerate, parent);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to add parent match: %m");
+                }
+        }
 
         FOREACH_DEVICE(enumerate, other) {
                 const char *other_subsystem;
                 sd_device *other_parent;
 
-                if (same_device(device, other) > 0)
-                        continue;
-
-                if (sd_device_get_sysattr_value(other, "type", &v) < 0 ||
-                    !STR_IN_SET(v, "platform", "firmware"))
-                        continue;
-
                 /* OK, so there's another backlight device, and it's a platform or firmware device.
                  * Let's see if we can verify it belongs to the same device as ours. */
-                if (find_pci_or_platform_parent(other, &other_parent) < 0)
+                r = find_pci_or_platform_parent(other, &other_parent);
+                if (r < 0) {
+                        log_device_debug_errno(other, r, "Failed to get PCI or platform parent, ignoring: %m");
                         continue;
+                }
 
                 if (same_device(parent, other_parent) > 0) {
-                        const char *device_sysname = NULL, *other_sysname = NULL;
-
                         /* Both have the same PCI parent, that means we are out. */
+                        if (DEBUG_LOGGING) {
+                                const char *other_sysname = NULL, *other_type = NULL;
 
-                        (void) sd_device_get_sysname(device, &device_sysname);
-                        (void) sd_device_get_sysname(other, &other_sysname);
-
-                        log_debug("Skipping backlight device %s, since device %s is on same PCI device and takes precedence.",
-                                  device_sysname, other_sysname);
+                                (void) sd_device_get_sysname(other, &other_sysname);
+                                (void) sd_device_get_sysattr_value(other, "type", &other_type);
+                                log_device_debug(device,
+                                                 "Found another %s backlight device %s on the same PCI, skipping.",
+                                                 strna(other_type), strna(other_sysname));
+                        }
                         return false;
                 }
 
-                if (sd_device_get_subsystem(other_parent, &other_subsystem) < 0)
+                r = sd_device_get_subsystem(other_parent, &other_subsystem);
+                if (r < 0) {
+                        log_device_debug_errno(other_parent, r, "Failed to get subsystem, ignoring: %m");
                         continue;
+                }
 
                 if (streq(other_subsystem, "platform") && streq(subsystem, "pci")) {
-                        const char *device_sysname = NULL, *other_sysname = NULL;
-
                         /* The other is connected to the platform bus and we are a PCI device, that also means we are out. */
+                        if (DEBUG_LOGGING) {
+                                const char *other_sysname = NULL, *other_type = NULL;
 
-                        (void) sd_device_get_sysname(device, &device_sysname);
-                        (void) sd_device_get_sysname(other, &other_sysname);
-
-                        log_debug("Skipping backlight device %s, since device %s is a platform device and takes precedence.",
-                                  device_sysname, other_sysname);
+                                (void) sd_device_get_sysname(other, &other_sysname);
+                                (void) sd_device_get_sysattr_value(other, "type", &other_type);
+                                log_device_debug(device,
+                                                 "Found another %s backlight device %s, which has higher precedence, skipping.",
+                                                 strna(other_type), strna(other_sysname));
+                        }
                         return false;
                 }
         }

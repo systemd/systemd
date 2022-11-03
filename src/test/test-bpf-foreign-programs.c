@@ -246,7 +246,7 @@ static int test_bpf_cgroup_programs(Manager *m, const char *unit_name, const Tes
         SERVICE(u)->type = SERVICE_ONESHOT;
         u->load_state = UNIT_LOADED;
 
-        r = unit_start(u);
+        r = unit_start(u, NULL);
         if (r < 0)
                 return log_error_errno(r, "Unit start failed %m");
 

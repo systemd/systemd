@@ -171,6 +171,7 @@ static int extract_now(
                 char **matches,
                 const char *image_name,
                 bool path_is_extension,
+                bool relax_extension_release_check,
                 int socket_fd,
                 PortableMetadata **ret_os_release,
                 Hashmap **ret_unit_files) {
@@ -197,7 +198,7 @@ static int extract_now(
         /* First, find os-release/extension-release and send it upstream (or just save it). */
         if (path_is_extension) {
                 os_release_id = strjoina("/usr/lib/extension-release.d/extension-release.", image_name);
-                r = open_extension_release(where, image_name, &os_release_path, &os_release_fd);
+                r = open_extension_release(where, image_name, relax_extension_release_check, &os_release_path, &os_release_fd);
         } else {
                 os_release_id = "/etc/os-release";
                 r = open_os_release(where, &os_release_path, &os_release_fd);
@@ -278,7 +279,7 @@ static int extract_now(
                          * we have to preserve it. Copy it out so that it can be applied later. */
 
                         r = fgetfilecon_raw(fd, &con);
-                        if (r < 0 && errno != ENODATA)
+                        if (r < 0 && !ERRNO_IS_XATTR_ABSENT(errno))
                                 log_debug_errno(errno, "Failed to get SELinux file context from '%s', ignoring: %m", de->d_name);
 #endif
 
@@ -321,6 +322,7 @@ static int extract_now(
 static int portable_extract_by_path(
                 const char *path,
                 bool path_is_extension,
+                bool relax_extension_release_check,
                 char **matches,
                 PortableMetadata **ret_os_release,
                 Hashmap **ret_unit_files,
@@ -333,7 +335,7 @@ static int portable_extract_by_path(
 
         assert(path);
 
-        r = loop_device_make_by_path(path, O_RDONLY, LO_FLAGS_PARTSCAN, &d);
+        r = loop_device_make_by_path(path, O_RDONLY, LO_FLAGS_PARTSCAN, LOCK_SH, &d);
         if (r == -EISDIR) {
                 _cleanup_free_ char *image_name = NULL;
 
@@ -344,7 +346,7 @@ static int portable_extract_by_path(
                 if (r < 0)
                         return log_error_errno(r, "Failed to extract image name from path '%s': %m", path);
 
-                r = extract_now(path, matches, image_name, path_is_extension, -1, &os_release, &unit_files);
+                r = extract_now(path, matches, image_name, path_is_extension, /* relax_extension_release_check= */ false, -1, &os_release, &unit_files);
                 if (r < 0)
                         return r;
 
@@ -359,22 +361,15 @@ static int portable_extract_by_path(
                 /* We now have a loopback block device, let's fork off a child in its own mount namespace, mount it
                  * there, and extract the metadata we need. The metadata is sent from the child back to us. */
 
-                r = loop_device_flock(d, LOCK_SH);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to acquire lock on loopback block device: %m");
-
                 BLOCK_SIGNALS(SIGCHLD);
 
                 r = mkdtemp_malloc("/tmp/inspect-XXXXXX", &tmpdir);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to create temporary directory: %m");
 
-                r = dissect_image(
-                                d->fd,
+                r = dissect_loop_device(
+                                d,
                                 NULL, NULL,
-                                d->diskseq,
-                                d->uevent_seqnum_not_before,
-                                d->timestamp_not_before,
                                 DISSECT_IMAGE_READ_ONLY |
                                 DISSECT_IMAGE_GENERIC_ROOT |
                                 DISSECT_IMAGE_REQUIRE_ROOT |
@@ -407,7 +402,7 @@ static int portable_extract_by_path(
                         seq[0] = safe_close(seq[0]);
 
                         if (path_is_extension)
-                                flags |= DISSECT_IMAGE_VALIDATE_OS_EXT;
+                                flags |= DISSECT_IMAGE_VALIDATE_OS_EXT | (relax_extension_release_check ? DISSECT_IMAGE_RELAX_SYSEXT_CHECK : 0);
                         else
                                 flags |= DISSECT_IMAGE_VALIDATE_OS;
 
@@ -417,7 +412,7 @@ static int portable_extract_by_path(
                                 goto child_finish;
                         }
 
-                        r = extract_now(tmpdir, matches, m->image_name, path_is_extension, seq[1], NULL, NULL);
+                        r = extract_now(tmpdir, matches, m->image_name, path_is_extension, relax_extension_release_check, seq[1], NULL, NULL);
 
                 child_finish:
                         _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
@@ -512,6 +507,7 @@ static int extract_image_and_extensions(
                 char **matches,
                 char **extension_image_paths,
                 bool validate_sysext,
+                bool relax_extension_release_check,
                 Image **ret_image,
                 OrderedHashmap **ret_extension_images,
                 OrderedHashmap **ret_extension_releases,
@@ -560,7 +556,7 @@ static int extract_image_and_extensions(
                 }
         }
 
-        r = portable_extract_by_path(image->path, /* path_is_extension= */ false, matches, &os_release, &unit_files, error);
+        r = portable_extract_by_path(image->path, /* path_is_extension= */ false, /* relax_extension_release_check= */ false, matches, &os_release, &unit_files, error);
         if (r < 0)
                 return r;
 
@@ -600,7 +596,7 @@ static int extract_image_and_extensions(
                 _cleanup_fclose_ FILE *f = NULL;
                 const char *e;
 
-                r = portable_extract_by_path(ext->path, /* path_is_extension= */ true, matches, &extension_release_meta, &extra_unit_files, error);
+                r = portable_extract_by_path(ext->path, /* path_is_extension= */ true, relax_extension_release_check, matches, &extension_release_meta, &extra_unit_files, error);
                 if (r < 0)
                         return r;
 
@@ -675,6 +671,7 @@ int portable_extract(
                 const char *name_or_path,
                 char **matches,
                 char **extension_image_paths,
+                PortableFlags flags,
                 PortableMetadata **ret_os_release,
                 OrderedHashmap **ret_extension_releases,
                 Hashmap **ret_unit_files,
@@ -695,6 +692,7 @@ int portable_extract(
                         matches,
                         extension_image_paths,
                         /* validate_sysext= */ false,
+                        /* relax_extension_release_check= */ FLAGS_SET(flags, PORTABLE_FORCE_SYSEXT),
                         &image,
                         &extension_images,
                         &extension_releases,
@@ -873,6 +871,8 @@ static int portable_changes_add_with_prefix(
                 const char *path,
                 const char *source) {
 
+        _cleanup_free_ char *path_buf = NULL, *source_buf = NULL;
+
         assert(path);
         assert(!changes == !n_changes);
 
@@ -880,10 +880,19 @@ static int portable_changes_add_with_prefix(
                 return 0;
 
         if (prefix) {
-                path = prefix_roota(prefix, path);
+                path_buf = path_join(prefix, path);
+                if (!path_buf)
+                        return -ENOMEM;
 
-                if (source)
-                        source = prefix_roota(prefix, source);
+                path = path_buf;
+
+                if (source) {
+                        source_buf = path_join(prefix, source);
+                        if (!source_buf)
+                                return -ENOMEM;
+
+                        source = source_buf;
+                }
         }
 
         return portable_changes_add(changes, n_changes, type_or_errno, path, source);
@@ -951,6 +960,7 @@ static int install_chroot_dropin(
                 OrderedHashmap *extension_images,
                 const PortableMetadata *m,
                 const char *dropin_dir,
+                PortableFlags flags,
                 char **ret_dropin,
                 PortableChange **changes,
                 size_t *n_changes) {
@@ -1000,7 +1010,16 @@ static int install_chroot_dropin(
 
                 if (m->image_path && !path_equal(m->image_path, image_path))
                         ORDERED_HASHMAP_FOREACH(ext, extension_images)
-                                if (!strextend(&text, extension_setting_from_image(ext->type), ext->path, "\n"))
+                                if (!strextend(&text,
+                                               extension_setting_from_image(ext->type),
+                                               ext->path,
+                                               /* With --force tell PID1 to avoid enforcing that the image <name> and
+                                                * extension-release.<name> have to match. */
+                                               !IN_SET(type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME) &&
+                                                   FLAGS_SET(flags, PORTABLE_FORCE_SYSEXT) ?
+                                                       ":x-systemd.relax-extension-release-check" :
+                                                       "",
+                                               "\n"))
                                         return -ENOMEM;
         }
 
@@ -1098,7 +1117,8 @@ static int attach_unit_file(
 
         _cleanup_(unlink_and_freep) char *chroot_dropin = NULL, *profile_dropin = NULL;
         _cleanup_(rmdir_and_freep) char *dropin_dir = NULL;
-        const char *where, *path;
+        _cleanup_free_ char *path = NULL;
+        const char *where;
         int r;
 
         assert(paths);
@@ -1115,7 +1135,10 @@ static int attach_unit_file(
         } else
                 (void) portable_changes_add(changes, n_changes, PORTABLE_MKDIR, where, NULL);
 
-        path = prefix_roota(where, m->name);
+        path = path_join(where, m->name);
+        if (!path)
+                return -ENOMEM;
+
         dropin_dir = strjoin(path, ".d");
         if (!dropin_dir)
                 return -ENOMEM;
@@ -1130,7 +1153,7 @@ static int attach_unit_file(
          * is reloaded while we are creating things here: as long as only the drop-ins exist the unit doesn't exist at
          * all for PID 1. */
 
-        r = install_chroot_dropin(image_path, type, extension_images, m, dropin_dir, &chroot_dropin, changes, n_changes);
+        r = install_chroot_dropin(image_path, type, extension_images, m, dropin_dir, flags, &chroot_dropin, changes, n_changes);
         if (r < 0)
                 return r;
 
@@ -1295,6 +1318,7 @@ int portable_attach(
                         matches,
                         extension_image_paths,
                         /* validate_sysext= */ true,
+                        /* relax_extension_release_check= */ FLAGS_SET(flags, PORTABLE_FORCE_SYSEXT),
                         &image,
                         &extension_images,
                         /* extension_releases= */ NULL,
@@ -1349,19 +1373,20 @@ int portable_attach(
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(item, unit_files) {
-                r = unit_file_exists(LOOKUP_SCOPE_SYSTEM, &paths, item->name);
-                if (r < 0)
-                        return sd_bus_error_set_errnof(error, r, "Failed to determine whether unit '%s' exists on the host: %m", item->name);
-                if (!FLAGS_SET(flags, PORTABLE_REATTACH) && r > 0)
-                        return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' exists on the host already, refusing.", item->name);
+        if (!FLAGS_SET(flags, PORTABLE_REATTACH) && !FLAGS_SET(flags, PORTABLE_FORCE_ATTACH))
+                HASHMAP_FOREACH(item, unit_files) {
+                        r = unit_file_exists(LOOKUP_SCOPE_SYSTEM, &paths, item->name);
+                        if (r < 0)
+                                return sd_bus_error_set_errnof(error, r, "Failed to determine whether unit '%s' exists on the host: %m", item->name);
+                        if (r > 0)
+                                return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' exists on the host already, refusing.", item->name);
 
-                r = unit_file_is_active(bus, item->name, error);
-                if (r < 0)
-                        return r;
-                if (!FLAGS_SET(flags, PORTABLE_REATTACH) && r > 0)
-                        return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' is active already, refusing.", item->name);
-        }
+                        r = unit_file_is_active(bus, item->name, error);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' is active already, refusing.", item->name);
+                }
 
         HASHMAP_FOREACH(item, unit_files) {
                 r = attach_unit_file(&paths, image->path, image->type, extension_images,
@@ -1559,40 +1584,49 @@ int portable_detach(
         }
 
         FOREACH_DIRENT(de, d, return log_debug_errno(errno, "Failed to enumerate '%s' directory: %m", where)) {
-                _cleanup_free_ char *marker = NULL;
-                UnitFileState state;
+                _cleanup_free_ char *marker = NULL, *unit_name = NULL;
+                const char *dot;
 
-                if (!unit_name_is_valid(de->d_name, UNIT_NAME_ANY))
+                /* When a portable service is enabled with "portablectl --copy=symlink --enable --now attach",
+                 * and is disabled with "portablectl --enable --now detach", which calls DisableUnitFilesWithFlags
+                 * DBus method, the main unit file is removed, but its drop-ins are not. Hence, here we need
+                 * to list both main unit files and drop-in directories (without the main unit files). */
+
+                dot = endswith(de->d_name, ".d");
+                if (dot)
+                        unit_name = strndup(de->d_name, dot - de->d_name);
+                else
+                        unit_name = strdup(de->d_name);
+                if (!unit_name)
+                        return -ENOMEM;
+
+                if (!unit_name_is_valid(unit_name, UNIT_NAME_ANY))
                         continue;
 
                 /* Filter out duplicates */
-                if (set_contains(unit_files, de->d_name))
+                if (set_contains(unit_files, unit_name))
                         continue;
 
-                if (!IN_SET(de->d_type, DT_LNK, DT_REG))
+                if (dot ? !IN_SET(de->d_type, DT_LNK, DT_DIR) : !IN_SET(de->d_type, DT_LNK, DT_REG))
                         continue;
 
-                r = test_chroot_dropin(d, where, de->d_name, name_or_path, extension_image_paths, &marker);
+                r = test_chroot_dropin(d, where, unit_name, name_or_path, extension_image_paths, &marker);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         continue;
 
-                r = unit_file_lookup_state(LOOKUP_SCOPE_SYSTEM, &paths, de->d_name, &state);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to determine unit file state of '%s': %m", de->d_name);
-                if (!IN_SET(state, UNIT_FILE_STATIC, UNIT_FILE_DISABLED, UNIT_FILE_LINKED, UNIT_FILE_RUNTIME, UNIT_FILE_LINKED_RUNTIME))
-                        return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' is in state '%s', can't detach.", de->d_name, unit_file_state_to_string(state));
+                if (!FLAGS_SET(flags, PORTABLE_REATTACH) && !FLAGS_SET(flags, PORTABLE_FORCE_ATTACH)) {
+                        r = unit_file_is_active(bus, unit_name, error);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' is active, can't detach.", unit_name);
+                }
 
-                r = unit_file_is_active(bus, de->d_name, error);
+                r = set_ensure_consume(&unit_files, &string_hash_ops_free, TAKE_PTR(unit_name));
                 if (r < 0)
-                        return r;
-                if (!FLAGS_SET(flags, PORTABLE_REATTACH) && r > 0)
-                        return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' is active, can't detach.", de->d_name);
-
-                r = set_put_strdup(&unit_files, de->d_name);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to add unit name '%s' to set: %m", de->d_name);
+                        return log_oom_debug();
 
                 for (const char *p = marker;;) {
                         _cleanup_free_ char *image = NULL;

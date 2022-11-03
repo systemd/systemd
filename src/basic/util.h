@@ -19,8 +19,6 @@ static inline void save_argc_argv(int argc, char **argv) {
         saved_argv = argv;
 }
 
-bool kexec_loaded(void);
-
 int prot_from_flags(int flags) _const_;
 
 bool in_initrd(void);

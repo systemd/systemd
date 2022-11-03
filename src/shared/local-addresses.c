@@ -68,7 +68,6 @@ int local_addresses(
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_free_ struct local_address *list = NULL;
         size_t n_list = 0;
-        sd_netlink_message *m;
         int r;
 
         if (context)
@@ -83,7 +82,7 @@ int local_addresses(
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, true);
         if (r < 0)
                 return r;
 
@@ -91,7 +90,7 @@ int local_addresses(
         if (r < 0)
                 return r;
 
-        for (m = reply; m; m = sd_netlink_message_next(m)) {
+        for (sd_netlink_message *m = reply; m; m = sd_netlink_message_next(m)) {
                 struct local_address *a;
                 unsigned char flags;
                 uint16_t type;
@@ -236,7 +235,7 @@ int local_gateways(
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, true);
         if (r < 0)
                 return r;
 

@@ -33,6 +33,7 @@ StateDirectory=systemd/home
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service @mount
+TimeoutStopSec=3min
 {{SERVICE_WATCHDOG}}
 
 [Install]

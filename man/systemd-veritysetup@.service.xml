@@ -60,7 +60,7 @@
         <replaceable>datadevice</replaceable> and <replaceable>hashdevice</replaceable> as the backing
         devices. <replaceable>roothash</replaceable> forms the root of the tree of hashes stored on
         <replaceable>hashdevice</replaceable>. See
-        <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/device-mapper/verity.html">
+        <ulink url="https://docs.kernel.org/admin-guide/device-mapper/verity.html">
           Kernel dm-verity</ulink> documentation for details.
         </para></listitem>
       </varlistentry>

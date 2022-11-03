@@ -501,7 +501,7 @@ int user_record_test_image_path(UserRecord *h) {
 
                         n = getxattr(ip, "user.home-dirty", x, sizeof(x));
                         if (n < 0) {
-                                if (errno != ENODATA)
+                                if (!ERRNO_IS_XATTR_ABSENT(errno))
                                         log_debug_errno(errno, "Unable to read dirty xattr off image file, ignoring: %m");
 
                         } else if (n == 1 && x[0] == '1')

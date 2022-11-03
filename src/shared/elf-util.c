@@ -30,6 +30,9 @@
 #define THREADS_MAX 64
 #define ELF_PACKAGE_METADATA_ID 0xcafe1a7e
 
+/* The amount of data we're willing to write to each of the output pipes. */
+#define COREDUMP_PIPE_MAX (1024*1024U)
+
 static void *dw_dl = NULL;
 static void *elf_dl = NULL;
 
@@ -177,7 +180,7 @@ static StackContext* stack_context_destroy(StackContext *c) {
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(Elf *, sym_elf_end, NULL);
 
 static int frame_callback(Dwfl_Frame *frame, void *userdata) {
-        StackContext *c = userdata;
+        StackContext *c = ASSERT_PTR(userdata);
         Dwarf_Addr pc, pc_adjusted;
         const char *fname = NULL, *symbol = NULL;
         Dwfl_Module *module;
@@ -185,7 +188,6 @@ static int frame_callback(Dwfl_Frame *frame, void *userdata) {
         uint64_t module_offset = 0;
 
         assert(frame);
-        assert(c);
 
         if (c->n_frame >= FRAMES_MAX)
                 return DWARF_CB_ABORT;
@@ -241,11 +243,10 @@ static int frame_callback(Dwfl_Frame *frame, void *userdata) {
 }
 
 static int thread_callback(Dwfl_Thread *thread, void *userdata) {
-        StackContext *c = userdata;
+        StackContext *c = ASSERT_PTR(userdata);
         pid_t tid;
 
         assert(thread);
-        assert(c);
 
         if (c->n_thread >= THREADS_MAX)
                 return DWARF_CB_ABORT;
@@ -266,6 +267,61 @@ static int thread_callback(Dwfl_Thread *thread, void *userdata) {
         c->n_thread++;
 
         return DWARF_CB_OK;
+}
+
+static char* build_package_reference(
+                const char *type,
+                const char *name,
+                const char *version,
+                const char *arch) {
+
+        /* Construct an identifier for a specific version of the package. The syntax is most suitable for
+         * rpm: the resulting string can be used directly in queries and rpm/dnf/yum commands. For dpkg and
+         * other systems, it might not be usable directly, but users should still be able to figure out the
+         * meaning.
+         */
+
+        return strjoin(type ?: "package",
+                       " ",
+                       name,
+
+                       version ? "-" : "",
+                       strempty(version),
+
+                       /* arch is meaningful even without version, so always print it */
+                       arch ? "." : "",
+                       strempty(arch));
+}
+
+static void report_module_metadata(StackContext *c, const char *name, JsonVariant *metadata) {
+        assert(c);
+        assert(name);
+
+        if (!c->f)
+                return;
+
+        fprintf(c->f, "Module %s", name);
+
+        if (metadata) {
+                const char
+                        *build_id = json_variant_string(json_variant_by_key(metadata, "buildId")),
+                        *type = json_variant_string(json_variant_by_key(metadata, "type")),
+                        *package = json_variant_string(json_variant_by_key(metadata, "name")),
+                        *version = json_variant_string(json_variant_by_key(metadata, "version")),
+                        *arch = json_variant_string(json_variant_by_key(metadata, "architecture"));
+
+                if (package) {
+                        /* Version/architecture is only meaningful with a package name.
+                         * Skip the detailed fields if package is unknown. */
+                        _cleanup_free_ char *id = build_package_reference(type, package, version, arch);
+                        fprintf(c->f, " from %s", strnull(id));
+                }
+
+                if (build_id && !(package && version))
+                        fprintf(c->f, ", build-id=%s", build_id);
+        }
+
+        fputs("\n", c->f);
 }
 
 static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *elf, bool *ret_interpreter_found, StackContext *c) {
@@ -317,7 +373,6 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
                      (note_offset = sym_gelf_getnote(data, note_offset, &note_header, &name_offset, &desc_offset)) > 0;) {
 
                         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
-                        const char *note_name = (const char *)data->d_buf + name_offset;
                         const char *payload = (const char *)data->d_buf + desc_offset;
 
                         if (note_header.n_namesz == 0 || note_header.n_descsz == 0)
@@ -328,26 +383,34 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
                         if (note_header.n_type != ELF_PACKAGE_METADATA_ID)
                                 continue;
 
+                        _cleanup_free_ char *payload_0suffixed = NULL;
+                        assert(note_offset > desc_offset);
+                        size_t payload_len = note_offset - desc_offset;
+
+                        /* If we are lucky and the payload is NUL-padded, we don't need to copy the string.
+                         * But if happens to go all the way until the end of the buffer, make a copy. */
+                        if (payload[payload_len-1] != '\0') {
+                                payload_0suffixed = memdup_suffix0(payload, payload_len);
+                                if (!payload_0suffixed)
+                                        return log_oom();
+                                payload = payload_0suffixed;
+                        }
+
                         r = json_parse(payload, 0, &v, NULL, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "json_parse on %s failed: %m", payload);
 
-                        /* First pretty-print to the buffer, so that the metadata goes as
-                         * plaintext in the journal. */
-                        if (c->f) {
-                                fprintf(c->f, "Metadata for module %s owned by %s found: ",
-                                        name, note_name);
-                                json_variant_dump(v, JSON_FORMAT_NEWLINE|JSON_FORMAT_PRETTY, c->f, NULL);
-                                fputc('\n', c->f);
-                        }
-
-                        /* Secondly, if we have a build-id, merge it in the same JSON object
-                         * so that it appears all nicely together in the logs/metadata. */
+                        /* If we have a build-id, merge it in the same JSON object so that it appears all
+                         * nicely together in the logs/metadata. */
                         if (id_json) {
                                 r = json_variant_merge(&v, id_json);
                                 if (r < 0)
-                                        return log_error_errno(r, "json_variant_merge of package meta with buildid failed: %m");
+                                        return log_error_errno(r, "json_variant_merge of package meta with buildId failed: %m");
                         }
+
+                        /* Pretty-print to the buffer, so that the metadata goes as plaintext in the
+                         * journal. */
+                        report_module_metadata(c, name, v);
 
                         /* Then we build a new object using the module name as the key, and merge it
                          * with the previous parses, so that in the end it all fits together in a single
@@ -358,7 +421,7 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
 
                         r = json_variant_merge(c->package_metadata, w);
                         if (r < 0)
-                                return log_error_errno(r, "json_variant_merge of package meta with buildid failed: %m");
+                                return log_error_errno(r, "json_variant_merge of package meta with buildId failed: %m");
 
                         /* Finally stash the name, so we avoid double visits. */
                         r = set_put_strdup(c->modules, name);
@@ -407,13 +470,7 @@ static int parse_buildid(Dwfl_Module *mod, Elf *elf, const char *name, StackCont
                 * will then be added as metadata to the journal message with the stack trace. */
                 r = json_build(&id_json, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("buildId", JSON_BUILD_HEX(id, id_len))));
                 if (r < 0)
-                        return log_error_errno(r, "json_build on build-id failed: %m");
-
-                if (c->f) {
-                        JsonVariant *build_id = json_variant_by_key(id_json, "buildId");
-                        assert(build_id);
-                        fprintf(c->f, "Module %s with build-id %s\n", name, json_variant_string(build_id));
-                }
+                        return log_error_errno(r, "json_build on buildId failed: %m");
         }
 
         if (ret_id_json)
@@ -424,14 +481,13 @@ static int parse_buildid(Dwfl_Module *mod, Elf *elf, const char *name, StackCont
 
 static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, Dwarf_Addr start, void *arg) {
         _cleanup_(json_variant_unrefp) JsonVariant *id_json = NULL;
-        StackContext *c = arg;
+        StackContext *c = ASSERT_PTR(arg);
         size_t n_program_headers;
         GElf_Addr bias;
         int r;
         Elf *elf;
 
         assert(mod);
-        assert(c);
 
         if (!name)
                 name = "(unnamed)"; /* For logging purposes */
@@ -468,6 +524,8 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
         if (r < 0) {
                 log_warning("Could not parse number of program headers from core file: %s",
                             sym_elf_errmsg(-1)); /* -1 retrieves the most recent error */
+                report_module_metadata(c, name, id_json);
+
                 return DWARF_CB_OK;
         }
 
@@ -704,13 +762,13 @@ int parse_elf_object(int fd, const char *executable, bool fork_disable_dump, cha
                 return r;
 
         if (ret) {
-                r = RET_NERRNO(pipe2(return_pipe, O_CLOEXEC));
+                r = RET_NERRNO(pipe2(return_pipe, O_CLOEXEC|O_NONBLOCK));
                 if (r < 0)
                         return r;
         }
 
         if (ret_package_metadata) {
-                r = RET_NERRNO(pipe2(json_pipe, O_CLOEXEC));
+                r = RET_NERRNO(pipe2(json_pipe, O_CLOEXEC|O_NONBLOCK));
                 if (r < 0)
                         return r;
         }
@@ -754,8 +812,24 @@ int parse_elf_object(int fd, const char *executable, bool fork_disable_dump, cha
                         goto child_fail;
 
                 if (buf) {
-                        r = loop_write(return_pipe[1], buf, strlen(buf), false);
-                        if (r < 0)
+                        size_t len = strlen(buf);
+
+                        if (len > COREDUMP_PIPE_MAX) {
+                                /* This is iffy. A backtrace can be a few hundred kilobytes, but too much is
+                                 * too much. Let's log a warning and ignore the rest. */
+                                log_warning("Generated backtrace is %zu bytes (more than the limit of %u bytes), backtrace will be truncated.",
+                                            len, COREDUMP_PIPE_MAX);
+                                len = COREDUMP_PIPE_MAX;
+                        }
+
+                        /* Bump the space for the returned string.
+                         * Failure is ignored, because partial output is still useful. */
+                        (void) fcntl(return_pipe[1], F_SETPIPE_SZ, len);
+
+                        r = loop_write(return_pipe[1], buf, len, false);
+                        if (r == -EAGAIN)
+                                log_warning("Write failed, backtrace will be truncated.");
+                        else if (r < 0)
                                 goto child_fail;
 
                         return_pipe[1] = safe_close(return_pipe[1]);
@@ -764,13 +838,19 @@ int parse_elf_object(int fd, const char *executable, bool fork_disable_dump, cha
                 if (package_metadata) {
                         _cleanup_fclose_ FILE *json_out = NULL;
 
+                        /* Bump the space for the returned string. We don't know how much space we'll need in
+                         * advance, so we'll just try to write as much as possible and maybe fail later. */
+                        (void) fcntl(json_pipe[1], F_SETPIPE_SZ, COREDUMP_PIPE_MAX);
+
                         json_out = take_fdopen(&json_pipe[1], "w");
                         if (!json_out) {
                                 r = -errno;
                                 goto child_fail;
                         }
 
-                        json_variant_dump(package_metadata, JSON_FORMAT_FLUSH, json_out, NULL);
+                        r = json_variant_dump(package_metadata, JSON_FORMAT_FLUSH, json_out, NULL);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to write JSON package metadata, ignoring: %m");
                 }
 
                 _exit(EXIT_SUCCESS);
@@ -804,8 +884,8 @@ int parse_elf_object(int fd, const char *executable, bool fork_disable_dump, cha
                         return -errno;
 
                 r = json_parse_file(json_in, NULL, 0, &package_metadata, NULL, NULL);
-                if (r < 0 && r != -EINVAL) /* EINVAL: json was empty, so we got nothing, but that's ok */
-                        return r;
+                if (r < 0 && r != -ENODATA) /* ENODATA: json was empty, so we got nothing, but that's ok */
+                        log_warning_errno(r, "Failed to read or parse json metadata, ignoring: %m");
         }
 
         if (ret)

@@ -178,11 +178,10 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
         } state = STATE_NODE;
 
         _cleanup_free_ char *node_path = NULL, *argument_type = NULL, *argument_direction = NULL;
-        const char *np = prefix;
+        const char *np = ASSERT_PTR(prefix);
         int r;
 
         assert(context);
-        assert(prefix);
 
         if (n_depth > NODE_DEPTH_MAX)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "<node> depth too high.");

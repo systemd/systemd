@@ -145,7 +145,7 @@ TEST(auto_erase_memory) {
                                              * end of the allocation, since malloc() enforces alignment */
         assert_se(p2 = new(uint8_t, 4703));
 
-        assert_se(genuine_random_bytes(p1, 4703, RANDOM_BLOCK) == 0);
+        assert_se(crypto_random_bytes(p1, 4703) == 0);
 
         /* before we exit the scope, do something with this data, so that the compiler won't optimize this away */
         memcpy(p2, p1, 4703);

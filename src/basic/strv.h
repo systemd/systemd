@@ -240,7 +240,7 @@ void strv_print(char * const *l);
 char** strv_reverse(char **l);
 char** strv_shell_escape(char **l, const char *bad);
 
-bool strv_fnmatch_full(char* const* patterns, const char *s, int flags, size_t *matched_pos);
+bool strv_fnmatch_full(char* const* patterns, const char *s, int flags, size_t *ret_matched_pos);
 static inline bool strv_fnmatch(char* const* patterns, const char *s) {
         return strv_fnmatch_full(patterns, s, 0, NULL);
 }
@@ -258,14 +258,7 @@ int strv_extend_n(char ***l, const char *value, size_t n);
 int fputstrv(FILE *f, char * const *l, const char *separator, bool *space);
 
 #define strv_free_and_replace(a, b)             \
-        ({                                      \
-                char ***_a = &(a);              \
-                char ***_b = &(b);              \
-                strv_free(*_a);                 \
-                (*_a) = (*_b);                  \
-                (*_b) = NULL;                   \
-                0;                              \
-        })
+        free_and_replace_full(a, b, strv_free)
 
 extern const struct hash_ops string_strv_hash_ops;
 int _string_strv_hashmap_put(Hashmap **h, const char *key, const char *value  HASHMAP_DEBUG_PARAMS);

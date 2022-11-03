@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "clean-ipc.h"
+#include "core-varlink.h"
 #include "dbus.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -13,6 +14,7 @@
 #include "syslog-util.h"
 #include "unit-serialize.h"
 #include "user-util.h"
+#include "varlink-internal.h"
 
 int manager_open_serialization(Manager *m, FILE **ret_f) {
         _cleanup_close_ int fd = -1;
@@ -103,9 +105,6 @@ int manager_serialize(
         (void) serialize_bool(f, "taint-logged", m->taint_logged);
         (void) serialize_bool(f, "service-watchdogs", m->service_watchdogs);
 
-        /* After switching root, udevd has not been started yet. So, enumeration results should not be emitted. */
-        (void) serialize_bool(f, "honor-device-enumeration", !switching_root);
-
         if (m->show_status_overridden != _SHOW_STATUS_INVALID)
                 (void) serialize_item(f, "show-status-overridden",
                                       show_status_to_string(m->show_status_overridden));
@@ -175,6 +174,10 @@ int manager_serialize(
         manager_serialize_gid_refs(m, f);
 
         r = exec_runtime_serialize(m, f, fds);
+        if (r < 0)
+                return r;
+
+        r = varlink_server_serialize(m->varlink_server, f, fds);
         if (r < 0)
                 return r;
 
@@ -293,6 +296,7 @@ static void manager_deserialize_gid_refs_one(Manager *m, const char *value) {
 }
 
 int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
+        bool deserialize_varlink_sockets = false;
         int r = 0;
 
         assert(m);
@@ -309,9 +313,11 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
                                 r = fd_get_path(fd, &fn);
                                 if (r < 0)
-                                        log_debug_errno(r, "Received serialized fd %i → %m", fd);
+                                        log_debug_errno(r, "Received serialized fd %i %s %m",
+                                                        fd, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT));
                                 else
-                                        log_debug("Received serialized fd %i → %s", fd, strna(fn));
+                                        log_debug("Received serialized fd %i %s %s",
+                                                  fd, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), strna(fn));
                         }
                 }
         }
@@ -396,15 +402,6 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 log_notice("Failed to parse service-watchdogs flag '%s', ignoring.", val);
                         else
                                 m->service_watchdogs = b;
-
-                } else if ((val = startswith(l, "honor-device-enumeration="))) {
-                        int b;
-
-                        b = parse_boolean(val);
-                        if (b < 0)
-                                log_notice("Failed to parse honor-device-enumeration flag '%s', ignoring.", val);
-                        else
-                                m->honor_device_enumeration = b;
 
                 } else if ((val = startswith(l, "show-status-overridden="))) {
                         ShowStatus s;
@@ -526,7 +523,32 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
                         if (strv_extend(&m->deserialized_subscribed, val) < 0)
                                 return -ENOMEM;
+                } else if ((val = startswith(l, "varlink-server-socket-address="))) {
+                        if (!m->varlink_server && MANAGER_IS_SYSTEM(m)) {
+                                _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
 
+                                r = manager_setup_varlink_server(m, &s);
+                                if (r < 0) {
+                                        log_warning_errno(r, "Failed to setup varlink server, ignoring: %m");
+                                        continue;
+                                }
+
+                                r = varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
+                                if (r < 0) {
+                                        log_warning_errno(r, "Failed to attach varlink connection to event loop, ignoring: %m");
+                                        continue;
+                                }
+
+                                m->varlink_server = TAKE_PTR(s);
+                                deserialize_varlink_sockets = true;
+                        }
+
+                        /* To void unnecessary deserialization (i.e. during reload vs. reexec) we only deserialize
+                         * the FDs if we had to create a new m->varlink_server. The deserialize_varlink_sockets flag
+                         * is initialized outside of the loop, is flipped after the VarlinkServer is setup, and
+                         * remains set until all serialized contents are handled. */
+                        if (deserialize_varlink_sockets)
+                                (void) varlink_server_deserialize_one(m->varlink_server, val, fds);
                 } else {
                         ManagerTimestamp q;
 
@@ -542,7 +564,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
                         if (q < _MANAGER_TIMESTAMP_MAX) /* found it */
                                 (void) deserialize_dual_timestamp(val, m->timestamps + q);
-                        else if (!startswith(l, "kdbus-fd=")) /* ignore kdbus */
+                        else if (!STARTSWITH_SET(l, "kdbus-fd=", "honor-device-enumeration=")) /* ignore deprecated values */
                                 log_notice("Unknown serialization item '%s', ignoring.", l);
                 }
         }

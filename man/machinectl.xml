@@ -192,7 +192,7 @@
         the machine name is specified as the empty string, or the
         special machine name <literal>.host</literal> (see below) is
         specified, the connection is made to the local host
-        instead. This works similar to <command>login</command> but
+        instead. This works similarly to <command>login</command>, but
         immediately invokes a user process. This command runs the
         specified executable with the specified arguments, or the
         default shell for the user if none is specified, or
@@ -205,40 +205,35 @@
         <para>Note that <command>machinectl shell</command> does not propagate the exit code/status of the invoked
         shell process. Use <command>systemd-run</command> instead if that information is required (see below).</para>
 
-        <para>When using the <command>shell</command> command without
-        arguments, (thus invoking the executed shell or command on the
-        local host), it is in many ways similar to a <citerefentry
-        project='die-net'><refentrytitle>su</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        session, but, unlike <command>su</command>, completely isolates
-        the new session from the originating session, so that it
-        shares no process or session properties, and is in a clean and
-        well-defined state. It will be tracked in a new utmp, login,
-        audit, security and keyring session, and will not inherit any
-        environment variables or resource limits, among other
-        properties.</para>
+        <para>Using the <command>shell</command> command without arguments (thus invoking the executed shell
+        or command on the local host), is in many ways similar to a <citerefentry
+        project='die-net'><refentrytitle>su</refentrytitle><manvolnum>1</manvolnum></citerefentry> session,
+        but, unlike <command>su</command>, completely isolates the new session from the originating session,
+        so that it shares no process or session properties and is in a clean well-defined state. It will be
+        tracked in a new utmp, login, audit, security, and keyring sessions, and will not inherit any
+        environment variables or resource limits, among other properties.</para>
 
-        <para>Note that <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        with its <option>--machine=</option> switch may be used in place of the <command>machinectl shell</command>
-        command, and allows non-interactive operation, more detailed and low-level configuration of the invoked unit,
-        as well as access to runtime and exit code/status information of the invoked shell process. In particular, use
-        <command>systemd-run</command>'s <option>--wait</option> switch to propagate exit status information of the
-        invoked process. Use <command>systemd-run</command>'s <option>--pty</option> switch for acquiring an
-        interactive shell, similar to <command>machinectl shell</command>. In general, <command>systemd-run</command>
-        is preferable for scripting purposes. However, note that <command>systemd-run</command> might require higher
-        privileges than <command>machinectl shell</command>.</para></listitem>
+        <para>Note that
+        <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry> with
+        its <option>--machine=</option> switch may be used in place of the <command>machinectl
+        shell</command> command, and allows non-interactive operation, more detailed and low-level
+        configuration of the invoked unit, as well as access to runtime and exit code/status information of
+        the invoked shell process. In particular, use <command>systemd-run</command>'s
+        <option>--wait</option> switch to propagate exit status information of the invoked process. Use
+        <command>systemd-run</command>'s <option>--pty</option> switch to acquire an interactive shell,
+        similarly to <command>machinectl shell</command>. In general, <command>systemd-run</command> is
+        preferable for scripting purposes. However, note that <command>systemd-run</command> might require
+        higher privileges than <command>machinectl shell</command>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><command>enable</command> <replaceable>NAME</replaceable>…</term>
         <term><command>disable</command> <replaceable>NAME</replaceable>…</term>
 
-        <listitem><para>Enable or disable a container as a system
-        service to start at system boot, using
+        <listitem><para>Enable or disable a container as a system service to start at system boot, using
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-        This enables or disables
-        <filename>systemd-nspawn@.service</filename>, instantiated for
-        the specified machine name, similar to the effect of
-        <command>systemctl enable</command> or <command>systemctl
+        This enables or disables <filename>systemd-nspawn@.service</filename>, instantiated for the specified
+        machine name, similarly to the effect of <command>systemctl enable</command> or <command>systemctl
         disable</command> on the service name.</para></listitem>
       </varlistentry>
 
@@ -284,7 +279,7 @@
         <listitem><para>Send a signal to one or more processes of the
         virtual machine or container. This means processes as seen by
         the host, not the processes inside the virtual machine or
-        container. Use <option>--kill-who=</option> to select which
+        container. Use <option>--kill-whom=</option> to select which
         process to kill. Use <option>--signal=</option> to select the
         signal to send.</para></listitem>
       </varlistentry>
@@ -305,7 +300,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>copy-to</command> <replaceable>NAME</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>]</term>
+        <term><command>copy-to</command> <replaceable>NAME</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>] <option>--force</option></term>
 
         <listitem><para>Copies files or directories from the host
         system into a running container. Takes a container name,
@@ -319,7 +314,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>copy-from</command> <replaceable>NAME</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>]</term>
+        <term><command>copy-from</command> <replaceable>NAME</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>] <option>--force</option></term>
 
         <listitem><para>Copies files or directories from a container
         into the host system. Takes a container name, followed by the
@@ -544,11 +539,9 @@
         machine name. To omit creation of the local, writable copy
         pass <literal>-</literal> as local machine name.</para>
 
-        <para>Similar to the behavior of <command>pull-tar</command>,
-        the read-only image is prefixed with
-        <filename>.raw-</filename>, and thus not shown by
-        <command>list-images</command>, unless <option>--all</option>
-        is passed.</para>
+        <para>Similarly to the behavior of <command>pull-tar</command>, the read-only image is prefixed with
+        <filename>.raw-</filename>, and thus not shown by <command>list-images</command>, unless
+        <option>--all</option> is passed.</para>
 
         <para>Note that pressing C-c during execution of this command
         will not abort the download. Use
@@ -586,9 +579,9 @@
         <term><command>import-fs</command> <replaceable>DIRECTORY</replaceable> [<replaceable>NAME</replaceable>]</term>
 
         <listitem><para>Imports a container image stored in a local directory into
-        <filename>/var/lib/machines/</filename>, operates similar to <command>import-tar</command> or
-        <command>import-raw</command>, but the first argument is the source directory. If supported, this command will
-        create btrfs snapshot or subvolume for the new image.</para></listitem>
+        <filename>/var/lib/machines/</filename>, operates similarly to <command>import-tar</command> or
+        <command>import-raw</command>, but the first argument is the source directory. If supported, this
+        command will create a btrfs snapshot or subvolume for the new image.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -689,7 +682,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--kill-who=</option></term>
+        <term><option>--kill-whom=</option></term>
 
         <listitem><para>When used with <command>kill</command>, choose
         which processes to kill. Must be one of
@@ -807,11 +800,10 @@
       <varlistentry>
         <term><option>--max-addresses=</option></term>
 
-        <listitem><para>When used with the <option>list-machines</option> command, limits the number of ip
-        addresses output for every machine.  Defaults to 1. All addresses can be requested with
-        <literal>all</literal> as argument to <option>--max-addresses=</option>. If the argument to
-        <option>--max-addresses=</option> is less than the actual number of addresses,
-        <literal>…</literal>follows the last address.</para></listitem>
+        <listitem><para>When used with the <option>list-machines</option> command, limits the number of IP
+        addresses shown for every machine. Defaults to 1. All addresses can be requested with
+        <literal>all</literal>. If the limit is 0, the address column is not shown. Otherwise, if the machine
+        has more addresses than shown, <literal>…</literal> follows the last address.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -374,7 +374,7 @@ static sd_device *handle_scsi_default(sd_device *parent, char **path) {
                 return hostdev;
         host -= basenum;
 
-        path_prepend(path, "scsi-%u:%u:%u:%u", host, bus, target, lun);
+        path_prepend(path, "scsi-%i:%i:%i:%i", host, bus, target, lun);
         return hostdev;
 }
 
@@ -543,19 +543,55 @@ static sd_device *handle_ap(sd_device *parent, char **path) {
         return skip_subsystem(parent, "ap");
 }
 
+static int find_real_nvme_parent(sd_device *dev, sd_device **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *nvme = NULL;
+        const char *sysname, *end;
+        int r;
+
+        /* If the device belongs to "nvme-subsystem" (not to be confused with "nvme"), which happens when
+         * NVMe multipathing is enabled in the kernel (/sys/module/nvme_core/parameters/multipath is Y),
+         * then the syspath is something like the following:
+         *   /sys/devices/virtual/nvme-subsystem/nvme-subsys0/nvme0n1
+         * Hence, we need to find the 'real parent' in "nvme" subsystem, e.g,
+         *   /sys/devices/pci0000:00/0000:00:1c.4/0000:3c:00.0/nvme/nvme0 */
+
+        assert(dev);
+        assert(ret);
+
+        r = sd_device_get_sysname(dev, &sysname);
+        if (r < 0)
+                return r;
+
+        /* The sysname format of nvme block device is nvme%d[c%d]n%d[p%d], e.g. nvme0n1p2 or nvme0c1n2.
+         * (Note, nvme device with 'c' can be ignored, as they are hidden. )
+         * The sysname format of nvme subsystem device is nvme%d.
+         * See nvme_alloc_ns() and nvme_init_ctrl() in drivers/nvme/host/core.c for more details. */
+        end = startswith(sysname, "nvme");
+        if (!end)
+                return -ENXIO;
+
+        end += strspn(end, DIGITS);
+        sysname = strndupa(sysname, end - sysname);
+
+        r = sd_device_new_from_subsystem_sysname(&nvme, "nvme", sysname);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(nvme);
+        return 0;
+}
+
 static int builtin_path_id(sd_device *dev, sd_netlink **rtnl, int argc, char *argv[], bool test) {
-        sd_device *parent;
-        _cleanup_free_ char *path = NULL;
-        _cleanup_free_ char *compat_path = NULL;
-        bool supported_transport = false;
-        bool supported_parent = false;
+        _cleanup_(sd_device_unrefp) sd_device *dev_other_branch = NULL;
+        _cleanup_free_ char *path = NULL, *compat_path = NULL;
+        bool supported_transport = false, supported_parent = false;
         const char *subsystem;
+        int r;
 
         assert(dev);
 
         /* walk up the chain of devices and compose path */
-        parent = dev;
-        while (parent) {
+        for (sd_device *parent = dev; parent; ) {
                 const char *subsys, *sysname;
 
                 if (sd_device_get_subsystem(parent, &subsys) < 0 ||
@@ -593,6 +629,13 @@ static int builtin_path_id(sd_device *dev, sd_netlink **rtnl, int argc, char *ar
                         if (compat_path)
                                 path_prepend(&compat_path, "platform-%s", sysname);
                         parent = skip_subsystem(parent, "platform");
+                        supported_transport = true;
+                        supported_parent = true;
+                } else if (streq(subsys, "amba")) {
+                        path_prepend(&path, "amba-%s", sysname);
+                        if (compat_path)
+                                path_prepend(&compat_path, "amba-%s", sysname);
+                        parent = skip_subsystem(parent, "amba");
                         supported_transport = true;
                         supported_parent = true;
                 } else if (streq(subsys, "acpi")) {
@@ -642,13 +685,22 @@ static int builtin_path_id(sd_device *dev, sd_netlink **rtnl, int argc, char *ar
                         parent = skip_subsystem(parent, "iucv");
                         supported_transport = true;
                         supported_parent = true;
-                } else if (streq(subsys, "nvme")) {
+                } else if (STR_IN_SET(subsys, "nvme", "nvme-subsystem")) {
                         const char *nsid;
 
                         if (sd_device_get_sysattr_value(dev, "nsid", &nsid) >= 0) {
                                 path_prepend(&path, "nvme-%s", nsid);
                                 if (compat_path)
                                         path_prepend(&compat_path, "nvme-%s", nsid);
+
+                                if (streq(subsys, "nvme-subsystem")) {
+                                        r = find_real_nvme_parent(dev, &dev_other_branch);
+                                        if (r < 0)
+                                                return r;
+
+                                        parent = dev_other_branch;
+                                }
+
                                 parent = skip_subsystem(parent, "nvme");
                                 supported_parent = true;
                                 supported_transport = true;
@@ -695,9 +747,8 @@ static int builtin_path_id(sd_device *dev, sd_netlink **rtnl, int argc, char *ar
 
                 /* compose valid udev tag name */
                 for (const char *p = path; *p; p++) {
-                        if ((*p >= '0' && *p <= '9') ||
-                            (*p >= 'A' && *p <= 'Z') ||
-                            (*p >= 'a' && *p <= 'z') ||
+                        if (ascii_isdigit(*p) ||
+                            ascii_isalpha(*p) ||
                             *p == '-') {
                                 tag[i++] = *p;
                                 continue;

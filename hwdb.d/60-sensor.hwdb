@@ -4,10 +4,13 @@
 #   60-sensor.rules
 #
 # Match string formats:
+# sensor:<label>:modalias:<parent modalias pattern>:dmi:<dmi pattern>
 # sensor:modalias:<parent modalias pattern>:dmi:<dmi pattern>
 #
 # The device modalias can be seen in the `modalias` file of the sensor parent,
+# and the device label can be seen in the `label` file of the sensor,
 # for example:
+#   cat /sys/`udevadm info -q path -n /dev/iio:device0`/label
 #   cat /sys/`udevadm info -q path -n /dev/iio:device0`/../modalias
 #
 # The full DMI string of the running machine can be read from
@@ -132,6 +135,7 @@ sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:pnT300CHI:*
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnM80TA:*
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100TA:*
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100TAF:*
+sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100TAM:*
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:pnT200TA:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
@@ -169,6 +173,18 @@ sensor:modalias:acpi:BOSC0200*:dmi:*svn*ASUSTeK*:*pn*TP412UA:*
 #########################################
 sensor:modalias:acpi:SMO8500*:dmi:*:svnStandard:pnWCBT1011::*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+
+#########################################
+# AYANEO
+#########################################
+
+# AYANEO AIR
+sensor:modalias:acpi:BMI0160*:dmi:*:svnAYANEO:pnAIR*:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+
+# AYANEO NEXT
+sensor:modalias:acpi:BMI0160*:dmi:*:svnAYANEO:pn*NEXT*:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 #########################################
 # Chuwi
@@ -331,6 +347,14 @@ sensor:modalias:acpi:INVN6500*:dmi:*svnDell*:pnVenue10Pro5055:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
+# DERE
+#########################################
+
+# DBook D10
+sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInternational,LLC.:bvrJP2V1.05:bd04/27/2022:br1.5:efr1.3:svnDefaultstring:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+
+#########################################
 # DEXP
 #########################################
 sensor:modalias:acpi:SMO8500*:dmi:*svn*DEXP*:*pn*DEXPOEM:*
@@ -389,24 +413,20 @@ sensor:modalias:acpi:KXCJ9000*:dmi:*:bvrZY-8-BI-PX4S70VTR400-X423B-005-D:*:rvnAM
 #########################################
 # Google Chromebooks
 #########################################
-sensor:modalias:platform:cros-ec-accel:dmi:*:svnGOOGLE:*
+
+# CrOS EC & kernel drivers internally correct for per-board sensor orientations,
+# but they return values in the inverse direction (Android & W3C specs vs HID).
+sensor:modalias:platform:cros-ec-accel:*
+sensor:modalias:platform:cros-ec-accel-legacy:*
+sensor:accel-display:modalias:platform:cros-ec-accel:*
+sensor:accel-display:modalias:platform:cros-ec-accel-legacy:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
 
-# caroline board (Samsung Chromebook Pro) reports itself as svnGoogle
-sensor:modalias:platform:cros-ec-accel:dmi:*:svnGoogle:pnCaroline*:*
- ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
-
-# Dell Inspiron Chromebook 14 2-in-1
-sensor:modalias:platform:cros-ec-accel:dmi:*svnGoogle:pnVayne*:*
- ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
-
-# nocturne board (Google Pixel Slate)
-sensor:modalias:platform:cros-ec-accel:dmi:*Google_Nocturne*:*
- ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
-
-# rammus board (Asus Chromebook Flip C433)
-sensor:modalias:platform:cros-ec-accel:dmi:*svnGoogle:pnRammus*:*
- ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
+# Base accel reports the same as display when lid angle is 180 degrees (vs 0),
+# so it needs an additional 180 degree rotation around the X axis.
+sensor:accel-base:modalias:platform:cros-ec-accel:*
+sensor:accel-base:modalias:platform:cros-ec-accel-legacy:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 #########################################
 # GP-electronic
@@ -754,6 +774,10 @@ sensor:modalias:acpi:BOSC0200*:dmi:*svnONE-NETBOOKTECHNOLOGYCO*:pnOne-Mix3Pro:*
 sensor:modalias:acpi:BOSC0200*:dmi:bvnAmericanMegatrendsInc.:bvr5.12:bd07/17/2019:*svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnDefaultstring:rnDefaultstring:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
+# One-Netbook OneXPlayer Mini (and maybe others)
+sensor:modalias:acpi:BMI0160*:dmi:*:rnONEXPLAYER:rvrV01:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
+
 #########################################
 # Peaq
 #########################################
@@ -800,7 +824,16 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:rvnPOV:rnI102A:*
 sensor:modalias:i2c:bmc150_accel:dmi:bvnINSYDECorp.:*:svnInsyde:pnBayTrail:*:rvn105B:rn0E57:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
+##########################################
+# Positivo
 #########################################
+
+# Positivo Duo K116R
+sensor:modalias:acpi:KIOX010A*:dmi:bvn*:bvr*:svnPositivoTecnologiaSA:pn*:pvr*:rvnPositivoTecnologiaSA:rnK116R*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+ ACCEL_LOCATION=display
+
+########################################
 # Predia
 #########################################
 

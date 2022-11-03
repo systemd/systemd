@@ -18,13 +18,34 @@
 #include "socket-util.h"
 #include "unaligned.h"
 
-static int _bind_raw_socket(int ifindex, union sockaddr_union *link,
-                            uint32_t xid,
-                            const uint8_t *bcast_addr,
-                            size_t bcast_addr_len,
-                            const struct ether_addr *eth_mac,
-                            uint16_t arp_type, uint8_t dhcp_hlen,
-                            uint16_t port) {
+static int _bind_raw_socket(
+                int ifindex,
+                union sockaddr_union *link,
+                uint32_t xid,
+                const struct hw_addr_data *hw_addr,
+                const struct hw_addr_data *bcast_addr,
+                uint16_t arp_type,
+                uint16_t port) {
+
+        assert(ifindex > 0);
+        assert(link);
+        assert(hw_addr);
+        assert(bcast_addr);
+        assert(IN_SET(arp_type, ARPHRD_ETHER, ARPHRD_INFINIBAND));
+
+        switch (arp_type) {
+        case ARPHRD_ETHER:
+                assert(hw_addr->length == ETH_ALEN);
+                assert(bcast_addr->length == ETH_ALEN);
+                break;
+        case ARPHRD_INFINIBAND:
+                assert(hw_addr->length == 0);
+                assert(bcast_addr->length == INFINIBAND_ALEN);
+                break;
+        default:
+                assert_not_reached();
+        }
+
         struct sock_filter filter[] = {
                 BPF_STMT(BPF_LD + BPF_W + BPF_LEN, 0),                                 /* A <- packet length */
                 BPF_JUMP(BPF_JMP + BPF_JGE + BPF_K, sizeof(DHCPPacket), 1, 0),         /* packet >= DHCPPacket ? */
@@ -53,20 +74,20 @@ static int _bind_raw_socket(int ifindex, union sockaddr_union *link,
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, xid, 1, 0),                        /* client identifier == xid ? */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
                 BPF_STMT(BPF_LD + BPF_B + BPF_ABS, offsetof(DHCPPacket, dhcp.hlen)),   /* A <- MAC address length */
-                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, dhcp_hlen, 1, 0),                  /* address length == dhcp_hlen ? */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, (uint8_t) hw_addr->length, 1, 0),  /* address length == hw_addr->length ? */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
 
                 /* We only support MAC address length to be either 0 or 6 (ETH_ALEN). Optionally
                  * compare chaddr for ETH_ALEN bytes. */
-                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETH_ALEN, 0, 8),                                   /* A (the MAC address length) == ETH_ALEN ? */
-                BPF_STMT(BPF_LDX + BPF_IMM, unaligned_read_be32(&eth_mac->ether_addr_octet[0])),       /* X <- 4 bytes of client's MAC */
-                BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(DHCPPacket, dhcp.chaddr)),                 /* A <- 4 bytes of MAC from dhcp.chaddr */
-                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_X, 0, 1, 0),                                          /* A == X ? */
-                BPF_STMT(BPF_RET + BPF_K, 0),                                                          /* ignore */
-                BPF_STMT(BPF_LDX + BPF_IMM, unaligned_read_be16(&eth_mac->ether_addr_octet[4])),       /* X <- remainder of client's MAC */
-                BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(DHCPPacket, dhcp.chaddr) + 4),             /* A <- remainder of MAC from dhcp.chaddr */
-                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_X, 0, 1, 0),                                          /* A == X ? */
-                BPF_STMT(BPF_RET + BPF_K, 0),                                                          /* ignore */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETH_ALEN, 0, 8),                        /* A (the MAC address length) == ETH_ALEN ? */
+                BPF_STMT(BPF_LDX + BPF_IMM, unaligned_read_be32(hw_addr->bytes)),           /* X <- 4 bytes of client's MAC */
+                BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(DHCPPacket, dhcp.chaddr)),      /* A <- 4 bytes of MAC from dhcp.chaddr */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_X, 0, 1, 0),                               /* A == X ? */
+                BPF_STMT(BPF_RET + BPF_K, 0),                                               /* ignore */
+                BPF_STMT(BPF_LDX + BPF_IMM, unaligned_read_be16(hw_addr->bytes + 4)),       /* X <- remainder of client's MAC */
+                BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(DHCPPacket, dhcp.chaddr) + 4),  /* A <- remainder of MAC from dhcp.chaddr */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_X, 0, 1, 0),                               /* A == X ? */
+                BPF_STMT(BPF_RET + BPF_K, 0),                                               /* ignore */
 
                 BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(DHCPPacket, dhcp.magic)),  /* A <- DHCP magic cookie */
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, DHCP_MAGIC_COOKIE, 1, 0),          /* cookie == DHCP magic cookie ? */
@@ -79,9 +100,6 @@ static int _bind_raw_socket(int ifindex, union sockaddr_union *link,
         };
         _cleanup_close_ int s = -1;
         int r;
-
-        assert(ifindex > 0);
-        assert(link);
 
         s = socket(AF_PACKET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (s < 0)
@@ -100,9 +118,10 @@ static int _bind_raw_socket(int ifindex, union sockaddr_union *link,
                 .sll_protocol = htobe16(ETH_P_IP),
                 .sll_ifindex = ifindex,
                 .sll_hatype = htobe16(arp_type),
-                .sll_halen = bcast_addr_len,
+                .sll_halen = bcast_addr->length,
         };
-        memcpy(link->ll.sll_addr, bcast_addr, bcast_addr_len); /* We may overflow link->ll. link->ll_buffer ensures we have enough space. */
+        /* We may overflow link->ll. link->ll_buffer ensures we have enough space. */
+        memcpy(link->ll.sll_addr, bcast_addr->bytes, bcast_addr->length);
 
         r = bind(s, &link->sa, SOCKADDR_LL_LEN(link->ll));
         if (r < 0)
@@ -115,47 +134,42 @@ int dhcp_network_bind_raw_socket(
                 int ifindex,
                 union sockaddr_union *link,
                 uint32_t xid,
-                const uint8_t *mac_addr,
-                size_t mac_addr_len,
-                const uint8_t *bcast_addr,
-                size_t bcast_addr_len,
+                const struct hw_addr_data *hw_addr,
+                const struct hw_addr_data *bcast_addr,
                 uint16_t arp_type,
                 uint16_t port) {
 
-        static const uint8_t eth_bcast[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
-        /* Default broadcast address for IPoIB */
-        static const uint8_t ib_bcast[] = {
-                0x00, 0xff, 0xff, 0xff, 0xff, 0x12, 0x40, 0x1b,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0xff, 0xff, 0xff, 0xff
+        static struct hw_addr_data default_eth_bcast = {
+                .length = ETH_ALEN,
+                .ether = {{ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }},
+        }, default_ib_bcast = {
+                .length = INFINIBAND_ALEN,
+                .infiniband = {
+                        0x00, 0xff, 0xff, 0xff, 0xff, 0x12, 0x40, 0x1b,
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                        0xff, 0xff, 0xff, 0xff
+                },
         };
-        struct ether_addr eth_mac = { { 0, 0, 0, 0, 0, 0 } };
-        const uint8_t *default_bcast_addr;
-        size_t expected_bcast_addr_len;
-        uint8_t dhcp_hlen = 0;
 
-        if (arp_type == ARPHRD_ETHER) {
-                assert_return(mac_addr_len == ETH_ALEN, -EINVAL);
-                memcpy(&eth_mac, mac_addr, ETH_ALEN);
-                dhcp_hlen = ETH_ALEN;
+        assert(ifindex > 0);
+        assert(link);
+        assert(hw_addr);
 
-                default_bcast_addr = eth_bcast;
-                expected_bcast_addr_len = ETH_ALEN;
-        } else if (arp_type == ARPHRD_INFINIBAND) {
-                default_bcast_addr = ib_bcast;
-                expected_bcast_addr_len = INFINIBAND_ALEN;
-        } else
+        switch (arp_type) {
+        case ARPHRD_ETHER:
+                return _bind_raw_socket(ifindex, link, xid,
+                                        hw_addr,
+                                        (bcast_addr && !hw_addr_is_null(bcast_addr)) ? bcast_addr : &default_eth_bcast,
+                                        arp_type, port);
+
+        case ARPHRD_INFINIBAND:
+                return _bind_raw_socket(ifindex, link, xid,
+                                        &HW_ADDR_NULL,
+                                        (bcast_addr && !hw_addr_is_null(bcast_addr)) ? bcast_addr : &default_ib_bcast,
+                                        arp_type, port);
+        default:
                 return -EINVAL;
-
-        if (bcast_addr && bcast_addr_len > 0)
-                assert_return(bcast_addr_len == expected_bcast_addr_len, -EINVAL);
-        else {
-                bcast_addr = default_bcast_addr;
-                bcast_addr_len = expected_bcast_addr_len;
         }
-
-        return _bind_raw_socket(ifindex, link, xid, bcast_addr, bcast_addr_len,
-                                &eth_mac, arp_type, dhcp_hlen, port);
 }
 
 int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port, int ip_service_type) {

@@ -417,8 +417,8 @@ int manager_get_route_table_to_string(const Manager *m, uint32_t table, char **r
         assert(m);
         assert(ret);
 
-        if (table == 0)
-                return -EINVAL;
+        /* Unlike manager_get_route_table_from_string(), this accepts 0, as the kernel may create routes with
+         * table 0. See issue #25089. */
 
         s = route_table_to_string(table);
         if (!s)
@@ -449,13 +449,12 @@ int config_parse_route_table_names(
                 void *data,
                 void *userdata) {
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(userdata);
 
         if (isempty(rvalue)) {
                 m->route_table_names_by_number = hashmap_free(m->route_table_names_by_number);

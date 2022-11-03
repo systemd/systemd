@@ -80,16 +80,16 @@ static void free_sysvstub_hashmapp(Hashmap **h) {
 }
 
 static int add_alias(const char *service, const char *alias) {
-        const char *link;
-        int r;
+        _cleanup_free_ char *link = NULL;
 
         assert(service);
         assert(alias);
 
-        link = prefix_roota(arg_dest, alias);
+        link = path_join(arg_dest, alias);
+        if (!link)
+                return -ENOMEM;
 
-        r = symlink(service, link);
-        if (r < 0) {
+        if (symlink(service, link) < 0) {
                 if (errno == EEXIST)
                         return 0;
 
@@ -100,9 +100,8 @@ static int add_alias(const char *service, const char *alias) {
 }
 
 static int generate_unit_file(SysvStub *s) {
-        _cleanup_free_ char *path_escaped = NULL;
+        _cleanup_free_ char *path_escaped = NULL, *unit = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        const char *unit;
         int r;
 
         assert(s);
@@ -114,7 +113,9 @@ static int generate_unit_file(SysvStub *s) {
         if (!path_escaped)
                 return log_oom();
 
-        unit = prefix_roota(arg_dest, s->name);
+        unit = path_join(arg_dest, s->name);
+        if (!unit)
+                return log_oom();
 
         /* We might already have a symlink with the same name from a Provides:,
          * or from backup files like /etc/init.d/foo.bak. Real scripts always win,

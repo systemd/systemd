@@ -180,9 +180,6 @@ static ssize_t utf16_size(const uint16_t *s, size_t buf_len_bytes) {
 
         /* Returns the size of the string in bytes without the terminating two zero bytes */
 
-        if (buf_len_bytes % sizeof(uint16_t) != 0)
-                return -EINVAL;
-
         while (l < buf_len_bytes / sizeof(uint16_t)) {
                 if (s[l] == 0)
                         return (l + 1) * sizeof(uint16_t);

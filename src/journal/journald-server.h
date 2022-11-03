@@ -179,7 +179,7 @@ struct Server {
 #define SERVER_MACHINE_ID(s) ((s)->machine_id_field + STRLEN("_MACHINE_ID="))
 
 /* Extra fields for any log messages */
-#define N_IOVEC_META_FIELDS 23
+#define N_IOVEC_META_FIELDS 24
 
 /* Extra fields for log messages that contain OBJECT_PID= (i.e. log about another process) */
 #define N_IOVEC_OBJECT_FIELDS 18
@@ -217,7 +217,7 @@ SplitMode split_mode_from_string(const char *s) _pure_;
 int server_init(Server *s, const char *namespace);
 void server_done(Server *s);
 void server_sync(Server *s);
-int server_vacuum(Server *s, bool verbose);
+void server_vacuum(Server *s, bool verbose);
 void server_rotate(Server *s);
 int server_schedule_sync(Server *s, int priority);
 int server_flush_to_var(Server *s, bool require_flag_file);

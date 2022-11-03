@@ -5,6 +5,8 @@
 
 #include "sd-id128.h"
 
+#include "strv.h"
+
 int mkfs_exists(const char *fstype);
 
-int make_filesystem(const char *node, const char *fstype, const char *label, sd_id128_t uuid, bool discard);
+int make_filesystem(const char *node, const char *fstype, const char *label, const char *root, sd_id128_t uuid, bool discard);

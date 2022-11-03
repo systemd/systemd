@@ -828,13 +828,26 @@ char** strv_shell_escape(char **l, const char *bad) {
         return l;
 }
 
-bool strv_fnmatch_full(char* const* patterns, const char *s, int flags, size_t *matched_pos) {
-        for (size_t i = 0; patterns && patterns[i]; i++)
-                if (fnmatch(patterns[i], s, flags) == 0) {
-                        if (matched_pos)
-                                *matched_pos = i;
-                        return true;
-                }
+bool strv_fnmatch_full(
+                char* const* patterns,
+                const char *s,
+                int flags,
+                size_t *ret_matched_pos) {
+
+        assert(s);
+
+        if (patterns)
+                for (size_t i = 0; patterns[i]; i++)
+                        /* NB: We treat all fnmatch() errors as equivalent to FNM_NOMATCH, i.e. if fnmatch() fails to
+                         * process the pattern for some reason we'll consider this equivalent to non-matching. */
+                        if (fnmatch(patterns[i], s, flags) == 0) {
+                                if (ret_matched_pos)
+                                        *ret_matched_pos = i;
+                                return true;
+                        }
+
+        if (ret_matched_pos)
+                *ret_matched_pos = SIZE_MAX;
 
         return false;
 }

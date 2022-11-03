@@ -109,6 +109,25 @@ To show all installed unit files use 'systemctl list-unit-files'.</programlistin
         </varlistentry>
 
         <varlistentry>
+          <term><command>list-automounts</command> <optional><replaceable>PATTERN</replaceable>…</optional></term>
+
+          <listitem>
+            <para>List automount units currently in memory, ordered by mount path.  If one or more
+            <replaceable>PATTERN</replaceable>s are specified, only automount units matching one of them are shown.
+            Produces output similar to
+            <programlisting>
+WHAT        WHERE                    MOUNTED IDLE TIMEOUT UNIT
+/dev/sdb1   /mnt/test                no      120s         mnt-test.automount
+binfmt_misc /proc/sys/fs/binfmt_misc yes     0            proc-sys-fs-binfmt_misc.automount
+
+2 automounts listed.</programlisting>
+            </para>
+
+            <para>Also see <option>--show-types</option>, <option>--all</option>, and <option>--state=</option>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><command>list-sockets</command> <optional><replaceable>PATTERN</replaceable>…</optional></term>
 
           <listitem>
@@ -140,7 +159,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             Produces output similar to
             <programlisting>
 NEXT                         LEFT          LAST                         PASSED     UNIT                         ACTIVATES
-n/a                          n/a           Thu 2017-02-23 13:40:29 EST  3 days ago ureadahead-stop.timer        ureadahead-stop.service
+-                            -             Thu 2017-02-23 13:40:29 EST  3 days ago ureadahead-stop.timer        ureadahead-stop.service
 Sun 2017-02-26 18:55:42 EST  1min 14s left Thu 2017-02-23 13:54:44 EST  3 days ago systemd-tmpfiles-clean.timer systemd-tmpfiles-clean.service
 Sun 2017-02-26 20:37:16 EST  1h 42min left Sun 2017-02-26 11:56:36 EST  6h ago     apt-daily.timer              apt-daily.service
 Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago     snapd.refresh.timer          snapd.refresh.service
@@ -198,32 +217,31 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
             <option>--type=</option>, <option>--state=</option>, or <option>--failed</option> are used, units
             are additionally filtered by the TYPE and ACTIVE state.</para>
 
-            <para>This function is intended to generate human-readable
-            output. If you are looking for computer-parsable output,
-            use <command>show</command> instead. By default, this
-            function only shows 10 lines of output and ellipsizes
-            lines to fit in the terminal window. This can be changed
-            with <option>--lines</option> and <option>--full</option>,
-            see above. In addition, <command>journalctl
-            --unit=<replaceable>NAME</replaceable></command> or
-            <command>journalctl
-            --user-unit=<replaceable>NAME</replaceable></command> use
-            a similar filter for messages and might be more
-            convenient.
-            </para>
+            <para>This function is intended to generate human-readable output. If you are looking for
+            computer-parsable output, use <command>show</command> instead. By default, this function only
+            shows 10 lines of output and ellipsizes lines to fit in the terminal window. This can be changed
+            with <option>--lines</option> and <option>--full</option>, see above. In addition,
+            <command>journalctl --unit=<replaceable>NAME</replaceable></command> or <command>journalctl
+            --user-unit=<replaceable>NAME</replaceable></command> use a similar filter for messages and might
+            be more convenient.</para>
 
-            <para>systemd implicitly loads units as necessary, so just running the <command>status</command> will
-            attempt to load a file. The command is thus not useful for determining if something was already loaded or
-            not.  The units may possibly also be quickly unloaded after the operation is completed if there's no reason
-            to keep it in memory thereafter.
-            </para>
+            <para>Note that this operation only displays <emphasis>runtime</emphasis> status, i.e. information about
+            the current invocation of the unit (if it is running) or the most recent invocation (if it is not
+            running anymore, and has not been released from memory). Information about earlier invocations,
+            invocations from previous system boots, or prior invocations that have already been released from
+            memory may be retrieved via <command>journalctl --unit=</command>.</para>
+
+            <para>systemd implicitly loads units as necessary, so just running the <command>status</command>
+            will attempt to load a file. The command is thus not useful for determining if something was
+            already loaded or not.  The units may possibly also be quickly unloaded after the operation is
+            completed if there's no reason to keep it in memory thereafter.</para>
 
             <example>
               <title>Example output from systemctl status </title>
 
               <programlisting>$ systemctl status bluetooth
 ● bluetooth.service - Bluetooth service
-   Loaded: loaded (/usr/lib/systemd/system/bluetooth.service; enabled; vendor preset: enabled)
+   Loaded: loaded (/usr/lib/systemd/system/bluetooth.service; enabled; preset: enabled)
    Active: active (running) since Wed 2017-01-04 13:54:04 EST; 1 weeks 0 days ago
      Docs: man:bluetoothd(8)
  Main PID: 930 (bluetoothd)
@@ -239,29 +257,31 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: Current Time Service could not be 
 Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output error (5)
 </programlisting>
 
-            <para>The dot ("●") uses color on supported terminals to summarize the unit state at a glance. Along with
-            its color, its shape varies according to its state: <literal>inactive</literal> or
-            <literal>maintenance</literal> is a white circle ("○"), <literal>active</literal> is a green dot ("●"),
-            <literal>deactivating</literal> is a white dot, <literal>failed</literal> or <literal>error</literal> is
-            a red cross ("×"), and <literal>reloading</literal> is a green clockwise circle arrow ("↻").
-            </para>
+            <para>The dot ("●") uses color on supported terminals to summarize the unit state at a
+            glance. Along with its color, its shape varies according to its state:
+            <literal>inactive</literal> or <literal>maintenance</literal> is a white circle ("○"),
+            <literal>active</literal> is a green dot ("●"), <literal>deactivating</literal> is a white dot,
+            <literal>failed</literal> or <literal>error</literal> is a red cross ("×"), and
+            <literal>reloading</literal> is a green clockwise circle arrow ("↻").</para>
 
-            <para>The "Loaded:" line in the output will show <literal>loaded</literal> if the unit has been loaded into
-            memory. Other possible values for "Loaded:" include: <literal>error</literal> if there was a problem
-            loading it, <literal>not-found</literal> if no unit file was found for this unit,
-            <literal>bad-setting</literal> if an essential unit file setting could not be parsed and
-            <literal>masked</literal> if the unit file has been masked. Along with showing the path to the unit file,
-            this line will also show the enablement state.  Enabled commands start at boot.  See the full table of
-            possible enablement states — including the definition of <literal>masked</literal> — in the documentation
-            for the <command>is-enabled</command> command.
+            <para>The "Loaded:" line in the output will show <literal>loaded</literal> if the unit has been
+            loaded into memory. Other possible values for "Loaded:" include: <literal>error</literal> if
+            there was a problem loading it, <literal>not-found</literal> if no unit file was found for this
+            unit, <literal>bad-setting</literal> if an essential unit file setting could not be parsed and
+            <literal>masked</literal> if the unit file has been masked. Along with showing the path to the
+            unit file, this line will also show the enablement state.  Enabled units are included in the
+            dependency network between units, and thus are started at boot or via some other form of
+            activation.  See the full table of possible enablement states — including the definition of
+            <literal>masked</literal> — in the documentation for the <command>is-enabled</command> command.
             </para>
 
             <para>The "Active:" line shows active state.  The value is usually <literal>active</literal> or
-            <literal>inactive</literal>. Active could mean started, bound, plugged in, etc depending on the unit type.
-            The unit could also be in process of changing states, reporting a state of <literal>activating</literal> or
-            <literal>deactivating</literal>. A special <literal>failed</literal> state is entered when the service
-            failed in some way, such as a crash, exiting with an error code or timing out. If the failed state is
-            entered the cause will be logged for later reference.</para>
+            <literal>inactive</literal>. Active could mean started, bound, plugged in, etc depending on the
+            unit type.  The unit could also be in process of changing states, reporting a state of
+            <literal>activating</literal> or <literal>deactivating</literal>. A special
+            <literal>failed</literal> state is entered when the service failed in some way, such as a crash,
+            exiting with an error code or timing out. If the failed state is entered the cause will be logged
+            for later reference.</para>
             </example>
 
           </listitem>
@@ -467,7 +487,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             the new target, possibly including the graphical environment or terminal you are currently using.
             </para>
 
-            <para>Note that this is allowed only on units where
+            <para>Note that this operation is allowed only on units where
             <option>AllowIsolate=</option> is enabled. See
             <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
             for details.</para>
@@ -478,7 +498,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
           <listitem>
             <para>Send a signal to one or more processes of the
-            unit. Use <option>--kill-who=</option> to select which
+            unit. Use <option>--kill-whom=</option> to select which
             process to kill. Use <option>--signal=</option> to select
             the signal to send.</para>
           </listitem>
@@ -966,7 +986,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <term><command>link <replaceable>PATH</replaceable>…</command></term>
 
           <listitem>
-            <para>Link a unit file that is not in the unit file search paths into the unit file search path. This
+            <para>Link a unit file that is not in the unit file search path into the unit file search path. This
             command expects an absolute path to a unit file. The effect of this may be undone with
             <command>disable</command>. The effect of this command is that a unit file is made available for commands
             such as <command>start</command>, even though it is not installed directly in the unit search path. The
@@ -1507,15 +1527,16 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <term><command>switch-root</command> <replaceable>ROOT</replaceable> <optional><replaceable>INIT</replaceable></optional></term>
 
           <listitem>
-            <para>Switches to a different root directory and executes a new system manager process below it. This is
-            intended for usage in initial RAM disks ("initrd"), and will transition from the initrd's system manager
-            process (a.k.a. "init" process) to the main system manager process which is loaded from the actual host
-            volume. This call takes two arguments: the directory that is to become the new root directory, and the path
-            to the new system manager binary below it to execute as PID 1. If the latter is omitted or the empty
-            string, a systemd binary will automatically be searched for and used as init. If the system manager path is
-            omitted, equal to the empty string or identical to the path to the systemd binary, the state of the
-            initrd's system manager process is passed to the main system manager, which allows later introspection of
-            the state of the services involved in the initrd boot phase.</para>
+            <para>Switches to a different root directory and executes a new system manager process below it.
+            This is intended for use in the initrd, and will transition from the initrd's system manager
+            process (a.k.a. "init" process) to the main system manager process which is loaded from the
+            actual host root files system. This call takes two arguments: the directory that is to become the
+            new root directory, and the path to the new system manager binary below it to execute as PID 1.
+            If the latter is omitted or the empty string, a systemd binary will automatically be searched for
+            and used as init. If the system manager path is omitted, equal to the empty string or identical
+            to the path to the systemd binary, the state of the initrd's system manager process is passed to
+            the main system manager, which allows later introspection of the state of the services involved
+            in the initrd boot phase.</para>
           </listitem>
         </varlistentry>
 
@@ -1924,23 +1945,21 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <term><option>--check-inhibitors=</option></term>
 
         <listitem>
-          <para>When system shutdown or sleep state is request, this option controls how to deal with
-          inhibitor locks. It takes one of <literal>auto</literal>, <literal>yes</literal> or
+          <para>When system shutdown or sleep state is requested, this option controls checking of inhibitor
+          locks. It takes one of <literal>auto</literal>, <literal>yes</literal> or
           <literal>no</literal>. Defaults to <literal>auto</literal>, which will behave like
-          <literal>yes</literal> for interactive invocations (i.e. from a TTY) and <literal>no</literal>
-          for non-interactive invocations.
-          <literal>yes</literal> will let the request respect inhibitor locks.
-          <literal>no</literal> will let the request ignore inhibitor locks.
-          </para>
-          <para>Applications can establish inhibitor locks to avoid that certain important operations
-          (such as CD burning or suchlike) are interrupted by system shutdown or a sleep state. Any user may
-          take these locks and privileged users may override these locks.
-          If any locks are taken, shutdown and sleep state requests will normally fail (unless privileged)
-          and a list of active locks is printed.
-          However, if <literal>no</literal> is specified or <literal>auto</literal> is specified on a
-          non-interactive requests, the established locks are ignored and not shown, and the operation
-          attempted anyway, possibly requiring additional privileges.
-          May be overridden by <option>--force</option>.</para>
+          <literal>yes</literal> for interactive invocations (i.e. from a TTY) and <literal>no</literal> for
+          non-interactive invocations. <literal>yes</literal> lets the request respect inhibitor locks.
+          <literal>no</literal> lets the request ignore inhibitor locks.</para>
+
+          <para>Applications can establish inhibitor locks to prevent certain important operations (such as
+          CD burning) from being interrupted by system shutdown or sleep. Any user may take these locks and
+          privileged users may override these locks. If any locks are taken, shutdown and sleep state
+          requests will normally fail (unless privileged). However, if <literal>no</literal> is specified or
+          <literal>auto</literal> is specified on a non-interactive requests, the operation will be
+          attempted. If locks are present, the operation may require additional privileges.</para>
+
+          <para>Option <option>--force</option> provides another way to override inhibitors.</para>
         </listitem>
       </varlistentry>
 
@@ -2068,7 +2087,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
       </varlistentry>
 
       <varlistentry>
-        <term><option>--kill-who=</option></term>
+        <term><option>--kill-whom=</option></term>
 
         <listitem>
           <para>When used with <command>kill</command>, choose which
@@ -2180,6 +2199,19 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           daemon to carry out changes.</para>
         </listitem>
 
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--image=<replaceable>image</replaceable></option></term>
+
+        <listitem><para>Takes a path to a disk image file or block device node. If specified, all operations
+        are applied to file system in the indicated disk image. This option is similar to
+        <option>--root=</option>, but operates on file systems stored in disk images or block devices. The
+        disk image should either contain just a file system or a set of file systems within a GPT partition
+        table, following the <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions
+        Specification</ulink>. For further information on supported disk images, see
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        switch of the same name.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2354,7 +2386,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <listitem><para>Only allowed with <command>reload-or-restart</command>. Enqueues restart jobs for all
         units that have the <literal>needs-restart</literal> mark, and reload jobs for units that have the
         <literal>needs-reload</literal> mark. When a unit marked for reload does not support reload, restart
-        will be queued. Those properties can be set using <command>set-property Marks</command>.</para>
+        will be queued. Those properties can be set using <command>set-property Markers=…</command>.</para>
 
         <para>Unless <option>--no-block</option> is used, <command>systemctl</command> will wait for the
         queued jobs to finish.</para></listitem>

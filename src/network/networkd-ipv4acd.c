@@ -1,22 +1,78 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/if_arp.h>
+
 #include "sd-dhcp-client.h"
 #include "sd-ipv4acd.h"
 
+#include "ipvlan.h"
 #include "networkd-address.h"
 #include "networkd-dhcp4.h"
 #include "networkd-ipv4acd.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 
+bool link_ipv4acd_supported(Link *link) {
+        assert(link);
+
+        if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        /* ARPHRD_INFINIBAND seems to potentially support IPv4ACD.
+         * But currently sd-ipv4acd only supports ARPHRD_ETHER. */
+        if (link->iftype != ARPHRD_ETHER)
+                return false;
+
+        if (link->hw_addr.length != ETH_ALEN)
+                return false;
+
+        if (ether_addr_is_null(&link->hw_addr.ether))
+                return false;
+
+        if (streq_ptr(link->kind, "vrf"))
+                return false;
+
+        /* L3 or L3S mode do not support ARP. */
+        if (IN_SET(link_get_ipvlan_mode(link), NETDEV_IPVLAN_MODE_L3, NETDEV_IPVLAN_MODE_L3S))
+                return false;
+
+        return true;
+}
+
+static bool address_ipv4acd_enabled(Address *address) {
+        assert(address);
+        assert(address->link);
+
+        if (address->family != AF_INET)
+                return false;
+
+        if (!FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV4))
+                return false;
+
+        /* Currently, only static and DHCP4 addresses are supported. */
+        if (!IN_SET(address->source, NETWORK_CONFIG_SOURCE_STATIC, NETWORK_CONFIG_SOURCE_DHCP4))
+                return false;
+
+        if (!link_ipv4acd_supported(address->link))
+                return false;
+
+        return true;
+}
+
+bool ipv4acd_bound(const Address *address) {
+        assert(address);
+
+        if (!address->acd)
+                return true;
+
+        return address->acd_bound;
+}
+
 static int static_ipv4acd_address_remove(Link *link, Address *address, bool on_conflict) {
         int r;
 
         assert(link);
         assert(address);
-
-        /* Prevent form the address being freed. */
-        address_enter_probing(address);
 
         if (!address_exists(address))
                 return 0; /* Not assigned. */
@@ -55,20 +111,16 @@ static int dhcp4_address_on_conflict(Link *link, Address *address) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to drop DHCPv4 lease: %m");
 
-        /* make the address will be freed. */
-        address_cancel_probing(address);
-
         /* It is not necessary to call address_remove() here, as dhcp4_lease_lost() removes it. */
         return 0;
 }
 
 static void on_acd(sd_ipv4acd *acd, int event, void *userdata) {
-        Address *address = userdata;
+        Address *address = ASSERT_PTR(userdata);
         Link *link;
         int r;
 
         assert(acd);
-        assert(address);
         assert(address->acd == acd);
         assert(address->link);
         assert(address->family == AF_INET);
@@ -78,6 +130,8 @@ static void on_acd(sd_ipv4acd *acd, int event, void *userdata) {
 
         switch (event) {
         case SD_IPV4ACD_EVENT_STOP:
+                address->acd_bound = false;
+
                 if (address->source == NETWORK_CONFIG_SOURCE_STATIC) {
                         r = static_ipv4acd_address_remove(link, address, /* on_conflict = */ false);
                         if (r < 0)
@@ -89,13 +143,15 @@ static void on_acd(sd_ipv4acd *acd, int event, void *userdata) {
                 break;
 
         case SD_IPV4ACD_EVENT_BIND:
+                address->acd_bound = true;
+
                 log_link_debug(link, "Successfully claimed address "IPV4_ADDRESS_FMT_STR,
                                IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
-
-                address_cancel_probing(address);
                 break;
 
         case SD_IPV4ACD_EVENT_CONFLICT:
+                address->acd_bound = false;
+
                 log_link_warning(link, "Dropping address "IPV4_ADDRESS_FMT_STR", as an address conflict was detected.",
                                  IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
 
@@ -113,10 +169,9 @@ static void on_acd(sd_ipv4acd *acd, int event, void *userdata) {
 }
 
 static int ipv4acd_check_mac(sd_ipv4acd *acd, const struct ether_addr *mac, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         struct hw_addr_data hw_addr;
 
-        assert(m);
         assert(mac);
 
         hw_addr = (struct hw_addr_data) {
@@ -127,6 +182,22 @@ static int ipv4acd_check_mac(sd_ipv4acd *acd, const struct ether_addr *mac, void
         return link_get_by_hw_addr(m, &hw_addr, NULL) >= 0;
 }
 
+static int address_ipv4acd_start(Address *address) {
+        assert(address);
+        assert(address->link);
+
+        if (!address->acd)
+                return 0;
+
+        if (sd_ipv4acd_is_running(address->acd))
+                return 0;
+
+        if (!link_has_carrier(address->link))
+                return 0;
+
+        return sd_ipv4acd_start(address->acd, true);
+}
+
 int ipv4acd_configure(Address *address) {
         Link *link;
         int r;
@@ -135,22 +206,14 @@ int ipv4acd_configure(Address *address) {
 
         link = ASSERT_PTR(address->link);
 
-        if (address->family != AF_INET)
-                return 0;
-
-        if (!FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV4))
-                return 0;
-
-        if (link->hw_addr.length != ETH_ALEN || hw_addr_is_null(&link->hw_addr))
-                return 0;
-
-        /* Currently, only static and DHCP4 addresses are supported. */
-        assert(IN_SET(address->source, NETWORK_CONFIG_SOURCE_STATIC, NETWORK_CONFIG_SOURCE_DHCP4));
-
-        if (address->acd) {
-                address_enter_probing(address);
+        if (!address_ipv4acd_enabled(address)) {
+                address->acd = sd_ipv4acd_unref(address->acd);
+                address->acd_bound = false;
                 return 0;
         }
+
+        if (address->acd)
+                return address_ipv4acd_start(address);
 
         log_link_debug(link, "Configuring IPv4ACD for address "IPV4_ADDRESS_FMT_STR,
                        IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
@@ -183,14 +246,7 @@ int ipv4acd_configure(Address *address) {
         if (r < 0)
                 return r;
 
-        if (link_has_carrier(link)) {
-                r = sd_ipv4acd_start(address->acd, true);
-                if (r < 0)
-                        return r;
-        }
-
-        address_enter_probing(address);
-        return 0;
+        return address_ipv4acd_start(address);
 }
 
 int ipv4acd_update_mac(Link *link) {
@@ -225,13 +281,7 @@ int ipv4acd_start(Link *link) {
         assert(link);
 
         SET_FOREACH(address, link->addresses) {
-                if (!address->acd)
-                        continue;
-
-                if (sd_ipv4acd_is_running(address->acd))
-                        continue;
-
-                r = sd_ipv4acd_start(address->acd, true);
+                r = address_ipv4acd_start(address);
                 if (r < 0)
                         return r;
         }

@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Finnish translation of systemd.
-# Jan Kuparinen <copper_fin@hotmail.com>, 2021.
+# Jan Kuparinen <copper_fin@hotmail.com>, 2021, 2022.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2021-09-14 19:04+0000\n"
+"POT-Creation-Date: 2022-10-20 10:35+0200\n"
+"PO-Revision-Date: 2022-10-22 17:19+0000\n"
 "Last-Translator: Jan Kuparinen <copper_fin@hotmail.com>\n"
 "Language-Team: Finnish <https://translate.fedoraproject.org/projects/systemd/"
 "master/fi/>\n"
@@ -15,7 +15,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.8\n"
+"X-Generator: Weblate 4.14.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -152,6 +152,22 @@ msgstr "Hae tuotteen UUID"
 #: src/hostname/org.freedesktop.hostname1.policy:52
 msgid "Authentication is required to get product UUID."
 msgstr "Todennus vaaditaan tuotteen UUID-tunnuksen hakemiseksi."
+
+#: src/hostname/org.freedesktop.hostname1.policy:61
+msgid "Get hardware serial number"
+msgstr "Hanki laitteiston sarjanumero"
+
+#: src/hostname/org.freedesktop.hostname1.policy:62
+msgid "Authentication is required to get hardware serial number."
+msgstr "Laitteiston sarjanumeron saamiseksi vaaditaan todennus."
+
+#: src/hostname/org.freedesktop.hostname1.policy:71
+msgid "Get system description"
+msgstr "Hanki järjestelmän kuvaus"
+
+#: src/hostname/org.freedesktop.hostname1.policy:72
+msgid "Authentication is required to get system description."
+msgstr "Järjestelmän kuvauksen saamiseksi vaaditaan todennus."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
@@ -907,22 +923,22 @@ msgstr "Todennus vaaditaan $(unit):n uudelleen lataamiseksi."
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Todennus vaaditaan $(unit):n uudelleen käynnistämiseksi."
 
-#: src/core/dbus-unit.c:535
+#: src/core/dbus-unit.c:546
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr ""
 "Todennus vaaditaan UNIX-signaalin lähettämiseen '$(unit)'-prosesseihin."
 
-#: src/core/dbus-unit.c:566
+#: src/core/dbus-unit.c:576
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "Todennus vaaditaan \"epäonnistuneen\" tilan \"$(unit)\" nollaamiseksi."
 
-#: src/core/dbus-unit.c:599
+#: src/core/dbus-unit.c:608
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Todennus vaaditaan, jotta ominaisuudet asetetaan arvoon '$(unit)'."
 
-#: src/core/dbus-unit.c:708
+#: src/core/dbus-unit.c:714
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
@@ -930,7 +946,7 @@ msgstr ""
 "Todennus vaaditaan tiedostojen ja hakemistojen poistamiseen, jotka liittyvät "
 "'$(unit)':iin."
 
-#: src/core/dbus-unit.c:757
+#: src/core/dbus-unit.c:762
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

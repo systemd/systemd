@@ -61,6 +61,9 @@ static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_timer_slack_nsec, "t", (uint6
 static BUS_DEFINE_PROPERTY_GET_REF(property_get_hashmap_size, "u", Hashmap *, hashmap_size);
 static BUS_DEFINE_PROPERTY_GET_REF(property_get_set_size, "u", Set *, set_size);
 static BUS_DEFINE_PROPERTY_GET(property_get_default_timeout_abort_usec, "t", Manager, manager_default_timeout_abort_usec);
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_watchdog_device, "s", watchdog_get_device());
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_watchdog_last_ping_realtime, "t", watchdog_get_last_ping(CLOCK_REALTIME));
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_watchdog_last_ping_monotonic, "t", watchdog_get_last_ping(CLOCK_MONOTONIC));
 
 static int property_get_virtualization(
                 sd_bus *bus,
@@ -98,11 +101,10 @@ static int property_get_tainted(
                 sd_bus_error *error) {
 
         _cleanup_free_ char *s = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         assert(bus);
         assert(reply);
-        assert(m);
 
         s = manager_taint_string(m);
         if (!s)
@@ -190,12 +192,11 @@ static int property_get_progress(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         double d;
 
         assert(bus);
         assert(reply);
-        assert(m);
 
         if (MANAGER_IS_FINISHED(m))
                 d = 1.0;
@@ -215,12 +216,11 @@ static int property_get_environment(
                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(reply);
-        assert(m);
 
         r = manager_get_effective_environment(m, &l);
         if (r < 0)
@@ -238,9 +238,8 @@ static int property_get_show_status(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
-        assert(m);
         assert(bus);
         assert(reply);
 
@@ -256,9 +255,8 @@ static int property_get_runtime_watchdog(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
-        assert(m);
         assert(bus);
         assert(reply);
 
@@ -274,9 +272,8 @@ static int property_get_pretimeout_watchdog(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
-        assert(m);
         assert(bus);
         assert(reply);
 
@@ -292,9 +289,8 @@ static int property_get_pretimeout_watchdog_governor(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
-        assert(m);
         assert(bus);
         assert(reply);
 
@@ -310,9 +306,8 @@ static int property_get_reboot_watchdog(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
-        assert(m);
         assert(bus);
         assert(reply);
 
@@ -328,9 +323,8 @@ static int property_get_kexec_watchdog(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
-        assert(m);
         assert(bus);
         assert(reply);
 
@@ -387,11 +381,9 @@ static int property_set_pretimeout_watchdog_governor(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         char *governor;
         int r;
-
-        assert(m);
 
         r = sd_bus_message_read(value, "s", &governor);
         if (r < 0)
@@ -423,9 +415,8 @@ static int property_set_kexec_watchdog(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _unused_ Manager *m = userdata;
+        _unused_ Manager *m = ASSERT_PTR(userdata);
 
-        assert(m);
         assert(bus);
         assert(value);
 
@@ -441,10 +432,9 @@ static int property_get_oom_score_adjust(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r, n;
 
-        assert(m);
         assert(bus);
         assert(reply);
 
@@ -528,13 +518,12 @@ static int reply_unit_path(Unit *u, sd_bus_message *message, sd_bus_error *error
 }
 
 static int method_get_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *name;
         Unit *u;
         int r;
 
         assert(message);
-        assert(m);
 
         /* Anyone can call this method */
 
@@ -550,13 +539,12 @@ static int method_get_unit(sd_bus_message *message, void *userdata, sd_bus_error
 }
 
 static int method_get_unit_by_pid(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         pid_t pid;
         Unit *u;
         int r;
 
         assert(message);
-        assert(m);
 
         assert_cc(sizeof(pid_t) == sizeof(uint32_t));
 
@@ -589,7 +577,7 @@ static int method_get_unit_by_pid(sd_bus_message *message, void *userdata, sd_bu
 
 static int method_get_unit_by_invocation_id(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *path = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         sd_id128_t id;
         const void *a;
         Unit *u;
@@ -597,7 +585,6 @@ static int method_get_unit_by_invocation_id(sd_bus_message *message, void *userd
         int r;
 
         assert(message);
-        assert(m);
 
         /* Anyone can call this method */
 
@@ -667,13 +654,12 @@ static int method_get_unit_by_control_group(sd_bus_message *message, void *userd
 }
 
 static int method_load_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *name;
         Unit *u;
         int r;
 
         assert(message);
-        assert(m);
 
         /* Anyone can call this method */
 
@@ -783,13 +769,12 @@ static int method_enqueue_unit_job(sd_bus_message *message, void *userdata, sd_b
 }
 
 static int method_start_unit_replace(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *old_name;
         Unit *u;
         int r;
 
         assert(message);
-        assert(m);
 
         r = sd_bus_message_read(message, "s", &old_name);
         if (r < 0)
@@ -888,12 +873,11 @@ static int reply_unit_info(sd_bus_message *reply, Unit *u) {
 
 static int method_list_units_by_names(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
         _cleanup_strv_free_ char **units = NULL;
 
         assert(message);
-        assert(m);
 
         r = sd_bus_message_read_strv(message, &units);
         if (r < 0)
@@ -973,7 +957,7 @@ static int transient_unit_from_message(
 
         if (!unit_is_pristine(u))
                 return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS,
-                                         "Unit %s already exists.", name);
+                                         "Unit %s was already loaded or has a fragment file.", name);
 
         /* OK, the unit failed to load and is unreferenced, now let's
          * fill in the transient data instead */
@@ -1044,13 +1028,12 @@ static int transient_aux_units_from_message(
 
 static int method_start_transient_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *name, *smode;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         JobMode mode;
         Unit *u;
         int r;
 
         assert(message);
-        assert(m);
 
         r = mac_selinux_access_check(message, "start", error);
         if (r < 0)
@@ -1084,13 +1067,12 @@ static int method_start_transient_unit(sd_bus_message *message, void *userdata, 
 
 static int method_get_job(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *path = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         uint32_t id;
         Job *j;
         int r;
 
         assert(message);
-        assert(m);
 
         /* Anyone can call this method */
 
@@ -1114,13 +1096,12 @@ static int method_get_job(sd_bus_message *message, void *userdata, sd_bus_error 
 }
 
 static int method_cancel_job(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         uint32_t id;
         Job *j;
         int r;
 
         assert(message);
-        assert(m);
 
         r = sd_bus_message_read(message, "u", &id);
         if (r < 0)
@@ -1134,11 +1115,10 @@ static int method_cancel_job(sd_bus_message *message, void *userdata, sd_bus_err
 }
 
 static int method_clear_jobs(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(m);
 
         r = mac_selinux_access_check(message, "reload", error);
         if (r < 0)
@@ -1156,11 +1136,10 @@ static int method_clear_jobs(sd_bus_message *message, void *userdata, sd_bus_err
 }
 
 static int method_reset_failed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(m);
 
         r = mac_selinux_access_check(message, "reload", error);
         if (r < 0)
@@ -1179,13 +1158,12 @@ static int method_reset_failed(sd_bus_message *message, void *userdata, sd_bus_e
 
 static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_error *error, char **states, char **patterns) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *k;
         Unit *u;
         int r;
 
         assert(message);
-        assert(m);
 
         /* Anyone can call this method */
 
@@ -1260,12 +1238,11 @@ static int method_list_units_by_patterns(sd_bus_message *message, void *userdata
 
 static int method_list_jobs(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Job *j;
         int r;
 
         assert(message);
-        assert(m);
 
         /* Anyone can call this method */
 
@@ -1312,11 +1289,10 @@ static int method_list_jobs(sd_bus_message *message, void *userdata, sd_bus_erro
 }
 
 static int method_subscribe(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(m);
 
         /* Anyone can call this method */
 
@@ -1346,11 +1322,10 @@ static int method_subscribe(sd_bus_message *message, void *userdata, sd_bus_erro
 }
 
 static int method_unsubscribe(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(m);
 
         /* Anyone can call this method */
 
@@ -1369,13 +1344,18 @@ static int method_unsubscribe(sd_bus_message *message, void *userdata, sd_bus_er
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int dump_impl(sd_bus_message *message, void *userdata, sd_bus_error *error, int (*reply)(sd_bus_message *, char *)) {
+static int dump_impl(
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error,
+                char **patterns,
+                int (*reply)(sd_bus_message *, char *)) {
+
         _cleanup_free_ char *dump = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(m);
 
         /* Anyone can call this method */
 
@@ -1383,7 +1363,7 @@ static int dump_impl(sd_bus_message *message, void *userdata, sd_bus_error *erro
         if (r < 0)
                 return r;
 
-        r = manager_get_dump_string(m, &dump);
+        r = manager_get_dump_string(m, patterns, &dump);
         if (r < 0)
                 return r;
 
@@ -1395,7 +1375,7 @@ static int reply_dump(sd_bus_message *message, char *dump) {
 }
 
 static int method_dump(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return dump_impl(message, userdata, error, reply_dump);
+        return dump_impl(message, userdata, error, NULL, reply_dump);
 }
 
 static int reply_dump_by_fd(sd_bus_message *message, char *dump) {
@@ -1409,7 +1389,30 @@ static int reply_dump_by_fd(sd_bus_message *message, char *dump) {
 }
 
 static int method_dump_by_fd(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return dump_impl(message, userdata, error, reply_dump_by_fd);
+        return dump_impl(message, userdata, error, NULL, reply_dump_by_fd);
+}
+
+static int dump_units_matching_patterns(
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error,
+                int (*reply)(sd_bus_message *, char *)) {
+        _cleanup_strv_free_ char **patterns = NULL;
+        int r;
+
+        r = sd_bus_message_read_strv(message, &patterns);
+        if (r < 0)
+                return r;
+
+        return dump_impl(message, userdata, error, patterns, reply);
+}
+
+static int method_dump_units_matching_patterns(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return dump_units_matching_patterns(message, userdata, error, reply_dump);
+}
+
+static int method_dump_units_matching_patterns_by_fd(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return dump_units_matching_patterns(message, userdata, error, reply_dump_by_fd);
 }
 
 static int method_refuse_snapshot(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1449,11 +1452,10 @@ int verify_run_space_and_log(const char *message) {
 }
 
 static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(m);
 
         r = verify_run_space("Refusing to reload", error);
         if (r < 0)
@@ -1485,11 +1487,10 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
 }
 
 static int method_reexecute(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(m);
 
         r = verify_run_space("Refusing to reexecute", error);
         if (r < 0)
@@ -1513,11 +1514,10 @@ static int method_reexecute(sd_bus_message *message, void *userdata, sd_bus_erro
 }
 
 static int method_exit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(m);
 
         r = mac_selinux_access_check(message, "halt", error);
         if (r < 0)
@@ -1534,11 +1534,10 @@ static int method_exit(sd_bus_message *message, void *userdata, sd_bus_error *er
 }
 
 static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(m);
 
         r = mac_selinux_access_check(message, "reboot", error);
         if (r < 0)
@@ -1554,11 +1553,10 @@ static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *
 }
 
 static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(m);
 
         r = mac_selinux_access_check(message, "halt", error);
         if (r < 0)
@@ -1574,11 +1572,10 @@ static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error
 }
 
 static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(m);
 
         r = mac_selinux_access_check(message, "halt", error);
         if (r < 0)
@@ -1594,11 +1591,10 @@ static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *er
 }
 
 static int method_kexec(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(m);
 
         r = mac_selinux_access_check(message, "reboot", error);
         if (r < 0)
@@ -1616,13 +1612,12 @@ static int method_kexec(sd_bus_message *message, void *userdata, sd_bus_error *e
 static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *ri = NULL, *rt = NULL;
         const char *root, *init;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         struct statvfs svfs;
         uint64_t available;
         int r;
 
         assert(message);
-        assert(m);
 
         if (statvfs("/run/systemd", &svfs) < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to statvfs(/run/systemd): %m");
@@ -1710,11 +1705,10 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
 
 static int method_set_environment(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_strv_free_ char **plus = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(m);
 
         r = mac_selinux_access_check(message, "reload", error);
         if (r < 0)
@@ -1741,11 +1735,10 @@ static int method_set_environment(sd_bus_message *message, void *userdata, sd_bu
 
 static int method_unset_environment(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_strv_free_ char **minus = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(m);
 
         r = mac_selinux_access_check(message, "reload", error);
         if (r < 0)
@@ -1774,11 +1767,10 @@ static int method_unset_environment(sd_bus_message *message, void *userdata, sd_
 
 static int method_unset_and_set_environment(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_strv_free_ char **minus = NULL, **plus = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(m);
 
         r = mac_selinux_access_check(message, "reload", error);
         if (r < 0)
@@ -1813,12 +1805,11 @@ static int method_unset_and_set_environment(sd_bus_message *message, void *userd
 }
 
 static int method_set_exit_code(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         uint8_t code;
         int r;
 
         assert(message);
-        assert(m);
 
         r = mac_selinux_access_check(message, "exit", error);
         if (r < 0)
@@ -1837,13 +1828,12 @@ static int method_set_exit_code(sd_bus_message *message, void *userdata, sd_bus_
 }
 
 static int method_lookup_dynamic_user_by_name(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *name;
         uid_t uid;
         int r;
 
         assert(message);
-        assert(m);
 
         r = sd_bus_message_read_basic(message, 's', &name);
         if (r < 0)
@@ -1868,12 +1858,11 @@ static int method_lookup_dynamic_user_by_name(sd_bus_message *message, void *use
 
 static int method_lookup_dynamic_user_by_uid(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *name = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         uid_t uid;
         int r;
 
         assert(message);
-        assert(m);
 
         assert_cc(sizeof(uid_t) == sizeof(uint32_t));
         r = sd_bus_message_read_basic(message, 'u', &uid);
@@ -1899,12 +1888,11 @@ static int method_lookup_dynamic_user_by_uid(sd_bus_message *message, void *user
 
 static int method_get_dynamic_users(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         DynamicUser *d;
         int r;
 
         assert(message);
-        assert(m);
 
         assert_cc(sizeof(uid_t) == sizeof(uint32_t));
 
@@ -1943,11 +1931,10 @@ static int method_get_dynamic_users(sd_bus_message *message, void *userdata, sd_
 }
 
 static int method_enqueue_marked_jobs(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(m);
 
         r = mac_selinux_access_check(message, "start", error);
         if (r < 0)
@@ -1959,7 +1946,7 @@ static int method_enqueue_marked_jobs(sd_bus_message *message, void *userdata, s
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        log_info("Queuing reload/restart jobs for marked units…");
+        log_info("Queuing reload/restart jobs for marked units%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         r = sd_bus_message_new_method_return(message, &reply);
@@ -2013,13 +2000,12 @@ static int method_enqueue_marked_jobs(sd_bus_message *message, void *userdata, s
 
 static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, sd_bus_error *error, char **states, char **patterns) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         UnitFileList *item;
         Hashmap *h;
         int r;
 
         assert(message);
-        assert(m);
 
         /* Anyone can call this method */
 
@@ -2084,13 +2070,12 @@ static int method_list_unit_files_by_patterns(sd_bus_message *message, void *use
 }
 
 static int method_get_unit_file_state(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *name;
         UnitFileState state;
         int r;
 
         assert(message);
-        assert(m);
 
         /* Anyone can call this method */
 
@@ -2111,11 +2096,10 @@ static int method_get_unit_file_state(sd_bus_message *message, void *userdata, s
 
 static int method_get_default_target(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *default_target = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(m);
 
         /* Anyone can call this method */
 
@@ -2149,23 +2133,22 @@ static int send_unit_files_changed(sd_bus *bus, void *userdata) {
 /* Create an error reply, using the error information from changes[]
  * if possible, and fall back to generating an error from error code c.
  * The error message only describes the first error.
- *
- * Coordinate with unit_file_dump_changes() in install.c.
  */
 static int install_error(
                 sd_bus_error *error,
                 int c,
-                UnitFileChange *changes,
+                InstallChange *changes,
                 size_t n_changes) {
 
         int r;
 
         for (size_t i = 0; i < n_changes; i++)
 
-                switch (changes[i].type_or_errno) {
+                /* When making changes here, make sure to also change install_changes_dump() in install.c. */
 
-                case 0 ... _UNIT_FILE_CHANGE_TYPE_MAX: /* not errors */
-                        continue;
+                switch (changes[i].type) {
+                case 0 ... _INSTALL_CHANGE_TYPE_MAX: /* not errors */
+                        break;
 
                 case -EEXIST:
                         if (changes[i].source)
@@ -2188,6 +2171,21 @@ static int install_error(
                                               "Unit %s is transient or generated.", changes[i].path);
                         goto found;
 
+                case -ETXTBSY:
+                        r = sd_bus_error_setf(error, BUS_ERROR_UNIT_BAD_PATH,
+                                              "File %s is under the systemd unit hierarchy already.", changes[i].path);
+                        goto found;
+
+                case -EBADSLT:
+                        r = sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
+                                              "Invalid specifier in %s.", changes[i].path);
+                        goto found;
+
+                case -EIDRM:
+                        r = sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
+                                              "Destination unit %s is a non-template unit.", changes[i].path);
+                        goto found;
+
                 case -EUCLEAN:
                         r = sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
                                               "\"%s\" is not a valid unit name.",
@@ -2200,29 +2198,44 @@ static int install_error(
                                               changes[i].path);
                         goto found;
 
+                case -EXDEV:
+                        if (changes[i].source)
+                                r = sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
+                                                      "Cannot alias %s as %s.",
+                                                      changes[i].source, changes[i].path);
+                        else
+                                r = sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
+                                                      "Invalid unit reference %s.", changes[i].path);
+                        goto found;
+
                 case -ENOENT:
                         r = sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT,
                                               "Unit file %s does not exist.", changes[i].path);
                         goto found;
 
+                case -EUNATCH:
+                        r = sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
+                                              "Cannot resolve specifiers in %s.", changes[i].path);
+                        goto found;
+
                 default:
-                        assert(changes[i].type_or_errno < 0); /* other errors */
-                        r = sd_bus_error_set_errnof(error, changes[i].type_or_errno, "File %s: %m", changes[i].path);
+                        assert(changes[i].type < 0); /* other errors */
+                        r = sd_bus_error_set_errnof(error, changes[i].type, "File %s: %m", changes[i].path);
                         goto found;
                 }
 
         r = c < 0 ? c : -EINVAL;
 
  found:
-        unit_file_changes_free(changes, n_changes);
+        install_changes_free(changes, n_changes);
         return r;
 }
 
-static int reply_unit_file_changes_and_free(
+static int reply_install_changes_and_free(
                 Manager *m,
                 sd_bus_message *message,
                 int carries_install_info,
-                UnitFileChange *changes,
+                InstallChange *changes,
                 size_t n_changes,
                 sd_bus_error *error) {
 
@@ -2230,7 +2243,7 @@ static int reply_unit_file_changes_and_free(
         bool bad = false, good = false;
         int r;
 
-        if (unit_file_changes_have_modification(changes, n_changes)) {
+        if (install_changes_have_modification(changes, n_changes)) {
                 r = bus_foreach_bus(m, NULL, send_unit_files_changed, NULL);
                 if (r < 0)
                         log_debug_errno(r, "Failed to send UnitFilesChanged signal: %m");
@@ -2252,14 +2265,14 @@ static int reply_unit_file_changes_and_free(
 
         for (size_t i = 0; i < n_changes; i++) {
 
-                if (changes[i].type_or_errno < 0) {
+                if (changes[i].type < 0) {
                         bad = true;
                         continue;
                 }
 
                 r = sd_bus_message_append(
                                 reply, "(sss)",
-                                unit_file_change_type_to_string(changes[i].type_or_errno),
+                                install_change_type_to_string(changes[i].type),
                                 changes[i].path,
                                 changes[i].source);
                 if (r < 0)
@@ -2277,23 +2290,23 @@ static int reply_unit_file_changes_and_free(
         if (r < 0)
                 goto fail;
 
-        unit_file_changes_free(changes, n_changes);
+        install_changes_free(changes, n_changes);
         return sd_bus_send(NULL, reply, NULL);
 
 fail:
-        unit_file_changes_free(changes, n_changes);
+        install_changes_free(changes, n_changes);
         return r;
 }
 
 static int method_enable_unit_files_generic(
                 sd_bus_message *message,
                 Manager *m,
-                int (*call)(LookupScope scope, UnitFileFlags flags, const char *root_dir, char *files[], UnitFileChange **changes, size_t *n_changes),
+                int (*call)(LookupScope scope, UnitFileFlags flags, const char *root_dir, char *files[], InstallChange **changes, size_t *n_changes),
                 bool carries_install_info,
                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         size_t n_changes = 0;
         UnitFileFlags flags;
         int r;
@@ -2333,7 +2346,7 @@ static int method_enable_unit_files_generic(
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, carries_install_info ? r : -1, changes, n_changes, error);
+        return reply_install_changes_and_free(m, message, carries_install_info ? r : -1, changes, n_changes, error);
 }
 
 static int method_enable_unit_files_with_flags(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2352,7 +2365,7 @@ static int method_link_unit_files(sd_bus_message *message, void *userdata, sd_bu
         return method_enable_unit_files_generic(message, userdata, unit_file_link, false, error);
 }
 
-static int unit_file_preset_without_mode(LookupScope scope, UnitFileFlags flags, const char *root_dir, char **files, UnitFileChange **changes, size_t *n_changes) {
+static int unit_file_preset_without_mode(LookupScope scope, UnitFileFlags flags, const char *root_dir, char **files, InstallChange **changes, size_t *n_changes) {
         return unit_file_preset(scope, flags, root_dir, files, UNIT_FILE_PRESET_FULL, changes, n_changes);
 }
 
@@ -2367,16 +2380,15 @@ static int method_mask_unit_files(sd_bus_message *message, void *userdata, sd_bu
 static int method_preset_unit_files_with_mode(sd_bus_message *message, void *userdata, sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         size_t n_changes = 0;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         UnitFilePresetMode preset_mode;
         int runtime, force, r;
         UnitFileFlags flags;
         const char *mode;
 
         assert(message);
-        assert(m);
 
         r = sd_bus_message_read_strv(message, &l);
         if (r < 0)
@@ -2406,17 +2418,17 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, r, changes, n_changes, error);
+        return reply_install_changes_and_free(m, message, r, changes, n_changes, error);
 }
 
 static int method_disable_unit_files_generic(
                 sd_bus_message *message,
                 Manager *m,
-                int (*call)(LookupScope scope, UnitFileFlags flags, const char *root_dir, char *files[], UnitFileChange **changes, size_t *n_changes),
+                int (*call)(LookupScope scope, UnitFileFlags flags, const char *root_dir, char *files[], InstallChange **changes, size_t *n_changes),
                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         UnitFileFlags flags;
         size_t n_changes = 0;
         int r;
@@ -2457,7 +2469,7 @@ static int method_disable_unit_files_generic(
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes, error);
+        return reply_install_changes_and_free(m, message, -1, changes, n_changes, error);
 }
 
 static int method_disable_unit_files_with_flags(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2474,13 +2486,12 @@ static int method_unmask_unit_files(sd_bus_message *message, void *userdata, sd_
 
 static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_strv_free_ char **l = NULL;
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         size_t n_changes = 0;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(m);
 
         r = sd_bus_message_read_strv(message, &l);
         if (r < 0)
@@ -2496,18 +2507,17 @@ static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes, error);
+        return reply_install_changes_and_free(m, message, -1, changes, n_changes, error);
 }
 
 static int method_set_default_target(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         size_t n_changes = 0;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *name;
         int force, r;
 
         assert(message);
-        assert(m);
 
         r = mac_selinux_access_check(message, "enable", error);
         if (r < 0)
@@ -2527,20 +2537,19 @@ static int method_set_default_target(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes, error);
+        return reply_install_changes_and_free(m, message, -1, changes, n_changes, error);
 }
 
 static int method_preset_all_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         size_t n_changes = 0;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         UnitFilePresetMode preset_mode;
         const char *mode;
         UnitFileFlags flags;
         int force, runtime, r;
 
         assert(message);
-        assert(m);
 
         r = mac_selinux_access_check(message, "enable", error);
         if (r < 0)
@@ -2570,13 +2579,13 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes, error);
+        return reply_install_changes_and_free(m, message, -1, changes, n_changes, error);
 }
 
 static int method_add_dependency_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_strv_free_ char **l = NULL;
-        Manager *m = userdata;
-        UnitFileChange *changes = NULL;
+        Manager *m = ASSERT_PTR(userdata);
+        InstallChange *changes = NULL;
         size_t n_changes = 0;
         int runtime, force, r;
         char *target, *type;
@@ -2584,7 +2593,6 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
         UnitFileFlags flags;
 
         assert(message);
-        assert(m);
 
         r = bus_verify_manage_unit_files_async(m, message, error);
         if (r < 0)
@@ -2610,12 +2618,12 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes, error);
+        return reply_install_changes_and_free(m, message, -1, changes, n_changes, error);
 }
 
 static int method_get_unit_file_links(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         size_t n_changes = 0, i;
         UnitFileFlags flags;
         const char *name;
@@ -2639,31 +2647,36 @@ static int method_get_unit_file_links(sd_bus_message *message, void *userdata, s
                 (runtime ? UNIT_FILE_RUNTIME : 0);
 
         r = unit_file_disable(LOOKUP_SCOPE_SYSTEM, flags, NULL, p, &changes, &n_changes);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get file links for %s: %m", name);
+        if (r < 0) {
+                log_error_errno(r, "Failed to get file links for %s: %m", name);
+                goto finish;
+        }
 
         for (i = 0; i < n_changes; i++)
-                if (changes[i].type_or_errno == UNIT_FILE_UNLINK) {
+                if (changes[i].type == INSTALL_CHANGE_UNLINK) {
                         r = sd_bus_message_append(reply, "s", changes[i].path);
                         if (r < 0)
-                                return r;
+                                goto finish;
                 }
 
         r = sd_bus_message_close_container(reply);
         if (r < 0)
-                return r;
+                goto finish;
 
-        return sd_bus_send(NULL, reply, NULL);
+        r = sd_bus_send(NULL, reply, NULL);
+
+finish:
+        install_changes_free(changes, n_changes);
+        return r;
 }
 
 static int method_get_job_waiting(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         uint32_t id;
         Job *j;
         int r;
 
         assert(message);
-        assert(m);
 
         r = sd_bus_message_read(message, "u", &id);
         if (r < 0)
@@ -2677,13 +2690,12 @@ static int method_get_job_waiting(sd_bus_message *message, void *userdata, sd_bu
 }
 
 static int method_abandon_scope(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *name;
         Unit *u;
         int r;
 
         assert(message);
-        assert(m);
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
@@ -2701,12 +2713,11 @@ static int method_abandon_scope(sd_bus_message *message, void *userdata, sd_bus_
 }
 
 static int method_set_show_status(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         ShowStatus mode = _SHOW_STATUS_INVALID;
         const char *t;
         int r;
 
-        assert(m);
         assert(message);
 
         r = mac_selinux_access_check(message, "reload", error);
@@ -2776,6 +2787,9 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("UnitPath", "as", NULL, offsetof(Manager, lookup_paths.search_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultStandardOutput", "s", bus_property_get_exec_output, offsetof(Manager, default_std_output), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultStandardError", "s", bus_property_get_exec_output, offsetof(Manager, default_std_error), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("WatchdogDevice", "s", property_get_watchdog_device, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("WatchdogLastPingTimestamp", "t", property_get_watchdog_last_ping_realtime, 0, 0),
+        SD_BUS_PROPERTY("WatchdogLastPingTimestampMonotonic", "t", property_get_watchdog_last_ping_monotonic, 0, 0),
         SD_BUS_WRITABLE_PROPERTY("RuntimeWatchdogUSec", "t", property_get_runtime_watchdog, property_set_runtime_watchdog, 0, 0),
         SD_BUS_WRITABLE_PROPERTY("RuntimeWatchdogPreUSec", "t", property_get_pretimeout_watchdog, property_set_pretimeout_watchdog, 0, 0),
         SD_BUS_WRITABLE_PROPERTY("RuntimeWatchdogPreGovernor", "s", property_get_pretimeout_watchdog_governor, property_set_pretimeout_watchdog_governor, 0, 0),
@@ -2791,6 +2805,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("DefaultTimeoutStartUSec", "t", bus_property_get_usec, offsetof(Manager, default_timeout_start_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultTimeoutStopUSec", "t", bus_property_get_usec, offsetof(Manager, default_timeout_stop_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultTimeoutAbortUSec", "t", property_get_default_timeout_abort_usec, 0, 0),
+        SD_BUS_PROPERTY("DefaultDeviceTimeoutUSec", "t", bus_property_get_usec, offsetof(Manager, default_device_timeout_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultRestartUSec", "t", bus_property_get_usec, offsetof(Manager, default_restart_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultStartLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Manager, default_start_limit_interval), SD_BUS_VTABLE_PROPERTY_CONST),
         /* The following two items are obsolete alias */
@@ -3059,10 +3074,20 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                 SD_BUS_RESULT("s", output),
                                 method_dump,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("DumpUnitsMatchingPatterns",
+                                SD_BUS_ARGS("as", patterns),
+                                SD_BUS_RESULT("s", output),
+                                method_dump_units_matching_patterns,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("DumpByFileDescriptor",
                                 SD_BUS_NO_ARGS,
                                 SD_BUS_RESULT("h", fd),
                                 method_dump_by_fd,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("DumpUnitsMatchingPatternsByFileDescriptor",
+                                SD_BUS_ARGS("as", patterns),
+                                SD_BUS_RESULT("h", fd),
+                                method_dump_units_matching_patterns_by_fd,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("CreateSnapshot",
                                 SD_BUS_ARGS("s", name, "b", cleanup),
@@ -3290,11 +3315,10 @@ const sd_bus_vtable bus_manager_log_control_vtable[] = {
 
 static int send_finished(sd_bus *bus, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *message = NULL;
-        usec_t *times = userdata;
+        usec_t *times = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
-        assert(times);
 
         r = sd_bus_message_new_signal(bus,
                                       &message,

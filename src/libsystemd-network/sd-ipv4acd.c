@@ -210,10 +210,8 @@ static int ipv4acd_set_next_wakeup(sd_ipv4acd *acd, usec_t usec, usec_t random_u
 }
 
 static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
-        sd_ipv4acd *acd = userdata;
+        sd_ipv4acd *acd = ASSERT_PTR(userdata);
         int r = 0;
-
-        assert(acd);
 
         switch (acd->state) {
 
@@ -351,13 +349,12 @@ static int ipv4acd_on_packet(
                 uint32_t revents,
                 void *userdata) {
 
-        sd_ipv4acd *acd = userdata;
+        sd_ipv4acd *acd = ASSERT_PTR(userdata);
         struct ether_arp packet;
         ssize_t n;
         int r;
 
         assert(s);
-        assert(acd);
         assert(fd >= 0);
 
         n = recv(fd, &packet, sizeof(struct ether_arp), 0);
@@ -586,7 +583,7 @@ int sd_ipv4acd_start(sd_ipv4acd *acd, bool reset_conflicts) {
         if (r < 0)
                 return r;
 
-        CLOSE_AND_REPLACE(acd->fd, r);
+        close_and_replace(acd->fd, r);
 
         if (reset_conflicts)
                 acd->n_conflict = 0;

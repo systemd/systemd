@@ -42,8 +42,8 @@
     units this generator creates are overridden, but additional implicit dependencies might be
     created.</para>
 
-    <para>This generator will only look for the root partition on the same physical disk the EFI System
-    Partition (ESP) is located on. Note that support from the boot loader is required: the EFI variable
+    <para>This generator will only look for the root partition on the same physical disk where the EFI System
+    Partition (ESP) is located. Note that support from the boot loader is required: the EFI variable
     <varname>LoaderDevicePartUUID</varname> of the <constant>4a67b082-0a4c-41cf-b6c7-440b29bb8c4f</constant>
     vendor UUID is used to determine from which partition, and hence the disk from which the system was
     booted. If the boot loader does not set this variable, this generator will not be able to autodetect the
@@ -80,94 +80,66 @@
         </thead>
         <tbody>
           <row>
-            <entry>44479540-f297-41b2-9af7-d131d5f0458a</entry>
-            <entry><filename>Root Partition (x86)</filename></entry>
-            <entry><filename>/</filename></entry>
-            <entry>On 32-bit x86 systems, the first x86 root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
-          </row>
-          <row>
-            <entry>4f68bce3-e8cd-4db1-96e7-fbcaf984b709</entry>
+            <entry><constant>SD_GPT_ROOT_X86_64</constant> <constant>4f68bce3-e8cd-4db1-96e7-fbcaf984b709</constant></entry>
             <entry><filename>Root Partition (x86-64)</filename></entry>
             <entry><filename>/</filename></entry>
-            <entry>On 64-bit x86 systems, the first x86-64 root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
+            <entry>The first partition with this type UUID, located on the same disk as the ESP, is used as the root file system <filename>/</filename> on AMD64 / 64-bit x86 systems.</entry>
           </row>
           <row>
-            <entry>69dad710-2ce4-4e3c-b16c-21a1d49abed3</entry>
-            <entry><filename>Root Partition (32-bit ARM)</filename></entry>
-            <entry><filename>/</filename></entry>
-            <entry>On 32-bit ARM systems, the first ARM root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
-          </row>
-          <row>
-            <entry>b921b045-1df0-41c3-af44-4c6f280d3fae</entry>
+            <entry><constant>SD_GPT_ROOT_ARM64</constant> <constant>b921b045-1df0-41c3-af44-4c6f280d3fae</constant></entry>
             <entry><filename>Root Partition (64-bit ARM)</filename></entry>
             <entry><filename>/</filename></entry>
-            <entry>On 64-bit ARM systems, the first ARM root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
+            <entry>The first partition with this type UUID, located on the same disk as the ESP, is used as the root file system <filename>/</filename> on AArch64 / 64-bit ARM systems.</entry>
           </row>
           <row>
-            <entry>993d8d3d-f80e-4225-855a-9daf8ed7ea97</entry>
-            <entry><filename>Root Partition (Itanium/IA-64)</filename></entry>
+            <entry>
+              <constant>SD_GPT_ROOT_ALPHA</constant> <constant>SD_GPT_ROOT_ARC</constant> <constant>SD_GPT_ROOT_ARM</constant> <constant>SD_GPT_ROOT_ARM64</constant> <constant>SD_GPT_ROOT_IA64</constant> <constant>SD_GPT_ROOT_LOONGARCH64</constant> <constant>SD_GPT_ROOT_MIPS_LE</constant> <constant>SD_GPT_ROOT_MIPS64_LE</constant> <constant>SD_GPT_ROOT_PARISC</constant> <constant>SD_GPT_ROOT_PPC</constant> <constant>SD_GPT_ROOT_PPC64</constant> <constant>SD_GPT_ROOT_PPC64_LE</constant> <constant>SD_GPT_ROOT_RISCV32</constant> <constant>SD_GPT_ROOT_RISCV64</constant> <constant>SD_GPT_ROOT_S390</constant> <constant>SD_GPT_ROOT_S390X</constant> <constant>SD_GPT_ROOT_TILEGX</constant> <constant>SD_GPT_ROOT_X86</constant> <constant>SD_GPT_ROOT_X86_64</constant> <constant>SD_GPT_USR_ALPHA</constant> <constant>SD_GPT_USR_ARC</constant> <constant>SD_GPT_USR_ARM</constant> <constant>SD_GPT_USR_IA64</constant> <constant>SD_GPT_USR_LOONGARCH64</constant> <constant>SD_GPT_USR_MIPS_LE</constant> <constant>SD_GPT_USR_MIPS64_LE</constant> <constant>SD_GPT_USR_PARISC</constant> <constant>SD_GPT_USR_PPC</constant> <constant>SD_GPT_USR_PPC64</constant> <constant>SD_GPT_USR_PPC64_LE</constant> <constant>SD_GPT_USR_RISCV32</constant> <constant>SD_GPT_USR_RISCV64</constant> <constant>SD_GPT_USR_S390</constant> <constant>SD_GPT_USR_S390X</constant> <constant>SD_GPT_USR_TILEGX</constant> <constant>SD_GPT_USR_X86</constant>
+            </entry>
+            <entry>root partitions for other architectures</entry>
             <entry><filename>/</filename></entry>
-            <entry>On Itanium systems, the first Itanium root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
+            <entry>The first partition with the type UUID matching the architecture, located on the same disk as the ESP, is used as the root file system <filename>/</filename>. For the full list and constant values, see <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>.</entry>
           </row>
           <row>
-            <entry>77055800-792c-4f94-b39a-98c91b762bb6</entry>
-            <entry><filename>Root Partition (LoongArch 64)</filename></entry>
-            <entry><filename>/</filename></entry>
-            <entry>On LoongArch 64-bit systems, the first LoongArch 64-bit root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
-          </row>
-          <row>
-            <entry>60d5a7fe-8e7d-435c-b714-3dd8162144e1</entry>
-            <entry><filename>Root Partition (RISCV-V 32)</filename></entry>
-            <entry><filename>/</filename></entry>
-            <entry>On RISC-V 32-bit systems, the first RISCV-V 32-bit root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
-          </row>
-          <row>
-            <entry>72ec70a6-cf74-40e6-bd49-4bda08e8f224</entry>
-            <entry><filename>Root Partition (RISCV-V 64)</filename></entry>
-            <entry><filename>/</filename></entry>
-            <entry>On RISC-V 64-bit systems, the first RISCV-V 64-bit root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
-          </row>
-          <row>
-            <entry>933ac7e1-2eb4-4f13-b844-0e14e2aef915</entry>
+            <entry><constant>SD_GPT_HOME</constant> <constant>933ac7e1-2eb4-4f13-b844-0e14e2aef915</constant></entry>
             <entry>Home Partition</entry>
             <entry><filename>/home/</filename></entry>
-            <entry>The first home partition on the disk the root partition is located on is mounted to <filename>/home/</filename>.</entry>
+            <entry>The first partition with this type UUID on the same disk as the ESP is mounted to <filename>/home/</filename>.</entry>
           </row>
           <row>
-            <entry>3b8f8425-20e0-4f3b-907f-1a25a76f98e8</entry>
+            <entry><constant>SD_GPT_SRV</constant> <constant>3b8f8425-20e0-4f3b-907f-1a25a76f98e8</constant></entry>
             <entry>Server Data Partition</entry>
             <entry><filename>/srv/</filename></entry>
-            <entry>The first server data partition on the disk the root partition is located on is mounted to <filename>/srv/</filename>.</entry>
+            <entry>The first partition with this type UUID on the same disk as the ESP is mounted to <filename>/srv/</filename>.</entry>
           </row>
           <row>
-            <entry>4d21b016-b534-45c2-a9fb-5c16e091fd2d</entry>
+            <entry><constant>SD_GPT_VAR</constant> <constant>4d21b016-b534-45c2-a9fb-5c16e091fd2d</constant></entry>
             <entry>Variable Data Partition</entry>
             <entry><filename>/var/</filename></entry>
-            <entry>The first variable data partition on the disk the root partition is located on is mounted to <filename>/var/</filename> — under the condition its partition UUID matches the first 128 bit of the HMAC-SHA256 of the GPT type uuid of this partition keyed by the machine ID of the installation stored in <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
+            <entry>The first partition with this type UUID on the same disk as the ESP is mounted to <filename>/var/</filename> — under the condition its partition UUID matches the first 128 bit of the HMAC-SHA256 of the GPT type uuid of this partition keyed by the machine ID of the installation stored in <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
           </row>
           <row>
-            <entry>7ec6f557-3bc5-4aca-b293-16ef5df639d1</entry>
+            <entry><constant>SD_GPT_TMP</constant> <constant>7ec6f557-3bc5-4aca-b293-16ef5df639d1</constant></entry>
             <entry>Temporary Data Partition</entry>
             <entry><filename>/var/tmp/</filename></entry>
-            <entry>The first temporary data partition on the disk the root partition is located on is mounted to <filename>/var/tmp/</filename>.</entry>
+            <entry>The first partition with this type UUID on the same disk as the ESP is mounted to <filename>/var/tmp/</filename>.</entry>
           </row>
           <row>
-            <entry>0657fd6d-a4ab-43c4-84e5-0933c84b4f4f</entry>
+            <entry><constant>SD_GPT_SWAP</constant> <constant>0657fd6d-a4ab-43c4-84e5-0933c84b4f4f</constant></entry>
             <entry>Swap</entry>
             <entry>n/a</entry>
-            <entry>All swap partitions located on the disk the root partition is located on are enabled.</entry>
+            <entry>All partitions with this type UUID on the same disk as the ESP are used as swap.</entry>
           </row>
           <row>
-            <entry>c12a7328-f81f-11d2-ba4b-00a0c93ec93b</entry>
+            <entry><constant>SD_GPT_ESP</constant> <constant>c12a7328-f81f-11d2-ba4b-00a0c93ec93b</constant></entry>
             <entry>EFI System Partition (ESP)</entry>
             <entry><filename>/efi/</filename> or <filename>/boot/</filename></entry>
-            <entry>The first ESP located on the disk the root partition is located on is mounted to <filename>/boot/</filename> or <filename>/efi/</filename>, see below.</entry>
+            <entry>The first partition with this type UUID located on the same disk as the root partition is mounted to <filename>/boot/</filename> or <filename>/efi/</filename>, see below.</entry>
           </row>
           <row>
-            <entry>bc13c2ff-59e6-4262-a352-b275fd6f7172</entry>
+            <entry><constant>SD_GPT_XBOOTLDR</constant> <constant>bc13c2ff-59e6-4262-a352-b275fd6f7172</constant></entry>
             <entry>Extended Boot Loader Partition</entry>
             <entry><filename>/boot/</filename></entry>
-            <entry>The first Extended Boot Loader Partition is mounted to <filename>/boot/</filename>, see below.</entry>
+            <entry>The first partition with this type UUID located on the same disk as the root partition is mounted to <filename>/boot/</filename>, see below.</entry>
           </row>
         </tbody>
       </tgroup>
@@ -176,38 +148,33 @@
     <para>This generator understands the following attribute flags for partitions:</para>
 
     <table>
-      <title>Partition Attributes</title>
-      <tgroup cols='4' align='left' colsep='1' rowsep='1'>
-        <colspec colname="attribute" />
-        <colspec colname="value" />
+      <title>Partition Attribute Flags</title>
+      <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+        <colspec colname="flag" />
         <colspec colname="where" />
         <colspec colname="explanation" />
         <thead>
           <row>
-            <entry>Name</entry>
-            <entry>Value</entry>
+            <entry>Flag</entry>
             <entry>Applicable to</entry>
             <entry>Explanation</entry>
           </row>
         </thead>
         <tbody>
           <row>
-            <entry><constant>GPT_FLAG_READ_ONLY</constant></entry>
-            <entry>0x1000000000000000</entry>
+            <entry><constant>SD_GPT_FLAG_READ_ONLY</constant> <constant>0x1000000000000000</constant></entry>
             <entry><filename>/</filename>, <filename>/home/</filename>, <filename>/srv/</filename>, <filename>/var/</filename>, <filename>/var/tmp/</filename>, Extended Boot Loader Partition</entry>
             <entry>Partition is mounted read-only</entry>
           </row>
 
           <row>
-            <entry><constant>GPT_FLAG_NO_AUTO</constant></entry>
-            <entry>0x8000000000000000</entry>
+            <entry><constant>SD_GPT_FLAG_NO_AUTO</constant> <constant>0x8000000000000000</constant></entry>
             <entry><filename>/</filename>, <filename>/home/</filename>, <filename>/srv/</filename>, <filename>/var/</filename>, <filename>/var/tmp/</filename>, Extended Boot Loader Partition</entry>
             <entry>Partition is not mounted automatically</entry>
           </row>
 
           <row>
-            <entry><constant>GPT_FLAG_NO_BLOCK_IO_PROTOCOL</constant></entry>
-            <entry>0x0000000000000002</entry>
+            <entry><constant>SD_GPT_FLAG_NO_BLOCK_IO_PROTOCOL</constant> <constant>0x0000000000000002</constant></entry>
             <entry>EFI System Partition (ESP)</entry>
             <entry>Partition is not mounted automatically</entry>
           </row>

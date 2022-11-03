@@ -115,7 +115,7 @@
         indicate the session desktop used, where this applies and if this information is available. For example:
         <literal>GNOME</literal>, or <literal>KDE</literal>. It is recommended to use the same identifiers and
         capitalization as for <varname>$XDG_CURRENT_DESKTOP</varname>, as defined by the <ulink
-        url="http://standards.freedesktop.org/desktop-entry-spec/latest/">Desktop Entry
+        url="https://standards.freedesktop.org/desktop-entry-spec/latest/">Desktop Entry
         Specification</ulink>. (However, note that the option only takes a single item, and not a colon-separated list
         like <varname>$XDG_CURRENT_DESKTOP</varname>.) See
         <citerefentry><refentrytitle>sd_session_get_desktop</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
@@ -176,7 +176,7 @@
         similar. It is guaranteed that this directory is local and
         offers the greatest possible file system feature set the
         operating system provides. For further details, see the <ulink
-        url="http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
+        url="https://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
         Base Directory Specification</ulink>. <varname>$XDG_RUNTIME_DIR</varname>
         is not set if the current user is not the original user of the session.</para></listitem>
       </varlistentry>

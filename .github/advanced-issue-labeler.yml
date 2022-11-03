@@ -1,0 +1,146 @@
+---
+# syntax - https://github.com/redhat-plumbers-in-action/advanced-issue-labeler#policy
+
+policy:
+  - template: [bug_report.yml, feature_request.yml]
+    section:
+      - id: [component]
+        block-list: [other]
+        label:
+          - name: analyze
+            keys: ['systemd-analyze']
+
+          - name: ask-password
+            keys: ['systemd-ask-password']
+
+          - name: binfmt
+            keys: ['systemd-binfmt']
+
+          - name: cgtop
+            keys: ['systemd-cgtop']
+
+          - name: coredump
+            keys: ['coredumpctl', 'systemd-coredump']
+
+          - name: cryptsetup
+            keys: ['systemd-cryptsetup']
+
+          - name: delta
+            keys: ['systemd-delta']
+
+          - name: env
+            keys: ['systemd-env-generator']
+
+          - name: fsck
+            keys: ['systemd-fsck']
+
+          - name: gpt-auto
+            keys: ['systemd-gpt-auto-generator']
+
+          - name: growfs
+            keys: ['systemd-growfs']
+
+          - name: homed
+            keys: ['systemd-homed', 'homectl', 'pam_systemd_home']
+
+          - name: hostname
+            keys: ['systemd-hostnamed', 'hostnamectl']
+
+          - name: hwdb
+            keys: ['systemd-hwdb', 'hardware database files']
+
+          - name: import
+            keys: ['systemd-import']
+
+          - name: journal
+            keys: ['systemd-journald', 'journalctl']
+
+          - name: journal-remote
+            keys: ['systemd-journal-remote', 'systemd-journal-upload', 'systemd-journal-gatewayd']
+
+          - name: kernel-install
+            keys: ['kernel-install']
+
+          - name: logind
+            keys: ['systemd-logind', 'loginctl', 'pam_systemd']
+
+          - name: machined
+            keys: ['systemd-machined', 'machinectl']
+
+          - name: modules-load
+            keys: ['systemd-modules-load']
+
+          - name: network
+            keys: ['systemd-networkd', 'networkctl', 'systemd-networkd-wait-online', 'systemd-network-generator']
+
+          - name: nspawn
+            keys: ['systemd-nspawn']
+
+          - name: oomd
+            keys: ['systemd-oomd', 'oomctl']
+
+          - name: pid1
+            keys: ['systemd']
+
+          - name: portabled
+            keys: ['systemd-portabled', 'portablectl']
+
+          - name: pstore
+            keys: ['systemd-pstore']
+
+          - name: repart
+            keys: ['systemd-repart']
+
+          - name: resolve
+            keys: ['systemd-resolved', 'resolvectl', 'nss-resolve']
+
+          - name: rfkill
+            keys: ['systemd-rfkill']
+
+          - name: rpm
+            keys: ['rpm scriptlets']
+
+          - name: run
+            keys: ['systemd-run']
+
+          - name: sd-boot/sd-stub/bootctl
+            keys: ['bootctl', 'systemd-boot', 'systemd-stub']
+
+          - name: sysctl
+            keys: ['systemd-sysctl']
+
+          - name: sysext
+            keys: ['systemd-sysext']
+
+          - name: systemctl
+            keys: ['systemctl']
+
+          - name: sysusers
+            keys: ['systemd-sysusers']
+
+          - name: sysv
+            keys: ['systemd-sysv-generator']
+
+          - name: tests
+            keys: ['tests']
+
+          - name: timedate
+            keys: ['systemd-timedate', 'timedatectl']
+
+          - name: timesync
+            keys: ['systemd-timesync']
+
+          - name: tmpfiles
+            keys: ['systemd-tmpfiles']
+
+          - name: udev
+            keys: ['systemd-udevd', 'udevadm', 'udev rule files']
+
+          - name: userdb
+            keys: ['systemd-userdb', 'userdbctl']
+
+          - name: veritysetup
+            keys: ['systemd-veritysetup']
+
+          - name: xdg-autostart
+            keys: ['systemd-xdg-autostart-generator']

@@ -9,22 +9,15 @@
 set -e
 
 TEST_DESCRIPTION="systemd-udev storage tests"
-IMAGE_NAME="default"
 TEST_NO_NSPAWN=1
 # Save only journals of failing test cases by default (to conserve space)
 TEST_SAVE_JOURNAL="${TEST_SAVE_JOURNAL:-fail}"
-QEMU_TIMEOUT="${QEMU_TIMEOUT:-600}"
 
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
 USER_QEMU_OPTIONS="${QEMU_OPTIONS:-}"
 USER_KERNEL_APPEND="${KERNEL_APPEND:-}"
-
-if ! get_bool "$QEMU_KVM"; then
-    echo "This test requires KVM, skipping..."
-    exit 0
-fi
 
 _host_has_feature() {(
     set -e
@@ -212,8 +205,39 @@ testcase_nvme_basic() {
     test_run_one "${1:?}"
 }
 
+# Testcase for:
+#   * https://github.com/systemd/systemd/pull/24748
+#   * https://github.com/systemd/systemd/pull/24766
+#   * https://github.com/systemd/systemd/pull/24946
+# Docs: https://qemu.readthedocs.io/en/latest/system/devices/nvme.html#nvm-subsystems
+testcase_nvme_subsystem() {
+    if ! "${QEMU_BIN:?}" -device help | grep 'name "nvme-subsys"'; then
+        echo "nvme-subsystem device driver is not available, skipping test..."
+        return 77
+    fi
+
+    local i
+    local qemu_opts=(
+        # Create an NVM Subsystem Device
+        "-device nvme-subsys,id=nvme-subsys-64,nqn=subsys64"
+        # Attach two NVM controllers to it
+        "-device nvme,subsys=nvme-subsys-64,serial=deadbeef"
+        "-device nvme,subsys=nvme-subsys-64,serial=deadbeef"
+        # And create two shared namespaces attached to both controllers
+        "-device nvme-ns,drive=nvme0,nsid=16,shared=on"
+        "-drive format=raw,cache=unsafe,file=${TESTDIR:?}/disk0.img,if=none,id=nvme0"
+        "-device nvme-ns,drive=nvme1,nsid=17,shared=on"
+        "-drive format=raw,cache=unsafe,file=${TESTDIR:?}/disk1.img,if=none,id=nvme1"
+    )
+
+    KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
+    QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
+    test_run_one "${1:?}"
+}
+
 # Test for issue https://github.com/systemd/systemd/issues/20212
 testcase_virtio_scsi_identically_named_partitions() {
+
     if ! "${QEMU_BIN:?}" -device help | grep 'name "virtio-scsi-pci"'; then
         echo "virtio-scsi-pci device driver is not available, skipping test..."
         return 77
@@ -223,25 +247,26 @@ testcase_virtio_scsi_identically_named_partitions() {
     # and attach them to a virtio-scsi controller
     local qemu_opts=("-device virtio-scsi-pci,id=scsi0,num_queues=4")
     local diskpath="${TESTDIR:?}/namedpart0.img"
-    local i lodev qemu_timeout
+    local i lodev num_disk num_part qemu_timeout
+
+    if get_bool "${IS_BUILT_WITH_ASAN:=}" || ! get_bool "$QEMU_KVM"; then
+        num_disk=4
+        num_part=4
+    else
+        num_disk=16
+        num_part=8
+    fi
 
     dd if=/dev/zero of="$diskpath" bs=1M count=18
     lodev="$(losetup --show -f -P "$diskpath")"
     sfdisk "${lodev:?}" <<EOF
 label: gpt
 
-name="Hello world", size=2M
-name="Hello world", size=2M
-name="Hello world", size=2M
-name="Hello world", size=2M
-name="Hello world", size=2M
-name="Hello world", size=2M
-name="Hello world", size=2M
-name="Hello world", size=2M
+$(for ((i = 1; i <= num_part; i++)); do echo 'name="Hello world", size=2M'; done)
 EOF
     losetup -d "$lodev"
 
-    for i in {0..15}; do
+    for ((i = 0; i < num_disk; i++)); do
         diskpath="${TESTDIR:?}/namedpart$i.img"
         if [[ $i -gt 0 ]]; then
             cp -uv "${TESTDIR:?}/namedpart0.img" "$diskpath"
@@ -255,7 +280,13 @@ EOF
 
     # Bump the timeout when collecting test coverage, since the test is a bit
     # slower in that case
-    is_built_with_coverage && qemu_timeout=120 || qemu_timeout=60
+    if get_bool "${IS_BUILT_WITH_ASAN:=}" || ! get_bool "$QEMU_KVM"; then
+        qemu_timeout=240
+    elif is_built_with_coverage; then
+        qemu_timeout=120
+    else
+        qemu_timeout=60
+    fi
 
     KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
     # Limit the number of VCPUs and set a timeout to make sure we trigger the issue
@@ -287,8 +318,8 @@ EOF
     mkfs.ext4 -U "deadbeef-dead-dead-beef-111111111111" -L "failover_vol" "${lodev}p2"
     losetup -d "$lodev"
 
-    # Add 64 multipath devices, each backed by 4 paths
-    for ndisk in {0..63}; do
+    # Add 16 multipath devices, each backed by 4 paths
+    for ndisk in {0..15}; do
         wwn="0xDEADDEADBEEF$(printf "%.4d" "$ndisk")"
         # Use a partitioned disk for the first device to test failover
         [[ $ndisk -eq 0 ]] && image="$partdisk" || image="${TESTDIR:?}/disk$ndisk.img"
@@ -311,19 +342,23 @@ EOF
 # Test case for issue https://github.com/systemd/systemd/issues/19946
 testcase_simultaneous_events() {
     local qemu_opts=("-device virtio-scsi-pci,id=scsi")
-    local partdisk="${TESTDIR:?}/simultaneousevents.img"
+    local diskpath i
 
-    dd if=/dev/zero of="$partdisk" bs=1M count=110
-    qemu_opts+=(
-        "-device scsi-hd,drive=drive1,serial=deadbeeftest"
-        "-drive format=raw,cache=unsafe,file=$partdisk,if=none,id=drive1"
-    )
+    for i in {0..9}; do
+        diskpath="${TESTDIR:?}/simultaneousevents${i}.img"
+
+        dd if=/dev/zero of="$diskpath" bs=1M count=32
+        qemu_opts+=(
+            "-device scsi-hd,drive=drive$i,serial=deadbeeftest$i"
+            "-drive format=raw,cache=unsafe,file=$diskpath,if=none,id=drive$i"
+        )
+    done
 
     KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
     QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
     test_run_one "${1:?}" || return $?
 
-    rm -f "$partdisk"
+    rm -f "$diskpath"
 }
 
 testcase_lvm_basic() {
@@ -415,7 +450,7 @@ testcase_long_sysfs_path() {
     local testdisk="${TESTDIR:?}/longsysfspath.img"
     local qemu_opts=(
         "-drive if=none,id=drive0,format=raw,cache=unsafe,file=$testdisk"
-        "-device pci-bridge,id=pci_bridge0,bus=pci.0,chassis_nr=64"
+        "-device pci-bridge,id=pci_bridge0,chassis_nr=64"
     )
 
     dd if=/dev/zero of="$testdisk" bs=1M count=64

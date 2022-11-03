@@ -23,9 +23,10 @@ static int normalize_filenames(char **names) {
                                                        "Non-absolute paths are not allowed when --root is used: %s",
                                                        *u);
 
-                        if (!strchr(*u,'/'))
+                        if (!strchr(*u, '/'))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Link argument does contain at least one directory separator: %s",
+                                                       "Link argument must contain at least one directory separator.\n"
+                                                       "If you intended to link a file in the current directory, try ./%s instead.",
                                                        *u);
 
                         r = path_make_absolute_cwd(*u, &normalized_path);
@@ -63,7 +64,7 @@ static int normalize_names(char **names) {
 int verb_enable(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **names = NULL;
         const char *verb = argv[0];
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         size_t n_changes = 0;
         int carries_install_info = -1;
         bool ignore_carries_install_info = arg_quiet;
@@ -126,7 +127,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                 else
                         assert_not_reached();
 
-                unit_file_dump_changes(r, verb, changes, n_changes, arg_quiet);
+                install_changes_dump(r, verb, changes, n_changes, arg_quiet);
                 if (r < 0)
                         goto finish;
                 r = 0;
@@ -279,7 +280,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
         }
 
 finish:
-        unit_file_changes_free(changes, n_changes);
+        install_changes_free(changes, n_changes);
 
         return r;
 }

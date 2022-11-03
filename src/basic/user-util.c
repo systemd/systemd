@@ -13,6 +13,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "chase-symlinks.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -136,7 +137,6 @@ char *getusername_malloc(void) {
 }
 
 bool is_nologin_shell(const char *shell) {
-
         return PATH_IN_SET(shell,
                            /* 'nologin' is the friendliest way to disable logins for a user account. It prints a nice
                             * message and exits. Different distributions place the binary at different places though,
@@ -152,6 +152,21 @@ bool is_nologin_shell(const char *shell) {
                            "/usr/bin/false",
                            "/bin/true",
                            "/usr/bin/true");
+}
+
+const char* default_root_shell(const char *root) {
+        /* We want to use the preferred shell, i.e. DEFAULT_USER_SHELL, which usually
+         * will be /bin/bash. Fall back to /bin/sh if DEFAULT_USER_SHELL is not found,
+         * or any access errors. */
+
+        int r = chase_symlinks(DEFAULT_USER_SHELL, root, CHASE_PREFIX_ROOT, NULL, NULL);
+        if (r < 0 && r != -ENOENT)
+                log_debug_errno(r, "Failed to look up shell '%s%s%s': %m",
+                                strempty(root), root ? "/" : "", DEFAULT_USER_SHELL);
+        if (r > 0)
+                return DEFAULT_USER_SHELL;
+
+        return "/bin/sh";
 }
 
 static int synthesize_user_creds(
@@ -176,13 +191,13 @@ static int synthesize_user_creds(
                         *home = "/root";
 
                 if (shell)
-                        *shell = "/bin/sh";
+                        *shell = default_root_shell(NULL);
 
                 return 0;
         }
 
-        if (synthesize_nobody() &&
-            STR_IN_SET(*username, NOBODY_USER_NAME, "65534")) {
+        if (STR_IN_SET(*username, NOBODY_USER_NAME, "65534") &&
+            synthesize_nobody()) {
                 *username = NOBODY_USER_NAME;
 
                 if (uid)
@@ -326,8 +341,8 @@ int get_group_creds(const char **groupname, gid_t *gid, UserCredsFlags flags) {
                 return 0;
         }
 
-        if (synthesize_nobody() &&
-            STR_IN_SET(*groupname, NOBODY_GROUP_NAME, "65534")) {
+        if (STR_IN_SET(*groupname, NOBODY_GROUP_NAME, "65534") &&
+            synthesize_nobody()) {
                 *groupname = NOBODY_GROUP_NAME;
 
                 if (gid)
@@ -373,8 +388,7 @@ char* uid_to_name(uid_t uid) {
         /* Shortcut things to avoid NSS lookups */
         if (uid == 0)
                 return strdup("root");
-        if (synthesize_nobody() &&
-            uid == UID_NOBODY)
+        if (uid == UID_NOBODY && synthesize_nobody())
                 return strdup(NOBODY_USER_NAME);
 
         if (uid_is_valid(uid)) {
@@ -417,8 +431,7 @@ char* gid_to_name(gid_t gid) {
 
         if (gid == 0)
                 return strdup("root");
-        if (synthesize_nobody() &&
-            gid == GID_NOBODY)
+        if (gid == GID_NOBODY && synthesize_nobody())
                 return strdup(NOBODY_GROUP_NAME);
 
         if (gid_is_valid(gid)) {
@@ -556,43 +569,29 @@ int getgroups_alloc(gid_t** gids) {
         return ngroups;
 }
 
-int get_home_dir(char **_h) {
+int get_home_dir(char **ret) {
         struct passwd *p;
         const char *e;
         char *h;
         uid_t u;
 
-        assert(_h);
+        assert(ret);
 
         /* Take the user specified one */
         e = secure_getenv("HOME");
-        if (e && path_is_valid(e) && path_is_absolute(e)) {
-                h = strdup(e);
-                if (!h)
-                        return -ENOMEM;
-
-                *_h = path_simplify(h);
-                return 0;
-        }
+        if (e && path_is_valid(e) && path_is_absolute(e))
+                goto found;
 
         /* Hardcode home directory for root and nobody to avoid NSS */
         u = getuid();
         if (u == 0) {
-                h = strdup("/root");
-                if (!h)
-                        return -ENOMEM;
-
-                *_h = h;
-                return 0;
+                e = "/root";
+                goto found;
         }
-        if (synthesize_nobody() &&
-            u == UID_NOBODY) {
-                h = strdup("/");
-                if (!h)
-                        return -ENOMEM;
 
-                *_h = h;
-                return 0;
+        if (u == UID_NOBODY && synthesize_nobody()) {
+                e = "/";
+                goto found;
         }
 
         /* Check the database... */
@@ -600,56 +599,42 @@ int get_home_dir(char **_h) {
         p = getpwuid(u);
         if (!p)
                 return errno_or_else(ESRCH);
+        e = p->pw_dir;
 
-        if (!path_is_valid(p->pw_dir) ||
-            !path_is_absolute(p->pw_dir))
+        if (!path_is_valid(e) || !path_is_absolute(e))
                 return -EINVAL;
 
-        h = strdup(p->pw_dir);
+ found:
+        h = strdup(e);
         if (!h)
                 return -ENOMEM;
 
-        *_h = path_simplify(h);
+        *ret = path_simplify(h);
         return 0;
 }
 
-int get_shell(char **_s) {
+int get_shell(char **ret) {
         struct passwd *p;
         const char *e;
         char *s;
         uid_t u;
 
-        assert(_s);
+        assert(ret);
 
         /* Take the user specified one */
         e = secure_getenv("SHELL");
-        if (e && path_is_valid(e) && path_is_absolute(e)) {
-                s = strdup(e);
-                if (!s)
-                        return -ENOMEM;
-
-                *_s = path_simplify(s);
-                return 0;
-        }
+        if (e && path_is_valid(e) && path_is_absolute(e))
+                goto found;
 
         /* Hardcode shell for root and nobody to avoid NSS */
         u = getuid();
         if (u == 0) {
-                s = strdup("/bin/sh");
-                if (!s)
-                        return -ENOMEM;
-
-                *_s = s;
-                return 0;
+                e = default_root_shell(NULL);
+                goto found;
         }
-        if (synthesize_nobody() &&
-            u == UID_NOBODY) {
-                s = strdup(NOLOGIN);
-                if (!s)
-                        return -ENOMEM;
-
-                *_s = s;
-                return 0;
+        if (u == UID_NOBODY && synthesize_nobody()) {
+                e = NOLOGIN;
+                goto found;
         }
 
         /* Check the database... */
@@ -657,16 +642,17 @@ int get_shell(char **_s) {
         p = getpwuid(u);
         if (!p)
                 return errno_or_else(ESRCH);
+        e = p->pw_shell;
 
-        if (!path_is_valid(p->pw_shell) ||
-            !path_is_absolute(p->pw_shell))
+        if (!path_is_valid(e) || !path_is_absolute(e))
                 return -EINVAL;
 
-        s = strdup(p->pw_shell);
+ found:
+        s = strdup(e);
         if (!s)
                 return -ENOMEM;
 
-        *_s = path_simplify(s);
+        *ret = path_simplify(s);
         return 0;
 }
 
@@ -814,15 +800,13 @@ bool valid_user_group_name(const char *u, ValidUserFlags flags) {
                  * Note that other systems are even more restrictive, and don't permit underscores or uppercase characters.
                  */
 
-                if (!(u[0] >= 'a' && u[0] <= 'z') &&
-                    !(u[0] >= 'A' && u[0] <= 'Z') &&
+                if (!ascii_isalpha(u[0]) &&
                     u[0] != '_')
                         return false;
 
                 for (i = u+1; *i; i++)
-                        if (!(*i >= 'a' && *i <= 'z') &&
-                            !(*i >= 'A' && *i <= 'Z') &&
-                            !(*i >= '0' && *i <= '9') &&
+                        if (!ascii_isalpha(*i) &&
+                            !ascii_isdigit(*i) &&
                             !IN_SET(*i, '_', '-'))
                                 return false;
 
@@ -1006,13 +990,11 @@ int putsgent_sane(const struct sgrp *sg, FILE *stream) {
 #endif
 
 int fgetpwent_sane(FILE *stream, struct passwd **pw) {
-        struct passwd *p;
-
-        assert(pw);
         assert(stream);
+        assert(pw);
 
         errno = 0;
-        p = fgetpwent(stream);
+        struct passwd *p = fgetpwent(stream);
         if (!p && errno != ENOENT)
                 return errno_or_else(EIO);
 
@@ -1021,13 +1003,11 @@ int fgetpwent_sane(FILE *stream, struct passwd **pw) {
 }
 
 int fgetspent_sane(FILE *stream, struct spwd **sp) {
-        struct spwd *s;
-
-        assert(sp);
         assert(stream);
+        assert(sp);
 
         errno = 0;
-        s = fgetspent(stream);
+        struct spwd *s = fgetspent(stream);
         if (!s && errno != ENOENT)
                 return errno_or_else(EIO);
 
@@ -1036,13 +1016,11 @@ int fgetspent_sane(FILE *stream, struct spwd **sp) {
 }
 
 int fgetgrent_sane(FILE *stream, struct group **gr) {
-        struct group *g;
-
-        assert(gr);
         assert(stream);
+        assert(gr);
 
         errno = 0;
-        g = fgetgrent(stream);
+        struct group *g = fgetgrent(stream);
         if (!g && errno != ENOENT)
                 return errno_or_else(EIO);
 
@@ -1052,13 +1030,11 @@ int fgetgrent_sane(FILE *stream, struct group **gr) {
 
 #if ENABLE_GSHADOW
 int fgetsgent_sane(FILE *stream, struct sgrp **sg) {
-        struct sgrp *s;
-
-        assert(sg);
         assert(stream);
+        assert(sg);
 
         errno = 0;
-        s = fgetsgent(stream);
+        struct sgrp *s = fgetsgent(stream);
         if (!s && errno != ENOENT)
                 return errno_or_else(EIO);
 

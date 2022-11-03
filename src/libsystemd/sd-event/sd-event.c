@@ -13,6 +13,7 @@
 #include "event-source.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "glyph-util.h"
 #include "hashmap.h"
 #include "list.h"
 #include "macro.h"
@@ -48,19 +49,19 @@ static bool event_source_is_offline(sd_event_source *s) {
 }
 
 static const char* const event_source_type_table[_SOURCE_EVENT_SOURCE_TYPE_MAX] = {
-        [SOURCE_IO] = "io",
-        [SOURCE_TIME_REALTIME] = "realtime",
-        [SOURCE_TIME_BOOTTIME] = "bootime",
-        [SOURCE_TIME_MONOTONIC] = "monotonic",
+        [SOURCE_IO]                  = "io",
+        [SOURCE_TIME_REALTIME]       = "realtime",
+        [SOURCE_TIME_BOOTTIME]       = "bootime",
+        [SOURCE_TIME_MONOTONIC]      = "monotonic",
         [SOURCE_TIME_REALTIME_ALARM] = "realtime-alarm",
         [SOURCE_TIME_BOOTTIME_ALARM] = "boottime-alarm",
-        [SOURCE_SIGNAL] = "signal",
-        [SOURCE_CHILD] = "child",
-        [SOURCE_DEFER] = "defer",
-        [SOURCE_POST] = "post",
-        [SOURCE_EXIT] = "exit",
-        [SOURCE_WATCHDOG] = "watchdog",
-        [SOURCE_INOTIFY] = "inotify",
+        [SOURCE_SIGNAL]              = "signal",
+        [SOURCE_CHILD]               = "child",
+        [SOURCE_DEFER]               = "defer",
+        [SOURCE_POST]                = "post",
+        [SOURCE_EXIT]                = "exit",
+        [SOURCE_WATCHDOG]            = "watchdog",
+        [SOURCE_INOTIFY]             = "inotify",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(event_source_type, int);
@@ -123,10 +124,10 @@ struct sd_event {
         Hashmap *inotify_data; /* indexed by priority */
 
         /* A list of inode structures that still have an fd open, that we need to close before the next loop iteration */
-        LIST_HEAD(struct inode_data, inode_data_to_close);
+        LIST_HEAD(struct inode_data, inode_data_to_close_list);
 
         /* A list of inotify objects that already have events buffered which aren't processed yet */
-        LIST_HEAD(struct inotify_data, inotify_data_buffered);
+        LIST_HEAD(struct inotify_data, buffered_inotify_data_list);
 
         pid_t original_pid;
 
@@ -151,6 +152,8 @@ struct sd_event {
         struct epoll_event *event_queue;
 
         LIST_HEAD(sd_event_source, sources);
+
+        sd_event_source *sigint_event_source, *sigterm_event_source;
 
         usec_t last_run_usec, last_log_usec;
         unsigned delays[sizeof(usec_t) * 8];
@@ -322,6 +325,9 @@ static sd_event *event_free(sd_event *e) {
 
         assert(e);
 
+        e->sigterm_event_source = sd_event_source_unref(e->sigterm_event_source);
+        e->sigint_event_source = sd_event_source_unref(e->sigint_event_source);
+
         while ((s = e->sources)) {
                 assert(s->floating);
                 source_disconnect(s);
@@ -405,7 +411,8 @@ _public_ int sd_event_new(sd_event** ret) {
         e->epoll_fd = fd_move_above_stdio(e->epoll_fd);
 
         if (secure_getenv("SD_EVENT_PROFILE_DELAYS")) {
-                log_debug("Event loop profiling enabled. Logarithmic histogram of event loop iterations in the range 2^0 … 2^63 us will be logged every 5s.");
+                log_debug("Event loop profiling enabled. Logarithmic histogram of event loop iterations in the range 2^0 %s 2^63 us will be logged every 5s.",
+                          special_glyph(SPECIAL_GLYPH_ELLIPSIS));
                 e->profile_delays = true;
         }
 
@@ -418,6 +425,8 @@ fail:
 }
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_event, sd_event, event_free);
+#define PROTECT_EVENT(e)                                                \
+        _unused_ _cleanup_(sd_event_unrefp) sd_event *_ref = sd_event_ref(e);
 
 _public_ sd_event_source* sd_event_source_disable_unref(sd_event_source *s) {
         if (s)
@@ -809,6 +818,7 @@ static void event_source_time_prioq_remove(
 
 static void source_disconnect(sd_event_source *s) {
         sd_event *event;
+        int r;
 
         assert(s);
 
@@ -849,6 +859,20 @@ static void source_disconnect(sd_event_source *s) {
                                 s->event->signal_sources[s->signal.sig] = NULL;
 
                         event_gc_signal_data(s->event, &s->priority, s->signal.sig);
+
+                        if (s->signal.unblock) {
+                                sigset_t new_ss;
+
+                                if (sigemptyset(&new_ss) < 0)
+                                        log_debug_errno(errno, "Failed to reset signal set, ignoring: %m");
+                                else if (sigaddset(&new_ss, s->signal.sig) < 0)
+                                        log_debug_errno(errno, "Failed to add signal %i to signal mask, ignoring: %m", s->signal.sig);
+                                else {
+                                        r = pthread_sigmask(SIG_UNBLOCK, &new_ss, NULL);
+                                        if (r != 0)
+                                                log_debug_errno(r, "Failed to unblock signal %i, ignoring: %m", s->signal.sig);
+                                }
+                        }
                 }
 
                 break;
@@ -1324,22 +1348,37 @@ _public_ int sd_event_add_signal(
 
         _cleanup_(source_freep) sd_event_source *s = NULL;
         struct signal_data *d;
+        sigset_t new_ss;
+        bool block_it;
         int r;
 
         assert_return(e, -EINVAL);
         assert_return(e = event_resolve(e), -ENOPKG);
-        assert_return(SIGNAL_VALID(sig), -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
 
+        /* Let's make sure our special flag stays outside of the valid signal range */
+        assert_cc(_NSIG < SD_EVENT_SIGNAL_PROCMASK);
+
+        if (sig & SD_EVENT_SIGNAL_PROCMASK) {
+                sig &= ~SD_EVENT_SIGNAL_PROCMASK;
+                assert_return(SIGNAL_VALID(sig), -EINVAL);
+
+                block_it = true;
+        } else {
+                assert_return(SIGNAL_VALID(sig), -EINVAL);
+
+                r = signal_is_blocked(sig);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -EBUSY;
+
+                block_it = false;
+        }
+
         if (!callback)
                 callback = signal_exit_callback;
-
-        r = signal_is_blocked(sig);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return -EBUSY;
 
         if (!e->signal_sources) {
                 e->signal_sources = new0(sd_event_source*, _NSIG);
@@ -1359,9 +1398,34 @@ _public_ int sd_event_add_signal(
 
         e->signal_sources[sig] = s;
 
+        if (block_it) {
+                sigset_t old_ss;
+
+                if (sigemptyset(&new_ss) < 0)
+                        return -errno;
+
+                if (sigaddset(&new_ss, sig) < 0)
+                        return -errno;
+
+                r = pthread_sigmask(SIG_BLOCK, &new_ss, &old_ss);
+                if (r != 0)
+                        return -r;
+
+                r = sigismember(&old_ss, sig);
+                if (r < 0)
+                        return -errno;
+
+                s->signal.unblock = !r;
+        } else
+                s->signal.unblock = false;
+
         r = event_make_signal_data(e, sig, &d);
-        if (r < 0)
+        if (r < 0) {
+                if (s->signal.unblock)
+                        (void) pthread_sigmask(SIG_UNBLOCK, &new_ss, NULL);
+
                 return r;
+        }
 
         /* Use the signal name as description for the event source by default */
         (void) sd_event_source_set_description(s, signal_to_string(sig));
@@ -1690,7 +1754,7 @@ static void event_free_inotify_data(sd_event *e, struct inotify_data *d) {
         assert(hashmap_isempty(d->wd));
 
         if (d->buffer_filled > 0)
-                LIST_REMOVE(buffered, e->inotify_data_buffered, d);
+                LIST_REMOVE(buffered, e->buffered_inotify_data_list, d);
 
         hashmap_free(d->inodes);
         hashmap_free(d->wd);
@@ -1802,7 +1866,7 @@ static void event_free_inode_data(
         assert(!d->event_sources);
 
         if (d->fd >= 0) {
-                LIST_REMOVE(to_close, e->inode_data_to_close, d);
+                LIST_REMOVE(to_close, e->inode_data_to_close_list, d);
                 safe_close(d->fd);
         }
 
@@ -2064,7 +2128,7 @@ static int event_add_inotify_fd_internal(
                         }
                 }
 
-                LIST_PREPEND(to_close, e->inode_data_to_close, inode_data);
+                LIST_PREPEND(to_close, e->inode_data_to_close_list, inode_data);
         }
 
         /* Link our event source to the inode data object */
@@ -2137,12 +2201,9 @@ static sd_event_source* event_source_free(sd_event_source *s) {
          * we still retain a valid event source object after
          * the callback. */
 
-        if (s->dispatching) {
-                if (s->type == SOURCE_IO)
-                        source_io_unregister(s);
-
+        if (s->dispatching)
                 source_disconnect(s);
-        } else
+        else
                 source_free(s);
 
         return NULL;
@@ -2351,7 +2412,7 @@ _public_ int sd_event_source_set_priority(sd_event_source *s, int64_t priority) 
                                 goto fail;
                         }
 
-                        LIST_PREPEND(to_close, s->event->inode_data_to_close, new_inode_data);
+                        LIST_PREPEND(to_close, s->event->inode_data_to_close_list, new_inode_data);
                 }
 
                 /* Move the event source to the new inode data structure */
@@ -2411,6 +2472,10 @@ fail:
 }
 
 _public_ int sd_event_source_get_enabled(sd_event_source *s, int *ret) {
+        /* Quick mode: the event source doesn't exist and we only want to query boolean enablement state. */
+        if (!s && !ret)
+                return false;
+
         assert_return(s, -EINVAL);
         assert_return(!event_pid_changed(s->event), -ECHILD);
 
@@ -2588,8 +2653,13 @@ static int event_source_online(
 _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
         int r;
 
-        assert_return(s, -EINVAL);
         assert_return(IN_SET(m, SD_EVENT_OFF, SD_EVENT_ON, SD_EVENT_ONESHOT), -EINVAL);
+
+        /* Quick mode: if the source doesn't exist, SD_EVENT_OFF is a noop. */
+        if (m == SD_EVENT_OFF && !s)
+                return 0;
+
+        assert_return(s, -EINVAL);
         assert_return(!event_pid_changed(s->event), -ECHILD);
 
         /* If we are dead anyway, we are fine with turning off sources, but everything else needs to fail. */
@@ -3408,7 +3478,7 @@ static int event_inotify_data_read(sd_event *e, struct inotify_data *d, uint32_t
 
         assert(n > 0);
         d->buffer_filled = (size_t) n;
-        LIST_PREPEND(buffered, e->inotify_data_buffered, d);
+        LIST_PREPEND(buffered, e->buffered_inotify_data_list, d);
 
         return 1;
 }
@@ -3426,7 +3496,7 @@ static void event_inotify_data_drop(sd_event *e, struct inotify_data *d, size_t 
         d->buffer_filled -= sz;
 
         if (d->buffer_filled == 0)
-                LIST_REMOVE(buffered, e->inotify_data_buffered, d);
+                LIST_REMOVE(buffered, e->buffered_inotify_data_list, d);
 }
 
 static int event_inotify_data_process(sd_event *e, struct inotify_data *d) {
@@ -3519,7 +3589,7 @@ static int process_inotify(sd_event *e) {
 
         assert(e);
 
-        LIST_FOREACH(buffered, d, e->inotify_data_buffered) {
+        LIST_FOREACH(buffered, d, e->buffered_inotify_data_list) {
                 r = event_inotify_data_process(e, d);
                 if (r < 0)
                         return r;
@@ -3531,8 +3601,8 @@ static int process_inotify(sd_event *e) {
 }
 
 static int source_dispatch(sd_event_source *s) {
-        _cleanup_(sd_event_unrefp) sd_event *saved_event = NULL;
         EventSourceType saved_type;
+        sd_event *saved_event;
         int r = 0;
 
         assert(s);
@@ -3544,7 +3614,8 @@ static int source_dispatch(sd_event_source *s) {
 
         /* Similarly, store a reference to the event loop object, so that we can still access it after the
          * callback might have invalidated/disconnected the event source. */
-        saved_event = sd_event_ref(s->event);
+        saved_event = s->event;
+        PROTECT_EVENT(saved_event);
 
         /* Check if we hit the ratelimit for this event source, and if so, let's disable it. */
         assert(!s->ratelimited);
@@ -3745,7 +3816,7 @@ static int dispatch_exit(sd_event *e) {
                 return 0;
         }
 
-        _unused_ _cleanup_(sd_event_unrefp) sd_event *ref = sd_event_ref(e);
+        PROTECT_EVENT(e);
         e->iteration++;
         e->state = SD_EVENT_EXITING;
         r = source_dispatch(p);
@@ -3812,15 +3883,15 @@ static void event_close_inode_data_fds(sd_event *e) {
 
         /* Close the fds pointing to the inodes to watch now. We need to close them as they might otherwise pin
          * filesystems. But we can't close them right-away as we need them as long as the user still wants to make
-         * adjustments to the even source, such as changing the priority (which requires us to remove and re-add a watch
+         * adjustments to the event source, such as changing the priority (which requires us to remove and re-add a watch
          * for the inode). Hence, let's close them when entering the first iteration after they were added, as a
          * compromise. */
 
-        while ((d = e->inode_data_to_close)) {
+        while ((d = e->inode_data_to_close_list)) {
                 assert(d->fd >= 0);
                 d->fd = safe_close(d->fd);
 
-                LIST_REMOVE(to_close, e->inode_data_to_close, d);
+                LIST_REMOVE(to_close, e->inode_data_to_close_list, d);
         }
 }
 
@@ -3839,7 +3910,7 @@ _public_ int sd_event_prepare(sd_event *e) {
         assert_return(!e->default_event_ptr || e->tid == gettid(), -EREMOTEIO);
 
         /* Make sure that none of the preparation callbacks ends up freeing the event source under our feet */
-        _unused_ _cleanup_(sd_event_unrefp) sd_event *ref = sd_event_ref(e);
+        PROTECT_EVENT(e);
 
         if (e->exit_requested)
                 goto pending;
@@ -3874,7 +3945,7 @@ _public_ int sd_event_prepare(sd_event *e) {
 
         event_close_inode_data_fds(e);
 
-        if (event_next_pending(e) || e->need_process_child)
+        if (event_next_pending(e) || e->need_process_child || e->buffered_inotify_data_list)
                 goto pending;
 
         e->state = SD_EVENT_ARMED;
@@ -3954,7 +4025,7 @@ static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t
         n_event_max = MALLOC_ELEMENTSOF(e->event_queue);
 
         /* If we still have inotify data buffered, then query the other fds, but don't wait on it */
-        if (e->inotify_data_buffered)
+        if (e->buffered_inotify_data_list)
                 timeout = 0;
 
         for (;;) {
@@ -4169,7 +4240,7 @@ _public_ int sd_event_dispatch(sd_event *e) {
 
         p = event_next_pending(e);
         if (p) {
-                _unused_ _cleanup_(sd_event_unrefp) sd_event *ref = sd_event_ref(e);
+                PROTECT_EVENT(e);
 
                 e->state = SD_EVENT_RUNNING;
                 r = source_dispatch(p);
@@ -4221,7 +4292,7 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
         }
 
         /* Make sure that none of the preparation callbacks ends up freeing the event source under our feet */
-        _unused_ _cleanup_(sd_event_unrefp) sd_event *ref = sd_event_ref(e);
+        PROTECT_EVENT(e);
 
         r = sd_event_prepare(e);
         if (r == 0)
@@ -4251,7 +4322,7 @@ _public_ int sd_event_loop(sd_event *e) {
         assert_return(!event_pid_changed(e), -ECHILD);
         assert_return(e->state == SD_EVENT_INITIAL, -EBUSY);
 
-        _unused_ _cleanup_(sd_event_unrefp) sd_event *ref = sd_event_ref(e);
+        PROTECT_EVENT(e);
 
         while (e->state != SD_EVENT_FINISHED) {
                 r = sd_event_run(e, UINT64_MAX);
@@ -4520,8 +4591,8 @@ _public_ int sd_event_source_set_ratelimit_expire_callback(sd_event_source *s, s
 _public_ int sd_event_source_get_ratelimit(sd_event_source *s, uint64_t *ret_interval, unsigned *ret_burst) {
         assert_return(s, -EINVAL);
 
-        /* Querying whether an event source has ratelimiting configured is not a loggable offsense, hence
-         * don't use assert_return(). Unlike turning on ratelimiting it's not really a programming error */
+        /* Querying whether an event source has ratelimiting configured is not a loggable offense, hence
+         * don't use assert_return(). Unlike turning on ratelimiting it's not really a programming error. */
         if (!EVENT_SOURCE_CAN_RATE_LIMIT(s->type))
                 return -EDOM;
 
@@ -4546,4 +4617,56 @@ _public_ int sd_event_source_is_ratelimited(sd_event_source *s) {
                 return false;
 
         return s->ratelimited;
+}
+
+_public_ int sd_event_set_signal_exit(sd_event *e, int b) {
+        bool change = false;
+        int r;
+
+        assert_return(e, -EINVAL);
+
+        if (b) {
+                /* We want to maintain pointers to these event sources, so that we can destroy them when told
+                 * so. But we also don't want them to pin the event loop itself. Hence we mark them as
+                 * floating after creation (and undo this before deleting them again). */
+
+                if (!e->sigint_event_source) {
+                        r = sd_event_add_signal(e, &e->sigint_event_source, SIGINT | SD_EVENT_SIGNAL_PROCMASK, NULL, NULL);
+                        if (r < 0)
+                                return r;
+
+                        assert(sd_event_source_set_floating(e->sigint_event_source, true) >= 0);
+                        change = true;
+                }
+
+                if (!e->sigterm_event_source) {
+                        r = sd_event_add_signal(e, &e->sigterm_event_source, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, NULL, NULL);
+                        if (r < 0) {
+                                if (change) {
+                                        assert(sd_event_source_set_floating(e->sigint_event_source, false) >= 0);
+                                        e->sigint_event_source = sd_event_source_unref(e->sigint_event_source);
+                                }
+
+                                return r;
+                        }
+
+                        assert(sd_event_source_set_floating(e->sigterm_event_source, true) >= 0);
+                        change = true;
+                }
+
+        } else {
+                if (e->sigint_event_source) {
+                        assert(sd_event_source_set_floating(e->sigint_event_source, false) >= 0);
+                        e->sigint_event_source = sd_event_source_unref(e->sigint_event_source);
+                        change = true;
+                }
+
+                if (e->sigterm_event_source) {
+                        assert(sd_event_source_set_floating(e->sigterm_event_source, false) >= 0);
+                        e->sigterm_event_source = sd_event_source_unref(e->sigterm_event_source);
+                        change = true;
+                }
+        }
+
+        return change;
 }

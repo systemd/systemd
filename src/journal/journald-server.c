@@ -713,7 +713,7 @@ static void do_vacuum(Server *s, JournalStorage *storage, bool verbose) {
         cache_space_invalidate(&storage->space);
 }
 
-int server_vacuum(Server *s, bool verbose) {
+void server_vacuum(Server *s, bool verbose) {
         assert(s);
 
         log_debug("Vacuuming...");
@@ -724,8 +724,6 @@ int server_vacuum(Server *s, bool verbose) {
                 do_vacuum(s, &s->system_storage, verbose);
         if (s->runtime_journal)
                 do_vacuum(s, &s->runtime_storage, verbose);
-
-        return 0;
 }
 
 static void server_cache_machine_id(Server *s) {
@@ -875,14 +873,14 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n
         }
 
         if (vacuumed || !shall_try_append_again(f->file, r)) {
-                log_error_errno(r, "Failed to write entry (%zu items, %zu bytes), ignoring: %m", n, IOVEC_TOTAL_SIZE(iovec, n));
+                log_ratelimit_full_errno(LOG_ERR, r, "Failed to write entry (%zu items, %zu bytes), ignoring: %m", n, IOVEC_TOTAL_SIZE(iovec, n));
                 return;
         }
 
         if (r == -E2BIG)
                 log_debug("Journal file %s is full, rotating to a new file", f->file->path);
         else
-                log_info_errno(r, "Failed to write entry to %s (%zu items, %zu bytes), rotating before retrying: %m", f->file->path, n, IOVEC_TOTAL_SIZE(iovec, n));
+                log_ratelimit_full_errno(LOG_INFO, r, "Failed to write entry to %s (%zu items, %zu bytes), rotating before retrying: %m", f->file->path, n, IOVEC_TOTAL_SIZE(iovec, n));
 
         server_rotate(s);
         server_vacuum(s, false);
@@ -894,7 +892,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n
         log_debug("Retrying write.");
         r = journal_file_append_entry(f->file, &ts, NULL, iovec, n, &s->seqnum, NULL, NULL);
         if (r < 0)
-                log_error_errno(r, "Failed to write entry to %s (%zu items, %zu bytes) despite vacuuming, ignoring: %m", f->file->path, n, IOVEC_TOTAL_SIZE(iovec, n));
+                log_ratelimit_full_errno(LOG_ERR, r, "Failed to write entry to %s (%zu items, %zu bytes) despite vacuuming, ignoring: %m", f->file->path, n, IOVEC_TOTAL_SIZE(iovec, n));
         else
                 server_schedule_sync(s, priority);
 }
@@ -1037,6 +1035,7 @@ static void dispatch_message_real(
         if (!isempty(s->namespace_field))
                 iovec[n++] = IOVEC_MAKE_STRING(s->namespace_field);
 
+        iovec[n++] = in_initrd() ? IOVEC_MAKE_STRING("_RUNTIME_SCOPE=initrd") : IOVEC_MAKE_STRING("_RUNTIME_SCOPE=system");
         assert(n <= m);
 
         if (s->split_mode == SPLIT_UID && c && uid_is_valid(c->uid))
@@ -1095,7 +1094,8 @@ void server_driver_message(Server *s, pid_t object_pid, const char *message_id, 
                 /* We failed to format the message. Emit a warning instead. */
                 char buf[LINE_MAX];
 
-                xsprintf(buf, "MESSAGE=Entry printing failed: %s", strerror_safe(r));
+                errno = -r;
+                xsprintf(buf, "MESSAGE=Entry printing failed: %m");
 
                 n = 3;
                 iovec[n++] = IOVEC_MAKE_STRING("PRIORITY=4");
@@ -1292,7 +1292,7 @@ int server_process_datagram(
                 void *userdata) {
 
         size_t label_len = 0, m;
-        Server *s = userdata;
+        Server *s = ASSERT_PTR(userdata);
         struct ucred *ucred = NULL;
         struct timeval *tv = NULL;
         struct cmsghdr *cmsg;
@@ -1325,7 +1325,6 @@ int server_process_datagram(
                 .msg_namelen = sizeof(sa),
         };
 
-        assert(s);
         assert(fd == s->native_fd || fd == s->syslog_fd || fd == s->audit_fd);
 
         if (revents != EPOLLIN)
@@ -1426,16 +1425,14 @@ static void server_full_flush(Server *s) {
 }
 
 static int dispatch_sigusr1(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
-        Server *s = userdata;
-
-        assert(s);
+        Server *s = ASSERT_PTR(userdata);
 
         if (s->namespace) {
-                log_error("Received SIGUSR1 signal from PID " PID_FMT ", but flushing runtime journals not supported for namespaced instances.", si->ssi_pid);
+                log_error("Received SIGUSR1 signal from PID %u, but flushing runtime journals not supported for namespaced instances.", si->ssi_pid);
                 return 0;
         }
 
-        log_info("Received SIGUSR1 signal from PID " PID_FMT ", as request to flush runtime journal.", si->ssi_pid);
+        log_info("Received SIGUSR1 signal from PID %u, as request to flush runtime journal.", si->ssi_pid);
         server_full_flush(s);
 
         return 0;
@@ -1463,11 +1460,9 @@ static void server_full_rotate(Server *s) {
 }
 
 static int dispatch_sigusr2(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
-        Server *s = userdata;
+        Server *s = ASSERT_PTR(userdata);
 
-        assert(s);
-
-        log_info("Received SIGUSR2 signal from PID " PID_FMT ", as request to rotate journal, rotating.", si->ssi_pid);
+        log_info("Received SIGUSR2 signal from PID %u, as request to rotate journal, rotating.", si->ssi_pid);
         server_full_rotate(s);
 
         return 0;
@@ -1475,14 +1470,12 @@ static int dispatch_sigusr2(sd_event_source *es, const struct signalfd_siginfo *
 
 static int dispatch_sigterm(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
         _cleanup_(sd_event_source_disable_unrefp) sd_event_source *news = NULL;
-        Server *s = userdata;
+        Server *s = ASSERT_PTR(userdata);
         int r;
-
-        assert(s);
 
         log_received_signal(LOG_INFO, si);
 
-        (void) sd_event_source_set_enabled(es, false); /* Make sure this handler is called at most once */
+        (void) sd_event_source_set_enabled(es, SD_EVENT_OFF); /* Make sure this handler is called at most once */
 
         /* So on one hand we want to ensure that SIGTERMs are definitely handled in appropriate, bounded
          * time. On the other hand we want that everything pending is first comprehensively processed and
@@ -1572,11 +1565,9 @@ static void server_full_sync(Server *s) {
 }
 
 static int dispatch_sigrtmin1(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
-        Server *s = userdata;
+        Server *s = ASSERT_PTR(userdata);
 
-        assert(s);
-
-        log_debug("Received SIGRTMIN1 signal from PID " PID_FMT ", as request to sync.", si->ssi_pid );
+        log_debug("Received SIGRTMIN1 signal from PID %u, as request to sync.", si->ssi_pid);
         server_full_sync(s);
 
         return 0;
@@ -1631,10 +1622,8 @@ static int setup_signals(Server *s) {
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
-        Server *s = data;
+        Server *s = ASSERT_PTR(data);
         int r;
-
-        assert(s);
 
         if (proc_cmdline_key_streq(key, "systemd.journald.forward_to_syslog")) {
 
@@ -1748,7 +1737,7 @@ static int server_parse_config_file(Server *s) {
                                 dropin_dirname,
                                 "Journal\0",
                                 config_item_perf_lookup, journald_gperf_lookup,
-                                CONFIG_PARSE_WARN, s, NULL);
+                                CONFIG_PARSE_WARN, s, NULL, NULL);
                 if (r < 0)
                         return r;
 
@@ -1764,9 +1753,7 @@ static int server_parse_config_file(Server *s) {
 }
 
 static int server_dispatch_sync(sd_event_source *es, usec_t t, void *userdata) {
-        Server *s = userdata;
-
-        assert(s);
+        Server *s = ASSERT_PTR(userdata);
 
         server_sync(s);
         return 0;
@@ -1816,9 +1803,7 @@ int server_schedule_sync(Server *s, int priority) {
 }
 
 static int dispatch_hostname_change(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
-        Server *s = userdata;
-
-        assert(s);
+        Server *s = ASSERT_PTR(userdata);
 
         server_cache_hostname(s);
         return 0;
@@ -1855,10 +1840,9 @@ static int server_open_hostname(Server *s) {
 }
 
 static int dispatch_notify_event(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
-        Server *s = userdata;
+        Server *s = ASSERT_PTR(userdata);
         int r;
 
-        assert(s);
         assert(s->notify_event_source == es);
         assert(s->notify_fd == fd);
 
@@ -1912,10 +1896,8 @@ static int dispatch_notify_event(sd_event_source *es, int fd, uint32_t revents, 
 }
 
 static int dispatch_watchdog(sd_event_source *es, uint64_t usec, void *userdata) {
-        Server *s = userdata;
+        Server *s = ASSERT_PTR(userdata);
         int r;
-
-        assert(s);
 
         s->send_watchdog = true;
 
@@ -1994,11 +1976,10 @@ static int server_connect_notify(Server *s) {
 }
 
 static int synchronize_second_half(sd_event_source *event_source, void *userdata) {
-        Varlink *link = userdata;
+        Varlink *link = ASSERT_PTR(userdata);
         Server *s;
         int r;
 
-        assert(link);
         assert_se(s = varlink_get_userdata(link));
 
         /* This is the "second half" of the Synchronize() varlink method. This function is called as deferred
@@ -2022,11 +2003,10 @@ static void synchronize_destroy(void *userdata) {
 
 static int vl_method_synchronize(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *event_source = NULL;
-        Server *s = userdata;
+        Server *s = ASSERT_PTR(userdata);
         int r;
 
         assert(link);
-        assert(s);
 
         if (json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
@@ -2063,10 +2043,9 @@ static int vl_method_synchronize(Varlink *link, JsonVariant *parameters, Varlink
 }
 
 static int vl_method_rotate(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
-        Server *s = userdata;
+        Server *s = ASSERT_PTR(userdata);
 
         assert(link);
-        assert(s);
 
         if (json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
@@ -2078,10 +2057,9 @@ static int vl_method_rotate(Varlink *link, JsonVariant *parameters, VarlinkMetho
 }
 
 static int vl_method_flush_to_var(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
-        Server *s = userdata;
+        Server *s = ASSERT_PTR(userdata);
 
         assert(link);
-        assert(s);
 
         if (json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
@@ -2095,10 +2073,9 @@ static int vl_method_flush_to_var(Varlink *link, JsonVariant *parameters, Varlin
 }
 
 static int vl_method_relinquish_var(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
-        Server *s = userdata;
+        Server *s = ASSERT_PTR(userdata);
 
         assert(link);
-        assert(s);
 
         if (json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
@@ -2112,11 +2089,10 @@ static int vl_method_relinquish_var(Varlink *link, JsonVariant *parameters, Varl
 }
 
 static int vl_connect(VarlinkServer *server, Varlink *link, void *userdata) {
-        Server *s = userdata;
+        Server *s = ASSERT_PTR(userdata);
 
         assert(server);
         assert(link);
-        assert(s);
 
         (void) server_start_or_stop_idle_timer(s); /* maybe we are no longer idle */
 
@@ -2124,11 +2100,10 @@ static int vl_connect(VarlinkServer *server, Varlink *link, void *userdata) {
 }
 
 static void vl_disconnect(VarlinkServer *server, Varlink *link, void *userdata) {
-        Server *s = userdata;
+        Server *s = ASSERT_PTR(userdata);
 
         assert(server);
         assert(link);
-        assert(s);
 
         (void) server_start_or_stop_idle_timer(s); /* maybe we are idle now */
 }
@@ -2199,10 +2174,9 @@ static bool server_is_idle(Server *s) {
 }
 
 static int server_idle_handler(sd_event_source *source, uint64_t usec, void *userdata) {
-        Server *s = userdata;
+        Server *s = ASSERT_PTR(userdata);
 
         assert(source);
-        assert(s);
 
         log_debug("Server is idle, exiting.");
         sd_event_exit(s->event, 0);
@@ -2646,13 +2620,12 @@ int config_parse_line_max(
                 void *data,
                 void *userdata) {
 
-        size_t *sz = data;
+        size_t *sz = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue))
                 /* Empty assignment means default */

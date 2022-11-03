@@ -356,6 +356,7 @@ struct Manager {
         ExecOutput default_std_output, default_std_error;
 
         usec_t default_restart_usec, default_timeout_start_usec, default_timeout_stop_usec;
+        usec_t default_device_timeout_usec;
         usec_t default_timeout_abort_usec;
         bool default_timeout_abort_set;
 
@@ -406,6 +407,9 @@ struct Manager {
         char *switch_root;
         char *switch_root_init;
 
+        /* This is true before and after switching root. */
+        bool switching_root;
+
         /* This maps all possible path prefixes to the units needing
          * them. It's a hashmap with a path string as key and a Set as
          * value where Unit objects are contained. */
@@ -446,8 +450,6 @@ struct Manager {
         unsigned sigchldgen;
         unsigned notifygen;
 
-        bool honor_device_enumeration;
-
         VarlinkServer *varlink_server;
         /* When we're a system manager, this object manages the subscription from systemd-oomd to PID1 that's
          * used to report changes in ManagedOOM settings (systemd server - oomd client). When
@@ -457,6 +459,8 @@ struct Manager {
 
         /* Reference to RestrictFileSystems= BPF program */
         struct restrict_fs_bpf *restrict_fs;
+
+        char *default_smack_process_label;
 };
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
@@ -474,6 +478,8 @@ static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
 /* The objective is set to OK as soon as we enter the main loop, and set otherwise as soon as we are done with it */
 #define MANAGER_IS_RUNNING(m) ((m)->objective == MANAGER_OK)
 
+#define MANAGER_IS_SWITCHING_ROOT(m) ((m)->switching_root)
+
 #define MANAGER_IS_TEST_RUN(m) ((m)->test_run_flags != 0)
 
 int manager_new(LookupScope scope, ManagerTestRunFlags test_run_flags, Manager **m);
@@ -488,8 +494,8 @@ Unit *manager_get_unit(Manager *m, const char *name);
 int manager_get_job_from_dbus_path(Manager *m, const char *s, Job **_j);
 
 bool manager_unit_cache_should_retry_load(Unit *u);
-int manager_load_unit_prepare(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **_ret);
-int manager_load_unit(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **_ret);
+int manager_load_unit_prepare(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **ret);
+int manager_load_unit(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **ret);
 int manager_load_startable_unit_or_warn(Manager *m, const char *name, const char *path, Unit **ret);
 int manager_load_unit_from_dbus_path(Manager *m, const char *s, sd_bus_error *e, Unit **_u);
 
@@ -508,6 +514,8 @@ int manager_default_environment(Manager *m);
 int manager_transient_environment_add(Manager *m, char **plus);
 int manager_client_environment_modify(Manager *m, char **minus, char **plus);
 int manager_get_effective_environment(Manager *m, char ***ret);
+
+int manager_set_default_smack_process_label(Manager *m, const char *label);
 
 int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit);
 
@@ -537,6 +545,7 @@ void manager_set_show_status(Manager *m, ShowStatus mode, const char *reason);
 void manager_override_show_status(Manager *m, ShowStatus mode, const char *reason);
 
 void manager_set_first_boot(Manager *m, bool b);
+void manager_set_switching_root(Manager *m, bool switching_root);
 
 void manager_status_printf(Manager *m, StatusType type, const char *status, const char *format, ...) _printf_(4,5);
 

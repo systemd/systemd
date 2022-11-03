@@ -44,13 +44,12 @@
 #define SEND_TIMEOUT_USEC (200 * USEC_PER_MSEC)
 
 static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         uint16_t type;
         Link *l;
         int ifindex, r;
 
         assert(rtnl);
-        assert(m);
         assert(mm);
 
         r = sd_netlink_message_get_type(mm, &type);
@@ -106,7 +105,7 @@ fail:
 }
 
 static int manager_process_address(sd_netlink *rtnl, sd_netlink_message *mm, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         union in_addr_union address;
         uint16_t type;
         int r, ifindex, family;
@@ -115,7 +114,6 @@ static int manager_process_address(sd_netlink *rtnl, sd_netlink_message *mm, voi
 
         assert(rtnl);
         assert(mm);
-        assert(m);
 
         r = sd_netlink_message_get_type(mm, &type);
         if (r < 0)
@@ -191,7 +189,6 @@ fail:
 
 static int manager_rtnl_listen(Manager *m) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
-        sd_netlink_message *i;
         int r;
 
         assert(m);
@@ -226,7 +223,7 @@ static int manager_rtnl_listen(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, true);
         if (r < 0)
                 return r;
 
@@ -234,7 +231,7 @@ static int manager_rtnl_listen(Manager *m) {
         if (r < 0)
                 return r;
 
-        for (i = reply; i; i = sd_netlink_message_next(i)) {
+        for (sd_netlink_message *i = reply; i; i = sd_netlink_message_next(i)) {
                 r = manager_process_link(m->rtnl, i, m);
                 if (r < 0)
                         return r;
@@ -248,7 +245,7 @@ static int manager_rtnl_listen(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, true);
         if (r < 0)
                 return r;
 
@@ -256,7 +253,7 @@ static int manager_rtnl_listen(Manager *m) {
         if (r < 0)
                 return r;
 
-        for (i = reply; i; i = sd_netlink_message_next(i)) {
+        for (sd_netlink_message *i = reply; i; i = sd_netlink_message_next(i)) {
                 r = manager_process_address(m->rtnl, i, m);
                 if (r < 0)
                         return r;
@@ -266,11 +263,9 @@ static int manager_rtnl_listen(Manager *m) {
 }
 
 static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Link *l;
         int r;
-
-        assert(m);
 
         sd_network_monitor_flush(m->network_monitor);
 
@@ -319,9 +314,7 @@ static int manager_network_monitor_listen(Manager *m) {
 static int manager_clock_change_listen(Manager *m);
 
 static int on_clock_change(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        Manager *m = userdata;
-
-        assert(m);
+        Manager *m = ASSERT_PTR(userdata);
 
         /* The clock has changed, let's flush all caches. Why that? That's because DNSSEC validation takes
          * the system clock into consideration, and if the clock changes the old validations might have been
@@ -427,11 +420,9 @@ static int make_fallback_hostnames(char **full_hostname, char **llmnr_hostname, 
 
 static int on_hostname_change(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
         _cleanup_free_ char *full_hostname = NULL, *llmnr_hostname = NULL, *mdns_hostname = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         bool llmnr_hostname_changed;
         int r;
-
-        assert(m);
 
         r = determine_hostnames(&full_hostname, &llmnr_hostname, &mdns_hostname);
         if (r < 0) {
@@ -502,13 +493,12 @@ static int manager_watch_hostname(Manager *m) {
 static int manager_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         _cleanup_free_ char *buffer = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         size_t size = 0;
         Link *l;
 
         assert(s);
         assert(si);
-        assert(m);
 
         f = open_memstream_unlocked(&buffer, &size);
         if (!f)
@@ -533,11 +523,10 @@ static int manager_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si
 }
 
 static int manager_sigusr2(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         assert(s);
         assert(si);
-        assert(m);
 
         manager_flush_caches(m, LOG_INFO);
 
@@ -545,11 +534,10 @@ static int manager_sigusr2(sd_event_source *s, const struct signalfd_siginfo *si
 }
 
 static int manager_sigrtmin1(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         assert(s);
         assert(si);
-        assert(m);
 
         manager_reset_server_features(m);
         return 0;
@@ -870,16 +858,10 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
                         p->ifindex = manager_find_ifindex(m, p->family, &p->destination);
         }
 
-        if (DEBUG_LOGGING) {
-                _cleanup_free_ char *sender_address = NULL, *destination_address = NULL;
-
-                (void) in_addr_to_string(p->family, &p->sender, &sender_address);
-                (void) in_addr_to_string(p->family, &p->destination, &destination_address);
-
-                log_debug("Received %s UDP packet of size %zu, ifindex=%i, ttl=%i, fragsize=%zu, sender=%s, destination=%s",
-                          dns_protocol_to_string(protocol), p->size, p->ifindex, p->ttl, p->fragsize,
-                          strna(sender_address), strna(destination_address));
-        }
+        log_debug("Received %s UDP packet of size %zu, ifindex=%i, ttl=%u, fragsize=%zu, sender=%s, destination=%s",
+                  dns_protocol_to_string(protocol), p->size, p->ifindex, p->ttl, p->fragsize,
+                  IN_ADDR_TO_STRING(p->family, &p->sender),
+                  IN_ADDR_TO_STRING(p->family, &p->destination));
 
         *ret = TAKE_PTR(p);
         return 1;
@@ -894,10 +876,8 @@ static int sendmsg_loop(int fd, struct msghdr *mh, int flags) {
         for (;;) {
                 if (sendmsg(fd, mh, flags) >= 0)
                         return 0;
-
                 if (errno == EINTR)
                         continue;
-
                 if (errno != EAGAIN)
                         return -errno;
 
@@ -918,10 +898,8 @@ static int write_loop(int fd, void *message, size_t length) {
         for (;;) {
                 if (write(fd, message, length) >= 0)
                         return 0;
-
                 if (errno == EINTR)
                         continue;
-
                 if (errno != EAGAIN)
                         return -errno;
 
@@ -1060,6 +1038,103 @@ static int manager_ipv6_send(
         return sendmsg_loop(fd, &mh, 0);
 }
 
+static int dns_question_to_json(DnsQuestion *q, JsonVariant **ret) {
+        _cleanup_(json_variant_unrefp) JsonVariant *l = NULL;
+        DnsResourceKey *key;
+        int r;
+
+        assert(ret);
+
+        DNS_QUESTION_FOREACH(key, q) {
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+                r = dns_resource_key_to_json(key, &v);
+                if (r < 0)
+                        return r;
+
+                r = json_variant_append_array(&l, v);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(l);
+        return 0;
+}
+
+int manager_monitor_send(
+                Manager *m,
+                int state,
+                int rcode,
+                int error,
+                DnsQuestion *question_idna,
+                DnsQuestion *question_utf8,
+                DnsQuestion *collected_questions,
+                DnsAnswer *answer) {
+
+        _cleanup_(json_variant_unrefp) JsonVariant *jquestion = NULL, *jcollected_questions = NULL, *janswer = NULL;
+        _cleanup_(dns_question_unrefp) DnsQuestion *merged = NULL;
+        Varlink *connection;
+        DnsAnswerItem *rri;
+        int r;
+
+        assert(m);
+
+        if (set_isempty(m->varlink_subscription))
+                return 0;
+
+        /* Merge both questions format into one */
+        r = dns_question_merge(question_idna, question_utf8, &merged);
+        if (r < 0)
+                return log_error_errno(r, "Failed to merge UTF8/IDNA questions: %m");
+
+        /* Convert the current primary question to JSON */
+        r = dns_question_to_json(merged, &jquestion);
+        if (r < 0)
+                return log_error_errno(r, "Failed to convert question to JSON: %m");
+
+        /* Generate a JSON array of the questions preceding the current one in the CNAME chain */
+        r = dns_question_to_json(collected_questions, &jcollected_questions);
+        if (r < 0)
+                return log_error_errno(r, "Failed to convert question to JSON: %m");
+
+        DNS_ANSWER_FOREACH_ITEM(rri, answer) {
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
+
+                r = dns_resource_record_to_json(rri->rr, &v);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to convert answer resource record to JSON: %m");
+
+                r = dns_resource_record_to_wire_format(rri->rr, /* canonical= */ false); /* don't use DNSSEC canonical format, since it removes casing, but we want that for DNS_SD compat */
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate RR wire format: %m");
+
+                r = json_build(&w, JSON_BUILD_OBJECT(
+                                               JSON_BUILD_PAIR_CONDITION(v, "rr", JSON_BUILD_VARIANT(v)),
+                                               JSON_BUILD_PAIR("raw", JSON_BUILD_BASE64(rri->rr->wire_format, rri->rr->wire_format_size)),
+                                               JSON_BUILD_PAIR_CONDITION(rri->ifindex > 0, "ifindex", JSON_BUILD_INTEGER(rri->ifindex))));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make answer RR object: %m");
+
+                r = json_variant_append_array(&janswer, w);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to append notification entry to array: %m");
+        }
+
+        SET_FOREACH(connection, m->varlink_subscription) {
+                r = varlink_notifyb(connection,
+                                    JSON_BUILD_OBJECT(JSON_BUILD_PAIR("state", JSON_BUILD_STRING(dns_transaction_state_to_string(state))),
+                                                      JSON_BUILD_PAIR_CONDITION(state == DNS_TRANSACTION_RCODE_FAILURE, "rcode", JSON_BUILD_INTEGER(rcode)),
+                                                      JSON_BUILD_PAIR_CONDITION(state == DNS_TRANSACTION_ERRNO, "errno", JSON_BUILD_INTEGER(error)),
+                                                      JSON_BUILD_PAIR("question", JSON_BUILD_VARIANT(jquestion)),
+                                                      JSON_BUILD_PAIR_CONDITION(jcollected_questions, "collectedQuestions", JSON_BUILD_VARIANT(jcollected_questions)),
+                                                      JSON_BUILD_PAIR_CONDITION(janswer, "answer", JSON_BUILD_VARIANT(janswer))));
+                if (r < 0)
+                        log_debug_errno(r, "Failed to send monitor event, ignoring: %m");
+        }
+
+        return 0;
+}
+
 int manager_send(
                 Manager *m,
                 int fd,
@@ -1169,7 +1244,7 @@ static int manager_next_random_name(const char *old, char **ret_new) {
         assert(p);
 
         while (p > old) {
-                if (!strchr(DIGITS, p[-1]))
+                if (!ascii_isdigit(p[-1]))
                         break;
 
                 p--;

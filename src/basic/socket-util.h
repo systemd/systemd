@@ -129,7 +129,7 @@ static inline int fd_inc_sndbuf(int fd, size_t n) {
         return fd_set_sndbuf(fd, n, true);
 }
 int fd_set_rcvbuf(int fd, size_t n, bool increase);
-static inline int fd_inc_rcvbuf(int fd, size_t n) {
+static inline int fd_increase_rxbuf(int fd, size_t n) {
         return fd_set_rcvbuf(fd, n, true);
 }
 

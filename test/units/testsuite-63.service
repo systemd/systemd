@@ -1,30 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 [Unit]
-Description=TEST-63-ISSUE-17433
+Description=TEST-63-PATH
 
 [Service]
 ExecStartPre=rm -f /failed /testok
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
 Type=oneshot
-
-# Test that a path unit continuously triggering a service that fails condition checks eventually fails with
-# the trigger-limit-hit error.
-ExecStart=rm -f /tmp/nonexistent
-ExecStart=systemctl start test63.path
-ExecStart=touch /tmp/test63
-# Make sure systemd has sufficient time to hit the trigger limit for test63.path.
-ExecStart=sleep 2
-ExecStart=sh -x -c 'test "$(systemctl show test63.service -P ActiveState)" = inactive'
-ExecStart=sh -x -c 'test "$(systemctl show test63.service -P Result)" = success'
-ExecStart=sh -x -c 'test "$(systemctl show test63.path -P ActiveState)" = failed'
-ExecStart=sh -x -c 'test "$(systemctl show test63.path -P Result)" = trigger-limit-hit'
-
-# Test that starting the service manually doesn't affect the path unit.
-ExecStart=rm -f /tmp/test63
-ExecStart=systemctl reset-failed
-ExecStart=systemctl start test63.path
-ExecStart=systemctl start test63.service
-ExecStart=sh -x -c 'test "$(systemctl show test63.service -P ActiveState)" = inactive'
-ExecStart=sh -x -c 'test "$(systemctl show test63.service -P Result)" = success'
-ExecStart=sh -x -c 'test "$(systemctl show test63.path -P ActiveState)" = active'
-ExecStart=sh -x -c 'test "$(systemctl show test63.path -P Result)" = success'
-ExecStart=sh -x -c 'echo OK >/testok'

@@ -29,12 +29,10 @@ typedef enum SmackAttr {
 
 bool mac_smack_use(void);
 
-int mac_smack_fix_container(const char *path, const char *inside_path, LabelFixFlags flags);
+int mac_smack_fix_full(int atfd, const char *inode_path, const char *label_path, LabelFixFlags flags);
 static inline int mac_smack_fix(const char *path, LabelFixFlags flags) {
-        return mac_smack_fix_container(path, path, flags);
+        return mac_smack_fix_full(AT_FDCWD, path, path, flags);
 }
-
-int mac_smack_fix_at(int dirfd, const char *path, LabelFixFlags flags);
 
 const char* smack_attr_to_string(SmackAttr i) _const_;
 SmackAttr smack_attr_from_string(const char *s) _pure_;

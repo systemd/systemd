@@ -39,7 +39,6 @@
 struct LinkConfigContext {
         LIST_HEAD(LinkConfig, configs);
         int ethtool_fd;
-        usec_t network_dirs_ts_usec;
         Hashmap *stats_by_path;
 };
 
@@ -264,7 +263,8 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                         "Link\0"
                         "SR-IOV\0",
                         config_item_perf_lookup, link_config_gperf_lookup,
-                        CONFIG_PARSE_WARN, config, &stats_by_path);
+                        CONFIG_PARSE_WARN, config, &stats_by_path,
+                        NULL);
         if (r < 0)
                 return r; /* config_parse_many() logs internally. */
 
@@ -347,9 +347,9 @@ bool link_config_should_reload(LinkConfigContext *ctx) {
 
         assert(ctx);
 
-        r = config_get_stats_by_path(".link", NULL, 0, NETWORK_DIRS, &stats_by_path);
+        r = config_get_stats_by_path(".link", NULL, 0, NETWORK_DIRS, /* check_dropins = */ true, &stats_by_path);
         if (r < 0) {
-                log_warning_errno(r, "Failed to get stats of .link files: %m");
+                log_warning_errno(r, "Failed to get stats of .link files, ignoring: %m");
                 return true;
         }
 
@@ -623,10 +623,7 @@ static int link_generate_new_hw_addr(Link *link, struct hw_addr_data *ret) {
                 /* We require genuine randomness here, since we want to make sure we won't collide with other
                  * systems booting up at the very same time. */
                 for (;;) {
-                        r = genuine_random_bytes(p, len, 0);
-                        if (r < 0)
-                                return log_link_warning_errno(link, r, "Failed to acquire random data to generate MAC address: %m");
-
+                        random_bytes(p, len);
                         if (hw_addr_is_valid(link, &hw_addr))
                                 break;
                 }
@@ -986,12 +983,11 @@ int config_parse_ifalias(
                 void *data,
                 void *userdata) {
 
-        char **s = data;
+        char **s = ASSERT_PTR(data);
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 *s = mfree(*s);
@@ -1093,13 +1089,12 @@ int config_parse_wol_password(
                 void *data,
                 void *userdata) {
 
-        LinkConfig *config = userdata;
+        LinkConfig *config = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(userdata);
 
         if (isempty(rvalue)) {
                 config->wol_password = erase_and_free(config->wol_password);

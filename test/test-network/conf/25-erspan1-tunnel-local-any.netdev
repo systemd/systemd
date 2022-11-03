@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[NetDev]
+Name=erspan98
+Kind=erspan
+
+[Tunnel]
+ERSPANVersion=1
+ERSPANIndex=124
+# The two settings below will be ignored
+ERSPANDirection=egress
+ERSPANHardwareId=0x2f
+Local = any
+Remote = 172.16.1.100
+Key=102
+SerializeTunneledPackets=true

@@ -389,11 +389,11 @@ int seat_read_active_vt(Seat *s) {
         if (lseek(s->manager->console_active_fd, SEEK_SET, 0) < 0)
                 return log_error_errno(errno, "lseek on console_active_fd failed: %m");
 
+        errno = 0;
         k = read(s->manager->console_active_fd, t, sizeof(t)-1);
-        if (k <= 0) {
-                log_error("Failed to read current console: %s", k < 0 ? strerror_safe(errno) : "EOF");
-                return k < 0 ? -errno : -EIO;
-        }
+        if (k <= 0)
+                return log_error_errno(errno ?: EIO,
+                                       "Failed to read current console: %s", STRERROR_OR_EOF(errno));
 
         t[k] = 0;
         truncate_nl(t);
@@ -646,9 +646,8 @@ void seat_add_to_gc_queue(Seat *s) {
 
 static bool seat_name_valid_char(char c) {
         return
-                (c >= 'a' && c <= 'z') ||
-                (c >= 'A' && c <= 'Z') ||
-                (c >= '0' && c <= '9') ||
+                ascii_isalpha(c) ||
+                ascii_isdigit(c) ||
                 IN_SET(c, '-', '_');
 }
 

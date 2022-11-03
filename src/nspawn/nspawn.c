@@ -359,12 +359,16 @@ static int help(void) {
                "     --keep-unit            Do not register a scope for the machine, reuse\n"
                "                            the service unit nspawn is running in\n\n"
                "%3$sUser Namespacing:%4$s\n"
-               "  -U --private-users=pick   Run within user namespace, autoselect UID/GID range\n"
-               "     --private-users[=UIDBASE[:NUIDS]]\n"
+               "     --private-users=no     Run without user namespacing\n"
+               "     --private-users=yes|pick|identity\n"
+               "                            Run within user namespace, autoselect UID/GID range\n"
+               "     --private-users=UIDBASE[:NUIDS]\n"
                "                            Similar, but with user configured UID/GID range\n"
                "     --private-users-ownership=MODE\n"
                "                            Adjust ('chown') or map ('map') OS tree ownership\n"
-               "                            to private UID/GID range\n\n"
+               "                            to private UID/GID range\n"
+               "  -U                        Equivalent to --private-users=pick and\n"
+               "                            --private-users-ownership=auto\n\n"
                "%3$sNetworking:%4$s\n"
                "     --private-network      Disable network in container\n"
                "     --network-interface=INTERFACE\n"
@@ -1623,9 +1627,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --set-credential= parameter: %m");
+                                return log_error_errno(r, "Failed to parse --load-credential= parameter: %m");
                         if (r == 0 || !p)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for --set-credential=: %s", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for --load-credential=: %s", optarg);
 
                         if (!credential_name_valid(word))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential name is not valid: %s", word);
@@ -2540,11 +2544,10 @@ struct ExposeArgs {
 };
 
 static int on_address_change(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        struct ExposeArgs *args = userdata;
+        struct ExposeArgs *args = ASSERT_PTR(userdata);
 
         assert(rtnl);
         assert(m);
-        assert(args);
 
         (void) expose_port_execute(rtnl, &args->fw_ctx, arg_expose_ports, AF_INET, &args->address4);
         (void) expose_port_execute(rtnl, &args->fw_ctx, arg_expose_ports, AF_INET6, &args->address6);
@@ -3488,10 +3491,7 @@ static int inner_child(
         }
 
         if (arg_start_mode != START_BOOT) {
-                /* If we're running a command in the container, let's default to the C.UTF-8 locale as it's
-                 * part of glibc these days and was backported to most distros a long time before it got
-                 * added to upstream glibc. */
-                envp[n_env] = strdup("LANG=C.UTF-8");
+                envp[n_env] = strdup("LANG=" SYSTEMD_NSPAWN_LOCALE);
                 if (!envp[n_env])
                         return log_oom();
                 n_env++;
@@ -3805,7 +3805,7 @@ static int outer_child(
             IN_SET(arg_userns_ownership, USER_NAMESPACE_OWNERSHIP_MAP, USER_NAMESPACE_OWNERSHIP_AUTO) &&
             arg_uid_shift != 0) {
 
-                r = remount_idmap(directory, arg_uid_shift, arg_uid_range, REMOUNT_IDMAP_HOST_ROOT);
+                r = remount_idmap(directory, arg_uid_shift, arg_uid_range, UID_INVALID, REMOUNT_IDMAPPING_HOST_ROOT);
                 if (r == -EINVAL || ERRNO_IS_NOT_SUPPORTED(r)) {
                         /* This might fail because the kernel or file system doesn't support idmapping. We
                          * can't really distinguish this nicely, nor do we have any guarantees about the
@@ -4137,8 +4137,8 @@ static int make_uid_map_string(
          * quadruplet, consisting of host and container UID + GID. */
 
         for (size_t i = 0; i < n_bind_user_uid; i++) {
-                uid_t payload_uid = bind_user_uid[i*2+offset],
-                        host_uid = bind_user_uid[i*2+offset+1];
+                uid_t payload_uid = bind_user_uid[i*4+offset],
+                        host_uid = bind_user_uid[i*4+offset+1];
 
                 assert(previous_uid <= payload_uid);
                 assert(payload_uid < arg_uid_range);
@@ -4933,7 +4933,7 @@ static int run_container(
                 if (l < 0)
                         return log_error_errno(errno, "Failed to read cgroup mode: %m");
                 if (l != sizeof(arg_unified_cgroup_hierarchy))
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading cgroup mode (%zu bytes).%s",
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading cgroup mode (%zi bytes).%s",
                                                l, l == 0 ? " The child is most likely dead." : "");
         }
 
@@ -5387,8 +5387,6 @@ static int initialize_rlimits(void) {
 }
 
 static int cant_be_in_netns(void) {
-        char udev_path[STRLEN("/proc//ns/net") + DECIMAL_STR_MAX(pid_t)];
-        _cleanup_free_ char *udev_ns = NULL, *our_ns = NULL;
         _cleanup_close_ int fd = -1;
         struct ucred ucred;
         int r;
@@ -5417,16 +5415,10 @@ static int cant_be_in_netns(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine peer of udev control socket: %m");
 
-        xsprintf(udev_path, "/proc/" PID_FMT "/ns/net", ucred.pid);
-        r = readlink_malloc(udev_path, &udev_ns);
+        r = in_same_namespace(ucred.pid, 0, NAMESPACE_NET);
         if (r < 0)
-                return log_error_errno(r, "Failed to read network namespace of udev: %m");
-
-        r = readlink_malloc("/proc/self/ns/net", &our_ns);
-        if (r < 0)
-                return log_error_errno(r, "Failed to read our own network namespace: %m");
-
-        if (!streq(our_ns, udev_ns))
+                return log_error_errno(r, "Failed to determine network namespace of udev: %m");
+        if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Sorry, but --image= is only supported in the main network namespace, since we need access to udev/AF_NETLINK.");
         return 0;
@@ -5443,7 +5435,6 @@ static int run(int argc, char *argv[]) {
         _cleanup_(release_lock_file) LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
         char tmprootdir[] = "/tmp/nspawn-root-XXXXXX";
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
-        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
         _cleanup_(fw_ctx_freep) FirewallContext *fw_ctx = NULL;
         pid_t pid = 0;
@@ -5745,27 +5736,17 @@ static int run(int argc, char *argv[]) {
                                 arg_image,
                                 arg_read_only ? O_RDONLY : O_RDWR,
                                 FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
+                                LOCK_SH,
                                 &loop);
                 if (r < 0) {
                         log_error_errno(r, "Failed to set up loopback block device: %m");
                         goto finish;
                 }
 
-                /* Take a LOCK_SH lock on the device, so that udevd doesn't issue BLKRRPART in our back */
-                r = loop_device_flock(loop, LOCK_SH);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to take lock on loopback block device: %m");
-                        goto finish;
-                }
-
-                r = dissect_image_and_warn(
-                                loop->fd,
-                                arg_image,
+                r = dissect_loop_device_and_warn(
+                                loop,
                                 &arg_verity_settings,
                                 NULL,
-                                loop->diskseq,
-                                loop->uevent_seqnum_not_before,
-                                loop->timestamp_not_before,
                                 dissect_image_flags,
                                 &dissected_image);
                 if (r == -ENOPKG) {
@@ -5796,8 +5777,7 @@ static int run(int argc, char *argv[]) {
                                 dissected_image,
                                 NULL,
                                 &arg_verity_settings,
-                                0,
-                                &decrypted_image);
+                                0);
                 if (r < 0)
                         goto finish;
 

@@ -438,7 +438,7 @@ static int deliver_fd(Manager *m, const char *fdname, int fd) {
 
 static int manager_attach_fds(Manager *m) {
         _cleanup_strv_free_ char **fdnames = NULL;
-        int r, n;
+        int n;
 
         /* Upon restart, PID1 will send us back all fds of session devices that we previously opened. Each
          * file descriptor is associated with a given session. The session ids are passed through FDNAMES. */
@@ -455,15 +455,9 @@ static int manager_attach_fds(Manager *m) {
                 if (deliver_fd(m, fdnames[i], fd) >= 0)
                         continue;
 
-                /* Hmm, we couldn't deliver the fd to any session device object? If so, let's close the fd */
-                safe_close(fd);
-
-                /* Remove from fdstore as well */
-                r = sd_notifyf(false,
-                               "FDSTOREREMOVE=1\n"
-                               "FDNAME=%s", fdnames[i]);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to remove file descriptor from the store, ignoring: %m");
+                /* Hmm, we couldn't deliver the fd to any session device object? If so, let's close the fd
+                 * and remove it from fdstore. */
+                close_and_notify_warn(fd, fdnames[i]);
         }
 
         return 0;
@@ -546,9 +540,8 @@ static int manager_enumerate_inhibitors(Manager *m) {
 }
 
 static int manager_dispatch_seat_udev(sd_device_monitor *monitor, sd_device *device, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
-        assert(m);
         assert(device);
 
         manager_process_seat_device(m, device);
@@ -556,9 +549,8 @@ static int manager_dispatch_seat_udev(sd_device_monitor *monitor, sd_device *dev
 }
 
 static int manager_dispatch_device_udev(sd_device_monitor *monitor, sd_device *device, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
-        assert(m);
         assert(device);
 
         manager_process_seat_device(m, device);
@@ -566,10 +558,9 @@ static int manager_dispatch_device_udev(sd_device_monitor *monitor, sd_device *d
 }
 
 static int manager_dispatch_vcsa_udev(sd_device_monitor *monitor, sd_device *device, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *name;
 
-        assert(m);
         assert(device);
 
         /* Whenever a VCSA device is removed try to reallocate our
@@ -584,9 +575,8 @@ static int manager_dispatch_vcsa_udev(sd_device_monitor *monitor, sd_device *dev
 }
 
 static int manager_dispatch_button_udev(sd_device_monitor *monitor, sd_device *device, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
-        assert(m);
         assert(device);
 
         manager_process_button_device(m, device);
@@ -594,9 +584,8 @@ static int manager_dispatch_button_udev(sd_device_monitor *monitor, sd_device *d
 }
 
 static int manager_dispatch_console(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
-        assert(m);
         assert(m->seat0);
         assert(m->console_active_fd == fd);
 
@@ -782,7 +771,7 @@ static int manager_connect_console(Manager *m) {
 
         if (SIGRTMIN + 1 > SIGRTMAX)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Not enough real-time signals available: %u-%u",
+                                       "Not enough real-time signals available: %i-%i",
                                        SIGRTMIN, SIGRTMAX);
 
         assert_se(ignore_signals(SIGRTMIN + 1) >= 0);
@@ -820,7 +809,7 @@ static int manager_connect_udev(Manager *m) {
         if (r < 0)
                 return r;
 
-        (void) sd_event_source_set_description(sd_device_monitor_get_event_source(m->device_seat_monitor), "logind-seat-monitor");
+        (void) sd_device_monitor_set_description(m->device_seat_monitor, "seat");
 
         r = sd_device_monitor_new(&m->device_monitor);
         if (r < 0)
@@ -846,7 +835,7 @@ static int manager_connect_udev(Manager *m) {
         if (r < 0)
                 return r;
 
-        (void) sd_event_source_set_description(sd_device_monitor_get_event_source(m->device_monitor), "logind-device-monitor");
+        (void) sd_device_monitor_set_description(m->device_monitor, "input,graphics,drm");
 
         /* Don't watch keys if nobody cares */
         if (!manager_all_buttons_ignored(m)) {
@@ -870,7 +859,7 @@ static int manager_connect_udev(Manager *m) {
                 if (r < 0)
                         return r;
 
-                (void) sd_event_source_set_description(sd_device_monitor_get_event_source(m->device_button_monitor), "logind-button-monitor");
+                (void) sd_device_monitor_set_description(m->device_button_monitor, "button");
         }
 
         /* Don't bother watching VCSA devices, if nobody cares */
@@ -892,7 +881,7 @@ static int manager_connect_udev(Manager *m) {
                 if (r < 0)
                         return r;
 
-                (void) sd_event_source_set_description(sd_device_monitor_get_event_source(m->device_vcsa_monitor), "logind-vcsa-monitor");
+                (void) sd_device_monitor_set_description(m->device_vcsa_monitor, "vcsa");
         }
 
         return 0;
@@ -949,12 +938,10 @@ static void manager_gc(Manager *m, bool drop_not_started) {
 }
 
 static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         struct dual_timestamp since;
         usec_t n, elapse;
         int r;
-
-        assert(m);
 
         if (m->idle_action == HANDLE_IGNORE ||
             m->idle_action_usec <= 0)
@@ -963,18 +950,33 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
         n = now(CLOCK_MONOTONIC);
 
         r = manager_get_idle_hint(m, &since);
-        if (r <= 0)
+        if (r <= 0) {
                 /* Not idle. Let's check if after a timeout it might be idle then. */
                 elapse = n + m->idle_action_usec;
-        else {
+                m->was_idle = false;
+        } else {
+
                 /* Idle! Let's see if it's time to do something, or if
                  * we shall sleep for longer. */
 
                 if (n >= since.monotonic + m->idle_action_usec &&
                     (m->idle_action_not_before_usec <= 0 || n >= m->idle_action_not_before_usec + m->idle_action_usec)) {
-                        log_info("System idle. Doing %s operation.", handle_action_to_string(m->idle_action));
+                        bool is_edge = false;
 
-                        manager_handle_action(m, 0, m->idle_action, false, false);
+                        /* We weren't idle previously or some activity happened while we were sleeping, and now we are
+                         * idle. Let's remember that for the next time and make this an edge transition. */
+                        if (!m->was_idle || since.monotonic >= m->idle_action_not_before_usec) {
+                                is_edge = true;
+                                m->was_idle = true;
+                        }
+
+                        if (m->idle_action == HANDLE_LOCK && !is_edge)
+                                /* We are idle and we were before so we are actually not taking any action. */
+                                log_debug("System idle.");
+                        else
+                                log_info("System idle. Will %s now.", handle_action_verb_to_string(m->idle_action));
+
+                        manager_handle_action(m, 0, m->idle_action, false, is_edge);
                         m->idle_action_not_before_usec = n;
                 }
 

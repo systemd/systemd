@@ -291,8 +291,6 @@ int check_triggering_units(sd_bus *bus, const char *unit) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *n = NULL, *dbus_path = NULL, *load_state = NULL;
         _cleanup_strv_free_ char **triggered_by = NULL;
-        bool print_warning_label = true;
-        UnitActiveState active_state;
         int r;
 
         r = unit_name_mangle(unit, 0, &n);
@@ -321,7 +319,10 @@ int check_triggering_units(sd_bus *bus, const char *unit) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get triggered by array of %s: %s", n, bus_error_message(&error, r));
 
+        bool first = true;
         STRV_FOREACH(i, triggered_by) {
+                UnitActiveState active_state;
+
                 r = get_state_one_unit(bus, *i, &active_state);
                 if (r < 0)
                         return r;
@@ -329,9 +330,9 @@ int check_triggering_units(sd_bus *bus, const char *unit) {
                 if (!IN_SET(active_state, UNIT_ACTIVE, UNIT_RELOADING))
                         continue;
 
-                if (print_warning_label) {
+                if (first) {
                         log_warning("Warning: Stopping %s, but it can still be activated by:", n);
-                        print_warning_label = false;
+                        first = false;
                 }
 
                 log_warning("  %s", *i);
@@ -376,9 +377,7 @@ int need_daemon_reload(sd_bus *bus, const char *unit) {
 void warn_unit_file_changed(const char *unit) {
         assert(unit);
 
-        log_warning("%sWarning:%s The unit file, source configuration file or drop-ins of %s changed on disk. Run 'systemctl%s daemon-reload' to reload units.",
-                    ansi_highlight_red(),
-                    ansi_normal(),
+        log_warning("Warning: The unit file, source configuration file or drop-ins of %s changed on disk. Run 'systemctl%s daemon-reload' to reload units.",
                     unit,
                     arg_scope == LOOKUP_SCOPE_SYSTEM ? "" : " --user");
 }
@@ -705,13 +704,14 @@ int maybe_extend_with_unit_dependencies(sd_bus *bus, char ***list) {
 int unit_get_dependencies(sd_bus *bus, const char *name, char ***ret) {
         _cleanup_strv_free_ char **deps = NULL;
 
-        static const struct bus_properties_map map[_DEPENDENCY_MAX][6] = {
+        static const struct bus_properties_map map[_DEPENDENCY_MAX][7] = {
                 [DEPENDENCY_FORWARD] = {
                         { "Requires",    "as", NULL, 0 },
                         { "Requisite",   "as", NULL, 0 },
                         { "Wants",       "as", NULL, 0 },
                         { "ConsistsOf",  "as", NULL, 0 },
                         { "BindsTo",     "as", NULL, 0 },
+                        { "Upholds",     "as", NULL, 0 },
                         {}
                 },
                 [DEPENDENCY_REVERSE] = {
@@ -720,6 +720,7 @@ int unit_get_dependencies(sd_bus *bus, const char *name, char ***ret) {
                         { "WantedBy",    "as", NULL, 0 },
                         { "PartOf",      "as", NULL, 0 },
                         { "BoundBy",     "as", NULL, 0 },
+                        { "UpheldBy",    "as", NULL, 0 },
                         {}
                 },
                 [DEPENDENCY_AFTER] = {

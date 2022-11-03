@@ -93,7 +93,7 @@ int verb_get_default(int argc, char *argv[], void *userdata) {
 
 int verb_set_default(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *unit = NULL;
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         size_t n_changes = 0;
         int r;
 
@@ -108,10 +108,9 @@ int verb_set_default(int argc, char *argv[], void *userdata) {
 
         if (install_client_side()) {
                 r = unit_file_set_default(arg_scope, UNIT_FILE_FORCE, arg_root, unit, &changes, &n_changes);
-                unit_file_dump_changes(r, "set default", changes, n_changes, arg_quiet);
-
-                if (r > 0)
-                        r = 0;
+                install_changes_dump(r, "set default", changes, n_changes, arg_quiet);
+                if (r < 0)
+                        goto finish;
         } else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -134,10 +133,9 @@ int verb_set_default(int argc, char *argv[], void *userdata) {
                 /* Try to reload if enabled */
                 if (!arg_no_reload) {
                         r = daemon_reload(ACTION_RELOAD, /* graceful= */ false);
-                        if (r > 0)
-                                r = 0;
-                } else
-                        r = 0;
+                        if (r < 0)
+                                goto finish;
+                }
         }
 
         emit_cmdline_warning();
@@ -147,14 +145,14 @@ int verb_set_default(int argc, char *argv[], void *userdata) {
 
                 r = determine_default(&final);
                 if (r < 0)
-                        return r;
+                        goto finish;
 
                 if (!streq(final, unit))
                         log_notice("Note: \"%s\" is the default unit (possibly a runtime override).", final);
         }
 
 finish:
-        unit_file_changes_free(changes, n_changes);
+        install_changes_free(changes, n_changes);
 
-        return r;
+        return r < 0 ? r : 0;
 }

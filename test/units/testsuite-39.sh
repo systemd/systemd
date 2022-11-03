@@ -4,7 +4,6 @@ set -eux
 set -o pipefail
 
 systemd-analyze log-level debug
-systemd-analyze log-target console
 
 export SYSTEMD_PAGER=
 SERVICE_PATH="$(mktemp /etc/systemd/system/execreloadXXX.service)"

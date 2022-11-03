@@ -280,7 +280,7 @@ static int link_get_l2tp_local_address(Link *link, L2tpTunnel *t, union in_addr_
 static int l2tp_get_local_address(NetDev *netdev, union in_addr_union *ret) {
         Link *link = NULL;
         L2tpTunnel *t;
-        Address *a;
+        Address *a = NULL;
         int r;
 
         assert(netdev);
@@ -292,7 +292,7 @@ static int l2tp_get_local_address(NetDev *netdev, union in_addr_union *ret) {
                 if (r < 0)
                         return r;
 
-                if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ false))
                         return -EBUSY;
         }
 
@@ -346,7 +346,7 @@ static int l2tp_get_local_address(NetDev *netdev, union in_addr_union *ret) {
                 return link_get_l2tp_local_address(link, t, ret);
 
         HASHMAP_FOREACH(link, netdev->manager->links_by_index) {
-                if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ false))
                         continue;
 
                 if (link_get_l2tp_local_address(link, t, ret) >= 0)
@@ -445,12 +445,9 @@ static int l2tp_create_tunnel(NetDev *netdev) {
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not find local address.");
 
-        if (t->local_address_type >= 0 && DEBUG_LOGGING) {
-                _cleanup_free_ char *str = NULL;
-
-                (void) in_addr_to_string(t->family, &local_address, &str);
-                log_netdev_debug(netdev, "Local address %s acquired.", strna(str));
-        }
+        if (t->local_address_type >= 0 && DEBUG_LOGGING)
+                log_netdev_debug(netdev, "Local address %s acquired.",
+                                 IN_ADDR_TO_STRING(t->family, &local_address));
 
         r = netdev_l2tp_create_message_tunnel(netdev, &local_address, &m);
         if (r < 0)
@@ -484,15 +481,13 @@ int config_parse_l2tp_tunnel_local_address(
 
         _cleanup_free_ char *addr_or_type = NULL, *ifname = NULL;
         L2tpLocalAddressType type;
-        L2tpTunnel *t = userdata;
-        const char *p = rvalue;
+        L2tpTunnel *t = ASSERT_PTR(userdata);
+        const char *p = ASSERT_PTR(rvalue);
         union in_addr_union a;
         int r, f;
 
         assert(filename);
         assert(lvalue);
-        assert(rvalue);
-        assert(t);
 
         if (isempty(rvalue)) {
                 t->local_ifname = mfree(t->local_ifname);
@@ -578,14 +573,13 @@ int config_parse_l2tp_tunnel_remote_address(
                 void *data,
                 void *userdata) {
 
-        L2tpTunnel *t = userdata;
+        L2tpTunnel *t = ASSERT_PTR(userdata);
         union in_addr_union a;
         int r, f;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(t);
 
         if (isempty(rvalue)) {
                 t->remote = IN_ADDR_NULL;

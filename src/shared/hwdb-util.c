@@ -680,7 +680,7 @@ int hwdb_query(const char *modalias, const char *root) {
         return 0;
 }
 
-bool hwdb_validate(sd_hwdb *hwdb) {
+bool hwdb_should_reload(sd_hwdb *hwdb) {
         bool found = false;
         const char* p;
         struct stat st;

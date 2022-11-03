@@ -17,10 +17,9 @@
 #include "unit-serialize.h"
 
 static void log_syntax_callback(const char *unit, int level, void *userdata) {
-        Set **s = userdata;
+        Set **s = ASSERT_PTR(userdata);
         int r;
 
-        assert(userdata);
         assert(unit);
 
         if (level > LOG_WARNING)
@@ -61,9 +60,9 @@ int verify_prepare_filename(const char *filename, char **ret) {
                         return r;
         }
 
-        dir = dirname_malloc(abspath);
-        if (!dir)
-                return -ENOMEM;
+        r = path_extract_directory(abspath, &dir);
+        if (r < 0)
+                return r;
 
         c = path_join(dir, with_instance ?: name);
         if (!c)
@@ -73,24 +72,30 @@ int verify_prepare_filename(const char *filename, char **ret) {
         return 0;
 }
 
-int verify_generate_path(char **var, char **filenames) {
+int verify_generate_path(char **ret, char **filenames) {
         _cleanup_strv_free_ char **ans = NULL;
+        _cleanup_free_ char *joined = NULL;
         const char *old;
         int r;
 
         STRV_FOREACH(filename, filenames) {
+                _cleanup_free_ char *a = NULL;
                 char *t;
 
-                t = dirname_malloc(*filename);
-                if (!t)
-                        return -ENOMEM;
+                r = path_make_absolute_cwd(*filename, &a);
+                if (r < 0)
+                        return r;
+
+                r = path_extract_directory(a, &t);
+                if (r < 0)
+                        return r;
 
                 r = strv_consume(&ans, t);
                 if (r < 0)
                         return r;
         }
 
-        assert_se(strv_uniq(ans));
+        strv_uniq(ans);
 
         /* First, prepend our directories. Second, if some path was specified, use that, and
          * otherwise use the defaults. Any duplicates will be filtered out in path-lookup.c.
@@ -106,10 +111,11 @@ int verify_generate_path(char **var, char **filenames) {
                         return r;
         }
 
-        *var = strv_join(ans, ":");
-        if (!*var)
+        joined = strv_join(ans, ":");
+        if (!joined)
                 return -ENOMEM;
 
+        *ret = TAKE_PTR(joined);
         return 0;
 }
 
@@ -208,7 +214,7 @@ static int verify_documentation(Unit *u, bool check_man) {
 }
 
 static int verify_unit(Unit *u, bool check_man, const char *root) {
-        _cleanup_(sd_bus_error_free) sd_bus_error err = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r, k;
 
         assert(u);
@@ -217,9 +223,9 @@ static int verify_unit(Unit *u, bool check_man, const char *root) {
                 unit_dump(u, stdout, "\t");
 
         log_unit_debug(u, "Creating %s/start job", u->id);
-        r = manager_add_job(u->manager, JOB_START, u, JOB_REPLACE, NULL, &err, NULL);
+        r = manager_add_job(u->manager, JOB_START, u, JOB_REPLACE, NULL, &error, NULL);
         if (r < 0)
-                log_unit_error_errno(u, r, "Failed to create %s/start: %s", u->id, bus_error_message(&err, r));
+                log_unit_error_errno(u, r, "Failed to create %s/start: %s", u->id, bus_error_message(&error, r));
 
         k = verify_socket(u);
         if (k < 0 && r == 0)

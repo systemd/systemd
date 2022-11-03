@@ -129,6 +129,7 @@ basic_sources = files(
         'login-util.c',
         'login-util.h',
         'macro.h',
+        'math-util.h',
         'memfd-util.c',
         'memfd-util.h',
         'memory-util.c',
@@ -194,8 +195,6 @@ basic_sources = files(
         'ratelimit.h',
         'raw-clone.h',
         'raw-reboot.h',
-        'recovery-key.c',
-        'recovery-key.h',
         'recurse-dir.c',
         'recurse-dir.h',
         'replace-var.c',
@@ -241,6 +240,8 @@ basic_sources = files(
         'time-util.h',
         'tmpfile-util.c',
         'tmpfile-util.h',
+        'uid-range.c',
+        'uid-range.h',
         'umask-util.h',
         'unaligned.h',
         'unit-def.c',
@@ -350,6 +351,7 @@ arch_list = [
         'mips64',
         'mips64n32',
         'mipso32',
+        'parisc',
         'powerpc',
         'powerpc64',
         'riscv32',
@@ -385,10 +387,9 @@ filesystem_includes = ['linux/magic.h',
                        'linux/gfs2_ondisk.h']
 
 check_filesystems = find_program('check-filesystems.sh')
-r = run_command([check_filesystems, cpp, 'filesystems-gperf.gperf'] + filesystem_includes, check: false)
+r = run_command([check_filesystems, cpp, files('filesystems-gperf.gperf')] + filesystem_includes, check: false)
 if r.returncode() != 0
-        error('found unknown filesystem(s) defined in kernel headers:\n\n' + r.stdout())
-        r.stdout()
+        error('Unknown filesystems defined in kernel headers:\n\n' + r.stdout())
 endif
 
 filesystems_gperf_h = custom_target(

@@ -8,13 +8,13 @@
 #include "systemctl.h"
 
 int verb_preset_all(int argc, char *argv[], void *userdata) {
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         size_t n_changes = 0;
         int r;
 
         if (install_client_side()) {
                 r = unit_file_preset_all(arg_scope, unit_file_flags_from_args(), arg_root, arg_preset_mode, &changes, &n_changes);
-                unit_file_dump_changes(r, "preset", changes, n_changes, arg_quiet);
+                install_changes_dump(r, "preset", changes, n_changes, arg_quiet);
 
                 if (r > 0)
                         r = 0;
@@ -57,7 +57,7 @@ int verb_preset_all(int argc, char *argv[], void *userdata) {
         }
 
 finish:
-        unit_file_changes_free(changes, n_changes);
+        install_changes_free(changes, n_changes);
 
         return r;
 }

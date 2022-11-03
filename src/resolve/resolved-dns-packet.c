@@ -9,6 +9,7 @@
 #include "memory-util.h"
 #include "resolved-dns-packet.h"
 #include "set.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "strv.h"
 #include "unaligned.h"
@@ -1251,8 +1252,9 @@ int dns_packet_append_answer(DnsPacket *p, DnsAnswer *a, unsigned *completed) {
 
 int dns_packet_read(DnsPacket *p, size_t sz, const void **ret, size_t *start) {
         assert(p);
+        assert(p->rindex <= p->size);
 
-        if (p->rindex + sz > p->size)
+        if (sz > p->size - p->rindex)
                 return -EMSGSIZE;
 
         if (ret)
@@ -1389,7 +1391,7 @@ int dns_packet_read_string(DnsPacket *p, char **ret, size_t *start) {
         if (memchr(d, 0, c))
                 return -EBADMSG;
 
-        t = strndup(d, c);
+        t = memdup_suffix0(d, c);
         if (!t)
                 return -ENOMEM;
 
@@ -1592,17 +1594,19 @@ static int dns_packet_read_type_windows(DnsPacket *p, Bitmap **types, size_t siz
         _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = REWINDER_INIT(p);
         int r;
 
-        while (p->rindex < rewinder.saved_rindex + size) {
+        while (p->rindex - rewinder.saved_rindex < size) {
                 r = dns_packet_read_type_window(p, types, NULL);
                 if (r < 0)
                         return r;
 
+                assert(p->rindex >= rewinder.saved_rindex);
+
                 /* don't read past end of current RR */
-                if (p->rindex > rewinder.saved_rindex + size)
+                if (p->rindex - rewinder.saved_rindex > size)
                         return -EBADMSG;
         }
 
-        if (p->rindex != rewinder.saved_rindex + size)
+        if (p->rindex - rewinder.saved_rindex != size)
                 return -EBADMSG;
 
         if (start)
@@ -1713,7 +1717,7 @@ int dns_packet_read_rr(
         if (r < 0)
                 return r;
 
-        if (p->rindex + rdlength > p->size)
+        if (rdlength > p->size - p->rindex)
                 return -EBADMSG;
 
         offset = p->rindex;
@@ -1757,7 +1761,7 @@ int dns_packet_read_rr(
                 } else {
                         DnsTxtItem *last = NULL;
 
-                        while (p->rindex < offset + rdlength) {
+                        while (p->rindex - offset < rdlength) {
                                 DnsTxtItem *i;
                                 const void *data;
                                 size_t sz;
@@ -1989,7 +1993,7 @@ int dns_packet_read_rr(
                 if (r < 0)
                         return r;
 
-                if (rdlength + offset < p->rindex)
+                if (rdlength < p->rindex - offset)
                         return -EBADMSG;
 
                 r = dns_packet_read_memdup(p, offset + rdlength - p->rindex,
@@ -2015,6 +2019,9 @@ int dns_packet_read_rr(
                 r = dns_packet_read_name(p, &rr->nsec.next_domain_name, allow_compressed, NULL);
                 if (r < 0)
                         return r;
+
+                if (rdlength < p->rindex - offset)
+                        return -EBADMSG;
 
                 r = dns_packet_read_type_windows(p, &rr->nsec.types, offset + rdlength - p->rindex, NULL);
 
@@ -2061,6 +2068,9 @@ int dns_packet_read_rr(
                 if (r < 0)
                         return r;
 
+                if (rdlength < p->rindex - offset)
+                        return -EBADMSG;
+
                 r = dns_packet_read_type_windows(p, &rr->nsec3.types, offset + rdlength - p->rindex, NULL);
 
                 /* empty non-terminals can have NSEC3 records, so empty bitmaps are allowed */
@@ -2104,7 +2114,7 @@ int dns_packet_read_rr(
                 if (r < 0)
                         return r;
 
-                if (rdlength + offset < p->rindex)
+                if (rdlength < p->rindex - offset)
                         return -EBADMSG;
 
                 r = dns_packet_read_memdup(p,
@@ -2123,7 +2133,7 @@ int dns_packet_read_rr(
         }
         if (r < 0)
                 return r;
-        if (p->rindex != offset + rdlength)
+        if (p->rindex - offset != rdlength)
                 return -EBADMSG;
 
         if (ret)
@@ -2343,13 +2353,17 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
 
                         /* According to RFC 4795, section 2.9. only the RRs from the Answer section shall be
                          * cached. Hence mark only those RRs as cacheable by default, but not the ones from
-                         * the Additional or Authority sections. */
+                         * the Additional or Authority sections.
+                         * This restriction does not apply to mDNS records (RFC 6762). */
                         if (i < DNS_PACKET_ANCOUNT(p))
                                 flags |= DNS_ANSWER_CACHEABLE|DNS_ANSWER_SECTION_ANSWER;
                         else if (i < DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p))
                                 flags |= DNS_ANSWER_SECTION_AUTHORITY;
-                        else
+                        else {
                                 flags |= DNS_ANSWER_SECTION_ADDITIONAL;
+                                if (p->protocol == DNS_PROTOCOL_MDNS)
+                                        flags |= DNS_ANSWER_CACHEABLE;
+                        }
 
                         r = dns_answer_add(answer, rr, p->ifindex, flags, NULL);
                         if (r < 0)
@@ -2635,6 +2649,14 @@ static const char* const dns_rcode_table[_DNS_RCODE_MAX_DEFINED] = {
         [DNS_RCODE_BADCOOKIE] = "BADCOOKIE",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_rcode, int);
+
+const char *format_dns_rcode(int i, char buf[static DECIMAL_STR_MAX(int)]) {
+        const char *p = dns_rcode_to_string(i);
+        if (p)
+                return p;
+
+        return snprintf_ok(buf, DECIMAL_STR_MAX(int), "%i", i);
+}
 
 static const char* const dns_protocol_table[_DNS_PROTOCOL_MAX] = {
         [DNS_PROTOCOL_DNS]   = "dns",

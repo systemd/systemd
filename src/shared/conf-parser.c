@@ -445,7 +445,7 @@ int config_parse(
         return 1;
 }
 
-static int hashmap_put_stats_by_path(Hashmap **stats_by_path, const char *path, const struct stat *st) {
+int hashmap_put_stats_by_path(Hashmap **stats_by_path, const char *path, const struct stat *st) {
         _cleanup_free_ struct stat *st_copy = NULL;
         _cleanup_free_ char *path_copy = NULL;
         int r;
@@ -588,7 +588,8 @@ int config_parse_many(
                 const void *table,
                 ConfigParseFlags flags,
                 void *userdata,
-                Hashmap **ret_stats_by_path) {
+                Hashmap **ret_stats_by_path,
+                char ***ret_dropin_files) {
 
         _cleanup_strv_free_ char **files = NULL;
         int r;
@@ -602,24 +603,28 @@ int config_parse_many(
         if (r < 0)
                 return r;
 
-        return config_parse_many_files(conf_files, files, sections, lookup, table, flags, userdata, ret_stats_by_path);
+        r = config_parse_many_files(conf_files, files, sections, lookup, table, flags, userdata, ret_stats_by_path);
+        if (r < 0)
+                return r;
+
+        if (ret_dropin_files)
+                *ret_dropin_files = TAKE_PTR(files);
+
+        return 0;
 }
 
-static int config_get_stats_by_path_one(
+static int dropins_get_stats_by_path(
                 const char* conf_file,
                 const char* const* conf_file_dirs,
-                Hashmap *stats_by_path) {
+                Hashmap **stats_by_path) {
 
         _cleanup_strv_free_ char **files = NULL;
         _cleanup_free_ char *dropin_dirname = NULL;
-        struct stat st;
         int r;
 
         assert(conf_file);
         assert(conf_file_dirs);
         assert(stats_by_path);
-
-        /* Unlike config_parse(), this does not support stream. */
 
         r = path_extract_filename(conf_file, &dropin_dirname);
         if (r < 0)
@@ -634,17 +639,9 @@ static int config_get_stats_by_path_one(
         if (r < 0)
                 return r;
 
-        /* First read the main config file. */
-        r = RET_NERRNO(stat(conf_file, &st));
-        if (r >= 0) {
-                r = hashmap_put_stats_by_path(&stats_by_path, conf_file, &st);
-                if (r < 0)
-                        return r;
-        } else if (r != -ENOENT)
-                return r;
-
-        /* Then read all the drop-ins. */
         STRV_FOREACH(fn, files) {
+                struct stat st;
+
                 if (stat(*fn, &st) < 0) {
                         if (errno == ENOENT)
                                 continue;
@@ -652,7 +649,7 @@ static int config_get_stats_by_path_one(
                         return -errno;
                 }
 
-                r = hashmap_put_stats_by_path(&stats_by_path, *fn, &st);
+                r = hashmap_put_stats_by_path(stats_by_path, *fn, &st);
                 if (r < 0)
                         return r;
         }
@@ -665,6 +662,7 @@ int config_get_stats_by_path(
                 const char *root,
                 unsigned flags,
                 const char* const* dirs,
+                bool check_dropins,
                 Hashmap **ret) {
 
         _cleanup_hashmap_free_ Hashmap *stats_by_path = NULL;
@@ -675,16 +673,32 @@ int config_get_stats_by_path(
         assert(dirs);
         assert(ret);
 
+        /* Unlike config_parse(), this does not support stream. */
+
         r = conf_files_list_strv(&files, suffix, root, flags, dirs);
         if (r < 0)
                 return r;
 
-        stats_by_path = hashmap_new(&path_hash_ops_free_free);
-        if (!stats_by_path)
-                return -ENOMEM;
-
         STRV_FOREACH(f, files) {
-                r = config_get_stats_by_path_one(*f, dirs, stats_by_path);
+                struct stat st;
+
+                /* First read the main config file. */
+                if (stat(*f, &st) < 0) {
+                        if (errno == ENOENT)
+                                continue;
+
+                        return -errno;
+                }
+
+                r = hashmap_put_stats_by_path(&stats_by_path, *f, &st);
+                if (r < 0)
+                        return r;
+
+                if (!check_dropins)
+                        continue;
+
+                /* Then read all the drop-ins if requested. */
+                r = dropins_get_stats_by_path(*f, dirs, &stats_by_path);
                 if (r < 0)
                         return r;
         }
@@ -786,14 +800,13 @@ int config_parse_iec_size(
                 void *data,
                 void *userdata) {
 
-        size_t *sz = data;
+        size_t *sz = ASSERT_PTR(data);
         uint64_t v;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = parse_size(rvalue, 1024, &v);
         if (r >= 0 && (uint64_t) (size_t) v != v)
@@ -819,13 +832,12 @@ int config_parse_si_uint64(
                 void *data,
                 void *userdata) {
 
-        uint64_t *sz = data;
+        uint64_t *sz = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = parse_size(rvalue, 1000, sz);
         if (r < 0)
@@ -846,13 +858,12 @@ int config_parse_iec_uint64(
                 void *data,
                 void *userdata) {
 
-        uint64_t *bytes = data;
+        uint64_t *bytes = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = parse_size(rvalue, 1024, bytes);
         if (r < 0)
@@ -873,10 +884,9 @@ int config_parse_iec_uint64_infinity(
                 void *data,
                 void *userdata) {
 
-        uint64_t *bytes = data;
+        uint64_t *bytes = ASSERT_PTR(data);
 
         assert(rvalue);
-        assert(data);
 
         if (streq(rvalue, "infinity")) {
                 *bytes = UINT64_MAX;
@@ -899,13 +909,12 @@ int config_parse_bool(
                 void *userdata) {
 
         int k;
-        bool *b = data;
+        bool *b = ASSERT_PTR(data);
         bool fatal = ltype;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         k = parse_boolean(rvalue);
         if (k < 0) {
@@ -965,12 +974,11 @@ int config_parse_tristate(
                 void *data,
                 void *userdata) {
 
-        int k, *t = data;
+        int k, *t = ASSERT_PTR(data);
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         /* A tristate is pretty much a boolean, except that it can also take an empty string,
          * indicating "uninitialized", much like NULL is for a pointer type. */
@@ -1121,13 +1129,12 @@ int config_parse_path(
 
         _cleanup_free_ char *n = NULL;
         bool fatal = ltype;
-        char **s = data;
+        char **s = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue))
                 goto finalize;
@@ -1156,13 +1163,12 @@ int config_parse_strv(
                 void *data,
                 void *userdata) {
 
-        char ***sv = data;
+        char ***sv = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 *sv = strv_free(*sv);
@@ -1360,13 +1366,12 @@ int config_parse_ifname(
                 void *data,
                 void *userdata) {
 
-        char **s = data;
+        char **s = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 *s = mfree(*s);
@@ -1398,13 +1403,12 @@ int config_parse_ifnames(
                 void *userdata) {
 
         _cleanup_strv_free_ char **names = NULL;
-        char ***s = data;
+        char ***s = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 *s = strv_free(*s);
@@ -1457,14 +1461,13 @@ int config_parse_ip_port(
                 void *data,
                 void *userdata) {
 
-        uint16_t *s = data;
+        uint16_t *s = ASSERT_PTR(data);
         uint16_t port;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 *s = 0;
@@ -1494,11 +1497,10 @@ int config_parse_mtu(
                 void *data,
                 void *userdata) {
 
-        uint32_t *mtu = data;
+        uint32_t *mtu = ASSERT_PTR(data);
         int r;
 
         assert(rvalue);
-        assert(mtu);
 
         r = parse_mtu(ltype, rvalue, mtu);
         if (r == -ERANGE) {
@@ -1568,13 +1570,12 @@ int config_parse_permille(
                 void *data,
                 void *userdata) {
 
-        unsigned *permille = data;
+        unsigned *permille = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(permille);
 
         r = parse_permille(rvalue);
         if (r < 0) {
@@ -1635,13 +1636,12 @@ int config_parse_hw_addr(
                 void *data,
                 void *userdata) {
 
-        struct hw_addr_data a, *hwaddr = data;
+        struct hw_addr_data a, *hwaddr = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 *hwaddr = HW_ADDR_NULL;
@@ -1671,13 +1671,12 @@ int config_parse_hw_addrs(
                 void *data,
                 void *userdata) {
 
-        Set **hwaddrs = data;
+        Set **hwaddrs = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
@@ -1730,13 +1729,12 @@ int config_parse_ether_addr(
                 void *userdata) {
 
         _cleanup_free_ struct ether_addr *n = NULL;
-        struct ether_addr **hwaddr = data;
+        struct ether_addr **hwaddr = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 *hwaddr = mfree(*hwaddr);
@@ -1771,13 +1769,12 @@ int config_parse_ether_addrs(
                 void *data,
                 void *userdata) {
 
-        Set **hwaddrs = data;
+        Set **hwaddrs = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
@@ -1830,15 +1827,14 @@ int config_parse_in_addr_non_null(
                 void *userdata) {
 
         /* data must be a pointer to struct in_addr or in6_addr, and the type is determined by ltype. */
-        struct in_addr *ipv4 = data;
-        struct in6_addr *ipv6 = data;
+        struct in_addr *ipv4 = ASSERT_PTR(data);
+        struct in6_addr *ipv6 = ASSERT_PTR(data);
         union in_addr_union a;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
         assert(IN_SET(ltype, AF_INET, AF_INET6));
 
         if (isempty(rvalue)) {
@@ -1871,3 +1867,4 @@ int config_parse_in_addr_non_null(
 
 DEFINE_CONFIG_PARSE(config_parse_percent, parse_percent, "Failed to parse percent value");
 DEFINE_CONFIG_PARSE(config_parse_permyriad, parse_permyriad, "Failed to parse permyriad value");
+DEFINE_CONFIG_PARSE_PTR(config_parse_sec_fix_0, parse_sec_fix_0, usec_t, "Failed to parse time value");

@@ -25,8 +25,12 @@ option('link-networkd-shared', type: 'boolean',
        description : 'link systemd-networkd and its helpers to libsystemd-shared.so')
 option('link-timesyncd-shared', type: 'boolean',
        description : 'link systemd-timesyncd and its helpers to libsystemd-shared.so')
+option('link-journalctl-shared', type: 'boolean',
+       description : 'link journalctl against libsystemd-shared.so')
 option('link-boot-shared', type: 'boolean',
        description : 'link bootctl and systemd-bless-boot against libsystemd-shared.so')
+option('first-boot-full-preset', type: 'boolean', value: false,
+       description : 'during first boot, do full preset-all (default will be changed to true later)')
 
 option('static-libsystemd', type : 'combo',
        choices : ['false', 'true', 'pic', 'no-pic'],
@@ -34,7 +38,7 @@ option('static-libsystemd', type : 'combo',
 option('static-libudev', type : 'combo',
        choices : ['false', 'true', 'pic', 'no-pic'],
        description : 'install a static library for libudev')
-option('standalone-binaries', type : 'boolean', value : 'false',
+option('standalone-binaries', type : 'boolean', value : false,
        description : 'also build standalone versions of supported binaries')
 
 option('sysvinit-path', type : 'string', value : '/etc/init.d',
@@ -47,7 +51,7 @@ option('rc-local', type : 'string',
        value : '/etc/rc.local')
 option('initrd', type : 'boolean',
        description : 'install services for use when running systemd in initrd')
-option('compat-mutable-uid-boundaries', type : 'boolean', value : 'false',
+option('compat-mutable-uid-boundaries', type : 'boolean', value : false,
        description : 'look at uid boundaries in /etc/login.defs for compatibility')
 option('nscd', type : 'boolean',
        description : 'build support for flushing of the nscd caches')
@@ -214,22 +218,22 @@ option('extra-net-naming-schemes', type : 'string',
 option('default-net-naming-scheme', type : 'string', value : 'latest',
        description : 'default net.naming-scheme= value')
 option('status-unit-format-default', type : 'combo',
-       choices : ['description', 'name', 'combined'],
+       choices : ['auto', 'description', 'name', 'combined'],
        description : 'use unit name or description in messages by default')
-option('time-epoch', type : 'integer', value : '-1',
+option('time-epoch', type : 'integer', value : 0,
        description : 'time epoch for time clients')
-option('clock-valid-range-usec-max', type : 'integer', value : '473364000000000', # 15 years
-       description : 'maximum value in microseconds for the difference between RTC and epoch, exceeding which is considered an RTC error')
+option('clock-valid-range-usec-max', type : 'integer', value : 473364000000000, # 15 years
+       description : 'maximum value in microseconds for the difference between RTC and epoch, exceeding which is considered an RTC error ["0" disables]')
 option('default-user-shell', type : 'string', value : '/bin/bash',
        description : 'default interactive shell')
 
-option('system-alloc-uid-min', type : 'integer', value : '-1',
+option('system-alloc-uid-min', type : 'integer', value : 0,
        description : 'minimum system UID used when allocating')
-option('system-alloc-gid-min', type : 'integer', value : '-1',
+option('system-alloc-gid-min', type : 'integer', value : 0,
        description : 'minimum system GID used when allocating')
-option('system-uid-max', type : 'integer', value : '-1',
+option('system-uid-max', type : 'integer', value : 0,
        description : 'maximum system UID')
-option('system-gid-max', type : 'integer', value : '-1',
+option('system-gid-max', type : 'integer', value : 0,
        description : 'maximum system GID')
 option('dynamic-uid-min', type : 'integer', value : 0x0000EF00,
        description : 'minimum dynamic UID')
@@ -249,47 +253,47 @@ option('nobody-user', type : 'string',
 option('nobody-group', type : 'string',
        description : 'The name of the nobody group (the one with GID 65534)',
        value : 'nobody')
-option('adm-gid', type : 'integer', value : '-1',
+option('adm-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "adm" group')
-option('audio-gid', type : 'integer', value : '-1',
+option('audio-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "audio" group')
-option('cdrom-gid', type : 'integer', value : '-1',
+option('cdrom-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "cdrom" group')
-option('dialout-gid', type : 'integer', value : '-1',
+option('dialout-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "dialout" group')
-option('disk-gid', type : 'integer', value : '-1',
+option('disk-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "disk" group')
-option('input-gid', type : 'integer', value : '-1',
+option('input-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "input" group')
-option('kmem-gid', type : 'integer', value : '-1',
+option('kmem-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "kmem" group')
-option('kvm-gid', type : 'integer', value : '-1',
+option('kvm-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "kvm" group')
-option('lp-gid', type : 'integer', value : '-1',
+option('lp-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "lp" group')
-option('render-gid', type : 'integer', value : '-1',
+option('render-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "render" group')
-option('sgx-gid', type : 'integer', value : '-1',
+option('sgx-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "sgx" group')
-option('tape-gid', type : 'integer', value : '-1',
+option('tape-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "tape" group')
 option('tty-gid', type : 'integer', value : 5,
        description : 'the numeric GID of the "tty" group')
-option('users-gid', type : 'integer', value : '-1',
+option('users-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "users" group')
-option('utmp-gid', type : 'integer', value : '-1',
+option('utmp-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "utmp" group')
-option('video-gid', type : 'integer', value : '-1',
+option('video-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "video" group')
-option('wheel-gid', type : 'integer', value : '-1',
+option('wheel-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "wheel" group')
-option('systemd-journal-gid', type : 'integer', value : '-1',
+option('systemd-journal-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the systemd-journal group')
-option('systemd-network-uid', type : 'integer', value : '-1',
+option('systemd-network-uid', type : 'integer', value : 0,
        description : 'soft-static allocation for the systemd-network user')
-option('systemd-resolve-uid', type : 'integer', value : '-1',
+option('systemd-resolve-uid', type : 'integer', value : 0,
        description : 'soft-static allocation for the systemd-resolve user')
-option('systemd-timesync-uid', type : 'integer', value : '-1',
+option('systemd-timesync-uid', type : 'integer', value : 0,
        description : 'soft-static allocation for the systemd-timesync user')
 
 option('dev-kvm-mode', type : 'string', value : '0666',
@@ -300,8 +304,10 @@ option('default-kill-user-processes', type : 'boolean',
        description : 'the default value for KillUserProcesses= setting')
 option('gshadow', type : 'boolean',
        description : 'support for shadow group')
-option('default-locale', type : 'string', value : '',
+option('default-locale', type : 'string', value : 'C.UTF-8',
        description : 'default locale used when /etc/locale.conf does not exist')
+option('nspawn-locale', type : 'string', value : 'C.UTF-8',
+       description : 'default locale used by systemd-nspawn when executing commands in a container')
 option('localegen-path', type : 'string', value : '',
        description : 'absolute path to the locale-gen binary in case the system is using locale-gen')
 option('service-watchdog', type : 'string', value : '3min',
@@ -348,6 +354,8 @@ option('smack', type : 'boolean',
        description : 'SMACK support')
 option('smack-run-label', type : 'string',
        description : 'run systemd --system itself with a specific SMACK label')
+option('smack-default-process-label', type : 'string',
+       description : 'default SMACK label for executed processes')
 option('polkit', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'polkit support')
 option('ima', type : 'boolean',
@@ -363,6 +371,8 @@ option('fdisk', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libfdisk support')
 option('kmod', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'support for loadable modules')
+option('xenctrl', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : 'support for Xen kexec')
 option('pam', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'PAM support')
 option('pwquality', type : 'combo', choices : ['auto', 'true', 'false'],
@@ -434,7 +444,7 @@ option('efi-libdir', type : 'string',
        description : 'path to the EFI lib directory')
 option('efi-includedir', type : 'string', value : '/usr/include/efi',
        description : 'path to the EFI header directory')
-option('efi-tpm-pcr-compat', type : 'boolean', value : 'false',
+option('efi-tpm-pcr-compat', type : 'boolean', value : false,
        description : 'Measure kernel command line also into TPM PCR 8 (in addition to 12)')
 option('sbat-distro', type : 'string', value : 'auto',
        description : 'SBAT distribution ID, e.g. fedora, or auto for autodetection')
@@ -464,11 +474,11 @@ option('zshcompletiondir', type : 'string',
 
 option('tests', type : 'combo', choices : ['true', 'unsafe', 'false'],
        description : 'enable extra tests with =unsafe')
-option('slow-tests', type : 'boolean', value : 'false',
+option('slow-tests', type : 'boolean', value : false,
        description : 'run the slow tests by default')
-option('fuzz-tests', type : 'boolean', value : 'false',
+option('fuzz-tests', type : 'boolean', value : false,
        description : 'run the fuzzer regression tests by default (with sanitizers)')
-option('install-tests', type : 'boolean', value : 'false',
+option('install-tests', type : 'boolean', value : false,
        description : 'install test executables')
 option('log-message-verification', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'do fake printf() calls to verify format strings')
@@ -480,22 +490,24 @@ option('ok-color', type : 'combo',
                   'highlight-cyan', 'highlight-white'],
        value : 'green',
        description: 'color of the "OK" status message')
-option('urlify', type : 'boolean', value : 'true',
+option('urlify', type : 'boolean', value : true,
        description : 'enable pager Hyperlink ANSI sequence support')
-option('fexecve', type : 'boolean', value : 'false',
+option('fexecve', type : 'boolean', value : false,
        description : 'use fexecve() to spawn children')
 
-option('oss-fuzz', type : 'boolean', value : 'false',
+option('oss-fuzz', type : 'boolean', value : false,
        description : 'build against oss-fuzz')
-option('llvm-fuzz', type : 'boolean', value : 'false',
+option('llvm-fuzz', type : 'boolean', value : false,
        description : 'build against LLVM libFuzzer')
-option('kernel-install', type: 'boolean', value: 'true',
+option('kernel-install', type: 'boolean', value: true,
        description : 'install kernel-install and associated files')
-option('analyze', type: 'boolean', value: 'true',
+option('analyze', type: 'boolean', value: true,
        description : 'install systemd-analyze')
 
+option('bpf-compiler', type : 'combo', choices : ['clang', 'gcc'],
+    description: 'compiler used to build BPF programs, note: gcc is experimental')
 option('bpf-framework', type : 'combo', choices : ['auto', 'true', 'false'],
     description: 'build BPF programs from source code in restricted C')
 
-option('skip-deps', type : 'boolean', value : 'false',
+option('skip-deps', type : 'boolean', value : false,
        description : 'skip optional dependencies')

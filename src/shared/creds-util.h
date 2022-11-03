@@ -44,13 +44,18 @@ typedef enum CredentialSecretFlags {
 
 int get_credential_host_secret(CredentialSecretFlags flags, void **ret, size_t *ret_size);
 
+int get_credential_user_password(const char *username, char **ret_password, bool *ret_is_hashed);
+
 /* The four modes we support: keyed only by on-disk key, only by TPM2 HMAC key, and by the combination of
  * both, as well as one with a fixed zero length key if TPM2 is missing (the latter of course provides no
  * authenticity or confidentiality, but is still useful for integrity protection, and makes things simpler
  * for us to handle). */
 #define CRED_AES256_GCM_BY_HOST               SD_ID128_MAKE(5a,1c,6a,86,df,9d,40,96,b1,d5,a6,5e,08,62,f1,9a)
 #define CRED_AES256_GCM_BY_TPM2_HMAC          SD_ID128_MAKE(0c,7c,c0,7b,11,76,45,91,9c,4b,0b,ea,08,bc,20,fe)
+#define CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK  SD_ID128_MAKE(fa,f7,eb,93,41,e3,41,2c,a1,a4,36,f9,5a,29,36,2f)
 #define CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC SD_ID128_MAKE(93,a8,94,09,48,74,44,90,90,ca,f2,fc,93,ca,b5,53)
+#define CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK           \
+                                              SD_ID128_MAKE(af,49,50,a8,49,13,4e,b1,a7,38,46,30,4f,f3,0c,05)
 #define CRED_AES256_GCM_BY_TPM2_ABSENT        SD_ID128_MAKE(05,84,69,da,f6,f5,43,24,80,05,49,da,0f,8e,a2,fb)
 
 /* Two special IDs to pick a general automatic mode (i.e. tpm2+host if TPM2 exists, only host otherwise) or
@@ -61,5 +66,5 @@ int get_credential_host_secret(CredentialSecretFlags flags, void **ret, size_t *
 #define _CRED_AUTO                            SD_ID128_MAKE(a2,19,cb,07,85,b2,4c,04,b1,6d,18,ca,b9,d2,ee,01)
 #define _CRED_AUTO_INITRD                     SD_ID128_MAKE(02,dc,8e,de,3a,02,43,ab,a9,ec,54,9c,05,e6,a0,71)
 
-int encrypt_credential_and_warn(sd_id128_t with_key, const char *name, usec_t timestamp, usec_t not_after, const char *tpm2_device, uint32_t tpm2_pcr_mask, const void *input, size_t input_size, void **ret, size_t *ret_size);
-int decrypt_credential_and_warn(const char *validate_name, usec_t validate_timestamp, const char *tpm2_device, const void *input, size_t input_size, void **ret, size_t *ret_size);
+int encrypt_credential_and_warn(sd_id128_t with_key, const char *name, usec_t timestamp, usec_t not_after, const char *tpm2_device, uint32_t tpm2_hash_pcr_mask, const char *tpm2_pubkey_path, uint32_t tpm2_pubkey_pcr_mask, const void *input, size_t input_size, void **ret, size_t *ret_size);
+int decrypt_credential_and_warn(const char *validate_name, usec_t validate_timestamp, const char *tpm2_device, const char *tpm2_signature_path, const void *input, size_t input_size, void **ret, size_t *ret_size);

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <dirent.h>
 #include <inttypes.h>
 #include <stdbool.h>
 #include <sys/stat.h>
@@ -10,27 +11,28 @@
 
 #include "macro.h"
 
-int device_new_from_nulstr(sd_device **ret, uint8_t *nulstr, size_t len);
+int device_new_from_mode_and_devnum(sd_device **ret, mode_t mode, dev_t devnum);
+int device_new_from_nulstr(sd_device **ret, char *nulstr, size_t len);
 int device_new_from_strv(sd_device **ret, char **strv);
-int device_new_from_watch_handle_at(sd_device **ret, int dirfd, int wd);
-static inline int device_new_from_watch_handle(sd_device **ret, int wd) {
-        return device_new_from_watch_handle_at(ret, -1, wd);
-}
+
+int device_opendir(sd_device *device, const char *subdir, DIR **ret);
 
 int device_get_property_bool(sd_device *device, const char *key);
+int device_get_sysattr_int(sd_device *device, const char *sysattr, int *ret_value);
+int device_get_sysattr_unsigned(sd_device *device, const char *sysattr, unsigned *ret_value);
+int device_get_sysattr_bool(sd_device *device, const char *sysattr);
 int device_get_device_id(sd_device *device, const char **ret);
 int device_get_devlink_priority(sd_device *device, int *ret);
-int device_get_watch_handle(sd_device *device);
 int device_get_devnode_mode(sd_device *device, mode_t *ret);
 int device_get_devnode_uid(sd_device *device, uid_t *ret);
 int device_get_devnode_gid(sd_device *device, gid_t *ret);
 
+void device_clear_sysattr_cache(sd_device *device);
 int device_cache_sysattr_value(sd_device *device, const char *key, char *value);
 int device_get_cached_sysattr_value(sd_device *device, const char *key, const char **ret_value);
 
 void device_seal(sd_device *device);
 void device_set_is_initialized(sd_device *device);
-int device_set_watch_handle(sd_device *device, int wd);
 void device_set_db_persist(sd_device *device);
 void device_set_devlink_priority(sd_device *device, int priority);
 int device_ensure_usec_initialized(sd_device *device, sd_device *device_old);
@@ -48,13 +50,11 @@ uint64_t device_get_tags_generation(sd_device *device);
 uint64_t device_get_devlinks_generation(sd_device *device);
 
 int device_properties_prepare(sd_device *device);
-int device_get_properties_nulstr(sd_device *device, const uint8_t **nulstr, size_t *len);
-int device_get_properties_strv(sd_device *device, char ***strv);
+int device_get_properties_nulstr(sd_device *device, const char **ret_nulstr, size_t *ret_len);
+int device_get_properties_strv(sd_device *device, char ***ret);
 
 int device_rename(sd_device *device, const char *name);
-int device_shallow_clone(sd_device *device, sd_device **ret);
 int device_clone_with_db(sd_device *device, sd_device **ret);
-int device_copy_properties(sd_device *device_dst, sd_device *device_src);
 
 int device_tag_index(sd_device *dev, sd_device *dev_old, bool add);
 int device_update_db(sd_device *device);

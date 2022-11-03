@@ -33,6 +33,7 @@ fr-pc			fr	pc105		-		terminate:ctrl_alt_bksp
 bg_pho-utf8		bg,us	pc105		,phonetic	terminate:ctrl_alt_bksp,grp:shifts_toggle,grp_led:scroll
 it-ibm			it	pc105		-		terminate:ctrl_alt_bksp
 cz-us-qwertz		cz,us	pc105		-		terminate:ctrl_alt_bksp,grp:shifts_toggle,grp_led:scroll
+cz-qwerty		cz,us	pc105		qwerty,		terminate:ctrl_alt_bksp,grp:shifts_toggle,grp_led:scroll
 br-abnt2		br	abnt2		-		terminate:ctrl_alt_bksp
 ro			ro	pc105		-		terminate:ctrl_alt_bksp
 us-acentos		us	pc105		intl		terminate:ctrl_alt_bksp

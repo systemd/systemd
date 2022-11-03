@@ -23,4 +23,21 @@ TEST(ratelimit_below) {
                 assert_se(ratelimit_below(&ratelimit));
 }
 
+TEST(ratelimit_num_dropped) {
+        int i;
+        RateLimit ratelimit = { 1 * USEC_PER_SEC, 10 };
+
+        for (i = 0; i < 10; i++) {
+                assert_se(ratelimit_below(&ratelimit));
+                assert_se(ratelimit_num_dropped(&ratelimit) == 0);
+        }
+        assert_se(!ratelimit_below(&ratelimit));
+        assert_se(ratelimit_num_dropped(&ratelimit) == 1);
+        assert_se(!ratelimit_below(&ratelimit));
+        assert_se(ratelimit_num_dropped(&ratelimit) == 2);
+        sleep(1);
+        assert_se(ratelimit_below(&ratelimit));
+        assert_se(ratelimit_num_dropped(&ratelimit) == 0);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);

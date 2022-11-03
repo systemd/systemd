@@ -42,6 +42,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
+#include "umask-util.h"
 #include "user-util.h"
 
 #define CONNECTIONS_MAX 4096
@@ -96,13 +97,12 @@ int bus_forward_agent_released(Manager *m, const char *path) {
 
 static int signal_agent_released(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *cgroup;
         uid_t sender_uid;
         int r;
 
         assert(message);
-        assert(m);
 
         /* only accept org.freedesktop.systemd1.Agent from UID=0 */
         r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
@@ -125,11 +125,10 @@ static int signal_agent_released(sd_bus_message *message, void *userdata, sd_bus
 }
 
 static int signal_disconnected(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         sd_bus *bus;
 
         assert(message);
-        assert(m);
         assert_se(bus = sd_bus_message_get_bus(message));
 
         if (bus == m->api_bus)
@@ -148,13 +147,12 @@ static int signal_disconnected(sd_bus_message *message, void *userdata, sd_bus_e
 static int signal_activation_request(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         const char *name;
         Unit *u;
         int r;
 
         assert(message);
-        assert(m);
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0) {
@@ -314,19 +312,18 @@ static int find_unit(Manager *m, sd_bus *bus, const char *path, Unit **unit, sd_
 }
 
 static int bus_unit_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         assert(bus);
         assert(path);
         assert(interface);
         assert(found);
-        assert(m);
 
         return find_unit(m, bus, path, (Unit**) found, error);
 }
 
 static int bus_unit_interface_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Unit *u;
         int r;
 
@@ -334,7 +331,6 @@ static int bus_unit_interface_find(sd_bus *bus, const char *path, const char *in
         assert(path);
         assert(interface);
         assert(found);
-        assert(m);
 
         r = find_unit(m, bus, path, &u, error);
         if (r <= 0)
@@ -348,7 +344,7 @@ static int bus_unit_interface_find(sd_bus *bus, const char *path, const char *in
 }
 
 static int bus_unit_cgroup_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Unit *u;
         int r;
 
@@ -356,7 +352,6 @@ static int bus_unit_cgroup_find(sd_bus *bus, const char *path, const char *inter
         assert(path);
         assert(interface);
         assert(found);
-        assert(m);
 
         r = find_unit(m, bus, path, &u, error);
         if (r <= 0)
@@ -373,7 +368,7 @@ static int bus_unit_cgroup_find(sd_bus *bus, const char *path, const char *inter
 }
 
 static int bus_cgroup_context_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         CGroupContext *c;
         Unit *u;
         int r;
@@ -382,7 +377,6 @@ static int bus_cgroup_context_find(sd_bus *bus, const char *path, const char *in
         assert(path);
         assert(interface);
         assert(found);
-        assert(m);
 
         r = find_unit(m, bus, path, &u, error);
         if (r <= 0)
@@ -400,7 +394,7 @@ static int bus_cgroup_context_find(sd_bus *bus, const char *path, const char *in
 }
 
 static int bus_exec_context_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         ExecContext *c;
         Unit *u;
         int r;
@@ -409,7 +403,6 @@ static int bus_exec_context_find(sd_bus *bus, const char *path, const char *inte
         assert(path);
         assert(interface);
         assert(found);
-        assert(m);
 
         r = find_unit(m, bus, path, &u, error);
         if (r <= 0)
@@ -427,7 +420,7 @@ static int bus_exec_context_find(sd_bus *bus, const char *path, const char *inte
 }
 
 static int bus_kill_context_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         KillContext *c;
         Unit *u;
         int r;
@@ -436,7 +429,6 @@ static int bus_kill_context_find(sd_bus *bus, const char *path, const char *inte
         assert(path);
         assert(interface);
         assert(found);
-        assert(m);
 
         r = find_unit(m, bus, path, &u, error);
         if (r <= 0)
@@ -658,12 +650,11 @@ static int bus_setup_disconnected_match(Manager *m, sd_bus *bus) {
 static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         _cleanup_close_ int nfd = -1;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         sd_id128_t id;
         int r;
 
         assert(s);
-        assert(m);
 
         nfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
         if (nfd < 0) {
@@ -950,7 +941,8 @@ int bus_init_private(Manager *m) {
         if (fd < 0)
                 return log_error_errno(errno, "Failed to allocate private socket: %m");
 
-        r = bind(fd, &sa.sa, sa_len);
+        RUN_WITH_UMASK(0077)
+                r = bind(fd, &sa.sa, sa_len);
         if (r < 0)
                 return log_error_errno(errno, "Failed to bind private socket: %m");
 

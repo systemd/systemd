@@ -21,12 +21,11 @@ static int property_get_paths(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Path *p = userdata;
+        Path *p = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(reply);
-        assert(p);
 
         r = sd_bus_message_open_container(reply, 'a', "(ss)");
         if (r < 0)

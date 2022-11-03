@@ -13,6 +13,22 @@ This is mostly done automagically by various CI systems for each PR, but you may
 want to do it locally as well. The process slightly varies depending on the
 compiler you want to use and which part of the test suite you want to run.
 
+## mkosi
+
+To build with sanitizers in mkosi, create a file 20-local.conf in mkosi.default.d/ and add the following
+contents:
+
+```
+[Content]
+Environment=SANITIZERS=address,undefined
+```
+
+The value of `SANITIZERS` is passed directly to meson's `b_sanitize` option, See
+https://mesonbuild.com/Builtin-options.html#base-options for the format expected by the option. Currently,
+only the sanitizers supported by gcc can be used, which are `address` and `undefined`.
+
+Note that this will only work with a recent version of mkosi (>= 14 or by running mkosi directly from source).
+
 ## gcc
 gcc compiles in sanitizer libraries dynamically by default, so you need to get
 the shared libraries first - on Fedora these are shipped as a separate packages

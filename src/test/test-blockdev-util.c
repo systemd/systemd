@@ -8,12 +8,12 @@ static void test_path_is_encrypted_one(const char *p, int expect) {
         int r;
 
         r = path_is_encrypted(p);
-        if (r == -ENOENT || ERRNO_IS_PRIVILEGE(r)) /* This might fail, if btrfs is used and we run in a
-                           * container. In that case we cannot resolve the device node paths that
-                           * BTRFS_IOC_DEV_INFO returns, because the device nodes are unlikely to exist in
-                           * the container. But if we can't stat() them we cannot determine the dev_t of
-                           * them, and thus cannot figure out if they are enrypted. Hence let's just ignore
-                           * ENOENT here. Also skip the test if we lack privileges. */
+        if (r == -ENOENT || (r < 0 && ERRNO_IS_PRIVILEGE(r)))
+                /* This might fail, if btrfs is used and we run in a container. In that case we cannot
+                 * resolve the device node paths that BTRFS_IOC_DEV_INFO returns, because the device nodes
+                 * are unlikely to exist in the container. But if we can't stat() them we cannot determine
+                 * the dev_t of them, and thus cannot figure out if they are enrypted. Hence let's just
+                 * ignore ENOENT here. Also skip the test if we lack privileges. */
                 return;
         assert_se(r >= 0);
 
@@ -23,8 +23,8 @@ static void test_path_is_encrypted_one(const char *p, int expect) {
 }
 
 TEST(path_is_encrypted) {
-        int booted = sd_booted(); /* If this is run in build environments such as koji, /dev might be a
-                                   * reguar fs. Don't assume too much if not running under systemd. */
+        int booted = sd_booted(); /* If this is run in build environments such as koji, /dev/ might be a
+                                   * regular fs. Don't assume too much if not running under systemd. */
 
         log_info("/* %s (sd_booted=%d) */", __func__, booted);
 

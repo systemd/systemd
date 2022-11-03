@@ -16,6 +16,13 @@ int main(int argc, char *argv[]) {
         _cleanup_close_ int fd = -1;
         ssize_t n;
         size_t l;
+        int r;
+
+        r = rearrange_stdio(-1, -1, -1);
+        if (r < 0) {
+                log_error_errno(r, "Failed to connect stdin/stdout/stderr with /dev/null: %m");
+                return EXIT_FAILURE;
+        }
 
         if (argc != 2) {
                 log_error("Incorrect number of arguments.");

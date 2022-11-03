@@ -25,7 +25,7 @@ for high-quality random numbers cannot be fulfilled.
 The Linux kernel provides three relevant userspace APIs to request random data
 from the kernel's entropy pool:
 
-* The [`getrandom()`](http://man7.org/linux/man-pages/man2/getrandom.2.html)
+* The [`getrandom()`](https://man7.org/linux/man-pages/man2/getrandom.2.html)
   system call with its `flags` parameter set to 0. If invoked the calling
   program will synchronously block until the random pool is fully initialized
   and the requested bytes can be provided.
@@ -35,7 +35,7 @@ from the kernel's entropy pool:
   pool is not initialized yet.
 
 * Reading from the
-  [`/dev/urandom`](http://man7.org/linux/man-pages/man4/urandom.4.html)
+  [`/dev/urandom`](https://man7.org/linux/man-pages/man4/urandom.4.html)
   pseudo-device will always return random bytes immediately, even if the pool
   is not initialized. The provided random bytes will be of low quality in this
   case however. Moreover the kernel will log about all programs using this
@@ -102,9 +102,9 @@ random bytes will either be delayed, will fail or result in a noisy kernel log
 message (see above).
 
 Various other components run during early boot that require random bytes. For
-example, initial RAM disks nowadays communicate with encrypted networks or
-access encrypted storage which might need random numbers. systemd itself
-requires random numbers as well, including for the following uses:
+example, initrds nowadays communicate with encrypted networks or access
+encrypted storage which might need random numbers. systemd itself requires
+random numbers as well, including for the following uses:
 
 * systemd assigns 'invocation' UUIDs to all services it invokes that uniquely
   identify each invocation. This is useful retain a global handle on a specific
@@ -174,9 +174,9 @@ boot, in order to ensure the entropy pool is filled up quickly.
    be enabled by setting the `$SYSTEMD_RANDOM_SEED_CREDIT` environment variable
    for the service to `1` (or even `force`, see man page). Note however, that
    this service typically runs relatively late during early boot: long after
-   the initial RAM disk (`initrd`) completed, and after the `/var/` file system
-   became writable. This is usually too late for many applications, it is hence
-   not advised to rely exclusively on this functionality to seed the kernel's
+   the initrd completed, and after the `/var/` file system became
+   writable. This is usually too late for many applications, it is hence not
+   advised to rely exclusively on this functionality to seed the kernel's
    entropy pool. Also note that this service synchronously waits until the
    kernel's entropy pool is initialized before completing start-up. It may thus
    be used by other services as synchronization point to order against, if they
@@ -294,7 +294,7 @@ This primarily leaves two kind of systems in the cold:
    do use it in many cases, but not in all. Please read the above again!
 
 2. *Why don't you use
-   [getentropy()](http://man7.org/linux/man-pages/man3/getentropy.3.html)? That's
+   [getentropy()](https://man7.org/linux/man-pages/man3/getentropy.3.html)? That's
    all you need!*
 
    Same story. That call is just a different name for `getrandom()` with
@@ -303,7 +303,7 @@ This primarily leaves two kind of systems in the cold:
    are trying to address here.
 
 3. *Why don't you generate your UUIDs with
-   [`uuidd`](http://man7.org/linux/man-pages/man8/uuidd.8.html)? That's all you
+   [`uuidd`](https://man7.org/linux/man-pages/man8/uuidd.8.html)? That's all you
    need!*
 
    First of all, that's a system service, i.e. something that runs as "payload"

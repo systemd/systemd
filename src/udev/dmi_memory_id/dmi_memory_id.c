@@ -86,7 +86,7 @@ static bool verify_checksum(const uint8_t *buf, size_t len) {
 }
 
 /*
- * Type-independant Stuff
+ * Type-independent Stuff
  */
 
 static const char *dmi_string(const struct dmi_header *dm, uint8_t s) {
@@ -117,7 +117,7 @@ static void dmi_print_memory_size(
                 code <<= 10;
 
         if (slot_num >= 0)
-                printf("%s_%u_%s=%"PRIu64"\n", attr_prefix, slot_num, attr_suffix, code);
+                printf("%s_%i_%s=%"PRIu64"\n", attr_prefix, slot_num, attr_suffix, code);
         else
                 printf("%s_%s=%"PRIu64"\n", attr_prefix, attr_suffix, code);
 }

@@ -14,8 +14,8 @@ int dhcp_network_bind_raw_socket(
                 int ifindex,
                 union sockaddr_union *link,
                 uint32_t id,
-                const uint8_t *addr, size_t addr_len,
-                const uint8_t *bcaddr, size_t bcaddr_len,
+                const struct hw_addr_data *hw_addr,
+                const struct hw_addr_data *bcast_addr,
                 uint16_t arp_type, uint16_t port) {
 
         int fd;

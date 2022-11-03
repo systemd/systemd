@@ -30,6 +30,7 @@
 #include "def.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "glyph-util.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "io-util.h"
@@ -48,7 +49,7 @@
         do {                                                             \
                 sd_bus_message *_mm = (m);                               \
                 log_debug("Got message type=%s sender=%s destination=%s path=%s interface=%s member=%s cookie=%" PRIu64 " reply_cookie=%" PRIu64 " signature=%s error-name=%s error-message=%s", \
-                          bus_message_type_to_string(_mm->header->type), \
+                          strna(bus_message_type_to_string(_mm->header->type)), \
                           strna(sd_bus_message_get_sender(_mm)),         \
                           strna(sd_bus_message_get_destination(_mm)),    \
                           strna(sd_bus_message_get_path(_mm)),           \
@@ -504,15 +505,15 @@ static int synthesize_connected_signal(sd_bus *bus) {
 }
 
 void bus_set_state(sd_bus *bus, enum bus_state state) {
-        static const char * const table[_BUS_STATE_MAX] = {
-                [BUS_UNSET] = "UNSET",
-                [BUS_WATCH_BIND] = "WATCH_BIND",
-                [BUS_OPENING] = "OPENING",
+        static const char* const table[_BUS_STATE_MAX] = {
+                [BUS_UNSET]          = "UNSET",
+                [BUS_WATCH_BIND]     = "WATCH_BIND",
+                [BUS_OPENING]        = "OPENING",
                 [BUS_AUTHENTICATING] = "AUTHENTICATING",
-                [BUS_HELLO] = "HELLO",
-                [BUS_RUNNING] = "RUNNING",
-                [BUS_CLOSING] = "CLOSING",
-                [BUS_CLOSED] = "CLOSED",
+                [BUS_HELLO]          = "HELLO",
+                [BUS_RUNNING]        = "RUNNING",
+                [BUS_CLOSING]        = "CLOSING",
+                [BUS_CLOSED]         = "CLOSED",
         };
 
         assert(bus);
@@ -521,7 +522,8 @@ void bus_set_state(sd_bus *bus, enum bus_state state) {
         if (state == bus->state)
                 return;
 
-        log_debug("Bus %s: changing state %s → %s", strna(bus->description), table[bus->state], table[state]);
+        log_debug("Bus %s: changing state %s %s %s", strna(bus->description),
+                  table[bus->state], special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), table[state]);
         bus->state = state;
 }
 
@@ -1966,10 +1968,8 @@ int bus_seal_synthetic_message(sd_bus *b, sd_bus_message *m) {
          * hence let's fill something in for synthetic messages. Since
          * synthetic messages might have a fake sender and we don't
          * want to interfere with the real sender's serial numbers we
-         * pick a fixed, artificial one. We use UINT32_MAX rather
-         * than UINT64_MAX since dbus1 only had 32bit identifiers,
-         * even though kdbus can do 64bit. */
-        return sd_bus_message_seal(m, 0xFFFFFFFFULL, 0);
+         * pick a fixed, artificial one. */
+        return sd_bus_message_seal(m, UINT32_MAX, 0);
 }
 
 static int bus_write_message(sd_bus *bus, sd_bus_message *m, size_t *idx) {
@@ -3415,12 +3415,11 @@ static int add_match_callback(
                 void *userdata,
                 sd_bus_error *ret_error) {
 
-        sd_bus_slot *match_slot = userdata;
+        sd_bus_slot *match_slot = ASSERT_PTR(userdata);
         bool failed = false;
         int r;
 
         assert(m);
-        assert(match_slot);
 
         sd_bus_slot_ref(match_slot);
 
@@ -3592,10 +3591,8 @@ bool bus_pid_changed(sd_bus *bus) {
 }
 
 static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         /* Note that this is called both on input_fd, output_fd as well as inotify_fd events */
 
@@ -3609,10 +3606,8 @@ static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userd
 }
 
 static int time_callback(sd_event_source *s, uint64_t usec, void *userdata) {
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         r = sd_bus_process(bus, NULL);
         if (r < 0) {
@@ -3624,12 +3619,11 @@ static int time_callback(sd_event_source *s, uint64_t usec, void *userdata) {
 }
 
 static int prepare_callback(sd_event_source *s, void *userdata) {
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r, e;
         usec_t until;
 
         assert(s);
-        assert(bus);
 
         e = sd_bus_get_events(bus);
         if (e < 0) {
@@ -3662,7 +3656,7 @@ static int prepare_callback(sd_event_source *s, void *userdata) {
                 }
         }
 
-        r = sd_event_source_set_enabled(bus->time_event_source, r > 0);
+        r = sd_event_source_set_enabled(bus->time_event_source, r > 0 ? SD_EVENT_ONESHOT : SD_EVENT_OFF);
         if (r < 0)
                 goto fail;
 

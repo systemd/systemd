@@ -103,4 +103,7 @@ tests += [
          [liblogind_core,
           libshared],
          [threads]],
+
+        [files('test-session-properties.c'),
+         [], [], [], '', 'manual'],
 ]

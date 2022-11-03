@@ -197,7 +197,7 @@
     formatting. However, desktops are strongly recommended to use the
     same identifiers and capitalization as for
     <varname>$XDG_CURRENT_DESKTOP</varname>, as defined by the <ulink
-    url="http://standards.freedesktop.org/desktop-entry-spec/latest/">Desktop
+    url="https://standards.freedesktop.org/desktop-entry-spec/latest/">Desktop
     Entry Specification</ulink>. The returned string needs to be freed
     with the libc
     <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>

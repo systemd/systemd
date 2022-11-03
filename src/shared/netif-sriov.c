@@ -359,14 +359,13 @@ int config_parse_sr_iov_uint32(
                 void *userdata) {
 
         _cleanup_(sr_iov_free_or_set_invalidp) SRIOV *sr_iov = NULL;
-        OrderedHashmap **sr_iov_by_section = data;
+        OrderedHashmap **sr_iov_by_section = ASSERT_PTR(data);
         uint32_t k;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = sr_iov_new_static(sr_iov_by_section, filename, section_line, &sr_iov);
         if (r < 0)
@@ -395,13 +394,13 @@ int config_parse_sr_iov_uint32(
 
         if (streq(lvalue, "VLANId")) {
                 if (k == 0 || k > 4095) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid SR-IOV VLANId: %d", k);
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid SR-IOV VLANId: %u", k);
                         return 0;
                 }
                 sr_iov->vlan = k;
         } else if (streq(lvalue, "VirtualFunction")) {
                 if (k >= INT_MAX) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid SR-IOV virtual function: %d", k);
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid SR-IOV virtual function: %u", k);
                         return 0;
                 }
                 sr_iov->vf = k;
@@ -427,13 +426,12 @@ int config_parse_sr_iov_vlan_proto(
                 void *userdata) {
 
         _cleanup_(sr_iov_free_or_set_invalidp) SRIOV *sr_iov = NULL;
-        OrderedHashmap **sr_iov_by_section = data;
+        OrderedHashmap **sr_iov_by_section = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = sr_iov_new_static(sr_iov_by_section, filename, section_line, &sr_iov);
         if (r < 0)
@@ -466,13 +464,12 @@ int config_parse_sr_iov_link_state(
                 void *userdata) {
 
         _cleanup_(sr_iov_free_or_set_invalidp) SRIOV *sr_iov = NULL;
-        OrderedHashmap **sr_iov_by_section = data;
+        OrderedHashmap **sr_iov_by_section = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = sr_iov_new_static(sr_iov_by_section, filename, section_line, &sr_iov);
         if (r < 0)
@@ -518,13 +515,12 @@ int config_parse_sr_iov_boolean(
                 void *userdata) {
 
         _cleanup_(sr_iov_free_or_set_invalidp) SRIOV *sr_iov = NULL;
-        OrderedHashmap **sr_iov_by_section = data;
+        OrderedHashmap **sr_iov_by_section = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = sr_iov_new_static(sr_iov_by_section, filename, section_line, &sr_iov);
         if (r < 0)
@@ -576,13 +572,12 @@ int config_parse_sr_iov_mac(
                 void *userdata) {
 
         _cleanup_(sr_iov_free_or_set_invalidp) SRIOV *sr_iov = NULL;
-        OrderedHashmap **sr_iov_by_section = data;
+        OrderedHashmap **sr_iov_by_section = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = sr_iov_new_static(sr_iov_by_section, filename, section_line, &sr_iov);
         if (r < 0)
@@ -617,13 +612,12 @@ int config_parse_sr_iov_num_vfs(
                 void *data,
                 void *userdata) {
 
-        uint32_t n, *num_vfs = data;
+        uint32_t n, *num_vfs = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 *num_vfs = UINT32_MAX;

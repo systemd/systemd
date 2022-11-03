@@ -133,6 +133,8 @@ struct Table {
         size_t n_cells;
 
         bool header;   /* Whether to show the header row? */
+        TableErsatz ersatz; /* What to show when we have an empty cell or an invalid value that cannot be rendered. */
+
         size_t width;  /* If == 0 format this as wide as necessary. If SIZE_MAX format this to console
                         * width or less wide, but not wider. Otherwise the width to format this table in. */
         size_t cell_height_max; /* Maximum number of lines per cell. (If there are more, ellipsis is shown. If SIZE_MAX then no limit is set, the default. == 0 is not allowed.) */
@@ -149,8 +151,6 @@ struct Table {
         size_t n_json_fields;
 
         bool *reverse_map;
-
-        char *empty_string;
 };
 
 Table *table_new_raw(size_t n_columns) {
@@ -167,6 +167,7 @@ Table *table_new_raw(size_t n_columns) {
                 .header = true,
                 .width = SIZE_MAX,
                 .cell_height_max = SIZE_MAX,
+                .ersatz = TABLE_ERSATZ_EMPTY,
         };
 
         return TAKE_PTR(t);
@@ -242,7 +243,6 @@ Table *table_unref(Table *t) {
         free(t->display_map);
         free(t->sort_map);
         free(t->reverse_map);
-        free(t->empty_string);
 
         for (size_t i = 0; i < t->n_json_fields; i++)
                 free(t->json_fields[i]);
@@ -1089,10 +1089,26 @@ void table_set_cell_height_max(Table *t, size_t height) {
         t->cell_height_max = height;
 }
 
-int table_set_empty_string(Table *t, const char *empty) {
+void table_set_ersatz_string(Table *t, TableErsatz ersatz) {
         assert(t);
+        assert(ersatz >= 0 && ersatz < _TABLE_ERSATZ_MAX);
 
-        return free_and_strdup(&t->empty_string, empty);
+        t->ersatz = ersatz;
+}
+
+static const char* table_ersatz_string(const Table *t) {
+        switch (t->ersatz) {
+        case TABLE_ERSATZ_EMPTY:
+                return "";
+        case TABLE_ERSATZ_DASH:
+                return "-";
+        case TABLE_ERSATZ_UNSET:
+                return "(unset)";
+        case TABLE_ERSATZ_NA:
+                return "n/a";
+        default:
+                assert_not_reached();
+        }
 }
 
 static int table_set_display_all(Table *t) {
@@ -1397,7 +1413,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
 
         switch (d->type) {
         case TABLE_EMPTY:
-                return strempty(t->empty_string);
+                return table_ersatz_string(t);
 
         case TABLE_STRING:
         case TABLE_PATH:
@@ -1418,7 +1434,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
 
         case TABLE_STRV:
                 if (strv_isempty(d->strv))
-                        return strempty(t->empty_string);
+                        return table_ersatz_string(t);
 
                 d->formatted = strv_join(d->strv, "\n");
                 if (!d->formatted)
@@ -1427,7 +1443,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
 
         case TABLE_STRV_WRAPPED: {
                 if (strv_isempty(d->strv))
-                        return strempty(t->empty_string);
+                        return table_ersatz_string(t);
 
                 char *buf = format_strv_width(d->strv, column_width);
                 if (!buf)
@@ -1464,7 +1480,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                 else
                         ret = format_timestamp_relative(p, FORMAT_TIMESTAMP_RELATIVE_MAX, d->timestamp);
                 if (!ret)
-                        return "n/a";
+                        return "-";
 
                 d->formatted = TAKE_PTR(p);
                 break;
@@ -1480,7 +1496,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
 
                 if (!format_timespan(p, FORMAT_TIMESPAN_MAX, d->timespan,
                                      d->type == TABLE_TIMESPAN ? 0 : USEC_PER_MSEC))
-                        return "n/a";
+                        return "-";
 
                 d->formatted = TAKE_PTR(p);
                 break;
@@ -1494,7 +1510,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                         return NULL;
 
                 if (!format_bytes(p, FORMAT_BYTES_MAX, d->size))
-                        return "n/a";
+                        return table_ersatz_string(t);
 
                 d->formatted = TAKE_PTR(p);
                 break;
@@ -1509,7 +1525,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                         return NULL;
 
                 if (!format_bytes_full(p, FORMAT_BYTES_MAX, d->size, 0))
-                        return "n/a";
+                        return table_ersatz_string(t);
 
                 n = strlen(p);
                 strscpy(p + n, FORMAT_BYTES_MAX + 2 - n, "bps");
@@ -1710,7 +1726,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                 char *p;
 
                 if (!uid_is_valid(d->uid))
-                        return "n/a";
+                        return table_ersatz_string(t);
 
                 p = new(char, DECIMAL_STR_WIDTH(d->uid) + 1);
                 if (!p)
@@ -1725,7 +1741,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                 char *p;
 
                 if (!gid_is_valid(d->gid))
-                        return "n/a";
+                        return table_ersatz_string(t);
 
                 p = new(char, DECIMAL_STR_WIDTH(d->gid) + 1);
                 if (!p)
@@ -1740,7 +1756,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                 char *p;
 
                 if (!pid_is_valid(d->pid))
-                        return "n/a";
+                        return table_ersatz_string(t);
 
                 p = new(char, DECIMAL_STR_WIDTH(d->pid) + 1);
                 if (!p)
@@ -1757,7 +1773,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
 
                 suffix = signal_to_string(d->int_val);
                 if (!suffix)
-                        return "n/a";
+                        return table_ersatz_string(t);
 
                 p = strjoin("SIG", suffix);
                 if (!p)
@@ -1771,7 +1787,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                 char *p;
 
                 if (d->mode == MODE_INVALID)
-                        return "n/a";
+                        return table_ersatz_string(t);
 
                 p = new(char, 4 + 1);
                 if (!p)

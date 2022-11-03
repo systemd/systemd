@@ -771,16 +771,15 @@ static void shared_hash_key_initialize(void) {
 static struct HashmapBase* hashmap_base_new(const struct hash_ops *hash_ops, enum HashmapType type  HASHMAP_DEBUG_PARAMS) {
         HashmapBase *h;
         const struct hashmap_type_info *hi = &hashmap_type_info[type];
-        bool up;
 
-        up = mempool_enabled();
+        bool use_pool = mempool_enabled && mempool_enabled();
 
-        h = up ? mempool_alloc0_tile(hi->mempool) : malloc0(hi->head_size);
+        h = use_pool ? mempool_alloc0_tile(hi->mempool) : malloc0(hi->head_size);
         if (!h)
                 return NULL;
 
         h->type = type;
-        h->from_pool = up;
+        h->from_pool = use_pool;
         h->hash_ops = hash_ops ?: &trivial_hash_ops;
 
         if (type == HASHMAP_TYPE_ORDERED) {
@@ -1191,7 +1190,7 @@ static int resize_buckets(HashmapBase *h, unsigned entries_add) {
                 } while (rehash_next);
         }
 
-        assert(n_rehashed == n_entries(h));
+        assert_se(n_rehashed == n_entries(h));
 
         return 1;
 }
@@ -1842,7 +1841,7 @@ int _hashmap_put_strdup_full(Hashmap **h, const struct hash_ops *hash_ops, const
         return r;
 }
 
-int _set_put_strdup_full(Set **s, const struct hash_ops *hash_ops, const char *p  HASHMAP_DEBUG_PARAMS) {
+int _set_put_strndup_full(Set **s, const struct hash_ops *hash_ops, const char *p, size_t n  HASHMAP_DEBUG_PARAMS) {
         char *c;
         int r;
 
@@ -1853,10 +1852,13 @@ int _set_put_strdup_full(Set **s, const struct hash_ops *hash_ops, const char *p
         if (r < 0)
                 return r;
 
-        if (set_contains(*s, (char*) p))
-                return 0;
+        if (n == SIZE_MAX) {
+                if (set_contains(*s, (char*) p))
+                        return 0;
 
-        c = strdup(p);
+                c = strdup(p);
+        } else
+                c = strndup(p, n);
         if (!c)
                 return -ENOMEM;
 
@@ -1869,7 +1871,7 @@ int _set_put_strdupv_full(Set **s, const struct hash_ops *hash_ops, char **l  HA
         assert(s);
 
         STRV_FOREACH(i, l) {
-                r = _set_put_strdup_full(s, hash_ops, *i  HASHMAP_DEBUG_PASS_ARGS);
+                r = _set_put_strndup_full(s, hash_ops, *i, SIZE_MAX  HASHMAP_DEBUG_PASS_ARGS);
                 if (r < 0)
                         return r;
 
@@ -1880,11 +1882,10 @@ int _set_put_strdupv_full(Set **s, const struct hash_ops *hash_ops, char **l  HA
 }
 
 int set_put_strsplit(Set *s, const char *v, const char *separators, ExtractFlags flags) {
-        const char *p = v;
+        const char *p = ASSERT_PTR(v);
         int r;
 
         assert(s);
-        assert(v);
 
         for (;;) {
                 char *word;
@@ -2076,6 +2077,8 @@ static bool set_fnmatch_one(Set *patterns, const char *needle) {
         const char *p;
 
         assert(needle);
+
+        /* Any failure of fnmatch() is treated as equivalent to FNM_NOMATCH, i.e. as non-matching pattern */
 
         SET_FOREACH(p, patterns)
                 if (fnmatch(p, needle, 0) == 0)

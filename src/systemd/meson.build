@@ -7,6 +7,7 @@ _systemd_headers = [
         'sd-daemon.h',
         'sd-device.h',
         'sd-event.h',
+        'sd-gpt.h',
         'sd-hwdb.h',
         'sd-id128.h',
         'sd-journal.h',
@@ -36,7 +37,6 @@ _not_installed_headers = [
         'sd-network.h',
         'sd-radv.h',
         'sd-resolve.h',
-        'sd-utf8.h',
 ]
 
 install_headers(

@@ -34,7 +34,7 @@
 # the continued use of devices after a power loss (due to suspend). Disable it
 # if the device will loose state without a USB power session and the driver
 # is unable to recover the state when resuming. See
-#   https://www.kernel.org/doc/html/latest/driver-api/usb/persist.html
+#   https://docs.kernel.org/driver-api/usb/persist.html
 
 # Sort by brand, model
 

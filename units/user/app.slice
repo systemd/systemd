@@ -10,3 +10,6 @@
 [Unit]
 Description=User Application Slice
 Documentation=man:systemd.special(7)
+
+[Slice]
+CPUWeight=100

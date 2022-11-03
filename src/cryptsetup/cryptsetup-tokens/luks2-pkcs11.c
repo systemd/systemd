@@ -36,13 +36,12 @@ static int luks2_pkcs11_callback(
         CK_TOKEN_INFO updated_token_info;
         int r;
         _cleanup_free_ char *token_label = NULL;
-        struct luks2_pkcs11_callback_data *data = userdata;
+        struct luks2_pkcs11_callback_data *data = ASSERT_PTR(userdata);
 
         assert(m);
         assert(slot_info);
         assert(token_info);
         assert(uri);
-        assert(data);
 
         token_label = pkcs11_token_label(token_info);
         if (!token_label)

@@ -67,11 +67,12 @@
     command has begun execution (unless <option>--no-block</option> or <option>--wait</option> are specified, see
     below).</para>
 
-    <para>If a command is run as transient scope unit, it will be executed by <command>systemd-run</command> itself as
-    parent process and will thus inherit the execution environment of the caller. However, the processes of the command
-    are managed by the service manager similar to normal services, and will show up in the output of <command>systemctl
-    list-units</command>. Execution in this case is synchronous, and will return only when the command finishes. This
-    mode is enabled via the <option>--scope</option> switch (see below). </para>
+    <para>If a command is run as transient scope unit, it will be executed by <command>systemd-run</command>
+    itself as parent process and will thus inherit the execution environment of the caller. However, the
+    processes of the command are managed by the service manager similarly to normal services, and will show
+    up in the output of <command>systemctl list-units</command>. Execution in this case is synchronous, and
+    will return only when the command finishes. This mode is enabled via the <option>--scope</option> switch
+    (see below).</para>
 
     <para>If a command is run with path, socket, or timer options such as <option>--on-calendar=</option> (see below),
     a transient path, socket, or timer unit is created alongside the service unit for the specified command. Only the
@@ -81,15 +82,16 @@
     <filename>.path</filename>, <filename>.socket</filename>, or <filename>.timer</filename> unit that triggers the
     specified unit.</para>
 
-    <para>By default, services created with <command>systemd-run</command> default to the <option>simple</option> type,
-    see the description of <varname>Type=</varname> in
+    <para>By default, services created with <command>systemd-run</command> default to the
+    <option>simple</option> type, see the description of <varname>Type=</varname> in
     <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-    details. Note that when this type is used the service manager (and thus the <command>systemd-run</command> command)
-    considers service start-up successful as soon as the <function>fork()</function> for the main service process
-    succeeded, i.e. before the <function>execve()</function> is invoked, and thus even if the specified command cannot
-    be started. Consider using the <option>exec</option> service type (i.e. <option>--property=Type=exec</option>) to
-    ensure that <command>systemd-run</command> returns successfully only if the specified command line has been
-    successfully started.</para>
+    details. Note that when this type is used, the service manager (and thus the
+    <command>systemd-run</command> command) considers service start-up successful as soon as the
+    <function>fork()</function> for the main service process succeeded, i.e. before the
+    <function>execve()</function> is invoked, and thus even if the specified command cannot be started.
+    Consider using the <option>exec</option> service type (i.e. <option>--property=Type=exec</option>) to
+    ensure that <command>systemd-run</command> returns successfully only if the specified command line has
+    been successfully started.</para>
   </refsect1>
 
   <refsect1>
@@ -234,8 +236,8 @@
         <term><option>--same-dir</option></term>
         <term><option>-d</option></term>
 
-        <listitem><para>Similar to <option>--working-directory=</option> but uses the current working directory of the
-        caller for the service to execute.</para></listitem>
+        <listitem><para>Similar to <option>--working-directory=</option>, but uses the current working
+        directory of the caller for the service to execute.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -354,9 +356,9 @@
         <term><option>--socket-property=</option></term>
         <term><option>--timer-property=</option></term>
 
-        <listitem><para>Sets a property on the path, socket, or timer unit that is created. This option is similar to
-        <option>--property=</option> but applies to the transient path, socket, or timer unit rather than the
-        transient service unit created. This option takes an assignment in the same format as
+        <listitem><para>Sets a property on the path, socket, or timer unit that is created. This option is
+        similar to <option>--property=</option>, but applies to the transient path, socket, or timer unit
+        rather than the transient service unit created. This option takes an assignment in the same format as
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         <command>set-property</command> command. These options may not be combined with
         <option>--scope</option> or <option>--pty</option>.</para>
@@ -410,10 +412,8 @@
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
 
-    <para>All command line arguments after the first non-option
-    argument become part of the command line of the launched
-    process. If a command is run as service unit, the first argument
-    needs to be an absolute program path.</para>
+    <para>All command line arguments after the first non-option argument become part of the command line of
+    the launched process.</para>
   </refsect1>
 
   <refsect1>
@@ -447,14 +447,13 @@ Sep 08 07:37:21 bupkis env[19948]: BOOT_IMAGE=/vmlinuz-3.11.0-0.rc5.git6.2.fc20.
     <example>
       <title>Limiting resources available to a command</title>
 
-      <programlisting># systemd-run -p BlockIOWeight=10 updatedb</programlisting>
+      <programlisting># systemd-run -p IOWeight=10 updatedb</programlisting>
 
-      <para>This command invokes the
-      <citerefentry project='man-pages'><refentrytitle>updatedb</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <para>This command invokes the <citerefentry
+      project='man-pages'><refentrytitle>updatedb</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       tool, but lowers the block I/O weight for it to 10. See
       <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-      for more information on the <varname>BlockIOWeight=</varname>
-      property.</para>
+      for more information on the <varname>IOWeight=</varname> property.</para>
     </example>
 
     <example>
@@ -479,7 +478,7 @@ Dec 08 20:44:48 container systemd[1]: Started /bin/touch /tmp/foo.</programlisti
     <example>
       <title>Allowing access to the tty</title>
 
-      <para>The following command invokes <citerefentry project='die-net'><refentrytitle>bash</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <para>The following command invokes <citerefentry project='man-pages'><refentrytitle>bash</refentrytitle><manvolnum>1</manvolnum></citerefentry>
       as a service passing its standard input, output and error to the calling TTY.</para>
 
       <programlisting># systemd-run -t --send-sighup bash</programlisting>

@@ -170,7 +170,7 @@ static int context_load_installed_instances(Context *c) {
 
         assert(c);
 
-        log_info("Discovering installed instances…");
+        log_info("Discovering installed instances%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
         for (size_t i = 0; i < c->n_transfers; i++) {
                 r = resource_load_instances(
@@ -189,7 +189,7 @@ static int context_load_available_instances(Context *c) {
 
         assert(c);
 
-        log_info("Discovering available instances…");
+        log_info("Discovering available instances%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
         for (size_t i = 0; i < c->n_transfers; i++) {
                 assert(c->transfers[i]);
@@ -346,13 +346,13 @@ static int context_discover_update_sets(Context *c) {
 
         assert(c);
 
-        log_info("Determining installed update sets…");
+        log_info("Determining installed update sets%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
         r = context_discover_update_sets_by_flag(c, UPDATE_INSTALLED);
         if (r < 0)
                 return r;
 
-        log_info("Determining available update sets…");
+        log_info("Determining available update sets%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
         r = context_discover_update_sets_by_flag(c, UPDATE_AVAILABLE);
         if (r < 0)
@@ -510,7 +510,7 @@ static int context_show_version(Context *c, const char *version) {
         (void) table_set_align_percent(t, table_get_cell(t, 0, 6), 100);
         (void) table_set_align_percent(t, table_get_cell(t, 0, 7), 100);
         (void) table_set_align_percent(t, table_get_cell(t, 0, 8), 100);
-        (void) table_set_empty_string(t, "-");
+        table_set_ersatz_string(t, TABLE_ERSATZ_DASH);
 
         /* Determine if the target will make use of partition/fs attributes for any of the transfers */
         for (size_t n = 0; n < c->n_transfers; n++) {
@@ -671,9 +671,9 @@ static int context_vacuum(
         assert(c);
 
         if (space == 0)
-                log_info("Making room…");
+                log_info("Making room%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
         else
-                log_info("Making room for %" PRIu64 " updates…", space);
+                log_info("Making room for %" PRIu64 " updates%s", space,special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
         for (size_t i = 0; i < c->n_transfers; i++) {
                 r = transfer_vacuum(c->transfers[i], space, extra_protected_version);
@@ -855,17 +855,14 @@ static int reboot_now(void) {
 static int process_image(
                 bool ro,
                 char **ret_mounted_dir,
-                LoopDevice **ret_loop_device,
-                DecryptedImage **ret_decrypted_image) {
+                LoopDevice **ret_loop_device) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         int r;
 
         assert(ret_mounted_dir);
         assert(ret_loop_device);
-        assert(ret_decrypted_image);
 
         if (!arg_image)
                 return 0;
@@ -883,8 +880,7 @@ static int process_image(
                         DISSECT_IMAGE_GENERIC_ROOT |
                         DISSECT_IMAGE_REQUIRE_ROOT,
                         &mounted_dir,
-                        &loop_device,
-                        &decrypted_image);
+                        &loop_device);
         if (r < 0)
                 return r;
 
@@ -894,14 +890,12 @@ static int process_image(
 
         *ret_mounted_dir = TAKE_PTR(mounted_dir);
         *ret_loop_device = TAKE_PTR(loop_device);
-        *ret_decrypted_image = TAKE_PTR(decrypted_image);
 
         return 0;
 }
 
 static int verb_list(int argc, char **argv, void *userdata) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_(context_freep) Context* context = NULL;
         const char *version;
@@ -910,7 +904,7 @@ static int verb_list(int argc, char **argv, void *userdata) {
         assert(argc <= 2);
         version = argc >= 2 ? argv[1] : NULL;
 
-        r = process_image(/* ro= */ true, &mounted_dir, &loop_device, &decrypted_image);
+        r = process_image(/* ro= */ true, &mounted_dir, &loop_device);
         if (r < 0)
                 return r;
 
@@ -926,14 +920,13 @@ static int verb_list(int argc, char **argv, void *userdata) {
 
 static int verb_check_new(int argc, char **argv, void *userdata) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_(context_freep) Context* context = NULL;
         int r;
 
         assert(argc <= 1);
 
-        r = process_image(/* ro= */ true, &mounted_dir, &loop_device, &decrypted_image);
+        r = process_image(/* ro= */ true, &mounted_dir, &loop_device);
         if (r < 0)
                 return r;
 
@@ -952,14 +945,13 @@ static int verb_check_new(int argc, char **argv, void *userdata) {
 
 static int verb_vacuum(int argc, char **argv, void *userdata) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_(context_freep) Context* context = NULL;
         int r;
 
         assert(argc <= 1);
 
-        r = process_image(/* ro= */ false, &mounted_dir, &loop_device, &decrypted_image);
+        r = process_image(/* ro= */ false, &mounted_dir, &loop_device);
         if (r < 0)
                 return r;
 
@@ -972,7 +964,6 @@ static int verb_vacuum(int argc, char **argv, void *userdata) {
 
 static int verb_update(int argc, char **argv, void *userdata) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_(context_freep) Context* context = NULL;
         _cleanup_free_ char *booted_version = NULL;
@@ -993,7 +984,7 @@ static int verb_update(int argc, char **argv, void *userdata) {
                         return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "/etc/os-release lacks IMAGE_VERSION field.");
         }
 
-        r = process_image(/* ro= */ false, &mounted_dir, &loop_device, &decrypted_image);
+        r = process_image(/* ro= */ false, &mounted_dir, &loop_device);
         if (r < 0)
                 return r;
 
@@ -1035,7 +1026,7 @@ static int verb_pending_or_reboot(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        log_info("Determining installed update sets…");
+        log_info("Determining installed update sets%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
         r = context_discover_update_sets_by_flag(context, UPDATE_INSTALLED);
         if (r < 0)
@@ -1096,7 +1087,6 @@ static int component_name_valid(const char *c) {
 
 static int verb_components(int argc, char **argv, void *userdata) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_(set_freep) Set *names = NULL;
         _cleanup_free_ char **z = NULL; /* We use simple free() rather than strv_free() here, since set_free() will free the strings for us */
@@ -1106,7 +1096,7 @@ static int verb_components(int argc, char **argv, void *userdata) {
 
         assert(argc <= 1);
 
-        r = process_image(/* ro= */ false, &mounted_dir, &loop_device, &decrypted_image);
+        r = process_image(/* ro= */ false, &mounted_dir, &loop_device);
         if (r < 0)
                 return r;
 

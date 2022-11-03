@@ -6,6 +6,11 @@
 #include "bus-util.h"
 #include "machine.h"
 
+typedef enum {
+        MACHINE_COPY_REPLACE = 1 << 0, /* Public API via DBUS, do not change */
+        _MACHINE_COPY_FLAGS_MASK_PUBLIC = MACHINE_COPY_REPLACE,
+} MachineCopyFlags;
+
 extern const BusObjectImplementation machine_object;
 
 char *machine_bus_path(Machine *s);

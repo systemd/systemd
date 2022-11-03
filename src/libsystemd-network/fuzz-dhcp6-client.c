@@ -48,7 +48,7 @@ static void fuzz_client(sd_dhcp6_client *client, const uint8_t *data, size_t siz
                         assert_se(IN_SET(client->state, DHCP6_STATE_REQUEST, DHCP6_STATE_BOUND));
                         break;
                 case DHCP6_STATE_REQUEST:
-                        assert_se(client->state == DHCP6_STATE_BOUND);
+                        assert_se(IN_SET(client->state, DHCP6_STATE_BOUND, DHCP6_STATE_SOLICITATION));
                         break;
                 default:
                         assert_not_reached();

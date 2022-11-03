@@ -5,6 +5,9 @@ set -e
 # This is a build script for OS image generation using mkosi (https://github.com/systemd/mkosi).
 # Simply invoke "mkosi" in the project directory to build an OS image.
 
+ASAN_OPTIONS=strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1:disable_coredump=0:use_madv_dontdump=1
+UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1
+
 # On Fedora "ld" is (unfortunately — if you ask me) managed via
 # "alternatives". Since we'd like to support building images in environments
 # with only /usr/ around (e.g. mkosi's UsrOnly=1 option), we have the problem
@@ -44,15 +47,40 @@ if [ "$(locale charmap 2>/dev/null)" != "UTF-8" ] ; then
         fi
 fi
 
+# The bpftool script shipped by Ubuntu tries to find the actual program to run via querying `uname -r` and
+# using the current kernel version. This obviously doesn't work in containers. As a workaround, we override
+# the ubuntu script with a symlink to the first bpftool program we can find.
+for bpftool in /usr/lib/linux-tools/*/bpftool; do
+        [ -x "$bpftool" ] || continue
+        ln -sf "$bpftool" /usr/sbin/bpftool
+        break
+done
+
+# CentOS Stream 8 includes bpftool 4.18.0 which is lower than what we need. However, they've backported the
+# specific feature we need ("gen skeleton") to this version, so we replace bpftool with a script that reports
+# version 5.6.0 to satisfy meson which makes bpf work on CentOS Stream 8 as well.
+if [ "$(grep '^ID=' /etc/os-release)" = "ID=\"centos\"" ] && [ "$(grep '^VERSION=' /etc/os-release)" = "VERSION=\"8\"" ]; then
+        cp /usr/sbin/bpftool /usr/sbin/bpftool.real
+        cat > /usr/sbin/bpftool <<EOF
+#!/bin/sh
+if [ "\$1" = --version ]; then
+        echo 5.6.0
+else
+        exec /usr/sbin/bpftool.real \$@
+fi
+EOF
+        chmod +x /usr/sbin/bpftool
+fi
+
 if [ ! -f "$BUILDDIR"/build.ninja ] ; then
         sysvinit_path=$(realpath /etc/init.d)
 
         init_path=$(realpath /sbin/init 2>/dev/null)
         if [ -z "$init_path" ] ; then
-            rootprefix=""
+                rootprefix=""
         else
-            rootprefix=${init_path%/lib/systemd/systemd}
-            rootprefix=/${rootprefix#/}
+                rootprefix=${init_path%/lib/systemd/systemd}
+                rootprefix=/${rootprefix#/}
         fi
 
         meson "$BUILDDIR" \
@@ -60,17 +88,102 @@ if [ ! -f "$BUILDDIR"/build.ninja ] ; then
                 -D "rootprefix=$rootprefix" \
                 -D man=false \
                 -D translations=false \
-                -D version-tag="${VERSION_TAG}"
+                -D version-tag="${VERSION_TAG}" \
+                -D mode=developer \
+                -D b_sanitize="${SANITIZERS:-none}" \
+                -D install-tests=true \
+                -D tests=unsafe \
+                -D slow-tests=true \
+                -D utmp=true \
+                -D hibernate=true \
+                -D ldconfig=true \
+                -D resolve=true \
+                -D efi=true \
+                -D tpm=true \
+                -D environment-d=true \
+                -D binfmt=true \
+                -D repart=true \
+                -D sysupdate=true \
+                -D coredump=true \
+                -D pstore=true \
+                -D oomd=true \
+                -D logind=true \
+                -D hostnamed=true \
+                -D localed=true \
+                -D machined=true \
+                -D portabled=true \
+                -D sysext=true \
+                -D userdb=true \
+                -D homed=true \
+                -D networkd=true \
+                -D timedated=true \
+                -D timesyncd=true \
+                -D remote=true \
+                -D nss-myhostname=true \
+                -D nss-mymachines=true \
+                -D nss-resolve=true \
+                -D nss-systemd=true \
+                -D firstboot=true \
+                -D randomseed=true \
+                -D backlight=true \
+                -D vconsole=true \
+                -D quotacheck=true \
+                -D sysusers=true \
+                -D tmpfiles=true \
+                -D importd=true \
+                -D hwdb=true \
+                -D rfkill=true \
+                -D xdg-autostart=true \
+                -D translations=true \
+                -D polkit=true \
+                -D acl=true \
+                -D audit=true \
+                -D blkid=true \
+                -D fdisk=true \
+                -D kmod=true  \
+                -D pam=true \
+                -D pwquality=true \
+                -D microhttpd=true \
+                -D libcryptsetup=true \
+                -D libcurl=true \
+                -D idn=true \
+                -D libidn2=true \
+                -D qrencode=true \
+                -D gcrypt=true \
+                -D gnutls=true \
+                -D openssl=true \
+                -D cryptolib=openssl \
+                -D p11kit=true \
+                -D libfido2=true \
+                -D tpm2=true \
+                -D elfutils=true \
+                -D zstd=true \
+                -D xkbcommon=true \
+                -D pcre2=true \
+                -D glib=true \
+                -D dbus=true \
+                -D gnu-efi=true \
+                -D kernel-install=true \
+                -D analyze=true \
+                -D bpf-framework=true
 fi
 
 cd "$BUILDDIR"
 ninja "$@"
 if [ "$WITH_TESTS" = 1 ] ; then
         for id in 1 2 3; do
-                getent group $id >/dev/null || groupadd -g $id testgroup$id
+                getent group $id >/dev/null || echo "g testgroup$id $id -" | ./systemd-sysusers -
         done
 
-        ninja test
+        if [ -n "$SANITIZERS" ]; then
+                export ASAN_OPTIONS="$ASAN_OPTIONS"
+                export UBSAN_OPTIONS="$UBSAN_OPTIONS"
+                TIMEOUT_MULTIPLIER=3
+        else
+                TIMEOUT_MULTIPLIER=1
+        fi
+
+        meson test --print-errorlogs --timeout-multiplier=$TIMEOUT_MULTIPLIER
 fi
 cd "$SRCDIR"
 
@@ -90,32 +203,112 @@ Kernel \r on an \m (\l)
 EOF
 
 if [ -n "$IMAGE_ID" ] ; then
-    mkdir -p "$DESTDIR"/usr/lib
-    sed -n \
-        -e '/^IMAGE_ID=/!p' \
-        -e "\$aIMAGE_ID=$IMAGE_ID" <"/usr/lib/os-release" >"${DESTDIR}/usr/lib/os-release"
+        mkdir -p "$DESTDIR"/usr/lib
+        sed -n \
+                -e '/^IMAGE_ID=/!p' \
+                -e "\$aIMAGE_ID=$IMAGE_ID" <"/usr/lib/os-release" >"${DESTDIR}/usr/lib/os-release"
 
-    OSRELEASEFILE="$DESTDIR"/usr/lib/os-release
+        OSRELEASEFILE="$DESTDIR"/usr/lib/os-release
 else
-    OSRELEASEFILE=/usr/lib/os-release
+        OSRELEASEFILE=/usr/lib/os-release
 fi
 
 
 if [ -n "$IMAGE_VERSION" ] ; then
-    mkdir -p "$DESTDIR"/usr/lib
-    sed -n \
-        -e '/^IMAGE_VERSION=/!p' \
-        -e "\$aIMAGE_VERSION=$IMAGE_VERSION" <$OSRELEASEFILE >"/tmp/os-release.tmp"
+        mkdir -p "$DESTDIR"/usr/lib
+        sed -n \
+                -e '/^IMAGE_VERSION=/!p' \
+                -e "\$aIMAGE_VERSION=$IMAGE_VERSION" <$OSRELEASEFILE >"/tmp/os-release.tmp"
 
-    cat /tmp/os-release.tmp > "$DESTDIR"/usr/lib/os-release
-    rm /tmp/os-release.tmp
+        cat /tmp/os-release.tmp > "$DESTDIR"/usr/lib/os-release
+        rm /tmp/os-release.tmp
 fi
 
 # If $CI_BUILD is set, copy over the CI service which executes a service check
 # after boot and then shuts down the machine
 if [ -n "$CI_BUILD" ]; then
-    mkdir -p "$DESTDIR/usr/lib/systemd/system"
-    cp -v "$SRCDIR/test/mkosi-check-and-shutdown.service" "$DESTDIR/usr/lib/systemd/system/mkosi-check-and-shutdown.service"
-    cp -v "$SRCDIR/test/mkosi-check-and-shutdown.sh" "$DESTDIR/usr/lib/systemd/mkosi-check-and-shutdown.sh"
-    chmod +x "$DESTDIR/usr/lib/systemd/mkosi-check-and-shutdown.sh"
+        mkdir -p "$DESTDIR/usr/lib/systemd/system"
+        cp -v "$SRCDIR/test/mkosi-check-and-shutdown.service" "$DESTDIR/usr/lib/systemd/system/mkosi-check-and-shutdown.service"
+        cp -v "$SRCDIR/test/mkosi-check-and-shutdown.sh" "$DESTDIR/usr/lib/systemd/mkosi-check-and-shutdown.sh"
+        chmod +x "$DESTDIR/usr/lib/systemd/mkosi-check-and-shutdown.sh"
+fi
+
+if [ -n "$SANITIZERS" ]; then
+        LD_PRELOAD=$(ldd $BUILDDIR/systemd | grep libasan.so | awk '{print $3}')
+
+        mkdir -p "$DESTDIR/etc/systemd/system.conf.d"
+
+        cat > "$DESTDIR/etc/systemd/system.conf.d/10-asan.conf" <<EOF
+[Manager]
+ManagerEnvironment=ASAN_OPTIONS=$ASAN_OPTIONS\\
+                   UBSAN_OPTIONS=$UBSAN_OPTIONS\\
+                   LD_PRELOAD=$LD_PRELOAD
+DefaultEnvironment=ASAN_OPTIONS=$ASAN_OPTIONS\\
+                   UBSAN_OPTIONS=$UBSAN_OPTIONS\\
+                   LD_PRELOAD=$LD_PRELOAD
+EOF
+
+        # ASAN logs to stderr by default. However, journald's stderr is connected to /dev/null, so we lose
+        # all the ASAN logs. To rectify that, let's connect journald's stdout to the console so that any
+        # sanitizer failures appear directly on the user's console.
+        mkdir -p "$DESTDIR/etc/systemd/system/systemd-journald.service.d"
+
+        cat > "$DESTDIR/etc/systemd/system/systemd-journald.service.d/10-stdout-tty.conf" <<EOF
+[Service]
+StandardOutput=tty
+EOF
+
+        # Both systemd and util-linux's login call vhangup() on /dev/console which disconnects all users.
+        # This means systemd-journald can't log to /dev/console even if we configure `StandardOutput=tty`. As
+        # a workaround, we modify console-getty.service to disable systemd's vhangup() and disallow login
+        # from calling vhangup() so that journald's ASAN logs correctly end up in the console.
+
+        mkdir -p "$DESTDIR/etc/systemd/system/console-getty.service.d"
+
+        cat > "$DESTDIR/etc/systemd/system/console-getty.service.d/10-no-vhangup.conf" <<EOF
+[Service]
+TTYVHangup=no
+CapabilityBoundingSet=~CAP_SYS_TTY_CONFIG
+EOF
+fi
+
+# Make sure services aren't enabled by default on Debian/Ubuntu.
+mkdir -p "$DESTDIR/etc/systemd/system-preset"
+echo "disable *" > "$DESTDIR/etc/systemd/system-preset/99-mkosi.preset"
+
+if [ -d mkosi.kernel/ ]; then
+        cd "$SRCDIR/mkosi.kernel"
+        mkdir -p "$BUILDDIR/mkosi.kernel"
+
+        make O="$BUILDDIR/mkosi.kernel" defconfig
+
+        scripts/config \
+                --file $BUILDDIR/mkosi.kernel/.config \
+                --enable BPF_SYSCALL \
+                --enable BPF_JIT \
+                --enable BPF_JIT_ALWAYS_ON \
+                --enable BPF_JIT_DEFAULT_ON \
+                --enable BPF_UNPRIV_DEFAULT_OFF \
+                --enable USERMODE_DRIVER \
+                --enable BPF_PRELOAD \
+                --enable BPF_PRELOAD_UMD \
+                --enable BPF_LSM \
+                --enable BTRFS_FS \
+                --enable BTRFS_FS_POSIX_ACL \
+                --enable PSI \
+                --enable CGROUPS \
+                --enable CGROUP_BPF \
+                --enable MEMCG \
+                --enable MEMCG_SWAP \
+                --enable MEMCG_KMEM
+
+        # Make sure all unset options are set to their default value.
+        make O="$BUILDDIR/mkosi.kernel" olddefconfig
+
+        make O="$BUILDDIR/mkosi.kernel" -j "$(nproc)"
+
+        KERNEL_RELEASE="$(make O=$BUILDDIR/mkosi.kernel -s kernelrelease)"
+        mkdir -p "$DESTDIR/usr/lib/modules/$KERNEL_RELEASE"
+        make O="$BUILDDIR/mkosi.kernel" INSTALL_MOD_PATH="$DESTDIR/usr" modules_install
+        make O="$BUILDDIR/mkosi.kernel" INSTALL_PATH="$DESTDIR/usr/lib/modules/$KERNEL_RELEASE" install
 fi

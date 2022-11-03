@@ -65,7 +65,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to generate UUID for file system: %m");
 
-        return make_filesystem(device, fstype, basename(device), uuid, true);
+        return make_filesystem(device, fstype, basename(device), NULL, uuid, true);
 }
 
 DEFINE_MAIN_FUNCTION(run);

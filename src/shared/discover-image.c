@@ -1174,7 +1174,7 @@ int image_read_metadata(Image *i) {
                 if (r < 0)
                         log_debug_errno(r, "Failed to read os-release in image, ignoring: %m");
 
-                r = load_extension_release_pairs(i->path, i->name, &extension_release);
+                r = load_extension_release_pairs(i->path, i->name, /* relax_extension_release_check= */ false, &extension_release);
                 if (r < 0)
                         log_debug_errno(r, "Failed to read extension-release in image, ignoring: %m");
 
@@ -1192,22 +1192,13 @@ int image_read_metadata(Image *i) {
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
                 _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
 
-                r = loop_device_make_by_path(i->path, O_RDONLY, LO_FLAGS_PARTSCAN, &d);
+                r = loop_device_make_by_path(i->path, O_RDONLY, LO_FLAGS_PARTSCAN, LOCK_SH, &d);
                 if (r < 0)
                         return r;
 
-                /* Make sure udevd doesn't issue BLKRRPART in the background which might make our partitions
-                 * disappear temporarily. */
-                r = loop_device_flock(d, LOCK_SH);
-                if (r < 0)
-                        return r;
-
-                r = dissect_image(
-                                d->fd,
+                r = dissect_loop_device(
+                                d,
                                 NULL, NULL,
-                                d->diskseq,
-                                d->uevent_seqnum_not_before,
-                                d->timestamp_not_before,
                                 DISSECT_IMAGE_GENERIC_ROOT |
                                 DISSECT_IMAGE_REQUIRE_ROOT |
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |

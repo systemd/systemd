@@ -88,7 +88,7 @@
     the call.</para>
 
     <para>For further details on the D-Bus type system, please consult the
-    <ulink url="http://dbus.freedesktop.org/doc/dbus-specification.html#type-system">D-Bus Specification</ulink>.
+    <ulink url="https://dbus.freedesktop.org/doc/dbus-specification.html#type-system">D-Bus Specification</ulink>.
     </para>
 
     <table>

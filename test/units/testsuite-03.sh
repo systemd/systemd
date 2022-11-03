@@ -3,6 +3,10 @@
 set -eux
 set -o pipefail
 
+# Simple test for that daemon-reexec works in container.
+# See: https://github.com/systemd/systemd/pull/23883
+systemctl daemon-reexec
+
 # Test merging of a --job-mode=ignore-dependencies job into a previously
 # installed job.
 
@@ -46,6 +50,15 @@ systemctl stop hello.service sleep.service hello-after-sleep.target
 
 # TODO: add more job queueing/merging tests here.
 
+# Test that restart propagates to activating units
+systemctl -T --no-block start always-activating.service
+systemctl list-jobs | grep 'always-activating.service'
+ACTIVATING_ID_PRE=$(systemctl show -P InvocationID always-activating.service)
+systemctl -T start always-activating.socket # Wait for the socket to come up
+systemctl -T restart always-activating.socket
+ACTIVATING_ID_POST=$(systemctl show -P InvocationID always-activating.service)
+[ "$ACTIVATING_ID_PRE" != "$ACTIVATING_ID_POST" ] || exit 1
+
 # Test for irreversible jobs
 systemctl start unstoppable.service
 
@@ -59,7 +72,7 @@ systemctl stop --job-mode=replace-irreversibly unstoppable.service
 # Shutdown of the container/VM will hang if not.
 systemctl start unstoppable.service
 
-# Test waiting for a started unit(s) to terminate again
+# Test waiting for a started units to terminate again
 cat <<EOF >/run/systemd/system/wait2.service
 [Unit]
 Description=Wait for 2 seconds

@@ -4,12 +4,13 @@
 # Seong-ho Cho <shcho@gnome.org>, 2015, 2021.
 # Dongsu Park <dongsu@endocode.com>, 2015.
 # simmon <simmon@nplob.com>, 2021.
+# 김인수 <simmon@nplob.com>, 2022.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2021-06-22 10:04+0000\n"
-"Last-Translator: simmon <simmon@nplob.com>\n"
+"POT-Creation-Date: 2022-10-20 10:35+0200\n"
+"PO-Revision-Date: 2022-10-22 17:19+0000\n"
+"Last-Translator: 김인수 <simmon@nplob.com>\n"
 "Language-Team: Korean <https://translate.fedoraproject.org/projects/systemd/"
 "master/ko/>\n"
 "Language: ko\n"
@@ -17,7 +18,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 4.7\n"
+"X-Generator: Weblate 4.14.1\n"
 "X-Poedit-SourceCharset: UTF-8\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
@@ -150,6 +151,22 @@ msgstr "제품 UUID 가져오기"
 #: src/hostname/org.freedesktop.hostname1.policy:52
 msgid "Authentication is required to get product UUID."
 msgstr "제품 UUID를 가져오려면 인증이 필요합니다."
+
+#: src/hostname/org.freedesktop.hostname1.policy:61
+msgid "Get hardware serial number"
+msgstr "하드웨어 일련 번호 가져오기"
+
+#: src/hostname/org.freedesktop.hostname1.policy:62
+msgid "Authentication is required to get hardware serial number."
+msgstr "하드웨어 일련 번호를 가져오는 데 인증이 필요합니다."
+
+#: src/hostname/org.freedesktop.hostname1.policy:71
+msgid "Get system description"
+msgstr "시스템 분석 가져오기"
+
+#: src/hostname/org.freedesktop.hostname1.policy:72
+msgid "Authentication is required to get system description."
+msgstr "시스템 시간대를 가져오려면 인증이 필요합니다."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
@@ -858,28 +875,27 @@ msgstr "'$(unit)' 서비스 유닛을 다시 불러오려면 인증이 필요합
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "'$(unit)' 서비스 유닛을 다시 시작하려면 인증이 필요합니다."
 
-#: src/core/dbus-unit.c:535
+#: src/core/dbus-unit.c:546
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr "'$(unit)'의 처리에 유닉스 신호를 전송하려면 인증이 필요합니다."
 
-#: src/core/dbus-unit.c:566
+#: src/core/dbus-unit.c:576
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "'$(unit)' 서비스 유닛의 \"실패\" 상태를 되돌리려면 인증이 필요합니다."
 
-#: src/core/dbus-unit.c:599
+#: src/core/dbus-unit.c:608
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "'$(unit)' 서비스 유닛 속성을 설정하려면 인증이 필요합니다."
 
-#: src/core/dbus-unit.c:708
+#: src/core/dbus-unit.c:714
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
-msgstr ""
-"'$(unit)'에 해당하는 파일 또는 디렉터리를 삭제하려면 인증이 필요합니다."
+msgstr "인증은 '$(unit)'과 관련된 파일과 디렉토리를 삭제하는데 필요합니다."
 
-#: src/core/dbus-unit.c:757
+#: src/core/dbus-unit.c:762
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "'$(unit)'단위의 처리를 동결 또는 해제하려면 인증이 필요합니다."

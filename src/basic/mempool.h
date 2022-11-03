@@ -23,8 +23,7 @@ static struct mempool pool_name = { \
         .at_least = alloc_at_least, \
 }
 
-extern const bool mempool_use_allowed;
-bool mempool_enabled(void);
+__attribute__((weak)) bool mempool_enabled(void);
 
 #if VALGRIND
 void mempool_drop(struct mempool *mp);

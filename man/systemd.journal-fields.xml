@@ -398,6 +398,14 @@
         for details about journal namespaces.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>_RUNTIME_SCOPE=</varname></term>
+
+        <listitem><para>A string field that specifies the runtime scope in which the message was logged. If
+        <literal>initrd</literal>, the log message was processed while the system was running inside the
+        initrd. If <literal>system</literal>, the log message was generated after the system switched
+        execution to the host root filesystem.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

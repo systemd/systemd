@@ -20,6 +20,7 @@
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "def.h"
+#include "errno-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -331,11 +332,13 @@ static void init_watchdog(void) {
 }
 
 int main(int argc, char *argv[]) {
-        bool need_umount, need_swapoff, need_loop_detach, need_dm_detach, need_md_detach, in_container, can_initrd;
+        static const char* const dirs[] = {
+                SYSTEM_SHUTDOWN_PATH,
+                NULL
+        };
         _cleanup_free_ char *cgroup = NULL;
         char *arguments[3];
-        int cmd, r, umount_log_level = LOG_INFO;
-        static const char* const dirs[] = {SYSTEM_SHUTDOWN_PATH, NULL};
+        int cmd, r;
 
         /* The log target defaults to console, but the original systemd process will pass its log target in through a
          * command line argument, which will override this default. Also, ensure we'll never log to the journal or
@@ -357,8 +360,7 @@ int main(int argc, char *argv[]) {
         umask(0022);
 
         if (getpid_cached() != 1) {
-                log_error("Not executed by init (PID 1).");
-                r = -EPERM;
+                r = log_error_errno(SYNTHETIC_ERRNO(EPERM), "Not executed by init (PID 1).");
                 goto error;
         }
 
@@ -373,13 +375,12 @@ int main(int argc, char *argv[]) {
         else if (streq(arg_verb, "exit"))
                 cmd = 0; /* ignored, just checking that arg_verb is valid */
         else {
-                log_error("Unknown action '%s'.", arg_verb);
-                r = -EINVAL;
+                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown action '%s'.", arg_verb);
                 goto error;
         }
 
         (void) cg_get_root_path(&cgroup);
-        in_container = detect_container() > 0;
+        bool in_container = detect_container() > 0;
 
         /* If the logging messages are going to KMSG, and if we are not running from a container, then try to
          * update the sysctl kernel.printk current value in order to see "info" messages; This current log
@@ -414,11 +415,8 @@ int main(int argc, char *argv[]) {
         log_info("Sending SIGKILL to remaining processes...");
         broadcast_signal(SIGKILL, true, false, arg_timeout);
 
-        need_umount = !in_container;
-        need_swapoff = !in_container;
-        need_loop_detach = !in_container;
-        need_dm_detach = !in_container;
-        need_md_detach = !in_container;
+        bool need_umount = !in_container, need_swapoff = !in_container, need_loop_detach = !in_container,
+             need_dm_detach = !in_container, need_md_detach = !in_container, can_initrd, last_try = false;
         can_initrd = !in_container && !in_initrd() && access("/run/initramfs/shutdown", X_OK) == 0;
 
         /* Unmount all mountpoints, swaps, and loopback devices */
@@ -427,16 +425,14 @@ int main(int argc, char *argv[]) {
 
                 (void) watchdog_ping();
 
-                /* Let's trim the cgroup tree on each iteration so
-                   that we leave an empty cgroup tree around, so that
-                   container managers get a nice notify event when we
-                   are down */
+                /* Let's trim the cgroup tree on each iteration so that we leave an empty cgroup tree around,
+                 * so that container managers get a nice notify event when we are down */
                 if (cgroup)
                         (void) cg_trim(SYSTEMD_CGROUP_CONTROLLER, cgroup, false);
 
                 if (need_umount) {
                         log_info("Unmounting file systems.");
-                        r = umount_all(&changed, umount_log_level);
+                        r = umount_all(&changed, last_try);
                         if (r == 0) {
                                 need_umount = false;
                                 log_info("All filesystems unmounted.");
@@ -460,7 +456,7 @@ int main(int argc, char *argv[]) {
 
                 if (need_loop_detach) {
                         log_info("Detaching loop devices.");
-                        r = loopback_detach_all(&changed, umount_log_level);
+                        r = loopback_detach_all(&changed, last_try);
                         if (r == 0) {
                                 need_loop_detach = false;
                                 log_info("All loop devices detached.");
@@ -472,7 +468,7 @@ int main(int argc, char *argv[]) {
 
                 if (need_md_detach) {
                         log_info("Stopping MD devices.");
-                        r = md_detach_all(&changed, umount_log_level);
+                        r = md_detach_all(&changed, last_try);
                         if (r == 0) {
                                 need_md_detach = false;
                                 log_info("All MD devices stopped.");
@@ -484,7 +480,7 @@ int main(int argc, char *argv[]) {
 
                 if (need_dm_detach) {
                         log_info("Detaching DM devices.");
-                        r = dm_detach_all(&changed, umount_log_level);
+                        r = dm_detach_all(&changed, last_try);
                         if (r == 0) {
                                 need_dm_detach = false;
                                 log_info("All DM devices detached.");
@@ -501,18 +497,16 @@ int main(int argc, char *argv[]) {
                         break;
                 }
 
-                if (!changed && umount_log_level == LOG_INFO && !can_initrd) {
-                        /* There are things we cannot get rid of. Loop one more time
-                         * with LOG_ERR to inform the user. Note that we don't need
-                         * to do this if there is an initrd to switch to, because that
-                         * one is likely to get rid of the remaining mounts. If not,
-                         * it will log about them. */
-                        umount_log_level = LOG_ERR;
+                if (!changed && !last_try && !can_initrd) {
+                        /* There are things we cannot get rid of. Loop one more time in which we will log
+                         * with higher priority to inform the user. Note that we don't need to do this if
+                         * there is an initrd to switch to, because that one is likely to get rid of the
+                         * remaining mounts. If not, it will log about them. */
+                        last_try = true;
                         continue;
                 }
 
-                /* If in this iteration we didn't manage to
-                 * unmount/deactivate anything, we simply give up */
+                /* If in this iteration we didn't manage to unmount/deactivate anything, we simply give up */
                 if (!changed) {
                         log_info("Cannot finalize remaining%s%s%s%s%s continuing.",
                                  need_umount ? " file systems," : "",
@@ -531,12 +525,11 @@ int main(int argc, char *argv[]) {
                           need_md_detach ? " MD devices," : "");
         }
 
-        /* We're done with the watchdog. Note that the watchdog is explicitly not
-         * stopped here. It remains active to guard against any issues during the
-         * rest of the shutdown sequence. */
+        /* We're done with the watchdog. Note that the watchdog is explicitly not stopped here. It remains
+         * active to guard against any issues during the rest of the shutdown sequence. */
         watchdog_free_device();
 
-        arguments[0] = NULL;
+        arguments[0] = NULL; /* Filled in by execute_directories(), when needed */
         arguments[1] = arg_verb;
         arguments[2] = NULL;
         (void) execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
@@ -568,10 +561,11 @@ int main(int argc, char *argv[]) {
                           need_dm_detach ? " DM devices," : "",
                           need_md_detach ? " MD devices," : "");
 
-        /* The kernel will automatically flush ATA disks and suchlike on reboot(), but the file systems need to be
-         * sync'ed explicitly in advance. So let's do this here, but not needlessly slow down containers. Note that we
-         * sync'ed things already once above, but we did some more work since then which might have caused IO, hence
-         * let's do it once more. Do not remove this sync, data corruption will result. */
+        /* The kernel will automatically flush ATA disks and suchlike on reboot(), but the file systems need
+         * to be sync'ed explicitly in advance. So let's do this here, but not needlessly slow down
+         * containers. Note that we sync'ed things already once above, but we did some more work since then
+         * which might have caused IO, hence let's do it once more. Do not remove this sync, data corruption
+         * will result. */
         if (!in_container)
                 sync_with_progress();
 
@@ -601,6 +595,7 @@ int main(int argc, char *argv[]) {
                                 /* Child */
 
                                 execv(args[0], (char * const *) args);
+                                log_debug_errno(errno, "Failed to execute '" KEXEC "' binary, proceeding with reboot(RB_KEXEC): %m");
 
                                 /* execv failed (kexec binary missing?), so try simply reboot(RB_KEXEC) */
                                 (void) reboot(cmd);
@@ -631,9 +626,8 @@ int main(int argc, char *argv[]) {
         }
 
         (void) reboot(cmd);
-        if (errno == EPERM && in_container) {
-                /* If we are in a container, and we lacked
-                 * CAP_SYS_BOOT just exit, this will kill our
+        if (ERRNO_IS_PRIVILEGE(errno) && in_container) {
+                /* If we are in a container, and we lacked CAP_SYS_BOOT just exit, this will kill our
                  * container for good. */
                 log_info("Exiting container.");
                 return EXIT_SUCCESS;

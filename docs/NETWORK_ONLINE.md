@@ -1,11 +1,11 @@
 ---
 title: Running Services After the Network Is Up
-category: Concepts
+category: Networking
 layout: default
 SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
-# Network configuration synchronization points
+# Network Configuration Synchronization Points
 
 systemd provides three target units related to network configuration:
 
@@ -67,7 +67,7 @@ before any routable network interface is up). Its primary purpose is network
 client software that cannot operate without network.
 
 For more details about those targets, see the
-[systemd.special(7)](http://www.freedesktop.org/software/systemd/man/systemd.special.html)
+[systemd.special(7)](https://www.freedesktop.org/software/systemd/man/systemd.special.html)
 man page.
 
 ## Compatibility with SysV init
@@ -211,7 +211,7 @@ Here are a couple of possible approaches:
    actually (yet or ever) configured locally. This also makes your code robust
    towards network configuration changes. This is provided as `FreeBind=`
    for systemd services, see
-   [systemd.socket(5)](http://www.freedesktop.org/software/systemd/man/systemd.socket.html).
+   [systemd.socket(5)](https://www.freedesktop.org/software/systemd/man/systemd.socket.html).
 
 An exception to the above recommendations is services which require network
 connectivity, but do not delay system startup. An example may be a service
@@ -234,13 +234,13 @@ specific to those services.
 
 For example, `systemd-networkd-wait-online.service` will wait until all
 interfaces that are present and managed by
-[systemd-networkd.service(8)](http://www.freedesktop.org/software/systemd/man/systemd-networkd.service.html).
+[systemd-networkd.service(8)](https://www.freedesktop.org/software/systemd/man/systemd-networkd.service.html).
 are fully configured or failed and at least one link is online; see
-[systemd-networkd-wait-online.service(8)](http://www.freedesktop.org/software/systemd/man/systemd-networkd-wait-online.service.html)
+[systemd-networkd-wait-online.service(8)](https://www.freedesktop.org/software/systemd/man/systemd-networkd-wait-online.service.html)
 for details. Those conditions are affected by the presence of configuration
 that matches various links, but also by settings like
 `Unmanaged=`, `RequiredForOnline=`, `RequiredFamilyForOnline=`; see
-[systemd.network(5)](http://www.freedesktop.org/software/systemd/man/systemd.socket.html).
+[systemd.network(5)](https://www.freedesktop.org/software/systemd/man/systemd.network.html).
 
 It is also possible to plug in additional checks for network state. For
 example, to delay `network-online.target` until some a specific host is

@@ -739,16 +739,14 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 switch (p->type) {
                 case SOCKET_SOCKET: {
                         _cleanup_free_ char *k = NULL;
-                        const char *t;
                         int r;
 
                         r = socket_address_print(&p->address, &k);
-                        if (r < 0)
-                                t = strerror_safe(r);
-                        else
-                                t = k;
-
-                        fprintf(f, "%s%s: %s\n", prefix, listen_lookup(socket_address_family(&p->address), p->address.type), t);
+                        if (r < 0) {
+                                errno = -r;
+                                fprintf(f, "%s%s: %m\n", prefix, listen_lookup(socket_address_family(&p->address), p->address.type));
+                        } else
+                                fprintf(f, "%s%s: %s\n", prefix, listen_lookup(socket_address_family(&p->address), p->address.type), k);
                         break;
                 }
                 case SOCKET_SPECIAL:
@@ -858,14 +856,12 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
                                      be16toh(remote.in6.sin6_port)) < 0)
                                 return -ENOMEM;
                 } else {
-                        char a[INET6_ADDRSTRLEN], b[INET6_ADDRSTRLEN];
-
                         if (asprintf(&r,
                                      "%u-%s:%u-%s:%u",
                                      nr,
-                                     inet_ntop(AF_INET6, &local.in6.sin6_addr, a, sizeof(a)),
+                                     IN6_ADDR_TO_STRING(&local.in6.sin6_addr),
                                      be16toh(local.in6.sin6_port),
-                                     inet_ntop(AF_INET6, &remote.in6.sin6_addr, b, sizeof(b)),
+                                     IN6_ADDR_TO_STRING(&remote.in6.sin6_addr),
                                      be16toh(remote.in6.sin6_port)) < 0)
                                 return -ENOMEM;
                 }
@@ -1284,7 +1280,8 @@ static int socket_symlink(Socket *s) {
                 }
 
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "Failed to create symlink %s → %s, ignoring: %m", p, *i);
+                        log_unit_warning_errno(UNIT(s), r, "Failed to create symlink %s %s %s, ignoring: %m",
+                                               p, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), *i);
         }
 
         return 0;
@@ -1410,39 +1407,40 @@ static int socket_determine_selinux_label(Socket *s, char **ret) {
         assert(s);
         assert(ret);
 
-        if (s->selinux_context_from_net) {
-                /* If this is requested, get the label from the network label */
+        Unit *service;
+        ExecCommand *c;
+        const char *exec_context;
+        _cleanup_free_ char *path = NULL;
 
-                r = mac_selinux_get_our_label(ret);
-                if (r == -EOPNOTSUPP)
-                        goto no_label;
+        r = socket_load_service_unit(s, -1, &service);
+        if (r == -ENODATA)
+                goto no_label;
+        if (r < 0)
+                return r;
 
-        } else {
-                /* Otherwise, get it from the executable we are about to start. */
+        exec_context = SERVICE(service)->exec_context.selinux_context;
+        if (exec_context) {
+                char *con;
 
-                Unit *service;
-                ExecCommand *c;
-                _cleanup_free_ char *path = NULL;
+                con = strdup(exec_context);
+                if (!con)
+                        return -ENOMEM;
 
-                r = socket_load_service_unit(s, -1, &service);
-                if (r == -ENODATA)
-                        goto no_label;
-                if (r < 0)
-                        return r;
-
-                c = SERVICE(service)->exec_command[SERVICE_EXEC_START];
-                if (!c)
-                        goto no_label;
-
-                r = chase_symlinks(c->path, SERVICE(service)->exec_context.root_directory, CHASE_PREFIX_ROOT, &path, NULL);
-                if (r < 0)
-                        goto no_label;
-
-                r = mac_selinux_get_create_label_from_exe(path, ret);
-                if (IN_SET(r, -EPERM, -EOPNOTSUPP))
-                        goto no_label;
+                *ret = TAKE_PTR(con);
+                return 0;
         }
 
+        c = SERVICE(service)->exec_command[SERVICE_EXEC_START];
+        if (!c)
+                goto no_label;
+
+        r = chase_symlinks(c->path, SERVICE(service)->exec_context.root_directory, CHASE_PREFIX_ROOT, &path, NULL);
+        if (r < 0)
+                goto no_label;
+
+        r = mac_selinux_get_create_label_from_exe(path, ret);
+        if (IN_SET(r, -EPERM, -EOPNOTSUPP))
+                goto no_label;
         return r;
 
 no_label:
@@ -2979,10 +2977,9 @@ shortcut:
 }
 
 static int socket_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        SocketPort *p = userdata;
+        SocketPort *p = ASSERT_PTR(userdata);
         int cfd = -1;
 
-        assert(p);
         assert(fd >= 0);
 
         if (p->socket->state != SOCKET_LISTENING)

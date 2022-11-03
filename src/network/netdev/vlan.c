@@ -129,13 +129,12 @@ int config_parse_vlan_qos_maps(
                 void *data,
                 void *userdata) {
 
-        Set **s = data;
+        Set **s = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 *s = set_free(*s);

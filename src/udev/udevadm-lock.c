@@ -7,7 +7,7 @@
 
 #include "blockdev-util.h"
 #include "btrfs-util.h"
-#include "devnum-util.h"
+#include "device-util.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "main-func.h"
@@ -144,9 +144,7 @@ static int find_devno(
                 const char *device,
                 bool backing) {
 
-        _cleanup_close_ int fd = -1;
-        dev_t devt, whole_devt;
-        struct stat st;
+        dev_t devt;
         int r;
 
         assert(devnos);
@@ -154,51 +152,19 @@ static int find_devno(
         assert(*devnos || *n_devnos == 0);
         assert(device);
 
-        fd = open(device, O_CLOEXEC|O_PATH);
-        if (fd < 0)
-                return log_error_errno(errno, "Failed to open '%s': %m", device);
-
-        if (fstat(fd, &st) < 0)
-                return log_error_errno(errno, "Failed to stat '%s': %m", device);
-
-        if (S_ISBLK(st.st_mode))
-                devt = st.st_rdev;
-        else if (!backing)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Not a block device: %s", device);
-        else if (!S_ISREG(st.st_mode) && !S_ISDIR(st.st_mode))
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Not a block device, regular file or directory: %s", device);
-        else if (major(st.st_dev) != 0)
-                devt = st.st_dev;
-        else {
-                _cleanup_close_ int regfd = -1;
-
-                /* If major(st.st_dev) is zero, this might mean we are backed by btrfs, which needs special
-                 * handing, to get the backing device node. */
-
-                regfd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
-                if (regfd < 0)
-                        return log_error_errno(regfd, "Failed to open '%s': %m", device);
-
-                r = btrfs_get_block_device_fd(regfd, &devt);
-                if (r == -ENOTTY)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Path '%s' not backed by block device.", device);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to acquire btrfs backing device of '%s': %m", device);
-        }
-
-        r = block_get_whole_disk(devt, &whole_devt);
+        r = path_get_whole_disk(device, backing, &devt);
         if (r < 0)
                 return log_error_errno(r, "Failed to find whole block device for '%s': %m", device);
 
-        if (typesafe_bsearch(&whole_devt, *devnos, *n_devnos, devt_compare_func)) {
-                log_debug("Device %u:%u already listed for locking, ignoring.", major(whole_devt), minor(whole_devt));
+        if (typesafe_bsearch(&devt, *devnos, *n_devnos, devt_compare_func)) {
+                log_debug("Device %u:%u already listed for locking, ignoring.", major(devt), minor(devt));
                 return 0;
         }
 
         if (!GREEDY_REALLOC(*devnos, *n_devnos + 1))
                 return log_oom();
 
-        (*devnos)[(*n_devnos)++] = whole_devt;
+        (*devnos)[(*n_devnos)++] = devt;
 
         /* Immediately sort again, to ensure the binary search above will work for the next device we add */
         typesafe_qsort(*devnos, *n_devnos, devt_compare_func);
@@ -214,7 +180,7 @@ static int lock_device(
         struct stat st;
         int r;
 
-        fd = open(path, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+        fd = open(path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open '%s': %m", path);
 
@@ -235,7 +201,7 @@ static int lock_device(
 
                 if (deadline == USEC_INFINITY)  {
 
-                        log_info("Device '%s' is currently locked, waiting…", path);
+                        log_info("Device '%s' is currently locked, waiting%s", path, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
                         if (flock(fd, LOCK_EX) < 0)
                                 return log_error_errno(errno, "Failed to lock device '%s': %m", path);
@@ -251,8 +217,9 @@ static int lock_device(
                          * instead do the lock out-of-process: fork off a child that does the locking, and
                          * that we'll wait on and kill if it takes too long. */
 
-                        log_info("Device '%s' is currently locked, waiting %s…",
-                                 path, FORMAT_TIMESPAN(usec_sub_unsigned(deadline, now(CLOCK_MONOTONIC)), 0));
+                        log_info("Device '%s' is currently locked, waiting %s%s",
+                                 path, FORMAT_TIMESPAN(usec_sub_unsigned(deadline, now(CLOCK_MONOTONIC)), 0),
+                                 special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
                         BLOCK_SIGNALS(SIGCHLD);
 
@@ -311,7 +278,7 @@ static int lock_device(
                 }
         }
 
-        log_debug("Successfully locked %s (%u:%u)…", path, major(devno), minor(devno));
+        log_debug("Successfully locked %s (%u:%u)%s", path, major(devno), minor(devno), special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
         return TAKE_FD(fd);
 }
@@ -354,7 +321,7 @@ int lock_main(int argc, char *argv[], void *userdata) {
         for (size_t i = 0; i < n_devnos; i++) {
                 _cleanup_free_ char *node = NULL;
 
-                r = device_path_make_canonical(S_IFBLK, devnos[i], &node);
+                r = devname_from_devnum(S_IFBLK, devnos[i], &node);
                 if (r < 0)
                         return log_error_errno(r, "Failed to format block device path: %m");
 

@@ -26,8 +26,8 @@
     <cmdsynopsis>
       <command index='false'>/path/to/generator</command>
       <arg choice="plain"><replaceable>normal-dir</replaceable></arg>
-      <arg choice="plain"><replaceable>early-dir</replaceable></arg>
-      <arg choice="plain"><replaceable>late-dir</replaceable></arg>
+      <arg choice="option"><replaceable>early-dir</replaceable></arg>
+      <arg choice="option"><replaceable>late-dir</replaceable></arg>
     </cmdsynopsis>
 
     <para>
@@ -56,13 +56,13 @@
     that they can extend the unit file hierarchy the service manager subsequently loads and operates
     on.</para>
 
-    <para>Each generator is called with three directory paths that are to be used for generator output. In
-    these three directories, generators may dynamically generate unit files (regular ones, instances, as well
-    as templates), unit file <filename>.d/</filename> drop-ins, and create symbolic links to unit files to
-    add additional dependencies, create aliases, or instantiate existing templates. Those directories are
-    included in the unit load path of
-    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>, allowing
-    generated configuration to extend or override existing definitions.</para>
+    <para><command>systemd</command> will call each generator with three directory paths that are to be used
+    for generator output. In these three directories, generators may dynamically generate unit files (regular
+    ones, instances, as well as templates), unit file <filename>.d/</filename> drop-ins, and create symbolic
+    links to unit files to add additional dependencies, create aliases, or instantiate existing templates.
+    Those directories are included in the unit load path, allowing generated configuration to extend or
+    override existing definitions. For tests, generators may be called with just one argument; the generator
+    should assume that all three paths are the same in that case.</para>
 
     <para>Directory paths for generator output differ by priority: <filename>…/generator.early</filename> has
     priority higher than the admin configuration in <filename>/etc/</filename>, while
@@ -96,7 +96,8 @@
     <para>Generators are invoked with three arguments: paths to directories where generators can place their
     generated unit files or symlinks. By default those paths are runtime directories that are included in the
     search path of <command>systemd</command>, but a generator may be called with different paths for
-    debugging purposes.</para>
+    debugging purposes. If only one argument is provided, the generator should use the same directory as the
+    the three output paths.</para>
 
     <orderedlist>
       <listitem>
@@ -147,10 +148,9 @@
       <varlistentry>
         <term><varname>$SYSTEMD_IN_INITRD</varname></term>
 
-        <listitem><para>If the generator is run as part of an initial RAM file system (initrd) this is set to
-        <literal>1</literal>. If it is run from the regular host (i.e. after the transition from initrd to
-        host) it is set to <literal>0</literal>. This environment variable is only set for system
-        generators.</para></listitem>
+        <listitem><para>If the generator is run as part of an initrd this is set to <literal>1</literal>. If
+        it is run from the regular host (i.e. after the transition from initrd to host) it is set to
+        <literal>0</literal>. This environment variable is only set for system generators.</para></listitem>
       </varlistentry>
 
       <varlistentry>

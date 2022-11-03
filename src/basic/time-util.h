@@ -189,10 +189,15 @@ static inline usec_t usec_sub_unsigned(usec_t timestamp, usec_t delta) {
 }
 
 static inline usec_t usec_sub_signed(usec_t timestamp, int64_t delta) {
+        if (delta == INT64_MIN) { /* prevent overflow */
+                assert_cc(-(INT64_MIN + 1) == INT64_MAX);
+                assert_cc(USEC_INFINITY > INT64_MAX);
+                return usec_add(timestamp, (usec_t) INT64_MAX + 1);
+        }
         if (delta < 0)
                 return usec_add(timestamp, (usec_t) (-delta));
-        else
-                return usec_sub_unsigned(timestamp, (usec_t) delta);
+
+        return usec_sub_unsigned(timestamp, (usec_t) delta);
 }
 
 #if SIZEOF_TIME_T == 8

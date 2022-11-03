@@ -42,11 +42,16 @@
 # * Configuration ROM for AV/C Devices 1.0 (Dec. 12, 2000, 1394 Trading Association, TA Document
 #   1999027)
 #
+# Exceptional layout of configuration ROM for legacy device is described in annex of the above
+# document. The layout has some entries for model information in vendor directory instead of root
+# or unit directories. For the case, Linux FireWire subsystem don't detect Model_ID and model name,
+# thus node key without 'mo' field is detected. Wild card pattern is used to match the case with and
+# without mo field in customized key for node device.
 
 # Just for backward compatibility. Please invalidate IEEE1394_UNIT_FUNCTION_VIDEO by adding entries
 # if it is inconvenient.
-ieee1394:node:ven*mo*units*0x00a02d:0x010001*
-ieee1394:ven*mo*sp0000A02Dver00010001
+ieee1394:node:ven*units*0x00a02d:0x010001*
+ieee1394:ven*sp0000A02Dver00010001
  IEEE1394_UNIT_FUNCTION_VIDEO=1
 
 #
@@ -55,14 +60,14 @@ ieee1394:ven*mo*sp0000A02Dver00010001
 #
 
 # Please invalidate IEEE1394_UNIT_FUNCTION_VIDEO by adding entries if it is inconvenient.
-ieee1394:node:ven*mo*units*0x00a02d:0x014000*
-ieee1394:ven*mo*sp0000A02Dver00014000
+ieee1394:node:ven*units*0x00a02d:0x014000*
+ieee1394:ven*sp0000A02Dver00014000
  IEEE1394_UNIT_FUNCTION_VIDEO=1
 
 # Just for backward compatibility. Please invalidate IEEE1394_UNIT_FUNCTION_VIDEO by adding entries
 # if it is inconvenient.
-ieee1394:node:ven*mo*units*0x00a02d:0x014001*
-ieee1394:ven*mo*sp0000A02Dver00014001
+ieee1394:node:ven*units*0x00a02d:0x014001*
+ieee1394:ven*sp0000A02Dver00014001
  IEEE1394_UNIT_FUNCTION_VIDEO=1
 
 #
@@ -1301,6 +1306,17 @@ ieee1394:node:ven0x001287mo0x000036units0x00a02d:0x010001
 ieee1394:ven00001287mo00000036sp0000A02Dver00010001
  ID_VENDOR_FROM_DATABASE=Digital Everywhere
  ID_MODEL_FROM_DATABASE=FireDTV C/CI
+ IEEE1394_UNIT_FUNCTION_VIDEO=1
+
+#
+# Legacy layout of configuration ROM described in Annex 1 of 'Configuration ROM for AV/C Devices
+# 1.0 (December 12, 2000, 1394 Trading Association, TA Document 1999027)'.
+#
+
+ieee1394:node:ven0x080046units0x00a02d:0x010001
+ieee1394:ven00080046mo00000000sp0000A02Dver00010001
+ ID_VENDOR_FROM_DATABASE=Sony Corporation
+ ID_MODEL_FROM_DATABASE=DCR-TRV310
  IEEE1394_UNIT_FUNCTION_VIDEO=1
 
 #

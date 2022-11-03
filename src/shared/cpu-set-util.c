@@ -62,9 +62,9 @@ char *cpu_set_to_range_string(const CPUSet *set) {
                                 return NULL;
 
                         if (range_end > range_start)
-                                r = sprintf(str + len, len > 0 ? " %d-%d" : "%d-%d", range_start, range_end);
+                                r = sprintf(str + len, len > 0 ? " %u-%u" : "%u-%u", range_start, range_end);
                         else
-                                r = sprintf(str + len, len > 0 ? " %d" : "%d", range_start);
+                                r = sprintf(str + len, len > 0 ? " %u" : "%u", range_start);
                         assert_se(r > 0);
                         len += r;
                 }
@@ -74,9 +74,9 @@ char *cpu_set_to_range_string(const CPUSet *set) {
                         return NULL;
 
                 if (range_end > range_start)
-                        r = sprintf(str + len, len > 0 ? " %d-%d" : "%d-%d", range_start, range_end);
+                        r = sprintf(str + len, len > 0 ? " %u-%u" : "%u-%u", range_start, range_end);
                 else
-                        r = sprintf(str + len, len > 0 ? " %d" : "%d", range_start);
+                        r = sprintf(str + len, len > 0 ? " %u" : "%u", range_start);
                 assert_se(r > 0);
         }
 
@@ -144,9 +144,7 @@ int parse_cpu_set_full(
                 const char *lvalue) {
 
         _cleanup_(cpu_set_reset) CPUSet c = {};
-        const char *p = rvalue;
-
-        assert(p);
+        const char *p = ASSERT_PTR(rvalue);
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;

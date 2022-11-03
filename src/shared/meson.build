@@ -71,6 +71,8 @@ shared_sources = files(
         'clean-ipc.h',
         'clock-util.c',
         'clock-util.h',
+        'compare-operator.c',
+        'compare-operator.h',
         'condition.c',
         'condition.h',
         'conf-parser.c',
@@ -85,6 +87,7 @@ shared_sources = files(
         'creds-util.h',
         'cryptsetup-util.c',
         'cryptsetup-util.h',
+        'daemon-util.c',
         'daemon-util.h',
         'data-fd-util.c',
         'data-fd-util.h',
@@ -199,6 +202,8 @@ shared_sources = files(
         'linux/ethtool.h',
         'local-addresses.c',
         'local-addresses.h',
+        'locale-setup.c',
+        'locale-setup.h',
         'lockfile-util.c',
         'lockfile-util.h',
         'log-link.h',
@@ -247,8 +252,8 @@ shared_sources = files(
         'parse-argument.h',
         'parse-helpers.c',
         'parse-helpers.h',
-        'pcre2-dlopen.c',
-        'pcre2-dlopen.h',
+        'pcre2-util.c',
+        'pcre2-util.h',
         'pe-header.h',
         'pkcs11-util.c',
         'pkcs11-util.h',
@@ -266,6 +271,8 @@ shared_sources = files(
         'quota-util.h',
         'reboot-util.c',
         'reboot-util.h',
+        'recovery-key.c',
+        'recovery-key.h',
         'resize-fs.c',
         'resize-fs.h',
         'resolve-util.c',
@@ -306,8 +313,6 @@ shared_sources = files(
         'udev-util.h',
         'uid-alloc-range.c',
         'uid-alloc-range.h',
-        'uid-range.c',
-        'uid-range.h',
         'user-record-nss.c',
         'user-record-nss.h',
         'user-record-show.c',
@@ -321,6 +326,7 @@ shared_sources = files(
         'utmp-wtmp.h',
         'varlink.c',
         'varlink.h',
+        'varlink-internal.h',
         'verb-log-control.c',
         'verb-log-control.h',
         'verbs.c',
@@ -459,7 +465,8 @@ libshared_deps = [threads,
                   libseccomp,
                   libselinux,
                   libzstd,
-                  libxz]
+                  libxz,
+                  libxenctrl]
 
 libshared_sym_path = '@0@/libshared.sym'.format(meson.current_source_dir())
 
@@ -483,4 +490,4 @@ libshared = shared_library(
                       libsystemd_static],
         dependencies : libshared_deps,
         install : true,
-        install_dir : rootlibexecdir)
+        install_dir : rootpkglibdir)

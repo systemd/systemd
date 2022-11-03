@@ -7,13 +7,19 @@ set -o pipefail
 
 export SYSTEMD_LOG_LEVEL=debug
 
-cleanup()
-{
+cleanup() {(
+    set +ex
+
     if [ -z "${image_dir}" ]; then
         return
     fi
+    umount "${image_dir}/app0"
+    umount "${image_dir}/app1"
+    umount "${image_dir}/app-nodistro"
     rm -rf "${image_dir}"
-}
+)}
+
+udevadm control --log-level=debug
 
 cd /tmp
 
@@ -58,8 +64,8 @@ if [ "${verity_count}" -lt 1 ]; then
     echo "Verity device ${image}.raw not found in /dev/mapper/"
     exit 1
 fi
-umount "${image_dir}/mount"
-umount "${image_dir}/mount2"
+systemd-dissect --umount "${image_dir}/mount"
+systemd-dissect --umount "${image_dir}/mount2"
 
 systemd-run -P -p RootImage="${image}.raw" cat /usr/lib/os-release | grep -q -F "MARKER=1"
 mv "${image}.verity" "${image}.fooverity"
@@ -187,10 +193,20 @@ if [ "${HAVE_OPENSSL}" -eq 1 ]; then
     sfdisk --part-label "${image}.gpt" 3 "Signature Partition"
 fi
 loop="$(losetup --show -P -f "${image}.gpt")"
-dd if="${image}.raw" of="${loop}p1"
-dd if="${image}.verity" of="${loop}p2"
+partitions=(
+    "${loop:?}p1"
+    "${loop:?}p2"
+)
 if [ "${HAVE_OPENSSL}" -eq 1 ]; then
-    dd if="${image}.verity-sig" of="${loop}p3"
+    partitions+=( "${loop:?}p3" )
+fi
+# The kernel sometimes(?) does not emit "add" uevent for loop block partition devices.
+# Let's not expect the devices to be initialized.
+udevadm wait --timeout 60 --settle --initialized=no "${partitions[@]}"
+udevadm lock --device="${loop}p1" dd if="${image}.raw" of="${loop}p1"
+udevadm lock --device="${loop}p2" dd if="${image}.verity" of="${loop}p2"
+if [ "${HAVE_OPENSSL}" -eq 1 ]; then
+    udevadm lock --device="${loop}p3" dd if="${image}.verity-sig" of="${loop}p3"
 fi
 losetup -d "${loop}"
 
@@ -198,8 +214,11 @@ losetup -d "${loop}"
 ROOT_UUID="$(systemd-id128 -u show "$(head -c 32 "${image}.roothash")" -u | tail -n 1 | cut -b 6-)"
 VERITY_UUID="$(systemd-id128 -u show "$(tail -c 32 "${image}.roothash")" -u | tail -n 1 | cut -b 6-)"
 
-systemd-dissect --json=short --root-hash "${roothash}" "${image}.gpt" | grep -q '{"rw":"ro","designator":"root","partition_uuid":"'"$ROOT_UUID"'","partition_label":"Root Partition","fstype":"squashfs","architecture":"'"$architecture"'","verity":"yes",'
+systemd-dissect --json=short --root-hash "${roothash}" "${image}.gpt" | grep -q '{"rw":"ro","designator":"root","partition_uuid":"'"$ROOT_UUID"'","partition_label":"Root Partition","fstype":"squashfs","architecture":"'"$architecture"'","verity":"signed",'
 systemd-dissect --json=short --root-hash "${roothash}" "${image}.gpt" | grep -q '{"rw":"ro","designator":"root-verity","partition_uuid":"'"$VERITY_UUID"'","partition_label":"Verity Partition","fstype":"DM_verity_hash","architecture":"'"$architecture"'","verity":null,'
+if [ "${HAVE_OPENSSL}" -eq 1 ]; then
+    systemd-dissect --json=short --root-hash "${roothash}" "${image}.gpt" | grep -q -E '{"rw":"ro","designator":"root-verity-sig","partition_uuid":"'".*"'","partition_label":"Signature Partition","fstype":"verity_hash_signature","architecture":"'"$architecture"'","verity":null,'
+fi
 systemd-dissect --root-hash "${roothash}" "${image}.gpt" | grep -q -F "MARKER=1"
 systemd-dissect --root-hash "${roothash}" "${image}.gpt" | grep -q -F -f <(sed 's/"//g' "$os_release")
 
@@ -207,7 +226,7 @@ systemd-dissect --root-hash "${roothash}" --mount "${image}.gpt" "${image_dir}/m
 grep -q -F -f "$os_release" "${image_dir}/mount/usr/lib/os-release"
 grep -q -F -f "$os_release" "${image_dir}/mount/etc/os-release"
 grep -q -F "MARKER=1" "${image_dir}/mount/usr/lib/os-release"
-umount "${image_dir}/mount"
+systemd-dissect --umount "${image_dir}/mount"
 
 # add explicit -p MountAPIVFS=yes once to test the parser
 systemd-run -P -p RootImage="${image}.gpt" -p RootHash="${roothash}" -p MountAPIVFS=yes cat /usr/lib/os-release | grep -q -F "MARKER=1"
@@ -285,7 +304,14 @@ Type=notify
 RemainAfterExit=yes
 MountAPIVFS=yes
 PrivateTmp=yes
-ExecStart=/bin/sh -c 'systemd-notify --ready; while ! grep -q -F MARKER /tmp/img/usr/lib/os-release; do sleep 0.1; done; mount | grep -F "/dev/mapper/${roothash}-verity" | grep -q -F "nosuid"'
+ExecStart=/bin/sh -c ' \\
+    systemd-notify --ready; \\
+    while [[ ! -f /tmp/img/usr/lib/os-release ]] || ! grep -q -F MARKER /tmp/img/usr/lib/os-release; do \\
+        sleep 0.1; \\
+    done; \\
+    mount; \\
+    mount | grep -F "on /tmp/img type squashfs" | grep -q -F "nosuid"; \\
+'
 EOF
 systemctl start testservice-50d.service
 
@@ -305,6 +331,12 @@ systemd-run -P --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.r
 systemd-run -P --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" --property RootImage="${image}.raw" cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
 systemd-run -P --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" --property RootImage="${image}.raw" cat /opt/script1.sh | grep -q -F "extension-release.app2"
 systemd-run -P --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" --property RootImage="${image}.raw" cat /usr/lib/systemd/system/other_file | grep -q -F "MARKER=1"
+systemd-run -P --property ExtensionImages=/usr/share/app-nodistro.raw --property RootImage="${image}.raw" cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
+# Check that using a symlink to NAME-VERSION.raw works as long as the symlink has the correct name NAME.raw
+mkdir -p /usr/share/symlink-test/
+cp /usr/share/app-nodistro.raw /usr/share/symlink-test/app-nodistro-v1.raw
+ln -fs /usr/share/symlink-test/app-nodistro-v1.raw /usr/share/symlink-test/app-nodistro.raw
+systemd-run -P --property ExtensionImages=/usr/share/symlink-test/app-nodistro.raw --property RootImage="${image}.raw" cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
 cat >/run/systemd/system/testservice-50e.service <<EOF
 [Service]
 MountAPIVFS=yes
@@ -323,17 +355,19 @@ systemctl start testservice-50e.service
 systemctl is-active testservice-50e.service
 
 # ExtensionDirectories will set up an overlay
-mkdir -p "${image_dir}/app0" "${image_dir}/app1"
+mkdir -p "${image_dir}/app0" "${image_dir}/app1" "${image_dir}/app-nodistro"
 systemd-run -P --property ExtensionDirectories="${image_dir}/nonexistent" --property RootImage="${image}.raw" cat /opt/script0.sh && { echo 'unexpected success'; exit 1; }
 systemd-run -P --property ExtensionDirectories="${image_dir}/app0" --property RootImage="${image}.raw" cat /opt/script0.sh && { echo 'unexpected success'; exit 1; }
 systemd-dissect --mount /usr/share/app0.raw "${image_dir}/app0"
 systemd-dissect --mount /usr/share/app1.raw "${image_dir}/app1"
+systemd-dissect --mount /usr/share/app-nodistro.raw "${image_dir}/app-nodistro"
 systemd-run -P --property ExtensionDirectories="${image_dir}/app0" --property RootImage="${image}.raw" cat /opt/script0.sh | grep -q -F "extension-release.app0"
 systemd-run -P --property ExtensionDirectories="${image_dir}/app0" --property RootImage="${image}.raw" cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
 systemd-run -P --property ExtensionDirectories="${image_dir}/app0 ${image_dir}/app1" --property RootImage="${image}.raw" cat /opt/script0.sh | grep -q -F "extension-release.app0"
 systemd-run -P --property ExtensionDirectories="${image_dir}/app0 ${image_dir}/app1" --property RootImage="${image}.raw" cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
 systemd-run -P --property ExtensionDirectories="${image_dir}/app0 ${image_dir}/app1" --property RootImage="${image}.raw" cat /opt/script1.sh | grep -q -F "extension-release.app2"
 systemd-run -P --property ExtensionDirectories="${image_dir}/app0 ${image_dir}/app1" --property RootImage="${image}.raw" cat /usr/lib/systemd/system/other_file | grep -q -F "MARKER=1"
+systemd-run -P --property ExtensionDirectories="${image_dir}/app-nodistro" --property RootImage="${image}.raw" cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
 cat >/run/systemd/system/testservice-50f.service <<EOF
 [Service]
 MountAPIVFS=yes
@@ -350,8 +384,21 @@ RemainAfterExit=yes
 EOF
 systemctl start testservice-50f.service
 systemctl is-active testservice-50f.service
-umount "${image_dir}/app0"
-umount "${image_dir}/app1"
+systemd-dissect --umount "${image_dir}/app0"
+systemd-dissect --umount "${image_dir}/app1"
+
+# Test that an extension consisting of an empty directory under /etc/extensions/ takes precedence
+mkdir -p /var/lib/extensions/
+ln -s /usr/share/app-nodistro.raw /var/lib/extensions/app-nodistro.raw
+systemd-sysext merge
+grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file
+systemd-sysext unmerge
+mkdir -p /etc/extensions/app-nodistro
+systemd-sysext merge
+test ! -e /usr/lib/systemd/system/some_file
+systemd-sysext unmerge
+rmdir /etc/extensions/app-nodistro
+rm /var/lib/extensions/app-nodistro.raw
 
 echo OK >/testok
 

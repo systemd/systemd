@@ -18,14 +18,14 @@
 
   <refnamediv>
     <refname>kernel-install</refname>
-    <refpurpose>Add and remove kernel and initramfs images to and from /boot</refpurpose>
+    <refpurpose>Add and remove kernel and initrd images to and from /boot</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <cmdsynopsis>
       <command>kernel-install</command>
-      <arg choice="plain">COMMAND</arg>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">COMMAND</arg>
       <arg choice="plain"><replaceable>KERNEL-VERSION</replaceable></arg>
       <arg choice="plain"><replaceable>KERNEL-IMAGE</replaceable></arg>
       <arg choice="opt" rep="repeat"><replaceable>INITRD-FILE</replaceable></arg>
@@ -34,10 +34,15 @@
 
   <refsect1>
     <title>Description</title>
-    <para><command>kernel-install</command> is used to install and remove kernel and initramfs images to and
-    from the boot loader partition, referred to as <varname>$BOOT</varname> here. It will usually be one of
-    <filename>/boot/</filename>, <filename>/efi/</filename>, or <filename>/boot/efi/</filename>, see below.
-    </para>
+    <para><command>kernel-install</command> is used to install and remove kernel and initrd images
+    <footnote>
+      <para>Nowadays actually CPIO archives used as an "initramfs", rather than "initrd". See
+      <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry> for an
+      explanation.</para>
+    </footnote>
+    to and from the boot loader partition, referred to as <varname>$BOOT</varname> here. It will usually be
+    one of <filename>/boot/</filename>, <filename>/efi/</filename>, or <filename>/boot/efi/</filename>, see
+    below.</para>
 
     <para><command>kernel-install</command> will run the executable files ("plugins") located in the
     directory <filename>/usr/lib/kernel/install.d/</filename> and the local administration directory
@@ -63,16 +68,16 @@
       <varlistentry>
         <term><command>add <replaceable>KERNEL-VERSION</replaceable> <replaceable>KERNEL-IMAGE</replaceable> [<replaceable>INITRD-FILE</replaceable> ...]</command></term>
         <listitem>
-          <para>This command expects a kernel version string and a path to a kernel image file as
-          arguments. Optionally, one or more initial RAM disk images may be specified as well (note that
-          plugins might generate additional ones). <command>kernel-install</command> calls the executable
-          files from <filename>/usr/lib/kernel/install.d/*.install</filename> and
+          <para>This command expects a kernel version string and a path to a kernel image file as arguments.
+          Optionally, one or more initrd images may be specified as well (note that plugins might generate
+          additional ones). <command>kernel-install</command> calls the executable files from
+          <filename>/usr/lib/kernel/install.d/*.install</filename> and
           <filename>/etc/kernel/install.d/*.install</filename> (i.e. the plugins) with the following
           arguments:</para>
 
           <programlisting>add <replaceable>KERNEL-VERSION</replaceable> <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename> <replaceable>KERNEL-IMAGE</replaceable> [<replaceable>INITRD-FILE</replaceable> ...]</programlisting>
 
-          <para>The third argument directly refers to the path where to place kernel images, initial RAM disk
+          <para>The third argument directly refers to the path where to place kernel images, initrd
           images and other resources for <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot
           Loader Specification</ulink> Type #1 entries (the "entry directory"). If other boot loader schemes
           are used the parameter may be ignored. The <replaceable>ENTRY-TOKEN</replaceable> string is
@@ -144,6 +149,7 @@
 
   <refsect1>
     <title>The <varname>$BOOT</varname> partition</title>
+
     <para>The partition where the kernels and <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot
     Loader Specification</ulink> snippets are located is called <varname>$BOOT</varname>.
     <command>kernel-install</command> determines the location of this partition by checking
@@ -173,77 +179,101 @@
   <refsect1>
     <title>Environment variables</title>
 
-    <para>If <option>--verbose</option> is used, <varname>$KERNEL_INSTALL_VERBOSE=1</varname> will be set for
-    the plugins. They may output additional logs in this case.</para>
+    <refsect2>
+      <title>Environment variables exported for plugins</title>
 
-    <para>If <varname>$MACHINE_ID</varname> is set and not empty when <command>kernel-install</command> is
-    invoked, it will be used as <replaceable>MACHINE-ID</replaceable>, overriding any automatic detection
-    attempts.  The value must be a valid machine ID (32 hexadecimal characters).</para>
+      <para>If <option>--verbose</option> is used, <varname>$KERNEL_INSTALL_VERBOSE=1</varname> will be
+      exported for plugins. They may output additional logs in this case.</para>
 
-    <para><varname>$KERNEL_INSTALL_MACHINE_ID</varname> is set for the plugins to the desired
-    <replaceable>MACHINE-ID</replaceable> to use. It's always a 128bit ID, and typically the ID from
-    <filename>/etc/machine-id</filename> or the one passed in via <varname>$MACHINE_ID</varname>. (If no
-    machine ID was specified via these methods it might be generated randomly by
-    <command>kernel-install</command>, in which case it only applies to this invocation.)</para>
+      <para><varname>$KERNEL_INSTALL_MACHINE_ID</varname> is set for the plugins to the desired machine-id to
+      use. It's always a 128-bit ID. Normally it's read from <filename>/etc/machine-id</filename>, but it can
+      also be overridden via <varname>$MACHINE_ID</varname> (see below).  If not specified via these methods a
+      fallback value will generated by <command>kernel-install</command>, and used only for a single
+      invocation.</para>
 
-    <para><varname>$KERNEL_INSTALL_ENTRY_TOKEN</varname> is set for the plugins to the desired entry "token"
-    to use. It's an identifier that shall be used to identify the local installation, and is often the
-    machine ID, i.e. same as <varname>$KERNEL_INSTALL_MACHINE_ID</varname>, but might also be a different
-    type of identifier, for example a fixed string or the <varname>ID=</varname>,
-    <varname>IMAGE_ID=</varname> values from <filename>/etc/os-release</filename>. The string passed here
-    will be used to name Boot Loader Specification entries, or the directories the kernel image and initial
-    RAM disk images are placed into. Note that while oftentimes
-    <varname>$KERNEL_INSTALL_ENTRY_TOKEN</varname> and <varname>$KERNEL_INSTALL_MACHINE_ID</varname> are set
-    to the same value, the latter is guaranteed to be a valid 32 character ID in lowercase hexadecimals while
-    the former can be any short string. The entry token to use is read from
-    <filename>/etc/kernel/entry-token</filename>, if it exists. Otherwise a few possible candidates below the
-    <varname>$BOOT</varname> are searched for Boot Loader Specification Type 1 entry directories, and if
-    found the entry token is derived from that. If that is not successful the machine ID is used as
-    fallback.</para>
+      <para><varname>$KERNEL_INSTALL_ENTRY_TOKEN</varname> is set for the plugins to the desired entry
+      "token" to use. It's an identifier that shall be used to identify the local installation, and is often
+      the machine ID, i.e. same as <varname>$KERNEL_INSTALL_MACHINE_ID</varname>, but might also be a
+      different type of identifier, for example a fixed string or the <varname>ID=</varname>,
+      <varname>IMAGE_ID=</varname> values from <filename>/etc/os-release</filename>. The string passed here
+      will be used to name Boot Loader Specification entries, or the directories the kernel image and initial
+      RAM disk images are placed into.</para>
 
-    <para><varname>$KERNEL_INSTALL_BOOT_ROOT</varname> is set for the plugins to the absolute path of the
-    root directory (mount point, usually) of the hierarchy where boot loader entries, kernel images, and
-    associated resources should be placed. This usually is the path where the XBOOTLDR partition or the ESP
-    (EFI System Partition) are mounted, and also conceptually referred to as <varname>$BOOT</varname>. Can be
-    overridden by setting <varname>$BOOT_ROOT</varname>.</para>
+      <para>Note that while <varname>$KERNEL_INSTALL_ENTRY_TOKEN</varname> and
+      <varname>$KERNEL_INSTALL_MACHINE_ID</varname> are often set to the same value, the latter is guaranteed
+      to be a valid 32 character ID in lowercase hexadecimals while the former can be any short string. The
+      entry token to use is read from <filename>/etc/kernel/entry-token</filename>, if it exists. Otherwise a
+      few possible candidates below <varname>$BOOT</varname> are checked for Boot Loader Specification Type 1
+      entry directories, and if found the entry token is derived from that. If that is not successful,
+      <varname>$KERNEL_INSTALL_MACHINE_ID</varname> is used as fallback.</para>
 
-    <para><varname>$KERNEL_INSTALL_LAYOUT=bls|other|...</varname> is set for the plugins to specify the
-    installation layout.  Defaults to <option>bls</option> if
-    <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable></filename> exists, or <option>other</option>
-    otherwise.  Additional layout names may be defined by convention. If a plugin uses a special layout, it's
-    encouraged to declare its own layout name and configure <varname>layout=</varname> in
-    <filename>install.conf</filename> upon initial installation. The following values are currently
-    understood:</para>
+      <para><varname>$KERNEL_INSTALL_BOOT_ROOT</varname> is set for the plugins to the absolute path of the
+      root directory (mount point, usually) of the hierarchy where boot loader entries, kernel images, and
+      associated resources should be placed. This usually is the path where the XBOOTLDR partition or the ESP
+      (EFI System Partition) are mounted, and also conceptually referred to as <varname>$BOOT</varname>. Can
+      be overridden by setting <varname>$BOOT_ROOT</varname> (see below).</para>
 
-    <variablelist>
-      <varlistentry>
-        <term>bls</term>
-        <listitem>
-          <para>Standard <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader
-          Specification</ulink> Type #1 layout, compatible with
-          <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>:
-          entries in
-          <filename>$BOOT/loader/entries/<replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable>[+<replaceable>TRIES</replaceable>].conf</filename>,
-          kernel and initrds under
-          <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename></para>
-          <para>Implemented by <filename>90-loaderentry.install</filename>.</para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>other</term>
-        <listitem>
-          <para>Some other layout not understood natively by <command>kernel-install</command>.</para>
-        </listitem>
-      </varlistentry>
-    </variablelist>
+      <para><varname>$KERNEL_INSTALL_LAYOUT=bls|other|...</varname> is set for the plugins to specify the
+      installation layout. Defaults to <option>bls</option> if
+      <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable></filename> exists, or <option>other</option>
+      otherwise. Additional layout names may be defined by convention. If a plugin uses a special layout,
+      it's encouraged to declare its own layout name and configure <varname>layout=</varname> in
+      <filename>install.conf</filename> upon initial installation. The following values are currently
+      understood:</para>
 
-    <para><varname>$KERNEL_INSTALL_INITRD_GENERATOR</varname> is set for plugins to select the initrd
-    generator. This may be configured as <varname>initrd_generator=</varname> in
-    <filename>install.conf</filename>. See below.</para>
+      <variablelist>
+        <varlistentry>
+          <term>bls</term>
+          <listitem>
+            <para>Standard <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader
+            Specification</ulink> Type #1 layout, compatible with
+            <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>:
+            entries in
+            <filename>$BOOT/loader/entries/<replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable>[+<replaceable>TRIES</replaceable>].conf</filename>,
+            kernel and initrds under
+            <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename></para>
+            <para>Implemented by <filename>90-loaderentry.install</filename>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>other</term>
+          <listitem>
+            <para>Some other layout not understood natively by <command>kernel-install</command>.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
 
-    <para><varname>$KERNEL_INSTALL_STAGING_AREA</varname> is set for plugins to a path to a directory.
-    Plugins may drop files in that directory, and they will be installed as part of the loader entry, based
-    on the file name and extension.</para>
+      <para><varname>$KERNEL_INSTALL_INITRD_GENERATOR</varname> is set for plugins to select the initrd
+      generator. This may be configured as <varname>initrd_generator=</varname> in
+      <filename>install.conf</filename>, see below.</para>
+
+      <para><varname>$KERNEL_INSTALL_STAGING_AREA</varname> is set for plugins to a path to a directory.
+      Plugins may drop files in that directory, and they will be installed as part of the loader entry, based
+      on the file name and extension.</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Environment variables understood by <command>kernel-install</command></title>
+
+      <para><varname>$KERNEL_INSTALL_CONF_ROOT</varname> can be set to override the location of the
+      configuration files read by <command>kernel-install</command>. When set,
+      <filename>install.conf</filename>, <filename>entry-token</filename>, and other files will be
+      read from this directory.</para>
+
+      <para><varname>$KERNEL_INSTALL_PLUGINS</varname> can be set to override the list of plugins executed by
+      <command>kernel-install</command>. The argument is a whitespace-separated list of paths.
+      <literal>KERNEL_INSTALL_PLUGINS=:</literal> may be used to prevent any plugins from running.
+      </para>
+
+      <para><varname>$MACHINE_ID</varname> can be set for <command>kernel-install</command> to override
+      <varname>$KERNEL_INSTALL_MACHINE_ID</varname>, the machine ID.</para>
+
+      <para><varname>$BOOT_ROOT</varname> can be set for <command>kernel-install</command> to override
+      <varname>$KERNEL_INSTALL_BOOT_ROOT</varname>, the installation location for boot entries.</para>
+
+      <para>The last two variables may also be set in <filename>install.conf</filename>. Variables set in the
+      environment take precedence over the values specified in the config file.</para>
+    </refsect2>
   </refsect1>
 
   <refsect1>
@@ -271,9 +301,10 @@
         </term>
           <listitem>
             <para>Read by <filename>90-loaderentry.install</filename>. The content of the file
-            <filename>/etc/kernel/cmdline</filename> specifies the kernel command line to use.  If that file does not
-            exist, <filename>/usr/lib/kernel/cmdline</filename> is used.  If that also does not exist,
-            <filename>/proc/cmdline</filename> is used.</para>
+            <filename>/etc/kernel/cmdline</filename> specifies the kernel command line to use. If that file
+            does not exist, <filename>/usr/lib/kernel/cmdline</filename> is used. If that also does not
+            exist, <filename>/proc/cmdline</filename> is used. <varname>$KERNEL_INSTALL_CONF_ROOT</varname>
+            may be used to override the path.</para>
           </listitem>
       </varlistentry>
       <varlistentry>
@@ -286,7 +317,8 @@
             <filename>$BOOT/loader/entries/<replaceable>MACHINE-ID</replaceable>-<replaceable>KERNEL-VERSION</replaceable>+<replaceable>TRIES</replaceable>.conf</filename>. This
             is useful for boot loaders such as
             <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> which
-            implement boot attempt counting with a counter embedded in the entry file name.</para>
+            implement boot attempt counting with a counter embedded in the entry file name.
+            <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be used to override the path.</para>
           </listitem>
       </varlistentry>
       <varlistentry>
@@ -295,8 +327,9 @@
         </term>
           <listitem>
             <para>If this file exists it is read and used as "entry token" for this system, i.e. is used for
-            naming Boot Loader Specification entries, see
-            <varname>$KERNEL_INSTALL_ENTRY_TOKEN</varname> above for details.</para>
+            naming Boot Loader Specification entries, see <varname>$KERNEL_INSTALL_ENTRY_TOKEN</varname>
+            above for details. <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be used to override the
+            path.</para>
           </listitem>
       </varlistentry>
       <varlistentry>
@@ -327,8 +360,19 @@
           <listitem>
             <para>Configuration options for <command>kernel-install</command>, as a series of
             <varname>KEY=</varname><replaceable>VALUE</replaceable> assignments, compatible with shell
-            syntax.  This currently supports two keys: <varname>layout=</varname> and
-            <varname>initrd_generator=</varname>, for details see the Environment variables section above.</para>
+            syntax, following the same rules as described in
+            <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            <filename>/etc/kernel/install.conf</filename> will be read if present, and
+            <filename>/usr/lib/kernel/install.conf</filename> otherwise. This file is optional.
+            <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be used to override the path.
+            </para>
+
+            <para>Currently, the following keys are supported:
+            <varname>MACHINE_ID=</varname>,
+            <varname>BOOT_ROOT=</varname>,
+            <varname>layout=</varname>,
+            <varname>initrd_generator=</varname>.
+            See the Environment variables section above for details.</para>
           </listitem>
       </varlistentry>
     </variablelist>

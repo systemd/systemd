@@ -109,7 +109,7 @@ static const char* const user_config_unit_paths[] = {
 int xdg_user_dirs(char ***ret_config_dirs, char ***ret_data_dirs) {
         /* Implement the mechanisms defined in
          *
-         * http://standards.freedesktop.org/basedir-spec/basedir-spec-0.6.html
+         * https://standards.freedesktop.org/basedir-spec/basedir-spec-0.6.html
          *
          * We look in both the config and the data dirs because we
          * want to encourage that distributors ship their unit files

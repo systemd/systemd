@@ -38,9 +38,10 @@ from an upstream distribution in combination with a fresh build of the project
 in the local working directory. To make use of this, please install the
 `mkosi` package (if not packaged for your distro, it can be downloaded from
 the [GitHub repository](https://github.com/systemd/mkosi). `mkosi` will build an
-image for the host distro by default. It is sufficient to type `mkosi` in the
-systemd project directory to generate a disk image `image.raw` you can boot either
-in `systemd-nspawn` or in an UEFI-capable VM:
+image for the host distro by default. mkosi-13 or newer version is required.
+It is sufficient to type `mkosi` in the systemd project directory to generate
+a disk image `image.raw` you can boot either in `systemd-nspawn` or
+in an UEFI-capable VM:
 
 ```sh
 $ mkosi boot
@@ -66,7 +67,7 @@ reuse the host's package cache. To do this, create a mkosi override file in
 mkosi.default.d/ (e.g 20-local.conf) and add the following contents:
 
 ```
-[Packages]
+[Content]
 Cache=<full-path-to-package-manager-cache> # (e.g. /var/cache/dnf)
 ```
 
@@ -100,7 +101,7 @@ $ vim src/core/main.c             # or wherever you'd like to make your changes
 $ meson build                     # configure the build
 $ ninja -C build                  # build it locally, see if everything compiles fine
 $ meson test -C build             # run some simple regression tests
-$ sudo mkosi                      # build a test image
+$ sudo mkosi                      # mkosi-13 or newer required to build a test image
 $ sudo mkosi boot                 # boot up the test image
 $ git add -p                      # interactively put together your patch
 $ git commit                      # commit it
@@ -139,6 +140,11 @@ In the default meson configuration (`-Dmode=developer`), certain checks are
 enabled that are suitable when hacking on systemd (such as internal
 documentation consistency checks). Those are not useful when compiling for
 distribution and can be disabled by setting `-Dmode=release`.
+
+## Sanitizers in mkosi
+
+See [Testing systemd using sanitizers](TESTING_WITH_SANITIZERS.md) for more information
+on how to build with sanitizers enabled in mkosi.
 
 ## Fuzzers
 
@@ -211,7 +217,7 @@ $(pwd)/mkosi.installdir=/root/dest\\
         --header-insertion=never
 EOF
 chmod +x mkosi-clangd.build
-exec sudo mkosi --source-file-transfer=mount --incremental --skip-final-phase --build-script mkosi-clangd.build build
+exec pkexec mkosi --source-file-transfer=mount --incremental --skip-final-phase --build-script mkosi-clangd.build build
 ```
 
 Next, mark the script as executable and point your editor plugin to use this script to start clangd. For
@@ -224,7 +230,7 @@ mkosi's config. The easiest way to set the option is to create a file 20-local.c
 add the following contents:
 
 ```
-[Packages]
+[Content]
 IncludeDirectory=mkosi.includedir
 ```
 
@@ -233,7 +239,7 @@ We already configured clangd to map any paths in /usr/include in the build image
 host in the mkosi-clangd.sh script.
 
 We also need to make sure clangd is installed in the build image. To have mkosi install clangd in the build
-image, edit the 20-local.conf file we created earlier and add the following contents under the `[Packages]`
+image, edit the 20-local.conf file we created earlier and add the following contents under the `[Content]`
 section:
 
 ```
@@ -246,12 +252,9 @@ some bundle clangd in the clang package.
 
 Because mkosi needs to run as root, we also need to make sure we can enter the root password when the editor
 plugin tries to run the mkosi-clangd.sh script. To be able to enter the root password in non-interactive
-scripts, we use an askpass provider. This is a program that sudo will launch if it detects it's being
-executed from a non-interactive shell so that the root password can still be entered. There are multiple
-implementations such as gnome askpass and KDE askpass. Install one of the askpass packages your distro
-provides and set the `SUDO_ASKPASS` environment variable to the path of the askpass binary you want to use.
-If configured correctly, a window will appear when your editor plugin tries to run the mkosi-clangd.sh script
-allowing you to enter the root password.
+scripts, we use pkexec instead of sudo. pkexec will launch a graphical interface to let the user enter their
+password, so that the password can be entered by the user even when pkexec is executed from a non-interactive
+shell.
 
 Due to a bug in btrfs, it's currently impossible to mount two mkosi btrfs images at the same time. Because of
 this, trying to do a regular build while the clangd image is running will fail. To circumvent this, use ext4
@@ -268,6 +271,30 @@ the cached images are initialized (`mkosi -i`).
 Now, your editor will start clangd in the mkosi build image and all of clangd's features will work as
 expected.
 
+## Debugging binaries that need to run as root in vscode
+
+When trying to debug binaries that need to run as root, we need to do some custom configuration in vscode to
+have it try to run the applications as root and to ask the user for the root password when trying to start
+the binary. To achieve this, we'll use a custom debugger path which points to a script that starts `gdb` as
+root using `pkexec`. pkexec will prompt the user for their root password via a graphical interface. This
+guide assumes the C/C++ extension is used for debugging.
+
+First, create a file `sgdb` in the root of the systemd repository with the following contents and make it
+executable:
+
+```
+#!/bin/sh
+exec pkexec gdb "$@"
+```
+
+Then, open launch.json in vscode, and set `miDebuggerPath` to `${workspaceFolder}/sgdb` for the corresponding
+debug configuration. Now, whenever you try to debug the application, vscode will try to start gdb as root via
+pkexec which will prompt you for your password via a graphical interface. After entering your password,
+vscode should be able to start debugging the application.
+
+For more information on how to set up a debug configuration for C binaries, please refer to the official
+vscode documentation [here](https://code.visualstudio.com/docs/cpp/launch-json-reference)
+
 ## Debugging systemd with mkosi + vscode
 
 To simplify debugging systemd when testing changes using mkosi, we're going to show how to attach
@@ -276,8 +303,10 @@ To simplify debugging systemd when testing changes using mkosi, we're going to s
 
 To allow VSCode's debugger to attach to systemd running in a mkosi image, we have to make sure it can access
 the container/virtual machine spawned by mkosi where systemd is running. mkosi makes this possible via a
-handy SSH option that makes the generated image accessible via SSH when booted. The easiest way to set the
-option is to create a file 20-local.conf in mkosi.default.d/ and add the following contents:
+handy SSH option that makes the generated image accessible via SSH when booted. Thus you must build
+the image with `mkosi --ssh`. The easiest way to set the
+option is to create a file 20-local.conf in mkosi.default.d/ (in the directory you ran mkosi in) and add
+the following contents:
 
 ```
 [Host]
@@ -300,8 +329,8 @@ corresponding parts of the C/C++ extension in your VSCode user settings by addin
 ```
 
 With the extension set up, we can create the launch.json file in the .vscode/ directory to tell the VSCode
-debugger how to attach to the systemd instance running in our mkosi container/VM. Create the file and add the
-following contents:
+debugger how to attach to the systemd instance running in our mkosi container/VM. Create the file, and possibly
+the directory, and add the following contents:
 
 ```json
 {
@@ -386,4 +415,24 @@ To debug systemd-boot in an IDE such as VSCode we can use a launch configuration
         { "text": "source /tmp/systemd-boot.gdb" },
     ]
 }
+```
+
+## Hacking on the kernel + systemd
+
+If you're hacking on the kernel in tandem with systemd, you can clone a kernel repository in mkosi.kernel/ in
+the systemd repository, and mkosi will automatically build that kernel and install it into the final image.
+To prevent the distribution's kernel from being installed (which isn't necessary since we're building our
+own kernel), you can add the following snippets to mkosi.default.d/20-local.conf:
+
+(This snippet is for Fedora, the list of packages will need to be changed for other distributions)
+
+```
+[Distribution]
+CacheInitrd=no
+
+[Content]
+BasePackages=conditional
+Packages=systemd
+         util-linux
+         dracut
 ```

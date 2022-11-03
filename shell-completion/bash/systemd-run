@@ -14,7 +14,7 @@
 # General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
 
 __systemctl() {
     local mode=$1; shift 1
@@ -26,7 +26,9 @@ __get_slice_units () { __systemctl $1 list-units --all -t slice \
 
 __get_machines() {
     local a b
-    machinectl list --full --no-legend --no-pager | { while read a b; do echo " $a"; done; };
+    { machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } | \
+	{ while read a b; do echo " $a"; done; } | \
+        sort -u
 }
 
 _systemd_run() {

@@ -6,7 +6,9 @@
 #include "def.h"
 #include "env-file.h"
 #include "escape.h"
+#include "glyph-util.h"
 #include "log.h"
+#include "main-func.h"
 #include "path-lookup.h"
 #include "strv.h"
 
@@ -55,7 +57,7 @@ static int load_and_print(void) {
          * that in case of failure, a partial update is better than none. */
 
         STRV_FOREACH(i, files) {
-                log_debug("Reading %s…", *i);
+                log_debug("Reading %s%s", *i, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
                 r = merge_env_file(&env, NULL, *i);
                 if (r == -ENOMEM)
@@ -79,20 +81,19 @@ static int load_and_print(void) {
         return 0;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         int r;
 
         log_parse_environment();
         log_open();
 
-        if (argc > 1) {
-                log_error("This program takes no arguments.");
-                return EXIT_FAILURE;
-        }
+        if (argc > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
 
         r = load_and_print();
         if (r < 0)
-                log_error_errno(r, "Failed to load environment.d: %m");
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+                return log_error_errno(r, "Failed to load environment.d: %m");
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);

@@ -238,6 +238,11 @@ TEST(format_timespan) {
         test_format_timespan_accuracy(1);
         test_format_timespan_accuracy(USEC_PER_MSEC);
         test_format_timespan_accuracy(USEC_PER_SEC);
+
+        /* See issue #23928. */
+        _cleanup_free_ char *buf;
+        assert_se(buf = new(char, 5));
+        assert_se(buf == format_timespan(buf, 5, 100005, 1000));
 }
 
 TEST(verify_timezone) {
@@ -306,15 +311,31 @@ TEST(usec_sub_signed) {
         assert_se(usec_sub_signed(4, 1) == 3);
         assert_se(usec_sub_signed(4, 4) == 0);
         assert_se(usec_sub_signed(4, 5) == 0);
+
         assert_se(usec_sub_signed(USEC_INFINITY-3, -3) == USEC_INFINITY);
         assert_se(usec_sub_signed(USEC_INFINITY-3, -4) == USEC_INFINITY);
         assert_se(usec_sub_signed(USEC_INFINITY-3, -5) == USEC_INFINITY);
         assert_se(usec_sub_signed(USEC_INFINITY, 5) == USEC_INFINITY);
+
+        assert_se(usec_sub_signed(0, INT64_MAX) == 0);
+        assert_se(usec_sub_signed(0, -INT64_MAX) == INT64_MAX);
+        assert_se(usec_sub_signed(0, INT64_MIN) == (usec_t) INT64_MAX + 1);
+        assert_se(usec_sub_signed(0, -(INT64_MIN+1)) == 0);
+
+        assert_se(usec_sub_signed(USEC_INFINITY, INT64_MAX) == USEC_INFINITY);
+        assert_se(usec_sub_signed(USEC_INFINITY, -INT64_MAX) == USEC_INFINITY);
+        assert_se(usec_sub_signed(USEC_INFINITY, INT64_MIN) == USEC_INFINITY);
+        assert_se(usec_sub_signed(USEC_INFINITY, -(INT64_MIN+1)) == USEC_INFINITY);
+
+        assert_se(usec_sub_signed(USEC_INFINITY-1, INT64_MAX) == USEC_INFINITY-1-INT64_MAX);
+        assert_se(usec_sub_signed(USEC_INFINITY-1, -INT64_MAX) == USEC_INFINITY);
+        assert_se(usec_sub_signed(USEC_INFINITY-1, INT64_MIN) == USEC_INFINITY);
+        assert_se(usec_sub_signed(USEC_INFINITY-1, -(INT64_MIN+1)) == USEC_INFINITY-1-((usec_t) (-(INT64_MIN+1))));
 }
 
 TEST(format_timestamp) {
         for (unsigned i = 0; i < 100; i++) {
-                char buf[MAX(FORMAT_TIMESTAMP_MAX, FORMAT_TIMESPAN_MAX)];
+                char buf[CONST_MAX(FORMAT_TIMESTAMP_MAX, FORMAT_TIMESPAN_MAX)];
                 usec_t x, y;
 
                 x = random_u64_range(2147483600 * USEC_PER_SEC) + 1;
@@ -374,7 +395,7 @@ TEST(FORMAT_TIMESTAMP) {
 }
 
 TEST(format_timestamp_relative) {
-        char buf[MAX(FORMAT_TIMESTAMP_MAX, FORMAT_TIMESPAN_MAX)];
+        char buf[CONST_MAX(FORMAT_TIMESTAMP_MAX, FORMAT_TIMESPAN_MAX)];
         usec_t x;
 
         /* Only testing timestamps in the past so we don't need to add some delta to account for time passing

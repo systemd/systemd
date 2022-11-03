@@ -5,15 +5,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef enum RandomFlags {
-        RANDOM_BLOCK              = 1 << 0, /* Rather block than return crap randomness (only if the kernel supports that) */
-} RandomFlags;
-
-int genuine_random_bytes(void *p, size_t n, RandomFlags flags); /* returns "genuine" randomness, optionally filled up with pseudo random, if not enough is available */
-void pseudo_random_bytes(void *p, size_t n);                    /* returns only pseudo-randommess (but possibly seeded from something better) */
-void random_bytes(void *p, size_t n);                           /* returns genuine randomness if cheaply available, and pseudo randomness if not. */
-
-void initialize_srand(void);
+void random_bytes(void *p, size_t n); /* Returns random bytes suitable for most uses, but may be insecure sometimes. */
+int crypto_random_bytes(void *p, size_t n); /* Returns secure random bytes after waiting for the RNG to initialize. */
 
 static inline uint64_t random_u64(void) {
         uint64_t u;
