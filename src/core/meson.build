@@ -23,6 +23,7 @@ libcore_sources = files(
         'core-varlink.h',
         'dbus-automount.c',
         'dbus-automount.h',
+        'dbus-callbackdata.h',
         'dbus-cgroup.c',
         'dbus-cgroup.h',
         'dbus-device.c',

@@ -14,7 +14,7 @@ static bool strv_fnmatch_strv_or_empty(char* const* patterns, char **strv, int f
 }
 
 int verb_unit_files(int argc, char *argv[], void *userdata) {
-        _cleanup_hashmap_free_ Hashmap *unit_ids = NULL, *unit_names = NULL;
+        _cleanup_hashmap_free_ Hashmap *unit_ids = NULL, *unit_obstructed = NULL, *unit_names = NULL;
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         char **patterns = strv_skip(argv, 1);
         const char *k, *dst;
@@ -25,7 +25,7 @@ int verb_unit_files(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = unit_file_build_name_map(&lp, NULL, &unit_ids, &unit_names, NULL);
+        r = unit_file_build_name_map(&lp, NULL, &unit_ids, &unit_obstructed, &unit_names, NULL);
         if (r < 0)
                 return log_error_errno(r, "unit_file_build_name_map() failed: %m");
 
@@ -35,6 +35,14 @@ int verb_unit_files(int argc, char *argv[], void *userdata) {
                         continue;
 
                 printf("ids: %s → %s\n", k, dst);
+        }
+
+        HASHMAP_FOREACH_KEY(dst, k, unit_obstructed) {
+                if (!strv_fnmatch_or_empty(patterns, k, FNM_NOESCAPE) &&
+                        !strv_fnmatch_or_empty(patterns, dst, FNM_NOESCAPE))
+                        continue;
+
+                printf("obstructed: %s → %s\n", k, dst);
         }
 
         HASHMAP_FOREACH_KEY(v, k, unit_names) {
