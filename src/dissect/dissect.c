@@ -722,7 +722,7 @@ static int list_print_item(
         assert_se(path);
 
         if (event == RECURSE_DIR_ENTER)
-                printf("%s/\n", path);
+                printf("%s%s/%s\n", path, ansi_grey(), ansi_normal());
         else if (event == RECURSE_DIR_ENTRY)
                 printf("%s\n", path);
 
