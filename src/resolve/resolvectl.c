@@ -33,6 +33,7 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "resolvconf-compat.h"
+#include "resolve-util.h"
 #include "resolvectl.h"
 #include "resolved-def.h"
 #include "resolved-dns-packet.h"
@@ -2277,6 +2278,8 @@ static int verb_default_route(int argc, char **argv, void *userdata) {
 
 static int verb_llmnr(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *global_llmnr_support_str = NULL;
+        ResolveSupport global_llmnr_support, llmnr_support;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -2291,6 +2294,22 @@ static int verb_llmnr(int argc, char **argv, void *userdata) {
 
         if (argc < 3)
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_LLMNR, NULL);
+
+        llmnr_support = resolve_support_from_string(argv[2]);
+        if (llmnr_support < 0)
+                return log_error_errno(llmnr_support, "Invalid LLMNR setting: %s", argv[2]);
+
+        r = bus_get_property_string(bus, bus_resolve_mgr, "LLMNR", &error, &global_llmnr_support_str);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get the global LLMNR support state: %s", bus_error_message(&error, r));
+
+        global_llmnr_support = resolve_support_from_string(global_llmnr_support_str);
+        if (global_llmnr_support < 0)
+                return log_error_errno(global_llmnr_support, "Received invalid global LLMNR setting: %s", global_llmnr_support_str);
+
+        if (global_llmnr_support < llmnr_support)
+                log_warning("Setting LLMNR support level \"%s\" for \"%s\", but the global support level is \"%s\".",
+                            argv[2], arg_ifname, global_llmnr_support_str);
 
         r = bus_call_method(bus, bus_resolve_mgr, "SetLinkLLMNR", &error, NULL, "is", arg_ifindex, argv[2]);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
@@ -2311,6 +2330,8 @@ static int verb_llmnr(int argc, char **argv, void *userdata) {
 
 static int verb_mdns(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *global_mdns_support_str = NULL;
+        ResolveSupport global_mdns_support, mdns_support;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -2325,6 +2346,22 @@ static int verb_mdns(int argc, char **argv, void *userdata) {
 
         if (argc < 3)
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_MDNS, NULL);
+
+        mdns_support = resolve_support_from_string(argv[2]);
+        if (mdns_support < 0)
+                return log_error_errno(mdns_support, "Invalid mDNS setting: %s", argv[2]);
+
+        r = bus_get_property_string(bus, bus_resolve_mgr, "MulticastDNS", &error, &global_mdns_support_str);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get the global mDNS support state: %s", bus_error_message(&error, r));
+
+        global_mdns_support = resolve_support_from_string(global_mdns_support_str);
+        if (global_mdns_support < 0)
+                return log_error_errno(global_mdns_support, "Received invalid global mDNS setting: %s", global_mdns_support_str);
+
+        if (global_mdns_support < mdns_support)
+                log_warning("Setting mDNS support level \"%s\" for \"%s\", but the global support level is \"%s\".",
+                            argv[2], arg_ifname, global_mdns_support_str);
 
         r = bus_call_method(bus, bus_resolve_mgr, "SetLinkMulticastDNS", &error, NULL, "is", arg_ifindex, argv[2]);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
