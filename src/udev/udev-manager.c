@@ -151,6 +151,7 @@ Manager* manager_free(Manager *manager) {
 
         sd_device_monitor_unref(manager->monitor);
         udev_ctrl_unref(manager->ctrl);
+        manager->varlink_server = varlink_server_unref(manager->varlink_server);
 
         sd_event_source_unref(manager->inotify_event);
         sd_event_source_unref(manager->kill_workers_event);
@@ -227,6 +228,7 @@ static void manager_exit(Manager *manager) {
 
         /* close sources of new events and discard buffered events */
         manager->ctrl = udev_ctrl_unref(manager->ctrl);
+        manager->varlink_server = varlink_server_unref(manager->varlink_server);
 
         manager->inotify_event = sd_event_source_disable_unref(manager->inotify_event);
         manager->inotify_fd = safe_close(manager->inotify_fd);
@@ -1220,6 +1222,10 @@ int manager_init(Manager *manager, int fd_ctrl, int fd_uevent) {
         r = udev_ctrl_enable_receiving(manager->ctrl);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind udev control socket: %m");
+
+        r = manager_open_varlink(manager);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize varlink server: %m");
 
         r = device_monitor_new_full(&manager->monitor, MONITOR_GROUP_KERNEL, fd_uevent);
         if (r < 0)
