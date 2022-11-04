@@ -194,6 +194,159 @@ static int verify_features(
         return 0;
 }
 
+static int fido2_assert_set_basic_properties(
+                fido_assert_t *a,
+                const char *rp_id,
+                const void *cid,
+                size_t cid_size) {
+        int r;
+
+        assert(a);
+        assert(rp_id);
+        assert(cid);
+        assert(cid_size > 0);
+
+        r = sym_fido_assert_set_rp(a, rp_id);
+        if (r != FIDO_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to set FIDO2 assertion ID: %s", sym_fido_strerr(r));
+
+        r = sym_fido_assert_set_clientdata_hash(a, (const unsigned char[32]) {}, 32);
+        if (r != FIDO_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to set FIDO2 assertion client data hash: %s", sym_fido_strerr(r));
+
+        r = sym_fido_assert_allow_cred(a, cid, cid_size);
+        if (r != FIDO_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to add FIDO2 assertion credential ID: %s", sym_fido_strerr(r));
+
+        return 0;
+}
+
+static int fido2_common_assert_error_handle(int r) {
+        switch (r) {
+        case FIDO_OK:
+                break;
+        case FIDO_ERR_NO_CREDENTIALS:
+                return log_error_errno(SYNTHETIC_ERRNO(EBADSLT),
+                                       "Wrong security token; needed credentials not present on token.");
+        case FIDO_ERR_PIN_REQUIRED:
+                return log_error_errno(SYNTHETIC_ERRNO(ENOANO),
+                                       "Security token requires PIN.");
+        case FIDO_ERR_PIN_AUTH_BLOCKED:
+                return log_error_errno(SYNTHETIC_ERRNO(EOWNERDEAD),
+                                       "PIN of security token is blocked, please remove/reinsert token.");
+#ifdef FIDO_ERR_UV_BLOCKED
+        case FIDO_ERR_UV_BLOCKED:
+                return log_error_errno(SYNTHETIC_ERRNO(EOWNERDEAD),
+                                       "Verification of security token is blocked, please remove/reinsert token.");
+#endif
+        case FIDO_ERR_PIN_INVALID:
+                return log_error_errno(SYNTHETIC_ERRNO(ENOLCK),
+                                       "PIN of security token incorrect.");
+        case FIDO_ERR_UP_REQUIRED:
+                return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                       "User presence required.");
+        case FIDO_ERR_ACTION_TIMEOUT:
+                return log_error_errno(SYNTHETIC_ERRNO(ENOSTR),
+                                       "Token action timeout. (User didn't interact with token quickly enough.)");
+        default:
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to ask token for assertion: %s", sym_fido_strerr(r));
+        }
+
+        return 0;
+}
+
+static int fido2_is_cred_in_specific_token(
+                const char *path,
+                const char *rp_id,
+                const void *cid,
+                size_t cid_size,
+                char **pins,
+                Fido2EnrollFlags flags) {
+
+        assert(path);
+        assert(rp_id);
+        assert(cid);
+        assert(cid_size);
+
+        _cleanup_(fido_dev_free_wrapper) fido_dev_t *d = NULL;
+        _cleanup_(fido_assert_free_wrapper) fido_assert_t *a = NULL;
+        bool has_up = false, has_uv = false;
+        int r;
+
+        d = sym_fido_dev_new();
+        if (!d)
+                return log_oom();
+
+        r = sym_fido_dev_open(d, path);
+        if (r != FIDO_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to open FIDO2 device %s: %s", path, sym_fido_strerr(r));
+
+        r = verify_features(d, path, LOG_ERR, NULL, NULL, &has_up, &has_uv);
+        if (r < 0)
+                return r;
+
+        a = sym_fido_assert_new();
+        if (!a)
+                return log_oom();
+
+        r = fido2_assert_set_basic_properties(a, rp_id, cid, cid_size);
+        if (r < 0)
+                return r;
+
+        /* According to CTAP 2.1 specification, to do pre-flight we need to set up option to false
+         * with optionally pinUvAuthParam in assertion[1]. But for authenticator that doesn't support
+         * user presence, once up option is present, the authenticator may return CTAP2_ERR_UNSUPPORTED_OPTION[2].
+         * So we simplely omit the option in that case.
+         * Reference:
+         * 1: https://fidoalliance.org/specs/fido-v2.1-ps-20210615/fido-client-to-authenticator-protocol-v2.1-ps-20210615.html#pre-flight
+         * 2: https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#authenticatorGetAssertion (in step 5)
+         */
+        if (has_up)
+                r = sym_fido_assert_set_up(a, FIDO_OPT_FALSE);
+        else
+                r = sym_fido_assert_set_up(a, FIDO_OPT_OMIT);
+        if (r != FIDO_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to set assertion user presence: %s", sym_fido_strerr(r));
+
+
+        /* According to CTAP 2.1 specification, if the credential is marked as userVerificationRequired,
+         * we may pass pinUvAuthParam parameter or set uv option to true in order to check whether the
+         * credential is in the token. Here we choose to use PIN (pinUvAuthParam) to achieve this.
+         * If we don't do that, the authenticator will remove the credential from the applicable
+         * credentials list, hence CTAP2_ERR_NO_CREDENTIALS error will be returned.
+         * Please see
+         * https://fidoalliance.org/specs/fido-v2.1-ps-20210615/fido-client-to-authenticator-protocol-v2.1-ps-20210615.html#sctn-getAssert-authnr-alg
+         * step 7.4 for detailed informatrion.
+         */
+        if (FLAGS_SET(flags, FIDO2ENROLL_UV) && has_uv) {
+                if (strv_isempty(pins))
+                        r = FIDO_ERR_PIN_REQUIRED;
+                else
+                        STRV_FOREACH(i, pins) {
+                                r = sym_fido_dev_get_assert(d, a, *i);
+                                if (r != FIDO_ERR_PIN_INVALID)
+                                        break;
+                        }
+
+        } else
+                r = sym_fido_dev_get_assert(d, a, NULL);
+
+        switch (r) {
+                case FIDO_OK:
+                        return true;
+                case FIDO_ERR_NO_CREDENTIALS:
+                        return false;
+                default:
+                        return fido2_common_assert_error_handle(r);
+        }
+}
+
 static int fido2_use_hmac_hash_specific_token(
                 const char *path,
                 const char *rp_id,
@@ -263,20 +416,9 @@ static int fido2_use_hmac_hash_specific_token(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Failed to set salt on FIDO2 assertion: %s", sym_fido_strerr(r));
 
-        r = sym_fido_assert_set_rp(a, rp_id);
-        if (r != FIDO_OK)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to set FIDO2 assertion ID: %s", sym_fido_strerr(r));
-
-        r = sym_fido_assert_set_clientdata_hash(a, (const unsigned char[32]) {}, 32);
-        if (r != FIDO_OK)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to set FIDO2 assertion client data hash: %s", sym_fido_strerr(r));
-
-        r = sym_fido_assert_allow_cred(a, cid, cid_size);
-        if (r != FIDO_OK)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to add FIDO2 assertion credential ID: %s", sym_fido_strerr(r));
+        r = fido2_assert_set_basic_properties(a, rp_id, cid, cid_size);
+        if (r < 0)
+                return r;
 
         log_info("Asking FIDO2 token for authentication.");
 
@@ -403,36 +545,9 @@ static int fido2_use_hmac_hash_specific_token(
                         required |= FIDO2ENROLL_PIN;
         }
 
-        switch (r) {
-        case FIDO_OK:
-                break;
-        case FIDO_ERR_NO_CREDENTIALS:
-                return log_error_errno(SYNTHETIC_ERRNO(EBADSLT),
-                                       "Wrong security token; needed credentials not present on token.");
-        case FIDO_ERR_PIN_REQUIRED:
-                return log_error_errno(SYNTHETIC_ERRNO(ENOANO),
-                                       "Security token requires PIN.");
-        case FIDO_ERR_PIN_AUTH_BLOCKED:
-                return log_error_errno(SYNTHETIC_ERRNO(EOWNERDEAD),
-                                       "PIN of security token is blocked, please remove/reinsert token.");
-#ifdef FIDO_ERR_UV_BLOCKED
-        case FIDO_ERR_UV_BLOCKED:
-                return log_error_errno(SYNTHETIC_ERRNO(EOWNERDEAD),
-                                       "Verification of security token is blocked, please remove/reinsert token.");
-#endif
-        case FIDO_ERR_PIN_INVALID:
-                return log_error_errno(SYNTHETIC_ERRNO(ENOLCK),
-                                       "PIN of security token incorrect.");
-        case FIDO_ERR_UP_REQUIRED:
-                return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE),
-                                       "User presence required.");
-        case FIDO_ERR_ACTION_TIMEOUT:
-                return log_error_errno(SYNTHETIC_ERRNO(ENOSTR),
-                                       "Token action timeout. (User didn't interact with token quickly enough.)");
-        default:
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to ask token for assertion: %s", sym_fido_strerr(r));
-        }
+        r = fido2_common_assert_error_handle(r);
+        if (r < 0)
+            return r;
 
         hmac = sym_fido_assert_hmac_secret_ptr(a, 0);
         if (!hmac)
@@ -517,6 +632,33 @@ int fido2_use_hmac_hash(
                         r = log_error_errno(SYNTHETIC_ERRNO(EIO),
                                             "Failed to query FIDO device path.");
                         goto finish;
+                }
+
+                r = fido2_is_cred_in_specific_token(path, rp_id, cid, cid_size, pins, required);
+                /* We handle PIN related errors here since we have used PIN in the check.
+                 * If PIN error happens, we can avoid pin retries decreased the second time. */
+                if (IN_SET(r, -ENOANO,        /* → pin required */
+                              -ENOLCK,        /* → pin incorrect */
+                              -EOWNERDEAD)) { /* → uv blocked */
+                        /* If it's not the last device, try next one */
+                        if (i < found - 1)
+                                continue;
+
+                        /* -EOWNERDEAD is returned when uv is blocked. Map it to EAGAIN so users can reinsert
+                         * the token and try again. */
+                        if (r == -EOWNERDEAD)
+                                r = -EAGAIN;
+                        goto finish;
+                } else if (r < 0) {
+                    if (r == -NODEV)
+                        continue;
+
+                    log_error_errno(r, "Failed to determine whether the credential is in the token, try anyway: %m");
+                }
+
+                if (r == false) {
+                        log_debug("The credential is not in the token %s, skip.", path);
+                        continue;
                 }
 
                 r = fido2_use_hmac_hash_specific_token(path, rp_id, salt, salt_size, cid, cid_size, pins, required, ret_hmac, ret_hmac_size);
@@ -762,20 +904,9 @@ int fido2_generate_hmac_hash(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Failed to set salt on FIDO2 assertion: %s", sym_fido_strerr(r));
 
-        r = sym_fido_assert_set_rp(a, rp_id);
-        if (r != FIDO_OK)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to set FIDO2 assertion ID: %s", sym_fido_strerr(r));
-
-        r = sym_fido_assert_set_clientdata_hash(a, (const unsigned char[32]) {}, 32);
-        if (r != FIDO_OK)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to set FIDO2 assertion client data hash: %s", sym_fido_strerr(r));
-
-        r = sym_fido_assert_allow_cred(a, cid, cid_size);
-        if (r != FIDO_OK)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to add FIDO2 assertion credential ID: %s", sym_fido_strerr(r));
+        r = fido2_assert_set_basic_properties(a, rp_id, cid, cid_size);
+        if (r < 0)
+                return r;
 
         log_info("Generating secret key on FIDO2 security token.");
 
