@@ -229,6 +229,7 @@ struct DissectedImage {
 
         /* Meta information extracted from /etc/os-release and similar */
         char *image_name;
+        sd_id128_t image_uuid;
         char *hostname;
         sd_id128_t machine_id;
         char **machine_info;
