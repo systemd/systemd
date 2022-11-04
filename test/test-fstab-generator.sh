@@ -14,6 +14,9 @@ fi
 
 src="$(dirname "$0")/testdata/test-fstab-generator"
 
+# fsck(8) is located in /usr/sbin on Debian
+PATH=$PATH:/usr/sbin
+
 for f in "$src"/test-*.input; do
     echo "*** Running $f"
 
