@@ -67,6 +67,7 @@
 #include "udev-builtin.h"
 #include "udev-ctrl.h"
 #include "udev-event.h"
+#include "udev-manager.h"
 #include "udev-node.h"
 #include "udev-util.h"
 #include "udev-watch.h"
@@ -86,38 +87,7 @@ static usec_t arg_event_timeout_usec = 180 * USEC_PER_SEC;
 static int arg_timeout_signal = SIGKILL;
 static bool arg_blockdev_read_only = false;
 
-typedef struct Event Event;
 typedef struct Worker Worker;
-
-typedef struct Manager {
-        sd_event *event;
-        Hashmap *workers;
-        LIST_HEAD(Event, events);
-        char *cgroup;
-        pid_t pid; /* the process that originally allocated the manager object */
-        int log_level;
-
-        UdevRules *rules;
-        Hashmap *properties;
-
-        sd_netlink *rtnl;
-
-        sd_device_monitor *monitor;
-        UdevCtrl *ctrl;
-        int worker_watch[2];
-
-        /* used by udev-watch */
-        int inotify_fd;
-        sd_event_source *inotify_event;
-
-        sd_event_source *kill_workers_event;
-
-        usec_t last_usec;
-
-        bool udev_node_needs_cleanup;
-        bool stop_exec_queue;
-        bool exit;
-} Manager;
 
 typedef enum EventState {
         EVENT_UNDEF,
