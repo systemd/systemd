@@ -339,7 +339,7 @@ static int process_locale(void) {
 
         if (!isempty(arg_locale))
                 locales[i++] = strjoina("LANG=", arg_locale);
-        if (!isempty(arg_locale_messages) && !streq(arg_locale_messages, arg_locale))
+        if (!isempty(arg_locale_messages) && !streq_ptr(arg_locale_messages, arg_locale))
                 locales[i++] = strjoina("LC_MESSAGES=", arg_locale_messages);
 
         if (i == 0)
