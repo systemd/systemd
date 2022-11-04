@@ -150,6 +150,7 @@ Manager* manager_free(Manager *manager) {
 
         sd_device_monitor_unref(manager->monitor);
         udev_ctrl_unref(manager->ctrl);
+        sd_varlink_server_unref(manager->varlink_server);
 
         sd_event_source_unref(manager->inotify_event);
         sd_event_source_unref(manager->kill_workers_event);
@@ -226,6 +227,7 @@ static void manager_exit(Manager *manager) {
 
         /* close sources of new events and discard buffered events */
         manager->ctrl = udev_ctrl_unref(manager->ctrl);
+        manager->varlink_server = sd_varlink_server_unref(manager->varlink_server);
 
         manager->inotify_event = sd_event_source_disable_unref(manager->inotify_event);
         manager->inotify_fd = safe_close(manager->inotify_fd);
@@ -1385,6 +1387,10 @@ int manager_main(Manager *manager) {
         r = setup_event(manager, fd_worker);
         if (r < 0)
                 return r;
+
+        r = manager_open_varlink(manager);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize varlink server: %m");
 
         r = setup_ctrl(manager);
         if (r < 0)
