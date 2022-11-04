@@ -560,7 +560,7 @@ int bus_link_method_set_mdns(sd_bus_message *message, void *userdata, sd_bus_err
                 return r;
 
         if (isempty(mdns))
-                mode = RESOLVE_SUPPORT_NO;
+                mode = RESOLVE_SUPPORT_YES;
         else {
                 mode = resolve_support_from_string(mdns);
                 if (mode < 0)
