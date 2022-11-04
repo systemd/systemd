@@ -140,8 +140,7 @@ void link_allocate_scopes(Link *l) {
                 l->unicast_scope = dns_scope_free(l->unicast_scope);
 
         if (link_relevant(l, AF_INET, true) &&
-            l->llmnr_support != RESOLVE_SUPPORT_NO &&
-            l->manager->llmnr_support != RESOLVE_SUPPORT_NO) {
+            link_get_llmnr_support(l) != RESOLVE_SUPPORT_NO) {
                 if (!l->llmnr_ipv4_scope) {
                         r = dns_scope_new(l->manager, &l->llmnr_ipv4_scope, l, DNS_PROTOCOL_LLMNR, AF_INET);
                         if (r < 0)
@@ -151,8 +150,7 @@ void link_allocate_scopes(Link *l) {
                 l->llmnr_ipv4_scope = dns_scope_free(l->llmnr_ipv4_scope);
 
         if (link_relevant(l, AF_INET6, true) &&
-            l->llmnr_support != RESOLVE_SUPPORT_NO &&
-            l->manager->llmnr_support != RESOLVE_SUPPORT_NO) {
+            link_get_llmnr_support(l) != RESOLVE_SUPPORT_NO) {
                 if (!l->llmnr_ipv6_scope) {
                         r = dns_scope_new(l->manager, &l->llmnr_ipv6_scope, l, DNS_PROTOCOL_LLMNR, AF_INET6);
                         if (r < 0)
@@ -162,8 +160,7 @@ void link_allocate_scopes(Link *l) {
                 l->llmnr_ipv6_scope = dns_scope_free(l->llmnr_ipv6_scope);
 
         if (link_relevant(l, AF_INET, true) &&
-            l->mdns_support != RESOLVE_SUPPORT_NO &&
-            l->manager->mdns_support != RESOLVE_SUPPORT_NO) {
+            link_get_mdns_support(l) != RESOLVE_SUPPORT_NO) {
                 if (!l->mdns_ipv4_scope) {
                         r = dns_scope_new(l->manager, &l->mdns_ipv4_scope, l, DNS_PROTOCOL_MDNS, AF_INET);
                         if (r < 0)
@@ -173,8 +170,7 @@ void link_allocate_scopes(Link *l) {
                 l->mdns_ipv4_scope = dns_scope_free(l->mdns_ipv4_scope);
 
         if (link_relevant(l, AF_INET6, true) &&
-            l->mdns_support != RESOLVE_SUPPORT_NO &&
-            l->manager->mdns_support != RESOLVE_SUPPORT_NO) {
+            link_get_mdns_support(l) != RESOLVE_SUPPORT_NO) {
                 if (!l->mdns_ipv6_scope) {
                         r = dns_scope_new(l->manager, &l->mdns_ipv6_scope, l, DNS_PROTOCOL_MDNS, AF_INET6);
                         if (r < 0)
@@ -191,8 +187,7 @@ void link_add_rrs(Link *l, bool force_remove) {
                 link_address_add_rrs(a, force_remove);
 
         if (!force_remove &&
-            l->mdns_support == RESOLVE_SUPPORT_YES &&
-            l->manager->mdns_support == RESOLVE_SUPPORT_YES) {
+            link_get_mdns_support(l) == RESOLVE_SUPPORT_YES) {
 
                 if (l->mdns_ipv4_scope) {
                         r = dns_scope_add_dnssd_services(l->mdns_ipv4_scope);
@@ -651,13 +646,13 @@ int link_update(Link *l) {
         if (r < 0)
                 return r;
 
-        if (l->llmnr_support != RESOLVE_SUPPORT_NO) {
+        if (link_get_llmnr_support(l) != RESOLVE_SUPPORT_NO) {
                 r = manager_llmnr_start(l->manager);
                 if (r < 0)
                         return r;
         }
 
-        if (l->mdns_support != RESOLVE_SUPPORT_NO) {
+        if (link_get_mdns_support(l) != RESOLVE_SUPPORT_NO) {
                 r = manager_mdns_start(l->manager);
                 if (r < 0)
                         return r;
@@ -802,6 +797,24 @@ bool link_dnssec_supported(Link *l) {
         return true;
 }
 
+ResolveSupport link_get_llmnr_support(Link *link) {
+        assert(link);
+        assert(link->manager);
+
+        /* This provides the effective LLMNR support level for the link, instead of the 'internal' per-link setting. */
+
+        return MIN(link->llmnr_support, link->manager->llmnr_support);
+}
+
+ResolveSupport link_get_mdns_support(Link *link) {
+        assert(link);
+        assert(link->manager);
+
+        /* This provides the effective mDNS support level for the link, instead of the 'internal' per-link setting. */
+
+        return MIN(link->mdns_support, link->manager->mdns_support);
+}
+
 int link_address_new(Link *l, LinkAddress **ret, int family, const union in_addr_union *in_addr) {
         LinkAddress *a;
 
@@ -885,8 +898,7 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                 if (!force_remove &&
                     link_address_relevant(a, true) &&
                     a->link->llmnr_ipv4_scope &&
-                    a->link->llmnr_support == RESOLVE_SUPPORT_YES &&
-                    a->link->manager->llmnr_support == RESOLVE_SUPPORT_YES) {
+                    link_get_llmnr_support(a->link) == RESOLVE_SUPPORT_YES) {
 
                         if (!a->link->manager->llmnr_host_ipv4_key) {
                                 a->link->manager->llmnr_host_ipv4_key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, a->link->manager->llmnr_hostname);
@@ -939,8 +951,7 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                 if (!force_remove &&
                     link_address_relevant(a, true) &&
                     a->link->mdns_ipv4_scope &&
-                    a->link->mdns_support == RESOLVE_SUPPORT_YES &&
-                    a->link->manager->mdns_support == RESOLVE_SUPPORT_YES) {
+                    link_get_mdns_support(a->link) == RESOLVE_SUPPORT_YES) {
                         if (!a->link->manager->mdns_host_ipv4_key) {
                                 a->link->manager->mdns_host_ipv4_key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, a->link->manager->mdns_hostname);
                                 if (!a->link->manager->mdns_host_ipv4_key) {
@@ -995,8 +1006,7 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                 if (!force_remove &&
                     link_address_relevant(a, true) &&
                     a->link->llmnr_ipv6_scope &&
-                    a->link->llmnr_support == RESOLVE_SUPPORT_YES &&
-                    a->link->manager->llmnr_support == RESOLVE_SUPPORT_YES) {
+                    link_get_llmnr_support(a->link) == RESOLVE_SUPPORT_YES) {
 
                         if (!a->link->manager->llmnr_host_ipv6_key) {
                                 a->link->manager->llmnr_host_ipv6_key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, a->link->manager->llmnr_hostname);
@@ -1049,8 +1059,7 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                 if (!force_remove &&
                     link_address_relevant(a, true) &&
                     a->link->mdns_ipv6_scope &&
-                    a->link->mdns_support == RESOLVE_SUPPORT_YES &&
-                    a->link->manager->mdns_support == RESOLVE_SUPPORT_YES) {
+                    link_get_mdns_support(a->link) == RESOLVE_SUPPORT_YES) {
 
                         if (!a->link->manager->mdns_host_ipv6_key) {
                                 a->link->manager->mdns_host_ipv6_key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, a->link->manager->mdns_hostname);

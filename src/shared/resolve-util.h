@@ -25,10 +25,11 @@ typedef enum ResolveSupport ResolveSupport;
 typedef enum DnssecMode DnssecMode;
 typedef enum DnsOverTlsMode DnsOverTlsMode;
 
+/* Do not change the order, see link_get_llmnr_support() or link_get_mdns_support(). */
 enum ResolveSupport {
         RESOLVE_SUPPORT_NO,
-        RESOLVE_SUPPORT_YES,
         RESOLVE_SUPPORT_RESOLVE,
+        RESOLVE_SUPPORT_YES,
         _RESOLVE_SUPPORT_MAX,
         _RESOLVE_SUPPORT_INVALID = -EINVAL,
 };
