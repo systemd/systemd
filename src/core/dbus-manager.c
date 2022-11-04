@@ -2396,7 +2396,7 @@ static int unit_file_preset_without_mode(LookupScope scope, UnitFileFlags flags,
 }
 
 static int method_preset_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_preset_without_mode, true, /* TODO(SELinux): add new permission "preset" ? */ NULL, __func__, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_preset_without_mode, true, "preset", __func__, error);
 }
 
 static int method_mask_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2418,7 +2418,7 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
                 .message = message,
                 .error = error,
                 .function = __func__,
-                .selinux_permission = NULL,  /* TODO(SELinux): add new permission "preset" ? */
+                .selinux_permission = "preset",
         };
 
         assert(message);
@@ -2543,7 +2543,7 @@ static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_
                 .message = message,
                 .error = error,
                 .function = __func__,
-                .selinux_permission = NULL,  /* TODO(SELinux): add new permission "revert" / "modify" ? */
+                .selinux_permission = "modify",
         };
         int r;
 
@@ -2608,7 +2608,7 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
                 .message = message,
                 .error = error,
                 .function = __func__,
-                .selinux_permission = NULL,  /* TODO(SELinux): add new permission "preset" ? */
+                .selinux_permission = "preset",
         };
         int force, runtime, r;
 
@@ -2659,7 +2659,7 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
                 .message = message,
                 .error = error,
                 .function = __func__,
-                .selinux_permission = NULL,  /* TODO(SELinux): add new permission "modify" ? */
+                .selinux_permission = "modify",
         };
 
         assert(message);
