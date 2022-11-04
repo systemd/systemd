@@ -152,8 +152,7 @@ void link_allocate_scopes(Link *l) {
 
         if (link_relevant(l, AF_INET6, true) &&
             l->llmnr_support != RESOLVE_SUPPORT_NO &&
-            l->manager->llmnr_support != RESOLVE_SUPPORT_NO &&
-            socket_ipv6_is_supported()) {
+            l->manager->llmnr_support != RESOLVE_SUPPORT_NO) {
                 if (!l->llmnr_ipv6_scope) {
                         r = dns_scope_new(l->manager, &l->llmnr_ipv6_scope, l, DNS_PROTOCOL_LLMNR, AF_INET6);
                         if (r < 0)
