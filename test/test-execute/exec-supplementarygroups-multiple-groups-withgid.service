@@ -3,8 +3,8 @@
 Description=Test for Supplementary Group with multiple groups and Group=1
 
 [Service]
-ExecStart=/bin/sh -x -c 'HAVE=0; for g in $$(id -G); do test "$$g" = "1" && HAVE=1; done; test "$$HAVE" -eq 1'
-ExecStart=/bin/sh -x -c 'HAVE=0; for g in $$(id -G); do test "$$g" = "2" && HAVE=1; done; test "$$HAVE" -eq 1'
+ExecStart=/bin/sh -x -c 'for g in $$(id -G); do test "$$g" = "1" && exit 0; done; exit 1'
+ExecStart=/bin/sh -x -c 'for g in $$(id -G); do test "$$g" = "2" && exit 0; done; exit 1'
 ExecStart=/bin/sh -x -c 'test "$$(id -g)" = "1" && test "$$(id -u)" = "%U"'
 Type=oneshot
 Group=1
