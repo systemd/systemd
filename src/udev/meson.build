@@ -23,6 +23,7 @@ libudevd_core_sources = files(
         'udev-ctrl.h',
         'udev-event.c',
         'udev-event.h',
+        'udev-manager.h',
         'udev-node.c',
         'udev-node.h',
         'udev-rules.c',
