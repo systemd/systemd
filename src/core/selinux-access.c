@@ -16,11 +16,16 @@
 #include "alloc-util.h"
 #include "audit-fd.h"
 #include "bus-util.h"
+#include "dbus-callbackdata.h"
 #include "errno-util.h"
 #include "format-util.h"
+#include "hostname-util.h"
+#include "install.h"
 #include "log.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "selinux-util.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "util.h"
@@ -29,14 +34,15 @@ static bool initialized = false;
 
 struct audit_info {
         sd_bus_creds *creds;
+        const char *unit_name;
         const char *path;
-        const char *cmdline;
         const char *function;
 };
 
 /*
    Any time an access gets denied this callback will be called
    with the audit data.  We then need to just copy the audit data into the msgbuf.
+   Total audit buffer size is 1024.
 */
 static int audit_callback(
                 void *auditdata,
@@ -47,9 +53,12 @@ static int audit_callback(
         const struct audit_info *audit = auditdata;
         uid_t uid = 0, login_uid = 0;
         gid_t gid = 0;
+        pid_t pid = 0;
         char login_uid_buf[DECIMAL_STR_MAX(uid_t) + 1] = "n/a";
         char uid_buf[DECIMAL_STR_MAX(uid_t) + 1] = "n/a";
         char gid_buf[DECIMAL_STR_MAX(gid_t) + 1] = "n/a";
+        char pid_buf[DECIMAL_STR_MAX(pid_t) + 1] = "n/a";
+        _cleanup_free_ char *exe = NULL, *cmdline = NULL;
 
         if (sd_bus_creds_get_audit_login_uid(audit->creds, &login_uid) >= 0)
                 xsprintf(login_uid_buf, UID_FMT, login_uid);
@@ -57,12 +66,19 @@ static int audit_callback(
                 xsprintf(uid_buf, UID_FMT, uid);
         if (sd_bus_creds_get_egid(audit->creds, &gid) >= 0)
                 xsprintf(gid_buf, GID_FMT, gid);
+        if (sd_bus_creds_get_pid(audit->creds, &pid) >= 0) {
+                xsprintf(pid_buf, PID_FMT, pid);
+                (void) get_process_exe(pid, &exe);
+                (void) get_process_cmdline(pid, 80, PROCESS_CMDLINE_COMM_FALLBACK, &cmdline);
+        }
 
         (void) snprintf(msgbuf, msgbufsize,
-                        "auid=%s uid=%s gid=%s%s%s%s%s%s%s%s%s%s",
-                        login_uid_buf, uid_buf, gid_buf,
+                        "auid=%s uid=%s gid=%s subj_pid=%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
+                        login_uid_buf, uid_buf, gid_buf, pid_buf,
+                        audit->unit_name ? " unit_name=\"" : "", strempty(audit->unit_name), audit->unit_name ? "\"" : "",
                         audit->path ? " path=\"" : "", strempty(audit->path), audit->path ? "\"" : "",
-                        audit->cmdline ? " cmdline=\"" : "", strempty(audit->cmdline), audit->cmdline ? "\"" : "",
+                        exe ? " subj_exe=\"" : "", strempty(exe), exe ? "\"" : "",
+                        cmdline ? " subj_cmdline=\"" : "", strempty(cmdline), cmdline ? "\"" : "",
                         audit->function ? " function=\"" : "", strempty(audit->function), audit->function ? "\"" : "");
 
         return 0;
@@ -112,10 +128,16 @@ _printf_(2, 3) static int log_callback(int type, const char *fmt, ...) {
                 va_end(ap);
 
                 if (r >= 0) {
+                        _cleanup_free_ char *hn = NULL;
+
+                        hn = gethostname_malloc();
+                        if (hn)
+                                hostname_cleanup(hn);
+
                         if (type == SELINUX_AVC)
-                                audit_log_user_avc_message(get_audit_fd(), AUDIT_USER_AVC, buf, NULL, NULL, NULL, 0);
+                                audit_log_user_avc_message(get_audit_fd(), AUDIT_USER_AVC, buf, hn, NULL, NULL, getuid());
                         else if (type == SELINUX_ERROR)
-                                audit_log_user_avc_message(get_audit_fd(), AUDIT_USER_SELINUX_ERR, buf, NULL, NULL, NULL, 0);
+                                audit_log_user_avc_message(get_audit_fd(), AUDIT_USER_SELINUX_ERR, buf, hn, NULL, NULL, getuid());
 
                         return 0;
                 }
@@ -177,6 +199,7 @@ static int access_init(sd_bus_error *error) {
 */
 int mac_selinux_access_check_internal(
                 sd_bus_message *message,
+                const char *unit_name,
                 const char *unit_path,
                 const char *unit_context,
                 const char *permission,
@@ -185,9 +208,7 @@ int mac_selinux_access_check_internal(
 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         const char *tclass, *scon, *acon;
-        _cleanup_free_ char *cl = NULL;
         _cleanup_freecon_ char *fcon = NULL;
-        char **cmdline = NULL;
         bool enforce;
         int r = 0;
 
@@ -245,13 +266,10 @@ int mac_selinux_access_check_internal(
                 tclass = "system";
         }
 
-        sd_bus_creds_get_cmdline(creds, &cmdline);
-        cl = strv_join(cmdline, " ");
-
         struct audit_info audit_info = {
                 .creds = creds,
+                .unit_name = unit_name,
                 .path = unit_path,
-                .cmdline = cl,
                 .function = function,
         };
 
@@ -263,21 +281,89 @@ int mac_selinux_access_check_internal(
                         sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "SELinux policy denies access: %m");
         }
 
-        log_full_errno_zerook(LOG_DEBUG, r,
-                              "SELinux access check scon=%s tcon=%s tclass=%s perm=%s state=%s function=%s path=%s cmdline=%s: %m",
-                              scon, acon, tclass, permission, enforce ? "enforcing" : "permissive", function, strna(unit_path), strna(empty_to_null(cl)));
+        log_full_errno_zerook(LOG_WARNING, r,
+                              "SELinux access check scon=%s tcon=%s tclass=%s perm=%s state=%s function=%s unitname=%s path=%s: %m",
+                              scon, acon, tclass, permission, enforce ? "enforcing" : "permissive", function, strna(unit_name), strna(unit_path));
         return enforce ? r : 0;
+}
+
+int mac_selinux_unit_callback_check(
+        const char *unit_name,
+        const MacUnitCallbackUserdata *userdata) {
+
+        _cleanup_freecon_ char *selcon = NULL;
+        Unit *u;
+        const char *path = NULL, *label = NULL;
+        int r;
+
+        assert(unit_name);
+        assert(userdata);
+        assert(userdata->manager);
+        assert(userdata->message);
+        assert(userdata->error);
+        assert(userdata->function);
+
+        if (!mac_selinux_use())
+                return 0;
+
+        /* Skip if the operation should not be checked by SELinux */
+        if (!userdata->selinux_permission)
+                return 0;
+
+        u = manager_get_unit(userdata->manager, unit_name);
+        if (!u)
+                (void) manager_load_unit(userdata->manager, unit_name, NULL, NULL, &u);
+        if (u) {
+                path = u->fragment_path;
+                label = u->access_selinux_context;
+        }
+
+        if (!path || !label)
+                log_warning("Failed to gather unit information for SELinux callback check: name=%s path=%s label=%s",
+                            unit_name, strna(path), strna(label));
+
+        if (!label) {
+                const char *lookup_path;
+
+                lookup_path = manager_lookup_unit_label_path(userdata->manager, unit_name);
+                if (lookup_path) {
+                        path = lookup_path;
+
+                        r = getfilecon_raw(lookup_path, &selcon);
+                        if (r < 0)
+                                log_unit_warning_errno(u, r, "Failed to read SELinux context of '%s', ignoring: %m", lookup_path);
+                        else
+                                label = selcon;
+                }
+        }
+
+        return mac_selinux_access_check_internal(
+                userdata->message,
+                unit_name,
+                path,
+                label,
+                userdata->selinux_permission,
+                userdata->function,
+                userdata->error);
 }
 
 #else /* HAVE_SELINUX */
 
 int mac_selinux_access_check_internal(
                 sd_bus_message *message,
+                const char *unit_name,
                 const char *unit_path,
                 const char *unit_label,
                 const char *permission,
                 const char *function,
                 sd_bus_error *error) {
+
+        return 0;
+}
+
+int mac_selinux_unit_callback_check(
+                const char *unit_name,
+                const MacUnitCallbackUserdata *userdata) {
 
         return 0;
 }
