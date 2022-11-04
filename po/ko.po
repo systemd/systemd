@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2022-10-20 10:35+0200\n"
-"PO-Revision-Date: 2022-10-22 17:19+0000\n"
+"PO-Revision-Date: 2022-11-04 12:19+0000\n"
 "Last-Translator: 김인수 <simmon@nplob.com>\n"
 "Language-Team: Korean <https://translate.fedoraproject.org/projects/systemd/"
 "master/ko/>\n"
@@ -32,19 +32,19 @@ msgstr "시스템에 입력한 암호를 보내려면 인증이 필요합니다.
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
-msgstr "시스템 서비스 또는 기타 유닛 관리"
+msgstr "시스템 서비스 또는 기타 단위 관리"
 
 #: src/core/org.freedesktop.systemd1.policy.in:34
 msgid "Authentication is required to manage system services or other units."
-msgstr "시스템 서비스 또는 기타 유닛을 관리하려면 인증이 필요합니다."
+msgstr "시스템 서비스 또는 기타 단위를 관리하려면 인증이 필요합니다."
 
 #: src/core/org.freedesktop.systemd1.policy.in:43
 msgid "Manage system service or unit files"
-msgstr "시스템 서비스 또는 유닛 파일 관리"
+msgstr "시스템 서비스 또는 단위 파일 관리"
 
 #: src/core/org.freedesktop.systemd1.policy.in:44
 msgid "Authentication is required to manage system service or unit files."
-msgstr "시스템 서비스 또는 유닛 파일을 관리하려면 인증이 필요합니다."
+msgstr "시스템 서비스 또는 단위 파일을 관리하려면 인증이 필요합니다."
 
 #: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
@@ -194,11 +194,11 @@ msgstr "가상 머신 또는 컨테이너 이미지를 다운로드하려면 인
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
-msgstr "시스템 로캘 설정"
+msgstr "시스템 로케일 설정"
 
 #: src/locale/org.freedesktop.locale1.policy:23
 msgid "Authentication is required to set the system locale."
-msgstr "시스템 로캘을 설정하려면 인증이 필요합니다."
+msgstr "시스템 로케일을 설정하려면 인증이 필요합니다."
 
 #: src/locale/org.freedesktop.locale1.policy:33
 msgid "Set system keyboard settings"
