@@ -174,12 +174,35 @@ int fd_cloexec(int fd, bool cloexec) {
         return RET_NERRNO(fcntl(fd, F_SETFD, nflags));
 }
 
+int fd_cloexec_many(const int fds[], size_t n_fds, bool cloexec) {
+        int ret = 0, r;
+
+        assert(n_fds == 0 || fds);
+
+        for (size_t i = 0; i < n_fds; i++) {
+                if (fds[i] < 0) /* Skip gracefully over already invalidated fds */
+                        continue;
+
+                r = fd_cloexec(fds[i], cloexec);
+                if (r < 0 && ret >= 0) /* Continue going, but return first error */
+                        ret = r;
+                else
+                        ret = 1; /* report if we did anything */
+        }
+
+        return ret;
+}
+
 _pure_ static bool fd_in_set(int fd, const int fdset[], size_t n_fdset) {
         assert(n_fdset == 0 || fdset);
 
-        for (size_t i = 0; i < n_fdset; i++)
+        for (size_t i = 0; i < n_fdset; i++) {
+                if (fdset[i] < 0)
+                        continue;
+
                 if (fdset[i] == fd)
                         return true;
+        }
 
         return false;
 }
@@ -251,6 +274,10 @@ static int close_all_fds_special_case(const int except[], size_t n_except) {
 
         if (!have_close_range)
                 return 0;
+
+        if (n_except == 1 && except[0] < 0) /* Minor optimization: if we only got one fd, and it's invalid,
+                                             * we got none */
+                n_except = 0;
 
         switch (n_except) {
 
