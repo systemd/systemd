@@ -174,6 +174,25 @@ int fd_cloexec(int fd, bool cloexec) {
         return RET_NERRNO(fcntl(fd, F_SETFD, nflags));
 }
 
+int fd_cloexec_many(const int fds[], size_t n_fds, bool cloexec) {
+        int ret = 0, r;
+
+        assert(n_fds == 0 || fds);
+
+        for (size_t i = 0; i < n_fds; i++) {
+                if (fds[i] < 0) /* Skip gracefully over already invalidated fds */
+                        continue;
+
+                r = fd_cloexec(fds[i], cloexec);
+                if (r < 0 && ret >= 0) /* Continue going, but return first error */
+                        ret = r;
+                else
+                        ret = 1; /* report if we did anything */
+        }
+
+        return ret;
+}
+
 _pure_ static bool fd_in_set(int fd, const int fdset[], size_t n_fdset) {
         assert(n_fdset == 0 || fdset);
 
