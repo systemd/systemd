@@ -8,6 +8,7 @@
 #include "list.h"
 #include "udev-ctrl.h"
 #include "udev-rules.h"
+#include "varlink.h"
 
 typedef struct Event Event;
 
@@ -26,6 +27,7 @@ typedef struct Manager {
 
         sd_device_monitor *monitor;
         UdevCtrl *ctrl;
+        VarlinkServer *varlink_server;
         int worker_watch[2];
 
         /* used by udev-watch */
