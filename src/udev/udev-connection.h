@@ -4,6 +4,7 @@
 #include "sd-varlink.h"
 
 #include "udev-ctrl.h"
+#include "udev-varlink.h"
 
 typedef struct UdevConnection {
         sd_varlink *link;

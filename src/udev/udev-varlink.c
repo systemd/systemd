@@ -2,6 +2,7 @@
 
 #include "udev-manager.h"
 #include "udev-varlink.h"
+#include "varlink-io.systemd.service.h"
 
 int udev_varlink_connect(sd_varlink **ret) {
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *link = NULL;
@@ -50,6 +51,12 @@ int manager_open_varlink(Manager *m) {
                 return r;
 
         sd_varlink_server_set_userdata(m->varlink_server, m);
+
+        r = sd_varlink_server_bind_method_many(
+                        m->varlink_server,
+                        "io.systemd.service.Ping", varlink_method_ping);
+        if (r < 0)
+                return r;
 
         r = sd_varlink_server_listen_address(m->varlink_server, UDEV_VARLINK_ADDRESS, 0600);
         if (r < 0)
