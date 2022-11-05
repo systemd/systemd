@@ -2,7 +2,7 @@
 #pragma once
 
 #include "udev-ctrl.h"
-#include "varlink.h"
+#include "udev-varlink.h"
 
 typedef struct UdevConnection {
         Varlink *link;
@@ -17,10 +17,10 @@ static inline int udev_connection_send_ping(UdevConnection *conn) {
         assert(conn);
         assert(conn->link || conn->uctrl);
 
-        if (conn->uctrl)
+        if (!conn->link)
                 return udev_ctrl_send_ping(conn->uctrl);
 
-        return 0;
+        return udev_varlink_call(conn->link, "io.systemd.service.Ping", NULL, NULL);
 }
 
 static inline int udev_connection_wait(UdevConnection *conn) {
