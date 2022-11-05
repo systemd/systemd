@@ -27,3 +27,4 @@ CoredumpFilter coredump_filter_from_string(const char *s) _pure_;
 int coredump_filter_mask_from_string(const char *s, uint64_t *ret);
 
 int set_coredump_filter(uint64_t value);
+void disable_coredumps(void);

@@ -67,5 +67,3 @@ static inline unsigned log2u_round_up(unsigned x) {
 }
 
 int version(void);
-
-void disable_coredumps(void);

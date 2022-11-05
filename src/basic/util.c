@@ -26,15 +26,3 @@ int version(void) {
                systemd_features);
         return 0;
 }
-
-/* Turn off core dumps but only if we're running outside of a container. */
-void disable_coredumps(void) {
-        int r;
-
-        if (detect_container() > 0)
-                return;
-
-        r = write_string_file("/proc/sys/kernel/core_pattern", "|/bin/false", WRITE_STRING_FILE_DISABLE_BUFFER);
-        if (r < 0)
-                log_debug_errno(r, "Failed to turn off coredumps, ignoring: %m");
-}

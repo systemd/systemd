@@ -20,6 +20,7 @@
 #include "compress.h"
 #include "conf-parser.h"
 #include "copy.h"
+#include "coredump-util.h"
 #include "coredump-vacuum.h"
 #include "dirent-util.h"
 #include "elf-util.h"
