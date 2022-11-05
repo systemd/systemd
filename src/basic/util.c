@@ -21,47 +21,6 @@
 int saved_argc = 0;
 char **saved_argv = NULL;
 
-int container_get_leader(const char *machine, pid_t *pid) {
-        _cleanup_free_ char *s = NULL, *class = NULL;
-        const char *p;
-        pid_t leader;
-        int r;
-
-        assert(machine);
-        assert(pid);
-
-        if (streq(machine, ".host")) {
-                *pid = 1;
-                return 0;
-        }
-
-        if (!hostname_is_valid(machine, 0))
-                return -EINVAL;
-
-        p = strjoina("/run/systemd/machines/", machine);
-        r = parse_env_file(NULL, p,
-                           "LEADER", &s,
-                           "CLASS", &class);
-        if (r == -ENOENT)
-                return -EHOSTDOWN;
-        if (r < 0)
-                return r;
-        if (!s)
-                return -EIO;
-
-        if (!streq_ptr(class, "container"))
-                return -EIO;
-
-        r = parse_pid(s, &leader);
-        if (r < 0)
-                return r;
-        if (leader <= 1)
-                return -EIO;
-
-        *pid = leader;
-        return 0;
-}
-
 int version(void) {
         printf("systemd " STRINGIFY(PROJECT_VERSION) " (" GIT_VERSION ")\n%s\n",
                systemd_features);

@@ -66,8 +66,6 @@ static inline unsigned log2u_round_up(unsigned x) {
         return log2u(x - 1) + 1;
 }
 
-int container_get_leader(const char *machine, pid_t *pid);
-
 int version(void);
 
 void disable_coredumps(void);
