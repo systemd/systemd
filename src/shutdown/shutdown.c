@@ -19,6 +19,7 @@
 #include "binfmt-util.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
+#include "coredump-util.h"
 #include "def.h"
 #include "errno-util.h"
 #include "exec-util.h"
