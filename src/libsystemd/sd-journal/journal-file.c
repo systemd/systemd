@@ -92,6 +92,19 @@
 #  pragma GCC diagnostic ignored "-Waddress-of-packed-member"
 #endif
 
+static int mmap_prot_from_open_flags(int flags) {
+        switch (flags & O_ACCMODE) {
+        case O_RDONLY:
+                return PROT_READ;
+        case O_WRONLY:
+                return PROT_WRITE;
+        case O_RDWR:
+                return PROT_READ|PROT_WRITE;
+        default:
+                assert_not_reached();
+        }
+}
+
 int journal_file_tail_end_by_pread(JournalFile *f, uint64_t *ret_offset) {
         uint64_t p;
         int r;
@@ -3767,7 +3780,7 @@ int journal_file_open(
                 newly_created = f->last_stat.st_size == 0 && journal_file_writable(f);
         }
 
-        f->cache_fd = mmap_cache_add_fd(mmap_cache, f->fd, prot_from_flags(open_flags));
+        f->cache_fd = mmap_cache_add_fd(mmap_cache, f->fd, mmap_prot_from_open_flags(open_flags));
         if (!f->cache_fd) {
                 r = -ENOMEM;
                 goto fail;
