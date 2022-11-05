@@ -19,9 +19,6 @@ static inline void save_argc_argv(int argc, char **argv) {
         saved_argv = argv;
 }
 
-bool in_initrd(void);
-void in_initrd_force(bool value);
-
 /* Note: log2(0) == log2(1) == 0 here and below. */
 
 #define CONST_LOG2ULL(x) ((x) > 1 ? (unsigned) __builtin_clzll(x) ^ 63U : 0)

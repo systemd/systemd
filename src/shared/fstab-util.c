@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "device-nodes.h"
 #include "fstab-util.h"
+#include "initrd-util.h"
 #include "macro.h"
 #include "mount-util.h"
 #include "nulstr-util.h"

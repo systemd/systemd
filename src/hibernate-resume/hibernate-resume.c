@@ -7,8 +7,8 @@
 #include "alloc-util.h"
 #include "devnum-util.h"
 #include "fileio.h"
+#include "initrd-util.h"
 #include "log.h"
-#include "util.h"
 
 int main(int argc, char *argv[]) {
         struct stat st;

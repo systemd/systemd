@@ -52,6 +52,7 @@
 #include "hostname-setup.h"
 #include "ima-setup.h"
 #include "import-creds.h"
+#include "initrd-util.h"
 #include "killall.h"
 #include "kmod-setup.h"
 #include "limits-util.h"
@@ -92,7 +93,6 @@
 #include "time-util.h"
 #include "umask-util.h"
 #include "user-util.h"
-#include "util.h"
 #include "virt.h"
 #include "watchdog.h"
 
