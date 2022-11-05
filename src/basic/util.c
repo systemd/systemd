@@ -23,24 +23,6 @@ int saved_argc = 0;
 char **saved_argv = NULL;
 static int saved_in_initrd = -1;
 
-int prot_from_flags(int flags) {
-
-        switch (flags & O_ACCMODE) {
-
-        case O_RDONLY:
-                return PROT_READ;
-
-        case O_WRONLY:
-                return PROT_WRITE;
-
-        case O_RDWR:
-                return PROT_READ|PROT_WRITE;
-
-        default:
-                return -EINVAL;
-        }
-}
-
 bool in_initrd(void) {
         int r;
         const char *e;
