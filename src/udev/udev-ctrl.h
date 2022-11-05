@@ -5,6 +5,7 @@
 
 #include "macro.h"
 #include "time-util.h"
+#include "varlink.h"
 
 typedef struct UdevCtrl UdevCtrl;
 
@@ -29,6 +30,7 @@ typedef int (*udev_ctrl_handler_t)(UdevCtrl *udev_ctrl, UdevCtrlMessageType type
                                    const UdevCtrlMessageValue *value, void *userdata);
 
 int udev_ctrl_new_from_fd(UdevCtrl **ret, int fd);
+int udev_ctrl_new_with_link(UdevCtrl **ret, Varlink *link);
 static inline int udev_ctrl_new(UdevCtrl **ret) {
         return udev_ctrl_new_from_fd(ret, -1);
 }
