@@ -6,6 +6,7 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "initrd-util.h"
 #include "macro.h"
 #include "path-lookup.h"
 #include "set.h"

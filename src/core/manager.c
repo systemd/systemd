@@ -48,6 +48,7 @@
 #include "fileio.h"
 #include "generator-setup.h"
 #include "hashmap.h"
+#include "initrd-util.h"
 #include "inotify-util.h"
 #include "install.h"
 #include "io-util.h"

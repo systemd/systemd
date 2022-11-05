@@ -6,6 +6,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "initrd-util.h"
 #include "macro.h"
 #include "manager-serialize.h"
 #include "manager.h"

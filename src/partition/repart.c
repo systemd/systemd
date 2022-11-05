@@ -40,6 +40,7 @@
 #include "hexdecoct.h"
 #include "hmac.h"
 #include "id128-util.h"
+#include "initrd-util.h"
 #include "io-util.h"
 #include "json.h"
 #include "list.h"

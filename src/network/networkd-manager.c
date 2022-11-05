@@ -26,6 +26,7 @@
 #include "fileio.h"
 #include "firewall-util.h"
 #include "fs-util.h"
+#include "initrd-util.h"
 #include "local-addresses.h"
 #include "netlink-util.h"
 #include "network-internal.h"
