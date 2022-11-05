@@ -8,6 +8,7 @@
 #include "dropin.h"
 #include "fstab-util.h"
 #include "generator.h"
+#include "initrd-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "mkdir-label.h"

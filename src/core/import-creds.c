@@ -9,6 +9,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
+#include "initrd-util.h"
 #include "import-creds.h"
 #include "io-util.h"
 #include "mkdir-label.h"
