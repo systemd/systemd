@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "initrd-util.h"
 #include "path-lookup.h"
 #include "set.h"
 #include "special.h"

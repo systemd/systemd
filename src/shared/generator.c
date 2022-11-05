@@ -11,6 +11,7 @@
 #include "fileio.h"
 #include "fstab-util.h"
 #include "generator.h"
+#include "initrd-util.h"
 #include "log.h"
 #include "macro.h"
 #include "mkdir-label.h"
@@ -21,7 +22,6 @@
 #include "string-util.h"
 #include "time-util.h"
 #include "unit-name.h"
-#include "util.h"
 
 int generator_open_unit_file(
                 const char *dir,

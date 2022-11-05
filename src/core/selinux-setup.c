@@ -8,13 +8,13 @@
 #include <selinux/selinux.h>
 #endif
 
+#include "initrd-util.h"
 #include "log.h"
 #include "macro.h"
 #include "selinux-setup.h"
 #include "selinux-util.h"
 #include "string-util.h"
 #include "time-util.h"
-#include "util.h"
 
 #if HAVE_SELINUX
 _printf_(2,3)

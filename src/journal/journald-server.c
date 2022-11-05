@@ -27,6 +27,7 @@
 #include "hashmap.h"
 #include "hostname-util.h"
 #include "id128-util.h"
+#include "initrd-util.h"
 #include "io-util.h"
 #include "journal-authenticate.h"
 #include "journal-internal.h"

@@ -24,6 +24,7 @@
 #include "exec-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "initrd-util.h"
 #include "killall.h"
 #include "log.h"
 #include "parse-util.h"
@@ -36,7 +37,6 @@
 #include "sysctl-util.h"
 #include "terminal-util.h"
 #include "umount.h"
-#include "util.h"
 #include "virt.h"
 #include "watchdog.h"
 

@@ -13,6 +13,7 @@
 #include "fstab-util.h"
 #include "generator.h"
 #include "in-addr-util.h"
+#include "initrd-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
@@ -29,7 +30,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
-#include "util.h"
 #include "virt.h"
 #include "volatile-util.h"
 

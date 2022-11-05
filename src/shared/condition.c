@@ -34,6 +34,7 @@
 #include "fs-util.h"
 #include "glob-util.h"
 #include "hostname-util.h"
+#include "initrd-util.h"
 #include "ima-util.h"
 #include "limits-util.h"
 #include "list.h"
