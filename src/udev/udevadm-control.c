@@ -227,7 +227,7 @@ static int send_control_commands(void) {
         }
 
         if (arg_ping) {
-                r = udev_ctrl_send_ping(conn.uctrl);
+                r = udev_connection_send_ping(&conn);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send a ping message: %m");
         }

@@ -47,8 +47,10 @@ int udev_connection_send_ping(UdevConnection *conn) {
         assert(conn);
         assert(conn->link || conn->uctrl);
 
-        if (conn->uctrl)
+        if (!conn->link)
                 return udev_ctrl_send_ping(conn->uctrl);
+
+        return udev_varlink_call(conn->link, "io.systemd.service.Ping", NULL, NULL);
 
         return 0;
 }
