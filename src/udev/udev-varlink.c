@@ -3,6 +3,41 @@
 #include "udev-manager.h"
 #include "udev-varlink.h"
 
+int udev_varlink_connect(Varlink **ret_link) {
+        _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
+        int r;
+
+        assert(ret_link);
+
+        r = varlink_connect_address(&link, UDEV_VARLINK_ADDRESS);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to " UDEV_VARLINK_ADDRESS ": %m");
+
+        (void) varlink_set_description(link, "udev");
+        (void) varlink_set_relative_timeout(link, USEC_INFINITY);
+
+        *ret_link = TAKE_PTR(link);
+
+        return 0;
+}
+
+int udev_varlink_call(Varlink *link, const char *method, JsonVariant *parameters, JsonVariant **ret_parameters) {
+        const char *error;
+        int r;
+
+        assert(link);
+        assert(method);
+
+        r = varlink_call(link, method, parameters, ret_parameters, &error, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to execute varlink call: %m");
+        if (error)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADE),
+                                       "Failed to execute varlink call: %s", error);
+
+        return 0;
+}
+
 int udev_open_varlink(Manager *m) {
         int r;
 
