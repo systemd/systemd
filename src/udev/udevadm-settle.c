@@ -18,6 +18,7 @@
 #include "time-util.h"
 #include "udev-ctrl.h"
 #include "udev-util.h"
+#include "udev-varlink.h"
 #include "udevadm.h"
 #include "unit-def.h"
 #include "virt.h"
@@ -198,11 +199,20 @@ int settle_main(int argc, char *argv[], void *userdata) {
         (void) emit_deprecation_warning();
 
         if (getuid() == 0) {
+                _cleanup_(varlink_close_unrefp) Varlink *link = NULL;
                 _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
 
                 /* guarantee that the udev daemon isn't pre-processing */
 
-                r = udev_ctrl_new(&uctrl);
+                r = udev_varlink_connect(&link);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to initialize varlink connection: %m");
+
+                r = varlink_set_relative_timeout(link, arg_timeout_usec);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to apply timeout: %m");
+
+                r = udev_ctrl_new_with_link(&uctrl, link);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create control socket for udev daemon: %m");
 

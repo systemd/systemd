@@ -22,6 +22,7 @@
 #include "udevadm.h"
 #include "udevadm-util.h"
 #include "udev-ctrl.h"
+#include "udev-varlink.h"
 #include "virt.h"
 
 static bool arg_verbose = false;
@@ -488,9 +489,18 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         }
 
         if (ping) {
+                _cleanup_(varlink_close_unrefp) Varlink *link = NULL;
                 _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
 
-                r = udev_ctrl_new(&uctrl);
+                r = udev_varlink_connect(&link);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to initialize varlink connection: %m");
+
+                r = varlink_set_relative_timeout(link, ping_timeout_usec);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to apply timeout: %m");
+
+                r = udev_ctrl_new_with_link(&uctrl, link);
                 if (r < 0)
                         return log_error_errno(r, "Failed to initialize udev control: %m");
 

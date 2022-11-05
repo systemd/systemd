@@ -25,6 +25,7 @@
 #include "time-util.h"
 #include "udevadm.h"
 #include "udev-ctrl.h"
+#include "udev-varlink.h"
 #include "virt.h"
 
 static int help(void) {
@@ -47,6 +48,7 @@ static int help(void) {
 }
 
 int control_main(int argc, char *argv[], void *userdata) {
+        _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
         _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
         usec_t timeout = 60 * USEC_PER_SEC;
         int c, r;
@@ -82,7 +84,11 @@ int control_main(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "This command expects one or more options.");
 
-        r = udev_ctrl_new(&uctrl);
+        r = udev_varlink_connect(&link);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize varlink connection: %m");
+
+        r = udev_ctrl_new_with_link(&uctrl, link);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize udev control: %m");
 
