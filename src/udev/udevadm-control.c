@@ -171,10 +171,8 @@ int control_main(int argc, char *argv[], void *userdata) {
                         break;
                 }
                 case ARG_PING:
-                        r = udev_ctrl_send_ping(uctrl);
-                        if (r == -ENOANO)
-                                log_error("Cannot specify --ping after --exit, ignoring.");
-                        else if (r < 0)
+                        r = udev_varlink_call(link, "io.systemd.udev.Ping", NULL, NULL);
+                        if (r < 0)
                                 return log_error_errno(r, "Failed to send a ping message: %m");
                         break;
                 case 't': /* Already handled, ignore */

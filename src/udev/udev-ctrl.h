@@ -17,7 +17,6 @@ typedef enum UdevCtrlMessageType {
         UDEV_CTRL_RELOAD,
         UDEV_CTRL_SET_ENV,
         UDEV_CTRL_SET_CHILDREN_MAX,
-        UDEV_CTRL_PING,
         UDEV_CTRL_EXIT,
 } UdevCtrlMessageType;
 
@@ -66,9 +65,7 @@ static inline int udev_ctrl_send_set_children_max(UdevCtrl *uctrl, int count) {
         return udev_ctrl_send(uctrl, UDEV_CTRL_SET_CHILDREN_MAX, INT_TO_PTR(count));
 }
 
-static inline int udev_ctrl_send_ping(UdevCtrl *uctrl) {
-        return udev_ctrl_send(uctrl, UDEV_CTRL_PING, NULL);
-}
+int udev_ctrl_send_ping(UdevCtrl *uctrl);
 
 static inline int udev_ctrl_send_exit(UdevCtrl *uctrl) {
         return udev_ctrl_send(uctrl, UDEV_CTRL_EXIT, NULL);

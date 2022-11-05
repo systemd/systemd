@@ -1313,9 +1313,6 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
 
                 notify_ready();
                 break;
-        case UDEV_CTRL_PING:
-                log_debug("Received udev control message (PING)");
-                break;
         case UDEV_CTRL_EXIT:
                 log_debug("Received udev control message (EXIT)");
                 manager_exit(manager);
