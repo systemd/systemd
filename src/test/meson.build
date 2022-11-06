@@ -205,6 +205,8 @@ tests += [
 
         [files('test-ratelimit.c')],
 
+        [files('test-limits-util.c')],
+
         [files('test-util.c')],
 
         [files('test-macro.c')],
