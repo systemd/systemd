@@ -39,6 +39,7 @@
 #if HAVE_APPARMOR
 #include "apparmor-util.h"
 #endif
+#include "argv-util.h"
 #include "async.h"
 #include "barrier.h"
 #include "bpf-lsm.h"
