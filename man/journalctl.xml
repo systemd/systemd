@@ -371,6 +371,14 @@
         <listitem><para>Show only kernel messages. This implies <option>-b</option> and adds the match
         <literal>_TRANSPORT=kernel</literal>.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>--audit</option></term>
+
+        <listitem><para>Show only audit messages. This adds the match
+        <literal>_TRANSPORT=audit</literal>.</para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
