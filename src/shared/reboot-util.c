@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
-#include <error.h>
-#include <fcntl.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <string.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -22,7 +18,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
-#include "memory-util.h"
 #include "proc-cmdline.h"
 #include "raw-reboot.h"
 #include "reboot-util.h"
@@ -127,9 +122,9 @@ int shall_restore_state(void) {
 
 static int xen_kexec_loaded(void) {
 #if HAVE_XENCTRL
-        size_t size;
         _cleanup_close_ int privcmd_fd = -1, buf_fd = -1;
-        void *buffer;
+        xen_kexec_status_t *buffer;
+        size_t size;
         int r;
 
         if (access("/proc/xen", F_OK) < 0) {
@@ -154,7 +149,7 @@ static int xen_kexec_loaded(void) {
         if (buffer == MAP_FAILED)
                 return log_debug_errno(errno, "Cannot allocate buffer for hypercall: %m");
 
-        *(xen_kexec_status_t*) buffer = (xen_kexec_status_t) {
+        *buffer = (xen_kexec_status_t) {
                 .type = KEXEC_TYPE_DEFAULT,
         };
 

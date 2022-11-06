@@ -6,7 +6,7 @@ set -eux
 # shellcheck source=test/units/assert.sh
 . "$(dirname "$0")"/assert.sh
 
-systemd-analyze log-level debug
+systemctl log-level debug
 export SYSTEMD_LOG_LEVEL=debug
 
 # Sanity checks
@@ -19,6 +19,17 @@ systemd-analyze time || :
 systemd-analyze blame || :
 systemd-analyze critical-chain || :
 systemd-analyze plot >/dev/null || :
+# legacy/deprecated options (moved to systemctl, but still usable from analyze)
+systemd-analyze log-level
+systemd-analyze log-level "$(systemctl log-level)"
+systemd-analyze get-log-level
+systemd-analyze set-log-level "$(systemctl log-level)"
+systemd-analyze log-target
+systemd-analyze log-target "$(systemctl log-target)"
+systemd-analyze get-log-target
+systemd-analyze set-log-target "$(systemctl log-target)"
+systemd-analyze service-watchdogs
+systemd-analyze service-watchdogs "$(systemctl service-watchdogs)"
 # dot
 systemd-analyze dot >/dev/null
 systemd-analyze dot systemd-journald.service >/dev/null
@@ -34,8 +45,16 @@ systemd-analyze dot "systemd-*.service" >/dev/null
 systemd-analyze dump >/dev/null
 systemd-analyze dump "*" >/dev/null
 systemd-analyze dump "*.socket" >/dev/null
+systemd-analyze dump "*.socket" "*.service" aaaaaaa ... >/dev/null
 systemd-analyze dump systemd-journald.service >/dev/null
 (! systemd-analyze dump "")
+# unit-files
+systemd-analyze unit-files >/dev/null
+systemd-analyze unit-files systemd-journald.service >/dev/null
+systemd-analyze unit-files "*" >/dev/null
+systemd-analyze unit-files "*" aaaaaa "*.service" "*.target" >/dev/null
+systemd-analyze unit-files --user >/dev/null
+systemd-analyze unit-files --user "*" aaaaaa "*.service" "*.target" >/dev/null
 # unit-paths
 systemd-analyze unit-paths
 systemd-analyze unit-paths --user
@@ -92,6 +111,7 @@ systemd-analyze calendar '*-* *:*:*'
 systemd-analyze calendar --iterations=5 '*-* *:*:*'
 systemd-analyze calendar --iterations=50 '*-* *:*:*'
 systemd-analyze calendar --iterations=0 '*-* *:*:*'
+systemd-analyze calendar --iterations=5 '01-01-22 01:00:00'
 systemd-analyze calendar --base-time=yesterday --iterations=5 '*-* *:*:*'
 (! systemd-analyze calendar --iterations=0 '*-* 99:*:*')
 (! systemd-analyze calendar --base-time=never '*-* *:*:*')
@@ -103,12 +123,14 @@ systemd-analyze timestamp -- -1
 systemd-analyze timestamp yesterday now tomorrow
 (! systemd-analyze timestamp yesterday never tomorrow)
 (! systemd-analyze timestamp 1)
+(! systemd-analyze timestamp '*-2-29 0:0:0')
 (! systemd-analyze timestamp "")
 # timespan
 systemd-analyze timespan 1
 systemd-analyze timespan 1s 300s '1year 0.000001s'
 (! systemd-analyze timespan 1s 300s aaaaaa '1year 0.000001s')
 (! systemd-analyze timespan -- -1)
+(! systemd-analyze timespan '*-2-29 0:0:0')
 (! systemd-analyze timespan "")
 # cat-config
 systemd-analyze cat-config systemd/system.conf >/dev/null
