@@ -22,7 +22,6 @@
 #include "unit-printf.h"
 #include "unit.h"
 #include "user-util.h"
-#include "util.h"
 
 static char *runtime_dir = NULL;
 

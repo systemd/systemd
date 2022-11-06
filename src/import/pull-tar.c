@@ -28,7 +28,6 @@
 #include "tmpfile-util.h"
 #include "user-util.h"
 #include "utf8.h"
-#include "util.h"
 #include "web-util.h"
 
 typedef enum TarProgress {

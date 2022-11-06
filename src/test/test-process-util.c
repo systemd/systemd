@@ -34,7 +34,6 @@
 #include "terminal-util.h"
 #include "tests.h"
 #include "user-util.h"
-#include "util.h"
 #include "virt.h"
 
 static void test_get_process_comm_one(pid_t pid) {

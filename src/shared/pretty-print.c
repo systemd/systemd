@@ -16,7 +16,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "util.h"
 
 bool urlify_enabled(void) {
 #if ENABLE_URLIFY
