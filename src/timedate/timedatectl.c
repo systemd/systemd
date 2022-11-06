@@ -8,6 +8,7 @@
 
 #include "sd-bus.h"
 
+#include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
@@ -24,7 +25,6 @@
 #include "string-table.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "util.h"
 #include "verbs.h"
 
 static PagerFlags arg_pager_flags = 0;

@@ -20,6 +20,7 @@
 #include "acl-util.h"
 #include "alloc-util.h"
 #include "btrfs-util.h"
+#include "build.h"
 #include "capability-util.h"
 #include "chase-symlinks.h"
 #include "chattr-util.h"

@@ -19,6 +19,7 @@
 #include "blkid-util.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
+#include "build.h"
 #include "chase-symlinks.h"
 #include "conf-files.h"
 #include "conf-parser.h"

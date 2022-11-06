@@ -7,6 +7,7 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "build.h"
 #include "discover-image.h"
 #include "export-raw.h"
 #include "export-tar.h"

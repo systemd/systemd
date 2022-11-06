@@ -3,6 +3,7 @@
 #include <getopt.h>
 
 #include "ask-password-api.h"
+#include "build.h"
 #include "cryptenroll-fido2.h"
 #include "cryptenroll-list.h"
 #include "cryptenroll-password.h"

@@ -18,6 +18,7 @@
 #include "sd-messages.h"
 
 #include "btrfs-util.h"
+#include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-util.h"
@@ -37,7 +38,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "util.h"
 
 static SleepOperation arg_operation = _SLEEP_OPERATION_INVALID;
 

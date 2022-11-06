@@ -18,6 +18,7 @@
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
+#include "build.h"
 #include "conf-parser.h"
 #include "def.h"
 #include "dirent-util.h"

@@ -9,6 +9,7 @@
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
+#include "build.h"
 #include "env-util.h"
 #include "format-util.h"
 #include "log.h"
@@ -20,7 +21,6 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "user-util.h"
-#include "util.h"
 
 static bool arg_ready = false;
 static pid_t arg_pid = 0;

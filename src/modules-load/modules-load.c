@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <sys/stat.h>
 
+#include "build.h"
 #include "conf-files.h"
 #include "def.h"
 #include "fd-util.h"
@@ -16,7 +17,6 @@
 #include "proc-cmdline.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
 
 static char **arg_proc_cmdline_modules = NULL;
 static const char conf_file_dirs[] = CONF_PATHS_NULSTR("modules-load.d");

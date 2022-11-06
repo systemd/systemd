@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 #include "alloc-util.h"
+#include "build.h"
 #include "gpt.h"
 #include "id128-print.h"
 #include "main-func.h"
@@ -11,7 +12,6 @@
 #include "strv.h"
 #include "format-table.h"
 #include "terminal-util.h"
-#include "util.h"
 #include "verbs.h"
 
 static Id128PrettyPrintMode arg_mode = ID128_PRINT_ID128;

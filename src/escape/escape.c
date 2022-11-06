@@ -5,6 +5,7 @@
 #include <stdlib.h>
 
 #include "alloc-util.h"
+#include "build.h"
 #include "log.h"
 #include "main-func.h"
 #include "path-util.h"

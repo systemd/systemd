@@ -14,6 +14,7 @@
 #include "sd-resolve.h"
 
 #include "alloc-util.h"
+#include "build.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
@@ -25,7 +26,6 @@
 #include "set.h"
 #include "socket-util.h"
 #include "string-util.h"
-#include "util.h"
 
 #define BUFFER_SIZE (256 * 1024)
 

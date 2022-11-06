@@ -4,6 +4,7 @@
 
 #include <sd-messages.h>
 
+#include "build.h"
 #include "efivars.h"
 #include "main-func.h"
 #include "openssl-util.h"

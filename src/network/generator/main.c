@@ -2,6 +2,7 @@
 
 #include <getopt.h>
 
+#include "build.h"
 #include "fd-util.h"
 #include "generator.h"
 #include "macro.h"

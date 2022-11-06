@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "bootspec.h"
+#include "build.h"
 #include "devnum-util.h"
 #include "efi-api.h"
 #include "efi-loader.h"
@@ -19,7 +20,6 @@
 #include "pretty-print.h"
 #include "sync-util.h"
 #include "terminal-util.h"
-#include "util.h"
 #include "verbs.h"
 #include "virt.h"
 

@@ -10,6 +10,7 @@
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
+#include "build.h"
 #include "conf-parser.h"
 #include "daemon-util.h"
 #include "def.h"
@@ -32,7 +33,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
-#include "util.h"
 #include "version.h"
 
 #define PRIV_KEY_FILE CERTIFICATE_ROOT "/private/journal-upload.pem"

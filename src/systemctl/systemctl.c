@@ -6,6 +6,7 @@
 
 #include "sd-daemon.h"
 
+#include "build.h"
 #include "bus-util.h"
 #include "dissect-image.h"
 #include "install.h"

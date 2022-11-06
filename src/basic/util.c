@@ -20,9 +20,3 @@
 
 int saved_argc = 0;
 char **saved_argv = NULL;
-
-int version(void) {
-        printf("systemd " STRINGIFY(PROJECT_VERSION) " (" GIT_VERSION ")\n%s\n",
-               systemd_features);
-        return 0;
-}

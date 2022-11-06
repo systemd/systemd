@@ -15,6 +15,7 @@
 #include "alloc-util.h"
 #include "blkid-util.h"
 #include "bootspec.h"
+#include "build.h"
 #include "chase-symlinks.h"
 #include "copy.h"
 #include "devnum-util.h"
@@ -53,7 +54,6 @@
 #include "tpm2-util.h"
 #include "umask-util.h"
 #include "utf8.h"
-#include "util.h"
 #include "verbs.h"
 #include "virt.h"
 
