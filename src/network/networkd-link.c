@@ -27,6 +27,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "glyph-util.h"
+#include "logarithm.h"
 #include "missing_network.h"
 #include "netlink-util.h"
 #include "network-internal.h"
@@ -66,7 +67,6 @@
 #include "tmpfile-util.h"
 #include "tuntap.h"
 #include "udev-util.h"
-#include "util.h"
 #include "vrf.h"
 
 bool link_ipv6_enabled(Link *link) {

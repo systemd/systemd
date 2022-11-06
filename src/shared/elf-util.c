@@ -24,7 +24,6 @@
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "string-util.h"
-#include "util.h"
 
 #define FRAMES_MAX 64
 #define THREADS_MAX 64

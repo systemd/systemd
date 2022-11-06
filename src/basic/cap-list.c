@@ -10,7 +10,6 @@
 #include "macro.h"
 #include "parse-util.h"
 #include "stdio-util.h"
-#include "util.h"
 
 static const struct capability_name* lookup_capability(register const char *str, register GPERF_LEN_TYPE len);
 

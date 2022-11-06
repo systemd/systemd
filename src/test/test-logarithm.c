@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "logarithm.h"
 #include "tests.h"
-#include "util.h"
 
 TEST(LOG2ULL) {
         assert_se(LOG2ULL(0) == 0);
