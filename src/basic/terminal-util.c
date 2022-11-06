@@ -44,7 +44,6 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "user-util.h"
-#include "util.h"
 
 static volatile unsigned cached_columns = 0;
 static volatile unsigned cached_lines = 0;

@@ -6,7 +6,6 @@
 #include "macro.h"
 #include "strv.h"
 #include "tests.h"
-#include "util.h"
 
 TEST(get_locales) {
         _cleanup_strv_free_ char **locales = NULL;

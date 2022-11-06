@@ -23,7 +23,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
-#include "util.h"
 
 typedef struct crypto_device {
         char *uuid;

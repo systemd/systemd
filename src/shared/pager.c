@@ -25,7 +25,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "util.h"
 
 static pid_t pager_pid = 0;
 

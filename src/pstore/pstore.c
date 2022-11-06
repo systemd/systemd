@@ -45,7 +45,6 @@
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
-#include "util.h"
 
 /* Command line argument handling */
 typedef enum PStoreStorage {
