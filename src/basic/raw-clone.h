@@ -11,6 +11,7 @@
 
 #include "log.h"
 #include "macro.h"
+#include "process-util.h"
 
 /**
  * raw_clone() - uses clone to create a new process with clone flags
