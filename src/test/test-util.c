@@ -83,37 +83,6 @@ TEST(log2i) {
         assert_se(log2i(INT_MAX) == sizeof(int)*8-2);
 }
 
-TEST(protect_errno) {
-        errno = 12;
-        {
-                PROTECT_ERRNO;
-                errno = 11;
-        }
-        assert_se(errno == 12);
-}
-
-static void test_unprotect_errno_inner_function(void) {
-        PROTECT_ERRNO;
-
-        errno = 2222;
-}
-
-TEST(unprotect_errno) {
-        errno = 4711;
-
-        PROTECT_ERRNO;
-
-        errno = 815;
-
-        UNPROTECT_ERRNO;
-
-        assert_se(errno == 4711);
-
-        test_unprotect_errno_inner_function();
-
-        assert_se(errno == 4711);
-}
-
 TEST(eqzero) {
         const uint32_t zeros[] = {0, 0, 0};
         const uint32_t ones[] = {1, 1};
