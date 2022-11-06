@@ -15,7 +15,6 @@
 #include "netlink-types.h"
 #include "netlink-util.h"
 #include "socket-util.h"
-#include "util.h"
 
 static bool rtnl_message_type_is_neigh(uint16_t type) {
         return IN_SET(type, RTM_NEWNEIGH, RTM_GETNEIGH, RTM_DELNEIGH);

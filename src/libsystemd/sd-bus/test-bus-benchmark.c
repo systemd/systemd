@@ -13,7 +13,6 @@
 #include "missing_resource.h"
 #include "string-util.h"
 #include "time-util.h"
-#include "util.h"
 
 #define MAX_SIZE (2*1024*1024)
 

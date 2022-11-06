@@ -29,7 +29,6 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
-#include "util.h"
 
 /* Put this test here for a lack of better place */
 assert_cc(EAGAIN == EWOULDBLOCK);

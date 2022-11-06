@@ -21,7 +21,6 @@
 #include "fd-util.h"
 #include "random-util.h"
 #include "tests.h"
-#include "util.h"
 
 static struct hw_addr_data hw_addr = {
         .length = ETH_ALEN,

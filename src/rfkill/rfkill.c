@@ -24,7 +24,6 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "udev-util.h"
-#include "util.h"
 
 /* Note that any write is delayed until exit and the rfkill state will not be
  * stored for rfkill indices that disappear after a change. */

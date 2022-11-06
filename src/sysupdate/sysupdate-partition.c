@@ -10,7 +10,6 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "sysupdate-partition.h"
-#include "util.h"
 
 void partition_info_destroy(PartitionInfo *p) {
         assert(p);
