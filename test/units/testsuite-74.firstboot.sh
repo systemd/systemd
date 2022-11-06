@@ -9,7 +9,7 @@ if ! command -v systemd-firstboot >/dev/null; then
 fi
 
 at_exit() {
-    if [[ -v ROOT && -n "$ROOT" ]]; then
+    if [[ -n "${ROOT:-}" ]]; then
         ls -lR "$ROOT"
         rm -fr "$ROOT"
     fi
@@ -33,10 +33,9 @@ touch "$ROOT/bin/fooshell" "$ROOT/bin/barshell"
 systemd-firstboot --root="$ROOT" --locale=foo
 grep -q "LANG=foo" "$ROOT/etc/locale.conf"
 rm -fv "$ROOT/etc/locale.conf"
-# FIXME: https://github.com/systemd/systemd/issues/25249
-#systemd-firstboot --root="$ROOT" --locale-messages=foo
-#grep -q "LC_MESSAGES=foo" "$ROOT/etc/locale.conf"
-#rm -fv "$ROOT/etc/locale.conf"
+systemd-firstboot --root="$ROOT" --locale-messages=foo
+grep -q "LC_MESSAGES=foo" "$ROOT/etc/locale.conf"
+rm -fv "$ROOT/etc/locale.conf"
 systemd-firstboot --root="$ROOT" --locale=foo --locale-messages=bar
 grep -q "LANG=foo" "$ROOT/etc/locale.conf"
 grep -q "LC_MESSAGES=bar" "$ROOT/etc/locale.conf"
@@ -134,6 +133,30 @@ diff <(awk -F: '/^root/ { print $2; }' /etc/shadow) <(awk -F: '/^root/ { print $
 [[ -e /etc/vconsole.conf ]] && diff /etc/vconsole.conf "$ROOT/etc/vconsole.conf"
 [[ -e /etc/localtime ]] && diff <(readlink /etc/localtime) <(readlink "$ROOT/etc/localtime")
 
+# --prompt-* options
+rm -fr "$ROOT"
+mkdir -p "$ROOT/bin"
+touch "$ROOT/bin/fooshell" "$ROOT/bin/barshell"
+# We can do only limited testing here, since it's all an interactive stuff,
+# so --prompt and --prompt-root-password are skipped on purpose
+echo -ne "\nfoo\nbar\n" | systemd-firstboot --root="$ROOT" --prompt-locale
+grep -q "LANG=foo" "$ROOT/etc/locale.conf"
+grep -q "LC_MESSAGES=bar" "$ROOT/etc/locale.conf"
+echo -ne "\nfoo\n" | systemd-firstboot --root="$ROOT" --prompt-keymap
+grep -q "KEYMAP=foo" "$ROOT/etc/vconsole.conf"
+echo -ne "\nEurope/Berlin\n" | systemd-firstboot --root="$ROOT" --prompt-timezone
+readlink "$ROOT/etc/localtime" | grep -q "Europe/Berlin$"
+echo -ne "\nfoobar\n" | systemd-firstboot --root="$ROOT" --prompt-hostname
+grep -q "foobar" "$ROOT/etc/hostname"
+echo -ne "\n/bin/fooshell\n" | systemd-firstboot --root="$ROOT" --prompt-root-shell
+grep -q "^root:.*:0:0:.*:/bin/fooshell$" "$ROOT/etc/passwd"
+# Existing files should not get overwritten
+echo -ne "\n/bin/barshell\n" | systemd-firstboot --root="$ROOT" --prompt-root-shell
+grep -q "^root:.*:0:0:.*:/bin/fooshell$" "$ROOT/etc/passwd"
+# Now without the welcome screen but with force
+echo -ne "/bin/barshell\n" | systemd-firstboot --root="$ROOT" --force --prompt-root-shell --welcome=no
+grep -q "^root:.*:0:0:.*:/bin/barshell$" "$ROOT/etc/passwd"
+
 # Assorted tests
 rm -fr "$ROOT"
 mkdir "$ROOT"
@@ -143,3 +166,7 @@ grep -E "[a-z0-9]{32}" "$ROOT/etc/machine-id"
 
 systemd-firstboot --root="$ROOT" --delete-root-password
 diff <(echo) <(awk -F: '/^root/ { print $2; }' "$ROOT/etc/shadow")
+
+(! systemd-firstboot --root="$ROOT" --root-shell=/bin/nonexistentshell)
+(! systemd-firstboot --root="$ROOT" --machine-id=invalidmachineid)
+(! systemd-firstboot --root="$ROOT" --timezone=Foo/Bar)
