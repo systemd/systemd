@@ -5,12 +5,12 @@
 #include "sd-hwdb.h"
 
 #include "alloc-util.h"
+#include "build.h"
 #include "hwdb-util.h"
 #include "main-func.h"
 #include "pretty-print.h"
 #include "selinux-util.h"
 #include "terminal-util.h"
-#include "util.h"
 #include "verbs.h"
 
 static const char *arg_hwdb_bin_dir = NULL;

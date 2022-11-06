@@ -14,6 +14,7 @@
 #include "sd-journal.h"
 
 #include "alloc-util.h"
+#include "build.h"
 #include "bus-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -30,7 +31,6 @@
 #include "pretty-print.h"
 #include "sigbus.h"
 #include "tmpfile-util.h"
-#include "util.h"
 
 #define JOURNAL_WAIT_TIMEOUT (10*USEC_PER_SEC)
 

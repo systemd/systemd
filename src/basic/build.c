@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
+
 #include "build.h"
+#include "macro.h"
 
 const char* const systemd_features =
 
@@ -226,3 +229,9 @@ const char* const systemd_features =
 
         " default-hierarchy=" DEFAULT_HIERARCHY_NAME
         ;
+
+int version(void) {
+        printf("systemd " STRINGIFY(PROJECT_VERSION) " (" GIT_VERSION ")\n%s\n",
+               systemd_features);
+        return 0;
+}

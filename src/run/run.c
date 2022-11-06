@@ -10,6 +10,7 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"

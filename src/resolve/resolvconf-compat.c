@@ -4,6 +4,7 @@
 #include <net/if.h>
 
 #include "alloc-util.h"
+#include "build.h"
 #include "def.h"
 #include "dns-domain.h"
 #include "extract-word.h"
