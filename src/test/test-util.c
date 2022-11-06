@@ -1,17 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-
-#include "fileio.h"
-#include "fs-util.h"
-#include "limits-util.h"
-#include "memory-util.h"
-#include "missing_syscall.h"
-#include "parse-util.h"
-#include "process-util.h"
-#include "raw-clone.h"
-#include "rm-rf.h"
-#include "string-util.h"
 #include "tests.h"
 #include "util.h"
 
@@ -81,18 +69,6 @@ TEST(log2i) {
         assert_se(log2i(33) == 5);
         assert_se(log2i(63) == 5);
         assert_se(log2i(INT_MAX) == sizeof(int)*8-2);
-}
-
-TEST(eqzero) {
-        const uint32_t zeros[] = {0, 0, 0};
-        const uint32_t ones[] = {1, 1};
-        const uint32_t mixed[] = {0, 1, 0, 0, 0};
-        const uint8_t longer[] = {[55] = 255};
-
-        assert_se(eqzero(zeros));
-        assert_se(!eqzero(ones));
-        assert_se(!eqzero(mixed));
-        assert_se(!eqzero(longer));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

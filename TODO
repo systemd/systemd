@@ -72,8 +72,6 @@ Regularly:
 
 Janitorial Clean-ups:
 
-* Rearrange tests so that the various test-xyz.c match a specific src/basic/xyz.c again
-
 * rework mount.c and swap.c to follow proper state enumeration/deserialization
   semantics, like we do for device.c now
 

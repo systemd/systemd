@@ -217,6 +217,8 @@ tests += [
          [],
          [libm]],
 
+        [files('test-memory-util.c')],
+
         [files('test-mkdir.c')],
 
         [files('test-json.c'),
