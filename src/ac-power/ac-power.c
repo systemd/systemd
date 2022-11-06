@@ -2,6 +2,7 @@
 
 #include <getopt.h>
 
+#include "build.h"
 #include "main-func.h"
 #include "udev-util.h"
 

@@ -2,6 +2,7 @@
 
 #include <getopt.h>
 
+#include "build.h"
 #include "bus-log-control-api.h"
 #include "bus-object.h"
 #include "cgroup-util.h"

@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "build.h"
 #include "conf-files.h"
 #include "creds-util.h"
 #include "def.h"
