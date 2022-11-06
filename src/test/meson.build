@@ -41,6 +41,8 @@ test_dlopen_c = files('test-dlopen.c')
 ############################################################
 
 tests += [
+        [files('test-argv-util.c')],
+
         [files('test-device-nodes.c')],
 
         [files('test-ether-addr-util.c')],

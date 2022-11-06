@@ -22,6 +22,7 @@
 #include "alloc-util.h"
 #include "apparmor-setup.h"
 #include "architecture.h"
+#include "argv-util.h"
 #if HAVE_LIBBPF
 #include "bpf-lsm.h"
 #endif
