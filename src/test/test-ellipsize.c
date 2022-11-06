@@ -8,7 +8,6 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "tests.h"
-#include "util.h"
 #include "utf8.h"
 
 static void test_ellipsize_mem_one(const char *s, size_t old_length, size_t new_length) {

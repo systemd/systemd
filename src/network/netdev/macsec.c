@@ -18,7 +18,6 @@
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "util.h"
 
 static void security_association_clear(SecurityAssociation *sa) {
         if (!sa)

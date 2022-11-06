@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "fq.h"
+#include "logarithm.h"
 #include "netlink-util.h"
 #include "parse-util.h"
 #include "string-util.h"

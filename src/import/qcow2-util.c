@@ -6,7 +6,6 @@
 #include "btrfs-util.h"
 #include "qcow2-util.h"
 #include "sparse-endian.h"
-#include "util.h"
 
 #define QCOW2_MAGIC 0x514649fb
 

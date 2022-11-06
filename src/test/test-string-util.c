@@ -9,7 +9,6 @@
 #include "strv.h"
 #include "tests.h"
 #include "utf8.h"
-#include "util.h"
 
 TEST(string_erase) {
         char *x;

@@ -25,7 +25,6 @@
 #include "rm-rf.h"
 #include "string-util.h"
 #include "tmpfile-util.h"
-#include "util.h"
 
 struct RawImport {
         sd_event *event;

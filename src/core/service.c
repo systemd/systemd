@@ -41,7 +41,6 @@
 #include "unit-name.h"
 #include "unit.h"
 #include "utf8.h"
-#include "util.h"
 
 #define service_spawn(...) service_spawn_internal(__func__, __VA_ARGS__)
 

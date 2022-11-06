@@ -2,7 +2,6 @@
 
 #include "import-compress.h"
 #include "string-table.h"
-#include "util.h"
 
 void import_compress_free(ImportCompress *c) {
         assert(c);

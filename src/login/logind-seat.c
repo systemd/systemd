@@ -23,7 +23,6 @@
 #include "string-util.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
-#include "util.h"
 
 int seat_new(Seat** ret, Manager *m, const char *id) {
         _cleanup_(seat_freep) Seat *s = NULL;

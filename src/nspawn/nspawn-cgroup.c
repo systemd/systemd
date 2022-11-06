@@ -18,7 +18,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
-#include "util.h"
 
 static int chown_cgroup_path(const char *path, uid_t uid_shift) {
         _cleanup_close_ int fd = -1;

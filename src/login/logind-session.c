@@ -38,7 +38,6 @@
 #include "tmpfile-util.h"
 #include "uid-alloc-range.h"
 #include "user-util.h"
-#include "util.h"
 
 #define RELEASE_USEC (20*USEC_PER_SEC)
 

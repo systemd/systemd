@@ -7,7 +7,6 @@
 #include "macro.h"
 #include "string-util.h"
 #include "tests.h"
-#include "util.h"
 
 TEST(errno_list) {
         for (size_t i = 0; i < ELEMENTSOF(errno_names); i++) {

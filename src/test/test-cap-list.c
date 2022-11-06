@@ -9,7 +9,6 @@
 #include "parse-util.h"
 #include "string-util.h"
 #include "tests.h"
-#include "util.h"
 
 /* verify the capability parser */
 TEST(cap_list) {

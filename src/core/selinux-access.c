@@ -23,7 +23,6 @@
 #include "selinux-util.h"
 #include "stdio-util.h"
 #include "strv.h"
-#include "util.h"
 
 static bool initialized = false;
 

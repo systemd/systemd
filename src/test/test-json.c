@@ -12,7 +12,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
-#include "util.h"
 
 static void test_tokenizer_one(const char *data, ...) {
         unsigned line = 0, column = 0;

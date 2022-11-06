@@ -23,7 +23,6 @@
 #include "stdio-util.h"
 #include "strv.h"
 #include "unit-name.h"
-#include "util.h"
 #include "utmp-wtmp.h"
 
 typedef struct Context {

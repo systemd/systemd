@@ -12,7 +12,6 @@
 #include "fd-util.h"
 #include "in-addr-util.h"
 #include "unaligned.h"
-#include "util.h"
 
 int arp_update_filter(int fd, const struct in_addr *a, const struct ether_addr *mac) {
         struct sock_filter filter[] = {

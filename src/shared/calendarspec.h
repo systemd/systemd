@@ -7,7 +7,6 @@
 #include <stdbool.h>
 
 #include "time-util.h"
-#include "util.h"
 
 typedef struct CalendarComponent {
         int start;

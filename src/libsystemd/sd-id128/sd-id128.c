@@ -16,7 +16,6 @@
 #include "missing_syscall.h"
 #include "random-util.h"
 #include "user-util.h"
-#include "util.h"
 
 _public_ char *sd_id128_to_string(sd_id128_t id, char s[_SD_ARRAY_STATIC SD_ID128_STRING_MAX]) {
         assert_return(s, NULL);

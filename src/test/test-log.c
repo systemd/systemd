@@ -7,7 +7,6 @@
 #include "log.h"
 #include "process-util.h"
 #include "string-util.h"
-#include "util.h"
 
 assert_cc(IS_SYNTHETIC_ERRNO(SYNTHETIC_ERRNO(EINVAL)));
 assert_cc(!IS_SYNTHETIC_ERRNO(EINVAL));

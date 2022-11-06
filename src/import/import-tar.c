@@ -26,7 +26,6 @@
 #include "rm-rf.h"
 #include "string-util.h"
 #include "tmpfile-util.h"
-#include "util.h"
 
 struct TarImport {
         sd_event *event;

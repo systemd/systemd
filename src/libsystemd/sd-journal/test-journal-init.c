@@ -7,7 +7,6 @@
 #include "parse-util.h"
 #include "rm-rf.h"
 #include "tests.h"
-#include "util.h"
 
 int main(int argc, char *argv[]) {
         sd_journal *j;

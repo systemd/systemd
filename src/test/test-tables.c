@@ -36,7 +36,6 @@
 #include "timer.h"
 #include "unit-name.h"
 #include "unit.h"
-#include "util.h"
 #include "virt.h"
 
 int main(int argc, char **argv) {

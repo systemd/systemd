@@ -9,7 +9,6 @@
 #include "string-util.h"
 #include "tests.h"
 #include "time-util.h"
-#include "util.h"
 
 static void test_testing(void) {
         bool b;

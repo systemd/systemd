@@ -15,7 +15,6 @@
 #include "glyph-util.h"
 #include "set.h"
 #include "string-util.h"
-#include "util.h"
 
 static int flush_acl(acl_t acl) {
         acl_entry_t i;

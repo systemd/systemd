@@ -18,7 +18,6 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
 
 char* cpu_set_to_string(const CPUSet *a) {
         _cleanup_free_ char *str = NULL;

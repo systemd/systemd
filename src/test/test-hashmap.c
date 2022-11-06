@@ -3,7 +3,6 @@
 #include "hashmap.h"
 #include "string-util.h"
 #include "tests.h"
-#include "util.h"
 
 unsigned custom_counter = 0;
 static void custom_destruct(void* p) {

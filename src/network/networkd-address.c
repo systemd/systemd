@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "firewall-util.h"
+#include "logarithm.h"
 #include "memory-util.h"
 #include "netlink-util.h"
 #include "networkd-address-pool.h"

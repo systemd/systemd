@@ -5,7 +5,6 @@
 #include <sys/types.h>
 
 #include "time-util.h"
-#include "util.h"
 
 #if ENABLE_UTMP
 #include <utmpx.h>

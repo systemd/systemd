@@ -17,7 +17,6 @@
 #include "missing_capability.h"
 #include "strv.h"
 #include "user-util.h"
-#include "util.h"
 
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_const_true, "b", true);
 static BUS_DEFINE_PROPERTY_GET(property_get_can_tty, "b", Seat, seat_can_tty);

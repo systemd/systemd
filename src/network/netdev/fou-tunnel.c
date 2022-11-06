@@ -13,7 +13,6 @@
 #include "parse-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "util.h"
 
 static const char* const fou_encap_type_table[_NETDEV_FOO_OVER_UDP_ENCAP_MAX] = {
         [NETDEV_FOO_OVER_UDP_ENCAP_DIRECT] = "FooOverUDP",

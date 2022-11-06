@@ -10,7 +10,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
-#include "util.h"
 
 TEST(strv_env_delete) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL, **d = NULL;

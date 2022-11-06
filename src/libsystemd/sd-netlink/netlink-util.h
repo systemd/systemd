@@ -9,7 +9,6 @@
 #include "in-addr-util.h"
 #include "ordered-set.h"
 #include "socket-util.h"
-#include "util.h"
 
 /* See struct rtvia in rtnetlink.h */
 typedef struct RouteVia {

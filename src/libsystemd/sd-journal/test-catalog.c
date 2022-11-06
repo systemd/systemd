@@ -18,7 +18,6 @@
 #include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
-#include "util.h"
 
 static char** catalog_dirs = NULL;
 static const char *no_catalog_dirs[] = {

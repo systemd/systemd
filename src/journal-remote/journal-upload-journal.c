@@ -10,7 +10,6 @@
 #include "log.h"
 #include "string-util.h"
 #include "utf8.h"
-#include "util.h"
 
 /**
  * Write up to size bytes to buf. Return negative on error, and number of

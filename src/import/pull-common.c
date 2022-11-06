@@ -22,7 +22,6 @@
 #include "siphash24.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
 #include "web-util.h"
 
 #define FILENAME_ESCAPE "/.#\"\'"

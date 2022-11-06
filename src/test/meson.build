@@ -211,7 +211,7 @@ tests += [
 
         [files('test-limits-util.c')],
 
-        [files('test-util.c')],
+        [files('test-logarithm.c')],
 
         [files('test-macro.c')],
 

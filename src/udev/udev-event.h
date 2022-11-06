@@ -12,7 +12,6 @@
 #include "macro.h"
 #include "udev-rules.h"
 #include "udev-util.h"
-#include "util.h"
 
 #define READ_END  0
 #define WRITE_END 1

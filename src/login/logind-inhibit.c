@@ -24,7 +24,6 @@
 #include "string-util.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
-#include "util.h"
 
 static void inhibitor_remove_fifo(Inhibitor *i);
 

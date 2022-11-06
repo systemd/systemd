@@ -14,7 +14,6 @@
 #include "errno-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
 
 BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_standard_errors[] = {
         SD_BUS_ERROR_MAP("org.freedesktop.DBus.Error.Failed",                           EACCES),

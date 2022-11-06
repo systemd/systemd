@@ -4,7 +4,6 @@
 #include "errno-util.h"
 #include "log.h"
 #include "tests.h"
-#include "util.h"
 #include "virt.h"
 
 int main(int argc, char *argv[]) {

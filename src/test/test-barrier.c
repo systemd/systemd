@@ -18,7 +18,6 @@
 #include "errno-util.h"
 #include "tests.h"
 #include "time-util.h"
-#include "util.h"
 #include "virt.h"
 
 /* 20ms to test deadlocks; All timings use multiples of this constant as

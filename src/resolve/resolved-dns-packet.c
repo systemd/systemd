@@ -14,7 +14,6 @@
 #include "strv.h"
 #include "unaligned.h"
 #include "utf8.h"
-#include "util.h"
 
 #define EDNS0_OPT_DO (1<<15)
 

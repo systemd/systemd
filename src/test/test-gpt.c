@@ -8,7 +8,6 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "tests.h"
-#include "util.h"
 
 TEST(gpt_types_against_architectures) {
         int r;

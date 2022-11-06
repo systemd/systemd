@@ -11,7 +11,6 @@
 #include "tmpfile-util.h"
 #include "uid-range.h"
 #include "user-util.h"
-#include "util.h"
 #include "virt.h"
 
 TEST(uid_range) {

@@ -3,6 +3,7 @@
 #include "condition.h"
 #include "conf-parser.h"
 #include "escape.h"
+#include "logarithm.h"
 #include "networkd-link.h"
 #include "networkd-util.h"
 #include "parse-util.h"

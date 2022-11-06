@@ -14,7 +14,6 @@
 #include "netlink-internal.h"
 #include "netlink-types.h"
 #include "socket-util.h"
-#include "util.h"
 
 static int broadcast_groups_get(sd_netlink *nl) {
         _cleanup_free_ uint32_t *groups = NULL;

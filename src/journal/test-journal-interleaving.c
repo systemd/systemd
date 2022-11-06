@@ -14,7 +14,6 @@
 #include "parse-util.h"
 #include "rm-rf.h"
 #include "tests.h"
-#include "util.h"
 
 /* This program tests skipping around in a multi-file journal. */
 

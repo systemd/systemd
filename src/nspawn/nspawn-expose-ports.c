@@ -13,7 +13,6 @@
 #include "parse-util.h"
 #include "socket-util.h"
 #include "string-util.h"
-#include "util.h"
 
 int expose_port_parse(ExposePort **l, const char *s) {
         const char *split, *e;

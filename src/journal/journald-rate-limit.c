@@ -6,6 +6,7 @@
 #include "hashmap.h"
 #include "journald-rate-limit.h"
 #include "list.h"
+#include "logarithm.h"
 #include "random-util.h"
 #include "string-util.h"
 #include "time-util.h"

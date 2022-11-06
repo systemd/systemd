@@ -16,6 +16,7 @@
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "list.h"
+#include "logarithm.h"
 #include "macro.h"
 #include "memory-util.h"
 #include "missing_syscall.h"

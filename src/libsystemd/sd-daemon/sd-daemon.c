@@ -26,7 +26,6 @@
 #include "stat-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "util.h"
 
 #define SNDBUF_SIZE (8*1024*1024)
 

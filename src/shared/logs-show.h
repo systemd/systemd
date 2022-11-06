@@ -11,7 +11,6 @@
 #include "macro.h"
 #include "output-mode.h"
 #include "time-util.h"
-#include "util.h"
 
 int show_journal_entry(
                 FILE *f,

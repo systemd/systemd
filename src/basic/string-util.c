@@ -18,7 +18,6 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "utf8.h"
-#include "util.h"
 
 char* first_word(const char *s, const char *word) {
         size_t sl, wl;

@@ -15,7 +15,6 @@
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "util.h"
 
 static const char* const l2tp_l2spec_type_table[_NETDEV_L2TP_L2SPECTYPE_MAX] = {
         [NETDEV_L2TP_L2SPECTYPE_NONE]    = "none",

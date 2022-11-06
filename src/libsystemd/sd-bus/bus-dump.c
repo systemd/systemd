@@ -17,7 +17,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "util.h"
 
 static char *indent(unsigned level, uint64_t flags) {
         char *p;

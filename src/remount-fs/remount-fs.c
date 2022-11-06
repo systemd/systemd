@@ -18,7 +18,6 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "strv.h"
-#include "util.h"
 
 /* Goes through /etc/fstab and remounts all API file systems, applying options that are in /etc/fstab that systemd
  * might not have respected */

@@ -43,7 +43,6 @@
 #include "strv.h"
 #include "sync-util.h"
 #include "umount.h"
-#include "util.h"
 #include "virt.h"
 
 static void mount_point_free(MountPoint **head, MountPoint *m) {

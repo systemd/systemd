@@ -7,7 +7,6 @@
 #include "string-util.h"
 #include "terminal-util.h"
 #include "tests.h"
-#include "util.h"
 
 TEST(strip_tab_ansi) {
         _cleanup_free_ char *urlified = NULL, *q = NULL, *qq = NULL;

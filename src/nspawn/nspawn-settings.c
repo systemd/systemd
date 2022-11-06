@@ -16,7 +16,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
-#include "util.h"
 
 Settings *settings_new(void) {
         Settings *s;

@@ -10,7 +10,6 @@
 #include "special.h"
 #include "string-util.h"
 #include "unit-file.h"
-#include "util.h"
 
 /*
  * Implements the logic described in systemd.offline-updates(7).

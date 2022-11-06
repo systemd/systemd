@@ -19,7 +19,6 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "udev-builtin.h"
-#include "util.h"
 
 /* we must use this kernel-compatible implementation */
 #define BITS_PER_LONG (sizeof(unsigned long) * 8)

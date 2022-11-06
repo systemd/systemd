@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "list.h"
-#include "util.h"
 
 int main(int argc, const char *argv[]) {
         size_t i;

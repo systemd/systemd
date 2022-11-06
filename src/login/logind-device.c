@@ -5,7 +5,6 @@
 #include "alloc-util.h"
 #include "logind-device.h"
 #include "logind-seat-dbus.h"
-#include "util.h"
 
 Device* device_new(Manager *m, const char *sysfs, bool master) {
         Device *d;

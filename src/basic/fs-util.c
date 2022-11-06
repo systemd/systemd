@@ -32,7 +32,6 @@
 #include "tmpfile-util.h"
 #include "umask-util.h"
 #include "user-util.h"
-#include "util.h"
 
 int unlink_noerrno(const char *path) {
         PROTECT_ERRNO;

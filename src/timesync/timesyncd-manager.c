@@ -22,6 +22,7 @@
 #include "fs-util.h"
 #include "list.h"
 #include "log.h"
+#include "logarithm.h"
 #include "network-util.h"
 #include "ratelimit.h"
 #include "resolve-private.h"
@@ -32,7 +33,6 @@
 #include "timesyncd-conf.h"
 #include "timesyncd-manager.h"
 #include "user-util.h"
-#include "util.h"
 
 #ifndef ADJ_SETOFFSET
 #define ADJ_SETOFFSET                   0x0100  /* add 'time' to current time */

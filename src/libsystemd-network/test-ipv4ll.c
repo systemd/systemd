@@ -16,7 +16,6 @@
 #include "fd-util.h"
 #include "socket-util.h"
 #include "tests.h"
-#include "util.h"
 
 static bool verbose = false;
 static bool extended = false;

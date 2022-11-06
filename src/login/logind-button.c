@@ -13,7 +13,6 @@
 #include "logind-button.h"
 #include "missing_input.h"
 #include "string-util.h"
-#include "util.h"
 
 #define CONST_MAX5(a, b, c, d, e) CONST_MAX(CONST_MAX(a, b), CONST_MAX(CONST_MAX(c, d), e))
 

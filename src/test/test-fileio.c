@@ -24,7 +24,6 @@
 #include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
-#include "util.h"
 
 TEST(parse_env_file) {
         _cleanup_(unlink_tempfilep) char

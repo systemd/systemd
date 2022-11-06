@@ -25,7 +25,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
-#include "util.h"
 
 static const struct {
         const char *path;

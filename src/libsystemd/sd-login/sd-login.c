@@ -27,7 +27,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
-#include "util.h"
 
 /* Error codes:
  *

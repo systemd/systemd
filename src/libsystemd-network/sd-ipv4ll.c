@@ -20,7 +20,6 @@
 #include "siphash24.h"
 #include "sparse-endian.h"
 #include "string-util.h"
-#include "util.h"
 
 #define IPV4LL_NETWORK UINT32_C(0xA9FE0000)
 #define IPV4LL_NETMASK UINT32_C(0xFFFF0000)

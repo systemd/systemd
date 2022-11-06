@@ -35,7 +35,6 @@
 #include "uid-alloc-range.h"
 #include "unit-name.h"
 #include "user-util.h"
-#include "util.h"
 
 int user_new(User **ret,
              Manager *m,

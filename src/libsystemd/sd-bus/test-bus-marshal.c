@@ -23,7 +23,6 @@
 #include "fileio.h"
 #include "log.h"
 #include "tests.h"
-#include "util.h"
 
 static void test_bus_path_encode_unique(void) {
         _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL;
