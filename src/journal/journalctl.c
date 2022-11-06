@@ -19,6 +19,7 @@
 
 #include "acl-util.h"
 #include "alloc-util.h"
+#include "build.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "catalog.h"

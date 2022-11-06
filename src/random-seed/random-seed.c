@@ -15,6 +15,7 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "build.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "io-util.h"
@@ -33,7 +34,6 @@
 #include "sync-util.h"
 #include "sha256.h"
 #include "terminal-util.h"
-#include "util.h"
 #include "xattr-util.h"
 
 typedef enum SeedAction {

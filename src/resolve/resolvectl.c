@@ -9,6 +9,7 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "build.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-locator.h"

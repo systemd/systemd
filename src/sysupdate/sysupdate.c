@@ -3,6 +3,7 @@
 #include <getopt.h>
 #include <unistd.h>
 
+#include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "chase-symlinks.h"

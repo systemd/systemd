@@ -7,6 +7,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
+#include "build.h"
 #include "capability-util.h"
 #include "chase-symlinks.h"
 #include "devnum-util.h"

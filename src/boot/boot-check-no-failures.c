@@ -8,12 +8,12 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
+#include "build.h"
 #include "bus-error.h"
 #include "log.h"
 #include "main-func.h"
 #include "pretty-print.h"
 #include "terminal-util.h"
-#include "util.h"
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;

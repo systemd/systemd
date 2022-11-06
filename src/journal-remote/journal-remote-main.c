@@ -5,6 +5,7 @@
 
 #include "sd-daemon.h"
 
+#include "build.h"
 #include "conf-parser.h"
 #include "daemon-util.h"
 #include "def.h"

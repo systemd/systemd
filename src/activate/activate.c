@@ -9,6 +9,7 @@
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
+#include "build.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -23,7 +24,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "util.h"
 
 static char **arg_listen = NULL;
 static bool arg_accept = false;
