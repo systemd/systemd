@@ -20,6 +20,7 @@
 #include "load-fragment.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "parse-helpers.h"
 #include "rm-rf.h"
 #include "specifier.h"
 #include "string-util.h"
@@ -993,6 +994,44 @@ TEST(unit_is_recursive_template_dependency) {
         assert_se(unit_is_likely_recursive_template_dependency(u, "quux@foobar@123.service", "quux@%n.service") == 0);
         /* Test that a dependency of a different type is not detected as recursive. */
         assert_se(unit_is_likely_recursive_template_dependency(u, "foobar@foobar@123.mount", "foobar@%n.mount") == 0);
+}
+
+TEST(config_parse_open_file) {
+        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_(unit_freep) Unit *u = NULL;
+        _cleanup_(open_file_freep) OpenFile *of = NULL;
+        int r;
+
+        r = manager_new(LOOKUP_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
+        if (manager_errno_skip_test(r)) {
+                log_notice_errno(r, "Skipping test: manager_new: %m");
+                return;
+        }
+
+        assert_se(r >= 0);
+        assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
+
+        assert_se(u = unit_new(m, sizeof(Service)));
+        assert_se(unit_add_name(u, "foobar.service") == 0);
+
+        r = config_parse_open_file(NULL, "fake", 1, "section", 1,
+                                   "OpenFile", 0, "/proc/1/ns/mnt:host-mount-namespace:ro",
+                                   &of, u);
+        assert_se(r >= 0);
+        assert_se(of != NULL);
+        assert_se(streq(of->path, "/proc/1/ns/mnt"));
+        assert_se(streq(of->fdname, "host-mount-namespace"));
+        assert_se(of->flags == OPENFILE_RDONLY);
+
+        of = open_file_free(of);
+        r = config_parse_open_file(NULL, "fake", 1, "section", 1,
+                                   "OpenFile", 0, "/proc/1/ns/mnt::ro",
+                                   &of, u);
+        assert_se(r >= 0);
+        assert_se(of != NULL);
+        assert_se(streq(of->path, "/proc/1/ns/mnt"));
+        assert_se(streq(of->fdname, "/proc/1/ns/mnt"));
+        assert_se(of->flags == OPENFILE_RDONLY);
 }
 
 static int intro(void) {
