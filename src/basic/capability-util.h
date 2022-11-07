@@ -8,7 +8,6 @@
 
 #include "macro.h"
 #include "missing_capability.h"
-#include "util.h"
 
 #define CAP_ALL UINT64_MAX
 

@@ -17,7 +17,6 @@
 #include "proc-cmdline.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "util.h"
 
 static int sethostname_idempotent_full(const char *s, bool really) {
         struct utsname u;

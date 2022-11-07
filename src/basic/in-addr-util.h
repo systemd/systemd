@@ -8,7 +8,6 @@
 
 #include "hash-funcs.h"
 #include "macro.h"
-#include "util.h"
 
 union in_addr_union {
         struct in_addr in;

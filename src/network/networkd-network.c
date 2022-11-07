@@ -42,7 +42,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tclass.h"
-#include "util.h"
 
 /* Let's assume that anything above this number is a user misconfiguration. */
 #define MAX_NTP_SERVERS 128U

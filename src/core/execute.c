@@ -39,6 +39,7 @@
 #if HAVE_APPARMOR
 #include "apparmor-util.h"
 #endif
+#include "argv-util.h"
 #include "async.h"
 #include "barrier.h"
 #include "bpf-lsm.h"
@@ -47,10 +48,10 @@
 #include "cgroup-setup.h"
 #include "chase-symlinks.h"
 #include "chown-recursive.h"
+#include "constants.h"
 #include "cpu-set-util.h"
 #include "creds-util.h"
 #include "data-fd-util.h"
-#include "def.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "errno-list.h"

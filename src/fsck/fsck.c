@@ -32,7 +32,6 @@
 #include "socket-util.h"
 #include "special.h"
 #include "stdio-util.h"
-#include "util.h"
 
 static bool arg_skip = false;
 static bool arg_force = false;

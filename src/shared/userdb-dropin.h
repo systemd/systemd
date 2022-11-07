@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "def.h"
+#include "constants.h"
 #include "group-record.h"
 #include "user-record.h"
 #include "userdb.h"

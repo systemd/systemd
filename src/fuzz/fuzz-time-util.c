@@ -4,7 +4,6 @@
 #include "fd-util.h"
 #include "fuzz.h"
 #include "time-util.h"
-#include "util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_free_ char *str = NULL;

@@ -14,7 +14,6 @@
 #include "udev-util.h"
 #include "udevadm.h"
 #include "udevd.h"
-#include "util.h"
 #include "verbs.h"
 
 static int help(void) {

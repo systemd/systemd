@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "conf-parser.h"
-#include "def.h"
+#include "constants.h"
 #include "home-util.h"
 #include "homed-conf.h"
 

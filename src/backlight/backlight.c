@@ -19,7 +19,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "util.h"
 
 #define PCI_CLASS_GRAPHICS_CARD 0x30000
 

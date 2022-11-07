@@ -40,7 +40,6 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "utf8.h"
-#include "util.h"
 #include "web-util.h"
 
 /* up to three lines (each up to 100 characters) or 300 characters, whichever is less */

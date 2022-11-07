@@ -5,6 +5,7 @@
 
 #include "efi-loader.h"
 #include "generator.h"
+#include "initrd-util.h"
 #include "log.h"
 #include "mkdir.h"
 #include "special.h"

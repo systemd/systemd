@@ -16,7 +16,6 @@
 #include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
-#include "util.h"
 
 TEST(print_paths) {
         log_info("DEFAULT_PATH=%s", DEFAULT_PATH);

@@ -10,7 +10,6 @@
 #include "netlink-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "util.h"
 
 static bool link_in_command_line_interfaces(Link *link, Manager *m) {
         assert(link);

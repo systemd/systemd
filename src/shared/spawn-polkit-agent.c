@@ -15,7 +15,6 @@
 #include "spawn-polkit-agent.h"
 #include "stdio-util.h"
 #include "time-util.h"
-#include "util.h"
 
 #if ENABLE_POLKIT
 static pid_t agent_pid = 0;

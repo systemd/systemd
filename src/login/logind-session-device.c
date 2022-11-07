@@ -17,7 +17,6 @@
 #include "missing_drm.h"
 #include "missing_input.h"
 #include "parse-util.h"
-#include "util.h"
 
 enum SessionDeviceNotifications {
         SESSION_DEVICE_RESUME,

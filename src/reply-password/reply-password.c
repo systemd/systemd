@@ -13,7 +13,6 @@
 #include "memory-util.h"
 #include "socket-util.h"
 #include "string-util.h"
-#include "util.h"
 
 static int send_on_socket(int fd, const char *socket_name, const void *packet, size_t size) {
         union sockaddr_union sa = {};

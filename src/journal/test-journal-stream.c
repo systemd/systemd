@@ -15,7 +15,6 @@
 #include "parse-util.h"
 #include "rm-rf.h"
 #include "tests.h"
-#include "util.h"
 
 #define N_ENTRIES 200
 

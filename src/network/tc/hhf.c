@@ -9,7 +9,6 @@
 #include "netlink-util.h"
 #include "parse-util.h"
 #include "string-util.h"
-#include "util.h"
 
 static int heavy_hitter_filter_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {
         HeavyHitterFilter *hhf;
