@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
+
 #include "af-list.h"
 #include "extract-word.h"
 #include "ip-protocol-list.h"
@@ -194,5 +196,35 @@ int parse_socket_bind_item(
         *ip_protocol = proto;
         *nr_ports = nr;
         *port_min = mn;
+        return 0;
+}
+
+int parse_open_file_fields(const char *v, char **path, char **fdname, int *flags) {
+        _cleanup_strv_free_ char **parts = NULL;
+        char *tmp_path = NULL;
+        char *tmp_fdname = NULL;
+        int r;
+
+        if (!v)
+                return -EINVAL;
+
+        r = strv_split_full(&parts, v, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r < 0)
+                return r;
+        if (strv_length(parts) != 3)
+                return -EINVAL;
+
+        tmp_path = strdup(parts[0]);
+        if (!tmp_path)
+                return -ENOMEM;
+        free_and_replace(*path, tmp_path);
+
+        tmp_fdname = strdup(parts[1]);
+        if (!tmp_fdname)
+                return -ENOMEM;
+        free_and_replace(*fdname, tmp_fdname);
+
+        *flags = streq(parts[2], "rw") ? O_RDWR : O_RDONLY;
+
         return 0;
 }
