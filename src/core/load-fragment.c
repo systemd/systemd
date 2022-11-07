@@ -6025,6 +6025,7 @@ int unit_load_fragment(Unit *u) {
         r = unit_file_build_name_map(&u->manager->lookup_paths,
                                      &u->manager->unit_cache_timestamp_hash,
                                      &u->manager->unit_id_map,
+                                     &u->manager->unit_obstructed_map,
                                      &u->manager->unit_name_map,
                                      &u->manager->unit_path_cache);
         if (r < 0)
@@ -6062,7 +6063,23 @@ int unit_load_fragment(Unit *u) {
 
                         u->load_state = u->perpetual ? UNIT_LOADED : UNIT_MASKED; /* don't allow perpetual units to ever be masked */
                         u->fragment_mtime = 0;
-                        u->access_selinux_context = mfree(u->access_selinux_context);
+
+#if HAVE_SELINUX
+                        const char *opath;
+                        if (mac_selinux_use() && (opath = hashmap_get(u->manager->unit_obstructed_map, u->id))) {
+                                _cleanup_freecon_ char *selcon = NULL;
+
+                                /* Cache the SELinux context of the obstructed unit file here. We'll make use of when checking access permissions to loaded units */
+                                r = getfilecon_raw(opath, &selcon);
+                                if (r < 0)
+                                        log_unit_warning_errno(u, r, "Failed to read SELinux context of '%s', ignoring: %m", opath);
+
+                                r = free_and_strdup(&u->access_selinux_context, selcon);
+                                if (r < 0)
+                                        return r;
+                        } else
+#endif
+                                u->access_selinux_context = mfree(u->access_selinux_context);
                 } else {
 #if HAVE_SELINUX
                         if (mac_selinux_use()) {

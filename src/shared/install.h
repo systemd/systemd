@@ -101,27 +101,35 @@ struct InstallInfo {
         bool auxiliary;
 };
 
+typedef int (*mac_callback_t)(const char *unit_name, void *userdata);
+
 int unit_file_enable(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **names_or_paths,
                 InstallChange **changes,
-                size_t *n_changes);
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata);
 int unit_file_disable(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **names,
                 InstallChange **changes,
-                size_t *n_changes);
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata);
 int unit_file_reenable(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **names_or_paths,
                 InstallChange **changes,
-                size_t *n_changes);
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata);
 int unit_file_preset(
                 LookupScope scope,
                 UnitFileFlags flags,
@@ -129,41 +137,53 @@ int unit_file_preset(
                 char **names,
                 UnitFilePresetMode mode,
                 InstallChange **changes,
-                size_t *n_changes);
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata);
 int unit_file_preset_all(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 UnitFilePresetMode mode,
                 InstallChange **changes,
-                size_t *n_changes);
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata);
 int unit_file_mask(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **names,
                 InstallChange **changes,
-                size_t *n_changes);
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata);
 int unit_file_unmask(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **names,
                 InstallChange **changes,
-                size_t *n_changes);
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata);
 int unit_file_link(
                 LookupScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 InstallChange **changes,
-                size_t *n_changes);
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata);
 int unit_file_revert(
                 LookupScope scope,
                 const char *root_dir,
                 char **names,
                 InstallChange **changes,
-                size_t *n_changes);
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata);
 int unit_file_set_default(
                 LookupScope scope,
                 UnitFileFlags flags,
@@ -183,7 +203,9 @@ int unit_file_add_dependency(
                 const char *target,
                 UnitDependency dep,
                 InstallChange **changes,
-                size_t *n_changes);
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata);
 
 int unit_file_lookup_state(
                 LookupScope scope,

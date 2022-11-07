@@ -16,11 +16,14 @@
 #include "alloc-util.h"
 #include "audit-fd.h"
 #include "bus-util.h"
+#include "dbus-callbackdata.h"
 #include "errno-util.h"
 #include "format-util.h"
+#include "install.h"
 #include "log.h"
 #include "path-util.h"
 #include "selinux-util.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "util.h"
@@ -269,6 +272,65 @@ int mac_selinux_access_check_internal(
         return enforce ? r : 0;
 }
 
+int mac_selinux_unit_callback_check(
+        const char *unit_name,
+        const MacUnitCallbackUserdata *userdata) {
+
+        _cleanup_freecon_ char *selcon = NULL;
+        Unit *u;
+        const char *path = NULL, *label = NULL;
+        int r;
+
+        assert(unit_name);
+        assert(userdata);
+        assert(userdata->manager);
+        assert(userdata->message);
+        assert(userdata->error);
+        assert(userdata->function);
+
+        if (!mac_selinux_use())
+                return 0;
+
+        /* Skip if the operation should not be checked by SELinux */
+        if (!userdata->selinux_permission)
+                return 0;
+
+        u = manager_get_unit(userdata->manager, unit_name);
+        if (!u)
+                (void) manager_load_unit(userdata->manager, unit_name, NULL, NULL, &u);
+        if (u) {
+                path = u->fragment_path;
+                label = u->access_selinux_context;
+        }
+
+        if (!path || !label)
+                log_unit_warning(u, "Failed to gather unit information for SELinux callback check: name=%s path=%s label=%s",
+                            unit_name, strna(path), strna(label));
+
+        if (!label) {
+                const char *lookup_path;
+
+                lookup_path = manager_lookup_unit_label_path(userdata->manager, unit_name);
+                if (lookup_path) {
+                        path = lookup_path;
+
+                        r = getfilecon_raw(lookup_path, &selcon);
+                        if (r < 0)
+                                log_unit_warning_errno(u, r, "Failed to read SELinux context of '%s', ignoring: %m", lookup_path);
+                        else
+                                label = selcon;
+                }
+        }
+
+        return mac_selinux_access_check_internal(
+                userdata->message,
+                path,
+                label,
+                userdata->selinux_permission,
+                userdata->function,
+                userdata->error);
+}
+
 #else /* HAVE_SELINUX */
 
 int mac_selinux_access_check_internal(
@@ -278,6 +340,13 @@ int mac_selinux_access_check_internal(
                 const char *permission,
                 const char *function,
                 sd_bus_error *error) {
+
+        return 0;
+}
+
+int mac_selinux_unit_callback_check(
+                const char *unit_name,
+                const MacUnitCallbackUserdata *userdata) {
 
         return 0;
 }
