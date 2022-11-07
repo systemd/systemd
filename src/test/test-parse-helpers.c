@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <linux/in.h>
 #include <sys/socket.h>
 #include <stdio.h>
 
 #include "macro.h"
 #include "parse-helpers.h"
+#include "string-util.h"
 #include "tests.h"
 
 static void test_valid_item(
@@ -90,6 +92,179 @@ TEST(invalid_items) {
         test_invalid_item("ipv6:tcp:6666 zupa");
         test_invalid_item("ipv6:tcp:6666: zupa");
         test_invalid_item("ipv6:tcp:6666\n zupa");
+}
+
+TEST(open_file_parse) {
+        _cleanup_(open_file_freep) OpenFile *of = NULL;
+        int r;
+
+        r = open_file_parse("/proc/1/ns/mnt:host-mount-namespace:ro", &of);
+
+        assert_se(r >= 0);
+        assert_se(streq(of->path, "/proc/1/ns/mnt"));
+        assert_se(streq(of->fdname, "host-mount-namespace"));
+        assert_se(of->flags == OPENFILE_RDONLY);
+
+        of = open_file_free(of);
+        r = open_file_parse("/proc/1/ns/mnt", &of);
+
+        assert_se(r >= 0);
+        assert_se(streq(of->path, "/proc/1/ns/mnt"));
+        assert_se(streq(of->fdname, "mnt"));
+        assert_se(of->flags == 0);
+
+        of = open_file_free(of);
+        r = open_file_parse("/proc/1/ns/mnt:host-mount-namespace", &of);
+
+        assert_se(r >= 0);
+        assert_se(streq(of->path, "/proc/1/ns/mnt"));
+        assert_se(streq(of->fdname, "host-mount-namespace"));
+        assert_se(of->flags == 0);
+
+        of = open_file_free(of);
+        r = open_file_parse("/proc/1/ns/mnt::ro", &of);
+
+        assert_se(r >= 0);
+        assert_se(streq(of->path, "/proc/1/ns/mnt"));
+        assert_se(streq(of->fdname, "mnt"));
+        assert_se(of->flags == OPENFILE_RDONLY);
+
+        of = open_file_free(of);
+        r = open_file_parse("../file.dat:file:ro", &of);
+
+        assert_se(r == -EINVAL);
+
+        of = open_file_free(of);
+        r = open_file_parse("/proc/1/ns/mnt:host-mount-namespace:rw", &of);
+
+        assert_se(r == -EINVAL);
+
+        of = open_file_free(of);
+        r = open_file_parse("/proc/1/ns/mnt:host-mount-namespace:append", &of);
+
+        assert_se(r >= 0);
+        assert_se(streq(of->path, "/proc/1/ns/mnt"));
+        assert_se(streq(of->fdname, "host-mount-namespace"));
+        assert_se(of->flags == OPENFILE_APPEND);
+
+        of = open_file_free(of);
+        r = open_file_parse("/proc/1/ns/mnt:host-mount-namespace:truncate", &of);
+
+        assert_se(r >= 0);
+        assert_se(streq(of->path, "/proc/1/ns/mnt"));
+        assert_se(streq(of->fdname, "host-mount-namespace"));
+        assert_se(of->flags == OPENFILE_TRUNC);
+
+        of = open_file_free(of);
+        r = open_file_parse("/proc/1/ns/mnt:host-mount-namespace:ro,append", &of);
+
+        assert_se(r == -EINVAL);
+
+        of = open_file_free(of);
+        r = open_file_parse("/proc/1/ns/mnt:host-mount-namespace:ro,truncate", &of);
+
+        assert_se(r == -EINVAL);
+
+        of = open_file_free(of);
+        r = open_file_parse("/proc/1/ns/mnt:host-mount-namespace:append,truncate", &of);
+
+        assert_se(r == -EINVAL);
+
+        of = open_file_free(of);
+        r = open_file_parse("/proc/1/ns/mnt:host-mount-namespace:graceful", &of);
+
+        assert_se(r >= 0);
+        assert_se(streq(of->path, "/proc/1/ns/mnt"));
+        assert_se(streq(of->fdname, "host-mount-namespace"));
+        assert_se(of->flags == OPENFILE_GRACEFUL);
+
+        of = open_file_free(of);
+        r = open_file_parse("/proc/1/ns/mnt:host-mount-namespace:ro,graceful", &of);
+
+        assert_se(r >= 0);
+        assert_se(streq(of->path, "/proc/1/ns/mnt"));
+        assert_se(streq(of->fdname, "host-mount-namespace"));
+        assert_se(of->flags == (OPENFILE_RDONLY | OPENFILE_GRACEFUL));
+
+        of = open_file_free(of);
+        r = open_file_parse("/proc/1/ns/mnt:host-mount-namespace:ro:other", &of);
+
+        assert_se(r == -EINVAL);
+}
+
+TEST(open_file_to_string) {
+        _cleanup_free_ char *s = NULL;
+        _cleanup_(open_file_freep) OpenFile *of = NULL;
+        int r;
+
+        assert_se(of = new (OpenFile, 1));
+        *of = (OpenFile){ .path = strdup("/proc/1/ns/mnt"),
+                          .fdname = strdup("host-mount-namespace"),
+                          .flags = OPENFILE_RDONLY };
+
+        r = open_file_to_string(of, &s);
+
+        assert_se(r >= 0);
+        assert_se(streq(s, "/proc/1/ns/mnt:host-mount-namespace:ro"));
+
+        s = mfree(s);
+        of->flags = OPENFILE_APPEND;
+
+        r = open_file_to_string(of, &s);
+
+        assert_se(r >= 0);
+        assert_se(streq(s, "/proc/1/ns/mnt:host-mount-namespace:append"));
+
+        s = mfree(s);
+        of->flags = OPENFILE_TRUNC;
+
+        r = open_file_to_string(of, &s);
+
+        assert_se(r >= 0);
+        assert_se(streq(s, "/proc/1/ns/mnt:host-mount-namespace:truncate"));
+
+        s = mfree(s);
+        of->flags = OPENFILE_GRACEFUL;
+
+        r = open_file_to_string(of, &s);
+
+        assert_se(r >= 0);
+        assert_se(streq(s, "/proc/1/ns/mnt:host-mount-namespace:graceful"));
+
+        s = mfree(s);
+        of->flags = OPENFILE_RDONLY | OPENFILE_GRACEFUL;
+
+        r = open_file_to_string(of, &s);
+
+        assert_se(r >= 0);
+        assert_se(streq(s, "/proc/1/ns/mnt:host-mount-namespace:ro,graceful"));
+
+        s = mfree(s);
+        of->flags = 0;
+
+        r = open_file_to_string(of, &s);
+
+        assert_se(r >= 0);
+        assert_se(streq(s, "/proc/1/ns/mnt:host-mount-namespace"));
+
+        s = mfree(s);
+        assert_se(free_and_strdup(&of->fdname, "mnt"));
+        of->flags = OPENFILE_RDONLY;
+
+        r = open_file_to_string(of, &s);
+
+        assert_se(r >= 0);
+        assert_se(streq(s, "/proc/1/ns/mnt::ro"));
+
+        s = mfree(s);
+        assert_se(free_and_strdup(&of->path, "/path:with:colon"));
+        assert_se(free_and_strdup(&of->fdname, "path:with:colon"));
+        of->flags = 0;
+
+        r = open_file_to_string(of, &s);
+
+        assert_se(r >= 0);
+        assert_se(streq(s, "/path\\:with\\:colon"));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

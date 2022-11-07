@@ -6,6 +6,7 @@ typedef struct ServiceFDStore ServiceFDStore;
 
 #include "exit-status.h"
 #include "kill.h"
+#include "parse-helpers.h"
 #include "path.h"
 #include "ratelimit.h"
 #include "socket.h"
@@ -215,6 +216,8 @@ struct Service {
         bool flush_n_restarts;
 
         OOMPolicy oom_policy;
+
+        LIST_HEAD(OpenFile, open_files);
 };
 
 static inline usec_t service_timeout_abort_usec(Service *s) {

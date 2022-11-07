@@ -1156,6 +1156,35 @@
         kills, this setting determines the state of the unit after <command>systemd-oomd</command> kills a
         cgroup associated with it.</para></listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>OpenFile=</varname></term>
+        <listitem><para>Takes an argument of the form <literal>path:fd-name:options</literal>,
+        where:
+        <itemizedlist>
+            <listitem><simpara><literal>path</literal> is a path to a file or an <constant>AF_UNIX</constant> socket;</simpara></listitem>
+            <listitem><simpara><literal>fd-name</literal> is a name that will be associated with the file descriptor;
+            the name may contain any ASCII character, but must exclude control characters and ":", and must be at most 255 characters in length;
+            it is optional and, if not provided, defaults to the file name;</simpara></listitem>
+            <listitem><simpara><literal>options</literal> is a comma-separated list of access options;
+            possible values are
+            <literal>ro</literal> (read-only),
+            <literal>append</literal>,
+            <literal>truncate</literal>,
+            <literal>graceful</literal>;
+            if not specified, files will be opened in <constant>rw</constant> mode;
+            if <literal>graceful</literal> is specified, errors during file/socket opening are ignored.</simpara></listitem>
+        </itemizedlist>
+        The file or socket is opened by the service manager and the file descriptor is passed to the service.
+        If the path is a socket, we call <function>connect()</function> on it.
+        See <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        for more details on how to retrieve these file descriptors.</para>
+
+        <para>This setting is useful to allow services to access files/sockets that they can't access themselves
+        (due to running in a separate mount namespace, not having privileges, ...).</para>
+
+        <para>This setting can be specified multiple times, in which case all the specified paths are opened and the file descriptors passed to the service.</para></listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para id='shared-unit-options'>Check

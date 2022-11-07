@@ -410,6 +410,51 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
         return 1;
 }
 
+static int bus_append_open_file(sd_bus_message *m, const char *field, const char *eq) {
+        _cleanup_(open_file_freep) OpenFile *of = NULL;
+        int r;
+
+        assert(m);
+
+        r = open_file_parse(eq, &of);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse OpenFile= setting: %m");
+
+        r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'v', "a(sst)");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'a', "(sst)");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "(sst)", of->path, of->fdname, of->flags);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_ip_address_access(sd_bus_message *m, int family, const union in_addr_union *prefix, unsigned char prefixlen) {
         int r;
 
@@ -2299,6 +2344,9 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
 
                 return 1;
         }
+
+        if (streq(field, "OpenFile"))
+                return bus_append_open_file(m, field, eq);
 
         return 0;
 }
