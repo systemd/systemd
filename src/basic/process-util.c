@@ -1372,6 +1372,14 @@ int safe_fork_full(
                 }
         }
 
+        if (flags & FORK_CLOEXEC_OFF) {
+                r = fd_cloexec_many(except_fds, n_except_fds, false);
+                if (r < 0) {
+                        log_full_errno(prio, r, "Failed to turn off O_CLOEXEC on file descriptors: %m");
+                        _exit(EXIT_FAILURE);
+                }
+        }
+
         /* When we were asked to reopen the logs, do so again now */
         if (flags & FORK_REOPEN_LOG) {
                 log_open();
