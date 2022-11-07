@@ -95,6 +95,8 @@ libcore_sources = files(
         'mount.h',
         'namespace.c',
         'namespace.h',
+        'open-file.c',
+        'open-file.h',
         'path.c',
         'path.h',
         'restrict-ifaces.c',
