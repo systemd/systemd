@@ -20,8 +20,8 @@
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
+#include "constants.h"
 #include "creds-util.h"
-#include "def.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"

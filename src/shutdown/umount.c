@@ -23,7 +23,7 @@
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
-#include "def.h"
+#include "constants.h"
 #include "device-util.h"
 #include "dirent-util.h"
 #include "escape.h"
