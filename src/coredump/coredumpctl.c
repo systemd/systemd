@@ -17,7 +17,7 @@
 #include "bus-util.h"
 #include "chase-symlinks.h"
 #include "compress.h"
-#include "def.h"
+#include "constants.h"
 #include "dissect-image.h"
 #include "fd-util.h"
 #include "format-table.h"

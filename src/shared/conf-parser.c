@@ -10,7 +10,7 @@
 #include "alloc-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
-#include "def.h"
+#include "constants.h"
 #include "dns-domain.h"
 #include "escape.h"
 #include "ether-addr-util.h"
