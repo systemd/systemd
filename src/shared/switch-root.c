@@ -32,7 +32,6 @@ int switch_root(const char *new_root,
 
         _cleanup_free_ char *resolved_old_root_after = NULL;
         _cleanup_close_ int old_root_fd = -1;
-        bool old_root_remove;
         int r;
 
         assert(new_root);
@@ -42,12 +41,16 @@ int switch_root(const char *new_root,
                 return 0;
 
         /* Check if we shall remove the contents of the old root */
-        old_root_remove = in_initrd();
-        if (old_root_remove) {
-                old_root_fd = open("/", O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY|O_DIRECTORY);
-                if (old_root_fd < 0)
-                        return log_error_errno(errno, "Failed to open root directory: %m");
-        }
+        old_root_fd = open("/", O_RDONLY | O_CLOEXEC | O_DIRECTORY);
+        if (old_root_fd < 0)
+                return log_error_errno(errno, "Failed to open root directory: %m");
+        r = fd_is_temporary_fs(old_root_fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to stat root directory: %m");
+        if (r > 0)
+                log_debug("Root directory is on tmpfs, will do cleanup later.");
+        else
+                old_root_fd = safe_close(old_root_fd);
 
         /* Determine where we shall place the old root after the transition */
         r = chase_symlinks(old_root_after, new_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved_old_root_after, NULL);
@@ -117,9 +120,8 @@ int switch_root(const char *new_root,
                 struct stat rb;
 
                 if (fstat(old_root_fd, &rb) < 0)
-                        log_warning_errno(errno, "Failed to stat old root directory, leaving: %m");
-                else
-                        (void) rm_rf_children(TAKE_FD(old_root_fd), 0, &rb); /* takes possession of the dir fd, even on failure */
+                        return log_error_errno(errno, "Failed to stat old root directory: %m");
+                (void) rm_rf_children(TAKE_FD(old_root_fd), 0, &rb); /* takes possession of the dir fd, even on failure */
         }
 
         return 0;
