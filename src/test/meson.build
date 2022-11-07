@@ -680,6 +680,12 @@ tests += [
         [files('test-hmac.c')],
 
         [files('test-sha256.c')],
+
+        [files('test-open-file.c'),
+         [libcore,
+          libshared],
+         [],
+         core_includes],
 ]
 
 ############################################################
