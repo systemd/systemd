@@ -36,6 +36,35 @@ static BUS_DEFINE_PROPERTY_GET(property_get_timeout_abort_usec, "t", Service, se
 static BUS_DEFINE_PROPERTY_GET(property_get_watchdog_usec, "t", Service, service_get_watchdog_usec);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_timeout_failure_mode, service_timeout_failure_mode, ServiceTimeoutFailureMode);
 
+static int property_get_open_files(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Service *s = SERVICE(userdata);
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(s);
+
+        r = sd_bus_message_open_container(reply, 'a', "(sst)");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(open_files, of, s->open_files) {
+                r = sd_bus_message_append(reply, "(sst)", of->path, of->fdname, of->flags);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 static int property_get_exit_status_set(
                 sd_bus *bus,
                 const char *path,
@@ -228,6 +257,7 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("GID", "u", bus_property_get_gid, offsetof(Unit, ref_gid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("NRestarts", "u", bus_property_get_unsigned, offsetof(Service, n_restarts), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("OOMPolicy", "s", bus_property_get_oom_policy, offsetof(Service, oom_policy), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OpenFile", "a(sst)", property_get_open_files, 0, SD_BUS_VTABLE_PROPERTY_CONST),
 
         BUS_EXEC_STATUS_VTABLE("ExecMain", offsetof(Service, main_exec_status), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecCondition", offsetof(Service, exec_command[SERVICE_EXEC_CONDITION]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
@@ -531,6 +561,64 @@ static int bus_service_set_transient_property(
 
         if (streq(name, "StandardErrorFileDescriptor"))
                 return bus_set_transient_std_fd(u, name, &s->stderr_fd, &s->exec_context.stdio_as_fds, message, flags, error);
+
+        if (streq(name, "OpenFile")) {
+                char *path, *fdname;
+                uint64_t offlags;
+
+                r = sd_bus_message_enter_container(message, 'a', "(sst)");
+                if (r < 0)
+                        return r;
+
+                while ((r = sd_bus_message_read(message, "(sst)", &path, &fdname, &offlags)) > 0) {
+                        _cleanup_(open_file_freep) OpenFile *of = NULL;
+                        _cleanup_free_ char *ofs = NULL;
+
+                        if (UNIT_WRITE_FLAGS_NOOP(flags))
+                                continue;
+
+                        of = new(OpenFile, 1);
+                        if (!of)
+                                return -ENOMEM;
+
+                        *of = (OpenFile) {
+                                .path = strdup(path),
+                                .fdname = strdup(fdname),
+                                .flags = offlags,
+                        };
+
+                        if (!of->path || !of->fdname)
+                                return -ENOMEM;
+
+                        r = open_file_check(of);
+                        if (r < 0)
+                                return r;
+
+                        if ((offlags & ~_OPENFILE_MASK_PUBLIC) != 0)
+                                return sd_bus_error_setf(
+                                                error,
+                                                SD_BUS_ERROR_INVALID_ARGS,
+                                                "Invalid 'flags' parameter '%" PRIu64 "'",
+                                                offlags);
+
+                        r = open_file_to_string(of, &ofs);
+                        if (r < 0)
+                                return sd_bus_error_set_errnof(
+                                                error, r, "Failed to convert OpenFile= value to string: %m");
+
+                        LIST_APPEND(open_files, s->open_files, TAKE_PTR(of));
+                        unit_write_settingf(u, flags | UNIT_ESCAPE_SPECIFIERS, name, "OpenFile=%s", ofs);
+                }
+
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                return 1;
+        }
 
         return 0;
 }
