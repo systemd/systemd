@@ -108,9 +108,18 @@ systemd-mount --list --full
 test -e /run/media/system/simple.img/foo.bar
 systemd-umount "$WORK_DIR/simple.img"
 
-# --owner + tmpfs
+# --owner + vfat
+#
+# Create a vfat image, as ext4 doesn't support uid=/gid= fixating for all
+# files/directories
+dd if=/dev/zero of="$WORK_DIR/owner-vfat.img" bs=1M count=16
+LOOP="$(losetup --show --find "$WORK_DIR/owner-vfat.img")"
+mkfs.vfat -n owner-vfat "$LOOP"
+# Mount it and check the UID/GID
 [[ "$(stat -c "%U:%G" "$WORK_DIR/mnt")" == "root:root" ]]
-systemd-mount --owner testuser -t tmpfs tmpfs "$WORK_DIR/mnt"
+systemd-mount --owner testuser "$LOOP" "$WORK_DIR/mnt"
 systemctl status "$WORK_DIR/mnt"
 [[ "$(stat -c "%U:%G" "$WORK_DIR/mnt")" == "testuser:testuser" ]]
-systemd-umount "$WORK_DIR/mnt"
+touch "$WORK_DIR/mnt/hello"
+[[ "$(stat -c "%U:%G" "$WORK_DIR/mnt/hello")" == "testuser:testuser" ]]
+systemd-umount LABEL=owner-vfat
