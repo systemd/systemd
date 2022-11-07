@@ -26,6 +26,7 @@ KERNEL_VERSION="${2:?}"
 case "$COMMAND" in
     add)
         [ -d "/lib/modules/$KERNEL_VERSION/kernel" ] || exit 0
+        command -v depmod >/dev/null || exit 0
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "+depmod -a $KERNEL_VERSION"
         exec depmod -a "$KERNEL_VERSION"
         ;;
