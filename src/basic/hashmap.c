@@ -2098,3 +2098,26 @@ bool set_fnmatch(Set *include_patterns, Set *exclude_patterns, const char *needl
 
         return set_fnmatch_one(include_patterns, needle);
 }
+
+int set_make_nulstr(Set *s, char **nulstr, size_t *nulstr_len)
+{
+        /* Use _cleanup_free_ instead of _cleanup_strv_free_ because we need to clean the strv only, not
+         * the strings owned by the set. */
+        _cleanup_free_ char **strv = NULL;
+        _cleanup_free_ char *_nulstr = NULL;
+        size_t _len;
+        int r;
+
+        strv = set_get_strv(s);
+        if (!strv)
+                return -ENOMEM;
+
+        r = strv_make_nulstr(strv, &_nulstr, &_len);
+        if (r < 0)
+                return r;
+
+        *nulstr = TAKE_PTR(_nulstr);
+        *nulstr_len = _len;
+
+        return 0;
+}

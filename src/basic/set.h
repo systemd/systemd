@@ -114,6 +114,8 @@ static inline char **set_get_strv(Set *s) {
         return _hashmap_get_strv(HASHMAP_BASE(s));
 }
 
+int set_make_nulstr(Set *s, char **nulstr, size_t *nulstr_len);
+
 int _set_ensure_put(Set **s, const struct hash_ops *hash_ops, const void *key  HASHMAP_DEBUG_PARAMS);
 #define set_ensure_put(s, hash_ops, key) _set_ensure_put(s, hash_ops, key  HASHMAP_DEBUG_SRC_ARGS)
 
