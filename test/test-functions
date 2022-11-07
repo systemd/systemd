@@ -1988,21 +1988,27 @@ install_locales() {
         inst /usr/share/i18n/SUPPORTED || :
         inst_recursive /usr/share/i18n/charmaps
         inst_recursive /usr/share/i18n/locales
-        inst_recursive /usr/share/locale/en
-        inst_recursive /usr/share/locale/en_*
+        inst_recursive /usr/share/locale/en*
+        inst_recursive /usr/share/locale/de*
+        image_install /usr/share/locale/locale.alias
+        # locale-gen might either generate each locale separately or merge them
+        # into a single archive
+        if ! (inst_recursive /usr/lib/locale/C.*8 /usr/lib/locale/en_*8 ||
+              image_install /usr/lib/locale/locale-archive); then
+            dfatal "Failed to install required locales"
+            exit 1
+        fi
+    else
+        inst_recursive /usr/lib/locale/C.*8 /usr/lib/locale/en_*8
     fi
-
-    inst_recursive /usr/lib/locale/C.utf8
-    inst_recursive /usr/lib/locale/C.UTF-8
-    inst_recursive /usr/lib/locale/en_*.utf8
-    inst_recursive /usr/lib/locale/en_*.UTF-8
 }
 
 # shellcheck disable=SC2120
 install_keymaps() {
     local i p
     local -a prefix=(
-        "/usr"
+        "/usr/lib"
+        "/usr/share"
     )
 
     dinfo "Install console keymaps"
@@ -2011,7 +2017,7 @@ install_keymaps() {
             && [[ "$(meson configure "${BUILD_DIR:?}" | grep 'split-usr' | awk '{ print $2 }')" == "true" ]] \
             || [[ ! -L /lib ]]; then
         prefix+=(
-            ""
+            "/lib"
         )
     fi
 
@@ -2020,12 +2026,12 @@ install_keymaps() {
             # The first three paths may be deprecated.
             # It seems now the last three paths are used by many distributions.
             for i in \
-                "$p"/lib/kbd/keymaps/include/* \
-                "$p"/lib/kbd/keymaps/i386/include/* \
-                "$p"/lib/kbd/keymaps/i386/qwerty/us.* \
-                "$p"/lib/kbd/keymaps/legacy/include/* \
-                "$p"/lib/kbd/keymaps/legacy/i386/qwerty/us.* \
-                "$p"/lib/kbd/keymaps/xkb/us*; do
+                "$p"/kbd/keymaps/include/* \
+                "$p"/kbd/keymaps/i386/include/* \
+                "$p"/kbd/keymaps/i386/qwerty/us.* \
+                "$p"/kbd/keymaps/legacy/include/* \
+                "$p"/kbd/keymaps/legacy/i386/qwerty/us.* \
+                "$p"/kbd/keymaps/xkb/us*; do
                     [[ -f "$i" ]] || continue
                     inst "$i"
             done
@@ -2034,10 +2040,10 @@ install_keymaps() {
         # When it takes any argument, then install more keymaps.
         for p in "${prefix[@]}"; do
             for i in \
-                "$p"/lib/kbd/keymaps/include/* \
-                "$p"/lib/kbd/keymaps/i386/*/* \
-                "$p"/lib/kbd/keymaps/legacy/i386/*/* \
-                "$p"/lib/kbd/keymaps/xkb/*; do
+                "$p"/kbd/keymaps/include/* \
+                "$p"/kbd/keymaps/i386/*/* \
+                "$p"/kbd/keymaps/legacy/i386/*/* \
+                "$p"/kbd/keymaps/xkb/*; do
                     [[ -f "$i" ]] || continue
                     inst "$i"
             done
@@ -2773,6 +2779,10 @@ inst_recursive() {
     local p item
 
     for p in "$@"; do
+        # Make sure the source exists, as the process substitution below
+        # suppresses errors
+        stat "$p" >/dev/null || return 1
+
         while read -r item; do
             if [[ -d "$item" ]]; then
                 inst_dir "$item"
