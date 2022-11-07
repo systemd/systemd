@@ -1988,8 +1988,9 @@ install_locales() {
         inst /usr/share/i18n/SUPPORTED || :
         inst_recursive /usr/share/i18n/charmaps
         inst_recursive /usr/share/i18n/locales
-        inst_recursive /usr/share/locale/en
-        inst_recursive /usr/share/locale/en_*
+        inst_recursive /usr/share/locale/en*
+        inst_recursive /usr/share/locale/de*
+        image_install /usr/share/locale/locale.alias
     fi
 
     # locale-gen might either generate each locale separately or merge them
