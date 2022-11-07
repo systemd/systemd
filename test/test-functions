@@ -1342,7 +1342,7 @@ create_empty_image() {
         fi
     fi
     if ! get_bool "$STRIP_BINARIES"; then
-        root_size=$((4 * root_size))
+        root_size=$((5 * root_size))
         data_size=$((2 * data_size))
     fi
 
