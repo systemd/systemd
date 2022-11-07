@@ -846,6 +846,7 @@ LogExtraFields=
 LogLevelMax=
 LogRateLimitIntervalSec=
 LogRateLimitBurst=
+LogFilterPatterns=
 LogsDirectory=
 LogsDirectoryMode=
 MACVLAN=
