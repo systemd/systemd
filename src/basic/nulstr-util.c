@@ -115,6 +115,21 @@ int strv_make_nulstr(char * const *l, char **ret, size_t *ret_size) {
         return 0;
 }
 
+int set_make_nulstr(Set *s, char **ret, size_t *ret_size) {
+        /* Use _cleanup_free_ instead of _cleanup_strv_free_ because we need to clean the strv only, not
+         * the strings owned by the set. */
+        _cleanup_free_ char **strv = NULL;
+
+        assert(ret);
+        assert(ret_size);
+
+        strv = set_get_strv(s);
+        if (!strv)
+                return -ENOMEM;
+
+        return strv_make_nulstr(strv, ret, ret_size);
+}
+
 const char* nulstr_get(const char *nulstr, const char *needle) {
         if (!nulstr)
                 return NULL;
