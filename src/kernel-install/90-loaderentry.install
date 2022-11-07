@@ -85,7 +85,7 @@ BOOT_OPTIONS="${BOOT_OPTIONS% }"
 # command line with the machine ID we use, so that the machine ID remains
 # stable, even during factory reset, in the initrd (where the system's machine
 # ID is not directly accessible yet), and if the root file system is volatile.
-if [ "$ENTRY_TOKEN" = "$MACHINE_ID" ] && ! echo "$BOOT_OPTIONS" | grep -q "systemd.machine_id=$MACHINE_ID"; then
+if [ "$ENTRY_TOKEN" = "$MACHINE_ID" ] && ! echo "$BOOT_OPTIONS" | grep -q "systemd.machine_id="; then
     BOOT_OPTIONS="$BOOT_OPTIONS systemd.machine_id=$MACHINE_ID"
 fi
 
