@@ -49,6 +49,7 @@
 #include "missing_ioprio.h"
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
+#include "open-file.h"
 #include "parse-helpers.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -6487,4 +6488,62 @@ int config_parse_tty_size(
         }
 
         return config_parse_unsigned(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
+}
+
+int config_parse_open_file(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        OpenFile *open_file = malloc(sizeof(OpenFile));
+        OpenFile **p_head = ASSERT_PTR(data);
+        _cleanup_free_ char *resolved = NULL;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        log_syntax(unit, LOG_DEBUG, filename, line, 0, "config_parse_open_file %s=%s", lvalue, rvalue);
+
+        r = parse_open_file(rvalue, open_file);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse OpenFile= setting, ignoring: %s", rvalue);
+                return r;
+        }
+
+        r = config_parse_unit_path_printf(
+                unit,
+                filename,
+                line,
+                section,
+                section_line,
+                lvalue,
+                ltype,
+                open_file->path,
+                &resolved,
+                userdata);
+        if (r < 0)
+                return r;
+
+        free_and_replace(open_file->path, resolved);
+
+        if (isempty(open_file->fdname)) {
+                free(open_file->fdname);
+                open_file->fdname = strdup(open_file->path);
+                if (!open_file->fdname)
+                        return log_oom();
+        }
+
+        log_syntax(unit, LOG_DEBUG, filename, line, 0, "[config_parse_open_file] appending openfile %s", open_file_to_string(open_file));
+        LIST_APPEND(open_files, *p_head, TAKE_PTR(open_file));
+
+        return 0;
 }
