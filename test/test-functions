@@ -2773,6 +2773,10 @@ inst_recursive() {
     local p item
 
     for p in "$@"; do
+        # Make sure the source exists, as the process substitution below
+        # suppresses errors
+        stat "$p" >/dev/null || return 1
+
         while read -r item; do
             if [[ -d "$item" ]]; then
                 inst_dir "$item"
