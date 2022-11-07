@@ -6,6 +6,8 @@
 #include <stdbool.h>
 #include <string.h>
 
+#include "set.h"
+
 #define NULSTR_FOREACH(i, l)                                    \
         for (typeof(*(l)) *(i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
 
@@ -21,6 +23,7 @@ static inline bool nulstr_contains(const char *nulstr, const char *needle) {
 char** strv_parse_nulstr(const char *s, size_t l);
 char** strv_split_nulstr(const char *s);
 int strv_make_nulstr(char * const *l, char **p, size_t *n);
+int set_make_nulstr(Set *s, char **ret, size_t *ret_size);
 
 static inline int strv_from_nulstr(char ***ret, const char *nulstr) {
         char **t;
