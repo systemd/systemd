@@ -622,7 +622,8 @@ tests += [
 
         [files('test-journal-importer.c')],
 
-        [files('test-utmp.c')],
+        [files('test-utmp.c'),
+         [], [], [], 'ENABLE_UTMP'],
 
         [files('test-udev.c'),
          [libudevd_core,
