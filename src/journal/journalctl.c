@@ -25,7 +25,7 @@
 #include "catalog.h"
 #include "chase-symlinks.h"
 #include "chattr-util.h"
-#include "def.h"
+#include "constants.h"
 #include "dissect-image.h"
 #include "fd-util.h"
 #include "fileio.h"
