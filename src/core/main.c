@@ -37,7 +37,7 @@
 #include "crash-handler.h"
 #include "dbus-manager.h"
 #include "dbus.h"
-#include "def.h"
+#include "constants.h"
 #include "dev-setup.h"
 #include "efi-random.h"
 #include "efivars.h"

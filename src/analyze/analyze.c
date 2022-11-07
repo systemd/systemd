@@ -47,7 +47,7 @@
 #include "capability-util.h"
 #include "conf-files.h"
 #include "copy.h"
-#include "def.h"
+#include "constants.h"
 #include "exit-status.h"
 #include "extract-word.h"
 #include "fd-util.h"

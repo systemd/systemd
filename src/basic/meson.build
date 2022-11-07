@@ -33,7 +33,7 @@ basic_sources = files(
         'chattr-util.h',
         'conf-files.c',
         'conf-files.h',
-        'def.h',
+        'constants.h',
         'devnum-util.c',
         'devnum-util.h',
         'dirent-util.c',
