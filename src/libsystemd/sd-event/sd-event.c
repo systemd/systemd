@@ -2171,9 +2171,9 @@ _public_ int sd_event_add_inotify(
 
         assert_return(path, -EINVAL);
 
-        fd = open(path, O_PATH|O_CLOEXEC|
-                  (mask & IN_ONLYDIR ? O_DIRECTORY : 0)|
-                  (mask & IN_DONT_FOLLOW ? O_NOFOLLOW : 0));
+        fd = open(path, O_PATH | O_CLOEXEC |
+                        (mask & IN_ONLYDIR ? O_DIRECTORY : 0) |
+                        (mask & IN_DONT_FOLLOW ? O_NOFOLLOW : 0));
         if (fd < 0)
                 return -errno;
 
