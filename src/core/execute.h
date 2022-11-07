@@ -402,6 +402,7 @@ struct ExecParameters {
         char **fd_names;
         size_t n_socket_fds;
         size_t n_storage_fds;
+        size_t n_openfile_fds;
 
         ExecFlags flags;
         bool selinux_context_net:1;
