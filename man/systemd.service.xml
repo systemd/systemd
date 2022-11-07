@@ -1157,6 +1157,25 @@
         cgroup associated with the service.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>OpenFile=</varname></term>
+        <listitem><para>Takes an argument of the form <option>path:fd-name:options</option>,
+        where:
+        <itemizedlist>
+            <listitem><simpara><option>path</option> is a path to a file or an <constant>AF_UNIX</constant> socket;
+            it is optional and if not provided, defaults to the <option>path</option>;</simpara></listitem>
+            <listitem><simpara><option>fd-name</option> is a name that will be associated to the file descriptor;</simpara></listitem>
+            <listitem><simpara><option>options</option> are access option (<literal>ro</literal> or <literal>rw</literal>).</simpara></listitem>
+        </itemizedlist>
+        The file or socket is opened by the service manager and the file descriptor is passed to the service.
+        See <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        for more details on how to retrieve these file descriptors.</para>
+
+        <para>This setting is useful if a service wants to access a file that is not in its mount namespace.</para>
+
+        <para>This setting can be specified multiple times, in which case all the specified paths are opened and the file descriptors passed to the service.</para></listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para id='shared-unit-options'>Check
