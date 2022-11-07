@@ -1988,14 +1988,19 @@ install_locales() {
         inst /usr/share/i18n/SUPPORTED || :
         inst_recursive /usr/share/i18n/charmaps
         inst_recursive /usr/share/i18n/locales
-        inst_recursive /usr/share/locale/en
-        inst_recursive /usr/share/locale/en_*
+        inst_recursive /usr/share/locale/en*
+        inst_recursive /usr/share/locale/de*
+        image_install /usr/share/locale/locale.alias
+        # locale-gen might either generate each locale separately or merge them
+        # into a single archive
+        if ! (inst_recursive /usr/lib/locale/C.*8 /usr/lib/locale/en_*8 ||
+              image_install /usr/lib/locale/locale-archive); then
+            dfatal "Failed to install required locales"
+            exit 1
+        fi
+    else
+        inst_recursive /usr/lib/locale/C.*8 /usr/lib/locale/en_*8
     fi
-
-    inst_recursive /usr/lib/locale/C.utf8
-    inst_recursive /usr/lib/locale/C.UTF-8
-    inst_recursive /usr/lib/locale/en_*.utf8
-    inst_recursive /usr/lib/locale/en_*.UTF-8
 }
 
 # shellcheck disable=SC2120
