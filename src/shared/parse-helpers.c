@@ -1,12 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
+
 #include "af-list.h"
+#include "escape.h"
 #include "extract-word.h"
+#include "fd-util.h"
 #include "ip-protocol-list.h"
 #include "log.h"
 #include "parse-helpers.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "string-table.h"
+#include "string-util.h"
 #include "utf8.h"
 
 int path_simplify_and_warn(
@@ -196,3 +202,116 @@ int parse_socket_bind_item(
         *port_min = mn;
         return 0;
 }
+
+int open_file_parse(const char *v, OpenFile **ret) {
+        _cleanup_free_ char *options = NULL;
+        _cleanup_(open_file_freep) OpenFile *of = NULL;
+        int r;
+
+        assert(v);
+        assert(ret);
+
+        of = new0(OpenFile, 1);
+        if (!of)
+                return -ENOMEM;
+
+        r = extract_many_words(&v, ":", EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_CUNESCAPE, &of->path, &of->fdname, &options, NULL);
+        if (r < 0)
+                return r;
+
+        if (r == 0)
+                return -EINVAL;
+
+        if (!path_is_absolute(of->path) || !path_is_valid(of->path))
+                return -EINVAL;
+
+        if (isempty(of->fdname)) {
+                free(of->fdname);
+                r = path_extract_filename(of->path, &of->fdname);
+                if (r < 0)
+                        return r;
+        } else {
+                if (!fdname_is_valid(of->fdname))
+                        return -EINVAL;
+        }
+
+        for (const char *p = options;;) {
+                OpenFileFlags flag;
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, ",", 0);
+                if (r < 0)
+                        return r;
+
+                if (r == 0)
+                        break;
+
+                flag = open_file_flags_from_string(word);
+                if (flag < 0)
+                        return flag;
+
+                if ((flag & ~_OPENFILE_MASK_PUBLIC) != 0)
+                        continue;
+
+                of->flags |= flag;
+        }
+
+        if ((!!FLAGS_SET(of->flags, OPENFILE_RDONLY) + !!FLAGS_SET(of->flags, OPENFILE_APPEND) +
+             !!FLAGS_SET(of->flags, OPENFILE_TRUNC)) > 1)
+                return -EINVAL;
+
+        *ret = TAKE_PTR(of);
+
+        return 0;
+}
+
+char *open_file_to_string(const OpenFile *of) {
+        _cleanup_free_ char *options = NULL;
+        _cleanup_free_ char *fname = NULL;
+        _cleanup_free_ char *s = NULL;
+        bool has_fdname = false;
+
+        if (!of)
+                return NULL;
+
+        s = shell_escape(of->path, ":");
+        if (!s)
+                return NULL;
+
+        if (path_extract_filename(of->path, &fname) < 0)
+                return NULL;
+
+        has_fdname = !streq(fname, of->fdname);
+        if (has_fdname)
+                strextend(&s, ":", of->fdname);
+
+        for (OpenFileFlags flag = OPENFILE_RDONLY; flag < _OPENFILE_MAX; flag <<= 1) {
+                if ((flag & ~_OPENFILE_MASK_PUBLIC) != 0)
+                        continue;
+
+                if (FLAGS_SET(of->flags, flag) && !strextend_with_separator(&options, ",", open_file_flags_to_string(flag)))
+                        return NULL;
+        }
+
+        if (options)
+                has_fdname ? strextend(&s, ":", options) : strextend(&s, "::", options);
+
+        return TAKE_PTR(s);
+}
+
+OpenFile* open_file_free(OpenFile *of) {
+        if (!of)
+                return NULL;
+
+        free(of->path);
+        free(of->fdname);
+        return mfree(of);
+}
+
+static const char * const open_file_flags_table[_OPENFILE_MAX] = {
+        [OPENFILE_RDONLY] = "ro",
+        [OPENFILE_APPEND] = "ap",
+        [OPENFILE_TRUNC] = "tr",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(open_file_flags, OpenFileFlags);
