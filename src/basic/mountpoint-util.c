@@ -480,7 +480,6 @@ bool fstype_can_uid_gid(const char *fstype) {
                           "iso9660",
                           "msdos",
                           "ntfs",
-                          "tmpfs",
                           "vfat");
 }
 
