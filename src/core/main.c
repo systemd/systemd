@@ -54,6 +54,7 @@
 #include "import-creds.h"
 #include "killall.h"
 #include "kmod-setup.h"
+#include "libmount-util.h"
 #include "limits-util.h"
 #include "load-fragment.h"
 #include "log.h"
@@ -2814,6 +2815,22 @@ int main(int argc, char *argv[]) {
                 /* Try to figure out if we can use colors with the console. No need to do that for user
                  * instances since they never log into the console. */
                 log_show_color(colors_enabled());
+
+                /* After we have initialized all API file systems, verify that the initrd is in order. */
+                if (in_initrd()) {
+                        r = path_is_temporary_fs_harder("/");
+                        if (r < 0) {
+                                log_emergency_errno(r, "Failed to determine if root mount is temporary: %m");
+                                error_message = "Failed to determine if root mount is temporary";
+                                goto finish;
+                        }
+                        if (r == 0) {
+                                r = log_emergency_errno(SYNTHETIC_ERRNO(EUCLEAN),
+                                                        "Initrd root filesystem is not temporary: %m");
+                                error_message = "Initrd root filesystem is not temporary";
+                                goto finish;
+                        }
+                }
 
                 r = make_null_stdio();
                 if (r < 0)
