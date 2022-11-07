@@ -151,11 +151,14 @@ static int shift_fds(int fds[], size_t n_fds) {
         return 0;
 }
 
-static int flags_fds(const int fds[], size_t n_socket_fds, size_t n_storage_fds, bool nonblock) {
-        size_t n_fds;
+static int flags_fds(
+                const int fds[],
+                size_t n_socket_fds,
+                size_t n_fds,
+                bool nonblock) {
+
         int r;
 
-        n_fds = n_socket_fds + n_storage_fds;
         if (n_fds <= 0)
                 return 0;
 
@@ -1804,6 +1807,7 @@ static int build_environment(
                 const ExecContext *c,
                 const ExecParameters *p,
                 size_t n_fds,
+                char **fdnames,
                 const char *home,
                 const char *username,
                 const char *shell,
@@ -1836,7 +1840,7 @@ static int build_environment(
                         return -ENOMEM;
                 our_env[n_env++] = x;
 
-                joined = strv_join(p->fd_names, ":");
+                joined = strv_join(fdnames, ":");
                 if (!joined)
                         return -ENOMEM;
 
@@ -4104,6 +4108,123 @@ static int add_shifted_fd(int *fds, size_t fds_size, size_t *n_fds, int fd, int 
         return 1;
 }
 
+static int connect_unix_harder(Unit *u, const OpenFile *of, int ofd) {
+        union sockaddr_union addr = {
+                .un.sun_family = AF_UNIX,
+        };
+        socklen_t sa_len;
+        static const int socket_types[] = { SOCK_DGRAM, SOCK_STREAM, SOCK_SEQPACKET };
+        int r;
+
+        assert(u);
+        assert(of);
+        assert(ofd >= 0);
+
+        r = sockaddr_un_set_path(&addr.un, FORMAT_PROC_FD_PATH(ofd));
+        if (r < 0)
+                return log_unit_error_errno(u, r, "Failed to set sockaddr for %s: %m", of->path);
+
+        sa_len = r;
+
+        for (size_t i = 0; i < ELEMENTSOF(socket_types); i++) {
+                _cleanup_close_ int fd = -EBADF;
+
+                fd = socket(AF_UNIX, socket_types[i] | SOCK_CLOEXEC, 0);
+                if (fd < 0)
+                        return log_unit_error_errno(u, errno, "Failed to create socket for %s: %m", of->path);
+
+                r = RET_NERRNO(connect(fd, &addr.sa, sa_len));
+                if (r == -EPROTOTYPE)
+                        continue;
+                if (r < 0)
+                        return log_unit_error_errno(u, r, "Failed to connect socket for %s: %m", of->path);
+
+                return TAKE_FD(fd);
+        }
+
+        return log_unit_error_errno(u, SYNTHETIC_ERRNO(EPROTOTYPE), "Failed to connect socket for \"%s\".", of->path);
+}
+
+static int get_open_file_fd(Unit *u, const OpenFile *of) {
+        struct stat st;
+        _cleanup_close_ int fd = -EBADF, ofd = -EBADF;
+
+        assert(u);
+        assert(of);
+
+        ofd = open(of->path, O_PATH | O_CLOEXEC);
+        if (ofd < 0)
+                return log_error_errno(errno, "Could not open \"%s\": %m", of->path);
+        if (fstat(ofd, &st) < 0)
+                return log_error_errno(errno, "Failed to stat %s: %m", of->path);
+
+        if (S_ISSOCK(st.st_mode)) {
+                fd = connect_unix_harder(u, of, ofd);
+                if (fd < 0)
+                        return fd;
+
+                if (FLAGS_SET(of->flags, OPENFILE_READ_ONLY) && shutdown(fd, SHUT_WR) < 0)
+                        return log_error_errno(errno, "Failed to shutdown send for socket %s: %m", of->path);
+
+                log_unit_debug(u, "socket %s opened (fd=%d)", of->path, fd);
+        } else {
+                int flags = FLAGS_SET(of->flags, OPENFILE_READ_ONLY) ? O_RDONLY : O_RDWR;
+                if (FLAGS_SET(of->flags, OPENFILE_APPEND))
+                        flags |= O_APPEND;
+                else if (FLAGS_SET(of->flags, OPENFILE_TRUNCATE))
+                        flags |= O_TRUNC;
+
+                fd = fd_reopen(ofd, flags | O_CLOEXEC);
+                if (fd < 0)
+                        return log_unit_error_errno(u, fd, "Failed to open file %s: %m", of->path);
+
+                log_unit_debug(u, "file %s opened (fd=%d)", of->path, fd);
+        }
+
+        return TAKE_FD(fd);
+}
+
+static int collect_open_file_fds(
+                Unit *u,
+                OpenFile* open_files,
+                int **fds,
+                char ***fdnames,
+                size_t *n_fds) {
+        int r;
+
+        assert(u);
+        assert(fds);
+        assert(fdnames);
+        assert(n_fds);
+
+        LIST_FOREACH(open_files, of, open_files) {
+                _cleanup_close_ int fd = -EBADF;
+
+                fd = get_open_file_fd(u, of);
+                if (fd < 0) {
+                        if (FLAGS_SET(of->flags, OPENFILE_GRACEFUL)) {
+                                log_unit_debug_errno(u, fd, "Failed to get OpenFile= file descriptor for %s, ignoring: %m", of->path);
+                                continue;
+                        }
+
+                        return fd;
+                }
+
+                if (!GREEDY_REALLOC(*fds, *n_fds + 1))
+                        return -ENOMEM;
+
+                r = strv_extend(fdnames, of->fdname);
+                if (r < 0)
+                        return r;
+
+                (*fds)[*n_fds] = TAKE_FD(fd);
+
+                (*n_fds)++;
+        }
+
+        return 0;
+}
+
 static int exec_child(
                 Unit *unit,
                 const ExecCommand *command,
@@ -4113,7 +4234,7 @@ static int exec_child(
                 DynamicCreds *dcreds,
                 int socket_fd,
                 const int named_iofds[static 3],
-                int *fds,
+                int *params_fds,
                 size_t n_socket_fds,
                 size_t n_storage_fds,
                 char **files_env,
@@ -4153,6 +4274,8 @@ static int exec_child(
         int secure_bits;
         _cleanup_free_ gid_t *gids_after_pam = NULL;
         int ngids_after_pam = 0;
+        _cleanup_free_ int *fds = NULL;
+        _cleanup_strv_free_ char **fdnames = NULL;
 
         assert(unit);
         assert(command);
@@ -4194,6 +4317,24 @@ static int exec_child(
 
         /* In case anything used libc syslog(), close this here, too */
         closelog();
+
+        fds = newdup(int, params_fds, n_fds);
+        if (!fds) {
+                *exit_status = EXIT_MEMORY;
+                return log_oom();
+        }
+
+        fdnames = strv_copy((char**) params->fd_names);
+        if (!fdnames) {
+                *exit_status = EXIT_MEMORY;
+                return log_oom();
+        }
+
+        r = collect_open_file_fds(unit, params->open_files, &fds, &fdnames, &n_fds);
+        if (r < 0) {
+                *exit_status = EXIT_FDS;
+                return log_unit_error_errno(unit, r, "Failed to get OpenFile= file descriptors: %m");
+        }
 
         int keep_fds[n_fds + 3];
         memcpy_safe(keep_fds, fds, n_fds * sizeof(int));
@@ -4550,6 +4691,7 @@ static int exec_child(
                         context,
                         params,
                         n_fds,
+                        fdnames,
                         home,
                         username,
                         shell,
@@ -4842,7 +4984,7 @@ static int exec_child(
         if (r >= 0)
                 r = shift_fds(fds, n_fds);
         if (r >= 0)
-                r = flags_fds(fds, n_socket_fds, n_storage_fds, context->non_blocking);
+                r = flags_fds(fds, n_socket_fds, n_fds, context->non_blocking);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return log_unit_error_errno(unit, r, "Failed to adjust passed file descriptors: %m");
