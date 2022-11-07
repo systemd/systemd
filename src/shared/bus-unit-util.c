@@ -2157,6 +2157,7 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
                               "USBFunctionDescriptors",
                               "USBFunctionStrings",
                               "OOMPolicy",
+                              "OpenFile",
                               "TimeoutStartFailureMode",
                               "TimeoutStopFailureMode"))
                 return bus_append_string(m, field, eq);
