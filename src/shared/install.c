@@ -13,7 +13,7 @@
 #include "chase-symlinks.h"
 #include "conf-files.h"
 #include "conf-parser.h"
-#include "def.h"
+#include "constants.h"
 #include "dirent-util.h"
 #include "errno-list.h"
 #include "extract-word.h"

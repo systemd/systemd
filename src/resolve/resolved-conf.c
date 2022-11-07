@@ -2,7 +2,7 @@
 
 #include "alloc-util.h"
 #include "conf-parser.h"
-#include "def.h"
+#include "constants.h"
 #include "extract-word.h"
 #include "hexdecoct.h"
 #include "parse-util.h"

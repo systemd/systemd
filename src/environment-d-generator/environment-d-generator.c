@@ -3,7 +3,7 @@
 #include "sd-path.h"
 
 #include "conf-files.h"
-#include "def.h"
+#include "constants.h"
 #include "env-file.h"
 #include "escape.h"
 #include "glyph-util.h"

@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "constants.h"
 #include "cryptsetup-util.h"
-#include "def.h"
 #include "dirent-util.h"
 #include "dlfcn-util.h"
 #include "efi-api.h"

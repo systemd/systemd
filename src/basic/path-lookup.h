@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 
-#include "def.h"
+#include "constants.h"
 #include "macro.h"
 
 typedef enum LookupPathsFlags {

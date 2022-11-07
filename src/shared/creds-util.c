@@ -10,8 +10,8 @@
 
 #include "blockdev-util.h"
 #include "chattr-util.h"
+#include "constants.h"
 #include "creds-util.h"
-#include "def.h"
 #include "efi-api.h"
 #include "env-util.h"
 #include "fd-util.h"

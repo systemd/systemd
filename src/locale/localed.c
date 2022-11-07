@@ -17,7 +17,7 @@
 #include "bus-log-control-api.h"
 #include "bus-message.h"
 #include "bus-polkit.h"
-#include "def.h"
+#include "constants.h"
 #include "dlfcn-util.h"
 #include "kbd-util.h"
 #include "localed-util.h"

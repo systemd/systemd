@@ -7,7 +7,7 @@
 
 #include "ask-password-api.h"
 #include "build.h"
-#include "def.h"
+#include "constants.h"
 #include "log.h"
 #include "macro.h"
 #include "main-func.h"
