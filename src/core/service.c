@@ -26,6 +26,7 @@
 #include "load-fragment.h"
 #include "log.h"
 #include "manager.h"
+#include "open-file.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -359,6 +360,8 @@ static void service_done(Unit *u) {
         Service *s = SERVICE(u);
 
         assert(s);
+
+        open_file_free_many(&s->open_files);
 
         s->pid_file = mfree(s->pid_file);
         s->status_text = mfree(s->status_text);
@@ -924,6 +927,21 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                         "%sFile Descriptor Store Current: %zu\n",
                         prefix, s->n_fd_store_max,
                         prefix, s->n_fd_store);
+
+        if (s->open_files)
+                LIST_FOREACH(open_files, of, s->open_files) {
+                        _cleanup_free_ char *ofs = NULL;
+                        int r;
+
+                        r = open_file_to_string(of, &ofs);
+                        if (r < 0) {
+                                log_debug_errno(r,
+                                                "Failed to convert OpenFile= setting to string, ignoring: %m");
+                                continue;
+                        }
+
+                        fprintf(f, "%sOpen File: %s\n", prefix, ofs);
+                }
 
         cgroup_context_dump(UNIT(s), f, prefix);
 }
@@ -1527,6 +1545,8 @@ static int service_spawn_internal(
                                         &exec_params.n_storage_fds);
                 if (r < 0)
                         return r;
+
+                exec_params.open_files = s->open_files;
 
                 log_unit_debug(UNIT(s), "Passing %zu fds to service", exec_params.n_socket_fds + exec_params.n_storage_fds);
         }

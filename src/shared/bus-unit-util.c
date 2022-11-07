@@ -29,6 +29,7 @@
 #include "mountpoint-util.h"
 #include "nsflags.h"
 #include "numa-util.h"
+#include "open-file.h"
 #include "parse-helpers.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -404,6 +405,23 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
                 return bus_log_create_error(r);
 
         r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
+static int bus_append_open_file(sd_bus_message *m, const char *field, const char *eq) {
+        _cleanup_(open_file_freep) OpenFile *of = NULL;
+        int r;
+
+        assert(m);
+
+        r = open_file_parse(eq, &of);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse OpenFile= setting: %m");
+
+        r = sd_bus_message_append(m, "(sv)", field, "a(sst)", (size_t) 1, of->path, of->fdname, of->flags);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -2299,6 +2317,9 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
 
                 return 1;
         }
+
+        if (streq(field, "OpenFile"))
+                return bus_append_open_file(m, field, eq);
 
         return 0;
 }

@@ -23,6 +23,7 @@ typedef struct Manager Manager;
 #include "namespace.h"
 #include "nsflags.h"
 #include "numa-util.h"
+#include "open-file.h"
 #include "path-util.h"
 #include "set.h"
 #include "time-util.h"
@@ -427,6 +428,8 @@ struct ExecParameters {
         int exec_fd;
 
         const char *notify_socket;
+
+        LIST_HEAD(OpenFile, open_files);
 };
 
 #include "unit.h"
