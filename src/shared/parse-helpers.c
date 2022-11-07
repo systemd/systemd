@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
+
 #include "af-list.h"
 #include "extract-word.h"
 #include "ip-protocol-list.h"
@@ -195,4 +197,48 @@ int parse_socket_bind_item(
         *nr_ports = nr;
         *port_min = mn;
         return 0;
+}
+
+int parse_open_file(const char *v, OpenFile* of) {
+        _cleanup_free_ char *path = NULL, *fdname = NULL, *flags = NULL;
+        int r;
+
+        assert(v);
+
+        r = extract_many_words(&v, ":", EXTRACT_DONT_COALESCE_SEPARATORS, &path, &fdname, &flags, NULL);
+        if (r < 0)
+                return r;
+
+        if (!path_is_absolute(path))
+                return -EINVAL;
+
+        if (!fdname || isempty(fdname)) {
+                r = free_and_strdup(&fdname, path);
+                if (r < 0)
+                        return r;
+        }
+
+        free_and_replace(of->path, path);
+        free_and_replace(of->fdname, fdname);
+
+        if (!flags)
+                of->flags = OPENFILE_RDONLY;
+        else if (streq(flags, "rw"))
+                of->flags = OPENFILE_RDWR;
+        else
+                of->flags = OPENFILE_RDONLY;
+
+        return 0;
+}
+
+const char *open_file_to_string(const OpenFile *open_file) {
+    if (!open_file)
+        return "";
+    return strjoin(open_file->path, ":", open_file->fdname, ":", open_file->flags == OPENFILE_RDWR ? "rw" : "ro");
+}
+
+void open_file_free(OpenFile *open_file) {
+    free(open_file->path);
+    free(open_file->fdname);
+    free(open_file);
 }

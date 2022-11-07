@@ -6488,3 +6488,63 @@ int config_parse_tty_size(
 
         return config_parse_unsigned(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
 }
+
+int config_parse_open_file(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ OpenFile *open_file = NULL;
+        OpenFile **head = ASSERT_PTR(data);
+        _cleanup_free_ char *resolved = NULL;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        open_file = new0(OpenFile, 1);
+        if (!open_file)
+                return log_oom();
+
+        r = parse_open_file(rvalue, open_file);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse OpenFile= setting, ignoring: %s", rvalue);
+                return r;
+        }
+        open_file->fd = -1;
+
+        r = config_parse_unit_path_printf(
+                unit,
+                filename,
+                line,
+                section,
+                section_line,
+                lvalue,
+                ltype,
+                open_file->path,
+                &resolved,
+                userdata);
+        if (r < 0)
+                return r;
+
+        free_and_replace(open_file->path, resolved);
+
+        if (isempty(open_file->fdname)) {
+                free(open_file->fdname);
+                open_file->fdname = strdup(open_file->path);
+                if (!open_file->fdname)
+                        return log_oom();
+        }
+
+        LIST_APPEND(open_files, *head, TAKE_PTR(open_file));
+
+        return 0;
+}

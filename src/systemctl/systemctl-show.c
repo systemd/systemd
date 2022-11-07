@@ -1834,6 +1834,25 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         return 1;
+                } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "OpenFile")) {
+                        char *path, *fdname;
+                        uint64_t options;
+
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(sst)");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        while ((r = sd_bus_message_read(m, "(sst)", &path, &fdname, &options)) > 0)
+                                bus_print_property_valuef(name, expected_value, flags, "%s:%s:%" PRIu64, path, fdname, options);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        return 1;
+
                 }
 
                 break;

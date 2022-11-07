@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <linux/in.h>
 #include <sys/socket.h>
 #include <stdio.h>
 
 #include "macro.h"
 #include "parse-helpers.h"
+#include "string-util.h"
 #include "tests.h"
 
 static void test_valid_item(
@@ -90,6 +92,45 @@ TEST(invalid_items) {
         test_invalid_item("ipv6:tcp:6666 zupa");
         test_invalid_item("ipv6:tcp:6666: zupa");
         test_invalid_item("ipv6:tcp:6666\n zupa");
+}
+
+TEST(parse_open_file) {
+        OpenFile *of = new0(OpenFile, 1);
+        int r;
+
+        r = parse_open_file("/proc/1/ns/mnt:host-mount-namespace:ro", of);
+
+        assert_se(r == 0);
+        assert_se(streq(of->path, "/proc/1/ns/mnt"));
+        assert_se(streq(of->fdname, "host-mount-namespace"));
+        assert_se(of->flags == OPENFILE_RDONLY);
+
+        r = parse_open_file("/proc/1/ns/mnt", of);
+
+        assert_se(r == 0);
+        assert_se(streq(of->path, "/proc/1/ns/mnt"));
+        assert_se(streq(of->fdname, "/proc/1/ns/mnt"));
+        assert_se(of->flags == OPENFILE_RDONLY);
+
+        r = parse_open_file("/proc/1/ns/mnt:host-mount-namespace", of);
+
+        assert_se(r == 0);
+        assert_se(streq(of->path, "/proc/1/ns/mnt"));
+        assert_se(streq(of->fdname, "host-mount-namespace"));
+        assert_se(of->flags == OPENFILE_RDONLY);
+
+        r = parse_open_file("/proc/1/ns/mnt::rw", of);
+
+        assert_se(r == 0);
+        assert_se(streq(of->path, "/proc/1/ns/mnt"));
+        assert_se(streq(of->fdname, "/proc/1/ns/mnt"));
+        assert_se(of->flags == OPENFILE_RDWR);
+
+        r = parse_open_file("../file.dat:file:rw", of);
+
+        assert_se(r == -EINVAL);
+
+        open_file_free(of);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
