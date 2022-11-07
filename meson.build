@@ -2253,7 +2253,8 @@ exe = executable(
         link_with : [libcore,
                      libshared],
         dependencies : [versiondep,
-                        libseccomp],
+                        libseccomp,
+                        libmount],
         install_rpath : rootpkglibdir,
         install : true,
         install_dir : rootlibexecdir)
