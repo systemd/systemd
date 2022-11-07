@@ -20,6 +20,7 @@
 #include "load-fragment.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "parse-helpers.h"
 #include "rm-rf.h"
 #include "specifier.h"
 #include "string-util.h"
@@ -993,6 +994,58 @@ TEST(unit_is_recursive_template_dependency) {
         assert_se(unit_is_likely_recursive_template_dependency(u, "quux@foobar@123.service", "quux@%n.service") == 0);
         /* Test that a dependency of a different type is not detected as recursive. */
         assert_se(unit_is_likely_recursive_template_dependency(u, "foobar@foobar@123.mount", "foobar@%n.mount") == 0);
+}
+
+static void free_open_files(OpenFile *open_files) {
+        OpenFile *f;
+
+        while ((f = open_files)) {
+                LIST_REMOVE(open_files, open_files, f);
+                open_file_free(f);
+        }
+}
+
+TEST(config_parse_open_file) {
+        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_(unit_freep) Unit *u = NULL;
+        LIST_HEAD(OpenFile, head);
+        head = NULL;
+        OpenFile *tail = NULL;
+        int r;
+
+        r = manager_new(LOOKUP_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
+        if (manager_errno_skip_test(r)) {
+                log_notice_errno(r, "Skipping test: manager_new: %m");
+                return;
+        }
+
+        assert_se(r >= 0);
+        assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
+
+        assert_se(u = unit_new(m, sizeof(Service)));
+        assert_se(unit_add_name(u, "foobar.service") == 0);
+
+        r = config_parse_open_file(NULL, "fake", 1, "section", 1,
+                                   "OpenFile", 0, "/proc/1/ns/mnt:host-mount-namespace:ro",
+                                   &head, u);
+        assert_se(r >= 0);
+        LIST_FIND_TAIL(open_files, head, tail);
+        assert_se(tail != NULL);
+        assert_se(streq(tail->path, "/proc/1/ns/mnt"));
+        assert_se(streq(tail->fdname, "host-mount-namespace"));
+        assert_se(tail->flags == OPENFILE_RDONLY);
+
+        r = config_parse_open_file(NULL, "fake", 1, "section", 1,
+                                   "OpenFile", 0, "/proc/1/ns/mnt::rw",
+                                   &head, u);
+        assert_se(r >= 0);
+        LIST_FIND_TAIL(open_files, head, tail);
+        assert_se(tail != NULL);
+        assert_se(streq(tail->path, "/proc/1/ns/mnt"));
+        assert_se(streq(tail->fdname, "/proc/1/ns/mnt"));
+        assert_se(tail->flags == 0);
+
+        free_open_files(head);
 }
 
 static int intro(void) {
