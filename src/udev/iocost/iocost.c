@@ -5,9 +5,11 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "conf-parser.h"
 #include "sd-device.h"
 
 #include "alloc-util.h"
+#include "build.h"
 #include "cgroup-util.h"
 #include "devnum-util.h"
 #include "device-util.h"
@@ -15,6 +17,24 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "verbs.h"
+
+static char *arg_bandwidth_threshold = NULL;
+
+static int parse_config(void) {
+        static const ConfigTableItem items[] = {
+                { "Iocost", "BandwidthThreshold", config_parse_string, 0, &arg_bandwidth_threshold }
+        };
+        return config_parse(
+                        NULL,
+                        "/etc/udev/iocost.conf",
+                        NULL,
+                        "Iocost\0",
+                        config_item_table_lookup,
+                        items,
+                        CONFIG_PARSE_WARN,
+                        NULL,
+                        NULL);
+}
 
 static int help(void) {
         printf("%s [OPTIONS...]\n\n"
@@ -85,9 +105,26 @@ static int get_known_solutions(sd_device *device, char ***ret_solutions) {
         return 0;
 }
 
-static int query_named_solution(sd_device *device, const char *name, const char **ret_model, const char **ret_qos) {
-        _cleanup_free_ char *upper_name = NULL, *qos_key = NULL, *model_key = NULL;
+static int choose_solution(sd_device *device, char **solutions, const char **ret_name) {
+        if (strv_isempty(solutions))
+                return log_error_errno(
+                                SYNTHETIC_ERRNO(EINVAL), "IOCOST_SOLUTIONS exists in hwdb but is empty.");
+
+        if (arg_bandwidth_threshold && strv_find(solutions, arg_bandwidth_threshold)) {
+                *ret_name = arg_bandwidth_threshold;
+                log_debug("Selected solution based on bandwidth threshold: %s", *ret_name);
+        } else {
+                *ret_name = solutions[0];
+                log_debug("Selected first available solution: %s", *ret_name);
+        }
+
+        return 0;
+}
+
+static int query_named_solution(
+                sd_device *device, const char *name, const char **ret_model, const char **ret_qos) {
         _cleanup_strv_free_ char **solutions = NULL;
+        _cleanup_free_ char *upper_name = NULL, *qos_key = NULL, *model_key = NULL;
         const char *qos = NULL, *model = NULL;
         int r;
 
@@ -95,17 +132,16 @@ static int query_named_solution(sd_device *device, const char *name, const char 
         assert(ret_model);
 
         /* If NULL is passed we query the default solution, which is the first one listed
-         * in the SOLUTIONS key.
+         * in the SOLUTIONS key or the one specified by the BandwidthThreshold setting.
          */
         if (!name) {
                 r = get_known_solutions(device, &solutions);
                 if (r < 0)
                         return r == -ENOENT ? 0 : log_error_errno(r, "Failed to query solutions from device: %m");
 
-                if (strv_isempty(solutions))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "IOCOST_SOLUTIONS exists in hwdb but is empty.");
-
-                name = solutions[0];
+                r = choose_solution(device, solutions, &name);
+                if (r < 0)
+                        return r;
         }
 
         upper_name = strdup(name);
@@ -184,6 +220,7 @@ static int apply_solution_for_path(const char *path, const char *name) {
 static int query_solutions_for_path(const char *path) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         _cleanup_strv_free_ char **solutions = NULL;
+        const char *default_solution = NULL;
         const char *model_name = NULL;
         int r;
 
@@ -199,7 +236,17 @@ static int query_solutions_for_path(const char *path) {
         if (r < 0)
                 return log_error_errno(r, "No solutions found for device %s, model name %s on hwdb: %m\n", path, model_name);
 
+        r = choose_solution(device, solutions, &default_solution);
+        if (r < 0)
+                return log_error_errno(
+                                r,
+                                "No solutions found for device %s, model name %s on hwdb: %m\n",
+                                path,
+                                model_name);
+
         log_info("Known solutions for %s model name: %s\n", path, model_name);
+        log_info("Preferred bandwidth threshold: %s", arg_bandwidth_threshold);
+        log_info("Solution that would be applied: %s", default_solution);
         STRV_FOREACH(s, solutions) {
                 const char *model = NULL, *qos = NULL;
 
@@ -243,7 +290,16 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        return iocost_main(argc, argv);
+        (void) parse_config();
+
+        if (!arg_bandwidth_threshold)
+                arg_bandwidth_threshold = strdup("isolated-bandwidth");
+        log_debug("Preferred bandwidth threshold: %s.", arg_bandwidth_threshold);
+
+        r = iocost_main(argc, argv);
+
+        mfree(arg_bandwidth_threshold);
+        return r;
 }
 
 DEFINE_MAIN_FUNCTION(run);

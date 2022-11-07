@@ -147,6 +147,8 @@ endforeach
 if install_sysconfdir_samples
         install_data('udev.conf',
                      install_dir : sysconfdir / 'udev')
+        install_data('iocost/iocost.conf',
+                     install_dir : sysconfdir / 'udev')
 endif
 
 custom_target(
