@@ -718,20 +718,18 @@ int mount_option_mangle(
         _cleanup_free_ char *ret = NULL;
         int r;
 
-        /* This extracts mount flags from the mount options, and store
+        /* This extracts mount flags from the mount options, and stores
          * non-mount-flag options to '*ret_remaining_options'.
          * E.g.,
          * "rw,nosuid,nodev,relatime,size=1630748k,mode=700,uid=1000,gid=1000"
          * is split to MS_NOSUID|MS_NODEV|MS_RELATIME and
          * "size=1630748k,mode=700,uid=1000,gid=1000".
-         * See more examples in test-mount-utils.c.
+         * See more examples in test-mount-util.c.
          *
-         * Note that if 'options' does not contain any non-mount-flag options,
+         * If 'options' does not contain any non-mount-flag options,
          * then '*ret_remaining_options' is set to NULL instead of empty string.
-         * Note that this does not check validity of options stored in
-         * '*ret_remaining_options'.
-         * Note that if 'options' is NULL, then this just copies 'mount_flags'
-         * to '*ret_mount_flags'. */
+         * The validity of options stored in '*ret_remaining_options' is not checked.
+         * If 'options' is NULL, this just copies 'mount_flags' to *ret_mount_flags. */
 
         assert(ret_mount_flags);
         assert(ret_remaining_options);
