@@ -23,3 +23,9 @@ int parse_socket_bind_item(
         int *ip_protocol,
         uint16_t *nr_ports,
         uint16_t *port_min);
+
+int parse_open_file_fields(
+        const char *v,
+        char **path,
+        char **fdname,
+        int *flags);
