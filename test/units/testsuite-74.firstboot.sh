@@ -33,10 +33,9 @@ touch "$ROOT/bin/fooshell" "$ROOT/bin/barshell"
 systemd-firstboot --root="$ROOT" --locale=foo
 grep -q "LANG=foo" "$ROOT/etc/locale.conf"
 rm -fv "$ROOT/etc/locale.conf"
-# FIXME: https://github.com/systemd/systemd/issues/25249
-#systemd-firstboot --root="$ROOT" --locale-messages=foo
-#grep -q "LC_MESSAGES=foo" "$ROOT/etc/locale.conf"
-#rm -fv "$ROOT/etc/locale.conf"
+systemd-firstboot --root="$ROOT" --locale-messages=foo
+grep -q "LC_MESSAGES=foo" "$ROOT/etc/locale.conf"
+rm -fv "$ROOT/etc/locale.conf"
 systemd-firstboot --root="$ROOT" --locale=foo --locale-messages=bar
 grep -q "LANG=foo" "$ROOT/etc/locale.conf"
 grep -q "LC_MESSAGES=bar" "$ROOT/etc/locale.conf"
