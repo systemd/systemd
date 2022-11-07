@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "escape.h"
 #include "libmount-util.h"
+#include "strv.h"
 #include "tests.h"
 
 static void test_libmount_unescaping_one(
@@ -105,6 +107,20 @@ TEST(libmount_unescaping) {
                         "tmpfs",
                         "/tmp/foo\rbar"
         );
+}
+
+/* C.f. test_path_is_temporary_fs() in test-stat-util.c. */
+TEST(path_is_temporary_fs_harder) {
+        char **args = saved_argc >= 2 ? strv_skip(saved_argv, 1) :
+                                        STRV_MAKE("/", "/proc", "/var");
+        int r;
+
+        STRV_FOREACH(arg, args) {
+                r = path_is_temporary_fs_harder(*arg);
+                log_info("path_is_temporary_fs_harder(\"%s\"): %s",
+                         *arg,
+                         r >= 0 ? yes_no(r) : STRERROR(r));
+        }
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

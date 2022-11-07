@@ -14,3 +14,5 @@ int libmount_parse(
                 FILE *source,
                 struct libmnt_table **ret_table,
                 struct libmnt_iter **ret_iter);
+
+int path_is_temporary_fs_harder(const char *path);
