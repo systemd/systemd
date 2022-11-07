@@ -3,11 +3,26 @@
 
 #include <stdint.h>
 
+#include "list.h"
+
 enum {
         PATH_CHECK_FATAL    = 1 << 0,  /* If not set, then error message is appended with 'ignoring'. */
         PATH_CHECK_ABSOLUTE = 1 << 1,
         PATH_CHECK_RELATIVE = 1 << 2,
 };
+
+typedef enum OpenFileFlags {
+        OPENFILE_RDONLY         = 1 << 0,
+        _OPENFILE_MAX,
+        _OPENFILE_INVALID  = -EINVAL,
+} OpenFileFlags;
+
+typedef struct OpenFile {
+        char *path;
+        char *fdname;
+        uint64_t flags;
+        LIST_FIELDS(struct OpenFile, open_files);
+} OpenFile;
 
 int path_simplify_and_warn(
                 char *path,
@@ -23,3 +38,10 @@ int parse_socket_bind_item(
         int *ip_protocol,
         uint16_t *nr_ports,
         uint16_t *port_min);
+
+int open_file_parse(const char *v, OpenFile **ret);
+
+const char *open_file_to_string(const OpenFile *of);
+
+OpenFile* open_file_free(OpenFile *of);
+DEFINE_TRIVIAL_CLEANUP_FUNC(OpenFile*, open_file_free);
