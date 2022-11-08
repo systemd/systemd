@@ -73,13 +73,9 @@ All tools:
   (relevant in particular for the system manager and `systemd-hostnamed`).
   Must be a valid hostname (either a single label or a FQDN).
 
-* `$SYSTEMD_IN_INITRD=[auto|lenient|0|1]` — if set, specifies initrd detection
-  method. Defaults to `auto`. Behavior is defined as follows:
-  `auto`: Checks if `/etc/initrd-release` exists, and a temporary fs is mounted
-          on `/`. If both conditions meet, then it's in initrd.
-  `lenient`: Similar to `auto`, but the rootfs check is skipped.
-  `0|1`: Simply overrides initrd detection. This is useful for debugging and
-         testing initrd-only programs in the main system.
+* `$SYSTEMD_IN_INITRD` — takes a boolean. If set, overrides initrd detection.
+  This is useful for debugging and testing initrd-only programs in the main
+  system.
 
 * `$SYSTEMD_BUS_TIMEOUT=SECS` — specifies the maximum time to wait for method call
   completion. If no time unit is specified, assumes seconds. The usual other units
