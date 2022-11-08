@@ -197,6 +197,7 @@ BASICTOOLS=(
     nproc
     pkill
     readlink
+    realpath
     rev
     rm
     rmdir
