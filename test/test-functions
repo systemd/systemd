@@ -1159,6 +1159,9 @@ install_suse_systemd() {
         systemd-coredump
         systemd-experimental
         systemd-journal-remote
+        # Since commit fb6f25d7b979134a, systemd-resolved, which is shipped by
+        # systemd-network sub-package on openSUSE, has its own testsuite.
+        systemd-network
         systemd-portable
         udev
     )
@@ -1182,7 +1185,7 @@ install_suse_systemd() {
     cp "$testsdir"/test-* "$initdir/$testsdir/"
     cp -a "$testsdir/testdata" "$initdir/$testsdir/"
 
-    # On openSUSE, these dirs are not created at package install for now on.
+    # On openSUSE, these dirs are not created at package install for now.
     mkdir -p "$initdir/var/log/journal/remote"
 }
 
