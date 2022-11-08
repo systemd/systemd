@@ -41,6 +41,14 @@ systemd-dissect --json=short "${image}.raw" | grep -q -F '{"rw":"ro","designator
 systemd-dissect "${image}.raw" | grep -q -F "MARKER=1"
 systemd-dissect "${image}.raw" | grep -q -F -f <(sed 's/"//g' "$os_release")
 
+systemd-dissect --list "${image}.raw" | grep -q '^etc/os-release$'
+
+read -r SHA256SUM1 _ < <(systemd-dissect --copy-from "${image}.raw" etc/os-release | sha256sum)
+test "$SHA256SUM1" != ""
+read -r SHA256SUM2 _ < <(systemd-dissect --read-only --with "${image}.raw" sha256sum etc/os-release)
+test "$SHA256SUM2" != ""
+test "$SHA256SUM1" = "$SHA256SUM2"
+
 mv "${image}.verity" "${image}.fooverity"
 mv "${image}.roothash" "${image}.foohash"
 systemd-dissect --json=short "${image}.raw" --root-hash="${roothash}" --verity-data="${image}.fooverity" | grep -q -F '{"rw":"ro","designator":"root","partition_uuid":null,"partition_label":null,"fstype":"squashfs","architecture":null,"verity":"external"'

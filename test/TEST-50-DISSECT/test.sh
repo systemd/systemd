@@ -12,7 +12,6 @@ TEST_INSTALL_VERITY_MINIMAL=1
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
-
 command -v mksquashfs >/dev/null 2>&1 || exit 0
 command -v veritysetup >/dev/null 2>&1 || exit 0
 command -v sfdisk >/dev/null 2>&1 || exit 0
@@ -27,6 +26,7 @@ test_append_files() {
         install_dmevent
         generate_module_dependencies
         inst_binary wc
+        inst_binary sha256sum
         if command -v openssl >/dev/null 2>&1; then
             inst_binary openssl
         fi
