@@ -7,6 +7,7 @@
 #include "utmp-wtmp.h"
 #include "tests.h"
 
+#if ENABLE_UTMP
 #ifndef UT_LINESIZE
 #  define UT_LINESIZE      32
 #endif
@@ -16,7 +17,6 @@
 #ifndef UT_HOSTSIZE
 #  define UT_HOSTSIZE     256
 #endif
-
 TEST(dump_run_utmp) {
         _unused_ _cleanup_(utxent_cleanup) bool utmpx = false;
 
@@ -55,4 +55,5 @@ TEST(dump_run_utmp) {
         }
 }
 
+#endif /* ENABLE_UTMP */
 DEFINE_TEST_MAIN(LOG_DEBUG);
