@@ -113,6 +113,16 @@ install -m 0644 "$KERNEL_IMAGE" "$ENTRY_DIR_ABS/linux" || {
 }
 chown root:root "$ENTRY_DIR_ABS/linux" || :
 
+# For now if the target is an efi directory
+# and the machine type is aarch64 decompress the image
+if [[ "$ENTRY_DIR_ABS" == *"efi"* ]]; then
+    file $ENTRY_DIR_ABS/linux |grep "gzip"
+    if [[ "$?" == "0" ]] && [[ `uname -m` == "aarch64" ]] ; then
+        mv $ENTRY_DIR_ABS/linux $ENTRY_DIR_ABS/linux.gz
+        gzip -d $ENTRY_DIR_ABS/linux.gz
+    fi
+fi
+
 shift "$INITRD_OPTIONS_SHIFT"
 # All files listed as arguments, and staged files starting with "initrd" are installed as initrds.
 for initrd in "$@" "${KERNEL_INSTALL_STAGING_AREA}"/initrd*; do
