@@ -1159,6 +1159,7 @@ install_suse_systemd() {
         systemd-coredump
         systemd-experimental
         systemd-journal-remote
+        systemd-network
         systemd-portable
         udev
     )
