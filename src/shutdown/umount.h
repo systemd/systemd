@@ -20,6 +20,7 @@ typedef struct MountPoint {
         unsigned long remount_flags;
         bool try_remount_ro;
         bool umount_lazily;
+        bool leaf;
         dev_t devnum;
         LIST_FIELDS(struct MountPoint, mount_point);
 } MountPoint;
