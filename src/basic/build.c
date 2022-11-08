@@ -4,6 +4,7 @@
 
 #include "build.h"
 #include "macro.h"
+#include "version.h"
 
 const char* const systemd_features =
 
