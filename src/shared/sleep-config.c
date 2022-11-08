@@ -21,7 +21,7 @@
 #include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "conf-parser.h"
-#include "def.h"
+#include "constants.h"
 #include "device-util.h"
 #include "devnum-util.h"
 #include "env-util.h"

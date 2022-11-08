@@ -14,7 +14,6 @@
 #include "microhttpd-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
 
 void microhttpd_logger(void *arg, const char *fmt, va_list ap) {
         char *f;

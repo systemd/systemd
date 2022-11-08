@@ -21,7 +21,6 @@
 #include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
-#include "util.h"
 
 static int prepare_handler(sd_event_source *s, void *userdata) {
         log_info("preparing %c", PTR_TO_INT(userdata));

@@ -2,7 +2,7 @@
 
 #include "conf-files.h"
 #include "conf-parser.h"
-#include "def.h"
+#include "constants.h"
 #include "resolved-dnssd.h"
 #include "resolved-dns-rr.h"
 #include "resolved-manager.h"

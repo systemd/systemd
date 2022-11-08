@@ -3,6 +3,7 @@
 #include <getopt.h>
 #include <unistd.h>
 
+#include "build.h"
 #include "creds-util.h"
 #include "dirent-util.h"
 #include "escape.h"

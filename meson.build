@@ -2035,7 +2035,8 @@ install_libsystemd_static = static_library(
                         libblkid,
                         libmount,
                         libgcrypt,
-                        libopenssl],
+                        libopenssl,
+                        versiondep],
         c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
 
 libudev = shared_library(
@@ -2067,7 +2068,9 @@ install_libudev_static = static_library(
         install_tag: 'libudev',
         install_dir : rootlibdir,
         link_depends : libudev_sym,
-        dependencies : libshared_deps + [libmount],
+        dependencies : [libshared_deps,
+                        libmount,
+                        versiondep],
         c_args : static_libudev_pic ? [] : ['-fno-PIC'],
         pic : static_libudev_pic)
 

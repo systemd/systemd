@@ -11,6 +11,7 @@
 
 #include "alloc-util.h"
 #include "architecture.h"
+#include "build.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-map-properties.h"
@@ -23,7 +24,6 @@
 #include "pretty-print.h"
 #include "spawn-polkit-agent.h"
 #include "terminal-util.h"
-#include "util.h"
 #include "verbs.h"
 
 static bool arg_ask_password = true;

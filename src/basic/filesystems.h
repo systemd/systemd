@@ -36,7 +36,7 @@ const FilesystemSet *filesystem_set_find(const char *name);
 
 const char *fs_type_to_string(statfs_f_type_t magic);
 int fs_type_from_string(const char *name, const statfs_f_type_t **ret);
-int fs_in_group(const struct statfs *s, enum FilesystemGroups fs_group);
+bool fs_in_group(const struct statfs *s, enum FilesystemGroups fs_group);
 
 /* gperf prototypes */
 const struct FilesystemMagic* filesystems_gperf_lookup(const char *key, GPERF_LEN_TYPE length);

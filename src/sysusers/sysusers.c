@@ -4,11 +4,12 @@
 #include <utmp.h>
 
 #include "alloc-util.h"
+#include "build.h"
 #include "chase-symlinks.h"
 #include "conf-files.h"
+#include "constants.h"
 #include "copy.h"
 #include "creds-util.h"
-#include "def.h"
 #include "dissect-image.h"
 #include "env-util.h"
 #include "fd-util.h"
@@ -38,7 +39,6 @@
 #include "uid-range.h"
 #include "user-util.h"
 #include "utf8.h"
-#include "util.h"
 
 typedef enum ItemType {
         ADD_USER =   'u',

@@ -23,7 +23,7 @@
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
-#include "def.h"
+#include "constants.h"
 #include "device-util.h"
 #include "dirent-util.h"
 #include "escape.h"
@@ -43,7 +43,6 @@
 #include "strv.h"
 #include "sync-util.h"
 #include "umount.h"
-#include "util.h"
 #include "virt.h"
 
 static void mount_point_free(MountPoint **head, MountPoint *m) {

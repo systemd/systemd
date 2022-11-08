@@ -32,7 +32,6 @@
 #include "tmpfile-util.h"
 #include "unit.h"
 #include "user-util.h"
-#include "util.h"
 #include "virt.h"
 
 static char *user_runtime_unit_dir = NULL;

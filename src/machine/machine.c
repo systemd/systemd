@@ -32,7 +32,6 @@
 #include "tmpfile-util.h"
 #include "unit-name.h"
 #include "user-util.h"
-#include "util.h"
 
 Machine* machine_new(Manager *manager, MachineClass class, const char *name) {
         Machine *m;

@@ -6,7 +6,7 @@
 
 #include "alloc-util.h"
 #include "conf-files.h"
-#include "def.h"
+#include "constants.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -16,7 +16,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "util.h"
 
 bool urlify_enabled(void) {
 #if ENABLE_URLIFY

@@ -3,7 +3,7 @@
 #include "analyze.h"
 #include "analyze-cat-config.h"
 #include "conf-files.h"
-#include "def.h"
+#include "constants.h"
 #include "nulstr-util.h"
 #include "path-util.h"
 #include "pretty-print.h"

@@ -11,6 +11,7 @@
 #include "base-filesystem.h"
 #include "chase-symlinks.h"
 #include "fd-util.h"
+#include "initrd-util.h"
 #include "log.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
@@ -23,7 +24,6 @@
 #include "strv.h"
 #include "switch-root.h"
 #include "user-util.h"
-#include "util.h"
 
 int switch_root(const char *new_root,
                 const char *old_root_after, /* path below the new root, where to place the old root after the transition */

@@ -6,6 +6,7 @@
 
 #include "sd-daemon.h"
 
+#include "build.h"
 #include "daemon-util.h"
 #include "main-func.h"
 #include "manager.h"

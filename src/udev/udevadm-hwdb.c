@@ -4,7 +4,6 @@
 
 #include "hwdb-util.h"
 #include "udevadm.h"
-#include "util.h"
 
 static const char *arg_test = NULL;
 static const char *arg_root = NULL;

@@ -19,7 +19,6 @@
 #include "macro.h"
 #include "smack-setup.h"
 #include "string-util.h"
-#include "util.h"
 
 #if ENABLE_SMACK
 

@@ -8,7 +8,6 @@
 #include "macro.h"
 #include "tests.h"
 #include "tmpfile-util.h"
-#include "util.h"
 
 TEST(fdset_new_fill) {
         int fd = -1;

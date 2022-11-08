@@ -8,7 +8,6 @@
 #include "log.h"
 #include "mkdir-label.h"
 #include "string-util.h"
-#include "util.h"
 
 static const char *arg_dest = NULL;
 
