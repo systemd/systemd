@@ -322,8 +322,8 @@ TEST(close_all_fds) {
         int r;
 
         /* Runs the test four times. Once as is. Once with close_range() syscall blocked via seccomp, once
-         * with /proc overmounted, and once with the combination of both. This should trigger all fallbacks in
-         * the close_range_all() function. */
+         * with /proc/ overmounted, and once with the combination of both. This should trigger all fallbacks
+         * in the close_range_all() function. */
 
         r = safe_fork("(caf-plain)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
         if (r == 0) {
@@ -332,26 +332,22 @@ TEST(close_all_fds) {
         }
         assert_se(r >= 0);
 
-        if (geteuid() != 0) {
-                log_notice("Lacking privileges, skipping running tests with blocked close_range() and with /proc/ overnmounted.");
-                return;
-        }
+        if (geteuid() != 0)
+                return (void) log_tests_skipped("Lacking privileges for test with close_range() blocked and /proc/ overmounted");
 
         r = safe_fork("(caf-noproc)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, NULL);
         if (r == 0) {
                 r = mount_nofollow_verbose(LOG_WARNING, "tmpfs", "/proc", "tmpfs", 0, NULL);
                 if (r < 0)
-                        log_notice("Overmounting /proc didn#t work, skipping close_all_fds() with masked /proc/.");
+                        log_notice("Overmounting /proc/ didn't work, skipping close_all_fds() with masked /proc/.");
                 else
                         test_close_all_fds_inner();
                 _exit(EXIT_SUCCESS);
         }
         assert_se(r >= 0);
 
-        if (!is_seccomp_available()) {
-                log_notice("Seccomp not available, skipping seccomp tests in %s", __func__);
-                return;
-        }
+        if (!is_seccomp_available())
+                return (void) log_tests_skipped("Seccomp not available");
 
         r = safe_fork("(caf-seccomp)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
         if (r == 0) {
@@ -373,7 +369,7 @@ TEST(close_all_fds) {
                 else {
                         r = mount_nofollow_verbose(LOG_WARNING, "tmpfs", "/proc", "tmpfs", 0, NULL);
                         if (r < 0)
-                                log_notice("Overmounting /proc didn#t work, skipping close_all_fds() with masked /proc/.");
+                                log_notice("Overmounting /proc/ didn't work, skipping close_all_fds() with masked /proc/.");
                         else
                                 test_close_all_fds_inner();
                 }
