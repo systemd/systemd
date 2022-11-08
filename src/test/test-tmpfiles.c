@@ -15,7 +15,6 @@
 #include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
-#include "util.h"
 
 TEST(tmpfiles) {
         _cleanup_free_ char *cmd = NULL, *cmd2 = NULL, *ans = NULL, *ans2 = NULL, *d = NULL, *tmp = NULL, *line = NULL;

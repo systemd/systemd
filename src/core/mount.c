@@ -14,6 +14,7 @@
 #include "exit-status.h"
 #include "format-util.h"
 #include "fstab-util.h"
+#include "initrd-util.h"
 #include "libmount-util.h"
 #include "log.h"
 #include "manager.h"

@@ -11,12 +11,13 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-util.h"
 #include "chase-symlinks.h"
 #include "compress.h"
-#include "def.h"
+#include "constants.h"
 #include "dissect-image.h"
 #include "fd-util.h"
 #include "format-table.h"
@@ -42,7 +43,6 @@
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
-#include "util.h"
 #include "verbs.h"
 
 #define SHORT_BUS_CALL_TIMEOUT_USEC (3 * USEC_PER_SEC)

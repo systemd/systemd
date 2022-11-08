@@ -29,7 +29,6 @@
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "tmpfile-util.h"
-#include "util.h"
 
 /* The maximum number of iterations in the loop to close descriptors in the fallback case
  * when /proc/self/fd/ is inaccessible. */

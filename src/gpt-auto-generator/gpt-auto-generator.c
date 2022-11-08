@@ -23,6 +23,7 @@
 #include "fstab-util.h"
 #include "generator.h"
 #include "gpt.h"
+#include "initrd-util.h"
 #include "mkdir.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
@@ -34,7 +35,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
-#include "util.h"
 #include "virt.h"
 
 static const char *arg_dest = NULL;

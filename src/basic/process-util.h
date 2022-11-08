@@ -50,6 +50,8 @@ int get_process_environ(pid_t pid, char **ret);
 int get_process_ppid(pid_t pid, pid_t *ret);
 int get_process_umask(pid_t pid, mode_t *ret);
 
+int container_get_leader(const char *machine, pid_t *pid);
+
 int wait_for_terminate(pid_t pid, siginfo_t *status);
 
 typedef enum WaitFlags {
@@ -69,7 +71,6 @@ void sigterm_wait(pid_t pid);
 
 int kill_and_sigcont(pid_t pid, int sig);
 
-int rename_process(const char name[]);
 int is_kernel_thread(pid_t pid);
 
 int getenv_for_pid(pid_t pid, const char *field, char **_value);
@@ -189,10 +190,4 @@ int pidfd_get_pid(int fd, pid_t *ret);
 
 int setpriority_closest(int priority);
 
-bool invoked_as(char *argv[], const char *token);
-
-bool invoked_by_systemd(void);
-
 _noreturn_ void freeze(void);
-
-bool argv_looks_like_help(int argc, char **argv);

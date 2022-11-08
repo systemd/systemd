@@ -6,7 +6,8 @@
 #include <sys/prctl.h>
 #include <unistd.h>
 
-#include "def.h"
+#include "argv-util.h"
+#include "constants.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "log.h"
