@@ -460,7 +460,7 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
 
 static int trim_edit_markers(const char *path) {
         _cleanup_free_ char *contents = NULL;
-        char *contents_start = NULL;
+        char *contents_start = NULL, *tmp;
         const char *contents_end = NULL;
         size_t size;
         int r;
@@ -483,6 +483,18 @@ static int trim_edit_markers(const char *path) {
                 strshorten(contents_start, contents_end - contents_start);
 
         contents_start = strstrip(contents_start);
+        if (*contents_start && !endswith(contents_start, "\n")) {
+                if (MALLOC_SIZEOF_SAFE(contents) - (contents_start - contents) - strlen(contents_start) < 2) {
+                        tmp = realloc(contents, size + 1);
+                        if (!tmp)
+                                goto nofix;
+                        contents_start = tmp + (contents_start - contents);
+                        contents = tmp;
+                }
+
+                strcat(contents_start, "\n");
+        }
+nofix:
 
         /* Write new contents if the trimming actually changed anything */
         if (strlen(contents) != size) {
