@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/if_arp.h>
+#include <net/if.h> /* IFF_LOOPBACK */
+#include <net/if_arp.h> /* ARPHRD_ETHER */
 
 #include "sd-dhcp-client.h"
 #include "sd-ipv4acd.h"
