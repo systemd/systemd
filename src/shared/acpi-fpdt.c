@@ -61,6 +61,34 @@ struct acpi_fpdt_boot {
         uint64_t exit_services_exit;
 } _packed;
 
+/* /dev/mem is deprecated on many systems try using /sys/firmware/acpi/fpdt parsing instead */
+static int acp_get_boot_usec_alt(usec_t *loader_start, usec_t *loader_exit) {
+        usec_t ret;
+        int r;
+
+        r = read_timestamp_file("/sys/firmware/acpi/fpdt/boot/exitbootservice_end_ns", &ret);
+        if (r < 0)
+                return -errno;
+
+        if (ret == 0)
+                /* Non-UEFI compatible boot. */
+                return -ENODATA;
+
+        r = read_timestamp_file("/sys/firmware/acpi/fpdt/boot/bootloader_load_ns", &ret);
+        if (r < 0)
+                return -errno;
+
+        *loader_start = ret / 1000;
+
+        r = read_timestamp_file("/sys/firmware/acpi/fpdt/boot/bootloader_launch_ns", &ret);
+        if (r < 0)
+                return -errno;
+
+        *loader_exit = ret / 1000;
+
+        return 0;
+}
+
 int acpi_get_boot_usec(usec_t *loader_start, usec_t *loader_exit) {
         _cleanup_free_ char *buf = NULL;
         struct acpi_table_header *tbl;
@@ -107,11 +135,11 @@ int acpi_get_boot_usec(usec_t *loader_start, usec_t *loader_exit) {
         /* read Firmware Basic Boot Performance Data Record */
         fd = open("/dev/mem", O_CLOEXEC|O_RDONLY);
         if (fd < 0)
-                return -errno;
+                return acp_get_boot_usec_alt(loader_start, loader_exit);
 
         l = pread(fd, &hbrec, sizeof(struct acpi_fpdt_boot_header), ptr);
         if (l != sizeof(struct acpi_fpdt_boot_header))
-                return -EINVAL;
+                return acp_get_boot_usec_alt(loader_start, loader_exit);
 
         if (memcmp(hbrec.signature, "FBPT", 4) != 0)
                 return -EINVAL;
