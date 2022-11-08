@@ -41,10 +41,17 @@
     </para>
 
     <para>Files are generated in <filename>/run/systemd/network/</filename>.</para>
+
+    <para>Note: despite the name, this generator executes as a normal systemd service and is
+    <emphasis>not</emphasis> an implementation of the
+    <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    concept.</para>
   </refsect1>
 
-  <refsect1><title>Kernel command line options</title>
-  <para>This tool understands the following options:</para>
+  <refsect1>
+    <title>Kernel command line options</title>
+
+    <para>This tool understands the following options:</para>
 
     <variablelist class='kernel-commandline-options'>
       <varlistentry>
