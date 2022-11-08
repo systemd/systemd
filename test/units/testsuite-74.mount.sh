@@ -53,13 +53,18 @@ systemd-mount --no-ask-password --discover "$LOOP" "$WORK_DIR/mnt"
 test -e "$WORK_DIR/mnt/foo.bar"
 systemctl show -P Description "$WORK_DIR/mnt" | grep -q sd-mount-test
 systemd-umount "$WORK_DIR/mnt"
+# Set a unit description
+systemd-mount --description="Very Important Unit" "$LOOP" "$WORK_DIR/mnt"
+test -e "$WORK_DIR/mnt/foo.bar"
+systemctl show -P Description "$WORK_DIR/mnt" | grep -q "Very Important Unit"
+systemd-umount "$WORK_DIR/mnt"
 # Set a property
 systemd-mount --property="Description=Foo Bar" "$LOOP" "$WORK_DIR/mnt"
 test -e "$WORK_DIR/mnt/foo.bar"
 systemctl show -P Description "$WORK_DIR/mnt" | grep -q "Foo Bar"
 systemd-umount "$WORK_DIR/mnt"
 # Set mount options
-systemd-mount --options ro,x-foo-bar "$LOOP" "$WORK_DIR/mnt"
+systemd-mount --options=ro,x-foo-bar "$LOOP" "$WORK_DIR/mnt"
 test -e "$WORK_DIR/mnt/foo.bar"
 systemctl show -P Options "$WORK_DIR/mnt" | grep -Eq "(^ro|,ro)"
 systemctl show -P Options "$WORK_DIR/mnt" | grep -q "x-foo-bar"
@@ -81,10 +86,16 @@ test -e "$WORK_DIR/mnt/foo.bar"
 systemctl status "$WORK_DIR/mnt"
 systemd-umount "$WORK_DIR/mnt"
 # Automount + automount-specific property
-systemd-mount --automount=yes --automount-property="Description=Bar Baz" "$LOOP" "$WORK_DIR/mnt"
+systemd-mount -A --automount-property="Description=Bar Baz" "$LOOP" "$WORK_DIR/mnt"
 systemctl show -P Description "$(systemd-escape --path "$WORK_DIR/mnt").automount" | grep -q "Bar Baz"
 test -e "$WORK_DIR/mnt/foo.bar"
-systemd-umount "$WORK_DIR/mnt"
+# Call --umount via --machine=, first with a relative path (bad) and then with
+# an absolute one (good)
+(! systemd-umount --machine=.host "$(realpath --relative-to=. "$WORK_DIR/mnt")")
+systemd-umount --machine=.host "$WORK_DIR/mnt"
+
+# ext4 doesn't support uid=/gid=
+(! systemd-mount -t ext4 --owner=testuser "$LOOP" "$WORK_DIR/mnt")
 
 # Automount + --bind-device
 systemd-mount --automount=yes --bind-device --timeout-idle-sec=1 "$LOOP" "$WORK_DIR/mnt"
@@ -103,7 +114,7 @@ unset LOOP
 timeout 10s bash -c "while systemctl status '$(systemd-escape --path "$WORK_DIR/mnt").automount)'; do sleep .2; done"
 
 # Mount a disk image
-systemd-mount "$WORK_DIR/simple.img"
+systemd-mount --discover "$WORK_DIR/simple.img"
 systemd-mount --list --full
 test -e /run/media/system/simple.img/foo.bar
 systemd-umount "$WORK_DIR/simple.img"
@@ -117,7 +128,7 @@ LOOP="$(losetup --show --find "$WORK_DIR/owner-vfat.img")"
 mkfs.vfat -n owner-vfat "$LOOP"
 # Mount it and check the UID/GID
 [[ "$(stat -c "%U:%G" "$WORK_DIR/mnt")" == "root:root" ]]
-systemd-mount --owner testuser "$LOOP" "$WORK_DIR/mnt"
+systemd-mount --owner=testuser "$LOOP" "$WORK_DIR/mnt"
 systemctl status "$WORK_DIR/mnt"
 [[ "$(stat -c "%U:%G" "$WORK_DIR/mnt")" == "testuser:testuser" ]]
 touch "$WORK_DIR/mnt/hello"
