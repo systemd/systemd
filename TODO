@@ -115,6 +115,10 @@ Deprecations and removals:
 
 * H2 2023: remove support for unmerged-usr
 
+* Remove /dev/mem ACPI FPDT parsing when /sys/firmware/acpi/fpdt is ubiquitous.
+  That requires distros to enable CONFIG_ACPI_FPDT, and have kernels v5.12 for
+  x86 and v6.2 for arm.
+
 Features:
 
 * sd-boot: add a new PE section .bls or so that carries a cpio with additional
