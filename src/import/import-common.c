@@ -21,7 +21,6 @@
 #include "signal-util.h"
 #include "stat-util.h"
 #include "tmpfile-util.h"
-#include "util.h"
 
 int import_fork_tar_x(const char *path, pid_t *ret) {
         _cleanup_close_pair_ int pipefd[2] = { -1, -1 };

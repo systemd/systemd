@@ -5,25 +5,6 @@
 
 #include "macro.h"
 
-extern int saved_argc;
-extern char **saved_argv;
-
-static inline void save_argc_argv(int argc, char **argv) {
-
-        /* Protect against CVE-2021-4034 style attacks */
-        assert_se(argc > 0);
-        assert_se(argv);
-        assert_se(argv[0]);
-
-        saved_argc = argc;
-        saved_argv = argv;
-}
-
-int prot_from_flags(int flags) _const_;
-
-bool in_initrd(void);
-void in_initrd_force(bool value);
-
 /* Note: log2(0) == log2(1) == 0 here and below. */
 
 #define CONST_LOG2ULL(x) ((x) > 1 ? (unsigned) __builtin_clzll(x) ^ 63U : 0)
@@ -70,9 +51,3 @@ static inline unsigned log2u_round_up(unsigned x) {
 
         return log2u(x - 1) + 1;
 }
-
-int container_get_leader(const char *machine, pid_t *pid);
-
-int version(void);
-
-void disable_coredumps(void);

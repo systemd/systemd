@@ -3,6 +3,7 @@
 #include <linux/rtnetlink.h>
 
 #include "alloc-util.h"
+#include "logarithm.h"
 #include "networkd-address.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"

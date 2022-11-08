@@ -16,7 +16,6 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
 
 static int network_get_string(const char *field, char **ret) {
         _cleanup_free_ char *s = NULL;

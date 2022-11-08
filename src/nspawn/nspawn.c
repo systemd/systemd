@@ -28,6 +28,7 @@
 #include "base-filesystem.h"
 #include "blkid-util.h"
 #include "btrfs-util.h"
+#include "build.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "cap-list.h"
@@ -110,7 +111,6 @@
 #include "umask-util.h"
 #include "unit-name.h"
 #include "user-util.h"
-#include "util.h"
 
 /* The notify socket inside the container it can use to talk to nspawn using the sd_notify(3) protocol */
 #define NSPAWN_NOTIFY_SOCKET_PATH "/run/host/notify"

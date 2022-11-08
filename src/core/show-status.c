@@ -12,7 +12,6 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "terminal-util.h"
-#include "util.h"
 
 static const char* const show_status_table[_SHOW_STATUS_MAX] = {
         [SHOW_STATUS_NO]        = "no",

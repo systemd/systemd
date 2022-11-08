@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "build.h"
 #include "efi-loader.h"
 #include "fd-util.h"
 #include "fileio.h"

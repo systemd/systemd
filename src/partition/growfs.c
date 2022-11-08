@@ -14,6 +14,7 @@
 
 #include "blockdev-util.h"
 #include "btrfs-util.h"
+#include "build.h"
 #include "cryptsetup-util.h"
 #include "device-nodes.h"
 #include "device-util.h"

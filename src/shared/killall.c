@@ -9,10 +9,11 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "def.h"
+#include "constants.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "initrd-util.h"
 #include "killall.h"
 #include "parse-util.h"
 #include "process-util.h"
@@ -20,7 +21,6 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
-#include "util.h"
 
 static bool ignore_proc(pid_t pid, bool warn_rootfs) {
         _cleanup_fclose_ FILE *f = NULL;

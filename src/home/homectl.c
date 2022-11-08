@@ -5,6 +5,7 @@
 #include "sd-bus.h"
 
 #include "ask-password-api.h"
+#include "build.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-locator.h"

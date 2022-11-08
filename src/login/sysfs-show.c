@@ -11,7 +11,6 @@
 #include "string-util.h"
 #include "sysfs-show.h"
 #include "terminal-util.h"
-#include "util.h"
 
 static int show_sysfs_one(
                 const char *seat,

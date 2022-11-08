@@ -18,7 +18,6 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "unit-name.h"
-#include "util.h"
 #include "virt.h"
 
 static const char *arg_dest = NULL;
