@@ -1296,6 +1296,7 @@ DissectedImage* dissected_image_unref(DissectedImage *m) {
         free(m->hostname);
         strv_free(m->machine_info);
         strv_free(m->os_release);
+        strv_free(m->initrd_release);
         strv_free(m->extension_release);
 
         return mfree(m);
@@ -2771,6 +2772,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                 META_MACHINE_ID,
                 META_MACHINE_INFO,
                 META_OS_RELEASE,
+                META_INITRD_RELEASE,
                 META_EXTENSION_RELEASE,
                 META_HAS_INIT_SYSTEM,
                 _META_MAX,
@@ -2782,11 +2784,13 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                 [META_MACHINE_INFO]      = "/etc/machine-info\0",
                 [META_OS_RELEASE]        = ("/etc/os-release\0"
                                             "/usr/lib/os-release\0"),
+                [META_INITRD_RELEASE]    = ("/etc/initrd-release\0"
+                                            "/usr/lib/initrd-release\0"),
                 [META_EXTENSION_RELEASE] = "extension-release\0",    /* Used only for logging. */
                 [META_HAS_INIT_SYSTEM]   = "has-init-system\0",      /* ditto */
         };
 
-        _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL, **extension_release = NULL;
+        _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL, **initrd_release = NULL, **extension_release = NULL;
         _cleanup_close_pair_ int error_pipe[2] = { -1, -1 };
         _cleanup_(rmdir_and_freep) char *t = NULL;
         _cleanup_(sigkill_waitp) pid_t child = 0;
@@ -2982,6 +2986,13 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
 
                         break;
 
+                case META_INITRD_RELEASE:
+                        r = load_env_file_pairs(f, "initrd-release", &initrd_release);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to read initrd release file of image: %m");
+
+                        break;
+
                 case META_EXTENSION_RELEASE:
                         r = load_env_file_pairs(f, "extension-release", &extension_release);
                         if (r < 0)
@@ -3024,6 +3035,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
         m->machine_id = machine_id;
         strv_free_and_replace(m->machine_info, machine_info);
         strv_free_and_replace(m->os_release, os_release);
+        strv_free_and_replace(m->initrd_release, initrd_release);
         strv_free_and_replace(m->extension_release, extension_release);
         m->has_init_system = has_init_system;
 

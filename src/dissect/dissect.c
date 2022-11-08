@@ -518,6 +518,8 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                                "Mach. Info:");
                 strv_pair_print(m->os_release,
                                "OS Release:");
+                strv_pair_print(m->initrd_release,
+                                "initrd R.:");
                 strv_pair_print(m->extension_release,
                                " Ext. Rel.:");
 
@@ -525,6 +527,7 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                     !sd_id128_is_null(m->machine_id) ||
                     !strv_isempty(m->machine_info) ||
                     !strv_isempty(m->os_release) ||
+                    !strv_isempty(m->initrd_release) ||
                     !strv_isempty(m->extension_release))
                         putc('\n', stdout);
 
@@ -535,6 +538,8 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
 
                 printf("            %s portable service\n",
                        COLOR_MARK_BOOL(strv_env_pairs_get(m->os_release, "PORTABLE_PREFIXES")));
+                printf("            %s initrd\n",
+                       COLOR_MARK_BOOL(!strv_isempty(m->initrd_release)));
 
                 r = get_sysext_scopes(m, &sysext_scopes);
                 if (r < 0)
@@ -549,7 +554,7 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
 
                 putc('\n', stdout);
         } else {
-                _cleanup_(json_variant_unrefp) JsonVariant *mi = NULL, *osr = NULL, *exr = NULL;
+                _cleanup_(json_variant_unrefp) JsonVariant *mi = NULL, *osr = NULL, *irdr = NULL, *exr = NULL;
                 _cleanup_strv_free_ char **sysext_scopes = NULL;
 
                 if (!strv_isempty(m->machine_info)) {
@@ -560,6 +565,12 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
 
                 if (!strv_isempty(m->os_release)) {
                         r = strv_pair_to_json(m->os_release, &osr);
+                        if (r < 0)
+                                return log_oom();
+                }
+
+                if (!strv_isempty(m->initrd_release)) {
+                        r = strv_pair_to_json(m->initrd_release, &irdr);
                         if (r < 0)
                                 return log_oom();
                 }
@@ -581,9 +592,11 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                                                JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(m->machine_id), "machineId", JSON_BUILD_ID128(m->machine_id)),
                                                JSON_BUILD_PAIR_CONDITION(mi, "machineInfo", JSON_BUILD_VARIANT(mi)),
                                                JSON_BUILD_PAIR_CONDITION(osr, "osRelease", JSON_BUILD_VARIANT(osr)),
+                                               JSON_BUILD_PAIR_CONDITION(osr, "initrdRelease", JSON_BUILD_VARIANT(irdr)),
                                                JSON_BUILD_PAIR_CONDITION(exr, "extensionRelease", JSON_BUILD_VARIANT(exr)),
                                                JSON_BUILD_PAIR("useBootableUefi", JSON_BUILD_BOOLEAN(m->partitions[PARTITION_ESP].found)),
                                                JSON_BUILD_PAIR_CONDITION(m->has_init_system >= 0, "useBootableContainer", JSON_BUILD_BOOLEAN(m->has_init_system)),
+                                               JSON_BUILD_PAIR("useInitrd", JSON_BUILD_BOOLEAN(!strv_isempty(m->initrd_release))),
                                                JSON_BUILD_PAIR("usePortableService", JSON_BUILD_BOOLEAN(strv_env_pairs_get(m->os_release, "PORTABLE_MATCHES"))),
                                                JSON_BUILD_PAIR("useSystemExtension", JSON_BUILD_BOOLEAN(strv_contains(sysext_scopes, "system"))),
                                                JSON_BUILD_PAIR("useInitRDExtension", JSON_BUILD_BOOLEAN(strv_contains(sysext_scopes, "initrd"))),
