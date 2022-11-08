@@ -119,6 +119,13 @@ Deprecations and removals:
 
 Features:
 
+* maybe: systemd-loop-generator that sets up loopback devices if requested via kernel
+  cmdline. usecase: include encrypted/verity root fs in UKI.
+
+* systemd-gpt-auto-generator: add kernel cmdline option to override block
+  device to dissect. also support dissecting a regular file. useccase: include
+  encrypted/verity root fs in UKI.
+
 * sd-stub: add ".bootcfg" section for kernel bootconfig data (as per
 
 * tpm2: add (optional) support for generating a local signing key from PCR 15
