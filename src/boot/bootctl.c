@@ -1886,8 +1886,6 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 printf("\n");
 
                 printf("%sRandom Seed:%s\n", ansi_underline(), ansi_normal());
-                have = access(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderRandomSeed)), F_OK) >= 0;
-                printf(" Passed to OS: %s\n", yes_no(have));
                 have = access(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderSystemToken)), F_OK) >= 0;
                 printf(" System Token: %s\n", have ? "set" : "not set");
 
