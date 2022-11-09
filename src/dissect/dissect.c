@@ -896,6 +896,8 @@ static int action_list_or_copy(DissectedImage *m, LoopDevice *d) {
                 if (dfd < 0)
                         return log_error_errno(errno, "Failed to open mount directory: %m");
 
+                pager_open(arg_pager_flags);
+
                 r = recurse_dir(dfd, NULL, 0, UINT_MAX, RECURSE_DIR_SORT, list_print_item, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to list image: %m");
