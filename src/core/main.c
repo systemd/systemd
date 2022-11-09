@@ -2831,8 +2831,8 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                /* The efivarfs is now mounted, let's read the random seed off it */
-                (void) efi_take_random_seed();
+                /* The efivarfs is now mounted, let's lock down the system token. */
+                lock_down_efi_variables();
 
                 /* Cache command-line options passed from EFI variables */
                 if (!skip_setup)
