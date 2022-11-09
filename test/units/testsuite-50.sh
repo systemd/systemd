@@ -41,6 +41,8 @@ systemd-dissect --json=short "${image}.raw" | grep -q -F '{"rw":"ro","designator
 systemd-dissect "${image}.raw" | grep -q -F "MARKER=1"
 systemd-dissect "${image}.raw" | grep -q -F -f <(sed 's/"//g' "$os_release")
 
+systemd-dissect --mtree "${image}.raw" | grep -q "./usr/bin/cat type=file mode=0755 uid=0 gid=0"
+
 mv "${image}.verity" "${image}.fooverity"
 mv "${image}.roothash" "${image}.foohash"
 systemd-dissect --json=short "${image}.raw" --root-hash="${roothash}" --verity-data="${image}.fooverity" | grep -q -F '{"rw":"ro","designator":"root","partition_uuid":null,"partition_label":null,"fstype":"squashfs","architecture":null,"verity":"external"'
