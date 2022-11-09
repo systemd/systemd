@@ -2307,7 +2307,8 @@ public_programs += executable(
         include_directories : includes,
         link_with : [libjournal_core,
                      libshared],
-        dependencies : [threads],
+        dependencies : [threads,
+                        versiondep],
         install_rpath : rootpkglibdir,
         install : true)
 
@@ -2434,6 +2435,7 @@ if conf.get('HAVE_BLKID') == 1
                 'src/dissect/dissect.c',
                 include_directories : includes,
                 link_with : [libshared],
+                dependencies : [versiondep],
                 install_rpath : rootpkglibdir,
                 install : true)
 endif
@@ -2508,6 +2510,7 @@ if conf.get('ENABLE_LOGIND') == 1
                 'src/login/inhibit.c',
                 include_directories : includes,
                 link_with : [libshared],
+                dependencies : [versiondep],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootbindir)
@@ -2693,6 +2696,7 @@ if conf.get('ENABLE_SYSEXT') == 1
                 systemd_sysext_sources,
                 include_directories : includes,
                 link_with : [libshared],
+                dependencies : [versiondep],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootbindir)
@@ -2989,6 +2993,7 @@ if conf.get('ENABLE_HOSTNAMED') == 1
                 'src/hostname/hostnamectl.c',
                 include_directories : includes,
                 link_with : [libshared],
+                dependencies : [versiondep],
                 install_rpath : rootpkglibdir,
                 install : true)
 endif
@@ -3019,6 +3024,7 @@ if conf.get('ENABLE_LOCALED') == 1
                 localectl_sources,
                 include_directories : includes,
                 link_with : [libshared],
+                dependencies : [versiondep],
                 install_rpath : rootpkglibdir,
                 install : true)
 endif
@@ -3144,6 +3150,7 @@ if conf.get('ENABLE_IMPORTD') == 1
                 include_directories : includes,
                 link_with : [libshared,
                              lib_import_common],
+                dependencies : [versiondep],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -3295,6 +3302,7 @@ if conf.get('ENABLE_BINFMT') == 1
                 'src/binfmt/binfmt.c',
                 include_directories : includes,
                 link_with : [libshared],
+                dependencies : [versiondep],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -3341,6 +3349,7 @@ if conf.get('ENABLE_RANDOMSEED') == 1
                 'src/random-seed/random-seed.c',
                 include_directories : includes,
                 link_with : [libshared],
+                dependencies : [versiondep],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -3517,6 +3526,7 @@ systemd_id128 = executable(
         'src/id128/id128.c',
         include_directories : includes,
         link_with : [libshared],
+        dependencies : [versiondep],
         install_rpath : rootpkglibdir,
         install : true)
 public_programs += systemd_id128
@@ -3534,6 +3544,7 @@ public_programs += executable(
         'src/path/path.c',
         include_directories : includes,
         link_with : [libshared],
+        dependencies : [versiondep],
         install_rpath : rootpkglibdir,
         install : true)
 
@@ -3542,6 +3553,7 @@ public_programs += executable(
         'src/ask-password/ask-password.c',
         include_directories : includes,
         link_with : [libshared],
+        dependencies : [versiondep],
         install_rpath : rootpkglibdir,
         install : true,
         install_dir : rootbindir)
@@ -3560,6 +3572,7 @@ public_programs += executable(
         'src/tty-ask-password-agent/tty-ask-password-agent.c',
         include_directories : includes,
         link_with : [libshared],
+        dependencies : [versiondep],
         install_rpath : rootpkglibdir,
         install : true,
         install_dir : rootbindir)
@@ -3569,6 +3582,7 @@ public_programs += executable(
         'src/cgls/cgls.c',
         include_directories : includes,
         link_with : [libshared],
+        dependencies : [versiondep],
         install_rpath : rootpkglibdir,
         install : true)
 
@@ -3577,6 +3591,7 @@ public_programs += executable(
         'src/cgtop/cgtop.c',
         include_directories : includes,
         link_with : [libshared],
+        dependencies : [versiondep],
         install_rpath : rootpkglibdir,
         install : true)
 
@@ -3724,6 +3739,7 @@ if conf.get('ENABLE_HWDB') == 1
                 'src/hwdb/hwdb.c',
                 include_directories : includes,
                 link_with : udev_link_with,
+                dependencies : [versiondep],
                 install_rpath : udev_rpath,
                 install : true,
                 install_dir : rootbindir)
