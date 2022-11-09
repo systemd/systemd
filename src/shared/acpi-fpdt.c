@@ -64,7 +64,8 @@ struct acpi_fpdt_boot {
 int acpi_get_boot_usec(usec_t *ret_loader_start, usec_t *ret_loader_exit) {
         _cleanup_free_ char *buf = NULL;
         struct acpi_table_header *tbl;
-        size_t l = 0;
+        size_t l;
+        ssize_t ll;
         struct acpi_fpdt_header *rec;
         int r;
         uint64_t ptr = 0;
@@ -109,8 +110,10 @@ int acpi_get_boot_usec(usec_t *ret_loader_start, usec_t *ret_loader_exit) {
         if (fd < 0)
                 return -errno;
 
-        l = pread(fd, &hbrec, sizeof(struct acpi_fpdt_boot_header), ptr);
-        if (l != sizeof(struct acpi_fpdt_boot_header))
+        ll = pread(fd, &hbrec, sizeof(struct acpi_fpdt_boot_header), ptr);
+        if (ll < 0)
+                return -errno;
+        if ((size_t) ll != sizeof(struct acpi_fpdt_boot_header))
                 return -EINVAL;
 
         if (memcmp(hbrec.signature, "FBPT", 4) != 0)
@@ -119,8 +122,10 @@ int acpi_get_boot_usec(usec_t *ret_loader_start, usec_t *ret_loader_exit) {
         if (hbrec.length < sizeof(struct acpi_fpdt_boot_header) + sizeof(struct acpi_fpdt_boot))
                 return -EINVAL;
 
-        l = pread(fd, &brec, sizeof(struct acpi_fpdt_boot), ptr + sizeof(struct acpi_fpdt_boot_header));
-        if (l != sizeof(struct acpi_fpdt_boot))
+        ll = pread(fd, &brec, sizeof(struct acpi_fpdt_boot), ptr + sizeof(struct acpi_fpdt_boot_header));
+        if (ll < 0)
+                return -errno;
+        if ((size_t) ll != sizeof(struct acpi_fpdt_boot))
                 return -EINVAL;
 
         if (brec.length != sizeof(struct acpi_fpdt_boot))
