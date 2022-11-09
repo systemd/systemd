@@ -126,6 +126,7 @@ int recurse_dir(
                 void *userdata) {
 
         _cleanup_free_ DirectoryEntries *de = NULL;
+        STRUCT_STATX_DEFINE(root_sx);
         int r;
 
         assert(dir_fd >= 0);
@@ -138,6 +139,26 @@ int recurse_dir(
                 return -EOVERFLOW;
         if (n_depth_max == UINT_MAX) /* special marker for "default" */
                 n_depth_max = DEFAULT_RECURSION_MAX;
+
+        if (FLAGS_SET(flags, RECURSE_DIR_TOPLEVEL)) {
+                if (statx_mask != 0) {
+                        r = statx_fallback(dir_fd, "", AT_EMPTY_PATH, statx_mask, &root_sx);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = func(RECURSE_DIR_ENTER,
+                         path,
+                         -1, /* we have no parent fd */
+                         dir_fd,
+                         NULL, /* we have no dirent */
+                         statx_mask != 0 ? &root_sx : NULL,
+                         userdata);
+                if (IN_SET(r, RECURSE_DIR_LEAVE_DIRECTORY, RECURSE_DIR_SKIP_ENTRY))
+                        return 0;
+                if (r != RECURSE_DIR_CONTINUE)
+                        return r;
+        }
 
         r = readdir_all(dir_fd, flags, &de);
         if (r < 0)
@@ -397,7 +418,7 @@ int recurse_dir(
                                         p,
                                         statx_mask,
                                         n_depth_max - 1,
-                                        flags,
+                                        flags &~ RECURSE_DIR_TOPLEVEL, /* we already called the callback for this entry */
                                         func,
                                         userdata);
                         if (r != 0)
@@ -424,6 +445,19 @@ int recurse_dir(
                 if (r == RECURSE_DIR_LEAVE_DIRECTORY)
                         break;
                 if (!IN_SET(r, RECURSE_DIR_SKIP_ENTRY, RECURSE_DIR_CONTINUE))
+                        return r;
+        }
+
+        if (FLAGS_SET(flags, RECURSE_DIR_TOPLEVEL)) {
+
+                r = func(RECURSE_DIR_LEAVE,
+                         path,
+                         -1,
+                         dir_fd,
+                         NULL,
+                         statx_mask != 0 ? &root_sx : NULL,
+                         userdata);
+                if (!IN_SET(r, RECURSE_DIR_LEAVE_DIRECTORY, RECURSE_DIR_SKIP_ENTRY, RECURSE_DIR_CONTINUE))
                         return r;
         }
 
