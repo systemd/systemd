@@ -889,7 +889,6 @@ static int action_list_or_copy(DissectedImage *m, LoopDevice *d) {
 
         } else {
                 _cleanup_close_ int dfd = -1;
-                _cleanup_strv_free_ char **list_dir = NULL;
 
                 assert(arg_action == ACTION_LIST);
 
@@ -897,7 +896,7 @@ static int action_list_or_copy(DissectedImage *m, LoopDevice *d) {
                 if (dfd < 0)
                         return log_error_errno(errno, "Failed to open mount directory: %m");
 
-                r = recurse_dir(dfd, NULL, 0, UINT_MAX, RECURSE_DIR_SORT|RECURSE_DIR_ENSURE_TYPE|RECURSE_DIR_SAME_MOUNT, list_print_item, &list_dir);
+                r = recurse_dir(dfd, NULL, 0, UINT_MAX, RECURSE_DIR_SORT|RECURSE_DIR_ENSURE_TYPE|RECURSE_DIR_SAME_MOUNT, list_print_item, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to list image: %m");
         }
