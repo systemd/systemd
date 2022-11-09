@@ -385,3 +385,7 @@ typedef struct _EFI_CONSOLE_CONTROL_PROTOCOL {
         { 0xd719b2cb, 0x3d3a, 0x4596, {0xa3, 0xbc, 0xda, 0xd0,  0xe, 0x67, 0x65, 0x6f }}
 
 #endif
+
+#ifndef EFI_ACPI_RECLAIM_MEMORY
+#define EFI_ACPI_RECLAIM_MEMORY          9
+#endif
