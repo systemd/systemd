@@ -451,6 +451,7 @@ possible_cc_flags = possible_common_cc_flags + [
         '-fno-strict-aliasing',
         '-fstack-protector',
         '-fstack-protector-strong',
+        '-fstrict-flex-arrays=1',
         '-fvisibility=hidden',
         '--param=ssp-buffer-size=4',
 ]
