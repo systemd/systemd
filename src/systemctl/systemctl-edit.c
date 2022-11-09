@@ -485,7 +485,7 @@ static int trim_edit_markers(const char *path) {
         contents_start = strstrip(contents_start);
 
         /* Write new contents if the trimming actually changed anything */
-        if (strlen(contents) != size) {
+        if (strlen(contents_start) != size) {
                 r = write_string_file(path, contents_start, WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_TRUNCATE | WRITE_STRING_FILE_AVOID_NEWLINE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to modify temporary file \"%s\": %m", path);
