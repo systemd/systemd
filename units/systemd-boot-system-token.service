@@ -26,9 +26,6 @@ ConditionPathExists=/sys/firmware/efi/efivars/LoaderFeatures-4a67b082-0a4c-41cf-
 # Only run this if there is no system token defined yet, or …
 ConditionPathExists=|!/sys/firmware/efi/efivars/LoaderSystemToken-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
 
-# … if the boot loader didn't pass the OS a random seed (and thus probably was missing the random seed file)
-ConditionPathExists=|!/sys/firmware/efi/efivars/LoaderRandomSeed-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
-
 [Service]
 Type=oneshot
 RemainAfterExit=yes

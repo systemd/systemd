@@ -197,28 +197,39 @@ boot, in order to ensure the entropy pool is filled up quickly.
    generate sufficient data), to generate a new random seed file to store in
    the ESP as well as a random seed to pass to the OS kernel. The new random
    seed file for the ESP is then written to the ESP, ensuring this is completed
-   before the OS is invoked. Very early during initialization PID 1 will read
-   the random seed provided in the EFI variable and credit it fully to the
-   kernel's entropy pool.
+   before the OS is invoked.
 
-   This mechanism is able to safely provide an initialized entropy pool already
-   in the `initrd` and guarantees that different seeds are passed from the boot
-   loader to the OS on every boot (in a way that does not allow regeneration of
-   an old seed file from a new seed file). Moreover, when an OS image is
-   replicated between multiple images and the random seed is not reset, this
-   will still result in different random seeds being passed to the OS, as the
-   per-machine 'system token' is specific to the physical host, and not
-   included in OS disk images. If the 'system token' is properly initialized
-   and kept sufficiently secret it should not be possible to regenerate the
-   entropy pool of different machines, even if this seed is the only source of
-   entropy.
+   The kernel then reads the random seed that the boot loader passes to it, via
+   the EFI configuration table entry, `LINUX_EFI_RANDOM_SEED_TABLE_GUID`
+   (1ce1e5bc-7ceb-42f2-81e5-8aadf180f57b), which is allocated with pool memory
+   of type `EfiACPIReclaimMemory`. Its contents have the form:
+   ```
+   struct linux_efi_random_seed {
+       u32     size; // of the 'seed' array in bytes
+       u8      seed[];
+   };
+   ```
+   The size field is generally set to 32 bytes, and the seed field includes a
+   hashed representation of any prior seed in `LINUX_EFI_RANDOM_SEED_TABLE_GUID`
+   together with the new seed.
+
+   This mechanism is able to safely provide an initialized entropy pool before
+   userspace even starts and guarantees that different seeds are passed from
+   the boot loader to the OS on every boot (in a way that does not allow
+   regeneration of an old seed file from a new seed file). Moreover, when an OS
+   image is replicated between multiple images and the random seed is not
+   reset, this will still result in different random seeds being passed to the
+   OS, as the per-machine 'system token' is specific to the physical host, and
+   not included in OS disk images. If the 'system token' is properly
+   initialized and kept sufficiently secret it should not be possible to
+   regenerate the entropy pool of different machines, even if this seed is the
+   only source of entropy.
 
    Note that the writes to the ESP needed to maintain the random seed should be
-   minimal. The size of the random seed file is directly derived from the Linux
-   kernel's entropy pool size, which defaults to 512 bytes. This means updating
-   the random seed in the ESP should be doable safely with a single sector
-   write (since hard-disk sectors typically happen to be 512 bytes long, too),
-   which should be safe even with FAT file system drivers built into
+   minimal. Because the size of the random seed file is generally set to 32 bytes,
+   updating the random seed in the ESP should be doable safely with a single
+   sector write (since hard-disk sectors typically happen to be 512 bytes long,
+   too), which should be safe even with FAT file system drivers built into
    low-quality EFI firmwares.
 
    As a special restriction: in virtualized environments PID 1 will refrain

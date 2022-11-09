@@ -14,11 +14,24 @@
 
 #define EFI_RNG_GUID &(const EFI_GUID) EFI_RNG_PROTOCOL_GUID
 
+struct linux_efi_random_seed {
+        uint32_t size;
+        uint8_t seed[];
+};
+
+#define LINUX_EFI_RANDOM_SEED_TABLE_GUID \
+        { 0x1ce1e5bc, 0x7ceb, 0x42f2,  { 0x81, 0xe5, 0x8a, 0xad, 0xf1, 0x80, 0xf5, 0x7b } }
+
 /* SHA256 gives us 256/8=32 bytes */
 #define HASH_VALUE_SIZE 32
 
-static EFI_STATUS acquire_rng(UINTN size, void **ret) {
-        _cleanup_free_ void *data = NULL;
+/* Linux's RNG is 256 bits, so let's provide this much */
+#define DESIRED_SEED_SIZE 32
+
+/* Some basic domain separation in case somebody uses this data elsewhere */
+#define HASH_LABEL "systemd-boot random seed label v1"
+
+static EFI_STATUS acquire_rng(void *ret, UINTN size) {
         EFI_RNG_PROTOCOL *rng;
         EFI_STATUS err;
 
@@ -32,126 +45,9 @@ static EFI_STATUS acquire_rng(UINTN size, void **ret) {
         if (!rng)
                 return EFI_UNSUPPORTED;
 
-        data = xmalloc(size);
-
-        err = rng->GetRNG(rng, NULL, size, data);
+        err = rng->GetRNG(rng, NULL, size, ret);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to acquire RNG data: %r", err);
-
-        *ret = TAKE_PTR(data);
-        return EFI_SUCCESS;
-}
-
-static void hash_once(
-                const void *old_seed,
-                const void *rng,
-                UINTN size,
-                const void *system_token,
-                UINTN system_token_size,
-                uint64_t uefi_monotonic_counter,
-                UINTN counter,
-                uint8_t ret[static HASH_VALUE_SIZE]) {
-
-        /* This hashes together:
-         *
-         *      1. The contents of the old seed file
-         *      2. Some random data acquired from the UEFI RNG (optional)
-         *      3. Some 'system token' the installer installed as EFI variable (optional)
-         *      4. The UEFI "monotonic counter" that increases with each boot
-         *      5. A supplied counter value
-         *
-         * And writes the result to the specified buffer.
-         */
-
-        struct sha256_ctx hash;
-
-        assert(old_seed);
-        assert(system_token_size == 0 || system_token);
-
-        sha256_init_ctx(&hash);
-        sha256_process_bytes(old_seed, size, &hash);
-        if (rng)
-                sha256_process_bytes(rng, size, &hash);
-        if (system_token_size > 0)
-                sha256_process_bytes(system_token, system_token_size, &hash);
-        sha256_process_bytes(&uefi_monotonic_counter, sizeof(uefi_monotonic_counter), &hash);
-        sha256_process_bytes(&counter, sizeof(counter), &hash);
-        sha256_finish_ctx(&hash, ret);
-}
-
-static EFI_STATUS hash_many(
-                const void *old_seed,
-                const void *rng,
-                UINTN size,
-                const void *system_token,
-                UINTN system_token_size,
-                uint64_t uefi_monotonic_counter,
-                UINTN counter_start,
-                UINTN n,
-                void **ret) {
-
-        _cleanup_free_ void *output = NULL;
-
-        assert(old_seed);
-        assert(system_token_size == 0 || system_token);
-        assert(ret);
-
-        /* Hashes the specified parameters in counter mode, generating n hash values, with the counter in the
-         * range counter_start…counter_start+n-1. */
-
-        output = xmalloc_multiply(HASH_VALUE_SIZE, n);
-
-        for (UINTN i = 0; i < n; i++)
-                hash_once(old_seed, rng, size,
-                          system_token, system_token_size,
-                          uefi_monotonic_counter,
-                          counter_start + i,
-                          (uint8_t*) output + (i * HASH_VALUE_SIZE));
-
-        *ret = TAKE_PTR(output);
-        return EFI_SUCCESS;
-}
-
-static EFI_STATUS mangle_random_seed(
-                const void *old_seed,
-                const void *rng,
-                UINTN size,
-                const void *system_token,
-                UINTN system_token_size,
-                uint64_t uefi_monotonic_counter,
-                void **ret_new_seed,
-                void **ret_for_kernel) {
-
-        _cleanup_free_ void *new_seed = NULL, *for_kernel = NULL;
-        EFI_STATUS err;
-        UINTN n;
-
-        assert(old_seed);
-        assert(system_token_size == 0 || system_token);
-        assert(ret_new_seed);
-        assert(ret_for_kernel);
-
-        /* This takes the old seed file contents, an (optional) random number acquired from the UEFI RNG, an
-         * (optional) system 'token' installed once by the OS installer in an EFI variable, and hashes them
-         * together in counter mode, generating a new seed (to replace the file on disk) and the seed for the
-         * kernel. To keep things simple, the new seed and kernel data have the same size as the old seed and
-         * RNG data. */
-
-        n = (size + HASH_VALUE_SIZE - 1) / HASH_VALUE_SIZE;
-
-        /* Begin hashing in counter mode at counter 0 for the new seed for the disk */
-        err = hash_many(old_seed, rng, size, system_token, system_token_size, uefi_monotonic_counter, 0, n, &new_seed);
-        if (err != EFI_SUCCESS)
-                return err;
-
-        /* Continue counting at 'n' for the seed for the kernel */
-        err = hash_many(old_seed, rng, size, system_token, system_token_size, uefi_monotonic_counter, n, n, &for_kernel);
-        if (err != EFI_SUCCESS)
-                return err;
-
-        *ret_new_seed = TAKE_PTR(new_seed);
-        *ret_for_kernel = TAKE_PTR(for_kernel);
-
         return EFI_SUCCESS;
 }
 
@@ -163,6 +59,7 @@ static EFI_STATUS acquire_system_token(void **ret, UINTN *ret_size) {
         assert(ret);
         assert(ret_size);
 
+        *ret_size = 0;
         err = efivar_get_raw(LOADER_GUID, L"LoaderSystemToken", &data, &size);
         if (err != EFI_SUCCESS) {
                 if (err != EFI_NOT_FOUND)
@@ -221,31 +118,83 @@ static void validate_sha256(void) {
 }
 
 EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
-        _cleanup_free_ void *seed = NULL, *new_seed = NULL, *rng = NULL, *for_kernel = NULL, *system_token = NULL;
+        _cleanup_erase_ uint8_t random_bytes[DESIRED_SEED_SIZE], hash_key[HASH_VALUE_SIZE];
+        _cleanup_free_ struct linux_efi_random_seed *new_seed_table = NULL;
+        struct linux_efi_random_seed *previous_seed_table = NULL;
+        _cleanup_free_ void *seed = NULL, *system_token = NULL;
         _cleanup_(file_closep) EFI_FILE *handle = NULL;
-        UINTN size, rsize, wsize, system_token_size = 0;
         _cleanup_free_ EFI_FILE_INFO *info = NULL;
+        _cleanup_erase_ struct sha256_ctx hash;
         uint64_t uefi_monotonic_counter = 0;
+        size_t size, rsize, wsize;
+        bool seeded_by_efi = false;
         EFI_STATUS err;
+        EFI_TIME now;
 
         assert(root_dir);
+        assert_cc(DESIRED_SEED_SIZE == HASH_VALUE_SIZE);
 
         validate_sha256();
 
         if (mode == RANDOM_SEED_OFF)
                 return EFI_NOT_FOUND;
 
-        /* Let's better be safe than sorry, and for now disable this logic in SecureBoot mode, so that we
-         * don't credit a random seed that is not authenticated. */
-        if (secure_boot_enabled())
-                return EFI_NOT_FOUND;
+        /* hash = LABEL || sizeof(input1) || input1 || ... || sizeof(inputN) || inputN */
+        sha256_init_ctx(&hash);
+
+        /* Some basic domain separation in case somebody uses this data elsewhere */
+        sha256_process_bytes(HASH_LABEL, sizeof(HASH_LABEL) - 1, &hash);
+
+        for (size_t i = 0; i < ST->NumberOfTableEntries; ++i)
+                if (memcmp(&(const EFI_GUID)LINUX_EFI_RANDOM_SEED_TABLE_GUID,
+                           &ST->ConfigurationTable[i].VendorGuid, sizeof(EFI_GUID)) == 0) {
+                        previous_seed_table = ST->ConfigurationTable[i].VendorTable;
+                        break;
+                }
+        if (!previous_seed_table) {
+                size = 0;
+                sha256_process_bytes(&size, sizeof(size), &hash);
+        } else {
+                size = previous_seed_table->size;
+                seeded_by_efi = size >= DESIRED_SEED_SIZE;
+                sha256_process_bytes(&size, sizeof(size), &hash);
+                sha256_process_bytes(previous_seed_table->seed, size, &hash);
+
+                /* Zero and free the previous seed table only at the end after we've managed to install a new
+                 * one, so that in case this function fails or aborts, Linux still receives whatever the
+                 * previous bootloader chain set. So, the next line of this block is not an explicit_bzero()
+                 * call. */
+        }
+
+        /* Request some random data from the UEFI RNG. We don't need this to work safely, but it's a good
+         * idea to use it because it helps us for cases where users mistakenly include a random seed in
+         * golden master images that are replicated many times. */
+        err = acquire_rng(random_bytes, sizeof(random_bytes));
+        if (err != EFI_SUCCESS) {
+                size = 0;
+                /* If we can't get any randomness from EFI itself, then we'll only be relying on what's in
+                 * ESP. But ESP is mutable, so if secure boot is enabled, we probably shouldn't trust that
+                 * alone, in which case we bail out early. */
+                if (!seeded_by_efi && secure_boot_enabled())
+                        return EFI_NOT_FOUND;
+        } else {
+                seeded_by_efi = true;
+                size = sizeof(random_bytes);
+        }
+        sha256_process_bytes(&size, sizeof(size), &hash);
+        sha256_process_bytes(random_bytes, size, &hash);
 
         /* Get some system specific seed that the installer might have placed in an EFI variable. We include
          * it in our hash. This is protection against golden master image sloppiness, and it remains on the
          * system, even when disk images are duplicated or swapped out. */
-        err = acquire_system_token(&system_token, &system_token_size);
-        if (mode != RANDOM_SEED_ALWAYS && err != EFI_SUCCESS)
+        err = acquire_system_token(&system_token, &size);
+        if (mode != RANDOM_SEED_ALWAYS && (err != EFI_SUCCESS || size < DESIRED_SEED_SIZE) && !seeded_by_efi)
                 return err;
+        sha256_process_bytes(&size, sizeof(size), &hash);
+        if (system_token) {
+                sha256_process_bytes(system_token, size, &hash);
+                explicit_bzero_safe(system_token, size);
+        }
 
         err = root_dir->Open(
                         root_dir,
@@ -261,7 +210,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
 
         err = get_file_info_harder(handle, &info, NULL);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Failed to get file info for random seed: %r");
+                return log_error_status_stall(err, L"Failed to get file info for random seed: %r", err);
 
         size = info->FileSize;
         if (size < RANDOM_MAX_SIZE_MIN)
@@ -271,51 +220,105 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
                 return log_error_status_stall(EFI_INVALID_PARAMETER, L"Random seed file is too large.");
 
         seed = xmalloc(size);
-
         rsize = size;
         err = handle->Read(handle, &rsize, seed);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to read random seed file: %r", err);
-        if (rsize != size)
+        if (rsize != size) {
+                explicit_bzero_safe(seed, rsize);
                 return log_error_status_stall(EFI_PROTOCOL_ERROR, L"Short read on random seed file.");
+        }
+
+        sha256_process_bytes(&size, sizeof(size), &hash);
+        sha256_process_bytes(seed, size, &hash);
+        explicit_bzero_safe(seed, size);
 
         err = handle->SetPosition(handle, 0);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to seek to beginning of random seed file: %r", err);
 
-        /* Request some random data from the UEFI RNG. We don't need this to work safely, but it's a good
-         * idea to use it because it helps us for cases where users mistakenly include a random seed in
-         * golden master images that are replicated many times. */
-        (void) acquire_rng(size, &rng); /* It's fine if this fails */
-
         /* Let's also include the UEFI monotonic counter (which is supposedly increasing on every single
          * boot) in the hash, so that even if the changes to the ESP for some reason should not be
          * persistent, the random seed we generate will still be different on every single boot. */
         err = BS->GetNextMonotonicCount(&uefi_monotonic_counter);
-        if (err != EFI_SUCCESS)
+        if (err != EFI_SUCCESS && !seeded_by_efi)
                 return log_error_status_stall(err, L"Failed to acquire UEFI monotonic counter: %r", err);
+        size = sizeof(uefi_monotonic_counter);
+        sha256_process_bytes(&size, sizeof(size), &hash);
+        sha256_process_bytes(&uefi_monotonic_counter, size, &hash);
+        err = RT->GetTime(&now, NULL);
+        size = err == EFI_SUCCESS ? sizeof(now) : 0; /* Known to be flaky, so don't bark on error. */
+        sha256_process_bytes(&size, sizeof(size), &hash);
+        sha256_process_bytes(&now, size, &hash);
 
-        /* Calculate new random seed for the disk and what to pass to the kernel */
-        err = mangle_random_seed(seed, rng, size, system_token, system_token_size, uefi_monotonic_counter, &new_seed, &for_kernel);
-        if (err != EFI_SUCCESS)
-                return err;
+        /* hash_key = HASH(hash) */
+        sha256_finish_ctx(&hash, hash_key);
 
+        /* hash = hash_key || 0 */
+        sha256_init_ctx(&hash);
+        sha256_process_bytes(hash_key, sizeof(hash_key), &hash);
+        sha256_process_bytes(&(const uint8_t){ 0 }, sizeof(uint8_t), &hash);
+        /* random_bytes = HASH(hash) */
+        sha256_finish_ctx(&hash, random_bytes);
+
+        size = sizeof(random_bytes);
+        /* If the file size is too large, zero out the remaining bytes on disk, and then truncate. */
+        if (size < info->FileSize) {
+                err = handle->SetPosition(handle, size);
+                if (err != EFI_SUCCESS)
+                        return log_error_status_stall(err, L"Failed to seek to offset of random seed file: %r", err);
+                wsize = info->FileSize - size;
+                err = handle->Write(handle, &wsize, seed /* All zeros now */);
+                if (err != EFI_SUCCESS)
+                        return log_error_status_stall(err, L"Failed to write random seed file: %r", err);
+                if (wsize != info->FileSize - size)
+                        return log_error_status_stall(EFI_PROTOCOL_ERROR, L"Short write on random seed file.");
+                err = handle->Flush(handle);
+                if (err != EFI_SUCCESS)
+                        return log_error_status_stall(err, L"Failed to flush random seed file: %r", err);
+                err = handle->SetPosition(handle, 0);
+                if (err != EFI_SUCCESS)
+                        return log_error_status_stall(err, L"Failed to seek to beginning of random seed file: %r", err);
+                info->FileSize = size;
+                err = handle->SetInfo(handle, &GenericFileInfo, info->Size, info);
+                if (err != EFI_SUCCESS)
+                        return log_error_status_stall(err, L"Failed to truncate random seed file: %r", err);
+        }
         /* Update the random seed on disk before we use it */
         wsize = size;
-        err = handle->Write(handle, &wsize, new_seed);
+        err = handle->Write(handle, &wsize, random_bytes);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to write random seed file: %r", err);
         if (wsize != size)
                 return log_error_status_stall(EFI_PROTOCOL_ERROR, L"Short write on random seed file.");
-
         err = handle->Flush(handle);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to flush random seed file: %r", err);
 
-        /* We are good to go */
-        err = efivar_set_raw(LOADER_GUID, L"LoaderRandomSeed", for_kernel, size, 0);
+        err = BS->AllocatePool(EfiACPIReclaimMemory, sizeof(*new_seed_table) + DESIRED_SEED_SIZE,
+                               (void **) &new_seed_table);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Failed to write random seed to EFI variable: %r", err);
+                return log_error_status_stall(err, L"Failed to allocate EFI table for random seed: %r", err);
+        new_seed_table->size = DESIRED_SEED_SIZE;
+
+        /* hash = hash_key || 1 */
+        sha256_init_ctx(&hash);
+        sha256_process_bytes(hash_key, sizeof(hash_key), &hash);
+        sha256_process_bytes(&(const uint8_t){ 1 }, sizeof(uint8_t), &hash);
+        /* new_seed_table->seed = HASH(hash) */
+        sha256_finish_ctx(&hash, new_seed_table->seed);
+
+        err = BS->InstallConfigurationTable(&(EFI_GUID)LINUX_EFI_RANDOM_SEED_TABLE_GUID, new_seed_table);
+        if (err != EFI_SUCCESS)
+                return log_error_status_stall(err, L"Failed to install EFI table for random seed: %r", err);
+        TAKE_PTR(new_seed_table);
+
+        if (previous_seed_table) {
+                /* Now that we've succeeded in installing the new table, we can safely nuke the old one. */
+                explicit_bzero_safe(previous_seed_table->seed, previous_seed_table->size);
+                explicit_bzero_safe(previous_seed_table, sizeof(*previous_seed_table));
+                free(previous_seed_table);
+        }
 
         return EFI_SUCCESS;
 }

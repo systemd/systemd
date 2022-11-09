@@ -80,12 +80,6 @@ variables. All EFI variables use the vendor UUID
   * `1 << 5` → The boot loader supports looking for boot menu entries in the Extended Boot Loader Partition.
   * `1 << 6` → The boot loader supports passing a random seed to the OS.
 
-* The EFI variable `LoaderRandomSeed` contains a binary random seed if set. It
-  is set by the boot loader to pass an entropy seed read from the ESP to the OS.
-  The system manager then credits this seed to the kernel's entropy pool. It is
-  the responsibility of the boot loader to ensure the quality and integrity of
-  the random seed.
-
 * The EFI variable `LoaderSystemToken` contains binary random data,
   persistently set by the OS installer. Boot loaders that support passing
   random seeds to the OS should use this data and combine it with the random
@@ -107,8 +101,7 @@ that directory is empty, and only if no other file systems are mounted
 there. The `systemctl reboot --boot-loader-entry=…` and `systemctl reboot
 --boot-loader-menu=…` commands rely on the `LoaderFeatures` ,
 `LoaderConfigTimeoutOneShot`, `LoaderEntries`, `LoaderEntryOneShot`
-variables. `LoaderRandomSeed` is read by PID during early boot and credited to
-the kernel's random pool.
+variables.
 
 ## Boot Loader Entry Identifiers
 

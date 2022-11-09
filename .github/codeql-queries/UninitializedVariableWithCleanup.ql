@@ -20,7 +20,7 @@ import semmle.code.cpp.controlflow.StackVariableReachability
   * since they don't do anything illegal even when the variable is uninitialized
   */
 predicate cleanupFunctionDenyList(string fun) {
-  fun = "erase_char"
+  fun = "erase_char" or fun = "erase_obj"
 }
 
 /**
