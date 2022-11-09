@@ -24,7 +24,6 @@
 #include "signal-util.h"
 #include "strv.h"
 #include "user-util.h"
-#include "util.h"
 
 static int property_get_user(
                 sd_bus *bus,

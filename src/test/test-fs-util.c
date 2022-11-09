@@ -22,7 +22,6 @@
 #include "tmpfile-util.h"
 #include "umask-util.h"
 #include "user-util.h"
-#include "util.h"
 #include "virt.h"
 
 static const char *arg_test_dir = NULL;

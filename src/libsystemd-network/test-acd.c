@@ -13,7 +13,6 @@
 
 #include "in-addr-util.h"
 #include "tests.h"
-#include "util.h"
 
 static void acd_handler(sd_ipv4acd *acd, int event, void *userdata) {
         assert_se(acd);

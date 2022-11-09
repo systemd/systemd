@@ -11,7 +11,7 @@
 #include "bus-get-properties.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
-#include "def.h"
+#include "constants.h"
 #include "env-file-label.h"
 #include "env-file.h"
 #include "env-util.h"
@@ -36,7 +36,6 @@
 #include "string-table.h"
 #include "strv.h"
 #include "user-util.h"
-#include "util.h"
 #include "virt.h"
 
 #define VALID_DEPLOYMENT_CHARS (DIGITS LETTERS "-.:")

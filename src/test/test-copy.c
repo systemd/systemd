@@ -20,7 +20,6 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
-#include "util.h"
 #include "xattr-util.h"
 
 TEST(copy_file) {

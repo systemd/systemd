@@ -8,7 +8,6 @@
 #include "format-util.h"
 #include "log.h"
 #include "string-util.h"
-#include "util.h"
 
 int main(int argc, char *argv[]) {
         BtrfsQuotaInfo quota;

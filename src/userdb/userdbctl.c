@@ -3,6 +3,7 @@
 #include <getopt.h>
 #include <utmp.h>
 
+#include "build.h"
 #include "dirent-util.h"
 #include "errno-list.h"
 #include "escape.h"

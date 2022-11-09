@@ -15,7 +15,6 @@
 #include "sleep-config.h"
 #include "strv.h"
 #include "tests.h"
-#include "util.h"
 
 TEST(parse_sleep_config) {
         _cleanup_(free_sleep_configp) SleepConfig *sleep_config = NULL;

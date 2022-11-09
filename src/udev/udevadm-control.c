@@ -25,7 +25,6 @@
 #include "time-util.h"
 #include "udevadm.h"
 #include "udev-ctrl.h"
-#include "util.h"
 #include "virt.h"
 
 static int help(void) {

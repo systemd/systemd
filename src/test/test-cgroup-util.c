@@ -15,7 +15,6 @@
 #include "strv.h"
 #include "tests.h"
 #include "user-util.h"
-#include "util.h"
 #include "version.h"
 
 static void check_p_d_u(const char *path, int code, const char *result) {
