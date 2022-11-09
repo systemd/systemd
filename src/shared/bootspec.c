@@ -19,6 +19,7 @@
 #include "pretty-print.h"
 #include "recurse-dir.h"
 #include "sort-util.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -542,23 +543,6 @@ static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
 
         return -strverscmp_improved(a->id, b->id);
 }
-
-static void inode_hash_func(const struct stat *q, struct siphash *state) {
-        siphash24_compress(&q->st_dev, sizeof(q->st_dev), state);
-        siphash24_compress(&q->st_ino, sizeof(q->st_ino), state);
-}
-
-static int inode_compare_func(const struct stat *a, const struct stat *b) {
-        int r;
-
-        r = CMP(a->st_dev, b->st_dev);
-        if (r != 0)
-                return r;
-
-        return CMP(a->st_ino, b->st_ino);
-}
-
-DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(inode_hash_ops, struct stat, inode_hash_func, inode_compare_func, free);
 
 static int config_check_inode_relevant_and_unseen(BootConfig *config, int fd, const char *fname) {
         _cleanup_free_ char *d = NULL;
