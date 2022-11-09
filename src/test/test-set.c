@@ -406,4 +406,48 @@ TEST(set_fnmatch) {
         assert_se(!set_fnmatch(match, nomatch, "cccXX"));
 }
 
+TEST(set_make_nulstr) {
+        _cleanup_set_free_ Set *set = NULL;
+        size_t len = 0;
+        int r;
+
+        {
+                // Unallocated and empty set.
+                char expect[] = { 0x00 };
+                _cleanup_free_ char *nulstr = NULL;
+
+                r = set_make_nulstr(set, &nulstr, &len);
+                assert_se(r == 0);
+                assert_se(len == 0);
+                assert_se(memcmp(expect, nulstr, len + 1) == 0);
+        }
+
+        {
+                // Allocated by empty set.
+                char expect[] = { 0x00 };
+                _cleanup_free_ char *nulstr = NULL;
+
+                set = set_new(NULL);
+                assert_se(set);
+
+                r = set_make_nulstr(set, &nulstr, &len);
+                assert_se(r == 0);
+                assert_se(len == 0);
+                assert_se(memcmp(expect, nulstr, len + 1) == 0);
+        }
+
+        {
+                // Non-empty set.
+                char expect[] = { 'a', 0x00, 0x00 };
+                _cleanup_free_ char *nulstr = NULL;
+
+                assert_se(set_put_strdup(&set, "a") >= 0);
+
+                r = set_make_nulstr(set, &nulstr, &len);
+                assert_se(r == 0);
+                assert_se(len == 1);
+                assert_se(memcmp(expect, nulstr, len + 2) == 0);
+        }
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
