@@ -2434,6 +2434,7 @@ if conf.get('HAVE_BLKID') == 1
                 'src/dissect/dissect.c',
                 include_directories : includes,
                 link_with : [libshared],
+                dependencies : [versiondep],
                 install_rpath : rootpkglibdir,
                 install : true)
 endif
