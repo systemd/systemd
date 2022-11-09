@@ -7,9 +7,10 @@
 
 import argparse
 import dataclasses
+import fnmatch
 import itertools
-import pathlib
 import os
+import pathlib
 import shlex
 import subprocess
 import tempfile
@@ -18,20 +19,26 @@ import typing
 import pefile
 
 EFI_ARCHES = {
-        # host_arch: [efi_arch, [32_bit_efi_arch]]
-        'x86'    : ['ia32'],
-        'x86_64' : ['x64', 'ia32'],
-        'arm'    : ['arm'],
-        'aarch64': ['aa64', 'arm'],
-        'riscv64': ['riscv64'],
+        # host_arch glob : [efi_arch, [32_bit_efi_arch]]
+        'x86_64'       : ['x64', 'ia32'],
+        'i[3456]86'    : ['ia32'],
+        'aarch64'      : ['aa64', 'arm'],
+        'arm[45678]*l' : ['arm'],
+        'riscv64'      : ['riscv64'],
 }
 
 def guess_efi_arch():
     arch = os.uname().machine
-    efi_arch, *fallback = EFI_ARCHES[arch]
+
+    for glob in EFI_ARCHES:
+        if fnmatch.fnmatch(arch, glob):
+            efi_arch, *fallback = EFI_ARCHES[arch]
+            break
+    else:
+        raise ValueError(f'Unsupported architecture {arch}')
 
     # This makes sense only on some architectures, but it also probably doesn't
-    # hurt on other architectures, so let's just apply the check everywhere.
+    # hurt on others, so let's just apply the check everywhere.
     if fallback:
         fw_platform_size = pathlib.Path('/sys/firmware/efi/fw_platform_size')
         try:
@@ -66,11 +73,12 @@ class Section:
     name: str
     content: pathlib.Path
     tmpfile: typing.Optional[typing.IO] = None
+    flags: list[str] = dataclasses.field(default=None)
     offset: typing.Optional[int] = None
     measure: bool = False
 
     @classmethod
-    def create(cls, name, contents, measure=False):
+    def create(cls, name, contents, flags=None, measure=False):
         if isinstance(contents, str):
             tmp = tempfile.NamedTemporaryFile(mode='wt', prefix=f'tmp{name}')
             tmp.write(contents)
@@ -79,7 +87,7 @@ class Section:
         else:
             tmp = None
 
-        return cls(name, contents, tmpfile=tmp, measure=measure)
+        return cls(name, contents, tmpfile=tmp, flags=flags, measure=measure)
 
     @classmethod
     def parse_arg(cls, s):
@@ -276,7 +284,9 @@ def make_uki(args):
 
     # UKI creation
 
-    uki.add_section(Section.create('linux', linux, measure=True))
+    uki.add_section(
+        Section.create('linux', linux, measure=True,
+                       flags=['contents', 'alloc', 'load', 'readonly', 'code']))
 
     if args.sb_key:
         unsigned = tempfile.NamedTemporaryFile(prefix='uki')
@@ -293,6 +303,10 @@ def make_uki(args):
             ('--add-section',        f'.{s.name}={s.content}',
              '--change-section-vma', f'.{s.name}=0x{s.offset:x}')
             for s in uki.sections),
+        *itertools.chain.from_iterable(
+            ('--set-section-flags',  f".{s.name}={','.join(s.flags)}")
+            for s in uki.sections
+            if s.flags is not None),
         output,
     ]
     print('+', shell_join(cmd))
@@ -358,7 +372,7 @@ usage: ukify [options…] linux initrd
                    help='embedded public key to seal secrets to [.pcrpkey section]')
     p.add_argument('--uname',
                    metavar='VERSION',
-                   help='"uname -rv" information [.uname section]')
+                   help='"uname -r" information [.uname section]')
 
     p.add_argument('--efi-arch',
                    metavar='ARCH',
@@ -371,7 +385,7 @@ usage: ukify [options…] linux initrd
 
     p.add_argument('--section',
                    dest='sections',
-                   metavar='NAME:TEXT|@PATH[:OFFSET]',
+                   metavar='NAME:TEXT|@PATH',
                    type=Section.parse_arg,
                    action='append',
                    default=[],
