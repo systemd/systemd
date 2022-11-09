@@ -483,9 +483,22 @@ static int trim_edit_markers(const char *path) {
                 strshorten(contents_start, contents_end - contents_start);
 
         contents_start = strstrip(contents_start);
+        if (*contents_start && !endswith(contents_start, "\n")) {
+                if (MALLOC_SIZEOF_SAFE(contents) - (contents_start - contents) - strlen(contents_start) < 2) {
+                        contents_start = realloc(contents, strlen(contents_start) + 1 + 1);
+                        if (!contents_start) {
+                                contents_start = contents;
+                                goto nofix;
+                        }
+                        contents = contents_start;
+                }
+
+                strcat(contents_start, "\n");
+        }
+nofix:
 
         /* Write new contents if the trimming actually changed anything */
-        if (strlen(contents) != size) {
+        if (strlen(contents_start) != size) {
                 r = write_string_file(path, contents_start, WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_TRUNCATE | WRITE_STRING_FILE_AVOID_NEWLINE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to modify temporary file \"%s\": %m", path);
