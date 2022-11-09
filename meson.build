@@ -3957,6 +3957,14 @@ if want_tests != 'false'
              args : [exe.full_path(), loaderentry_install])
 endif
 
+if get_option('ukify')
+        install_data(
+                'src/kernel-install/ukify.py',
+                rename : 'ukify',
+                install_mode : 'rwxr-xr-x',
+                install_dir : rootlibexecdir)
+endif
+
 ############################################################
 
 runtest_env = custom_target(
