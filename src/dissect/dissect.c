@@ -19,6 +19,7 @@
 #include "devnum-util.h"
 #include "dissect-image.h"
 #include "env-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
@@ -38,6 +39,7 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "recurse-dir.h"
+#include "sha256.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -50,6 +52,7 @@ static enum {
         ACTION_MOUNT,
         ACTION_UMOUNT,
         ACTION_LIST,
+        ACTION_MTREE,
         ACTION_WITH,
         ACTION_COPY_FROM,
         ACTION_COPY_TO,
@@ -87,6 +90,7 @@ static int help(void) {
                "%1$s [OPTIONS...] --mount IMAGE PATH\n"
                "%1$s [OPTIONS...] --umount PATH\n"
                "%1$s [OPTIONS...] --list IMAGE\n"
+               "%1$s [OPTIONS...] --mtree IMAGE\n"
                "%1$s [OPTIONS...] --with IMAGE [COMMAND…]\n"
                "%1$s [OPTIONS...] --copy-from IMAGE PATH [TARGET]\n"
                "%1$s [OPTIONS...] --copy-to IMAGE [SOURCE] PATH\n\n"
@@ -118,6 +122,7 @@ static int help(void) {
                "  -U                      Shortcut for --umount --rmdir\n"
                "  -l --list               List all the files and directories of the specified\n"
                "                          OS image\n"
+               "     --mtree              Show BSD mtree manifest of OS image\n"
                "     --with               Mount, run command, unmount\n"
                "  -x --copy-from          Copy files from image to host\n"
                "  -a --copy-to            Copy files from host to image\n"
@@ -191,6 +196,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_MKDIR,
                 ARG_RMDIR,
                 ARG_JSON,
+                ARG_MTREE,
         };
 
         static const struct option options[] = {
@@ -211,6 +217,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "mkdir",         no_argument,       NULL, ARG_MKDIR         },
                 { "rmdir",         no_argument,       NULL, ARG_RMDIR         },
                 { "list",          no_argument,       NULL, 'l'               },
+                { "mtree",         no_argument,       NULL, ARG_MTREE         },
                 { "copy-from",     no_argument,       NULL, 'x'               },
                 { "copy-to",       no_argument,       NULL, 'a'               },
                 { "json",          required_argument, NULL, ARG_JSON          },
@@ -275,6 +282,11 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'l':
                         arg_action = ACTION_LIST;
+                        arg_flags |= DISSECT_IMAGE_READ_ONLY;
+                        break;
+
+                case ARG_MTREE:
+                        arg_action = ACTION_MTREE;
                         arg_flags |= DISSECT_IMAGE_READ_ONLY;
                         break;
 
@@ -424,6 +436,7 @@ static int parse_argv(int argc, char *argv[]) {
                 break;
 
         case ACTION_LIST:
+        case ACTION_MTREE:
                 if (optind + 1 != argc)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Expected an image file path as only argument.");
@@ -815,7 +828,167 @@ static int list_print_item(
         return RECURSE_DIR_CONTINUE;
 }
 
-static int action_list_or_copy(DissectedImage *m, LoopDevice *d) {
+static int get_file_sha256(int inode_fd, uint8_t ret[static SHA256_DIGEST_SIZE]) {
+        _cleanup_close_ int fd = -1;
+        struct sha256_ctx ctx;
+
+        /* convert O_PATH fd into a regular one */
+        fd = fd_reopen(inode_fd, O_RDONLY|O_CLOEXEC);
+        if (fd < 0)
+                return fd;
+
+        /* Calculating the SHA sum might be slow, hence let's flush STDOUT first, to give user an idea where we are slow. */
+        fflush(stdout);
+
+        sha256_init_ctx(&ctx);
+
+        for (;;) {
+                uint8_t buffer[64 * 1024];
+                ssize_t n;
+
+                n = read(fd, buffer, sizeof(buffer));
+                if (n < 0)
+                        return -errno;
+                if (n == 0)
+                        break;
+
+                sha256_process_bytes(buffer, n, &ctx);
+        }
+
+        sha256_finish_ctx(&ctx, ret);
+        return 0;
+}
+
+static int mtree_print_item(
+                RecurseDirEvent event,
+                const char *path,
+                int dir_fd,
+                int inode_fd,
+                const struct dirent *de,
+                const struct statx *sx,
+                void *userdata) {
+
+        int r;
+
+        assert_se(path);
+        assert_se(sx);
+
+        if (IN_SET(event, RECURSE_DIR_ENTER, RECURSE_DIR_ENTRY)) {
+                _cleanup_free_ char *escaped = NULL;
+
+                if (isempty(path))
+                        path = ".";
+                else {
+                        /* BSD mtree uses either C or octal escaping, and covers whitespace, comments and glob characters. We use C style escaping and follow suit */
+                        escaped = xescape(path, WHITESPACE COMMENTS GLOB_CHARS);
+                        if (!escaped)
+                                return log_oom();
+
+                        path = escaped;
+                }
+
+                printf("%s", isempty(path) ? "." : path);
+
+                if (FLAGS_SET(sx->stx_mask, STATX_TYPE)) {
+                        if (S_ISDIR(sx->stx_mode))
+                                printf("%s/%s", ansi_grey(), ansi_normal());
+
+                        printf(" %stype=%s%s%s%s",
+                               ansi_grey(),
+                               ansi_normal(),
+                               S_ISDIR(sx->stx_mode) ? ansi_highlight_blue() :
+                               S_ISLNK(sx->stx_mode) ? ansi_highlight_cyan() :
+                               (S_ISFIFO(sx->stx_mode) || S_ISCHR(sx->stx_mode) || S_ISBLK(sx->stx_mode)) ? ansi_highlight_yellow4() :
+                               S_ISSOCK(sx->stx_mode) ? ansi_highlight_magenta() : "",
+                               ASSERT_PTR(S_ISDIR(sx->stx_mode) ? "dir" :
+                                          S_ISREG(sx->stx_mode) ? "file" :
+                                          S_ISLNK(sx->stx_mode) ? "link" :
+                                          S_ISFIFO(sx->stx_mode) ? "fifo" :
+                                          S_ISBLK(sx->stx_mode) ? "block" :
+                                          S_ISCHR(sx->stx_mode) ? "char" :
+                                          S_ISSOCK(sx->stx_mode) ? "socket" : NULL),
+                               ansi_normal());
+                }
+
+                if (FLAGS_SET(sx->stx_mask, STATX_MODE) && (!FLAGS_SET(sx->stx_mask, STATX_TYPE) || !S_ISLNK(sx->stx_mode)))
+                        printf(" %smode=%s%04o",
+                               ansi_grey(),
+                               ansi_normal(),
+                               (unsigned) (sx->stx_mode & 0777));
+
+                if (FLAGS_SET(sx->stx_mask, STATX_UID))
+                        printf(" %suid=%s" UID_FMT,
+                               ansi_grey(),
+                               ansi_normal(),
+                               sx->stx_uid);
+
+                if (FLAGS_SET(sx->stx_mask, STATX_GID))
+                        printf(" %sgid=%s" GID_FMT,
+                               ansi_grey(),
+                               ansi_normal(),
+                               sx->stx_gid);
+
+                if (FLAGS_SET(sx->stx_mask, STATX_TYPE|STATX_SIZE) && S_ISREG(sx->stx_mode)) {
+                        printf(" %ssize=%s%" PRIu64,
+                               ansi_grey(),
+                               ansi_normal(),
+                               (uint64_t) sx->stx_size);
+
+                        if (inode_fd >= 0 && sx->stx_size > 0) {
+                                uint8_t hash[SHA256_DIGEST_SIZE];
+
+                                r = get_file_sha256(inode_fd, hash);
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to calculate file SHA256 sum for '%s', ignoring: %m", path);
+                                else {
+                                        _cleanup_free_ char *h = NULL;
+
+                                        h = hexmem(hash, sizeof(hash));
+                                        if (!h)
+                                                return log_oom();
+
+                                        printf(" %ssha256sum=%s%s",
+                                               ansi_grey(),
+                                               ansi_normal(),
+                                               h);
+                                }
+                        }
+                }
+
+                if (FLAGS_SET(sx->stx_mask, STATX_TYPE) && S_ISLNK(sx->stx_mode) && inode_fd >= 0) {
+                        _cleanup_free_ char *target = NULL;
+
+                        r = readlinkat_malloc(inode_fd, "", &target);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to read symlink '%s', ignoring: %m", path);
+                        else {
+                                _cleanup_free_ char *target_escaped = NULL;
+
+                                target_escaped = xescape(target, WHITESPACE COMMENTS GLOB_CHARS);
+                                if (!target_escaped)
+                                        return log_oom();
+
+                                printf(" %slink=%s%s",
+                                       ansi_grey(),
+                                       ansi_normal(),
+                                       target_escaped);
+                        }
+                }
+
+                if (FLAGS_SET(sx->stx_mask, STATX_TYPE) && (S_ISBLK(sx->stx_mode) || S_ISCHR(sx->stx_mode)))
+                        printf(" %sdevice=%slinux,%" PRIu64 ",%" PRIu64,
+                               ansi_grey(),
+                               ansi_normal(),
+                               (uint64_t) sx->stx_rdev_major,
+                               (uint64_t) sx->stx_rdev_minor);
+
+                printf("\n");
+        }
+
+        return RECURSE_DIR_CONTINUE;
+}
+
+static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_(rmdir_and_freep) char *created_dir = NULL;
         _cleanup_free_ char *temp = NULL;
@@ -976,15 +1149,18 @@ static int action_list_or_copy(DissectedImage *m, LoopDevice *d) {
         } else {
                 _cleanup_close_ int dfd = -1;
 
-                assert(arg_action == ACTION_LIST);
-
                 dfd = open(mounted_dir, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
                 if (dfd < 0)
                         return log_error_errno(errno, "Failed to open mount directory: %m");
 
                 pager_open(arg_pager_flags);
 
-                r = recurse_dir(dfd, NULL, 0, UINT_MAX, RECURSE_DIR_SORT, list_print_item, NULL);
+                if (arg_action == ACTION_LIST)
+                        r = recurse_dir(dfd, NULL, 0, UINT_MAX, RECURSE_DIR_SORT, list_print_item, NULL);
+                else if (arg_action == ACTION_MTREE)
+                        r = recurse_dir(dfd, ".", STATX_TYPE|STATX_MODE|STATX_UID|STATX_GID|STATX_SIZE, UINT_MAX, RECURSE_DIR_SORT|RECURSE_DIR_INODE_FD|RECURSE_DIR_TOPLEVEL, mtree_print_item, NULL);
+                else
+                        assert_not_reached();
                 if (r < 0)
                         return log_error_errno(r, "Failed to list image: %m");
         }
@@ -1198,9 +1374,10 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ACTION_LIST:
+        case ACTION_MTREE:
         case ACTION_COPY_FROM:
         case ACTION_COPY_TO:
-                r = action_list_or_copy(m, d);
+                r = action_list_or_mtree_or_copy(m, d);
                 break;
 
         case ACTION_WITH:
