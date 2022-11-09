@@ -382,3 +382,10 @@ _used_ _weak_ void *memset(void *p, int c, size_t n) {
 
         return p;
 }
+
+#ifdef SD_BOOT
+void explicit_bzero_safe(void *bytes, size_t len) {
+        memset(bytes, 0, len);
+        __asm__ __volatile__("": :"r"(bytes) :"memory");
+}
+#endif
