@@ -61,7 +61,7 @@ struct acpi_fpdt_boot {
         uint64_t exit_services_exit;
 } _packed;
 
-int acpi_get_boot_usec(usec_t *loader_start, usec_t *loader_exit) {
+int acpi_get_boot_usec(usec_t *ret_loader_start, usec_t *ret_loader_exit) {
         _cleanup_free_ char *buf = NULL;
         struct acpi_table_header *tbl;
         size_t l = 0;
@@ -138,10 +138,10 @@ int acpi_get_boot_usec(usec_t *loader_start, usec_t *loader_exit) {
         if (brec.exit_services_exit > NSEC_PER_HOUR)
                 return -EINVAL;
 
-        if (loader_start)
-                *loader_start = brec.startup_start / 1000;
-        if (loader_exit)
-                *loader_exit = brec.exit_services_exit / 1000;
+        if (ret_loader_start)
+                *ret_loader_start = brec.startup_start / 1000;
+        if (ret_loader_exit)
+                *ret_loader_exit = brec.exit_services_exit / 1000;
 
         return 0;
 }
