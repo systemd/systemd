@@ -568,7 +568,7 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                 pager_open(arg_pager_flags);
 
         if (arg_json_format_flags & JSON_FORMAT_OFF)
-                printf("      Name: %s\n", bn);
+                printf("      Name: %s%s%s\n", ansi_highlight(), bn, ansi_normal());
 
         if (ioctl(d->fd, BLKGETSIZE64, &size) < 0)
                 log_debug_errno(errno, "Failed to query size of loopback device: %m");
