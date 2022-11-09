@@ -89,7 +89,7 @@ int acpi_get_boot_usec(usec_t *ret_loader_start, usec_t *ret_loader_exit) {
 
         /* find Firmware Basic Boot Performance Pointer Record */
         for (rec = (struct acpi_fpdt_header *)(buf + sizeof(struct acpi_table_header));
-             (char *)rec < buf + l;
+             (char *)rec + offsetof(struct acpi_fpdt_header, revision) <= buf + l;
              rec = (struct acpi_fpdt_header *)((char *)rec + rec->length)) {
                 if (rec->length <= 0)
                         break;
