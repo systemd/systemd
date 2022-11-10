@@ -6009,19 +6009,6 @@ static int parse_efi_variable_factory_reset(void) {
         return 0;
 }
 
-static int remove_efi_variable_factory_reset(void) {
-        int r;
-
-        r = efi_set_variable(EFI_SYSTEMD_VARIABLE(FactoryReset), NULL, 0);
-        if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
-                return 0;
-        if (r < 0)
-                return log_error_errno(r, "Failed to remove EFI variable FactoryReset: %m");
-
-        log_info("Successfully unset EFI variable FactoryReset.");
-        return 0;
-}
-
 static int acquire_root_devno(
                 const char *p,
                 const char *root,
@@ -6466,11 +6453,6 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
         if (r > 0) {
-                /* We actually did a factory reset! */
-                r = remove_efi_variable_factory_reset();
-                if (r < 0)
-                        return r;
-
                 /* Reload the reduced partition table */
                 context_unload_partition_table(context);
                 r = context_load_partition_table(context);
