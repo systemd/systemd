@@ -534,6 +534,37 @@ TEST(table) {
                                 "5min              5min              \n"));
 }
 
+TEST(vertical) {
+        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_free_ char *formatted = NULL;
+
+        assert_se(t = table_new_vertical());
+
+        assert_se(table_add_many(t,
+                                 TABLE_FIELD, "pfft aa", TABLE_STRING, "foo",
+                                 TABLE_FIELD, "uuu o", TABLE_SIZE, UINT64_C(1024),
+                                 TABLE_FIELD, "lllllllllllo", TABLE_STRING, "jjjjjjjjjjjjjjjjj") >= 0);
+
+        assert_se(table_set_json_field_name(t, 1, "dimpfelmoser") >= 0);
+
+        assert_se(table_format(t, &formatted) >= 0);
+
+        assert_se(streq(formatted,
+                        "     pfft aa: foo\n"
+                        "       uuu o: 1.0K\n"
+                        "lllllllllllo: jjjjjjjjjjjjjjjjj\n"));
+
+        _cleanup_(json_variant_unrefp) JsonVariant *a = NULL, *b = NULL;
+        assert_se(table_to_json(t, &a) >= 0);
+
+        assert_se(json_build(&b, JSON_BUILD_OBJECT(
+                                             JSON_BUILD_PAIR("pfft_aa", JSON_BUILD_STRING("foo")),
+                                             JSON_BUILD_PAIR("dimpfelmoser", JSON_BUILD_UNSIGNED(1024)),
+                                             JSON_BUILD_PAIR("lllllllllllo", JSON_BUILD_STRING("jjjjjjjjjjjjjjjjj")))) >= 0);
+
+        assert_se(json_variant_equal(a, b));
+}
+
 static int intro(void) {
         assert_se(setenv("SYSTEMD_COLORS", "0", 1) >= 0);
         assert_se(setenv("COLUMNS", "40", 1) >= 0);
