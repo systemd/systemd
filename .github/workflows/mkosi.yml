@@ -99,19 +99,19 @@ jobs:
         EOF
 
     - name: Build ${{ matrix.distro }}
-      run: sudo python3 -m mkosi build
+      run: sudo mkosi build
 
     - name: Show ${{ matrix.distro }} image summary
-      run: sudo python3 -m mkosi summary
+      run: sudo mkosi summary
 
     - name: Boot ${{ matrix.distro }} systemd-nspawn
-      run: sudo python3 -m mkosi boot ${{ env.KERNEL_CMDLINE }}
+      run: sudo mkosi boot ${{ env.KERNEL_CMDLINE }}
 
     - name: Check ${{ matrix.distro }} systemd-nspawn
-      run: sudo python3 -m mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
+      run: sudo mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
 
     - name: Boot ${{ matrix.distro }} QEMU
-      run: sudo timeout -k 30 10m python3 -m mkosi qemu
+      run: sudo timeout -k 30 10m mkosi qemu
 
     - name: Check ${{ matrix.distro }} QEMU
-      run: sudo python3 -m mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
+      run: sudo mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
