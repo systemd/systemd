@@ -150,6 +150,8 @@ units = [
         ['systemd-tmpfiles-clean.service',      'ENABLE_TMPFILES'],
         ['systemd-tmpfiles-clean.timer',        'ENABLE_TMPFILES',
          'timers.target.wants/'],
+        ['systemd-tmpfiles-factory-reset.service', 'ENABLE_TMPFILES',
+         'factory-reset-complete.target.requires/'],
         ['systemd-tmpfiles-setup-dev.service',  'ENABLE_TMPFILES',
          'sysinit.target.wants/'],
         ['systemd-tmpfiles-setup.service',      'ENABLE_TMPFILES',
