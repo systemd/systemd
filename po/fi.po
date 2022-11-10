@@ -2,12 +2,13 @@
 #
 # Finnish translation of systemd.
 # Jan Kuparinen <copper_fin@hotmail.com>, 2021, 2022.
+# Ricky Tigg <ricky.tigg@gmail.com>, 2022.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2022-10-20 10:35+0200\n"
-"PO-Revision-Date: 2022-10-22 17:19+0000\n"
-"Last-Translator: Jan Kuparinen <copper_fin@hotmail.com>\n"
+"PO-Revision-Date: 2022-11-10 19:19+0000\n"
+"Last-Translator: Ricky Tigg <ricky.tigg@gmail.com>\n"
 "Language-Team: Finnish <https://translate.fedoraproject.org/projects/systemd/"
 "master/fi/>\n"
 "Language: fi\n"
@@ -15,7 +16,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.14.1\n"
+"X-Generator: Weblate 4.14.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -119,7 +120,7 @@ msgstr "Todennus vaaditaan käyttäjän kotialueen salasanan vaihtamiseksi."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
-msgstr "Määritä isäntänimi"
+msgstr "Määritä konenimi"
 
 #: src/hostname/org.freedesktop.hostname1.policy:21
 msgid "Authentication is required to set the local hostname."
