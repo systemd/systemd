@@ -769,9 +769,10 @@ EOF
 
     roothash=$(jq -r ".[] | select(.type == \"root-${architecture}-verity\") | .roothash" <<< "$output")
 
-    # Check that we can dissect, mount and unmount a repart verity image.
+    # Check that we can dissect, mount and unmount a repart verity image. (and that the image UUID is deterministic)
 
     systemd-dissect "$imgs/verity" --root-hash "$roothash"
+    systemd-dissect "$imgs/verity" --root-hash "$roothash" --json=short | grep -q '"imageUuid":"1d2ce291-7cce-4f7d-bc83-fdb49ad74ebd"'
     systemd-dissect "$imgs/verity" --root-hash "$roothash" -M "$imgs/mnt"
     systemd-dissect -U "$imgs/mnt"
 }
