@@ -61,7 +61,7 @@ done
 # version 5.6.0 to satisfy meson which makes bpf work on CentOS Stream 8 as well.
 if [ "$(grep '^ID=' /etc/os-release)" = "ID=\"centos\"" ] && [ "$(grep '^VERSION=' /etc/os-release)" = "VERSION=\"8\"" ]; then
         cp /usr/sbin/bpftool /usr/sbin/bpftool.real
-        cat > /usr/sbin/bpftool <<EOF
+        cat >/usr/sbin/bpftool <<EOF
 #!/bin/sh
 if [ "\$1" = --version ]; then
         echo 5.6.0
@@ -220,7 +220,7 @@ if [ -n "$IMAGE_VERSION" ] ; then
                 -e '/^IMAGE_VERSION=/!p' \
                 -e "\$aIMAGE_VERSION=$IMAGE_VERSION" <$OSRELEASEFILE >"/tmp/os-release.tmp"
 
-        cat /tmp/os-release.tmp > "$DESTDIR"/usr/lib/os-release
+        cat /tmp/os-release.tmp >"$DESTDIR"/usr/lib/os-release
         rm /tmp/os-release.tmp
 fi
 
@@ -238,7 +238,7 @@ if [ -n "$SANITIZERS" ]; then
 
         mkdir -p "$DESTDIR/etc/systemd/system.conf.d"
 
-        cat > "$DESTDIR/etc/systemd/system.conf.d/10-asan.conf" <<EOF
+        cat >"$DESTDIR/etc/systemd/system.conf.d/10-asan.conf" <<EOF
 [Manager]
 ManagerEnvironment=ASAN_OPTIONS=$ASAN_OPTIONS\\
                    UBSAN_OPTIONS=$UBSAN_OPTIONS\\
@@ -253,7 +253,7 @@ EOF
         # sanitizer failures appear directly on the user's console.
         mkdir -p "$DESTDIR/etc/systemd/system/systemd-journald.service.d"
 
-        cat > "$DESTDIR/etc/systemd/system/systemd-journald.service.d/10-stdout-tty.conf" <<EOF
+        cat >"$DESTDIR/etc/systemd/system/systemd-journald.service.d/10-stdout-tty.conf" <<EOF
 [Service]
 StandardOutput=tty
 EOF
@@ -265,7 +265,7 @@ EOF
 
         mkdir -p "$DESTDIR/etc/systemd/system/console-getty.service.d"
 
-        cat > "$DESTDIR/etc/systemd/system/console-getty.service.d/10-no-vhangup.conf" <<EOF
+        cat >"$DESTDIR/etc/systemd/system/console-getty.service.d/10-no-vhangup.conf" <<EOF
 [Service]
 TTYVHangup=no
 CapabilityBoundingSet=~CAP_SYS_TTY_CONFIG
@@ -274,7 +274,7 @@ fi
 
 # Make sure services aren't enabled by default on Debian/Ubuntu.
 mkdir -p "$DESTDIR/etc/systemd/system-preset"
-echo "disable *" > "$DESTDIR/etc/systemd/system-preset/99-mkosi.preset"
+echo "disable *" >"$DESTDIR/etc/systemd/system-preset/99-mkosi.preset"
 
 if [ -d mkosi.kernel/ ]; then
         cd "$SRCDIR/mkosi.kernel"
