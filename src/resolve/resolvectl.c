@@ -1115,46 +1115,46 @@ static int show_statistics(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        table = table_new("key", "value");
+        table = table_new_vertical();
         if (!table)
                 return log_oom();
-
-        table_set_header(table, false);
 
         r = table_add_many(table,
                            TABLE_STRING, "Transactions",
                            TABLE_SET_COLOR, ansi_highlight(),
+                           TABLE_SET_ALIGN_PERCENT, 0,
                            TABLE_EMPTY,
-                           TABLE_STRING, "Current Transactions:",
+                           TABLE_FIELD, "Current Transactions",
                            TABLE_SET_ALIGN_PERCENT, 100,
                            TABLE_UINT64, n_current_transactions,
-                           TABLE_STRING, "Total Transactions:",
+                           TABLE_SET_ALIGN_PERCENT, 100,
+                           TABLE_FIELD, "Total Transactions",
                            TABLE_UINT64, n_total_transactions,
                            TABLE_EMPTY, TABLE_EMPTY,
                            TABLE_STRING, "Cache",
                            TABLE_SET_COLOR, ansi_highlight(),
                            TABLE_SET_ALIGN_PERCENT, 0,
                            TABLE_EMPTY,
-                           TABLE_STRING, "Current Cache Size:",
+                           TABLE_FIELD, "Current Cache Size",
                            TABLE_SET_ALIGN_PERCENT, 100,
                            TABLE_UINT64, cache_size,
-                           TABLE_STRING, "Cache Hits:",
+                           TABLE_FIELD, "Cache Hits",
                            TABLE_UINT64, n_cache_hit,
-                           TABLE_STRING, "Cache Misses:",
+                           TABLE_FIELD, "Cache Misses",
                            TABLE_UINT64, n_cache_miss,
                            TABLE_EMPTY, TABLE_EMPTY,
                            TABLE_STRING, "DNSSEC Verdicts",
                            TABLE_SET_COLOR, ansi_highlight(),
                            TABLE_SET_ALIGN_PERCENT, 0,
                            TABLE_EMPTY,
-                           TABLE_STRING, "Secure:",
+                           TABLE_FIELD, "Secure",
                            TABLE_SET_ALIGN_PERCENT, 100,
                            TABLE_UINT64, n_dnssec_secure,
-                           TABLE_STRING, "Insecure:",
+                           TABLE_FIELD, "Insecure",
                            TABLE_UINT64, n_dnssec_insecure,
-                           TABLE_STRING, "Bogus:",
+                           TABLE_FIELD, "Bogus",
                            TABLE_UINT64, n_dnssec_bogus,
-                           TABLE_STRING, "Indeterminate:",
+                           TABLE_FIELD, "Indeterminate:",
                            TABLE_UINT64, n_dnssec_indeterminate);
         if (r < 0)
                 return table_log_add_error(r);
@@ -1477,14 +1477,14 @@ static void global_info_clear(GlobalInfo *p) {
         strv_free(p->ntas);
 }
 
-static int dump_list(Table *table, const char *prefix, char * const *l) {
+static int dump_list(Table *table, const char *field, char * const *l) {
         int r;
 
         if (strv_isempty(l))
                 return 0;
 
         r = table_add_many(table,
-                           TABLE_STRING, prefix,
+                           TABLE_FIELD, field,
                            TABLE_STRV_WRAPPED, l);
         if (r < 0)
                 return table_log_add_error(r);
@@ -1656,15 +1656,13 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         printf("%sLink %i (%s)%s\n",
                ansi_highlight(), ifindex, name, ansi_normal());
 
-        table = table_new("key", "value");
+        table = table_new_vertical();
         if (!table)
                 return log_oom();
 
-        table_set_header(table, false);
-
         r = table_add_many(table,
-                           TABLE_STRING, "Current Scopes:",
-                           TABLE_SET_ALIGN_PERCENT, 100);
+                           TABLE_FIELD, "Current Scopes",
+                           TABLE_SET_MINIMUM_WIDTH, 19);
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -1696,24 +1694,24 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
                 return log_oom();
 
         r = table_add_many(table,
-                           TABLE_STRING,       "Protocols:",
+                           TABLE_FIELD,       "Protocols",
                            TABLE_STRV_WRAPPED, pstatus);
         if (r < 0)
                 return table_log_add_error(r);
 
         if (link_info.current_dns) {
                 r = table_add_many(table,
-                                   TABLE_STRING, "Current DNS Server:",
+                                   TABLE_FIELD, "Current DNS Server",
                                    TABLE_STRING, link_info.current_dns_ex ?: link_info.current_dns);
                 if (r < 0)
                         return table_log_add_error(r);
         }
 
-        r = dump_list(table, "DNS Servers:", link_info.dns_ex ?: link_info.dns);
+        r = dump_list(table, "DNS Servers", link_info.dns_ex ?: link_info.dns);
         if (r < 0)
                 return r;
 
-        r = dump_list(table, "DNS Domain:", link_info.domains);
+        r = dump_list(table, "DNS Domain", link_info.domains);
         if (r < 0)
                 return r;
 
@@ -1902,26 +1900,24 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
 
         printf("%sGlobal%s\n", ansi_highlight(), ansi_normal());
 
-        table = table_new("key", "value");
+        table = table_new_vertical();
         if (!table)
                 return log_oom();
-
-        table_set_header(table, false);
 
         _cleanup_strv_free_ char **pstatus = global_protocol_status(&global_info);
         if (!pstatus)
                 return log_oom();
 
         r = table_add_many(table,
-                           TABLE_STRING,            "Protocols:",
-                           TABLE_SET_ALIGN_PERCENT, 100,
+                           TABLE_FIELD,            "Protocols",
+                           TABLE_SET_MINIMUM_WIDTH, 19,
                            TABLE_STRV_WRAPPED,      pstatus);
         if (r < 0)
                 return table_log_add_error(r);
 
         if (global_info.resolv_conf_mode) {
                 r = table_add_many(table,
-                                   TABLE_STRING, "resolv.conf mode:",
+                                   TABLE_FIELD, "resolv.conf mode",
                                    TABLE_STRING, global_info.resolv_conf_mode);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -1929,7 +1925,7 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
 
         if (global_info.current_dns) {
                 r = table_add_many(table,
-                                   TABLE_STRING, "Current DNS Server:",
+                                   TABLE_FIELD, "Current DNS Server",
                                    TABLE_STRING, global_info.current_dns_ex ?: global_info.current_dns);
                 if (r < 0)
                         return table_log_add_error(r);
