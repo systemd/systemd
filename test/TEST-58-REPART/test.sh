@@ -12,13 +12,14 @@ TEST_FORCE_NEWIMAGE=1
 test_append_files() {
     if ! get_bool "${TEST_NO_QEMU:=}"; then
         install_dmevent
-        if command -v openssl >/dev/null 2>&1; then
-            inst_binary openssl
-        fi
-        inst_binary mcopy
         instmods dm_verity =md
         generate_module_dependencies
         image_install -o /sbin/mksquashfs
+    fi
+
+    inst_binary mcopy
+    if command -v openssl >/dev/null 2>&1; then
+        inst_binary openssl
     fi
 }
 
