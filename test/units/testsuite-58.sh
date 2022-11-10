@@ -3,6 +3,13 @@
 set -eux
 set -o pipefail
 
+runas() {
+    declare userid=$1
+    shift
+    # shellcheck disable=SC2016
+    su "$userid" -s /bin/sh -c 'XDG_RUNTIME_DIR=/run/user/$UID exec "$@"' -- sh "$@"
+}
+
 if ! command -v systemd-repart &>/dev/null; then
     echo "no systemd-repart" >/skipped
     exit 0
@@ -86,17 +93,17 @@ test_basic() {
     local defs imgs output
     local loop volume
 
-    defs="$(mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
-    imgs="$(mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    defs="$(runas testuser mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
+    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
 
     # 1. create an empty image
 
-    systemd-repart --empty=create \
-                   --size=1G \
-                   --seed="$seed" \
-                   "$imgs/zzz"
+    runas testuser systemd-repart --empty=create \
+                                  --size=1G \
+                                  --seed="$seed" \
+                                  "$imgs/zzz"
 
     output=$(sfdisk -d "$imgs/zzz" | grep -v -e 'sector-size' -e '^$')
 
@@ -130,10 +137,10 @@ SizeMaxBytes=64M
 PaddingMinBytes=92M
 EOF
 
-    systemd-repart --definitions="$defs" \
-                   --dry-run=no \
-                   --seed="$seed" \
-                   "$imgs/zzz"
+    runas testuser systemd-repart --definitions="$defs" \
+                                  --dry-run=no \
+                                  --seed="$seed" \
+                                  "$imgs/zzz"
 
     output=$(sfdisk -d "$imgs/zzz" | grep -v -e 'sector-size' -e '^$')
 
@@ -166,10 +173,10 @@ EOF
     echo "Label=ignored_label" >>"$defs/home.conf"
     echo "UUID=b0b1b2b3b4b5b6b7b8b9babbbcbdbebf" >>"$defs/home.conf"
 
-    systemd-repart --definitions="$defs" \
-                   --dry-run=no \
-                   --seed="$seed" \
-                   "$imgs/zzz"
+    runas testuser systemd-repart --definitions="$defs" \
+                                  --dry-run=no \
+                                  --seed="$seed" \
+                                  "$imgs/zzz"
 
     output=$(sfdisk -d "$imgs/zzz" | grep -v -e 'sector-size' -e '^$')
 
@@ -187,11 +194,11 @@ $imgs/zzz5 : start=     1908696, size=      188416, type=0FC63DAF-8483-4772-8E79
 
     # 4. Resizing to 2G
 
-    systemd-repart --definitions="$defs" \
-                   --size=2G \
-                   --dry-run=no \
-                   --seed="$seed" \
-                   "$imgs/zzz"
+    runas testuser systemd-repart --definitions="$defs" \
+                                  --size=2G \
+                                  --dry-run=no \
+                                  --seed="$seed" \
+                                  "$imgs/zzz"
 
     output=$(sfdisk -d "$imgs/zzz" | grep -v -e 'sector-size' -e '^$')
 
@@ -219,11 +226,11 @@ UUID=2a1d97e1d0a346cca26eadc643926617
 CopyBlocks=$imgs/block-copy
 EOF
 
-    systemd-repart --definitions="$defs" \
-                   --size=3G \
-                   --dry-run=no \
-                   --seed="$seed" \
-                   "$imgs/zzz"
+    runas testuser systemd-repart --definitions="$defs" \
+                                  --size=3G \
+                                  --dry-run=no \
+                                  --seed="$seed" \
+                                  "$imgs/zzz"
 
     output=$(sfdisk -d "$imgs/zzz" | grep -v -e 'sector-size' -e '^$')
 
@@ -260,11 +267,11 @@ CopyFiles=$defs:/def
 SizeMinBytes=48M
 EOF
 
-    systemd-repart --definitions="$defs" \
-                   --size=auto \
-                   --dry-run=no \
-                   --seed="$seed" \
-                   "$imgs/zzz"
+    runas testuser systemd-repart --definitions="$defs" \
+                                  --size=auto \
+                                  --dry-run=no \
+                                  --seed="$seed" \
+                                  "$imgs/zzz"
 
     output=$(sfdisk -d "$imgs/zzz" | grep -v -e 'sector-size' -e '^$')
 
@@ -301,8 +308,8 @@ $imgs/zzz7 : start=     6291416, size=       98304, type=0FC63DAF-8483-4772-8E79
 test_dropin() {
     local defs imgs output
 
-    defs="$(mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
-    imgs="$(mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    defs="$(runas testuser mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
+    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
 
@@ -325,7 +332,11 @@ EOF
 Label=label2
 EOF
 
-    output=$(systemd-repart --definitions="$defs" --empty=create --size=100M --json=pretty "$imgs/zzz")
+    output=$(runas testuser systemd-repart --definitions="$defs" \
+                                           --empty=create \
+                                           --size=100M \
+                                           --json=pretty \
+                                           "$imgs/zzz")
 
     diff <(echo "$output") - <<EOF
 [
@@ -355,8 +366,8 @@ EOF
 test_multiple_definitions() {
     local defs imgs output
 
-    defs="$(mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
-    imgs="$(mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    defs="$(runas testuser mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
+    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
 
@@ -380,7 +391,12 @@ UUID=837c3d67-21b3-478e-be82-7e7f83bf96d3
 Label=label2
 EOF
 
-    output=$(systemd-repart --definitions="$defs/1" --definitions="$defs/2" --empty=create --size=100M --json=pretty "$imgs/zzz")
+    output=$(runas testuser systemd-repart --definitions="$defs/1" \
+                                           --definitions="$defs/2" \
+                                           --empty=create \
+                                           --size=100M \
+                                           --json=pretty \
+                                           "$imgs/zzz")
 
     diff <(echo "$output") - <<EOF
 [
@@ -426,8 +442,8 @@ test_copy_blocks() {
         return
     fi
 
-    defs="$(mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
-    imgs="$(mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    defs="$(runas testuser mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
+    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
 
@@ -456,11 +472,11 @@ Format=ext4
 MakeDirectories=/usr /efi
 EOF
 
-    systemd-repart --definitions="$defs" \
-                   --empty=create \
-                   --size=auto \
-                   --seed="$seed" \
-                   "$imgs/zzz"
+    runas testuser systemd-repart --definitions="$defs" \
+                                  --empty=create \
+                                  --size=auto \
+                                  --seed="$seed" \
+                                  "$imgs/zzz"
 
     output=$(sfdisk --dump "$imgs/zzz")
 
@@ -489,6 +505,7 @@ Type=root-${architecture}
 CopyBlocks=auto
 EOF
 
+    # --image needs root privileges so skip runas testuser here.
     systemd-repart --definitions="$defs" \
                    --empty=create \
                    --size=auto \
@@ -502,8 +519,8 @@ EOF
 test_unaligned_partition() {
     local defs imgs output
 
-    defs="$(mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
-    imgs="$(mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    defs="$(runas testuser mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
+    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
 
@@ -514,7 +531,7 @@ test_unaligned_partition() {
 Type=root-${architecture}
 EOF
 
-    truncate -s 10g "$imgs/unaligned"
+    runas testuser truncate -s 10g "$imgs/unaligned"
     sfdisk "$imgs/unaligned" <<EOF
 label: gpt
 
@@ -522,10 +539,10 @@ start=2048, size=69044
 start=71092, size=3591848
 EOF
 
-    systemd-repart --definitions="$defs" \
-                   --seed="$seed" \
-                   --dry-run=no \
-                   "$imgs/unaligned"
+    runas testuser systemd-repart --definitions="$defs" \
+                                  --seed="$seed" \
+                                  --dry-run=no \
+                                  "$imgs/unaligned"
 
     output=$(sfdisk --dump "$imgs/unaligned")
 
@@ -539,8 +556,8 @@ test_issue_21817() {
 
     # testcase for #21817
 
-    defs="$(mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
-    imgs="$(mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    defs="$(runas testuser mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
+    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
 
@@ -549,7 +566,7 @@ test_issue_21817() {
 Type=root
 EOF
 
-    truncate -s 100m "$imgs/21817.img"
+    runas testuser truncate -s 100m "$imgs/21817.img"
     sfdisk "$imgs/21817.img" <<EOF
 label: gpt
 
@@ -557,11 +574,11 @@ size=50M, type=${root_guid}
 ,
 EOF
 
-    systemd-repart --pretty=yes \
-                   --definitions "$imgs" \
-                   --seed="$seed" \
-                   --dry-run=no \
-                   "$imgs/21817.img"
+    runas testuser systemd-repart --pretty=yes \
+                                  --definitions "$imgs" \
+                                  --seed="$seed" \
+                                  --dry-run=no \
+                                  "$imgs/21817.img"
 
     output=$(sfdisk --dump "$imgs/21817.img")
 
@@ -575,8 +592,8 @@ test_issue_24553() {
 
     # testcase for #24553
 
-    defs="$(mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
-    imgs="$(mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    defs="$(runas testuser mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
+    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
 
@@ -598,28 +615,28 @@ start=524328, size=14848000, type=${root_guid}, uuid=${root_uuid}, name="root-${
 EOF
 
     # 1. Operate on a small image compared with SizeMinBytes=.
-    truncate -s 8g "$imgs/zzz"
+    runas testuser truncate -s 8g "$imgs/zzz"
     sfdisk "$imgs/zzz" <"$imgs/partscript"
 
     # This should fail, but not trigger assertions.
-    assert_rc 1 systemd-repart --definitions="$defs" \
-                               --seed="$seed" \
-                               --dry-run=no \
-                               "$imgs/zzz"
+    assert_rc 1 runas testuser systemd-repart --definitions="$defs" \
+                                              --seed="$seed" \
+                                              --dry-run=no \
+                                              "$imgs/zzz"
 
     output=$(sfdisk --dump "$imgs/zzz")
     assert_in "$imgs/zzz2 : start=      524328, size=    14848000, type=${root_guid}, uuid=${root_uuid}, name=\"root-${architecture}\"" "$output"
 
     # 2. Operate on an larger image compared with SizeMinBytes=.
     rm -f "$imgs/zzz"
-    truncate -s 12g "$imgs/zzz"
+    runas testuser truncate -s 12g "$imgs/zzz"
     sfdisk "$imgs/zzz" <"$imgs/partscript"
 
     # This should succeed.
-    systemd-repart --definitions="$defs" \
-                   --seed="$seed" \
-                   --dry-run=no \
-                   "$imgs/zzz"
+    runas testuser systemd-repart --definitions="$defs" \
+                                  --seed="$seed" \
+                                  --dry-run=no \
+                                  "$imgs/zzz"
 
     output=$(sfdisk --dump "$imgs/zzz")
     assert_in "$imgs/zzz2 : start=      524328, size=    24641456, type=${root_guid}, uuid=${root_uuid}, name=\"root-${architecture}\"" "$output"
@@ -641,14 +658,14 @@ Priority=10
 EOF
 
     rm -f "$imgs/zzz"
-    truncate -s 8g "$imgs/zzz"
+    runas testuser truncate -s 8g "$imgs/zzz"
     sfdisk "$imgs/zzz" <"$imgs/partscript"
 
     # This should also succeed, but root is not extended.
-    systemd-repart --definitions="$defs" \
-                   --seed="$seed" \
-                   --dry-run=no \
-                   "$imgs/zzz"
+    runas testuser systemd-repart --definitions="$defs" \
+                                  --seed="$seed" \
+                                  --dry-run=no \
+                                  "$imgs/zzz"
 
     output=$(sfdisk --dump "$imgs/zzz")
     assert_in "$imgs/zzz2 : start=      524328, size=    14848000, type=${root_guid}, uuid=${root_uuid}, name=\"root-${architecture}\"" "$output"
@@ -656,14 +673,14 @@ EOF
 
     # 4. Multiple partitions with Priority= (large disk)
     rm -f "$imgs/zzz"
-    truncate -s 12g "$imgs/zzz"
+    runas testuser truncate -s 12g "$imgs/zzz"
     sfdisk "$imgs/zzz" <"$imgs/partscript"
 
     # This should also succeed, and root is extended.
-    systemd-repart --definitions="$defs" \
-                   --seed="$seed" \
-                   --dry-run=no \
-                   "$imgs/zzz"
+    runas testuser systemd-repart --definitions="$defs" \
+                                  --seed="$seed" \
+                                  --dry-run=no \
+                                  "$imgs/zzz"
 
     output=$(sfdisk --dump "$imgs/zzz")
     assert_in "$imgs/zzz2 : start=      524328, size=    20971520, type=${root_guid}, uuid=${root_uuid}, name=\"root-${architecture}\"" "$output"
@@ -673,8 +690,8 @@ EOF
 test_zero_uuid() {
     local defs imgs output
 
-    defs="$(mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
-    imgs="$(mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    defs="$(runas testuser mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
+    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
 
@@ -686,12 +703,12 @@ Type=root-${architecture}
 UUID=null
 EOF
 
-    systemd-repart --definitions="$defs" \
-                   --seed="$seed" \
-                   --dry-run=no \
-                   --empty=create \
-                   --size=auto \
-                   "$imgs/zero"
+    runas testuser systemd-repart --definitions="$defs" \
+                                  --seed="$seed" \
+                                  --dry-run=no \
+                                  --empty=create \
+                                  --size=auto \
+                                  "$imgs/zero"
 
     output=$(sfdisk --dump "$imgs/zero")
 
@@ -706,8 +723,8 @@ test_verity() {
         return
     fi
 
-    defs="$(mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
-    imgs="$(mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    defs="$(runas testuser mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
+    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
 
@@ -749,20 +766,26 @@ CN = Common Name
 emailAddress = test@email.com
 EOF
 
-    openssl req -config "$defs/verity.openssl.cnf" -new -x509 -newkey rsa:1024 -keyout "$defs/verity.key" -out "$defs/verity.crt" -days 365 -nodes
+    runas testuser openssl req -config "$defs/verity.openssl.cnf" \
+                               -new -x509 \
+                               -newkey rsa:1024 \
+                               -keyout "$defs/verity.key" \
+                               -out "$defs/verity.crt" \
+                               -days 365 \
+                               -nodes
 
     mkdir -p /run/verity.d
     ln -s "$defs/verity.crt" /run/verity.d/ok.crt
 
-    output=$(systemd-repart --definitions="$defs" \
-                            --seed="$seed" \
-                            --dry-run=no \
-                            --empty=create \
-                            --size=auto \
-                            --json=pretty \
-                            --private-key="$defs/verity.key" \
-                            --certificate="$defs/verity.crt" \
-                            "$imgs/verity")
+    output=$(runas testuser systemd-repart --definitions="$defs" \
+                                           --seed="$seed" \
+                                           --dry-run=no \
+                                           --empty=create \
+                                           --size=auto \
+                                           --json=pretty \
+                                           --private-key="$defs/verity.key" \
+                                           --certificate="$defs/verity.crt" \
+                                           "$imgs/verity")
 
     roothash=$(jq -r ".[] | select(.type == \"root-${architecture}-verity\") | .roothash" <<< "$output")
 
@@ -809,6 +832,8 @@ EOF
     truncate -s 100m "$imgs/$sector.img"
     loop=$(losetup -b "$sector" -P --show -f "$imgs/$sector.img" )
     udevadm wait --timeout 60 --settle "${loop:?}"
+    # This operates on a loop device which we don't support doing without root privileges so we skip runas
+    # here.
     systemd-repart --pretty=yes \
                    --definitions="$defs" \
                    --seed="$seed" \
