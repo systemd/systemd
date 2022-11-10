@@ -79,11 +79,13 @@ DNSSEC=allow-downgrade
 DNS=10.0.0.1
 EOF
 
+mkdir -p /run/systemd/resolved.conf.d
 {
+    echo "[Resolve]"
     echo "FallbackDNS="
     echo "DNSSEC=allow-downgrade"
     echo "DNSOverTLS=opportunistic"
-} >>/etc/systemd/resolved.conf
+} >/run/systemd/resolved.conf.d/test.conf
 ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 # Override the default NTA list, which turns off DNSSEC validation for (among
 # others) the test. domain
