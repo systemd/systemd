@@ -3444,15 +3444,14 @@ public_programs += executable(
         install : true,
         install_dir : rootlibexecdir)
 
-executable(
+public_programs += executable(
         'systemd-ac-power',
         'src/ac-power/ac-power.c',
         include_directories : includes,
         link_with : [libshared],
         dependencies : [versiondep],
         install_rpath : rootpkglibdir,
-        install : true,
-        install_dir : rootlibexecdir)
+        install : true)
 
 public_programs += executable(
         'systemd-detect-virt',
