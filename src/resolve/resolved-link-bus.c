@@ -182,6 +182,38 @@ static int property_get_default_route(
         return sd_bus_message_append(reply, "b", false);
 }
 
+static int property_get_llmnr_support(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Link *l = ASSERT_PTR(userdata);
+        Manager *m = ASSERT_PTR(l->manager);
+        ResolveSupport llmnr_support = MIN(l->llmnr_support, m->llmnr_support);
+
+        return bus_property_get_resolve_support(bus, path, interface, property, reply, &llmnr_support, error);
+}
+
+static int property_get_mdns_support(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Link *l = ASSERT_PTR(userdata);
+        Manager *m = ASSERT_PTR(l->manager);
+        ResolveSupport mdns_support = MIN(l->mdns_support, m->mdns_support);
+
+        return bus_property_get_resolve_support(bus, path, interface, property, reply, &mdns_support, error);
+}
+
 static int property_get_scopes_mask(
                 sd_bus *bus,
                 const char *path,
@@ -864,8 +896,8 @@ static const sd_bus_vtable link_vtable[] = {
         SD_BUS_PROPERTY("CurrentDNSServerEx", "(iayqs)", property_get_current_dns_server_ex, offsetof(Link, current_dns_server), 0),
         SD_BUS_PROPERTY("Domains", "a(sb)", property_get_domains, 0, 0),
         SD_BUS_PROPERTY("DefaultRoute", "b", property_get_default_route, 0, 0),
-        SD_BUS_PROPERTY("LLMNR", "s", bus_property_get_resolve_support, offsetof(Link, llmnr_support), 0),
-        SD_BUS_PROPERTY("MulticastDNS", "s", bus_property_get_resolve_support, offsetof(Link, mdns_support), 0),
+        SD_BUS_PROPERTY("LLMNR", "s", property_get_llmnr_support, 0, 0),
+        SD_BUS_PROPERTY("MulticastDNS", "s", property_get_mdns_support, 0, 0),
         SD_BUS_PROPERTY("DNSOverTLS", "s", property_get_dns_over_tls_mode, 0, 0),
         SD_BUS_PROPERTY("DNSSEC", "s", property_get_dnssec_mode, 0, 0),
         SD_BUS_PROPERTY("DNSSECNegativeTrustAnchors", "as", property_get_ntas, 0, 0),
