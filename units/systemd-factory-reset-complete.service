@@ -1,0 +1,21 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Finalize Factory Reset
+Documentation=man:systemd.special(7)
+Requires=factory-reset-complete.target
+After=factory-reset-complete.target
+Before=factory-reset.target
+ConditionPathExists=/sys/firmware/efi/efivars/FactoryReset-8cf2644b-4b0b-428f-9387-6d876050dc67
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=rm -f /sys/firmware/efi/efivars/FactoryReset-8cf2644b-4b0b-428f-9387-6d876050dc67
