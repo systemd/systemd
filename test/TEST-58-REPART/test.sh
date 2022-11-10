@@ -3,6 +3,8 @@
 set -e
 
 TEST_DESCRIPTION="test systemd-repart"
+IMAGE_NAME="repart"
+TEST_FORCE_NEWIMAGE=1
 
 # shellcheck source=test/test-functions
 . "$TEST_BASE_DIR/test-functions"
