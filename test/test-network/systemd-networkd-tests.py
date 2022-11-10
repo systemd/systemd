@@ -1084,6 +1084,7 @@ class NetworkdMatchTests(unittest.TestCase, Utilities):
     def tearDown(self):
         tear_down_common()
 
+    @expectedFailureIfAlternativeNameIsNotAvailable()
     def test_match(self):
         copy_network_unit('12-dummy-mac.netdev',
                           '12-dummy-match-mac-01.network',
