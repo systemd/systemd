@@ -34,6 +34,7 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "escape.h"
+#include "factory-reset.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -3854,6 +3855,15 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_image && arg_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
+
+        /* Never override what is specified on the process command line */
+        if (arg_factory_reset < 0) {
+                r = factory_reset_requested();
+                if (r < 0 && r != -ENOENT)
+                        return r;
+                if (r >= 0)
+                        arg_factory_reset = r;
+        }
 
         return 1;
 }
