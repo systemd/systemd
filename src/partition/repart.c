@@ -3640,6 +3640,9 @@ static int partition_populate_directory(Partition *p, const Set *denylist, char 
         if (r < 0)
                 return log_error_errno(r, "Failed to create temporary directory: %m");
 
+        if (chmod(root, 0755) < 0)
+                return log_error_errno(errno, "Failed to change mode of temporary directory: %m");
+
         /* Make sure everything is owned by the user running repart so that make_filesystem() can map the
          * user running repart to "root" in a user namespace to have the files owned by root in the final
          * image. */
