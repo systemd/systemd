@@ -831,6 +831,58 @@ EOF
     losetup -d "$loop"
 }
 
+test_minimize() {
+    local defs imgs output
+
+    if systemd-detect-virt --quiet --container; then
+        echo "Skipping minimize test in container."
+        return
+    fi
+
+    defs="$(mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+
+    for format in ext4 vfat; do
+        if ! command -v "mkfs.$format" >/dev/null; then
+            continue
+        fi
+
+        cat >"$defs/root-$format.conf" <<EOF
+[Partition]
+Type=root-${architecture}
+Format=${format}
+CopyFiles=${defs}
+Minimize=yes
+EOF
+    done
+
+    if ! command -v mksquashfs >/dev/null; then
+        cat >"$defs/root-squashfs.conf" <<EOF
+[Partition]
+Type=root-${architecture}
+Format=squashfs
+CopyFiles=${defs}
+Minimize=yes
+EOF
+    fi
+
+    output=$(systemd-repart --definitions="$defs" \
+                            --seed="$seed" \
+                            --dry-run=no \
+                            --empty=create \
+                            --size=auto \
+                            --json=pretty \
+                            "$imgs/zzz")
+
+    # Check that we can dissect, mount and unmount a minimized image.
+
+    systemd-dissect "$imgs/zzz"
+    systemd-dissect "$imgs/zzz" -M "$imgs/mnt"
+    systemd-dissect -U "$imgs/mnt"
+}
+
 test_sector() {
     local defs imgs output loop
     local start size ratio
@@ -900,6 +952,7 @@ test_issue_24553
 test_zero_uuid
 test_verity
 test_issue_24786
+test_minimize
 
 # Valid block sizes on the Linux block layer are >= 512 and <= PAGE_SIZE, and
 # must be powers of 2. Which leaves exactly four different ones to test on

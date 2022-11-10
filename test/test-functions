@@ -1346,6 +1346,9 @@ create_empty_image() {
         root_size=$((4 * root_size))
         data_size=$((2 * data_size))
     fi
+    if [ "$IMAGE_NAME" = "repart" ]; then
+        root_size=$((root_size+=1000))
+    fi
 
     echo "Setting up ${IMAGE_PUBLIC:?} (${root_size} MB)"
     rm -f "${IMAGE_PRIVATE:?}" "$IMAGE_PUBLIC"
