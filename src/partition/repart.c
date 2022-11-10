@@ -76,19 +76,19 @@
 #include "utf8.h"
 
 /* If not configured otherwise use a minimal partition size of 10M */
-#define DEFAULT_MIN_SIZE (10*1024*1024)
+#define DEFAULT_MIN_SIZE (10ULL*1024ULL*1024ULL)
 
 /* Hard lower limit for new partition sizes */
-#define HARD_MIN_SIZE 4096
+#define HARD_MIN_SIZE 4096ULL
 
 /* We know up front we're never going to put more than this in a verity sig partition. */
-#define VERITY_SIG_SIZE (HARD_MIN_SIZE * 4)
+#define VERITY_SIG_SIZE (HARD_MIN_SIZE*4ULL)
 
 /* libfdisk takes off slightly more than 1M of the disk size when creating a GPT disk label */
-#define GPT_METADATA_SIZE (1044*1024)
+#define GPT_METADATA_SIZE (1044ULL*1024ULL)
 
 /* LUKS2 takes off 16M of the partition size with its metadata by default */
-#define LUKS2_METADATA_SIZE (16*1024*1024)
+#define LUKS2_METADATA_SIZE (16ULL*1024ULL*1024ULL)
 
 /* Note: When growing and placing new partitions we always align to 4K sector size. It's how newer hard disks
  * are designed, and if everything is aligned to that performance is best. And for older hard disks with 512B
