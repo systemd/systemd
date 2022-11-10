@@ -967,17 +967,17 @@ static int path_open_parent_safe(const char *path) {
         int r, fd;
 
         if (!path_is_normalized(path))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to open parent of '%s': path not normalized.", path);
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to open parent of '%s': path not normalized.", path);
 
         r = path_extract_directory(path, &dn);
         if (r < 0)
-                return log_error_errno(r, "Unable to determine parent directory of '%s': %m", path);
+                return log_debug_errno(r, "Unable to determine parent directory of '%s': %m", path);
 
         r = chase_symlinks(dn, arg_root, CHASE_SAFE|CHASE_WARN, NULL, &fd);
         if (r == -ENOLINK) /* Unsafe symlink: already covered by CHASE_WARN */
                 return r;
         if (r < 0)
-                return log_error_errno(r, "Failed to open path '%s': %m", dn);
+                return log_debug_errno(r, "Failed to open path '%s': %m", dn);
 
         return fd;
 }
@@ -1434,7 +1434,11 @@ static int write_one_file(Item *i, const char *path, CreationMode creation) {
          * can't be changed behind our back. */
         dir_fd = path_open_parent_safe(path);
         if (dir_fd < 0)
-                return dir_fd;
+                return log_full_errno(i->allow_failure ? LOG_INFO : LOG_ERR,
+                                      dir_fd,
+                                      "Failed to open parent directory of '%s'%s: %m",
+                                      path,
+                                      i->allow_failure ? ", ignoring" : "");
 
         /* Follows symlinks */
         fd = openat(dir_fd, bn,
@@ -1484,7 +1488,11 @@ static int create_file(Item *i, const char *path) {
          * can't be changed behind our back. */
         dir_fd = path_open_parent_safe(path);
         if (dir_fd < 0)
-                return dir_fd;
+                return log_full_errno(i->allow_failure ? LOG_INFO : LOG_ERR,
+                                      dir_fd,
+                                      "Failed to open parent directory of '%s'%s: %m",
+                                      path,
+                                      i->allow_failure ? ", ignoring" : "");
 
         RUN_WITH_UMASK(0000) {
                 mac_selinux_create_file_prepare(path, S_IFREG);
@@ -1552,7 +1560,11 @@ static int truncate_file(Item *i, const char *path) {
          * can't be changed behind our back. */
         dir_fd = path_open_parent_safe(path);
         if (dir_fd < 0)
-                return dir_fd;
+                return log_full_errno(i->allow_failure ? LOG_INFO : LOG_ERR,
+                                      dir_fd,
+                                      "Failed to open parent directory of '%s'%s: %m",
+                                      path,
+                                      i->allow_failure ? ", ignoring" : "");
 
         creation = CREATION_EXISTING;
         fd = RET_NERRNO(openat(dir_fd, bn, O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode));
@@ -1631,7 +1643,11 @@ static int copy_files(Item *i) {
          * path can't be changed behind our back. */
         dfd = path_open_parent_safe(i->path);
         if (dfd < 0)
-                return dfd;
+                return log_full_errno(i->allow_failure ? LOG_INFO : LOG_ERR,
+                                      dfd,
+                                      "Failed to open parent directory of '%s'%s: %m",
+                                      i->path,
+                                      i->allow_failure ? ", ignoring" : "");
 
         r = copy_tree_at(AT_FDCWD, i->argument,
                          dfd, bn,
@@ -1665,6 +1681,7 @@ static int create_directory_or_subvolume(
                 const char *path,
                 mode_t mode,
                 bool subvol,
+                bool allow_failure,
                 struct stat *ret_st,
                 CreationMode *ret_creation) {
 
@@ -1682,7 +1699,11 @@ static int create_directory_or_subvolume(
 
         pfd = path_open_parent_safe(path);
         if (pfd < 0)
-                return pfd;
+                return log_full_errno(allow_failure ? LOG_INFO : LOG_ERR,
+                                      pfd,
+                                      "Failed to open parent directory of '%s'%s: %m",
+                                      path,
+                                      allow_failure ? ", ignoring" : "");
 
         if (subvol) {
                 r = getenv_bool("SYSTEMD_TMPFILES_FORCE_SUBVOL");
@@ -1721,7 +1742,11 @@ static int create_directory_or_subvolume(
 
                 /* Then look at the original error */
                 if (r < 0)
-                        return log_error_errno(r, "Failed to create directory or subvolume \"%s\": %m", path);
+                        return log_full_errno(allow_failure ? LOG_INFO : LOG_ERR,
+                                              r,
+                                              "Failed to create directory or subvolume \"%s\"%s: %m",
+                                              path,
+                                              allow_failure ? ", ignoring" : "");
 
                 return log_error_errno(errno, "Failed to open directory/subvolume we just created '%s': %m", path);
         }
@@ -1749,7 +1774,7 @@ static int create_directory(Item *i, const char *path) {
         assert(i);
         assert(IN_SET(i->type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY));
 
-        fd = create_directory_or_subvolume(path, i->mode, /* subvol= */ false, &st, &creation);
+        fd = create_directory_or_subvolume(path, i->mode, /* subvol= */ false, i->allow_failure, &st, &creation);
         if (fd == -EEXIST)
                 return 0;
         if (fd < 0)
@@ -1767,7 +1792,7 @@ static int create_subvolume(Item *i, const char *path) {
         assert(i);
         assert(IN_SET(i->type, CREATE_SUBVOLUME, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA));
 
-        fd = create_directory_or_subvolume(path, i->mode, /* subvol = */ true, &st, &creation);
+        fd = create_directory_or_subvolume(path, i->mode, /* subvol = */ true, i->allow_failure, &st, &creation);
         if (fd == -EEXIST)
                 return 0;
         if (fd < 0)
@@ -1848,7 +1873,11 @@ static int create_device(Item *i, mode_t file_type) {
          * path can't be changed behind our back. */
         dfd = path_open_parent_safe(i->path);
         if (dfd < 0)
-                return dfd;
+                return log_full_errno(i->allow_failure ? LOG_INFO : LOG_ERR,
+                                      dfd,
+                                      "Failed to open parent directory of '%s'%s: %m",
+                                      i->path,
+                                      i->allow_failure ? ", ignoring" : "");
 
         RUN_WITH_UMASK(0000) {
                 mac_selinux_create_file_prepare(i->path, file_type);
@@ -1950,7 +1979,11 @@ static int create_fifo(Item *i) {
 
         pfd = path_open_parent_safe(i->path);
         if (pfd < 0)
-                return pfd;
+                return log_full_errno(i->allow_failure ? LOG_INFO : LOG_ERR,
+                                      pfd,
+                                      "Failed to open parent directory of '%s'%s: %m",
+                                      i->path,
+                                      i->allow_failure ? ", ignoring" : "");
 
         RUN_WITH_UMASK(0000) {
                 mac_selinux_create_file_prepare(i->path, S_IFIFO);
@@ -2035,7 +2068,11 @@ static int create_symlink(Item *i) {
 
         pfd = path_open_parent_safe(i->path);
         if (pfd < 0)
-                return pfd;
+                return log_full_errno(i->allow_failure ? LOG_INFO : LOG_ERR,
+                                      pfd,
+                                      "Failed to open parent directory of '%s'%s: %m",
+                                      i->path,
+                                      i->allow_failure ? ", ignoring" : "");
 
         mac_selinux_create_file_prepare(i->path, S_IFLNK);
         r = RET_NERRNO(symlinkat(i->argument, pfd, bn));
