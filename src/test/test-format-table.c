@@ -8,6 +8,7 @@
 #include "strv.h"
 #include "tests.h"
 #include "time-util.h"
+#include "escape.h"
 
 TEST(issue_9549) {
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -548,6 +549,12 @@ TEST(vertical) {
         assert_se(table_set_json_field_name(t, 1, "dimpfelmoser") >= 0);
 
         assert_se(table_format(t, &formatted) >= 0);
+
+        log_info("formatted=%s", cescape(formatted));
+        log_info("expected =%s",
+                 cescape("     pfft aa: foo\n"
+                         "       uuu o: 1.0K\n"
+                         "lllllllllllo: jjjjjjjjjjjjjjjjj\n"));
 
         assert_se(streq(formatted,
                         "     pfft aa: foo\n"
