@@ -1157,7 +1157,7 @@ static int show_statistics(int argc, char **argv, void *userdata) {
                            TABLE_STRING, "Indeterminate:",
                            TABLE_UINT64, n_dnssec_indeterminate);
         if (r < 0)
-                table_log_add_error(r);
+                return table_log_add_error(r);
 
         r = table_print(table, NULL);
         if (r < 0)
