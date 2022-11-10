@@ -1031,7 +1031,7 @@ static int fd_copy_directory(
                         r = q;
         }
 
-        if (created) {
+        if (created || FLAGS_SET(copy_flags, COPY_UPDATE_DIR_ATTRS)) {
                 if (fchown(fdt,
                            uid_is_valid(override_uid) ? override_uid : st->st_uid,
                            gid_is_valid(override_gid) ? override_gid : st->st_gid) < 0)
