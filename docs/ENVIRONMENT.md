@@ -85,6 +85,12 @@ All tools:
 * `$SYSTEMD_MEMPOOL=0` — if set, the internal memory caching logic employed by
   hash tables is turned off, and libc `malloc()` is used for all allocations.
 
+* `$SYSTEMD_UTF8=` — takes a boolean value, and overrides whether to generate
+  non-ASCII special glyphs at various places (i.e. "→" instead of
+  "->"). Usually this is deterined automatically, based on $LC_CTYPE, but in
+  scenarios where locale definitions are not installed it might make sense to
+  override this check explicitly.
+
 * `$SYSTEMD_EMOJI=0` — if set, tools such as `systemd-analyze security` will
   not output graphical smiley emojis, but ASCII alternatives instead. Note that
   this only controls use of Unicode emoji glyphs, and has no effect on other

@@ -286,14 +286,22 @@ void init_gettext(void) {
 }
 
 bool is_locale_utf8(void) {
-        const char *set;
         static int cached_answer = -1;
+        const char *set;
+        int r;
 
         /* Note that we default to 'true' here, since today UTF8 is
          * pretty much supported everywhere. */
 
         if (cached_answer >= 0)
                 goto out;
+
+        r = getenv_bool_secure("SYSTEMD_UTF8");
+        if (r >= 0) {
+                cached_answer = r;
+                goto out;
+        } else if (r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_UTF8, ignoring: %m");
 
         if (!setlocale(LC_ALL, "")) {
                 cached_answer = true;

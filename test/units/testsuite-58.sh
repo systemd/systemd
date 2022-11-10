@@ -14,6 +14,9 @@ fi
 export SYSTEMD_LOG_LEVEL=debug
 export PAGER=cat
 
+# Disable use of special glyphs such as →
+export SYSTEMD_UTF8=0
+
 seed=750b6cd5c4ae4012a15e7be3c29e6a47
 
 if ! systemd-detect-virt --quiet --container; then
@@ -327,7 +330,7 @@ EOF
 
     output=$(systemd-repart --definitions="$defs" --empty=create --size=100M --json=pretty "$imgs/zzz")
 
-    diff <(echo "$output") - <<EOF
+    diff -u <(echo "$output") - <<EOF
 [
 	{
 		"type" : "swap",
@@ -338,10 +341,10 @@ EOF
 		"offset" : 1048576,
 		"old_size" : 0,
 		"raw_size" : 33554432,
-		"size" : "→ 32.0M",
+		"size" : "-> 32.0M",
 		"old_padding" : 0,
 		"raw_padding" : 0,
-		"padding" : "→ 0B",
+		"padding" : "-> 0B",
 		"activity" : "create",
 		"drop-in_files" : [
 			"$defs/root.conf.d/override1.conf",
@@ -382,7 +385,7 @@ EOF
 
     output=$(systemd-repart --definitions="$defs/1" --definitions="$defs/2" --empty=create --size=100M --json=pretty "$imgs/zzz")
 
-    diff <(echo "$output") - <<EOF
+    diff -u <(echo "$output") - <<EOF
 [
 	{
 		"type" : "swap",
@@ -393,10 +396,10 @@ EOF
 		"offset" : 1048576,
 		"old_size" : 0,
 		"raw_size" : 33554432,
-		"size" : "→ 32.0M",
+		"size" : "-> 32.0M",
 		"old_padding" : 0,
 		"raw_padding" : 0,
-		"padding" : "→ 0B",
+		"padding" : "-> 0B",
 		"activity" : "create"
 	},
 	{
@@ -408,10 +411,10 @@ EOF
 		"offset" : 34603008,
 		"old_size" : 0,
 		"raw_size" : 33554432,
-		"size" : "→ 32.0M",
+		"size" : "-> 32.0M",
 		"old_padding" : 0,
 		"raw_padding" : 0,
-		"padding" : "→ 0B",
+		"padding" : "-> 0B",
 		"activity" : "create"
 	}
 ]
