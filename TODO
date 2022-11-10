@@ -117,6 +117,17 @@ Deprecations and removals:
 
 Features:
 
+* sd-boot: add a new PE section .bls or so that carries a cpio with additional
+  boot loader entries (both type1 and type2). Then when initializing, find this
+  section, iterate through it and populate menu with it. cpio is simple enough
+  to make a parser for this reasonably robust. use same path structures as in
+  the ESP. Similar add one for signature key drop-ins.
+
+* add a new EFI tool "sd-fetch" or so. It looks in a PE section ".url" for an
+  URL, then downloads the file from it using UEFI HTTP APIs, and executes it.
+  Usecase: provide a minimal ESP with sd-boot and a couple of these sd-fetch
+  binaries in place of UKIs, and download them on-the-fly.
+
 * bootctl: warn if ESP is mounted world-readable (and in particular the seed)
 
 * maybe: systemd-loop-generator that sets up loopback devices if requested via kernel
