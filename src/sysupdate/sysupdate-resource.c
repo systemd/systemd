@@ -194,7 +194,7 @@ static int resource_load_from_blockdev(Resource *rr) {
                         continue;
 
                 /* Check if partition type matches */
-                if (rr->partition_type_set && !sd_id128_equal(pinfo.type, rr->partition_type))
+                if (rr->partition_type_set && !sd_id128_equal(pinfo.type, rr->partition_type.uuid))
                         continue;
 
                 /* A label of "_empty" means "not used so far" for us */
