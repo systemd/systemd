@@ -9,7 +9,7 @@ bool secure_boot_enabled(void) {
         bool secure;
         EFI_STATUS err;
 
-        err = efivar_get_boolean_u8(&MAKE_GUID(EFI_GLOBAL), u"SecureBoot", &secure);
+        err = efivar_get_boolean_u8(MAKE_GUID(EFI_GLOBAL), u"SecureBoot", &secure);
 
         return err == EFI_SUCCESS && secure;
 }
@@ -18,15 +18,15 @@ SecureBootMode secure_boot_mode(void) {
         bool secure, audit = false, deployed = false, setup = false;
         EFI_STATUS err;
 
-        err = efivar_get_boolean_u8(&MAKE_GUID(EFI_GLOBAL), u"SecureBoot", &secure);
+        err = efivar_get_boolean_u8(MAKE_GUID(EFI_GLOBAL), u"SecureBoot", &secure);
         if (err != EFI_SUCCESS)
                 return SECURE_BOOT_UNSUPPORTED;
 
         /* We can assume false for all these if they are abscent (AuditMode and
          * DeployedMode may not exist on older firmware). */
-        (void) efivar_get_boolean_u8(&MAKE_GUID(EFI_GLOBAL), u"AuditMode", &audit);
-        (void) efivar_get_boolean_u8(&MAKE_GUID(EFI_GLOBAL), u"DeployedMode", &deployed);
-        (void) efivar_get_boolean_u8(&MAKE_GUID(EFI_GLOBAL), u"SetupMode", &setup);
+        (void) efivar_get_boolean_u8(MAKE_GUID(EFI_GLOBAL), u"AuditMode", &audit);
+        (void) efivar_get_boolean_u8(MAKE_GUID(EFI_GLOBAL), u"DeployedMode", &deployed);
+        (void) efivar_get_boolean_u8(MAKE_GUID(EFI_GLOBAL), u"SetupMode", &setup);
 
         return decode_secure_boot_mode(secure, audit, deployed, setup);
 }
@@ -107,7 +107,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path) {
                         EFI_VARIABLE_RUNTIME_ACCESS |
                         EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS;
 
-                err = efivar_set_raw(&sb_vars[i].vendor, sb_vars[i].name, sb_vars[i].buffer, sb_vars[i].size, sb_vars_opts);
+                err = efivar_set_raw(sb_vars[i].vendor, sb_vars[i].name, sb_vars[i].buffer, sb_vars[i].size, sb_vars_opts);
                 if (err != EFI_SUCCESS) {
                         log_error_stall(L"Failed to write %s secure boot variable: %r", sb_vars[i].name, err);
                         goto out_deallocate;
