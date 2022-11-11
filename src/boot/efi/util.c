@@ -616,7 +616,7 @@ uint64_t get_os_indications_supported(void) {
         /* Returns the supported OS indications. If we can't acquire it, returns a zeroed out mask, i.e. no
          * supported features. */
 
-        err = efivar_get_uint64_le(EFI_GLOBAL_GUID, L"OsIndicationsSupported", &osind);
+        err = efivar_get_uint64_le(&MAKE_GUID(EFI_GLOBAL), u"OsIndicationsSupported", &osind);
         if (err != EFI_SUCCESS)
                 return 0;
 
@@ -776,7 +776,7 @@ EFI_STATUS device_path_to_str(const EFI_DEVICE_PATH *dp, char16_t **ret) {
         assert(dp);
         assert(ret);
 
-        err = BS->LocateProtocol(&(EFI_GUID) EFI_DEVICE_PATH_TO_TEXT_PROTOCOL_GUID, NULL, (void **) &dp_to_text);
+        err = BS->LocateProtocol(&MAKE_GUID(EFI_DEVICE_PATH_TO_TEXT_PROTOCOL), NULL, (void **) &dp_to_text);
         if (err != EFI_SUCCESS)
                 return err;
 

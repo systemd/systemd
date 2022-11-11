@@ -12,8 +12,6 @@
 #define RANDOM_MAX_SIZE_MIN (32U)
 #define RANDOM_MAX_SIZE_MAX (32U*1024U)
 
-#define EFI_RNG_GUID &(const EFI_GUID) EFI_RNG_PROTOCOL_GUID
-
 /* SHA256 gives us 256/8=32 bytes */
 #define HASH_VALUE_SIZE 32
 
@@ -26,7 +24,7 @@ static EFI_STATUS acquire_rng(UINTN size, void **ret) {
 
         /* Try to acquire the specified number of bytes from the UEFI RNG */
 
-        err = BS->LocateProtocol((EFI_GUID *) EFI_RNG_GUID, NULL, (void **) &rng);
+        err = BS->LocateProtocol(&MAKE_GUID(EFI_RNG_PROTOCOL), NULL, (void **) &rng);
         if (err != EFI_SUCCESS)
                 return err;
         if (!rng)
@@ -163,7 +161,7 @@ static EFI_STATUS acquire_system_token(void **ret, UINTN *ret_size) {
         assert(ret);
         assert(ret_size);
 
-        err = efivar_get_raw(LOADER_GUID, L"LoaderSystemToken", &data, &size);
+        err = efivar_get_raw(&MAKE_GUID(LOADER), u"LoaderSystemToken", &data, &size);
         if (err != EFI_SUCCESS) {
                 if (err != EFI_NOT_FOUND)
                         log_error_stall(L"Failed to read LoaderSystemToken EFI variable: %r", err);
@@ -313,7 +311,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
                 return log_error_status_stall(err, L"Failed to flush random seed file: %r", err);
 
         /* We are good to go */
-        err = efivar_set_raw(LOADER_GUID, L"LoaderRandomSeed", for_kernel, size, 0);
+        err = efivar_set_raw(&MAKE_GUID(LOADER), u"LoaderRandomSeed", for_kernel, size, 0);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to write random seed to EFI variable: %r", err);
 

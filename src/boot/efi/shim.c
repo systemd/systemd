@@ -33,12 +33,12 @@ struct ShimLock {
 };
 
 #define SHIM_LOCK_GUID \
-        &(const EFI_GUID) { 0x605dab50, 0xe046, 0x4300, { 0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23 } }
+        { 0x605dab50, 0xe046, 0x4300, { 0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23 } }
 
 bool shim_loaded(void) {
         struct ShimLock *shim_lock;
 
-        return BS->LocateProtocol((EFI_GUID*) SHIM_LOCK_GUID, NULL, (void**) &shim_lock) == EFI_SUCCESS;
+        return BS->LocateProtocol(&MAKE_GUID(SHIM_LOCK), NULL, (void **) &shim_lock) == EFI_SUCCESS;
 }
 
 static bool shim_validate(void *data, uint32_t size) {
@@ -47,7 +47,7 @@ static bool shim_validate(void *data, uint32_t size) {
         if (!data)
                 return false;
 
-        if (BS->LocateProtocol((EFI_GUID*) SHIM_LOCK_GUID, NULL, (void**) &shim_lock) != EFI_SUCCESS)
+        if (BS->LocateProtocol(&MAKE_GUID(SHIM_LOCK), NULL, (void **) &shim_lock) != EFI_SUCCESS)
                 return false;
 
         if (!shim_lock)

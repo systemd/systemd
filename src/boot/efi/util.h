@@ -129,14 +129,16 @@ static inline void unload_imagep(EFI_HANDLE *image) {
                 (void) BS->UnloadImage(*image);
 }
 
+#define MAKE_GUID(GUID) ((EFI_GUID) GUID##_GUID)
+#define EFI_GLOBAL_GUID EFI_GLOBAL_VARIABLE
+
 /*
  * Allocated random UUID, intended to be shared across tools that implement
  * the (ESP)\loader\entries\<vendor>-<revision>.conf convention and the
  * associated EFI variables.
  */
 #define LOADER_GUID \
-        &(const EFI_GUID) { 0x4a67b082, 0x0a4c, 0x41cf, { 0xb6, 0xc7, 0x44, 0x0b, 0x29, 0xbb, 0x8c, 0x4f } }
-#define EFI_GLOBAL_GUID &(const EFI_GUID) EFI_GLOBAL_VARIABLE
+        { 0x4a67b082, 0x0a4c, 0x41cf, { 0xb6, 0xc7, 0x44, 0x0b, 0x29, 0xbb, 0x8c, 0x4f } }
 
 void log_error_stall(const char16_t *fmt, ...);
 EFI_STATUS log_oom(void);
