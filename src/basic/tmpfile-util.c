@@ -25,6 +25,8 @@ int fopen_temporary_at(int dir_fd, const char *path, FILE **ret_file, char **ret
         _cleanup_close_ int fd = -1;
         int r;
 
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+
         if (path) {
                 r = tempfn_random(path, NULL, &t);
                 if (r < 0)

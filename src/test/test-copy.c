@@ -77,11 +77,12 @@ TEST(copy_tree_replace_file) {
 }
 
 TEST(copy_tree_replace_dirs) {
-        _cleanup_(rm_rf_physical_and_closep) int src = -1, dst = -1;
+        _cleanup_(rm_rf_physical_and_freep) char *srcp = NULL, *dstp = NULL;
+        _cleanup_close_ int src = -1, dst = -1;
 
         /* Create the random source/destination directories */
-        assert_se((src = mkdtemp_open(NULL, 0, NULL)) >= 0);
-        assert_se((dst = mkdtemp_open(NULL, 0, NULL)) >= 0);
+        assert_se((src = mkdtemp_open(NULL, 0, &srcp)) >= 0);
+        assert_se((dst = mkdtemp_open(NULL, 0, &dstp)) >= 0);
 
         /* Populate some data to differentiate the files. */
         assert_se(write_string_file_at(src, "foo", "src file 1", WRITE_STRING_FILE_CREATE) >= 0);
