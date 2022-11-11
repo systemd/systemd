@@ -199,14 +199,7 @@ Table *table_new_internal(const char *first_header, ...) {
         for (const char *h = first_header; h; h = va_arg(ap, const char*)) {
                 TableCell *cell;
 
-                r = table_add_cell(t, &cell, TABLE_STRING, h);
-                if (r < 0) {
-                        va_end(ap);
-                        return NULL;
-                }
-
-                /* Make the table header uppercase */
-                r = table_set_uppercase(t, cell, true);
+                r = table_add_cell(t, &cell, TABLE_HEADER, h);
                 if (r < 0) {
                         va_end(ap);
                         return NULL;
@@ -229,19 +222,13 @@ Table *table_new_vertical(void) {
         t->vertical = true;
         t->header = false;
 
-        if (table_add_cell(t, &cell, TABLE_STRING, "key") < 0)
-                return NULL;
-
-        if (table_set_uppercase(t, cell, true) < 0)
+        if (table_add_cell(t, &cell, TABLE_HEADER, "key") < 0)
                 return NULL;
 
         if (table_set_align_percent(t, cell, 100) < 0)
                 return NULL;
 
-        if (table_add_cell(t, &cell, TABLE_STRING, "value") < 0)
-                return NULL;
-
-        if (table_set_uppercase(t, cell, true) < 0)
+        if (table_add_cell(t, &cell, TABLE_HEADER, "value") < 0)
                 return NULL;
 
         if (table_set_align_percent(t, cell, 0) < 0)
@@ -295,6 +282,7 @@ static size_t table_data_size(TableDataType type, const void *data) {
         case TABLE_STRING:
         case TABLE_PATH:
         case TABLE_FIELD:
+        case TABLE_HEADER:
                 return strlen(data) + 1;
 
         case TABLE_STRV:
@@ -371,7 +359,8 @@ static bool table_data_matches(
                 size_t maximum_width,
                 unsigned weight,
                 unsigned align_percent,
-                unsigned ellipsize_percent) {
+                unsigned ellipsize_percent,
+                bool uppercase) {
 
         size_t k, l;
         assert(d);
@@ -394,12 +383,13 @@ static bool table_data_matches(
         if (d->ellipsize_percent != ellipsize_percent)
                 return false;
 
-        /* If a color/url/uppercase flag is set, refuse to merge */
+        if (d->uppercase != uppercase)
+                return false;
+
+        /* If a color/url is set, refuse to merge */
         if (d->color || d->rgap_color)
                 return false;
         if (d->url)
-                return false;
-        if (d->uppercase)
                 return false;
 
         k = table_data_size(type, data);
@@ -417,7 +407,8 @@ static TableData *table_data_new(
                 size_t maximum_width,
                 unsigned weight,
                 unsigned align_percent,
-                unsigned ellipsize_percent) {
+                unsigned ellipsize_percent,
+                bool uppercase) {
 
         _cleanup_free_ TableData *d = NULL;
         size_t data_size;
@@ -435,6 +426,7 @@ static TableData *table_data_new(
         d->weight = weight;
         d->align_percent = align_percent;
         d->ellipsize_percent = ellipsize_percent;
+        d->uppercase = uppercase;
 
         if (IN_SET(type, TABLE_STRV, TABLE_STRV_WRAPPED)) {
                 d->strv = strv_copy(data);
@@ -458,6 +450,7 @@ int table_add_cell_full(
                 unsigned ellipsize_percent) {
 
         _cleanup_(table_data_unrefp) TableData *d = NULL;
+        bool uppercase;
         TableData *p;
 
         assert(t);
@@ -490,13 +483,15 @@ int table_add_cell_full(
         assert(align_percent <= 100);
         assert(ellipsize_percent <= 100);
 
+        uppercase = type == TABLE_HEADER;
+
         /* Small optimization: Pretty often adjacent cells in two subsequent lines have the same data and
          * formatting. Let's see if we can reuse the cell data and ref it once more. */
 
-        if (p && table_data_matches(p, type, data, minimum_width, maximum_width, weight, align_percent, ellipsize_percent))
+        if (p && table_data_matches(p, type, data, minimum_width, maximum_width, weight, align_percent, ellipsize_percent, uppercase))
                 d = table_data_ref(p);
         else {
-                d = table_data_new(type, data, minimum_width, maximum_width, weight, align_percent, ellipsize_percent);
+                d = table_data_new(type, data, minimum_width, maximum_width, weight, align_percent, ellipsize_percent, uppercase);
                 if (!d)
                         return -ENOMEM;
         }
@@ -598,14 +593,14 @@ static int table_dedup_cell(Table *t, TableCell *cell) {
                         od->maximum_width,
                         od->weight,
                         od->align_percent,
-                        od->ellipsize_percent);
+                        od->ellipsize_percent,
+                        od->uppercase);
         if (!nd)
                 return -ENOMEM;
 
         nd->color = od->color;
         nd->rgap_color = od->rgap_color;
         nd->url = TAKE_PTR(curl);
-        nd->uppercase = od->uppercase;
 
         table_data_unref(od);
         t->data[i] = nd;
@@ -815,14 +810,14 @@ int table_update(Table *t, TableCell *cell, TableDataType type, const void *data
                         od->maximum_width,
                         od->weight,
                         od->align_percent,
-                        od->ellipsize_percent);
+                        od->ellipsize_percent,
+                        od->uppercase);
         if (!nd)
                 return -ENOMEM;
 
         nd->color = od->color;
         nd->rgap_color = od->rgap_color;
         nd->url = TAKE_PTR(curl);
-        nd->uppercase = od->uppercase;
 
         table_data_unref(od);
         t->data[i] = nd;
@@ -876,6 +871,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                 case TABLE_STRING:
                 case TABLE_PATH:
                 case TABLE_FIELD:
+                case TABLE_HEADER:
                         data = va_arg(ap, const char *);
                         break;
 
@@ -1278,6 +1274,7 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
 
                 case TABLE_STRING:
                 case TABLE_FIELD:
+                case TABLE_HEADER:
                         return strcmp(a->string, b->string);
 
                 case TABLE_PATH:
@@ -1454,6 +1451,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
         case TABLE_STRING:
         case TABLE_PATH:
         case TABLE_FIELD:
+        case TABLE_HEADER:
                 if (d->uppercase && !avoid_uppercasing) {
                         d->formatted = new(char, strlen(d->string) + (d->type == TABLE_FIELD) + 1);
                         if (!d->formatted)
@@ -1468,18 +1466,15 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
 
                         *q = 0;
                         return d->formatted;
-                } else {
-                        if (d->type == TABLE_FIELD) {
-                                d->formatted = strjoin(d->string, ":");
-                                if (!d->formatted)
-                                        return NULL;
+                } else if (d->type == TABLE_FIELD) {
+                        d->formatted = strjoin(d->string, ":");
+                        if (!d->formatted)
+                                return NULL;
 
-                                return d->formatted;
-                        }
-
-                        return d->string;
+                        return d->formatted;
                 }
-                break;
+
+                return d->string;
 
         case TABLE_STRV:
                 if (strv_isempty(d->strv))
@@ -2034,6 +2029,8 @@ static const char* table_data_color(TableData *d) {
 
         if (d->type == TABLE_FIELD)
                 return ansi_bright_blue();
+        if (d->type == TABLE_HEADER)
+                return ansi_underline();
 
         return NULL;
 }
@@ -2043,6 +2040,9 @@ static const char* table_data_rgap_color(TableData *d) {
 
         if (d->rgap_color)
                 return d->rgap_color;
+
+        if (d->type == TABLE_HEADER)
+                return ansi_underline();
 
         return NULL;
 }
@@ -2388,7 +2388,7 @@ int table_print(Table *t, FILE *f) {
 
                                                 /* Drop trailing white spaces of last column when no cosmetics is set. */
                                                 if (j == display_columns - 1 &&
-                                                    (!colors_enabled() || (!table_data_color(d) && row != t->data)) &&
+                                                    (!colors_enabled() || !table_data_color(d)) &&
                                                     (!urlify_enabled() || !d->url))
                                                         delete_trailing_chars(aligned, NULL);
 
@@ -2408,12 +2408,8 @@ int table_print(Table *t, FILE *f) {
                                         field = buffer;
                                 }
 
-                                if (colors_enabled()) {
-                                        if (gap_color)
-                                                fputs(gap_color, f);
-                                        else if (row == t->data) /* underline header line fully, including the column separator */
-                                                fputs(ansi_underline(), f);
-                                }
+                                if (colors_enabled() && gap_color)
+                                        fputs(gap_color, f);
 
                                 if (j > 0)
                                         fputc(' ', f); /* column separator left of cell */
@@ -2422,18 +2418,16 @@ int table_print(Table *t, FILE *f) {
                                         color = table_data_color(d);
 
                                         /* Undo gap color */
-                                        if (gap_color || (color && row == t->data))
+                                        if (gap_color)
                                                 fputs(ANSI_NORMAL, f);
 
                                         if (color)
                                                 fputs(color, f);
-                                        else if (gap_color && row == t->data) /* underline header line cell */
-                                                fputs(ansi_underline(), f);
                                 }
 
                                 fputs(field, f);
 
-                                if (colors_enabled() && (color || row == t->data))
+                                if (colors_enabled() && color)
                                         fputs(ANSI_NORMAL, f);
 
                                 gap_color = table_data_rgap_color(d);
@@ -2548,6 +2542,7 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
         case TABLE_STRING:
         case TABLE_PATH:
         case TABLE_FIELD:
+        case TABLE_HEADER:
                 return json_variant_new_string(ret, d->string);
 
         case TABLE_STRV:
@@ -2683,6 +2678,30 @@ static char* string_to_json_field_name(const char *f) {
         return c;
 }
 
+static int table_make_json_field_name(Table *t, TableData *d, char **ret) {
+        _cleanup_free_ char *mangled = NULL;
+        const char *n;
+
+        assert(t);
+        assert(d);
+        assert(ret);
+
+        if (IN_SET(d->type, TABLE_HEADER, TABLE_FIELD))
+                n = d->string;
+        else {
+                n = table_data_format(t, d, /* avoid_uppercasing= */ true, SIZE_MAX, NULL);
+                if (!n)
+                        return -ENOMEM;
+        }
+
+        mangled = string_to_json_field_name(n);
+        if (!mangled)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(mangled);
+        return 0;
+}
+
 static const char *table_get_json_field_name(Table *t, size_t idx) {
         assert(t);
 
@@ -2742,24 +2761,10 @@ static int table_to_json_regular(Table *t, JsonVariant **ret) {
                 /* Use explicitly set JSON field name, if we have one. Otherwise mangle the column field value. */
                 n = table_get_json_field_name(t, c);
                 if (!n) {
-                        const char *formatted;
-                        TableData *d;
-
-                        assert_se(d = t->data[c]);
-
-                        /* Field names must be strings, hence format whatever we got here as a string first */
-                        formatted = table_data_format(t, d, true, SIZE_MAX, NULL);
-                        if (!formatted) {
-                                r = -ENOMEM;
+                        r = table_make_json_field_name(t, ASSERT_PTR(t->data[c]), &mangled);
+                        if (r < 0)
                                 goto finish;
-                        }
 
-                        /* Arbitrary strings suck as field names, try to mangle them into something more suitable hence */
-                        mangled = string_to_json_field_name(formatted);
-                        if (!mangled) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
                         n = mangled;
                 }
 
@@ -2845,23 +2850,9 @@ static int table_to_json_vertical(Table *t, JsonVariant **ret) {
 
                         n = table_get_json_field_name(t, i / t->n_columns - 1);
                         if (!n) {
-                                TableData *d = ASSERT_PTR(t->data[i]);
-
-                                if (d->type == TABLE_FIELD)
-                                        n = d->string;
-                                else {
-                                        n = table_data_format(t, d, /* avoid_uppercasing= */ true, SIZE_MAX, NULL);
-                                        if (!n) {
-                                                r = -ENOMEM;
-                                                goto finish;
-                                        }
-                                }
-
-                                mangled = string_to_json_field_name(n);
-                                if (!mangled) {
-                                        r = -ENOMEM;
+                                r = table_make_json_field_name(t, ASSERT_PTR(t->data[i]), &mangled);
+                                if (r < 0)
                                         goto finish;
-                                }
 
                                 n = mangled;
                         }

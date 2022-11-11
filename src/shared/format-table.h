@@ -12,7 +12,8 @@
 typedef enum TableDataType {
         TABLE_EMPTY,
         TABLE_STRING,
-        TABLE_FIELD, /* used in vertical mode */
+        TABLE_HEADER,              /* in regular mode: the cells in the first row, that carry the column names */
+        TABLE_FIELD,               /* in vertical mode: the cells in the first column, that carry the field names */
         TABLE_STRV,
         TABLE_STRV_WRAPPED,
         TABLE_PATH,
