@@ -142,8 +142,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
         sha256_process_bytes(HASH_LABEL, sizeof(HASH_LABEL) - 1, &hash);
 
         for (size_t i = 0; i < ST->NumberOfTableEntries; ++i)
-                if (memcmp(&(const EFI_GUID)LINUX_EFI_RANDOM_SEED_TABLE_GUID,
-                           &ST->ConfigurationTable[i].VendorGuid, sizeof(EFI_GUID)) == 0) {
+                if (efi_guid_equal(&ST->ConfigurationTable[i].VendorGuid, &(const EFI_GUID) LINUX_EFI_RANDOM_SEED_TABLE_GUID)) {
                         previous_seed_table = ST->ConfigurationTable[i].VendorTable;
                         break;
                 }
