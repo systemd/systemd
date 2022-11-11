@@ -99,10 +99,10 @@ int main(int argc, char *argv[]) {
                 }
 
 #if HAVE_GCRYPT
-                if (server.system_journal) {
+                if (server.persistent_journal) {
                         usec_t u;
 
-                        if (journal_file_next_evolve_usec(server.system_journal->file, &u)) {
+                        if (journal_file_next_evolve_usec(server.persistent_journal->file, &u)) {
                                 if (n >= u)
                                         t = 0;
                                 else
