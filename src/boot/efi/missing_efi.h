@@ -10,7 +10,6 @@
 
 #define EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL_GUID \
     { 0xdd9e7534, 0x7762, 0x4698, {0x8c, 0x14, 0xf5, 0x85, 0x17, 0xa6, 0x25, 0xaa} }
-#define SimpleTextInputExProtocol ((EFI_GUID)EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL_GUID)
 
 #define EFI_SHIFT_STATE_VALID           0x80000000
 #define EFI_RIGHT_SHIFT_PRESSED         0x00000001
@@ -87,13 +86,11 @@ typedef struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL {
 #ifndef EFI_DTB_TABLE_GUID
 #define EFI_DTB_TABLE_GUID \
         { 0xb1b621d5, 0xf19c, 0x41a5, {0x83, 0x0b, 0xd9, 0x15, 0x2c, 0x69, 0xaa, 0xe0} }
-#define EfiDtbTableGuid ((EFI_GUID)EFI_DTB_TABLE_GUID)
 #endif
 
 #ifndef EFI_DT_FIXUP_PROTOCOL_GUID
 #define EFI_DT_FIXUP_PROTOCOL_GUID \
         { 0xe617d64c, 0xfe08, 0x46da, {0xf4, 0xdc, 0xbb, 0xd5, 0x87, 0x0c, 0x73, 0x00} }
-#define EfiDtFixupProtocol ((EFI_GUID)EFI_DT_FIXUP_PROTOCOL_GUID)
 
 #define EFI_DT_FIXUP_PROTOCOL_REVISION 0x00010000
 
@@ -124,7 +121,7 @@ struct _EFI_DT_FIXUP_PROTOCOL {
 #ifndef EFI_TCG_GUID
 
 #define EFI_TCG_GUID \
-        &(const EFI_GUID) { 0xf541796d, 0xa62e, 0x4954, { 0xa7, 0x75, 0x95, 0x84, 0xf6, 0x1b, 0x9c, 0xdd } }
+        { 0xf541796d, 0xa62e, 0x4954, { 0xa7, 0x75, 0x95, 0x84, 0xf6, 0x1b, 0x9c, 0xdd } }
 
 typedef struct _TCG_VERSION {
         UINT8 Major;
@@ -224,7 +221,7 @@ typedef struct _EFI_TCG {
 #ifndef EFI_TCG2_GUID
 
 #define EFI_TCG2_GUID \
-        &(const EFI_GUID) { 0x607f766c, 0x7455, 0x42be, { 0x93, 0x0b, 0xe4, 0xd7, 0x6d, 0xb2, 0x72, 0x0f } }
+        { 0x607f766c, 0x7455, 0x42be, { 0x93, 0x0b, 0xe4, 0xd7, 0x6d, 0xb2, 0x72, 0x0f } }
 
 typedef struct tdEFI_TCG2_PROTOCOL EFI_TCG2_PROTOCOL;
 
@@ -302,7 +299,6 @@ typedef struct tdEFI_TCG2_PROTOCOL {
 #ifndef EFI_LOAD_FILE2_PROTOCOL_GUID
 #define EFI_LOAD_FILE2_PROTOCOL_GUID \
         {0x4006c0c1, 0xfcb3, 0x403e, {0x99, 0x6d, 0x4a, 0x6c, 0x87, 0x24, 0xe0, 0x6d} }
-#define EfiLoadFile2Protocol ((EFI_GUID)EFI_LOAD_FILE2_PROTOCOL_GUID)
 #endif
 
 #define LINUX_INITRD_MEDIA_GUID \
@@ -344,7 +340,7 @@ struct EFI_SECURITY2_ARCH_PROTOCOL {
 #ifndef EFI_CONSOLE_CONTROL_GUID
 
 #define EFI_CONSOLE_CONTROL_GUID \
-        &(const EFI_GUID) { 0xf42f7782, 0x12e, 0x4c12, { 0x99, 0x56, 0x49, 0xf9, 0x43, 0x4, 0xf7, 0x21 } }
+        { 0xf42f7782, 0x12e, 0x4c12, { 0x99, 0x56, 0x49, 0xf9, 0x43, 0x4, 0xf7, 0x21 } }
 
 struct _EFI_CONSOLE_CONTROL_PROTOCOL;
 

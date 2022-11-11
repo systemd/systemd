@@ -29,7 +29,7 @@ static EFI_STATUS load_one_driver(
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to load image %s: %r", fname, err);
 
-        err = BS->HandleProtocol(image, &LoadedImageProtocol, (void **)&loaded_image);
+        err = BS->HandleProtocol(image, &MAKE_GUID(EFI_LOADED_IMAGE_PROTOCOL), (void **)&loaded_image);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to find protocol in driver image %s: %r", fname, err);
 

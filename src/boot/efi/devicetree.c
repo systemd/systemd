@@ -9,8 +9,9 @@
 #define FDT_V1_SIZE (7*4)
 
 static void *get_dtb_table(void) {
+        EFI_GUID guid = EFI_DTB_TABLE_GUID;
         for (UINTN i = 0; i < ST->NumberOfTableEntries; i++)
-                if (memcmp(&EfiDtbTableGuid, &ST->ConfigurationTable[i].VendorGuid, sizeof(EfiDtbTableGuid)) == 0)
+                if (memcmp(&guid, &ST->ConfigurationTable[i].VendorGuid, sizeof(guid)) == 0)
                         return ST->ConfigurationTable[i].VendorTable;
         return NULL;
 }
@@ -41,7 +42,7 @@ static EFI_STATUS devicetree_fixup(struct devicetree_state *state, UINTN len) {
 
         assert(state);
 
-        err = BS->LocateProtocol(&EfiDtFixupProtocol, NULL, (void **) &fixup);
+        err = BS->LocateProtocol(&MAKE_GUID(EFI_DT_FIXUP_PROTOCOL), NULL, (void **) &fixup);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(EFI_SUCCESS,
                                               L"Could not locate device tree fixup protocol, skipping.");
@@ -110,7 +111,7 @@ EFI_STATUS devicetree_install(struct devicetree_state *state, EFI_FILE *root_dir
         if (err != EFI_SUCCESS)
                 return err;
 
-        return BS->InstallConfigurationTable(&EfiDtbTableGuid, PHYSICAL_ADDRESS_TO_POINTER(state->addr));
+        return BS->InstallConfigurationTable(&MAKE_GUID(EFI_DTB_TABLE), PHYSICAL_ADDRESS_TO_POINTER(state->addr));
 }
 
 EFI_STATUS devicetree_install_from_memory(struct devicetree_state *state,
@@ -135,7 +136,7 @@ EFI_STATUS devicetree_install_from_memory(struct devicetree_state *state,
         if (err != EFI_SUCCESS)
                 return err;
 
-        return BS->InstallConfigurationTable(&EfiDtbTableGuid, PHYSICAL_ADDRESS_TO_POINTER(state->addr));
+        return BS->InstallConfigurationTable(&MAKE_GUID(EFI_DTB_TABLE), PHYSICAL_ADDRESS_TO_POINTER(state->addr));
 }
 
 void devicetree_cleanup(struct devicetree_state *state) {
@@ -144,7 +145,7 @@ void devicetree_cleanup(struct devicetree_state *state) {
         if (!state->pages)
                 return;
 
-        err = BS->InstallConfigurationTable(&EfiDtbTableGuid, state->orig);
+        err = BS->InstallConfigurationTable(&MAKE_GUID(EFI_DTB_TABLE), state->orig);
         /* don't free the current device tree if we can't reinstate the old one */
         if (err != EFI_SUCCESS)
                 return;

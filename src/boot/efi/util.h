@@ -98,19 +98,19 @@ static inline Pages xmalloc_pages(
 
 EFI_STATUS parse_boolean(const char *v, bool *b);
 
-EFI_STATUS efivar_set(const EFI_GUID *vendor, const char16_t *name, const char16_t *value, uint32_t flags);
-EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const char16_t *name, const void *buf, UINTN size, uint32_t flags);
-EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const char16_t *name, UINTN i, uint32_t flags);
-EFI_STATUS efivar_set_uint32_le(const EFI_GUID *vendor, const char16_t *NAME, uint32_t value, uint32_t flags);
-EFI_STATUS efivar_set_uint64_le(const EFI_GUID *vendor, const char16_t *name, uint64_t value, uint32_t flags);
-void efivar_set_time_usec(const EFI_GUID *vendor, const char16_t *name, uint64_t usec);
+EFI_STATUS efivar_set(EFI_GUID vendor, const char16_t *name, const char16_t *value, uint32_t flags);
+EFI_STATUS efivar_set_raw(EFI_GUID vendor, const char16_t *name, const void *buf, UINTN size, uint32_t flags);
+EFI_STATUS efivar_set_uint_string(EFI_GUID vendor, const char16_t *name, UINTN i, uint32_t flags);
+EFI_STATUS efivar_set_uint32_le(EFI_GUID vendor, const char16_t *NAME, uint32_t value, uint32_t flags);
+EFI_STATUS efivar_set_uint64_le(EFI_GUID vendor, const char16_t *name, uint64_t value, uint32_t flags);
+void efivar_set_time_usec(EFI_GUID vendor, const char16_t *name, uint64_t usec);
 
-EFI_STATUS efivar_get(const EFI_GUID *vendor, const char16_t *name, char16_t **value);
-EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, char **buffer, UINTN *size);
-EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const char16_t *name, UINTN *i);
-EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const char16_t *name, uint32_t *ret);
-EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const char16_t *name, uint64_t *ret);
-EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const char16_t *name, bool *ret);
+EFI_STATUS efivar_get(EFI_GUID vendor, const char16_t *name, char16_t **value);
+EFI_STATUS efivar_get_raw(EFI_GUID vendor, const char16_t *name, char **buffer, UINTN *size);
+EFI_STATUS efivar_get_uint_string(EFI_GUID vendor, const char16_t *name, UINTN *i);
+EFI_STATUS efivar_get_uint32_le(EFI_GUID vendor, const char16_t *name, uint32_t *ret);
+EFI_STATUS efivar_get_uint64_le(EFI_GUID vendor, const char16_t *name, uint64_t *ret);
+EFI_STATUS efivar_get_boolean_u8(EFI_GUID vendor, const char16_t *name, bool *ret);
 
 char16_t *xstra_to_path(const char *stra);
 char16_t *xstra_to_str(const char *stra);
@@ -129,14 +129,17 @@ static inline void unload_imagep(EFI_HANDLE *image) {
                 (void) BS->UnloadImage(*image);
 }
 
+#define MAKE_GUID(GUID) ((EFI_GUID) GUID##_GUID)
+#define EFI_GLOBAL_GUID EFI_GLOBAL_VARIABLE
+#define EFI_FILE_INFO_GUID EFI_FILE_INFO_ID
+
 /*
  * Allocated random UUID, intended to be shared across tools that implement
  * the (ESP)\loader\entries\<vendor>-<revision>.conf convention and the
  * associated EFI variables.
  */
 #define LOADER_GUID \
-        &(const EFI_GUID) { 0x4a67b082, 0x0a4c, 0x41cf, { 0xb6, 0xc7, 0x44, 0x0b, 0x29, 0xbb, 0x8c, 0x4f } }
-#define EFI_GLOBAL_GUID &(const EFI_GUID) EFI_GLOBAL_VARIABLE
+        { 0x4a67b082, 0x0a4c, 0x41cf, { 0xb6, 0xc7, 0x44, 0x0b, 0x29, 0xbb, 0x8c, 0x4f } }
 
 void log_error_stall(const char16_t *fmt, ...);
 EFI_STATUS log_oom(void);
