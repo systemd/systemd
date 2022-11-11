@@ -5,16 +5,13 @@
 #include "strv.h"
 
 char** strv_parse_nulstr(const char *s, size_t l) {
-        /* l is the length of the input data, which will be split at NULs into
-         * elements of the resulting strv. Hence, the number of items in the resulting strv
-         * will be equal to one plus the number of NUL bytes in the l bytes starting at s,
-         * unless s[l-1] is NUL, in which case the final empty string is not stored in
-         * the resulting strv, and length is equal to the number of NUL bytes.
+        /* l is the length of the input data, which will be split at NULs into elements of the resulting
+         * strv. Hence, the number of items in the resulting strv will be equal to one plus the number of NUL
+         * bytes in the l bytes starting at s, unless s[l-1] is NUL, in which case the final empty string is
+         * not stored in the resulting strv, and length is equal to the number of NUL bytes.
          *
-         * Note that contrary to a normal nulstr which cannot contain empty strings, because
-         * the input data is terminated by any two consequent NUL bytes, this parser accepts
-         * empty strings in s.
-         */
+         * Note that contrary to a normal nulstr which cannot contain empty strings, because the input data
+         * is terminated by any two consequent NUL bytes, this parser accepts empty strings in s. */
 
         size_t c = 0, i = 0;
         char **v;
@@ -75,12 +72,10 @@ char** strv_split_nulstr(const char *s) {
 }
 
 int strv_make_nulstr(char * const *l, char **ret, size_t *ret_size) {
-        /* A valid nulstr with two NULs at the end will be created, but
-         * q will be the length without the two trailing NULs. Thus the output
-         * string is a valid nulstr and can be iterated over using NULSTR_FOREACH,
-         * and can also be parsed by strv_parse_nulstr as long as the length
-         * is provided separately.
-         */
+        /* A valid nulstr with two NULs at the end will be created, but q will be the length without the two
+         * trailing NULs. Thus the output string is a valid nulstr and can be iterated over using
+         * NULSTR_FOREACH(), and can also be parsed by strv_parse_nulstr() as long as the length is provided
+         * separately. */
 
         _cleanup_free_ char *m = NULL;
         size_t n = 0;
