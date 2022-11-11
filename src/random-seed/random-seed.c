@@ -16,7 +16,9 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "chase-symlinks.h"
 #include "fd-util.h"
+#include "find-esp.h"
 #include "fs-util.h"
 #include "io-util.h"
 #include "log.h"
@@ -26,6 +28,7 @@
 #include "mkdir.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "pretty-print.h"
 #include "random-util.h"
 #include "string-table.h"
@@ -185,7 +188,7 @@ static int load_seed_file(
         if (ret_hash_state) {
                 struct sha256_ctx *hash_state;
 
-                hash_state = malloc(sizeof(struct sha256_ctx));
+                hash_state = new(struct sha256_ctx, 1);
                 if (!hash_state)
                         return log_oom();
 
@@ -308,6 +311,71 @@ static int save_seed_file(
                 if (fsetxattr(seed_fd, "user.random-seed-creditable", "1", 1, 0) < 0)
                         log_full_errno(ERRNO_IS_NOT_SUPPORTED(errno) ? LOG_DEBUG : LOG_WARNING, errno,
                                        "Failed to mark seed file as creditable, ignoring: %m");
+        return 0;
+}
+
+static int refresh_boot_seed(void) {
+        uint8_t buffer[RANDOM_EFI_SEED_SIZE];
+        struct sha256_ctx hash_state;
+        _cleanup_free_ void *seed_file_bytes = NULL;
+        _cleanup_free_ char *esp_path = NULL;
+        _cleanup_close_ int seed_fd = -1;
+        size_t len;
+        ssize_t r;
+
+        assert_cc(RANDOM_EFI_SEED_SIZE == SHA256_DIGEST_SIZE);
+
+        /* We're doing this opportunistically, so if the seeding dance before didn't manage to initialize the
+         * RNG, there's no point in doing it here. Secondly, getrandom(GRND_NONBLOCK) has been around longer
+         * than EFI seeding anyway, so there's no point in having non-getrandom() fallbacks here. So if this
+         * fails, just return early to cut our losses. */
+        r = getrandom(buffer, sizeof(buffer), GRND_NONBLOCK);
+        if (r < 0 && errno == EAGAIN)
+                return log_debug_errno(-errno, "Random pool not initialized yet, so skipping EFI seed update");
+        else if (r < 0)
+                return log_error_errno(-errno, "Failed to generate random bytes for EFI seed: %m");
+        assert(r == sizeof(buffer));
+        sha256_init_ctx(&hash_state);
+        sha256_process_bytes(&r, sizeof(r), &hash_state);
+        sha256_process_bytes(buffer, r, &hash_state);
+
+        r = find_esp_and_warn(NULL, NULL, /* unprivileged_mode= */ false, &esp_path,
+                              NULL, NULL, NULL, NULL, NULL);
+        if (r == -ENOKEY)
+                return log_debug_errno(r, "Couldn't find any ESP, so not updating ESP random seed.");
+        else if (r < 0)
+                return r; /* find_esp_and_warn() already logged */
+
+        /* Read the existing seed, but if it's not there, return early, since it means bootctl hasn't yet set
+         * up random seeds for the loader. */
+        seed_fd = chase_symlinks_and_open("/loader/random-seed", esp_path, CHASE_PREFIX_ROOT,
+                                          O_RDWR|O_CLOEXEC|O_NOCTTY, NULL);
+        if (seed_fd < 0)
+                return log_debug_errno(-errno, "Failed to open EFI seed path: %m");
+        r = random_seed_size(seed_fd, &len);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine EFI seed path length: %m");
+        seed_file_bytes = malloc(len);
+        if (!seed_file_bytes)
+                return log_oom();
+        r = loop_read(seed_fd, seed_file_bytes, len, false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read EFI seed file: %m");
+        sha256_process_bytes(&r, sizeof(r), &hash_state);
+        sha256_process_bytes(seed_file_bytes, r, &hash_state);
+        sha256_finish_ctx(&hash_state, buffer);
+
+        if (lseek(seed_fd, 0, SEEK_SET) < 0)
+                return log_error_errno(-errno, "Failed to seek to beginning of EFI seed file: %m");
+        r = loop_write(seed_fd, buffer, sizeof(buffer), false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write new EFI seed file: %m");
+        if (ftruncate(seed_fd, sizeof(buffer)) < 0)
+                return log_error_errno(-errno, "Failed to truncate EFI seed file: %m");
+        r = fsync_full(seed_fd);
+        if (r < 0)
+                return log_error_errno(-errno, "Failed to fsync EFI seed file: %m");
+
         return 0;
 }
 
@@ -466,6 +534,9 @@ static int run(int argc, char *argv[]) {
 
         if (r >= 0 && write_seed_file)
                 r = save_seed_file(seed_fd, random_fd, seed_size, synchronous, hash_state);
+
+        if (write_seed_file)
+                (void) refresh_boot_seed();
 
         return r;
 }
