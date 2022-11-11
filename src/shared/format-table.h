@@ -88,7 +88,29 @@ int table_add_cell_full(Table *t, TableCell **ret_cell, TableDataType type, cons
 static inline int table_add_cell(Table *t, TableCell **ret_cell, TableDataType type, const void *data) {
         return table_add_cell_full(t, ret_cell, type, data, SIZE_MAX, SIZE_MAX, UINT_MAX, UINT_MAX, UINT_MAX);
 }
-int table_add_cell_stringf(Table *t, TableCell **ret_cell, const char *format, ...) _printf_(3, 4);
+int table_add_cellv(Table *t, TableCell **ret_cell, TableDataType type, const char *format, va_list ap) _printf_(4, 0);
+_printf_(4, 5) static inline int table_add_cellf(Table *t, TableCell **ret_cell, TableDataType type, const char *format, ...)
+{
+        va_list ap;
+        int r;
+
+        va_start(ap, format);
+        r = table_add_cellv(t, ret_cell, type, format, ap);
+        va_end(ap);
+
+        return r;
+}
+_printf_(3, 4) static inline int table_add_cell_stringf(Table *t, TableCell **ret_cell, const char *format, ...)
+{
+        va_list ap;
+        int r;
+
+        va_start(ap, format);
+        r = table_add_cellv(t, ret_cell, TABLE_STRING, format, ap);
+        va_end(ap);
+
+        return r;
+}
 
 int table_fill_empty(Table *t, size_t until_column);
 
