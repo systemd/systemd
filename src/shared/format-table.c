@@ -507,10 +507,13 @@ int table_add_cell_full(
         return 0;
 }
 
-int table_add_cell_stringf(Table *t, TableCell **ret_cell, const char *format, ...) {
+int table_add_cell_stringf_full(Table *t, TableCell **ret_cell, TableDataType dt, const char *format, ...) {
         _cleanup_free_ char *buffer = NULL;
         va_list ap;
         int r;
+
+        assert(t);
+        assert(IN_SET(dt, TABLE_STRING, TABLE_PATH, TABLE_FIELD, TABLE_HEADER));
 
         va_start(ap, format);
         r = vasprintf(&buffer, format, ap);
@@ -518,7 +521,7 @@ int table_add_cell_stringf(Table *t, TableCell **ret_cell, const char *format, .
         if (r < 0)
                 return -ENOMEM;
 
-        return table_add_cell(t, ret_cell, TABLE_STRING, buffer);
+        return table_add_cell(t, ret_cell, dt, buffer);
 }
 
 int table_fill_empty(Table *t, size_t until_column) {
