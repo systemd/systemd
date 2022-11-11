@@ -57,6 +57,21 @@ static int log_autofs_mount_point(int fd, const char *path, ChaseSymlinksFlags f
                                  strna(n1), path);
 }
 
+static int log_prohibited_symlink(int fd, ChaseSymlinksFlags flags) {
+        _cleanup_free_ char *n1 = NULL;
+
+        assert(fd >= 0);
+
+        if (!FLAGS_SET(flags, CHASE_WARN))
+                return -EREMCHG;
+
+        (void) fd_get_path(fd, &n1);
+
+        return log_warning_errno(SYNTHETIC_ERRNO(EREMCHG),
+                                 "Detected symlink where not symlink is allowed at %s, refusing.",
+                                 strna(n1));
+}
+
 int chase_symlinks_at(
                 int dir_fd,
                 const char *path,
@@ -290,6 +305,9 @@ int chase_symlinks_at(
 
                 if (S_ISLNK(st.st_mode) && !((flags & CHASE_NOFOLLOW) && isempty(todo))) {
                         _cleanup_free_ char *destination = NULL;
+
+                        if (flags & CHASE_PROHIBIT_SYMLINKS)
+                                return log_prohibited_symlink(child, flags);
 
                         /* This is a symlink, in this case read the destination. But let's make sure we
                          * don't follow symlinks without bounds. */
