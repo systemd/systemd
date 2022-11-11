@@ -559,7 +559,6 @@ static int device_update_properties_bufs(sd_device *device) {
                 return -ENOMEM;
 
         size_t i = 0;
-        char *p;
         NULSTR_FOREACH(p, buf_nulstr)
                 buf_strv[i++] = p;
         assert(i == num);

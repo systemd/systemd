@@ -1828,7 +1828,6 @@ static int add_search_paths(sd_journal *j) {
         static const char search_paths[] =
                 "/run/log/journal\0"
                 "/var/log/journal\0";
-        const char *p;
 
         assert(j);
 

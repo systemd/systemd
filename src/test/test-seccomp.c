@@ -117,7 +117,7 @@ TEST(seccomp_arch_to_string) {
 }
 
 TEST(architecture_table) {
-        const char *n, *n2;
+        const char *n2;
 
         NULSTR_FOREACH(n,
                        "native\0"
@@ -234,7 +234,7 @@ TEST(filter_sets_ordered) {
         assert_se(streq(syscall_filter_sets[SYSCALL_FILTER_SET_KNOWN].name, "@known"));
 
         for (size_t i = 0; i < _SYSCALL_FILTER_SET_MAX; i++) {
-                const char *k, *p = NULL;
+                const char *p = NULL;
 
                 /* Make sure each group has a description */
                 assert_se(!isempty(syscall_filter_sets[0].help));

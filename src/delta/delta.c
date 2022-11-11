@@ -371,7 +371,6 @@ static int enumerate_dir(
 static int should_skip_path(const char *prefix, const char *suffix) {
 #if HAVE_SPLIT_USR
         _cleanup_free_ char *target = NULL, *dirname = NULL;
-        const char *p;
 
         dirname = path_join(prefix, suffix);
         if (!dirname)
@@ -400,7 +399,6 @@ static int should_skip_path(const char *prefix, const char *suffix) {
 }
 
 static int process_suffix(const char *suffix, const char *onlyprefix) {
-        const char *p;
         char *f, *key;
         OrderedHashmap *top, *bottom, *drops, *h;
         int r = 0, k, n_found = 0;
@@ -477,7 +475,6 @@ finish:
 }
 
 static int process_suffixes(const char *onlyprefix) {
-        const char *n;
         int n_found = 0, r;
 
         NULSTR_FOREACH(n, suffixes) {
@@ -492,8 +489,6 @@ static int process_suffixes(const char *onlyprefix) {
 }
 
 static int process_suffix_chop(const char *arg) {
-        const char *p;
-
         assert(arg);
 
         if (!path_is_absolute(arg))

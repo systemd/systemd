@@ -71,7 +71,6 @@ int get_keymaps(char ***ret) {
         if (!keymaps)
                 return -ENOMEM;
 
-        const char *dir;
         NULSTR_FOREACH(dir, KBD_KEYMAP_DIRS) {
                 r = recurse_dir_at(
                                 AT_FDCWD,
@@ -135,7 +134,6 @@ int keymap_exists(const char *name) {
         if (!keymap_is_valid(name))
                 return -EINVAL;
 
-        const char *dir;
         NULSTR_FOREACH(dir, KBD_KEYMAP_DIRS) {
                 r = recurse_dir_at(
                                 AT_FDCWD,
