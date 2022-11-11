@@ -2,6 +2,7 @@
 #pragma once
 
 #include <errno.h>
+#include <macro.h>
 #include <stdbool.h>
 #include <string.h>
 
@@ -21,12 +22,15 @@ char** strv_parse_nulstr(const char *s, size_t l);
 char** strv_split_nulstr(const char *s);
 int strv_make_nulstr(char * const *l, char **p, size_t *n);
 
-static inline int strv_from_nulstr(char ***a, const char *nulstr) {
+static inline int strv_from_nulstr(char ***ret, const char *nulstr) {
         char **t;
+
+        assert(ret);
 
         t = strv_split_nulstr(nulstr);
         if (!t)
                 return -ENOMEM;
-        *a = t;
+
+        *ret = t;
         return 0;
 }
