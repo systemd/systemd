@@ -55,16 +55,18 @@ char** strv_parse_nulstr(const char *s, size_t l) {
 }
 
 char** strv_split_nulstr(const char *s) {
-        _cleanup_strv_free_ char **r = NULL;
+        _cleanup_strv_free_ char **l = NULL;
+
+        /* This parses a nulstr, without specification of size, and stops at an empty string. This cannot
+         * parse nulstrs with embedded empty strings hence, as an empty string is an end marker. Use
+         * strv_parse_nulstr() above to parse a nulstr with embedded empty strings (which however requires a
+         * size to be specified) */
 
         NULSTR_FOREACH(i, s)
-                if (strv_extend(&r, i) < 0)
+                if (strv_extend(&l, i) < 0)
                         return NULL;
 
-        if (!r)
-                return strv_new(NULL);
-
-        return TAKE_PTR(r);
+        return l ? TAKE_PTR(l) : strv_new(NULL);
 }
 
 int strv_make_nulstr(char * const *l, char **ret, size_t *ret_size) {
