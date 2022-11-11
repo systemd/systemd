@@ -13,8 +13,8 @@ char** strv_parse_nulstr(const char *s, size_t l) {
          * Note that contrary to a normal nulstr which cannot contain empty strings, because the input data
          * is terminated by any two consequent NUL bytes, this parser accepts empty strings in s. */
 
+        _cleanup_strv_free_ char **v = NULL;
         size_t c = 0, i = 0;
-        char **v;
 
         assert(s || l <= 0);
 
@@ -38,10 +38,8 @@ char** strv_parse_nulstr(const char *s, size_t l) {
                 e = memchr(p, 0, s + l - p);
 
                 v[i] = strndup(p, e ? e - p : s + l - p);
-                if (!v[i]) {
-                        strv_free(v);
+                if (!v[i])
                         return NULL;
-                }
 
                 i++;
 
@@ -53,22 +51,20 @@ char** strv_parse_nulstr(const char *s, size_t l) {
 
         assert(i == c);
 
-        return v;
+        return TAKE_PTR(v);
 }
 
 char** strv_split_nulstr(const char *s) {
-        char **r = NULL;
+        _cleanup_strv_free_ char **r = NULL;
 
         NULSTR_FOREACH(i, s)
-                if (strv_extend(&r, i) < 0) {
-                        strv_free(r);
+                if (strv_extend(&r, i) < 0)
                         return NULL;
-                }
 
         if (!r)
                 return strv_new(NULL);
 
-        return r;
+        return TAKE_PTR(r);
 }
 
 int strv_make_nulstr(char * const *l, char **ret, size_t *ret_size) {
