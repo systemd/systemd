@@ -91,7 +91,7 @@ static int test_calendar_one(usec_t n, const char *p) {
                         else
                                 k = 0;
 
-                        r = table_add_cell_stringf(table, NULL, "Iter. #%u:", i+1);
+                        r = table_add_cell_stringf(table, NULL, "Iteration #%u:", i+1);
                         if (r < 0)
                                 return table_log_add_error(r);
 
