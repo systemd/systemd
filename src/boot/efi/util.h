@@ -43,6 +43,18 @@ static inline void freep(void *p) {
 
 #define _cleanup_free_ _cleanup_(freep)
 
+static inline void erase_obj(void *p) {
+        size_t l;
+        if (!p)
+                return;
+        l = __builtin_object_size(p, 0);
+        if (l == (size_t) -1)
+                return;
+        explicit_bzero_safe(p, l);
+}
+
+#define _cleanup_erase_ _cleanup_(erase_obj)
+
 _malloc_ _alloc_(1) _returns_nonnull_ _warn_unused_result_
 static inline void *xmalloc(size_t size) {
         void *p;
