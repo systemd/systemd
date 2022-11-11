@@ -37,7 +37,7 @@ char** strv_parse_nulstr(const char *s, size_t l) {
 
                 e = memchr(p, 0, s + l - p);
 
-                v[i] = strndup(p, e ? e - p : s + l - p);
+                v[i] = memdup_suffix0(p, e ? e - p : s + l - p);
                 if (!v[i])
                         return NULL;
 
