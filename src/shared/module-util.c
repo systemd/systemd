@@ -3,11 +3,47 @@
 #include <errno.h>
 
 #include "module-util.h"
+#include "proc-cmdline.h"
+#include "strv.h"
+
+static int denylist_modules(const char *p, char ***denylist) {
+        _cleanup_strv_free_ char **k = NULL;
+
+        assert(p);
+        assert(denylist);
+
+        k = strv_split(p, ",");
+        if (!k)
+                return -ENOMEM;
+
+        if (strv_extend_strv(denylist, k, true) < 0)
+                return -ENOMEM;
+
+        return 0;
+}
+
+static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
+        int r;
+
+        if (proc_cmdline_key_streq(key, "module_blacklist")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = denylist_modules(value, data);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
 
 int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose) {
         const int probe_flags = KMOD_PROBE_APPLY_BLACKLIST;
         struct kmod_list *itr;
         _cleanup_(kmod_module_unref_listp) struct kmod_list *modlist = NULL;
+        _cleanup_strv_free_ char **denylist = NULL;
+        bool denylist_parsed = false;
         int r;
 
         /* verbose==true means we should log at non-debug level if we
@@ -50,9 +86,26 @@ int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose)
                                          "Inserted module '%s'", kmod_module_get_name(mod));
                         else if (err == KMOD_PROBE_APPLY_BLACKLIST)
                                 log_full(verbose ? LOG_INFO : LOG_DEBUG,
-                                         "Module '%s' is deny-listed", kmod_module_get_name(mod));
+                                         "Module '%s' is deny-listed (by kmod)", kmod_module_get_name(mod));
                         else {
                                 assert(err < 0);
+
+                                if (err == -EPERM) {
+                                        if (!denylist_parsed) {
+                                                r = proc_cmdline_parse(parse_proc_cmdline_item, &denylist, 0);
+                                                if (r < 0)
+                                                        log_full_errno(!verbose ? LOG_DEBUG : LOG_WARNING,
+                                                                       r,
+                                                                       "Failed to parse kernel command line, ignoring: %m");
+
+                                                denylist_parsed = true;
+                                        }
+                                        if (strv_contains(denylist, kmod_module_get_name(mod))) {
+                                                log_full(verbose ? LOG_INFO : LOG_DEBUG,
+                                                         "Module '%s' is deny-listed (by kernel)", kmod_module_get_name(mod));
+                                                continue;
+                                        }
+                                }
 
                                 log_full_errno(!verbose ? LOG_DEBUG :
                                                err == -ENODEV ? LOG_NOTICE :
