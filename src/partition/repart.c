@@ -3456,8 +3456,6 @@ static int make_copy_files_denylist(Context *context, Set **ret) {
         assert(ret);
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                const char *s;
-
                 const char *sources = gpt_partition_type_mountpoint_nulstr(p->type_uuid);
                 if (!sources)
                         continue;
