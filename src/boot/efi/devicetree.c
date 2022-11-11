@@ -10,7 +10,7 @@
 
 static void *get_dtb_table(void) {
         for (UINTN i = 0; i < ST->NumberOfTableEntries; i++)
-                if (memcmp(&EfiDtbTableGuid, &ST->ConfigurationTable[i].VendorGuid, sizeof(EfiDtbTableGuid)) == 0)
+                if (efi_guid_equal(&ST->ConfigurationTable[i].VendorGuid, &EfiDtbTableGuid))
                         return ST->ConfigurationTable[i].VendorTable;
         return NULL;
 }
