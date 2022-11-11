@@ -34,6 +34,127 @@ TEST(strv_parse_nulstr) {
         assert_se(streq(l[4], "hoge5"));
         assert_se(streq(l[5], ""));
         assert_se(streq(l[6], "xxx"));
+        strv_free(l);
+
+        l = strv_parse_nulstr((const char[0]) {}, 0);
+        assert_se(l);
+        assert_se(strv_isempty(l));
+        strv_free(l);
+
+        l = strv_parse_nulstr((const char[1]) { 0 }, 1);
+        assert_se(l);
+        assert_se(strv_equal(l, STRV_MAKE("")));
+        strv_free(l);
+
+        l = strv_parse_nulstr((const char[1]) { 'x' }, 1);
+        assert_se(l);
+        assert_se(strv_equal(l, STRV_MAKE("x")));
+        strv_free(l);
+
+        l = strv_parse_nulstr((const char[2]) { 0, 0 }, 2);
+        assert_se(l);
+        assert_se(strv_equal(l, STRV_MAKE("", "")));
+        strv_free(l);
+
+        l = strv_parse_nulstr((const char[2]) { 'x', 0 }, 2);
+        assert_se(l);
+        assert_se(strv_equal(l, STRV_MAKE("x")));
+        strv_free(l);
+
+        l = strv_parse_nulstr((const char[3]) { 0, 0, 0 }, 3);
+        assert_se(l);
+        assert_se(strv_equal(l, STRV_MAKE("", "", "")));
+        strv_free(l);
+
+        l = strv_parse_nulstr((const char[3]) { 'x', 0, 0 }, 3);
+        assert_se(l);
+        assert_se(strv_equal(l, STRV_MAKE("x", "")));
+        strv_free(l);
+
+        l = strv_parse_nulstr((const char[3]) { 0, 'x', 0 }, 3);
+        assert_se(l);
+        assert_se(strv_equal(l, STRV_MAKE("", "x")));
+        strv_free(l);
+
+        l = strv_parse_nulstr((const char[3]) { 0, 0, 'x' }, 3);
+        assert_se(l);
+        assert_se(strv_equal(l, STRV_MAKE("", "", "x")));
+        strv_free(l);
+
+        l = strv_parse_nulstr((const char[3]) { 'x', 'x', 0 }, 3);
+        assert_se(l);
+        assert_se(strv_equal(l, STRV_MAKE("xx")));
+        strv_free(l);
+
+        l = strv_parse_nulstr((const char[3]) { 0, 'x', 'x' }, 3);
+        assert_se(l);
+        assert_se(strv_equal(l, STRV_MAKE("", "xx")));
+        strv_free(l);
+
+        l = strv_parse_nulstr((const char[3]) { 'x', 0, 'x' }, 3);
+        assert_se(l);
+        assert_se(strv_equal(l, STRV_MAKE("x", "x")));
+        strv_free(l);
+
+        l = strv_parse_nulstr((const char[3]) { 'x', 'x', 'x' }, 3);
+        assert_se(l);
+        assert_se(strv_equal(l, STRV_MAKE("xxx")));
+}
+
+static void test_strv_make_nulstr_one(char **l) {
+        _cleanup_free_ char *b = NULL, *c = NULL;
+        _cleanup_strv_free_ char **q = NULL;
+        size_t n, m;
+        unsigned i = 0;
+
+        log_info("/* %s */", __func__);
+
+        assert_se(strv_make_nulstr(l, &b, &n) >= 0);
+        assert_se(q = strv_parse_nulstr(b, n));
+        assert_se(strv_equal(l, q));
+
+        assert_se(strv_make_nulstr(q, &c, &m) >= 0);
+        assert_se(memcmp_nn(b, n, c, m) == 0);
+
+        NULSTR_FOREACH(s, b)
+                assert_se(streq(s, l[i++]));
+        assert_se(i == strv_length(l));
+}
+
+TEST(strv_make_nulstr) {
+        test_strv_make_nulstr_one(NULL);
+        test_strv_make_nulstr_one(STRV_MAKE(NULL));
+        test_strv_make_nulstr_one(STRV_MAKE("foo"));
+        test_strv_make_nulstr_one(STRV_MAKE("foo", "bar"));
+        test_strv_make_nulstr_one(STRV_MAKE("foo", "bar", "quuux"));
+}
+
+static void test_strv_make_nulstr_binary_one(char **l, const char *b, size_t n) {
+        _cleanup_strv_free_ char **z = NULL;
+        _cleanup_free_ char *a = NULL;
+        size_t m;
+
+        assert_se(strv_make_nulstr(l, &a, &m) >= 0);
+        assert_se(memcmp_nn(a, m, b, n) == 0);
+        assert_se(z = strv_parse_nulstr(a, m));
+        assert_se(strv_equal(l, z));
+}
+
+TEST(strv_make_nulstr_binary) {
+        test_strv_make_nulstr_binary_one(NULL, (const char[0]) {}, 0);
+        test_strv_make_nulstr_binary_one(STRV_MAKE(NULL), (const char[0]) {}, 0);
+        test_strv_make_nulstr_binary_one(STRV_MAKE(""), (const char[1]) { 0 }, 1);
+        test_strv_make_nulstr_binary_one(STRV_MAKE("", ""), (const char[2]) { 0, 0 }, 2);
+        test_strv_make_nulstr_binary_one(STRV_MAKE("x", ""), (const char[3]) { 'x', 0, 0 }, 3);
+        test_strv_make_nulstr_binary_one(STRV_MAKE("", "x"), (const char[3]) { 0, 'x', 0 }, 3);
+        test_strv_make_nulstr_binary_one(STRV_MAKE("", "", ""), (const char[3]) { 0, 0, 0 }, 3);
+        test_strv_make_nulstr_binary_one(STRV_MAKE("x", "", ""), (const char[4]) { 'x', 0, 0, 0 }, 4);
+        test_strv_make_nulstr_binary_one(STRV_MAKE("", "x", ""), (const char[4]) { 0, 'x', 0, 0 }, 4);
+        test_strv_make_nulstr_binary_one(STRV_MAKE("", "", "x"), (const char[4]) { 0, 0, 'x', 0 }, 4);
+        test_strv_make_nulstr_binary_one(STRV_MAKE("x", "x", ""), (const char[5]) { 'x', 0, 'x', 0, 0 }, 5);
+        test_strv_make_nulstr_binary_one(STRV_MAKE("", "x", "x"), (const char[5]) { 0, 'x', 0, 'x', 0 }, 5);
+        test_strv_make_nulstr_binary_one(STRV_MAKE("x", "", "x"), (const char[5]) { 'x', 0, 0, 'x', 0 }, 5);
+        test_strv_make_nulstr_binary_one(STRV_MAKE("x", "x", "x"), (const char[6]) { 'x', 0, 'x', 0, 'x', 0 }, 6);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
