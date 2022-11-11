@@ -84,7 +84,7 @@ static int print_status_info(StatusInfo *i) {
         if (!strv_isempty(kernel_locale)) {
                 log_warning("Warning: Settings on kernel command line override system locale settings in /etc/locale.conf.");
                 r = table_add_many(table,
-                                   TABLE_STRING, "Command Line:",
+                                   TABLE_FIELD, "Command Line",
                                    TABLE_SET_COLOR, ansi_highlight_yellow(),
                                    TABLE_STRV, kernel_locale,
                                    TABLE_SET_COLOR, ansi_highlight_yellow());
