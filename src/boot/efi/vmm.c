@@ -27,7 +27,7 @@ bool is_direct_boot(EFI_HANDLE device) {
         /* 'qemu -kernel systemd-bootx64.efi' */
         if (dp->Header.Type == MEDIA_DEVICE_PATH &&
             dp->Header.SubType == MEDIA_VENDOR_DP &&
-            memcmp(&dp->Guid, &(EFI_GUID)QEMU_KERNEL_LOADER_FS_MEDIA_GUID, sizeof(EFI_GUID)) == 0)
+            efi_guid_equal(&dp->Guid, &(EFI_GUID)QEMU_KERNEL_LOADER_FS_MEDIA_GUID))
                 return true;
 
         /* loaded from firmware volume (sd-boot added to ovmf) */
