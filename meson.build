@@ -374,7 +374,6 @@ possible_common_cc_flags = [
         '-Wlogical-op',
         '-Wmissing-include-dirs',
         '-Wmissing-noreturn',
-        '-Wnested-externs',
         '-Wold-style-definition',
         '-Wpointer-arith',
         '-Wredundant-decls',
