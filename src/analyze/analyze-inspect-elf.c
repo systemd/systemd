@@ -34,17 +34,13 @@ static int analyze_elf(char **filenames, JsonFormatFlags json_flags) {
                 if (r < 0)
                         return log_error_errno(r, "Parsing \"%s\" as ELF object failed: %m", abspath);
 
-                t = table_new("", "");
+                t = table_new_vertical();
                 if (!t)
                         return log_oom();
 
-                r = table_set_align_percent(t, TABLE_HEADER_CELL(0), 100);
-                if (r < 0)
-                        return table_log_add_error(r);
-
                 r = table_add_many(
                                 t,
-                                TABLE_STRING, "path:",
+                                TABLE_FIELD, "Path",
                                 TABLE_STRING, abspath);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -62,15 +58,9 @@ static int analyze_elf(char **filenames, JsonFormatFlags json_flags) {
                                  * metadata is parsed recursively in core files, so there might be
                                  * multiple modules. */
                                 if (STR_IN_SET(module_name, "elfType", "elfArchitecture")) {
-                                        _cleanup_free_ char *suffixed = NULL;
-
-                                        suffixed = strjoin(module_name, ":");
-                                        if (!suffixed)
-                                                return log_oom();
-
                                         r = table_add_many(
                                                         t,
-                                                        TABLE_STRING, suffixed,
+                                                        TABLE_FIELD, module_name,
                                                         TABLE_STRING, json_variant_string(module_json));
                                         if (r < 0)
                                                 return table_log_add_error(r);
@@ -91,7 +81,7 @@ static int analyze_elf(char **filenames, JsonFormatFlags json_flags) {
                                 if (!streq(abspath, module_name)) {
                                         r = table_add_many(
                                                         t,
-                                                        TABLE_STRING, "module name:",
+                                                        TABLE_FIELD, "Module name",
                                                         TABLE_STRING, module_name);
                                         if (r < 0)
                                                 return table_log_add_error(r);
@@ -99,15 +89,9 @@ static int analyze_elf(char **filenames, JsonFormatFlags json_flags) {
 
                                 JSON_VARIANT_OBJECT_FOREACH(field_name, field, module_json)
                                         if (json_variant_is_string(field)) {
-                                                _cleanup_free_ char *suffixed = NULL;
-
-                                                suffixed = strjoin(field_name, ":");
-                                                if (!suffixed)
-                                                        return log_oom();
-
                                                 r = table_add_many(
                                                                 t,
-                                                                TABLE_STRING, suffixed,
+                                                                TABLE_FIELD, field_name,
                                                                 TABLE_STRING, json_variant_string(field));
                                                 if (r < 0)
                                                         return table_log_add_error(r);
@@ -115,8 +99,6 @@ static int analyze_elf(char **filenames, JsonFormatFlags json_flags) {
                         }
                 }
                 if (json_flags & JSON_FORMAT_OFF) {
-                        (void) table_set_header(t, true);
-
                         r = table_print(t, NULL);
                         if (r < 0)
                                 return table_log_print_error(r);
