@@ -64,11 +64,11 @@ void microhttpd_logger(void *arg, const char *fmt, va_list ap) _printf_(2, 0);
 
 int mhd_respondf(struct MHD_Connection *connection,
                  int error,
-                 unsigned code,
+                 enum MHD_RequestTerminationCode code,
                  const char *format, ...) _printf_(4,5);
 
 int mhd_respond(struct MHD_Connection *connection,
-                unsigned code,
+                enum MHD_RequestTerminationCode code,
                 const char *message);
 
 int mhd_respond_oom(struct MHD_Connection *connection);
