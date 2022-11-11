@@ -263,7 +263,23 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
 
         /* Update the random seed on disk before we use it */
         size = sizeof(random_bytes);
+        /* If the file size is too large, zero out the remaining bytes on disk, and then truncate. */
         if (size < info->FileSize) {
+                err = handle->SetPosition(handle, size);
+                if (err != EFI_SUCCESS)
+                        return log_error_status_stall(err, L"Failed to seek to offset of random seed file: %r", err);
+                wsize = info->FileSize - size;
+                err = handle->Write(handle, &wsize, seed /* All zeros now */);
+                if (err != EFI_SUCCESS)
+                        return log_error_status_stall(err, L"Failed to write random seed file: %r", err);
+                if (wsize != info->FileSize - size)
+                        return log_error_status_stall(EFI_PROTOCOL_ERROR, L"Short write on random seed file.");
+                err = handle->Flush(handle);
+                if (err != EFI_SUCCESS)
+                        return log_error_status_stall(err, L"Failed to flush random seed file: %r", err);
+                err = handle->SetPosition(handle, 0);
+                if (err != EFI_SUCCESS)
+                        return log_error_status_stall(err, L"Failed to seek to beginning of random seed file: %r", err);
                 info->FileSize = size;
                 err = handle->SetInfo(handle, &GenericFileInfo, info->Size, info);
                 if (err != EFI_SUCCESS)
