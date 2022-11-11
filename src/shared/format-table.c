@@ -132,6 +132,8 @@ struct Table {
         size_t n_cells;
 
         bool header;   /* Whether to show the header row? */
+        bool vertical; /* Whether to field names are on the left rather than the first line */
+
         TableErsatz ersatz; /* What to show when we have an empty cell or an invalid value that cannot be rendered. */
 
         size_t width;  /* If == 0 format this as wide as necessary. If SIZE_MAX format this to console
@@ -216,6 +218,38 @@ Table *table_new_internal(const char *first_header, ...) {
         return TAKE_PTR(t);
 }
 
+Table *table_new_vertical(void) {
+        _cleanup_(table_unrefp) Table *t = NULL;
+        TableCell *cell;
+
+        t = table_new_raw(2);
+        if (!t)
+                return NULL;
+
+        t->vertical = true;
+        t->header = false;
+
+        if (table_add_cell(t, &cell, TABLE_STRING, "key") < 0)
+                return NULL;
+
+        if (table_set_uppercase(t, cell, true) < 0)
+                return NULL;
+
+        if (table_set_align_percent(t, cell, 100) < 0)
+                return NULL;
+
+        if (table_add_cell(t, &cell, TABLE_STRING, "value") < 0)
+                return NULL;
+
+        if (table_set_uppercase(t, cell, true) < 0)
+                return NULL;
+
+        if (table_set_align_percent(t, cell, 0) < 0)
+                return NULL;
+
+        return TAKE_PTR(t);
+}
+
 static TableData *table_data_free(TableData *d) {
         assert(d);
 
@@ -260,6 +294,7 @@ static size_t table_data_size(TableDataType type, const void *data) {
 
         case TABLE_STRING:
         case TABLE_PATH:
+        case TABLE_FIELD:
                 return strlen(data) + 1;
 
         case TABLE_STRV:
@@ -840,6 +875,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
 
                 case TABLE_STRING:
                 case TABLE_PATH:
+                case TABLE_FIELD:
                         data = va_arg(ap, const char *);
                         break;
 
@@ -1241,6 +1277,7 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                 switch (a->type) {
 
                 case TABLE_STRING:
+                case TABLE_FIELD:
                         return strcmp(a->string, b->string);
 
                 case TABLE_PATH:
@@ -1416,20 +1453,33 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
 
         case TABLE_STRING:
         case TABLE_PATH:
+        case TABLE_FIELD:
                 if (d->uppercase && !avoid_uppercasing) {
-                        d->formatted = new(char, strlen(d->string) + 1);
+                        d->formatted = new(char, strlen(d->string) + (d->type == TABLE_FIELD) + 1);
                         if (!d->formatted)
                                 return NULL;
 
                         char *q = d->formatted;
-                        for (char *p = d->string; *p; p++, q++)
-                                *q = (char) toupper((unsigned char) *p);
+                        for (char *p = d->string; *p; p++)
+                                *(q++) = (char) toupper((unsigned char) *p);
+
+                        if (d->type == TABLE_FIELD)
+                                *(q++) = ':';
+
                         *q = 0;
-
                         return d->formatted;
-                }
+                } else {
+                        if (d->type == TABLE_FIELD) {
+                                d->formatted = strjoin(d->string, ":");
+                                if (!d->formatted)
+                                        return NULL;
 
-                return d->string;
+                                return d->formatted;
+                        }
+
+                        return d->string;
+                }
+                break;
 
         case TABLE_STRV:
                 if (strv_isempty(d->strv))
@@ -1982,6 +2032,9 @@ static const char* table_data_color(TableData *d) {
         if (table_data_isempty(d))
                 return ansi_grey();
 
+        if (d->type == TABLE_FIELD)
+                return ansi_bright_blue();
+
         return NULL;
 }
 
@@ -2494,6 +2547,7 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
 
         case TABLE_STRING:
         case TABLE_PATH:
+        case TABLE_FIELD:
                 return json_variant_new_string(ret, d->string);
 
         case TABLE_STRV:
@@ -2629,21 +2683,23 @@ static char* string_to_json_field_name(const char *f) {
         return c;
 }
 
-static const char *table_get_json_field_name(Table *t, size_t column) {
+static const char *table_get_json_field_name(Table *t, size_t idx) {
         assert(t);
 
-        return column < t->n_json_fields ? t->json_fields[column] : NULL;
+        return idx < t->n_json_fields ? t->json_fields[idx] : NULL;
 }
 
-int table_to_json(Table *t, JsonVariant **ret) {
+static int table_to_json_regular(Table *t, JsonVariant **ret) {
         JsonVariant **rows = NULL, **elements = NULL;
         _cleanup_free_ size_t *sorted = NULL;
         size_t n_rows, display_columns;
         int r;
 
         assert(t);
+        assert(!t->vertical);
 
         /* Ensure we have no incomplete rows */
+        assert(t->n_columns > 0);
         assert(t->n_cells % t->n_columns == 0);
 
         n_rows = t->n_cells / t->n_columns;
@@ -2761,6 +2817,84 @@ finish:
         return r;
 }
 
+static int table_to_json_vertical(Table *t, JsonVariant **ret) {
+        JsonVariant **elements = NULL;
+        size_t n_elements = 0;
+        int r;
+
+        assert(t);
+        assert(t->vertical);
+
+        if (t->n_columns != 2)
+                return -EINVAL;
+
+        /* Ensure we have no incomplete rows */
+        assert(t->n_cells % t->n_columns == 0);
+
+        elements = new0(JsonVariant *, t->n_cells);
+        if (!elements) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        for (size_t i = t->n_columns; i < t->n_cells; i++) {
+
+                if (i % t->n_columns == 0) {
+                        _cleanup_free_ char *mangled = NULL;
+                        const char *n;
+
+                        n = table_get_json_field_name(t, i / t->n_columns - 1);
+                        if (!n) {
+                                TableData *d = ASSERT_PTR(t->data[i]);
+
+                                if (d->type == TABLE_FIELD)
+                                        n = d->string;
+                                else {
+                                        n = table_data_format(t, d, /* avoid_uppercasing= */ true, SIZE_MAX, NULL);
+                                        if (!n) {
+                                                r = -ENOMEM;
+                                                goto finish;
+                                        }
+                                }
+
+                                mangled = string_to_json_field_name(n);
+                                if (!mangled) {
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                n = mangled;
+                        }
+
+                        r = json_variant_new_string(elements + n_elements, n);
+                } else
+                        r = table_data_to_json(t->data[i], elements + n_elements);
+                if (r < 0)
+                        goto finish;
+
+                n_elements++;
+        }
+
+        r = json_variant_new_object(ret, elements, n_elements);
+
+finish:
+        if (elements) {
+                json_variant_unref_many(elements, n_elements);
+                free(elements);
+        }
+
+        return r;
+}
+
+int table_to_json(Table *t, JsonVariant **ret) {
+        assert(t);
+
+        if (t->vertical)
+                return table_to_json_vertical(t, ret);
+
+        return table_to_json_regular(t, ret);
+}
+
 int table_print_json(Table *t, FILE *f, JsonFormatFlags flags) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         int r;
@@ -2809,7 +2943,7 @@ int table_print_with_pager(
         return 0;
 }
 
-int table_set_json_field_name(Table *t, size_t column, const char *name) {
+int table_set_json_field_name(Table *t, size_t idx, const char *name) {
         int r;
 
         assert(t);
@@ -2817,21 +2951,21 @@ int table_set_json_field_name(Table *t, size_t column, const char *name) {
         if (name) {
                 size_t m;
 
-                m = MAX(column + 1, t->n_json_fields);
+                m = MAX(idx + 1, t->n_json_fields);
                 if (!GREEDY_REALLOC0(t->json_fields, m))
                         return -ENOMEM;
 
-                r = free_and_strdup(t->json_fields + column, name);
+                r = free_and_strdup(t->json_fields + idx, name);
                 if (r < 0)
                         return r;
 
                 t->n_json_fields = m;
                 return r;
         } else {
-                if (column >= t->n_json_fields)
+                if (idx >= t->n_json_fields)
                         return 0;
 
-                t->json_fields[column] = mfree(t->json_fields[column]);
+                t->json_fields[idx] = mfree(t->json_fields[idx]);
                 return 1;
         }
 }
