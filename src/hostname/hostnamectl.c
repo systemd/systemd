@@ -82,20 +82,17 @@ static int print_status_info(StatusInfo *i) {
 
         assert(i);
 
-        table = table_new("key", "value");
+        table = table_new_vertical();
         if (!table)
                 return log_oom();
 
         assert_se(cell = table_get_cell(table, 0, 0));
         (void) table_set_ellipsize_percent(table, cell, 100);
-        (void) table_set_align_percent(table, cell, 100);
-
-        table_set_header(table, false);
 
         table_set_ersatz_string(table, TABLE_ERSATZ_UNSET);
 
         r = table_add_many(table,
-                           TABLE_STRING, "Static hostname:",
+                           TABLE_FIELD, "Static hostname",
                            TABLE_STRING, i->static_hostname);
         if (r < 0)
                 return table_log_add_error(r);
@@ -103,7 +100,7 @@ static int print_status_info(StatusInfo *i) {
         if (!isempty(i->pretty_hostname) &&
             !streq_ptr(i->pretty_hostname, i->static_hostname)) {
                 r = table_add_many(table,
-                                   TABLE_STRING, "Pretty hostname:",
+                                   TABLE_FIELD, "Pretty hostname",
                                    TABLE_STRING, i->pretty_hostname);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -112,7 +109,7 @@ static int print_status_info(StatusInfo *i) {
         if (!isempty(i->hostname) &&
             !streq_ptr(i->hostname, i->static_hostname)) {
                 r = table_add_many(table,
-                                   TABLE_STRING, "Transient hostname:",
+                                   TABLE_FIELD, "Transient hostname",
                                    TABLE_STRING, i->hostname);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -120,7 +117,7 @@ static int print_status_info(StatusInfo *i) {
 
         if (!isempty(i->icon_name)) {
                 r = table_add_many(table,
-                                   TABLE_STRING, "Icon name:",
+                                   TABLE_FIELD, "Icon name",
                                    TABLE_STRING, i->icon_name);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -134,7 +131,7 @@ static int print_status_info(StatusInfo *i) {
                         v = strjoina(i->chassis, " ", v);
 
                 r = table_add_many(table,
-                                   TABLE_STRING, "Chassis:",
+                                   TABLE_FIELD, "Chassis",
                                    TABLE_STRING, v ?: i->chassis);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -142,7 +139,7 @@ static int print_status_info(StatusInfo *i) {
 
         if (!isempty(i->deployment)) {
                 r = table_add_many(table,
-                                   TABLE_STRING, "Deployment:",
+                                   TABLE_FIELD, "Deployment",
                                    TABLE_STRING, i->deployment);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -150,7 +147,7 @@ static int print_status_info(StatusInfo *i) {
 
         if (!isempty(i->location)) {
                 r = table_add_many(table,
-                                   TABLE_STRING, "Location:",
+                                   TABLE_FIELD, "Location",
                                    TABLE_STRING, i->location);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -159,7 +156,7 @@ static int print_status_info(StatusInfo *i) {
         r = sd_id128_get_machine(&mid);
         if (r >= 0) {
                 r = table_add_many(table,
-                                   TABLE_STRING, "Machine ID:",
+                                   TABLE_FIELD, "Machine ID",
                                    TABLE_ID128, mid);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -168,7 +165,7 @@ static int print_status_info(StatusInfo *i) {
         r = sd_id128_get_boot(&bid);
         if (r >= 0) {
                 r = table_add_many(table,
-                                   TABLE_STRING, "Boot ID:",
+                                   TABLE_FIELD, "Boot ID",
                                    TABLE_ID128, bid);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -176,7 +173,7 @@ static int print_status_info(StatusInfo *i) {
 
         if (!isempty(i->virtualization)) {
                 r = table_add_many(table,
-                                   TABLE_STRING, "Virtualization:",
+                                   TABLE_FIELD, "Virtualization",
                                    TABLE_STRING, i->virtualization);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -184,7 +181,7 @@ static int print_status_info(StatusInfo *i) {
 
         if (!isempty(i->os_pretty_name)) {
                 r = table_add_many(table,
-                                   TABLE_STRING, "Operating System:",
+                                   TABLE_FIELD, "Operating System",
                                    TABLE_STRING, i->os_pretty_name,
                                    TABLE_SET_URL, i->home_url);
                 if (r < 0)
@@ -193,7 +190,7 @@ static int print_status_info(StatusInfo *i) {
 
         if (!isempty(i->os_cpe_name)) {
                 r = table_add_many(table,
-                                   TABLE_STRING, "CPE OS Name:",
+                                   TABLE_FIELD, "CPE OS Name",
                                    TABLE_STRING, i->os_cpe_name);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -204,7 +201,7 @@ static int print_status_info(StatusInfo *i) {
 
                 v = strjoina(i->kernel_name, " ", i->kernel_release);
                 r = table_add_many(table,
-                                   TABLE_STRING, "Kernel:",
+                                   TABLE_FIELD, "Kernel",
                                    TABLE_STRING, v);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -212,7 +209,7 @@ static int print_status_info(StatusInfo *i) {
 
         if (!isempty(i->architecture)) {
                 r = table_add_many(table,
-                                   TABLE_STRING, "Architecture:",
+                                   TABLE_FIELD, "Architecture",
                                    TABLE_STRING, i->architecture);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -220,7 +217,7 @@ static int print_status_info(StatusInfo *i) {
 
         if (!isempty(i->hardware_vendor)) {
                 r = table_add_many(table,
-                                   TABLE_STRING, "Hardware Vendor:",
+                                   TABLE_FIELD, "Hardware Vendor",
                                    TABLE_STRING, i->hardware_vendor);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -228,7 +225,7 @@ static int print_status_info(StatusInfo *i) {
 
         if (!isempty(i->hardware_model)) {
                 r = table_add_many(table,
-                                   TABLE_STRING, "Hardware Model:",
+                                   TABLE_FIELD, "Hardware Model",
                                    TABLE_STRING, i->hardware_model);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -236,7 +233,7 @@ static int print_status_info(StatusInfo *i) {
 
         if (!isempty(i->firmware_version)) {
                 r = table_add_many(table,
-                                   TABLE_STRING, "Firmware Version:",
+                                   TABLE_FIELD, "Firmware Version",
                                    TABLE_STRING, i->firmware_version);
                 if (r < 0)
                         return table_log_add_error(r);
