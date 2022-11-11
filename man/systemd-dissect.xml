@@ -52,7 +52,7 @@
     <title>Description</title>
 
     <para><command>systemd-dissect</command> is a tool for introspecting and interacting with file system OS
-    disk images, specifically Discoverable Disk Images (DDIs). It supports five different operations:</para>
+    disk images, specifically Discoverable Disk Images (DDIs). It supports four different operations:</para>
 
     <orderedlist>
       <listitem><para>Show general OS image information, including the image's
