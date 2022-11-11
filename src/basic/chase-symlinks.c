@@ -460,9 +460,7 @@ int chase_symlinks(
                                               SYNTHETIC_ERRNO(ECHRNG),
                                               "Specified path '%s' is outside of specified root directory '%s', refusing to resolve.",
                                               absolute, root);
-        }
 
-        if (root) {
                 fd = open(root, O_CLOEXEC|O_DIRECTORY|O_PATH);
                 if (fd < 0)
                         return -errno;
