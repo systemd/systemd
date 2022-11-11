@@ -113,6 +113,10 @@ static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **pa
         if (r < 0)
                 return r;
 
+        /* chop off the final NUL byte. We do this because we want to use the separator NUL bytes only if we
+         * have multiple passwords. */
+        n = LESS_BY(n, (size_t) 1);
+
         serial = add_key("user", keyname, p, n, KEY_SPEC_USER_KEYRING);
         if (serial == -1)
                 return -errno;
