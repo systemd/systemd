@@ -133,7 +133,7 @@ static EFI_STATUS try_gpt(
                 EFI_PARTITION_ENTRY *entry =
                                 (EFI_PARTITION_ENTRY *) ((uint8_t *) entries + gpt.gpt_header.SizeOfPartitionEntry * i);
 
-                if (memcmp(&entry->PartitionTypeGUID, XBOOTLDR_GUID, sizeof(entry->PartitionTypeGUID)) != 0)
+                if (!efi_guid_equal(&entry->PartitionTypeGUID, XBOOTLDR_GUID))
                         continue;
 
                 if (entry->EndingLBA < entry->StartingLBA) /* Bogus? */
