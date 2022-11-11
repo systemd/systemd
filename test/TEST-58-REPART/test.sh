@@ -13,6 +13,7 @@ test_append_files() {
         if command -v openssl >/dev/null 2>&1; then
             inst_binary openssl
         fi
+        inst_binary mcopy
         instmods dm_verity =md
         generate_module_dependencies
     fi
