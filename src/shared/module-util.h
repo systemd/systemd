@@ -10,3 +10,4 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(struct kmod_module*, kmod_module_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct kmod_list*, kmod_module_unref_list, NULL);
 
 int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose);
+int module_load_and_warn_with_blacklist(struct kmod_ctx *ctx, const char *module, char * const *blacklist, bool verbose);
