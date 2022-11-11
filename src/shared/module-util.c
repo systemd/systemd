@@ -3,8 +3,9 @@
 #include <errno.h>
 
 #include "module-util.h"
+#include "strv.h"
 
-int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose) {
+int module_load_and_warn_with_blacklist(struct kmod_ctx *ctx, const char *module, char * const *blacklist, bool verbose) {
         const int probe_flags = KMOD_PROBE_APPLY_BLACKLIST;
         struct kmod_list *itr;
         _cleanup_(kmod_module_unref_listp) struct kmod_list *modlist = NULL;
@@ -43,6 +44,22 @@ int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose)
                         break;
 
                 default:
+                        if (blacklist) {
+                                STRV_FOREACH(i, blacklist) {
+                                        _cleanup_(kmod_module_unrefp) struct kmod_module *mod_blacklisted = NULL;
+                                        r = kmod_module_new_from_name(ctx, *i, &mod_blacklisted);
+                                        if (r < 0)
+                                                break;
+
+                                        if (streq(kmod_module_get_name(mod),
+                                                    kmod_module_get_name(mod_blacklisted))) {
+                                                log_full(verbose ? LOG_INFO : LOG_DEBUG,
+                                                         "Module '%s' is blacklisted", kmod_module_get_name(mod_blacklisted));
+                                                return 0;
+                                        }
+                                }
+                        }
+
                         err = kmod_module_probe_insert_module(mod, probe_flags,
                                                               NULL, NULL, NULL, NULL);
                         if (err == 0)
@@ -68,4 +85,8 @@ int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose)
         }
 
         return r;
+}
+
+int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose) {
+        return module_load_and_warn_with_blacklist(ctx, module, NULL, verbose);
 }
