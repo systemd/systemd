@@ -38,10 +38,6 @@ static int analyze_elf(char **filenames, JsonFormatFlags json_flags) {
                 if (!t)
                         return log_oom();
 
-                r = table_set_align_percent(t, TABLE_HEADER_CELL(0), 100);
-                if (r < 0)
-                        return table_log_add_error(r);
-
                 r = table_add_many(
                                 t,
                                 TABLE_FIELD, "path",
