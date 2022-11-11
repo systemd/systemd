@@ -161,7 +161,7 @@ static EFI_STATUS acquire_system_token(void **ret, UINTN *ret_size) {
         assert(ret);
         assert(ret_size);
 
-        err = efivar_get_raw(&MAKE_GUID(LOADER), u"LoaderSystemToken", &data, &size);
+        err = efivar_get_raw(MAKE_GUID(LOADER), u"LoaderSystemToken", &data, &size);
         if (err != EFI_SUCCESS) {
                 if (err != EFI_NOT_FOUND)
                         log_error_stall(L"Failed to read LoaderSystemToken EFI variable: %r", err);
@@ -311,7 +311,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
                 return log_error_status_stall(err, L"Failed to flush random seed file: %r", err);
 
         /* We are good to go */
-        err = efivar_set_raw(&MAKE_GUID(LOADER), u"LoaderRandomSeed", for_kernel, size, 0);
+        err = efivar_set_raw(MAKE_GUID(LOADER), u"LoaderRandomSeed", for_kernel, size, 0);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to write random seed to EFI variable: %r", err);
 
