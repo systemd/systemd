@@ -557,6 +557,8 @@ tests += [
 
         [files('test-strv.c')],
 
+        [files('test-nulstr-util.c')],
+
         [files('test-path-util.c')],
 
         [files('test-rm-rf.c')],

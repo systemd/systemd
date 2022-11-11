@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 
+#include "nulstr-util.h"
 #include "strbuf.h"
 #include "string-util.h"
 #include "strv.h"
