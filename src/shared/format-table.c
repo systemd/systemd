@@ -512,18 +512,20 @@ int table_add_cell_full(
         return 0;
 }
 
-int table_add_cell_stringf(Table *t, TableCell **ret_cell, const char *format, ...) {
+int table_add_cellf(Table *t, TableCell **ret_cell, TableDataType type, const char *format, ...) {
         _cleanup_free_ char *buffer = NULL;
         va_list ap;
         int r;
 
         va_start(ap, format);
+
         r = vasprintf(&buffer, format, ap);
-        va_end(ap);
         if (r < 0)
                 return -ENOMEM;
 
-        return table_add_cell(t, ret_cell, TABLE_STRING, buffer);
+        va_end(ap);
+
+        return table_add_cell(t, ret_cell, type, buffer);
 }
 
 int table_fill_empty(Table *t, size_t until_column) {
