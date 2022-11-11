@@ -152,7 +152,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         err = BS->OpenProtocol(
                         image,
-                        &LoadedImageProtocol,
+                        &MAKE_GUID(EFI_LOADED_IMAGE_PROTOCOL),
                         (void **)&loaded_image,
                         image,
                         NULL,

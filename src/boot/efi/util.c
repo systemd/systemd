@@ -495,11 +495,11 @@ EFI_STATUS get_file_info_harder(
         /* A lot like LibFileInfo() but with useful error propagation */
 
         fi = xmalloc(size);
-        err = handle->GetInfo(handle, &GenericFileInfo, &size, fi);
+        err = handle->GetInfo(handle, &MAKE_GUID(EFI_FILE_INFO), &size, fi);
         if (err == EFI_BUFFER_TOO_SMALL) {
                 free(fi);
                 fi = xmalloc(size);  /* GetInfo tells us the required size, let's use that now */
-                err = handle->GetInfo(handle, &GenericFileInfo, &size, fi);
+                err = handle->GetInfo(handle, &MAKE_GUID(EFI_FILE_INFO), &size, fi);
         }
 
         if (err != EFI_SUCCESS)
@@ -723,7 +723,7 @@ EFI_STATUS open_volume(EFI_HANDLE device, EFI_FILE **ret_file) {
 
         assert(ret_file);
 
-        err = BS->HandleProtocol(device, &FileSystemProtocol, (void **) &volume);
+        err = BS->HandleProtocol(device, &MAKE_GUID(EFI_SIMPLE_FILE_SYSTEM_PROTOCOL), (void **) &volume);
         if (err != EFI_SUCCESS)
                 return err;
 
@@ -742,7 +742,7 @@ EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DE
         assert(file);
         assert(ret_dp);
 
-        err = BS->HandleProtocol(device, &DevicePathProtocol, (void **) &dp);
+        err = BS->HandleProtocol(device, &MAKE_GUID(EFI_DEVICE_PATH_PROTOCOL), (void **) &dp);
         if (err != EFI_SUCCESS)
                 return err;
 

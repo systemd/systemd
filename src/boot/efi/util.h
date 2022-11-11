@@ -131,6 +131,7 @@ static inline void unload_imagep(EFI_HANDLE *image) {
 
 #define MAKE_GUID(GUID) ((EFI_GUID) GUID##_GUID)
 #define EFI_GLOBAL_GUID EFI_GLOBAL_VARIABLE
+#define EFI_FILE_INFO_GUID EFI_FILE_INFO_ID
 
 /*
  * Allocated random UUID, intended to be shared across tools that implement

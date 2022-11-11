@@ -89,7 +89,7 @@ static EFIAPI EFI_STATUS security_hook(
 
         EFI_HANDLE device_handle;
         EFI_DEVICE_PATH *dp = (EFI_DEVICE_PATH *) device_path;
-        err = BS->LocateDevicePath(&FileSystemProtocol, &dp, &device_handle);
+        err = BS->LocateDevicePath(&MAKE_GUID(EFI_SIMPLE_FILE_SYSTEM_PROTOCOL), &dp, &device_handle);
         if (err != EFI_SUCCESS)
                 return err;
 
