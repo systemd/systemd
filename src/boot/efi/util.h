@@ -10,6 +10,28 @@
 #define UINTN_MAX (~(UINTN)0)
 #define INTN_MAX ((INTN)(UINTN_MAX>>1))
 
+#ifdef __OPTIMIZE__
+#ifndef __has_attribute
+#define __has_attribute(x) 0
+#endif
+#if __has_attribute(__error__)
+#define __assert_cl_error(msg) __attribute__((__error__(msg)))
+#else
+#define __assert_cl_error(msg)
+#endif
+#define __assert_cl(condition, msg, val) \
+        do { \
+                __attribute__((noreturn)) extern void __assert_cl_ ## val(void) __assert_cl_error(msg); \
+                if (!(condition)) \
+                        __assert_cl_ ## val(); \
+        } while (0)
+#else
+#define __assert_cl(condition, msg, val) assert(condition)
+#endif
+#define _assert_cl(condition, msg, val) __assert_cl(condition, msg, val)
+/* assert_cl generates a later-stage compile-time assertion when constant folding occurs. */
+#define assert_cl(condition) _assert_cl(condition, # condition, __COUNTER__)
+
 /* gnu-efi format specifiers for integers are fixed to either 64bit with 'l' and 32bit without a size prefix.
  * We rely on %u/%d/%x to format regular ints, so ensure the size is what we expect. At the same time, we also
  * need specifiers for (U)INTN which are native (pointer) sized. */
@@ -42,6 +64,16 @@ static inline void freep(void *p) {
 }
 
 #define _cleanup_free_ _cleanup_(freep)
+
+static inline void erase_obj(void *p) {
+        size_t l;
+        assert_cl(p != NULL);
+        l = __builtin_object_size(p, 0);
+        assert_cl(l != (size_t) -1);
+        explicit_bzero_safe(p, l);
+}
+
+#define _cleanup_erase_ _cleanup_(erase_obj)
 
 _malloc_ _alloc_(1) _returns_nonnull_ _warn_unused_result_
 static inline void *xmalloc(size_t size) {
