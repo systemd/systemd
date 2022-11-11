@@ -70,10 +70,15 @@ char** strv_split_nulstr(const char *s) {
 }
 
 int strv_make_nulstr(char * const *l, char **ret, size_t *ret_size) {
-        /* A valid nulstr with two NULs at the end will be created, but q will be the length without the two
-         * trailing NULs. Thus the output string is a valid nulstr and can be iterated over using
-         * NULSTR_FOREACH(), and can also be parsed by strv_parse_nulstr() as long as the length is provided
-         * separately. */
+        /* Builds a nulstr and returns it together with the size. An extra NUL byte will be appended (⚠️ but
+         * not included in the size! ⚠️). This is done so that the nulstr can be used both in
+         * strv_parse_nulstr() and in NULSTR_FOREACH()/strv_split_nulstr() contexts, i.e. with and without a
+         * size parameter. In the former case we can include empty strings, in the latter case we cannot (as
+         * that is the end marker).
+         *
+         * When NULSTR_FOREACH()/strv_split_nulstr() is used it is often assumed that the nulstr ends in two
+         * NUL bytes (which it will, if not empty). To ensure that this assumption *always* holds, we'll
+         * return a buffer with two NUL bytes in that case, but return a size of zero. */
 
         _cleanup_free_ char *m = NULL;
         size_t n = 0;
@@ -94,17 +99,18 @@ int strv_make_nulstr(char * const *l, char **ret, size_t *ret_size) {
         }
 
         if (!m) {
+                /* return a buffer with an extra NUL, so that the assumption that we always have two trailing NULs holds */
                 m = new0(char, 2);
                 if (!m)
                         return -ENOMEM;
-                n = 1;
+
+                n = 0;
         } else
-                /* make sure there is a second extra NUL at the end of resulting nulstr */
+                /* Make sure there is a second extra NUL at the end of resulting nulstr (not counted in return size) */
                 m[n] = '\0';
 
-        assert(n > 0);
         *ret = TAKE_PTR(m);
-        *ret_size = n - 1;
+        *ret_size = n;
 
         return 0;
 }
