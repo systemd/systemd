@@ -13,6 +13,7 @@
 #include "hashmap.h"
 #include "log.h"
 #include "macro.h"
+#include "nulstr-util.h"
 #include "path-util.h"
 #include "set.h"
 #include "sort-util.h"

@@ -37,6 +37,7 @@
 #include "missing_sched.h"
 #include "missing_syscall.h"
 #include "namespace-util.h"
+#include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"

@@ -34,6 +34,7 @@
 #include "memory-util.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
+#include "nulstr-util.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "signal-util.h"
