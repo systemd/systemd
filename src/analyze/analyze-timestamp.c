@@ -18,18 +18,12 @@ static int test_timestamp_one(const char *p) {
                 return r;
         }
 
-        table = table_new("name", "value");
+        table = table_new_vertical();
         if (!table)
                 return log_oom();
 
-        table_set_header(table, false);
-
         assert_se(cell = table_get_cell(table, 0, 0));
         r = table_set_ellipsize_percent(table, cell, 100);
-        if (r < 0)
-                return r;
-
-        r = table_set_align_percent(table, cell, 100);
         if (r < 0)
                 return r;
 
@@ -39,9 +33,9 @@ static int test_timestamp_one(const char *p) {
                 return r;
 
         r = table_add_many(table,
-                           TABLE_STRING, "Original form:",
+                           TABLE_FIELD, "Original form",
                            TABLE_STRING, p,
-                           TABLE_STRING, "Normalized form:",
+                           TABLE_FIELD, "Normalized form",
                            TABLE_TIMESTAMP, usec,
                            TABLE_SET_COLOR, ansi_highlight_blue());
         if (r < 0)
@@ -49,13 +43,13 @@ static int test_timestamp_one(const char *p) {
 
         if (!in_utc_timezone()) {
                 r = table_add_many(table,
-                                   TABLE_STRING, "(in UTC):",
+                                   TABLE_FIELD, "(in UTC)",
                                    TABLE_TIMESTAMP_UTC, usec);
                 if (r < 0)
                         return table_log_add_error(r);
         }
 
-        r = table_add_cell(table, NULL, TABLE_STRING, "UNIX seconds:");
+        r = table_add_cell(table, NULL, TABLE_FIELD, "UNIX seconds");
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -70,7 +64,7 @@ static int test_timestamp_one(const char *p) {
                 return r;
 
         r = table_add_many(table,
-                           TABLE_STRING, "From now:",
+                           TABLE_FIELD, "From now",
                            TABLE_TIMESTAMP_RELATIVE, usec);
         if (r < 0)
                 return table_log_add_error(r);
