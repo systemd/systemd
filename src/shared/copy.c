@@ -1539,7 +1539,6 @@ int copy_rights_with_fallback(int fdf, int fdt, const char *patht) {
 int copy_xattr(int fdf, int fdt, CopyFlags copy_flags) {
         _cleanup_free_ char *names = NULL;
         int ret = 0, r;
-        const char *p;
 
         r = flistxattr_malloc(fdf, &names);
         if (r < 0)

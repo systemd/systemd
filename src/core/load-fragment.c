@@ -6226,7 +6226,6 @@ void unit_dump_config_items(FILE *f) {
         };
 
         const char *prev = NULL;
-        const char *i;
 
         assert(f);
 

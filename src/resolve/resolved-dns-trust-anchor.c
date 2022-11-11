@@ -165,7 +165,6 @@ static int dns_trust_anchor_add_builtin_negative(DnsTrustAnchor *d) {
                 /* Defined by RFC 8375. The most official choice. */
                 "home.arpa\0";
 
-        const char *name;
         int r;
 
         assert(d);

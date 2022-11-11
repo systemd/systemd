@@ -515,7 +515,6 @@ int bpf_devices_allow_list_static(
                 "/run/systemd/inaccessible/blk\0" "rwm\0";
         int r = 0, k;
 
-        const char *node, *acc;
         NULSTR_FOREACH_PAIR(node, acc, auto_devices) {
                 k = bpf_devices_allow_list_device(prog, path, node, acc);
                 if (r >= 0 && k < 0)
