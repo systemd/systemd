@@ -19,9 +19,11 @@
 #include "strv.h"
 
 static char **arg_proc_cmdline_modules = NULL;
+static char **arg_proc_cmdline_modules_blacklisted = NULL;
 static const char conf_file_dirs[] = CONF_PATHS_NULSTR("modules-load.d");
 
 STATIC_DESTRUCTOR_REGISTER(arg_proc_cmdline_modules, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_proc_cmdline_modules_blacklisted, strv_freep);
 
 static void systemd_kmod_log(void *data, int priority, const char *file, int line,
                              const char *fn, const char *format, va_list args) {
@@ -44,6 +46,19 @@ static int add_modules(const char *p) {
         return 0;
 }
 
+static int blacklist_modules(const char *p) {
+        _cleanup_strv_free_ char **k = NULL;
+
+        k = strv_split(p, ",");
+        if (!k)
+                return log_oom();
+
+        if (strv_extend_strv(&arg_proc_cmdline_modules_blacklisted, k, true) < 0)
+                return log_oom();
+
+        return 0;
+}
+
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         int r;
 
@@ -53,6 +68,16 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return 0;
 
                 r = add_modules(value);
+                if (r < 0)
+                        return r;
+        }
+
+        if (proc_cmdline_key_streq(key, "module_blacklist")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = blacklist_modules(value);
                 if (r < 0)
                         return r;
         }
@@ -94,7 +119,7 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
                 if (strchr(COMMENTS, *l))
                         continue;
 
-                k = module_load_and_warn(ctx, l, true);
+                k = module_load_and_warn_with_blacklist(ctx, l, arg_proc_cmdline_modules_blacklisted, true);
                 if (k == -ENOENT)
                         continue;
                 if (k < 0 && r >= 0)
@@ -196,7 +221,7 @@ static int run(int argc, char *argv[]) {
                 _cleanup_strv_free_ char **files = NULL;
 
                 STRV_FOREACH(i, arg_proc_cmdline_modules) {
-                        k = module_load_and_warn(ctx, *i, true);
+                        k = module_load_and_warn_with_blacklist(ctx, *i, arg_proc_cmdline_modules_blacklisted, true);
                         if (k == -ENOENT)
                                 continue;
                         if (k < 0 && r == 0)
