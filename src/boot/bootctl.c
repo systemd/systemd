@@ -484,7 +484,7 @@ static int enumerate_binaries(
         assert(previous);
         assert(is_first);
 
-        r = chase_symlinks_and_opendir(path, esp_path, CHASE_PREFIX_ROOT, &p, &d);
+        r = chase_symlinks_and_opendir(path, esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, &p, &d);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -913,10 +913,10 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
         if (!p)
                 return log_oom();
 
-        r = chase_symlinks(p, root, CHASE_PREFIX_ROOT, &source_path, NULL);
+        r = chase_symlinks(p, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, &source_path, NULL);
         /* If we had a root directory to try, we didn't find it and we are in auto mode, retry on the host */
         if (r == -ENOENT && root && arg_install_source == ARG_INSTALL_SOURCE_AUTO)
-                r = chase_symlinks(p, NULL, CHASE_PREFIX_ROOT, &source_path, NULL);
+                r = chase_symlinks(p, NULL, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, &source_path, NULL);
         if (r < 0)
                 return log_error_errno(r,
                                        "Failed to resolve path %s%s%s: %m",
@@ -928,7 +928,7 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
         if (!q)
                 return log_oom();
 
-        r = chase_symlinks(q, esp_path, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &dest_path, NULL);
+        r = chase_symlinks(q, esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_NONEXISTENT, &dest_path, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve path %s under directory %s: %m", q, esp_path);
 
@@ -945,7 +945,7 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
                 v = strjoina("/EFI/BOOT/BOOT", e);
                 ascii_strupper(strrchr(v, '/') + 1);
 
-                r = chase_symlinks(v, esp_path, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &default_dest_path, NULL);
+                r = chase_symlinks(v, esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_NONEXISTENT, &default_dest_path, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve path %s under directory %s: %m", v, esp_path);
 
@@ -963,10 +963,10 @@ static int install_binaries(const char *esp_path, const char *arch, bool force) 
         _cleanup_free_ char *path = NULL;
         int r;
 
-        r = chase_symlinks_and_opendir(BOOTLIBDIR, root, CHASE_PREFIX_ROOT, &path, &d);
+        r = chase_symlinks_and_opendir(BOOTLIBDIR, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, &path, &d);
         /* If we had a root directory to try, we didn't find it and we are in auto mode, retry on the host */
         if (r == -ENOENT && root && arg_install_source == ARG_INSTALL_SOURCE_AUTO)
-                r = chase_symlinks_and_opendir(BOOTLIBDIR, NULL, CHASE_PREFIX_ROOT, &path, &d);
+                r = chase_symlinks_and_opendir(BOOTLIBDIR, NULL, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, &path, &d);
         if (r < 0)
                 return log_error_errno(r, "Failed to open boot loader directory %s%s: %m", strempty(root), BOOTLIBDIR);
 
@@ -1136,7 +1136,7 @@ static int install_variables(
                 return 0;
         }
 
-        r = chase_symlinks_and_access(path, esp_path, CHASE_PREFIX_ROOT, F_OK, NULL, NULL);
+        r = chase_symlinks_and_access(path, esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, F_OK, NULL, NULL);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -1167,7 +1167,7 @@ static int remove_boot_efi(const char *esp_path) {
         _cleanup_free_ char *p = NULL;
         int r, c = 0;
 
-        r = chase_symlinks_and_opendir("/EFI/BOOT", esp_path, CHASE_PREFIX_ROOT, &p, &d);
+        r = chase_symlinks_and_opendir("/EFI/BOOT", esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, &p, &d);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
