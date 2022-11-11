@@ -172,7 +172,7 @@ static EFI_STATUS find_device(EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_p
         assert(ret_device_path);
 
         EFI_DEVICE_PATH *partition_path;
-        err = BS->HandleProtocol(device, &DevicePathProtocol, (void **) &partition_path);
+        err = BS->HandleProtocol(device, &MAKE_GUID(EFI_DEVICE_PATH_PROTOCOL), (void **) &partition_path);
         if (err != EFI_SUCCESS)
                 return err;
 
@@ -197,11 +197,11 @@ static EFI_STATUS find_device(EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_p
 
         EFI_HANDLE disk_handle;
         EFI_BLOCK_IO_PROTOCOL *block_io;
-        err = BS->LocateDevicePath(&BlockIoProtocol, &p, &disk_handle);
+        err = BS->LocateDevicePath(&MAKE_GUID(EFI_BLOCK_IO_PROTOCOL), &p, &disk_handle);
         if (err != EFI_SUCCESS)
                 return err;
 
-        err = BS->HandleProtocol(disk_handle, &BlockIoProtocol, (void **)&block_io);
+        err = BS->HandleProtocol(disk_handle, &MAKE_GUID(EFI_BLOCK_IO_PROTOCOL), (void **)&block_io);
         if (err != EFI_SUCCESS)
                 return err;
 
@@ -267,7 +267,7 @@ EFI_STATUS xbootldr_open(EFI_HANDLE *device, EFI_HANDLE *ret_device, EFI_FILE **
                 return err;
 
         EFI_DEVICE_PATH *dp = partition_path;
-        err = BS->LocateDevicePath(&BlockIoProtocol, &dp, &new_device);
+        err = BS->LocateDevicePath(&MAKE_GUID(EFI_BLOCK_IO_PROTOCOL), &dp, &new_device);
         if (err != EFI_SUCCESS)
                 return err;
 

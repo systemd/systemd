@@ -1390,7 +1390,7 @@ static void config_entry_bump_counters(ConfigEntry *entry, EFI_FILE *root_dir) {
 
         /* And rename the file */
         strcpy16(file_info->FileName, entry->next_name);
-        err = handle->SetInfo(handle, &GenericFileInfo, file_info_size, file_info);
+        err = handle->SetInfo(handle, &MAKE_GUID(EFI_FILE_INFO), file_info_size, file_info);
         if (err != EFI_SUCCESS) {
                 log_error_stall(L"Failed to rename '%s' to '%s', ignoring: %r", old_path, entry->next_name, err);
                 return;
@@ -1960,7 +1960,8 @@ static void config_entry_add_osx(Config *config) {
         if (!config->auto_entries)
                 return;
 
-        err = BS->LocateHandleBuffer(ByProtocol, &FileSystemProtocol, NULL, &n_handles, &handles);
+        err = BS->LocateHandleBuffer(
+                        ByProtocol, &MAKE_GUID(EFI_SIMPLE_FILE_SYSTEM_PROTOCOL), NULL, &n_handles, &handles);
         if (err != EFI_SUCCESS)
                 return;
 
@@ -1995,7 +1996,7 @@ static EFI_STATUS boot_windows_bitlocker(void) {
         if (!tpm_present())
                 return EFI_NOT_FOUND;
 
-        err = BS->LocateHandleBuffer(ByProtocol, &BlockIoProtocol, NULL, &n_handles, &handles);
+        err = BS->LocateHandleBuffer(ByProtocol, &MAKE_GUID(EFI_BLOCK_IO_PROTOCOL), NULL, &n_handles, &handles);
         if (err != EFI_SUCCESS)
                 return err;
 
@@ -2003,7 +2004,7 @@ static EFI_STATUS boot_windows_bitlocker(void) {
         bool found = false;
         for (UINTN i = 0; i < n_handles; i++) {
                 EFI_BLOCK_IO_PROTOCOL *block_io;
-                err = BS->HandleProtocol(handles[i], &BlockIoProtocol, (void **) &block_io);
+                err = BS->HandleProtocol(handles[i], &MAKE_GUID(EFI_BLOCK_IO_PROTOCOL), (void **) &block_io);
                 if (err != EFI_SUCCESS || block_io->Media->BlockSize < 512 || block_io->Media->BlockSize > 4096)
                         continue;
 
@@ -2396,7 +2397,7 @@ static EFI_STATUS image_start(
                 return log_error_status_stall(err, L"Error registering initrd: %r", err);
 
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
-        err = BS->HandleProtocol(image, &LoadedImageProtocol, (void **) &loaded_image);
+        err = BS->HandleProtocol(image, &MAKE_GUID(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Error getting LoadedImageProtocol handle: %r", err);
 
@@ -2670,7 +2671,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         (void) reconnect_all_drivers();
 
         err = BS->OpenProtocol(image,
-                        &LoadedImageProtocol,
+                        &MAKE_GUID(EFI_LOADED_IMAGE_PROTOCOL),
                         (void **)&loaded_image,
                         image,
                         NULL,
@@ -2755,6 +2756,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
         err = EFI_SUCCESS;
 out:
-        BS->CloseProtocol(image, &LoadedImageProtocol, image, NULL);
+        BS->CloseProtocol(image, &MAKE_GUID(EFI_LOADED_IMAGE_PROTOCOL), image, NULL);
         return err;
 }
