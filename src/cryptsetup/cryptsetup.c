@@ -494,7 +494,7 @@ static char* disk_description(const char *path) {
                 "ID_MODEL\0";
 
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-        const char *i, *name;
+        const char *name;
         struct stat st;
 
         assert(path);

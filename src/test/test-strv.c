@@ -948,7 +948,6 @@ TEST(strv_extend_n) {
 static void test_strv_make_nulstr_one(char **l) {
         _cleanup_free_ char *b = NULL, *c = NULL;
         _cleanup_strv_free_ char **q = NULL;
-        const char *s = NULL;
         size_t n, m;
         unsigned i = 0;
 

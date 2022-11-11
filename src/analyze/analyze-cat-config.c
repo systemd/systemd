@@ -23,8 +23,6 @@ int verb_cat_config(int argc, char *argv[], void *userdata) {
                         print_separator();
 
                 if (path_is_absolute(*arg)) {
-                        const char *dir;
-
                         NULSTR_FOREACH(dir, CONF_PATHS_NULSTR("")) {
                                 t = path_startswith(*arg, dir);
                                 if (t)

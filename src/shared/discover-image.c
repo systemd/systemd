@@ -429,7 +429,6 @@ int image_find(ImageClass class,
                const char *root,
                Image **ret) {
 
-        const char *path;
         int r;
 
         assert(class >= 0);
@@ -533,7 +532,6 @@ int image_discover(
                 const char *root,
                 Hashmap *h) {
 
-        const char *path;
         int r;
 
         assert(class >= 0);
@@ -1261,8 +1259,6 @@ bool image_in_search_path(
                 ImageClass class,
                 const char *root,
                 const char *image) {
-
-        const char *path;
 
         assert(image);
 

@@ -2219,7 +2219,6 @@ static int copy_devnodes(const char *dest) {
                 "tty\0"
                 "net/tun\0";
 
-        const char *d;
         int r = 0;
 
         assert(dest);

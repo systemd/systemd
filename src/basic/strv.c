@@ -679,7 +679,6 @@ char** strv_parse_nulstr(const char *s, size_t l) {
 }
 
 char** strv_split_nulstr(const char *s) {
-        const char *i;
         char **r = NULL;
 
         NULSTR_FOREACH(i, s)
@@ -721,7 +720,7 @@ int strv_make_nulstr(char * const *l, char **ret, size_t *ret_size) {
         }
 
         if (!m) {
-                m = new0(char, 1);
+                m = new0(char, 2);
                 if (!m)
                         return -ENOMEM;
                 n = 1;
@@ -730,10 +729,8 @@ int strv_make_nulstr(char * const *l, char **ret, size_t *ret_size) {
                 m[n] = '\0';
 
         assert(n > 0);
-        *ret = m;
+        *ret = TAKE_PTR(m);
         *ret_size = n - 1;
-
-        m = NULL;
 
         return 0;
 }
