@@ -7,6 +7,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "nulstr-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
 #include "string-util.h"

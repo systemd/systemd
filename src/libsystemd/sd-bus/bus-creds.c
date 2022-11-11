@@ -15,6 +15,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "hexdecoct.h"
+#include "nulstr-util.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "string-util.h"
