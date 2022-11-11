@@ -72,15 +72,12 @@ static int print_status_info(StatusInfo *i) {
                         return log_error_errno(r, "Failed to build locale settings from kernel command line: %m");
         }
 
-        table = table_new("key", "value");
+        table = table_new_vertical();
         if (!table)
                 return log_oom();
 
         assert_se(cell = table_get_cell(table, 0, 0));
         (void) table_set_ellipsize_percent(table, cell, 100);
-        (void) table_set_align_percent(table, cell, 100);
-
-        table_set_header(table, false);
 
         table_set_ersatz_string(table, TABLE_ERSATZ_UNSET);
 
@@ -96,30 +93,30 @@ static int print_status_info(StatusInfo *i) {
         }
 
         r = table_add_many(table,
-                           TABLE_STRING, "System Locale:",
+                           TABLE_FIELD, "System Locale",
                            TABLE_STRV, i->locale,
-                           TABLE_STRING, "VC Keymap:",
+                           TABLE_FIELD, "VC Keymap",
                            TABLE_STRING, i->vconsole_keymap);
         if (r < 0)
                 return table_log_add_error(r);
 
         if (!isempty(i->vconsole_keymap_toggle)) {
                 r = table_add_many(table,
-                                   TABLE_STRING, "VC Toggle Keymap:",
+                                   TABLE_FIELD, "VC Toggle Keymap",
                                    TABLE_STRING, i->vconsole_keymap_toggle);
                 if (r < 0)
                         return table_log_add_error(r);
         }
 
         r = table_add_many(table,
-                           TABLE_STRING, "X11 Layout:",
+                           TABLE_FIELD, "X11 Layout",
                            TABLE_STRING, i->x11_layout);
         if (r < 0)
                 return table_log_add_error(r);
 
         if (!isempty(i->x11_model)) {
                 r = table_add_many(table,
-                                   TABLE_STRING, "X11 Model:",
+                                   TABLE_FIELD, "X11 Model",
                                    TABLE_STRING, i->x11_model);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -127,7 +124,7 @@ static int print_status_info(StatusInfo *i) {
 
         if (!isempty(i->x11_variant)) {
                 r = table_add_many(table,
-                                   TABLE_STRING, "X11 Variant:",
+                                   TABLE_FIELD, "X11 Variant",
                                    TABLE_STRING, i->x11_variant);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -135,7 +132,7 @@ static int print_status_info(StatusInfo *i) {
 
         if (!isempty(i->x11_options)) {
                 r = table_add_many(table,
-                                   TABLE_STRING, "X11 Options:",
+                                   TABLE_FIELD, "X11 Options",
                                    TABLE_STRING, i->x11_options);
                 if (r < 0)
                         return table_log_add_error(r);
