@@ -1512,7 +1512,6 @@ static int get_possible_units(
                 Set **units) {
 
         _cleanup_set_free_free_ Set *found = NULL;
-        const char *field;
         int r;
 
         found = set_new(&string_hash_ops);
