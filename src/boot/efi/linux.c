@@ -143,7 +143,7 @@ EFI_STATUS linux_exec(
                 return log_error_status_stall(err, u"Error loading kernel image: %r", err);
 
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
-        err = BS->HandleProtocol(kernel_image, &LoadedImageProtocol, (void **) &loaded_image);
+        err = BS->HandleProtocol(kernel_image, &MAKE_GUID(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, u"Error getting kernel loaded image protocol: %r", err);
 

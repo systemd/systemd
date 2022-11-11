@@ -30,26 +30,23 @@ EFI_STATUS parse_boolean(const char *v, bool *b) {
         return EFI_INVALID_PARAMETER;
 }
 
-EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const char16_t *name, const void *buf, UINTN size, uint32_t flags) {
-        assert(vendor);
+EFI_STATUS efivar_set_raw(EFI_GUID vendor, const char16_t *name, const void *buf, UINTN size, uint32_t flags) {
         assert(name);
         assert(buf || size == 0);
 
         flags |= EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS;
-        return RT->SetVariable((char16_t *) name, (EFI_GUID *) vendor, flags, size, (void *) buf);
+        return RT->SetVariable((char16_t *) name, &vendor, flags, size, (void *) buf);
 }
 
-EFI_STATUS efivar_set(const EFI_GUID *vendor, const char16_t *name, const char16_t *value, uint32_t flags) {
-        assert(vendor);
+EFI_STATUS efivar_set(EFI_GUID vendor, const char16_t *name, const char16_t *value, uint32_t flags) {
         assert(name);
 
         return efivar_set_raw(vendor, name, value, value ? strsize16(value) : 0, flags);
 }
 
-EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const char16_t *name, UINTN i, uint32_t flags) {
+EFI_STATUS efivar_set_uint_string(EFI_GUID vendor, const char16_t *name, UINTN i, uint32_t flags) {
         char16_t str[32];
 
-        assert(vendor);
         assert(name);
 
         /* Note that SPrint has no native sized length specifier and will always use ValueToString()
@@ -59,10 +56,9 @@ EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const char16_t *name, 
         return efivar_set(vendor, name, str, flags);
 }
 
-EFI_STATUS efivar_set_uint32_le(const EFI_GUID *vendor, const char16_t *name, uint32_t value, uint32_t flags) {
+EFI_STATUS efivar_set_uint32_le(EFI_GUID vendor, const char16_t *name, uint32_t value, uint32_t flags) {
         uint8_t buf[4];
 
-        assert(vendor);
         assert(name);
 
         buf[0] = (uint8_t)(value >> 0U & 0xFF);
@@ -73,10 +69,9 @@ EFI_STATUS efivar_set_uint32_le(const EFI_GUID *vendor, const char16_t *name, ui
         return efivar_set_raw(vendor, name, buf, sizeof(buf), flags);
 }
 
-EFI_STATUS efivar_set_uint64_le(const EFI_GUID *vendor, const char16_t *name, uint64_t value, uint32_t flags) {
+EFI_STATUS efivar_set_uint64_le(EFI_GUID vendor, const char16_t *name, uint64_t value, uint32_t flags) {
         uint8_t buf[8];
 
-        assert(vendor);
         assert(name);
 
         buf[0] = (uint8_t)(value >> 0U & 0xFF);
@@ -91,13 +86,12 @@ EFI_STATUS efivar_set_uint64_le(const EFI_GUID *vendor, const char16_t *name, ui
         return efivar_set_raw(vendor, name, buf, sizeof(buf), flags);
 }
 
-EFI_STATUS efivar_get(const EFI_GUID *vendor, const char16_t *name, char16_t **value) {
+EFI_STATUS efivar_get(EFI_GUID vendor, const char16_t *name, char16_t **value) {
         _cleanup_free_ char16_t *buf = NULL;
         EFI_STATUS err;
         char16_t *val;
         UINTN size;
 
-        assert(vendor);
         assert(name);
 
         err = efivar_get_raw(vendor, name, (char **) &buf, &size);
@@ -127,12 +121,11 @@ EFI_STATUS efivar_get(const EFI_GUID *vendor, const char16_t *name, char16_t **v
         return EFI_SUCCESS;
 }
 
-EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const char16_t *name, UINTN *i) {
+EFI_STATUS efivar_get_uint_string(EFI_GUID vendor, const char16_t *name, UINTN *i) {
         _cleanup_free_ char16_t *val = NULL;
         EFI_STATUS err;
         uint64_t u;
 
-        assert(vendor);
         assert(name);
         assert(i);
 
@@ -147,12 +140,11 @@ EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const char16_t *name, 
         return EFI_SUCCESS;
 }
 
-EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const char16_t *name, uint32_t *ret) {
+EFI_STATUS efivar_get_uint32_le(EFI_GUID vendor, const char16_t *name, uint32_t *ret) {
         _cleanup_free_ char *buf = NULL;
         UINTN size;
         EFI_STATUS err;
 
-        assert(vendor);
         assert(name);
 
         err = efivar_get_raw(vendor, name, &buf, &size);
@@ -167,12 +159,11 @@ EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const char16_t *name, ui
         return err;
 }
 
-EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const char16_t *name, uint64_t *ret) {
+EFI_STATUS efivar_get_uint64_le(EFI_GUID vendor, const char16_t *name, uint64_t *ret) {
         _cleanup_free_ char *buf = NULL;
         UINTN size;
         EFI_STATUS err;
 
-        assert(vendor);
         assert(name);
 
         err = efivar_get_raw(vendor, name, &buf, &size);
@@ -188,20 +179,18 @@ EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const char16_t *name, ui
         return err;
 }
 
-EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, char **buffer, UINTN *size) {
+EFI_STATUS efivar_get_raw(EFI_GUID vendor, const char16_t *name, char **buffer, UINTN *size) {
         _cleanup_free_ char *buf = NULL;
         UINTN l;
         EFI_STATUS err;
 
-        assert(vendor);
         assert(name);
 
         l = sizeof(char16_t *) * EFI_MAXIMUM_VARIABLE_SIZE;
         buf = xmalloc(l);
 
-        err = RT->GetVariable((char16_t *) name, (EFI_GUID *) vendor, NULL, &l, buf);
+        err = RT->GetVariable((char16_t *) name, &vendor, NULL, &l, buf);
         if (err == EFI_SUCCESS) {
-
                 if (buffer)
                         *buffer = TAKE_PTR(buf);
 
@@ -212,12 +201,11 @@ EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, char **b
         return err;
 }
 
-EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const char16_t *name, bool *ret) {
+EFI_STATUS efivar_get_boolean_u8(EFI_GUID vendor, const char16_t *name, bool *ret) {
         _cleanup_free_ char *b = NULL;
         UINTN size;
         EFI_STATUS err;
 
-        assert(vendor);
         assert(name);
         assert(ret);
 
@@ -228,10 +216,9 @@ EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const char16_t *name, b
         return err;
 }
 
-void efivar_set_time_usec(const EFI_GUID *vendor, const char16_t *name, uint64_t usec) {
+void efivar_set_time_usec(EFI_GUID vendor, const char16_t *name, uint64_t usec) {
         char16_t str[32];
 
-        assert(vendor);
         assert(name);
 
         if (usec == 0)
@@ -495,11 +482,11 @@ EFI_STATUS get_file_info_harder(
         /* A lot like LibFileInfo() but with useful error propagation */
 
         fi = xmalloc(size);
-        err = handle->GetInfo(handle, &GenericFileInfo, &size, fi);
+        err = handle->GetInfo(handle, &MAKE_GUID(EFI_FILE_INFO), &size, fi);
         if (err == EFI_BUFFER_TOO_SMALL) {
                 free(fi);
                 fi = xmalloc(size);  /* GetInfo tells us the required size, let's use that now */
-                err = handle->GetInfo(handle, &GenericFileInfo, &size, fi);
+                err = handle->GetInfo(handle, &MAKE_GUID(EFI_FILE_INFO), &size, fi);
         }
 
         if (err != EFI_SUCCESS)
@@ -616,7 +603,7 @@ uint64_t get_os_indications_supported(void) {
         /* Returns the supported OS indications. If we can't acquire it, returns a zeroed out mask, i.e. no
          * supported features. */
 
-        err = efivar_get_uint64_le(EFI_GLOBAL_GUID, L"OsIndicationsSupported", &osind);
+        err = efivar_get_uint64_le(MAKE_GUID(EFI_GLOBAL), u"OsIndicationsSupported", &osind);
         if (err != EFI_SUCCESS)
                 return 0;
 
@@ -723,7 +710,7 @@ EFI_STATUS open_volume(EFI_HANDLE device, EFI_FILE **ret_file) {
 
         assert(ret_file);
 
-        err = BS->HandleProtocol(device, &FileSystemProtocol, (void **) &volume);
+        err = BS->HandleProtocol(device, &MAKE_GUID(EFI_SIMPLE_FILE_SYSTEM_PROTOCOL), (void **) &volume);
         if (err != EFI_SUCCESS)
                 return err;
 
@@ -742,7 +729,7 @@ EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DE
         assert(file);
         assert(ret_dp);
 
-        err = BS->HandleProtocol(device, &DevicePathProtocol, (void **) &dp);
+        err = BS->HandleProtocol(device, &MAKE_GUID(EFI_DEVICE_PATH_PROTOCOL), (void **) &dp);
         if (err != EFI_SUCCESS)
                 return err;
 
@@ -776,7 +763,7 @@ EFI_STATUS device_path_to_str(const EFI_DEVICE_PATH *dp, char16_t **ret) {
         assert(dp);
         assert(ret);
 
-        err = BS->LocateProtocol(&(EFI_GUID) EFI_DEVICE_PATH_TO_TEXT_PROTOCOL_GUID, NULL, (void **) &dp_to_text);
+        err = BS->LocateProtocol(&MAKE_GUID(EFI_DEVICE_PATH_TO_TEXT_PROTOCOL), NULL, (void **) &dp_to_text);
         if (err != EFI_SUCCESS)
                 return err;
 
