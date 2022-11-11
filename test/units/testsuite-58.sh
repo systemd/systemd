@@ -777,6 +777,60 @@ EOF
     systemd-dissect -U "$imgs/mnt"
 }
 
+test_issue_24786() {
+    local defs imgs root output
+
+    if systemd-detect-virt --quiet --container; then
+        echo "Skipping verity test in container."
+        return
+    fi
+
+    defs="$(mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    root="$(mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs' '$root'" RETURN
+
+    touch "$root/abc"
+    mkdir "$root/usr"
+    touch "$root/usr/def"
+
+    cat >"$defs/00-root.conf" <<EOF
+[Partition]
+Type=root-${architecture}
+CopyFiles=/
+EOF
+
+    cat >"$defs/10-usr.conf" <<EOF
+[Partition]
+Type=usr-${architecture}
+CopyFiles=/usr:/
+EOF
+
+    output=$(systemd-repart --definitions="$defs" \
+                            --seed="$seed" \
+                            --dry-run=no \
+                            --empty=create \
+                            --size=auto \
+                            --json=pretty \
+                            --root="$root" \
+                            "$imgs/zzz")
+
+    loop=$(losetup -P --show -f "$imgs/zzz")
+    udevadm wait --timeout 60 --settle "${loop:?}"
+
+    mkdir "$imgs/mnt"
+    mount -t ext4 "${loop}p1" "$imgs/mnt"
+    assert_rc 0 ls "$imgs/mnt/abc"
+    assert_rc 2 ls "$imgs/mnt/usr"
+    mkdir "$imgs/mnt/usr"
+    mount -t ext4 "${loop}p2" "$imgs/mnt/usr"
+    assert_rc 0 ls "$imgs/mnt/usr/def"
+
+    umount -R "$imgs/mnt"
+    losetup -d "$loop"
+}
+
 test_sector() {
     local defs imgs output loop
     local start size ratio
@@ -845,6 +899,7 @@ test_issue_21817
 test_issue_24553
 test_zero_uuid
 test_verity
+test_issue_24786
 
 # Valid block sizes on the Linux block layer are >= 512 and <= PAGE_SIZE, and
 # must be powers of 2. Which leaves exactly four different ones to test on
