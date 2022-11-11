@@ -880,7 +880,7 @@ char **env_generator_binary_paths(bool is_system) {
 }
 
 int find_portable_profile(const char *name, const char *unit, char **ret_path) {
-        const char *p, *dot;
+        const char *dot;
 
         assert(name);
         assert(ret_path);

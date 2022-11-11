@@ -4,8 +4,6 @@
 #include "string-util.h"
 
 const char* nulstr_get(const char *nulstr, const char *needle) {
-        const char *i;
-
         if (!nulstr)
                 return NULL;
 

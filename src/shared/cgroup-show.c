@@ -211,7 +211,6 @@ static int show_cgroup_name(
 
         if (FLAGS_SET(flags, OUTPUT_CGROUP_XATTRS) && fd >= 0) {
                 _cleanup_free_ char *nl = NULL;
-                char *xa;
 
                 r = flistxattr_malloc(fd, &nl);
                 if (r < 0)

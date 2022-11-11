@@ -326,7 +326,6 @@ int lsm_bpf_parse_filesystem(
 
         if (name[0] == '@') {
                 const FilesystemSet *set;
-                const char *i;
 
                 set = filesystem_set_find(name);
                 if (!set) {

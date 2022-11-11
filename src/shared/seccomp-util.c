@@ -1039,7 +1039,6 @@ static int add_syscall_filter_set(
                 bool log_missing,
                 char ***added) {
 
-        const char *sys;
         int r;
 
         /* Any syscalls that are handled are added to the *added strv. It needs to be initialized. */
@@ -1169,7 +1168,6 @@ int seccomp_parse_syscall_filter(
 
         if (name[0] == '@') {
                 const SyscallFilterSet *set;
-                const char *i;
 
                 set = syscall_filter_set_find(name);
                 if (!set) {
@@ -1909,7 +1907,6 @@ int parse_syscall_archs(char **l, Set **ret_archs) {
 }
 
 int seccomp_filter_set_add(Hashmap *filter, bool add, const SyscallFilterSet *set) {
-        const char *i;
         int r;
 
         assert(set);
@@ -2308,7 +2305,6 @@ int seccomp_suppress_sync(void) {
 
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
-                const char *c;
 
                 r = seccomp_init_for_arch(&seccomp, arch, SCMP_ACT_ALLOW);
                 if (r < 0)

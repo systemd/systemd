@@ -98,7 +98,7 @@ static OutputFlags get_output_flags(void) {
 static int call_get_os_release(sd_bus *bus, const char *method, const char *name, const char *query, ...) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        const char *k, *v, *iter, **query_res = NULL;
+        const char *k, *v, **query_res = NULL;
         size_t count = 0, awaited_args = 0;
         va_list ap;
         int r;

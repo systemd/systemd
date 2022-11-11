@@ -216,7 +216,6 @@ static int fscrypt_setup(
                 size_t *ret_volume_key_size) {
 
         _cleanup_free_ char *xattr_buf = NULL;
-        const char *xa;
         int r;
 
         assert(setup);
@@ -646,7 +645,6 @@ int home_passwd_fscrypt(
         _cleanup_free_ char *xattr_buf = NULL;
         size_t volume_key_size = 0;
         uint32_t slot = 0;
-        const char *xa;
         int r;
 
         assert(h);

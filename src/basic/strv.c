@@ -679,7 +679,6 @@ char** strv_parse_nulstr(const char *s, size_t l) {
 }
 
 char** strv_split_nulstr(const char *s) {
-        const char *i;
         char **r = NULL;
 
         NULSTR_FOREACH(i, s)

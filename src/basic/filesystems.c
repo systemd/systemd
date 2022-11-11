@@ -28,7 +28,6 @@ int fs_type_from_string(const char *name, const statfs_f_type_t **ret) {
 }
 
 bool fs_in_group(const struct statfs *s, FilesystemGroups fs_group) {
-        const char *fs;
         int r;
 
         NULSTR_FOREACH(fs, filesystem_sets[fs_group].value) {

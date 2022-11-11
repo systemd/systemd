@@ -567,8 +567,6 @@ static int assess_system_call_architectures(
 }
 
 static bool syscall_names_in_filter(Set *s, bool allow_list, const SyscallFilterSet *f, const char **ret_offending_syscall) {
-        const char *syscall;
-
         NULSTR_FOREACH(syscall, f->value) {
                 if (syscall[0] == '@') {
                         const SyscallFilterSet *g;

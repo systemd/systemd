@@ -452,8 +452,8 @@ TEST(hashmap_foreach_key) {
 
         m = hashmap_new(&string_hash_ops);
 
-        NULSTR_FOREACH(key, key_table)
-                hashmap_put(m, key, (void*) (const char*) "my dummy val");
+        NULSTR_FOREACH(k, key_table)
+                hashmap_put(m, k, (void*) (const char*) "my dummy val");
 
         HASHMAP_FOREACH_KEY(s, key, m) {
                 assert_se(s);

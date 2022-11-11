@@ -1341,7 +1341,7 @@ bool udev_rules_should_reload(UdevRules *rules) {
 }
 
 static bool token_match_string(UdevRuleToken *token, const char *str) {
-        const char *i, *value;
+        const char *value;
         bool match = false;
 
         assert(token);

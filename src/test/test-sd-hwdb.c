@@ -56,7 +56,6 @@ TEST(basic_enumerate) {
 
 TEST(sd_hwdb_new_from_path) {
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
-        const char *hwdb_bin_path = NULL;
         int r;
 
         assert_se(sd_hwdb_new_from_path(NULL, &hwdb) == -EINVAL);

@@ -158,7 +158,6 @@ int main(int argc, char *argv[]) {
         else
                 arg_start = getpid_cached();
 
-        const char *i;
         NULSTR_FOREACH(i, "zeros\0simple\0random\0") {
 #if HAVE_XZ
                 test_compress_decompress("XZ", i, compress_blob_xz, decompress_blob_xz);

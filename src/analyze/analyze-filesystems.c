@@ -50,8 +50,6 @@ static int load_available_kernel_filesystems(Set **ret) {
 }
 
 static void filesystem_set_remove(Set *s, const FilesystemSet *set) {
-        const char *filesystem;
-
         NULSTR_FOREACH(filesystem, set->value) {
                 if (filesystem[0] == '@')
                         continue;
@@ -61,7 +59,6 @@ static void filesystem_set_remove(Set *s, const FilesystemSet *set) {
 }
 
 static void dump_filesystem_set(const FilesystemSet *set) {
-        const char *filesystem;
         int r;
 
         if (!set)
@@ -119,7 +116,6 @@ int verb_filesystems(int argc, char *argv[], void *userdata) {
 
         if (strv_isempty(strv_skip(argv, 1))) {
                 _cleanup_set_free_ Set *kernel = NULL, *known = NULL;
-                const char *fs;
                 int k;
 
                 NULSTR_FOREACH(fs, filesystem_sets[FILESYSTEM_SET_KNOWN].value)

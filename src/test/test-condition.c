@@ -800,7 +800,6 @@ TEST(print_securities) {
 
 TEST(condition_test_virtualization) {
         Condition *condition;
-        const char *virt;
         int r;
 
         condition = condition_new(CONDITION_VIRTUALIZATION, "garbage oifdsjfoidsjoj", false, false);

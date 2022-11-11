@@ -2869,7 +2869,6 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
 
                 for (unsigned k = 0; k < _META_MAX; k++) {
                         _cleanup_close_ int fd = -ENOENT;
-                        const char *p;
 
                         if (!paths[k])
                                 continue;

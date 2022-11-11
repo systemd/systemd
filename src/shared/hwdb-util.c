@@ -652,7 +652,7 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
 
 int hwdb_query(const char *modalias, const char *root) {
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
-        const char *key, *value, *p;
+        const char *key, *value;
         int r;
 
         assert(modalias);
@@ -682,7 +682,6 @@ int hwdb_query(const char *modalias, const char *root) {
 
 bool hwdb_should_reload(sd_hwdb *hwdb) {
         bool found = false;
-        const char* p;
         struct stat st;
 
         if (!hwdb)
