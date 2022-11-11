@@ -16,7 +16,10 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "chase-symlinks.h"
+#include "efi-loader.h"
 #include "fd-util.h"
+#include "find-esp.h"
 #include "fs-util.h"
 #include "io-util.h"
 #include "log.h"
@@ -26,6 +29,7 @@
 #include "mkdir.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "pretty-print.h"
 #include "random-util.h"
 #include "string-table.h"
@@ -185,7 +189,7 @@ static int load_seed_file(
         if (ret_hash_state) {
                 struct sha256_ctx *hash_state;
 
-                hash_state = malloc(sizeof(struct sha256_ctx));
+                hash_state = new(struct sha256_ctx, 1);
                 if (!hash_state)
                         return log_oom();
 
@@ -311,6 +315,101 @@ static int save_seed_file(
         return 0;
 }
 
+static int refresh_boot_seed(void) {
+        uint8_t buffer[RANDOM_EFI_SEED_SIZE];
+        struct sha256_ctx hash_state;
+        _cleanup_free_ void *seed_file_bytes = NULL;
+        _cleanup_free_ char *esp_path = NULL;
+        _cleanup_close_ int seed_fd = -1;
+        size_t len;
+        ssize_t r;
+
+        assert_cc(RANDOM_EFI_SEED_SIZE == SHA256_DIGEST_SIZE);
+
+        r = find_esp_and_warn(NULL, NULL, /* unprivileged_mode= */ false, &esp_path,
+                              NULL, NULL, NULL, NULL, NULL);
+        if (r < 0) {
+                if (r == -ENOKEY) {
+                        log_debug_errno(r, "Couldn't find any ESP, so not updating ESP random seed.");
+                        return 0;
+                }
+                return r; /* find_esp_and_warn() already logged */
+        }
+
+        seed_fd = chase_symlinks_and_open("/loader/random-seed", esp_path,
+                                          CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS,
+                                          O_RDWR|O_CLOEXEC|O_NOCTTY, NULL);
+        if (seed_fd == -ENOENT) {
+                uint64_t features;
+
+                r = efi_loader_get_features(&features);
+                if (r == 0 && FLAGS_SET(features, EFI_LOADER_FEATURE_RANDOM_SEED)) {
+                        int dir_fd = chase_symlinks_and_open("/loader", esp_path,
+                                                             CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS,
+                                                             O_DIRECTORY|O_CLOEXEC|O_NOCTTY, NULL);
+                        if (dir_fd >= 0) {
+                                seed_fd = openat(dir_fd, "random-seed", O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOCTTY, 0600);
+                                close(dir_fd);
+                        }
+                }
+        }
+        if (seed_fd < 0) {
+                log_debug_errno(seed_fd, "Failed to open EFI seed path: %m");
+                return 0;
+        }
+        r = random_seed_size(seed_fd, &len);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine EFI seed path length: %m");
+        seed_file_bytes = malloc(len);
+        if (!seed_file_bytes)
+                return log_oom();
+        r = loop_read(seed_fd, seed_file_bytes, len, false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read EFI seed file: %m");
+
+        /* Hash the old seed in so that we never regress in entropy. */
+        sha256_init_ctx(&hash_state);
+        sha256_process_bytes(&r, sizeof(r), &hash_state);
+        sha256_process_bytes(seed_file_bytes, r, &hash_state);
+
+        /* We're doing this opportunistically, so if the seeding dance before didn't manage to initialize the
+         * RNG, there's no point in doing it here. Secondly, getrandom(GRND_NONBLOCK) has been around longer
+         * than EFI seeding anyway, so there's no point in having non-getrandom() fallbacks here. So if this
+         * fails, just return early to cut our losses. */
+        r = getrandom(buffer, sizeof(buffer), GRND_NONBLOCK);
+        if (r < 0) {
+                if (errno == EAGAIN) {
+                        log_debug_errno(errno, "Random pool not initialized yet, so skipping EFI seed update");
+                        return 0;
+                }
+                if (errno == ENOSYS) {
+                        log_debug_errno(errno, "getrandom() not available, so skipping EFI seed update");
+                        return 0;
+                }
+                return log_error_errno(errno, "Failed to generate random bytes for EFI seed: %m");
+        }
+        assert(r == sizeof(buffer));
+
+        /* Hash the new seed into the state containing the old one to generate our final seed. */
+        sha256_process_bytes(&r, sizeof(r), &hash_state);
+        sha256_process_bytes(buffer, r, &hash_state);
+        sha256_finish_ctx(&hash_state, buffer);
+
+        if (lseek(seed_fd, 0, SEEK_SET) < 0)
+                return log_error_errno(errno, "Failed to seek to beginning of EFI seed file: %m");
+        r = loop_write(seed_fd, buffer, sizeof(buffer), false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write new EFI seed file: %m");
+        if (ftruncate(seed_fd, sizeof(buffer)) < 0)
+                return log_error_errno(errno, "Failed to truncate EFI seed file: %m");
+        r = fsync_full(seed_fd);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to fsync EFI seed file: %m");
+
+        log_debug("Updated random seed in ESP");
+        return 0;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -402,15 +501,15 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create directory " RANDOM_SEED_DIR ": %m");
 
+        random_fd = open("/dev/urandom", O_RDWR|O_CLOEXEC|O_NOCTTY);
+        if (random_fd < 0)
+                return log_error_errno(errno, "Failed to open /dev/urandom: %m");
+
         /* When we load the seed we read it and write it to the device and then immediately update the saved
          * seed with new data, to make sure the next boot gets seeded differently. */
 
         switch (arg_action) {
         case ACTION_LOAD:
-                random_fd = open("/dev/urandom", O_RDWR|O_CLOEXEC|O_NOCTTY);
-                if (random_fd < 0)
-                        return log_error_errno(errno, "Failed to open /dev/urandom: %m");
-
                 /* First, let's write the machine ID into /dev/urandom, not crediting entropy. See
                  * load_machine_id() for an explanation why. */
                 load_machine_id(random_fd);
@@ -428,8 +527,10 @@ static int run(int argc, char *argv[]) {
 
                                 log_full_errno(level, open_rw_error, "Failed to open " RANDOM_SEED " for writing: %m");
                                 log_full_errno(level, errno, "Failed to open " RANDOM_SEED " for reading: %m");
+                                r = -errno;
 
-                                return missing ? 0 : -errno;
+                                (void) refresh_boot_seed();
+                                return missing ? 0 : r;
                         }
                 } else
                         write_seed_file = true;
@@ -439,10 +540,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ACTION_SAVE:
-                random_fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
-                if (random_fd < 0)
-                        return log_error_errno(errno, "Failed to open /dev/urandom: %m");
-
+                (void) refresh_boot_seed();
                 seed_fd = open(RANDOM_SEED, O_WRONLY|O_CLOEXEC|O_NOCTTY|O_CREAT, 0600);
                 if (seed_fd < 0)
                         return log_error_errno(errno, "Failed to open " RANDOM_SEED ": %m");
@@ -460,9 +558,11 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        if (read_seed_file)
+        if (read_seed_file) {
                 r = load_seed_file(seed_fd, random_fd, seed_size,
                                    write_seed_file ? &hash_state : NULL);
+                (void) refresh_boot_seed();
+        }
 
         if (r >= 0 && write_seed_file)
                 r = save_seed_file(seed_fd, random_fd, seed_size, synchronous, hash_state);
