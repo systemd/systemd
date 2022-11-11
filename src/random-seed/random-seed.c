@@ -17,6 +17,7 @@
 #include "alloc-util.h"
 #include "build.h"
 #include "fd-util.h"
+#include "find-esp.h"
 #include "fs-util.h"
 #include "io-util.h"
 #include "log.h"
@@ -26,6 +27,7 @@
 #include "mkdir.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "pretty-print.h"
 #include "random-util.h"
 #include "string-table.h"
@@ -180,7 +182,7 @@ static int load_seed_file(
         if (ret_hash_state) {
                 struct sha256_ctx *hash_state;
 
-                hash_state = malloc(sizeof(struct sha256_ctx));
+                hash_state = malloc(sizeof(*hash_state));
                 if (!hash_state)
                         return log_oom();
 
@@ -303,6 +305,70 @@ static int save_seed_file(
                 if (fsetxattr(seed_fd, "user.random-seed-creditable", "1", 1, 0) < 0)
                         log_full_errno(ERRNO_IS_NOT_SUPPORTED(errno) ? LOG_DEBUG : LOG_WARNING, errno,
                                        "Failed to mark seed file as creditable, ignoring: %m");
+        return 0;
+}
+
+static int refresh_boot_seed(void) {
+        unsigned char buffer[RANDOM_EFI_SEED_SIZE];
+        struct sha256_ctx hash_state;
+        _cleanup_free_ char *esp_path = NULL, *seed_path = NULL;
+        _cleanup_free_ void *seed_file_bytes = NULL;
+        _cleanup_close_ int seed_fd = -1;
+        size_t len;
+        ssize_t r;
+
+        assert_cc(RANDOM_EFI_SEED_SIZE == SHA256_DIGEST_SIZE);
+
+        /* We're doing this opportunistically, so if the seeding dance before didn't manage to initialize the
+         * RNG, there's no point in doing it here. Secondly, getrandom(GRND_NONBLOCK) has been around longer
+         * than EFI seeding anyway, so there's no point in having non-getrandom() fallbacks here. So if this
+         * fails, just return early to cut our losses. */
+        r = getrandom(buffer, sizeof(buffer), GRND_NONBLOCK);
+        if (r != sizeof(buffer))
+                return r < 0 ? -errno : -EIO;
+        sha256_init_ctx(&hash_state);
+        sha256_process_bytes(&r, sizeof(r), &hash_state);
+        sha256_process_bytes(buffer, r, &hash_state);
+
+        /* We search for ESP with a NULL path and root, and in unprivileged mode, so that we don't emit any
+         * warnings if this fails. It's just opportunistic, so it doesn't matter in that case. */
+        r = find_esp_and_warn(NULL, NULL, true, &esp_path, 0, 0, 0, NULL, NULL);
+        if (r)
+                return r;
+        seed_path = path_join(esp_path, "/loader/random-seed");
+        if (!seed_path)
+                return log_oom();
+
+        /* Read the existing seed, but if it's not there, return early, since it means bootctl hasn't yet set
+         * up random seeds for the loader. */
+        seed_fd = open(seed_path, O_RDWR|O_CLOEXEC|O_NOCTTY);
+        if (seed_fd < 0)
+                return -errno;
+        r = random_seed_size(seed_fd, &len);
+        if (r < 0)
+                return r;
+        seed_file_bytes = malloc(len);
+        if (!seed_file_bytes)
+                return log_oom();
+        r = loop_read(seed_fd, seed_file_bytes, len, false);
+        if (r < 0)
+                return r;
+        sha256_process_bytes(&r, sizeof(r), &hash_state);
+        sha256_process_bytes(seed_file_bytes, r, &hash_state);
+        sha256_finish_ctx(&hash_state, buffer);
+
+        if (lseek(seed_fd, 0, SEEK_SET) < 0)
+                return -errno;
+        r = loop_write(seed_fd, buffer, sizeof(buffer), false);
+        if (r < 0)
+                return r;
+        r = ftruncate(seed_fd, r);
+        if (r < 0)
+                return r;
+        r = fsync_full(seed_fd);
+        if (r < 0)
+                return r;
+
         return 0;
 }
 
@@ -457,6 +523,9 @@ static int run(int argc, char *argv[]) {
 
         if (r >= 0 && write_seed_file)
                 r = save_seed_file(seed_fd, random_fd, seed_size, synchronous, hash_state);
+
+        if (write_seed_file)
+                (void) refresh_boot_seed();
 
         return r;
 }
