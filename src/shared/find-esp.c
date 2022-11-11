@@ -177,7 +177,9 @@ static int verify_esp_udev(
 
         r = sd_device_get_property_value(d, "ID_PART_ENTRY_SCHEME", &v);
         if (r < 0)
-                return log_error_errno(r, "Failed to get device property: %m");
+                return log_full_errno(searching && r == -ENOENT ? LOG_DEBUG : LOG_ERR,
+                                      searching && r == -ENOENT ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : r,
+                                      "Failed to get device property: %m");
         if (!streq(v, "gpt"))
                 return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                       SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
@@ -572,10 +574,11 @@ static int verify_xbootldr_blkid(
         else if (r != 0)
                 return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "%s: Failed to probe file system: %m", node);
 
-        errno = 0;
         r = blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &type, NULL);
         if (r != 0)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "%s: Failed to probe PART_ENTRY_SCHEME: %m", node);
+                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
+                                      searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(EIO),
+                                      "%s: Failed to probe PART_ENTRY_SCHEME: %m", node);
         if (streq(type, "gpt")) {
 
                 errno = 0;
@@ -638,7 +641,10 @@ static int verify_xbootldr_udev(
 
         r = sd_device_get_property_value(d, "ID_PART_ENTRY_SCHEME", &type);
         if (r < 0)
-                return log_device_error_errno(d, r, "Failed to query ID_PART_ENTRY_SCHEME: %m");
+                return log_device_full_errno(d,
+                                             searching && r == -ENOENT ? LOG_DEBUG : LOG_ERR,
+                                             searching && r == -ENOENT ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : r,
+                                             "Failed to query ID_PART_ENTRY_SCHEME: %m");
 
         if (streq(type, "gpt")) {
 
