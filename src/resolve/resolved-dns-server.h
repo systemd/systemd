@@ -44,8 +44,8 @@ typedef enum DnsServerFeatureLevel {
 #define DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(x) ((x) >= DNS_SERVER_FEATURE_LEVEL_DO)
 #define DNS_SERVER_FEATURE_LEVEL_IS_UDP(x) IN_SET(x, DNS_SERVER_FEATURE_LEVEL_UDP, DNS_SERVER_FEATURE_LEVEL_EDNS0, DNS_SERVER_FEATURE_LEVEL_DO)
 
-const char* dns_server_feature_level_to_string(int i) _const_;
-int dns_server_feature_level_from_string(const char *s) _pure_;
+const char* dns_server_feature_level_to_string(DnsServerFeatureLevel i) _const_;
+DnsServerFeatureLevel dns_server_feature_level_from_string(const char *s) _pure_;
 
 struct DnsServer {
         Manager *manager;
