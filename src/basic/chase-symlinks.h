@@ -19,6 +19,7 @@ typedef enum ChaseSymlinksFlags {
                                             * Note: this may do an NSS lookup, hence this flag cannot be used in PID 1. */
         CHASE_AT_RESOLVE_IN_ROOT = 1 << 8, /* Same as openat2()'s RESOLVE_IN_ROOT flag, symlinks are resolved
                                             * relative to the given directory fd instead of root. */
+        CHASE_PROHIBIT_SYMLINKS  = 1 << 9, /* Refuse all symlinks */
 } ChaseSymlinksFlags;
 
 bool unsafe_transition(const struct stat *a, const struct stat *b);
