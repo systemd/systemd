@@ -3529,7 +3529,7 @@ static int bus_add_match_full(
                                                                  s);
 
                                 if (r < 0)
-                                        return r;
+                                        goto finish;
 
                                 /* Make the slot of the match call floating now. We need the reference, but we don't
                                  * want that this match pins the bus object, hence we first create it non-floating, but
