@@ -128,6 +128,11 @@ REQUIREMENTS:
 
         Required for signed Verity images support:
           CONFIG_DM_VERITY_VERIFY_ROOTHASH_SIG
+        Required to verify signed Verity images using keys enrolled in the MoK
+        (Machine-Owner Key) keyring:
+          CONFIG_DM_VERITY_VERIFY_ROOTHASH_SIG_SECONDARY_KEYRING
+          CONFIG_IMA_ARCH_POLICY
+          CONFIG_INTEGRITY_MACHINE_KEYRING
 
         Required for RestrictFileSystems= in service units:
           CONFIG_BPF
