@@ -3,11 +3,14 @@
 #include <errno.h>
 
 #include "module-util.h"
+#include "strv.h"
 
-int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose) {
+int module_load_and_warn_with_blacklist(struct kmod_ctx *ctx, const char *module, char * const *blacklist, bool verbose) {
         const int probe_flags = KMOD_PROBE_APPLY_BLACKLIST;
         struct kmod_list *itr;
         _cleanup_(kmod_module_unref_listp) struct kmod_list *modlist = NULL;
+        _cleanup_(kmod_module_unrefp) struct kmod_module *mod = NULL;
+        int state, err;
         int r;
 
         /* verbose==true means we should log at non-debug level if we
@@ -26,9 +29,6 @@ int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose)
                                       "Failed to find module '%s'", module);
 
         kmod_list_foreach(itr, modlist) {
-                _cleanup_(kmod_module_unrefp) struct kmod_module *mod = NULL;
-                int state, err;
-
                 mod = kmod_module_get_module(itr);
                 state = kmod_module_get_initstate(mod);
 
@@ -50,22 +50,44 @@ int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose)
                                          "Inserted module '%s'", kmod_module_get_name(mod));
                         else if (err == KMOD_PROBE_APPLY_BLACKLIST)
                                 log_full(verbose ? LOG_INFO : LOG_DEBUG,
-                                         "Module '%s' is deny-listed", kmod_module_get_name(mod));
-                        else {
-                                assert(err < 0);
+                                         "Module '%s' is deny-listed (by kmod)", kmod_module_get_name(mod));
+                        else if (err == -EPERM) {
+                                STRV_FOREACH(i, blacklist) {
+                                        _cleanup_(kmod_module_unrefp) struct kmod_module *mod_blacklisted = NULL;
 
-                                log_full_errno(!verbose ? LOG_DEBUG :
-                                               err == -ENODEV ? LOG_NOTICE :
-                                               err == -ENOENT ? LOG_WARNING :
-                                                                LOG_ERR,
-                                               err,
-                                               "Failed to insert module '%s': %m",
-                                               kmod_module_get_name(mod));
-                                if (!IN_SET(err, -ENODEV, -ENOENT))
-                                        r = err;
+                                        r = kmod_module_new_from_name(ctx, *i, &mod_blacklisted);
+                                        if (r < 0)
+                                                continue;
+
+                                        if (streq(kmod_module_get_name(mod),
+                                                  kmod_module_get_name(mod_blacklisted))) {
+                                                log_full(verbose ? LOG_INFO : LOG_DEBUG,
+                                                         "Module '%s' is deny-listed (by kernel)",
+                                                         kmod_module_get_name(mod));
+                                                return 0;
+                                        }
+                                }
+                                goto fail;
+                        } else {
+                                assert(err < 0 && err != -EPERM);
+
+                                goto fail;
                         }
                 }
         }
+
+        return 0;
+
+fail:
+        log_full_errno(!verbose ? LOG_DEBUG :
+                       err == -ENODEV ? LOG_NOTICE :
+                       err == -ENOENT ? LOG_WARNING :
+                                        LOG_ERR,
+                       err,
+                       "Failed to insert module '%s': %m",
+                       kmod_module_get_name(mod));
+        if (!IN_SET(err, -ENODEV, -ENOENT))
+                r = err;
 
         return r;
 }
