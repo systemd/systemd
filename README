@@ -17,7 +17,7 @@ BUG REPORTS:
         https://github.com/systemd/systemd/issues
 
 OLDER DOCUMENTATION:
-        http://0pointer.de/blog/projects/systemd.html
+        https://0pointer.de/blog/projects/systemd.html
         https://www.freedesktop.org/wiki/Software/systemd
 
 AUTHOR:
@@ -128,6 +128,10 @@ REQUIREMENTS:
 
         Required for signed Verity images support:
           CONFIG_DM_VERITY_VERIFY_ROOTHASH_SIG
+        Required to verify signed Verity images using keys enrolled in MoK:
+          CONFIG_DM_VERITY_VERIFY_ROOTHASH_SIG_SECONDARY_KEYRING
+          CONFIG_IMA_ARCH_POLICY
+          CONFIG_CONFIG_INTEGRITY_MACHINE_KEYRING
 
         Required for RestrictFileSystems= in service units:
           CONFIG_BPF
