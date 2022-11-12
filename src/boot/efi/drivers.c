@@ -51,25 +51,23 @@ static EFI_STATUS load_one_driver(
 }
 
 EFI_STATUS reconnect_all_drivers(void) {
-          _cleanup_free_ EFI_HANDLE *handles = NULL;
-          UINTN n_handles = 0;
-          EFI_STATUS err;
+        _cleanup_free_ EFI_HANDLE *handles = NULL;
+        size_t n_handles = 0;
+        EFI_STATUS err;
 
-          /* Reconnects all handles, so that any loaded drivers can take effect. */
+        /* Reconnects all handles, so that any loaded drivers can take effect. */
 
-          err = BS->LocateHandleBuffer(AllHandles, NULL, NULL, &n_handles, &handles);
-          if (err != EFI_SUCCESS)
-                  return log_error_status_stall(err, L"Failed to get list of handles: %r", err);
+        err = BS->LocateHandleBuffer(AllHandles, NULL, NULL, &n_handles, &handles);
+        if (err != EFI_SUCCESS)
+                return log_error_status_stall(err, L"Failed to get list of handles: %r", err);
 
-          for (UINTN i = 0; i < n_handles; i++) {
-                  err = BS->ConnectController(handles[i], NULL, NULL, true);
-                  if (err == EFI_NOT_FOUND) /* No drivers for this handle */
-                          continue;
-                  if (err != EFI_SUCCESS)
-                          log_error_status_stall(err, L"Failed to reconnect handle %" PRIuN L", ignoring: %r", i, err);
-          }
+        for (size_t i = 0; i < n_handles; i++)
+                /* Some firmware gives us some bogus handles (or they might become bad due to
+                 * reconnecting everything). Security policy may also prevent us from doing so too.
+                 * There is nothing we can realistically do on errors anyways, so just ignore them. */
+                (void) BS->ConnectController(handles[i], NULL, NULL, true);
 
-          return EFI_SUCCESS;
+        return EFI_SUCCESS;
 }
 
 EFI_STATUS load_drivers(
