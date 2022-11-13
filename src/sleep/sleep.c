@@ -275,21 +275,16 @@ static int custom_timer_suspend(const SleepConfig *sleep_config) {
                 _cleanup_hashmap_free_ Hashmap *last_capacity = NULL, *current_capacity = NULL;
                 _cleanup_close_ int tfd = -EBADF;
                 struct itimerspec ts = {};
-                usec_t suspend_interval = sleep_config->hibernate_delay_usec, before_timestamp = 0, after_timestamp = 0, total_suspend_interval;
+                usec_t suspend_interval = sleep_config->hibernate_delay_usec, total_suspend_interval;
                 bool woken_by_timer;
 
                 tfd = timerfd_create(CLOCK_BOOTTIME_ALARM, TFD_NONBLOCK|TFD_CLOEXEC);
                 if (tfd < 0)
                         return log_error_errno(errno, "Error creating timerfd: %m");
 
-                /* Store current battery capacity and current time before suspension */
+                /* Store current battery capacity before suspension */
                 r = fetch_batteries_capacity_by_name(&last_capacity);
-                if (r >= 0)
-                        before_timestamp = now(CLOCK_BOOTTIME);
-                else if (r == -ENOENT)
-                        /* In case of no battery, system suspend interval will be set to HibernateDelaySec=. */
-                        log_debug_errno(r, "Suspend Interval value set to %s: %m", FORMAT_TIMESPAN(suspend_interval, USEC_PER_SEC));
-                else
+                if (r < 0)
                         return log_error_errno(r, "Error fetching battery capacity percentage: %m");
 
                 r = get_total_suspend_interval(last_capacity, &total_suspend_interval);
@@ -297,6 +292,8 @@ static int custom_timer_suspend(const SleepConfig *sleep_config) {
                         log_debug_errno(r, "Failed to estimate suspend interval using previous discharge rate, ignoring: %m");
                 else
                         suspend_interval = total_suspend_interval;
+
+                usec_t before_timestamp = now(CLOCK_BOOTTIME);
 
                 log_debug("Set timerfd wake alarm for %s", FORMAT_TIMESPAN(suspend_interval, USEC_PER_SEC));
                 /* Wake alarm for system with or without battery to hibernate or estimate discharge rate whichever is applicable */
@@ -316,17 +313,20 @@ static int custom_timer_suspend(const SleepConfig *sleep_config) {
                 woken_by_timer = FLAGS_SET(r, POLLIN);
 
                 r = fetch_batteries_capacity_by_name(&current_capacity);
-                if (r < 0) {
+                if (r < 0 || hashmap_isempty(current_capacity)) {
                         /* In case of no battery or error while getting charge level, no need to measure
-                         * discharge rate. Instead system should wakeup if it is manual wakeup or
-                         * hibernate if this is a timer wakeup.   */
-                        log_debug_errno(r, "Battery capacity percentage unavailable, cannot estimate discharge rate: %m");
+                         * discharge rate. Instead the system should wake up if it is manual wakeup or
+                         * hibernate if this is a timer wakeup. */
+                        if (r < 0)
+                                log_debug_errno(r, "Battery capacity percentage unavailable, cannot estimate discharge rate: %m");
+                        else
+                                log_debug("No battery found.");
                         if (!woken_by_timer)
                                 return 0;
                         break;
                 }
 
-                after_timestamp = now(CLOCK_BOOTTIME);
+                usec_t after_timestamp = now(CLOCK_BOOTTIME);
                 log_debug("Attempting to estimate battery discharge rate after wakeup from %s sleep",
                           FORMAT_TIMESPAN(after_timestamp - before_timestamp, USEC_PER_HOUR));
 
