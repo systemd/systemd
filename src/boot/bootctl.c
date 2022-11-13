@@ -1886,8 +1886,6 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 printf("\n");
 
                 printf("%sRandom Seed:%s\n", ansi_underline(), ansi_normal());
-                have = access(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderRandomSeed)), F_OK) >= 0;
-                printf(" Passed to OS: %s\n", yes_no(have));
                 have = access(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderSystemToken)), F_OK) >= 0;
                 printf(" System Token: %s\n", have ? "set" : "not set");
 
@@ -1977,10 +1975,10 @@ static int verb_list(int argc, char *argv[], void *userdata) {
 
 static int install_random_seed(const char *esp) {
         _cleanup_(unlink_and_freep) char *tmp = NULL;
-        _cleanup_free_ void *buffer = NULL;
+        unsigned char buffer[RANDOM_EFI_SEED_SIZE];
         _cleanup_free_ char *path = NULL;
         _cleanup_close_ int fd = -1;
-        size_t sz, token_size;
+        size_t token_size;
         ssize_t n;
         int r;
 
@@ -1990,13 +1988,7 @@ static int install_random_seed(const char *esp) {
         if (!path)
                 return log_oom();
 
-        sz = random_pool_size();
-
-        buffer = malloc(sz);
-        if (!buffer)
-                return log_oom();
-
-        r = crypto_random_bytes(buffer, sz);
+        r = crypto_random_bytes(buffer, sizeof(buffer));
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire random seed: %m");
 
@@ -2017,10 +2009,10 @@ static int install_random_seed(const char *esp) {
                 return log_error_errno(fd, "Failed to open random seed file for writing: %m");
         }
 
-        n = write(fd, buffer, sz);
+        n = write(fd, buffer, sizeof(buffer));
         if (n < 0)
                 return log_error_errno(errno, "Failed to write random seed file: %m");
-        if ((size_t) n != sz)
+        if ((size_t) n != sizeof(buffer))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write while writing random seed file.");
 
         if (rename(tmp, path) < 0)
@@ -2028,7 +2020,7 @@ static int install_random_seed(const char *esp) {
 
         tmp = mfree(tmp);
 
-        log_info("Random seed file %s successfully written (%zu bytes).", path, sz);
+        log_info("Random seed file %s successfully written (%zu bytes).", path, sizeof(buffer));
 
         if (!arg_touch_variables)
                 return 0;
@@ -2080,16 +2072,16 @@ static int install_random_seed(const char *esp) {
                 if (r != -ENOENT)
                         return log_error_errno(r, "Failed to test system token validity: %m");
         } else {
-                if (token_size >= sz) {
+                if (token_size >= sizeof(buffer)) {
                         /* Let's avoid writes if we can, and initialize this only once. */
                         log_debug("System token already written, not updating.");
                         return 0;
                 }
 
-                log_debug("Existing system token size (%zu) does not match our expectations (%zu), replacing.", token_size, sz);
+                log_debug("Existing system token size (%zu) does not match our expectations (%zu), replacing.", token_size, sizeof(buffer));
         }
 
-        r = crypto_random_bytes(buffer, sz);
+        r = crypto_random_bytes(buffer, sizeof(buffer));
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire random seed: %m");
 
@@ -2097,7 +2089,7 @@ static int install_random_seed(const char *esp) {
          * and possibly get identification information or too much insight into the kernel's entropy pool
          * state. */
         RUN_WITH_UMASK(0077) {
-                r = efi_set_variable(EFI_LOADER_VARIABLE(LoaderSystemToken), buffer, sz);
+                r = efi_set_variable(EFI_LOADER_VARIABLE(LoaderSystemToken), buffer, sizeof(buffer));
                 if (r < 0) {
                         if (!arg_graceful)
                                 return log_error_errno(r, "Failed to write 'LoaderSystemToken' EFI variable: %m");
@@ -2107,7 +2099,7 @@ static int install_random_seed(const char *esp) {
                         else
                                 log_warning_errno(r, "Unable to write 'LoaderSystemToken' EFI variable, ignoring: %m");
                 } else
-                        log_info("Successfully initialized system token in EFI variable with %zu bytes.", sz);
+                        log_info("Successfully initialized system token in EFI variable with %zu bytes.", sizeof(buffer));
         }
 
         return 0;
