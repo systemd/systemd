@@ -2207,9 +2207,10 @@ int verb_show(int argc, char *argv[], void *userdata) {
 
                 if (!arg_states && !arg_types) {
                         if (show_mode == SYSTEMCTL_SHOW_PROPERTIES)
-                                r = show_one(bus, "/org/freedesktop/systemd1", NULL, show_mode, &new_line, &ellipsized);
-                        else
-                                r = show_system_status(bus);
+                                /* systemctl show --all → show properties of the manager */
+                                return show_one(bus, "/org/freedesktop/systemd1", NULL, show_mode, &new_line, &ellipsized);
+
+                        r = show_system_status(bus);
                         if (r < 0)
                                 return r;
 
