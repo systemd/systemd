@@ -275,7 +275,7 @@ static int custom_timer_suspend(const SleepConfig *sleep_config) {
                 _cleanup_hashmap_free_ Hashmap *last_capacity = NULL, *current_capacity = NULL;
                 _cleanup_close_ int tfd = -EBADF;
                 struct itimerspec ts = {};
-                usec_t suspend_interval = sleep_config->hibernate_delay_usec, before_timestamp, after_timestamp, total_suspend_interval;
+                usec_t suspend_interval, before_timestamp, after_timestamp;
                 bool woken_by_timer;
 
                 tfd = timerfd_create(CLOCK_BOOTTIME_ALARM, TFD_NONBLOCK|TFD_CLOEXEC);
@@ -287,11 +287,12 @@ static int custom_timer_suspend(const SleepConfig *sleep_config) {
                 if (r < 0)
                         return log_error_errno(r, "Error fetching battery capacity percentage: %m");
 
-                r = get_total_suspend_interval(last_capacity, &total_suspend_interval);
-                if (r < 0)
+                r = get_total_suspend_interval(last_capacity, &suspend_interval);
+                if (r < 0) {
                         log_debug_errno(r, "Failed to estimate suspend interval using previous discharge rate, ignoring: %m");
-                else
-                        suspend_interval = total_suspend_interval;
+                        /* In case of no battery or any errors, system suspend interval will be set to HibernateDelaySec=. */
+                        suspend_interval = sleep_config->hibernate_delay_usec;
+                }
 
                 before_timestamp = now(CLOCK_BOOTTIME);
 
