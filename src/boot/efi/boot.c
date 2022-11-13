@@ -2678,7 +2678,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         err = device_path_to_str(loaded_image->FilePath, &loaded_image_path);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Error getting loaded image path: %m");
+                return log_error_status_stall(err, L"Error getting loaded image path: %r", err);
 
         export_variables(loaded_image, loaded_image_path, init_usec);
 
