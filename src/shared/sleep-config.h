@@ -19,7 +19,8 @@ typedef struct SleepConfig {
         bool allow[_SLEEP_OPERATION_MAX];
         char **modes[_SLEEP_OPERATION_MAX];
         char **states[_SLEEP_OPERATION_MAX];
-        usec_t hibernate_delay_sec;
+        usec_t hibernate_delay_usec;
+        usec_t suspend_interval_usec;
 } SleepConfig;
 
 SleepConfig* free_sleep_config(SleepConfig *sc);
