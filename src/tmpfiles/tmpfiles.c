@@ -50,6 +50,7 @@
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "nulstr-util.h"
 #include "offline-passwd.h"
 #include "pager.h"
 #include "parse-argument.h"

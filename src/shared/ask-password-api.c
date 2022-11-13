@@ -34,6 +34,7 @@
 #include "memory-util.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
+#include "nulstr-util.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "signal-util.h"
@@ -111,6 +112,10 @@ static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **pa
         r = strv_make_nulstr(l, &p, &n);
         if (r < 0)
                 return r;
+
+        /* chop off the final NUL byte. We do this because we want to use the separator NUL bytes only if we
+         * have multiple passwords. */
+        n = LESS_BY(n, (size_t) 1);
 
         serial = add_key("user", keyname, p, n, KEY_SPEC_USER_KEYRING);
         if (serial == -1)
