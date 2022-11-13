@@ -431,9 +431,9 @@ static int execute_s2h(const SleepConfig *sleep_config) {
                         return 0;
         } else {
                 r = custom_timer_suspend(sleep_config);
-                if(r < 0)
+                if (r < 0)
                         return log_debug_errno(r, "Suspend cycle with manual battery discharge rate estimation failed: %m");
-                if(r == 0)
+                if (r == 0)
                         /* manual wakeup */
                         return 0;
         }
