@@ -143,16 +143,27 @@ static int battery_enumerator_new(sd_device_enumerator **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_device_enumerator_add_match_subsystem(e, "power_supply", /* match= */ true);
+        r = sd_device_enumerator_add_match_subsystem(e, "power_supply", /* match = */ true);
         if (r < 0)
                 return r;
 
-        r = sd_device_enumerator_add_match_property(e, "POWER_SUPPLY_TYPE", "Battery");
+        r = sd_device_enumerator_allow_uninitialized(e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_sysattr(e, "type", "Battery", /* match = */ true);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_sysattr(e, "present", "1", /* match = */ true);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_sysattr(e, "scope", "Device", /* match = */ false);
         if (r < 0)
                 return r;
 
         *ret = TAKE_PTR(e);
-
         return 0;
 }
 
