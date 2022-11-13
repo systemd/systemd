@@ -589,10 +589,9 @@ static int print_efi_option(uint16_t id, int *n_printed, bool in_order) {
                 return log_debug_errno(r, "Failed to read boot option 0x%04X: %m", id);
 
         /* print only configured entries with partition information */
-        if (!path || sd_id128_is_null(partition)) {
-                log_debug("Ignoring boot entry 0x%04X without partition information.", id);
-                return 0;
-        }
+        if (!path || sd_id128_is_null(partition))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Ignoring boot entry 0x%04X without partition information.", id);
 
         efi_tilt_backslashes(path);
 
