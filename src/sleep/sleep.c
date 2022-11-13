@@ -275,7 +275,7 @@ static int custom_timer_suspend(const SleepConfig *sleep_config) {
                 _cleanup_hashmap_free_ Hashmap *last_capacity = NULL, *current_capacity = NULL;
                 _cleanup_close_ int tfd = -EBADF;
                 struct itimerspec ts = {};
-                usec_t suspend_interval = sleep_config->hibernate_delay_sec, before_timestamp = 0, after_timestamp = 0, total_suspend_interval;
+                usec_t suspend_interval = sleep_config->hibernate_delay_usec, before_timestamp = 0, after_timestamp = 0, total_suspend_interval;
                 bool woken_by_timer;
 
                 tfd = timerfd_create(CLOCK_BOOTTIME_ALARM, TFD_NONBLOCK|TFD_CLOEXEC);
