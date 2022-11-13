@@ -22,6 +22,7 @@
 #include "btrfs-util.h"
 #include "conf-parser.h"
 #include "constants.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "devnum-util.h"
 #include "env-util.h"
@@ -170,18 +171,13 @@ int get_capacity_by_name(Hashmap *capacities_by_name, const char *name) {
 
 /* Battery percentage capacity fetched from capacity file and if in range 0-100 then returned */
 static int read_battery_capacity_percentage(sd_device *dev) {
-        const char *power_supply_capacity;
         int battery_capacity, r;
 
         assert(dev);
 
-        r = sd_device_get_property_value(dev, "POWER_SUPPLY_CAPACITY", &power_supply_capacity);
+        r = device_get_sysattr_int(dev, "capacity", &battery_capacity);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get property POWER_SUPPLY_CAPACITY: %m");
-
-        r = safe_atoi(power_supply_capacity, &battery_capacity);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to parse property POWER_SUPPLY_CAPACITY: %m");
+                return log_device_debug_errno(dev, r, "Failed to read/parse POWER_SUPPLY_CAPACITY: %m");
 
         if (battery_capacity < 0 || battery_capacity > 100)
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ERANGE), "Invalid battery capacity");
@@ -203,15 +199,9 @@ int battery_is_low(void) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to initialize battery enumerator: %m");
 
-        FOREACH_DEVICE(e, dev) {
-                r = read_battery_capacity_percentage(dev);
-                if (r < 0) {
-                        log_device_debug_errno(dev, r, "Failed to get battery capacity, ignoring: %m");
-                        continue;
-                }
-                if (r > BATTERY_LOW_CAPACITY_LEVEL)
+        FOREACH_DEVICE(e, dev)
+                if (read_battery_capacity_percentage(dev) > BATTERY_LOW_CAPACITY_LEVEL)
                         return false;
-        }
 
         return true;
 }
