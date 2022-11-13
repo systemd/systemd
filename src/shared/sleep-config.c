@@ -380,11 +380,11 @@ static int put_battery_discharge_rate(int estimated_battery_discharge_rate, uint
                                         estimated_battery_discharge_rate);
 
         r = write_string_filef(
-                DISCHARGE_RATE_FILEPATH,
-                WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_MKDIR_0755 | (trunc ? WRITE_STRING_FILE_TRUNCATE : 0),
-                "%"PRIu64" %d",
-                system_hash_id,
-                estimated_battery_discharge_rate);
+                        DISCHARGE_RATE_FILEPATH,
+                        WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_MKDIR_0755 | (trunc ? WRITE_STRING_FILE_TRUNCATE : 0),
+                        "%"PRIu64" %d",
+                        system_hash_id,
+                        estimated_battery_discharge_rate);
         if (r < 0)
                 return log_debug_errno(r, "Failed to update %s: %m", DISCHARGE_RATE_FILEPATH);
 
