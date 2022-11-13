@@ -267,9 +267,12 @@ static int execute(
 }
 
 static int custom_timer_suspend(const SleepConfig *sleep_config) {
+        usec_t hibernate_timestamp;
         int r;
 
         assert(sleep_config);
+
+        hibernate_timestamp = usec_add(now(CLOCK_BOOTTIME), sleep_config->hibernate_delay_usec);
 
         while (battery_is_low() == 0) {
                 _cleanup_hashmap_free_ Hashmap *last_capacity = NULL, *current_capacity = NULL;
@@ -287,14 +290,25 @@ static int custom_timer_suspend(const SleepConfig *sleep_config) {
                 if (r < 0)
                         return log_error_errno(r, "Error fetching battery capacity percentage: %m");
 
-                r = get_total_suspend_interval(last_capacity, &suspend_interval);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to estimate suspend interval using previous discharge rate, ignoring: %m");
-                        /* In case of no battery or any errors, system suspend interval will be set to HibernateDelaySec=. */
-                        suspend_interval = sleep_config->hibernate_delay_usec;
+                if (hashmap_isempty(last_capacity))
+                        /* In case of no battery, system suspend interval will be set to HibernateDelaySec= or 2 hours. */
+                        suspend_interval = timestamp_is_set(hibernate_timestamp) ? sleep_config->hibernate_delay_usec : DEFAULT_SUSPEND_ESTIMATION_USEC;
+                else {
+                        r = get_total_suspend_interval(last_capacity, &suspend_interval);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to estimate suspend interval using previous discharge rate, ignoring: %m");
+                                /* In case of any errors, especially when we do not know the battery
+                                 * discharging rate, system suspend interval will be set to
+                                 * SuspendEstimationSec=. */
+                                suspend_interval = sleep_config->suspend_estimation_usec;
+                        }
                 }
 
+                /* Do not suspend more than HibernateDelaySec= */
                 usec_t before_timestamp = now(CLOCK_BOOTTIME);
+                suspend_interval = MIN(suspend_interval, usec_sub_unsigned(hibernate_timestamp, before_timestamp));
+                if (suspend_interval <= 0)
+                        break; /* system should hibernate */
 
                 log_debug("Set timerfd wake alarm for %s", FORMAT_TIMESPAN(suspend_interval, USEC_PER_SEC));
                 /* Wake alarm for system with or without battery to hibernate or estimate discharge rate whichever is applicable */
