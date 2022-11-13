@@ -165,61 +165,65 @@ static int verify_esp_udev(
 
         r = sd_device_get_devname(d, &node);
         if (r < 0)
-                return log_error_errno(r, "Failed to get device node: %m");
+                return log_device_error_errno(d, r, "Failed to get device node: %m");
 
         r = sd_device_get_property_value(d, "ID_FS_TYPE", &v);
         if (r < 0)
-                return log_error_errno(r, "Failed to get device property: %m");
+                return log_device_error_errno(d, r, "Failed to get device property: %m");
         if (!streq(v, "vfat"))
-                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                      SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
-                                      "File system \"%s\" is not FAT.", node );
+                return log_device_full_errno(d,
+                                             searching ? LOG_DEBUG : LOG_ERR,
+                                             SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
+                                             "File system \"%s\" is not FAT.", node );
 
         r = sd_device_get_property_value(d, "ID_PART_ENTRY_SCHEME", &v);
         if (r < 0)
-                return log_full_errno(searching && r == -ENOENT ? LOG_DEBUG : LOG_ERR,
-                                      searching && r == -ENOENT ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : r,
-                                      "Failed to get device property: %m");
+                return log_device_full_errno(d,
+                                             searching && r == -ENOENT ? LOG_DEBUG : LOG_ERR,
+                                             searching && r == -ENOENT ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : r,
+                                             "Failed to get device property: %m");
         if (!streq(v, "gpt"))
-                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                      SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
-                                      "File system \"%s\" is not on a GPT partition table.", node);
+                return log_device_full_errno(d,
+                                             searching ? LOG_DEBUG : LOG_ERR,
+                                             SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
+                                             "File system \"%s\" is not on a GPT partition table.", node);
 
         r = sd_device_get_property_value(d, "ID_PART_ENTRY_TYPE", &v);
         if (r < 0)
-                return log_error_errno(r, "Failed to get device property: %m");
+                return log_device_error_errno(d, r, "Failed to get device property: %m");
         if (sd_id128_string_equal(v, SD_GPT_ESP) <= 0)
-                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                       SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
-                                       "File system \"%s\" has wrong type for an EFI System Partition (ESP).", node);
+                return log_device_full_errno(d,
+                                             searching ? LOG_DEBUG : LOG_ERR,
+                                             SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
+                                             "File system \"%s\" has wrong type for an EFI System Partition (ESP).", node);
 
         r = sd_device_get_property_value(d, "ID_PART_ENTRY_UUID", &v);
         if (r < 0)
-                return log_error_errno(r, "Failed to get device property: %m");
+                return log_device_error_errno(d, r, "Failed to get device property: %m");
         r = sd_id128_from_string(v, &uuid);
         if (r < 0)
-                return log_error_errno(r, "Partition \"%s\" has invalid UUID \"%s\".", node, v);
+                return log_device_error_errno(d, r, "Partition \"%s\" has invalid UUID \"%s\".", node, v);
 
         r = sd_device_get_property_value(d, "ID_PART_ENTRY_NUMBER", &v);
         if (r < 0)
-                return log_error_errno(r, "Failed to get device property: %m");
+                return log_device_error_errno(d, r, "Failed to get device property: %m");
         r = safe_atou32(v, &part);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse PART_ENTRY_NUMBER field.");
+                return log_device_error_errno(d, r, "Failed to parse PART_ENTRY_NUMBER field.");
 
         r = sd_device_get_property_value(d, "ID_PART_ENTRY_OFFSET", &v);
         if (r < 0)
-                return log_error_errno(r, "Failed to get device property: %m");
+                return log_device_error_errno(d, r, "Failed to get device property: %m");
         r = safe_atou64(v, &pstart);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse PART_ENTRY_OFFSET field.");
+                return log_device_error_errno(d, r, "Failed to parse PART_ENTRY_OFFSET field.");
 
         r = sd_device_get_property_value(d, "ID_PART_ENTRY_SIZE", &v);
         if (r < 0)
-                return log_error_errno(r, "Failed to get device property: %m");
+                return log_device_error_errno(d, r, "Failed to get device property: %m");
         r = safe_atou64(v, &psize);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse PART_ENTRY_SIZE field.");
+                return log_device_error_errno(d, r, "Failed to parse PART_ENTRY_SIZE field.");
 
         if (ret_part)
                 *ret_part = part;
@@ -637,7 +641,7 @@ static int verify_xbootldr_udev(
 
         r = sd_device_get_devname(d, &node);
         if (r < 0)
-                return log_error_errno(r, "Failed to get device node: %m");
+                return log_device_error_errno(d, r, "Failed to get device node: %m");
 
         r = sd_device_get_property_value(d, "ID_PART_ENTRY_SCHEME", &type);
         if (r < 0)
