@@ -21,6 +21,7 @@
 #include "log.h"
 #include "macro.h"
 #include "mkdir.h"
+#include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "socket-util.h"

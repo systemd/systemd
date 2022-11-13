@@ -2,7 +2,6 @@
 
 #include "alloc-util.h"
 #include "escape.h"
-#include "nulstr-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -487,37 +486,6 @@ TEST(strv_split_newlines_full) {
         assert_se(strv_equal(l, (char**) input_table_retain_escape));
 }
 
-TEST(strv_split_nulstr) {
-        _cleanup_strv_free_ char **l = NULL;
-        const char nulstr[] = "str0\0str1\0str2\0str3\0";
-
-        l = strv_split_nulstr (nulstr);
-        assert_se(l);
-
-        assert_se(streq(l[0], "str0"));
-        assert_se(streq(l[1], "str1"));
-        assert_se(streq(l[2], "str2"));
-        assert_se(streq(l[3], "str3"));
-}
-
-TEST(strv_parse_nulstr) {
-        _cleanup_strv_free_ char **l = NULL;
-        const char nulstr[] = "hoge\0hoge2\0hoge3\0\0hoge5\0\0xxx";
-
-        l = strv_parse_nulstr(nulstr, sizeof(nulstr)-1);
-        assert_se(l);
-        puts("Parse nulstr:");
-        strv_print(l);
-
-        assert_se(streq(l[0], "hoge"));
-        assert_se(streq(l[1], "hoge2"));
-        assert_se(streq(l[2], "hoge3"));
-        assert_se(streq(l[3], ""));
-        assert_se(streq(l[4], "hoge5"));
-        assert_se(streq(l[5], ""));
-        assert_se(streq(l[6], "xxx"));
-}
-
 TEST(strv_overlap) {
         const char * const input_table[] = {
                 "one",
@@ -943,35 +911,6 @@ TEST(strv_extend_n) {
 
         assert_se(streq(v[0], "foo"));
         assert_se(v[1] == NULL);
-}
-
-static void test_strv_make_nulstr_one(char **l) {
-        _cleanup_free_ char *b = NULL, *c = NULL;
-        _cleanup_strv_free_ char **q = NULL;
-        size_t n, m;
-        unsigned i = 0;
-
-        log_info("/* %s */", __func__);
-
-        assert_se(strv_make_nulstr(l, &b, &n) >= 0);
-        assert_se(q = strv_parse_nulstr(b, n));
-        assert_se(strv_equal(l, q));
-
-        assert_se(strv_make_nulstr(q, &c, &m) >= 0);
-        assert_se(m == n);
-        assert_se(memcmp(b, c, m) == 0);
-
-        NULSTR_FOREACH(s, b)
-                assert_se(streq(s, l[i++]));
-        assert_se(i == strv_length(l));
-}
-
-TEST(strv_make_nulstr) {
-        test_strv_make_nulstr_one(NULL);
-        test_strv_make_nulstr_one(STRV_MAKE(NULL));
-        test_strv_make_nulstr_one(STRV_MAKE("foo"));
-        test_strv_make_nulstr_one(STRV_MAKE("foo", "bar"));
-        test_strv_make_nulstr_one(STRV_MAKE("foo", "bar", "quuux"));
 }
 
 TEST(foreach_string) {

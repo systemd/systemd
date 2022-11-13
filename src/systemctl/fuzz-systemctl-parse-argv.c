@@ -6,6 +6,7 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "fuzz.h"
+#include "nulstr-util.h"
 #include "selinux-util.h"
 #include "static-destruct.h"
 #include "stdio-util.h"
