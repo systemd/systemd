@@ -642,9 +642,46 @@ static int device_is_power_sink(sd_device *device) {
         return found_sink || !found_source;
 }
 
+static bool battery_is_discharging(sd_device *d) {
+        const char *val;
+        int r;
+
+        assert(d);
+
+        r = sd_device_get_sysattr_value(d, "scope", &val);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_device_debug_errno(d, r, "Failed to read 'scope' sysfs attribute, ignoring: %m");
+        } else if (streq(val, "Device")) {
+                log_device_debug(d, "The power supply is a device battery, ignoring device.");
+                return false;
+        }
+
+        r = device_get_sysattr_bool(d, "present");
+        if (r < 0)
+                log_device_debug_errno(d, r, "Failed to read 'present' sysfs attribute, assuming the battery is present: %m");
+        else if (r == 0) {
+                log_device_debug(d, "The battery is not present, ignoring the power supply.");
+                return false;
+        }
+
+        /* Possible values: "Unknown", "Charging", "Discharging", "Not charging", "Full" */
+        r = sd_device_get_sysattr_value(d, "status", &val);
+        if (r < 0) {
+                log_device_debug_errno(d, r, "Failed to read 'status' sysfs attribute, assuming the battery is discharging: %m");
+                return true;
+        }
+        if (!streq(val, "Discharging")) {
+                log_device_debug(d, "The battery status is '%s', assuming the battery is not used as a power source of this machine.", val);
+                return false;
+        }
+
+        return true;
+}
+
 int on_ac_power(void) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        bool found_ac_online = false, found_battery = false;
+        bool found_ac_online = false, found_discharging_battery = false;
         sd_device *d;
         int r;
 
@@ -686,17 +723,10 @@ int on_ac_power(void) {
                 }
 
                 if (streq(val, "Battery")) {
-                        r = sd_device_get_sysattr_value(d, "scope", &val);
-                        if (r < 0) {
-                                if (r != -ENOENT)
-                                        log_device_debug_errno(d, r, "Failed to read 'scope' sysfs attribute, ignoring: %m");
-                        } else if (streq(val, "Device")) {
-                                log_device_debug(d, "The power supply is a device battery, ignoring device.");
-                                continue;
+                        if (battery_is_discharging(d)) {
+                                found_discharging_battery = true;
+                                log_device_debug(d, "The power supply is a battery and currently discharging.");
                         }
-
-                        found_battery = true;
-                        log_device_debug(d, "The power supply is battery.");
                         continue;
                 }
 
@@ -713,11 +743,11 @@ int on_ac_power(void) {
         if (found_ac_online) {
                 log_debug("Found at least one online non-battery power supply, system is running on AC.");
                 return true;
-        } else if (found_battery) {
-                log_debug("Found battery and no online power sources, assuming system is running from battery.");
+        } else if (found_discharging_battery) {
+                log_debug("Found at least one discharging battery and no online power sources, assuming system is running from battery.");
                 return false;
         } else {
-                log_debug("No power supply reported online and no battery, assuming system is running on AC.");
+                log_debug("No power supply reported online and no discharging battery found, assuming system is running on AC.");
                 return true;
         }
 }
