@@ -24,18 +24,12 @@ static int test_calendar_one(usec_t n, const char *p) {
         if (r < 0)
                 return log_error_errno(r, "Failed to format calendar specification '%s': %m", p);
 
-        table = table_new("name", "value");
+        table = table_new_vertical();
         if (!table)
                 return log_oom();
 
-        table_set_header(table, false);
-
         assert_se(cell = table_get_cell(table, 0, 0));
         r = table_set_ellipsize_percent(table, cell, 100);
-        if (r < 0)
-                return r;
-
-        r = table_set_align_percent(table, cell, 100);
         if (r < 0)
                 return r;
 
@@ -46,14 +40,14 @@ static int test_calendar_one(usec_t n, const char *p) {
 
         if (!streq(t, p)) {
                 r = table_add_many(table,
-                                   TABLE_STRING, "Original form:",
+                                   TABLE_FIELD, "Original form",
                                    TABLE_STRING, p);
                 if (r < 0)
                         return table_log_add_error(r);
         }
 
         r = table_add_many(table,
-                           TABLE_STRING, "Normalized form:",
+                           TABLE_FIELD, "Normalized form",
                            TABLE_STRING, t);
         if (r < 0)
                 return table_log_add_error(r);
@@ -65,7 +59,7 @@ static int test_calendar_one(usec_t n, const char *p) {
                 if (r == -ENOENT) {
                         if (i == 0) {
                                 r = table_add_many(table,
-                                                   TABLE_STRING, "Next elapse:",
+                                                   TABLE_FIELD, "Next elapse",
                                                    TABLE_STRING, "never",
                                                    TABLE_SET_COLOR, ansi_highlight_yellow());
                                 if (r < 0)
@@ -78,7 +72,7 @@ static int test_calendar_one(usec_t n, const char *p) {
 
                 if (i == 0) {
                         r = table_add_many(table,
-                                           TABLE_STRING, "Next elapse:",
+                                           TABLE_FIELD, "Next elapse",
                                            TABLE_TIMESTAMP, next,
                                            TABLE_SET_COLOR, ansi_highlight_blue());
                         if (r < 0)
@@ -91,7 +85,7 @@ static int test_calendar_one(usec_t n, const char *p) {
                         else
                                 k = 0;
 
-                        r = table_add_cell_stringf(table, NULL, "Iter. #%u:", i+1);
+                        r = table_add_cell_stringf_full(table, NULL, TABLE_FIELD, "Iteration #%u", i+1);
                         if (r < 0)
                                 return table_log_add_error(r);
 
@@ -104,14 +98,14 @@ static int test_calendar_one(usec_t n, const char *p) {
 
                 if (!in_utc_timezone()) {
                         r = table_add_many(table,
-                                           TABLE_STRING, "(in UTC):",
+                                           TABLE_FIELD, "(in UTC)",
                                            TABLE_TIMESTAMP_UTC, next);
                         if (r < 0)
                                 return table_log_add_error(r);
                 }
 
                 r = table_add_many(table,
-                                   TABLE_STRING, "From now:",
+                                   TABLE_FIELD, "From now",
                                    TABLE_TIMESTAMP_RELATIVE, next);
                 if (r < 0)
                         return table_log_add_error(r);
