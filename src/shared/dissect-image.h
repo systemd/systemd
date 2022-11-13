@@ -41,6 +41,12 @@ struct DissectedPartition {
                 .architecture = _ARCHITECTURE_INVALID,                  \
                 .mount_node_fd = -1,                                    \
         })
+#define TAKE_PARTITION(p)                                       \
+        ({                                                      \
+                DissectedPartition *_pp = &(p), _p = *_pp;      \
+                *_pp = DISSECTED_PARTITION_NULL;                \
+                _p;                                             \
+        })
 
 typedef enum DissectImageFlags {
         DISSECT_IMAGE_DEVICE_READ_ONLY         = 1 << 0,  /* Make device read-only */

@@ -1030,19 +1030,13 @@ static int dissect_image(
                 log_debug("No root partition found of the native architecture, falling back to a root "
                           "partition of the secondary architecture.");
 
-                m->partitions[PARTITION_ROOT] = m->partitions[PARTITION_ROOT_SECONDARY];
-                zero(m->partitions[PARTITION_ROOT_SECONDARY]);
-                m->partitions[PARTITION_ROOT_VERITY] = m->partitions[PARTITION_ROOT_SECONDARY_VERITY];
-                zero(m->partitions[PARTITION_ROOT_SECONDARY_VERITY]);
-                m->partitions[PARTITION_ROOT_VERITY_SIG] = m->partitions[PARTITION_ROOT_SECONDARY_VERITY_SIG];
-                zero(m->partitions[PARTITION_ROOT_SECONDARY_VERITY_SIG]);
+                m->partitions[PARTITION_ROOT] = TAKE_PARTITION(m->partitions[PARTITION_ROOT_SECONDARY]);
+                m->partitions[PARTITION_ROOT_VERITY] = TAKE_PARTITION(m->partitions[PARTITION_ROOT_SECONDARY_VERITY]);
+                m->partitions[PARTITION_ROOT_VERITY_SIG] = TAKE_PARTITION(m->partitions[PARTITION_ROOT_SECONDARY_VERITY_SIG]);
 
-                m->partitions[PARTITION_USR] = m->partitions[PARTITION_USR_SECONDARY];
-                zero(m->partitions[PARTITION_USR_SECONDARY]);
-                m->partitions[PARTITION_USR_VERITY] = m->partitions[PARTITION_USR_SECONDARY_VERITY];
-                zero(m->partitions[PARTITION_USR_SECONDARY_VERITY]);
-                m->partitions[PARTITION_USR_VERITY_SIG] = m->partitions[PARTITION_USR_SECONDARY_VERITY_SIG];
-                zero(m->partitions[PARTITION_USR_SECONDARY_VERITY_SIG]);
+                m->partitions[PARTITION_USR] = TAKE_PARTITION(m->partitions[PARTITION_USR_SECONDARY]);
+                m->partitions[PARTITION_USR_VERITY] = TAKE_PARTITION(m->partitions[PARTITION_USR_SECONDARY_VERITY]);
+                m->partitions[PARTITION_USR_VERITY_SIG] = TAKE_PARTITION(m->partitions[PARTITION_USR_SECONDARY_VERITY_SIG]);
 
                 m->partitions[PARTITION_ROOT_OTHER].found = false;
                 m->partitions[PARTITION_ROOT_OTHER_VERITY].found = false;
@@ -1064,19 +1058,13 @@ static int dissect_image(
                           "falling back to a root partition of a non-native architecture (%s).",
                           architecture_to_string(m->partitions[PARTITION_ROOT_OTHER].architecture));
 
-                m->partitions[PARTITION_ROOT] = m->partitions[PARTITION_ROOT_OTHER];
-                zero(m->partitions[PARTITION_ROOT_OTHER]);
-                m->partitions[PARTITION_ROOT_VERITY] = m->partitions[PARTITION_ROOT_OTHER_VERITY];
-                zero(m->partitions[PARTITION_ROOT_OTHER_VERITY]);
-                m->partitions[PARTITION_ROOT_VERITY_SIG] = m->partitions[PARTITION_ROOT_OTHER_VERITY_SIG];
-                zero(m->partitions[PARTITION_ROOT_OTHER_VERITY_SIG]);
+                m->partitions[PARTITION_ROOT] = TAKE_PARTITION(m->partitions[PARTITION_ROOT_OTHER]);
+                m->partitions[PARTITION_ROOT_VERITY] = TAKE_PARTITION(m->partitions[PARTITION_ROOT_OTHER_VERITY]);
+                m->partitions[PARTITION_ROOT_VERITY_SIG] = TAKE_PARTITION(m->partitions[PARTITION_ROOT_OTHER_VERITY_SIG]);
 
-                m->partitions[PARTITION_USR] = m->partitions[PARTITION_USR_OTHER];
-                zero(m->partitions[PARTITION_USR_OTHER]);
-                m->partitions[PARTITION_USR_VERITY] = m->partitions[PARTITION_USR_OTHER_VERITY];
-                zero(m->partitions[PARTITION_USR_OTHER_VERITY]);
-                m->partitions[PARTITION_USR_VERITY_SIG] = m->partitions[PARTITION_USR_OTHER_VERITY_SIG];
-                zero(m->partitions[PARTITION_USR_OTHER_VERITY_SIG]);
+                m->partitions[PARTITION_USR] = TAKE_PARTITION(m->partitions[PARTITION_USR_OTHER]);
+                m->partitions[PARTITION_USR_VERITY] = TAKE_PARTITION(m->partitions[PARTITION_USR_OTHER_VERITY]);
+                m->partitions[PARTITION_USR_VERITY_SIG] = TAKE_PARTITION(m->partitions[PARTITION_USR_OTHER_VERITY_SIG]);
         }
 
         /* Hmm, we found a signature partition but no Verity data? Something is off. */
@@ -1103,12 +1091,9 @@ static int dissect_image(
                           "partition of the secondary architecture.");
 
                 /* Upgrade secondary arch to primary */
-                m->partitions[PARTITION_USR] = m->partitions[PARTITION_USR_SECONDARY];
-                zero(m->partitions[PARTITION_USR_SECONDARY]);
-                m->partitions[PARTITION_USR_VERITY] = m->partitions[PARTITION_USR_SECONDARY_VERITY];
-                zero(m->partitions[PARTITION_USR_SECONDARY_VERITY]);
-                m->partitions[PARTITION_USR_VERITY_SIG] = m->partitions[PARTITION_USR_SECONDARY_VERITY_SIG];
-                zero(m->partitions[PARTITION_USR_SECONDARY_VERITY_SIG]);
+                m->partitions[PARTITION_USR] = TAKE_PARTITION(m->partitions[PARTITION_USR_SECONDARY]);
+                m->partitions[PARTITION_USR_VERITY] = TAKE_PARTITION(m->partitions[PARTITION_USR_SECONDARY_VERITY]);
+                m->partitions[PARTITION_USR_VERITY_SIG] = TAKE_PARTITION(m->partitions[PARTITION_USR_SECONDARY_VERITY_SIG]);
 
                 m->partitions[PARTITION_USR_OTHER].found = false;
                 m->partitions[PARTITION_USR_OTHER_VERITY].found = false;
@@ -1125,12 +1110,9 @@ static int dissect_image(
                           architecture_to_string(m->partitions[PARTITION_ROOT_OTHER].architecture));
 
                 /* Upgrade other arch to primary */
-                m->partitions[PARTITION_USR] = m->partitions[PARTITION_USR_OTHER];
-                zero(m->partitions[PARTITION_USR_OTHER]);
-                m->partitions[PARTITION_USR_VERITY] = m->partitions[PARTITION_USR_OTHER_VERITY];
-                zero(m->partitions[PARTITION_USR_OTHER_VERITY]);
-                m->partitions[PARTITION_USR_VERITY_SIG] = m->partitions[PARTITION_USR_OTHER_VERITY_SIG];
-                zero(m->partitions[PARTITION_USR_OTHER_VERITY_SIG]);
+                m->partitions[PARTITION_USR] = TAKE_PARTITION(m->partitions[PARTITION_USR_OTHER]);
+                m->partitions[PARTITION_USR_VERITY] = TAKE_PARTITION(m->partitions[PARTITION_USR_OTHER_VERITY]);
+                m->partitions[PARTITION_USR_VERITY_SIG] = TAKE_PARTITION(m->partitions[PARTITION_USR_OTHER_VERITY_SIG]);
         }
 
         /* Hmm, we found a signature partition but no Verity data? Something is off. */
