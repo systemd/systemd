@@ -254,61 +254,55 @@ int fetch_batteries_capacity_by_name(Hashmap **ret) {
         return 0;
 }
 
-/* Read file path and return hash of value in that file */
-static int get_battery_identifier(sd_device *dev, const char *property, struct siphash *state) {
+static int siphash24_compress_device_sysattr(sd_device *dev, const char *attr, struct siphash *state) {
         const char *x;
         int r;
 
         assert(dev);
-        assert(property);
+        assert(attr);
         assert(state);
 
-        r = sd_device_get_property_value(dev, property, &x);
-        if (r == -ENOENT)
-               log_device_debug_errno(dev, r, "Battery device property %s is unavailable, ignoring: %m", property);
-        else if (r < 0)
-               return log_device_debug_errno(dev, r, "Failed to get battery device property %s: %m", property);
-        else if (isempty(x))
-               log_device_debug(dev, "Battery device property '%s' is empty.", property);
-        else
-               siphash24_compress_string(x, state);
+        r = sd_device_get_sysattr_value(dev, attr, &x);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to read '%s' attribute: %m", attr);
 
+        if (!isempty(x))
+                siphash24_compress_string(x, state);
+
+        return 0;
+}
+
+static int siphash24_compress_id128(int (*getter)(sd_id128_t*), const char *name, struct siphash *state) {
+        sd_id128_t id;
+        int r;
+
+        assert(getter);
+        assert(state);
+
+        r = getter(&id);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get %s ID: %m", name);
+
+        siphash24_compress(&id, sizeof(sd_id128_t), state);
         return 0;
 }
 
 /* Read system and battery identifier from specific location and generate hash of it */
 static int get_system_battery_identifier_hash(sd_device *dev, uint64_t *ret) {
         struct siphash state;
-        sd_id128_t machine_id, product_id;
-        int r;
 
         assert(ret);
         assert(dev);
 
         siphash24_init(&state, BATTERY_DISCHARGE_RATE_HASH_KEY.bytes);
 
-        get_battery_identifier(dev, "POWER_SUPPLY_MANUFACTURER", &state);
-        get_battery_identifier(dev, "POWER_SUPPLY_MODEL_NAME", &state);
-        get_battery_identifier(dev, "POWER_SUPPLY_SERIAL_NUMBER", &state);
-
-        r = sd_id128_get_machine(&machine_id);
-        if (r == -ENOENT)
-               log_debug_errno(r, "machine ID is unavailable: %m");
-        else if (r < 0)
-               return log_debug_errno(r, "Failed to get machine ID: %m");
-        else
-               siphash24_compress(&machine_id, sizeof(sd_id128_t), &state);
-
-        r = id128_get_product(&product_id);
-        if (r == -ENOENT)
-               log_debug_errno(r, "product_id does not exist: %m");
-        else if (r < 0)
-               return log_debug_errno(r, "Failed to get product ID: %m");
-        else
-               siphash24_compress(&product_id, sizeof(sd_id128_t), &state);
+        (void) siphash24_compress_device_sysattr(dev, "manufacturer", &state);
+        (void) siphash24_compress_device_sysattr(dev, "model_name", &state);
+        (void) siphash24_compress_device_sysattr(dev, "serial_number", &state);
+        (void) siphash24_compress_id128(sd_id128_get_machine, "machine", &state);
+        (void) siphash24_compress_id128(id128_get_product, "product", &state);
 
         *ret = siphash24_finalize(&state);
-
         return 0;
 }
 
