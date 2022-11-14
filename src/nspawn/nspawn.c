@@ -5753,7 +5753,7 @@ static int run(int argc, char *argv[]) {
                         log_notice("Note that the disk image needs to\n"
                                    "    a) either contain only a single MBR partition of type 0x83 that is marked bootable\n"
                                    "    b) or contain a single GPT partition of type 0FC63DAF-8483-4772-8E79-3D69D8477DE4\n"
-                                   "    c) or follow https://systemd.io/DISCOVERABLE_PARTITIONS\n"
+                                   "    c) or follow https://uapi-group.org/specifications/specs/discoverable_partitions_specification\n"
                                    "    d) or contain a file system without a partition table\n"
                                    "in order to be bootable with systemd-nspawn.");
                         goto finish;

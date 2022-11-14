@@ -34,7 +34,7 @@
     <filename>/var/tmp/</filename>, the EFI System Partition, the Extended Boot Loader Partition and swap
     partitions and creates mount and swap units for them, based on the partition type GUIDs of GUID partition
     tables (GPT), see <ulink url="https://uefi.org/specifications">UEFI Specification</ulink>, chapter 5. It
-    implements the <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions
+    implements the <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions
     Specification</ulink>. Note that this generator has no effect on non-GPT systems, and on specific mount
     points that are directories already containing files. Also, on systems where the units are explicitly
     configured (for example, listed in <citerefentry
@@ -97,7 +97,7 @@
             </entry>
             <entry>root partitions for other architectures</entry>
             <entry><filename>/</filename></entry>
-            <entry>The first partition with the type UUID matching the architecture, located on the same disk as the ESP, is used as the root file system <filename>/</filename>. For the full list and constant values, see <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>.</entry>
+            <entry>The first partition with the type UUID matching the architecture, located on the same disk as the ESP, is used as the root file system <filename>/</filename>. For the full list and constant values, see <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions Specification</ulink>.</entry>
           </row>
           <row>
             <entry><constant>SD_GPT_HOME</constant> <constant>933ac7e1-2eb4-4f13-b844-0e14e2aef915</constant></entry>
@@ -211,7 +211,7 @@
     are generated.</para>
 
     <para>If the disk contains an Extended Boot Loader partition, as defined in the <ulink
-    url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>, it is made
+    url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink>, it is made
     available at <filename>/boot/</filename> (by means of an automount point, similar to the ESP, see
     above). If both an EFI System Partition and an Extended Boot Loader partition exist the latter is
     preferably mounted to <filename>/boot/</filename>. Make sure to create both <filename>/efi/</filename>
