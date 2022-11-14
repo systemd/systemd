@@ -262,7 +262,6 @@ static int fido2_is_cred_in_specific_token(
                 const char *rp_id,
                 const void *cid,
                 size_t cid_size,
-                char **pins,
                 Fido2EnrollFlags flags) {
 
         assert(path);
@@ -296,6 +295,16 @@ static int fido2_is_cred_in_specific_token(
         if (r < 0)
                 return r;
 
+        /* FIDO2 devices may not support pre-flight requests with UV, at least not
+         * without user interaction [1]. As a result, let's just return -EOPNOTSUPP
+         * here and go ahead with trying the unlock directly.
+         * Reference:
+         * 1: https://fidoalliance.org/specs/fido-v2.1-ps-20210615/fido-client-to-authenticator-protocol-v2.1-ps-20210615.html#sctn-getAssert-authnr-alg
+         *    See section 7.4 */
+        if (has_uv && FLAGS_SET(flags, FIDO2ENROLL_UV))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Pre-flight requests with UV are unsupported");
+
         /* According to CTAP 2.1 specification, to do pre-flight we need to set up option to false
          * with optionally pinUvAuthParam in assertion[1]. But for authenticator that doesn't support
          * user presence, once up option is present, the authenticator may return CTAP2_ERR_UNSUPPORTED_OPTION[2].
@@ -312,28 +321,7 @@ static int fido2_is_cred_in_specific_token(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Failed to set assertion user presence: %s", sym_fido_strerr(r));
 
-
-        /* According to CTAP 2.1 specification, if the credential is marked as userVerificationRequired,
-         * we may pass pinUvAuthParam parameter or set uv option to true in order to check whether the
-         * credential is in the token. Here we choose to use PIN (pinUvAuthParam) to achieve this.
-         * If we don't do that, the authenticator will remove the credential from the applicable
-         * credentials list, hence CTAP2_ERR_NO_CREDENTIALS error will be returned.
-         * Please see
-         * https://fidoalliance.org/specs/fido-v2.1-ps-20210615/fido-client-to-authenticator-protocol-v2.1-ps-20210615.html#sctn-getAssert-authnr-alg
-         * step 7.4 for detailed information.
-         */
-        if (FLAGS_SET(flags, FIDO2ENROLL_UV) && has_uv) {
-                if (strv_isempty(pins))
-                        r = FIDO_ERR_PIN_REQUIRED;
-                else
-                        STRV_FOREACH(i, pins) {
-                                r = sym_fido_dev_get_assert(d, a, *i);
-                                if (r != FIDO_ERR_PIN_INVALID)
-                                        break;
-                        }
-
-        } else
-                r = sym_fido_dev_get_assert(d, a, NULL);
+        r = sym_fido_dev_get_assert(d, a, NULL);
 
         switch (r) {
                 case FIDO_OK:
@@ -632,26 +620,12 @@ int fido2_use_hmac_hash(
                         goto finish;
                 }
 
-                r = fido2_is_cred_in_specific_token(path, rp_id, cid, cid_size, pins, required);
-                /* We handle PIN related errors here since we have used PIN in the check.
-                 * If PIN error happens, we can avoid pin retries decreased the second time. */
-                if (IN_SET(r, -ENOANO,        /* → pin required */
-                              -ENOLCK,        /* → pin incorrect */
-                              -EOWNERDEAD)) { /* → uv blocked */
-                        /* If it's not the last device, try next one */
-                        if (i < found - 1)
-                                continue;
-
-                        /* -EOWNERDEAD is returned when uv is blocked. Map it to EAGAIN so users can reinsert
-                         * the token and try again. */
-                        if (r == -EOWNERDEAD)
-                                r = -EAGAIN;
-                        goto finish;
-                } else if (r == -ENODEV) /* not a FIDO2 device or lacking HMAC-SECRET extension */
+                r = fido2_is_cred_in_specific_token(path, rp_id, cid, cid_size, required);
+                if (r == -ENODEV) /* not a FIDO2 device or lacking HMAC-SECRET extension */
                         continue;
-                else if (r < 0)
+                if (r < 0)
                         log_error_errno(r, "Failed to determine whether the credential is in the token, trying anyway: %m");
-                else if (r == 0) {
+                if (r == 0) {
                         log_debug("The credential is not in the token %s, skipping.", path);
                         continue;
                 }
