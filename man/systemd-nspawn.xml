@@ -288,7 +288,7 @@
           a server data partition which are mounted to the appropriate
           places in the container. All these partitions must be
           identified by the partition types defined by the <ulink
-          url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable
+          url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable
           Partitions Specification</ulink>.</para></listitem>
 
           <listitem><para>No partition table, and a single file system spanning the whole image.</para></listitem>
