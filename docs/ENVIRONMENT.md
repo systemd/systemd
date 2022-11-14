@@ -473,7 +473,12 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
 
 `systemd-journald`:
 
-* `$SYSTEMD_JOURNAL_COMPACT` - Takes a boolean. If enabled, journal files are written
+* `$SYSTEMD_JOURNAL_COMPACT` – Takes a boolean. If enabled, journal files are written
   in a more compact format that reduces the amount of disk space required by the
   journal. Note that journal files in compact mode are limited to 4G to allow use of
   32-bit offsets. Enabled by default.
+
+`systemd-pcrphase`:
+
+* `$SYSTEMD_PCRPHASE_STUB_VERIFY` – Takes a boolean. If false the requested
+  measurement is done even if no EFI stub usage was reported via EFI variables.
