@@ -302,7 +302,7 @@ static int fido2_is_cred_in_specific_token(
          * 1: https://fidoalliance.org/specs/fido-v2.1-ps-20210615/fido-client-to-authenticator-protocol-v2.1-ps-20210615.html#sctn-getAssert-authnr-alg
          *    See section 7.4 */
         if (has_uv && FLAGS_SET(flags, FIDO2ENROLL_UV))
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Pre-flight requests with UV are unsupported");
 
         /* According to CTAP 2.1 specification, to do pre-flight we need to set up option to false
@@ -593,7 +593,7 @@ int fido2_use_hmac_hash(
                         return log_error_errno(SYNTHETIC_ERRNO(EBADSLT),
                                                "The credential is not in the token %s.", device);
                 else if (r < 0)
-                        log_error_errno(r, "Failed to determine whether the credential is in the token, trying anyway: %m");
+                        log_debug_errno(r, "Failed to determine whether the credential is in the token, trying anyway: %m");
 
                 return fido2_use_hmac_hash_specific_token(device, rp_id, salt, salt_size, cid, cid_size, pins, required, ret_hmac, ret_hmac_size);
         }
@@ -635,7 +635,7 @@ int fido2_use_hmac_hash(
                 if (r == -ENODEV) /* not a FIDO2 device or lacking HMAC-SECRET extension */
                         continue;
                 else if (r < 0)
-                        log_error_errno(r, "Failed to determine whether the credential is in the token, trying anyway: %m");
+                        log_debug_errno(r, "Failed to determine whether the credential is in the token, trying anyway: %m");
                 else if (r == 0) {
                         log_debug("The credential is not in the token %s, skipping.", path);
                         continue;
