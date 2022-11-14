@@ -6,6 +6,7 @@
 
 #include "build.h"
 #include "efivars.h"
+#include "env-util.h"
 #include "main-func.h"
 #include "openssl-util.h"
 #include "parse-util.h"
@@ -175,21 +176,33 @@ static int run(int argc, char *argv[]) {
 
         length = strlen(word);
 
+        int b = getenv_bool("SYSTEMD_PCRPHASE_STUB_VERIFY");
+        if (b < 0 && b != -ENXIO)
+                log_warning_errno(b, "Unable to parse $SYSTEMD_PCRPHASE_STUB_VERIFY value, ignoring.");
+
         /* Skip logic if sd-stub is not used, after all PCR 11 might have a very different purpose then. */
         r = efi_get_variable_string(EFI_LOADER_VARIABLE(StubPcrKernelImage), &pcr_string);
         if (r == -ENOENT) {
-                log_info("Kernel stub did not measure kernel image into PCR %u, skipping measurement.", TPM_PCR_INDEX_KERNEL_IMAGE);
-                return EXIT_SUCCESS;
-        }
-        if (r < 0)
+                if (b != 0) {
+                        log_info("Kernel stub did not measure kernel image into PCR %u, skipping measurement.", TPM_PCR_INDEX_KERNEL_IMAGE);
+                        return EXIT_SUCCESS;
+                } else
+                        log_notice("Kernel stub did not measure kernel image into PCR %u, but told to measure anyway, hence proceeding.", TPM_PCR_INDEX_KERNEL_IMAGE);
+        } else if (r < 0)
                 return log_error_errno(r, "Failed to read StubPcrKernelImage EFI variable: %m");
-
-        /* Let's validate that the stub announced PCR 11 as we expected. */
-        r = safe_atou(pcr_string, &pcr_nr);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse StubPcrKernelImage EFI variable: %s", pcr_string);
-        if (pcr_nr != TPM_PCR_INDEX_KERNEL_IMAGE)
-                return log_error_errno(SYNTHETIC_ERRNO(EREMOTE), "Kernel stub measured kernel image into PCR %u, which is different than expected %u.", pcr_nr, TPM_PCR_INDEX_KERNEL_IMAGE);
+        else {
+                /* Let's validate that the stub announced PCR 11 as we expected. */
+                r = safe_atou(pcr_string, &pcr_nr);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse StubPcrKernelImage EFI variable: %s", pcr_string);
+                if (pcr_nr != TPM_PCR_INDEX_KERNEL_IMAGE) {
+                        if (b != 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EREMOTE), "Kernel stub measured kernel image into PCR %u, which is different than expected %u.", pcr_nr, TPM_PCR_INDEX_KERNEL_IMAGE);
+                        else
+                                log_notice("Kernel stub measured kernel image into PCR %u, which is different than expected %u, but told to measure anyway, hence proceeding.", pcr_nr, TPM_PCR_INDEX_KERNEL_IMAGE);
+                } else
+                        log_debug("Kernel stub reported same PCR %u as we want to use, proceeding.", TPM_PCR_INDEX_KERNEL_IMAGE);
+        }
 
         r = dlopen_tpm2();
         if (r < 0)
