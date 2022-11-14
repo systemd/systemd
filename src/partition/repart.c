@@ -3046,6 +3046,18 @@ static int partition_target_prepare(
                         return log_error_errno(errno, "Failed to truncate temporary file to %s: %m",
                                                FORMAT_BYTES(size));
 
+                if (fstat(fd, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat %s: %m", t->path);
+
+                log_info("target_size: %li", st.st_size);
+                log_info("new_size: %lu", p->new_size);
+
+                if (fstat(whole_fd, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat whole fd: %m");
+
+                log_info("offset: %lu", p->offset);
+                log_info("whole_size: %li", st.st_size);
+
                 *t = (PartitionTarget) {
                         .fd = TAKE_FD(fd),
                         .path = TAKE_PTR(temp),
@@ -3101,6 +3113,23 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
                         return log_error_errno(errno, "Failed to seek to partition offset: %m");
 
                 r = copy_bytes(t->fd, whole_fd, UINT64_MAX, COPY_REFLINK|COPY_HOLES|COPY_FSYNC);
+                if (r == -ENOSPC) {
+                        struct stat st;
+
+                        if (fstat(t->fd, &st) < 0)
+                                return log_error_errno(errno, "Failed to stat %s: %m", t->path);
+
+                        log_info("target_size: %li", st.st_size);
+                        log_info("new_size: %lu", p->new_size);
+
+                        if (fstat(whole_fd, &st) < 0)
+                                return log_error_errno(errno, "Failed to stat whole fd: %m");
+
+                        log_info("offset: %lu", p->offset);
+                        log_info("whole_size: %li", st.st_size);
+
+                        return log_error_errno(r, "Size mismatch");
+                }
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy bytes to partition: %m");
         } else {
