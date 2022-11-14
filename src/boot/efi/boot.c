@@ -2658,7 +2658,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         _cleanup_(file_closep) EFI_FILE *root_dir = NULL;
         _cleanup_(config_free) Config config = {};
-        char16_t *loaded_image_path;
+        _cleanup_free_ char16_t *loaded_image_path = NULL;
         EFI_STATUS err;
         uint64_t init_usec;
         bool menu = false;
