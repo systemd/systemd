@@ -2142,6 +2142,9 @@ static int bus_append_scope_property(sd_bus_message *m, const char *field, const
         if (STR_IN_SET(field, "User", "Group"))
                 return bus_append_string(m, field, eq);
 
+        if (streq(field, "OOMPolicy"))
+                return bus_append_string(m, field, eq);
+
         return 0;
 }
 
