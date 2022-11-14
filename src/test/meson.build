@@ -76,7 +76,8 @@ tests += [
          [],
          core_includes],
 
-        [files('test-dlopen-so.c')],
+        [files('test-dlopen-so.c'),
+         [], [], [], 'ENABLE_TPM'],
 
         [files('test-job-type.c'),
          [libcore,
