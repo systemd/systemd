@@ -119,10 +119,11 @@ the identifiers as passed in `LoaderEntries`, `LoaderEntryDefault`,
 `LoaderEntryOneShot`, `LoaderEntrySelected`, and possibly show nicely localized
 names for them in UIs.
 
-1. When boot loader entries are defined through
-   [Boot Loader Specification](BOOT_LOADER_SPECIFICATION.md) drop-in files
-   the identifier should be derived directly from the drop-in snippet name, but
-   with the `.conf` (or `.efi` in case of Type #2 entries) suffix removed.
+1. When boot loader entries are defined through the
+   [Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification/)
+   files, the identifier should be derived directly from the file name,
+   but with the `.conf` (Type #1 snippets) or `.efi` (Type #2 images)
+   suffix removed.
 
 2. Entries automatically discovered by the boot loader (as opposed to being
    configured in configuration files) should generally have an identifier
@@ -135,7 +136,7 @@ names for them in UIs.
    discovered Windows installation might have the identifier `auto-windows` or
    `auto-windows-10` or so.).
 
-4. Similar, boot menu entries referring to Apple macOS installations should
+4. Similarly, boot menu entries referring to Apple macOS installations should
    use the identifier `osx` or one that is prefixed with `osx-`. If such an
    entry is automatically discovered by the boot loader use `auto-osx` as
    identifier, or `auto-osx-` as prefix for the identifier, see above.
@@ -150,8 +151,8 @@ names for them in UIs.
 
 ## Links
 
-[Boot Loader Specification](BOOT_LOADER_SPECIFICATION.md)<br>
-[Discoverable Partitions Specification](DISCOVERABLE_PARTITIONS.md)<br>
+[Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification)<br>
+[Discoverable Partitions Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification)<br>
 [`systemd-boot(7)`](https://www.freedesktop.org/software/systemd/man/systemd-boot.html)<br>
 [`bootctl(1)`](https://www.freedesktop.org/software/systemd/man/bootctl.html)<br>
 [`systemd-gpt-auto-generator(8)`](https://www.freedesktop.org/software/systemd/man/systemd-gpt-auto-generator.html)
