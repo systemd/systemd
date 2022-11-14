@@ -43,6 +43,7 @@ static void scope_init(Unit *u) {
         s->timeout_stop_usec = u->manager->default_timeout_stop_usec;
         u->ignore_on_isolate = true;
         s->user = s->group = NULL;
+        s->oom_policy = _OOM_POLICY_INVALID;
 }
 
 static void scope_done(Unit *u) {
@@ -194,6 +195,9 @@ static int scope_add_extras(Scope *s) {
         if (r < 0)
                 return r;
 
+        if (s->oom_policy < 0)
+                s->oom_policy = s->cgroup_context.delegate ? OOM_CONTINUE : UNIT(s)->manager->default_oom_policy;
+
         return scope_add_default_dependencies(s);
 }
 
@@ -286,11 +290,13 @@ static void scope_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sScope State: %s\n"
                 "%sResult: %s\n"
                 "%sRuntimeMaxSec: %s\n"
-                "%sRuntimeRandomizedExtraSec: %s\n",
+                "%sRuntimeRandomizedExtraSec: %s\n"
+                "%sOOMPolicy: %s\n",
                 prefix, scope_state_to_string(s->state),
                 prefix, scope_result_to_string(s->result),
                 prefix, FORMAT_TIMESPAN(s->runtime_max_usec, USEC_PER_SEC),
-                prefix, FORMAT_TIMESPAN(s->runtime_rand_extra_usec, USEC_PER_SEC));
+                prefix, FORMAT_TIMESPAN(s->runtime_rand_extra_usec, USEC_PER_SEC),
+                prefix, oom_policy_to_string(s->oom_policy));
 
         cgroup_context_dump(UNIT(s), f, prefix);
         kill_context_dump(&s->kill_context, f, prefix);
@@ -635,7 +641,9 @@ static void scope_notify_cgroup_oom_event(Unit *u, bool managed_oom) {
         else
                 log_unit_debug(u, "Process of control group was killed by the OOM killer.");
 
-        /* This will probably need to be modified when scope units get an oom-policy */
+        if (s->oom_policy == OOM_CONTINUE)
+                return;
+
         switch (s->state) {
 
         case SCOPE_START_CHOWN:

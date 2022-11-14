@@ -10139,6 +10139,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       readonly t RuntimeMaxUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t RuntimeRandomizedExtraUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s OOMPolicy = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s Slice = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -10312,6 +10314,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <!--property RuntimeMaxUSec is not documented!-->
 
     <!--property RuntimeRandomizedExtraUSec is not documented!-->
+
+    <!--property OOMPolicy is not documented!-->
 
     <!--property Slice is not documented!-->
 
@@ -10494,6 +10498,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeMaxUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeRandomizedExtraUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OOMPolicy"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Slice"/>
 

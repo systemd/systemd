@@ -5,6 +5,7 @@
 #include "bus-get-properties.h"
 #include "dbus-cgroup.h"
 #include "dbus-kill.h"
+#include "dbus-manager.h"
 #include "dbus-scope.h"
 #include "dbus-unit.h"
 #include "dbus-util.h"
@@ -39,6 +40,7 @@ int bus_scope_method_abandon(sd_bus_message *message, void *userdata, sd_bus_err
 }
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, scope_result, ScopeResult);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(oom_policy, OOMPolicy, oom_policy_from_string);
 
 const sd_bus_vtable bus_scope_vtable[] = {
         SD_BUS_VTABLE_START(0),
@@ -47,6 +49,7 @@ const sd_bus_vtable bus_scope_vtable[] = {
         SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Scope, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("RuntimeMaxUSec", "t", bus_property_get_usec, offsetof(Scope, runtime_max_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RuntimeRandomizedExtraUSec", "t", bus_property_get_usec, offsetof(Scope, runtime_rand_extra_usec), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OOMPolicy", "s", bus_property_get_oom_policy, offsetof(Scope, oom_policy), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_SIGNAL("RequestStop", NULL, 0),
         SD_BUS_METHOD("Abandon", NULL, NULL, bus_scope_method_abandon, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
@@ -76,6 +79,9 @@ static int bus_scope_set_transient_property(
 
         if (streq(name, "RuntimeRandomizedExtraUSec"))
                 return bus_set_transient_usec(u, name, &s->runtime_rand_extra_usec, message, flags, error);
+
+        if (streq(name, "OOMPolicy"))
+                return bus_set_transient_oom_policy(u, name, &s->oom_policy, message, flags, error);
 
         if (streq(name, "PIDs")) {
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
