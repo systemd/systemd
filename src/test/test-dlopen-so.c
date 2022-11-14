@@ -39,7 +39,7 @@ static int run(int argc, char **argv) {
         assert_se(dlopen_qrencode() >= 0);
 #endif
 
-#if HAVE_TPM2
+#if ENABLE_TPM && HAVE_TPM2
         assert_se(dlopen_tpm2() >= 0);
 #endif
 
