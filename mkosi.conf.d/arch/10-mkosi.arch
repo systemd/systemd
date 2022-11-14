@@ -11,8 +11,10 @@ Distribution=arch
 [Content]
 Packages=
         alsa-lib
+        btrfs-progs
         compsize
         dhcp
+        f2fs-tools
         fuse2
         gnutls
         iproute
