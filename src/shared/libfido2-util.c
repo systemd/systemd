@@ -584,8 +584,19 @@ int fido2_use_hmac_hash(
         if (r < 0)
                 return log_error_errno(r, "FIDO2 support is not installed.");
 
-        if (device)
+        if (device) {
+                r = fido2_is_cred_in_specific_token(device, rp_id, cid, cid_size, required);
+                if (r == -ENODEV) /* not a FIDO2 device or lacking HMAC-SECRET extension */
+                        return log_error_errno(r,
+                                               "%s is not a FIDO2 device or it lacks support for HMAC-SECRET.", device);
+                else if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADSLT),
+                                               "The credential is not in the token %s, skipping.", device);
+                else if (r < 0)
+                        log_error_errno(r, "Failed to determine whether the credential is in the token, trying anyway: %m");
+
                 return fido2_use_hmac_hash_specific_token(device, rp_id, salt, salt_size, cid, cid_size, pins, required, ret_hmac, ret_hmac_size);
+        }
 
         di = sym_fido_dev_info_new(allocated);
         if (!di)
