@@ -472,7 +472,6 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         _cleanup_free_ char16_t *device_part_uuid = NULL;
 
         assert(config);
-        assert(loaded_image_path);
 
         clear_screen(COLOR_NORMAL);
         console_query_mode(&x_max, &y_max);
@@ -620,7 +619,6 @@ static bool menu_run(
 
         assert(config);
         assert(chosen_entry);
-        assert(loaded_image_path);
 
         EFI_STATUS err;
         UINTN visible_max = 0;
@@ -1479,7 +1477,7 @@ static void config_entry_add_type1(
                         entry->loader = xstra_to_path(value);
 
                         /* do not add an entry for ourselves */
-                        if (loaded_image_path && strcaseeq16(entry->loader, loaded_image_path)) {
+                        if (strcaseeq16(entry->loader, loaded_image_path)) {
                                 entry->type = LOADER_UNDEFINED;
                                 break;
                         }
@@ -1909,12 +1907,11 @@ static ConfigEntry *config_entry_add_loader_auto(
         assert(root_dir);
         assert(id);
         assert(title);
-        assert(loader || loaded_image_path);
 
         if (!config->auto_entries)
                 return NULL;
 
-        if (loaded_image_path) {
+        if (!loader) {
                 loader = L"\\EFI\\BOOT\\BOOT" EFI_MACHINE_TYPE_NAME ".efi";
 
                 /* We are trying to add the default EFI loader here,
@@ -2563,7 +2560,6 @@ static void export_variables(
         char16_t uuid[37];
 
         assert(loaded_image);
-        assert(loaded_image_path);
 
         efivar_set_time_usec(LOADER_GUID, L"LoaderTimeInitUSec", init_usec);
         efivar_set(LOADER_GUID, L"LoaderInfo", L"systemd-boot " GIT_VERSION, 0);
@@ -2592,7 +2588,6 @@ static void config_load_all_entries(
 
         assert(config);
         assert(loaded_image);
-        assert(loaded_image_path);
         assert(root_dir);
 
         config_load_defaults(config, root_dir);
@@ -2684,9 +2679,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Error getting a LoadedImageProtocol handle: %r", err);
 
-        err = device_path_to_str(loaded_image->FilePath, &loaded_image_path);
-        if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Error getting loaded image path: %r", err);
+        (void) device_path_to_str(loaded_image->FilePath, &loaded_image_path);
 
         export_variables(loaded_image, loaded_image_path, init_usec);
 
