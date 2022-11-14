@@ -3,6 +3,8 @@
 set -e
 
 TEST_DESCRIPTION="test systemd-repart"
+IMAGE_NAME="repart"
+TEST_FORCE_NEWIMAGE=1
 
 # shellcheck source=test/test-functions
 . "$TEST_BASE_DIR/test-functions"
@@ -15,6 +17,7 @@ test_append_files() {
         fi
         instmods dm_verity =md
         generate_module_dependencies
+        image_install -o /sbin/mksquashfs
     fi
 }
 
