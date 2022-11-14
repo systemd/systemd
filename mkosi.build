@@ -307,6 +307,10 @@ if [ -d mkosi.kernel/ ]; then
                 --enable MEMCG \
                 --enable MEMCG_SWAP \
                 --enable MEMCG_KMEM \
+                --enable IMA_ARCH_POLICY \
+                --enable DM_VERITY_VERIFY_ROOTHASH_SIG \
+                --enable DM_VERITY_VERIFY_ROOTHASH_SIG_SECONDARY_KEYRING \
+                --enable INTEGRITY_MACHINE_KEYRING \
                 --enable NETFILTER_ADVANCED \
                 --enable NF_CONNTRACK_MARK
 
