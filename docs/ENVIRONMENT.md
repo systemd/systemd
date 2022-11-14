@@ -188,12 +188,12 @@ All tools:
   file may be checked for by services run during system shutdown in order to
   request the appropriate operation from the boot loader in an alternative
   fashion. Note that by default only boot loader entries which follow the
-  [Boot Loader Specification](BOOT_LOADER_SPECIFICATION.md) and are
-  placed in the ESP or the Extended Boot Loader partition may be selected this
-  way. However, if a directory `/run/boot-loader-entries/` exists, the entries
-  are loaded from there instead. The directory should contain the usual
-  directory hierarchy mandated by the Boot Loader Specification, i.e. the entry
-  drop-ins should be placed in
+  [Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification)
+  and are placed in the ESP or the Extended Boot Loader partition may be
+  selected this way. However, if a directory `/run/boot-loader-entries/`
+  exists, the entries are loaded from there instead. The directory should
+  contain the usual directory hierarchy mandated by the Boot Loader
+  Specification, i.e. the entry drop-ins should be placed in
   `/run/boot-loader-entries/loader/entries/*.conf`, and the files referenced by
   the drop-ins (including the kernels and initrds) somewhere else below
   `/run/boot-loader-entries/`. Note that all these files may be (and are
@@ -384,7 +384,7 @@ disk images with `--image=` or similar:
   to load the embedded Verity signature data. If enabled (which is the
   default), Verity root hash information and a suitable signature is
   automatically acquired from a signature partition, following the
-  [Discoverable Partitions Specification](DISCOVERABLE_PARTITIONS.md).
+  [Discoverable Partitions Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification).
   If disabled any such partition is ignored. Note that this only disables
   discovery of the root hash and its signature, the Verity data partition
   itself is still searched in the GPT image.
