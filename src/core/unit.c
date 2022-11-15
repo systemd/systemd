@@ -720,7 +720,6 @@ Unit* unit_free(Unit *u) {
         if (u->on_console)
                 manager_unref_console(u->manager);
 
-
         fdset_free(u->initial_socket_bind_link_fds);
 #if BPF_FRAMEWORK
         bpf_link_free(u->ipv4_socket_bind_link);
