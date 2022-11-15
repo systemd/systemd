@@ -28,7 +28,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(MultipathRoute*, multipath_route_free);
 
 int multipath_route_dup(const MultipathRoute *m, MultipathRoute **ret);
 
-int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name);
+int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name, bool keep_old_as_alternative);
 int rtnl_set_link_properties(
                 sd_netlink **rtnl,
                 int ifindex,

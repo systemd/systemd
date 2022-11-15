@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <net/if.h>
+#include <linux/netdevice.h> /* net/if.h must be included before linux/netdevice.h to avoid re-definition errors. */
 #include <stddef.h>
 #include <stdlib.h>
 #include <sys/wait.h>
@@ -862,7 +863,7 @@ int udev_event_spawn(
 static int rename_netif(UdevEvent *event) {
         const char *oldname;
         sd_device *dev;
-        unsigned flags;
+        unsigned flags, name_assign_type;
         int ifindex, r;
 
         assert(event);
@@ -926,7 +927,11 @@ static int rename_netif(UdevEvent *event) {
         if (r < 0)
                 return log_device_debug_errno(event->dev_db_clone, r, "Failed to update database under /run/udev/data/: %m");
 
-        r = rtnl_set_link_name(&event->rtnl, ifindex, event->name);
+        r = device_get_sysattr_unsigned(dev, "name_assign_type", &name_assign_type);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get device name_assign_type: %m");
+
+        r = rtnl_set_link_name(&event->rtnl, ifindex, event->name, name_assign_type != NET_NAME_ENUM);
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to rename network interface %i from '%s' to '%s': %m",
                                               ifindex, oldname, event->name);
