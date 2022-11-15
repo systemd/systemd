@@ -1510,7 +1510,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
 
         r = path_extract_filename(path, &filename);
         if (r < 0)
-                return log_error_errno(r, "Failed to extract filename from path '%s': %m", path);;
+                return log_error_errno(r, "Failed to extract filename from path '%s': %m", path);
 
         dropin_dirname = strjoina(filename, ".d");
 
