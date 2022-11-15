@@ -94,6 +94,11 @@ EFI_STATUS shim_load_image(EFI_HANDLE parent, const EFI_DEVICE_PATH *device_path
         EFI_STATUS ret = BS->LoadImage(
                         /*BootPolicy=*/false, parent, (EFI_DEVICE_PATH *) device_path, NULL, 0, ret_image);
 
+        /* Retry with a more hacky override. */
+        if (have_shim && IN_SET(ret, EFI_ACCESS_DENIED, EFI_SECURITY_VIOLATION) && install_security_hack())
+                ret = BS->LoadImage(
+                        /*BootPolicy=*/false, parent, (EFI_DEVICE_PATH *) device_path, NULL, 0, ret_image);
+
         if (have_shim)
                 uninstall_security_override();
 
