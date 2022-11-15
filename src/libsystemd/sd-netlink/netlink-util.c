@@ -1,5 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+/* net/if.h must be included before linux/netdevice.h to avoid re-definition errors. */
+#include <net/if.h>
+#include <linux/netdevice.h>
+
+#include "sd-device.h"
 #include "sd-netlink.h"
 
 #include "fd-util.h"
@@ -15,6 +20,7 @@
 int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         _cleanup_strv_free_ char **alternative_names = NULL;
+        uint8_t old_name_assign_type = NET_NAME_UNKNOWN;
         char old_name[IF_NAMESIZE] = {};
         int r;
 
@@ -31,6 +37,16 @@ int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
                                 ifindex);
 
         if (strv_contains(alternative_names, name)) {
+                _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+                const char *attr;
+
+                r = sd_device_new_from_ifindex(&device, ifindex);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to get device for network interface %i, ignoring: %m", ifindex);
+
+                if (device && sd_device_get_sysattr_value(device, "name_assign_type", &attr) >= 0)
+                        (void) safe_atou8(attr, &old_name_assign_type);
+
                 r = rtnl_delete_link_alternative_names(rtnl, ifindex, STRV_MAKE(name));
                 if (r < 0)
                         return log_debug_errno(r, "Failed to remove '%s' from alternative names on network interface %i: %m",
@@ -53,7 +69,7 @@ int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
         if (r < 0)
                 return r;
 
-        if (!isempty(old_name)) {
+        if (!isempty(old_name) && old_name_assign_type != NET_NAME_ENUM) {
                 r = rtnl_set_link_alternative_names(rtnl, ifindex, STRV_MAKE(old_name));
                 if (r < 0)
                         log_debug_errno(r, "Failed to set '%s' as an alternative name on network interface %i, ignoring: %m",
