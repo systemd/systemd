@@ -174,14 +174,26 @@ int tpm2_context_init(const char *device, struct tpm2_context *ret) {
 
                 param = strchr(device, ':');
                 if (param) {
+                        /* Syntax #1: Pair of driver string and arbitrary parameter */
                         driver = strndupa_safe(device, param - device);
+                        if (isempty(driver))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 driver name is empty, refusing.");
+
                         param++;
-                } else {
+                } else if (path_is_absolute(device) && path_is_valid(device)) {
+                        /* Syntax #2: TPM device node */
                         driver = "device";
                         param = device;
-                }
+                } else
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid TPM2 driver string, refusing.");
+
+                log_debug("Using TPM2 TCTI driver '%s' with device '%s'.", driver, param);
 
                 fn = strjoina("libtss2-tcti-", driver, ".so.0");
+
+                /* Better safe than sorry, let's refuse strings that cannot possibly be valid driver early, before going to disk. */
+                if (!filename_is_valid(fn))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 driver name '%s' not valid, refusing.", driver);
 
                 dl = dlopen(fn, RTLD_NOW);
                 if (!dl)
