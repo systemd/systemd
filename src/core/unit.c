@@ -1165,17 +1165,17 @@ int unit_merge(Unit *u, Unit *other) {
         if (r < 0)
                 return r;
 
-        /* Merge names */
-        r = unit_merge_names(u, other);
-        if (r < 0)
-                return r;
-
         /* Redirect all references */
         while (other->refs_by_target)
                 unit_ref_set(other->refs_by_target, other->refs_by_target->source, u);
 
         /* Merge dependencies */
         unit_merge_dependencies(u, other);
+
+        /* Merge names. It is better to do that after merging deps, otherwise the log message contains n/a. */
+        r = unit_merge_names(u, other);
+        if (r < 0)
+                return r;
 
         other->load_state = UNIT_MERGED;
         other->merged_into = u;
