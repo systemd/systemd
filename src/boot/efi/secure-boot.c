@@ -149,7 +149,7 @@ static EFIAPI EFI_STATUS security_hook(
                 const EFI_SECURITY_ARCH_PROTOCOL *this,
                 uint32_t authentication_status,
                 const EFI_DEVICE_PATH *file) {
-
+Print(u"security_hook: %lx, %u, %lx\n", this, authentication_status, file);
         assert(security_override.validator);
         assert(security_override.original_security);
 
@@ -168,7 +168,7 @@ static EFIAPI EFI_STATUS security2_hook(
                 void *file_buffer,
                 size_t file_size,
                 BOOLEAN boot_policy) {
-
+Print(u"security2_hook: %lx, %lx, %lx, %lx\n", this, device_path, file_buffer, file_size);
         assert(security_override.validator);
         assert(security_override.original_security2);
 
@@ -211,6 +211,7 @@ static EFI_STATUS install_security_override_one(
 
         *ret_original_security = security;
         *ret_original_handle = handles[0];
+        Print(u"install_security_override_one: %g, %lx, %lx\n", &guid, handles[0], security);
         return EFI_SUCCESS;
 }
 
@@ -223,7 +224,7 @@ void install_security_override(security_validator_t validator, const void *valid
 
         if (!secure_boot_enabled())
                 return;
-
+        Print(u"install_security_override: %lx\n", validator);
         security_override = (struct SecurityOverride) {
                 { .FileAuthenticationState = security_hook, },
                 { .FileAuthentication = security2_hook, },
@@ -249,6 +250,7 @@ void install_security_override(security_validator_t validator, const void *valid
  * swaping the function pointer with our own. We only do this if we have to as the reinstall method
  * is much cleaner. */
 bool install_security_hack(void) {
+        Print(u"install_security_hack: %lx, %lx, %lx\n", security_override.was_called, security_override.original_handle, security_override.original_handle2);
         if (security_override.was_called)
                 return false;
 
@@ -267,7 +269,7 @@ bool install_security_hack(void) {
 void uninstall_security_override(void) {
         /* We use assert_se here to guarantee the system is not in a weird state in the unlikely case of an
          * error restoring the original protocols. */
-
+        Print(u"uninstall_security_override: %lx, %lx, %lx\n", security_override.was_called, security_override.original_handle, security_override.original_handle2);
         if (security_override.original_hook) {
                 assert_se(security_override.original_security->FileAuthenticationState == security_hook);
                 security_override.original_security->FileAuthenticationState = security_override.original_hook;

@@ -11,6 +11,7 @@
 #include <efi.h>
 #include <efilib.h>
 
+#include "console.h"
 #include "initrd.h"
 #include "linux.h"
 #include "pe.h"
@@ -29,6 +30,7 @@ typedef struct {
 static bool validate_payload(
                 const void *ctx, const EFI_DEVICE_PATH *device_path, const void *file_buffer, size_t file_size) {
 
+Print(u"validate_payload: %lx, %lx, %lx, %lx\n", ctx, device_path, file_buffer, file_size);
         const ValidationContext *payload = ASSERT_SE_PTR(ctx);
 
         if (device_path != payload->device_path)
@@ -97,7 +99,8 @@ static EFI_STATUS load_image(EFI_HANDLE parent, const void *source, size_t len, 
                                 ret_image);
 
         uninstall_security_override();
-
+        Print(u"Press any key to continue\n");
+        console_key_read(&(uint64_t) {0}, UINT64_MAX);
         return ret;
 }
 

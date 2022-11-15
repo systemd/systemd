@@ -11,6 +11,7 @@
 #include <efi.h>
 #include <efilib.h>
 
+#include "console.h"
 #include "missing_efi.h"
 #include "util.h"
 #include "secure-boot.h"
@@ -44,6 +45,7 @@ bool shim_loaded(void) {
 static bool shim_validate(
                 const void *ctx, const EFI_DEVICE_PATH *device_path, const void *file_buffer, size_t file_size) {
 
+Print(u"shim_validate: %lx, %lx, %lx, %lx\n", ctx, device_path, file_buffer, file_size);
         EFI_STATUS err;
         _cleanup_free_ char *file_buffer_owned = NULL;
 
@@ -102,5 +104,7 @@ EFI_STATUS shim_load_image(EFI_HANDLE parent, const EFI_DEVICE_PATH *device_path
         if (have_shim)
                 uninstall_security_override();
 
+        Print(u"Press any key to continue\n");
+        console_key_read(&(uint64_t) {0}, UINT64_MAX);
         return ret;
 }
