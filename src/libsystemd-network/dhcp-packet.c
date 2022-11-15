@@ -45,7 +45,7 @@ int dhcp_message_init(
            "hlen" (hardware address length) MUST be 0.
            "chaddr" (client hardware address) field MUST be zeroed.
          */
-        message->hlen = (arp_type == ARPHRD_INFINIBAND) ? 0 : hlen;
+        message->hlen = arp_type == ARPHRD_INFINIBAND ? 0 : hlen;
         memcpy_safe(message->chaddr, chaddr, message->hlen);
 
         message->xid = htobe32(xid);
@@ -139,7 +139,7 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum, ui
 
         if (packet->ip.ihl < 5)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "ignoring packet: IPv4 IHL (%u words) invalid",
+                                       "ignoring packet: IPv4 IHL (%i words) invalid",
                                        packet->ip.ihl);
 
         hdrlen = packet->ip.ihl * 4;

@@ -74,7 +74,7 @@
 
     <para>As a safety check <command>systemd-nspawn</command> will verify the existence of
     <filename>/usr/lib/os-release</filename> or <filename>/etc/os-release</filename> in the container tree before
-    starting the container (see
+    booting a container (see
     <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>).  It might be
     necessary to add this file to the container tree manually if the OS of the container is too old to contain this
     file out-of-the-box.</para>
@@ -84,8 +84,8 @@
     template unit file <filename>systemd-nspawn@.service</filename> is provided to make this easy, taking the container
     name as instance identifier. Note that different default options apply when <command>systemd-nspawn</command> is
     invoked by the template unit file than interactively on the command line. Most importantly the template unit file
-    makes use of the <option>--boot</option> which is not the default in case <command>systemd-nspawn</command> is
-    invoked from the interactive command line. Further differences with the defaults are documented along with the
+    makes use of the <option>--boot</option> option which is not the default in case <command>systemd-nspawn</command>
+    is invoked from the interactive command line. Further differences with the defaults are documented along with the
     various supported options below.</para>
 
     <para>The <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> tool may
@@ -105,7 +105,7 @@
 
     <para>Note that running two <command>systemd-nspawn</command> containers from the same directory tree will not make
     processes in them see each other. The PID namespace separation of the two containers is complete and the containers
-    will share very few runtime objects except for the underlying file system. Use
+    will share very few runtime objects except for the underlying file system. Rather use
     <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
     <command>login</command> or <command>shell</command> commands to request an additional login session in a running
     container.</para>
@@ -121,7 +121,7 @@
   <refsect1>
     <title>Options</title>
 
-    <para>If option <option>-b</option> is specified, the arguments
+    <para>If option <option>--boot</option> is specified, the arguments
     are used as arguments for the init program. Otherwise,
     <replaceable>COMMAND</replaceable> specifies the program to launch
     in the container, and the remaining arguments are used as
@@ -443,9 +443,9 @@
         in the container's file system namespace.</para>
 
         <para>This is for containers which have several bootable directories in them; for example, several
-        <ulink url="https://ostree.readthedocs.io/en/latest/">OSTree</ulink> deployments. It emulates the behavior of
-        the boot loader and initial RAM disk which normally select which directory to mount as the root and start the
-        container's PID 1 in.</para></listitem>
+        <ulink url="https://ostree.readthedocs.io/en/latest/">OSTree</ulink> deployments. It emulates the
+        behavior of the boot loader and the initrd which normally select which directory to mount as the root
+        and start the container's PID 1 in.</para></listitem>
       </varlistentry>
     </variablelist>
 
@@ -660,7 +660,7 @@
         <listitem><para>Set a unit property on the scope unit to register for the machine. This applies only if the
         machine is run in its own scope unit, i.e. if <option>--keep-unit</option> isn't used. Takes unit property
         assignments in the same format as <command>systemctl set-property</command>. This is useful to set memory
-        limits and similar for container.</para>
+        limits and similar for the container.</para>
         </listitem>
       </varlistentry>
 
@@ -737,9 +737,9 @@
           the UID/GID range is automatically chosen. As first step, the file owner UID/GID of the root
           directory of the container's directory tree is read, and it is checked that no other container is
           currently using it. If this check is successful, the UID/GID range determined this way is used,
-          similar to the behavior if <literal>yes</literal> is specified. If the check is not successful (and
-          thus the UID/GID range indicated in the root directory's file owner is already used elsewhere) a
-          new – currently unused – UID/GID range of 65536 UIDs/GIDs is randomly chosen between the host
+          similarly to the behavior if <literal>yes</literal> is specified. If the check is not successful
+          (and thus the UID/GID range indicated in the root directory's file owner is already used elsewhere)
+          a new – currently unused – UID/GID range of 65536 UIDs/GIDs is randomly chosen between the host
           UID/GIDs of 524288 and 1878982656, always starting at a multiple of 65536, and, if possible,
           consistently hashed from the machine name. This setting implies
           <option>--private-users-ownership=auto</option> (see below), which possibly has the effect that the
@@ -1235,8 +1235,8 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
         <para>If set to <literal>copy-host</literal>, the <filename>/etc/resolv.conf</filename> file from the
         host is copied into the container, unless the file exists already and is not a regular file (e.g. a
-        symlink). Similar, if <literal>replace-host</literal> is used the file is copied, replacing any
-        existing inode, including symlinks. Similar, if <literal>bind-host</literal> is used, the file is
+        symlink). Similarly, if <literal>replace-host</literal> is used the file is copied, replacing any
+        existing inode, including symlinks. Similarly, if <literal>bind-host</literal> is used, the file is
         bind mounted from the host into the container.</para>
 
         <para>If set to <literal>copy-static</literal>, <literal>replace-static</literal> or
@@ -1357,21 +1357,43 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         source path is taken relative to the image's root directory. This permits setting up bind mounts within the
         container image. The source path may be specified as empty string, in which case a temporary directory below
         the host's <filename>/var/tmp/</filename> directory is used. It is automatically removed when the container is
-        shut down. The <option>--bind-ro=</option> option creates read-only bind mounts. Backslash escapes are interpreted,
+        shut down. If the source path is not absolute, it is resolved relative to the current working directory.
+        The <option>--bind-ro=</option> option creates read-only bind mounts. Backslash escapes are interpreted,
         so <literal>\:</literal> may be used to embed colons in either path. This option may be specified
         multiple times for creating multiple independent bind mount points.</para>
 
         <para>Mount options are comma-separated. <option>rbind</option> and <option>norbind</option> control whether
-        to create a recursive or a regular bind mount. Defaults to "rbind". <option>idmap</option> and <option>noidmap</option>
-        control if the bind mount should use filesystem id mappings. Using this option requires support by the source filesystem
-        for id mappings. Defaults to "noidmap".</para>
+        to create a recursive or a regular bind mount. Defaults to "rbind". <option>noidmap</option>,
+        <option>idmap</option>, and <option>rootidmap</option> control ID mapping.</para>
+
+        <para>Using <option>idmap</option> or <option>rootidmap</option> requires support by the source filesystem
+        for user/group ID mapped mounts. Defaults to "noidmap". With <option>x</option> being the container's UID range
+        offset, <option>y</option> being the length of the container's UID range, and <option>p</option> being the
+        owner UID of the bind mount source inode on the host:
+
+        <itemizedlist>
+          <listitem><para>If <option>noidmap</option> is used, any user <option>z</option> in the range
+          <option>0 … y</option> seen from inside of the container is mapped to <option>x + z</option> in the
+          <option>x … x + y</option> range on the host. All host users outside of that range are mapped to
+          <option>nobody</option> inside the container.</para></listitem>
+          <listitem><para>If <option>idmap</option> is used, any user <option>z</option> in the UID range
+          <option>0 … y</option> as seen from inside the container is mapped to the same <option>z</option>
+          in the same <option>0 … y</option> range on the host. All host users outside of that range are
+          mapped to <option>nobody</option> inside the container.</para></listitem>
+          <listitem><para>If <option>rootidmap</option> is used, the user <option>0</option> seen from inside
+          of the container is mapped to <option>p</option> on the host. All host users outside of that range
+          are mapped to <option>nobody</option> inside the container.</para></listitem>
+        </itemizedlist></para>
+
+        <para>Whichever ID mapping option is used, the same mapping will be used for users and groups IDs. If
+        <option>rootidmap</option> is used, the group owning the bind mounted directory will have no effect</para>
 
         <para>Note that when this option is used in combination with <option>--private-users</option>, the resulting
         mount points will be owned by the <constant>nobody</constant> user. That's because the mount and its files and
         directories continue to be owned by the relevant host users and groups, which do not exist in the container,
         and thus show up under the wildcard UID 65534 (nobody). If such bind mounts are created, it is recommended to
         make them read-only, using <option>--bind-ro=</option>. Alternatively you can use the "idmap" mount option to
-        map the filesystem ids.</para></listitem>
+        map the filesystem IDs.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1455,33 +1477,25 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         <term><option>--overlay=</option></term>
         <term><option>--overlay-ro=</option></term>
 
-        <listitem><para>Combine multiple directory trees into one
-        overlay file system and mount it into the container. Takes a
-        list of colon-separated paths to the directory trees to
-        combine and the destination mount point.</para>
+        <listitem><para>Combine multiple directory trees into one overlay file system and mount it into the
+        container. Takes a list of colon-separated paths to the directory trees to combine and the
+        destination mount point.</para>
 
-        <para>Backslash escapes are interpreted in the paths, so
-        <literal>\:</literal> may be used to embed colons in the paths.
+        <para>Backslash escapes are interpreted in the paths, so <literal>\:</literal> may be used to embed
+        colons in the paths.</para>
+
+        <para>If three or more paths are specified, then the last specified path is the destination mount
+        point in the container, all paths specified before refer to directory trees on the host and are
+        combined in the specified order into one overlay file system. The left-most path is hence the lowest
+        directory tree, the second-to-last path the highest directory tree in the stacking order. If
+        <option>--overlay-ro=</option> is used instead of <option>--overlay=</option>, a read-only overlay
+        file system is created. If a writable overlay file system is created, all changes made to it are
+        written to the highest directory tree in the stacking order, i.e. the second-to-last specified.
         </para>
 
-        <para>If three or more paths are specified, then the last
-        specified path is the destination mount point in the
-        container, all paths specified before refer to directory trees
-        on the host and are combined in the specified order into one
-        overlay file system. The left-most path is hence the lowest
-        directory tree, the second-to-last path the highest directory
-        tree in the stacking order. If <option>--overlay-ro=</option>
-        is used instead of <option>--overlay=</option>, a read-only
-        overlay file system is created. If a writable overlay file
-        system is created, all changes made to it are written to the
-        highest directory tree in the stacking order, i.e. the
-        second-to-last specified.</para>
-
-        <para>If only two paths are specified, then the second
-        specified path is used both as the top-level directory tree in
-        the stacking order as seen from the host, as well as the mount
-        point for the overlay file system in the container. At least
-        two paths have to be specified.</para>
+        <para>If only two paths are specified, then the second specified path is used both as the top-level
+        directory tree in the stacking order as seen from the host, as well as the mount point for the
+        overlay file system in the container. At least two paths have to be specified.</para>
 
         <para>The source paths may optionally be prefixed with <literal>+</literal> character. If so they are
         taken relative to the image's root directory. The uppermost source path may also be specified as an
@@ -1489,24 +1503,20 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         used. The directory is removed automatically when the container is shut down. This behaviour is
         useful in order to make read-only container directories writable while the container is running. For
         example, use <literal>--overlay=+/var::/var</literal> in order to automatically overlay a writable
-        temporary directory on a read-only <filename>/var/</filename> directory.</para>
+        temporary directory on a read-only <filename>/var/</filename> directory. If a source path is not
+        absolute, it is resolved relative to the current working directory.</para>
 
         <para>For details about overlay file systems, see <ulink
-        url="https://www.kernel.org/doc/Documentation/filesystems/overlayfs.txt">overlayfs.txt</ulink>. Note
-        that the semantics of overlay file systems are substantially
-        different from normal file systems, in particular regarding
-        reported device and inode information. Device and inode
-        information may change for a file while it is being written
-        to, and processes might see out-of-date versions of files at
-        times. Note that this switch automatically derives the
-        <literal>workdir=</literal> mount option for the overlay file
-        system from the top-level directory tree, making it a sibling
-        of it. It is hence essential that the top-level directory tree
-        is not a mount point itself (since the working directory must
-        be on the same file system as the top-most directory
-        tree). Also note that the <literal>lowerdir=</literal> mount
-        option receives the paths to stack in the opposite order of
-        this switch.</para>
+        url="https://docs.kernel.org/filesystems/overlayfs.html">Overlay Filesystem</ulink>.
+        Note that the semantics of overlay file systems are substantially different from normal file systems,
+        in particular regarding reported device and inode information. Device and inode information may
+        change for a file while it is being written to, and processes might see out-of-date versions of files
+        at times. Note that this switch automatically derives the <literal>workdir=</literal> mount option
+        for the overlay file system from the top-level directory tree, making it a sibling of it. It is hence
+        essential that the top-level directory tree is not a mount point itself (since the working directory
+        must be on the same file system as the top-most directory tree). Also note that the
+        <literal>lowerdir=</literal> mount option receives the paths to stack in the opposite order of this
+        switch.</para>
 
         <para>Note that this option cannot be used to replace the root file system of the container with an overlay
         file system. However, the <option>--volatile=</option> option described above provides similar functionality,

@@ -14,7 +14,6 @@
 #include "microhttpd-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
 
 void microhttpd_logger(void *arg, const char *fmt, va_list ap) {
         char *f;
@@ -298,7 +297,7 @@ int check_permissions(struct MHD_Connection *connection, int *code, char **hostn
 }
 
 #else
-int check_permissions(struct MHD_Connection *connection, int *code, char **hostname) {
+_noreturn_ int check_permissions(struct MHD_Connection *connection, int *code, char **hostname) {
         assert_not_reached();
 }
 

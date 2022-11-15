@@ -403,7 +403,7 @@ static int bus_socket_set_transient_property(
                                 if (p->address.type < 0)
                                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid address type: %s", t);
 
-                                if (socket_address_family(&p->address) != AF_LOCAL && p->address.type == SOCK_SEQPACKET)
+                                if (socket_address_family(&p->address) != AF_UNIX && p->address.type == SOCK_SEQPACKET)
                                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Address family not supported: %s", a);
                         }
 

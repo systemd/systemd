@@ -43,6 +43,7 @@
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">dump</arg>
+      <arg choice="opt" rep="repeat"><replaceable>PATTERN</replaceable></arg>
     </cmdsynopsis>
 
     <cmdsynopsis>
@@ -121,6 +122,14 @@
     <cmdsynopsis>
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">compare-versions</arg>
+      <arg choice="plain"><replaceable>VERSION1</replaceable></arg>
+      <arg choice="opt"><replaceable>OP</replaceable></arg>
+      <arg choice="plain"><replaceable>VERSION2</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">verify</arg>
       <arg choice="opt" rep="repeat"><replaceable>FILE</replaceable></arg>
     </cmdsynopsis>
@@ -148,10 +157,10 @@
       <title><command>systemd-analyze time</command></title>
 
       <para>This command prints the time spent in the kernel before userspace has been reached, the time
-      spent in the initial RAM disk (initrd) before normal system userspace has been reached, and the time
-      normal system userspace took to initialize. Note that these measurements simply measure the time passed
-      up to the point where all system services have been spawned, but not necessarily until they fully
-      finished initialization or the disk is idle.</para>
+      spent in the initrd before normal system userspace has been reached, and the time normal system
+      userspace took to initialize. Note that these measurements simply measure the time passed up to the
+      point where all system services have been spawned, but not necessarily until they fully finished
+      initialization or the disk is idle.</para>
 
       <example>
         <title><command>Show how long the boot took</command></title>
@@ -207,7 +216,7 @@ multi-user.target reached after 47.820s in userspace
       <replaceable>UNIT</replaceable>s or for the default target otherwise). The time after the unit is
       active or started is printed after the "@" character. The time the unit takes to start is printed after
       the "+" character. Note that the output might be misleading as the initialization of services might
-      depend on socket activation and because of the parallel execution of units. Also, similar to the
+      depend on socket activation and because of the parallel execution of units. Also, similarly to the
       <command>blame</command> command, this only takes into account the time units spent in
       <literal>activating</literal> state, and hence does not cover units that never went through an
       <literal>activating</literal> state (such as device units that transition directly from
@@ -235,10 +244,12 @@ multi-user.target @47.820s
     </refsect2>
 
     <refsect2>
-      <title><command>systemd-analyze dump</command></title>
+      <title><command>systemd-analyze dump [<replaceable>pattern</replaceable>…]</command></title>
 
-      <para>This command outputs a (usually very long) human-readable serialization of the complete server
-      state. Its format is subject to change without notice and should not be parsed by applications.</para>
+      <para>Without any parameter, this command outputs a (usually very long) human-readable serialization of
+      the complete service manager state. Optional glob pattern may be specified, causing the output to be
+      limited to units whose names match one of the patterns. The output format is subject to change without
+      notice and should not be parsed by applications.</para>
 
       <example>
         <title>Show the internal state of user manager</title>
@@ -548,6 +559,52 @@ NAutoVTs=8
     </refsect2>
 
     <refsect2>
+      <title><command>systemd-analyze compare-versions
+      <replaceable>VERSION1</replaceable>
+      <optional><replaceable>OP</replaceable></optional>
+      <replaceable>VERSION2</replaceable></command></title>
+
+      <para>This command has two distinct modes of operation, depending on whether the operator
+      <replaceable>OP</replaceable> is specified.</para>
+
+      <para>In the first mode — when <replaceable>OP</replaceable> is not specified — it will compare the two
+      version strings and print either <literal><replaceable>VERSION1</replaceable> &lt;
+      <replaceable>VERSION2</replaceable></literal>, or <literal><replaceable>VERSION1</replaceable> ==
+      <replaceable>VERSION2</replaceable></literal>, or <literal><replaceable>VERSION1</replaceable> &gt;
+      <replaceable>VERSION2</replaceable></literal> as appropriate.</para>
+
+      <para>The exit status is <constant>0</constant> if the versions are equal, <constant>11</constant> if
+      the version of the right is smaller, and <constant>12</constant> if the version of the left is
+      smaller. (This matches the convention used by <command>rpmdev-vercmp</command>.)</para>
+
+      <para>In the second mode — when <replaceable>OP</replaceable> is specified — it will compare the two
+      version strings using the operation <replaceable>OP</replaceable> and return <constant>0</constant>
+      (success) if they condition is satisfied, and <constant>1</constant> (failure)
+      otherwise. <constant>OP</constant> may be <command>lt</command>, <command>le</command>,
+      <command>eq</command>, <command>ne</command>, <command>ge</command>, <command>gt</command>. In this
+      mode, no output is printed.
+      (This matches the convention used by
+      <citerefentry project='die-net'><refentrytitle>dpkg</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <option>--compare-versions</option>.)</para>
+
+      <example>
+        <title>Compare versions of a package</title>
+
+        <programlisting>
+$ systemd-analyze compare-versions systemd-250~rc1.fc36.aarch64 systemd-251.fc36.aarch64
+systemd-250~rc1.fc36.aarch64 &lt; systemd-251.fc36.aarch64
+$ echo $?
+12
+
+$ systemd-analyze compare-versions 1 lt 2; echo $?
+0
+$ systemd-analyze compare-versions 1 ge 2; echo $?
+1
+        </programlisting>
+      </example>
+    </refsect2>
+
+    <refsect2>
       <title><command>systemd-analyze verify <replaceable>FILE</replaceable>...</command></title>
 
       <para>This command will load unit files and print warnings if any errors are detected. Files specified
@@ -685,7 +742,7 @@ $ systemd-analyze verify /tmp/source:alias.service
     <refsect2>
       <title><command>systemd-analyze inspect-elf <replaceable>FILE</replaceable>...</command></title>
 
-      <para>This command will load the specified file(s), and if they are ELF objects (executables,
+      <para>This command will load the specified files, and if they are ELF objects (executables,
       libraries, core files, etc.) it will parse the embedded packaging metadata, if any, and print
       it in a table or json format. See the <ulink url="https://systemd.io/COREDUMP_PACKAGE_METADATA/">
       Packaging Metadata</ulink> documentation for more information.</para>
@@ -845,7 +902,7 @@ $ systemd-analyze verify /tmp/source:alias.service
         <term><option>--offline=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>With <command>security</command>, perform an offline security review
-        of the specified unit file(s), i.e. does not have to rely on PID 1 to acquire security
+        of the specified unit files, i.e. does not have to rely on PID 1 to acquire security
         information for the files like the <command>security</command> verb when used by itself does.
         This means that <option>--offline=</option> can be used with <option>--root=</option> and
         <option>--image=</option> as well. If a unit's overall exposure level is above that set by
@@ -857,7 +914,7 @@ $ systemd-analyze verify /tmp/source:alias.service
         <term><option>--profile=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>With <command>security</command> <option>--offline=</option>, takes into
-        consideration the specified portable profile when assessing the unit(s) settings.
+        consideration the specified portable profile when assessing unit settings.
         The profile can be passed by name, in which case the well-known system locations will
         be searched, or it can be the full path to a specific drop-in file.</para></listitem>
       </varlistentry>
@@ -866,7 +923,7 @@ $ systemd-analyze verify /tmp/source:alias.service
         <term><option>--threshold=<replaceable>NUMBER</replaceable></option></term>
 
         <listitem><para>With <command>security</command>, allow the user to set a custom value
-        to compare the overall exposure level with, for the specified unit file(s). If a unit's
+        to compare the overall exposure level with, for the specified unit files. If a unit's
         overall exposure level, is greater than that set by the user, <command>security</command>
         will return an error. <option>--threshold=</option> can be used with <option>--offline=</option>
         as well and its default value is 100.</para></listitem>
@@ -1197,8 +1254,12 @@ $ systemd-analyze verify /tmp/source:alias.service
   <refsect1>
     <title>Exit status</title>
 
-    <para>On success, 0 is returned, a non-zero failure code
-    otherwise.</para>
+    <para>For most commands, 0 is returned on success, and a non-zero failure code otherwise.</para>
+
+    <para>With the verb <command>compare-versions</command>, in the two-argument form,
+    <constant>12</constant>, <constant>0</constant>, <constant>11</constant> is returned if the second
+    version string is respectively larger, equal, or smaller to the first. In the three-argument form,
+    <constant>0</constant> or <constant>1</constant> if the condition is respectively true or false.</para>
   </refsect1>
 
   <xi:include href="common-variables.xml" />

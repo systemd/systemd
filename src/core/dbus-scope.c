@@ -14,11 +14,10 @@
 #include "unit.h"
 
 int bus_scope_method_abandon(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Scope *s = userdata;
+        Scope *s = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(s);
 
         r = mac_selinux_unit_access_check(UNIT(s), message, "stop", error);
         if (r < 0)
@@ -186,6 +185,12 @@ int bus_scope_set_property(
                 r = bus_kill_context_set_transient_property(u, &s->kill_context, name, message, flags, error);
                 if (r != 0)
                         return r;
+
+                if (streq(name, "User"))
+                        return bus_set_transient_user_relaxed(u, name, &s->user, message, flags, error);
+
+                if (streq(name, "Group"))
+                        return bus_set_transient_user_relaxed(u, name, &s->group, message, flags, error);
         }
 
         return 0;

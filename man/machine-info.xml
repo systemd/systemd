@@ -77,7 +77,7 @@
 
         <listitem><para>An icon identifying this machine according to
         the <ulink
-        url="http://standards.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html">XDG
+        url="https://standards.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html">XDG
         Icon Naming Specification</ulink>. If this parameter is not
         set, an application should fall back to
         <literal>computer</literal> or a similar icon

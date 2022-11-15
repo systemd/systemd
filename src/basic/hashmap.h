@@ -7,7 +7,6 @@
 
 #include "hash-funcs.h"
 #include "macro.h"
-#include "util.h"
 
 /*
  * A hash table implementation. As a minor optimization a NULL hashmap object
@@ -90,12 +89,7 @@ OrderedHashmap* _ordered_hashmap_new(const struct hash_ops *hash_ops  HASHMAP_DE
 #define ordered_hashmap_new(ops) _ordered_hashmap_new(ops  HASHMAP_DEBUG_SRC_ARGS)
 
 #define hashmap_free_and_replace(a, b)          \
-        ({                                      \
-                hashmap_free(a);                \
-                (a) = (b);                      \
-                (b) = NULL;                     \
-                0;                              \
-        })
+        free_and_replace_full(a, b, hashmap_free)
 
 HashmapBase* _hashmap_free(HashmapBase *h, free_func_t default_free_key, free_func_t default_free_value);
 static inline Hashmap* hashmap_free(Hashmap *h) {

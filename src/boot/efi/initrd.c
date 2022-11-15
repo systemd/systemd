@@ -37,7 +37,7 @@ static const struct {
         }
 };
 
-EFIAPI EFI_STATUS initrd_load_file(
+static EFIAPI EFI_STATUS initrd_load_file(
                 EFI_LOAD_FILE_PROTOCOL *this,
                 EFI_DEVICE_PATH *file_path,
                 BOOLEAN boot_policy,
@@ -61,7 +61,7 @@ EFIAPI EFI_STATUS initrd_load_file(
                 return EFI_BUFFER_TOO_SMALL;
         }
 
-        CopyMem(buffer, loader->address, loader->length);
+        memcpy(buffer, loader->address, loader->length);
         *buffer_size = loader->length;
         return EFI_SUCCESS;
 }
@@ -102,8 +102,8 @@ EFI_STATUS initrd_register(
                         &DevicePathProtocol, &efi_initrd_device_path,
                         &EfiLoadFile2Protocol, loader,
                         NULL);
-        if (EFI_ERROR(err))
-                FreePool(loader);
+        if (err != EFI_SUCCESS)
+                free(loader);
 
         return err;
 }
@@ -119,7 +119,7 @@ EFI_STATUS initrd_unregister(EFI_HANDLE initrd_handle) {
         err = BS->OpenProtocol(
                         initrd_handle, &EfiLoadFile2Protocol, (void **) &loader,
                         NULL, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         /* close the handle */
@@ -131,10 +131,10 @@ EFI_STATUS initrd_unregister(EFI_HANDLE initrd_handle) {
                         &DevicePathProtocol, &efi_initrd_device_path,
                         &EfiLoadFile2Protocol, loader,
                         NULL);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return err;
 
         initrd_handle = NULL;
-        FreePool(loader);
+        free(loader);
         return EFI_SUCCESS;
 }

@@ -2,11 +2,11 @@
 
 #include <stdlib.h>
 
+#include "nulstr-util.h"
 #include "strbuf.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
-#include "util.h"
 
 static ssize_t add_string(struct strbuf *sb, const char *s) {
         return strbuf_add_string(sb, s, strlen(s));

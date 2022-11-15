@@ -30,7 +30,6 @@
 #include "strxcpyx.h"
 #include "udev-builtin.h"
 #include "udev-event.h"
-#include "udev-netlink.h"
 #include "udev-node.h"
 #include "udev-util.h"
 #include "udev-watch.h"
@@ -241,7 +240,7 @@ static ssize_t udev_event_subst_format(
                 size_t l,
                 bool *ret_truncated) {
 
-        sd_device *parent, *dev = event->dev;
+        sd_device *parent, *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         const char *val = NULL;
         bool truncated = false;
         char *s = dest;
@@ -357,11 +356,11 @@ static ssize_t udev_event_subst_format(
 
                 /* try to read the attribute the device */
                 if (!val)
-                        (void) device_get_sysattr_value_maybe_from_netlink(dev, &event->rtnl, attr, &val);
+                        (void) sd_device_get_sysattr_value(dev, attr, &val);
 
                 /* try to read the attribute of the parent device, other matches have selected */
                 if (!val && event->dev_parent && event->dev_parent != dev)
-                        (void) device_get_sysattr_value_maybe_from_netlink(event->dev_parent, &event->rtnl, attr, &val);
+                        (void) sd_device_get_sysattr_value(event->dev_parent, attr, &val);
 
                 if (!val)
                         goto null_terminate;
@@ -464,12 +463,11 @@ size_t udev_event_apply_format(
                 bool *ret_truncated) {
 
         bool truncated = false;
-        const char *s = src;
+        const char *s = ASSERT_PTR(src);
         int r;
 
         assert(event);
         assert(event->dev);
-        assert(src);
         assert(dest);
         assert(size > 0);
 
@@ -568,13 +566,12 @@ int udev_check_format(const char *value, size_t *offset, const char **hint) {
 }
 
 static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        Spawn *spawn = userdata;
+        Spawn *spawn = ASSERT_PTR(userdata);
         char buf[4096], *p;
         size_t size;
         ssize_t l;
         int r;
 
-        assert(spawn);
         assert(fd == spawn->fd_stdout || fd == spawn->fd_stderr);
         assert(!spawn->result || spawn->result_len < spawn->result_size);
 
@@ -637,9 +634,7 @@ reenable:
 }
 
 static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
-        Spawn *spawn = userdata;
-
-        assert(spawn);
+        Spawn *spawn = ASSERT_PTR(userdata);
 
         DEVICE_TRACE_POINT(spawn_timeout, spawn->device, spawn->cmd);
 
@@ -653,9 +648,7 @@ static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
 }
 
 static int on_spawn_timeout_warning(sd_event_source *s, uint64_t usec, void *userdata) {
-        Spawn *spawn = userdata;
-
-        assert(spawn);
+        Spawn *spawn = ASSERT_PTR(userdata);
 
         log_device_warning(spawn->device, "Spawned process '%s' ["PID_FMT"] is taking longer than %s to complete",
                            spawn->cmd, spawn->pid,
@@ -665,10 +658,8 @@ static int on_spawn_timeout_warning(sd_event_source *s, uint64_t usec, void *use
 }
 
 static int on_spawn_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
-        Spawn *spawn = userdata;
+        Spawn *spawn = ASSERT_PTR(userdata);
         int ret = -EIO;
-
-        assert(spawn);
 
         switch (si->si_code) {
         case CLD_EXITED:
@@ -915,7 +906,7 @@ static int rename_netif(UdevEvent *event) {
                 return 0;
         }
 
-        /* Set ID_RENAMING boolean property here, and drop it in the corresponding move uevent later. */
+        /* Set ID_RENAMING boolean property here. It will be dropped when the corresponding move uevent is processed. */
         r = device_add_property(dev, "ID_RENAMING", "1");
         if (r < 0)
                 return log_device_warning_errno(dev, r, "Failed to add 'ID_RENAMING' property: %m");
@@ -946,7 +937,7 @@ static int rename_netif(UdevEvent *event) {
 }
 
 static int update_devnode(UdevEvent *event) {
-        sd_device *dev = event->dev;
+        sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         int r;
 
         r = sd_device_get_devnum(dev, NULL);
@@ -990,7 +981,7 @@ static int event_execute_rules_on_remove(
                 Hashmap *properties_list,
                 UdevRules *rules) {
 
-        sd_device *dev = event->dev;
+        sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         int r;
 
         r = device_read_db_internal(dev, true);
@@ -1005,7 +996,9 @@ static int event_execute_rules_on_remove(
         if (r < 0)
                 log_device_debug_errno(dev, r, "Failed to delete database under /run/udev/data/, ignoring: %m");
 
-        (void) udev_watch_end(inotify_fd, dev);
+        r = udev_watch_end(inotify_fd, dev);
+        if (r < 0)
+                log_device_warning_errno(dev, r, "Failed to remove inotify watch, ignoring: %m");
 
         r = udev_rules_apply_to_event(rules, event, timeout_usec, timeout_signal, properties_list);
 
@@ -1013,17 +1006,6 @@ static int event_execute_rules_on_remove(
                 (void) udev_node_remove(dev);
 
         return r;
-}
-
-static int udev_event_on_move(sd_device *dev) {
-        int r;
-
-        /* Drop previously added property */
-        r = device_add_property(dev, "ID_RENAMING", NULL);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to remove 'ID_RENAMING' property: %m");
-
-        return 0;
 }
 
 static int copy_all_tags(sd_device *d, sd_device *s) {
@@ -1056,10 +1038,8 @@ int udev_event_execute_rules(
         sd_device *dev;
         int r;
 
-        assert(event);
+        dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         assert(rules);
-
-        dev = event->dev;
 
         r = sd_device_get_action(dev, &action);
         if (r < 0)
@@ -1069,7 +1049,9 @@ int udev_event_execute_rules(
                 return event_execute_rules_on_remove(event, inotify_fd, timeout_usec, timeout_signal, properties_list, rules);
 
         /* Disable watch during event processing. */
-        (void) udev_watch_end(inotify_fd, event->dev);
+        r = udev_watch_end(inotify_fd, dev);
+        if (r < 0)
+                log_device_warning_errno(dev, r, "Failed to remove inotify watch, ignoring: %m");
 
         r = device_clone_with_db(dev, &event->dev_db_clone);
         if (r < 0)
@@ -1079,11 +1061,13 @@ int udev_event_execute_rules(
         if (r < 0)
                 log_device_warning_errno(dev, r, "Failed to copy all tags from old database entry, ignoring: %m");
 
-        if (action == SD_DEVICE_MOVE) {
-                r = udev_event_on_move(event->dev);
-                if (r < 0)
-                        return r;
-        }
+        /* Drop previously added property for safety to make IMPORT{db}="ID_RENAMING" not work. This is
+         * mostly for 'move' uevent, but let's do unconditionally. Why? If a network interface is renamed in
+         * initrd, then udevd may lose the 'move' uevent during switching root. Usually, we do not set the
+         * persistent flag for network interfaces, but user may set it. Just for safety. */
+        r = device_add_property(event->dev_db_clone, "ID_RENAMING", NULL);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to remove 'ID_RENAMING' property: %m");
 
         DEVICE_TRACE_POINT(rules_start, dev);
 
@@ -1149,25 +1133,4 @@ void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec, int timeout_s
                                 log_device_debug(event->dev, "Command \"%s\" returned %d (error), ignoring.", command, r);
                 }
         }
-}
-
-int udev_event_process_inotify_watch(UdevEvent *event, int inotify_fd) {
-        sd_device *dev;
-
-        assert(event);
-        assert(inotify_fd >= 0);
-
-        dev = event->dev;
-
-        assert(dev);
-
-        if (device_for_action(dev, SD_DEVICE_REMOVE))
-                return 0;
-
-        if (event->inotify_watch)
-                (void) udev_watch_begin(inotify_fd, dev);
-        else
-                (void) udev_watch_end(inotify_fd, dev);
-
-        return 0;
 }

@@ -27,6 +27,9 @@ if install_tests
         install_subdir('test-network-generator-conversion',
                        exclude_files : '.gitattributes',
                        install_dir : testdata_dir)
+        install_subdir('testsuite-03.units',
+                       exclude_files : '.gitattributes',
+                       install_dir : testdata_dir)
         install_subdir('testsuite-04.units',
                        exclude_files : '.gitattributes',
                        install_dir : testdata_dir)
@@ -108,6 +111,14 @@ endif
 
 ############################################################
 
+test_compare_versions_sh = files('test-compare-versions.sh')
+if install_tests
+        install_data(test_compare_versions_sh,
+                     install_dir : testsdir)
+endif
+
+############################################################
+
 rule_syntax_check_py = find_program('rule-syntax-check.py')
 if want_tests != 'false'
         test('rule-syntax-check',
@@ -183,7 +194,7 @@ if want_tests != 'false' and dmi_arches.contains(host_machine.cpu_family())
                         check: true)
         else
                 out = run_command(
-                        sh, '-c', 'cd "@0@"; echo test/dmidecode-dumps/*.bin'.format(project_source_root),
+                        sh, '-c', 'cd "$1"; echo test/dmidecode-dumps/*.bin', '_', project_source_root,
                         check: true)
         endif
 

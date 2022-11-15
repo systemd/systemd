@@ -23,7 +23,7 @@
 #define LINE_CHUNK 8*1024u
 
 /* The maximum number of fields in an entry */
-#define ENTRY_FIELD_COUNT_MAX 1024
+#define ENTRY_FIELD_COUNT_MAX 1024u
 
 typedef struct JournalImporter {
         int fd;

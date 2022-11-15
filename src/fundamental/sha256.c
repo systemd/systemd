@@ -4,7 +4,7 @@
 
 /* Functions to compute SHA256 message digest of files or memory blocks.
    according to the definition of SHA256 in FIPS 180-2.
-   Copyright (C) 2007-2019 Free Software Foundation, Inc.
+   Copyright (C) 2007-2022 Free Software Foundation, Inc.
    This file is part of the GNU C Library.
 
    The GNU C Library is free software; you can redistribute it and/or
@@ -19,12 +19,13 @@
 
    You should have received a copy of the GNU Lesser General Public
    License along with the GNU C Library; if not, see
-   <http://www.gnu.org/licenses/>.  */
+   <https://www.gnu.org/licenses/>.  */
 
-/* Written by Ulrich Drepper <drepper@redhat.com>, 2007.  */
-
-#ifndef SD_BOOT
-#include <string.h>
+#include <stdbool.h>
+#ifdef SD_BOOT
+#  include "efi-string.h"
+#else
+#  include <string.h>
 #endif
 
 #include "macro-fundamental.h"
@@ -45,6 +46,14 @@
 #else
 # define SWAP(n) (n)
 # define SWAP64(n) (n)
+#endif
+
+/* The condition below is from glibc's string/string-inline.c.
+ * See definition of _STRING_INLINE_unaligned. */
+#if !defined(__mc68020__) && !defined(__s390__) && !defined(__i386__)
+#  define UNALIGNED_P(p) (((uintptr_t) p) % __alignof__(uint32_t) != 0)
+#else
+#  define UNALIGNED_P(p) false
 #endif
 
 /* This array contains the bytes used to pad the buffer to the next
@@ -94,11 +103,8 @@ void sha256_init_ctx(struct sha256_ctx *ctx) {
 }
 
 /* Process the remaining bytes in the internal buffer and the usual
-   prolog according to the standard and write the result to RESBUF.
-
-   IMPORTANT: On some systems it is required that RESBUF is correctly
-   aligned for a 32 bits value.  */
-void *sha256_finish_ctx(struct sha256_ctx *ctx, void *resbuf) {
+   prolog according to the standard and write the result to RESBUF. */
+uint8_t *sha256_finish_ctx(struct sha256_ctx *ctx, uint8_t resbuf[static SHA256_DIGEST_SIZE]) {
         /* Take yet unprocessed bytes into account.  */
         uint32_t bytes = ctx->buflen;
         size_t pad;
@@ -122,7 +128,10 @@ void *sha256_finish_ctx(struct sha256_ctx *ctx, void *resbuf) {
 
         /* Put result from CTX in first 32 bytes following RESBUF.  */
         for (size_t i = 0; i < 8; ++i)
-                ((uint32_t *) resbuf)[i] = SWAP(ctx->H[i]);
+                if (UNALIGNED_P(resbuf))
+                        memcpy(resbuf + i * sizeof(uint32_t), (uint32_t[]) { SWAP(ctx->H[i]) }, sizeof(uint32_t));
+                else
+                        ((uint32_t *) resbuf)[i] = SWAP(ctx->H[i]);
 
         return resbuf;
 }
@@ -156,17 +165,6 @@ void sha256_process_bytes(const void *buffer, size_t len, struct sha256_ctx *ctx
 
         /* Process available complete blocks.  */
         if (len >= 64) {
-
-/* The condition below is from glibc's string/string-inline.c.
- * See definition of _STRING_INLINE_unaligned. */
-#if !defined(__mc68020__) && !defined(__s390__) && !defined(__i386__)
-
-/* To check alignment gcc has an appropriate operator. Other compilers don't.  */
-# if __GNUC__ >= 2
-#  define UNALIGNED_P(p) (((size_t) p) % __alignof__(uint32_t) != 0)
-# else
-#  define UNALIGNED_P(p) (((size_t) p) % sizeof(uint32_t) != 0)
-# endif
                 if (UNALIGNED_P(buffer))
                         while (len > 64) {
                                 memcpy(ctx->buffer, buffer, 64);
@@ -174,9 +172,7 @@ void sha256_process_bytes(const void *buffer, size_t len, struct sha256_ctx *ctx
                                 buffer = (const char *) buffer + 64;
                                 len -= 64;
                         }
-                else
-#endif
-                {
+                else {
                         sha256_process_block(buffer, len & ~63, ctx);
                         buffer = (const char *) buffer + (len & ~63);
                         len &= 63;
@@ -198,14 +194,12 @@ void sha256_process_bytes(const void *buffer, size_t len, struct sha256_ctx *ctx
         }
 }
 
-
 /* Process LEN bytes of BUFFER, accumulating context into CTX.
    It is assumed that LEN % 64 == 0.  */
 static void sha256_process_block(const void *buffer, size_t len, struct sha256_ctx *ctx) {
-        const uint32_t *words = buffer;
+        const uint32_t *words = ASSERT_PTR(buffer);
         size_t nwords = len / sizeof(uint32_t);
 
-        assert(buffer);
         assert(ctx);
 
         uint32_t a = ctx->H[0];
@@ -293,4 +287,11 @@ static void sha256_process_block(const void *buffer, size_t len, struct sha256_c
         ctx->H[5] = f;
         ctx->H[6] = g;
         ctx->H[7] = h;
+}
+
+uint8_t* sha256_direct(const void *buffer, size_t sz, uint8_t result[static SHA256_DIGEST_SIZE]) {
+        struct sha256_ctx ctx;
+        sha256_init_ctx(&ctx);
+        sha256_process_bytes(buffer, sz, &ctx);
+        return sha256_finish_ctx(&ctx, result);
 }

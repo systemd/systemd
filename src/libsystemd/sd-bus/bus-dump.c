@@ -17,7 +17,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "util.h"
 
 static char *indent(unsigned level, uint64_t flags) {
         char *p;
@@ -50,7 +49,8 @@ _public_ int sd_bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags) {
         unsigned level = 1;
         int r;
 
-        assert(m);
+        assert_return(m, -EINVAL);
+        assert_return((flags & ~_SD_BUS_MESSAGE_DUMP_KNOWN_FLAGS) == 0, -EINVAL);
 
         if (!f)
                 f = stdout;
@@ -79,7 +79,7 @@ _public_ int sd_bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags) {
 
                 /* Display synthetic message serial number in a more readable
                  * format than UINT32_MAX */
-                if (BUS_MESSAGE_COOKIE(m) == 0xFFFFFFFFULL)
+                if (BUS_MESSAGE_COOKIE(m) == UINT32_MAX)
                         fprintf(f, " Cookie=-1");
                 else
                         fprintf(f, " Cookie=%" PRIu64, BUS_MESSAGE_COOKIE(m));

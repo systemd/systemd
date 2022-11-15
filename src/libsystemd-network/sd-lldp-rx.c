@@ -192,11 +192,10 @@ static int lldp_rx_handle_datagram(sd_lldp_rx *lldp_rx, sd_lldp_neighbor *n) {
 static int lldp_rx_receive_datagram(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *n = NULL;
         ssize_t space, length;
-        sd_lldp_rx *lldp_rx = userdata;
+        sd_lldp_rx *lldp_rx = ASSERT_PTR(userdata);
         struct timespec ts;
 
         assert(fd >= 0);
-        assert(lldp_rx);
 
         space = next_datagram_size_fd(fd);
         if (space < 0) {

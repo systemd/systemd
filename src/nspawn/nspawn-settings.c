@@ -16,7 +16,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
-#include "util.h"
 
 Settings *settings_new(void) {
         Settings *s;
@@ -623,6 +622,11 @@ int config_parse_private_users(
                 settings->userns_mode = USER_NAMESPACE_PICK;
                 settings->uid_shift = UID_INVALID;
                 settings->uid_range = UINT32_C(0x10000);
+        } else if (streq(rvalue, "identity")) {
+                /* identity: User namespacing on, UID range is 0:65536 */
+                settings->userns_mode = USER_NAMESPACE_FIXED;
+                settings->uid_shift = 0;
+                settings->uid_range = UINT32_C(0x10000);
         } else {
                 const char *range, *shift;
                 uid_t sh, rn;
@@ -722,11 +726,10 @@ int config_parse_oom_score_adjust(
                 void *data,
                 void *userdata) {
 
-        Settings *settings = data;
+        Settings *settings = ASSERT_PTR(data);
         int oa, r;
 
         assert(rvalue);
-        assert(settings);
 
         if (isempty(rvalue)) {
                 settings->oom_score_adjust_set = false;
@@ -761,10 +764,9 @@ int config_parse_cpu_affinity(
                 void *data,
                 void *userdata) {
 
-        Settings *settings = data;
+        Settings *settings = ASSERT_PTR(data);
 
         assert(rvalue);
-        assert(settings);
 
         return parse_cpu_set_extend(rvalue, &settings->cpu_set, true, unit, filename, line, lvalue);
 }
@@ -839,11 +841,10 @@ int config_parse_link_journal(
                 void *data,
                 void *userdata) {
 
-        Settings *settings = data;
+        Settings *settings = ASSERT_PTR(data);
         int r;
 
         assert(rvalue);
-        assert(settings);
 
         r = parse_link_journal(rvalue, &settings->link_journal, &settings->link_journal_try);
         if (r < 0)
@@ -888,11 +889,10 @@ int config_parse_userns_chown(
                 void *data,
                 void *userdata) {
 
-        UserNamespaceOwnership *ownership = data;
+        UserNamespaceOwnership *ownership = ASSERT_PTR(data);
         int r;
 
         assert(rvalue);
-        assert(ownership);
 
         /* Compatibility support for UserNamespaceChown=, whose job has been taken over by UserNamespaceOwnership= */
 
@@ -918,11 +918,10 @@ int config_parse_bind_user(
                 void *data,
                 void *userdata) {
 
-        char ***bind_user = data;
+        char ***bind_user = ASSERT_PTR(data);
         int r;
 
         assert(rvalue);
-        assert(bind_user);
 
         if (isempty(rvalue)) {
                 *bind_user = strv_free(*bind_user);

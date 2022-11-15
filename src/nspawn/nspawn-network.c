@@ -25,7 +25,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "udev-util.h"
-#include "util.h"
 
 #define HOST_HASH_KEY SD_ID128_MAKE(1a,37,6f,c7,46,ec,45,0b,ad,a3,d5,31,06,60,5d,b1)
 #define CONTAINER_HASH_KEY SD_ID128_MAKE(c3,c4,f9,19,b5,57,b2,1c,e6,cf,14,27,03,9c,ee,a2)
@@ -468,7 +467,7 @@ int test_network_interface_initialized(const char *name) {
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         int r;
 
-        if (path_is_read_only_fs("/sys") > 0)
+        if (!udev_available())
                 return 0;
 
         /* udev should be around. */

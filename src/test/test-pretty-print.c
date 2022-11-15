@@ -14,7 +14,7 @@
 TEST(terminal_urlify) {
         _cleanup_free_ char *formatted = NULL;
 
-        assert_se(terminal_urlify("https://www.freedesktop.org/wiki/Software/systemd/", "systemd homepage", &formatted) >= 0);
+        assert_se(terminal_urlify("https://www.freedesktop.org/wiki/Software/systemd", "systemd homepage", &formatted) >= 0);
         printf("Hey, consider visiting the %s right now! It is very good!\n", formatted);
 
         formatted = mfree(formatted);

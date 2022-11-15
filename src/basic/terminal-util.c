@@ -21,7 +21,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "def.h"
+#include "constants.h"
 #include "devnum-util.h"
 #include "env-util.h"
 #include "fd-util.h"
@@ -44,7 +44,6 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "user-util.h"
-#include "util.h"
 
 static volatile unsigned cached_columns = 0;
 static volatile unsigned cached_lines = 0;
@@ -624,7 +623,7 @@ int vtnr_from_tty(const char *tty) {
         if (!startswith(tty, "tty") )
                 return -EINVAL;
 
-        if (tty[3] < '0' || tty[3] > '9')
+        if (!ascii_isdigit(tty[3]))
                 return -EINVAL;
 
         r = safe_atoi(tty+3, &i);

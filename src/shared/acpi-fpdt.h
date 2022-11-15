@@ -3,4 +3,4 @@
 
 #include <time-util.h>
 
-int acpi_get_boot_usec(usec_t *loader_start, usec_t *loader_exit);
+int acpi_get_boot_usec(usec_t *ret_loader_start, usec_t *ret_loader_exit);

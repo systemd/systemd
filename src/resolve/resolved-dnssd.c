@@ -2,7 +2,7 @@
 
 #include "conf-files.h"
 #include "conf-parser.h"
-#include "def.h"
+#include "constants.h"
 #include "resolved-dnssd.h"
 #include "resolved-dns-rr.h"
 #include "resolved-manager.h"
@@ -17,7 +17,7 @@ DnssdTxtData *dnssd_txtdata_free(DnssdTxtData *txt_data) {
                 return NULL;
 
         dns_resource_record_unref(txt_data->rr);
-        dns_txt_item_free_all(txt_data->txt);
+        dns_txt_item_free_all(txt_data->txts);
 
         return mfree(txt_data);
 }
@@ -93,6 +93,7 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
                         config_item_perf_lookup, resolved_dnssd_gperf_lookup,
                         CONFIG_PARSE_WARN,
                         service,
+                        NULL,
                         NULL);
         if (r < 0)
                 return r;
@@ -107,12 +108,12 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
                                        "%s doesn't define service type",
                                        service->name);
 
-        if (LIST_IS_EMPTY(service->txt_data_items)) {
+        if (!service->txt_data_items) {
                 txt_data = new0(DnssdTxtData, 1);
                 if (!txt_data)
                         return log_oom();
 
-                r = dns_txt_item_new_empty(&txt_data->txt);
+                r = dns_txt_item_new_empty(&txt_data->txts);
                 if (r < 0)
                         return r;
 
@@ -136,14 +137,12 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
 }
 
 static int specifier_dnssd_hostname(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        DnssdService *s  = (DnssdService *) userdata;
+        const Manager *m = ASSERT_PTR(userdata);
         char *n;
 
-        assert(s);
-        assert(s->manager);
-        assert(s->manager->llmnr_hostname);
+        assert(m->llmnr_hostname);
 
-        n = strdup(s->manager->llmnr_hostname);
+        n = strdup(m->llmnr_hostname);
         if (!n)
                 return -ENOMEM;
 
@@ -151,7 +150,7 @@ static int specifier_dnssd_hostname(char specifier, const void *data, const char
         return 0;
 }
 
-int dnssd_render_instance_name(DnssdService *s, char **ret_name) {
+int dnssd_render_instance_name(Manager *m, DnssdService *s, char **ret) {
         static const Specifier specifier_table[] = {
                 { 'a', specifier_architecture,   NULL },
                 { 'b', specifier_boot_id,        NULL },
@@ -167,10 +166,11 @@ int dnssd_render_instance_name(DnssdService *s, char **ret_name) {
         _cleanup_free_ char *name = NULL;
         int r;
 
+        assert(m);
         assert(s);
         assert(s->name_template);
 
-        r = specifier_printf(s->name_template, DNS_LABEL_MAX, specifier_table, NULL, s, &name);
+        r = specifier_printf(s->name_template, DNS_LABEL_MAX, specifier_table, NULL, m, &name);
         if (r < 0)
                 return log_debug_errno(r, "Failed to replace specifiers: %m");
 
@@ -179,7 +179,8 @@ int dnssd_render_instance_name(DnssdService *s, char **ret_name) {
                                        "Service instance name '%s' is invalid.",
                                        name);
 
-        *ret_name = TAKE_PTR(name);
+        if (ret)
+                *ret = TAKE_PTR(name);
 
         return 0;
 }
@@ -200,16 +201,14 @@ int dnssd_load(Manager *manager) {
         STRV_FOREACH_BACKWARDS(f, files) {
                 r = dnssd_service_load(manager, *f);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to load '%s': %m", *f);;
+                        log_warning_errno(r, "Failed to load '%s': %m", *f);
         }
 
         return 0;
 }
 
 int dnssd_update_rrs(DnssdService *s) {
-        _cleanup_free_ char *n = NULL;
-        _cleanup_free_ char *service_name = NULL;
-        _cleanup_free_ char *full_name = NULL;
+        _cleanup_free_ char *n = NULL, *service_name = NULL, *full_name = NULL;
         int r;
 
         assert(s);
@@ -221,7 +220,7 @@ int dnssd_update_rrs(DnssdService *s) {
         LIST_FOREACH(items, txt_data, s->txt_data_items)
                 txt_data->rr = dns_resource_record_unref(txt_data->rr);
 
-        r = dnssd_render_instance_name(s, &n);
+        r = dnssd_render_instance_name(s->manager, s, &n);
         if (r < 0)
                 return r;
 
@@ -239,7 +238,7 @@ int dnssd_update_rrs(DnssdService *s) {
                         goto oom;
 
                 txt_data->rr->ttl = MDNS_DEFAULT_TTL;
-                txt_data->rr->txt.items = dns_txt_item_copy(txt_data->txt);
+                txt_data->rr->txt.items = dns_txt_item_copy(txt_data->txts);
                 if (!txt_data->rr->txt.items)
                         goto oom;
         }

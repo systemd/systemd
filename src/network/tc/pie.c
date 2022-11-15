@@ -51,13 +51,12 @@ int config_parse_pie_packet_limit(
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         ProportionalIntegralControllerEnhanced *pie;
-        Network *network = data;
+        Network *network = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = qdisc_new_static(QDISC_KIND_PIE, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)

@@ -25,6 +25,8 @@
     <cmdsynopsis>
       <command>systemd-creds</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">COMMAND</arg>
+      <arg choice="opt" rep="repeat">ARGS</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -127,11 +129,10 @@
         </orderedlist>
 
         <para>Which of the three keys shall be used for encryption may be configured with the
-        <option>--with-key=</option> switch. Depending on the use-case for the encrypted credential the key to
-        use may differ. For example, for credentials that shall be accessible from the initial RAM disk
-        (initrd) of the system encryption with the host key is not appropriate since access to the host key
-        is typically not available from the initrd. Thus, for such credentials only the TPM2 key should be
-        used.</para>
+        <option>--with-key=</option> switch. Depending on the use-case for the encrypted credential the key
+        to use may differ. For example, for credentials that shall be accessible from the initrd, encryption
+        with the host key is not appropriate, since access to the host key is typically not available from
+        the initrd. Thus, for such credentials only the TPM2 key should be used.</para>
 
         <para>Encrypted credentials are always encoded in Base64.</para>
 
@@ -170,12 +171,12 @@
         <term><command>has-tpm2</command></term>
 
         <listitem><para>Reports whether the system is equipped with a TPM2 device usable for protecting
-        credentials. If the a TPM2 device has been discovered, is supported, and is being used by firmware,
+        credentials. If a TPM2 device has been discovered, is supported, and is being used by firmware,
         by the OS kernel drivers and by userspace (i.e. systemd) this prints <literal>yes</literal> and exits
         with exit status zero. If no such device is discovered/supported/used, prints
         <literal>no</literal>. Otherwise prints <literal>partial</literal>. In either of these two cases
-        exits with non-zero exit status. It also shows three lines indicating separately whether drivers,
-        firmware and the system discovered/support/use TPM2.</para>
+        exits with non-zero exit status. It also shows four lines indicating separately whether firmware,
+        drivers, the system and the kernel discovered/support/use TPM2.</para>
 
         <para>Combine with <option>--quiet</option> to suppress the output.</para></listitem>
       </varlistentry>
@@ -303,8 +304,8 @@
         <para>The <option>-H</option> switch is a shortcut for <option>--with-key=host</option>. Similar,
         <option>-T</option> is a shortcut for <option>--with-key=tpm2</option>.</para>
 
-        <para>When encrypting credentials that shall be used in the initial RAM disk (initrd) where
-        <filename>/var/lib/systemd/</filename> is typically not available make sure to use
+        <para>When encrypting credentials that shall be used in the initrd (where
+        <filename>/var/lib/systemd/</filename> is typically not available) make sure to use
         <option>--with-key=auto-initrd</option> mode, to disable binding against the host secret.</para>
 
         <para>This switch has no effect on the <command>decrypt</command> command, as information on which
@@ -329,6 +330,40 @@
         used, defaults to PCR 7 only. If an empty string is specified, binds the encryption key to no PCRs at
         all. For details about the PCRs available, see the documentation of the switch of the same name for
         <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-public-key=</option><arg>PATH</arg></term>
+        <term><option>--tpm2-public-key-pcrs=</option><arg rep="repeat">PCR</arg></term>
+
+        <listitem><para>Configures a TPM2 signed PCR policy to bind encryption to, for use with the
+        <command>encrypt</command> command. The <option>--tpm2-public-key=</option> option accepts a path to
+        a PEM encoded RSA public key, to bind the encryption to. If this is not specified explicitly, but a
+        file <filename>tpm2-pcr-public-key.pem</filename> exists in one of the directories
+        <filename>/etc/systemd/</filename>, <filename>/run/systemd/</filename>,
+        <filename>/usr/lib/systemd/</filename> (searched in this order), it is automatically used. The
+        <option>--tpm2-public-key-pcrs=</option> option takes a list of TPM2 PCR indexes to bind to (same
+        syntax as <option>--tpm2-pcrs=</option> described above). If not specified defaults to 11 (i.e. this
+        binds the policy to any unified kernel image for which a PCR signature can be provided).</para>
+
+        <para>Note the difference between <option>--tpm2-pcrs=</option> and
+        <option>--tpm2-public-key-pcrs=</option>: the former binds decryption to the current, specific PCR
+        values; the latter binds decryption to any set of PCR values for which a signature by the specified
+        public key can be provided. The latter is hence more useful in scenarios where software updates shall
+        be possible without losing access to all previously encrypted secrets.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-signature=</option><arg>PATH</arg></term>
+
+        <listitem><para>Takes a path to a TPM2 PCR signature file as generated by the
+        <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        tool and that may be used to allow the <command>decrypt</command> command to decrypt credentials that
+        are bound to specific signed PCR values. If this this is not specified explicitly, and a credential
+        with a signed PCR policy is attempted to be decrypted, a suitable signature file
+        <filename>tpm2-pcr-signature.json</filename> is searched for in <filename>/etc/systemd/</filename>,
+        <filename>/run/systemd/</filename>, <filename>/usr/lib/systemd/</filename> (in this order) and
+        used.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -411,7 +446,8 @@ SetCredentialEncrypted=mysql-password: \
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
 

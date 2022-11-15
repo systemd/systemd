@@ -86,8 +86,8 @@ int rsa_pkey_to_suitable_key_size(
         size_t suitable_key_size;
         int bits;
 
-        assert_se(pkey);
-        assert_se(ret_suitable_key_size);
+        assert(pkey);
+        assert(ret_suitable_key_size);
 
         /* Analyzes the specified public key and that it is RSA. If so, will return a suitable size for a
          * disk encryption key to encrypt with RSA for use in PKCS#11 security token schemes. */
@@ -106,6 +106,63 @@ int rsa_pkey_to_suitable_key_size(
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Uh, RSA key size too short?");
 
         *ret_suitable_key_size = suitable_key_size;
+        return 0;
+}
+
+int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_size) {
+        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX* m = NULL;
+        _cleanup_free_ void *d = NULL, *h = NULL;
+        int sz, lsz, msz;
+        unsigned umsz;
+        unsigned char *dd;
+
+        /* Calculates a message digest of the DER encoded public key */
+
+        assert(pk);
+        assert(md);
+        assert(ret);
+        assert(ret_size);
+
+        sz = i2d_PublicKey(pk, NULL);
+        if (sz < 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to convert public key to DER format: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        dd = d = malloc(sz);
+        if (!d)
+                return log_oom_debug();
+
+        lsz = i2d_PublicKey(pk, &dd);
+        if (lsz < 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to convert public key to DER format: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        m = EVP_MD_CTX_new();
+        if (!m)
+                return log_oom_debug();
+
+        if (EVP_DigestInit_ex(m, md, NULL) != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize %s context.", EVP_MD_name(md));
+
+        if (EVP_DigestUpdate(m, d, lsz) != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to run %s context.", EVP_MD_name(md));
+
+        msz = EVP_MD_size(md);
+        assert(msz > 0);
+
+        h = malloc(msz);
+        if (!h)
+                return log_oom_debug();
+
+        umsz = msz;
+        if (EVP_DigestFinal_ex(m, h, &umsz) != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to finalize hash context.");
+
+        assert(umsz == (unsigned) msz);
+
+        *ret = TAKE_PTR(h);
+        *ret_size = msz;
+
         return 0;
 }
 
@@ -138,3 +195,22 @@ int string_hashsum(
 }
 #  endif
 #endif
+
+int x509_fingerprint(X509 *cert, uint8_t buffer[static SHA256_DIGEST_SIZE]) {
+#if HAVE_OPENSSL
+        _cleanup_free_ uint8_t *der = NULL;
+        int dersz;
+
+        assert(cert);
+
+        dersz = i2d_X509(cert, &der);
+        if (dersz < 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to convert PEM certificate to DER format: %s",
+                                       ERR_error_string(ERR_get_error(), NULL));
+
+        sha256_direct(der, dersz, buffer);
+        return 0;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "openssl is not supported, cannot calculate X509 fingerprint: %m");
+#endif
+}

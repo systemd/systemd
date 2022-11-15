@@ -36,7 +36,6 @@ units = [
         ['suspend-then-hibernate.target',       'ENABLE_HIBERNATE'],
         ['initrd-cleanup.service',              'ENABLE_INITRD'],
         ['initrd-fs.target',                    'ENABLE_INITRD'],
-        ['initrd-parse-etc.service',            'ENABLE_INITRD'],
         ['initrd-root-device.target',           'ENABLE_INITRD'],
         ['initrd-root-fs.target',               'ENABLE_INITRD'],
         ['initrd-switch-root.service',          'ENABLE_INITRD'],
@@ -179,6 +178,7 @@ in_units = [
         ['emergency.service',                    ''],
         ['getty@.service',                       '',
          'autovt@.service'],
+        ['initrd-parse-etc.service',             'ENABLE_INITRD'],
         ['kmod-static-nodes.service',            'HAVE_KMOD ENABLE_TMPFILES',
          'sysinit.target.wants/'],
         ['quotaon.service',                      'ENABLE_QUOTACHECK'],
@@ -260,6 +260,12 @@ in_units = [
          'sysinit.target.wants/ initrd-root-fs.target.wants/'],
         ['user-runtime-dir@.service',            ''],
         ['user@.service',                        ''],
+        ['systemd-pcrphase-initrd.service',      'HAVE_GNU_EFI HAVE_OPENSSL HAVE_TPM2 ENABLE_INITRD',
+         'initrd.target.wants/'],
+        ['systemd-pcrphase-sysinit.service',     'HAVE_GNU_EFI HAVE_OPENSSL HAVE_TPM2',
+         'sysinit.target.wants/'],
+        ['systemd-pcrphase.service',             'HAVE_GNU_EFI HAVE_OPENSSL HAVE_TPM2',
+         'sysinit.target.wants/'],
 ]
 
 add_wants = []
@@ -311,6 +317,11 @@ meson.add_install_script('meson-add-wants.sh', add_wants)
 
 install_data('user-.slice.d/10-defaults.conf',
              install_dir : systemunitdir + '/user-.slice.d')
+
+install_data('user@.service.d/10-login-barrier.conf',
+             install_dir : systemunitdir + '/user@.service.d')
+install_data('user@0.service.d/10-login-barrier.conf',
+             install_dir : systemunitdir + '/user@0.service.d')
 
 ############################################################
 

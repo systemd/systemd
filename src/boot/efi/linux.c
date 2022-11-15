@@ -14,159 +14,157 @@
 #include "initrd.h"
 #include "linux.h"
 #include "pe.h"
+#include "secure-boot.h"
 #include "util.h"
 
-static EFI_LOADED_IMAGE * loaded_image_free(EFI_LOADED_IMAGE *img) {
-        if (!img)
-                return NULL;
-        mfree(img->LoadOptions);
-        return mfree(img);
-}
+#define STUB_PAYLOAD_GUID \
+        { 0x55c5d1f8, 0x04cd, 0x46b5, { 0x8a, 0x20, 0xe5, 0x6c, 0xbb, 0x30, 0x52, 0xd0 } }
 
-static EFI_STATUS loaded_image_register(
-                const CHAR8 *cmdline, UINTN cmdline_len,
-                const void *linux_buffer, UINTN linux_length,
-                EFI_HANDLE *ret_image) {
+static EFIAPI EFI_STATUS security_hook(
+                const SecurityOverride *this, uint32_t authentication_status, const EFI_DEVICE_PATH *file) {
 
-        EFI_LOADED_IMAGE *loaded_image = NULL;
-        EFI_STATUS err;
+        assert(this);
+        assert(this->hook == security_hook);
 
-        assert(cmdline || cmdline_len > 0);
-        assert(linux_buffer && linux_length > 0);
-        assert(ret_image);
-
-        /* create and install new LoadedImage Protocol */
-        loaded_image = xnew(EFI_LOADED_IMAGE, 1);
-        *loaded_image = (EFI_LOADED_IMAGE) {
-                .ImageBase = (void *) linux_buffer,
-                .ImageSize = linux_length
-        };
-
-        /* if a cmdline is set convert it to UCS2 */
-        if (cmdline) {
-                loaded_image->LoadOptions = xstra_to_str(cmdline);
-                loaded_image->LoadOptionsSize = StrSize(loaded_image->LoadOptions);
-        }
-
-        /* install a new LoadedImage protocol. ret_handle is a new image handle */
-        err = BS->InstallMultipleProtocolInterfaces(
-                        ret_image,
-                        &LoadedImageProtocol, loaded_image,
-                        NULL);
-        if (EFI_ERROR(err))
-                loaded_image = loaded_image_free(loaded_image);
-
-        return err;
-}
-
-static EFI_STATUS loaded_image_unregister(EFI_HANDLE loaded_image_handle) {
-        EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
-        EFI_STATUS err;
-
-        if (!loaded_image_handle)
+        if (file == this->payload_device_path)
                 return EFI_SUCCESS;
 
-        /* get the LoadedImage protocol that we allocated earlier */
-        err = BS->OpenProtocol(
-                        loaded_image_handle, &LoadedImageProtocol, (void **) &loaded_image,
-                        NULL, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
-        if (EFI_ERROR(err))
-                return err;
-
-        /* close the handle */
-        (void) BS->CloseProtocol(loaded_image_handle, &LoadedImageProtocol, NULL, NULL);
-        err = BS->UninstallMultipleProtocolInterfaces(
-                        loaded_image_handle,
-                        &LoadedImageProtocol, loaded_image,
-                        NULL);
-        if (EFI_ERROR(err))
-                return err;
-        loaded_image_handle = NULL;
-        loaded_image = loaded_image_free(loaded_image);
-
-        return EFI_SUCCESS;
+        return this->original_security->FileAuthenticationState(
+                        this->original_security, authentication_status, file);
 }
 
-static inline void cleanup_initrd(EFI_HANDLE *initrd_handle) {
-        (void) initrd_unregister(*initrd_handle);
-        *initrd_handle = NULL;
+static EFIAPI EFI_STATUS security2_hook(
+                const SecurityOverride *this,
+                const EFI_DEVICE_PATH *device_path,
+                void *file_buffer,
+                size_t file_size,
+                BOOLEAN boot_policy) {
+
+        assert(this);
+        assert(this->hook == security2_hook);
+
+        if (file_buffer == this->payload && file_size == this->payload_len &&
+            device_path == this->payload_device_path)
+                return EFI_SUCCESS;
+
+        return this->original_security2->FileAuthentication(
+                        this->original_security2, device_path, file_buffer, file_size, boot_policy);
 }
 
-static inline void cleanup_loaded_image(EFI_HANDLE *loaded_image_handle) {
-        (void) loaded_image_unregister(*loaded_image_handle);
-        *loaded_image_handle = NULL;
-}
+static EFI_STATUS load_image(EFI_HANDLE parent, const void *source, size_t len, EFI_HANDLE *ret_image) {
+        assert(parent);
+        assert(source);
+        assert(ret_image);
 
-/* struct to call cleanup_pages */
-struct pages {
-        EFI_PHYSICAL_ADDRESS addr;
-        UINTN num;
-};
+        /* We could pass a NULL device path, but it's nicer to provide something and it allows us to identify
+         * the loaded image from within the security hooks. */
+        struct {
+                VENDOR_DEVICE_PATH payload;
+                EFI_DEVICE_PATH end;
+        } _packed_ payload_device_path = {
+                .payload = {
+                        .Header = {
+                                .Type = MEDIA_DEVICE_PATH,
+                                .SubType = MEDIA_VENDOR_DP,
+                                .Length = { sizeof(payload_device_path.payload), 0 },
+                        },
+                        .Guid = STUB_PAYLOAD_GUID,
+                },
+                .end = {
+                        .Type = END_DEVICE_PATH_TYPE,
+                        .SubType = END_ENTIRE_DEVICE_PATH_SUBTYPE,
+                        .Length = { sizeof(payload_device_path.end), 0 },
+                },
+        };
 
-static inline void cleanup_pages(struct pages *p) {
-        if (p->addr == 0)
-                return;
-        (void) BS->FreePages(p->addr, p->num);
+        /* We want to support unsigned kernel images as payload, which is safe to do under secure boot
+         * because it is embedded in this stub loader (and since it is already running it must be trusted). */
+        SecurityOverride security_override = {
+                .hook = security_hook,
+                .payload = source,
+                .payload_len = len,
+                .payload_device_path = &payload_device_path.payload.Header,
+        }, security2_override = {
+                .hook = security2_hook,
+                .payload = source,
+                .payload_len = len,
+                .payload_device_path = &payload_device_path.payload.Header,
+        };
+
+        install_security_override(&security_override, &security2_override);
+
+        EFI_STATUS ret = BS->LoadImage(
+                        /*BootPolicy=*/false,
+                        parent,
+                        &payload_device_path.payload.Header,
+                        (void *) source,
+                        len,
+                        ret_image);
+
+        uninstall_security_override(&security_override, &security2_override);
+
+        return ret;
 }
 
 EFI_STATUS linux_exec(
-                EFI_HANDLE image,
-                const CHAR8 *cmdline, UINTN cmdline_len,
+                EFI_HANDLE parent,
+                const char *cmdline, UINTN cmdline_len,
                 const void *linux_buffer, UINTN linux_length,
                 const void *initrd_buffer, UINTN initrd_length) {
 
-        _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
-        _cleanup_(cleanup_loaded_image) EFI_HANDLE loaded_image_handle = NULL;
-        UINT32 kernel_alignment, kernel_size_of_image, kernel_entry_address;
-        EFI_IMAGE_ENTRY_POINT kernel_entry;
-        _cleanup_(cleanup_pages) struct pages kernel = {};
-        void *new_buffer;
+        uint32_t compat_address;
         EFI_STATUS err;
 
-        assert(image);
+        assert(parent);
         assert(cmdline || cmdline_len == 0);
         assert(linux_buffer && linux_length > 0);
         assert(initrd_buffer || initrd_length == 0);
 
-        /* get the necessary fields from the PE header */
-        err = pe_alignment_info(linux_buffer, &kernel_entry_address, &kernel_size_of_image, &kernel_alignment);
-        if (EFI_ERROR(err))
-                return err;
-        /* sanity check */
-        assert(kernel_size_of_image >= linux_length);
+        err = pe_kernel_info(linux_buffer, &compat_address);
+#if defined(__i386__) || defined(__x86_64__)
+        if (err == EFI_UNSUPPORTED)
+                /* Kernel is too old to support LINUX_INITRD_MEDIA_GUID, try the deprecated EFI handover
+                 * protocol. */
+                return linux_exec_efi_handover(
+                                parent,
+                                cmdline,
+                                cmdline_len,
+                                linux_buffer,
+                                linux_length,
+                                initrd_buffer,
+                                initrd_length);
+#endif
+        if (err != EFI_SUCCESS)
+                return log_error_status_stall(err, u"Bad kernel image: %r", err);
 
-        /* Linux kernel complains if it's not loaded at a properly aligned memory address. The correct alignment
-           is provided by Linux as the SegmentAlignment in the PeOptionalHeader. Additionally the kernel needs to
-           be in a memory segment that's SizeOfImage (again from PeOptionalHeader) large, so that the Kernel has
-           space for its BSS section. SizeOfImage is always larger than linux_length, which is only the size of
-           Code, (static) Data and Headers.
+        _cleanup_(unload_imagep) EFI_HANDLE kernel_image = NULL;
+        err = load_image(parent, linux_buffer, linux_length, &kernel_image);
+        if (err != EFI_SUCCESS)
+                return log_error_status_stall(err, u"Error loading kernel image: %r", err);
 
-           Interrestingly only ARM/Aarch64 and RISC-V kernel stubs check these assertions and can even boot (with warnings)
-           if they are not met. x86 and x86_64 kernel stubs don't do checks and fail if the BSS section is too small.
-        */
-        /* allocate SizeOfImage + SectionAlignment because the new_buffer can move up to Alignment-1 bytes */
-        kernel.num = EFI_SIZE_TO_PAGES(ALIGN_TO(kernel_size_of_image, kernel_alignment) + kernel_alignment);
-        err = BS->AllocatePages(AllocateAnyPages, EfiLoaderData, kernel.num, &kernel.addr);
-        if (EFI_ERROR(err))
-                return EFI_OUT_OF_RESOURCES;
-        new_buffer = PHYSICAL_ADDRESS_TO_POINTER(ALIGN_TO(kernel.addr, kernel_alignment));
-        CopyMem(new_buffer, linux_buffer, linux_length);
-        /* zero out rest of memory (probably not needed, but BSS section should be 0) */
-        SetMem((UINT8 *)new_buffer + linux_length, kernel_size_of_image - linux_length, 0);
+        EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
+        err = BS->HandleProtocol(kernel_image, &LoadedImageProtocol, (void **) &loaded_image);
+        if (err != EFI_SUCCESS)
+                return log_error_status_stall(err, u"Error getting kernel loaded image protocol: %r", err);
 
-        /* get the entry point inside the relocated kernel */
-        kernel_entry = (EFI_IMAGE_ENTRY_POINT) ((const UINT8 *)new_buffer + kernel_entry_address);
+        if (cmdline) {
+                loaded_image->LoadOptions = xstra_to_str(cmdline);
+                loaded_image->LoadOptionsSize = strsize16(loaded_image->LoadOptions);
+        }
 
-        /* register a LoadedImage Protocol in order to pass on the commandline */
-        err = loaded_image_register(cmdline, cmdline_len, new_buffer, linux_length, &loaded_image_handle);
-        if (EFI_ERROR(err))
-                return err;
-
-        /* register a LINUX_INITRD_MEDIA DevicePath to serve the initrd */
+        _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
         err = initrd_register(initrd_buffer, initrd_length, &initrd_handle);
-        if (EFI_ERROR(err))
-                return err;
+        if (err != EFI_SUCCESS)
+                return log_error_status_stall(err, u"Error registering initrd: %r", err);
 
-        /* call the kernel */
-        return kernel_entry(loaded_image_handle, ST);
+        err = BS->StartImage(kernel_image, NULL, NULL);
+
+        /* Try calling the kernel compat entry point if one exists. */
+        if (err == EFI_UNSUPPORTED && compat_address > 0) {
+                EFI_IMAGE_ENTRY_POINT compat_entry =
+                                (EFI_IMAGE_ENTRY_POINT) ((uint8_t *) loaded_image->ImageBase + compat_address);
+                err = compat_entry(kernel_image, ST);
+        }
+
+        return log_error_status_stall(err, u"Error starting kernel image: %r", err);
 }

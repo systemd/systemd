@@ -608,7 +608,7 @@ static int lease_parse_6rd(sd_dhcp_lease *lease, const uint8_t *option, size_t l
         memcpy(&prefix, option + 2, sizeof(struct in6_addr));
         (void) in6_addr_mask(&prefix, prefixlen);
 
-        /* 6rdBRIPv4Address: One or more IPv4 addresses of the 6rd Border Relay(s) for a given 6rd domain. */
+        /* 6rdBRIPv4Address: One or more IPv4 addresses of the 6rd Border Relays for a given 6rd domain. */
         n_br_addresses = (len - 2 - sizeof(struct in6_addr)) / sizeof(struct in_addr);
         br_addresses = newdup(struct in_addr, option + 2 + sizeof(struct in6_addr), n_br_addresses);
         if (!br_addresses)
@@ -624,10 +624,8 @@ static int lease_parse_6rd(sd_dhcp_lease *lease, const uint8_t *option, size_t l
 }
 
 int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void *userdata) {
-        sd_dhcp_lease *lease = userdata;
+        sd_dhcp_lease *lease = ASSERT_PTR(userdata);
         int r;
-
-        assert(lease);
 
         switch (code) {
 
@@ -713,9 +711,9 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 r = lease_parse_u16(option, len, &lease->mtu, 68);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse MTU, ignoring: %m");
-                if (lease->mtu < DHCP_DEFAULT_MIN_SIZE) {
-                        log_debug("MTU value of %" PRIu16 " too small. Using default MTU value of %d instead.", lease->mtu, DHCP_DEFAULT_MIN_SIZE);
-                        lease->mtu = DHCP_DEFAULT_MIN_SIZE;
+                if (lease->mtu < DHCP_MIN_PACKET_SIZE) {
+                        log_debug("MTU value of %" PRIu16 " too small. Using default MTU value of %d instead.", lease->mtu, DHCP_MIN_PACKET_SIZE);
+                        lease->mtu = DHCP_MIN_PACKET_SIZE;
                 }
 
                 break;
@@ -819,7 +817,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 break;
 
         default:
-                log_debug("Ignoring option DHCP option %"PRIu8" while parsing.", code);
+                log_debug("Ignoring DHCP option %"PRIu8" while parsing.", code);
                 break;
         }
 
@@ -967,7 +965,6 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         const struct in_addr *addresses;
         const void *client_id, *data;
         size_t client_id_len, data_len;
-        char sbuf[INET_ADDRSTRLEN];
         const char *string;
         uint16_t mtu;
         _cleanup_free_ sd_dhcp_route **routes = NULL;
@@ -989,11 +986,11 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
 
         r = sd_dhcp_lease_get_address(lease, &address);
         if (r >= 0)
-                fprintf(f, "ADDRESS=%s\n", inet_ntop(AF_INET, &address, sbuf, sizeof(sbuf)));
+                fprintf(f, "ADDRESS=%s\n", IN4_ADDR_TO_STRING(&address));
 
         r = sd_dhcp_lease_get_netmask(lease, &address);
         if (r >= 0)
-                fprintf(f, "NETMASK=%s\n", inet_ntop(AF_INET, &address, sbuf, sizeof(sbuf)));
+                fprintf(f, "NETMASK=%s\n", IN4_ADDR_TO_STRING(&address));
 
         r = sd_dhcp_lease_get_router(lease, &addresses);
         if (r > 0) {
@@ -1004,15 +1001,15 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
 
         r = sd_dhcp_lease_get_server_identifier(lease, &address);
         if (r >= 0)
-                fprintf(f, "SERVER_ADDRESS=%s\n", inet_ntop(AF_INET, &address, sbuf, sizeof(sbuf)));
+                fprintf(f, "SERVER_ADDRESS=%s\n", IN4_ADDR_TO_STRING(&address));
 
         r = sd_dhcp_lease_get_next_server(lease, &address);
         if (r >= 0)
-                fprintf(f, "NEXT_SERVER=%s\n", inet_ntop(AF_INET, &address, sbuf, sizeof(sbuf)));
+                fprintf(f, "NEXT_SERVER=%s\n", IN4_ADDR_TO_STRING(&address));
 
         r = sd_dhcp_lease_get_broadcast(lease, &address);
         if (r >= 0)
-                fprintf(f, "BROADCAST=%s\n", inet_ntop(AF_INET, &address, sbuf, sizeof(sbuf)));
+                fprintf(f, "BROADCAST=%s\n", IN4_ADDR_TO_STRING(&address));
 
         r = sd_dhcp_lease_get_mtu(lease, &mtu);
         if (r >= 0)

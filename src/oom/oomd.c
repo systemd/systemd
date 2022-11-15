@@ -2,17 +2,19 @@
 
 #include <getopt.h>
 
+#include "build.h"
 #include "bus-log-control-api.h"
 #include "bus-object.h"
 #include "cgroup-util.h"
 #include "conf-parser.h"
 #include "daemon-util.h"
+#include "fileio.h"
 #include "log.h"
 #include "main-func.h"
-#include "oomd-manager.h"
 #include "oomd-manager-bus.h"
+#include "oomd-manager.h"
 #include "parse-util.h"
-#include "pretty-print.c"
+#include "pretty-print.h"
 #include "psi-util.h"
 #include "signal-util.h"
 

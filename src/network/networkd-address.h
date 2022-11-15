@@ -38,7 +38,7 @@ struct Address {
         unsigned char scope;
         uint32_t flags;
         uint32_t route_metric; /* route metric for prefix route */
-        char *label;
+        char *label, *netlabel;
 
         int set_broadcast;
         struct in_addr broadcast;
@@ -58,6 +58,7 @@ struct Address {
          * To control DAD for IPv6 dynamic addresses, set IFA_F_NODAD to flags. */
         AddressFamily duplicate_address_detection;
         sd_ipv4acd *acd;
+        bool acd_bound;
 
         /* Called when address become ready */
         address_ready_callback_t callback;
@@ -77,6 +78,7 @@ Address* address_free(Address *address);
 int address_get(Link *link, const Address *in, Address **ret);
 int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg);
 int address_remove(Address *address);
+int address_remove_and_drop(Address *address);
 int address_dup(const Address *src, Address **ret);
 bool address_is_ready(const Address *a);
 void address_set_broadcast(Address *a, Link *link);
@@ -118,14 +120,8 @@ int network_drop_invalid_addresses(Network *network);
 int address_compare_func(const Address *a1, const Address *a2);
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Address, address);
-static inline void address_enter_probing(Address *address) {
-        address_update_state(address, NETWORK_CONFIG_STATE_PROBING, NETWORK_CONFIG_STATE_PROBING);
-}
-static inline void address_cancel_probing(Address *address) {
-        address_update_state(address, NETWORK_CONFIG_STATE_PROBING, 0);
-}
 
-void link_mark_addresses(Link *link, NetworkConfigSource source, const struct in6_addr *router);
+void link_mark_addresses(Link *link, NetworkConfigSource source);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_broadcast);
@@ -135,3 +131,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_address_flags);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_scope);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_route_metric);
 CONFIG_PARSER_PROTOTYPE(config_parse_duplicate_address_detection);
+CONFIG_PARSER_PROTOTYPE(config_parse_address_netlabel);

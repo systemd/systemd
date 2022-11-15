@@ -10,16 +10,19 @@
 [Unit]
 Description=Merge System Extension Images into /usr/ and /opt/
 Documentation=man:systemd-sysext.service(8)
-DefaultDependencies=no
-Conflicts=shutdown.target
-After=local-fs.target
-Before=sysinit.target shutdown.target systemd-tmpfiles.service
+
 ConditionCapability=CAP_SYS_ADMIN
 ConditionDirectoryNotEmpty=|/etc/extensions
 ConditionDirectoryNotEmpty=|/run/extensions
 ConditionDirectoryNotEmpty=|/var/lib/extensions
 ConditionDirectoryNotEmpty=|/usr/local/lib/extensions
 ConditionDirectoryNotEmpty=|/usr/lib/extensions
+
+DefaultDependencies=no
+After=local-fs.target
+Before=sysinit.target systemd-tmpfiles.service
+Conflicts=shutdown.target initrd-switch-root.target
+Before=shutdown.target initrd-switch-root.target
 
 [Service]
 Type=oneshot

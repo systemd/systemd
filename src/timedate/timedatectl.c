@@ -8,6 +8,7 @@
 
 #include "sd-bus.h"
 
+#include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
@@ -24,7 +25,6 @@
 #include "string-table.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "util.h"
 #include "verbs.h"
 
 static PagerFlags arg_pager_flags = 0;
@@ -61,15 +61,12 @@ static int print_status_info(const StatusInfo *i) {
 
         assert(i);
 
-        table = table_new("key", "value");
+        table = table_new_vertical();
         if (!table)
                 return log_oom();
 
-        table_set_header(table, false);
-
         assert_se(cell = table_get_cell(table, 0, 0));
         (void) table_set_ellipsize_percent(table, cell, 100);
-        (void) table_set_align_percent(table, cell, 100);
 
         assert_se(cell = table_get_cell(table, 0, 1));
         (void) table_set_ellipsize_percent(table, cell, 100);
@@ -97,14 +94,14 @@ static int print_status_info(const StatusInfo *i) {
 
         n = have_time ? strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&sec, &tm)) : 0;
         r = table_add_many(table,
-                           TABLE_STRING, "Local time:",
+                           TABLE_FIELD, "Local time",
                            TABLE_STRING, n > 0 ? a : "n/a");
         if (r < 0)
                 return table_log_add_error(r);
 
         n = have_time ? strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S UTC", gmtime_r(&sec, &tm)) : 0;
         r = table_add_many(table,
-                           TABLE_STRING, "Universal time:",
+                           TABLE_FIELD, "Universal time",
                            TABLE_STRING, n > 0 ? a : "n/a");
         if (r < 0)
                 return table_log_add_error(r);
@@ -117,12 +114,12 @@ static int print_status_info(const StatusInfo *i) {
         } else
                 n = 0;
         r = table_add_many(table,
-                           TABLE_STRING, "RTC time:",
+                           TABLE_FIELD, "RTC time",
                            TABLE_STRING, n > 0 ? a : "n/a");
         if (r < 0)
                 return table_log_add_error(r);
 
-        r = table_add_cell(table, NULL, TABLE_STRING, "Time zone:");
+        r = table_add_cell(table, NULL, TABLE_FIELD, "Time zone");
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -139,11 +136,11 @@ static int print_status_info(const StatusInfo *i) {
                 tzset();
 
         r = table_add_many(table,
-                           TABLE_STRING, "System clock synchronized:",
+                           TABLE_FIELD, "System clock synchronized",
                            TABLE_BOOLEAN, i->ntp_synced,
-                           TABLE_STRING, "NTP service:",
+                           TABLE_FIELD, "NTP service",
                            TABLE_STRING, i->ntp_capable ? (i->ntp_active ? "active" : "inactive") : "n/a",
-                           TABLE_STRING, "RTC in local TZ:",
+                           TABLE_FIELD, "RTC in local TZ",
                            TABLE_BOOLEAN, i->rtc_local);
         if (r < 0)
                 return table_log_add_error(r);
@@ -179,10 +176,8 @@ static int show_status(int argc, char **argv, void *userdata) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         r = bus_map_all_properties(bus,
                                    "org.freedesktop.timedate1",
@@ -199,10 +194,8 @@ static int show_status(int argc, char **argv, void *userdata) {
 }
 
 static int show_properties(int argc, char **argv, void *userdata) {
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         r = bus_print_all_properties(bus,
                                      "org.freedesktop.timedate1",
@@ -367,15 +360,12 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
 
         assert(i);
 
-        table = table_new("key", "value");
+        table = table_new_vertical();
         if (!table)
                 return log_oom();
 
-        table_set_header(table, false);
-
         assert_se(cell = table_get_cell(table, 0, 0));
         (void) table_set_ellipsize_percent(table, cell, 100);
-        (void) table_set_align_percent(table, cell, 100);
 
         assert_se(cell = table_get_cell(table, 0, 1));
         (void) table_set_ellipsize_percent(table, cell, 100);
@@ -392,7 +382,7 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
          *  d = (T4 - T1) - (T3 - T2)     t = ((T2 - T1) + (T3 - T4)) / 2"
          */
 
-        r = table_add_cell(table, NULL, TABLE_STRING, "Server:");
+        r = table_add_cell(table, NULL, TABLE_FIELD, "Server");
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -400,7 +390,7 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
         if (r < 0)
                 return table_log_add_error(r);
 
-        r = table_add_cell(table, NULL, TABLE_STRING, "Poll interval:");
+        r = table_add_cell(table, NULL, TABLE_FIELD, "Poll interval");
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -413,7 +403,7 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
 
         if (i->packet_count == 0) {
                 r = table_add_many(table,
-                                   TABLE_STRING, "Packet count:",
+                                   TABLE_FIELD, "Packet count",
                                    TABLE_STRING, "0");
                 if (r < 0)
                         return table_log_add_error(r);
@@ -444,13 +434,13 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
         root_distance = i->root_delay / 2 + i->root_dispersion;
 
         r = table_add_many(table,
-                           TABLE_STRING, "Leap:",
+                           TABLE_FIELD, "Leap",
                            TABLE_STRING, ntp_leap_to_string(i->leap),
-                           TABLE_STRING, "Version:",
+                           TABLE_FIELD, "Version",
                            TABLE_UINT32, i->version,
-                           TABLE_STRING, "Stratum:",
+                           TABLE_FIELD, "Stratum",
                            TABLE_UINT32, i->stratum,
-                           TABLE_STRING, "Reference:");
+                           TABLE_FIELD, "Reference");
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -461,7 +451,7 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
         if (r < 0)
                 return table_log_add_error(r);
 
-        r = table_add_cell(table, NULL, TABLE_STRING, "Precision:");
+        r = table_add_cell(table, NULL, TABLE_FIELD, "Precision");
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -471,7 +461,7 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
         if (r < 0)
                 return table_log_add_error(r);
 
-        r = table_add_cell(table, NULL, TABLE_STRING, "Root distance:");
+        r = table_add_cell(table, NULL, TABLE_FIELD, "Root distance");
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -481,7 +471,7 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
         if (r < 0)
                 return table_log_add_error(r);
 
-        r = table_add_cell(table, NULL, TABLE_STRING, "Offset:");
+        r = table_add_cell(table, NULL, TABLE_FIELD, "Offset");
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -492,17 +482,17 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
                 return table_log_add_error(r);
 
         r = table_add_many(table,
-                           TABLE_STRING, "Delay:",
+                           TABLE_FIELD, "Delay",
                            TABLE_STRING, FORMAT_TIMESPAN(delay, 0),
-                           TABLE_STRING, "Jitter:",
+                           TABLE_FIELD, "Jitter",
                            TABLE_STRING, FORMAT_TIMESPAN(i->jitter, 0),
-                           TABLE_STRING, "Packet count:",
+                           TABLE_FIELD, "Packet count",
                            TABLE_UINT64, i->packet_count);
         if (r < 0)
                 return table_log_add_error(r);
 
         if (!i->spike) {
-                r = table_add_cell(table, NULL, TABLE_STRING, "Frequency:");
+                r = table_add_cell(table, NULL, TABLE_FIELD, "Frequency");
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -563,13 +553,11 @@ static int map_server_address(sd_bus *bus, const char *member, sd_bus_message *m
 }
 
 static int map_ntp_message(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        NTPStatusInfo *p = userdata;
+        NTPStatusInfo *p = ASSERT_PTR(userdata);
         const void *d;
         size_t sz;
         int32_t b;
         int r;
-
-        assert(p);
 
         r = sd_bus_message_enter_container(m, 'r', "uuuuittayttttbtt");
         if (r < 0)
@@ -661,10 +649,8 @@ static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error
 
 static int show_timesync_status(int argc, char **argv, void *userdata) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         r = show_timesync_status_once(bus);
         if (r < 0)
@@ -766,10 +752,8 @@ static int print_timesync_property(const char *name, const char *expected_value,
 }
 
 static int show_timesync(int argc, char **argv, void *userdata) {
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
-
-        assert(bus);
 
         r = bus_print_all_properties(bus,
                                      "org.freedesktop.timesync1",
@@ -812,10 +796,8 @@ static int parse_ifindex_bus(sd_bus *bus, const char *str) {
 static int verb_ntp_servers(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int ifindex, r;
-
-        assert(bus);
 
         ifindex = parse_ifindex_bus(bus, argv[1]);
         if (ifindex < 0)
@@ -844,10 +826,8 @@ static int verb_ntp_servers(int argc, char **argv, void *userdata) {
 
 static int verb_revert(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int ifindex, r;
-
-        assert(bus);
 
         ifindex = parse_ifindex_bus(bus, argv[1]);
         if (ifindex < 0)

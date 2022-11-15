@@ -28,7 +28,6 @@
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "utf8.h"
-#include "util.h"
 #include "web-util.h"
 
 typedef enum RawProgress {
@@ -280,7 +279,7 @@ static int raw_pull_maybe_convert_qcow2(RawPull *i) {
 
         unlink_and_free(i->temp_path);
         i->temp_path = TAKE_PTR(t);
-        CLOSE_AND_REPLACE(i->raw_job->disk_fd, converted_fd);
+        close_and_replace(i->raw_job->disk_fd, converted_fd);
 
         return 1;
 }

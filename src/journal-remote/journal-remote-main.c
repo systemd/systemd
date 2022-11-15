@@ -5,9 +5,10 @@
 
 #include "sd-daemon.h"
 
+#include "build.h"
 #include "conf-parser.h"
+#include "constants.h"
 #include "daemon-util.h"
-#include "def.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "journal-remote-write.h"
@@ -530,11 +531,9 @@ static int dispatch_http_event(sd_event_source *event,
                                int fd,
                                uint32_t revents,
                                void *userdata) {
-        MHDDaemonWrapper *d = userdata;
+        MHDDaemonWrapper *d = ASSERT_PTR(userdata);
         int r;
         MHD_UNSIGNED_LONG_LONG timeout = ULLONG_MAX;
-
-        assert(d);
 
         r = MHD_run(d->daemon);
         if (r == MHD_NO)

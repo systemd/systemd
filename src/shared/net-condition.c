@@ -233,15 +233,13 @@ int config_parse_match_strv(
                 void *data,
                 void *userdata) {
 
-        const char *p = rvalue;
-        char ***sv = data;
+        const char *p = ASSERT_PTR(rvalue);
+        char ***sv = ASSERT_PTR(data);
         bool invert;
         int r;
 
         assert(filename);
         assert(lvalue);
-        assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 *sv = strv_free(*sv);
@@ -290,15 +288,13 @@ int config_parse_match_ifnames(
                 void *data,
                 void *userdata) {
 
-        const char *p = rvalue;
-        char ***sv = data;
+        const char *p = ASSERT_PTR(rvalue);
+        char ***sv = ASSERT_PTR(data);
         bool invert;
         int r;
 
         assert(filename);
         assert(lvalue);
-        assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 *sv = strv_free(*sv);
@@ -353,15 +349,13 @@ int config_parse_match_property(
                 void *data,
                 void *userdata) {
 
-        const char *p = rvalue;
-        char ***sv = data;
+        const char *p = ASSERT_PTR(rvalue);
+        char ***sv = ASSERT_PTR(data);
         bool invert;
         int r;
 
         assert(filename);
         assert(lvalue);
-        assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 *sv = strv_free(*sv);

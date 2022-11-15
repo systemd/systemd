@@ -320,7 +320,7 @@ static int dhcp4_server_set_dns_from_resolve_conf(Link *link) {
         _cleanup_free_ struct in_addr *addresses = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         size_t n_addresses = 0;
-        int n = 0, r;
+        int r;
 
         f = fopen(PRIVATE_UPLINK_RESOLV_CONF, "re");
         if (!f) {
@@ -340,8 +340,6 @@ static int dhcp4_server_set_dns_from_resolve_conf(Link *link) {
                         return log_error_errno(r, "Failed to read " PRIVATE_UPLINK_RESOLV_CONF ": %m");
                 if (r == 0)
                         break;
-
-                n++;
 
                 l = strstrip(line);
                 if (IN_SET(*l, '#', ';', 0))
@@ -539,13 +537,7 @@ static bool dhcp_server_is_ready_to_configure(Link *link) {
 
         assert(link);
 
-        if (!link->network)
-                return false;
-
-        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
-                return false;
-
-        if (link->set_flags_messages > 0)
+        if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ false))
                 return false;
 
         if (!link_has_carrier(link))
@@ -648,9 +640,8 @@ int config_parse_dhcp_server_emit(
                 void *data,
                 void *userdata) {
 
-        NetworkDHCPServerEmitAddress *emit = data;
+        NetworkDHCPServerEmitAddress *emit = ASSERT_PTR(data);
 
-        assert(emit);
         assert(rvalue);
 
         if (isempty(rvalue)) {

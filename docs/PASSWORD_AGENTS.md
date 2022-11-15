@@ -12,7 +12,7 @@ systemd 12 and newer support lightweight password agents which can be used to qu
 * A Plymouth agent used for querying passwords during boot-up
 * A console agent used in similar situations if Plymouth is not available
 * A GNOME agent which can be run as part of the normal user session which pops up a notification message and icon which when clicked receives the passphrase from the user. This is useful and necessary in case an encrypted system hard-disk is plugged in when the machine is already up.
-* A [`wall(1)`](http://man7.org/linux/man-pages/man1/wall.1.html) agent which sends wall messages as soon as a password shall be entered.
+* A [`wall(1)`](https://man7.org/linux/man-pages/man1/wall.1.html) agent which sends wall messages as soon as a password shall be entered.
 * A simple tty agent which is built into "`systemctl start`" (and similar commands) and asks passwords to the user during manual startup of a service
 * A simple tty agent which can be run manually to respond to all queued passwords
 

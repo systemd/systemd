@@ -10,7 +10,20 @@
 #include "netlink-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "util.h"
+
+static bool link_in_command_line_interfaces(Link *link, Manager *m) {
+        assert(link);
+        assert(m);
+
+        if (hashmap_contains(m->command_line_interfaces_by_name, link->ifname))
+                return true;
+
+        STRV_FOREACH(n, link->altnames)
+                if (hashmap_contains(m->command_line_interfaces_by_name, *n))
+                        return true;
+
+        return false;
+}
 
 static bool manager_ignore_link(Manager *m, Link *link) {
         assert(m);
@@ -22,14 +35,21 @@ static bool manager_ignore_link(Manager *m, Link *link) {
 
         /* if interfaces are given on the command line, ignore all others */
         if (m->command_line_interfaces_by_name &&
-            !hashmap_contains(m->command_line_interfaces_by_name, link->ifname))
+            !link_in_command_line_interfaces(link, m))
                 return true;
 
         if (!link->required_for_online)
                 return true;
 
         /* ignore interfaces we explicitly are asked to ignore */
-        return strv_fnmatch(m->ignored_interfaces, link->ifname);
+        if (strv_fnmatch(m->ignored_interfaces, link->ifname))
+                return true;
+
+        STRV_FOREACH(n, link->altnames)
+                if (strv_fnmatch(m->ignored_interfaces, *n))
+                        return true;
+
+        return false;
 }
 
 static int manager_link_is_online(Manager *m, Link *l, LinkOperationalStateRange s) {
@@ -58,7 +78,7 @@ static int manager_link_is_online(Manager *m, Link *l, LinkOperationalStateRange
         if (streq(l->state, "unmanaged")) {
                 /* If the link is in unmanaged state, then ignore the interface unless the interface is
                  * specified in '--interface/-i' option. */
-                if (!hashmap_contains(m->command_line_interfaces_by_name, l->ifname)) {
+                if (!link_in_command_line_interfaces(l, m)) {
                         log_link_debug(l, "link is not managed by networkd (yet?).");
                         return 0;
                 }
@@ -176,14 +196,13 @@ bool manager_configured(Manager *m) {
 }
 
 static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         uint16_t type;
         Link *l;
         const char *ifname;
         int ifindex, r;
 
         assert(rtnl);
-        assert(m);
         assert(mm);
 
         r = sd_netlink_message_get_type(mm, &type);
@@ -213,11 +232,13 @@ static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *
 
         case RTM_NEWLINK:
                 if (!l) {
-                        log_debug("Found link %i", ifindex);
+                        log_debug("Found link %s(%i)", ifname, ifindex);
 
                         r = link_new(m, &l, ifindex, ifname);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to create link object: %m");
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to create link object for %s(%i), ignoring: %m", ifname, ifindex);
+                                return 0;
+                        }
                 }
 
                 r = link_update_rtnl(l, mm);
@@ -284,7 +305,7 @@ static int manager_rtnl_listen(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, true);
         if (r < 0)
                 return r;
 
@@ -302,11 +323,9 @@ static int manager_rtnl_listen(Manager *m) {
 }
 
 static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Link *l;
         int r;
-
-        assert(m);
 
         sd_network_monitor_flush(m->network_monitor);
 

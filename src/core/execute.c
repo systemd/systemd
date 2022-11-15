@@ -39,6 +39,7 @@
 #if HAVE_APPARMOR
 #include "apparmor-util.h"
 #endif
+#include "argv-util.h"
 #include "async.h"
 #include "barrier.h"
 #include "bpf-lsm.h"
@@ -47,10 +48,10 @@
 #include "cgroup-setup.h"
 #include "chase-symlinks.h"
 #include "chown-recursive.h"
+#include "constants.h"
 #include "cpu-set-util.h"
 #include "creds-util.h"
 #include "data-fd-util.h"
-#include "def.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "errno-list.h"
@@ -91,6 +92,7 @@
 #include "signal-util.h"
 #include "smack-util.h"
 #include "socket-util.h"
+#include "sort-util.h"
 #include "special.h"
 #include "stat-util.h"
 #include "string-table.h"
@@ -277,8 +279,6 @@ static int connect_journal_socket(
                 uid_t uid,
                 gid_t gid) {
 
-        union sockaddr_union sa;
-        socklen_t sa_len;
         uid_t olduid = UID_INVALID;
         gid_t oldgid = GID_INVALID;
         const char *j;
@@ -287,10 +287,6 @@ static int connect_journal_socket(
         j = log_namespace ?
                 strjoina("/run/systemd/journal.", log_namespace, "/stdout") :
                 "/run/systemd/journal/stdout";
-        r = sockaddr_un_set_path(&sa.un, j);
-        if (r < 0)
-                return r;
-        sa_len = r;
 
         if (gid_is_valid(gid)) {
                 oldgid = getgid();
@@ -308,10 +304,10 @@ static int connect_journal_socket(
                 }
         }
 
-        r = RET_NERRNO(connect(fd, &sa.sa, sa_len));
+        r = connect_unix_path(fd, AT_FDCWD, j);
 
-        /* If we fail to restore the uid or gid, things will likely
-           fail later on. This should only happen if an LSM interferes. */
+        /* If we fail to restore the uid or gid, things will likely fail later on. This should only happen if
+           an LSM interferes. */
 
         if (uid_is_valid(uid))
                 (void) seteuid(olduid);
@@ -389,8 +385,6 @@ static int open_terminal_as(const char *path, int flags, int nfd) {
 }
 
 static int acquire_path(const char *path, int flags, mode_t mode) {
-        union sockaddr_union sa;
-        socklen_t sa_len;
         _cleanup_close_ int fd = -1;
         int r;
 
@@ -408,18 +402,17 @@ static int acquire_path(const char *path, int flags, mode_t mode) {
 
         /* So, it appears the specified path could be an AF_UNIX socket. Let's see if we can connect to it. */
 
-        r = sockaddr_un_set_path(&sa.un, path);
-        if (r < 0)
-                return r == -EINVAL ? -ENXIO : r;
-        sa_len = r;
-
         fd = socket(AF_UNIX, SOCK_STREAM, 0);
         if (fd < 0)
                 return -errno;
 
-        if (connect(fd, &sa.sa, sa_len) < 0)
-                return errno == EINVAL ? -ENXIO : -errno; /* Propagate initial error if we get EINVAL, i.e. we have
-                                                           * indication that this wasn't an AF_UNIX socket after all */
+        r = connect_unix_path(fd, AT_FDCWD, path);
+        if (IN_SET(r, -ENOTSOCK, -EINVAL))
+                /* Propagate initial error if we get ENOTSOCK or EINVAL, i.e. we have indication that this
+                 * wasn't an AF_UNIX socket after all */
+                return -ENXIO;
+        if (r < 0)
+                return r;
 
         if ((flags & O_ACCMODE) == O_RDONLY)
                 r = shutdown(fd, SHUT_WR);
@@ -927,7 +920,7 @@ static int ask_for_confirmation(const ExecContext *context, const char *vc, Unit
                                u->id, u->description, cmdline);
                         continue; /* ask again */
                 case 'j':
-                        manager_dump_jobs(u->manager, stdout, "  ");
+                        manager_dump_jobs(u->manager, stdout, /* patterns= */ NULL, "  ");
                         continue; /* ask again */
                 case 'n':
                         /* 'n' was removed in favor of 'f'. */
@@ -2421,12 +2414,24 @@ static int setup_exec_directory(
                                         goto fail;
                         }
 
-                        /* And link it up from the original place. Note that if a mount namespace is going to be
-                         * used, then this symlink remains on the host, and a new one for the child namespace will
-                         * be created later. */
-                        r = symlink_idempotent(pp, p, true);
-                        if (r < 0)
-                                goto fail;
+                        if (!context->directories[type].items[i].only_create) {
+                                /* And link it up from the original place.
+                                 * Notes
+                                 * 1) If a mount namespace is going to be used, then this symlink remains on
+                                 *    the host, and a new one for the child namespace will be created later.
+                                 * 2) It is not necessary to create this symlink when one of its parent
+                                 *    directories is specified and already created. E.g.
+                                 *        StateDirectory=foo foo/bar
+                                 *    In that case, the inode points to pp and p for "foo/bar" are the same:
+                                 *        pp = "/var/lib/private/foo/bar"
+                                 *        p = "/var/lib/foo/bar"
+                                 *    and, /var/lib/foo is a symlink to /var/lib/private/foo. So, not only
+                                 *    we do not need to create the symlink, but we cannot create the symlink.
+                                 *    See issue #24783. */
+                                r = symlink_idempotent(pp, p, true);
+                                if (r < 0)
+                                        goto fail;
+                        }
 
                 } else {
                         _cleanup_free_ char *target = NULL;
@@ -2755,7 +2760,7 @@ static int load_credential(
                 _cleanup_free_ void *plaintext = NULL;
                 size_t plaintext_size = 0;
 
-                r = decrypt_credential_and_warn(id, now(CLOCK_REALTIME), NULL, data, size, &plaintext, &plaintext_size);
+                r = decrypt_credential_and_warn(id, now(CLOCK_REALTIME), NULL, NULL, data, size, &plaintext, &plaintext_size);
                 if (r < 0)
                         return r;
 
@@ -2929,7 +2934,7 @@ static int acquire_credentials(
                         return log_debug_errno(errno, "Failed to test if credential %s exists: %m", sc->id);
 
                 if (sc->encrypted) {
-                        r = decrypt_credential_and_warn(sc->id, now(CLOCK_REALTIME), NULL, sc->data, sc->size, &plaintext, &size);
+                        r = decrypt_credential_and_warn(sc->id, now(CLOCK_REALTIME), NULL, NULL, sc->data, sc->size, &plaintext, &size);
                         if (r < 0)
                                 return r;
 
@@ -3088,7 +3093,7 @@ static int setup_credentials_internal(
         assert(!must_mount || workspace_mounted > 0);
         where = workspace_mounted ? workspace : final;
 
-        (void) label_fix_container(where, final, 0);
+        (void) label_fix_full(AT_FDCWD, where, final, 0);
 
         r = acquire_credentials(context, params, unit, where, uid, workspace_mounted);
         if (r < 0)
@@ -3113,9 +3118,9 @@ static int setup_credentials_internal(
                 /* If we do not have our own mount put used the plain directory fallback, then we need to
                  * open access to the top-level credential directory and the per-service directory now */
 
-                parent = dirname_malloc(final);
-                if (!parent)
-                        return -ENOMEM;
+                r = path_extract_directory(final, &parent);
+                if (r < 0)
+                        return r;
                 if (chmod(parent, 0755) < 0)
                         return -errno;
         }
@@ -3247,6 +3252,7 @@ static int setup_credentials(
 
 #if ENABLE_SMACK
 static int setup_smack(
+                const Manager *manager,
                 const ExecContext *context,
                 int executable_fd) {
         int r;
@@ -3258,20 +3264,17 @@ static int setup_smack(
                 r = mac_smack_apply_pid(0, context->smack_process_label);
                 if (r < 0)
                         return r;
-        }
-#ifdef SMACK_DEFAULT_PROCESS_LABEL
-        else {
+        } else if (manager->default_smack_process_label) {
                 _cleanup_free_ char *exec_label = NULL;
 
                 r = mac_smack_read_fd(executable_fd, SMACK_ATTR_EXEC, &exec_label);
-                if (r < 0 && !IN_SET(r, -ENODATA, -EOPNOTSUPP))
+                if (r < 0 && !ERRNO_IS_XATTR_ABSENT(r))
                         return r;
 
-                r = mac_smack_apply_pid(0, exec_label ? : SMACK_DEFAULT_PROCESS_LABEL);
+                r = mac_smack_apply_pid(0, exec_label ? : manager->default_smack_process_label);
                 if (r < 0)
                         return r;
         }
-#endif
 
         return 0;
 }
@@ -3300,7 +3303,8 @@ static int compile_bind_mounts(
                 if (!params->prefix[t])
                         continue;
 
-                n += context->directories[t].n_items;
+                for (size_t i = 0; i < context->directories[t].n_items; i++)
+                        n += !context->directories[t].items[i].only_create;
         }
 
         if (n <= 0) {
@@ -3368,6 +3372,11 @@ static int compile_bind_mounts(
 
                 for (size_t i = 0; i < context->directories[t].n_items; i++) {
                         char *s, *d;
+
+                        /* When one of the parent directories is in the list, we cannot create the symlink
+                         * for the child directory. See also the comments in setup_exec_directory(). */
+                        if (context->directories[t].items[i].only_create)
+                                continue;
 
                         if (exec_directory_is_private(context, t))
                                 s = path_join(params->prefix[t], "private", context->directories[t].items[i].path);
@@ -3448,7 +3457,9 @@ static int compile_symlinks(
                                         return r;
                         }
 
-                        if (!exec_directory_is_private(context, dt) || exec_context_with_rootfs(context))
+                        if (!exec_directory_is_private(context, dt) ||
+                            exec_context_with_rootfs(context) ||
+                            context->directories[dt].items[i].only_create)
                                 continue;
 
                         private_path = path_join(params->prefix[dt], "private", context->directories[dt].items[i].path);
@@ -3546,7 +3557,7 @@ static int apply_mount_namespace(
         /* Symlinks for exec dirs are set up after other mounts, before they are made read-only. */
         r = compile_symlinks(context, params, &symlinks);
         if (r < 0)
-                return r;
+                goto finalize;
 
         needs_sandboxing = (params->flags & EXEC_APPLY_SANDBOXING) && !(command_flags & EXEC_COMMAND_FULLY_PRIVILEGED);
         if (needs_sandboxing) {
@@ -4084,7 +4095,7 @@ static int add_shifted_fd(int *fds, size_t fds_size, size_t *n_fds, int fd, int 
                 if (r < 0)
                         return -errno;
 
-                CLOSE_AND_REPLACE(fd, r);
+                close_and_replace(fd, r);
         }
 
         *ret_fd = fds[*n_fds] = fd;
@@ -4860,7 +4871,7 @@ static int exec_child(
                 /* LSM Smack needs the capability CAP_MAC_ADMIN to change the current execution security context of the
                  * process. This is the latest place before dropping capabilities. Other MAC context are set later. */
                 if (use_smack) {
-                        r = setup_smack(context, executable_fd);
+                        r = setup_smack(unit->manager, context, executable_fd);
                         if (r < 0 && !context->smack_process_label_ignore) {
                                 *exit_status = EXIT_SMACK_PROCESS_LABEL;
                                 return log_unit_error_errno(unit, r, "Failed to set SMACK process label: %m");
@@ -6439,9 +6450,10 @@ static void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix) {
         prefix2 = strjoina(prefix, "\t");
 
         cmd = quote_command_line(c->argv, SHELL_ESCAPE_EMPTY);
+
         fprintf(f,
                 "%sCommand Line: %s\n",
-                prefix, cmd ?: strerror_safe(ENOMEM));
+                prefix, strnull(cmd));
 
         exec_status_dump(&c->exec_status, f, prefix2);
 }
@@ -6880,11 +6892,10 @@ int exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds) {
         _cleanup_free_ char *tmp_dir = NULL, *var_tmp_dir = NULL;
         char *id = NULL;
         int r, netns_fdpair[] = {-1, -1}, ipcns_fdpair[] = {-1, -1};
-        const char *p, *v = value;
+        const char *p, *v = ASSERT_PTR(value);
         size_t n;
 
         assert(m);
-        assert(value);
         assert(fds);
 
         n = strcspn(v, " ");
@@ -7052,33 +7063,82 @@ void exec_directory_done(ExecDirectory *d) {
         d->mode = 0755;
 }
 
-int exec_directory_add(ExecDirectoryItem **d, size_t *n, const char *path, char **symlinks) {
+static ExecDirectoryItem *exec_directory_find(ExecDirectory *d, const char *path) {
+        assert(d);
+        assert(path);
+
+        for (size_t i = 0; i < d->n_items; i++)
+                if (path_equal(d->items[i].path, path))
+                        return &d->items[i];
+
+        return NULL;
+}
+
+int exec_directory_add(ExecDirectory *d, const char *path, const char *symlink) {
         _cleanup_strv_free_ char **s = NULL;
         _cleanup_free_ char *p = NULL;
+        ExecDirectoryItem *existing;
+        int r;
 
         assert(d);
-        assert(n);
         assert(path);
+
+        existing = exec_directory_find(d, path);
+        if (existing) {
+                r = strv_extend(&existing->symlinks, symlink);
+                if (r < 0)
+                        return r;
+
+                return 0; /* existing item is updated */
+        }
 
         p = strdup(path);
         if (!p)
                 return -ENOMEM;
 
-        if (symlinks) {
-                s = strv_copy(symlinks);
+        if (symlink) {
+                s = strv_new(symlink);
                 if (!s)
                         return -ENOMEM;
         }
 
-        if (!GREEDY_REALLOC(*d, *n + 1))
+        if (!GREEDY_REALLOC(d->items, d->n_items + 1))
                 return -ENOMEM;
 
-        (*d)[(*n) ++] = (ExecDirectoryItem) {
+        d->items[d->n_items++] = (ExecDirectoryItem) {
                 .path = TAKE_PTR(p),
                 .symlinks = TAKE_PTR(s),
         };
 
-        return 0;
+        return 1; /* new item is added */
+}
+
+static int exec_directory_item_compare_func(const ExecDirectoryItem *a, const ExecDirectoryItem *b) {
+        assert(a);
+        assert(b);
+
+        return path_compare(a->path, b->path);
+}
+
+void exec_directory_sort(ExecDirectory *d) {
+        assert(d);
+
+        /* Sort the exec directories to make always parent directories processed at first in
+         * setup_exec_directory(), e.g., even if StateDirectory=foo/bar foo, we need to create foo at first,
+         * then foo/bar. Also, set .only_create flag if one of the parent directories is contained in the
+         * list. See also comments in setup_exec_directory() and issue #24783. */
+
+        if (d->n_items <= 1)
+                return;
+
+        typesafe_qsort(d->items, d->n_items, exec_directory_item_compare_func);
+
+        for (size_t i = 1; i < d->n_items; i++)
+                for (size_t j = 0; j < i; j++)
+                        if (path_startswith(d->items[i].path, d->items[j].path)) {
+                                d->items[i].only_create = true;
+                                break;
+                        }
 }
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(exec_set_credential_hash_ops, char, string_hash_func, string_compare_func, ExecSetCredential, exec_set_credential_free);

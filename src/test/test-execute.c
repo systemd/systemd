@@ -32,7 +32,6 @@
 #include "tmpfile-util.h"
 #include "unit.h"
 #include "user-util.h"
-#include "util.h"
 #include "virt.h"
 
 static char *user_runtime_unit_dir = NULL;
@@ -210,7 +209,7 @@ static void _test(const char *file, unsigned line, const char *func,
         assert_se(unit_name);
 
         assert_se(manager_load_startable_unit_or_warn(m, unit_name, NULL, &unit) >= 0);
-        assert_se(unit_start(unit) >= 0);
+        assert_se(unit_start(unit, NULL) >= 0);
         check_main_result(file, line, func, m, unit, status_expected, code_expected);
 }
 #define test(m, unit_name, status_expected, code_expected) \
@@ -223,7 +222,7 @@ static void _test_service(const char *file, unsigned line, const char *func,
         assert_se(unit_name);
 
         assert_se(manager_load_startable_unit_or_warn(m, unit_name, NULL, &unit) >= 0);
-        assert_se(unit_start(unit) >= 0);
+        assert_se(unit_start(unit, NULL) >= 0);
         check_service_result(file, line, func, m, unit, result_expected);
 }
 #define test_service(m, unit_name, result_expected) \
@@ -1107,6 +1106,12 @@ static void test_exec_condition(Manager *m) {
 }
 
 static void test_exec_umask_namespace(Manager *m) {
+        /* exec-specifier-credentials-dir.service creates /run/credentials and enables implicit
+         * InaccessiblePath= for the directory for all later services with mount namespace. */
+        if (!is_inaccessible_available()) {
+                log_notice("Testing without inaccessible, skipping %s", __func__);
+                return;
+        }
         test(m, "exec-umask-namespace.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
 }
 

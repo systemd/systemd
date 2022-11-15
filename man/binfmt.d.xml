@@ -41,7 +41,7 @@
     <title>Configuration Format</title>
 
     <para>Each file contains a list of binfmt_misc kernel binary format rules. Consult the kernel's <ulink
-    url="https://www.kernel.org/doc/html/latest/admin-guide/binfmt-misc.html">Kernel Support for
+    url="https://docs.kernel.org/admin-guide/binfmt-misc.html">Kernel Support for
     miscellaneous Binary Formats (binfmt_misc)</ulink> documentation file for more information on
     registration of additional binary formats and how to write rules.</para>
 

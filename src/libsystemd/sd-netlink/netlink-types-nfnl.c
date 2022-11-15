@@ -1,197 +1,194 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <netinet/in.h>
-#include <sys/socket.h>
 #include <linux/if.h>
 #include <linux/netfilter/nf_tables.h>
 #include <linux/netfilter/nfnetlink.h>
 
 #include "netlink-types-internal.h"
-#include "string-table.h"
 
-static const NLType nfnl_nft_table_types[] = {
-        [NFTA_TABLE_NAME]  = { .type = NETLINK_TYPE_STRING, .size = NFT_TABLE_MAXNAMELEN - 1 },
-        [NFTA_TABLE_FLAGS] = { .type = NETLINK_TYPE_U32 },
+static const NLAPolicy nfnl_nft_table_policies[] = {
+        [NFTA_TABLE_NAME]  = BUILD_POLICY_WITH_SIZE(STRING, NFT_TABLE_MAXNAMELEN - 1),
+        [NFTA_TABLE_FLAGS] = BUILD_POLICY(U32),
 };
 
-DEFINE_TYPE_SYSTEM(nfnl_nft_table);
+DEFINE_POLICY_SET(nfnl_nft_table);
 
-static const NLType nfnl_nft_chain_hook_types[] = {
-        [NFTA_HOOK_HOOKNUM]  = { .type = NETLINK_TYPE_U32 },
-        [NFTA_HOOK_PRIORITY] = { .type = NETLINK_TYPE_U32 },
-        [NFTA_HOOK_DEV]      = { .type = NETLINK_TYPE_STRING, .size = IFNAMSIZ - 1 },
+static const NLAPolicy nfnl_nft_chain_hook_policies[] = {
+        [NFTA_HOOK_HOOKNUM]  = BUILD_POLICY(U32),
+        [NFTA_HOOK_PRIORITY] = BUILD_POLICY(U32),
+        [NFTA_HOOK_DEV]      = BUILD_POLICY_WITH_SIZE(STRING, IFNAMSIZ - 1),
 };
 
-DEFINE_TYPE_SYSTEM(nfnl_nft_chain_hook);
+DEFINE_POLICY_SET(nfnl_nft_chain_hook);
 
-static const NLType nfnl_nft_chain_types[] = {
-        [NFTA_CHAIN_TABLE] = { .type = NETLINK_TYPE_STRING, .size = NFT_TABLE_MAXNAMELEN - 1 },
-        [NFTA_CHAIN_NAME]  = { .type = NETLINK_TYPE_STRING, .size = NFT_TABLE_MAXNAMELEN - 1 },
-        [NFTA_CHAIN_HOOK]  = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_chain_hook_type_system },
-        [NFTA_CHAIN_TYPE]  = { .type = NETLINK_TYPE_STRING, .size = 16 },
-        [NFTA_CHAIN_FLAGS] = { .type = NETLINK_TYPE_U32 },
+static const NLAPolicy nfnl_nft_chain_policies[] = {
+        [NFTA_CHAIN_TABLE] = BUILD_POLICY_WITH_SIZE(STRING, NFT_TABLE_MAXNAMELEN - 1),
+        [NFTA_CHAIN_NAME]  = BUILD_POLICY_WITH_SIZE(STRING, NFT_TABLE_MAXNAMELEN - 1),
+        [NFTA_CHAIN_HOOK]  = BUILD_POLICY_NESTED(nfnl_nft_chain_hook),
+        [NFTA_CHAIN_TYPE]  = BUILD_POLICY_WITH_SIZE(STRING, 16),
+        [NFTA_CHAIN_FLAGS] = BUILD_POLICY(U32),
 };
 
-DEFINE_TYPE_SYSTEM(nfnl_nft_chain);
+DEFINE_POLICY_SET(nfnl_nft_chain);
 
-static const NLType nfnl_nft_expr_meta_types[] = {
-        [NFTA_META_DREG] = { .type = NETLINK_TYPE_U32 },
-        [NFTA_META_KEY]  = { .type = NETLINK_TYPE_U32 },
-        [NFTA_META_SREG] = { .type = NETLINK_TYPE_U32 },
+static const NLAPolicy nfnl_nft_expr_meta_policies[] = {
+        [NFTA_META_DREG] = BUILD_POLICY(U32),
+        [NFTA_META_KEY]  = BUILD_POLICY(U32),
+        [NFTA_META_SREG] = BUILD_POLICY(U32),
 };
 
-static const NLType nfnl_nft_expr_payload_types[] = {
-        [NFTA_PAYLOAD_DREG]   = { .type = NETLINK_TYPE_U32 },
-        [NFTA_PAYLOAD_BASE]   = { .type = NETLINK_TYPE_U32 },
-        [NFTA_PAYLOAD_OFFSET] = { .type = NETLINK_TYPE_U32 },
-        [NFTA_PAYLOAD_LEN]    = { .type = NETLINK_TYPE_U32 },
+static const NLAPolicy nfnl_nft_expr_payload_policies[] = {
+        [NFTA_PAYLOAD_DREG]   = BUILD_POLICY(U32),
+        [NFTA_PAYLOAD_BASE]   = BUILD_POLICY(U32),
+        [NFTA_PAYLOAD_OFFSET] = BUILD_POLICY(U32),
+        [NFTA_PAYLOAD_LEN]    = BUILD_POLICY(U32),
 };
 
-static const NLType nfnl_nft_expr_nat_types[] = {
-        [NFTA_NAT_TYPE]          = { .type = NETLINK_TYPE_U32 },
-        [NFTA_NAT_FAMILY]        = { .type = NETLINK_TYPE_U32 },
-        [NFTA_NAT_REG_ADDR_MIN]  = { .type = NETLINK_TYPE_U32 },
-        [NFTA_NAT_REG_ADDR_MAX]  = { .type = NETLINK_TYPE_U32 },
-        [NFTA_NAT_REG_PROTO_MIN] = { .type = NETLINK_TYPE_U32 },
-        [NFTA_NAT_REG_PROTO_MAX] = { .type = NETLINK_TYPE_U32 },
-        [NFTA_NAT_FLAGS]         = { .type = NETLINK_TYPE_U32 },
+static const NLAPolicy nfnl_nft_expr_nat_policies[] = {
+        [NFTA_NAT_TYPE]          = BUILD_POLICY(U32),
+        [NFTA_NAT_FAMILY]        = BUILD_POLICY(U32),
+        [NFTA_NAT_REG_ADDR_MIN]  = BUILD_POLICY(U32),
+        [NFTA_NAT_REG_ADDR_MAX]  = BUILD_POLICY(U32),
+        [NFTA_NAT_REG_PROTO_MIN] = BUILD_POLICY(U32),
+        [NFTA_NAT_REG_PROTO_MAX] = BUILD_POLICY(U32),
+        [NFTA_NAT_FLAGS]         = BUILD_POLICY(U32),
 };
 
-static const NLType nfnl_nft_data_types[] = {
+static const NLAPolicy nfnl_nft_data_policies[] = {
         [NFTA_DATA_VALUE] = { .type = NETLINK_TYPE_BINARY },
 };
 
-DEFINE_TYPE_SYSTEM(nfnl_nft_data);
+DEFINE_POLICY_SET(nfnl_nft_data);
 
-static const NLType nfnl_nft_expr_bitwise_types[] = {
-        [NFTA_BITWISE_SREG] = { .type = NETLINK_TYPE_U32 },
-        [NFTA_BITWISE_DREG] = { .type = NETLINK_TYPE_U32 },
-        [NFTA_BITWISE_LEN]  = { .type = NETLINK_TYPE_U32 },
-        [NFTA_BITWISE_MASK] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_data_type_system },
-        [NFTA_BITWISE_XOR]  = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_data_type_system },
+static const NLAPolicy nfnl_nft_expr_bitwise_policies[] = {
+        [NFTA_BITWISE_SREG] = BUILD_POLICY(U32),
+        [NFTA_BITWISE_DREG] = BUILD_POLICY(U32),
+        [NFTA_BITWISE_LEN]  = BUILD_POLICY(U32),
+        [NFTA_BITWISE_MASK] = BUILD_POLICY_NESTED(nfnl_nft_data),
+        [NFTA_BITWISE_XOR]  = BUILD_POLICY_NESTED(nfnl_nft_data),
 };
 
-static const NLType nfnl_nft_expr_cmp_types[] = {
-        [NFTA_CMP_SREG] = { .type = NETLINK_TYPE_U32 },
-        [NFTA_CMP_OP]   = { .type = NETLINK_TYPE_U32 },
-        [NFTA_CMP_DATA] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_data_type_system },
+static const NLAPolicy nfnl_nft_expr_cmp_policies[] = {
+        [NFTA_CMP_SREG] = BUILD_POLICY(U32),
+        [NFTA_CMP_OP]   = BUILD_POLICY(U32),
+        [NFTA_CMP_DATA] = BUILD_POLICY_NESTED(nfnl_nft_data),
 };
 
-static const NLType nfnl_nft_expr_fib_types[] = {
-        [NFTA_FIB_DREG]   = { .type = NETLINK_TYPE_U32 },
-        [NFTA_FIB_RESULT] = { .type = NETLINK_TYPE_U32 },
-        [NFTA_FIB_FLAGS]  = { .type = NETLINK_TYPE_U32 },
+static const NLAPolicy nfnl_nft_expr_fib_policies[] = {
+        [NFTA_FIB_DREG]   = BUILD_POLICY(U32),
+        [NFTA_FIB_RESULT] = BUILD_POLICY(U32),
+        [NFTA_FIB_FLAGS]  = BUILD_POLICY(U32),
 };
 
-static const NLType nfnl_nft_expr_lookup_types[] = {
+static const NLAPolicy nfnl_nft_expr_lookup_policies[] = {
         [NFTA_LOOKUP_SET]   = { .type = NETLINK_TYPE_STRING },
-        [NFTA_LOOKUP_SREG]  = { .type = NETLINK_TYPE_U32 },
-        [NFTA_LOOKUP_DREG]  = { .type = NETLINK_TYPE_U32 },
-        [NFTA_LOOKUP_FLAGS] = { .type = NETLINK_TYPE_U32 },
+        [NFTA_LOOKUP_SREG]  = BUILD_POLICY(U32),
+        [NFTA_LOOKUP_DREG]  = BUILD_POLICY(U32),
+        [NFTA_LOOKUP_FLAGS] = BUILD_POLICY(U32),
 };
 
-static const NLType nfnl_nft_expr_masq_types[] = {
-        [NFTA_MASQ_FLAGS]         = { .type = NETLINK_TYPE_U32 },
-        [NFTA_MASQ_REG_PROTO_MIN] = { .type = NETLINK_TYPE_U32 },
-        [NFTA_MASQ_REG_PROTO_MAX] = { .type = NETLINK_TYPE_U32 },
+static const NLAPolicy nfnl_nft_expr_masq_policies[] = {
+        [NFTA_MASQ_FLAGS]         = BUILD_POLICY(U32),
+        [NFTA_MASQ_REG_PROTO_MIN] = BUILD_POLICY(U32),
+        [NFTA_MASQ_REG_PROTO_MAX] = BUILD_POLICY(U32),
 };
 
-static const NLTypeSystemUnionElement nfnl_expr_data_type_systems[] = {
-        { .name = "bitwise", .type_system = TYPE_SYSTEM_FROM_TYPE(nfnl_nft_expr_bitwise), },
-        { .name = "cmp",     .type_system = TYPE_SYSTEM_FROM_TYPE(nfnl_nft_expr_cmp),     },
-        { .name = "fib",     .type_system = TYPE_SYSTEM_FROM_TYPE(nfnl_nft_expr_fib),     },
-        { .name = "lookup",  .type_system = TYPE_SYSTEM_FROM_TYPE(nfnl_nft_expr_lookup),  },
-        { .name = "masq",    .type_system = TYPE_SYSTEM_FROM_TYPE(nfnl_nft_expr_masq),    },
-        { .name = "meta",    .type_system = TYPE_SYSTEM_FROM_TYPE(nfnl_nft_expr_meta),    },
-        { .name = "nat",     .type_system = TYPE_SYSTEM_FROM_TYPE(nfnl_nft_expr_nat),     },
-        { .name = "payload", .type_system = TYPE_SYSTEM_FROM_TYPE(nfnl_nft_expr_payload), },
+static const NLAPolicySetUnionElement nfnl_expr_data_policy_set_union_elements[] = {
+        BUILD_UNION_ELEMENT_BY_STRING("bitwise", nfnl_nft_expr_bitwise),
+        BUILD_UNION_ELEMENT_BY_STRING("cmp",     nfnl_nft_expr_cmp),
+        BUILD_UNION_ELEMENT_BY_STRING("fib",     nfnl_nft_expr_fib),
+        BUILD_UNION_ELEMENT_BY_STRING("lookup",  nfnl_nft_expr_lookup),
+        BUILD_UNION_ELEMENT_BY_STRING("masq",    nfnl_nft_expr_masq),
+        BUILD_UNION_ELEMENT_BY_STRING("meta",    nfnl_nft_expr_meta),
+        BUILD_UNION_ELEMENT_BY_STRING("nat",     nfnl_nft_expr_nat),
+        BUILD_UNION_ELEMENT_BY_STRING("payload", nfnl_nft_expr_payload),
 };
 
-DEFINE_TYPE_SYSTEM_UNION_MATCH_SIBLING(nfnl_expr_data, NFTA_EXPR_NAME);
+DEFINE_POLICY_SET_UNION(nfnl_expr_data, NFTA_EXPR_NAME);
 
-static const NLType nfnl_nft_rule_expr_types[] = {
-        [NFTA_EXPR_NAME] = { .type = NETLINK_TYPE_STRING, .size = 16 },
-        [NFTA_EXPR_DATA] = { .type = NETLINK_TYPE_UNION, .type_system_union = &nfnl_expr_data_type_system_union },
+static const NLAPolicy nfnl_nft_rule_expr_policies[] = {
+        [NFTA_EXPR_NAME] = BUILD_POLICY_WITH_SIZE(STRING, 16),
+        [NFTA_EXPR_DATA] = BUILD_POLICY_NESTED_UNION_BY_STRING(nfnl_expr_data),
 };
 
-DEFINE_TYPE_SYSTEM(nfnl_nft_rule_expr);
+DEFINE_POLICY_SET(nfnl_nft_rule_expr);
 
-static const NLType nfnl_nft_rule_types[] = {
-        [NFTA_RULE_TABLE]       = { .type = NETLINK_TYPE_STRING, .size = NFT_TABLE_MAXNAMELEN - 1 },
-        [NFTA_RULE_CHAIN]       = { .type = NETLINK_TYPE_STRING, .size = NFT_TABLE_MAXNAMELEN - 1 },
-        [NFTA_RULE_EXPRESSIONS] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_rule_expr_type_system }
+static const NLAPolicy nfnl_nft_rule_policies[] = {
+        [NFTA_RULE_TABLE]       = BUILD_POLICY_WITH_SIZE(STRING, NFT_TABLE_MAXNAMELEN - 1),
+        [NFTA_RULE_CHAIN]       = BUILD_POLICY_WITH_SIZE(STRING, NFT_TABLE_MAXNAMELEN - 1),
+        [NFTA_RULE_EXPRESSIONS] = BUILD_POLICY_NESTED(nfnl_nft_rule_expr),
 };
 
-DEFINE_TYPE_SYSTEM(nfnl_nft_rule);
+DEFINE_POLICY_SET(nfnl_nft_rule);
 
-static const NLType nfnl_nft_set_types[] = {
-        [NFTA_SET_TABLE]      = { .type = NETLINK_TYPE_STRING, .size = NFT_TABLE_MAXNAMELEN - 1 },
-        [NFTA_SET_NAME]       = { .type = NETLINK_TYPE_STRING, .size = NFT_TABLE_MAXNAMELEN - 1 },
-        [NFTA_SET_FLAGS]      = { .type = NETLINK_TYPE_U32 },
-        [NFTA_SET_KEY_TYPE]   = { .type = NETLINK_TYPE_U32 },
-        [NFTA_SET_KEY_LEN]    = { .type = NETLINK_TYPE_U32 },
-        [NFTA_SET_DATA_TYPE]  = { .type = NETLINK_TYPE_U32 },
-        [NFTA_SET_DATA_LEN]   = { .type = NETLINK_TYPE_U32 },
-        [NFTA_SET_POLICY]     = { .type = NETLINK_TYPE_U32 },
-        [NFTA_SET_ID]         = { .type = NETLINK_TYPE_U32 },
+static const NLAPolicy nfnl_nft_set_policies[] = {
+        [NFTA_SET_TABLE]      = BUILD_POLICY_WITH_SIZE(STRING, NFT_TABLE_MAXNAMELEN - 1),
+        [NFTA_SET_NAME]       = BUILD_POLICY_WITH_SIZE(STRING, NFT_TABLE_MAXNAMELEN - 1),
+        [NFTA_SET_FLAGS]      = BUILD_POLICY(U32),
+        [NFTA_SET_KEY_TYPE]   = BUILD_POLICY(U32),
+        [NFTA_SET_KEY_LEN]    = BUILD_POLICY(U32),
+        [NFTA_SET_DATA_TYPE]  = BUILD_POLICY(U32),
+        [NFTA_SET_DATA_LEN]   = BUILD_POLICY(U32),
+        [NFTA_SET_POLICY]     = BUILD_POLICY(U32),
+        [NFTA_SET_ID]         = BUILD_POLICY(U32),
 };
 
-DEFINE_TYPE_SYSTEM(nfnl_nft_set);
+DEFINE_POLICY_SET(nfnl_nft_set);
 
-static const NLType nfnl_nft_setelem_types[] = {
-        [NFTA_SET_ELEM_KEY]   = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_data_type_system },
-        [NFTA_SET_ELEM_DATA]  = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_data_type_system },
-        [NFTA_SET_ELEM_FLAGS] = { .type = NETLINK_TYPE_U32 },
+static const NLAPolicy nfnl_nft_setelem_policies[] = {
+        [NFTA_SET_ELEM_KEY]   = BUILD_POLICY_NESTED(nfnl_nft_data),
+        [NFTA_SET_ELEM_DATA]  = BUILD_POLICY_NESTED(nfnl_nft_data),
+        [NFTA_SET_ELEM_FLAGS] = BUILD_POLICY(U32),
 };
 
-DEFINE_TYPE_SYSTEM(nfnl_nft_setelem);
+DEFINE_POLICY_SET(nfnl_nft_setelem);
 
-static const NLType nfnl_nft_setelem_list_types[] = {
-        [NFTA_SET_ELEM_LIST_TABLE]    = { .type = NETLINK_TYPE_STRING, .size = NFT_TABLE_MAXNAMELEN - 1 },
-        [NFTA_SET_ELEM_LIST_SET]      = { .type = NETLINK_TYPE_STRING, .size = NFT_TABLE_MAXNAMELEN - 1 },
-        [NFTA_SET_ELEM_LIST_ELEMENTS] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_setelem_type_system },
+static const NLAPolicy nfnl_nft_setelem_list_policies[] = {
+        [NFTA_SET_ELEM_LIST_TABLE]    = BUILD_POLICY_WITH_SIZE(STRING, NFT_TABLE_MAXNAMELEN - 1),
+        [NFTA_SET_ELEM_LIST_SET]      = BUILD_POLICY_WITH_SIZE(STRING, NFT_TABLE_MAXNAMELEN - 1),
+        [NFTA_SET_ELEM_LIST_ELEMENTS] = BUILD_POLICY_NESTED(nfnl_nft_setelem),
 };
 
-DEFINE_TYPE_SYSTEM(nfnl_nft_setelem_list);
+DEFINE_POLICY_SET(nfnl_nft_setelem_list);
 
-static const NLType nfnl_subsys_nft_types [] = {
-        [NFT_MSG_DELTABLE]   = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_table_type_system,        .size = sizeof(struct nfgenmsg) },
-        [NFT_MSG_NEWTABLE]   = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_table_type_system,        .size = sizeof(struct nfgenmsg) },
-        [NFT_MSG_NEWCHAIN]   = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_chain_type_system,        .size = sizeof(struct nfgenmsg) },
-        [NFT_MSG_NEWRULE]    = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_rule_type_system,         .size = sizeof(struct nfgenmsg) },
-        [NFT_MSG_NEWSET]     = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_set_type_system,          .size = sizeof(struct nfgenmsg) },
-        [NFT_MSG_NEWSETELEM] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_setelem_list_type_system, .size = sizeof(struct nfgenmsg) },
-        [NFT_MSG_DELSETELEM] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_setelem_list_type_system, .size = sizeof(struct nfgenmsg) },
+static const NLAPolicy nfnl_subsys_nft_policies[] = {
+        [NFT_MSG_DELTABLE]   = BUILD_POLICY_NESTED_WITH_SIZE(nfnl_nft_table,        sizeof(struct nfgenmsg)),
+        [NFT_MSG_NEWTABLE]   = BUILD_POLICY_NESTED_WITH_SIZE(nfnl_nft_table,        sizeof(struct nfgenmsg)),
+        [NFT_MSG_NEWCHAIN]   = BUILD_POLICY_NESTED_WITH_SIZE(nfnl_nft_chain,        sizeof(struct nfgenmsg)),
+        [NFT_MSG_NEWRULE]    = BUILD_POLICY_NESTED_WITH_SIZE(nfnl_nft_rule,         sizeof(struct nfgenmsg)),
+        [NFT_MSG_NEWSET]     = BUILD_POLICY_NESTED_WITH_SIZE(nfnl_nft_set,          sizeof(struct nfgenmsg)),
+        [NFT_MSG_NEWSETELEM] = BUILD_POLICY_NESTED_WITH_SIZE(nfnl_nft_setelem_list, sizeof(struct nfgenmsg)),
+        [NFT_MSG_DELSETELEM] = BUILD_POLICY_NESTED_WITH_SIZE(nfnl_nft_setelem_list, sizeof(struct nfgenmsg)),
 };
 
-DEFINE_TYPE_SYSTEM(nfnl_subsys_nft);
+DEFINE_POLICY_SET(nfnl_subsys_nft);
 
-static const NLType nfnl_msg_batch_types [] = {
-        [NFNL_BATCH_GENID] = { .type = NETLINK_TYPE_U32 }
+static const NLAPolicy nfnl_msg_batch_policies[] = {
+        [NFNL_BATCH_GENID] = BUILD_POLICY(U32)
 };
 
-DEFINE_TYPE_SYSTEM(nfnl_msg_batch);
+DEFINE_POLICY_SET(nfnl_msg_batch);
 
-static const NLType nfnl_subsys_none_types[] = {
-        [NFNL_MSG_BATCH_BEGIN] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_msg_batch_type_system, .size = sizeof(struct nfgenmsg) },
-        [NFNL_MSG_BATCH_END]   = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_msg_batch_type_system, .size = sizeof(struct nfgenmsg) },
+static const NLAPolicy nfnl_subsys_none_policies[] = {
+        [NFNL_MSG_BATCH_BEGIN] = BUILD_POLICY_NESTED_WITH_SIZE(nfnl_msg_batch, sizeof(struct nfgenmsg)),
+        [NFNL_MSG_BATCH_END]   = BUILD_POLICY_NESTED_WITH_SIZE(nfnl_msg_batch, sizeof(struct nfgenmsg)),
 };
 
-DEFINE_TYPE_SYSTEM(nfnl_subsys_none);
+DEFINE_POLICY_SET(nfnl_subsys_none);
 
-static const NLType nfnl_types[] = {
-        [NFNL_SUBSYS_NONE]     = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_subsys_none_type_system },
-        [NFNL_SUBSYS_NFTABLES] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_subsys_nft_type_system },
+static const NLAPolicy nfnl_policies[] = {
+        [NFNL_SUBSYS_NONE]     = BUILD_POLICY_NESTED(nfnl_subsys_none),
+        [NFNL_SUBSYS_NFTABLES] = BUILD_POLICY_NESTED(nfnl_subsys_nft),
 };
 
-DEFINE_TYPE_SYSTEM(nfnl);
+DEFINE_POLICY_SET(nfnl);
 
-const NLType *nfnl_get_type(uint16_t nlmsg_type) {
-        const NLTypeSystem *subsys;
+const NLAPolicy *nfnl_get_policy(uint16_t nlmsg_type) {
+        const NLAPolicySet *subsys;
 
-        subsys = type_system_get_type_system(&nfnl_type_system, nlmsg_type >> 8);
+        subsys = policy_set_get_policy_set(&nfnl_policy_set, NFNL_SUBSYS_ID(nlmsg_type));
         if (!subsys)
                 return NULL;
 
-        return type_system_get_type(subsys, nlmsg_type & ((1U << 8) - 1));
+        return policy_set_get_policy(subsys, NFNL_MSG_TYPE(nlmsg_type));
 }

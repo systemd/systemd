@@ -14,7 +14,7 @@
 # General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
 
 __contains_word() {
     local w word=$1; shift
@@ -25,8 +25,9 @@ __contains_word() {
 
 __get_machines() {
     local a b
-    (machinectl list-images --full --no-legend --no-pager; machinectl list --full --no-legend --no-pager; echo ".host") | \
-	{ while read a b; do echo " $a"; done; } | sort -u;
+    { machinectl list-images --full --no-legend --no-pager 2>/dev/null; machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } | \
+	{ while read a b; do echo " $a"; done; } | \
+        sort -u
 }
 
 _machinectl() {
@@ -36,7 +37,7 @@ _machinectl() {
     local -A OPTS=(
         [STANDALONE]='--all -a -l --full --help -h --no-ask-password --no-legend --no-pager --version --value
                       --mkdir --read-only --force -q --quiet'
-        [ARG]='--host -H --kill-who -M --machine --property -p --signal -s --uid -E --setenv -n --lines
+        [ARG]='--host -H --kill-whom -M --machine --property -p --signal -s --uid -E --setenv -n --lines
                       -o --output --verify --format --max-addresses'
     )
 
@@ -64,7 +65,7 @@ _machinectl() {
                 _signals
                 return
                 ;;
-            --kill-who)
+            --kill-whom|--kill-who)
                 comps='all leader'
                 ;;
             --host|-H)

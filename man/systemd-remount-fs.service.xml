@@ -36,7 +36,7 @@
     <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     is active) to the root file system, the <filename>/usr/</filename> file system, and the kernel API file
     systems. This is required so that the mount options of these file systems — which are pre-mounted by the
-    kernel, the initial RAM disk, container environments or system manager code — are updated to those
+    kernel, the initrd, container environments or system manager code — are updated to those
     configured in <filename>/etc/fstab</filename> and the other sources. This service ignores normal file
     systems and only changes the root file system (i.e.  <filename>/</filename>), <filename>/usr/</filename>,
     and the virtual kernel API file systems such as <filename>/proc/</filename>, <filename>/sys/</filename> or

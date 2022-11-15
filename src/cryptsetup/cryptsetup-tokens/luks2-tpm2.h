@@ -7,10 +7,15 @@
 struct crypt_device;
 
 int acquire_luks2_key(
+                const char *device,
                 uint32_t pcr_mask,
                 uint16_t pcr_bank,
+                const void *pubkey,
+                size_t pubkey_size,
+                uint32_t pubkey_pcr_mask,
+                const char *signature_path,
+                const char *pin,
                 uint16_t primary_alg,
-                const char *device,
                 const void *key_data,
                 size_t key_data_size,
                 const void *policy_hash,
@@ -18,13 +23,3 @@ int acquire_luks2_key(
                 TPM2Flags flags,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size);
-
-int parse_luks2_tpm2_data(
-                const char *json,
-                uint32_t search_pcr_mask,
-                uint32_t *ret_pcr_mask,
-                uint16_t *ret_pcr_bank,
-                uint16_t *ret_primary_alg,
-                char **ret_base64_blob,
-                char **ret_hex_policy_hash,
-                TPM2Flags *ret_flags);

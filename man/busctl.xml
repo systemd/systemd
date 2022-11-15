@@ -411,7 +411,7 @@
     <command>set-property</command> commands take a signature string
     followed by a list of parameters formatted as string (for details
     on D-Bus signature strings, see the <ulink
-    url="http://dbus.freedesktop.org/doc/dbus-specification.html#type-system">Type
+    url="https://dbus.freedesktop.org/doc/dbus-specification.html#type-system">Type
     system chapter of the D-Bus specification</ulink>). For simple
     types, each parameter following the signature should simply be the
     parameter's value formatted as string. Positive boolean values may

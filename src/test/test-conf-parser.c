@@ -9,7 +9,6 @@
 #include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
-#include "util.h"
 
 static void test_config_parse_path_one(const char *rvalue, const char *expected) {
         _cleanup_free_ char *path = NULL;
@@ -322,7 +321,7 @@ static void test_config_parse_one(unsigned i, const char *s) {
                 {}
         };
 
-        log_info("== %s[%i] ==", __func__, i);
+        log_info("== %s[%u] ==", __func__, i);
 
         assert_se(fmkostemp_safe(name, "r+", &f) == 0);
         assert_se(fwrite(s, strlen(s), 1, f) == 1);

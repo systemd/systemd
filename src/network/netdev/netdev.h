@@ -142,6 +142,9 @@ typedef struct NetDevVTable {
          * to be set != 0. */
         void (*init)(NetDev *n);
 
+        /* This is called when the interface is removed. */
+        void (*drop)(NetDev *n);
+
         /* This should free all kind-specific variables. It should be
          * idempotent. */
         void (*done)(NetDev *n);

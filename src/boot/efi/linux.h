@@ -4,7 +4,12 @@
 #include <efi.h>
 
 EFI_STATUS linux_exec(
-                EFI_HANDLE image,
-                const CHAR8 *cmdline, UINTN cmdline_len,
+                EFI_HANDLE parent,
+                const char *cmdline, UINTN cmdline_len,
+                const void *linux_buffer, UINTN linux_length,
+                const void *initrd_buffer, UINTN initrd_length);
+EFI_STATUS linux_exec_efi_handover(
+                EFI_HANDLE parent,
+                const char *cmdline, UINTN cmdline_len,
                 const void *linux_buffer, UINTN linux_length,
                 const void *initrd_buffer, UINTN initrd_length);

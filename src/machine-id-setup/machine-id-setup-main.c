@@ -6,6 +6,7 @@
 #include <stdlib.h>
 
 #include "alloc-util.h"
+#include "build.h"
 #include "dissect-image.h"
 #include "id128-util.h"
 #include "log.h"
@@ -16,7 +17,6 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "terminal-util.h"
-#include "util.h"
 
 static char *arg_root = NULL;
 static char *arg_image = NULL;
@@ -125,7 +125,6 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *unlink_dir = NULL;
         sd_id128_t id;
         int r;
@@ -148,8 +147,7 @@ static int run(int argc, char *argv[]) {
                                 DISSECT_IMAGE_FSCK |
                                 DISSECT_IMAGE_GROWFS,
                                 &unlink_dir,
-                                &loop_device,
-                                &decrypted_image);
+                                &loop_device);
                 if (r < 0)
                         return r;
 

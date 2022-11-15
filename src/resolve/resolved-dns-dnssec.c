@@ -778,8 +778,7 @@ static hash_md_t algorithm_to_implementation_id(uint8_t algorithm) {
 static void dnssec_fix_rrset_ttl(
                 DnsResourceRecord *list[],
                 unsigned n,
-                DnsResourceRecord *rrsig,
-                usec_t realtime) {
+                DnsResourceRecord *rrsig) {
 
         assert(list);
         assert(n > 0);
@@ -989,8 +988,9 @@ int dnssec_verify_rrset(
 
         DnsResourceRecord **list, *rr;
         const char *source, *name;
-        size_t n = 0, sig_size;
         _cleanup_free_ char *sig_data = NULL;
+        size_t sig_size = 0; /* avoid false maybe-uninitialized warning */
+        size_t n = 0;
         bool wildcard;
         int r;
 
@@ -1109,7 +1109,7 @@ int dnssec_verify_rrset(
 
         /* Now, fix the ttl, expiry, and remember the synthesizing source and the signer */
         if (r > 0)
-                dnssec_fix_rrset_ttl(list, n, rrsig, realtime);
+                dnssec_fix_rrset_ttl(list, n, rrsig);
 
         if (r == 0)
                 *result = DNSSEC_INVALID;
@@ -1184,7 +1184,7 @@ int dnssec_verify_rrset_search(
 
         /* Verifies all RRs from "a" that match the key "key" against DNSKEYs in "validated_dnskeys" */
 
-        if (!a || a->n_rrs <= 0)
+        if (dns_answer_isempty(a))
                 return -ENODATA;
 
         /* Iterate through each RRSIG RR. */

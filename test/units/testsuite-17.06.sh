@@ -18,18 +18,18 @@ function check_validity() {
 function check() {
     local i j
 
-    for ((i=0;i<2;i++)); do
+    for ((i = 0; i < 2; i++)); do
         systemctl restart systemd-udevd.service
         udevadm control --ping
         udevadm settle
         check_validity
 
-        for ((j=0;j<2;j++)); do
+        for ((j = 0; j < 2; j++)); do
             udevadm trigger -w --action add --subsystem-match=block
             check_validity
         done
 
-        for ((j=0;j<2;j++)); do
+        for ((j = 0; j < 2; j++)); do
             udevadm trigger -w --action change --subsystem-match=block
             check_validity
         done

@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <fcntl.h>
 #include <poll.h>
 
 #include "fd-util.h"
@@ -18,17 +20,12 @@ struct nscdInvalidateRequest {
         char dbname[];
 };
 
-static const union sockaddr_union nscd_sa = {
-        .un.sun_family = AF_UNIX,
-        .un.sun_path = "/run/nscd/socket",
-};
-
 static int nscd_flush_cache_one(const char *database, usec_t end) {
         size_t req_size, has_written = 0, has_read = 0, l;
         struct nscdInvalidateRequest *req;
         _cleanup_close_ int fd = -1;
         int32_t resp;
-        int events;
+        int events, r;
 
         assert(database);
 
@@ -60,11 +57,12 @@ static int nscd_flush_cache_one(const char *database, usec_t end) {
          * nice way to connect() to a server synchronously with a time limit that would also cover dealing with the
          * backlog limit. After all SO_RCVTIMEO and SR_SNDTIMEO don't apply to connect(), and alarm() is frickin' ugly
          * and not really reasonably usable from threads-aware code.) */
-        if (connect(fd, &nscd_sa.sa, SOCKADDR_UN_LEN(nscd_sa.un)) < 0) {
-                if (errno == EAGAIN)
-                        return log_debug_errno(errno, "nscd is overloaded (backlog limit reached) and refuses to take further connections: %m");
-                if (errno != EINPROGRESS)
-                        return log_debug_errno(errno, "Failed to connect to nscd socket: %m");
+        r = connect_unix_path(fd, AT_FDCWD, "/run/nscd/socket");
+        if (r < 0) {
+                if (r == -EAGAIN)
+                        return log_debug_errno(r, "nscd is overloaded (backlog limit reached) and refuses to take further connections: %m");
+                if (r != -EINPROGRESS)
+                        return log_debug_errno(r, "Failed to connect to nscd socket: %m");
 
                 /* Continue in case of EINPROGRESS, but don't bother with send() or recv() until being notified that
                  * establishing the connection is complete. */

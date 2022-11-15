@@ -53,11 +53,9 @@ static int parse_condition(Unit *u, const char *line) {
 
 _printf_(7, 8)
 static int log_helper(void *userdata, int level, int error, const char *file, int line, const char *func, const char *format, ...) {
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         va_list ap;
         int r;
-
-        assert(u);
 
         /* "upgrade" debug messages */
         level = MIN(LOG_INFO, level);
@@ -137,5 +135,11 @@ static int verify_conditions(char **lines, LookupScope scope, const char *unit, 
 }
 
 int verb_condition(int argc, char *argv[], void *userdata) {
-        return verify_conditions(strv_skip(argv, 1), arg_scope, arg_unit, arg_root);
+        int r;
+
+        r = verify_conditions(strv_skip(argv, 1), arg_scope, arg_unit, arg_root);
+        if (r < 0)
+                return r;
+
+        return EXIT_SUCCESS;
 }

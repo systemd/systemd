@@ -6,15 +6,19 @@
 
 #include "sd-daemon.h"
 
+#include "build.h"
 #include "bus-util.h"
+#include "dissect-image.h"
 #include "install.h"
 #include "main-func.h"
+#include "mount-util.h"
 #include "output-mode.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
+#include "reboot-util.h"
 #include "rlimit-util.h"
 #include "sigbus.h"
 #include "signal-util.h"
@@ -89,9 +93,10 @@ bool arg_ask_password = false;
 bool arg_runtime = false;
 UnitFilePresetMode arg_preset_mode = UNIT_FILE_PRESET_FULL;
 char **arg_wall = NULL;
-const char *arg_kill_who = NULL;
+const char *arg_kill_whom = NULL;
 int arg_signal = SIGTERM;
 char *arg_root = NULL;
+char *arg_image = NULL;
 usec_t arg_when = 0;
 const char *arg_reboot_argument = NULL;
 enum action arg_action = ACTION_SYSTEMCTL;
@@ -119,8 +124,9 @@ STATIC_DESTRUCTOR_REGISTER(arg_states, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_properties, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(_arg_job_mode, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_wall, strv_freep);
-STATIC_DESTRUCTOR_REGISTER(arg_kill_who, unsetp);
+STATIC_DESTRUCTOR_REGISTER(arg_kill_whom, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_reboot_argument, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_host, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_boot_loader_entry, unsetp);
@@ -140,6 +146,8 @@ static int systemctl_help(void) {
                "%5$sQuery or send control commands to the system manager.%6$s\n"
                "\n%3$sUnit Commands:%4$s\n"
                "  list-units [PATTERN...]             List units currently in memory\n"
+               "  list-automounts [PATTERN...]        List automount units currently in memory,\n"
+               "                                      ordered by path\n"
                "  list-sockets [PATTERN...]           List socket units currently in memory,\n"
                "                                      ordered by address\n"
                "  list-timers [PATTERN...]            List timer units currently in memory,\n"
@@ -259,10 +267,10 @@ static int systemctl_help(void) {
                "     --show-types        When showing sockets, explicitly show their type\n"
                "     --value             When showing properties, only print the value\n"
                "     --check-inhibitors=MODE\n"
-               "                         Specify if checking inhibitors before shutting down,\n"
-               "                         sleeping or hibernating\n"
+               "                         Whether to check inhibitors before shutting down,\n"
+               "                         sleeping, or hibernating\n"
                "  -i                     Shortcut for --check-inhibitors=no\n"
-               "     --kill-who=WHO      Whom to send signal to\n"
+               "     --kill-whom=WHOM    Whom to send signal to\n"
                "  -s --signal=SIGNAL     Which signal to send\n"
                "     --what=RESOURCES    Which types of resources to remove\n"
                "     --now               Start or stop unit after enabling or disabling it\n"
@@ -279,18 +287,21 @@ static int systemctl_help(void) {
                "     --legend=BOOL       Enable/disable the legend (column headers and hints)\n"
                "     --no-pager          Do not pipe output into a pager\n"
                "     --no-ask-password   Do not ask for system passwords\n"
-               "     --global            Enable/disable/mask default user unit files globally\n"
-               "     --runtime           Enable/disable/mask unit files temporarily until next\n"
-               "                         reboot\n"
+               "     --global            Edit/enable/disable/mask default user unit files\n"
+               "                         globally\n"
+               "     --runtime           Edit/enable/disable/mask unit files temporarily until\n"
+               "                         next reboot\n"
                "  -f --force             When enabling unit files, override existing symlinks\n"
                "                         When shutting down, execute action immediately\n"
                "     --preset-mode=      Apply only enable, only disable, or all presets\n"
-               "     --root=PATH         Enable/disable/mask unit files in the specified root\n"
-               "                         directory\n"
+               "     --root=PATH         Edit/enable/disable/mask unit files in the specified\n"
+               "                         root directory\n"
+               "     --image=PATH        Edit/enable/disable/mask unit files in the specified\n"
+               "                         image\n"
                "  -n --lines=INTEGER     Number of journal entries to show\n"
                "  -o --output=STRING     Change journal output mode (short, short-precise,\n"
                "                             short-iso, short-iso-precise, short-full,\n"
-               "                             short-monotonic, short-unix,\n"
+               "                             short-monotonic, short-unix, short-delta,\n"
                "                             verbose, export, json, json-pretty, json-sse, cat)\n"
                "     --firmware-setup    Tell the firmware to show the setup menu on next boot\n"
                "     --boot-loader-menu=TIME\n"
@@ -401,8 +412,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
                 ARG_NO_WALL,
                 ARG_ROOT,
+                ARG_IMAGE,
                 ARG_NO_RELOAD,
-                ARG_KILL_WHO,
+                ARG_KILL_WHOM,
                 ARG_NO_ASK_PASSWORD,
                 ARG_FAILED,
                 ARG_RUNTIME,
@@ -457,9 +469,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "dry-run",             no_argument,       NULL, ARG_DRY_RUN             },
                 { "quiet",               no_argument,       NULL, 'q'                     },
                 { "root",                required_argument, NULL, ARG_ROOT                },
+                { "image",               required_argument, NULL, ARG_IMAGE               },
                 { "force",               no_argument,       NULL, 'f'                     },
                 { "no-reload",           no_argument,       NULL, ARG_NO_RELOAD           },
-                { "kill-who",            required_argument, NULL, ARG_KILL_WHO            },
+                { "kill-whom",           required_argument, NULL, ARG_KILL_WHOM           },
                 { "signal",              required_argument, NULL, 's'                     },
                 { "no-ask-password",     no_argument,       NULL, ARG_NO_ASK_PASSWORD     },
                 { "host",                required_argument, NULL, 'H'                     },
@@ -664,6 +677,12 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_IMAGE:
+                        r = parse_path_argument(optarg, false, &arg_image);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case 'l':
                         arg_full = true;
                         break;
@@ -694,8 +713,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_no_reload = true;
                         break;
 
-                case ARG_KILL_WHO:
-                        arg_kill_who = optarg;
+                case ARG_KILL_WHOM:
+                        arg_kill_whom = optarg;
                         break;
 
                 case 's':
@@ -825,7 +844,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_PRESET_MODE:
                         if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(unit_file_preset_mode, UnitFilePresetMode, _UNIT_FILE_PRESET_MAX);
+                                DUMP_STRING_TABLE(unit_file_preset_mode, UnitFilePresetMode, _UNIT_FILE_PRESET_MODE_MAX);
                                 return 0;
                         }
 
@@ -967,6 +986,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                                "List of units to restart/reload is required.");
         }
 
+        if (arg_image && arg_root)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
+
         return 1;
 }
 
@@ -1032,6 +1054,7 @@ static int systemctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "list-units",            VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY, verb_list_units },
                 { "list-unit-files",       VERB_ANY, VERB_ANY, 0,                verb_list_unit_files         },
+                { "list-automounts",       VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_list_automounts         },
                 { "list-sockets",          VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_list_sockets            },
                 { "list-timers",           VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_list_timers             },
                 { "list-jobs",             VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_list_jobs               },
@@ -1113,18 +1136,19 @@ static int systemctl_main(int argc, char *argv[]) {
         const Verb *verb = verbs_find_verb(argv[optind], verbs);
         if (verb && (verb->flags & VERB_ONLINE_ONLY) && arg_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Verb '%s' cannot be used with --root=.",
+                                       "Verb '%s' cannot be used with --root= or --image=.",
                                        argv[optind] ?: verb->verb);
 
         return dispatch_verb(argc, argv, verbs, NULL);
 }
 
 static int run(int argc, char *argv[]) {
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         int r;
 
         setlocale(LC_ALL, "");
-        log_parse_environment();
-        log_open();
+        log_setup();
 
         /* The journal merging logic potentially needs a lot of fds. */
         (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
@@ -1143,6 +1167,25 @@ static int run(int argc, char *argv[]) {
         }
 
         /* systemctl_main() will print an error message for the bus connection, but only if it needs to */
+
+        if (arg_image) {
+                assert(!arg_root);
+
+                r = mount_image_privately_interactively(
+                                arg_image,
+                                DISSECT_IMAGE_GENERIC_ROOT |
+                                DISSECT_IMAGE_REQUIRE_ROOT |
+                                DISSECT_IMAGE_RELAX_VAR_CHECK |
+                                DISSECT_IMAGE_VALIDATE_OS,
+                                &mounted_dir,
+                                &loop_device);
+                if (r < 0)
+                        return r;
+
+                arg_root = strdup(mounted_dir);
+                if (!arg_root)
+                        return log_oom();
+        }
 
         switch (arg_action) {
 

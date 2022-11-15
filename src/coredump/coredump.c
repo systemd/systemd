@@ -20,6 +20,7 @@
 #include "compress.h"
 #include "conf-parser.h"
 #include "copy.h"
+#include "coredump-util.h"
 #include "coredump-vacuum.h"
 #include "dirent-util.h"
 #include "elf-util.h"
@@ -29,6 +30,7 @@
 #include "fs-util.h"
 #include "io-util.h"
 #include "journal-importer.h"
+#include "journal-send.h"
 #include "log.h"
 #include "macro.h"
 #include "main-func.h"
@@ -512,8 +514,8 @@ static int save_external_coredump(
 
         if (truncated)
                 log_struct(LOG_INFO,
-                           LOG_MESSAGE("Core file was truncated to %zu bytes.", max_size),
-                           "SIZE_LIMIT=%zu", max_size,
+                           LOG_MESSAGE("Core file was truncated to %"PRIu64" bytes.", max_size),
+                           "SIZE_LIMIT=%"PRIu64, max_size,
                            "MESSAGE_ID=" SD_MESSAGE_TRUNCATED_CORE_STR);
 
         r = fix_permissions(fd, tmp, fn, context, uid);
@@ -842,12 +844,10 @@ log:
 
         core_message = strjoina(core_message, stacktrace ? "\n\n" : NULL, stacktrace);
 
-        if (context->is_journald) {
-                /* We cannot log to the journal, so just print the message.
-                 * The target was set previously to something safe. */
+        if (context->is_journald)
+                /* We might not be able to log to the journal, so let's always print the message to another
+                 * log target. The target was set previously to something safe. */
                 log_dispatch(LOG_ERR, 0, core_message);
-                return 0;
-        }
 
         (void) iovw_put_string_field(iovw, "MESSAGE=", core_message);
 
@@ -903,15 +903,35 @@ log:
                                  coredump_size, arg_journal_size_max);
         }
 
+        /* If journald is coredumping, we have to be careful that we don't deadlock when trying to write the
+         * coredump to the journal, so we put the journal socket in nonblocking mode before trying to write
+         * the coredump to the socket. */
+
+        if (context->is_journald) {
+                r = journal_fd_nonblock(true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make journal socket non-blocking: %m");
+        }
+
         r = sd_journal_sendv(iovw->iovec, iovw->count);
-        if (r < 0)
+
+        if (context->is_journald) {
+                int k;
+
+                k = journal_fd_nonblock(false);
+                if (k < 0)
+                        return log_error_errno(k, "Failed to make journal socket blocking: %m");
+        }
+
+        if (r == -EAGAIN && context->is_journald)
+                log_warning_errno(r, "Failed to log journal coredump, ignoring: %m");
+        else if (r < 0)
                 return log_error_errno(r, "Failed to log coredump: %m");
 
         return 0;
 }
 
 static int save_context(Context *context, const struct iovec_wrapper *iovw) {
-        unsigned count = 0;
         const char *unit;
         int r;
 
@@ -935,7 +955,6 @@ static int save_context(Context *context, const struct iovec_wrapper *iovw) {
                         p = startswith(iovec->iov_base, meta_field_names[i]);
                         if (p) {
                                 context->meta[i] = p;
-                                count++;
                                 break;
                         }
                 }
@@ -1055,11 +1074,6 @@ finish:
 }
 
 static int send_iovec(const struct iovec_wrapper *iovw, int input_fd) {
-
-        static const union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-                .un.sun_path = "/run/systemd/coredump",
-        };
         _cleanup_close_ int fd = -1;
         int r;
 
@@ -1070,8 +1084,9 @@ static int send_iovec(const struct iovec_wrapper *iovw, int input_fd) {
         if (fd < 0)
                 return log_error_errno(errno, "Failed to create coredump socket: %m");
 
-        if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
-                return log_error_errno(errno, "Failed to connect to coredump service: %m");
+        r = connect_unix_path(fd, AT_FDCWD, "/run/systemd/coredump");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to coredump service: %m");
 
         for (size_t i = 0; i < iovw->count; i++) {
                 struct msghdr mh = {
@@ -1274,6 +1289,13 @@ static int process_kernel(int argc, char* argv[]) {
         Context context = {};
         struct iovec_wrapper *iovw;
         int r;
+
+        /* When we're invoked by the kernel, stdout/stderr are closed which is dangerous because the fds
+         * could get reallocated. To avoid hard to debug issues, let's instead bind stdout/stderr to
+         * /dev/null. */
+        r = rearrange_stdio(STDIN_FILENO, -1, -1);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect stdout/stderr to /dev/null: %m");
 
         log_debug("Processing coredump received from the kernel...");
 

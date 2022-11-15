@@ -21,6 +21,7 @@
 #include "log.h"
 #include "macro.h"
 #include "mkdir.h"
+#include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "socket-util.h"
@@ -43,16 +44,17 @@
  * can detect EOFs. */
 #define READ_VIRTUAL_BYTES_MAX (4U*1024U*1024U - 2U)
 
-int fopen_unlocked(const char *path, const char *options, FILE **ret) {
+int fopen_unlocked_at(int dir_fd, const char *path, const char *options, int flags, FILE **ret) {
+        int r;
+
         assert(ret);
 
-        FILE *f = fopen(path, options);
-        if (!f)
-                return -errno;
+        r = xfopenat(dir_fd, path, options, flags, ret);
+        if (r < 0)
+                return r;
 
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+        (void) __fsetlocking(*ret, FSETLOCKING_BYCALLER);
 
-        *ret = f;
         return 0;
 }
 
@@ -209,7 +211,8 @@ int write_string_stream_ts(
         return 0;
 }
 
-static int write_string_file_atomic(
+static int write_string_file_atomic_at(
+                int dir_fd,
                 const char *fn,
                 const char *line,
                 WriteStringFileFlags flags,
@@ -225,7 +228,7 @@ static int write_string_file_atomic(
         /* Note that we'd really like to use O_TMPFILE here, but can't really, since we want replacement
          * semantics here, and O_TMPFILE can't offer that. i.e. rename() replaces but linkat() doesn't. */
 
-        r = fopen_temporary(fn, &f, &p);
+        r = fopen_temporary_at(dir_fd, fn, &f, &p);
         if (r < 0)
                 return r;
 
@@ -237,7 +240,7 @@ static int write_string_file_atomic(
         if (r < 0)
                 goto fail;
 
-        if (rename(p, fn) < 0) {
+        if (renameat(dir_fd, p, dir_fd, fn) < 0) {
                 r = -errno;
                 goto fail;
         }
@@ -252,11 +255,12 @@ static int write_string_file_atomic(
         return 0;
 
 fail:
-        (void) unlink(p);
+        (void) unlinkat(dir_fd, p, 0);
         return r;
 }
 
-int write_string_file_ts(
+int write_string_file_ts_at(
+                int dir_fd,
                 const char *fn,
                 const char *line,
                 WriteStringFileFlags flags,
@@ -272,7 +276,7 @@ int write_string_file_ts(
         assert(!((flags & WRITE_STRING_FILE_VERIFY_ON_FAILURE) && (flags & WRITE_STRING_FILE_SYNC)));
 
         if (flags & WRITE_STRING_FILE_MKDIR_0755) {
-                r = mkdir_parents(fn, 0755);
+                r = mkdirat_parents(dir_fd, fn, 0755);
                 if (r < 0)
                         return r;
         }
@@ -280,7 +284,7 @@ int write_string_file_ts(
         if (flags & WRITE_STRING_FILE_ATOMIC) {
                 assert(flags & WRITE_STRING_FILE_CREATE);
 
-                r = write_string_file_atomic(fn, line, flags, ts);
+                r = write_string_file_atomic_at(dir_fd, fn, line, flags, ts);
                 if (r < 0)
                         goto fail;
 
@@ -289,12 +293,12 @@ int write_string_file_ts(
                 assert(!ts);
 
         /* We manually build our own version of fopen(..., "we") that works without O_CREAT and with O_NOFOLLOW if needed. */
-        fd = open(fn, O_CLOEXEC|O_NOCTTY |
-                  (FLAGS_SET(flags, WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0) |
-                  (FLAGS_SET(flags, WRITE_STRING_FILE_CREATE) ? O_CREAT : 0) |
-                  (FLAGS_SET(flags, WRITE_STRING_FILE_TRUNCATE) ? O_TRUNC : 0) |
-                  (FLAGS_SET(flags, WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) ? O_RDWR : O_WRONLY),
-                  (FLAGS_SET(flags, WRITE_STRING_FILE_MODE_0600) ? 0600 : 0666));
+        fd = openat(dir_fd, fn, O_CLOEXEC|O_NOCTTY |
+                    (FLAGS_SET(flags, WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0) |
+                    (FLAGS_SET(flags, WRITE_STRING_FILE_CREATE) ? O_CREAT : 0) |
+                    (FLAGS_SET(flags, WRITE_STRING_FILE_TRUNCATE) ? O_TRUNC : 0) |
+                    (FLAGS_SET(flags, WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) ? O_RDWR : O_WRONLY),
+                    (FLAGS_SET(flags, WRITE_STRING_FILE_MODE_0600) ? 0600 : 0666));
         if (fd < 0) {
                 r = -errno;
                 goto fail;
@@ -364,7 +368,7 @@ int read_one_line_file(const char *fn, char **line) {
         return read_line(f, LONG_LINE_MAX, line);
 }
 
-int verify_file(const char *fn, const char *blob, bool accept_extra_nl) {
+int verify_file_at(int dir_fd, const char *fn, const char *blob, bool accept_extra_nl) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *buf = NULL;
         size_t l, k;
@@ -382,7 +386,7 @@ int verify_file(const char *fn, const char *blob, bool accept_extra_nl) {
         if (!buf)
                 return -ENOMEM;
 
-        r = fopen_unlocked(fn, "re", &f);
+        r = fopen_unlocked_at(dir_fd, fn, "re", 0, &f);
         if (r < 0)
                 return r;
 
@@ -763,8 +767,7 @@ int read_full_file_full(
 
         r = xfopenat(dir_fd, filename, "re", 0, &f);
         if (r < 0) {
-                _cleanup_close_ int dfd = -1, sk = -1;
-                union sockaddr_union sa;
+                _cleanup_close_ int sk = -1;
 
                 /* ENXIO is what Linux returns if we open a node that is an AF_UNIX socket */
                 if (r != -ENXIO)
@@ -776,23 +779,7 @@ int read_full_file_full(
 
                 /* Seeking is not supported on AF_UNIX sockets */
                 if (offset != UINT64_MAX)
-                        return -ESPIPE;
-
-                if (dir_fd == AT_FDCWD)
-                        r = sockaddr_un_set_path(&sa.un, filename);
-                else {
-                        /* If we shall operate relative to some directory, then let's use O_PATH first to
-                         * open the socket inode, and then connect to it via /proc/self/fd/. We have to do
-                         * this since there's not connectat() that takes a directory fd as first arg. */
-
-                        dfd = openat(dir_fd, filename, O_PATH|O_CLOEXEC);
-                        if (dfd < 0)
-                                return -errno;
-
-                        r = sockaddr_un_set_path(&sa.un, FORMAT_PROC_FD_PATH(dfd));
-                }
-                if (r < 0)
-                        return r;
+                        return -ENXIO;
 
                 sk = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
                 if (sk < 0)
@@ -809,12 +796,14 @@ int read_full_file_full(
                                 return r;
 
                         if (bind(sk, &bsa.sa, r) < 0)
-                                return r;
+                                return -errno;
                 }
 
-                if (connect(sk, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
-                        return errno == ENOTSOCK ? -ENXIO : -errno; /* propagate original error if this is
-                                                                     * not a socket after all */
+                r = connect_unix_path(sk, dir_fd, filename);
+                if (IN_SET(r, -ENOTSOCK, -EINVAL)) /* propagate original error if this is not a socket after all */
+                        return -ENXIO;
+                if (r < 0)
+                        return r;
 
                 if (shutdown(sk, SHUT_WR) < 0)
                         return -errno;

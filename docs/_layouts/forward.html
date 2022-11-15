@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="refresh" content="0;url={{ page.target }}"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#201A26">
+    <meta name="robots" content="noindex,follow">
+    <link rel="stylesheet" href="{{ "/style.css" | prepend: site.baseurl }}">
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="canonical" href="{{ page.target }}"/>
+    <title>Redirecting to {{ page.target }}</title>
+  </head>
+  <body>
+    {% include header.html %}
+    <div class="container">
+      <p>
+        This document has moved.<br>
+        Redirecting to <a href="{{ page.target }}">{{ page.target }}</a>.
+      </p>
+    </div>
+  </body>
+</html>

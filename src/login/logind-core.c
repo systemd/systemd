@@ -71,6 +71,8 @@ void manager_reset_config(Manager *m) {
 
         m->kill_only_users = strv_free(m->kill_only_users);
         m->kill_exclude_users = strv_free(m->kill_exclude_users);
+
+        m->stop_idle_session_usec = USEC_INFINITY;
 }
 
 int manager_parse_config_file(Manager *m) {
@@ -462,14 +464,13 @@ int config_parse_n_autovts(
                 void *data,
                 void *userdata) {
 
-        unsigned *n = data;
+        unsigned *n = ASSERT_PTR(data);
         unsigned o;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = safe_atou(rvalue, &o);
         if (r < 0) {
@@ -779,9 +780,7 @@ int manager_read_utmp(Manager *m) {
 
 #if ENABLE_UTMP
 static int manager_dispatch_utmp(sd_event_source *s, const struct inotify_event *event, void *userdata) {
-        Manager *m = userdata;
-
-        assert(m);
+        Manager *m = ASSERT_PTR(userdata);
 
         /* If there's indication the file itself might have been removed or became otherwise unavailable, then let's
          * reestablish the watch on whatever there's now. */

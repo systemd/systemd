@@ -12,7 +12,6 @@
 #include "capability-util.h"
 #include "fd-util.h"
 #include "log.h"
-#include "util.h"
 
 static bool initialized = false;
 static int audit_fd;

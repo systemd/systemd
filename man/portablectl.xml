@@ -99,7 +99,7 @@
           indicated unit file name prefix are copied from the image to the host's
           <filename>/etc/systemd/system.attached/</filename> directory (or
           <filename>/run/systemd/system.attached/</filename> — depending whether <option>--runtime</option> is
-          specified, see above), which is included in the built-in unit search path of the system service
+          specified, see below), which is included in the built-in unit search path of the system service
           manager.</para></listitem>
 
           <listitem><para>For unit files of type <filename>.service</filename> a drop-in is added to these copies that
@@ -132,10 +132,10 @@
         logic where the prefix is derived from the image file name.</para>
 
         <para>By default, after the unit files are attached the service manager's configuration is reloaded, except
-        when <option>--no-reload</option> is specified (see above). This ensures that the new units made available to
+        when <option>--no-reload</option> is specified (see below). This ensures that the new units made available to
         the service manager are seen by it.</para>
 
-        <para>If <option>--now</option> and/or <option>--enable</option> are passed, the portable service(s) are
+        <para>If <option>--now</option> and/or <option>--enable</option> are passed, the portable services are
         immediately started (blocking operation unless <option>--no-block</option> is passed) and/or enabled after
         attaching the image.</para>
         </listitem>
@@ -151,7 +151,7 @@
         files. This is a convenience feature to allow all arguments passed as <command>attach</command> also to
         <command>detach</command>.</para></listitem>
 
-        <para>If <option>--now</option> and/or <option>--enable</option> are passed, the portable service(s) are
+        <para>If <option>--now</option> and/or <option>--enable</option> are passed, the portable services are
         immediately stopped (blocking operation) and/or disabled before detaching the image. Prefix(es) are also accepted,
         to be used in case the unit names do not match the image name as described in the <command>attach</command>.</para>
       </varlistentry>
@@ -165,7 +165,7 @@
         character has to match. If the new image doesn't exist, the existing one will not be detached. The parameters
         follow the same syntax as the <command>attach</command> command.</para></listitem>
 
-        <para>If <option>--now</option> and/or <option>--enable</option> are passed, the portable service(s) are
+        <para>If <option>--now</option> and/or <option>--enable</option> are passed, the portable services are
         immediately stopped if removed, started and/or enabled if added, or restarted if updated. Prefixes are also
         accepted, in the same way as described in the <command>attach</command> case.</para>
       </varlistentry>
@@ -362,7 +362,7 @@
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for the <varname>ExtensionImages=</varname> directive and for the
         <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry> tool.
-        The image(s) must contain an <filename>extension-release</filename> file with metadata that matches
+        The images must contain an <filename>extension-release</filename> file with metadata that matches
         what is defined in the <filename>os-release</filename> of <replaceable>IMAGE</replaceable>. See:
         <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         Images can be block images, btrfs subvolumes or directories. For more information on portable
@@ -372,6 +372,15 @@
 
         <para>Note that the same extensions have to be specified, in the same order, when attaching
         and detaching.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--force</option></term>
+
+        <listitem><para>Skip safety checks and attach or detach images (with extensions) without first ensuring
+        that the units are not running, and do not insist that the
+        <filename>extension-release.<replaceable>NAME</replaceable></filename> file in the extension image has
+        to match the image filename.</para></listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="host" />

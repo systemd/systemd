@@ -14,7 +14,6 @@
 #include "rm-rf.h"
 #include "terminal-util.h"
 #include "tests.h"
-#include "util.h"
 
 #define N_ENTRIES 6000
 #define RANDOM_RANGE 77
@@ -56,7 +55,7 @@ static int raw_verify(const char *fn, const char *verification_key) {
         return r;
 }
 
-int main(int argc, char *argv[]) {
+static int run_test(int argc, char *argv[]) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         char t[] = "/var/tmp/journal-XXXXXX";
         unsigned n;
@@ -91,7 +90,7 @@ int main(int argc, char *argv[]) {
 
                 dual_timestamp_get(&ts);
 
-                assert_se(asprintf(&test, "RANDOM=%lu", random() % RANDOM_RANGE));
+                assert_se(asprintf(&test, "RANDOM=%li", random() % RANDOM_RANGE));
 
                 iovec = IOVEC_MAKE_STRING(test);
 
@@ -138,6 +137,16 @@ int main(int argc, char *argv[]) {
         log_info("Exiting...");
 
         assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+
+        return 0;
+}
+
+int main(int argc, char *argv[]) {
+        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1) >= 0);
+        run_test(argc, argv);
+
+        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1) >= 0);
+        run_test(argc, argv);
 
         return 0;
 }

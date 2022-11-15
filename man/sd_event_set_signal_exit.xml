@@ -1,0 +1,101 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_event_set_signal_exit" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_event_set_signal_exit</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_event_set_signal_exit</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_event_set_signal_exit</refname>
+
+    <refpurpose>Automatically leave event loop on <constant>SIGINT</constant> and <constant>SIGTERM</constant></refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-event.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_event_set_signal_exit</function></funcdef>
+        <paramdef>sd_event *<parameter>event</parameter></paramdef>
+        <paramdef>int b</paramdef>
+      </funcprototype>
+
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_event_set_signal_exit()</function> may be used to ensure the event loop terminates
+    once a <constant>SIGINT</constant> or <constant>SIGTERM</constant> signal is received. It is a
+    convencience wrapper around invocations of
+    <citerefentry><refentrytitle>sd_event_add_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for both signals. The two signals are automatically added to the calling thread's signal mask (if a
+    program is multi-threaded care should be taken to either invoke this function before the first thread is
+    started or to manually block the two signals process-wide first).</para>
+
+    <para>If the parameter <parameter>b</parameter> is specified as true, the event loop will terminate on
+    <constant>SIGINT</constant> and <constant>SIGTERM</constant>. If specified as false, it will no
+    longer. When this functionality is turned off the calling thread's signal mask is restored to match the
+    state before it was turned on, for the two signals. By default the two signals are not handled by the
+    event loop, and Linux' default signal handling for them is in effect.</para>
+
+    <para>It's customary for UNIX programs to exit on either of these two signals, hence it's typically a
+    good idea to enable this functionality for the main event loop of a program.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para><function>sd_event_set_signal_exit()</function> returns a positive non-zero value when the setting
+    was successfully changed. It returns a zero when the specified setting was already in effect. On failure,
+    it returns a negative errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
+
+          <listitem><para>The event loop has been created in a different process.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>The passed event loop object was invalid.</para></listitem>
+        </varlistentry>
+
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

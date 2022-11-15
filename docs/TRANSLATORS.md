@@ -32,18 +32,18 @@ $ ninja -C build/ systemd-pot
 
 This will generate file `po/systemd.pot` in the source tree.
 
-Then simply copy it to a new <code><i>${lang_code}</i>.po</code> file, where
-<code><i>${lang_code}</i></code> is the two-letter code for a language
+Then simply copy it to a new `${lang_code}.po` file, where
+`${lang_code}` is the two-letter code for a language
 (possibly followed by a two-letter uppercase country code), according to the
 ISO 639 standard.
 
 In short:
 
-<pre>
-$ cp po/systemd.pot po/<i>${lang_code}</i>.po
-</pre>
+```
+$ cp po/systemd.pot po/${lang_code}.po
+```
 
-Then edit the new <code>po/<i>${lang_code}</i>.po</code> file (for example,
+Then edit the new `po/${lang_code}.po` file (for example,
 using the `poedit` GUI editor.)
 
 ## Updating an Existing Translation

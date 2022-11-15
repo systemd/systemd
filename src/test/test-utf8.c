@@ -5,7 +5,6 @@
 #include "strv.h"
 #include "tests.h"
 #include "utf8.h"
-#include "util.h"
 
 TEST(utf8_is_printable) {
         assert_se(utf8_is_printable("ascii is valid\tunicode", 22));

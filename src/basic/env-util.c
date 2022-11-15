@@ -32,7 +32,7 @@ static bool env_name_is_valid_n(const char *e, size_t n) {
         if (n <= 0)
                 return false;
 
-        if (e[0] >= '0' && e[0] <= '9')
+        if (ascii_isdigit(e[0]))
                 return false;
 
         /* POSIX says the overall size of the environment block cannot
@@ -774,6 +774,18 @@ int getenv_bool_secure(const char *p) {
                 return -ENXIO;
 
         return parse_boolean(e);
+}
+
+int getenv_uint64_secure(const char *p, uint64_t *ret) {
+        const char *e;
+
+        assert(p);
+
+        e = secure_getenv(p);
+        if (!e)
+                return -ENXIO;
+
+        return safe_atou64(e, ret);
 }
 
 int set_unset_env(const char *name, const char *value, bool overwrite) {

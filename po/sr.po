@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-01-08 17:48+0100\n"
+"POT-Creation-Date: 2022-10-20 10:35+0200\n"
 "PO-Revision-Date: 2021-02-23 22:40+0000\n"
 "Last-Translator: Frantisek Sumsal <frantisek@sumsal.cz>\n"
 "Language-Team: Serbian <https://translate.fedoraproject.org/projects/systemd/"
@@ -75,7 +75,6 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:14
 #, fuzzy
-#| msgid "Authentication is required to reload the systemd state."
 msgid "Authentication is required to create a user's home area."
 msgstr ""
 "Потребно је да се идентификујете да бисте поново учитали стање систем-деа."
@@ -86,7 +85,6 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:24
 #, fuzzy
-#| msgid "Authentication is required to reload the systemd state."
 msgid "Authentication is required to remove a user's home area."
 msgstr ""
 "Потребно је да се идентификујете да бисте поново учитали стање систем-деа."
@@ -97,8 +95,6 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:34
 #, fuzzy
-#| msgid ""
-#| "Authentication is required to manage active sessions, users and seats."
 msgid ""
 "Authentication is required to check credentials against a user's home area."
 msgstr ""
@@ -111,7 +107,6 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:44
 #, fuzzy
-#| msgid "Authentication is required to attach a device to a seat."
 msgid "Authentication is required to update a user's home area."
 msgstr "Потребно је да се идентификујете да бисте  закачили уређај на седиште."
 
@@ -121,7 +116,6 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:54
 #, fuzzy
-#| msgid "Authentication is required to set a wall message"
 msgid "Authentication is required to resize a user's home area."
 msgstr "Потребно је да се идентификујете да бисте поставили зидну поруку"
 
@@ -131,8 +125,6 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:64
 #, fuzzy
-#| msgid ""
-#| "Authentication is required to manage active sessions, users and seats."
 msgid ""
 "Authentication is required to change the password of a user's home area."
 msgstr ""
@@ -175,9 +167,28 @@ msgstr ""
 
 #: src/hostname/org.freedesktop.hostname1.policy:52
 #, fuzzy
-#| msgid "Authentication is required to reload '$(unit)'."
 msgid "Authentication is required to get product UUID."
 msgstr "Потребно је да се идентификујете да бисте поново учитали „$(unit)“."
+
+#: src/hostname/org.freedesktop.hostname1.policy:61
+msgid "Get hardware serial number"
+msgstr ""
+
+#: src/hostname/org.freedesktop.hostname1.policy:62
+#, fuzzy
+msgid "Authentication is required to get hardware serial number."
+msgstr "Потребно је да се идентификујете да бисте поставили системско време."
+
+#: src/hostname/org.freedesktop.hostname1.policy:71
+#, fuzzy
+msgid "Get system description"
+msgstr "Постави системску временску зону"
+
+#: src/hostname/org.freedesktop.hostname1.policy:72
+#, fuzzy
+msgid "Authentication is required to get system description."
+msgstr ""
+"Потребно је да се идентификујете да бисте поставили системску временску зону."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
@@ -574,7 +585,6 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:363
 #, fuzzy
-#| msgid "Allow indication to the firmware to boot to setup interface"
 msgid "Indicate to the firmware to boot to setup interface"
 msgstr "Напомени фирмверу да се подигне у режиму подешавања интерфејса"
 
@@ -592,9 +602,6 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:375
 #, fuzzy
-#| msgid ""
-#| "Authentication is required to indicate to the firmware to boot to setup "
-#| "interface."
 msgid ""
 "Authentication is required to indicate to the boot loader to boot to the "
 "boot loader menu."
@@ -608,9 +615,6 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:386
 #, fuzzy
-#| msgid ""
-#| "Authentication is required to indicate to the firmware to boot to setup "
-#| "interface."
 msgid ""
 "Authentication is required to indicate to the boot loader to boot into a "
 "specific boot loader entry."
@@ -632,7 +636,6 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:407
 #, fuzzy
-#| msgid "Authentication is required to halt the system."
 msgid "Authentication is required to change the virtual terminal."
 msgstr "Потребно је да се идентификујете да бисте зауставили систем."
 
@@ -724,21 +727,18 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:23
 #, fuzzy
-#| msgid "Authentication is required to set the system time."
 msgid "Authentication is required to set NTP servers."
 msgstr "Потребно је да се идентификујете да бисте поставили системско време."
 
 #: src/network/org.freedesktop.network1.policy:33
 #: src/resolve/org.freedesktop.resolve1.policy:44
 #, fuzzy
-#| msgid "Register a DNS-SD service"
 msgid "Set DNS servers"
 msgstr "Региструј DNS-SD услугу"
 
 #: src/network/org.freedesktop.network1.policy:34
 #: src/resolve/org.freedesktop.resolve1.policy:45
 #, fuzzy
-#| msgid "Authentication is required to register a DNS-SD service"
 msgid "Authentication is required to set DNS servers."
 msgstr "Потребно је да се идентификујете да бисте регистровали DNS-SD услугу"
 
@@ -750,7 +750,6 @@ msgstr ""
 #: src/network/org.freedesktop.network1.policy:45
 #: src/resolve/org.freedesktop.resolve1.policy:56
 #, fuzzy
-#| msgid "Authentication is required to stop '$(unit)'."
 msgid "Authentication is required to set domains."
 msgstr "Потребно је да се идентификујете да бисте зауставили „$(unit)“."
 
@@ -762,7 +761,6 @@ msgstr ""
 #: src/network/org.freedesktop.network1.policy:56
 #: src/resolve/org.freedesktop.resolve1.policy:67
 #, fuzzy
-#| msgid "Authentication is required to set the local hostname."
 msgid "Authentication is required to set default route."
 msgstr "Потребно је да се идентификујете да бисте поставили назив машине."
 
@@ -774,7 +772,6 @@ msgstr ""
 #: src/network/org.freedesktop.network1.policy:67
 #: src/resolve/org.freedesktop.resolve1.policy:78
 #, fuzzy
-#| msgid "Authentication is required to hibernate the system."
 msgid "Authentication is required to enable or disable LLMNR."
 msgstr "Потребно је да се идентификујете да бисте успавали систем."
 
@@ -786,7 +783,6 @@ msgstr ""
 #: src/network/org.freedesktop.network1.policy:78
 #: src/resolve/org.freedesktop.resolve1.policy:89
 #, fuzzy
-#| msgid "Authentication is required to log into the local host."
 msgid "Authentication is required to enable or disable multicast DNS."
 msgstr ""
 "Потребно је да се идентификујете да бисте се пријавили у локалног домаћина."
@@ -799,7 +795,6 @@ msgstr ""
 #: src/network/org.freedesktop.network1.policy:89
 #: src/resolve/org.freedesktop.resolve1.policy:100
 #, fuzzy
-#| msgid "Authentication is required to register a DNS-SD service"
 msgid "Authentication is required to enable or disable DNS over TLS."
 msgstr "Потребно је да се идентификујете да бисте регистровали DNS-SD услугу"
 
@@ -811,7 +806,6 @@ msgstr ""
 #: src/network/org.freedesktop.network1.policy:100
 #: src/resolve/org.freedesktop.resolve1.policy:111
 #, fuzzy
-#| msgid "Authentication is required to hibernate the system."
 msgid "Authentication is required to enable or disable DNSSEC."
 msgstr "Потребно је да се идентификујете да бисте успавали систем."
 
@@ -823,7 +817,6 @@ msgstr ""
 #: src/network/org.freedesktop.network1.policy:111
 #: src/resolve/org.freedesktop.resolve1.policy:122
 #, fuzzy
-#| msgid "Authentication is required to set the system locale."
 msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
 msgstr ""
 "Потребно је да се идентификујете да бисте поставили основни језик система."
@@ -834,7 +827,6 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:122
 #, fuzzy
-#| msgid "Authentication is required to set the system time."
 msgid "Authentication is required to reset NTP settings."
 msgstr "Потребно је да се идентификујете да бисте поставили системско време."
 
@@ -844,7 +836,6 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:133
 #, fuzzy
-#| msgid "Authentication is required to set the system time."
 msgid "Authentication is required to reset DNS settings."
 msgstr "Потребно је да се идентификујете да бисте поставили системско време."
 
@@ -854,7 +845,6 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:144
 #, fuzzy
-#| msgid "Authentication is required to set a wall message"
 msgid "Authentication is required to send force renew message."
 msgstr "Потребно је да се идентификујете да бисте поставили зидну поруку"
 
@@ -864,7 +854,6 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:155
 #, fuzzy
-#| msgid "Authentication is required to set a wall message"
 msgid "Authentication is required to renew dynamic addresses."
 msgstr "Потребно је да се идентификујете да бисте поставили зидну поруку"
 
@@ -874,7 +863,6 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:166
 #, fuzzy
-#| msgid "Authentication is required to reload the systemd state."
 msgid "Authentication is required to reload network settings."
 msgstr ""
 "Потребно је да се идентификујете да бисте поново учитали стање систем-деа."
@@ -885,7 +873,6 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:177
 #, fuzzy
-#| msgid "Authentication is required to reboot the system."
 msgid "Authentication is required to reconfigure network interface."
 msgstr "Потребно је да се идентификујете да бисте поново покренули систем."
 
@@ -895,7 +882,6 @@ msgstr ""
 
 #: src/portable/org.freedesktop.portable1.policy:14
 #, fuzzy
-#| msgid "Authentication is required to import a VM or container image"
 msgid "Authentication is required to inspect a portable service image."
 msgstr ""
 "Потребно је да се идентификујете да бисте увезли виртуелну машину или слику "
@@ -907,7 +893,6 @@ msgstr ""
 
 #: src/portable/org.freedesktop.portable1.policy:24
 #, fuzzy
-#| msgid "Authentication is required to attach a device to a seat."
 msgid ""
 "Authentication is required to attach or detach a portable service image."
 msgstr "Потребно је да се идентификујете да бисте  закачили уређај на седиште."
@@ -918,7 +903,6 @@ msgstr ""
 
 #: src/portable/org.freedesktop.portable1.policy:35
 #, fuzzy
-#| msgid "Authentication is required to download a VM or container image"
 msgid ""
 "Authentication is required to delete or modify a portable service image."
 msgstr ""
@@ -948,7 +932,6 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:133
 #, fuzzy
-#| msgid "Authentication is required to set the system keyboard settings."
 msgid "Authentication is required to reset name resolution settings."
 msgstr ""
 "Потребно је да се идентификујете да бисте поставили подешавања системске "
@@ -1012,30 +995,27 @@ msgstr "Потребно је да се идентификујете да бис
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Потребно је да се идентификујете да бисте поново покренули „$(unit)“."
 
-#: src/core/dbus-unit.c:535
+#: src/core/dbus-unit.c:546
 #, fuzzy
-#| msgid "Authentication is required to set properties on '$(unit)'."
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr ""
 "Потребно је да се идентификујете да бисте поставили својства за „$(unit)“."
 
-#: src/core/dbus-unit.c:566
+#: src/core/dbus-unit.c:576
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Потребно је да се идентификујете да бисте поново поставили „неуспешно“ стање "
 "за „$(unit)“."
 
-#: src/core/dbus-unit.c:599
+#: src/core/dbus-unit.c:608
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 "Потребно је да се идентификујете да бисте поставили својства за „$(unit)“."
 
-#: src/core/dbus-unit.c:708
+#: src/core/dbus-unit.c:714
 #, fuzzy
-#| msgid ""
-#| "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
@@ -1043,10 +1023,8 @@ msgstr ""
 "Потребно је да се идентификујете да бисте поново поставили „неуспешно“ стање "
 "за „$(unit)“."
 
-#: src/core/dbus-unit.c:757
+#: src/core/dbus-unit.c:762
 #, fuzzy
-#| msgid ""
-#| "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

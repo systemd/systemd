@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2020 VMware, Inc. */
 
+#include "device-enumerator-private.h"
+#include "device-util.h"
+#include "fd-util.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
@@ -102,4 +105,250 @@ int link_request_sr_iov_vfs(Link *link) {
                 log_link_debug(link, "Configuring SR-IOV");
 
         return 0;
+}
+
+static int find_ifindex_from_pci_dev_port(sd_device *pci_dev, const char *dev_port) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *dev;
+        int ifindex, r;
+
+        assert(pci_dev);
+        assert(dev_port);
+
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_allow_uninitialized(e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_parent(e, pci_dev);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_subsystem(e, "net", true);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_sysattr(e, "dev_port", dev_port, true);
+        if (r < 0)
+                return r;
+
+        dev = sd_device_enumerator_get_device_first(e);
+        if (!dev)
+                return -ENODEV; /* no device found */
+
+        if (sd_device_enumerator_get_device_next(e))
+                return -ENXIO; /* multiple devices found */
+
+        r = sd_device_get_ifindex(dev, &ifindex);
+        if (r < 0)
+                return r;
+
+        assert(ifindex > 0);
+        return ifindex;
+}
+
+static int manager_update_sr_iov_ifindices(Manager *manager, int phys_port_ifindex, int virt_port_ifindex) {
+        Link *phys_link = NULL, *virt_link = NULL;
+        int r;
+
+        assert(manager);
+        assert(phys_port_ifindex > 0);
+        assert(virt_port_ifindex > 0);
+
+        /* This sets ifindices only when both interfaces are already managed by us. */
+
+        r = link_get_by_index(manager, phys_port_ifindex, &phys_link);
+        if (r < 0)
+                return r;
+
+        r = link_get_by_index(manager, virt_port_ifindex, &virt_link);
+        if (r < 0)
+                return r;
+
+        /* update VF ifindex in PF */
+        r = set_ensure_put(&phys_link->sr_iov_virt_port_ifindices, NULL, INT_TO_PTR(virt_port_ifindex));
+        if (r < 0)
+                return r;
+
+        log_link_debug(phys_link,
+                       "Found SR-IOV VF port %s(%i).",
+                       virt_link ? virt_link->ifname : "n/a", virt_port_ifindex);
+
+        /* update PF ifindex in VF */
+        if (virt_link->sr_iov_phys_port_ifindex > 0 && virt_link->sr_iov_phys_port_ifindex != phys_port_ifindex) {
+                Link *old_phys_link;
+
+                if (link_get_by_index(manager, virt_link->sr_iov_phys_port_ifindex, &old_phys_link) >= 0)
+                        set_remove(old_phys_link->sr_iov_virt_port_ifindices, INT_TO_PTR(virt_port_ifindex));
+        }
+
+        virt_link->sr_iov_phys_port_ifindex = phys_port_ifindex;
+
+        log_link_debug(virt_link,
+                       "Found SR-IOV PF port %s(%i).",
+                       phys_link ? phys_link->ifname : "n/a", phys_port_ifindex);
+
+        return 0;
+}
+
+static int link_set_sr_iov_phys_port(Link *link) {
+        _cleanup_(sd_device_unrefp) sd_device *pci_physfn_dev = NULL;
+        const char *dev_port;
+        sd_device *pci_dev;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+
+        if (link->sr_iov_phys_port_ifindex > 0)
+                return 0;
+
+        if (!link->dev)
+                return -ENODEV;
+
+        r = sd_device_get_sysattr_value(link->dev, "dev_port", &dev_port);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_parent_with_subsystem_devtype(link->dev, "pci", NULL, &pci_dev);
+        if (r < 0)
+                return r;
+
+        r = sd_device_new_child(&pci_physfn_dev, pci_dev, "physfn");
+        if (r < 0)
+                return r;
+
+        r = find_ifindex_from_pci_dev_port(pci_physfn_dev, dev_port);
+        if (r < 0)
+                return r;
+
+        return manager_update_sr_iov_ifindices(link->manager, r, link->ifindex);
+}
+
+static int link_set_sr_iov_virt_ports(Link *link) {
+        const char *dev_port, *name;
+        sd_device *pci_dev, *child;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+
+        set_clear(link->sr_iov_virt_port_ifindices);
+
+        if (!link->dev)
+                return -ENODEV;
+
+        r = sd_device_get_sysattr_value(link->dev, "dev_port", &dev_port);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_parent_with_subsystem_devtype(link->dev, "pci", NULL, &pci_dev);
+        if (r < 0)
+                return r;
+
+        FOREACH_DEVICE_CHILD_WITH_SUFFIX(pci_dev, child, name) {
+                const char *n;
+
+                /* Accept name prefixed with "virtfn", but refuse "virtfn" itself. */
+                n = startswith(name, "virtfn");
+                if (isempty(n) || !in_charset(n, DIGITS))
+                        continue;
+
+                r = find_ifindex_from_pci_dev_port(child, dev_port);
+                if (r < 0)
+                        continue;
+
+                if (manager_update_sr_iov_ifindices(link->manager, link->ifindex, r) < 0)
+                        continue;
+        }
+
+        return 0;
+}
+
+int link_set_sr_iov_ifindices(Link *link) {
+        int r;
+
+        assert(link);
+
+        r = link_set_sr_iov_phys_port(link);
+        if (r < 0 && !ERRNO_IS_DEVICE_ABSENT(r))
+                return r;
+
+        r = link_set_sr_iov_virt_ports(link);
+        if (r < 0 && !ERRNO_IS_DEVICE_ABSENT(r))
+                return r;
+
+        return 0;
+}
+
+void link_clear_sr_iov_ifindices(Link *link) {
+        void *v;
+
+        assert(link);
+        assert(link->manager);
+
+        if (link->sr_iov_phys_port_ifindex > 0) {
+                Link *phys_link;
+
+                if (link_get_by_index(link->manager, link->sr_iov_phys_port_ifindex, &phys_link) >= 0)
+                        set_remove(phys_link->sr_iov_virt_port_ifindices, INT_TO_PTR(link->ifindex));
+
+                link->sr_iov_phys_port_ifindex = 0;
+        }
+
+        while ((v = set_steal_first(link->sr_iov_virt_port_ifindices))) {
+                Link *virt_link;
+
+                if (link_get_by_index(link->manager, PTR_TO_INT(v), &virt_link) >= 0)
+                        virt_link->sr_iov_phys_port_ifindex = 0;
+        }
+}
+
+bool check_ready_for_all_sr_iov_ports(
+                Link *link,
+                bool allow_unmanaged, /* for the main target */
+                bool (check_one)(Link *link, bool allow_unmanaged)) {
+
+        Link *phys_link;
+        void *v;
+
+        assert(link);
+        assert(link->manager);
+        assert(check_one);
+
+        /* Some drivers make VF ports become down when their PF port becomes down, and may fail to configure
+         * VF ports. Also, when a VF port becomes up/down, its PF port and other VF ports may become down.
+         * See issue #23315. */
+
+        /* First, check the main target. */
+        if (!check_one(link, allow_unmanaged))
+                return false;
+
+        /* If this is a VF port, then also check the PF port. */
+        if (link->sr_iov_phys_port_ifindex > 0) {
+                if (link_get_by_index(link->manager, link->sr_iov_phys_port_ifindex, &phys_link) < 0 ||
+                    !check_one(phys_link, /* allow_unmanaged = */ true))
+                        return false;
+        } else
+                phys_link = link;
+
+        /* Also check all VF ports. */
+        SET_FOREACH(v, phys_link->sr_iov_virt_port_ifindices) {
+                int ifindex = PTR_TO_INT(v);
+                Link *virt_link;
+
+                if (ifindex == link->ifindex)
+                        continue; /* The main target link is a VF port, and its state is already checked. */
+
+                if (link_get_by_index(link->manager, ifindex, &virt_link) < 0)
+                        return false;
+
+                if (!check_one(virt_link, /* allow_unmanaged = */ true))
+                        return false;
+        }
+
+        return true;
 }

@@ -36,7 +36,11 @@ static inline int safe_atou(const char *s, unsigned *ret_u) {
 int safe_atoi(const char *s, int *ret_i);
 int safe_atolli(const char *s, long long int *ret_i);
 
-int safe_atou8(const char *s, uint8_t *ret);
+int safe_atou8_full(const char *s, unsigned base, uint8_t *ret);
+
+static inline int safe_atou8(const char *s, uint8_t *ret) {
+        return safe_atou8_full(s, 0, ret);
+}
 
 int safe_atou16_full(const char *s, unsigned base, uint16_t *ret);
 

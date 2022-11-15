@@ -79,12 +79,13 @@ typedef enum UnitDependencyMask {
         /* A dependency created because of some unit's RequiresMountsFor= setting */
         UNIT_DEPENDENCY_PATH               = 1 << 4,
 
-        /* A dependency created because of data read from /proc/self/mountinfo and no other configuration source */
-        UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT = 1 << 5,
+        /* A dependency initially configured from the mount unit file however the dependency will be updated
+         * from /proc/self/mountinfo as soon as the kernel will make the entry for that mount available in
+         * the /proc file */
+        UNIT_DEPENDENCY_MOUNT_FILE         = 1 << 5,
 
-        /* A dependency created because of data read from /proc/self/mountinfo, but conditionalized by
-         * DefaultDependencies= and thus also involving configuration from UNIT_DEPENDENCY_FILE sources */
-        UNIT_DEPENDENCY_MOUNTINFO_DEFAULT  = 1 << 6,
+        /* A dependency created or updated because of data read from /proc/self/mountinfo */
+        UNIT_DEPENDENCY_MOUNTINFO          = 1 << 6,
 
         /* A dependency created because of data read from /proc/swaps and no other configuration source */
         UNIT_DEPENDENCY_PROC_SWAP          = 1 << 7,
@@ -105,6 +106,75 @@ typedef union UnitDependencyInfo {
                 UnitDependencyMask destination_mask:16;
         } _packed_;
 } UnitDependencyInfo;
+
+/* Store information about why a unit was activated.
+ * We start with trigger units (.path/.timer), eventually it will be expanded to include more metadata. */
+typedef struct ActivationDetails {
+        unsigned n_ref;
+        UnitType trigger_unit_type;
+        char *trigger_unit_name;
+} ActivationDetails;
+
+/* For casting an activation event into the various unit-specific types */
+#define DEFINE_ACTIVATION_DETAILS_CAST(UPPERCASE, MixedCase, UNIT_TYPE)         \
+        static inline MixedCase* UPPERCASE(ActivationDetails *a) {              \
+                if (_unlikely_(!a || a->trigger_unit_type != UNIT_##UNIT_TYPE)) \
+                        return NULL;                                            \
+                                                                                \
+                return (MixedCase*) a;                                          \
+        }
+
+/* For casting the various unit types into a unit */
+#define ACTIVATION_DETAILS(u)                                         \
+        ({                                                            \
+                typeof(u) _u_ = (u);                                  \
+                ActivationDetails *_w_ = _u_ ? &(_u_)->meta : NULL;   \
+                _w_;                                                  \
+        })
+
+ActivationDetails *activation_details_new(Unit *trigger_unit);
+ActivationDetails *activation_details_ref(ActivationDetails *p);
+ActivationDetails *activation_details_unref(ActivationDetails *p);
+void activation_details_serialize(ActivationDetails *p, FILE *f);
+int activation_details_deserialize(const char *key, const char *value, ActivationDetails **info);
+int activation_details_append_env(ActivationDetails *info, char ***strv);
+int activation_details_append_pair(ActivationDetails *info, char ***strv);
+DEFINE_TRIVIAL_CLEANUP_FUNC(ActivationDetails*, activation_details_unref);
+
+typedef struct ActivationDetailsVTable {
+        /* How much memory does an object of this activation type need */
+        size_t object_size;
+
+        /* This should reset all type-specific variables. This should not allocate memory, and is called
+         * with zero-initialized data. It should hence only initialize variables that need to be set != 0. */
+        void (*init)(ActivationDetails *info, Unit *trigger_unit);
+
+        /* This should free all type-specific variables. It should be idempotent. */
+        void (*done)(ActivationDetails *info);
+
+        /* This should serialize all type-specific variables. */
+        void (*serialize)(ActivationDetails *info, FILE *f);
+
+        /* This should deserialize all type-specific variables, one at a time. */
+        int (*deserialize)(const char *key, const char *value, ActivationDetails **info);
+
+        /* This should format the type-specific variables for the env block of the spawned service,
+         * and return the number of added items. */
+        int (*append_env)(ActivationDetails *info, char ***strv);
+
+        /* This should append type-specific variables as key/value pairs for the D-Bus property of the job,
+         * and return the number of added pairs. */
+        int (*append_pair)(ActivationDetails *info, char ***strv);
+} ActivationDetailsVTable;
+
+extern const ActivationDetailsVTable * const activation_details_vtable[_UNIT_TYPE_MAX];
+
+static inline const ActivationDetailsVTable* ACTIVATION_DETAILS_VTABLE(const ActivationDetails *a) {
+        assert(a);
+        assert(a->trigger_unit_type < _UNIT_TYPE_MAX);
+
+        return activation_details_vtable[a->trigger_unit_type];
+}
 
 /* Newer LLVM versions don't like implicit casts from large pointer types to smaller enums, hence let's add
  * explicit type-safe helpers for that. */
@@ -150,6 +220,11 @@ typedef struct Unit {
 
         char *description;
         char **documentation;
+
+        /* The SELinux context used for checking access to this unit read off the unit file at load time (do
+         * not confuse with the selinux_context field in ExecContext which is the SELinux context we'll set
+         * for processes) */
+        char *access_selinux_context;
 
         char *fragment_path; /* if loaded from a config file this is the primary path to it */
         char *source_path; /* if converted, the source file */
@@ -354,6 +429,9 @@ typedef struct Unit {
         JobMode on_success_job_mode;
         JobMode on_failure_job_mode;
 
+        /* If the job had a specific trigger that needs to be advertised (eg: a path unit), store it. */
+        ActivationDetails *activation_details;
+
         /* Tweaking the GC logic */
         CollectMode collect_mode;
 
@@ -450,19 +528,22 @@ typedef struct UnitStatusMessageFormats {
 /* Flags used when writing drop-in files or transient unit files */
 typedef enum UnitWriteFlags {
         /* Write a runtime unit file or drop-in (i.e. one below /run) */
-        UNIT_RUNTIME           = 1 << 0,
+        UNIT_RUNTIME            = 1 << 0,
 
         /* Write a persistent drop-in (i.e. one below /etc) */
-        UNIT_PERSISTENT        = 1 << 1,
+        UNIT_PERSISTENT         = 1 << 1,
 
         /* Place this item in the per-unit-type private section, instead of [Unit] */
-        UNIT_PRIVATE           = 1 << 2,
+        UNIT_PRIVATE            = 1 << 2,
 
         /* Apply specifier escaping before writing */
-        UNIT_ESCAPE_SPECIFIERS = 1 << 3,
+        UNIT_ESCAPE_SPECIFIERS  = 1 << 3,
+
+        /* Escape elements of ExecStart= syntax before writing */
+        UNIT_ESCAPE_EXEC_SYNTAX = 1 << 4,
 
         /* Apply C escaping before writing */
-        UNIT_ESCAPE_C          = 1 << 4,
+        UNIT_ESCAPE_C           = 1 << 5,
 } UnitWriteFlags;
 
 /* Returns true if neither persistent, nor runtime storage is requested, i.e. this is a check invocation only */
@@ -691,7 +772,7 @@ typedef struct UnitVTable {
         /* True if queued jobs of this type should be GC'ed if no other job needs them anymore */
         bool gc_jobs;
 
-        /* True if systemd-oomd can monitor and act on this unit's recursive children's cgroup(s)  */
+        /* True if systemd-oomd can monitor and act on this unit's recursive children's cgroups  */
         bool can_set_managed_oom;
 } UnitVTable;
 
@@ -804,7 +885,7 @@ bool unit_can_start(Unit *u) _pure_;
 bool unit_can_stop(Unit *u) _pure_;
 bool unit_can_isolate(Unit *u) _pure_;
 
-int unit_start(Unit *u);
+int unit_start(Unit *u, ActivationDetails *details);
 int unit_stop(Unit *u);
 int unit_reload(Unit *u);
 
@@ -944,8 +1025,6 @@ int unit_warn_leftover_processes(Unit *u, cg_kill_log_func_t log_func);
 
 bool unit_needs_console(Unit *u);
 
-const char *unit_label_path(const Unit *u);
-
 int unit_pid_attachable(Unit *unit, pid_t pid, sd_bus_error *error);
 
 static inline bool unit_has_job_type(Unit *u, JobType type) {
@@ -1025,6 +1104,14 @@ Condition *unit_find_failed_condition(Unit *u);
 #define log_unit_warning_errno(unit, error, ...) log_unit_full_errno(unit, LOG_WARNING, error, __VA_ARGS__)
 #define log_unit_error_errno(unit, error, ...)   log_unit_full_errno(unit, LOG_ERR, error, __VA_ARGS__)
 
+#if LOG_TRACE
+#  define log_unit_trace(...)          log_unit_debug(__VA_ARGS__)
+#  define log_unit_trace_errno(...)    log_unit_debug_errno(__VA_ARGS__)
+#else
+#  define log_unit_trace(...)          do {} while (0)
+#  define log_unit_trace_errno(e, ...) (-ERRNO_VALUE(e))
+#endif
+
 #define log_unit_struct_errno(unit, level, error, ...)                  \
         ({                                                              \
                 const Unit *_u = (unit);                                \
@@ -1046,7 +1133,8 @@ Condition *unit_find_failed_condition(Unit *u);
 
 #define log_unit_struct_iovec(unit, level, iovec, n_iovec) log_unit_struct_iovec_errno(unit, level, 0, iovec, n_iovec)
 
-#define LOG_UNIT_MESSAGE(unit, fmt, ...) "MESSAGE=%s: " fmt, (unit)->id, ##__VA_ARGS__
+/* Like LOG_MESSAGE(), but with the unit name prefixed. */
+#define LOG_UNIT_MESSAGE(unit, fmt, ...) LOG_MESSAGE("%s: " fmt, (unit)->id, ##__VA_ARGS__)
 #define LOG_UNIT_ID(unit) (unit)->manager->unit_log_format_string, (unit)->id
 #define LOG_UNIT_INVOCATION_ID(unit) (unit)->manager->invocation_log_format_string, (unit)->invocation_id_string
 

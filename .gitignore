@@ -26,6 +26,7 @@ __pycache__/
 /.#image.raw.lck
 /image.raw.cache-pre-dev
 /image.raw.cache-pre-inst
+/image.raw.manifest
 /install-tree
 /.mkosi-*
 /mkosi.builddir/
@@ -35,3 +36,5 @@ __pycache__/
 # Ignore any mkosi config files with "local" in the name
 /mkosi.default.d/**/*local*.conf
 /tags
+.dir-locals-2.el
+.vscode/

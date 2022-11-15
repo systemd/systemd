@@ -3,6 +3,7 @@
 #include <getopt.h>
 #include <utmp.h>
 
+#include "build.h"
 #include "dirent-util.h"
 #include "errno-list.h"
 #include "escape.h"
@@ -168,20 +169,15 @@ static const struct {
         },
 };
 
-static int table_add_uid_boundaries(
-                Table *table,
-                const UidRange *p,
-                size_t n) {
+static int table_add_uid_boundaries(Table *table, const UidRange *p) {
         int r;
 
         assert(table);
-        assert(p || n == 0);
 
         for (size_t i = 0; i < ELEMENTSOF(uid_range_table); i++) {
                 _cleanup_free_ char *name = NULL, *comment = NULL;
 
-                if (n > 0 &&
-                    !uid_range_covers(p, n, uid_range_table[i].first, uid_range_table[i].last - uid_range_table[i].first + 1))
+                if (!uid_range_covers(p, uid_range_table[i].first, uid_range_table[i].last - uid_range_table[i].first + 1))
                         continue;
 
                 name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
@@ -277,9 +273,9 @@ static int add_unavailable_uid(Table *table, uid_t start, uid_t end) {
                 return table_log_add_error(r);
 
         free(name);
-        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP),
                        " end unavailable users ",
-                       special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+                       special_glyph(SPECIAL_GLYPH_ARROW_UP));
         if (!name)
                 return log_oom();
 
@@ -306,31 +302,31 @@ static int add_unavailable_uid(Table *table, uid_t start, uid_t end) {
 static int table_add_uid_map(
                 Table *table,
                 const UidRange *p,
-                size_t n,
                 int (*add_unavailable)(Table *t, uid_t start, uid_t end)) {
 
         uid_t focus = 0;
         int n_added = 0, r;
 
         assert(table);
-        assert(p || n == 0);
         assert(add_unavailable);
 
-        for (size_t i = 0; i < n; i++) {
-                if (focus < p[i].start) {
-                        r = add_unavailable(table, focus, p[i].start-1);
+        for (size_t i = 0; p && i < p->n_entries; i++) {
+                UidRangeEntry *x = p->entries + i;
+
+                if (focus < x->start) {
+                        r = add_unavailable(table, focus, x->start-1);
                         if (r < 0)
                                 return r;
 
                         n_added += r;
                 }
 
-                if (p[i].start > UINT32_MAX - p[i].nr) { /* overflow check */
+                if (x->start > UINT32_MAX - x->nr) { /* overflow check */
                         focus = UINT32_MAX;
                         break;
                 }
 
-                focus = p[i].start + p[i].nr;
+                focus = x->start + x->nr;
         }
 
         if (focus < UINT32_MAX-1) {
@@ -359,7 +355,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
 
                 (void) table_set_align_percent(table, table_get_cell(table, 0, 3), 100);
                 (void) table_set_align_percent(table, table_get_cell(table, 0, 4), 100);
-                (void) table_set_empty_string(table, "-");
+                table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
                 (void) table_set_sort(table, (size_t) 3, (size_t) 8);
                 (void) table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4, (size_t) 5, (size_t) 6, (size_t) 7);
         }
@@ -429,19 +425,18 @@ static int display_user(int argc, char *argv[], void *userdata) {
         }
 
         if (table) {
-                _cleanup_free_ UidRange *uid_range = NULL;
+                _cleanup_(uid_range_freep) UidRange *uid_range = NULL;
                 int boundary_lines, uid_map_lines;
-                size_t n_uid_range = 0;
 
-                r = uid_range_load_userns(&uid_range, &n_uid_range, "/proc/self/uid_map");
+                r = uid_range_load_userns(&uid_range, "/proc/self/uid_map");
                 if (r < 0)
                         log_debug_errno(r, "Failed to load /proc/self/uid_map, ignoring: %m");
 
-                boundary_lines = table_add_uid_boundaries(table, uid_range, n_uid_range);
+                boundary_lines = table_add_uid_boundaries(table, uid_range);
                 if (boundary_lines < 0)
                         return boundary_lines;
 
-                uid_map_lines = table_add_uid_map(table, uid_range, n_uid_range, add_unavailable_uid);
+                uid_map_lines = table_add_uid_map(table, uid_range, add_unavailable_uid);
                 if (uid_map_lines < 0)
                         return uid_map_lines;
 
@@ -531,20 +526,15 @@ static int show_group(GroupRecord *gr, Table *table) {
         return 0;
 }
 
-static int table_add_gid_boundaries(
-                Table *table,
-                const UidRange *p,
-                size_t n) {
+static int table_add_gid_boundaries(Table *table, const UidRange *p) {
         int r;
 
         assert(table);
-        assert(p || n == 0);
 
         for (size_t i = 0; i < ELEMENTSOF(uid_range_table); i++) {
                 _cleanup_free_ char *name = NULL, *comment = NULL;
 
-                if (n > 0 &&
-                    !uid_range_covers(p, n, uid_range_table[i].first, uid_range_table[i].last))
+                if (!uid_range_covers(p, uid_range_table[i].first, uid_range_table[i].last))
                         continue;
 
                 name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
@@ -631,9 +621,9 @@ static int add_unavailable_gid(Table *table, uid_t start, uid_t end) {
                 return table_log_add_error(r);
 
         free(name);
-        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP),
                        " end unavailable groups ",
-                       special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+                       special_glyph(SPECIAL_GLYPH_ARROW_UP));
         if (!name)
                 return log_oom();
 
@@ -668,7 +658,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
                         return log_oom();
 
                 (void) table_set_align_percent(table, table_get_cell(table, 0, 3), 100);
-                (void) table_set_empty_string(table, "-");
+                table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
                 (void) table_set_sort(table, (size_t) 3, (size_t) 5);
                 (void) table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4);
         }
@@ -738,19 +728,18 @@ static int display_group(int argc, char *argv[], void *userdata) {
         }
 
         if (table) {
-                _cleanup_free_ UidRange *gid_range = NULL;
+                _cleanup_(uid_range_freep) UidRange *gid_range = NULL;
                 int boundary_lines, gid_map_lines;
-                size_t n_gid_range = 0;
 
-                r = uid_range_load_userns(&gid_range, &n_gid_range, "/proc/self/gid_map");
+                r = uid_range_load_userns(&gid_range, "/proc/self/gid_map");
                 if (r < 0)
                         log_debug_errno(r, "Failed to load /proc/self/gid_map, ignoring: %m");
 
-                boundary_lines = table_add_gid_boundaries(table, gid_range, n_gid_range);
+                boundary_lines = table_add_gid_boundaries(table, gid_range);
                 if (boundary_lines < 0)
                         return boundary_lines;
 
-                gid_map_lines = table_add_uid_map(table, gid_range, n_gid_range, add_unavailable_gid);
+                gid_map_lines = table_add_uid_map(table, gid_range, add_unavailable_gid);
                 if (gid_map_lines < 0)
                         return gid_map_lines;
 
@@ -942,25 +931,19 @@ static int display_services(int argc, char *argv[], void *userdata) {
 
         FOREACH_DIRENT(de, d, return -errno) {
                 _cleanup_free_ char *j = NULL, *no = NULL;
-                union sockaddr_union sockaddr;
-                socklen_t sockaddr_len;
                 _cleanup_close_ int fd = -1;
 
                 j = path_join("/run/systemd/userdb/", de->d_name);
                 if (!j)
                         return log_oom();
 
-                r = sockaddr_un_set_path(&sockaddr.un, j);
-                if (r < 0)
-                        return log_error_errno(r, "Path %s does not fit in AF_UNIX socket address: %m", j);
-                sockaddr_len = r;
-
                 fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (fd < 0)
-                        return log_error_errno(r, "Failed to allocate AF_UNIX/SOCK_STREAM socket: %m");
+                        return log_error_errno(errno, "Failed to allocate AF_UNIX/SOCK_STREAM socket: %m");
 
-                if (connect(fd, &sockaddr.sa, sockaddr_len) < 0) {
-                        no = strjoin("No (", errno_to_name(errno), ")");
+                r = connect_unix_path(fd, dirfd(d), de->d_name);
+                if (r < 0) {
+                        no = strjoin("No (", errno_to_name(r), ")");
                         if (!no)
                                 return log_oom();
                 }
@@ -1083,8 +1066,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "\nCommands:\n"
                "  user [USER…]               Inspect user\n"
                "  group [GROUP…]             Inspect group\n"
-               "  users-in-group [GROUP…]    Show users that are members of specified group(s)\n"
-               "  groups-of-user [USER…]     Show groups the specified user(s) is a member of\n"
+               "  users-in-group [GROUP…]    Show users that are members of specified groups\n"
+               "  groups-of-user [USER…]     Show groups the specified users are members of\n"
                "  services                   Show enabled database services\n"
                "  ssh-authorized-keys USER   Show SSH authorized keys for user\n"
                "\nOptions:\n"

@@ -160,8 +160,10 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
     <refsect2>
       <title>Type</title>
 
-      <para>The type consists of a single letter and optionally an exclamation mark (<literal>!</literal>)
-      minus sign (<literal>-</literal>), and/or equals sign (<literal>=</literal>).</para>
+      <para>The type consists of a single letter and optionally one or emore modifier characters: a plus sign
+      (<literal>+</literal>), exclamation mark (<literal>!</literal>), minus sign (<literal>-</literal>),
+      equals sign (<literal>=</literal>), tilde character (<literal>~</literal>) and/or caret
+      (<literal>^</literal>).</para>
 
       <para>The following line types are understood:</para>
 
@@ -330,7 +332,7 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
           exists and is not empty. Instead, the entire copy operation is
           skipped. If the argument is omitted, files from the source directory
           <filename>/usr/share/factory/</filename> with the same name
-          are copied. Does not follow symlinks. Contents of the directories 
+          are copied. Does not follow symlinks. Contents of the directories
           are subject to time based cleanup if the age argument is specified.
           </para></listitem>
         </varlistentry>
@@ -416,8 +418,8 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
           place of normal path names.</para>
 
           <para>The format of the argument field is <varname>[+-=][aAcCdDeijPsStTu]</varname>. The prefix
-          <varname>+</varname> (the default one) causes the attribute(s) to be added; <varname>-</varname>
-          causes the attribute(s) to be removed; <varname>=</varname> causes the attributes to be set exactly
+          <varname>+</varname> (the default one) causes the attributes to be added; <varname>-</varname>
+          causes the attributes to be removed; <varname>=</varname> causes the attributes to be set exactly
           as the following letters. The letters <literal>aAcCdDeijPsStTu</literal> select the new attributes
           for the files, see <citerefentry project='man-pages'><refentrytitle>chattr</refentrytitle>
           <manvolnum>1</manvolnum></citerefentry> for further information.
@@ -460,6 +462,10 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
           symlinks.</para></listitem>
         </varlistentry>
       </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Type Modifiers</title>
 
       <para>If the exclamation mark (<literal>!</literal>) is used, this line is only safe to execute during
       boot, and can break a running system. Lines without the exclamation mark are presumed to be safe to
@@ -489,6 +495,23 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
       be either directories or directory symlinks). For example, if there is a FIFO in place of one of the parent path
       components it will be replaced with a directory.</para>
 
+      <para>If the tilde character (<literal>~</literal>) is used, the argument (i.e. 6th) column is <ulink
+      url="https://www.rfc-editor.org/rfc/rfc4648.html">Base64 decoded</ulink> before use. This modifier is
+      only supported on line types that can write file contents, i.e. <varname>f</varname>,
+      <varname>f+</varname>, <varname>w</varname>, <varname>+</varname>. This is useful for writing arbitrary
+      binary data (including newlines and NUL bytes) to files. Note that if this switch is used, the argument
+      is not subject to specifier expansion, neither before nor after Base64 decoding.</para>
+
+      <para>If the caret character (<literal>^</literal>) is used, the argument (i.e. 6th) column takes a
+      service credential name to read the argument data from. See <ulink
+      url="https://systemd.io/CREDENTIALS">System and Service Credentials</ulink> for details about the
+      credentials concept. This modifier is only supported on line types that can write file contents,
+      i.e. <varname>f</varname>, <varname>f+</varname>, <varname>w</varname>, <varname>w+</varname>. This is
+      useful for writing arbitrary files with contents sourced from elsewhere, including from VM or container
+      managers further up. If the specified credential is not set for the <command>systemd-tmpfiles</command>
+      service, the line is silently skipped. If <literal>^</literal> and <literal>~</literal> are combined
+      Base64 decoding is applied to the credential contents.</para>
+
       <para>Note that for all line types that result in creation of any kind of file node
       (i.e. <varname>f</varname>/<varname>F</varname>,
       <varname>d</varname>/<varname>D</varname>/<varname>v</varname>/<varname>q</varname>/<varname>Q</varname>,
@@ -508,27 +531,24 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
     <refsect2>
       <title>Mode</title>
 
-      <para>The file access mode to use when creating this file or
-      directory. If omitted or when set to <literal>-</literal>, the
-      default is used: 0755 for directories, 0644 for all other file
-      objects.  For <varname>z</varname>, <varname>Z</varname> lines,
-      if omitted or when set to <literal>-</literal>, the file access
-      mode will not be modified. This parameter is ignored for
-      <varname>x</varname>, <varname>r</varname>,
-      <varname>R</varname>, <varname>L</varname>, <varname>t</varname>,
-      and <varname>a</varname> lines.</para>
+      <para>The file access mode to use when creating this file or directory. If omitted or when set to
+      <literal>-</literal>, the default is used: 0755 for directories, 0644 for all other file objects.  For
+      <varname>z</varname>, <varname>Z</varname> lines, if omitted or when set to <literal>-</literal>, the
+      file access mode will not be modified. This parameter is ignored for <varname>x</varname>,
+      <varname>r</varname>, <varname>R</varname>, <varname>L</varname>, <varname>t</varname>, and
+      <varname>a</varname> lines.</para>
 
-      <para>Optionally, if prefixed with <literal>~</literal>, the
-      access mode is masked based on the already set access bits for
-      existing file or directories: if the existing file has all
-      executable bits unset, all executable bits are removed from the
-      new access mode, too. Similarly, if all read bits are removed
-      from the old access mode, they will be removed from the new
-      access mode too, and if all write bits are removed, they will be
-      removed from the new access mode too. In addition, the
-      sticky/SUID/SGID bit is removed unless applied to a
-      directory. This functionality is particularly useful in
-      conjunction with <varname>Z</varname>.</para>
+      <para>Optionally, if prefixed with <literal>~</literal>, the access mode is masked based on the already
+      set access bits for existing file or directories: if the existing file has all executable bits unset,
+      all executable bits are removed from the new access mode, too. Similarly, if all read bits are removed
+      from the old access mode, they will be removed from the new access mode too, and if all write bits are
+      removed, they will be removed from the new access mode too. In addition, the sticky/SUID/SGID bit is
+      removed unless applied to a directory. This functionality is particularly useful in conjunction with
+      <varname>Z</varname>.</para>
+
+      <para>Optionally, if prefixed with <literal>:</literal>, the configured access mode is only used when
+      creating new inodes. If the inode the line refers to already exists, its access mode is left in place
+      unmodified.</para>
     </refsect2>
 
     <refsect2>
@@ -548,6 +568,10 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
       url="https://systemd.io/UIDS-GIDS/#notes-on-resolvability-of-user-and-group-names">Notes on
       Resolvability of User and Group Names</ulink> for more information on requirements on system user/group
       definitions.</para>
+
+      <para>Optionally, if prefixed with <literal>:</literal>, the configured user/group information is only
+      used when creating new inodes. If the inode the line refers to already exists, its user/group is left
+      in place unmodified.</para>
     </refsect2>
 
     <refsect2>
@@ -801,6 +825,19 @@ e! /var/cache/krb5rcache - - - 0
 
       <para>Any files and subdirectories in <filename>/var/cache/krb5rcache/</filename>
       will be removed on boot. The directory will not be created.
+      </para>
+    </example>
+
+    <example>
+      <title>Provision SSH public key access for root user via Credentials in QEMU</title>
+
+      <programlisting>-smbios type=11,value=io.systemd.credential.binary:tmpfiles.extra=$(echo "f~ /root/.ssh/authorized_keys 700 root root - $(ssh-add -L | base64 -w 0)" | base64 -w 0)
+</programlisting>
+
+      <para>By passing this line to QEMU, the public key of the current user will be encoded in
+      base64, added to a tmpfiles.d line that tells systemd-tmpfiles to decode it into
+      <filename>/root/.ssh/authorized_keys</filename>, encode that line itself in base64 and
+      pass it as a Credential that will be picked up by systemd from SMBIOS on boot.
       </para>
     </example>
   </refsect1>

@@ -50,6 +50,7 @@ struct Route {
         uint32_t initcwnd;
         uint32_t initrwnd;
         uint32_t advmss;
+        char *tcp_congestion_control_algo;
         unsigned char pref;
         unsigned flags;
         int gateway_onlink; /* Only used in conf parser and route_section_verify(). */
@@ -84,6 +85,7 @@ int route_dup(const Route *src, Route **ret);
 
 int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg);
 int route_remove(Route *route);
+int route_remove_and_drop(Route *route);
 
 int route_get(Manager *manager, Link *link, const Route *in, Route **ret);
 
@@ -108,7 +110,7 @@ int network_add_default_route_on_device(Network *network);
 void network_drop_invalid_routes(Network *network);
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Route, route);
-void link_mark_routes(Link *link, NetworkConfigSource source, const struct in6_addr *router);
+void link_mark_routes(Link *link, NetworkConfigSource source);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_gateway);
 CONFIG_PARSER_PROTOTYPE(config_parse_preferred_src);
@@ -123,5 +125,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_route_type);
 CONFIG_PARSER_PROTOTYPE(config_parse_tcp_window);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_mtu);
 CONFIG_PARSER_PROTOTYPE(config_parse_multipath_route);
+CONFIG_PARSER_PROTOTYPE(config_parse_tcp_congestion);
 CONFIG_PARSER_PROTOTYPE(config_parse_tcp_advmss);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_nexthop);

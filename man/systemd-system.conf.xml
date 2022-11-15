@@ -263,7 +263,7 @@
         on executables with setuid or setgid bits and will thus not
         function properly with this option enabled. Individual units
         cannot disable this option.
-        Also see <ulink url="https://www.kernel.org/doc/html/latest/userspace-api/no_new_privs.html">No New Privileges Flag</ulink>.
+        Also see <ulink url="https://docs.kernel.org/userspace-api/no_new_privs.html">No New Privileges Flag</ulink>.
         </para></listitem>
       </varlistentry>
 
@@ -371,6 +371,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>DefaultDeviceTimeoutSec=</varname></term>
+
+        <listitem><para>Configures the default timeout for waiting for devices. It can be changed per
+        device via the <varname>x-systemd.device-timeout=</varname> option in <filename>/etc/fstab</filename>
+        and <filename>/etc/crypttab</filename> (see
+        <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+        Defaults to 90s.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DefaultStartLimitIntervalSec=</varname></term>
         <term><varname>DefaultStartLimitBurst=</varname></term>
 
@@ -426,20 +437,22 @@
 
       <varlistentry>
         <term><varname>DefaultCPUAccounting=</varname></term>
-        <term><varname>DefaultBlockIOAccounting=</varname></term>
         <term><varname>DefaultMemoryAccounting=</varname></term>
         <term><varname>DefaultTasksAccounting=</varname></term>
         <term><varname>DefaultIOAccounting=</varname></term>
         <term><varname>DefaultIPAccounting=</varname></term>
 
         <listitem><para>Configure the default resource accounting settings, as configured per-unit by
-        <varname>CPUAccounting=</varname>, <varname>BlockIOAccounting=</varname>, <varname>MemoryAccounting=</varname>,
-        <varname>TasksAccounting=</varname>, <varname>IOAccounting=</varname> and <varname>IPAccounting=</varname>. See
+        <varname>CPUAccounting=</varname>, <varname>MemoryAccounting=</varname>,
+        <varname>TasksAccounting=</varname>, <varname>IOAccounting=</varname> and
+        <varname>IPAccounting=</varname>. See
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details on the per-unit settings. <varname>DefaultTasksAccounting=</varname> defaults to yes,
-        <varname>DefaultMemoryAccounting=</varname> to &MEMORY_ACCOUNTING_DEFAULT;. <varname>DefaultCPUAccounting=</varname>
-        defaults to yes if enabling CPU accounting doesn't require the CPU controller to be enabled (Linux 4.15+ using the
-        unified hierarchy for resource control), otherwise it defaults to no. The other three settings default to no.</para></listitem>
+        <varname>DefaultMemoryAccounting=</varname> to
+        &MEMORY_ACCOUNTING_DEFAULT;. <varname>DefaultCPUAccounting=</varname> defaults to yes if enabling CPU
+        accounting doesn't require the CPU controller to be enabled (Linux 4.15+ using the unified hierarchy
+        for resource control), otherwise it defaults to no. The other three settings default to
+        no.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -525,6 +538,18 @@
         details. Note that this setting has no effect on the OOM score adjustment value of the service
         manager process itself, it retains the original value set during its invocation.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>DefaultSmackProcessLabel=</varname></term>
+
+        <listitem><para>Takes a <option>SMACK64</option> security label as the argument. The process executed
+        by a unit will be started under this label if <varname>SmackProcessLabel=</varname> is not set in the
+        unit. See <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for the details.</para>
+
+        <para>If the value is <literal>/</literal>, only labels specified with <varname>SmackProcessLabel=</varname>
+        are assigned and the compile-time default is ignored.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -565,6 +590,18 @@
           </tbody>
         </tgroup>
       </table>
+  </refsect1>
+
+  <refsect1>
+      <title>History</title>
+
+      <variablelist>
+        <varlistentry>
+          <term>systemd 252</term>
+          <listitem><para>Option <varname>DefaultBlockIOAccounting=</varname> was deprecated. Please switch
+          to the unified cgroup hierarchy.</para></listitem>
+        </varlistentry>
+      </variablelist>
   </refsect1>
 
   <refsect1>

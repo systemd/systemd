@@ -39,7 +39,7 @@ static int test_restrict_filesystems(Manager *m, const char *unit_name, const ch
         SERVICE(u)->type = SERVICE_ONESHOT;
         u->load_state = UNIT_LOADED;
 
-        r = unit_start(u);
+        r = unit_start(u, NULL);
         if (r < 0)
                 return log_error_errno(r, "Unit start failed %m");
 
@@ -68,9 +68,6 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
-        if (getuid() != 0)
-                return log_tests_skipped("not running as root");
-
         assert_se(getrlimit(RLIMIT_MEMLOCK, &rl) >= 0);
         rl.rlim_cur = rl.rlim_max = MAX(rl.rlim_max, CAN_MEMLOCK_SIZE);
         (void) setrlimit_closest(RLIMIT_MEMLOCK, &rl);
@@ -78,8 +75,7 @@ int main(int argc, char *argv[]) {
         if (!can_memlock())
                 return log_tests_skipped("Can't use mlock()");
 
-        r = lsm_bpf_supported();
-        if (r <= 0)
+        if (!lsm_bpf_supported(/* initialize = */ true))
                 return log_tests_skipped("LSM BPF hooks are not supported");
 
         r = enter_cgroup_subroot(NULL);

@@ -14,6 +14,7 @@ files = [['README',               ''],
          ['systemd-tmp.conf',     ''],
          ['tmp.conf',             ''],
          ['x11.conf',             ''],
+         ['provision.conf',       ''],
         ]
 
 foreach pair : files

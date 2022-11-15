@@ -27,22 +27,22 @@
 AccessModifierOffset: -4
 AlignAfterOpenBracket: AlwaysBreak
 AlignEscapedNewlines: Left
-AlignOperands:   false
+AlignOperands: false
 AllowShortFunctionsOnASingleLine: None
 AlwaysBreakBeforeMultilineStrings: true
 AlwaysBreakTemplateDeclarations: Yes
 BinPackArguments: false
 BinPackParameters: false
 BraceWrapping:
-  AfterEnum:       false
+  AfterEnum: false
   SplitEmptyFunction: false
   SplitEmptyRecord: false
   SplitEmptyNamespace: false
 BreakBeforeBraces: Custom
-BreakInheritanceList: BeforeComma
 BreakBeforeTernaryOperators: false
+BreakInheritanceList: BeforeComma
 BreakStringLiterals: false
-ColumnLimit:     109
+ColumnLimit: 109
 CompactNamespaces: true
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
 ConstructorInitializerIndentWidth: 8
@@ -107,7 +107,7 @@ ForEachMacros:
   - STRV_FOREACH_BACKWARDS
   - STRV_FOREACH_PAIR
 IndentPPDirectives: AfterHash
-IndentWidth:     8
+IndentWidth: 8
 IndentWrappedFunctionNames: true
 MaxEmptyLinesToKeep: 2
 PenaltyBreakAssignment: 65
@@ -117,8 +117,10 @@ PenaltyBreakFirstLessLess: 50
 PenaltyBreakString: 0
 PenaltyExcessCharacter: 10
 PenaltyReturnTypeOnItsOwnLine: 100
+PointerAlignment: Right
 SpaceAfterCStyleCast: true
+SpaceAroundPointerQualifiers: Both
 SpaceBeforeParens: ControlStatementsExceptForEachMacros
-SpacesInAngles:  true
-TabWidth:        8
-UseCRLF:         false
+SpacesInAngles: true
+TabWidth: 8
+UseCRLF: false

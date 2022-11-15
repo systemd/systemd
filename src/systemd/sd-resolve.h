@@ -14,7 +14,7 @@
   Lesser General Public License for more details.
 
   You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
 /* 'struct addrinfo' needs _GNU_SOURCE */
@@ -47,7 +47,7 @@ typedef _sd_destroy_t sd_resolve_destroy_t;
 enum {
         SD_RESOLVE_GET_HOST    = 1 << 0,
         SD_RESOLVE_GET_SERVICE = 1 << 1,
-        SD_RESOLVE_GET_BOTH = SD_RESOLVE_GET_HOST | SD_RESOLVE_GET_SERVICE,
+        SD_RESOLVE_GET_BOTH = SD_RESOLVE_GET_HOST | SD_RESOLVE_GET_SERVICE
 };
 
 int sd_resolve_default(sd_resolve **ret);

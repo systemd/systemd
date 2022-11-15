@@ -152,7 +152,7 @@ for f in $(ls -1 $SOURCE/unhappy-*.input | sort -V); do
     echo "*** Running test $f"
     prepare_testdir ${f%.input}
     cp $f $TESTDIR/usr/lib/sysusers.d/test.conf
-    $SYSUSERS --root=$TESTDIR 2>&1 | tail -n1 > $TESTDIR/err
+    $SYSUSERS --root=$TESTDIR 2>&1 | tail -n1 | sed -r 's/^[^:]+:[^:]+://' >$TESTDIR/err
     if ! diff -u $TESTDIR/err  ${f%.*}.expected-err; then
         echo "**** Unexpected error output for $f"
         cat $TESTDIR/err

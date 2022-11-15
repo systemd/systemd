@@ -25,6 +25,11 @@ static void test_xdg_format_exec_start_one(const char *exec, const char *expecte
 }
 
 TEST(xdg_format_exec_start) {
+        _cleanup_free_ char *home = NULL;
+        _cleanup_free_ char *expected1, *expected2 = NULL;
+
+        assert_se(get_home_dir(&home) >= 0);
+
         test_xdg_format_exec_start_one("/bin/sleep 100", "/bin/sleep 100");
 
         /* All standardised % identifiers are stripped. */
@@ -34,6 +39,14 @@ TEST(xdg_format_exec_start) {
         test_xdg_format_exec_start_one("/bin/sleep %X \"%Y\"", "/bin/sleep %%X %%Y");
 
         test_xdg_format_exec_start_one("/bin/sleep \";\\\"\"", "/bin/sleep \";\\\"\"");
+
+        /* tilde is expanded only if standalone or at the start of a path */
+        expected1 = strjoin("/bin/ls ", home);
+        test_xdg_format_exec_start_one("/bin/ls ~", expected1);
+        expected2 = strjoin("/bin/ls ", home, "/foo");
+        test_xdg_format_exec_start_one("/bin/ls \"~/foo\"", expected2);
+        test_xdg_format_exec_start_one("/bin/ls ~foo", "/bin/ls ~foo");
+        test_xdg_format_exec_start_one("/bin/ls foo~", "/bin/ls foo~");
 }
 
 static const char* const xdg_desktop_file[] = {
@@ -48,6 +61,8 @@ static const char* const xdg_desktop_file[] = {
 
         ("[Desktop Entry]\n"
          "Hidden=\t true\n"),
+        ("[Desktop Entry]\n"
+         "Hidden=\t True\n"),
 };
 
 static void test_xdg_desktop_parse_one(unsigned i, const char *s) {
@@ -55,7 +70,7 @@ static void test_xdg_desktop_parse_one(unsigned i, const char *s) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_(xdg_autostart_service_freep) XdgAutostartService *service = NULL;
 
-        log_info("== %s[%i] ==", __func__, i);
+        log_info("== %s[%u] ==", __func__, i);
 
         assert_se(fmkostemp_safe(name, "r+", &f) == 0);
         assert_se(fwrite(s, strlen(s), 1, f) == 1);
@@ -75,6 +90,7 @@ static void test_xdg_desktop_parse_one(unsigned i, const char *s) {
                 assert_se(streq(service->exec_string, "a"));
                 break;
         case 2:
+        case 3:
                 assert_se(service->hidden);
                 break;
         }

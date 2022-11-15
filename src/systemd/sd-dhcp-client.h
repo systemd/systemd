@@ -16,7 +16,7 @@
   Lesser General Public License for more details.
 
   You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
 #include <inttypes.h>
@@ -25,6 +25,7 @@
 #include <sys/types.h>
 #include <stdbool.h>
 
+#include "sd-device.h"
 #include "sd-dhcp-lease.h"
 #include "sd-dhcp-option.h"
 #include "sd-event.h"
@@ -40,8 +41,8 @@ enum {
         SD_DHCP_CLIENT_EVENT_EXPIRED            = 3,
         SD_DHCP_CLIENT_EVENT_RENEW              = 4,
         SD_DHCP_CLIENT_EVENT_SELECTING          = 5,
-        SD_DHCP_CLIENT_EVENT_TRANSIENT_FAILURE  = 6, /* Sent when we have not received a reply after the first few attempts.
-                                                      * The client may want to start acquiring link-local addresses. */
+        SD_DHCP_CLIENT_EVENT_TRANSIENT_FAILURE  = 6 /* Sent when we have not received a reply after the first few attempts.
+                                                     * The client may want to start acquiring link-local addresses. */
 };
 
 /* https://www.iana.org/assignments/bootp-dhcp-parameters/bootp-dhcp-parameters.xhtml#options */
@@ -212,13 +213,13 @@ enum {
         SD_DHCP_OPTION_PRIVATE_CLASSLESS_STATIC_ROUTE = 249, /* [RFC7844] */
         SD_DHCP_OPTION_PRIVATE_PROXY_AUTODISCOVERY    = 252, /* [RFC7844] */
         SD_DHCP_OPTION_PRIVATE_LAST                   = 254,
-        SD_DHCP_OPTION_END                            = 255, /* [RFC2132] */
+        SD_DHCP_OPTION_END                            = 255 /* [RFC2132] */
 };
 
 /* Suboptions for SD_DHCP_OPTION_RELAY_AGENT_INFORMATION option */
 enum {
         SD_DHCP_RELAY_AGENT_CIRCUIT_ID             = 1,
-        SD_DHCP_RELAY_AGENT_REMOTE_ID              = 2,
+        SD_DHCP_RELAY_AGENT_REMOTE_ID              = 2
 };
 
 typedef struct sd_dhcp_client sd_dhcp_client;
@@ -247,7 +248,7 @@ int sd_dhcp_client_set_ifname(
 int sd_dhcp_client_get_ifname(sd_dhcp_client *client, const char **ret);
 int sd_dhcp_client_set_mac(
                 sd_dhcp_client *client,
-                const uint8_t *addr,
+                const uint8_t *hw_addr,
                 const uint8_t *bcast_addr,
                 size_t addr_len,
                 uint16_t arp_type);
@@ -256,14 +257,14 @@ int sd_dhcp_client_set_client_id(
                 uint8_t type,
                 const uint8_t *data,
                 size_t data_len);
-int sd_dhcp_client_set_iaid_duid(
+__extension__ int sd_dhcp_client_set_iaid_duid(
                 sd_dhcp_client *client,
                 bool iaid_set,
                 uint32_t iaid,
                 uint16_t duid_type,
                 const void *duid,
                 size_t duid_len);
-int sd_dhcp_client_set_iaid_duid_llt(
+__extension__ int sd_dhcp_client_set_iaid_duid_llt(
                 sd_dhcp_client *client,
                 bool iaid_set,
                 uint32_t iaid,
@@ -337,6 +338,7 @@ int sd_dhcp_client_attach_event(
                 int64_t priority);
 int sd_dhcp_client_detach_event(sd_dhcp_client *client);
 sd_event *sd_dhcp_client_get_event(sd_dhcp_client *client);
+int sd_dhcp_client_attach_device(sd_dhcp_client *client, sd_device *dev);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp_client, sd_dhcp_client_unref);
 

@@ -6,12 +6,13 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
+#include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-unit-util.h"
 #include "bus-wait-for-jobs.h"
 #include "chase-symlinks.h"
-#include "def.h"
+#include "constants.h"
 #include "dirent-util.h"
 #include "env-file.h"
 #include "fd-util.h"
@@ -48,6 +49,7 @@ static bool arg_enable = false;
 static bool arg_now = false;
 static bool arg_no_block = false;
 static char **arg_extension_images = NULL;
+static bool arg_force = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_extension_images, strv_freep);
 
@@ -249,7 +251,7 @@ static int maybe_reload(sd_bus **bus) {
                 return bus_log_create_error(r);
 
         /* Reloading the daemon may take long, hence set a longer timeout here */
-        r = sd_bus_call(*bus, m, DEFAULT_TIMEOUT_USEC * 2, &error, NULL);
+        r = sd_bus_call(*bus, m, DAEMON_RELOAD_TIMEOUT_SEC, &error, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to reload daemon: %s", bus_error_message(&error, r));
 
@@ -259,7 +261,7 @@ static int maybe_reload(sd_bus **bus) {
 static int get_image_metadata(sd_bus *bus, const char *image, char **matches, sd_bus_message **reply) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        uint64_t flags = 0;
+        uint64_t flags = arg_force ? PORTABLE_FORCE_SYSEXT : 0;
         const char *method;
         int r;
 
@@ -343,7 +345,7 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
                 _cleanup_free_ char *pretty_portable = NULL, *pretty_os = NULL;
                 _cleanup_fclose_ FILE *f = NULL;
 
-                f = fmemopen_unlocked((void*) data, sz, "re");
+                f = fmemopen_unlocked((void*) data, sz, "r");
                 if (!f)
                         return log_error_errno(errno, "Failed to open /etc/os-release buffer: %m");
 
@@ -399,7 +401,7 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
                                         *id = NULL, *version_id = NULL, *sysext_scope = NULL, *portable_prefixes = NULL;
                                 _cleanup_fclose_ FILE *f = NULL;
 
-                                f = fmemopen_unlocked((void*) data, sz, "re");
+                                f = fmemopen_unlocked((void*) data, sz, "r");
                                 if (!f)
                                         return log_error_errno(errno, "Failed to open extension-release buffer: %m");
 
@@ -539,7 +541,7 @@ static int maybe_enable_disable(sd_bus *bus, const char *path, bool enable) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_strv_free_ char **names = NULL;
-        UnitFileChange *changes = NULL;
+        InstallChange *changes = NULL;
         const uint64_t flags = UNIT_FILE_PORTABLE | (arg_runtime ? UNIT_FILE_RUNTIME : 0);
         size_t n_changes = 0;
         int r;
@@ -579,7 +581,9 @@ static int maybe_enable_disable(sd_bus *bus, const char *path, bool enable) {
                 if (r < 0)
                         return bus_log_parse_error(r);
         }
+
         (void) bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet, &changes, &n_changes);
+        install_changes_free(changes, n_changes);
 
         return 0;
 }
@@ -595,11 +599,9 @@ static int maybe_start_stop_restart(sd_bus *bus, const char *path, const char *m
         if (!arg_now)
                 return 0;
 
-        r = sd_bus_call_method(
+        r = bus_call_method(
                         bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
+                        bus_systemd_mgr,
                         method,
                         &error,
                         &reply,
@@ -868,7 +870,7 @@ static int attach_reattach_image(int argc, char *argv[], const char *method) {
                 return bus_log_create_error(r);
 
         if (STR_IN_SET(method, "AttachImageWithExtensions", "ReattachImageWithExtensions")) {
-                uint64_t flags = arg_runtime ? PORTABLE_RUNTIME : 0;
+                uint64_t flags = (arg_runtime ? PORTABLE_RUNTIME : 0) | (arg_force ? PORTABLE_FORCE_ATTACH | PORTABLE_FORCE_SYSEXT : 0);
 
                 r = sd_bus_message_append(m, "st", arg_copy_mode, flags);
         } else
@@ -940,7 +942,7 @@ static int detach_image(int argc, char *argv[], void *userdata) {
         if (strv_isempty(arg_extension_images))
                 r = sd_bus_message_append(m, "b", arg_runtime);
         else {
-                uint64_t flags = arg_runtime ? PORTABLE_RUNTIME : 0;
+                uint64_t flags = (arg_runtime ? PORTABLE_RUNTIME : 0) | (arg_force ? PORTABLE_FORCE_ATTACH | PORTABLE_FORCE_SYSEXT : 0);
 
                 r = sd_bus_message_append(m, "t", flags);
         }
@@ -1241,6 +1243,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "                              attach/before detach\n"
                "     --no-block               Don't block waiting for attach --now to complete\n"
                "     --extension=PATH         Extend the image with an overlay\n"
+               "     --force                  Skip 'already active' check when attaching or\n"
+               "                              detaching an image (with extensions)\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -1266,6 +1270,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NOW,
                 ARG_NO_BLOCK,
                 ARG_EXTENSION,
+                ARG_FORCE,
         };
 
         static const struct option options[] = {
@@ -1286,6 +1291,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "now",             no_argument,       NULL, ARG_NOW             },
                 { "no-block",        no_argument,       NULL, ARG_NO_BLOCK        },
                 { "extension",       required_argument, NULL, ARG_EXTENSION       },
+                { "force",           no_argument,       NULL, ARG_FORCE           },
                 {}
         };
 
@@ -1388,6 +1394,10 @@ static int parse_argv(int argc, char *argv[]) {
                         r = strv_extend(&arg_extension_images, optarg);
                         if (r < 0)
                                 return log_oom();
+                        break;
+
+                case ARG_FORCE:
+                        arg_force = true;
                         break;
 
                 case '?':

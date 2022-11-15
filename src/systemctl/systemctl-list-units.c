@@ -3,6 +3,7 @@
 #include "sd-login.h"
 
 #include "bus-error.h"
+#include "bus-locator.h"
 #include "format-table.h"
 #include "locale-util.h"
 #include "set.h"
@@ -87,9 +88,22 @@ static int get_unit_list_recursive(
         return c;
 }
 
-static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
+static void output_legend(const char *type, size_t n_items) {
+        const char *on, *off;
+
+        assert(type);
+
+        on = n_items > 0 ? ansi_highlight() : ansi_highlight_red();
+        off = ansi_normal();
+
+        printf("\n%s%zu %ss listed.%s\n", on, n_items, type, off);
+        if (!arg_all)
+                printf("Pass --all to see loaded but inactive %ss, too.\n", type);
+}
+
+static int output_units_list(const UnitInfo *unit_infos, size_t c) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        unsigned job_count = 0;
+        size_t job_count = 0;
         int r;
 
         table = table_new("", "unit", "load", "active", "sub", "job", "description");
@@ -106,7 +120,7 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
         if (arg_full)
                 table_set_width(table, 0);
 
-        (void) table_set_empty_string(table, "-");
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         for (const UnitInfo *u = unit_infos; unit_infos && (size_t) (u - unit_infos) < c; u++) {
                 _cleanup_free_ char *j = NULL;
@@ -187,12 +201,10 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                              "SUB    = The low-level unit activation state, values depend on unit type.");
                         if (job_count > 0)
                                 puts("JOB    = Pending job for the unit.\n");
-                        on = ansi_highlight();
-                        off = ansi_normal();
-                } else {
-                        on = ansi_highlight_red();
-                        off = ansi_normal();
                 }
+
+                on = records > 0 ? ansi_highlight() : ansi_highlight_red();
+                off = ansi_normal();
 
                 if (arg_all || strv_contains(arg_states, "inactive"))
                         printf("%s%zu loaded units listed.%s\n"
@@ -348,10 +360,11 @@ static int socket_info_compare(const struct socket_info *a, const struct socket_
         return strcmp(a->type, b->type);
 }
 
-static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
+static int output_sockets_list(struct socket_info *socket_infos, size_t cs) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        const char *on, *off;
         int r;
+
+        assert(socket_infos || cs == 0);
 
         table = table_new("listen", "type", "unit", "activates");
         if (!table)
@@ -368,58 +381,46 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
         if (arg_full)
                 table_set_width(table, 0);
 
-        (void) table_set_empty_string(table, "-");
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
-        if (cs) {
-                for (struct socket_info *s = socket_infos; s < socket_infos + cs; s++) {
-                        _cleanup_free_ char *j = NULL;
-                        const char *path;
+        for (struct socket_info *s = socket_infos; s < socket_infos + cs; s++) {
+                _cleanup_free_ char *j = NULL;
+                const char *path;
 
-                        if (s->machine) {
-                                j = strjoin(s->machine, ":", s->path);
-                                if (!j)
-                                        return log_oom();
-                                path = j;
-                        } else
-                                path = s->path;
+                if (s->machine) {
+                        j = strjoin(s->machine, ":", s->path);
+                        if (!j)
+                                return log_oom();
+                        path = j;
+                } else
+                        path = s->path;
 
-                        r = table_add_many(table,
-                                           TABLE_STRING, path,
-                                           TABLE_STRING, s->type,
-                                           TABLE_STRING, s->id);
-                        if (r < 0)
-                                return table_log_add_error(r);
+                r = table_add_many(table,
+                                        TABLE_STRING, path,
+                                        TABLE_STRING, s->type,
+                                        TABLE_STRING, s->id);
+                if (r < 0)
+                        return table_log_add_error(r);
 
-                        if (strv_isempty(s->triggered))
-                                r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
-                        else if (strv_length(s->triggered) == 1)
-                                r = table_add_cell(table, NULL, TABLE_STRING, s->triggered[0]);
-                        else
-                                /* This should never happen, currently our socket units can only trigger a
-                                 * single unit. But let's handle this anyway, who knows what the future
-                                 * brings? */
-                                r = table_add_cell(table, NULL, TABLE_STRV, s->triggered);
-                        if (r < 0)
-                                return table_log_add_error(r);
-
-                }
-
-                on = ansi_highlight();
-                off = ansi_normal();
-        } else {
-                on = ansi_highlight_red();
-                off = ansi_normal();
+                if (strv_isempty(s->triggered))
+                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                else if (strv_length(s->triggered) == 1)
+                        r = table_add_cell(table, NULL, TABLE_STRING, s->triggered[0]);
+                else
+                        /* This should never happen, currently our socket units can only trigger a
+                                * single unit. But let's handle this anyway, who knows what the future
+                                * brings? */
+                        r = table_add_cell(table, NULL, TABLE_STRV, s->triggered);
+                if (r < 0)
+                        return table_log_add_error(r);
         }
 
         r = output_table(table);
         if (r < 0)
                 return r;
 
-        if (arg_legend != 0) {
-                printf("\n%s%u sockets listed.%s\n", on, cs, off);
-                if (!arg_all)
-                        printf("Pass --all to see loaded but inactive sockets, too.\n");
-        }
+        if (arg_legend != 0)
+                output_legend("socket", cs);
 
         return 0;
 }
@@ -430,7 +431,7 @@ int verb_list_sockets(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **sockets_with_suffix = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         _cleanup_free_ struct socket_info *socket_infos = NULL;
-        unsigned cs = 0;
+        size_t cs = 0;
         int r, n;
         sd_bus *bus;
 
@@ -597,9 +598,8 @@ static int timer_info_compare(const struct timer_info *a, const struct timer_inf
         return strcmp(a->id, b->id);
 }
 
-static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
+static int output_timers_list(struct timer_info *timer_infos, size_t n) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        const char *on, *off;
         int r;
 
         assert(timer_infos || n == 0);
@@ -612,7 +612,7 @@ static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
         if (arg_full)
                 table_set_width(table, 0);
 
-        (void) table_set_empty_string(table, "-");
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         for (struct timer_info *t = timer_infos; t < timer_infos + n; t++) {
                 _cleanup_free_ char *j = NULL, *activates = NULL;
@@ -641,23 +641,12 @@ static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
                         return table_log_add_error(r);
         }
 
-        if (n > 0) {
-                on = ansi_highlight();
-                off = ansi_normal();
-        } else {
-                on = ansi_highlight_red();
-                off = ansi_normal();
-        }
-
         r = output_table(table);
         if (r < 0)
                 return r;
 
-        if (arg_legend != 0) {
-                printf("\n%s%u timers listed.%s\n", on, n, off);
-                if (!arg_all)
-                        printf("Pass --all to see loaded but inactive timers, too.\n");
-        }
+        if (arg_legend != 0)
+                output_legend("timer", n);
 
         return 0;
 }
@@ -693,10 +682,10 @@ int verb_list_timers(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **timers_with_suffix = NULL;
         _cleanup_free_ struct timer_info *timer_infos = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
-        int n, c = 0;
         dual_timestamp nw;
+        size_t c = 0;
         sd_bus *bus;
-        int r;
+        int n, r;
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
@@ -757,6 +746,189 @@ int verb_list_timers(int argc, char *argv[], void *userdata) {
  cleanup:
         for (struct timer_info *t = timer_infos; t < timer_infos + c; t++)
                 strv_free(t->triggered);
+
+        return r;
+}
+
+struct automount_info {
+        const char *machine;
+        const char *id;
+        char *what;
+        char *where;
+        usec_t timeout_idle_usec;
+        bool mounted;
+};
+
+static int automount_info_compare(const struct automount_info *a, const struct automount_info *b) {
+        int r;
+
+        assert(a);
+        assert(b);
+
+        r = strcasecmp_ptr(a->machine, b->machine);
+        if (r != 0)
+                return r;
+
+        return strcmp(a->where, b->where);
+}
+
+static int collect_automount_info(sd_bus* bus, const UnitInfo* info, struct automount_info *ret_info) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *mount = NULL, *mount_path = NULL, *where = NULL, *what = NULL, *state = NULL;
+        usec_t timeout_idle_usec;
+        BusLocator locator;
+        int r;
+
+        assert(bus);
+        assert(info);
+        assert(ret_info);
+
+        locator = (BusLocator) {
+                .destination = "org.freedesktop.systemd1",
+                .path = info->unit_path,
+                .interface = "org.freedesktop.systemd1.Automount",
+        };
+
+        r = bus_get_property_string(bus, &locator, "Where", &error, &where);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get automount target: %s", bus_error_message(&error, r));
+
+        r = bus_get_property_trivial(bus, &locator, "TimeoutIdleUSec", &error, 't', &timeout_idle_usec);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get idle timeout: %s", bus_error_message(&error, r));
+
+        r = unit_name_from_path(where, ".mount", &mount);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate unit name from path: %m");
+
+        mount_path = unit_dbus_path_from_name(mount);
+        if (!mount_path)
+                return log_oom();
+
+        locator.path = mount_path;
+        locator.interface = "org.freedesktop.systemd1.Mount";
+
+        r = bus_get_property_string(bus, &locator, "What", &error, &what);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get mount source: %s", bus_error_message(&error, r));
+
+        locator.interface = "org.freedesktop.systemd1.Unit";
+
+        r = bus_get_property_string(bus, &locator, "ActiveState", &error, &state);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get mount state: %s", bus_error_message(&error, r));
+
+        *ret_info = (struct automount_info) {
+                .machine = info->machine,
+                .id = info->id,
+                .what = TAKE_PTR(what),
+                .where = TAKE_PTR(where),
+                .timeout_idle_usec = timeout_idle_usec,
+                .mounted = streq_ptr(state, "active"),
+        };
+
+        return 0;
+}
+
+static int output_automounts_list(struct automount_info *infos, size_t n_infos) {
+        _cleanup_(table_unrefp) Table *table = NULL;
+        int r;
+
+        assert(infos || n_infos == 0);
+
+        table = table_new("what", "where", "mounted", "idle timeout", "unit");
+        if (!table)
+                return log_oom();
+
+        table_set_header(table, arg_legend != 0);
+        if (arg_full)
+                table_set_width(table, 0);
+
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+
+        for (struct automount_info *info = infos; info < infos + n_infos; info++) {
+                _cleanup_free_ char *j = NULL;
+                const char *unit;
+
+                if (info->machine) {
+                        j = strjoin(info->machine, ":", info->id);
+                        if (!j)
+                                return log_oom();
+                        unit = j;
+                } else
+                        unit = info->id;
+
+                r = table_add_many(table,
+                                   TABLE_STRING, info->what,
+                                   TABLE_STRING, info->where,
+                                   TABLE_BOOLEAN, info->mounted,
+                                   TABLE_TIMESPAN_MSEC, info->timeout_idle_usec,
+                                   TABLE_STRING, unit);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        r = output_table(table);
+        if (r < 0)
+                return r;
+
+        if (arg_legend != 0)
+                output_legend("automount", n_infos);
+
+        return 0;
+}
+
+int verb_list_automounts(int argc, char *argv[], void *userdata) {
+        _cleanup_(message_set_freep) Set *replies = NULL;
+        _cleanup_strv_free_ char **machines = NULL, **automounts = NULL;
+        _cleanup_free_ UnitInfo *unit_infos = NULL;
+        _cleanup_free_ struct automount_info *automount_infos = NULL;
+        size_t c = 0;
+        int r, n;
+        sd_bus *bus;
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
+
+        pager_open(arg_pager_flags);
+
+        r = expand_unit_names(bus, strv_skip(argv, 1), ".automount", &automounts, NULL);
+        if (r < 0)
+                return r;
+
+        if (argc == 1 || automounts) {
+                n = get_unit_list_recursive(bus, automounts, &unit_infos, &replies, &machines);
+                if (n < 0)
+                        return n;
+
+                for (const UnitInfo *u = unit_infos; u < unit_infos + n; u++) {
+                        if (!endswith(u->id, ".automount"))
+                                continue;
+
+                        if (!GREEDY_REALLOC(automount_infos, c + 1)) {
+                                r = log_oom();
+                                goto cleanup;
+                        }
+
+                        r = collect_automount_info(bus, u, &automount_infos[c]);
+                        if (r < 0)
+                                goto cleanup;
+
+                        c++;
+                }
+
+                typesafe_qsort(automount_infos, c, automount_info_compare);
+        }
+
+        output_automounts_list(automount_infos, c);
+
+ cleanup:
+        assert(c == 0 || automount_infos);
+        for (struct automount_info *info = automount_infos; info < automount_infos + c; info++) {
+                free(info->what);
+                free(info->where);
+        }
 
         return r;
 }

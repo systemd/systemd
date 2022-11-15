@@ -48,7 +48,7 @@ static void fuzz_client(sd_dhcp6_client *client, const uint8_t *data, size_t siz
                         assert_se(IN_SET(client->state, DHCP6_STATE_REQUEST, DHCP6_STATE_BOUND));
                         break;
                 case DHCP6_STATE_REQUEST:
-                        assert_se(client->state == DHCP6_STATE_BOUND);
+                        assert_se(IN_SET(client->state, DHCP6_STATE_BOUND, DHCP6_STATE_SOLICITATION));
                         break;
                 default:
                         assert_not_reached();
@@ -73,7 +73,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         struct in6_addr hint = { { { 0x3f, 0xfe, 0x05, 0x01, 0xff, 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } } };
         static const char *v1_data = "hogehoge", *v2_data = "foobar";
 
-        if (size > 65536)
+        if (outside_size_range(size, 0, 65536))
                 return 0;
 
         assert_se(sd_event_new(&e) >= 0);

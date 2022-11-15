@@ -10,12 +10,20 @@
 #   - https://github.com/github/codeql-action/issues/430#issuecomment-806092120
 #   - https://codeql.github.com/docs/codeql-cli/creating-codeql-query-suites/
 
+# Note: the codeql/<lang>-queries pack name can be found in the CodeQL repo[0]
+#       in <lang>/ql/src/qlpack.yml. The respective codeql-suites are then
+#       under <lang>/ql/src/codeql-suites/.
+#
+# [0] https://github.com/github/codeql
 - import: codeql-suites/cpp-lgtm.qls
   from: codeql/cpp-queries
+- import: codeql-suites/python-lgtm.qls
+  from: codeql/python-queries
 - include:
     id:
       - cpp/bad-strncpy-size
       - cpp/declaration-hides-variable
+      - cpp/include-non-header
       - cpp/inconsistent-null-check
       - cpp/mistyped-function-arguments
       - cpp/nested-loops-with-same-variable

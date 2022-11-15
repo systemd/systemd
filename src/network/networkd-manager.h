@@ -56,8 +56,6 @@ struct Manager {
         OrderedSet *address_pools;
         Set *dhcp_pd_subnet_ids;
 
-        usec_t network_dirs_ts_usec;
-
         DUID dhcp_duid;
         DUID dhcp6_duid;
         DUID duid_product_uuid;
@@ -95,12 +93,13 @@ struct Manager {
         usec_t speed_meter_usec_new;
         usec_t speed_meter_usec_old;
 
-        bool dhcp4_prefix_root_cannot_set_table;
         bool bridge_mdb_on_master_not_supported;
 
         FirewallContext *fw_ctx;
 
         OrderedSet *request_queue;
+
+        Hashmap *tuntap_fds_by_name;
 };
 
 int manager_new(Manager **ret, bool test_mode);
@@ -110,7 +109,6 @@ int manager_setup(Manager *m);
 int manager_start(Manager *m);
 
 int manager_load_config(Manager *m);
-bool manager_should_reload(Manager *m);
 
 int manager_enumerate(Manager *m);
 

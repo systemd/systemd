@@ -98,8 +98,8 @@ INTERACTIVE_DEBUG=1
     (e.g. by setting a usable default terminal, suppressing the shutdown after
     the test, etc.)
 
-The kernel and initramfs can be specified with $KERNEL_BIN and $INITRD.
-(Fedora's or Debian's default kernel path and initramfs are used by default)
+The kernel and initrd can be specified with $KERNEL_BIN and $INITRD. (Fedora's
+or Debian's default kernel path and initrd are used by default)
 
 A script will try to find your qemu binary. If you want to specify a different
 one with $QEMU_BIN.
@@ -211,10 +211,10 @@ where --test-name= is the name of the test you want to run/debug. The
 --shell-fail option will pause the execution in case the test fails and shows
 you the information how to connect to the testbed for further debugging.
 
-Manually running LGTM/CodeQL analysis
+Manually running CodeQL analysis
 =====================================
 
-This is mostly useful for debugging various CodeQL/LGTM quirks.
+This is mostly useful for debugging various CodeQL quirks.
 
 Download the CodeQL Bundle from https://github.com/github/codeql-action/releases
 and unpack it somewhere. From now the 'tutorial' assumes you have the `codeql`
@@ -238,9 +238,9 @@ This can occur if the specified build commands failed to compile or process any 
  - For other languages, the --command must specify a "clean" build which compiles
    all the source code files without reusing existing build artefacts.
 
-If you want to run all queries systemd uses in LGTM/CodeQL, run:
+If you want to run all queries systemd uses in CodeQL, run:
 
-$ codeql database analyze codeqldb/ --format csv --output results.csv .github/codeql-custom.qls .lgtm/cpp-queries/*.ql -vvv
+$ codeql database analyze codeqldb/ --format csv --output results.csv .github/codeql-custom.qls .github/codeql-queries/*.ql -vvv
 
 Note: this will take a while.
 

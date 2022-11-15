@@ -339,13 +339,13 @@ static void test_option_set(void) {
 
         if (verbose)
                 printf("%2d: 0x%02x(0x%02x) (options)\n", 9, result->options[9],
-                       SD_DHCP_OPTION_END);
+                       (unsigned) SD_DHCP_OPTION_END);
 
         assert_se(result->options[9] == SD_DHCP_OPTION_END);
 
         if (verbose)
                 printf("%2d: 0x%02x(0x%02x) (options)\n", 10, result->options[10],
-                       SD_DHCP_OPTION_PAD);
+                       (unsigned) SD_DHCP_OPTION_PAD);
 
         assert_se(result->options[10] == SD_DHCP_OPTION_PAD);
 

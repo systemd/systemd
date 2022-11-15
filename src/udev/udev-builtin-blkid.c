@@ -23,6 +23,7 @@
 #include "gpt.h"
 #include "parse-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "strxcpyx.h"
 #include "udev-builtin.h"
 
@@ -57,6 +58,10 @@ static void print_property(sd_device *dev, bool test, const char *name, const ch
                 udev_builtin_add_property(dev, test, "ID_FS_LABEL", s);
                 blkid_encode_string(value, s, sizeof(s));
                 udev_builtin_add_property(dev, test, "ID_FS_LABEL_ENC", s);
+
+        } else if (STR_IN_SET(name, "FSSIZE", "FSLASTBLOCK", "FSBLOCKSIZE")) {
+                strscpyl(s, sizeof(s), "ID_FS_", name + 2, NULL);
+                udev_builtin_add_property(dev, test, s, value);
 
         } else if (streq(name, "PTTYPE")) {
                 udev_builtin_add_property(dev, test, "ID_PART_TABLE_TYPE", value);
@@ -112,7 +117,7 @@ static void print_property(sd_device *dev, bool test, const char *name, const ch
 
 static int find_gpt_root(sd_device *dev, blkid_probe pr, bool test) {
 
-#if defined(GPT_ROOT_NATIVE) && ENABLE_EFI
+#if defined(SD_GPT_ROOT_NATIVE) && ENABLE_EFI
 
         _cleanup_free_ char *root_id = NULL, *root_label = NULL;
         bool found_esp = false;
@@ -152,7 +157,7 @@ static int find_gpt_root(sd_device *dev, blkid_probe pr, bool test) {
                 if (sd_id128_from_string(stype, &type) < 0)
                         continue;
 
-                if (sd_id128_equal(type, GPT_ESP)) {
+                if (sd_id128_equal(type, SD_GPT_ESP)) {
                         sd_id128_t id, esp;
 
                         /* We found an ESP, let's see if it matches
@@ -168,11 +173,11 @@ static int find_gpt_root(sd_device *dev, blkid_probe pr, bool test) {
                         if (sd_id128_equal(id, esp))
                                 found_esp = true;
 
-                } else if (sd_id128_equal(type, GPT_ROOT_NATIVE)) {
+                } else if (sd_id128_equal(type, SD_GPT_ROOT_NATIVE)) {
                         unsigned long long flags;
 
                         flags = blkid_partition_get_flags(pp);
-                        if (flags & GPT_FLAG_NO_AUTO)
+                        if (flags & SD_GPT_FLAG_NO_AUTO)
                                 continue;
 
                         /* We found a suitable root partition, let's remember the first one, or the one with
@@ -293,6 +298,9 @@ static int builtin_blkid(sd_device *dev, sd_netlink **rtnl, int argc, char *argv
         blkid_probe_set_superblocks_flags(pr,
                 BLKID_SUBLKS_LABEL | BLKID_SUBLKS_UUID |
                 BLKID_SUBLKS_TYPE | BLKID_SUBLKS_SECTYPE |
+#ifdef BLKID_SUBLKS_FSINFO
+                BLKID_SUBLKS_FSINFO |
+#endif
                 BLKID_SUBLKS_USAGE | BLKID_SUBLKS_VERSION);
 
         if (noraid)
@@ -302,7 +310,7 @@ static int builtin_blkid(sd_device *dev, sd_netlink **rtnl, int argc, char *argv
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get device name: %m");
 
-        fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+        fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0) {
                 bool ignore = ERRNO_IS_DEVICE_ABSENT(fd);
                 log_device_debug_errno(dev, fd, "Failed to open block device %s%s: %m",

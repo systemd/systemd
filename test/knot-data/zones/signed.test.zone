@@ -1,0 +1,42 @@
+; SPDX-License-Identifier: LGPL-2.1-or-later
+$TTL 86400
+$ORIGIN signed.test.
+
+@ IN SOA ns1.unsigned.test. root.unsigned.test. (
+    42   ; serial
+    3H   ; refresh
+    15M  ; retry
+    1W   ; expire
+    1D   ; minimum TTL
+)
+
+; NS info
+                      NS ns1.unsigned.test.
+
+*.wild                TXT "this is a wildcard"
+
+@                     MX 10 mail.signed.test.
+
+                      A 10.0.0.10
+mail                  A 10.0.0.11
+
+; https://github.com/systemd/systemd/issues/22002
+dupe                  A 10.0.0.12
+dupe                  A 10.0.0.13
+
+; CNAME_REDIRECTS_MAX is 16, so let's test something close to that
+cname-chain           CNAME follow1.signed.test.
+follow1               CNAME follow2.signed.test.
+follow2               CNAME follow3.nested.signed.test.
+follow3.nested        CNAME follow4.signed.test.
+follow4               CNAME follow5.a.b.c.d.signed.test.
+follow5.a.b.c.d       CNAME follow6.signed.test.
+follow6               CNAME follow7.what.is.love.signed.test.
+follow7.what.is.love  CNAME follow8.signed.test.
+follow8               CNAME follow9.almost.there.signed.test.
+follow9.almost.there  CNAME follow10.so.close.signed.test.
+follow10.so.close     CNAME follow11.yet.so.far.signed.test.
+follow11.yet.so.far   CNAME follow12.getting.hot.signed.test.
+follow12.getting.hot  CNAME follow13.almost.final.signed.test.
+follow13.almost.final CNAME follow14.final.signed.test.
+follow14.final        A     10.0.0.14

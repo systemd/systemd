@@ -5,12 +5,12 @@
 #include "sd-hwdb.h"
 
 #include "alloc-util.h"
+#include "build.h"
 #include "hwdb-util.h"
 #include "main-func.h"
 #include "pretty-print.h"
 #include "selinux-util.h"
 #include "terminal-util.h"
-#include "util.h"
 #include "verbs.h"
 
 static const char *arg_hwdb_bin_dir = NULL;
@@ -18,7 +18,7 @@ static const char *arg_root = NULL;
 static bool arg_strict = false;
 
 static int verb_query(int argc, char *argv[], void *userdata) {
-        return hwdb_query(argv[1]);
+        return hwdb_query(argv[1], arg_root);
 }
 
 static int verb_update(int argc, char *argv[], void *userdata) {

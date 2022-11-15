@@ -218,6 +218,7 @@
         </varlistentry>
 
         <xi:include href="standard-options.xml" xpointer="help" />
+        <xi:include href="standard-options.xml" xpointer="no-pager" />
       </variablelist>
 
       <para>The generated output shows the current device database entry in a terse format. Each line shown
@@ -799,10 +800,11 @@
       …
       </title>
 
-      <para><command>udevadm lock</command> takes an (advisory) exclusive lock(s) on a block device (or
-      multiple thereof), as per <ulink url="https://systemd.io/BLOCK_DEVICE_LOCKING">Locking Block Device
-      Access</ulink> and invokes a program with the lock(s) taken. When the invoked program exits the lock(s)
-      are automatically released.</para>
+      <para><command>udevadm lock</command> takes an (advisory) exclusive lock on a block device (or all
+      specified devices), as per <ulink url="https://systemd.io/BLOCK_DEVICE_LOCKING">Locking Block Device
+      Access</ulink> and invokes a program with the locks taken. When the invoked program exits the locks
+      are automatically released and its return value is propagated as exit code of <command>udevadm
+      lock</command>.</para>
 
       <para>This tool is in particular useful to ensure that
       <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
@@ -859,8 +861,8 @@
           <term><option>--print</option></term>
           <term><option>-p</option></term>
 
-          <listitem><para>Instead of locking the specified device(s) and executing a command, just print the
-          device path(s) that would be locked, and execute no command. This command is useful to determine
+          <listitem><para>Instead of locking the specified devices and executing a command, just print the
+          device paths that would be locked, and execute no command. This command is useful to determine
           the "whole" block device in case a partition block device is specified. The devices will be sorted
           by their device node major number as primary ordering key and the minor number as secondary
           ordering key (i.e. they are shown in the order they'd be locked). Note that the number of lines

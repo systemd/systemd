@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     concurrency:
       group: ${{ github.workflow }}-${{ toJSON(matrix.env) }}-${{ github.ref }}
       cancel-in-progress: true
@@ -25,11 +25,11 @@ jobs:
       fail-fast: false
       matrix:
         env:
-          - { COMPILER: "gcc",   COMPILER_VERSION: "10", LINKER: "bfd",  CRYPTOLIB: "gcrypt"  }
-          - { COMPILER: "gcc",   COMPILER_VERSION: "11", LINKER: "gold", CRYPTOLIB: "openssl" }
-          - { COMPILER: "clang", COMPILER_VERSION: "12", LINKER: "gold", CRYPTOLIB: "gcrypt"  }
-          - { COMPILER: "clang", COMPILER_VERSION: "13", LINKER: "lld",  CRYPTOLIB: "openssl" }
-          - { COMPILER: "clang", COMPILER_VERSION: "14", LINKER: "bfd",  CRYPTOLIB: "auto"    }
+          - { COMPILER: "gcc",   COMPILER_VERSION: "11", LINKER: "bfd",  CRYPTOLIB: "gcrypt"  }
+          - { COMPILER: "gcc",   COMPILER_VERSION: "12", LINKER: "gold", CRYPTOLIB: "openssl" }
+          - { COMPILER: "clang", COMPILER_VERSION: "13", LINKER: "mold", CRYPTOLIB: "gcrypt"  }
+          - { COMPILER: "clang", COMPILER_VERSION: "14", LINKER: "lld",  CRYPTOLIB: "openssl" }
+          - { COMPILER: "clang", COMPILER_VERSION: "15", LINKER: "bfd",  CRYPTOLIB: "auto"    }
     env: ${{ matrix.env }}
     steps:
       - name: Repository checkout

@@ -7,7 +7,7 @@
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "chase-symlinks.h"
-#include "devnum-util.h"
+#include "device-util.h"
 #include "dirent-util.h"
 #include "env-util.h"
 #include "fd-util.h"
@@ -260,7 +260,8 @@ static int download_manifest(
         if (pipe2(pfd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to allocate pipe: %m");
 
-        log_info("%s Acquiring manifest file %s…", special_glyph(SPECIAL_GLYPH_DOWNLOAD), suffixed_url);
+        log_info("%s Acquiring manifest file %s%s", special_glyph(SPECIAL_GLYPH_DOWNLOAD),
+                 suffixed_url, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
         r = safe_fork("(sd-pull)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
         if (r < 0)
@@ -607,7 +608,7 @@ int resource_resolve_path(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "File system is not placed on a partition block device, cannot determine whole block device backing root file system.");
 
-        r = device_path_make_canonical(S_IFBLK, d, &p);
+        r = devname_from_devnum(S_IFBLK, d, &p);
         if (r < 0)
                 return r;
 

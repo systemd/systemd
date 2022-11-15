@@ -256,7 +256,7 @@ int link_set_sysctl(Link *link) {
 
         r = link_set_ipv6_forward(link);
         if (r < 0)
-                log_link_warning_errno(link, r, "Cannot configure IPv6 packet forwarding, ignoring: %m");;
+                log_link_warning_errno(link, r, "Cannot configure IPv6 packet forwarding, ignoring: %m");
 
         r = link_set_ipv6_privacy_extensions(link);
         if (r < 0)
@@ -327,12 +327,11 @@ int config_parse_ipv6_privacy_extensions(
                 void *data,
                 void *userdata) {
 
-        IPv6PrivacyExtensions s, *ipv6_privacy_extensions = data;
+        IPv6PrivacyExtensions s, *ipv6_privacy_extensions = ASSERT_PTR(data);
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(ipv6_privacy_extensions);
 
         s = ipv6_privacy_extensions_from_string(rvalue);
         if (s < 0) {

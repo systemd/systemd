@@ -112,15 +112,18 @@ int config_parse_many(
                 const void *table,
                 ConfigParseFlags flags,
                 void *userdata,
-                Hashmap **ret_stats_by_path);   /* possibly NULL */
+                Hashmap **ret_stats_by_path,  /* possibly NULL */
+                char ***ret_drop_in_files);   /* possibly NULL */
 
 int config_get_stats_by_path(
                 const char *suffix,
                 const char *root,
                 unsigned flags,
                 const char* const* dirs,
+                bool check_dropins,
                 Hashmap **ret);
 
+int hashmap_put_stats_by_path(Hashmap **stats_by_path, const char *path, const struct stat *st);
 bool stats_by_path_equal(Hashmap *a, Hashmap *b);
 
 typedef struct ConfigSection {
@@ -206,6 +209,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_in_addr_non_null);
 CONFIG_PARSER_PROTOTYPE(config_parse_percent);
 CONFIG_PARSER_PROTOTYPE(config_parse_permyriad);
 CONFIG_PARSER_PROTOTYPE(config_parse_pid);
+CONFIG_PARSER_PROTOTYPE(config_parse_sec_fix_0);
 
 typedef enum Disabled {
         DISABLED_CONFIGURATION,
@@ -242,13 +246,12 @@ typedef enum ConfigParseStringFlags {
 
 #define DEFINE_CONFIG_PARSE_PTR(function, parser, type, msg)            \
         CONFIG_PARSER_PROTOTYPE(function) {                             \
-                type *i = data;                                         \
+                type *i = ASSERT_PTR(data);                             \
                 int r;                                                  \
                                                                         \
                 assert(filename);                                       \
                 assert(lvalue);                                         \
                 assert(rvalue);                                         \
-                assert(data);                                           \
                                                                         \
                 r = parser(rvalue, i);                                  \
                 if (r < 0)                                              \
@@ -308,7 +311,7 @@ typedef enum ConfigParseStringFlags {
 
 #define DEFINE_CONFIG_PARSE_ENUMV(function, name, type, invalid, msg)          \
         CONFIG_PARSER_PROTOTYPE(function) {                                    \
-                type **enums = data;                                           \
+                type **enums = ASSERT_PTR(data);                               \
                 _cleanup_free_ type *xs = NULL;                                \
                 size_t i = 0;                                                  \
                 int r;                                                         \
@@ -316,7 +319,6 @@ typedef enum ConfigParseStringFlags {
                 assert(filename);                                              \
                 assert(lvalue);                                                \
                 assert(rvalue);                                                \
-                assert(data);                                                  \
                                                                                \
                 xs = new0(type, 1);                                            \
                 if (!xs)                                                       \

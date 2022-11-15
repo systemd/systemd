@@ -5,7 +5,6 @@
 #include <sys/types.h>
 
 #include "time-util.h"
-#include "util.h"
 
 #if ENABLE_UTMP
 #include <utmpx.h>
@@ -23,7 +22,7 @@ int utmp_wall(
         const char *message,
         const char *username,
         const char *origin_tty,
-        bool (*match_tty)(const char *tty, void *userdata),
+        bool (*match_tty)(const char *tty, bool is_local, void *userdata),
         void *userdata);
 
 static inline bool utxent_start(void) {
@@ -59,7 +58,7 @@ static inline int utmp_wall(
                 const char *message,
                 const char *username,
                 const char *origin_tty,
-                bool (*match_tty)(const char *tty, void *userdata),
+                bool (*match_tty)(const char *tty, bool is_local, void *userdata),
                 void *userdata) {
         return 0;
 }

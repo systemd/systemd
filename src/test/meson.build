@@ -41,6 +41,8 @@ test_dlopen_c = files('test-dlopen.c')
 ############################################################
 
 tests += [
+        [files('test-argv-util.c')],
+
         [files('test-device-nodes.c')],
 
         [files('test-ether-addr-util.c')],
@@ -205,13 +207,25 @@ tests += [
 
         [files('test-ratelimit.c')],
 
-        [files('test-util.c')],
+        [files('test-raw-clone.c')],
+
+        [files('test-limits-util.c')],
+
+        [files('test-logarithm.c')],
 
         [files('test-macro.c')],
 
+        [files('test-math-util.c'),
+         [],
+         [libm]],
+
+        [files('test-memory-util.c')],
+
         [files('test-mkdir.c')],
 
-        [files('test-json.c')],
+        [files('test-json.c'),
+         [],
+         [libm]],
 
         [files('test-modhex.c')],
 
@@ -225,6 +239,8 @@ tests += [
         [files('test-mountpoint-util.c')],
 
         [files('test-exec-util.c')],
+
+        [files('test-execve.c')],
 
         [files('test-hexdecoct.c')],
 
@@ -275,7 +291,9 @@ tests += [
 
         [files('test-parse-helpers.c')],
 
-        [files('test-parse-util.c')],
+        [files('test-parse-util.c'),
+         [],
+         [libm]],
 
         [files('test-sysctl-util.c')],
 
@@ -478,6 +496,10 @@ tests += [
 
         [files('test-date.c')],
 
+        [files('test-sbat.c'),
+         [], [], [], 'HAVE_GNU_EFI', '',
+         ['-I@0@'.format(efi_config_h_dir)]],
+
         [files('test-sleep.c')],
 
         [files('test-tpm2.c')],
@@ -534,6 +556,8 @@ tests += [
         [files('test-bootspec.c')],
 
         [files('test-strv.c')],
+
+        [files('test-nulstr-util.c')],
 
         [files('test-path-util.c')],
 
@@ -601,10 +625,15 @@ tests += [
         [files('test-errno-list.c') +
          generated_gperf_headers],
 
+        [files('test-errno-util.c')],
+
         [files('test-ip-protocol-list.c') +
          shared_generated_gperf_headers],
 
         [files('test-journal-importer.c')],
+
+        [files('test-utmp.c'),
+         [], [], [], 'ENABLE_UTMP'],
 
         [files('test-udev.c'),
          [libudevd_core,
@@ -660,6 +689,8 @@ tests += [
          [], [], [], 'ENABLE_NSCD', 'manual'],
 
         [files('test-hmac.c')],
+
+        [files('test-sha256.c')],
 ]
 
 ############################################################

@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# SPDX-License-Identifier: CC0-1.0
+# SPDX-License-Identifier: MIT-0
 
 import ast
 import re
@@ -17,7 +17,8 @@ def read_os_release():
         line = line.rstrip()
         if not line or line.startswith('#'):
             continue
-        if m := re.match(r'([A-Z][A-Z_0-9]+)=(.*)', line):
+        m = re.match(r'([A-Z][A-Z_0-9]+)=(.*)', line)
+        if m:
             name, val = m.groups()
             if val and val[0] in '"\'':
                 val = ast.literal_eval(val)

@@ -22,16 +22,16 @@ is not.
 ## A Bit of Background
 
 When complex storage technologies are used as backing for the root file system
-this needs to be set up by the initial RAM file system (initrd), i.e. on Fedora
-by Dracut. In newer systemd versions tear-down of the root file system backing
-is also done by the initrd: after terminating all remaining running processes
-and unmounting all file systems it can (which means excluding the root fs)
-systemd will jump back into the initrd code allowing it to unmount the final
-file systems (and its storage backing) that could not be unmounted as long as
-the OS was still running from the main root file system. The initrd' job is to
-detach/unmount the root fs, i.e. inverting the exact commands it used to set
-them up in the first place. This is not only cleaner, but also allows for the
-first time arbitrary complex stacks of storage technology.
+this needs to be set up by the initrd, i.e. on Fedora by Dracut. In newer
+systemd versions tear-down of the root file system backing is also done by the
+initrd: after terminating all remaining running processes and unmounting all
+file systems it can (which means excluding the root fs) systemd will jump back
+into the initrd code allowing it to unmount the final file systems (and its
+storage backing) that could not be unmounted as long as the OS was still
+running from the main root file system. The initrd' job is to detach/unmount
+the root fs, i.e. inverting the exact commands it used to set them up in the
+first place. This is not only cleaner, but also allows for the first time
+arbitrary complex stacks of storage technology.
 
 Previous attempts to handle root file system setups with complex storage as
 backing usually tried to maintain the root storage with program code stored on
@@ -108,10 +108,9 @@ to find a different solution to your problem._
 
 The recommended way to distinguish between run-from-initrd and run-from-rootfs
 for a daemon is to check for `/etc/initrd-release` (which exists on all modern
-initrd implementations, see the [initrd
-Interface](https://systemd.io/INITRD_INTERFACE) for details) which when exists
-results in `argv[0][0]` being set to `@`, and otherwise doesn't. Something like
-this:
+initrd implementations, see the [initrd Interface](INITRD_INTERFACE.md) for
+details) which when exists results in `argv[0][0]` being set to `@`, and
+otherwise doesn't. Something like this:
 
 ```c
 #include <unistd.h>
@@ -191,4 +190,4 @@ few additional notes for supporting these setups:
   program consult this blog story: [Socket
   Activation](http://0pointer.de/blog/projects/socket-activation.html)
 
-* Consider having a look at the [initrd Interface of systemd](https://systemd.io/INITRD_INTERFACE).
+* Consider having a look at the [initrd Interface of systemd](INITRD_INTERFACE.md).

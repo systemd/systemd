@@ -18,7 +18,6 @@
 #include "socket-util.h"
 #include "strxcpyx.h"
 #include "udev-ctrl.h"
-#include "util.h"
 
 /* wire protocol magic must match */
 #define UDEV_CTRL_MAGIC                                0xdead1dea
@@ -53,7 +52,7 @@ int udev_ctrl_new_from_fd(UdevCtrl **ret, int fd) {
         assert(ret);
 
         if (fd < 0) {
-                sock = socket(AF_LOCAL, SOCK_SEQPACKET|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
+                sock = socket(AF_UNIX, SOCK_SEQPACKET|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
                 if (sock < 0)
                         return log_error_errno(errno, "Failed to create socket: %m");
         }
@@ -217,12 +216,10 @@ static int udev_ctrl_connection_event_handler(sd_event_source *s, int fd, uint32
 }
 
 static int udev_ctrl_event_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        UdevCtrl *uctrl = userdata;
+        UdevCtrl *uctrl = ASSERT_PTR(userdata);
         _cleanup_close_ int sock = -1;
         struct ucred ucred;
         int r;
-
-        assert(uctrl);
 
         sock = accept4(fd, NULL, NULL, SOCK_CLOEXEC|SOCK_NONBLOCK);
         if (sock < 0) {

@@ -21,7 +21,7 @@ struct DnsQuestionItem {
 struct DnsQuestion {
         unsigned n_ref;
         size_t n_keys, n_allocated;
-        DnsQuestionItem items[0];
+        DnsQuestionItem items[];
 };
 
 DnsQuestion *dns_question_new(size_t n);
@@ -58,6 +58,8 @@ static inline size_t dns_question_size(DnsQuestion *q) {
 static inline bool dns_question_isempty(DnsQuestion *q) {
         return dns_question_size(q) <= 0;
 }
+
+int dns_question_merge(DnsQuestion *a, DnsQuestion *b, DnsQuestion **ret);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuestion*, dns_question_unref);
 

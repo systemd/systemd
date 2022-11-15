@@ -5,12 +5,13 @@
 # Gökhan Gurbetoğlu <ggurbet@gmail.com>, 2015.
 # Oğuz Ersen <oguzersen@protonmail.com>, 2020.
 # Muhammet Kara <muhammetk@gmail.com>, 2015-2020.
+# Oğuz Ersen <oguz@ersen.moe>, 2022.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2020-11-28 13:35+0000\n"
-"Last-Translator: Oğuz Ersen <oguzersen@protonmail.com>\n"
+"POT-Creation-Date: 2022-10-20 10:35+0200\n"
+"PO-Revision-Date: 2022-10-22 17:19+0000\n"
+"Last-Translator: Oğuz Ersen <oguz@ersen.moe>\n"
 "Language-Team: Turkish <https://translate.fedoraproject.org/projects/systemd/"
 "master/tr/>\n"
 "Language: tr\n"
@@ -18,7 +19,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 4.3.2\n"
+"X-Generator: Weblate 4.14.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -160,6 +161,22 @@ msgstr "Ürün UUID'ini al"
 #: src/hostname/org.freedesktop.hostname1.policy:52
 msgid "Authentication is required to get product UUID."
 msgstr "Ürün UUID'ini almak için kimlik doğrulaması gereklidir."
+
+#: src/hostname/org.freedesktop.hostname1.policy:61
+msgid "Get hardware serial number"
+msgstr "Donanım seri numarasını al"
+
+#: src/hostname/org.freedesktop.hostname1.policy:62
+msgid "Authentication is required to get hardware serial number."
+msgstr "Donanım seri numarasını almak kimlik doğrulaması gerektiriyor."
+
+#: src/hostname/org.freedesktop.hostname1.policy:71
+msgid "Get system description"
+msgstr "Sistem açıklamasını al"
+
+#: src/hostname/org.freedesktop.hostname1.policy:72
+msgid "Authentication is required to get system description."
+msgstr "Sistem açıklamasını almak kimlik doğrulaması gerektiriyor."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
@@ -942,7 +959,7 @@ msgstr "'$(unit)' yeniden yüklemek için kimlik doğrulaması gereklidir."
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "'$(unit)' yeniden başlatmak için kimlik doğrulaması gereklidir."
 
-#: src/core/dbus-unit.c:535
+#: src/core/dbus-unit.c:546
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
@@ -950,19 +967,19 @@ msgstr ""
 "'$(unit)' süreçlerine bir UNIX sinyali göndermek için kimlik doğrulaması "
 "gereklidir."
 
-#: src/core/dbus-unit.c:566
+#: src/core/dbus-unit.c:576
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "'$(unit)'in \"failed\" (başarısız) durumunu sıfırlamak için kimlik "
 "doğrulaması gereklidir."
 
-#: src/core/dbus-unit.c:599
+#: src/core/dbus-unit.c:608
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 "'$(unit)' üzerindeki özellikleri ayarlamak için kimlik doğrulaması "
 "gereklidir."
 
-#: src/core/dbus-unit.c:708
+#: src/core/dbus-unit.c:714
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
@@ -970,7 +987,7 @@ msgstr ""
 "'$(unit)' ile ilişkili dosyaları ve dizinleri silmek için kimlik doğrulaması "
 "gereklidir."
 
-#: src/core/dbus-unit.c:757
+#: src/core/dbus-unit.c:762
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

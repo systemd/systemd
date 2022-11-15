@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "build.h"
 #include "chase-symlinks.h"
 #include "dirent-util.h"
 #include "fd-util.h"
@@ -369,10 +370,11 @@ static int enumerate_dir(
 
 static int should_skip_path(const char *prefix, const char *suffix) {
 #if HAVE_SPLIT_USR
-        _cleanup_free_ char *target = NULL;
-        const char *dirname, *p;
+        _cleanup_free_ char *target = NULL, *dirname = NULL;
 
-        dirname = prefix_roota(prefix, suffix);
+        dirname = path_join(prefix, suffix);
+        if (!dirname)
+                return -ENOMEM;
 
         if (chase_symlinks(dirname, NULL, 0, &target, NULL) < 0)
                 return false;
@@ -397,7 +399,6 @@ static int should_skip_path(const char *prefix, const char *suffix) {
 }
 
 static int process_suffix(const char *suffix, const char *onlyprefix) {
-        const char *p;
         char *f, *key;
         OrderedHashmap *top, *bottom, *drops, *h;
         int r = 0, k, n_found = 0;
@@ -474,7 +475,6 @@ finish:
 }
 
 static int process_suffixes(const char *onlyprefix) {
-        const char *n;
         int n_found = 0, r;
 
         NULSTR_FOREACH(n, suffixes) {
@@ -489,8 +489,6 @@ static int process_suffixes(const char *onlyprefix) {
 }
 
 static int process_suffix_chop(const char *arg) {
-        const char *p;
-
         assert(arg);
 
         if (!path_is_absolute(arg))

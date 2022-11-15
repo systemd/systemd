@@ -16,8 +16,6 @@ typedef enum IPv6AcceptRAStartDHCP6Client {
 } IPv6AcceptRAStartDHCP6Client;
 
 typedef struct NDiscRDNSS {
-        /* Used when GC'ing old DNS servers when configuration changes. */
-        bool marked;
         struct in6_addr router;
         /* This is an absolute point in time, and NOT a timespan/duration.
          * Must be specified with clock_boottime_or_monotonic(). */
@@ -26,8 +24,6 @@ typedef struct NDiscRDNSS {
 } NDiscRDNSS;
 
 typedef struct NDiscDNSSL {
-        /* Used when GC'ing old domains when configuration changes. */
-        bool marked;
         struct in6_addr router;
         /* This is an absolute point in time, and NOT a timespan/duration.
          * Must be specified with clock_boottime_or_monotonic(). */
@@ -44,7 +40,7 @@ bool link_ipv6_accept_ra_enabled(Link *link);
 void network_adjust_ipv6_accept_ra(Network *network);
 
 int ndisc_start(Link *link);
-void ndisc_vacuum(Link *link);
+int ndisc_stop(Link *link);
 void ndisc_flush(Link *link);
 
 int link_request_ndisc(Link *link);

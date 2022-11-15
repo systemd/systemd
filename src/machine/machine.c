@@ -8,6 +8,7 @@
 
 #include "alloc-util.h"
 #include "bus-error.h"
+#include "bus-locator.h"
 #include "bus-util.h"
 #include "env-file.h"
 #include "errno-util.h"
@@ -31,7 +32,6 @@
 #include "tmpfile-util.h"
 #include "unit-name.h"
 #include "user-util.h"
-#include "util.h"
 
 Machine* machine_new(Manager *manager, MachineClass class, const char *name) {
         Machine *m;
@@ -347,12 +347,10 @@ static int machine_start_scope(
         if (!unit)
                 return log_oom();
 
-        r = sd_bus_message_new_method_call(
+        r = bus_message_new_method_call(
                         machine->manager->bus,
                         &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
+                        bus_systemd_mgr,
                         "StartTransientUnit");
         if (r < 0)
                 return r;

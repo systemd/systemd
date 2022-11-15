@@ -101,6 +101,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--unlock-key-file=</option><replaceable>PATH</replaceable></term>
+
+        <listitem><para>Use a file instead of a password/passphrase read from stdin to unlock the volume.
+        Expects the PATH to the file containing your key to unlock the volume. Currently there is nothing like
+        <option>--key-file-offset=</option> or <option>--key-file-size=</option> so this file has to only
+        contain the full key.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--pkcs11-token-uri=</option><replaceable>URI</replaceable></term>
 
         <listitem><para>Enroll a PKCS#11 security token or smartcard (e.g. a YubiKey). Expects a PKCS#11
@@ -287,7 +296,7 @@
 
               <row>
                 <entry>9</entry>
-                <entry>The Linux kernel measures all initial RAM file systems it receives into this PCR.</entry>
+                <entry>The Linux kernel measures all initrds it receives into this PCR.</entry>
                 <!-- Strictly speaking only Linux >= 5.17 using the LOAD_FILE2 protocol, see https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=f046fff8bc4c4d8f8a478022e76e40b818f692df -->
               </row>
 
@@ -297,8 +306,18 @@
               </row>
 
               <row>
+                <entry>11</entry>
+                <entry><citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures the ELF kernel image, embedded initrd and other payload of the PE image it is placed in into this PCR. Unlike PCR 4 (where the same data should be measured into), this PCR value should be easy to pre-calculate, as this only contains static parts of the PE binary. Use this PCR to bind TPM policies to a specific kernel image, possibly with an embedded initrd. <citerefentry><refentrytitle>systemd-pcrphase.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> measures boot phase strings into this PCR at various milestones of the boot process.</entry>
+              </row>
+
+              <row>
                 <entry>12</entry>
-                <entry><citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures any specified kernel command line into this PCR. <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures any manually specified kernel command line (i.e. a kernel command line that overrides the one embedded in the unified PE image) and loaded credentials into this PCR. (Note that if <command>sytemd-boot</command> and <command>systemd-stub</command> are used in combination the command line might be measured twice!)</entry>
+                <entry><citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures any specified kernel command line into this PCR. <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures any manually specified kernel command line (i.e. a kernel command line that overrides the one embedded in the unified PE image) and loaded credentials into this PCR. (Note that if <command>systemd-boot</command> and <command>systemd-stub</command> are used in combination the command line might be measured twice!)</entry>
+              </row>
+
+              <row>
+                <entry>13</entry>
+                <entry><citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures any <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry> images it loads and passed to the booted kernel into this PCR.</entry>
               </row>
 
               <row>
@@ -328,14 +347,50 @@
         to <literal>no</literal>. Despite being called PIN, any character can be used, not just numbers.
         </para>
 
-        <para>Note that incorrect PIN entry when unlocking increments the
-        TPM dictionary attack lockout mechanism, and may lock out users for a prolonged time, depending on
-        its configuration. The lockout mechanism is a global property of the TPM,
-        <command>systemd-cryptenroll</command> does not control or configure the lockout mechanism. You may
-        use tpm2-tss tools to inspect or configure the dictionary attack lockout, with
-        <citerefentry project='mankier'><refentrytitle>tpm2_getcap</refentrytitle><manvolnum>1</manvolnum></citerefentry> and
-        <citerefentry project='mankier'><refentrytitle>tpm2_dictionarylockout</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        <para>Note that incorrect PIN entry when unlocking increments the TPM dictionary attack lockout
+        mechanism, and may lock out users for a prolonged time, depending on its configuration. The lockout
+        mechanism is a global property of the TPM, <command>systemd-cryptenroll</command> does not control or
+        configure the lockout mechanism. You may use tpm2-tss tools to inspect or configure the dictionary
+        attack lockout, with <citerefentry
+        project='mankier'><refentrytitle>tpm2_getcap</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        and <citerefentry
+        project='mankier'><refentrytitle>tpm2_dictionarylockout</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         commands, respectively.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-public-key=</option><arg>PATH</arg></term>
+        <term><option>--tpm2-public-key-pcrs=</option><arg rep="repeat">PCR</arg></term>
+        <term><option>--tpm2-signature=</option><arg>PATH</arg></term>
+
+        <listitem><para>Configures a TPM2 signed PCR policy to bind encryption to. The
+        <option>--tpm2-public-key=</option> option accepts a path to a PEM encoded RSA public key, to bind
+        the encryption to. If this is not specified explicitly, but a file
+        <filename>tpm2-pcr-public-key.pem</filename> exists in one of the directories
+        <filename>/etc/systemd/</filename>, <filename>/run/systemd/</filename>,
+        <filename>/usr/lib/systemd/</filename> (searched in this order), it is automatically used. The
+        <option>--tpm2-public-key-pcrs=</option> option takes a list of TPM2 PCR indexes to bind to (same
+        syntax as <option>--tpm2-pcrs=</option> described above). If not specified defaults to 11 (i.e. this
+        binds the policy to any unified kernel image for which a PCR signature can be provided).</para>
+
+        <para>Note the difference between <option>--tpm2-pcrs=</option> and
+        <option>--tpm2-public-key-pcrs=</option>: the former binds decryption to the current, specific PCR
+        values; the latter binds decryption to any set of PCR values for which a signature by the specified
+        public key can be provided. The latter is hence more useful in scenarios where software updates shell
+        be possible without losing access to all previously encrypted LUKS2 volumes.</para>
+
+        <para>The <option>--tpm2-signature=</option> option takes a path to a TPM2 PCR signature file
+        as generated by the
+        <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        tool. If this this is not specified explicitly a suitable signature file
+        <filename>tpm2-pcr-signature.json</filename> is searched for in <filename>/etc/systemd/</filename>,
+        <filename>/run/systemd/</filename>, <filename>/usr/lib/systemd/</filename> (in this order) and
+        used. If a signature file is specified or found it is used to verify if the volume can be unlocked
+        with it given the current PCR state, before the new slot is written to disk. This is intended as
+        safety net to ensure that access to a volume is not lost if a public key is enrolled for which no
+        valid signature for the current PCR state is available. If the supplied signature does not unlock the
+        current PCR state and public key combination, no slot is enrolled and the operation will fail. If no
+        signature file is specified or found no such safety verification is done.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -392,7 +447,8 @@
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>
      </para>
   </refsect1>
 

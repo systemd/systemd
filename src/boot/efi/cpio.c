@@ -4,7 +4,7 @@
 #include "measure.h"
 #include "util.h"
 
-static CHAR8* write_cpio_word(CHAR8 *p, UINT32 v) {
+static char *write_cpio_word(char *p, uint32_t v) {
         static const char hex[] = "0123456789abcdef";
 
         assert(p);
@@ -17,8 +17,8 @@ static CHAR8* write_cpio_word(CHAR8 *p, UINT32 v) {
         return p + 8;
 }
 
-static CHAR8* mangle_filename(CHAR8 *p, const CHAR16 *f) {
-        CHAR8* w;
+static char *mangle_filename(char *p, const char16_t *f) {
+        char* w;
 
         assert(p);
         assert(f);
@@ -36,7 +36,7 @@ static CHAR8* mangle_filename(CHAR8 *p, const CHAR16 *f) {
         return w;
 }
 
-static CHAR8* pad4(CHAR8 *p, const CHAR8* start) {
+static char *pad4(char *p, const char *start) {
         assert(p);
         assert(start);
         assert(p >= start);
@@ -50,17 +50,17 @@ static CHAR8* pad4(CHAR8 *p, const CHAR8* start) {
 }
 
 static EFI_STATUS pack_cpio_one(
-                const CHAR16 *fname,
+                const char16_t *fname,
                 const void *contents,
                 UINTN contents_size,
-                const CHAR8 *target_dir_prefix,
-                UINT32 access_mode,
-                UINT32 *inode_counter,
+                const char *target_dir_prefix,
+                uint32_t access_mode,
+                uint32_t *inode_counter,
                 void **cpio_buffer,
                 UINTN *cpio_buffer_size) {
 
         UINTN l, target_dir_prefix_size, fname_size, q;
-        CHAR8 *a;
+        char *a;
 
         assert(fname);
         assert(contents_size || contents_size == 0);
@@ -71,7 +71,7 @@ static EFI_STATUS pack_cpio_one(
 
         /* Serializes one file in the cpio format understood by the kernel initrd logic.
          *
-         * See: https://www.kernel.org/doc/Documentation/early-userspace/buffer-format.txt */
+         * See: https://docs.kernel.org/driver-api/early-userspace/buffer-format.html */
 
         if (contents_size > UINT32_MAX) /* cpio cannot deal with > 32bit file sizes */
                 return EFI_LOAD_ERROR;
@@ -81,12 +81,12 @@ static EFI_STATUS pack_cpio_one(
 
         l = 6 + 13*8 + 1 + 1; /* Fixed CPIO header size, slash separator, and NUL byte after the file name*/
 
-        target_dir_prefix_size = strlena(target_dir_prefix);
+        target_dir_prefix_size = strlen8(target_dir_prefix);
         if (l > UINTN_MAX - target_dir_prefix_size)
                 return EFI_OUT_OF_RESOURCES;
         l += target_dir_prefix_size;
 
-        fname_size = StrLen(fname);
+        fname_size = strlen16(fname);
         if (l > UINTN_MAX - fname_size)
                 return EFI_OUT_OF_RESOURCES;
         l += fname_size; /* append space for file name */
@@ -96,12 +96,12 @@ static EFI_STATUS pack_cpio_one(
                 return EFI_OUT_OF_RESOURCES;
 
         /* Align the whole header to 4 byte size */
-        l = ALIGN_TO(l, 4);
+        l = ALIGN4(l);
         if (l == UINTN_MAX) /* overflow check */
                 return EFI_OUT_OF_RESOURCES;
 
         /* Align the contents to 4 byte size */
-        q = ALIGN_TO(contents_size, 4);
+        q = ALIGN4(contents_size);
         if (q == UINTN_MAX) /* overflow check */
                 return EFI_OUT_OF_RESOURCES;
 
@@ -111,13 +111,12 @@ static EFI_STATUS pack_cpio_one(
 
         if (*cpio_buffer_size > UINTN_MAX - l) /* overflow check */
                 return EFI_OUT_OF_RESOURCES;
-        a = xreallocate_pool(*cpio_buffer, *cpio_buffer_size, *cpio_buffer_size + l);
+        a = xrealloc(*cpio_buffer, *cpio_buffer_size, *cpio_buffer_size + l);
 
         *cpio_buffer = a;
-        a = (CHAR8*) *cpio_buffer + *cpio_buffer_size;
+        a = (char *) *cpio_buffer + *cpio_buffer_size;
 
-        CopyMem(a, "070701", 6); /* magic ID */
-        a += 6;
+        a = mempcpy(a, "070701", 6); /* magic ID */
 
         a = write_cpio_word(a, (*inode_counter)++);                         /* inode */
         a = write_cpio_word(a, access_mode | 0100000 /* = S_IFREG */);      /* mode */
@@ -139,35 +138,33 @@ static EFI_STATUS pack_cpio_one(
         a = write_cpio_word(a, target_dir_prefix_size + fname_size + 2);    /* fname size */
         a = write_cpio_word(a, 0);                                          /* "crc" */
 
-        CopyMem(a, target_dir_prefix, target_dir_prefix_size);
-        a += target_dir_prefix_size;
+        a = mempcpy(a, target_dir_prefix, target_dir_prefix_size);
         *(a++) = '/';
         a = mangle_filename(a, fname);
 
         /* Pad to next multiple of 4 */
         a = pad4(a, *cpio_buffer);
 
-        CopyMem(a, contents, contents_size);
-        a += contents_size;
+        a = mempcpy(a, contents, contents_size);
 
         /* Pad to next multiple of 4 */
         a = pad4(a, *cpio_buffer);
 
-        assert(a == (CHAR8*) *cpio_buffer + *cpio_buffer_size + l);
+        assert(a == (char *) *cpio_buffer + *cpio_buffer_size + l);
         *cpio_buffer_size += l;
 
         return EFI_SUCCESS;
 }
 
 static EFI_STATUS pack_cpio_dir(
-                const CHAR8 *path,
-                UINT32 access_mode,
-                UINT32 *inode_counter,
+                const char *path,
+                uint32_t access_mode,
+                uint32_t *inode_counter,
                 void **cpio_buffer,
                 UINTN *cpio_buffer_size) {
 
         UINTN l, path_size;
-        CHAR8 *a;
+        char *a;
 
         assert(path);
         assert(inode_counter);
@@ -182,24 +179,23 @@ static EFI_STATUS pack_cpio_dir(
 
         l = 6 + 13*8 + 1; /* Fixed CPIO header size, and NUL byte after the file name*/
 
-        path_size = strlena(path);
+        path_size = strlen8(path);
         if (l > UINTN_MAX - path_size)
                 return EFI_OUT_OF_RESOURCES;
         l += path_size;
 
         /* Align the whole header to 4 byte size */
-        l = ALIGN_TO(l, 4);
+        l = ALIGN4(l);
         if (l == UINTN_MAX) /* overflow check */
                 return EFI_OUT_OF_RESOURCES;
 
         if (*cpio_buffer_size > UINTN_MAX - l) /* overflow check */
                 return EFI_OUT_OF_RESOURCES;
 
-        *cpio_buffer = a = xreallocate_pool(*cpio_buffer, *cpio_buffer_size, *cpio_buffer_size + l);
-        a = (CHAR8*) *cpio_buffer + *cpio_buffer_size;
+        *cpio_buffer = a = xrealloc(*cpio_buffer, *cpio_buffer_size, *cpio_buffer_size + l);
+        a = (char *) *cpio_buffer + *cpio_buffer_size;
 
-        CopyMem(a, "070701", 6); /* magic ID */
-        a += 6;
+        a = mempcpy(a, "070701", 6); /* magic ID */
 
         a = write_cpio_word(a, (*inode_counter)++);                         /* inode */
         a = write_cpio_word(a, access_mode | 0040000 /* = S_IFDIR */);      /* mode */
@@ -215,22 +211,21 @@ static EFI_STATUS pack_cpio_dir(
         a = write_cpio_word(a, path_size + 1);                              /* fname size */
         a = write_cpio_word(a, 0);                                          /* "crc" */
 
-        CopyMem(a, path, path_size + 1);
-        a += path_size + 1;
+        a = mempcpy(a, path, path_size + 1);
 
         /* Pad to next multiple of 4 */
         a = pad4(a, *cpio_buffer);
 
-        assert(a == (CHAR8*) *cpio_buffer + *cpio_buffer_size + l);
+        assert(a == (char *) *cpio_buffer + *cpio_buffer_size + l);
 
         *cpio_buffer_size += l;
         return EFI_SUCCESS;
 }
 
 static EFI_STATUS pack_cpio_prefix(
-                const CHAR8 *path,
-                UINT32 dir_mode,
-                UINT32 *inode_counter,
+                const char *path,
+                uint32_t dir_mode,
+                uint32_t *inode_counter,
                 void **cpio_buffer,
                 UINTN *cpio_buffer_size) {
 
@@ -245,22 +240,22 @@ static EFI_STATUS pack_cpio_prefix(
          * (similar to mkdir -p behaviour) all leading paths are created with 0555 access mode, only the
          * final dir is created with the specified directory access mode. */
 
-        for (const CHAR8 *p = path;;) {
-                const CHAR8 *e;
+        for (const char *p = path;;) {
+                const char *e;
 
-                e = strchra(p, '/');
+                e = strchr8(p, '/');
                 if (!e)
                         break;
 
                 if (e > p) {
-                        _cleanup_freepool_ CHAR8 *t = NULL;
+                        _cleanup_free_ char *t = NULL;
 
                         t = xstrndup8(path, e - path);
                         if (!t)
                                 return EFI_OUT_OF_RESOURCES;
 
                         err = pack_cpio_dir(t, 0555, inode_counter, cpio_buffer, cpio_buffer_size);
-                        if (EFI_ERROR(err))
+                        if (err != EFI_SUCCESS)
                                 return err;
                 }
 
@@ -297,35 +292,116 @@ static EFI_STATUS pack_cpio_trailer(
         assert(cpio_buffer_size);
         assert_cc(sizeof(trailer) % 4 == 0);
 
-        *cpio_buffer = xreallocate_pool(*cpio_buffer, *cpio_buffer_size, *cpio_buffer_size + sizeof(trailer));
-        CopyMem((UINT8*) *cpio_buffer + *cpio_buffer_size, trailer, sizeof(trailer));
+        *cpio_buffer = xrealloc(*cpio_buffer, *cpio_buffer_size, *cpio_buffer_size + sizeof(trailer));
+        memcpy((uint8_t*) *cpio_buffer + *cpio_buffer_size, trailer, sizeof(trailer));
         *cpio_buffer_size += sizeof(trailer);
 
         return EFI_SUCCESS;
 }
 
-EFI_STATUS pack_cpio(
-                EFI_LOADED_IMAGE *loaded_image,
-                const CHAR16 *dropin_dir,
-                const CHAR16 *match_suffix,
-                const CHAR8 *target_dir_prefix,
-                UINT32 dir_mode,
-                UINT32 access_mode,
-                const UINT32 tpm_pcr[],
+static EFI_STATUS measure_cpio(
+                void *buffer,
+                UINTN buffer_size,
+                const uint32_t tpm_pcr[],
                 UINTN n_tpm_pcr,
-                const CHAR16 *tpm_description,
+                const char16_t *tpm_description,
+                bool *ret_measured) {
+
+        int measured = -1;
+        EFI_STATUS err;
+
+        assert(buffer || buffer_size == 0);
+        assert(tpm_pcr || n_tpm_pcr == 0);
+
+        for (UINTN i = 0; i < n_tpm_pcr; i++) {
+                bool m;
+
+                if (tpm_pcr[i] == UINT32_MAX) /* Disabled */
+                        continue;
+
+                err = tpm_log_event(
+                                tpm_pcr[i],
+                                POINTER_TO_PHYSICAL_ADDRESS(buffer),
+                                buffer_size,
+                                tpm_description,
+                                &m);
+                if (err != EFI_SUCCESS) {
+                        log_error_stall(L"Unable to add initrd TPM measurement for PCR %u (%s), ignoring: %r", tpm_pcr[i], tpm_description, err);
+                        measured = false;
+                        continue;
+                }
+
+                if (measured != false)
+                        measured = m;
+        }
+
+        if (ret_measured)
+                *ret_measured = measured > 0;
+
+        return EFI_SUCCESS;
+}
+
+static char16_t *get_dropin_dir(const EFI_DEVICE_PATH *file_path) {
+        if (!file_path)
+                return NULL;
+
+        /* A device path is allowed to have more than one file path node. If that is the case they are
+         * supposed to be concatenated. Unfortunately, the device path to text protocol simply converts the
+         * nodes individually and then combines those with the usual '/' for device path nodes. But this does
+         * not create a legal EFI file path that the file protocol can use. */
+
+        /* Make sure we really only got file paths. */
+        for (const EFI_DEVICE_PATH *node = file_path; !IsDevicePathEnd(node); node = NextDevicePathNode(node))
+                if (DevicePathType(node) != MEDIA_DEVICE_PATH || DevicePathSubType(node) != MEDIA_FILEPATH_DP)
+                        return NULL;
+
+        _cleanup_free_ char16_t *file_path_str = NULL;
+        if (device_path_to_str(file_path, &file_path_str) != EFI_SUCCESS)
+                return NULL;
+
+        for (char16_t *i = file_path_str, *fixed = i;; i++) {
+                if (*i == '\0') {
+                        *fixed = '\0';
+                        break;
+                }
+
+                /* Fix device path node separator. */
+                if (*i == '/')
+                        *i = '\\';
+
+                /* Double '\' is not allowed in EFI file paths. */
+                if (fixed != file_path_str && fixed[-1] == '\\' && *i == '\\')
+                        continue;
+
+                *fixed = *i;
+                fixed++;
+        }
+
+        return xpool_print(u"%s.extra.d", file_path_str);
+}
+
+EFI_STATUS pack_cpio(
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                const char16_t *dropin_dir,
+                const char16_t *match_suffix,
+                const char *target_dir_prefix,
+                uint32_t dir_mode,
+                uint32_t access_mode,
+                const uint32_t tpm_pcr[],
+                UINTN n_tpm_pcr,
+                const char16_t *tpm_description,
                 void **ret_buffer,
-                UINTN *ret_buffer_size) {
+                UINTN *ret_buffer_size,
+                bool *ret_measured) {
 
         _cleanup_(file_closep) EFI_FILE *root = NULL, *extra_dir = NULL;
         UINTN dirent_size = 0, buffer_size = 0, n_items = 0, n_allocated = 0;
-        _cleanup_freepool_ CHAR16 *rel_dropin_dir = NULL;
-        _cleanup_freepool_ EFI_FILE_INFO *dirent = NULL;
-        _cleanup_(strv_freep) CHAR16 **items = NULL;
-        _cleanup_freepool_ void *buffer = NULL;
-        UINT32 inode = 1; /* inode counter, so that each item gets a new inode */
+        _cleanup_free_ char16_t *rel_dropin_dir = NULL;
+        _cleanup_free_ EFI_FILE_INFO *dirent = NULL;
+        _cleanup_(strv_freep) char16_t **items = NULL;
+        _cleanup_free_ void *buffer = NULL;
+        uint32_t inode = 1; /* inode counter, so that each item gets a new inode */
         EFI_STATUS err;
-        EFI_FILE_IO_INTERFACE *volume;
 
         assert(loaded_image);
         assert(target_dir_prefix);
@@ -333,49 +409,33 @@ EFI_STATUS pack_cpio(
         assert(ret_buffer);
         assert(ret_buffer_size);
 
-        if (!loaded_image->DeviceHandle) {
-                *ret_buffer = NULL;
-                *ret_buffer_size = 0;
-                return EFI_SUCCESS;
-        }
+        if (!loaded_image->DeviceHandle)
+                goto nothing;
 
-        err = BS->HandleProtocol(loaded_image->DeviceHandle,
-                                 &FileSystemProtocol, (void*)&volume);
-        /* Error will be unsupported if the bootloader doesn't implement the
-         * file system protocol on its file handles.
-         */
-        if (err == EFI_UNSUPPORTED) {
-                *ret_buffer = NULL;
-                *ret_buffer_size = 0;
-                return EFI_SUCCESS;
-        }
-        if (EFI_ERROR(err))
-                return log_error_status_stall(
-                                err, L"Unable to load file system protocol: %r", err);
-
-        err = volume->OpenVolume(volume, &root);
-        if (EFI_ERROR(err))
+        err = open_volume(loaded_image->DeviceHandle, &root);
+        if (err == EFI_UNSUPPORTED)
+                /* Error will be unsupported if the bootloader doesn't implement the file system protocol on
+                 * its file handles. */
+                goto nothing;
+        if (err != EFI_SUCCESS)
                 return log_error_status_stall(
                                 err, L"Unable to open root directory: %r", err);
 
         if (!dropin_dir)
-                dropin_dir = rel_dropin_dir = xpool_print(L"%D.extra.d", loaded_image->FilePath);
+                dropin_dir = rel_dropin_dir = get_dropin_dir(loaded_image->FilePath);
 
         err = open_directory(root, dropin_dir, &extra_dir);
-        if (err == EFI_NOT_FOUND) {
+        if (err == EFI_NOT_FOUND)
                 /* No extra subdir, that's totally OK */
-                *ret_buffer = NULL;
-                *ret_buffer_size = 0;
-                return EFI_SUCCESS;
-        }
-        if (EFI_ERROR(err))
+                goto nothing;
+        if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to open extra directory of loaded image: %r", err);
 
         for (;;) {
-                _cleanup_freepool_ CHAR16 *d = NULL;
+                _cleanup_free_ char16_t *d = NULL;
 
                 err = readdir_harder(extra_dir, &dirent, &dirent_size);
-                if (EFI_ERROR(err))
+                if (err != EFI_SUCCESS)
                         return log_error_status_stall(err, L"Failed to read extra directory of loaded image: %r", err);
                 if (!dirent) /* End of directory */
                         break;
@@ -388,20 +448,20 @@ EFI_STATUS pack_cpio(
                         continue;
                 if (!is_ascii(dirent->FileName))
                         continue;
-                if (StrLen(dirent->FileName) > 255) /* Max filename size on Linux */
+                if (strlen16(dirent->FileName) > 255) /* Max filename size on Linux */
                         continue;
 
-                d = xstrdup(dirent->FileName);
+                d = xstrdup16(dirent->FileName);
 
                 if (n_items+2 > n_allocated) {
                         UINTN m;
 
                         /* We allocate 16 entries at a time, as a matter of optimization */
-                        if (n_items > (UINTN_MAX / sizeof(UINT16)) - 16) /* Overflow check, just in case */
+                        if (n_items > (UINTN_MAX / sizeof(uint16_t)) - 16) /* Overflow check, just in case */
                                 return log_oom();
 
                         m = n_items + 16;
-                        items = xreallocate_pool(items, n_allocated * sizeof(UINT16*), m * sizeof(UINT16*));
+                        items = xrealloc(items, n_allocated * sizeof(uint16_t *), m * sizeof(uint16_t *));
                         n_allocated = m;
                 }
 
@@ -409,29 +469,26 @@ EFI_STATUS pack_cpio(
                 items[n_items] = NULL; /* Let's always NUL terminate, to make freeing via strv_free() easy */
         }
 
-        if (n_items == 0) {
+        if (n_items == 0)
                 /* Empty directory */
-                *ret_buffer = NULL;
-                *ret_buffer_size = 0;
-                return EFI_SUCCESS;
-        }
+                goto nothing;
 
         /* Now, sort the files we found, to make this uniform and stable (and to ensure the TPM measurements
          * are not dependent on read order) */
-        sort_pointer_array((void**) items, n_items, (compare_pointer_func_t) StrCmp);
+        sort_pointer_array((void**) items, n_items, (compare_pointer_func_t) strcmp16);
 
         /* Generate the leading directory inodes right before adding the first files, to the
          * archive. Otherwise the cpio archive cannot be unpacked, since the leading dirs won't exist. */
         err = pack_cpio_prefix(target_dir_prefix, dir_mode, &inode, &buffer, &buffer_size);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to pack cpio prefix: %r", err);
 
         for (UINTN i = 0; i < n_items; i++) {
-                _cleanup_freepool_ CHAR8 *content = NULL;
+                _cleanup_free_ char *content = NULL;
                 UINTN contentsize;
 
                 err = file_read(extra_dir, items[i], 0, 0, &content, &contentsize);
-                if (EFI_ERROR(err)) {
+                if (err != EFI_SUCCESS) {
                         log_error_status_stall(err, L"Failed to read %s, ignoring: %r", items[i], err);
                         continue;
                 }
@@ -443,23 +500,83 @@ EFI_STATUS pack_cpio(
                                 access_mode,
                                 &inode,
                                 &buffer, &buffer_size);
-                if (EFI_ERROR(err))
+                if (err != EFI_SUCCESS)
                         return log_error_status_stall(err, L"Failed to pack cpio file %s: %r", dirent->FileName, err);
         }
 
         err = pack_cpio_trailer(&buffer, &buffer_size);
-        if (EFI_ERROR(err))
+        if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to pack cpio trailer: %r");
 
-        for (UINTN i = 0; i < n_tpm_pcr; i++) {
-                err = tpm_log_event(
-                                tpm_pcr[i],
-                                POINTER_TO_PHYSICAL_ADDRESS(buffer),
-                                buffer_size,
-                                tpm_description);
-                if (EFI_ERROR(err))
-                        log_error_stall(L"Unable to add initrd TPM measurement for PCR %u (%s), ignoring: %r", tpm_pcr[i], tpm_description, err);
-        }
+        err = measure_cpio(buffer, buffer_size, tpm_pcr, n_tpm_pcr, tpm_description, ret_measured);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        *ret_buffer = TAKE_PTR(buffer);
+        *ret_buffer_size = buffer_size;
+
+        return EFI_SUCCESS;
+
+nothing:
+        *ret_buffer = NULL;
+        *ret_buffer_size = 0;
+
+        if (ret_measured)
+                *ret_measured = n_tpm_pcr > 0;
+
+        return EFI_SUCCESS;
+}
+
+EFI_STATUS pack_cpio_literal(
+                const void *data,
+                size_t data_size,
+                const char *target_dir_prefix,
+                const char16_t *target_filename,
+                uint32_t dir_mode,
+                uint32_t access_mode,
+                const uint32_t tpm_pcr[],
+                UINTN n_tpm_pcr,
+                const char16_t *tpm_description,
+                void **ret_buffer,
+                UINTN *ret_buffer_size,
+                bool *ret_measured) {
+
+        uint32_t inode = 1; /* inode counter, so that each item gets a new inode */
+        _cleanup_free_ void *buffer = NULL;
+        UINTN buffer_size = 0;
+        EFI_STATUS err;
+
+        assert(data || data_size == 0);
+        assert(target_dir_prefix);
+        assert(target_filename);
+        assert(tpm_pcr || n_tpm_pcr == 0);
+        assert(ret_buffer);
+        assert(ret_buffer_size);
+
+        /* Generate the leading directory inodes right before adding the first files, to the
+         * archive. Otherwise the cpio archive cannot be unpacked, since the leading dirs won't exist. */
+
+        err = pack_cpio_prefix(target_dir_prefix, dir_mode, &inode, &buffer, &buffer_size);
+        if (err != EFI_SUCCESS)
+                return log_error_status_stall(err, L"Failed to pack cpio prefix: %r", err);
+
+        err = pack_cpio_one(
+                        target_filename,
+                        data, data_size,
+                        target_dir_prefix,
+                        access_mode,
+                        &inode,
+                        &buffer, &buffer_size);
+        if (err != EFI_SUCCESS)
+                return log_error_status_stall(err, L"Failed to pack cpio file %s: %r", target_filename, err);
+
+        err = pack_cpio_trailer(&buffer, &buffer_size);
+        if (err != EFI_SUCCESS)
+                return log_error_status_stall(err, L"Failed to pack cpio trailer: %r");
+
+        err = measure_cpio(buffer, buffer_size, tpm_pcr, n_tpm_pcr, tpm_description, ret_measured);
+        if (err != EFI_SUCCESS)
+                return err;
 
         *ret_buffer = TAKE_PTR(buffer);
         *ret_buffer_size = buffer_size;

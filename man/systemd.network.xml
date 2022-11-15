@@ -135,6 +135,7 @@
       <xi:include href="systemd.link.xml" xpointer="virtualization" />
       <xi:include href="systemd.link.xml" xpointer="kernel-command-line" />
       <xi:include href="systemd.link.xml" xpointer="kernel-version" />
+      <xi:include href="systemd.link.xml" xpointer="credential" />
       <xi:include href="systemd.link.xml" xpointer="architecture" />
       <xi:include href="systemd.link.xml" xpointer="firmware" />
     </variablelist>
@@ -327,11 +328,11 @@
           <literal>no</literal>, <literal>ipv4</literal>, or <literal>ipv6</literal>. Defaults to
           <literal>no</literal>.</para>
 
-          <para>Note that DHCPv6 will by default be triggered by Router Advertisement, if that is
-          enabled, regardless of this parameter. By explicitly enabling DHCPv6 support here, the
-          DHCPv6 client will be started in the mode specified by the <variable>WithoutRA=</variable>
-          setting in the [DHCPv6] section, regardless of the presence of routers on the link, or
-          what flags the routers pass. See <literal>IPv6AcceptRA=</literal>.</para>
+          <para>Note that DHCPv6 will by default be triggered by Router Advertisements, if reception is
+          enabled, regardless of this parameter. By explicitly enabling DHCPv6 support here, the DHCPv6
+          client will be started in the mode specified by the <varname>WithoutRA=</varname> setting in the
+          [DHCPv6] section, regardless of the presence of routers on the link, or what flags the routers
+          pass. See <varname>IPv6AcceptRA=</varname>.</para>
 
           <para>Furthermore, note that by default the domain name specified through DHCP is not used
           for name resolution. See option <option>UseDomains=</option> below.</para>
@@ -395,6 +396,17 @@
           <varname>IPv6LinkLocalAddressGenerationMode=</varname>,
           then a stable secret address will be generated from the local machine ID and the interface
           name.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IPv4LLStartAddress=</varname></term>
+        <listitem>
+          <para>Specifies the first IPv4 link-local address to try. Takes an IPv4 address for example
+          169.254.1.2, from the link-local address range: 169.254.0.0/16 except for 169.254.0.0/24 and
+          169.254.255.0/24. This setting may be useful if the device should always have the same address
+          as long as there is no address conflict. When unset, a random address will be automatically
+          selected. Defaults to unset.</para>
         </listitem>
       </varlistentry>
 
@@ -670,7 +682,7 @@ Table=1234</programlisting></para>
           enable IP packet forwarding for the specified address family. This controls the
           <filename>net.ipv4.ip_forward</filename> and <filename>net.ipv6.conf.all.forwarding</filename>
           sysctl options of the network interface (see
-          <ulink url="https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt">ip-sysctl.txt</ulink>
+          <ulink url="https://docs.kernel.org/networking/ip-sysctl.html">IP Sysctl</ulink>
           for details about sysctl options). Defaults to <literal>no</literal>.</para>
 
           <para>Note: this setting controls a global kernel option, and does so one way only: if a
@@ -726,7 +738,7 @@ Table=1234</programlisting></para>
           section, see below.</para>
 
           <para>Also see
-          <ulink url="https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt">ip-sysctl.txt</ulink>
+          <ulink url="https://docs.kernel.org/networking/ip-sysctl.html">IP Sysctl</ulink>
           in the kernel documentation regarding <literal>accept_ra</literal>, but note that systemd's
           setting of <constant>1</constant> (i.e. true) corresponds to kernel's setting of
           <constant>2</constant>.</para>
@@ -1103,10 +1115,66 @@ Table=1234</programlisting></para>
           IGMP snooping since the switch would not replicate multicast packets on  ports that did not
           have IGMP reports for the multicast addresses. Linux vxlan interfaces created via
           <command>ip link add vxlan</command> or networkd's netdev kind vxlan have the group option
-          that enables then to do the required join. By extending ip address command with option
-          <literal>autojoin</literal> we can get similar functionality for openvswitch (OVS) vxlan
-          interfaces as well as other tunneling mechanisms that need to receive multicast traffic.
+          that enables them to do the required join. By extending <command>ip address</command> command
+          with option <literal>autojoin</literal> we can get similar functionality for openvswitch (OVS)
+          vxlan interfaces as well as other tunneling mechanisms that need to receive multicast traffic.
           Defaults to <literal>no</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>NetLabel=</varname><replaceable>label</replaceable></term>
+        <listitem>
+
+          <para>This setting provides a method for integrating static and dynamic network configuration into
+          Linux <ulink url="https://docs.kernel.org/netlabel/index.html">NetLabel</ulink> subsystem rules,
+          used by <ulink url="https://en.wikipedia.org/wiki/Linux_Security_Modules">Linux Security Modules
+          (LSMs)</ulink> for network access control. The label, with suitable LSM rules, can be used to
+          control connectivity of (for example) a service with peers in the local network. At least with
+          SELinux, only the ingress can be controlled but not egress. The benefit of using this setting is
+          that it may be possible to apply interface independent part of NetLabel configuration at very early
+          stage of system boot sequence, at the time when the network interfaces are not available yet, with
+          <citerefentry
+          project='man-pages'><refentrytitle>netlabelctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+          and the per-interface configuration with <command>systemd-networkd</command> once the interfaces
+          appear later. Currently this feature is only implemented for SELinux.</para>
+
+          <para>The option expects a single NetLabel label. The label must conform to lexical restrictions of
+          LSM labels. When an interface is configured with IP addresses, the addresses and subnetwork masks
+          will be appended to the <ulink
+          url="https://github.com/SELinuxProject/selinux-notebook/blob/main/src/network_support.md">NetLabel
+          Fallback Peer Labeling</ulink> rules. They will be removed when the interface is
+          deconfigured. Failures to manage the labels will be ignored.</para>
+
+          <para>Warning: Once labeling is enabled for network traffic, a lot of LSM access control points in
+          Linux networking stack go from dormant to active. Care should be taken to avoid getting into a
+          situation where for example remote connectivity is broken, when the security policy hasn't been
+          updated to consider LSM per-packet access controls and no rules would allow any network
+          traffic. Also note that additional configuration with <citerefentry
+          project='man-pages'><refentrytitle>netlabelctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          is needed.</para>
+
+          <para>Example:
+          <programlisting>[Address]
+NetLabel=system_u:object_r:localnet_peer_t:s0</programlisting>
+
+          With the example rules applying for interface <literal>eth0</literal>, when the interface is
+          configured with an IPv4 address of 10.0.0.123/8, <command>systemd-networkd</command> performs the
+          equivalent of <command>netlabelctl</command> operation
+
+          <programlisting>netlabelctl unlbl add interface eth0 address:10.0.0.0/8 label:system_u:object_r:localnet_peer_t:s0</programlisting>
+
+          and the reverse operation when the IPv4 address is deconfigured. The configuration can be used with
+          LSM rules; in case of SELinux to allow a SELinux domain to receive data from objects of SELinux
+          <literal>peer</literal> class. For example:
+
+          <programlisting>type localnet_peer_t;
+allow my_server_t localnet_peer_t:peer recv;</programlisting>
+
+          The effect of the above configuration and rules (in absence of other rules as may be the case) is
+          to only allow <literal>my_server_t</literal> (and nothing else) to receive data from local subnet
+          10.0.0.0/8 of interface <literal>eth0</literal>.
+          </para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1206,7 +1274,7 @@ Table=1234</programlisting></para>
       <varlistentry>
         <term><varname>Table=</varname></term>
         <listitem>
-          <para>Specifies the routing table identifier to lookup if the rule selector matches. Takes
+          <para>Specifies the routing table identifier to look up if the rule selector matches. Takes
           one of predefined names <literal>default</literal>, <literal>main</literal>, and
           <literal>local</literal>, and names defined in <varname>RouteTable=</varname> in
           <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
@@ -1487,7 +1555,7 @@ Table=1234</programlisting></para>
           <para>For IPv4 route, defaults to <literal>host</literal> if <varname>Type=</varname> is
           <literal>local</literal> or <literal>nat</literal>, and <literal>link</literal> if
           <varname>Type=</varname> is <literal>broadcast</literal>, <literal>multicast</literal>,
-          <literal>anycast</literal>, or direct <literal>unicast</literal> routes. In other cases,
+          <literal>anycast</literal>, or <literal>unicast</literal>. In other cases,
           defaults to <literal>global</literal>. The value is not used for IPv6.</para>
         </listitem>
       </varlistentry>
@@ -1607,6 +1675,15 @@ Table=1234</programlisting></para>
           <para>Specifies the Path MSS (in bytes) hints given on TCP layer. The usual suffixes K, M, G,
           are supported and are understood to the base of 1024. An unsigned integer in the range
           1…4294967294. When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>TCPCongestionControlAlgorithm=</varname></term>
+        <listitem>
+          <para>Specifies the TCP congestion control algorithm for the route. Takes a name of the algorithm,
+          e.g. <literal>bbr</literal>, <literal>dctcp</literal>, or <literal>vegas</literal>. When unset,
+          the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
 
@@ -1888,12 +1965,12 @@ Table=1234</programlisting></para>
       <varlistentry>
         <term><varname>UseDomains=</varname></term>
         <listitem>
-          <para>Takes a boolean, or the special value <option>route</option>. When true, the domain
-          name received from the DHCP server will be used as DNS search domain over this link, similar
-          to the effect of the <option>Domains=</option> setting. If set to <option>route</option>, the
-          domain name received from the DHCP server will be used for routing DNS queries only, but not
-          for searching, similar to the effect of the <option>Domains=</option> setting when the
-          argument is prefixed with <literal>~</literal>. Defaults to false.</para>
+          <para>Takes a boolean, or the special value <option>route</option>. When true, the domain name
+          received from the DHCP server will be used as DNS search domain over this link, similarly to the
+          effect of the <option>Domains=</option> setting. If set to <option>route</option>, the domain name
+          received from the DHCP server will be used for routing DNS queries only, but not for searching,
+          similarly to the effect of the <option>Domains=</option> setting when the argument is prefixed with
+          <literal>~</literal>. Defaults to false.</para>
 
           <para>It is recommended to enable this option only on trusted networks, as setting this
           affects resolution of all hostnames, in particular of single-label names. It is generally
@@ -1931,9 +2008,11 @@ Table=1234</programlisting></para>
       <varlistentry>
         <term><varname>RouteTable=<replaceable>num</replaceable></varname></term>
         <listitem>
-          <para>The table identifier for DHCP routes (a number between 1 and 4294967295, or 0 to
-          unset). The table can be retrieved using
-          <command>ip route show table <replaceable>num</replaceable></command>.</para>
+          <para>The table identifier for DHCP routes. Takes one of predefined names
+          <literal>default</literal>, <literal>main</literal>, and <literal>local</literal>, and names
+          defined in <varname>RouteTable=</varname> in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          or a number between 1…4294967295.</para>
 
           <para>When used in combination with <varname>VRF=</varname>, the VRF's routing table is
           used when this parameter is not specified.</para>
@@ -2050,6 +2129,15 @@ Table=1234</programlisting></para>
           <ulink url="https://tools.ietf.org/html/rfc5227">RFC 5227</ulink>. Defaults to false.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>NetLabel=</varname></term>
+        <listitem>
+          <para>This applies the NetLabel for the addresses received with DHCP, like
+          <varname>NetLabel=</varname> in [Address] section applies it to statically configured
+          addresses. See <varname>NetLabel=</varname> in [Address] section for more details.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -2135,6 +2223,19 @@ Table=1234</programlisting></para>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>RapidCommit=</varname></term>
+        <listitem>
+          <para>Takes a boolean. The DHCPv6 client can obtain configuration parameters from a DHCPv6 server
+          through a rapid two-message exchange (solicit and reply). When the rapid commit option is set by
+          both the DHCPv6 client and the DHCPv6 server, the two-message exchange is used. Otherwise, the
+          four-message exchange (solicit, advertise, request, and reply) is used. The two-message exchange
+          provides faster client configuration. See
+          <ulink url="https://tools.ietf.org/html/rfc3315#section-17.2.1">RFC 3315</ulink> for details.
+          Defaults to true, and the two-message exchange will be used if the server support it.</para>
+        </listitem>
+      </varlistentry>
+
       <!-- How to use the DHCP lease -->
 
       <varlistentry>
@@ -2163,6 +2264,7 @@ Table=1234</programlisting></para>
         <term><varname>UseNTP=</varname></term>
         <term><varname>UseHostname=</varname></term>
         <term><varname>UseDomains=</varname></term>
+        <term><varname>NetLabel=</varname></term>
         <listitem>
           <para>As in the [DHCPv4] section.</para>
         </listitem>
@@ -2262,6 +2364,15 @@ Table=1234</programlisting></para>
           <para>The metric of the route to the delegated prefix subnet. Takes an unsigned integer in
           the range 0…4294967295. When set to 0, the kernel's default value is used. Defaults to 256.
           </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>NetLabel=</varname></term>
+        <listitem>
+          <para>This applies the NetLabel for the addresses received with DHCP, like
+          <varname>NetLabel=</varname> in [Address] section applies it to statically configured
+          addresses. See <varname>NetLabel=</varname> in [Address] section for more details.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -2374,11 +2485,11 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <term><varname>UseDomains=</varname></term>
         <listitem>
           <para>Takes a boolean, or the special value <literal>route</literal>. When true, the domain name
-          received via IPv6 Router Advertisement (RA) will be used as DNS search domain over this link, similar to
-          the effect of the <option>Domains=</option> setting. If set to <literal>route</literal>, the domain name
-          received via IPv6 RA will be used for routing DNS queries only, but not for searching, similar to the
-          effect of the <option>Domains=</option> setting when the argument is prefixed with
-          <literal>~</literal>. Defaults to false.</para>
+          received via IPv6 Router Advertisement (RA) will be used as DNS search domain over this link,
+          similarly to the effect of the <option>Domains=</option> setting. If set to
+          <literal>route</literal>, the domain name received via IPv6 RA will be used for routing DNS queries
+          only, but not for searching, similarly to the effect of the <option>Domains=</option> setting when
+          the argument is prefixed with <literal>~</literal>. Defaults to false.</para>
 
           <para>It is recommended to enable this option only on trusted networks, as setting this affects resolution
           of all hostnames, in particular of single-label names. It is generally safer to use the supplied domain
@@ -2393,18 +2504,26 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>RouteTable=<replaceable>num</replaceable></varname></term>
         <listitem>
-          <para>The table identifier for the routes received in the Router Advertisement
-          (a number between 1 and 4294967295, or 0 to unset).
-          The table can be retrieved using <command>ip route show table <replaceable>num</replaceable></command>.
-          </para>
+          <para>The table identifier for the routes received in the Router Advertisement. Takes one of
+          predefined names <literal>default</literal>, <literal>main</literal>, and <literal>local</literal>,
+          and names defined in <varname>RouteTable=</varname> in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          or a number between 1…4294967295.</para>
+
+          <para>When used in combination with <varname>VRF=</varname>, the VRF's routing table is
+          used when this parameter is not specified.</para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>RouteMetric=</varname></term>
         <listitem>
-          <para>Set the routing metric for the routes received in the Router Advertisement. Takes an
-          unsigned integer in the range 0…4294967295. Defaults to 1024.</para>
+          <para>Set the routing metric for the routes received in the Router Advertisement. Takes an unsigned
+          integer in the range 0…4294967295, or three unsigned integer separated with <literal>:</literal>,
+          in that case the first one is used when the router preference is high, the second is for medium
+          preference, and the last is for low preference
+          (<literal><replaceable>high</replaceable>:<replaceable>medium</replaceable>:<replaceable>low</replaceable></literal>).
+          Defaults to <literal>512:1024:2048</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -2521,6 +2640,15 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           specified. Defaults to true.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>NetLabel=</varname></term>
+        <listitem>
+          <para>This applies the NetLabel for the addresses received with RA, like
+          <varname>NetLabel=</varname> in [Address] section applies it to statically configured
+          addresses. See <varname>NetLabel=</varname> in [Address] section for more details.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -2534,7 +2662,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>ServerAddress=</varname></term>
         <listitem><para>Specifies server address for the DHCP server. Takes an IPv4 address with prefix
-        length, for example <literal>192.168.0.1/24</literal>. This setting may be useful when the link on
+        length, for example 192.168.0.1/24. This setting may be useful when the link on
         which the DHCP server is running has multiple static addresses. When unset, one of static addresses
         in the link will be automatically selected. Defaults to unset.</para></listitem>
       </varlistentry>
@@ -2899,7 +3027,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>Prefix=</varname></term>
 
-        <listitem><para>The IPv6 prefix that is to be distributed to hosts.  Similarly to configuring static
+        <listitem><para>The IPv6 prefix that is to be distributed to hosts. Similarly to configuring static
         IPv6 addresses, the setting is configured as an IPv6 prefix and its prefix length, separated by a
         <literal>/</literal> character. Use multiple [IPv6Prefix] sections to configure multiple IPv6
         prefixes since prefix lifetimes, address autoconfiguration and onlink status may differ from one
@@ -2954,9 +3082,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>Route=</varname></term>
 
-        <listitem><para>The IPv6 route that is to be distributed to hosts.  Similarly to configuring static
+        <listitem><para>The IPv6 route that is to be distributed to hosts. Similarly to configuring static
         IPv6 routes, the setting is configured as an IPv6 prefix routes and its prefix route length,
-        separated by a <literal>/</literal> character. Use multiple [IPv6PrefixRoutes] sections to configure
+        separated by a <literal>/</literal> character. Use multiple [IPv6RoutePrefix] sections to configure
         multiple IPv6 prefix routes.</para></listitem>
       </varlistentry>
 
@@ -4583,6 +4711,11 @@ Announce=yes</programlisting>
 
     <example>
       <title>A bridge with two enslaved links</title>
+
+      <programlisting># /etc/systemd/network/25-bridge-static.netdev
+[NetDev]
+Name=bridge0
+Kind=bridge</programlisting>
 
       <programlisting># /etc/systemd/network/25-bridge-static.network
 [Match]

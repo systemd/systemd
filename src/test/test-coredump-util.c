@@ -10,7 +10,7 @@ TEST(coredump_filter_to_from_string) {
                 const char *n;
 
                 assert_se(n = coredump_filter_to_string(i));
-                log_info("0x%x\t%s", 1<<i, n);
+                log_info("0x%x\t%s", 1u << i, n);
                 assert_se(coredump_filter_from_string(n) == i);
 
                 uint64_t f;

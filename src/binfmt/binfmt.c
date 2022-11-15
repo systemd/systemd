@@ -11,8 +11,9 @@
 
 #include "alloc-util.h"
 #include "binfmt-util.h"
+#include "build.h"
 #include "conf-files.h"
-#include "def.h"
+#include "constants.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
@@ -83,7 +84,7 @@ static int apply_file(const char *filename, bool ignore_enoent) {
                 return log_error_errno(r, "Failed to open file '%s': %m", filename);
         }
 
-        log_debug("Applying %s…", pp);
+        log_debug("Applying %s%s", pp, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
         for (unsigned line = 1;; line++) {
                 _cleanup_free_ char *text = NULL;
                 char *p;

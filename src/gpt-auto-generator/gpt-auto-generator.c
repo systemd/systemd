@@ -23,6 +23,7 @@
 #include "fstab-util.h"
 #include "generator.h"
 #include "gpt.h"
+#include "initrd-util.h"
 #include "mkdir.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
@@ -34,7 +35,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
-#include "util.h"
 #include "virt.h"
 
 static const char *arg_dest = NULL;
@@ -42,71 +42,13 @@ static bool arg_enabled = true;
 static bool arg_root_enabled = true;
 static int arg_root_rw = -1;
 
-static int open_parent_block_device(dev_t devnum, int *ret_fd) {
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
-        const char *name, *devtype, *node;
-        sd_device *parent;
-        dev_t pn;
-        int fd, r;
+static int add_cryptsetup(
+                const char *id,
+                const char *what,
+                bool rw,
+                bool require,
+                char **ret_device) {
 
-        assert(ret_fd);
-
-        r = sd_device_new_from_devnum(&d, 'b', devnum);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to open device: %m");
-
-        if (sd_device_get_devname(d, &name) < 0) {
-                r = sd_device_get_syspath(d, &name);
-                if (r < 0) {
-                        log_device_debug_errno(d, r, "Device " DEVNUM_FORMAT_STR " does not have a name, ignoring: %m",
-                                               DEVNUM_FORMAT_VAL(devnum));
-                        return 0;
-                }
-        }
-
-        r = sd_device_get_parent(d, &parent);
-        if (r < 0) {
-                log_device_debug_errno(d, r, "Not a partitioned device, ignoring: %m");
-                return 0;
-        }
-
-        /* Does it have a devtype? */
-        r = sd_device_get_devtype(parent, &devtype);
-        if (r < 0) {
-                log_device_debug_errno(parent, r, "Parent doesn't have a device type, ignoring: %m");
-                return 0;
-        }
-
-        /* Is this a disk or a partition? We only care for disks... */
-        if (!streq(devtype, "disk")) {
-                log_device_debug(parent, "Parent isn't a raw disk, ignoring.");
-                return 0;
-        }
-
-        /* Does it have a device node? */
-        r = sd_device_get_devname(parent, &node);
-        if (r < 0) {
-                log_device_debug_errno(parent, r, "Parent device does not have device node, ignoring: %m");
-                return 0;
-        }
-
-        log_device_debug(d, "Root device %s.", node);
-
-        r = sd_device_get_devnum(parent, &pn);
-        if (r < 0) {
-                log_device_debug_errno(parent, r, "Parent device is not a proper block device, ignoring: %m");
-                return 0;
-        }
-
-        fd = open(node, O_RDONLY|O_CLOEXEC|O_NOCTTY);
-        if (fd < 0)
-                return log_error_errno(errno, "Failed to open %s: %m", node);
-
-        *ret_fd = fd;
-        return 1;
-}
-
-static int add_cryptsetup(const char *id, const char *what, bool rw, bool require, char **device) {
 #if HAVE_LIBCRYPTSETUP
         _cleanup_free_ char *e = NULL, *n = NULL, *d = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -174,14 +116,14 @@ static int add_cryptsetup(const char *id, const char *what, bool rw, bool requir
         if (r < 0)
                 log_warning_errno(r, "Failed to write device timeout drop-in, ignoring: %m");
 
-        if (device) {
-                char *ret;
+        if (ret_device) {
+                char *s;
 
-                ret = path_join("/dev/mapper", id);
-                if (!ret)
+                s = path_join("/dev/mapper", id);
+                if (!s)
                         return log_oom();
 
-                *device = ret;
+                *ret_device = s;
         }
 
         return 0;
@@ -340,7 +282,7 @@ static int add_partition_mount(
                         SPECIAL_LOCAL_FS_TARGET);
 }
 
-static int add_swap(DissectedPartition *p) {
+static int add_partition_swap(DissectedPartition *p) {
         const char *what;
         _cleanup_free_ char *name = NULL, *unit = NULL, *crypto_what = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -414,9 +356,9 @@ static int add_automount(
                 const char *description,
                 usec_t timeout) {
 
-        _cleanup_free_ char *unit = NULL;
+        _cleanup_free_ char *unit = NULL, *p = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        const char *opt = "noauto", *p;
+        const char *opt = "noauto";
         int r;
 
         assert(id);
@@ -442,7 +384,10 @@ static int add_automount(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        p = prefix_roota(arg_dest, unit);
+        p = path_join(arg_dest, unit);
+        if (!p)
+                return log_oom();
+
         f = fopen(p, "wxe");
         if (!f)
                 return log_error_errno(errno, "Failed to create unit file %s: %m", unit);
@@ -479,7 +424,7 @@ static const char *esp_or_xbootldr_options(const DissectedPartition *p) {
         return NULL;
 }
 
-static int add_xbootldr(DissectedPartition *p) {
+static int add_partition_xbootldr(DissectedPartition *p) {
         int r;
 
         assert(p);
@@ -515,7 +460,7 @@ static int add_xbootldr(DissectedPartition *p) {
 }
 
 #if ENABLE_EFI
-static int add_esp(DissectedPartition *p, bool has_xbootldr) {
+static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
         const char *esp_path = NULL, *id = NULL;
         int r;
 
@@ -589,12 +534,12 @@ static int add_esp(DissectedPartition *p, bool has_xbootldr) {
                              120 * USEC_PER_SEC);
 }
 #else
-static int add_esp(DissectedPartition *p, bool has_xbootldr) {
+static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
         return 0;
 }
 #endif
 
-static int add_root_rw(DissectedPartition *p) {
+static int add_partition_root_rw(DissectedPartition *p) {
         const char *path;
         int r;
 
@@ -632,11 +577,15 @@ static int add_root_rw(DissectedPartition *p) {
 
 #if ENABLE_EFI
 static int add_root_cryptsetup(void) {
+#if HAVE_LIBCRYPTSETUP
 
         /* If a device /dev/gpt-auto-root-luks appears, then make it pull in systemd-cryptsetup-root.service, which
          * sets it up, and causes /dev/gpt-auto-root to appear which is all we are looking for. */
 
         return add_cryptsetup("root", "/dev/gpt-auto-root-luks", true, false, NULL);
+#else
+        return 0;
+#endif
 }
 #endif
 
@@ -657,9 +606,8 @@ static int add_root_mount(void) {
         } else if (r < 0)
                 return log_error_errno(r, "Failed to read ESP partition UUID: %m");
 
-        /* OK, we have an ESP partition, this is fantastic, so let's
-         * wait for a root device to show up. A udev rule will create
-         * the link for us under the right name. */
+        /* OK, we have an ESP partition, this is fantastic, so let's wait for a root device to show up. A
+         * udev rule will create the link for us under the right name. */
 
         if (in_initrd()) {
                 r = generator_write_initrd_root_device_deps(arg_dest, "/dev/gpt-auto-root");
@@ -690,26 +638,31 @@ static int add_root_mount(void) {
 }
 
 static int enumerate_partitions(dev_t devnum) {
-        _cleanup_close_ int fd = -1;
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
+        _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
+        _cleanup_free_ char *devname = NULL;
         int r, k;
 
-        r = open_parent_block_device(devnum, &fd);
-        if (r <= 0)
-                return r;
+        r = block_get_whole_disk(devnum, &devnum);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get whole block device for " DEVNUM_FORMAT_STR ": %m",
+                                       DEVNUM_FORMAT_VAL(devnum));
+
+        r = devname_from_devnum(S_IFBLK, devnum, &devname);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get device node of " DEVNUM_FORMAT_STR ": %m",
+                                       DEVNUM_FORMAT_VAL(devnum));
 
         /* Let's take a LOCK_SH lock on the block device, in case udevd is already running. If we don't take
          * the lock, udevd might end up issuing BLKRRPART in the middle, and we don't want that, since that
          * might remove all partitions while we are operating on them. */
-        if (flock(fd, LOCK_SH) < 0)
-                return log_error_errno(errno, "Failed to lock root block device: %m");
+        r = loop_device_open_from_path(devname, O_RDONLY, LOCK_SH, &loop);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to open %s: %m", devname);
 
-        r = dissect_image(
-                        fd,
+        r = dissect_loop_device(
+                        loop,
                         NULL, NULL,
-                        /* diskseq= */ 0,
-                        UINT64_MAX,
-                        USEC_INFINITY,
                         DISSECT_IMAGE_GPT_ONLY|
                         DISSECT_IMAGE_USR_NO_ROOT,
                         &m);
@@ -721,19 +674,19 @@ static int enumerate_partitions(dev_t devnum) {
                 return log_error_errno(r, "Failed to dissect: %m");
 
         if (m->partitions[PARTITION_SWAP].found) {
-                k = add_swap(m->partitions + PARTITION_SWAP);
+                k = add_partition_swap(m->partitions + PARTITION_SWAP);
                 if (k < 0)
                         r = k;
         }
 
         if (m->partitions[PARTITION_XBOOTLDR].found) {
-                k = add_xbootldr(m->partitions + PARTITION_XBOOTLDR);
+                k = add_partition_xbootldr(m->partitions + PARTITION_XBOOTLDR);
                 if (k < 0)
                         r = k;
         }
 
         if (m->partitions[PARTITION_ESP].found) {
-                k = add_esp(m->partitions + PARTITION_ESP, m->partitions[PARTITION_XBOOTLDR].found);
+                k = add_partition_esp(m->partitions + PARTITION_ESP, m->partitions[PARTITION_XBOOTLDR].found);
                 if (k < 0)
                         r = k;
         }
@@ -763,7 +716,7 @@ static int enumerate_partitions(dev_t devnum) {
         }
 
         if (m->partitions[PARTITION_ROOT].found) {
-                k = add_root_rw(m->partitions + PARTITION_ROOT);
+                k = add_partition_root_rw(m->partitions + PARTITION_ROOT);
                 if (k < 0)
                         r = k;
         }

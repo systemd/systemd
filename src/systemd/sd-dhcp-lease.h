@@ -15,7 +15,7 @@
   Lesser General Public License for more details.
 
   You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -34,7 +34,7 @@ typedef struct sd_dhcp_route sd_dhcp_route;
 sd_dhcp_lease *sd_dhcp_lease_ref(sd_dhcp_lease *lease);
 sd_dhcp_lease *sd_dhcp_lease_unref(sd_dhcp_lease *lease);
 
-typedef enum sd_dhcp_lease_server_type_t {
+__extension__ typedef enum sd_dhcp_lease_server_type_t {
         SD_DHCP_LEASE_DNS,
         SD_DHCP_LEASE_NTP,
         SD_DHCP_LEASE_SIP,
@@ -43,7 +43,7 @@ typedef enum sd_dhcp_lease_server_type_t {
         SD_DHCP_LEASE_LPR,
         _SD_DHCP_LEASE_SERVER_TYPE_MAX,
         _SD_DHCP_LEASE_SERVER_TYPE_INVALID = -EINVAL,
-        _SD_ENUM_FORCE_S64(DHCP_LEASE_SERVER_TYPE),
+        _SD_ENUM_FORCE_S64(DHCP_LEASE_SERVER_TYPE)
 } sd_dhcp_lease_server_type_t;
 
 int sd_dhcp_lease_get_address(sd_dhcp_lease *lease, struct in_addr *addr);

@@ -12,9 +12,9 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "glyph-util.h"
 #include "set.h"
 #include "string-util.h"
-#include "util.h"
 
 static int flush_acl(acl_t acl) {
         acl_entry_t i;
@@ -141,15 +141,11 @@ int devnode_acl_all(const char *seat,
                     bool add, uid_t new_uid) {
 
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        _cleanup_set_free_free_ Set *nodes = NULL;
+        _cleanup_set_free_ Set *nodes = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
         sd_device *d;
         char *n;
         int r;
-
-        nodes = set_new(&path_hash_ops);
-        if (!nodes)
-                return -ENOMEM;
 
         r = sd_device_enumerator_new(&e);
         if (r < 0)
@@ -185,7 +181,7 @@ int devnode_acl_all(const char *seat,
                         continue;
 
                 log_device_debug(d, "Found udev node %s for seat %s", node, seat);
-                r = set_put_strdup(&nodes, node);
+                r = set_put_strdup_full(&nodes, &path_hash_ops_free, node);
                 if (r < 0)
                         return r;
         }
@@ -206,7 +202,7 @@ int devnode_acl_all(const char *seat,
                         }
 
                         log_debug("Found static node %s for seat %s", n, seat);
-                        r = set_consume(nodes, n);
+                        r = set_ensure_consume(&nodes, &path_hash_ops_free, n);
                         if (r < 0)
                                 return r;
                 }
@@ -216,8 +212,8 @@ int devnode_acl_all(const char *seat,
         SET_FOREACH(n, nodes) {
                 int k;
 
-                log_debug("Changing ACLs at %s for seat %s (uid "UID_FMT"→"UID_FMT"%s%s)",
-                          n, seat, old_uid, new_uid,
+                log_debug("Changing ACLs at %s for seat %s (uid "UID_FMT"%s"UID_FMT"%s%s)",
+                          n, seat, old_uid, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), new_uid,
                           del ? " del" : "", add ? " add" : "");
 
                 k = devnode_acl(n, flush, del, old_uid, add, new_uid);

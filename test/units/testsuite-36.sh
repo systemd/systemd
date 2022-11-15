@@ -243,7 +243,7 @@ else
     writeTestUnitNUMAPolicy "bind"
     pid1StartUnitWithJournal "$testUnit"
     pid1StopUnit "$testUnit"
-    grep "numa-test.service: Main process exited, code=exited, status=242/NUMA" "$journalLog"
+    [[ $(systemctl show "$testUnit" -P ExecMainStatus) == "242" ]]
 
     echo "Unit file NUMAPolicy support - Bind policy w/ mask"
     writeTestUnitNUMAPolicy "bind" "0"
@@ -256,7 +256,7 @@ else
     writeTestUnitNUMAPolicy "interleave"
     pid1StartUnitWithStrace "$testUnit"
     pid1StopUnit "$testUnit"
-    grep "numa-test.service: Main process exited, code=exited, status=242/NUMA" "$journalLog"
+    [[ $(systemctl show "$testUnit" -P ExecMainStatus) == "242" ]]
 
     echo "Unit file NUMAPolicy support - Interleave policy w/ mask"
     writeTestUnitNUMAPolicy "interleave" "0"
@@ -270,7 +270,7 @@ else
     pid1StartUnitWithJournal "$testUnit"
     systemctlCheckNUMAProperties "$testUnit" "preferred"
     pid1StopUnit "$testUnit"
-    grep "numa-test.service: Main process exited, code=exited, status=242/NUMA" "$journalLog" && { echo >&2 "unexpected pass"; exit 1; }
+    [[ $(systemctl show "$testUnit" -P ExecMainStatus) == "242" ]] && { echo >&2 "unexpected pass"; exit 1; }
 
     echo "Unit file NUMAPolicy support - Preferred policy w/ mask"
     writeTestUnitNUMAPolicy "preferred" "0"

@@ -25,6 +25,7 @@ CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_N
 DeviceAllow=char-* rw
 ExecStart=!!{{ROOTLIBEXECDIR}}/systemd-networkd
 ExecReload=networkctl reload
+FileDescriptorStoreMax=512
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 NoNewPrivileges=yes

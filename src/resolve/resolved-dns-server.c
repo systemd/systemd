@@ -726,7 +726,8 @@ void dns_server_warn_downgrade(DnsServer *server) {
 
         log_struct(LOG_NOTICE,
                    "MESSAGE_ID=" SD_MESSAGE_DNSSEC_DOWNGRADE_STR,
-                   LOG_MESSAGE("Server %s does not support DNSSEC, downgrading to non-DNSSEC mode.", strna(dns_server_string_full(server))),
+                   LOG_MESSAGE("Server %s does not support DNSSEC, downgrading to non-DNSSEC mode.",
+                               strna(dns_server_string_full(server))),
                    "DNS_SERVER=%s", strna(dns_server_string_full(server)),
                    "DNS_SERVER_FEATURE_LEVEL=%s", dns_server_feature_level_to_string(server->possible_feature_level));
 
@@ -1086,6 +1087,6 @@ static const char* const dns_server_feature_level_table[_DNS_SERVER_FEATURE_LEVE
         [DNS_SERVER_FEATURE_LEVEL_EDNS0]     = "UDP+EDNS0",
         [DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN] = "TLS+EDNS0",
         [DNS_SERVER_FEATURE_LEVEL_DO]        = "UDP+EDNS0+DO",
-        [DNS_SERVER_FEATURE_LEVEL_TLS_DO]    = "TLS+EDNS0+D0",
+        [DNS_SERVER_FEATURE_LEVEL_TLS_DO]    = "TLS+EDNS0+DO",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_server_feature_level, DnsServerFeatureLevel);

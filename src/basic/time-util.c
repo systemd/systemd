@@ -513,10 +513,9 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
                 { "us",    1               },
         };
 
-        char *p = buf;
+        char *p = ASSERT_PTR(buf);
         bool something = false;
 
-        assert(buf);
         assert(l > 0);
 
         if (t == USEC_INFINITY) {
@@ -591,7 +590,7 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
                         t = b;
                 }
 
-                n = MIN((size_t) k, l);
+                n = MIN((size_t) k, l-1);
 
                 l -= n;
                 p += n;
@@ -1411,9 +1410,8 @@ int verify_timezone(const char *name, int log_level) {
                 return -EINVAL;
 
         for (p = name; *p; p++) {
-                if (!(*p >= '0' && *p <= '9') &&
-                    !(*p >= 'a' && *p <= 'z') &&
-                    !(*p >= 'A' && *p <= 'Z') &&
+                if (!ascii_isdigit(*p) &&
+                    !ascii_isalpha(*p) &&
                     !IN_SET(*p, '-', '_', '+', '/'))
                         return -EINVAL;
 

@@ -61,9 +61,6 @@ int main(int argc, char *argv[]) {
         r = bpf_program_add_instructions(p, exit_insn, ELEMENTSOF(exit_insn));
         assert_se(r == 0);
 
-        if (getuid() != 0)
-                return log_tests_skipped("not running as root");
-
         r = bpf_firewall_supported();
         if (r == BPF_FIREWALL_UNSUPPORTED)
                 return log_tests_skipped("BPF firewalling not supported");
@@ -179,7 +176,7 @@ int main(int argc, char *argv[]) {
 
         assert_se(r >= 0);
 
-        assert_se(unit_start(u) >= 0);
+        assert_se(unit_start(u, NULL) >= 0);
 
         while (!IN_SET(SERVICE(u)->state, SERVICE_DEAD, SERVICE_FAILED))
                 assert_se(sd_event_run(m->event, UINT64_MAX) >= 0);
@@ -204,7 +201,7 @@ int main(int argc, char *argv[]) {
                 SERVICE(u)->type = SERVICE_ONESHOT;
                 u->load_state = UNIT_LOADED;
 
-                assert_se(unit_start(u) >= 0);
+                assert_se(unit_start(u, NULL) >= 0);
 
                 while (!IN_SET(SERVICE(u)->state, SERVICE_DEAD, SERVICE_FAILED))
                         assert_se(sd_event_run(m->event, UINT64_MAX) >= 0);

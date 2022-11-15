@@ -197,11 +197,10 @@ static int async_polkit_defer(sd_event_source *s, void *userdata) {
 }
 
 static int async_polkit_callback(sd_bus_message *reply, void *userdata, sd_bus_error *error) {
-        AsyncPolkitQuery *q = userdata;
+        AsyncPolkitQuery *q = ASSERT_PTR(userdata);
         int r;
 
         assert(reply);
-        assert(q);
 
         assert(q->slot);
         q->slot = sd_bus_slot_unref(q->slot);

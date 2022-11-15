@@ -6,6 +6,15 @@
 #include "macro.h"
 #include "tests.h"
 
+TEST(saturate_add) {
+        assert_se(saturate_add(1, 2, UINT8_MAX) == 3);
+        assert_se(saturate_add(1, UINT8_MAX-2, UINT8_MAX) == UINT8_MAX-1);
+        assert_se(saturate_add(1, UINT8_MAX-1, UINT8_MAX) == UINT8_MAX);
+        assert_se(saturate_add(1, UINT8_MAX, UINT8_MAX) == UINT8_MAX);
+        assert_se(saturate_add(2, UINT8_MAX, UINT8_MAX) == UINT8_MAX);
+        assert_se(saturate_add(60, 60, 50) == 50);
+}
+
 TEST(align_power2) {
         unsigned long i, p2;
 
@@ -200,6 +209,16 @@ TEST(in_set) {
         assert_se(IN_SET(4, 1, 2, 3, 4));
         assert_se(!IN_SET(0, 1));
         assert_se(!IN_SET(0, 1, 2, 3, 4));
+
+        struct {
+                unsigned x:3;
+        } t = { 1 };
+
+        assert_se(IN_SET(t.x, 1));
+        assert_se(IN_SET(t.x, 1, 2, 3, 4));
+        assert_se(IN_SET(t.x, 2, 3, 4, 1));
+        assert_se(!IN_SET(t.x, 0));
+        assert_se(!IN_SET(t.x, 2, 3, 4));
 }
 
 TEST(foreach_pointer) {
@@ -454,6 +473,62 @@ TEST(PTR_SUB1) {
 
         p = PTR_SUB1(p, x);
         assert_se(!p);
+}
+
+TEST(ISPOWEROF2) {
+        uint64_t u;
+        int64_t i;
+
+        /* First, test constant expressions */
+        assert_se(!ISPOWEROF2(-2));
+        assert_se(!ISPOWEROF2(-1));
+        assert_se(!ISPOWEROF2(0));
+        assert_se(ISPOWEROF2(1));
+        assert_se(ISPOWEROF2(2));
+        assert_se(!ISPOWEROF2(3));
+        assert_se(ISPOWEROF2(4));
+        assert_se(!ISPOWEROF2(5));
+        assert_se(!ISPOWEROF2(6));
+        assert_se(!ISPOWEROF2(7));
+        assert_se(ISPOWEROF2(8));
+        assert_se(!ISPOWEROF2(9));
+        assert_se(!ISPOWEROF2(1022));
+        assert_se(ISPOWEROF2(1024));
+        assert_se(!ISPOWEROF2(1025));
+        assert_se(!ISPOWEROF2(UINT64_C(0xffffffff)));
+        assert_se(ISPOWEROF2(UINT64_C(0x100000000)));
+        assert_se(!ISPOWEROF2(UINT64_C(0x100000001)));
+
+        /* Then, test dynamic expressions, and if they are side-effect free */
+        i = -2;
+        assert_se(!ISPOWEROF2(i++));
+        assert_se(i == -1);
+        assert_se(!ISPOWEROF2(i++));
+        assert_se(i == 0);
+        assert_se(!ISPOWEROF2(i++));
+        assert_se(i == 1);
+        assert_se(ISPOWEROF2(i++));
+        assert_se(i == 2);
+        assert_se(ISPOWEROF2(i++));
+        assert_se(i == 3);
+        assert_se(!ISPOWEROF2(i++));
+        assert_se(i == 4);
+        assert_se(ISPOWEROF2(i++));
+        assert_se(i == 5);
+        assert_se(!ISPOWEROF2(i));
+
+        u = 0;
+        assert_se(!ISPOWEROF2(u++));
+        assert_se(u == 1);
+        assert_se(ISPOWEROF2(u++));
+        assert_se(u == 2);
+        assert_se(ISPOWEROF2(u++));
+        assert_se(u == 3);
+        assert_se(!ISPOWEROF2(u++));
+        assert_se(u == 4);
+        assert_se(ISPOWEROF2(u++));
+        assert_se(u == 5);
+        assert_se(!ISPOWEROF2(u));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

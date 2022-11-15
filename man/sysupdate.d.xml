@@ -76,7 +76,7 @@
 
       <listitem><para>Similarly, a file <literal>https://download.example.com/foobarOS_47.verity.xz</literal>
       should be downloaded, decompressed and written to a previously empty partition with GPT partition type
-      UUID of 2c7357ed-ebd2-46d9-aec1-23d437ec2bf5 (i.e the partition type for Verity integrity information
+      UUID of 2c7357ed-ebd2-46d9-aec1-23d437ec2bf5 (i.e. the partition type for Verity integrity information
       for x86-64 root file systems).</para></listitem>
 
       <listitem><para>Finally, a file <literal>https://download.example.com/foobarOS_47.efi.xz</literal> (a
@@ -117,7 +117,7 @@
     <itemizedlist>
       <listitem><para>For partitions: the surrounding GPT partition table contains a list of defined
       partitions, including a partition type UUID and a partition label (in this scheme the partition label
-      plays a role for the partition similar to the filename for a regular file)</para></listitem>
+      plays a role for the partition similar to the filename for a regular file).</para></listitem>
 
       <listitem><para>For regular files: the directory listing of the directory the files are contained in
       provides a list of existing files in a straightforward way.</para></listitem>
@@ -369,7 +369,7 @@
             <entry><literal>@r</literal></entry>
             <entry>Read-only flag</entry>
             <entry>Either <literal>0</literal> or <literal>1</literal></entry>
-            <entry>Controls ReadOnly bit of the GPT partition flags, as per <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink> and other output read-only flags, see <varname>ReadOnly=</varname> below.</entry>
+            <entry>Controls ReadOnly bit of the GPT partition flags, as per <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink> and other output read-only flags, see <varname>ReadOnly=</varname> below</entry>
           </row>
 
           <row>
@@ -404,14 +404,14 @@
             <entry><literal>@l</literal></entry>
             <entry>Tries left</entry>
             <entry>Formatted decimal integer</entry>
-            <entry>Useful when operating with kernel images, as per <ulink url="https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT">Automatic Boot Assessment</ulink></entry>
+            <entry>Useful when operating with kernel image files, as per <ulink url="https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT">Automatic Boot Assessment</ulink></entry>
           </row>
 
           <row>
             <entry><literal>@h</literal></entry>
             <entry>SHA256 hash of compressed file</entry>
             <entry>64 hexadecimal characters</entry>
-            <entry>The SHA256 hash of the compressed file; not useful for <constant>url-file</constant> or <constant>url-tar</constant> where the SHA256 hash is already included in the manifest file anyway.</entry>
+            <entry>The SHA256 hash of the compressed file; not useful for <constant>url-file</constant> or <constant>url-tar</constant> where the SHA256 hash is already included in the manifest file anyway</entry>
           </row>
         </tbody>
       </tgroup>
@@ -432,7 +432,7 @@
   <refsect1>
     <title>[Transfer] Section Options</title>
 
-    <para>This section defines general properties of this transfer.</para>
+    <para>This section defines general properties of this transfer:</para>
 
     <variablelist>
       <varlistentry>
@@ -555,8 +555,8 @@
         <listitem><para>Specifies a file system path where to look for already installed versions or place
         newly downloaded versions of this configured resource. If <varname>Type=</varname> is set to
         <constant>partition</constant>, expects a path to a (whole) block device node, or the special string
-        <literal>auto</literal> in which case the block device the root file system of the currently booted
-        system is automatically determined and used. If <varname>Type=</varname> is set to
+        <literal>auto</literal> in which case the block device which contains the root file system of the
+        currently booted system is automatically determined and used. If <varname>Type=</varname> is set to
         <constant>regular-file</constant>, <constant>directory</constant> or <constant>subvolume</constant>,
         must refer to a path in the local file system referencing the directory to find or place the version
         files or directories under.</para>
@@ -818,7 +818,7 @@ Path=https://download.example.com/
 MatchPattern=foobarOS_@v.efi.xz
 
 [Target]
-Type=file
+Type=regular-file
 Path=/efi/EFI/Linux
 MatchPattern=foobarOS_@v+@l-@d.efi \
              foobarOS_@v+@l.efi \
@@ -831,7 +831,7 @@ InstancesMax=2</programlisting></para>
         <para>The above installs a unified kernel image into the ESP (which is mounted to
         <filename>/efi/</filename>), as per <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot
         Loader Specification</ulink> Type #2. This defines three possible patterns for the names of the
-        kernel images images, as per <ulink url="https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT">Automatic Boot
+        kernel images, as per <ulink url="https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT">Automatic Boot
         Assessment</ulink>, and ensures when installing new kernels, they are set up with 3 tries left. No
         more than two parallel kernels are kept.</para>
 

@@ -161,10 +161,11 @@ evdev:name:ETPS/2 Elantech Touchpad:dmi:bvn*:bvr*:bd*:svnASUSTeKComputerInc.:pnK
  EVDEV_ABS_35=::18
  EVDEV_ABS_36=::16
 
-# Asus X550CC, S550CB and N550JV
+# Asus X550CC, S550CB, N550JV and GA402
 evdev:name:ETPS/2 Elantech Touchpad:dmi:*:svnASUSTeKCOMPUTERINC.:pnX550CC:*
 evdev:name:ETPS/2 Elantech Touchpad:dmi:*:svnASUSTeKCOMPUTERINC.:pnS550CB:*
 evdev:name:ETPS/2 Elantech Touchpad:dmi:*:svnASUSTeKCOMPUTERINC.:pnN550JV:*
+evdev:name:ASUE120A:00 04F3:319B Touchpad:dmi:*svnASUSTeKCOMPUTERINC.:*pnROGZephyrusG14GA402R*
  EVDEV_ABS_00=::31
  EVDEV_ABS_01=::30
  EVDEV_ABS_35=::31
@@ -190,6 +191,17 @@ evdev:name:ELAN1401:00 04F3:30DC Touchpad:dmi:*:svnASUSTeKCOMPUTERINC.:pnZenBook
  EVDEV_ABS_01=:::8
  EVDEV_ABS_35=:::8
  EVDEV_ABS_36=:::8
+
+#########################################
+# Avita
+#########################################
+
+# Avita Liber (NS13A2)
+evdev:name:093A6113:00 093A:2342 Touchpad:dmi:*svnAVITA:*pnNS13A2**
+ EVDEV_ABS_00=::19
+ EVDEV_ABS_01=::20
+ EVDEV_ABS_35=::19
+ EVDEV_ABS_36=::20
 
 #########################################
 # Bangho
@@ -427,6 +439,14 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrThinkPad??40?:*
  EVDEV_ABS_35=::41
  EVDEV_ABS_36=::37
 
+# Lenovo T440* series
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrThinkPadT440:*
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrThinkPadT440?:*
+ EVDEV_ABS_00=:::13
+ EVDEV_ABS_01=:::13
+ EVDEV_ABS_35=:::13
+ EVDEV_ABS_36=:::13
+
 # Lenovo X240 series
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrThinkPadX240:*
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrThinkPadX240?:*
@@ -588,12 +608,26 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*:svnLENOVO:*pvrThinkPadP14sGen2a:*
  EVDEV_ABS_35=::44
  EVDEV_ABS_36=::52
 
+# Lenovo ThinkPad T15g Gen1
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO:*pvrThinkPadT15gGen1**
+ EVDEV_ABS_00=::44
+ EVDEV_ABS_01=::50
+ EVDEV_ABS_35=::44
+ EVDEV_ABS_36=::50
+
 # Lenovo Legion Y9000X2020
 evdev:name:MSFT0001:02 04F3:304B Touchpad:dmi:*svnLENOVO:*pvrLenovoLegionY9000X2020:*
  EVDEV_ABS_00=::31
  EVDEV_ABS_01=::30
  EVDEV_ABS_35=::31
  EVDEV_ABS_36=::30
+
+# Lenovo g580
+evdev:name:ETPS/2 Elantech Touchpad:dmi:*svnLENOVO:*pvrLenovoG580**
+ EVDEV_ABS_00=-170:2950:24
+ EVDEV_ABS_01=-591:700:25
+ EVDEV_ABS_35=-170:2950:24
+ EVDEV_ABS_36=-591:700:25
 
 #########################################
 # Microsoft

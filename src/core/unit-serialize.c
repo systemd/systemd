@@ -590,8 +590,8 @@ static void print_unit_dependency_mask(FILE *f, const char *kind, UnitDependency
                 { UNIT_DEPENDENCY_DEFAULT,            "default"            },
                 { UNIT_DEPENDENCY_UDEV,               "udev"               },
                 { UNIT_DEPENDENCY_PATH,               "path"               },
-                { UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT, "mountinfo-implicit" },
-                { UNIT_DEPENDENCY_MOUNTINFO_DEFAULT,  "mountinfo-default"  },
+                { UNIT_DEPENDENCY_MOUNT_FILE,         "mount-file"         },
+                { UNIT_DEPENDENCY_MOUNTINFO,          "mountinfo"          },
                 { UNIT_DEPENDENCY_PROC_SWAP,          "proc-swap"          },
                 { UNIT_DEPENDENCY_SLICE_PROPERTY,     "slice-property"     },
         };
@@ -732,6 +732,9 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         STRV_FOREACH(j, u->documentation)
                 fprintf(f, "%s\tDocumentation: %s\n", prefix, *j);
 
+        if (u->access_selinux_context)
+                fprintf(f, "%s\tAccess SELinux Context: %s\n", prefix, u->access_selinux_context);
+
         following = unit_following(u);
         if (following)
                 fprintf(f, "%s\tFollowing: %s\n", prefix, following->id);
@@ -845,8 +848,10 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f,
                         "%s\tMerged into: %s\n",
                         prefix, u->merged_into->id);
-        else if (u->load_state == UNIT_ERROR)
-                fprintf(f, "%s\tLoad Error Code: %s\n", prefix, strerror_safe(u->load_error));
+        else if (u->load_state == UNIT_ERROR) {
+                errno = abs(u->load_error);
+                fprintf(f, "%s\tLoad Error Code: %m\n", prefix);
+        }
 
         for (const char *n = sd_bus_track_first(u->bus_track); n; n = sd_bus_track_next(u->bus_track))
                 fprintf(f, "%s\tBus Ref: %s\n", prefix, n);

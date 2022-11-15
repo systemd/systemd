@@ -8,6 +8,9 @@ set -o pipefail
 cat >/lib/systemd/system/my.service <<EOF
 [Service]
 Type=oneshot
+ExecStartPre=sh -c 'test "\$TRIGGER_UNIT" = my.timer'
+ExecStartPre=sh -c 'test -n "\$TRIGGER_TIMER_REALTIME_USEC"'
+ExecStartPre=sh -c 'test -n "\$TRIGGER_TIMER_MONOTONIC_USEC"'
 ExecStart=/bin/echo Timer runs me
 EOF
 

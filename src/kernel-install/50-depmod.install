@@ -16,14 +16,17 @@
 # General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
 
-COMMAND="$1"
-KERNEL_VERSION="$2"
+set -e
+
+COMMAND="${1:?}"
+KERNEL_VERSION="${2:?}"
 
 case "$COMMAND" in
     add)
         [ -d "/lib/modules/$KERNEL_VERSION/kernel" ] || exit 0
+        command -v depmod >/dev/null || exit 0
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "+depmod -a $KERNEL_VERSION"
         exec depmod -a "$KERNEL_VERSION"
         ;;
@@ -44,4 +47,5 @@ case "$COMMAND" in
         ;;
     *)
         exit 0
+        ;;
 esac

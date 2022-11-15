@@ -4,6 +4,7 @@
 #include "dns-domain.h"
 #include "dns-type.h"
 #include "event-util.h"
+#include "glyph-util.h"
 #include "hostname-util.h"
 #include "local-addresses.h"
 #include "resolved-dns-query.h"
@@ -396,6 +397,7 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         dns_question_unref(q->question_idna);
         dns_question_unref(q->question_utf8);
         dns_packet_unref(q->question_bypass);
+        dns_question_unref(q->collected_questions);
 
         dns_query_reset_answer(q);
 
@@ -584,16 +586,17 @@ void dns_query_complete(DnsQuery *q, DnsTransactionState state) {
 
         q->state = state;
 
+        (void) manager_monitor_send(q->manager, q->state, q->answer_rcode, q->answer_errno, q->question_idna, q->question_utf8, q->collected_questions, q->answer);
+
         dns_query_stop(q);
         if (q->complete)
                 q->complete(q);
 }
 
 static int on_query_timeout(sd_event_source *s, usec_t usec, void *userdata) {
-        DnsQuery *q = userdata;
+        DnsQuery *q = ASSERT_PTR(userdata);
 
         assert(s);
-        assert(q);
 
         dns_query_complete(q, DNS_TRANSACTION_TIMEOUT);
         return 0;
@@ -850,17 +853,14 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                                 q->answer_query_flags |= dns_transaction_source_to_query_flags(t->answer_source);
                         } else {
                                 /* Override non-successful previous answers */
-                                dns_answer_unref(q->answer);
-                                q->answer = dns_answer_ref(t->answer);
-
+                                DNS_ANSWER_REPLACE(q->answer, dns_answer_ref(t->answer));
                                 q->answer_query_flags = dns_transaction_source_to_query_flags(t->answer_source);
                         }
 
                         q->answer_rcode = t->answer_rcode;
                         q->answer_errno = 0;
 
-                        dns_packet_unref(q->answer_full_packet);
-                        q->answer_full_packet = dns_packet_ref(t->received);
+                        DNS_PACKET_REPLACE(q->answer_full_packet, dns_packet_ref(t->received));
 
                         if (FLAGS_SET(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED)) {
                                 has_authenticated = true;
@@ -896,14 +896,12 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                             !FLAGS_SET(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED))
                                 continue;
 
-                        dns_answer_unref(q->answer);
-                        q->answer = dns_answer_ref(t->answer);
+                        DNS_ANSWER_REPLACE(q->answer, dns_answer_ref(t->answer));
                         q->answer_rcode = t->answer_rcode;
                         q->answer_dnssec_result = t->answer_dnssec_result;
                         q->answer_query_flags = t->answer_query_flags | dns_transaction_source_to_query_flags(t->answer_source);
                         q->answer_errno = t->answer_errno;
-                        dns_packet_unref(q->answer_full_packet);
-                        q->answer_full_packet = dns_packet_ref(t->received);
+                        DNS_PACKET_REPLACE(q->answer_full_packet, dns_packet_ref(t->received));
 
                         state = t->state;
                         break;
@@ -982,6 +980,26 @@ void dns_query_ready(DnsQuery *q) {
         dns_query_accept(q, bad);
 }
 
+static int dns_query_collect_question(DnsQuery *q, DnsQuestion *question) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *merged = NULL;
+        int r;
+
+        assert(q);
+
+        if (dns_question_size(question) == 0)
+                return 0;
+
+        /* When redirecting, save the first element in the chain, for informational purposes when monitoring */
+        r = dns_question_merge(q->collected_questions, question, &merged);
+        if (r < 0)
+                return r;
+
+        dns_question_unref(q->collected_questions);
+        q->collected_questions = TAKE_PTR(merged);
+
+        return 0;
+}
+
 static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname) {
         _cleanup_(dns_question_unrefp) DnsQuestion *nq_idna = NULL, *nq_utf8 = NULL;
         int r, k;
@@ -996,7 +1014,10 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
         if (r < 0)
                 return r;
         if (r > 0)
-                log_debug("Following CNAME/DNAME %s → %s.", dns_question_first_name(q->question_idna), dns_question_first_name(nq_idna));
+                log_debug("Following CNAME/DNAME %s %s %s.",
+                          dns_question_first_name(q->question_idna),
+                          special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                          dns_question_first_name(nq_idna));
 
         k = dns_question_is_equal(q->question_idna, q->question_utf8);
         if (k < 0)
@@ -1010,7 +1031,10 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
                 if (k < 0)
                         return k;
                 if (k > 0)
-                        log_debug("Following UTF8 CNAME/DNAME %s → %s.", dns_question_first_name(q->question_utf8), dns_question_first_name(nq_utf8));
+                        log_debug("Following UTF8 CNAME/DNAME %s %s %s.",
+                                  dns_question_first_name(q->question_utf8),
+                                  special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                                  dns_question_first_name(nq_utf8));
         }
 
         if (r == 0 && k == 0) /* No actual cname happened? */
@@ -1025,6 +1049,14 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
         /* Turn off searching for the new name */
         q->flags |= SD_RESOLVED_NO_SEARCH;
 
+        r = dns_query_collect_question(q, q->question_idna);
+        if (r < 0)
+                return r;
+        r = dns_query_collect_question(q, q->question_utf8);
+        if (r < 0)
+                return r;
+
+        /* Install the redirected question */
         dns_question_unref(q->question_idna);
         q->question_idna = TAKE_PTR(nq_idna);
 

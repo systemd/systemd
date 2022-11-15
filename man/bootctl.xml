@@ -238,6 +238,37 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--root=<replaceable>root</replaceable></option></term>
+        <listitem><para>Takes a directory path as an argument. All
+        paths will be prefixed with the given alternate
+        <replaceable>root</replaceable> path, including config search
+        paths. </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--image=<replaceable>image</replaceable></option></term>
+
+        <listitem><para>Takes a path to a disk image file or block device node. If specified, all operations
+        are applied to file system in the indicated disk image. This option is similar to
+        <option>--root=</option>, but operates on file systems stored in disk images or block devices. The
+        disk image should either contain just a file system or a set of file systems within a GPT partition
+        table, following the <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions
+        Specification</ulink>. For further information on supported disk images, see
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        switch of the same name.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--install-source=</option></term>
+        <listitem><para>When installing binaries with <option>--root=</option> or
+        <option>--image=</option>, selects where to source them from. Takes one of <literal>auto</literal>
+        (the default), <literal>image</literal> or <literal>host</literal>. With <literal>auto</literal>
+        binaries will be picked from the specified directory or image, and if not found they will be picked
+        from the host. With <literal>image</literal> or <literal>host</literal> no fallback search will be
+        performed if the binaries are not found in the selected source.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-p</option></term>
         <term><option>--print-esp-path</option></term>
         <listitem><para>This option modifies the behaviour of <command>status</command>. Only prints the path
@@ -258,7 +289,7 @@
         Specification Type #2 entries should be placed in the directory <literal>$(bootctl
         -x)/EFI/Linux/</literal>.</para>
 
-        <para>Note that this option (similar to the <option>--print-booth-path</option> option mentioned
+        <para>Note that this option (similarly to the <option>--print-booth-path</option> option mentioned
         above), is available independently from the boot loader used, i.e. also without
         <command>systemd-boot</command> being installed.</para></listitem>
       </varlistentry>
@@ -288,11 +319,11 @@
         <term><option>--make-entry-directory=yes|no</option></term>
         <listitem><para>Controls creation and deletion of the <ulink
         url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink> Type #1 entry
-        directory on the file system containing resources such as kernel images and initial RAM disk images
-        during <option>install</option> and <option>remove</option>, respectively. The directory is named
-        after the entry token, as specified with <option>--entry-token=</option> parameter described below,
-        and is placed immediately below the <varname>$BOOT</varname> root directory (i.e. beneath the file
-        system returned by the <option>--print-boot-path</option> option, see above). Defaults to
+        directory on the file system containing resources such as kernel and initrd images during
+        <option>install</option> and <option>remove</option>, respectively. The directory is named after the
+        entry token, as specified with <option>--entry-token=</option> parameter described below, and is
+        placed immediately below the <varname>$BOOT</varname> root directory (i.e. beneath the file system
+        returned by the <option>--print-boot-path</option> option, see above). Defaults to
         <literal>no</literal>.</para></listitem>
       </varlistentry>
 
@@ -311,9 +342,9 @@
 
         <para>If set to <option>os-id</option> the entries are named after the OS ID of the running system,
         i.e. the <varname>ID=</varname> field of
-        <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        (e.g. <literal>fedora</literal>). Similar, if set to <option>os-image-id</option> the entries are
-        named after the OS image ID of the running system, i.e. the <varname>IMAGE_ID=</varname> field of
+        <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> (e.g.
+        <literal>fedora</literal>). Similarly, if set to <option>os-image-id</option> the entries are named
+        after the OS image ID of the running system, i.e. the <varname>IMAGE_ID=</varname> field of
         <filename>os-release</filename> (e.g. <literal>vendorx-cashier-system</literal>).</para>
 
         <para>If set to <option>auto</option> (the default), the <filename>/etc/kernel/entry-token</filename>
@@ -339,6 +370,24 @@
         identifier (such as the OS ID or the OS image ID), parallel installations of the same OS would try to
         use the same entry name. To support parallel installations, the installer must use a different entry
         token when adding a second installation.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--all-architectures</option></term>
+        <listitem><para>Install binaries for all supported EFI architectures (this implies <option>--no-variables</option>).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--efi-boot-option-description=</option></term>
+        <listitem><para>Description of the entry added to the firmware's boot option list. Defaults to <literal>Linux
+        Boot Manager</literal>.</para>
+
+        <para>Using the default entry name <literal>Linux Boot Manager</literal> is generally preferable as only
+        one bootloader installed to a single ESP partition should be used to boot any number of OS installations
+        found on the various disks installed in the system. Specifically distributions should not use this flag
+        to install a branded entry in the boot option list. However in situations with multiple disks, each with
+        their own ESP partition, it can be beneficial to make it easier to identify the bootloader being used in
+        the firmware's boot option menu.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="no-pager"/>

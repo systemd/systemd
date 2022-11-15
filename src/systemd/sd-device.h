@@ -14,7 +14,7 @@
   Lesser General Public License for more details.
 
   You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -34,7 +34,7 @@ typedef struct sd_device sd_device;
 typedef struct sd_device_enumerator sd_device_enumerator;
 typedef struct sd_device_monitor sd_device_monitor;
 
-typedef enum sd_device_action_t {
+__extension__ typedef enum sd_device_action_t {
         SD_DEVICE_ADD,
         SD_DEVICE_REMOVE,
         SD_DEVICE_CHANGE,
@@ -45,7 +45,7 @@ typedef enum sd_device_action_t {
         SD_DEVICE_UNBIND,
         _SD_DEVICE_ACTION_MAX,
         _SD_DEVICE_ACTION_INVALID = -EINVAL,
-        _SD_ENUM_FORCE_S64(DEVICE_ACTION),
+        _SD_ENUM_FORCE_S64(DEVICE_ACTION)
 } sd_device_action_t;
 
 /* callback */
@@ -67,6 +67,8 @@ int sd_device_new_from_path(sd_device **ret, const char *path);
 int sd_device_new_from_ifname(sd_device **ret, const char *ifname);
 int sd_device_new_from_ifindex(sd_device **ret, int ifindex);
 
+int sd_device_new_child(sd_device **ret, sd_device *device, const char *suffix);
+
 int sd_device_get_parent(sd_device *child, sd_device **ret);
 int sd_device_get_parent_with_subsystem_devtype(sd_device *child, const char *subsystem, const char *devtype, sd_device **ret);
 
@@ -85,8 +87,8 @@ int sd_device_get_seqnum(sd_device *device, uint64_t *ret);
 int sd_device_get_diskseq(sd_device *device, uint64_t *ret);
 
 int sd_device_get_is_initialized(sd_device *device);
-int sd_device_get_usec_initialized(sd_device *device, uint64_t *usec);
-int sd_device_get_usec_since_initialized(sd_device *device, uint64_t *usec);
+int sd_device_get_usec_initialized(sd_device *device, uint64_t *ret);
+int sd_device_get_usec_since_initialized(sd_device *device, uint64_t *ret);
 
 const char *sd_device_get_tag_first(sd_device *device);
 const char *sd_device_get_tag_next(sd_device *device);
@@ -98,6 +100,8 @@ const char *sd_device_get_property_first(sd_device *device, const char **value);
 const char *sd_device_get_property_next(sd_device *device, const char **value);
 const char *sd_device_get_sysattr_first(sd_device *device);
 const char *sd_device_get_sysattr_next(sd_device *device);
+sd_device *sd_device_get_child_first(sd_device *device, const char **ret_suffix);
+sd_device *sd_device_get_child_next(sd_device *device, const char **ret_suffix);
 
 int sd_device_has_tag(sd_device *device, const char *tag);
 int sd_device_has_current_tag(sd_device *device, const char *tag);
@@ -142,6 +146,8 @@ int sd_device_monitor_attach_event(sd_device_monitor *m, sd_event *event);
 int sd_device_monitor_detach_event(sd_device_monitor *m);
 sd_event *sd_device_monitor_get_event(sd_device_monitor *m);
 sd_event_source *sd_device_monitor_get_event_source(sd_device_monitor *m);
+int sd_device_monitor_set_description(sd_device_monitor *m, const char *description);
+int sd_device_monitor_get_description(sd_device_monitor *m, const char **ret);
 int sd_device_monitor_start(sd_device_monitor *m, sd_device_monitor_handler_t callback, void *userdata);
 int sd_device_monitor_stop(sd_device_monitor *m);
 

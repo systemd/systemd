@@ -391,5 +391,5 @@ int verb_plot(int argc, char *argv[], void *userdata) {
 
         svg("</svg>\n");
 
-        return 0;
+        return EXIT_SUCCESS;
 }

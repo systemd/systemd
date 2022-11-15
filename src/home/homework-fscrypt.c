@@ -216,7 +216,6 @@ static int fscrypt_setup(
                 size_t *ret_volume_key_size) {
 
         _cleanup_free_ char *xattr_buf = NULL;
-        const char *xa;
         int r;
 
         assert(setup);
@@ -409,7 +408,7 @@ static int fscrypt_slot_set(
         const EVP_CIPHER *cc;
         size_t encrypted_size;
 
-        r = genuine_random_bytes(salt, sizeof(salt), RANDOM_BLOCK);
+        r = crypto_random_bytes(salt, sizeof(salt));
         if (r < 0)
                 return log_error_errno(r, "Failed to generate salt: %m");
 
@@ -540,7 +539,7 @@ int home_create_fscrypt(
         if (!volume_key)
                 return log_oom();
 
-        r = genuine_random_bytes(volume_key, volume_key_size, RANDOM_BLOCK);
+        r = crypto_random_bytes(volume_key, volume_key_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire volume key: %m");
 
@@ -646,7 +645,6 @@ int home_passwd_fscrypt(
         _cleanup_free_ char *xattr_buf = NULL;
         size_t volume_key_size = 0;
         uint32_t slot = 0;
-        const char *xa;
         int r;
 
         assert(h);

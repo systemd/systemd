@@ -35,6 +35,9 @@ rules = [
 
         [files('70-memory.rules'),
          dmi_arches.contains(host_machine.cpu_family())],
+
+        [files('70-power-switch.rules'),
+         enable_logind],
 ]
 
 all_rules = []

@@ -69,11 +69,10 @@ static int property_get_delegate_controllers(
                 void *userdata,
                 sd_bus_error *error) {
 
-        CGroupContext *c = userdata;
+        CGroupContext *c = ASSERT_PTR(userdata);
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         if (!c->delegate)
                 return sd_bus_message_append(reply, "as", 0);
@@ -90,13 +89,12 @@ static int property_get_cpuset(
                 void *userdata,
                 sd_bus_error *error) {
 
-        CPUSet *cpus = userdata;
+        CPUSet *cpus = ASSERT_PTR(userdata);
         _cleanup_free_ uint8_t *array = NULL;
         size_t allocated;
 
         assert(bus);
         assert(reply);
-        assert(cpus);
 
         (void) cpu_set_to_dbus(cpus, &array, &allocated);
         return sd_bus_message_append_array(reply, 'y', array, allocated);
@@ -111,12 +109,11 @@ static int property_get_io_device_weight(
                 void *userdata,
                 sd_bus_error *error) {
 
-        CGroupContext *c = userdata;
+        CGroupContext *c = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         r = sd_bus_message_open_container(reply, 'a', "(st)");
         if (r < 0)
@@ -140,12 +137,11 @@ static int property_get_io_device_limits(
                 void *userdata,
                 sd_bus_error *error) {
 
-        CGroupContext *c = userdata;
+        CGroupContext *c = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         r = sd_bus_message_open_container(reply, 'a', "(st)");
         if (r < 0)
@@ -175,12 +171,11 @@ static int property_get_io_device_latency(
                 void *userdata,
                 sd_bus_error *error) {
 
-        CGroupContext *c = userdata;
+        CGroupContext *c = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         r = sd_bus_message_open_container(reply, 'a', "(st)");
         if (r < 0)
@@ -204,12 +199,11 @@ static int property_get_blockio_device_weight(
                 void *userdata,
                 sd_bus_error *error) {
 
-        CGroupContext *c = userdata;
+        CGroupContext *c = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         r = sd_bus_message_open_container(reply, 'a', "(st)");
         if (r < 0)
@@ -233,12 +227,11 @@ static int property_get_blockio_device_bandwidths(
                 void *userdata,
                 sd_bus_error *error) {
 
-        CGroupContext *c = userdata;
+        CGroupContext *c = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         r = sd_bus_message_open_container(reply, 'a', "(st)");
         if (r < 0)
@@ -272,12 +265,11 @@ static int property_get_device_allow(
                 void *userdata,
                 sd_bus_error *error) {
 
-        CGroupContext *c = userdata;
+        CGroupContext *c = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         r = sd_bus_message_open_container(reply, 'a', "(ss)");
         if (r < 0)
@@ -313,11 +305,9 @@ static int property_get_ip_address_access(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Set **prefixes = userdata;
+        Set **prefixes = ASSERT_PTR(userdata);
         struct in_addr_prefix *i;
         int r;
-
-        assert(prefixes);
 
         r = sd_bus_message_open_container(reply, 'a', "(iayu)");
         if (r < 0)
@@ -384,10 +374,8 @@ static int property_get_socket_bind(
                 void *userdata,
                 sd_bus_error *error) {
 
-        CGroupSocketBindItem **items = userdata;
+        CGroupSocketBindItem **items = ASSERT_PTR(userdata);
         int r;
-
-        assert(items);
 
         r = sd_bus_message_open_container(reply, 'a', "(iiqq)");
         if (r < 0)
@@ -411,12 +399,11 @@ static int property_get_restrict_network_interfaces(
                 void *userdata,
                 sd_bus_error *error) {
         int r;
-        CGroupContext *c = userdata;
+        CGroupContext *c = ASSERT_PTR(userdata);
         char *iface;
 
         assert(bus);
         assert(reply);
-        assert(c);
 
         r = sd_bus_message_open_container(reply, 'r', "bas");
         if (r < 0)
@@ -737,7 +724,7 @@ static int bus_cgroup_set_transient_property(
 
                         unit_write_setting(u, flags, name, buf);
 
-                        if (!LIST_IS_EMPTY(c->bpf_foreign_programs)) {
+                        if (c->bpf_foreign_programs) {
                                 r = bpf_foreign_supported();
                                 if (r < 0)
                                         return r;
@@ -894,7 +881,6 @@ static int bus_cgroup_set_boolean(
         }
 
 DISABLE_WARNING_TYPE_LIMITS;
-BUS_DEFINE_SET_CGROUP_WEIGHT(cpu_weight, CGROUP_MASK_CPU, CGROUP_WEIGHT_IS_OK, CGROUP_WEIGHT_INVALID);
 BUS_DEFINE_SET_CGROUP_WEIGHT(cpu_shares, CGROUP_MASK_CPU, CGROUP_CPU_SHARES_IS_OK, CGROUP_CPU_SHARES_INVALID);
 BUS_DEFINE_SET_CGROUP_WEIGHT(io_weight, CGROUP_MASK_IO, CGROUP_WEIGHT_IS_OK, CGROUP_WEIGHT_INVALID);
 BUS_DEFINE_SET_CGROUP_WEIGHT(blockio_weight, CGROUP_MASK_BLKIO, CGROUP_BLKIO_WEIGHT_IS_OK, CGROUP_BLKIO_WEIGHT_INVALID);
@@ -902,6 +888,35 @@ BUS_DEFINE_SET_CGROUP_LIMIT(memory, CGROUP_MASK_MEMORY, physical_memory_scale, 1
 BUS_DEFINE_SET_CGROUP_LIMIT(memory_protection, CGROUP_MASK_MEMORY, physical_memory_scale, 0);
 BUS_DEFINE_SET_CGROUP_LIMIT(swap, CGROUP_MASK_MEMORY, physical_memory_scale, 0);
 REENABLE_WARNING;
+
+static int bus_cgroup_set_cpu_weight(
+                Unit *u,
+                const char *name,
+                uint64_t *p,
+                sd_bus_message *message,
+                UnitWriteFlags flags,
+                sd_bus_error *error) {
+        uint64_t v;
+        int r;
+        assert(p);
+        r = sd_bus_message_read(message, "t", &v);
+        if (r < 0)
+                return r;
+        if (!CGROUP_WEIGHT_IS_OK(v) && v != CGROUP_WEIGHT_IDLE)
+                return sd_bus_error_setf(
+                                error, SD_BUS_ERROR_INVALID_ARGS, "Value specified in %s is out of range", name);
+        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                *p = v;
+                unit_invalidate_cgroup(u, CGROUP_MASK_CPU);
+                if (v == CGROUP_WEIGHT_INVALID)
+                        unit_write_settingf(u, flags, name, "%s=", name);
+                else if (v == CGROUP_WEIGHT_IDLE)
+                        unit_write_settingf(u, flags, name, "%s=idle", name);
+                else
+                        unit_write_settingf(u, flags, name, "%s=%" PRIu64, name, v);
+        }
+        return 1;
+}
 
 static int bus_cgroup_set_tasks_max(
                 Unit *u,
@@ -1439,12 +1454,11 @@ int bus_cgroup_set_property(
 
         } else if (STR_IN_SET(name, "BlockIOReadBandwidth", "BlockIOWriteBandwidth")) {
                 const char *path;
-                bool read = true;
                 unsigned n = 0;
                 uint64_t u64;
+                bool read;
 
-                if (streq(name, "BlockIOWriteBandwidth"))
-                        read = false;
+                read = streq(name, "BlockIOReadBandwidth");
 
                 r = sd_bus_message_enter_container(message, 'a', "(st)");
                 if (r < 0)
@@ -1817,25 +1831,16 @@ int bus_cgroup_set_property(
                                 fputs(name, f);
                                 fputs("=\n", f);
                         } else {
-                                struct in_addr_prefix *p;
-
                                 *reduced = false;
 
                                 r = in_addr_prefixes_merge(prefixes, new_prefixes);
                                 if (r < 0)
                                         return r;
 
-                                SET_FOREACH(p, new_prefixes) {
-                                        _cleanup_free_ char *buffer = NULL;
-
-                                        r = in_addr_prefix_to_string(p->family, &p->address, p->prefixlen, &buffer);
-                                        if (r == -ENOMEM)
-                                                return r;
-                                        if (r < 0)
-                                                continue;
-
-                                        fprintf(f, "%s=%s\n", name, buffer);
-                                }
+                                const struct in_addr_prefix *p;
+                                SET_FOREACH(p, new_prefixes)
+                                        fprintf(f, "%s=%s\n", name,
+                                                IN_ADDR_PREFIX_TO_STRING(p->family, &p->address, p->prefixlen));
                         }
 
                         r = fflush_and_check(f);

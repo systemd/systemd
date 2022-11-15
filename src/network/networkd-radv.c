@@ -54,7 +54,7 @@ void network_adjust_radv(Network *network) {
 bool link_radv_enabled(Link *link) {
         assert(link);
 
-        if (!link_may_have_ipv6ll(link))
+        if (!link_may_have_ipv6ll(link, /* check_multicast = */ true))
                 return false;
 
         if (link->hw_addr.length != ETH_ALEN)
@@ -458,9 +458,11 @@ static int radv_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_radv_set_mac(link->radv, &link->hw_addr.ether);
-        if (r < 0)
-                return r;
+        if (link->hw_addr.length == ETH_ALEN) {
+                r = sd_radv_set_mac(link->radv, &link->hw_addr.ether);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_radv_set_ifindex(link->radv, link->ifindex);
         if (r < 0)
@@ -518,6 +520,9 @@ int radv_update_mac(Link *link) {
         if (!link->radv)
                 return 0;
 
+        if (link->hw_addr.length != ETH_ALEN)
+                return 0;
+
         restart = sd_radv_is_running(link->radv);
 
         r = sd_radv_stop(link->radv);
@@ -544,7 +549,7 @@ static int radv_is_ready_to_configure(Link *link) {
         assert(link);
         assert(link->network);
 
-        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+        if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ false))
                 return false;
 
         if (in6_addr_is_null(&link->ipv6ll_address))
@@ -602,7 +607,7 @@ static int radv_process_request(Request *req, Link *link, void *userdata) {
         }
 
         log_link_debug(link, "IPv6 Router Advertisement engine is configured%s.",
-                       link_has_carrier(link) ? " and started." : "");
+                       link_has_carrier(link) ? " and started" : "");
         return 1;
 }
 
@@ -711,15 +716,11 @@ static int prefix_section_verify(Prefix *p) {
                                          p->section->filename, p->prefixlen, p->section->line);
 
         if (p->prefixlen > 64) {
-                _cleanup_free_ char *str = NULL;
-
-                if (p->assign)
-                        (void) in6_addr_prefix_to_string(&p->prefix, p->prefixlen, &str);
-
-                log_info("%s: Unusual prefix length %u (> 64) is specified in [IPv6Prefix] section from line %u%s%s.",
-                         p->section->filename, p->prefixlen, p->section->line,
+                log_info("%s:%u: Unusual prefix length %u (> 64) is specified in [IPv6Prefix] section from line %s%s.",
+                         p->section->filename, p->section->line,
+                         p->prefixlen,
                          p->assign ? ", refusing to assign an address in " : "",
-                         p->assign ? strna(str) : "");
+                         p->assign ? IN6_ADDR_PREFIX_TO_STRING(&p->prefix, p->prefixlen) : "");
 
                 p->assign = false;
         }
@@ -794,7 +795,7 @@ int config_parse_prefix(
                 void *userdata) {
 
         _cleanup_(prefix_free_or_set_invalidp) Prefix *p = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         union in_addr_union a;
         int r;
 
@@ -802,7 +803,6 @@ int config_parse_prefix(
         assert(section);
         assert(lvalue);
         assert(rvalue);
-        assert(userdata);
 
         r = prefix_new_static(network, filename, section_line, &p);
         if (r < 0)
@@ -835,14 +835,13 @@ int config_parse_prefix_boolean(
                 void *userdata) {
 
         _cleanup_(prefix_free_or_set_invalidp) Prefix *p = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
         assert(section);
         assert(lvalue);
         assert(rvalue);
-        assert(userdata);
 
         r = prefix_new_static(network, filename, section_line, &p);
         if (r < 0)
@@ -881,7 +880,7 @@ int config_parse_prefix_lifetime(
                 void *userdata) {
 
         _cleanup_(prefix_free_or_set_invalidp) Prefix *p = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         usec_t usec;
         int r;
 
@@ -889,7 +888,6 @@ int config_parse_prefix_lifetime(
         assert(section);
         assert(lvalue);
         assert(rvalue);
-        assert(userdata);
 
         r = prefix_new_static(network, filename, section_line, &p);
         if (r < 0)
@@ -932,14 +930,13 @@ int config_parse_prefix_metric(
                 void *userdata) {
 
         _cleanup_(prefix_free_or_set_invalidp) Prefix *p = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
         assert(section);
         assert(lvalue);
         assert(rvalue);
-        assert(userdata);
 
         r = prefix_new_static(network, filename, section_line, &p);
         if (r < 0)
@@ -970,14 +967,13 @@ int config_parse_prefix_token(
                 void *userdata) {
 
         _cleanup_(prefix_free_or_set_invalidp) Prefix *p = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
         assert(section);
         assert(lvalue);
         assert(rvalue);
-        assert(userdata);
 
         r = prefix_new_static(network, filename, section_line, &p);
         if (r < 0)
@@ -1005,7 +1001,7 @@ int config_parse_route_prefix(
                 void *userdata) {
 
         _cleanup_(route_prefix_free_or_set_invalidp) RoutePrefix *p = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         union in_addr_union a;
         int r;
 
@@ -1013,7 +1009,6 @@ int config_parse_route_prefix(
         assert(section);
         assert(lvalue);
         assert(rvalue);
-        assert(userdata);
 
         r = route_prefix_new_static(network, filename, section_line, &p);
         if (r < 0)
@@ -1046,7 +1041,7 @@ int config_parse_route_prefix_lifetime(
                 void *userdata) {
 
         _cleanup_(route_prefix_free_or_set_invalidp) RoutePrefix *p = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         usec_t usec;
         int r;
 
@@ -1054,7 +1049,6 @@ int config_parse_route_prefix_lifetime(
         assert(section);
         assert(lvalue);
         assert(rvalue);
-        assert(userdata);
 
         r = route_prefix_new_static(network, filename, section_line, &p);
         if (r < 0)
@@ -1227,13 +1221,12 @@ int config_parse_router_prefix_delegation(
                 void *data,
                 void *userdata) {
 
-        RADVPrefixDelegation val, *ra = data;
+        RADVPrefixDelegation val, *ra = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (streq(lvalue, "IPv6SendRA")) {
                 r = parse_boolean(rvalue);
@@ -1273,14 +1266,13 @@ int config_parse_router_lifetime(
                 void *data,
                 void *userdata) {
 
-        usec_t usec, *lifetime = data;
+        usec_t usec, *lifetime = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(section);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         if (isempty(rvalue)) {
                 *lifetime = RADV_DEFAULT_ROUTER_LIFETIME_USEC;

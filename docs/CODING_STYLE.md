@@ -70,6 +70,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   ```
 
 - Do not write `foo ()`, write `foo()`.
+
 - `else` blocks should generally start on the same line as the closing `}`:
   ```c
   if (foobar) {
@@ -327,6 +328,21 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
   which will always work regardless if `p` is initialized or not, and
   guarantees that `p` is `NULL` afterwards, all in just one line.
+
+## Common Function Naming
+
+- Name destructor functions that destroy an object in full freeing all its
+  memory and associated resources (and thus invalidating the pointer to it)
+  `xyz_free()`. Example: `strv_free()`.
+
+- Name destructor functions that destroy only the referenced content of an
+  object but leave the object itself allocated `xyz_done()`. If it resets all
+  fields so that the object can be reused later call it `xyz_clear()`.
+
+- Functions that decrease the reference counter of an object by one should be
+  called `xyz_unref()`. Example: `json_variant_unref()`. Functions that
+  increase the reference counter by one should be called `xyz_ref()`. Example:
+  `json_variant_ref()`
 
 ## Error Handling
 
@@ -645,6 +661,11 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   `uint16_t`. Also, "network byte order" is just a weird name for "big endian",
   hence we might want to call it "big endian" right-away.
 
+- Use `typesafe_inet_ntop()`, `typesafe_inet_ntop4()`, and
+  `typesafe_inet_ntop6()` instead of `inet_ntop()`. But better yet, use the
+  `IN_ADDR_TO_STRING()`, `IN4_ADDR_TO_STRING()`, and `IN6_ADDR_TO_STRING()`
+  macros which allocate an anonymous buffer internally.
+
 - Please never use `dup()`. Use `fcntl(fd, F_DUPFD_CLOEXEC, 3)` instead. For
   two reasons: first, you want `O_CLOEXEC` set on the new `fd` (see
   above). Second, `dup()` will happily duplicate your `fd` as 0, 1, 2,
@@ -662,11 +683,11 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   process, please use `_exit()` instead of `exit()`, so that the exit handlers
   are not run.
 
-- We never use the POSIX version of `basename()` (which glibc defines in
-  `libgen.h`), only the GNU version (which glibc defines in `string.h`).  The
-  only reason to include `libgen.h` is because `dirname()` is needed. Every
-  time you need that please immediately undefine `basename()`, and add a
-  comment about it, so that no code ever ends up using the POSIX version!
+- Do not use `basename()` or `dirname()`. The semantics in corner cases are
+  full of pitfalls, and the fact that there are two quite different versions of
+  `basename()` (one POSIX and one GNU, of which the latter is much more useful)
+  doesn't make it bette either. Use path_extract_filename() and
+  path_extract_directory() instead.
 
 - Never use `FILENAME_MAX`. Use `PATH_MAX` instead (for checking maximum size
   of paths) and `NAME_MAX` (for checking maximum size of filenames).
@@ -681,3 +702,25 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - Do not use "Signed-Off-By:" in your commit messages. That's a kernel thing we
   don't do in the systemd project.
+
+## Commenting
+
+- The best place for code comments and explanations is in the code itself. Only
+  the second best is in git commit messages. The worst place is in the GitHub
+  PR cover letter. Hence, whenever you type a commit message consider for a
+  moment if what you are typing there wouldn't be a better fit for an in-code
+  comment. And if you type the cover letter of a PR, think hard if this
+  wouldn't be better as a commit message or even code comment. Comments are
+  supposed to be useful for somebody who reviews the code, and hence hiding
+  comments in git commits or PR cover letters makes reviews unnecessarily
+  hard. Moreover, while we rely heavily on GitHub's project management
+  infrastructure we'd like to keep everything that can reasonably be kept in
+  the git repository itself in the git repository, so that we can theoretically
+  move things elswhere with the least effort possible.
+
+- It's OK to reference GitHub PRs, GitHub issues and git commits from code
+  comments. Cross-referencing code, issues, and documentation is a good thing.
+
+- Reasonable use of non-ASCII Unicode UTF-8 characters in code comments is
+  welcome. If your code comment contains an emoji or two this will certainly
+  brighten the day of the occasional reviewer of your code. Really! 😊

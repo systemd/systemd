@@ -90,7 +90,7 @@
         </row></thead>
         <tbody>
           <row><entry><varname>bond</varname></entry>
-          <entry>A bond device is an aggregation of all its slave devices. See <ulink url="https://www.kernel.org/doc/Documentation/networking/bonding.txt">Linux Ethernet Bonding Driver HOWTO</ulink> for details.</entry></row>
+          <entry>A bond device is an aggregation of all its slave devices. See <ulink url="https://docs.kernel.org/networking/bonding.html">Linux Ethernet Bonding Driver HOWTO</ulink> for details.</entry></row>
 
           <row><entry><varname>bridge</varname></entry>
           <entry>A bridge device is a software switch, and each of its slave devices and the bridge itself are ports of the switch.</entry></row>
@@ -165,7 +165,7 @@
           <entry>Media Access Control Security (MACsec) is an 802.1AE IEEE industry-standard security technology that provides secure communication for all traffic on Ethernet links. MACsec provides point-to-point security on Ethernet links between directly connected nodes and is capable of identifying and preventing most security threats.</entry></row>
 
           <row><entry><varname>vrf</varname></entry>
-          <entry>A Virtual Routing and Forwarding (<ulink url="https://www.kernel.org/doc/Documentation/networking/vrf.txt">VRF</ulink>) interface to create separate routing and forwarding domains.</entry></row>
+          <entry>A Virtual Routing and Forwarding (<ulink url="https://docs.kernel.org/networking/vrf.html">VRF</ulink>) interface to create separate routing and forwarding domains.</entry></row>
 
           <row><entry><varname>vcan</varname></entry>
           <entry>The virtual CAN driver (vcan). Similar to the network loopback devices, vcan offers a virtual local CAN interface.</entry></row>
@@ -217,6 +217,7 @@
       <xi:include href="systemd.link.xml" xpointer="virtualization" />
       <xi:include href="systemd.link.xml" xpointer="kernel-command-line" />
       <xi:include href="systemd.link.xml" xpointer="kernel-version" />
+      <xi:include href="systemd.link.xml" xpointer="credential" />
       <xi:include href="systemd.link.xml" xpointer="architecture" />
       <xi:include href="systemd.link.xml" xpointer="firmware" />
     </variablelist>
@@ -1261,7 +1262,7 @@
           The <varname>Key=</varname> is either a number or an IPv4 address-like dotted quad.
           It is used as mark-configured SAD/SPD entry as part of the lookup key (both in data
           and control path) in IP XFRM (framework used to implement IPsec protocol).
-          See <ulink url="http://man7.org/linux/man-pages/man8/ip-xfrm.8.html">
+          See <ulink url="https://man7.org/linux/man-pages/man8/ip-xfrm.8.html">
           ip-xfrm — transform configuration</ulink> for details. It is only used for VTI/VTI6,
           GRE, GRETAP, and ERSPAN tunnels.</para>
         </listitem>
@@ -1370,11 +1371,33 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>ERSPANVersion=</varname></term>
+        <listitem>
+          <para>Specifies the ERSPAN version number. Takes 0 for version 0 (a.k.a. type I), 1 for version 1
+          (a.k.a. type II), or 2 for version 2 (a.k.a. type III). Defaults to 1.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>ERSPANIndex=</varname></term>
         <listitem>
-          <para>Specifies the ERSPAN index field for the interface, an integer in the range 1…1048575 associated with
-          the ERSPAN traffic's source port and direction. This field is mandatory.
-          </para>
+          <para>Specifies the ERSPAN v1 index field for the interface. Takes an integer in the range
+          0…1048575, which is associated with the ERSPAN traffic's source port and direction. Only used when
+          <varname>ERSPANVersion=1</varname>. Defaults to 0.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>ERSPANDirection=</varname></term>
+        <listitem>
+          <para>Specifies the ERSPAN v2 mirrored traffic's direction. Takes <literal>ingress</literal> or
+          <literal>egress</literal>. Only used when <varname>ERSPANVersion=2</varname>. Defaults to
+          <literal>ingress</literal>.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>ERSPANHardwareId=</varname></term>
+        <listitem>
+          <para>Specifies an unique identifier of the ERSPAN v2 engine. Takes an integer in the range 0…63.
+          Only used when <varname>ERSPANVersion=2</varname>. Defaults to 0.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1533,6 +1556,15 @@
         <term><varname>Group=</varname></term>
         <listitem><para>Group to grant access to the
         <filename>/dev/net/tun</filename> device.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>KeepCarrier=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If enabled, to make the interface maintain its carrier status, the file
+          descriptor of the interface is kept open. This may be useful to keep the interface in running
+          state, for example while the backing process is temporarily shutdown. Defaults to
+          <literal>no</literal>.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1999,7 +2031,7 @@
     </variablelist>
 
     <para>For more detail information see
-    <ulink url="https://www.kernel.org/doc/Documentation/networking/bonding.txt">
+    <ulink url="https://docs.kernel.org/networking/bonding.html">
     Linux Ethernet Bonding Driver HOWTO</ulink></para>
   </refsect1>
 
@@ -2199,7 +2231,7 @@
         <term><varname>PhysicalDevice=</varname></term>
         <listitem>
           <para>Specifies the name or index of the physical WLAN device (e.g. <literal>0</literal> or
-          <literal>phy0</literal>). The list of the physical WLAN devices that exist os the host can be
+          <literal>phy0</literal>). The list of the physical WLAN devices that exist on the host can be
           obtained by <command>iw phy</command> command. This option is mandatory.</para>
         </listitem>
       </varlistentry>

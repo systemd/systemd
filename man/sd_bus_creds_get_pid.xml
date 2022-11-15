@@ -340,9 +340,8 @@
     that kernel threads do not have a command line, in which case
     -ENXIO is returned.</para>
 
-    <para><function>sd_bus_creds_get_cgroup()</function> will retrieve
-    the control group path. See <ulink
-    url="https://www.kernel.org/doc/Documentation/cgroup-v1/cgroups.txt">cgroups.txt</ulink>.
+    <para><function>sd_bus_creds_get_cgroup()</function> will retrieve the control group path. See <ulink
+    url="https://docs.kernel.org/admin-guide/cgroup-v2.html">Control Groups v2</ulink>.
     </para>
 
     <para><function>sd_bus_creds_get_unit()</function> will retrieve
@@ -422,12 +421,12 @@
 
     <para><function>sd_bus_creds_get_unique_name()</function> will
     retrieve the D-Bus unique name. See <ulink
-    url="http://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-names-bus">The
+    url="https://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-names-bus">The
     D-Bus specification</ulink>.</para>
 
     <para><function>sd_bus_creds_get_well_known_names()</function> will
     retrieve the set of D-Bus well-known names. See <ulink
-    url="http://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-names-bus">The
+    url="https://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-names-bus">The
     D-Bus specification</ulink>.</para>
 
     <para><function>sd_bus_creds_get_description()</function> will

@@ -188,8 +188,13 @@
     <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     for details about these target units.</para>
 
-    <para>systemd only keeps a minimal set of units loaded into memory. Specifically, the only units that are kept
-    loaded into memory are those for which at least one of the following conditions is true:</para>
+    <para>On first boot, <command>systemd</command> will enable or disable units according to preset policy.
+    See <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    and "First Boot Semantics" in
+    <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+    <para>systemd only keeps a minimal set of units loaded into memory. Specifically, the only units that are
+    kept loaded into memory are those for which at least one of the following conditions is true:</para>
 
     <orderedlist>
       <listitem><para>It is in an active, activating, deactivating or failed state (i.e. in any unit state except for <literal>inactive</literal>)</para></listitem>
@@ -207,21 +212,17 @@
     memory its accounting data is flushed out too. However, this data is generally not lost, as a journal log record
     is generated declaring the consumed resources whenever a unit shuts down.</para>
 
-    <para>Processes systemd spawns are placed in individual Linux
-    control groups named after the unit which they belong to in the
-    private systemd hierarchy. (see <ulink
-    url="https://www.kernel.org/doc/Documentation/cgroup-v1/cgroups.txt">cgroups.txt</ulink>
-    for more information about control groups, or short "cgroups").
-    systemd uses this to effectively keep track of processes. Control
-    group information is maintained in the kernel, and is accessible
-    via the file system hierarchy (beneath
-    <filename>/sys/fs/cgroup/systemd/</filename>), or in tools such as
-    <citerefentry project='man-pages'><refentrytitle>systemd-cgls</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    or
-    <citerefentry project='man-pages'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    (<command>ps xawf -eo pid,user,cgroup,args</command> is
-    particularly useful to list all processes and the systemd units
-    they belong to.).</para>
+    <para>Processes systemd spawns are placed in individual Linux control groups named after the unit which
+    they belong to in the private systemd hierarchy. (see <ulink
+    url="https://docs.kernel.org/admin-guide/cgroup-v2.html">Control Groups v2</ulink> for more information
+    about control groups, or short "cgroups").  systemd uses this to effectively keep track of
+    processes. Control group information is maintained in the kernel, and is accessible via the file system
+    hierarchy (beneath <filename>/sys/fs/cgroup/</filename>), or in tools such as <citerefentry
+    project='man-pages'><refentrytitle>systemd-cgls</refentrytitle><manvolnum>1</manvolnum></citerefentry> or
+    <citerefentry
+    project='man-pages'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry> (<command>ps
+    xawf -eo pid,user,cgroup,args</command> is particularly useful to list all processes and the systemd
+    units they belong to.).</para>
 
     <para>systemd is compatible with the SysV init system to a large
     degree: SysV init scripts are supported and simply read as an
@@ -323,7 +324,7 @@
 
         <listitem><para>Similar rules apply for the user unit
         directories. However, here the
-        <ulink url="http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
+        <ulink url="https://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
         Base Directory specification</ulink> is followed to find
         units. Applications should place their unit files in the
         directory returned by <command>pkg-config systemd
@@ -621,7 +622,7 @@
     <title>Environment</title>
 
     <para>The environment block for the system manager is initially set by the kernel. (In particular,
-    <literal>key=value</literal> assignments on the kernel command line are returned into environment
+    <literal>key=value</literal> assignments on the kernel command line are turned into environment
     variables for PID 1). For the user manager, the system manager sets the environment as described in the
     "Environment Variables in Spawned Processes" section of
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
@@ -687,7 +688,7 @@
 
         <listitem><para>The systemd user manager uses these variables
         in accordance to the <ulink
-        url="http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
+        url="https://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
         Base Directory specification</ulink> to find its
         configuration.</para></listitem>
       </varlistentry>
@@ -756,16 +757,12 @@
         <term><varname>systemd.unit=</varname></term>
         <term><varname>rd.systemd.unit=</varname></term>
 
-        <listitem><para>Overrides the unit to activate on boot.
-        Defaults to <filename>default.target</filename>. This may be
-        used to temporarily boot into a different boot unit, for
-        example <filename>rescue.target</filename> or
-        <filename>emergency.service</filename>. See
+        <listitem><para>Overrides the unit to activate on boot.  Defaults to
+        <filename>default.target</filename>. This may be used to temporarily boot into a different boot unit,
+        for example <filename>rescue.target</filename> or <filename>emergency.service</filename>. See
         <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        for details about these units. The option prefixed with
-        <literal>rd.</literal> is honored only in the initial RAM disk
-        (initrd), while the one that is not prefixed only in the main
-        system.</para></listitem>
+        for details about these units. The option prefixed with <literal>rd.</literal> is honored only in the
+        initrd, while the one that is not prefixed only in the main system.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -911,41 +908,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>systemd.unified_cgroup_hierarchy</varname></term>
-
-        <listitem><para>When specified without an argument or with a true argument,
-        enables the usage of
-        <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html">unified cgroup hierarchy</ulink>
-        (a.k.a. cgroups-v2). When specified with a false argument, fall back to
-        hybrid or full legacy cgroup hierarchy.</para>
-
-        <para>If this option is not specified, the default behaviour is determined
-        during compilation (the <option>-Ddefault-hierarchy=</option> meson
-        option). If the kernel does not support unified cgroup hierarchy, the legacy
-        hierarchy will be used even if this option is specified.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>systemd.legacy_systemd_cgroup_controller</varname></term>
-
-        <listitem><para>Takes effect if the full unified cgroup hierarchy is not used
-        (see previous option). When specified without an argument or with a true
-        argument, disables the use of "hybrid" cgroup hierarchy (i.e. a cgroups-v2
-        tree used for systemd, and
-        <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v1/">legacy
-        cgroup hierarchy</ulink>, a.k.a. cgroups-v1, for other controllers), and
-        forces a full "legacy" mode. When specified with a false argument, enables
-        the use of "hybrid" hierarchy.</para>
-
-        <para>If this option is not specified, the default behaviour is determined
-        during compilation (the <option>-Ddefault-hierarchy=</option> meson
-        option). If the kernel does not support unified cgroup hierarchy, the legacy
-        hierarchy will be used  even if this option is specified.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><varname>systemd.set_credential=</varname></term>
 
         <listitem><para>Sets a system credential, which can then be propagated to system services using the
@@ -965,7 +927,8 @@
         <term><varname>systemd.import_credentials=</varname></term>
 
         <listitem><para>Takes a boolean argument. If false disables importing credentials from the kernel
-        command line, qemu_fw_cfg subsystem or the kernel command line.</para></listitem>
+        command line, the DMI/SMBIOS OEM string table, the qemu_fw_cfg subsystem or the EFI kernel
+        stub.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1290,9 +1253,22 @@
   </refsect1>
 
   <refsect1>
+      <title>History</title>
+
+      <variablelist>
+        <varlistentry>
+          <term>systemd 252</term>
+          <listitem><para>Kernel command-line arguments <varname>systemd.unified_cgroup_hierarchy</varname>
+          and <varname>systemd.legacy_systemd_cgroup_controller</varname> were deprecated. Please switch to
+          the unified cgroup hierarchy.</para></listitem>
+        </varlistentry>
+      </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
-      The <ulink url="https://www.freedesktop.org/wiki/Software/systemd/">systemd Homepage</ulink>,
+      The <ulink url="https://systemd.io/">systemd Homepage</ulink>,
       <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,

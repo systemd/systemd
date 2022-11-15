@@ -4,6 +4,7 @@
 #include <locale.h>
 
 #include "alloc-util.h"
+#include "build.h"
 #include "btrfs-util.h"
 #include "discover-image.h"
 #include "fd-util.h"
@@ -70,10 +71,8 @@ static void progress_show(ProgressInfo *p) {
 }
 
 static int progress_path(const char *path, const struct stat *st, void *userdata) {
-        ProgressInfo *p = userdata;
+        ProgressInfo *p = ASSERT_PTR(userdata);
         int r;
-
-        assert(p);
 
         r = free_and_strdup(&p->path, path);
         if (r < 0)
@@ -86,9 +85,8 @@ static int progress_path(const char *path, const struct stat *st, void *userdata
 }
 
 static int progress_bytes(uint64_t nbytes, void *userdata) {
-        ProgressInfo *p = userdata;
+        ProgressInfo *p = ASSERT_PTR(userdata);
 
-        assert(p);
         assert(p->size != UINT64_MAX);
 
         p->size += nbytes;

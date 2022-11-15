@@ -295,7 +295,7 @@ int main(int argc, char *argv[]) {
         test_policy_empty(false, cgroup, &prog);
         test_policy_empty(true, cgroup, &prog);
 
-        assert_se(parent = dirname_malloc(cgroup));
+        assert_se(path_extract_directory(cgroup, &parent) >= 0);
 
         assert_se(cg_mask_supported(&supported) >= 0);
         r = cg_attach_everywhere(supported, parent, 0, NULL, NULL);

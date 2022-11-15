@@ -5,6 +5,7 @@ set -eux
 set -o pipefail
 
 export SYSTEMD_LOG_LEVEL=debug
+export SYSTEMD_LOG_TARGET=journal
 
 # check cgroup-v2
 is_v2_supported=no
@@ -50,6 +51,42 @@ function check_norbind {
     echo -n "inner" >/tmp/binddir/subdir/file
     /usr/lib/systemd/tests/testdata/create-busybox-container "$_root"
     systemd-nspawn --register=no -D "$_root" --bind=/tmp/binddir:/mnt:norbind /bin/sh -c 'CONTENT=$(cat /mnt/subdir/file); if [[ $CONTENT != "outer" ]]; then echo "*** unexpected content: $CONTENT"; return 1; fi'
+}
+
+function check_rootidmap {
+    local _owner=1000
+    local _root="/var/lib/machines/testsuite-13.rootidmap-path"
+    local _command
+    rm -rf "$_root"
+
+    # Create ext4 image, as ext4 supports idmapped-mounts.
+    dd if=/dev/zero of=/tmp/ext4.img bs=4k count=2048
+    mkfs.ext4 /tmp/ext4.img
+    mkdir -p /tmp/rootidmapdir
+    mount /tmp/ext4.img /tmp/rootidmapdir
+
+    touch /tmp/rootidmapdir/file
+    chown -R $_owner:$_owner /tmp/rootidmapdir
+
+    /usr/lib/systemd/tests/testdata/create-busybox-container "$_root"
+    _command='PERMISSIONS=$(stat -c "%u:%g" /mnt/file); if [[ $PERMISSIONS != "0:0" ]]; then echo "*** wrong permissions: $PERMISSIONS"; return 1; fi; touch /mnt/other_file'
+    if ! SYSTEMD_LOG_TARGET=console systemd-nspawn \
+            --register=no -D "$_root" \
+            --bind=/tmp/rootidmapdir:/mnt:rootidmap \
+            /bin/sh -c "$_command" |& tee nspawn.out; then
+        if grep -q "Failed to map ids for bind mount.*: Function not implemented" nspawn.out; then
+            echo "idmapped mounts are not supported, skipping the test..."
+            return 0
+        fi
+
+        return 1
+    fi
+
+    PERMISSIONS=$(stat -c "%u:%g" /tmp/rootidmapdir/other_file)
+    if [[ $PERMISSIONS != "$_owner:$_owner" ]]; then
+        echo "*** wrong permissions: $PERMISSIONS"
+        [[ "$is_user_ns_supported" = "yes" ]] && return 1
+    fi
 }
 
 function check_notification_socket {
@@ -111,7 +148,7 @@ EOF
 }
 
 function check_selinux {
-    if ! selinuxenabled; then
+    if ! command -v selinuxenabled >/dev/null || ! selinuxenabled; then
         echo >&2 "SELinux is not enabled, skipping SELinux-related tests"
         return 0
     fi
@@ -208,6 +245,8 @@ function run {
 check_bind_tmp_path
 
 check_norbind
+
+check_rootidmap
 
 check_notification_socket
 

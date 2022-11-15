@@ -11,12 +11,29 @@
 #include "selinux-util.h"
 #include "smack-util.h"
 
-int label_fix_container(const char *path, const char *inside_path, LabelFixFlags flags) {
+int label_fix_full(
+                int atfd,
+                const char *inode_path, /* path of inode to apply label to */
+                const char *label_path, /* path to use as database lookup key in label database (typically same as inode_path, but not always) */
+                LabelFixFlags flags) {
+
         int r, q;
 
-        r = mac_selinux_fix_container(path, inside_path, flags);
-        q = mac_smack_fix_container(path, inside_path, flags);
+        if (atfd < 0 && atfd != AT_FDCWD)
+                return -EBADF;
 
+        if (!inode_path && atfd < 0) /* We need at least one of atfd and an inode path */
+                return -EINVAL;
+
+        /* If both atfd and inode_path are specified, we take the specified path relative to atfd which must be an fd to a dir.
+         *
+         * If only atfd is specified (and inode_path is NULL), we'll operated on the inode the atfd refers to.
+         *
+         * If atfd is AT_FDCWD then we'll operate on the inode the path refers to.
+         */
+
+        r = mac_selinux_fix_full(atfd, inode_path, label_path, flags);
+        q = mac_smack_fix_full(atfd, inode_path, label_path, flags);
         if (r < 0)
                 return r;
         if (q < 0)
@@ -44,7 +61,7 @@ int symlink_label(const char *old_path, const char *new_path) {
         return mac_smack_fix(new_path, 0);
 }
 
-int symlink_atomic_label(const char *from, const char *to) {
+int symlink_atomic_full_label(const char *from, const char *to, bool make_relative) {
         int r;
 
         assert(from);
@@ -54,7 +71,7 @@ int symlink_atomic_label(const char *from, const char *to) {
         if (r < 0)
                 return r;
 
-        r = symlink_atomic(from, to);
+        r = symlinkat_atomic_full(from, AT_FDCWD, to, make_relative);
         mac_selinux_create_file_clear();
 
         if (r < 0)

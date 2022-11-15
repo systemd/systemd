@@ -338,9 +338,8 @@ static int shovel(PTYForward *f) {
 }
 
 static int on_master_event(sd_event_source *e, int fd, uint32_t revents, void *userdata) {
-        PTYForward *f = userdata;
+        PTYForward *f = ASSERT_PTR(userdata);
 
-        assert(f);
         assert(e);
         assert(e == f->master_event_source);
         assert(fd >= 0);
@@ -356,9 +355,8 @@ static int on_master_event(sd_event_source *e, int fd, uint32_t revents, void *u
 }
 
 static int on_stdin_event(sd_event_source *e, int fd, uint32_t revents, void *userdata) {
-        PTYForward *f = userdata;
+        PTYForward *f = ASSERT_PTR(userdata);
 
-        assert(f);
         assert(e);
         assert(e == f->stdin_event_source);
         assert(fd >= 0);
@@ -371,9 +369,8 @@ static int on_stdin_event(sd_event_source *e, int fd, uint32_t revents, void *us
 }
 
 static int on_stdout_event(sd_event_source *e, int fd, uint32_t revents, void *userdata) {
-        PTYForward *f = userdata;
+        PTYForward *f = ASSERT_PTR(userdata);
 
-        assert(f);
         assert(e);
         assert(e == f->stdout_event_source);
         assert(fd >= 0);
@@ -386,10 +383,9 @@ static int on_stdout_event(sd_event_source *e, int fd, uint32_t revents, void *u
 }
 
 static int on_sigwinch_event(sd_event_source *e, const struct signalfd_siginfo *si, void *userdata) {
-        PTYForward *f = userdata;
+        PTYForward *f = ASSERT_PTR(userdata);
         struct winsize ws;
 
-        assert(f);
         assert(e);
         assert(e == f->sigwinch_event_source);
 

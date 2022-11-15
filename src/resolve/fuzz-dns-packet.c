@@ -7,7 +7,7 @@
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
 
-        if (size > DNS_PACKET_SIZE_MAX)
+        if (outside_size_range(size, 0, DNS_PACKET_SIZE_MAX))
                 return 0;
 
         assert_se(dns_packet_new(&p, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX) >= 0);

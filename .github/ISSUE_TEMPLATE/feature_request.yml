@@ -1,0 +1,124 @@
+name: Feature request
+description: Suggest an improvement
+labels: ["RFE 🎁"]
+
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to fill out this feature request!
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Please chose components related to this feature request.
+      multiple: true
+      # When updating list of components please also update labeling policy
+      # policy: `.github/advanced-issue-labeler.yml`
+      options:
+        - 'bootctl'
+        - 'coredumpctl'
+        - 'homectl'
+        - 'hostnamectl'
+        - 'hardware database files'
+        - 'journalctl'
+        - 'kernel-install'
+        - 'loginctl'
+        - 'machinectl'
+        - 'networkctl'
+        - 'nss-resolve'
+        - 'oomctl'
+        - 'pam_systemd'
+        - 'pam_systemd_home'
+        - 'portablectl'
+        - 'resolvectl'
+        - 'rpm scriptlets'
+        - 'systemctl'
+        - 'systemd'
+        - 'systemd-analyze'
+        - 'systemd-ask-password'
+        - 'systemd-binfmt'
+        - 'systemd-boot'
+        - 'systemd-cgtop'
+        - 'systemd-coredump'
+        - 'systemd-cryptsetup'
+        - 'systemd-delta'
+        - 'systemd-env-generator'
+        - 'systemd-fsck'
+        - 'systemd-gpt-auto-generator'
+        - 'systemd-growfs'
+        - 'systemd-homed'
+        - 'systemd-hostnamed'
+        - 'systemd-hwdb'
+        - 'systemd-import'
+        - 'systemd-journal-gatewayd'
+        - 'systemd-journal-remote'
+        - 'systemd-journal-upload'
+        - 'systemd-journald'
+        - 'systemd-logind'
+        - 'systemd-machined'
+        - 'systemd-modules-load'
+        - 'systemd-network-generator'
+        - 'systemd-networkd'
+        - 'systemd-networkd-wait-online'
+        - 'systemd-nspawn'
+        - 'systemd-oomd'
+        - 'systemd-portabled'
+        - 'systemd-pstore'
+        - 'systemd-repart'
+        - 'systemd-resolved'
+        - 'systemd-rfkill'
+        - 'systemd-run'
+        - 'systemd-stub'
+        - 'systemd-sysctl'
+        - 'systemd-sysext'
+        - 'systemd-sysusers'
+        - 'systemd-sysv-generator'
+        - 'systemd-timedate'
+        - 'systemd-timesync'
+        - 'systemd-tmpfiles'
+        - 'systemd-udevd'
+        - 'systemd-userdb'
+        - 'systemd-veritysetup'
+        - 'systemd-xdg-autostart-generator'
+        - 'timedatectl'
+        - 'udevadm'
+        - 'udev rule files'
+        - 'userdbctl'
+        - 'tests'
+        - 'other'
+    validations:
+      required: false
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Is your feature request related to a problem? Please describe
+      description: A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+    validations:
+      required: false
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the solution you'd like
+      description: A clear and concise description of what you want to happen.
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Describe alternatives you've considered
+      description: A clear and concise description of any alternative solutions or features you've considered.
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: The systemd version you checked that didn't have the feature you are asking for
+      description: If this is not the most recently released upstream version, then please check first if it has that feature already.
+      placeholder: '251'
+    validations:
+      required: false

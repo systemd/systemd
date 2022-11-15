@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Create proper group when matching user entry is in place.
+#
+#Type Name ID GECOS        HOMEDIR
+u     root 0  "Super User" /root

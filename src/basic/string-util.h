@@ -29,10 +29,6 @@ static inline char* strstr_ptr(const char *haystack, const char *needle) {
         return strstr(haystack, needle);
 }
 
-static inline const char* strempty(const char *s) {
-        return s ?: "";
-}
-
 static inline const char* strnull(const char *s) {
         return s ?: "(null)";
 }
@@ -156,6 +152,8 @@ char *cellescape(char *buf, size_t len, const char *s);
 
 char* strshorten(char *s, size_t l);
 
+int strgrowpad0(char **s, size_t l);
+
 char *strreplace(const char *text, const char *old_string, const char *new_string);
 
 char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]);
@@ -173,20 +171,16 @@ int split_pair(const char *s, const char *sep, char **l, char **r);
 
 int free_and_strdup(char **p, const char *s);
 static inline int free_and_strdup_warn(char **p, const char *s) {
-        if (free_and_strdup(p, s) < 0)
+        int r;
+
+        r = free_and_strdup(p, s);
+        if (r < 0)
                 return log_oom();
-        return 0;
+        return r;
 }
 int free_and_strndup(char **p, const char *s, size_t l);
 
 bool string_is_safe(const char *p) _pure_;
-
-static inline size_t strlen_ptr(const char *s) {
-        if (!s)
-                return 0;
-
-        return strlen(s);
-}
 
 DISABLE_WARNING_STRINGOP_TRUNCATION;
 static inline void strncpy_exact(char *buf, const char *src, size_t buf_len) {

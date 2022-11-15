@@ -10,8 +10,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "device-util.h"
 #include "module-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "udev-builtin.h"
 
 static struct kmod_ctx *ctx = NULL;
@@ -21,15 +23,29 @@ _printf_(6,0) static void udev_kmod_log(void *data, int priority, const char *fi
 }
 
 static int builtin_kmod(sd_device *dev, sd_netlink **rtnl, int argc, char *argv[], bool test) {
+        int r;
+
+        assert(dev);
+
         if (!ctx)
                 return 0;
 
-        if (argc < 3 || !streq(argv[1], "load"))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s: expected: load <module>…", argv[0]);
+        if (argc < 2 || !streq(argv[1], "load"))
+                return log_device_warning_errno(dev, SYNTHETIC_ERRNO(EINVAL),
+                                                "%s: expected: load [module…]", argv[0]);
 
-        for (int i = 2; argv[i]; i++)
-                (void) module_load_and_warn(ctx, argv[i], false);
+        char **modules = strv_skip(argv, 2);
+        if (strv_isempty(modules)) {
+                const char *modalias;
+
+                r = sd_device_get_property_value(dev, "MODALIAS", &modalias);
+                if (r < 0)
+                        return log_device_warning_errno(dev, r, "Failed to read property \"MODALIAS\".");
+
+                (void) module_load_and_warn(ctx, modalias, /* verbose = */ false);
+        } else
+                STRV_FOREACH(module, modules)
+                        (void) module_load_and_warn(ctx, *module, /* verbose = */ false);
 
         return 0;
 }
@@ -43,7 +59,7 @@ static int builtin_kmod_init(void) {
         if (!ctx)
                 return -ENOMEM;
 
-        log_debug("Load module index");
+        log_debug("Loading kernel module index.");
         kmod_set_log_fn(ctx, udev_kmod_log, NULL);
         kmod_load_resources(ctx);
         return 0;
@@ -51,16 +67,21 @@ static int builtin_kmod_init(void) {
 
 /* called on udev shutdown and reload request */
 static void builtin_kmod_exit(void) {
-        log_debug("Unload module index");
+        log_debug("Unload kernel module index.");
         ctx = kmod_unref(ctx);
 }
 
 /* called every couple of seconds during event activity; 'true' if config has changed */
-static bool builtin_kmod_validate(void) {
-        log_debug("Validate module index");
+static bool builtin_kmod_should_reload(void) {
         if (!ctx)
                 return false;
-        return (kmod_validate_resources(ctx) != KMOD_RESOURCES_OK);
+
+        if (kmod_validate_resources(ctx) != KMOD_RESOURCES_OK) {
+                log_debug("Kernel module index needs reloading.");
+                return true;
+        }
+
+        return false;
 }
 
 const UdevBuiltin udev_builtin_kmod = {
@@ -68,7 +89,7 @@ const UdevBuiltin udev_builtin_kmod = {
         .cmd = builtin_kmod,
         .init = builtin_kmod_init,
         .exit = builtin_kmod_exit,
-        .validate = builtin_kmod_validate,
+        .should_reload = builtin_kmod_should_reload,
         .help = "Kernel module loader",
         .run_once = false,
 };

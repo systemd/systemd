@@ -5,13 +5,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "chase-symlinks.h"
 #include "conf-files.h"
-#include "def.h"
+#include "constants.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "hashmap.h"
 #include "log.h"
 #include "macro.h"
+#include "nulstr-util.h"
 #include "path-util.h"
 #include "set.h"
 #include "sort-util.h"
@@ -28,23 +30,19 @@ static int files_add(
                 unsigned flags,
                 const char *path) {
 
+        _cleanup_free_ char *dirpath = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
-        const char *dirpath;
         int r;
 
         assert(h);
         assert((flags & CONF_FILES_FILTER_MASKED) == 0 || masked);
         assert(path);
 
-        dirpath = prefix_roota(root, path);
-
-        dir = opendir(dirpath);
-        if (!dir) {
-                if (errno == ENOENT)
-                        return 0;
-
-                return log_debug_errno(errno, "Failed to open directory '%s': %m", dirpath);
-        }
+        r = chase_symlinks_and_opendir(path, root, CHASE_PREFIX_ROOT, &dirpath, &dir);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to open directory '%s/%s': %m", empty_or_root(root) ? "" : root, dirpath);
 
         FOREACH_DIRENT(de, dir, return -errno) {
                 struct stat st;

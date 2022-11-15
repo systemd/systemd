@@ -9,10 +9,37 @@ on:
     branches:
       - main
       - v[0-9]+-stable
+    paths:
+      - '**'
+      - '!README*'
+      - '!LICENSE*'
+      - '!LICENSES/**'
+      - '!TODO'
+      - '!docs/**'
+      - '!man/**'
+      - '!catalog/**'
+      - '!shell-completion/**'
+      - '!po/**'
+      - '!.**'
+      - '.github/**'
+
   pull_request:
     branches:
       - main
       - v[0-9]+-stable
+    paths:
+      - '**'
+      - '!README*'
+      - '!LICENSE*'
+      - '!LICENSES/**'
+      - '!TODO'
+      - '!docs/**'
+      - '!man/**'
+      - '!catalog/**'
+      - '!shell-completion/**'
+      - '!po/**'
+      - '!.**'
+      - '.github/**'
 
 permissions:
   contents: read
@@ -20,11 +47,12 @@ permissions:
 env:
   # Enable debug logging in systemd, but keep udev's log level to info,
   # since it's _very_ verbose in the QEMU task
-  KERNEL_CMDLINE: "systemd.unit=mkosi-check-and-shutdown.service !quiet systemd.log_level=debug systemd.log_target=console udev.log_level=info systemd.default_standard_output=journal+console"
+  # Disable the ISC DHCP servers, as they are failing in Ubuntu
+  KERNEL_CMDLINE: "systemd.unit=mkosi-check-and-shutdown.service !quiet systemd.log_level=debug systemd.log_target=console udev.log_level=info systemd.default_standard_output=journal+console systemd.mask=isc-dhcp-server6.service systemd.mask=isc-dhcp-server.service"
 
 jobs:
   ci:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     concurrency:
       group: ${{ github.workflow }}-${{ matrix.distro }}-${{ matrix.release }}-${{ github.ref }}
       cancel-in-progress: true
@@ -37,19 +65,21 @@ jobs:
           - distro: debian
             release: testing
           - distro: ubuntu
-            release: focal
+            release: jammy
           - distro: fedora
-            release: "35"
+            release: "37"
+          - distro: fedora
+            release: rawhide
           - distro: opensuse
             release: tumbleweed
           - distro: centos_epel
-            release: 8-stream
-          - distro: centos_epel
             release: 9-stream
+          - distro: centos_epel
+            release: 8-stream
 
     steps:
     - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
-    - uses: systemd/mkosi@93098e2406e12ea7f06f962d4808952b8a06d345
+    - uses: systemd/mkosi@c9772ec920f1cd03181ba14e6fe2c3d35ccb4f92
 
     - name: Install
       run: sudo apt-get update && sudo apt-get install --no-install-recommends python3-pexpect python3-jinja2
@@ -69,25 +99,19 @@ jobs:
         EOF
 
     - name: Build ${{ matrix.distro }}
-      run: ./.github/workflows/run_mkosi.sh build
+      run: sudo mkosi build
 
     - name: Show ${{ matrix.distro }} image summary
-      run: ./.github/workflows/run_mkosi.sh summary
+      run: sudo mkosi summary
 
     - name: Boot ${{ matrix.distro }} systemd-nspawn
-      run: ./.github/workflows/run_mkosi.sh boot ${{ env.KERNEL_CMDLINE }}
+      run: sudo mkosi boot ${{ env.KERNEL_CMDLINE }}
 
     - name: Check ${{ matrix.distro }} systemd-nspawn
-      run: ./.github/workflows/run_mkosi.sh shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
-
-      # TODO: Remove CentOS exclusion once Ubuntu 22.04 is available in GA.
-      # See https://github.com/systemd/systemd/pull/22417 and https://github.com/systemd/mkosi/pull/907 for
-      # more information.
+      run: sudo mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
 
     - name: Boot ${{ matrix.distro }} QEMU
-      if: ${{ matrix.distro != 'centos_epel' }}
-      run: ./.github/workflows/run_mkosi.sh qemu
+      run: sudo timeout -k 30 10m mkosi qemu
 
     - name: Check ${{ matrix.distro }} QEMU
-      if: ${{ matrix.distro != 'centos_epel' }}
-      run: ./.github/workflows/run_mkosi.sh shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
+      run: sudo mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"

@@ -45,16 +45,12 @@
     one iteration. The <option>--iterations=</option> argument, if
     given, is honored. This mode is suitable for scripting.</para>
 
-    <para>Resource usage is only accounted for control groups in the
-    relevant hierarchy, i.e. CPU usage is only accounted for control
-    groups in the <literal>cpuacct</literal> hierarchy, memory usage
-    only for those in <literal>memory</literal> and disk I/O usage for
-    those in <literal>blkio</literal>. If resource monitoring for
-    these resources is required, it is recommended to add the
-    <varname>CPUAccounting=1</varname>,
-    <varname>MemoryAccounting=1</varname> and
-    <varname>BlockIOAccounting=1</varname> settings in the unit files
-    in question. See
+    <para>Resource usage is only accounted for control groups with the appropriate controllers turned on:
+    <literal>cpu</literal> controller for CPU usage, <literal>memory</literal> controller for memory usage,
+    and <literal>io</literal> controller for disk I/O consumption. If resource monitoring for these resources
+    is required, it is recommended to add the <varname>CPUAccounting=1</varname>,
+    <varname>MemoryAccounting=1</varname> and <varname>IOAccounting=1</varname> settings in the unit files in
+    question. See
     <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for details.</para>
 
@@ -63,13 +59,10 @@
     the CPU load value is going to be between 0% and 800%. The number of
     processors can be found in <literal>/proc/cpuinfo</literal>.</para>
 
-    <para>To emphasize this: unless
-    <literal>CPUAccounting=1</literal>,
-    <literal>MemoryAccounting=1</literal> and
-    <literal>BlockIOAccounting=1</literal> are enabled for the
-    services in question, no resource accounting will be available for
-    system services and the data shown by
-    <command>systemd-cgtop</command> will be incomplete.</para>
+    <para>To emphasize: unless <literal>CPUAccounting=1</literal>, <literal>MemoryAccounting=1</literal>, and
+    <literal>IOAccounting=1</literal> are enabled for the services in question, no resource accounting will
+    be available for system services and the data shown by <command>systemd-cgtop</command> will be
+    incomplete.</para>
   </refsect1>
 
   <refsect1>

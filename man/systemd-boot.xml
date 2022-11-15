@@ -55,6 +55,9 @@
       <listitem><para>The EFI Shell binary, if installed.</para></listitem>
 
       <listitem><para>A reboot into the UEFI firmware setup option, if supported by the firmware.</para></listitem>
+
+      <listitem><para>Secure boot variables enrollement if the UEFI firmware is in setup-mode and files are provided
+      on the ESP.</para></listitem>
     </itemizedlist>
 
     <para><command>systemd-boot</command> supports the following features:</para>
@@ -91,6 +94,9 @@
       <listitem><para>The boot manager optionally reads a random seed from the ESP partition, combines it
       with a 'system token' stored in a persistent EFI variable and derives a random seed to use by the OS as
       entropy pool initialization, providing a full entropy pool during early boot.</para></listitem>
+
+      <listitem><para>The boot manager allows for secure boot variables to be enrolled if the UEFI firmware is
+      in setup-mode. Additionally, variables can be automatically enrolled if configured.</para></listitem>
     </itemizedlist>
 
     <para><citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -251,12 +257,13 @@
 
       <varlistentry>
         <term><keycap>Esc</keycap></term>
+        <term><keycombo><keycap>Ctrl</keycap><keycap>c</keycap></keycombo></term>
         <listitem><para>Abort the edit and quit the editor</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><keycombo><keycap>Ctrl</keycap><keycap>k</keycap></keycombo></term>
-        <listitem><para>Clear the command line</para></listitem>
+        <listitem><para>Clear the command line forwards</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -266,6 +273,7 @@
       </varlistentry>
 
       <varlistentry>
+        <term><keycombo><keycap>Ctrl</keycap><keycap>Del</keycap></keycombo></term>
         <term><keycombo><keycap>Alt</keycap><keycap>d</keycap></keycombo></term>
         <listitem><para>Delete word forwards</para></listitem>
       </varlistentry>
@@ -311,6 +319,12 @@
     extension of the EFI architecture ID followed by <filename>.efi</filename> (e.g. for x86-64 this means a
     suffix of <filename>x64.efi</filename>). This may be used to automatically load file system drivers and
     similar, to extend the native firmware support.</para>
+
+    <para>Enrollment of Secure Boot variables can be performed manually or automatically if files are available
+    under <filename>/keys/<replaceable>NAME</replaceable>/{db,KEK,PK}.auth</filename>, <replaceable>NAME</replaceable>
+    being the display name for the set of variables in the menu. If one of the sets is named <filename>auto</filename>
+    then it might be enrolled automatically depending on whether <literal>secure-boot-enroll</literal> is set
+    to force or not.</para>
   </refsect1>
 
   <refsect1>
@@ -430,7 +444,7 @@
         stored in the EFI variable <varname>LoaderSystemToken</varname> (see below). During early OS boot the
         system manager reads this variable and passes it to the OS kernel's random pool, crediting the full
         entropy it contains. This is an efficient way to ensure the system starts up with a fully initialized
-        kernel random pool — as early as the initial RAM disk phase. <command>systemd-boot</command> reads
+        kernel random pool — as early as the initrd phase. <command>systemd-boot</command> reads
         the random seed from the ESP, combines it with the "system token", and both derives a new random seed
         to update in-place the seed stored in the ESP, and the random seed to pass to the OS from it via
         SHA256 hashing in counter mode. This ensures that different physical systems that boot the same

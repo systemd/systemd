@@ -6,11 +6,13 @@
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "glyph-util.h"
 #include "hashmap.h"
 #include "io-util.h"
 #include "list.h"
 #include "process-util.h"
 #include "selinux-util.h"
+#include "serialize.h"
 #include "set.h"
 #include "socket-util.h"
 #include "string-table.h"
@@ -20,6 +22,7 @@
 #include "umask-util.h"
 #include "user-util.h"
 #include "varlink.h"
+#include "varlink-internal.h"
 
 #define VARLINK_DEFAULT_CONNECTIONS_MAX 4096U
 #define VARLINK_DEFAULT_CONNECTIONS_PER_UID_MAX 1024U
@@ -236,8 +239,9 @@ static void varlink_set_state(Varlink *v, VarlinkState state) {
                 varlink_log(v, "Setting state %s",
                             varlink_state_to_string(state));
         else
-                varlink_log(v, "Changing state %s → %s",
+                varlink_log(v, "Changing state %s %s %s",
                             varlink_state_to_string(v->state),
+                            special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
                             varlink_state_to_string(state));
 
         v->state = state;
@@ -271,16 +275,10 @@ static int varlink_new(Varlink **ret) {
 int varlink_connect_address(Varlink **ret, const char *address) {
         _cleanup_(varlink_unrefp) Varlink *v = NULL;
         union sockaddr_union sockaddr;
-        socklen_t sockaddr_len;
         int r;
 
         assert_return(ret, -EINVAL);
         assert_return(address, -EINVAL);
-
-        r = sockaddr_un_set_path(&sockaddr.un, address);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to set socket address '%s': %m", address);
-        sockaddr_len = r;
 
         r = varlink_new(&v);
         if (r < 0)
@@ -292,9 +290,21 @@ int varlink_connect_address(Varlink **ret, const char *address) {
 
         v->fd = fd_move_above_stdio(v->fd);
 
-        if (connect(v->fd, &sockaddr.sa, sockaddr_len) < 0) {
-                if (!IN_SET(errno, EAGAIN, EINPROGRESS))
-                        return log_debug_errno(errno, "Failed to connect to %s: %m", address);
+        r = sockaddr_un_set_path(&sockaddr.un, address);
+        if (r < 0) {
+                if (r != -ENAMETOOLONG)
+                        return log_debug_errno(r, "Failed to set socket address '%s': %m", address);
+
+                /* This is a file system path, and too long to fit into sockaddr_un. Let's connect via O_PATH
+                 * to this socket. */
+
+                r = connect_unix_path(v->fd, AT_FDCWD, address);
+        } else
+                r = RET_NERRNO(connect(v->fd, &sockaddr.sa, r));
+
+        if (r < 0) {
+                if (!IN_SET(r, -EAGAIN, -EINPROGRESS))
+                        return log_debug_errno(r, "Failed to connect to %s: %m", address);
 
                 v->connecting = true; /* We are asynchronously connecting, i.e. the connect() is being
                                        * processed in the background. As long as that's the case the socket
@@ -1853,10 +1863,9 @@ int varlink_set_description(Varlink *v, const char *description) {
 }
 
 static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        Varlink *v = userdata;
+        Varlink *v = ASSERT_PTR(userdata);
 
         assert(s);
-        assert(v);
 
         handle_revents(v, revents);
         (void) varlink_process(v);
@@ -1865,33 +1874,30 @@ static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userd
 }
 
 static int time_callback(sd_event_source *s, uint64_t usec, void *userdata) {
-        Varlink *v = userdata;
+        Varlink *v = ASSERT_PTR(userdata);
 
         assert(s);
-        assert(v);
 
         (void) varlink_process(v);
         return 1;
 }
 
 static int defer_callback(sd_event_source *s, void *userdata) {
-        Varlink *v = userdata;
+        Varlink *v = ASSERT_PTR(userdata);
 
         assert(s);
-        assert(v);
 
         (void) varlink_process(v);
         return 1;
 }
 
 static int prepare_callback(sd_event_source *s, void *userdata) {
-        Varlink *v = userdata;
+        Varlink *v = ASSERT_PTR(userdata);
         int r, e;
         usec_t until;
         bool have_timeout;
 
         assert(s);
-        assert(v);
 
         e = varlink_get_events(v);
         if (e < 0)
@@ -1920,10 +1926,9 @@ static int prepare_callback(sd_event_source *s, void *userdata) {
 }
 
 static int quit_callback(sd_event_source *event, void *userdata) {
-        Varlink *v = userdata;
+        Varlink *v = ASSERT_PTR(userdata);
 
         assert(event);
-        assert(v);
 
         varlink_flush(v);
         varlink_close(v);
@@ -2194,14 +2199,23 @@ int varlink_server_add_connection(VarlinkServer *server, int fd, Varlink **ret) 
         return 0;
 }
 
+static VarlinkServerSocket *varlink_server_socket_free(VarlinkServerSocket *ss) {
+        if (!ss)
+                return NULL;
+
+        free(ss->address);
+        return mfree(ss);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(VarlinkServerSocket *, varlink_server_socket_free);
+
 static int connect_callback(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        VarlinkServerSocket *ss = userdata;
+        VarlinkServerSocket *ss = ASSERT_PTR(userdata);
         _cleanup_close_ int cfd = -1;
         Varlink *v = NULL;
         int r;
 
         assert(source);
-        assert(ss);
 
         varlink_server_log(ss->server, "New incoming connection.");
 
@@ -2231,12 +2245,13 @@ static int connect_callback(sd_event_source *source, int fd, uint32_t revents, v
         return 0;
 }
 
-int varlink_server_listen_fd(VarlinkServer *s, int fd) {
-        _cleanup_free_ VarlinkServerSocket *ss = NULL;
+static int varlink_server_create_listen_fd_socket(VarlinkServer *s, int fd, VarlinkServerSocket **ret_ss) {
+        _cleanup_(varlink_server_socket_freep) VarlinkServerSocket *ss = NULL;
         int r;
 
-        assert_return(s, -EINVAL);
-        assert_return(fd >= 0, -EBADF);
+        assert(s);
+        assert(fd >= 0);
+        assert(ret_ss);
 
         r = fd_nonblock(fd, true);
         if (r < 0)
@@ -2261,11 +2276,27 @@ int varlink_server_listen_fd(VarlinkServer *s, int fd) {
                         return r;
         }
 
+        *ret_ss = TAKE_PTR(ss);
+        return 0;
+}
+
+int varlink_server_listen_fd(VarlinkServer *s, int fd) {
+        _cleanup_(varlink_server_socket_freep) VarlinkServerSocket *ss = NULL;
+        int r;
+
+        assert_return(s, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
+
+        r = varlink_server_create_listen_fd_socket(s, fd, &ss);
+        if (r < 0)
+                return r;
+
         LIST_PREPEND(sockets, s->sockets, TAKE_PTR(ss));
         return 0;
 }
 
 int varlink_server_listen_address(VarlinkServer *s, const char *address, mode_t m) {
+        _cleanup_(varlink_server_socket_freep) VarlinkServerSocket *ss = NULL;
         union sockaddr_union sockaddr;
         socklen_t sockaddr_len;
         _cleanup_close_ int fd = -1;
@@ -2297,10 +2328,15 @@ int varlink_server_listen_address(VarlinkServer *s, const char *address, mode_t 
         if (listen(fd, SOMAXCONN) < 0)
                 return -errno;
 
-        r = varlink_server_listen_fd(s, fd);
+        r = varlink_server_create_listen_fd_socket(s, fd, &ss);
         if (r < 0)
                 return r;
 
+        r = free_and_strdup(&ss->address, address);
+        if (r < 0)
+                return r;
+
+        LIST_PREPEND(sockets, s->sockets, TAKE_PTR(ss));
         TAKE_FD(fd);
         return 0;
 }
@@ -2346,6 +2382,29 @@ int varlink_server_shutdown(VarlinkServer *s) {
         return 0;
 }
 
+static int varlink_server_add_socket_event_source(VarlinkServer *s, VarlinkServerSocket *ss, int64_t priority) {
+        _cleanup_(sd_event_source_unrefp) sd_event_source *es = NULL;
+
+        int r;
+
+        assert(s);
+        assert(s->event);
+        assert(ss);
+        assert(ss->fd >= 0);
+        assert(!ss->event_source);
+
+        r = sd_event_add_io(s->event, &es, ss->fd, EPOLLIN, connect_callback, ss);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_priority(es, priority);
+        if (r < 0)
+                return r;
+
+        ss->event_source = TAKE_PTR(es);
+        return 0;
+}
+
 int varlink_server_attach_event(VarlinkServer *s, sd_event *e, int64_t priority) {
         int r;
 
@@ -2361,13 +2420,7 @@ int varlink_server_attach_event(VarlinkServer *s, sd_event *e, int64_t priority)
         }
 
         LIST_FOREACH(sockets, ss, s->sockets) {
-                assert(!ss->event_source);
-
-                r = sd_event_add_io(s->event, &ss->event_source, ss->fd, EPOLLIN, connect_callback, ss);
-                if (r < 0)
-                        goto fail;
-
-                r = sd_event_source_set_priority(ss->event_source, priority);
+                r = varlink_server_add_socket_event_source(s, ss, priority);
                 if (r < 0)
                         goto fail;
         }
@@ -2525,4 +2578,85 @@ int varlink_server_set_description(VarlinkServer *s, const char *description) {
         assert_return(s, -EINVAL);
 
         return free_and_strdup(&s->description, description);
+}
+
+int varlink_server_serialize(VarlinkServer *s, FILE *f, FDSet *fds) {
+        assert(f);
+        assert(fds);
+
+        if (!s)
+                return 0;
+
+        LIST_FOREACH(sockets, ss, s->sockets) {
+                int copy;
+
+                assert(ss->address);
+                assert(ss->fd >= 0);
+
+                fprintf(f, "varlink-server-socket-address=%s", ss->address);
+
+                /* If we fail to serialize the fd, it will be considered an error during deserialization */
+                copy = fdset_put_dup(fds, ss->fd);
+                if (copy < 0)
+                        return copy;
+
+                fprintf(f, " varlink-server-socket-fd=%i", copy);
+
+                fputc('\n', f);
+        }
+
+        return 0;
+}
+
+int varlink_server_deserialize_one(VarlinkServer *s, const char *value, FDSet *fds) {
+        _cleanup_(varlink_server_socket_freep) VarlinkServerSocket *ss = NULL;
+        _cleanup_free_ char *address = NULL;
+        const char *v = ASSERT_PTR(value);
+        int r, fd = -1;
+        char *buf;
+        size_t n;
+
+        assert(s);
+        assert(fds);
+
+        n = strcspn(v, " ");
+        address = strndup(v, n);
+        if (!address)
+                return log_oom_debug();
+
+        if (v[n] != ' ')
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to deserialize VarlinkServerSocket: %s: %m", value);
+        v = startswith(v + n + 1, "varlink-server-socket-fd=");
+        if (!v)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to deserialize VarlinkServerSocket fd %s: %m", value);
+
+        n = strcspn(v, " ");
+        buf = strndupa_safe(v, n);
+
+        r = safe_atoi(buf, &fd);
+        if (r < 0)
+                return log_debug_errno(r, "Unable to parse VarlinkServerSocket varlink-server-socket-fd=%s: %m", buf);
+
+        if (!fdset_contains(fds, fd))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADF),
+                                       "VarlinkServerSocket varlink-server-socket-fd= has unknown fd %d: %m", fd);
+
+        ss = new(VarlinkServerSocket, 1);
+        if (!ss)
+                return log_oom_debug();
+
+        *ss = (VarlinkServerSocket) {
+                .server = s,
+                .address = TAKE_PTR(address),
+                .fd = fdset_remove(fds, fd),
+        };
+
+        r = varlink_server_add_socket_event_source(s, ss, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to add VarlinkServerSocket event source to the event loop: %m");
+
+        LIST_PREPEND(sockets, s->sockets, TAKE_PTR(ss));
+        return 0;
 }

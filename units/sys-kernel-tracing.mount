@@ -9,7 +9,7 @@
 
 [Unit]
 Description=Kernel Trace File System
-Documentation=https://www.kernel.org/doc/Documentation/trace/ftrace.txt
+Documentation=https://docs.kernel.org/trace/ftrace.html
 Documentation=https://www.freedesktop.org/wiki/Software/systemd/APIFileSystems
 DefaultDependencies=no
 ConditionVirtualization=!lxc

@@ -171,8 +171,6 @@ static int test_load_config(Manager *manager) {
                 return r;
         assert_se(r >= 0);
 
-        assert_se(manager_should_reload(manager) == false);
-
         return 0;
 }
 

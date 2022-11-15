@@ -9,7 +9,6 @@
 #include "netlink-util.h"
 #include "parse-util.h"
 #include "string-util.h"
-#include "util.h"
 
 static int heavy_hitter_filter_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {
         HeavyHitterFilter *hhf;
@@ -52,13 +51,12 @@ int config_parse_heavy_hitter_filter_packet_limit(
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         HeavyHitterFilter *hhf;
-        Network *network = data;
+        Network *network = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = qdisc_new_static(QDISC_KIND_HHF, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)

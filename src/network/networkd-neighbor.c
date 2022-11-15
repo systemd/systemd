@@ -158,7 +158,7 @@ static int neighbor_add(Link *link, Neighbor *neighbor) {
 }
 
 static void log_neighbor_debug(const Neighbor *neighbor, const char *str, const Link *link) {
-        _cleanup_free_ char *state = NULL, *dst = NULL;
+        _cleanup_free_ char *state = NULL;
 
         assert(neighbor);
         assert(str);
@@ -167,12 +167,12 @@ static void log_neighbor_debug(const Neighbor *neighbor, const char *str, const 
                 return;
 
         (void) network_config_state_to_string_alloc(neighbor->state, &state);
-        (void) in_addr_to_string(neighbor->family, &neighbor->in_addr, &dst);
 
         log_link_debug(link,
                        "%s %s neighbor (%s): lladdr: %s, dst: %s",
                        str, strna(network_config_source_to_string(neighbor->source)), strna(state),
-                       HW_ADDR_TO_STR(&neighbor->ll_addr), strna(dst));
+                       HW_ADDR_TO_STR(&neighbor->ll_addr),
+                       IN_ADDR_TO_STRING(neighbor->family, &neighbor->in_addr));
 }
 
 static int neighbor_configure_message(Neighbor *neighbor, Link *link, sd_netlink_message *req) {
@@ -607,14 +607,13 @@ int config_parse_neighbor_address(
                 void *userdata) {
 
         _cleanup_(neighbor_free_or_set_invalidp) Neighbor *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
         assert(section);
         assert(lvalue);
         assert(rvalue);
-        assert(userdata);
 
         r = neighbor_new_static(network, filename, section_line, &n);
         if (r < 0)
@@ -651,14 +650,13 @@ int config_parse_neighbor_lladdr(
                 void *userdata) {
 
         _cleanup_(neighbor_free_or_set_invalidp) Neighbor *n = NULL;
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
         assert(section);
         assert(lvalue);
         assert(rvalue);
-        assert(userdata);
 
         r = neighbor_new_static(network, filename, section_line, &n);
         if (r < 0)

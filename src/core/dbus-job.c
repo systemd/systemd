@@ -7,6 +7,7 @@
 #include "bus-util.h"
 #include "dbus-job.h"
 #include "dbus-unit.h"
+#include "dbus-util.h"
 #include "dbus.h"
 #include "job.h"
 #include "log.h"
@@ -27,11 +28,10 @@ static int property_get_unit(
                 sd_bus_error *error) {
 
         _cleanup_free_ char *p = NULL;
-        Job *j = userdata;
+        Job *j = ASSERT_PTR(userdata);
 
         assert(bus);
         assert(reply);
-        assert(j);
 
         p = unit_dbus_path(j->unit);
         if (!p)
@@ -41,11 +41,10 @@ static int property_get_unit(
 }
 
 int bus_job_method_cancel(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Job *j = userdata;
+        Job *j = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
-        assert(j);
 
         r = mac_selinux_unit_access_check(j->unit, message, "stop", error);
         if (r < 0)
@@ -136,11 +135,12 @@ const sd_bus_vtable bus_job_vtable[] = {
         SD_BUS_PROPERTY("Unit", "(so)", property_get_unit, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("JobType", "s", property_get_type, offsetof(Job, type), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("State", "s", property_get_state, offsetof(Job, state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("ActivationDetails", "a(ss)", bus_property_get_activation_details, offsetof(Job, activation_details), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_VTABLE_END
 };
 
 static int bus_job_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Job *j;
         int r;
 
@@ -148,7 +148,6 @@ static int bus_job_find(sd_bus *bus, const char *path, const char *interface, vo
         assert(path);
         assert(interface);
         assert(found);
-        assert(m);
 
         r = manager_get_job_from_dbus_path(m, path, &j);
         if (r < 0)
@@ -193,11 +192,10 @@ const BusObjectImplementation job_object = {
 static int send_new_signal(sd_bus *bus, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
-        Job *j = userdata;
+        Job *j = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
-        assert(j);
 
         p = job_dbus_path(j);
         if (!p)
@@ -221,10 +219,9 @@ static int send_new_signal(sd_bus *bus, void *userdata) {
 
 static int send_changed_signal(sd_bus *bus, void *userdata) {
         _cleanup_free_ char *p = NULL;
-        Job *j = userdata;
+        Job *j = ASSERT_PTR(userdata);
 
         assert(bus);
-        assert(j);
 
         p = job_dbus_path(j);
         if (!p)
@@ -271,11 +268,10 @@ void bus_job_send_pending_change_signal(Job *j, bool including_new) {
 static int send_removed_signal(sd_bus *bus, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
-        Job *j = userdata;
+        Job *j = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
-        assert(j);
 
         p = job_dbus_path(j);
         if (!p)
@@ -314,10 +310,9 @@ void bus_job_send_removed_signal(Job *j) {
 }
 
 static int bus_job_track_handler(sd_bus_track *t, void *userdata) {
-        Job *j = userdata;
+        Job *j = ASSERT_PTR(userdata);
 
         assert(t);
-        assert(j);
 
         j->bus_track = sd_bus_track_unref(j->bus_track); /* make sure we aren't called again */
 

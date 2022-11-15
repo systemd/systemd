@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "dropin.h"
 #include "generator.h"
+#include "initrd-util.h"
 #include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -91,9 +92,6 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 static int generate_mask_symlinks(void) {
         int r = 0;
 
-        if (strv_isempty(arg_mask))
-                return 0;
-
         STRV_FOREACH(u, arg_mask) {
                 _cleanup_free_ char *p = NULL;
 
@@ -112,9 +110,6 @@ static int generate_mask_symlinks(void) {
 
 static int generate_wants_symlinks(void) {
         int r = 0;
-
-        if (strv_isempty(arg_wants))
-                return 0;
 
         STRV_FOREACH(u, arg_wants) {
                 _cleanup_free_ char *p = NULL, *f = NULL;

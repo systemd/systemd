@@ -64,3 +64,8 @@
 #ifndef FS_PROJINHERIT_FL
 #define FS_PROJINHERIT_FL 0x20000000
 #endif
+
+/* linux/fscrypt.h */
+#ifndef FS_KEY_DESCRIPTOR_SIZE
+#define FS_KEY_DESCRIPTOR_SIZE 8
+#endif

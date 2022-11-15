@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bus-locator.h"
 #include "bus-unit-procs.h"
 #include "glyph-util.h"
 #include "hashmap.h"
@@ -344,11 +345,9 @@ int unit_show_processes(
 
         prefix = strempty(prefix);
 
-        r = sd_bus_call_method(
+        r = bus_call_method(
                         bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
+                        bus_systemd_mgr,
                         "GetUnitProcesses",
                         error,
                         &reply,
@@ -379,7 +378,7 @@ int unit_show_processes(
                 if (r == -ENOMEM)
                         goto finish;
                 if (r < 0)
-                        log_warning_errno(r, "Invalid process description in GetUnitProcesses reply: cgroup=\"%s\" pid="PID_FMT" command=\"%s\", ignoring: %m",
+                        log_warning_errno(r, "Invalid process description in GetUnitProcesses reply: cgroup=\"%s\" pid=%u command=\"%s\", ignoring: %m",
                                           path, pid, name);
         }
 

@@ -21,7 +21,7 @@ Output=networkd-test.raw
 [Partitions]
 RootSize=3G
 
-[Packages]
+[Content]
 BuildPackages=
         audit-libs-devel
         bzip2-devel

@@ -10,7 +10,6 @@
 #include "log.h"
 #include "string-util.h"
 #include "utf8.h"
-#include "util.h"
 
 /**
  * Write up to size bytes to buf. Return negative on error, and number of
@@ -251,13 +250,12 @@ static void check_update_watchdog(Uploader *u) {
 }
 
 static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void *userp) {
-        Uploader *u = userp;
+        Uploader *u = ASSERT_PTR(userp);
         int r;
         sd_journal *j;
         size_t filled = 0;
         ssize_t w;
 
-        assert(u);
         assert(nmemb <= SSIZE_MAX / size);
 
         check_update_watchdog(u);
@@ -356,9 +354,7 @@ static int dispatch_journal_input(sd_event_source *event,
                                   int fd,
                                   uint32_t revents,
                                   void *userp) {
-        Uploader *u = userp;
-
-        assert(u);
+        Uploader *u = ASSERT_PTR(userp);
 
         if (u->uploading)
                 return 0;

@@ -21,7 +21,11 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         const char *name;
         long offset;
 
+        if (outside_size_range(size, 0, 65536))
+                return 0;
+
         f = data_to_file(data, size);
+
         assert_se(f);
 
         if (read_line(f, LINE_MAX, &p) < 0)
@@ -79,7 +83,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(g);
 
         unit_dump(u, g, "");
-        manager_dump(m, g, ">>>");
+        manager_dump(m, g, /* patterns= */ NULL, ">>>");
 
         return 0;
 }

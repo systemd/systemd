@@ -10,7 +10,7 @@
 #include "bus-get-properties.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
-#include "def.h"
+#include "constants.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "float.h"
@@ -32,7 +32,6 @@
 #include "strv.h"
 #include "syslog-util.h"
 #include "user-util.h"
-#include "util.h"
 #include "web-util.h"
 
 typedef struct Transfer Transfer;
@@ -306,11 +305,10 @@ static int transfer_cancel(Transfer *t) {
 }
 
 static int transfer_on_pid(sd_event_source *s, const siginfo_t *si, void *userdata) {
-        Transfer *t = userdata;
+        Transfer *t = ASSERT_PTR(userdata);
         bool success = false;
 
         assert(s);
-        assert(t);
 
         if (si->si_code == CLD_EXITED) {
                 if (si->si_status != 0)
@@ -331,11 +329,10 @@ static int transfer_on_pid(sd_event_source *s, const siginfo_t *si, void *userda
 }
 
 static int transfer_on_log(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        Transfer *t = userdata;
+        Transfer *t = ASSERT_PTR(userdata);
         ssize_t l;
 
         assert(s);
-        assert(t);
 
         l = read(fd, t->log_message + t->log_message_size, sizeof(t->log_message) - t->log_message_size);
         if (l < 0)
@@ -687,13 +684,12 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         _cleanup_(transfer_unrefp) Transfer *t = NULL;
         int fd, force, read_only, r;
         const char *local, *object;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         TransferType type;
         struct stat st;
         uint32_t id;
 
         assert(msg);
-        assert(m);
 
         r = bus_verify_polkit_async(
                         msg,
@@ -761,11 +757,10 @@ static int method_import_fs(sd_bus_message *msg, void *userdata, sd_bus_error *e
         _cleanup_(transfer_unrefp) Transfer *t = NULL;
         int fd, force, read_only, r;
         const char *local, *object;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         uint32_t id;
 
         assert(msg);
-        assert(m);
 
         r = bus_verify_polkit_async(
                         msg,
@@ -828,13 +823,12 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         _cleanup_(transfer_unrefp) Transfer *t = NULL;
         int fd, r;
         const char *local, *object, *format;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         TransferType type;
         struct stat st;
         uint32_t id;
 
         assert(msg);
-        assert(m);
 
         r = bus_verify_polkit_async(
                         msg,
@@ -901,14 +895,13 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
 static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         _cleanup_(transfer_unrefp) Transfer *t = NULL;
         const char *remote, *local, *verify, *object;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         ImportVerify v;
         TransferType type;
         int force, r;
         uint32_t id;
 
         assert(msg);
-        assert(m);
 
         r = bus_verify_polkit_async(
                         msg,
@@ -988,12 +981,11 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
 
 static int method_list_transfers(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Transfer *t;
         int r;
 
         assert(msg);
-        assert(m);
 
         r = sd_bus_message_new_method_return(msg, &reply);
         if (r < 0)
@@ -1026,11 +1018,10 @@ static int method_list_transfers(sd_bus_message *msg, void *userdata, sd_bus_err
 }
 
 static int method_cancel(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
-        Transfer *t = userdata;
+        Transfer *t = ASSERT_PTR(userdata);
         int r;
 
         assert(msg);
-        assert(t);
 
         r = bus_verify_polkit_async(
                         msg,
@@ -1054,13 +1045,12 @@ static int method_cancel(sd_bus_message *msg, void *userdata, sd_bus_error *erro
 }
 
 static int method_cancel_transfer(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Transfer *t;
         uint32_t id;
         int r;
 
         assert(msg);
-        assert(m);
 
         r = bus_verify_polkit_async(
                         msg,
@@ -1102,11 +1092,10 @@ static int property_get_progress(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Transfer *t = userdata;
+        Transfer *t = ASSERT_PTR(userdata);
 
         assert(bus);
         assert(reply);
-        assert(t);
 
         return sd_bus_message_append(reply, "d", transfer_percent_as_double(t));
 }
@@ -1122,7 +1111,7 @@ static int transfer_object_find(
                 void **found,
                 sd_bus_error *error) {
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         Transfer *t;
         const char *p;
         uint32_t id;
@@ -1132,7 +1121,6 @@ static int transfer_object_find(
         assert(path);
         assert(interface);
         assert(found);
-        assert(m);
 
         p = startswith(path, "/org/freedesktop/import1/transfer/_");
         if (!p)

@@ -70,10 +70,10 @@ static void check_execcommand(ExecCommand *c,
 
         assert_se(c);
         log_info("expect: \"%s\" [\"%s\" \"%s\" \"%s\"]",
-                 path, argv0 ?: path, argv1, argv2);
+                 path, argv0 ?: path, strnull(argv1), strnull(argv2));
         n = strv_length(c->argv);
         log_info("actual: \"%s\" [\"%s\" \"%s\" \"%s\"]",
-                 c->path, c->argv[0], n > 0 ? c->argv[1] : NULL, n > 1 ? c->argv[2] : NULL);
+                 c->path, c->argv[0], n > 0 ? c->argv[1] : "(null)", n > 1 ? c->argv[2] : "(null)");
         assert_se(streq(c->path, path));
         assert_se(streq(c->argv[0], argv0 ?: path));
         if (n > 0)
@@ -509,17 +509,19 @@ TEST(config_parse_log_extra_fields) {
 TEST(install_printf, .sd_booted = true) {
         char    name[] = "name.service",
                 path[] = "/run/systemd/system/name.service";
-        UnitFileInstallInfo i = { .name = name, .path = path, };
-        UnitFileInstallInfo i2 = { .name= name, .path = path, };
+        InstallInfo i = { .name = name, .path = path, };
+        InstallInfo i2 = { .name= name, .path = path, };
         char    name3[] = "name@inst.service",
                 path3[] = "/run/systemd/system/name.service";
-        UnitFileInstallInfo i3 = { .name = name3, .path = path3, };
-        UnitFileInstallInfo i4 = { .name = name3, .path = path3, };
+        InstallInfo i3 = { .name = name3, .path = path3, };
+        InstallInfo i4 = { .name = name3, .path = path3, };
 
         _cleanup_free_ char *mid = NULL, *bid = NULL, *host = NULL, *gid = NULL, *group = NULL, *uid = NULL, *user = NULL;
 
-        assert_se(specifier_machine_id('m', NULL, NULL, NULL, &mid) >= 0 && mid);
-        assert_se(specifier_boot_id('b', NULL, NULL, NULL, &bid) >= 0 && bid);
+        if (access("/etc/machine-id", F_OK) >= 0)
+                assert_se(specifier_machine_id('m', NULL, NULL, NULL, &mid) >= 0 && mid);
+        if (sd_booted() > 0)
+                assert_se(specifier_boot_id('b', NULL, NULL, NULL, &bid) >= 0 && bid);
         assert_se(host = gethostname_malloc());
         assert_se(group = gid_to_name(getgid()));
         assert_se(asprintf(&gid, UID_FMT, getgid()) >= 0);

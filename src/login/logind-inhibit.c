@@ -24,7 +24,6 @@
 #include "string-util.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
-#include "util.h"
 
 static void inhibitor_remove_fifo(Inhibitor *i);
 
@@ -277,11 +276,10 @@ int inhibitor_load(Inhibitor *i) {
 }
 
 static int inhibitor_dispatch_fifo(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        Inhibitor *i = userdata;
+        Inhibitor *i = ASSERT_PTR(userdata);
 
         assert(s);
         assert(fd == i->fifo_fd);
-        assert(i);
 
         inhibitor_stop(i);
         inhibitor_free(i);

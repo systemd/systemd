@@ -42,7 +42,7 @@
     command line.</para>
 
     <para>See the <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface/">New
+    url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface">New
     Control Group Interfaces</ulink> for an introduction on how to make
     use of scope units from programs.</para>
 
@@ -89,7 +89,7 @@
   <refsect1>
     <title>Options</title>
 
-    <para>Socket files may include a [Unit] section, which is described in
+    <para>Scope files may include a [Unit] section, which is described in
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 

@@ -20,7 +20,6 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
-#include "util.h"
 #include "xattr-util.h"
 
 TEST(copy_file) {
@@ -50,6 +49,64 @@ TEST(copy_file) {
         unlink(fn_copy);
 }
 
+static bool read_file_at_and_streq(int dir_fd, const char *path, const char *expected) {
+        _cleanup_free_ char *buf = NULL;
+
+        assert_se(read_full_file_at(dir_fd, path, &buf, NULL) == 0);
+        return streq(buf, expected);
+}
+
+TEST(copy_tree_replace_file) {
+        _cleanup_free_ char *src = NULL, *dst = NULL;
+
+        assert_se(tempfn_random("/tmp/test-copy_file.XXXXXX", NULL, &src) >= 0);
+        assert_se(tempfn_random("/tmp/test-copy_file.XXXXXX", NULL, &dst) >= 0);
+
+        assert_se(write_string_file(src, "bar bar", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(dst, "foo foo foo", WRITE_STRING_FILE_CREATE) == 0);
+
+        /* The file exists- now overwrite original contents, and test the COPY_REPLACE flag. */
+
+        assert_se(copy_tree(src, dst, UID_INVALID, GID_INVALID, COPY_REFLINK, NULL) == -EEXIST);
+
+        assert_se(read_file_at_and_streq(AT_FDCWD, dst, "foo foo foo\n"));
+
+        assert_se(copy_tree(src, dst, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE, NULL) == 0);
+
+        assert_se(read_file_at_and_streq(AT_FDCWD, dst, "bar bar\n"));
+}
+
+TEST(copy_tree_replace_dirs) {
+        _cleanup_(rm_rf_physical_and_freep) char *srcp = NULL, *dstp = NULL;
+        _cleanup_close_ int src = -1, dst = -1;
+
+        /* Create the random source/destination directories */
+        assert_se((src = mkdtemp_open(NULL, 0, &srcp)) >= 0);
+        assert_se((dst = mkdtemp_open(NULL, 0, &dstp)) >= 0);
+
+        /* Populate some data to differentiate the files. */
+        assert_se(write_string_file_at(src, "foo", "src file 1", WRITE_STRING_FILE_CREATE) >= 0);
+        assert_se(write_string_file_at(src, "bar", "src file 2", WRITE_STRING_FILE_CREATE) == 0);
+
+        assert_se(write_string_file_at(dst, "foo", "dest file 1", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file_at(dst, "bar", "dest file 2", WRITE_STRING_FILE_CREATE) == 0);
+
+        /* Copying without COPY_REPLACE should fail because the destination file already exists. */
+        assert_se(copy_tree_at(src, ".", dst, ".", UID_INVALID, GID_INVALID, COPY_REFLINK, NULL) == -EEXIST);
+
+        assert_se(read_file_at_and_streq(src, "foo", "src file 1\n"));
+        assert_se(read_file_at_and_streq(src, "bar", "src file 2\n"));
+        assert_se(read_file_at_and_streq(dst, "foo", "dest file 1\n"));
+        assert_se(read_file_at_and_streq(dst, "bar", "dest file 2\n"));
+
+        assert_se(copy_tree_at(src, ".", dst, ".", UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_MERGE, NULL) == 0);
+
+        assert_se(read_file_at_and_streq(src, "foo", "src file 1\n"));
+        assert_se(read_file_at_and_streq(src, "bar", "src file 2\n"));
+        assert_se(read_file_at_and_streq(dst, "foo", "src file 1\n"));
+        assert_se(read_file_at_and_streq(dst, "bar", "src file 2\n"));
+}
+
 TEST(copy_file_fd) {
         char in_fn[] = "/tmp/test-copy-file-fd-XXXXXX";
         char out_fn[] = "/tmp/test-copy-file-fd-XXXXXX";
@@ -75,6 +132,8 @@ TEST(copy_file_fd) {
 }
 
 TEST(copy_tree) {
+        _cleanup_set_free_ Set *denylist = NULL;
+        _cleanup_free_ char *cp = NULL;
         char original_dir[] = "/tmp/test-copy_tree/";
         char copy_dir[] = "/tmp/test-copy_tree-copy/";
         char **files = STRV_MAKE("file", "dir1/file", "dir1/dir2/file", "dir1/dir2/dir3/dir4/dir5/file");
@@ -82,7 +141,7 @@ TEST(copy_tree) {
                                     "link2", "dir1/file");
         char **hardlinks = STRV_MAKE("hlink", "file",
                                      "hlink2", "dir1/file");
-        const char *unixsockp;
+        const char *unixsockp, *ignorep;
         struct stat st;
         int xattr_worked = -1; /* xattr support is optional in temporary directories, hence use it if we can,
                                 * but don't fail if we can't */
@@ -128,7 +187,14 @@ TEST(copy_tree) {
         unixsockp = strjoina(original_dir, "unixsock");
         assert_se(mknod(unixsockp, S_IFSOCK|0644, 0) >= 0);
 
-        assert_se(copy_tree(original_dir, copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_MERGE|COPY_HARDLINKS) == 0);
+        ignorep = strjoina(original_dir, "ignore/file");
+        assert_se(write_string_file(ignorep, "ignore", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) == 0);
+        assert_se(RET_NERRNO(stat(ignorep, &st)) >= 0);
+        assert_se(cp = memdup(&st, sizeof(st)));
+        assert_se(set_ensure_put(&denylist, &inode_hash_ops, cp) >= 0);
+        TAKE_PTR(cp);
+
+        assert_se(copy_tree(original_dir, copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_MERGE|COPY_HARDLINKS, denylist) == 0);
 
         STRV_FOREACH(p, files) {
                 _cleanup_free_ char *buf, *f, *c = NULL;
@@ -180,8 +246,11 @@ TEST(copy_tree) {
         assert_se(stat(unixsockp, &st) >= 0);
         assert_se(S_ISSOCK(st.st_mode));
 
-        assert_se(copy_tree(original_dir, copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK) < 0);
-        assert_se(copy_tree("/tmp/inexistent/foo/bar/fsdoi", copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK) < 0);
+        assert_se(copy_tree(original_dir, copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK, denylist) < 0);
+        assert_se(copy_tree("/tmp/inexistent/foo/bar/fsdoi", copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK, denylist) < 0);
+
+        ignorep = strjoina(copy_dir, "ignore/file");
+        assert_se(RET_NERRNO(access(ignorep, F_OK)) == -ENOENT);
 
         (void) rm_rf(copy_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
         (void) rm_rf(original_dir, REMOVE_ROOT|REMOVE_PHYSICAL);

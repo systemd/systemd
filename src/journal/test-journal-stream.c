@@ -15,7 +15,6 @@
 #include "parse-util.h"
 #include "rm-rf.h"
 #include "tests.h"
-#include "util.h"
 
 #define N_ENTRIES 200
 
@@ -184,11 +183,18 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
-        /* Run this test twice. Once with old hashing and once with new hashing */
+        /* Run this test multiple times with different configurations of features. */
+
+        assert_se(setenv("SYSTEMD_JOURNAL_KEYED_HASH", "0", 1) >= 0);
+        run_test();
+
         assert_se(setenv("SYSTEMD_JOURNAL_KEYED_HASH", "1", 1) >= 0);
         run_test();
 
-        assert_se(setenv("SYSTEMD_JOURNAL_KEYED_HASH", "0", 1) >= 0);
+        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1) >= 0);
+        run_test();
+
+        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1) >= 0);
         run_test();
 
         return 0;

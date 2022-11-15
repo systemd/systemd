@@ -372,8 +372,8 @@
         <varlistentry>
           <term><filename>initrd.target</filename></term>
           <listitem>
-            <para>This is the default target in the initramfs, similar to <filename>default.target</filename>
-            in the main system. It is used to mount the real root and transition to it. See
+            <para>This is the default target in the initrd, similar to <filename>default.target</filename> in
+            the main system. It is used to mount the real root and transition to it. See
             <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
             more discussion.</para>
           </listitem>
@@ -500,21 +500,15 @@
             sufficiently set up. What precisely this requires is left to
             the implementation of the network managing service.</para>
 
-            <para>Note the distinction between this unit and
-            <filename>network.target</filename>. This unit is an active
-            unit (i.e. pulled in by the consumer rather than the
-            provider of this functionality) and pulls in a service which
-            possibly adds substantial delays to further execution. In
-            contrast, <filename>network.target</filename> is a passive
-            unit (i.e. pulled in by the provider of the functionality,
-            rather than the consumer) that usually does not delay
-            execution much. Usually, <filename>network.target</filename>
-            is part of the boot of most systems, while
-            <filename>network-online.target</filename> is not, except
-            when at least one unit requires it. Also see <ulink
-            url="https://www.freedesktop.org/wiki/Software/systemd/NetworkTarget">Running
-            Services After the Network is up</ulink> for more
-            information.</para>
+            <para>Note the distinction between this unit and <filename>network.target</filename>. This unit
+            is an active unit (i.e. pulled in by the consumer rather than the provider of this functionality)
+            and pulls in a service which possibly adds substantial delays to further execution. In contrast,
+            <filename>network.target</filename> is a passive unit (i.e. pulled in by the provider of the
+            functionality, rather than the consumer) that usually does not delay execution much. Usually,
+            <filename>network.target</filename> is part of the boot of most systems, while
+            <filename>network-online.target</filename> is not, except when at least one unit requires
+            it. Also see <ulink url="https://systemd.io/NETWORK_ONLINE">Running Services After the Network Is
+            Up</ulink> for more information.</para>
 
             <para>All mount units for remote network file systems automatically pull in this unit, and order
             themselves after it. Note that networking daemons that simply <emphasis>provide</emphasis>
@@ -991,8 +985,8 @@
               will be stopped before the network — to whatever level it might be set up by then — is shut
               down. It is hence useful when writing service files that require network access on shutdown,
               which should order themselves after this target, but not pull it in. Also see <ulink
-              url="https://www.freedesktop.org/wiki/Software/systemd/NetworkTarget">Running Services After
-              the Network is up</ulink> for more information.</para></listitem>
+              url="https://systemd.io/NETWORK_ONLINE">Running Services After the Network Is Up</ulink> for
+              more information.</para></listitem>
             </itemizedlist>
 
             <para>It must emphasized that at start-up there's no guarantee that hardware-based devices have
@@ -1003,11 +997,11 @@
         <varlistentry>
           <term><filename>network-pre.target</filename></term>
           <listitem>
-            <para>This passive target unit may be pulled in by services
-            that want to run before any network is set up, for example
-            for the purpose of setting up a firewall. All network
-            management software orders itself after this target, but
-            does not pull it in.</para>
+            <para>This passive target unit may be pulled in by services that want to run before any network
+            is set up, for example for the purpose of setting up a firewall. All network management software
+            orders itself after this target, but does not pull it in. Also see <ulink
+            url="https://systemd.io/NETWORK_ONLINE">Running Services After the Network Is Up</ulink> for more
+            information.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

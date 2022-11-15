@@ -13,9 +13,9 @@
 #include "bus-kernel.h"
 #include "bus-util.h"
 #include "chase-symlinks.h"
+#include "constants.h"
 #include "dbus-service.h"
 #include "dbus-unit.h"
-#include "def.h"
 #include "env-util.h"
 #include "escape.h"
 #include "exit-status.h"
@@ -41,7 +41,6 @@
 #include "unit-name.h"
 #include "unit.h"
 #include "utf8.h"
-#include "util.h"
 
 #define service_spawn(...) service_spawn_internal(__func__, __VA_ARGS__)
 
@@ -272,7 +271,7 @@ static void service_extend_event_source_timeout(Service *s, sd_event_source *sou
         if (r < 0) {
                 const char *desc;
                 (void) sd_event_source_get_description(s->timer_event_source, &desc);
-                log_unit_warning_errno(UNIT(s), r, "Failed to set timeout time for even source '%s', ignoring %m", strna(desc));
+                log_unit_warning_errno(UNIT(s), r, "Failed to set timeout time for event source '%s', ignoring %m", strna(desc));
         }
 }
 
@@ -406,10 +405,9 @@ static void service_done(Unit *u) {
 }
 
 static int on_fd_store_io(sd_event_source *e, int fd, uint32_t revents, void *userdata) {
-        ServiceFDStore *fs = userdata;
+        ServiceFDStore *fs = ASSERT_PTR(userdata);
 
         assert(e);
-        assert(fs);
 
         /* If we get either EPOLLHUP or EPOLLERR, it's time to remove this entry from the fd store */
         log_unit_debug(UNIT(fs->service),
@@ -496,7 +494,7 @@ static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name, bo
                 if (r < 0)
                         return log_unit_error_errno(UNIT(s), r, "Failed to add fd to store: %m");
                 if (r > 0)
-                        log_unit_debug(UNIT(s), "Added fd %u (%s) to fd store.", fd, strna(name));
+                        log_unit_debug(UNIT(s), "Added fd %i (%s) to fd store.", fd, strna(name));
                 fd = -1;
         }
 
@@ -600,7 +598,7 @@ static int service_verify(Service *s) {
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has Restart= set to either always or on-success, which isn't allowed for Type=oneshot services. Refusing.");
 
         if (s->type == SERVICE_ONESHOT && !exit_status_set_is_empty(&s->restart_force_status))
-                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has RestartForceStatus= set, which isn't allowed for Type=oneshot services. Refusing.");
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has RestartForceExitStatus= set, which isn't allowed for Type=oneshot services. Refusing.");
 
         if (s->type == SERVICE_ONESHOT && s->exit_type == SERVICE_EXIT_CGROUP)
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has ExitType=cgroup set, which isn't allowed for Type=oneshot services. Refusing.");
@@ -1641,6 +1639,16 @@ static int service_spawn_internal(
                 }
         }
 
+        if (UNIT(s)->activation_details) {
+                r = activation_details_append_env(UNIT(s)->activation_details, &our_env);
+                if (r < 0)
+                        return r;
+                /* The number of env vars added here can vary, rather than keeping the allocation block in
+                 * sync manually, these functions simply use the strv methods to append to it, so we need
+                 * to update n_env when we are done in case of future usage. */
+                n_env += r;
+        }
+
         r = unit_set_exec_params(UNIT(s), &exec_params);
         if (r < 0)
                 return r;
@@ -2235,7 +2243,7 @@ static void service_enter_start(Service *s) {
                 /* For simple services we immediately start
                  * the START_POST binaries. */
 
-                service_set_main_pid(s, pid);
+                (void) service_set_main_pid(s, pid);
                 service_enter_start_post(s);
 
         } else  if (s->type == SERVICE_FORKING) {
@@ -2253,7 +2261,7 @@ static void service_enter_start(Service *s) {
                 /* For D-Bus services we know the main pid right away, but wait for the bus name to appear on the
                  * bus. 'notify' and 'exec' services are similar. */
 
-                service_set_main_pid(s, pid);
+                (void) service_set_main_pid(s, pid);
                 service_set_state(s, SERVICE_START);
         } else
                 assert_not_reached();
@@ -2284,7 +2292,7 @@ static void service_enter_start_pre(Service *s) {
                 r = service_spawn(s,
                                   s->control_command,
                                   s->timeout_start_usec,
-                                  EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_APPLY_TTY_STDIN|EXEC_SETENV_MONITOR_RESULT,
+                                  EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_APPLY_TTY_STDIN|EXEC_SETENV_MONITOR_RESULT|EXEC_WRITE_CREDENTIALS,
                                   &s->control_pid);
                 if (r < 0)
                         goto fail;
@@ -2365,7 +2373,8 @@ static void service_enter_restart(Service *s) {
         log_unit_struct(UNIT(s), LOG_INFO,
                         "MESSAGE_ID=" SD_MESSAGE_UNIT_RESTART_SCHEDULED_STR,
                         LOG_UNIT_INVOCATION_ID(UNIT(s)),
-                        LOG_UNIT_MESSAGE(UNIT(s), "Scheduled restart job, restart counter is at %u.", s->n_restarts),
+                        LOG_UNIT_MESSAGE(UNIT(s),
+                                         "Scheduled restart job, restart counter is at %u.", s->n_restarts),
                         "N_RESTARTS=%u", s->n_restarts);
 
         /* Notify clients about changed restart counter */
@@ -2412,7 +2421,7 @@ static void service_enter_reload(Service *s) {
                 r = service_spawn(s,
                                   s->control_command,
                                   s->timeout_start_usec,
-                                  EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_CONTROL_CGROUP,
+                                  EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_CONTROL_CGROUP|EXEC_WRITE_CREDENTIALS,
                                   &s->control_pid);
                 if (r < 0)
                         goto fail;
@@ -2495,7 +2504,7 @@ static void service_run_next_main(Service *s) {
         if (r < 0)
                 goto fail;
 
-        service_set_main_pid(s, pid);
+        (void) service_set_main_pid(s, pid);
 
         return;
 
@@ -3240,10 +3249,8 @@ static int service_demand_pid_file(Service *s) {
 }
 
 static int service_dispatch_inotify_io(sd_event_source *source, int fd, uint32_t events, void *userdata) {
-        PathSpec *p = userdata;
+        PathSpec *p = ASSERT_PTR(userdata);
         Service *s;
-
-        assert(p);
 
         s = SERVICE(p->unit);
 
@@ -4122,7 +4129,7 @@ static void service_notify_message(
                                         log_unit_debug(u, "New main PID "PID_FMT" does not belong to service, refusing.", new_main_pid);
                         }
                         if (r > 0) {
-                                service_set_main_pid(s, new_main_pid);
+                                (void) service_set_main_pid(s, new_main_pid);
 
                                 r = unit_watch_pid(UNIT(s), new_main_pid, false);
                                 if (r < 0)
@@ -4304,13 +4311,12 @@ static bool pick_up_pid_from_bus_name(Service *s) {
 
 static int bus_name_pid_lookup_callback(sd_bus_message *reply, void *userdata, sd_bus_error *ret_error) {
         const sd_bus_error *e;
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         uint32_t pid;
         Service *s;
         int r;
 
         assert(reply);
-        assert(u);
 
         s = SERVICE(u);
         s->bus_name_pid_lookup_slot = sd_bus_slot_unref(s->bus_name_pid_lookup_slot);
@@ -4338,8 +4344,8 @@ static int bus_name_pid_lookup_callback(sd_bus_message *reply, void *userdata, s
 
         log_unit_debug(u, "D-Bus name %s is now owned by process " PID_FMT, s->bus_name, (pid_t) pid);
 
-        service_set_main_pid(s, pid);
-        unit_watch_pid(UNIT(s), pid, false);
+        (void) service_set_main_pid(s, pid);
+        (void) unit_watch_pid(UNIT(s), pid, false);
         return 1;
 }
 

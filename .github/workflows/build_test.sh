@@ -42,9 +42,11 @@ PACKAGES=(
     libqrencode-dev
     libssl-dev
     libtss2-dev
+    libxen-dev
     libxkbcommon-dev
     libxtables-dev
     libzstd-dev
+    mold
     mount
     net-tools
     perl
@@ -76,24 +78,27 @@ if [[ "$COMPILER" == clang ]]; then
     CXX="clang++-$COMPILER_VERSION"
     AR="llvm-ar-$COMPILER_VERSION"
 
-    # ATTOW llvm-11 got into focal-updates, which conflicts with llvm-11
-    # provided by the apt.llvm.org repositories. Let's use the system
-    # llvm package if available in such cases to avoid that.
+    # Prefer the distro version if available
     if ! apt install --dry-run "llvm-$COMPILER_VERSION" >/dev/null; then
         # Latest LLVM stack deb packages provided by https://apt.llvm.org/
         # Following snippet was partly borrowed from https://apt.llvm.org/llvm.sh
         wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --yes --dearmor --output /usr/share/keyrings/apt-llvm-org.gpg
         printf "deb [signed-by=/usr/share/keyrings/apt-llvm-org.gpg] http://apt.llvm.org/%s/   llvm-toolchain-%s-%s  main\n" \
                "$RELEASE" "$RELEASE" "$COMPILER_VERSION" >/etc/apt/sources.list.d/llvm-toolchain.list
-        PACKAGES+=("clang-$COMPILER_VERSION" "lldb-$COMPILER_VERSION" "lld-$COMPILER_VERSION" "clangd-$COMPILER_VERSION")
     fi
+
+    PACKAGES+=("clang-$COMPILER_VERSION" "lldb-$COMPILER_VERSION" "lld-$COMPILER_VERSION" "clangd-$COMPILER_VERSION")
 elif [[ "$COMPILER" == gcc ]]; then
     CC="gcc-$COMPILER_VERSION"
     CXX="g++-$COMPILER_VERSION"
     AR="gcc-ar-$COMPILER_VERSION"
-    # Latest gcc stack deb packages provided by
-    # https://launchpad.net/~ubuntu-toolchain-r/+archive/ubuntu/test
-    add-apt-repository -y ppa:ubuntu-toolchain-r/test
+
+    if ! apt install --dry-run "gcc-$COMPILER_VERSION" >/dev/null; then
+        # Latest gcc stack deb packages provided by
+        # https://launchpad.net/~ubuntu-toolchain-r/+archive/ubuntu/test
+        add-apt-repository -y ppa:ubuntu-toolchain-r/test
+    fi
+
     PACKAGES+=("gcc-$COMPILER_VERSION" "gcc-$COMPILER_VERSION-multilib")
 else
     fatal "Unknown compiler: $COMPILER"
@@ -118,27 +123,28 @@ ninja --version
 for args in "${ARGS[@]}"; do
     SECONDS=0
 
-    # meson fails with
-    #   src/boot/efi/meson.build:52: WARNING: Not using lld as efi-ld, falling back to bfd
-    #   src/boot/efi/meson.build:52:16: ERROR: Fatal warnings enabled, aborting
-    # when LINKER is set to lld so let's just not turn meson warnings into errors with lld
-    # to make sure that the build systemd can pick up the correct efi-ld linker automatically.
-
     # The install_tag feature introduced in 0.60 causes meson to fail with fatal-meson-warnings
     # "Project targeting '>= 0.53.2' but tried to use feature introduced in '0.60.0': install_tag arg in custom_target"
     # It can be safely removed from the CI since it isn't actually used anywhere to test anything.
     find . -type f -name meson.build -exec sed -i '/install_tag/d' '{}' '+'
-    if [[ "$LINKER" != lld ]]; then
-        additional_meson_args="--fatal-meson-warnings"
+
+    # mold < 1.1 does not support LTO.
+    if dpkg --compare-versions "$(dpkg-query --showformat='${Version}' --show mold)" ge 1.1; then
+        fatal "Newer mold version detected, please remove this workaround."
+    elif [[ "$args" == *"-Db_lto=true"* ]]; then
+        LD="gold"
+    else
+        LD="$LINKER"
     fi
+
     info "Checking build with $args"
     # shellcheck disable=SC2086
     if ! AR="$AR" \
-         CC="$CC" CC_LD="$LINKER" CFLAGS="-Werror" \
-         CXX="$CXX" CXX_LD="$LINKER" CXXFLAGS="-Werror" \
+         CC="$CC" CC_LD="$LD" CFLAGS="-Werror" \
+         CXX="$CXX" CXX_LD="$LD" CXXFLAGS="-Werror" \
          meson -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror \
-               -Dnobody-group=nogroup $additional_meson_args \
-               -Dcryptolib="${CRYPTOLIB:?}" $args build; then
+               -Dnobody-group=nogroup -Dcryptolib="${CRYPTOLIB:?}" \
+               $args build; then
 
         cat build/meson-logs/meson-log.txt
         fatal "meson failed with $args"

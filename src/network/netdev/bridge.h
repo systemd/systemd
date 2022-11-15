@@ -4,8 +4,8 @@
 #include "conf-parser.h"
 #include "netdev.h"
 
-#define LINK_BRIDGE_PORT_PRIORITY_INVALID 128
-#define LINK_BRIDGE_PORT_PRIORITY_MAX 63
+#define LINK_BRIDGE_PORT_PRIORITY_INVALID 128U
+#define LINK_BRIDGE_PORT_PRIORITY_MAX 63U
 
 typedef struct Bridge {
         NetDev meta;

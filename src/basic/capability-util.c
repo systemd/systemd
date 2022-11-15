@@ -11,11 +11,11 @@
 #include "cap-list.h"
 #include "fileio.h"
 #include "log.h"
+#include "logarithm.h"
 #include "macro.h"
 #include "missing_prctl.h"
 #include "parse-util.h"
 #include "user-util.h"
-#include "util.h"
 
 int have_effective_cap(int value) {
         _cleanup_cap_free_ cap_t cap = NULL;

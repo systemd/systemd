@@ -6,7 +6,7 @@
 #include "tests.h"
 
 static const char *xml_root =
-        "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\"\n\"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
+        "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\"\n\"https://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
                   "<node>\n"
                   " <interface name=\"org.freedesktop.DBus.Peer\">\n"
                   "  <method name=\"Ping\"/>\n"
@@ -44,7 +44,7 @@ static const char *xml_root =
                   "</node>\n";
 
 static const char *xml_org =
-        "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\"\n\"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
+        "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\"\n\"https://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
                   "<node>\n"
                   " <interface name=\"org.freedesktop.DBus.Peer\">\n"
                   "  <method name=\"Ping\"/>\n"
@@ -82,7 +82,7 @@ static const char *xml_org =
                   "</node>\n";
 
 static const char *xml_org_freedesktop =
-        "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\"\n\"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
+        "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\"\n\"https://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
                   "<node>\n"
                   " <interface name=\"org.freedesktop.DBus.Peer\">\n"
                   "  <method name=\"Ping\"/>\n"
@@ -121,7 +121,7 @@ static const char *xml_org_freedesktop =
                   "</node>\n";
 
 static const char *xml_org_freedesktop_LogControl1 =
-        "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\"\n\"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
+        "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\"\n\"https://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
                   "<node>\n"
                   " <interface name=\"org.freedesktop.DBus.Peer\">\n"
                   "  <method name=\"Ping\"/>\n"
@@ -171,7 +171,7 @@ static const char *xml_org_freedesktop_LogControl1 =
                   "</node>\n";
 
 static const char *xml_org_freedesktop_network1 =
-        "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\"\n\"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
+        "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\"\n\"https://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
                   "<node>\n"
                   " <interface name=\"org.freedesktop.DBus.Peer\">\n"
                   "  <method name=\"Ping\"/>\n"
@@ -209,7 +209,7 @@ static const char *xml_org_freedesktop_network1 =
                   "</node>\n";
 
 static const char *xml_org_freedesktop_network1_network =
-        "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\"\n\"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
+        "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\"\n\"https://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
                   "<node>\n"
                   " <interface name=\"org.freedesktop.DBus.Peer\">\n"
                   "  <method name=\"Ping\"/>\n"
@@ -267,7 +267,7 @@ static const char *xml_org_freedesktop_network1_network =
                   "</node>\n";
 
 static const char *xml_org_freedesktop_network1_network_unsigned =
-        "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\"\n\"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
+        "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\"\n\"https://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
                   "<node>\n"
                   " <interface name=\"org.freedesktop.DBus.Peer\">\n"
                   "  <method name=\"Ping\"/>\n"

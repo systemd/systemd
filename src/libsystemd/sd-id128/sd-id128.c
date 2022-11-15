@@ -16,7 +16,6 @@
 #include "missing_syscall.h"
 #include "random-util.h"
 #include "user-util.h"
-#include "util.h"
 
 _public_ char *sd_id128_to_string(sd_id128_t id, char s[_SD_ARRAY_STATIC SD_ID128_STRING_MAX]) {
         assert_return(s, NULL);
@@ -99,6 +98,22 @@ _public_ int sd_id128_from_string(const char s[], sd_id128_t *ret) {
         if (ret)
                 *ret = t;
         return 0;
+}
+
+_public_ int sd_id128_string_equal(const char *s, sd_id128_t id) {
+        sd_id128_t parsed;
+        int r;
+
+        if (!s)
+                return false;
+
+        /* Checks if the specified string matches a valid string representation of the specified 128 bit ID/uuid */
+
+        r = sd_id128_from_string(s, &parsed);
+        if (r < 0)
+                return r;
+
+        return sd_id128_equal(parsed, id);
 }
 
 _public_ int sd_id128_get_machine(sd_id128_t *ret) {
@@ -256,7 +271,10 @@ _public_ int sd_id128_get_invocation(sd_id128_t *ret) {
                 /* We first check the environment. The environment variable is primarily relevant for user
                  * services, and sufficiently safe as long as no privilege boundary is involved. */
                 r = get_invocation_from_environment(&saved_invocation_id);
-                if (r < 0 && r != -ENXIO)
+                if (r >= 0) {
+                        *ret = saved_invocation_id;
+                        return 0;
+                } else if (r != -ENXIO)
                         return r;
 
                 /* The kernel keyring is relevant for system services (as for user services we don't store
@@ -272,13 +290,10 @@ _public_ int sd_id128_get_invocation(sd_id128_t *ret) {
 
 _public_ int sd_id128_randomize(sd_id128_t *ret) {
         sd_id128_t t;
-        int r;
 
         assert_return(ret, -EINVAL);
 
-        r = genuine_random_bytes(&t, sizeof(t), 0);
-        if (r < 0)
-                return r;
+        random_bytes(&t, sizeof(t));
 
         /* Turn this into a valid v4 UUID, to be nice. Note that we
          * only guarantee this for newly generated UUIDs, not for

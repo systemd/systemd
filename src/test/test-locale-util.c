@@ -6,7 +6,6 @@
 #include "macro.h"
 #include "strv.h"
 #include "tests.h"
-#include "util.h"
 
 TEST(get_locales) {
         _cleanup_strv_free_ char **locales = NULL;
@@ -99,6 +98,7 @@ TEST(dump_special_glyphs) {
         dump_glyph(SPECIAL_GLYPH_MULTIPLICATION_SIGN);
         dump_glyph(SPECIAL_GLYPH_CIRCLE_ARROW);
         dump_glyph(SPECIAL_GLYPH_BULLET);
+        dump_glyph(SPECIAL_GLYPH_ARROW_LEFT);
         dump_glyph(SPECIAL_GLYPH_ARROW_RIGHT);
         dump_glyph(SPECIAL_GLYPH_ARROW_UP);
         dump_glyph(SPECIAL_GLYPH_ARROW_DOWN);

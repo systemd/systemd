@@ -76,7 +76,7 @@ int efi_take_random_seed(void) {
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Random seed passed from boot loader has zero size? Ignoring.");
 
         /* Before we use the seed, let's mark it as used, so that we never credit it twice. Also, it's a nice
-         * way to let users known that we successfully acquired entropy from the boot laoder. */
+         * way to let users known that we successfully acquired entropy from the boot loader. */
         r = touch("/run/systemd/efi-random-seed-taken");
         if (r < 0)
                 return log_warning_errno(r, "Unable to mark EFI random seed as used, not using it: %m");

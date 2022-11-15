@@ -19,6 +19,7 @@
 #include "fileio.h"
 #include "filesystems.h"
 #include "fs-util.h"
+#include "glyph-util.h"
 #include "home-util.h"
 #include "homed-home-bus.h"
 #include "homed-home.h"
@@ -413,11 +414,10 @@ static int home_deactivate_internal(Home *h, bool force, sd_bus_error *error);
 static void home_start_retry_deactivate(Home *h);
 
 static int home_on_retry_deactivate(sd_event_source *s, uint64_t usec, void *userdata) {
-        Home *h = userdata;
+        Home *h = ASSERT_PTR(userdata);
         HomeState state;
 
         assert(s);
-        assert(h);
 
         /* 15s after the last attempt to deactivate the home directory passed. Let's try it one more time. */
 
@@ -479,8 +479,9 @@ static void home_set_state(Home *h, HomeState state) {
         new_state = home_get_state(h); /* Query the new state, since the 'state' variable might be set to -1,
                                         * in which case we synthesize an high-level state on demand */
 
-        log_info("%s: changing state %s → %s", h->user_name,
+        log_info("%s: changing state %s %s %s", h->user_name,
                  home_state_to_string(old_state),
+                 special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
                  home_state_to_string(new_state));
 
         home_update_pin_fd(h, new_state);
@@ -1048,12 +1049,11 @@ finish:
 
 static int home_on_worker_process(sd_event_source *s, const siginfo_t *si, void *userdata) {
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
-        Home *h = userdata;
+        Home *h = ASSERT_PTR(userdata);
         int ret;
 
         assert(s);
         assert(si);
-        assert(h);
 
         assert(h->worker_pid == si->si_pid);
         assert(h->worker_event_source);
@@ -2041,8 +2041,7 @@ void home_process_notify(Home *h, char **l, int fd) {
                         if (taken_fd < 0)
                                 return (void) log_debug("Got notify message with SYSTEMD_LUKS_LOCK_FD=1 but no fd passed, ignoring: %m");
 
-                        safe_close(h->luks_lock_fd);
-                        h->luks_lock_fd = TAKE_FD(taken_fd);
+                        close_and_replace(h->luks_lock_fd, taken_fd);
 
                         log_debug("Successfully acquired LUKS lock fd from worker.");
 
@@ -2174,9 +2173,9 @@ static int home_get_disk_status_luks(
                                 disk_size = st.st_size;
                                 stat_used = st.st_blocks * 512;
 
-                                parent = dirname_malloc(ip);
-                                if (!parent)
-                                        return log_oom();
+                                r = path_extract_directory(ip, &parent);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to extract parent directory from image path '%s': %m", ip);
 
                                 if (statfs(parent, &sfs) < 0)
                                         log_debug_errno(errno, "Failed to statfs() %s, ignoring: %m", parent);
@@ -2605,10 +2604,9 @@ int home_augment_status(
 
 static int on_home_ref_eof(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(operation_unrefp) Operation *o = NULL;
-        Home *h = userdata;
+        Home *h = ASSERT_PTR(userdata);
 
         assert(s);
-        assert(h);
 
         if (h->ref_event_source_please_suspend == s)
                 h->ref_event_source_please_suspend = sd_event_source_disable_unref(h->ref_event_source_please_suspend);
@@ -2967,12 +2965,11 @@ static int home_dispatch_deactivate_force(Home *h, Operation *o) {
 }
 
 static int on_pending(sd_event_source *s, void *userdata) {
-        Home *h = userdata;
+        Home *h = ASSERT_PTR(userdata);
         Operation *o;
         int r;
 
         assert(s);
-        assert(h);
 
         o = ordered_set_first(h->pending_operations);
         if (o) {
@@ -3147,13 +3144,21 @@ int home_set_current_message(Home *h, sd_bus_message *m) {
 }
 
 int home_wait_for_worker(Home *h) {
+        int r;
+
         assert(h);
 
         if (h->worker_pid <= 0)
                 return 0;
 
         log_info("Worker process for home %s is still running while exiting. Waiting for it to finish.", h->user_name);
-        (void) wait_for_terminate(h->worker_pid, NULL);
+
+        r = wait_for_terminate_with_timeout(h->worker_pid, 30 * USEC_PER_SEC);
+        if (r == -ETIMEDOUT)
+                log_warning_errno(r, "Waiting for worker process for home %s timed out. Ignoring.", h->user_name);
+        else
+                log_warning_errno(r, "Failed to wait for worker process for home %s. Ignoring.", h->user_name);
+
         (void) hashmap_remove_value(h->manager->homes_by_worker_pid, PID_TO_PTR(h->worker_pid), h);
         h->worker_pid = 0;
         return 1;

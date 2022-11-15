@@ -35,18 +35,36 @@ size_t strv_length(char * const *l) _pure_;
 int strv_extend_strv(char ***a, char * const *b, bool filter_duplicates);
 int strv_extend_strv_concat(char ***a, char * const *b, const char *suffix);
 int strv_prepend(char ***l, const char *value);
-int strv_extend(char ***l, const char *value);
+
+/* _with_size() are lower-level functions where the size can be provided externally,
+ * which allows us to skip iterating over the strv to find the end, which saves
+ * a bit of time and reduces the complexity of appending from O(n²) to O(n). */
+
+int strv_extend_with_size(char ***l, size_t *n, const char *value);
+static inline int strv_extend(char ***l, const char *value) {
+        return strv_extend_with_size(l, NULL, value);
+}
+
 int strv_extendf(char ***l, const char *format, ...) _printf_(2,0);
 int strv_extend_front(char ***l, const char *value);
-int strv_push(char ***l, char *value);
+
+int strv_push_with_size(char ***l, size_t *n, char *value);
+static inline int strv_push(char ***l, char *value) {
+        return strv_push_with_size(l, NULL, value);
+}
 int strv_push_pair(char ***l, char *a, char *b);
+
 int strv_insert(char ***l, size_t position, char *value);
 
 static inline int strv_push_prepend(char ***l, char *value) {
         return strv_insert(l, 0, value);
 }
 
-int strv_consume(char ***l, char *value);
+int strv_consume_with_size(char ***l, size_t *n, char *value);
+static inline int strv_consume(char ***l, char *value) {
+        return strv_consume_with_size(l, NULL, value);
+}
+
 int strv_consume_pair(char ***l, char *a, char *b);
 int strv_consume_prepend(char ***l, char *value);
 
@@ -106,27 +124,7 @@ static inline char *strv_join(char * const *l, const char *separator) {
         return strv_join_full(l, separator, NULL, false);
 }
 
-char** strv_parse_nulstr(const char *s, size_t l);
-char** strv_split_nulstr(const char *s);
-int strv_make_nulstr(char * const *l, char **p, size_t *n);
-
-static inline int strv_from_nulstr(char ***a, const char *nulstr) {
-        char **t;
-
-        t = strv_split_nulstr(nulstr);
-        if (!t)
-                return -ENOMEM;
-        *a = t;
-        return 0;
-}
-
 bool strv_overlap(char * const *a, char * const *b) _pure_;
-
-#define _STRV_FOREACH(s, l, i)                                          \
-        for (typeof(*(l)) *s, *i = (l); (s = i) && *i; i++)
-
-#define STRV_FOREACH(s, l)                      \
-        _STRV_FOREACH(s, l, UNIQ_T(i, UNIQ))
 
 #define _STRV_FOREACH_BACKWARDS(s, l, h, i)                             \
         for (typeof(*(l)) *s, *h = (l), *i = ({                         \
@@ -228,7 +226,7 @@ void strv_print(char * const *l);
 char** strv_reverse(char **l);
 char** strv_shell_escape(char **l, const char *bad);
 
-bool strv_fnmatch_full(char* const* patterns, const char *s, int flags, size_t *matched_pos);
+bool strv_fnmatch_full(char* const* patterns, const char *s, int flags, size_t *ret_matched_pos);
 static inline bool strv_fnmatch(char* const* patterns, const char *s) {
         return strv_fnmatch_full(patterns, s, 0, NULL);
 }
@@ -246,14 +244,7 @@ int strv_extend_n(char ***l, const char *value, size_t n);
 int fputstrv(FILE *f, char * const *l, const char *separator, bool *space);
 
 #define strv_free_and_replace(a, b)             \
-        ({                                      \
-                char ***_a = &(a);              \
-                char ***_b = &(b);              \
-                strv_free(*_a);                 \
-                (*_a) = (*_b);                  \
-                (*_b) = NULL;                   \
-                0;                              \
-        })
+        free_and_replace_full(a, b, strv_free)
 
 extern const struct hash_ops string_strv_hash_ops;
 int _string_strv_hashmap_put(Hashmap **h, const char *key, const char *value  HASHMAP_DEBUG_PARAMS);

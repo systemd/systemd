@@ -353,10 +353,17 @@ static bool qdisc_is_ready_to_configure(QDisc *qdisc, Link *link) {
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return false;
 
-        if (IN_SET(qdisc->parent, TC_H_ROOT, TC_H_CLSACT)) /* TC_H_CLSACT == TC_H_INGRESS */
-                return true;
+        /* TC_H_CLSACT == TC_H_INGRESS */
+        if (!IN_SET(qdisc->parent, TC_H_ROOT, TC_H_CLSACT) &&
+            link_find_tclass(link, qdisc->parent, NULL) < 0)
+                return false;
 
-        return link_find_tclass(link, qdisc->parent, NULL) >= 0;
+        if (QDISC_VTABLE(qdisc) &&
+            QDISC_VTABLE(qdisc)->is_ready &&
+            QDISC_VTABLE(qdisc)->is_ready(qdisc, link) <= 0)
+                return false;
+
+        return true;
 }
 
 static int qdisc_process_request(Request *req, Link *link, QDisc *qdisc) {
@@ -583,13 +590,12 @@ int config_parse_qdisc_parent(
                 void *userdata) {
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
-        Network *network = data;
+        Network *network = ASSERT_PTR(data);
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = qdisc_new_static(ltype, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
@@ -643,14 +649,13 @@ int config_parse_qdisc_handle(
                 void *userdata) {
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
-        Network *network = data;
+        Network *network = ASSERT_PTR(data);
         uint16_t n;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = qdisc_new_static(ltype, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)

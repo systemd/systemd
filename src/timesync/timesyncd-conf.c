@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
-#include "def.h"
+#include "constants.h"
 #include "dns-domain.h"
 #include "extract-word.h"
 #include "string-util.h"

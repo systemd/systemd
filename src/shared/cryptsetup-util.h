@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "alloc-util.h"
 #include "json.h"
 #include "macro.h"
 
@@ -64,17 +65,18 @@ static inline int crypt_token_max(_unused_ const char *type) {
 extern crypt_token_info (*sym_crypt_token_status)(struct crypt_device *cd, int token, const char **type);
 extern int (*sym_crypt_volume_key_get)(struct crypt_device *cd, int keyslot, char *volume_key, size_t *volume_key_size, const char *passphrase, size_t passphrase_size);
 
-int dlopen_cryptsetup(void);
-
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct crypt_device *, crypt_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct crypt_device *, sym_crypt_free, NULL);
+
+/* Be careful, this works with dlopen_cryptsetup(), that is, it calls sym_crypt_free() instead of crypt_free(). */
+#define crypt_free_and_replace(a, b)                    \
+        free_and_replace_full(a, b, sym_crypt_free)
 
 void cryptsetup_enable_logging(struct crypt_device *cd);
 
 int cryptsetup_set_minimal_pbkdf(struct crypt_device *cd);
 
 int cryptsetup_get_token_as_json(struct crypt_device *cd, int idx, const char *verify_type, JsonVariant **ret);
-int cryptsetup_get_keyslot_from_token(JsonVariant *v);
 int cryptsetup_add_token_json(struct crypt_device *cd, JsonVariant *v);
 
 #else
@@ -86,6 +88,10 @@ static inline void sym_crypt_free(struct crypt_device* cd) {}
 static inline void sym_crypt_freep(struct crypt_device** cd) {}
 
 #endif
+
+int dlopen_cryptsetup(void);
+
+int cryptsetup_get_keyslot_from_token(JsonVariant *v);
 
 static inline const char *mangle_none(const char *s) {
         /* A helper that turns cryptsetup/integritysetup/veritysetup "options" strings into NULL if they are effectively empty */

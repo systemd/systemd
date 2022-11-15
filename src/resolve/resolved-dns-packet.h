@@ -201,6 +201,14 @@ DnsPacket *dns_packet_unref(DnsPacket *p);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsPacket*, dns_packet_unref);
 
+#define DNS_PACKET_REPLACE(a, b)                \
+        do {                                    \
+                typeof(a)* _a = &(a);           \
+                typeof(b) _b = (b);             \
+                dns_packet_unref(*_a);          \
+                *_a = _b;                       \
+        } while(0)
+
 int dns_packet_validate(DnsPacket *p);
 int dns_packet_validate_reply(DnsPacket *p);
 int dns_packet_validate_query(DnsPacket *p);
@@ -275,6 +283,8 @@ enum {
 
 const char* dns_rcode_to_string(int i) _const_;
 int dns_rcode_from_string(const char *s) _pure_;
+const char *format_dns_rcode(int i, char buf[static DECIMAL_STR_MAX(int)]);
+#define FORMAT_DNS_RCODE(i) format_dns_rcode(i, (char [DECIMAL_STR_MAX(int)]) {})
 
 const char* dns_protocol_to_string(DnsProtocol p) _const_;
 DnsProtocol dns_protocol_from_string(const char *s) _pure_;

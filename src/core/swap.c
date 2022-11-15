@@ -295,9 +295,8 @@ static int swap_verify(Swap *s) {
 }
 
 static int swap_load_devnode(Swap *s) {
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        _cleanup_free_ char *p = NULL;
         struct stat st;
-        const char *p;
         int r;
 
         assert(s);
@@ -305,15 +304,12 @@ static int swap_load_devnode(Swap *s) {
         if (stat(s->what, &st) < 0 || !S_ISBLK(st.st_mode))
                 return 0;
 
-        r = sd_device_new_from_stat_rdev(&d, &st);
+        r = devname_from_stat_rdev(&st, &p);
         if (r < 0) {
                 log_unit_full_errno(UNIT(s), r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
-                                    "Failed to allocate device for swap %s: %m", s->what);
+                                    "Failed to get device node for swap %s: %m", s->what);
                 return 0;
         }
-
-        if (sd_device_get_devname(d, &p) < 0)
-                return 0;
 
         return swap_set_devnode(s, p);
 }
@@ -1286,9 +1282,8 @@ static int swap_process_proc_swaps(Manager *m) {
 }
 
 static int swap_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
-        assert(m);
         assert(revents & EPOLLPRI);
 
         return swap_process_proc_swaps(m);
@@ -1437,8 +1432,7 @@ int swap_process_device_new(Manager *m, sd_device *dev) {
                 int q;
 
                 q = unit_name_from_path(devlink, ".swap", &n);
-                if (IN_SET(q, -EINVAL, -ENAMETOOLONG)) /* If name too long or otherwise not convertible to
-                                                        * unit name, we can't manage it */
+                if (q == -EINVAL) /* If the name is not convertible to unit name, we can't manage it */
                         continue;
                 if (q < 0)
                         return q;

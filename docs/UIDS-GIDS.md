@@ -73,7 +73,7 @@ Note that systemd requires that system users and groups are resolvable without
 networking available — a requirement that is not made for regular users. This
 means regular users may be stored in remote LDAP or NIS databases, but system
 users may not (except when there's a consistent local cache kept, that is
-available during earliest boot, including in the initial RAM disk).
+available during earliest boot, including in the initrd).
 
 ## Special `systemd` GIDs
 

@@ -49,6 +49,7 @@ function report_result() {
     systemd-cat cat "/$name.log"
 }
 
+set +x
 # Associative array for running tasks, where running[test-path]=PID
 declare -A running=()
 for task in "${TEST_LIST[@]}"; do
@@ -60,7 +61,7 @@ for task in "${TEST_LIST[@]}"; do
                 # Task has finished, report its result and drop it from the queue
                 wait "${running[$key]}" && ec=0 || ec=$?
                 report_result "$key" $ec
-                unset running["$key"]
+                unset "running[$key]"
                 # Break from inner for loop and outer while loop to skip
                 # the sleep below when we find a free slot in the queue
                 break 2
@@ -72,6 +73,7 @@ for task in "${TEST_LIST[@]}"; do
     done
 
     if [[ -x $task ]]; then
+        echo "Executing test '$task'"
         log_file="/${task##*/}.log"
         $task &>"$log_file" &
         running[$task]=$!
@@ -80,10 +82,13 @@ done
 
 # Wait for remaining running tasks
 for key in "${!running[@]}"; do
+    echo "Waiting for test '$key' to finish"
     wait ${running[$key]} && ec=0 || ec=$?
     report_result "$key" $ec
-    unset running["$key"]
+    unset "running[$key]"
 done
+
+set -x
 
 # Test logs are sometimes lost, as the system shuts down immediately after
 journalctl --sync

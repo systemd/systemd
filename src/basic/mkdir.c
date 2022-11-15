@@ -16,10 +16,12 @@
 #include "stdio-util.h"
 #include "user-util.h"
 
-int mkdir_safe_internal(
+int mkdirat_safe_internal(
+                int dir_fd,
                 const char *path,
                 mode_t mode,
-                uid_t uid, gid_t gid,
+                uid_t uid,
+                gid_t gid,
                 MkdirFlags flags,
                 mkdirat_func_t _mkdirat) {
 
@@ -30,25 +32,28 @@ int mkdir_safe_internal(
         assert(mode != MODE_INVALID);
         assert(_mkdirat && _mkdirat != mkdirat);
 
-        if (_mkdirat(AT_FDCWD, path, mode) >= 0) {
-                r = chmod_and_chown(path, mode, uid, gid);
+        if (_mkdirat(dir_fd, path, mode) >= 0) {
+                r = chmod_and_chown_at(dir_fd, path, mode, uid, gid);
                 if (r < 0)
                         return r;
         }
 
-        if (lstat(path, &st) < 0)
+        if (fstatat(dir_fd, path, &st, AT_SYMLINK_NOFOLLOW) < 0)
                 return -errno;
 
         if ((flags & MKDIR_FOLLOW_SYMLINK) && S_ISLNK(st.st_mode)) {
                 _cleanup_free_ char *p = NULL;
 
-                r = chase_symlinks_and_stat(path, NULL, 0, &p, &st, NULL);
+                r = chase_symlinks_at(dir_fd, path, CHASE_NONEXISTENT, &p, NULL);
                 if (r < 0)
                         return r;
                 if (r == 0)
-                        return mkdir_safe_internal(p, mode, uid, gid,
-                                                   flags & ~MKDIR_FOLLOW_SYMLINK,
-                                                   _mkdirat);
+                        return mkdirat_safe_internal(dir_fd, p, mode, uid, gid,
+                                                     flags & ~MKDIR_FOLLOW_SYMLINK,
+                                                     _mkdirat);
+
+                if (fstatat(dir_fd, p, &st, AT_SYMLINK_NOFOLLOW) < 0)
+                        return -errno;
         }
 
         if (flags & MKDIR_IGNORE_EXISTING)
@@ -83,50 +88,43 @@ int mkdirat_errno_wrapper(int dirfd, const char *pathname, mode_t mode) {
         return RET_NERRNO(mkdirat(dirfd, pathname, mode));
 }
 
-int mkdir_safe(const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags) {
-        return mkdir_safe_internal(path, mode, uid, gid, flags, mkdirat_errno_wrapper);
+int mkdirat_safe(int dir_fd, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags) {
+        return mkdirat_safe_internal(dir_fd, path, mode, uid, gid, flags, mkdirat_errno_wrapper);
 }
 
-int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags, mkdirat_func_t _mkdirat) {
-        const char *p, *e = NULL;
+int mkdirat_parents_internal(int dir_fd, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags, mkdirat_func_t _mkdirat) {
+        const char *e = NULL;
         int r;
 
         assert(path);
         assert(_mkdirat != mkdirat);
 
-        if (prefix) {
-                p = path_startswith_full(path, prefix, /* accept_dot_dot= */ false);
-                if (!p)
-                        return -ENOTDIR;
-        } else
-                p = path;
-
-        if (isempty(p))
+        if (isempty(path))
                 return 0;
 
-        if (!path_is_safe(p))
+        if (!path_is_safe(path))
                 return -ENOTDIR;
 
         /* return immediately if directory exists */
-        r = path_find_last_component(p, /* accept_dot_dot= */ false, &e, NULL);
+        r = path_find_last_component(path, /* accept_dot_dot= */ false, &e, NULL);
         if (r <= 0) /* r == 0 means path is equivalent to prefix. */
                 return r;
-        if (e == p)
+        if (e == path)
                 return 0;
 
-        assert(e > p);
+        assert(e > path);
         assert(*e == '/');
 
         /* drop the last component */
         path = strndupa_safe(path, e - path);
-        r = is_dir(path, true);
+        r = is_dir_full(dir_fd, path, true);
         if (r > 0)
                 return 0;
         if (r == 0)
                 return -ENOTDIR;
 
         /* create every parent directory in the path, except the last component */
-        for (p = path;;) {
+        for (const char *p = path;;) {
                 char *s;
                 int n;
 
@@ -140,18 +138,39 @@ int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, ui
 
                 s[n] = '\0';
 
-                if (!prefix || !path_startswith_full(prefix, path, /* accept_dot_dot= */ false)) {
-                        r = mkdir_safe_internal(path, mode, uid, gid, flags | MKDIR_IGNORE_EXISTING, _mkdirat);
-                        if (r < 0 && r != -EEXIST)
-                                return r;
-                }
+                r = mkdirat_safe_internal(dir_fd, path, mode, uid, gid, flags | MKDIR_IGNORE_EXISTING, _mkdirat);
+                if (r < 0 && r != -EEXIST)
+                        return r;
 
                 s[n] = *p == '\0' ? '\0' : '/';
         }
 }
 
-int mkdir_parents(const char *path, mode_t mode) {
-        return mkdir_parents_internal(NULL, path, mode, UID_INVALID, UID_INVALID, 0, mkdirat_errno_wrapper);
+int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags, mkdirat_func_t _mkdirat) {
+        _cleanup_close_ int fd = AT_FDCWD;
+        const char *p;
+
+        assert(path);
+        assert(_mkdirat != mkdirat);
+
+        if (prefix) {
+                p = path_startswith_full(path, prefix, /* accept_dot_dot= */ false);
+                if (!p)
+                        return -ENOTDIR;
+        } else
+                p = path;
+
+        if (prefix) {
+                fd = open(prefix, O_PATH|O_DIRECTORY|O_CLOEXEC);
+                if (fd < 0)
+                        return -errno;
+        }
+
+        return mkdirat_parents_internal(fd, p, mode, uid, gid, flags, _mkdirat);
+}
+
+int mkdirat_parents(int dir_fd, const char *path, mode_t mode) {
+        return mkdirat_parents_internal(dir_fd, path, mode, UID_INVALID, UID_INVALID, 0, mkdirat_errno_wrapper);
 }
 
 int mkdir_parents_safe(const char *prefix, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags) {
@@ -191,34 +210,37 @@ int mkdir_p_safe(const char *prefix, const char *path, mode_t mode, uid_t uid, g
 }
 
 int mkdir_p_root(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m) {
-        _cleanup_free_ char *pp = NULL;
+        _cleanup_free_ char *pp = NULL, *bn = NULL;
         _cleanup_close_ int dfd = -1;
-        const char *bn;
         int r;
 
-        pp = dirname_malloc(p);
-        if (!pp)
-                return -ENOMEM;
-
-        /* Not top-level? */
-        if (!(path_equal(pp, "/") || isempty(pp) || path_equal(pp, "."))) {
-
-                /* Recurse up */
+        r = path_extract_directory(p, &pp);
+        if (r == -EDESTADDRREQ) {
+                /* only fname is passed, no prefix to operate on */
+                dfd = open(".", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                if (dfd < 0)
+                        return -errno;
+        } else if (r == -EADDRNOTAVAIL)
+                /* only root dir or "." was passed, i.e. there is no parent to extract, in that case there's nothing to do. */
+                return 0;
+        else if (r < 0)
+                return r;
+        else {
+                /* Extracting the parent dir worked, hence we aren't top-level? Recurse up first. */
                 r = mkdir_p_root(root, pp, uid, gid, m);
                 if (r < 0)
                         return r;
+
+                dfd = chase_symlinks_and_open(pp, root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_DIRECTORY, NULL);
+                if (dfd < 0)
+                        return dfd;
         }
 
-        bn = basename(p);
-        if (path_equal(bn, "/") || isempty(bn) || path_equal(bn, "."))
+        r = path_extract_filename(p, &bn);
+        if (r == -EADDRNOTAVAIL) /* Already top-level */
                 return 0;
-
-        if (!filename_is_valid(bn))
-                return -EINVAL;
-
-        dfd = chase_symlinks_and_open(pp, root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_DIRECTORY, NULL);
-        if (dfd < 0)
-                return dfd;
+        if (r < 0)
+                return r;
 
         if (mkdirat(dfd, bn, m) < 0) {
                 if (errno == EEXIST)
@@ -230,7 +252,7 @@ int mkdir_p_root(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m
         if (uid_is_valid(uid) || gid_is_valid(gid)) {
                 _cleanup_close_ int nfd = -1;
 
-                nfd = openat(dfd, bn, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                nfd = openat(dfd, bn, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
                 if (nfd < 0)
                         return -errno;
 

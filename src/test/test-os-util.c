@@ -72,4 +72,18 @@ TEST(load_os_release_pairs) {
         assert_se(unsetenv("SYSTEMD_OS_RELEASE") == 0);
 }
 
+TEST(os_release_support_ended) {
+        int r;
+
+        assert_se(os_release_support_ended("1999-01-01", false) == true);
+        assert_se(os_release_support_ended("2037-12-31", false) == false);
+        assert_se(os_release_support_ended("-1-1-1", true) == -EINVAL);
+
+        r = os_release_support_ended(NULL, false);
+        if (r < 0)
+                log_info_errno(r, "Failed to check host: %m");
+        else
+                log_info_errno(r, "Host is supported: %s", yes_no(!r));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);

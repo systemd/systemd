@@ -291,8 +291,8 @@ Priority=23
         self.assertEqual(self.read_attr('port2', 'brport/path_cost'), '555')
         self.assertEqual(self.read_attr('port2', 'brport/multicast_fast_leave'), '1')
         self.assertEqual(self.read_attr('port2', 'brport/unicast_flood'), '1')
-        self.assertEqual(self.read_attr('port2', 'brport/bpdu_guard'), '1')
-        self.assertEqual(self.read_attr('port2', 'brport/root_block'), '1')
+        self.assertEqual(self.read_attr('port2', 'brport/bpdu_guard'), '0')
+        self.assertEqual(self.read_attr('port2', 'brport/root_block'), '0')
 
 class ClientTestBase(NetworkdTestingUtilities):
     """Provide common methods for testing networkd against servers."""

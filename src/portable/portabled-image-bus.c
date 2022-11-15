@@ -108,6 +108,7 @@ int bus_image_common_get_metadata(
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ PortableMetadata **sorted = NULL;
+        PortableFlags flags = 0;
         int r;
 
         assert(name_or_path || image);
@@ -142,6 +143,7 @@ int bus_image_common_get_metadata(
                         return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS,
                                                           "Invalid 'flags' parameter '%" PRIu64 "'",
                                                           input_flags);
+                flags |= input_flags;
         }
 
         r = bus_image_acquire(m,
@@ -161,6 +163,7 @@ int bus_image_common_get_metadata(
                         image->path,
                         matches,
                         extension_images,
+                        flags,
                         &os_release,
                         &extension_releases,
                         &unit_files,
@@ -259,12 +262,11 @@ static int bus_image_method_get_state(
                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **extension_images = NULL;
-        Image *image = userdata;
+        Image *image = ASSERT_PTR(userdata);
         PortableState state;
         int r;
 
         assert(message);
-        assert(image);
 
         if (sd_bus_message_is_method_call(message, NULL, "GetStateWithExtensions")) {
                 uint64_t input_flags = 0;
@@ -408,15 +410,13 @@ static int bus_image_method_detach(
 
         _cleanup_strv_free_ char **extension_images = NULL;
         PortableChange *changes = NULL;
-        Image *image = userdata;
-        Manager *m = image->userdata;
+        Image *image = ASSERT_PTR(userdata);
+        Manager *m = ASSERT_PTR(image->userdata);
         PortableFlags flags = 0;
         size_t n_changes = 0;
         int r;
 
         assert(message);
-        assert(image);
-        assert(m);
 
         if (sd_bus_message_is_method_call(message, NULL, "DetachWithExtensions")) {
                 r = sd_bus_message_read_strv(message, &extension_images);
@@ -1045,19 +1045,23 @@ int bus_image_acquire(
                 /* If it's a short name, let's search for it */
                 r = image_find(IMAGE_PORTABLE, name_or_path, NULL, &loaded);
                 if (r == -ENOENT)
-                        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_PORTABLE_IMAGE, "No image '%s' found.", name_or_path);
+                        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_PORTABLE_IMAGE,
+                                                 "No image '%s' found.", name_or_path);
 
                 /* other errors are handled below… */
         } else {
                 /* Don't accept path if this is always forbidden */
                 if (mode == BUS_IMAGE_REFUSE_BY_PATH)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Expected image name, not path in place of '%s'.", name_or_path);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Expected image name, not path in place of '%s'.", name_or_path);
 
                 if (!path_is_absolute(name_or_path))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is not valid or not a valid path.", name_or_path);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Image name '%s' is not valid or not a valid path.", name_or_path);
 
                 if (!path_is_normalized(name_or_path))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image path '%s' is not normalized.", name_or_path);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Image path '%s' is not normalized.", name_or_path);
 
                 if (mode == BUS_IMAGE_AUTHENTICATE_BY_PATH) {
                         r = bus_verify_polkit_async(
@@ -1080,7 +1084,9 @@ int bus_image_acquire(
                 r = image_from_path(name_or_path, &loaded);
         }
         if (r == -EMEDIUMTYPE) {
-                sd_bus_error_setf(error, BUS_ERROR_BAD_PORTABLE_IMAGE_TYPE, "Typ of image '%s' not recognized; supported image types are directories/btrfs subvolumes, block devices, and raw disk image files with suffix '.raw'.", name_or_path);
+                sd_bus_error_setf(error, BUS_ERROR_BAD_PORTABLE_IMAGE_TYPE,
+                                  "Type of image '%s' not recognized; supported image types are directories/btrfs subvolumes, block devices, and raw disk image files with suffix '.raw'.",
+                                  name_or_path);
                 return r;
         }
         if (r < 0)
@@ -1119,6 +1125,9 @@ int bus_image_object_find(
         if (r < 0)
                 return 0;
         if (r == 0)
+                goto not_found;
+        if (isempty(e))
+                /* The path is "/org/freedesktop/portable1/image" itself */
                 goto not_found;
 
         r = bus_image_acquire(m, sd_bus_get_current_message(bus), e, NULL, BUS_IMAGE_REFUSE_BY_PATH, NULL, &image, error);

@@ -2,21 +2,19 @@
 
 System and Service Manager
 
-<a href="http://in.waw.pl/systemd-github-state/systemd-systemd-issues.svg"><img align="right" src="http://in.waw.pl/systemd-github-state/systemd-systemd-issues-small.svg" alt="Count of open issues over time"></a>
-<a href="http://in.waw.pl/systemd-github-state/systemd-systemd-pull-requests.svg"><img align="right" src="http://in.waw.pl/systemd-github-state/systemd-systemd-pull-requests-small.svg" alt="Count of open pull requests over time"></a>
 [![Semaphore CI 2.0 Build Status](https://the-real-systemd.semaphoreci.com/badges/systemd/branches/main.svg?style=shields)](https://the-real-systemd.semaphoreci.com/projects/systemd)<br/>
 [![Coverity Scan Status](https://scan.coverity.com/projects/350/badge.svg)](https://scan.coverity.com/projects/350)<br/>
 [![OSS-Fuzz Status](https://oss-fuzz-build-logs.storage.googleapis.com/badges/systemd.svg)](https://oss-fuzz-build-logs.storage.googleapis.com/index.html#systemd)<br/>
 [![CIFuzz](https://github.com/systemd/systemd/workflows/CIFuzz/badge.svg)](https://github.com/systemd/systemd/actions)<br/>
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/1369/badge)](https://bestpractices.coreinfrastructure.org/projects/1369)<br/>
-[![Language Grade: C/C++](https://img.shields.io/lgtm/grade/cpp/g/systemd/systemd.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/systemd/systemd/context:cpp)<br/>
 [![CentOS CI - CentOS 8](https://jenkins-systemd.apps.ocp.ci.centos.org/buildStatus/icon?subject=CentOS%20CI%20-%20CentOS%208&job=upstream-centos8)](https://jenkins-systemd.apps.ocp.ci.centos.org/job/upstream-centos8/)<br/>
 [![CentOS CI - Arch](https://jenkins-systemd.apps.ocp.ci.centos.org/buildStatus/icon?subject=CentOS%20CI%20-%20Arch&job=upstream-vagrant-archlinux)](https://jenkins-systemd.apps.ocp.ci.centos.org/job/upstream-vagrant-archlinux/)<br/>
 [![CentOS CI - Arch (sanitizers)](https://jenkins-systemd.apps.ocp.ci.centos.org/buildStatus/icon?subject=CentOS%20CI%20-%20Arch%20(sanitizers)&job=upstream-vagrant-archlinux-sanitizers)](https://jenkins-systemd.apps.ocp.ci.centos.org/job/upstream-vagrant-archlinux-sanitizers/)<br/>
 [![CentOS CI - Rawhide (SELinux)](https://jenkins-systemd.apps.ocp.ci.centos.org/buildStatus/icon?subject=CentOS%20CI%20-%20Rawhide%20(SELinux)&job=upstream-vagrant-rawhide-selinux)](https://jenkins-systemd.apps.ocp.ci.centos.org/view/Upstream/job/upstream-vagrant-rawhide-selinux/)<br/>
 [![Fossies codespell report](https://fossies.org/linux/test/systemd-main.tar.gz/codespell.svg)](https://fossies.org/linux/test/systemd-main.tar.gz/codespell.html)</br>
 [![Coverage Status](https://coveralls.io/repos/github/systemd/systemd/badge.svg?branch=main)](https://coveralls.io/github/systemd/systemd?branch=main)</br>
-[![Packaging status](https://repology.org/badge/tiny-repos/systemd.svg)](https://repology.org/project/systemd/versions)
+[![Packaging status](https://repology.org/badge/tiny-repos/systemd.svg)](https://repology.org/project/systemd/versions)</br>
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/systemd/systemd/badge)](https://api.securityscorecards.dev/projects/github.com/systemd/systemd)
 
 ## Details
 

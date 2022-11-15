@@ -16,6 +16,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -66,6 +67,10 @@ static bool prohibit_ipc = false;
 /* Akin to glibc's __abort_msg; which is private and we hence cannot
  * use here. */
 static char *log_abort_msg = NULL;
+
+#if LOG_MESSAGE_VERIFICATION || defined(__COVERITY__)
+bool _log_message_dummy = false; /* Always false */
+#endif
 
 /* An assert to use in logging functions that does not call recursively
  * into our logging functions (since that might lead to a loop). */
@@ -145,12 +150,6 @@ static int create_log_socket(int type) {
 }
 
 static int log_open_syslog(void) {
-
-        static const union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-                .un.sun_path = "/dev/log",
-        };
-
         int r;
 
         if (syslog_fd >= 0)
@@ -162,22 +161,21 @@ static int log_open_syslog(void) {
                 goto fail;
         }
 
-        if (connect(syslog_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0) {
+        r = connect_unix_path(syslog_fd, AT_FDCWD, "/dev/log");
+        if (r < 0) {
                 safe_close(syslog_fd);
 
-                /* Some legacy syslog systems still use stream
-                 * sockets. They really shouldn't. But what can we
-                 * do... */
+                /* Some legacy syslog systems still use stream sockets. They really shouldn't. But what can
+                 * we do... */
                 syslog_fd = create_log_socket(SOCK_STREAM);
                 if (syslog_fd < 0) {
                         r = syslog_fd;
                         goto fail;
                 }
 
-                if (connect(syslog_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0) {
-                        r = -errno;
+                r = connect_unix_path(syslog_fd, AT_FDCWD, "/dev/log");
+                if (r < 0)
                         goto fail;
-                }
 
                 syslog_is_stream = true;
         } else
@@ -195,12 +193,6 @@ static void log_close_journal(void) {
 }
 
 static int log_open_journal(void) {
-
-        static const union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-                .un.sun_path = "/run/systemd/journal/socket",
-        };
-
         int r;
 
         if (journal_fd >= 0)
@@ -212,10 +204,9 @@ static int log_open_journal(void) {
                 goto fail;
         }
 
-        if (connect(journal_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0) {
-                r = -errno;
+        r = connect_unix_path(journal_fd, AT_FDCWD, "/run/systemd/journal/socket");
+        if (r < 0)
                 goto fail;
-        }
 
         return 0;
 
@@ -742,14 +733,12 @@ int log_internalv(
                 const char *format,
                 va_list ap) {
 
-        char buffer[LINE_MAX];
-        PROTECT_ERRNO;
-
         if (_likely_(LOG_PRI(level) > log_max_level))
                 return -ERRNO_VALUE(error);
 
         /* Make sure that %m maps to the specified error (or "Success"). */
-        errno = ERRNO_VALUE(error);
+        char buffer[LINE_MAX];
+        LOCAL_ERRNO(ERRNO_VALUE(error));
 
         (void) vsnprintf(buffer, sizeof buffer, format, ap);
 
@@ -787,14 +776,13 @@ int log_object_internalv(
                 const char *format,
                 va_list ap) {
 
-        PROTECT_ERRNO;
         char *buffer, *b;
 
         if (_likely_(LOG_PRI(level) > log_max_level))
                 return -ERRNO_VALUE(error);
 
         /* Make sure that %m maps to the specified error (or "Success"). */
-        errno = ERRNO_VALUE(error);
+        LOCAL_ERRNO(ERRNO_VALUE(error));
 
         /* Prepend the object name before the message */
         if (object) {
@@ -1163,30 +1151,12 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 }
 
 static bool should_parse_proc_cmdline(void) {
-        const char *e;
-        pid_t p;
-
         /* PID1 always reads the kernel command line. */
         if (getpid_cached() == 1)
                 return true;
 
-        /* If the process is directly executed by PID1 (e.g. ExecStart= or generator), systemd-importd,
-         * or systemd-homed, then $SYSTEMD_EXEC_PID= is set, and read the command line. */
-        e = getenv("SYSTEMD_EXEC_PID");
-        if (!e)
-                return false;
-
-        if (streq(e, "*"))
-                /* For testing. */
-                return true;
-
-        if (parse_pid(e, &p) < 0) {
-                /* We know that systemd sets the variable correctly. Something else must have set it. */
-                log_debug("Failed to parse \"$SYSTEMD_EXEC_PID=%s\". Ignoring.", e);
-                return false;
-        }
-
-        return getpid_cached() == p;
+        /* Otherwise, parse the commandline if invoked directly by systemd. */
+        return invoked_by_systemd();
 }
 
 void log_parse_environment_variables(void) {
@@ -1369,17 +1339,18 @@ int log_syntax_internal(
                 const char *func,
                 const char *format, ...) {
 
+        PROTECT_ERRNO;
+
         if (log_syntax_callback)
                 log_syntax_callback(unit, level, log_syntax_callback_userdata);
-
-        PROTECT_ERRNO;
-        char buffer[LINE_MAX];
-        va_list ap;
-        const char *unit_fmt = NULL;
 
         if (_likely_(LOG_PRI(level) > log_max_level) ||
             log_target == LOG_TARGET_NULL)
                 return -ERRNO_VALUE(error);
+
+        char buffer[LINE_MAX];
+        va_list ap;
+        const char *unit_fmt = NULL;
 
         errno = ERRNO_VALUE(error);
 
@@ -1488,7 +1459,7 @@ int log_dup_console(void) {
         /* Duplicate the fd we use for fd logging if it's < 3 and use the copy from now on. This call is useful
          * whenever we want to continue logging through the original fd, but want to rearrange stderr. */
 
-        if (console_fd >= 3)
+        if (console_fd < 0 || console_fd >= 3)
                 return 0;
 
         copy = fcntl(console_fd, F_DUPFD_CLOEXEC, 3);

@@ -54,7 +54,7 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
         _cleanup_(unit_file_presets_freep) UnitFilePresets presets = {};
         int r;
 
-        table = table_new("unit file", "state", "vendor preset");
+        table = table_new("unit file", "state", "preset");
         if (!table)
                 return log_oom();
 
@@ -62,7 +62,7 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
         if (arg_full)
                 table_set_width(table, 0);
 
-        (void) table_set_empty_string(table, "-");
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         for (const UnitFileList *u = units; u < units + c; u++) {
                 const char *on_underline = NULL, *on_unit_color = NULL, *id;

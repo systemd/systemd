@@ -162,7 +162,11 @@ node /org/freedesktop/systemd1 {
       Subscribe();
       Unsubscribe();
       Dump(out s output);
+      DumpUnitsMatchingPatterns(in  as patterns,
+                                out s output);
       DumpByFileDescriptor(out h fd);
+      DumpUnitsMatchingPatternsByFileDescriptor(in  as patterns,
+                                                out h fd);
       Reload();
       @org.freedesktop.DBus.Method.NoReply("true")
       Reexecute();
@@ -393,6 +397,12 @@ node /org/freedesktop/systemd1 {
       readonly s DefaultStandardOutput = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s DefaultStandardError = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s WatchdogDevice = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t WatchdogLastPingTimestamp = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t WatchdogLastPingTimestampMonotonic = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       @org.freedesktop.systemd1.Privileged("true")
       readwrite t RuntimeWatchdogUSec = ...;
@@ -425,6 +435,8 @@ node /org/freedesktop/systemd1 {
       readonly t DefaultTimeoutStopUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t DefaultTimeoutAbortUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t DefaultDeviceTimeoutUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t DefaultRestartUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -554,10 +566,6 @@ node /org/freedesktop/systemd1 {
 
     <!--method ListUnitsByNames is not documented!-->
 
-    <!--method Dump is not documented!-->
-
-    <!--method DumpByFileDescriptor is not documented!-->
-
     <!--method ListUnitFilesByPatterns is not documented!-->
 
     <!--method PresetUnitFilesWithMode is not documented!-->
@@ -650,6 +658,12 @@ node /org/freedesktop/systemd1 {
 
     <!--property DefaultStandardError is not documented!-->
 
+    <!--property WatchdogDevice is not documented!-->
+
+    <!--property WatchdogLastPingTimestamp is not documented!-->
+
+    <!--property WatchdogLastPingTimestampMonotonic is not documented!-->
+
     <!--property RuntimeWatchdogUSec is not documented!-->
 
     <!--property RuntimeWatchdogPreUSec is not documented!-->
@@ -673,6 +687,8 @@ node /org/freedesktop/systemd1 {
     <!--property DefaultTimeoutStopUSec is not documented!-->
 
     <!--property DefaultTimeoutAbortUSec is not documented!-->
+
+    <!--property DefaultDeviceTimeoutUSec is not documented!-->
 
     <!--property DefaultRestartUSec is not documented!-->
 
@@ -856,7 +872,11 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="Dump()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="DumpUnitsMatchingPatterns()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="DumpByFileDescriptor()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="DumpUnitsMatchingPatternsByFileDescriptor()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="Reload()"/>
 
@@ -1056,6 +1076,12 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultStandardError"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="WatchdogDevice"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="WatchdogLastPingTimestamp"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="WatchdogLastPingTimestampMonotonic"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeWatchdogUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeWatchdogPreUSec"/>
@@ -1081,6 +1107,8 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultTimeoutStopUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultTimeoutAbortUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DefaultDeviceTimeoutUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultRestartUSec"/>
 
@@ -1222,7 +1250,7 @@ node /org/freedesktop/systemd1 {
       "ReloadOrRestart" flavors attempt a reload if the unit supports it and use a restart otherwise.</para>
 
       <para><function>EnqueueMarkedJobs()</function> creates reload/restart jobs for units which have been
-      appropriately marked, see <varname>Marks</varname> property above. This is equivalent to calling
+      appropriately marked, see <varname>Markers</varname> property above. This is equivalent to calling
       <function>TryRestartUnit()</function> or <function>ReloadOrTryRestartUnit()</function> for the marked
       units.</para>
 
@@ -1312,6 +1340,25 @@ node /org/freedesktop/systemd1 {
       all clients which previously asked for <function>Subscribe()</function> either closed their connection
       to the bus or invoked <function>Unsubscribe()</function>.</para>
 
+      <para><function>Dump()</function> returns a text dump of the internal service manager state. This is a
+      privileged, low-level debugging interface only. The returned string is supposed to be readable
+      exclusively by developers, and not programmatically. There's no interface stability on the returned
+      string guaranteed, and new fields may be added any time, and old fields removed. The general structure
+      may be rearranged drastically between releases. This is exposed by
+      <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+      <command>dump</command> command. Similarly, <function>DumpUnitsMatchingPatterns()</function> returns
+      the internal state of units whose names match the glob expressions specified in the
+      <varname>patterns</varname> argument. The
+      <function>DumpByFileDescriptor()</function>/<function>DumpUnitsMatchingPatternsByFileDescriptor()</function>
+      methods are identical to <function>Dump()</function>/<function>DumpUnitsMatchingPatterns()</function>,
+      but return data serialized into a file descriptor (the client should read the text data from it until
+      hitting EOF). Given the size limits on D-Bus messages and the possibly large size of the returned
+      strings,
+      <function>DumpByFileDescriptor()</function>/<function>DumpUnitsMatchingPatternsByFileDescriptor()</function>
+      are usually the preferred interface, since it ensures the data can be passed reliably from the service
+      manager to the client. Note though that they cannot work when communicating with the service manager
+      remotely, as file descriptors are strictly local to a system.</para>
+
       <para><function>Reload()</function> may be invoked to reload all unit files.</para>
 
       <para><function>Reexecute()</function> may be invoked to reexecute the main manager process. It will
@@ -1332,11 +1379,11 @@ node /org/freedesktop/systemd1 {
       for more information.</para>
 
       <para><function>SwitchRoot()</function> may be used to transition to a new root directory. This is
-      intended to be used by initial RAM disks. The method takes two arguments: the new root directory (which
-      needs to be specified) and an init binary path (which may be left empty, in which case it is
-      automatically searched for). The state of the system manager will be serialized before the
-      transition. After the transition, the manager binary on the main system is invoked and replaces the old
-      PID 1. All state will then be deserialized.</para>
+      intended to be used in the initrd, and also to transition from the host system into a shutdown initrd.
+      The method takes two arguments: the new root directory (which needs to be specified) and an init binary
+      path (which may be left empty, in which case it is automatically searched for). The state of the system
+      manager will be serialized before the transition. After the transition, the manager binary on the main
+      system is invoked and replaces the old PID 1. All state will then be deserialized.</para>
 
       <para><function>SetEnvironment()</function> may be used to alter the environment block that is passed
       to all spawned processes. It takes a string array of environment variable assignments. Any previously set
@@ -1434,7 +1481,7 @@ node /org/freedesktop/systemd1 {
       <varname>properties</varname> contains properties of the unit, specified like in
       <function>SetUnitProperties()</function>. <varname>aux</varname> is currently unused and should be
       passed as an empty array. See the
-      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface/">New Control Group
+      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface">New Control Group
       Interface</ulink> for more information how to make use of this functionality for resource control
       purposes.</para>
     </refsect2>
@@ -1494,21 +1541,96 @@ node /org/freedesktop/systemd1 {
       it is not part of the public API.</para>
 
       <para><varname>Features</varname> encodes the features that have been enabled and disabled for this
-      build. Enabled options are prefixed with +, disabled options with -.</para>
+      build. Enabled options are prefixed with <literal>+</literal>, disabled options with
+      <literal>-</literal>.</para>
 
-      <para><varname>Tainted</varname> encodes a couple of taint flags as a colon-separated list. When
-      systemd detects it is running on a system with certain problems, it will set an appropriate taint
-      flag. Taints may be used to lower the chance of bogus bug reports. The following taints are currently
-      known: <literal>split-usr</literal>, <literal>mtab-not-symlink</literal>,
-      <literal>cgroups-missing</literal>, <literal>local-hwclock</literal>. <literal>split-usr</literal> is
-      set if <filename>/usr/</filename> is not pre-mounted when systemd is first invoked. See
-      <ulink url="http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken">
-      Booting Without /usr is Broken</ulink>
-      for details why this is bad. <literal>mtab-not-symlink</literal> indicates that
-      <filename>/etc/mtab</filename> is not a symlink to <filename>/proc/self/mounts</filename> as
-      required. <literal>cgroups-missing</literal> indicates that control groups have not been enabled in the
-      kernel. <literal>local-hwclock</literal> indicates that the local RTC is configured to be in local time
-      rather than UTC.</para>
+      <para><varname>Tainted</varname> encodes taint flags as a colon-separated list. When systemd detects it
+      is running on a system with a certain problem, it will set an appropriate taint flag. Taints may be
+      used to lower the chance of bogus bug reports. The following taints are currently known:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><literal>split-usr</literal></term>
+
+          <listitem><para><filename>/usr/</filename> was not available when systemd was first invoked. It
+          must either be part of the root file system, or it must be mounted before
+          <command>systemd</command> is invoked. See
+          <ulink url="https://www.freedesktop.org/wiki/Software/systemd/separate-usr-is-broken">
+          Booting Without /usr is Broken</ulink> for details why this is bad.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>unmerged-usr</literal></term>
+
+          <listitem><para><filename>/bin</filename>, <filename>/sbin</filename> and
+          <filename>/lib*</filename> are not symlinks to their counterparts under <filename>/usr/</filename>.
+          For more information on this issue consult
+          <ulink url="https://www.freedesktop.org/wiki/Software/systemd/TheCaseForTheUsrMerge">
+            The Case for the /usr Merge
+          </ulink>.</para></listitem>
+
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>cgroups-missing</literal></term>
+
+          <listitem><para>Support for cgroups is unavailable.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>cgroupsv1</literal></term>
+
+          <listitem><para>The system is using the old cgroup hierarchy.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>local-hwclock</literal></term>
+
+          <listitem><para>The local hardware clock (RTC) is configured to be in local time rather than
+          UTC.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>support-ended</literal></term>
+
+          <listitem><para>The system is running past the end of support declared by the vendor. See the
+          description of <varname>SUPPORT_END=</varname> in
+          <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>old-kernel</literal></term>
+
+          <listitem><para>The system is running a kernel version that is older than the minimum supported by
+          this version of systemd.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>var-run-bad</literal></term>
+
+          <listitem><para><filename>/run/</filename> does not exist or <filename>/var/run</filename> is not a
+          symlink to <filename>/run/</filename>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>overflowuid-not-65534</literal></term>
+          <term><literal>overflowgid-not-65534</literal></term>
+
+          <listitem><para>The kernel overflow UID or GID have a value other than 65534.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>short-uid-range</literal></term>
+          <term><literal>short-gid-range</literal></term>
+
+          <listitem><para>The UID or GID range assigned to the running systemd instance covers less than
+          0…65534.</para></listitem>
+        </varlistentry>
+
+        <!-- mtab-not-symlink was removed in b492ce8a22d4527c1372b2d3fbd580627d70c917 -->
+      </variablelist>
 
       <para><varname>FirmwareTimestamp</varname>, <varname>FirmwareTimestampMonotonic</varname>,
       <varname>LoaderTimestamp</varname>, <varname>LoaderTimestampMonotonic</varname>,
@@ -1575,6 +1697,11 @@ node /org/freedesktop/systemd1 {
       that the root path is encoded as the empty string here (not as <literal>/</literal>!), so that it can be
       appended to <filename>/sys/fs/cgroup/systemd</filename> easily. This value will be set to the empty
       string for the host instance and some other string for container instances.</para>
+
+      <para><varname>AccessSELinuxContext</varname> contains the SELinux context that is used to control
+      access to the unit. It's read from the unit file when it is loaded and cached until the service manager
+      is reloaded. This property contains an empty string if SELinux is not used or if no label could be read
+      (for example because the unit is not backed by a file on disk).</para>
     </refsect2>
 
     <refsect2>
@@ -1708,6 +1835,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Description = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s AccessSELinuxContext = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s LoadState = '...';
       readonly s ActiveState = '...';
       readonly s FreezerState = '...';
@@ -1810,6 +1939,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly s CollectMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly as Refs = ['...', ...];
+      readonly a(ss) ActivationDetails = [...];
   };
   interface org.freedesktop.DBus.Peer { ... };
   interface org.freedesktop.DBus.Introspectable { ... };
@@ -2015,6 +2145,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="Description"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="AccessSELinuxContext"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="LoadState"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ActiveState"/>
@@ -2138,6 +2270,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="CollectMode"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Refs"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ActivationDetails"/>
 
     <!--End of Autogenerated section-->
 
@@ -2315,7 +2449,19 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       will be a pair of empty strings.</para>
 
       <para><varname>Transient</varname> contains a boolean that indicates whether the unit was created as a
-      transient unit (i.e. via <function>CreateTransientUnit()</function> on the manager object).</para>
+      transient unit (i.e. via <function>StartTransientUnit()</function> on the manager object).</para>
+
+      <para><varname>ActivationDetails</varname> contains a list of string pairs, key and value, that
+      describe the event that caused the unit to be activated, if any. The key describes the information
+      (e.g.: <varname>trigger_unit</varname>, with value <varname>foo.service</varname>). This is only filled
+      in if the unit was triggered by a <varname>Path</varname> or <varname>Timer</varname> unit, and it is
+      only provided in a best effort fashion: it is not guaranteed to be set, and it is not guaranteed to be
+      the only trigger. It is only guaranteed to be a valid trigger that caused the activation job to be
+      enqueued and complete successfully. The key value pairs correspond (in lowercase) to the environment
+      variables described in the <literal>Environment Variables Set on Triggered Units</literal> section in
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+      Note that new key value pair may be added at any time in future versions. Existing entries will not be
+      removed.</para>
     </refsect2>
 
     <refsect2>
@@ -10560,6 +10706,8 @@ node /org/freedesktop/systemd1/job/666 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s JobType = '...';
       readonly s State = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(ss) ActivationDetails = [...];
   };
   interface org.freedesktop.DBus.Peer { ... };
   interface org.freedesktop.DBus.Introspectable { ... };
@@ -10591,6 +10739,8 @@ node /org/freedesktop/systemd1/job/666 {
 
     <variablelist class="dbus-property" generated="True" extra-ref="State"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="ActivationDetails"/>
+
     <!--End of Autogenerated section-->
 
     <refsect2>
@@ -10619,6 +10769,9 @@ node /org/freedesktop/systemd1/job/666 {
       <para><varname>State</varname> refers to the job's state and is one of <literal>waiting</literal> and
       <literal>running</literal>. The former indicates that a job is currently queued but has not begun to
       execute yet. The latter indicates that a job is currently being executed.</para>
+
+      <para><varname>ActivationDetails</varname> has the same content as the property of the same name under
+      the <varname>org.freedesktop.systemd1.Unit</varname> interface.</para>
     </refsect2>
   </refsect1>
 

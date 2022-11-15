@@ -122,7 +122,7 @@
         <varname>PathExists=</varname> may be used to watch the mere
         existence of a file or directory. If the file specified
         exists, the configured unit is activated.
-        <varname>PathExistsGlob=</varname> works similar, but checks
+        <varname>PathExistsGlob=</varname> works similarly, but checks
         for the existence of at least one file matching the globbing
         pattern specified. <varname>PathChanged=</varname> may be used
         to watch a file or directory and activate the configured unit
@@ -198,7 +198,7 @@
         details on the various time units understood. The <varname>TriggerLimitBurst=</varname> setting takes
         a positive integer value and specifies the number of permitted activations per time interval, and
         defaults to 200. Set either to 0 to disable any form of trigger rate limiting. If the limit is hit,
-        the unit is placed into a failure mode, and will not watch the path(s) anymore until restarted. Note
+        the unit is placed into a failure mode, and will not watch the paths anymore until restarted. Note
         that this limit is enforced before the service activation is enqueued.</para></listitem>
       </varlistentry>
     </variablelist>
@@ -208,6 +208,10 @@
 
   <refsect1>
       <title>See Also</title>
+      <para>Environment variables with details on the trigger will be set for triggered units. See the
+      <literal>Environment Variables Set on Triggered Units</literal> section in
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      for more details.</para>
       <para>
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,

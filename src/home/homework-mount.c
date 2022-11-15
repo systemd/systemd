@@ -2,11 +2,14 @@
 
 #include <sched.h>
 #include <sys/mount.h>
+#if WANT_LINUX_FS_H
 #include <linux/fs.h>
+#endif
 
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "glyph-util.h"
 #include "home-util.h"
 #include "homework-mount.h"
 #include "homework.h"
@@ -199,7 +202,7 @@ static int make_userns(uid_t stored_uid, uid_t exposed_uid) {
                 return log_oom();
 
         /* Now map the UID we are doing this for to the target UID. */
-        r = strextendf(&text, UID_FMT " " UID_FMT " " UID_FMT "\n", stored_uid, exposed_uid, 1);
+        r = strextendf(&text, UID_FMT " " UID_FMT " " UID_FMT "\n", stored_uid, exposed_uid, 1u);
         if (r < 0)
                 return log_oom();
 
@@ -218,7 +221,7 @@ static int make_userns(uid_t stored_uid, uid_t exposed_uid) {
 
         /* Map nspawn's mapped root UID as identity mapping so that people can run nspawn uidmap mounted
          * containers off $HOME, if they want. */
-        r = strextendf(&text, UID_FMT " " UID_FMT " " UID_FMT "\n", UID_MAPPED_ROOT, UID_MAPPED_ROOT, 1);
+        r = strextendf(&text, UID_FMT " " UID_FMT " " UID_FMT "\n", UID_MAPPED_ROOT, UID_MAPPED_ROOT, 1u);
         if (r < 0)
                 return log_oom();
 
@@ -296,7 +299,8 @@ int home_shift_uid(int dir_fd, const char *target, uid_t stored_uid, uid_t expos
         if (r < 0)
                 return log_error_errno(errno, "Failed to apply UID/GID map: %m");
 
-        log_debug("Applied uidmap mount to %s. Mapping is " UID_FMT " → " UID_FMT ".", strna(target), stored_uid, exposed_uid);
+        log_debug("Applied uidmap mount to %s. Mapping is " UID_FMT " %s " UID_FMT ".",
+                  strna(target), stored_uid, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), exposed_uid);
 
         if (ret_mount_fd)
                 *ret_mount_fd = TAKE_FD(mount_fd);

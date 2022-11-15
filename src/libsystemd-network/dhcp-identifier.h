@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-device.h"
 #include "sd-id128.h"
 
+#include "ether-addr-util.h"
 #include "macro.h"
 #include "sparse-endian.h"
 #include "time-util.h"
@@ -58,19 +60,16 @@ int dhcp_validate_duid_len(DUIDType duid_type, size_t duid_len, bool strict);
 int dhcp_identifier_set_duid_en(bool test_mode, struct duid *ret_duid, size_t *ret_len);
 int dhcp_identifier_set_duid(
                 DUIDType duid_type,
-                const uint8_t *addr,
-                size_t addr_len,
+                const struct hw_addr_data *hw_addr,
                 uint16_t arp_type,
                 usec_t llt_time,
                 bool test_mode,
                 struct duid *ret_duid,
                 size_t *ret_len);
 int dhcp_identifier_set_iaid(
-                int ifindex,
-                const uint8_t *mac,
-                size_t mac_len,
+                sd_device *dev,
+                const struct hw_addr_data *hw_addr,
                 bool legacy_unstable_byteorder,
-                bool use_mac,
                 void *ret);
 
 const char *duid_type_to_string(DUIDType t) _const_;

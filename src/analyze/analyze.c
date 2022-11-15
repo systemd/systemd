@@ -35,7 +35,9 @@
 #include "analyze-timestamp.h"
 #include "analyze-unit-files.h"
 #include "analyze-unit-paths.h"
+#include "analyze-compare-versions.h"
 #include "analyze-verify.h"
+#include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
@@ -45,7 +47,7 @@
 #include "capability-util.h"
 #include "conf-files.h"
 #include "copy.h"
-#include "def.h"
+#include "constants.h"
 #include "exit-status.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -78,7 +80,6 @@
 #include "time-util.h"
 #include "tmpfile-util.h"
 #include "unit-name.h"
-#include "util.h"
 #include "verb-log-control.h"
 #include "verbs.h"
 #include "version.h"
@@ -189,7 +190,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  plot                       Output SVG graphic showing service\n"
                "                             initialization\n"
                "  dot [UNIT...]              Output dependency graph in %s format\n"
-               "  dump                       Output state serialization of service\n"
+               "  dump [PATTERN...]          Output state serialization of service\n"
                "                             manager\n"
                "  cat-config                 Show configuration file and drop-ins\n"
                "  unit-files                 List files and symlinks for units\n"
@@ -199,6 +200,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  syscall-filter [NAME...]   List syscalls in seccomp filters\n"
                "  filesystems [NAME...]      List known filesystems\n"
                "  condition CONDITION...     Evaluate conditions and asserts\n"
+               "  compare-versions VERSION1 [OP] VERSION2\n"
+               "                             Compare two version strings\n"
                "  verify FILE...             Check unit files for correctness\n"
                "  calendar SPEC...           Validate repetitive calendar time\n"
                "                             events\n"
@@ -238,6 +241,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -h --help                  Show this help\n"
                "     --version               Show package version\n"
                "  -q --quiet                 Do not emit hints\n"
+               "     --root=PATH             Operate on an alternate filesystem root\n"
+               "     --image=PATH            Operate on disk image as filesystem root\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -536,7 +541,6 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *unlink_dir = NULL;
 
         static const Verb verbs[] = {
@@ -555,7 +559,7 @@ static int run(int argc, char *argv[]) {
                 { "get-log-target",    VERB_ANY, 1,        0,            verb_log_control       },
                 { "service-watchdogs", VERB_ANY, 2,        0,            verb_service_watchdogs },
                 /* ↑ … until here ↑ */
-                { "dump",              VERB_ANY, 1,        0,            verb_dump              },
+                { "dump",              VERB_ANY, VERB_ANY, 0,            verb_dump              },
                 { "cat-config",        2,        VERB_ANY, 0,            verb_cat_config        },
                 { "unit-files",        VERB_ANY, VERB_ANY, 0,            verb_unit_files        },
                 { "unit-paths",        1,        1,        0,            verb_unit_paths        },
@@ -564,6 +568,7 @@ static int run(int argc, char *argv[]) {
                 { "capability",        VERB_ANY, VERB_ANY, 0,            verb_capabilities      },
                 { "filesystems",       VERB_ANY, VERB_ANY, 0,            verb_filesystems       },
                 { "condition",         VERB_ANY, VERB_ANY, 0,            verb_condition         },
+                { "compare-versions",  3,        4,        0,            verb_compare_versions  },
                 { "verify",            2,        VERB_ANY, 0,            verb_verify            },
                 { "calendar",          2,        VERB_ANY, 0,            verb_calendar          },
                 { "timestamp",         2,        VERB_ANY, 0,            verb_timestamp         },
@@ -594,8 +599,7 @@ static int run(int argc, char *argv[]) {
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |
                                 DISSECT_IMAGE_READ_ONLY,
                                 &unlink_dir,
-                                &loop_device,
-                                &decrypted_image);
+                                &loop_device);
                 if (r < 0)
                         return r;
 
@@ -607,4 +611,4 @@ static int run(int argc, char *argv[]) {
         return dispatch_verb(argc, argv, verbs, NULL);
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

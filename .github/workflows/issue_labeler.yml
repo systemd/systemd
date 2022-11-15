@@ -1,0 +1,36 @@
+---
+
+name: Issue labeler
+on:
+  issues:
+    types: [ opened ]
+
+permissions:
+  contents: read
+
+jobs:
+  label-component:
+    runs-on: ubuntu-22.04
+
+    permissions:
+      issues: write
+
+    strategy:
+      matrix:
+        template: [ bug_report.yml, feature_request.yml ]
+
+    steps:
+      - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
+
+      - name: Parse issue form
+        uses: stefanbuck/github-issue-parser@f80b14f78892a66d7a35bba44f0a7d63bee03602
+        id: issue-parser
+        with:
+          template-path: .github/ISSUE_TEMPLATE/${{ matrix.template }}
+
+      - name: Set labels based on component field
+        uses: redhat-plumbers-in-action/advanced-issue-labeler@fe9c43b7d77bd8bd7fbe86c2c217e74ebeea71f2
+        with:
+          issue-form: ${{ steps.issue-parser.outputs.jsonString }}
+          template: ${{ matrix.template }}
+          token: ${{ secrets.GITHUB_TOKEN }}
