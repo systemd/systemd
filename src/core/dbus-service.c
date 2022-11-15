@@ -36,6 +36,35 @@ static BUS_DEFINE_PROPERTY_GET(property_get_timeout_abort_usec, "t", Service, se
 static BUS_DEFINE_PROPERTY_GET(property_get_watchdog_usec, "t", Service, service_get_watchdog_usec);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_timeout_failure_mode, service_timeout_failure_mode, ServiceTimeoutFailureMode);
 
+static int property_get_open_files(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Service *s = SERVICE(userdata);
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(s);
+
+        r = sd_bus_message_open_container(reply, 'a', "(ssx)");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(open_files, open_file, s->open_files) {
+                r = sd_bus_message_append(reply, "(ssx)", open_file->path, open_file->fdname, open_file->flags);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 static int property_get_exit_status_set(
                 sd_bus *bus,
                 const char *path,
@@ -228,6 +257,7 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("GID", "u", bus_property_get_gid, offsetof(Unit, ref_gid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("NRestarts", "u", bus_property_get_unsigned, offsetof(Service, n_restarts), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("OOMPolicy", "s", bus_property_get_oom_policy, offsetof(Service, oom_policy), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OpenFile", "a(ssx)", property_get_open_files, 0, SD_BUS_VTABLE_PROPERTY_CONST),
 
         BUS_EXEC_STATUS_VTABLE("ExecMain", offsetof(Service, main_exec_status), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecCondition", offsetof(Service, exec_command[SERVICE_EXEC_CONDITION]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
@@ -531,6 +561,32 @@ static int bus_service_set_transient_property(
 
         if (streq(name, "StandardErrorFileDescriptor"))
                 return bus_set_transient_std_fd(u, name, &s->stderr_fd, &s->exec_context.stdio_as_fds, message, flags, error);
+
+        if (streq(name, "OpenFile")) {
+                r = sd_bus_message_enter_container(message, 'a', "(ssx)");
+                if (r < 0)
+                        return r;
+
+                char *path = NULL;
+                char *fdname = NULL;
+                long long options;
+                while ((r = sd_bus_message_read(message, "(ssx)", &path, &fdname, &options)) > 0) {
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                OpenFile *open_file = new0(OpenFile, 1);
+                                open_file->path = strdup(path);
+                                open_file->fdname = strdup(fdname);
+                                open_file->flags = options;
+                                LIST_APPEND(open_files, s->open_files, TAKE_PTR(open_file));
+                                unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "OpenFile=%s", open_file_to_string(open_file));
+                        }
+                }
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                return 1;
+        }
 
         return 0;
 }
