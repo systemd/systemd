@@ -374,7 +374,7 @@ static int run_editor(char **paths) {
         return 0;
 }
 
-static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
+static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths, char *template_path) {
         _cleanup_(hashmap_freep) Hashmap *cached_name_map = NULL, *cached_id_map = NULL;
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         int r;
@@ -404,19 +404,32 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                         return r;
 
                 if (!path) {
-                        if (!arg_force) {
-                                log_info("Run 'systemctl edit%s --force --full %s' to create a new unit.",
+                        if (!arg_force && !arg_new) {
+                                log_info("Run 'systemctl edit%s --force --full %s' to create a new unit. --new option wip",
                                          arg_scope == LOOKUP_SCOPE_GLOBAL ? " --global" :
                                          arg_scope == LOOKUP_SCOPE_USER ? " --user" : "",
                                          *name);
                                 return -ENOENT;
                         }
 
-                        /* Create a new unit from scratch */
-                        unit_name = *name;
-                        r = unit_file_create_new(&lp, unit_name,
-                                                 arg_full ? NULL : ".d/override.conf",
-                                                 NULL, &new_path, &tmp_path);
+                        if (!arg_force && arg_new) {
+                                assert(template_path); /* Failing on top in case of --full --force because value of arg_template is not set*/
+                                printf("%s finally", template_path);
+                                unit_name = *name;
+                                printf("t1");
+                                /* Following should be replaced with something like what create_edit_temp_path does*/
+                                r = unit_file_create_new(&lp, unit_name,
+                                                         arg_full ? NULL : ".d/override.conf",
+                                                         NULL, &new_path, &tmp_path);
+                        } else {
+                               /* Create a new unit from scratch without template*/
+                               printf("t2");
+                               template_path = NULL;
+                               unit_name = *name;
+                               r = unit_file_create_new(&lp, unit_name,
+                                                        arg_full ? NULL : ".d/override.conf",
+                                                        NULL, &new_path, &tmp_path);
+                        }
                 } else {
                         unit_name = basename(path);
                         /* We follow unit aliases, but we need to propagate the instance */
@@ -435,15 +448,19 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                                 unit_name = tmp_name;
                         }
 
-                        if (arg_full)
+                        if (arg_full && !arg_new) /* when unit exits but option passed --full and not --new */
                                 r = unit_file_create_copy(&lp, unit_name, path, &new_path, &tmp_path);
-                        else {
+
+                        if (!arg_full && !arg_new) {
                                 r = strv_prepend(&unit_paths, path);
                                 if (r < 0)
                                         return log_oom();
 
                                 r = unit_file_create_new(&lp, unit_name, ".d/override.conf", unit_paths, &new_path, &tmp_path);
                         }
+
+                        if (arg_new) /* When unit exists and --new option is passed */
+                                log_error("%s already exists. Please create unit with new name.", unit_name);
                 }
                 if (r < 0)
                         return r;
@@ -498,6 +515,7 @@ int verb_edit(int argc, char *argv[], void *userdata) {
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         _cleanup_strv_free_ char **names = NULL;
         _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_free_ char *template_path = NULL;
         sd_bus *bus;
         int r;
 
@@ -533,7 +551,10 @@ int verb_edit(int argc, char *argv[], void *userdata) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit %s: unit is masked.", *tmp);
         }
 
-        r = find_paths_to_edit(bus, names, &paths);
+        if (arg_new)
+                template_path = path_join("/usr/share/systemd/unit/template/", arg_template);
+
+        r = find_paths_to_edit(bus, names, &paths, template_path);
         if (r < 0)
                 return r;
 
@@ -569,6 +590,12 @@ int verb_edit(int argc, char *argv[], void *userdata) {
                 r = daemon_reload(ACTION_RELOAD, /* graceful= */ false);
                 if (r > 0)
                         r = 0;
+        }
+
+        /* printf("t3");*/
+
+        if (arg_new) {
+                template_path = path_join("/usr/share/systemd/unit/template/", arg_template);
         }
 
 end:
