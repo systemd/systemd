@@ -1310,6 +1310,11 @@ install_missing_libraries() {
     inst_simple "${path}/engines-3/capi.so" || true
     inst_simple "${path}/engines-3/loader_attic.so" || true
     inst_simple "${path}/engines-3/padlock.so" || true
+
+    # Binaries from mtools depend on the gconv modules to translate between codepages. Because there's no
+    # pkg-config file for these, we copy every gconv/ directory we can find in /usr/lib and /usr/lib64.
+    # shellcheck disable=SC2046
+    inst_recursive $(find /usr/lib* -name gconv 2>/dev/null)
 }
 
 cleanup_loopdev() {
