@@ -70,14 +70,14 @@ char** strv_split_nulstr(const char *s) {
 }
 
 int strv_make_nulstr(char * const *l, char **ret, size_t *ret_size) {
-        /* Builds a nulstr and returns it together with the size. An extra NUL byte will be appended (⚠️ but
-         * not included in the size! ⚠️). This is done so that the nulstr can be used both in
-         * strv_parse_nulstr() and in NULSTR_FOREACH()/strv_split_nulstr() contexts, i.e. with and without a
-         * size parameter. In the former case we can include empty strings, in the latter case we cannot (as
-         * that is the end marker).
+        /* Builds a nulstr and returns it together with the size. Two extra NUL bytes will be appended (⚠️ but
+         * not included in the size! ⚠️). Those bytes mark the end of the nulstr. This is done so that the
+         * nulstr can be used both in strv_parse_nulstr() and in NULSTR_FOREACH()/strv_split_nulstr()
+         * contexts, i.e. with and without a size parameter. In the former case we can include empty strings,
+         * in the latter case we cannot (as that is the end marker).
          *
          * When NULSTR_FOREACH()/strv_split_nulstr() is used it is often assumed that the nulstr ends in two
-         * NUL bytes (which it will, if not empty). To ensure that this assumption *always* holds, we'll
+         * NUL bytes (which it will, even if empty). To ensure that this assumption *always* holds, we'll
          * return a buffer with two NUL bytes in that case, but return a size of zero. */
 
         _cleanup_free_ char *m = NULL;
@@ -91,7 +91,7 @@ int strv_make_nulstr(char * const *l, char **ret, size_t *ret_size) {
 
                 z = strlen(*i);
 
-                if (!GREEDY_REALLOC(m, n + z + 2))
+                if (!GREEDY_REALLOC(m, n + z + 3))
                         return -ENOMEM;
 
                 memcpy(m + n, *i, z + 1);
@@ -105,12 +105,40 @@ int strv_make_nulstr(char * const *l, char **ret, size_t *ret_size) {
                         return -ENOMEM;
 
                 n = 0;
-        } else
+        } else {
                 /* Make sure there is a second extra NUL at the end of resulting nulstr (not counted in return size) */
                 m[n] = '\0';
+                m[n+1] = '\0';
+        }
 
         *ret = TAKE_PTR(m);
         *ret_size = n;
+
+        return 0;
+}
+
+int set_make_nulstr(Set *s, char **ret, size_t *ret_size)
+{
+        /* Use _cleanup_free_ instead of _cleanup_strv_free_ because we need to clean the strv only, not
+         * the strings owned by the set. */
+        _cleanup_free_ char **strv = NULL;
+        _cleanup_free_ char *_ret = NULL;
+        size_t _ret_size;
+        int r;
+
+        assert(ret);
+        assert(ret_size);
+
+        strv = set_get_strv(s);
+        if (!strv)
+                return -ENOMEM;
+
+        r = strv_make_nulstr(strv, &_ret, &_ret_size);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(_ret);
+        *ret_size = _ret_size;
 
         return 0;
 }
