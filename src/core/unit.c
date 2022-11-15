@@ -720,7 +720,6 @@ Unit* unit_free(Unit *u) {
         if (u->on_console)
                 manager_unref_console(u->manager);
 
-
         fdset_free(u->initial_socket_bind_link_fds);
 #if BPF_FRAMEWORK
         bpf_link_free(u->ipv4_socket_bind_link);
@@ -1077,7 +1076,7 @@ static void unit_merge_dependencies(
                         if (back == u) {
                                 /* This is a dependency pointing back to the unit we want to merge with?
                                  * Suppress it (but warn) */
-                                unit_maybe_warn_about_dependency(u, other->id, UNIT_DEPENDENCY_FROM_PTR(dt));
+                                unit_maybe_warn_about_dependency(u, u->id, UNIT_DEPENDENCY_FROM_PTR(dt));
                                 continue;
                         }
 
@@ -1126,10 +1125,11 @@ static void unit_merge_dependencies(
                         }
                 } else {
                         assert_se(r >= 0);
-                        TAKE_PTR(other_deps);
 
                         if (hashmap_remove(other_deps, u))
                                 unit_maybe_warn_about_dependency(u, other->id, UNIT_DEPENDENCY_FROM_PTR(dt));
+
+                        TAKE_PTR(other_deps);
                 }
         }
 
