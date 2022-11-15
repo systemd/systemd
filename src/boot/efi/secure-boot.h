@@ -24,4 +24,5 @@ typedef bool (*security_validator_t)(
                 size_t file_size);
 
 void install_security_override(security_validator_t validator, const void *validator_ctx);
+bool install_security_hack(void);
 void uninstall_security_override(void);
