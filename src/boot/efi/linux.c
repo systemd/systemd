@@ -86,6 +86,16 @@ static EFI_STATUS load_image(EFI_HANDLE parent, const void *source, size_t len, 
                         len,
                         ret_image);
 
+        /* Retry with a more hacky override. */
+        if (IN_SET(ret, EFI_ACCESS_DENIED, EFI_SECURITY_VIOLATION) && install_security_hack())
+                ret = BS->LoadImage(
+                                /*BootPolicy=*/false,
+                                parent,
+                                &payload_device_path.payload.Header,
+                                (void *) source,
+                                len,
+                                ret_image);
+
         uninstall_security_override();
 
         return ret;

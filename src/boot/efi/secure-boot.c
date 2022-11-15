@@ -137,9 +137,12 @@ static struct SecurityOverride {
         EFI_HANDLE original_handle, original_handle2;
         EFI_SECURITY_ARCH_PROTOCOL *original_security;
         EFI_SECURITY2_ARCH_PROTOCOL *original_security2;
+        EFI_SECURITY_FILE_AUTHENTICATION_STATE original_hook;
+        EFI_SECURITY2_FILE_AUTHENTICATION original_hook2;
 
         security_validator_t validator;
         const void *validator_ctx;
+        bool was_called;
 } security_override;
 
 static EFIAPI EFI_STATUS security_hook(
@@ -149,6 +152,8 @@ static EFIAPI EFI_STATUS security_hook(
 
         assert(security_override.validator);
         assert(security_override.original_security);
+
+        security_override.was_called = true;
 
         if (security_override.validator(security_override.validator_ctx, file, NULL, 0))
                 return EFI_SUCCESS;
@@ -166,6 +171,8 @@ static EFIAPI EFI_STATUS security2_hook(
 
         assert(security_override.validator);
         assert(security_override.original_security2);
+
+        security_override.was_called = true;
 
         if (security_override.validator(security_override.validator_ctx, device_path, file_buffer, file_size))
                 return EFI_SUCCESS;
@@ -222,6 +229,7 @@ void install_security_override(security_validator_t validator, const void *valid
                 { .FileAuthentication = security2_hook, },
                 .validator = validator,
                 .validator_ctx = validator_ctx,
+                .was_called = false,
         };
 
         (void) install_security_override_one(
@@ -236,9 +244,38 @@ void install_security_override(security_validator_t validator, const void *valid
                         (void **) &security_override.original_security2);
 }
 
+/* Some firmware will happily replace their own security arch instance with our override using
+ * ReinstallProtocolInterface, but not end up using it. In those cases we instead hack into it by
+ * swaping the function pointer with our own. We only do this if we have to as the reinstall method
+ * is much cleaner. */
+bool install_security_hack(void) {
+        if (security_override.was_called)
+                return false;
+
+        if (security_override.original_handle) {
+                security_override.original_hook = security_override.original_security->FileAuthenticationState;
+                security_override.original_security->FileAuthenticationState = security_hook;
+        }
+        if (security_override.original_handle2) {
+                security_override.original_hook2 = security_override.original_security2->FileAuthentication;
+                security_override.original_security2->FileAuthentication = security2_hook;
+        }
+
+        return security_override.original_handle || security_override.original_handle2;
+}
+
 void uninstall_security_override(void) {
         /* We use assert_se here to guarantee the system is not in a weird state in the unlikely case of an
          * error restoring the original protocols. */
+
+        if (security_override.original_hook) {
+                assert_se(security_override.original_security->FileAuthenticationState == security_hook);
+                security_override.original_security->FileAuthenticationState = security_override.original_hook;
+        }
+        if (security_override.original_hook2) {
+                assert_se(security_override.original_security2->FileAuthentication == security2_hook);
+                security_override.original_security2->FileAuthentication = security_override.original_hook2;
+        }
 
         if (security_override.original_handle)
                 assert_se(BS->ReinstallProtocolInterface(
