@@ -88,10 +88,10 @@ NSPAWN_ARGUMENTS='...'
     Specify additional arguments for systemd-nspawn
 
 QEMU_TIMEOUT=infinity
-    Set a timeout for tests under qemu (defaults to infinity)
+    Set a timeout for tests under qemu (defaults to 1800 sec)
 
 NSPAWN_TIMEOUT=infinity
-    Set a timeout for tests under systemd-nspawn (defaults to infinity)
+    Set a timeout for tests under systemd-nspawn (defaults to 1800 sec)
 
 INTERACTIVE_DEBUG=1
     Configure the machine to be more *user-friendly* for interactive debuggung

@@ -106,10 +106,11 @@ fi
 # The calling test.sh scripts have TEST_BASE_DIR set via their Makefile, but we don't need them to provide it
 TEST_BASE_DIR=${TEST_BASE_DIR:-$(realpath "$(dirname "${BASH_SOURCE[0]}")")}
 TEST_UNITS_DIR="$(realpath "$TEST_BASE_DIR/units")"
+TEST_MANUAL_DIR="$(realpath "$TEST_BASE_DIR/../manual")"
 SOURCE_DIR=$(realpath "$TEST_BASE_DIR/..")
 TOOLS_DIR="$SOURCE_DIR/tools"
 # These variables are used by test scripts
-export TEST_BASE_DIR TEST_UNITS_DIR SOURCE_DIR TOOLS_DIR
+export TEST_BASE_DIR TEST_MANUAL_DIR TEST_UNITS_DIR SOURCE_DIR TOOLS_DIR
 
 # note that find-build-dir.sh will return $BUILD_DIR if provided, else it will try to find it
 if get_bool "${NO_BUILD:=}"; then
@@ -955,6 +956,8 @@ install_modules() {
 
     if get_bool "$LOOKS_LIKE_SUSE"; then
         instmods ext4
+        # for TEST-54-CREDS
+        instmods dmi-sysfs
     fi
 }
 
@@ -1159,6 +1162,9 @@ install_suse_systemd() {
         systemd-coredump
         systemd-experimental
         systemd-journal-remote
+        # Since commit fb6f25d7b979134a, systemd-resolved, which is shipped by
+        # systemd-network sub-package on openSUSE, has its own testsuite.
+        systemd-network
         systemd-portable
         udev
     )
@@ -1182,7 +1188,7 @@ install_suse_systemd() {
     cp "$testsdir"/test-* "$initdir/$testsdir/"
     cp -a "$testsdir/testdata" "$initdir/$testsdir/"
 
-    # On openSUSE, these dirs are not created at package install for now on.
+    # On openSUSE, these dirs are not created at package install for now.
     mkdir -p "$initdir/var/log/journal/remote"
 }
 
