@@ -20,35 +20,26 @@
 #define STUB_PAYLOAD_GUID \
         { 0x55c5d1f8, 0x04cd, 0x46b5, { 0x8a, 0x20, 0xe5, 0x6c, 0xbb, 0x30, 0x52, 0xd0 } }
 
-static EFIAPI EFI_STATUS security_hook(
-                const SecurityOverride *this, uint32_t authentication_status, const EFI_DEVICE_PATH *file) {
+typedef struct {
+        const void *addr;
+        size_t len;
+        const EFI_DEVICE_PATH *device_path;
+} ValidationContext;
 
-        assert(this);
-        assert(this->hook == security_hook);
+static bool validate_payload(
+                const void *ctx, const EFI_DEVICE_PATH *device_path, const void *file_buffer, size_t file_size) {
 
-        if (file == this->payload_device_path)
-                return EFI_SUCCESS;
+        const ValidationContext *payload = ASSERT_PTR(ctx);
 
-        return this->original_security->FileAuthenticationState(
-                        this->original_security, authentication_status, file);
-}
+        if (device_path != payload->device_path)
+                return false;
 
-static EFIAPI EFI_STATUS security2_hook(
-                const SecurityOverride *this,
-                const EFI_DEVICE_PATH *device_path,
-                void *file_buffer,
-                size_t file_size,
-                BOOLEAN boot_policy) {
+        /* Security arch (1) protocol does not provide a file buffer. Instead we are supposed to fetch the payload
+         * ourselves, which is not needed as we already have everything in memory and the device paths match. */
+        if (file_buffer && (file_buffer != payload->addr || file_size != payload->len))
+                return false;
 
-        assert(this);
-        assert(this->hook == security2_hook);
-
-        if (file_buffer == this->payload && file_size == this->payload_len &&
-            device_path == this->payload_device_path)
-                return EFI_SUCCESS;
-
-        return this->original_security2->FileAuthentication(
-                        this->original_security2, device_path, file_buffer, file_size, boot_policy);
+        return true;
 }
 
 static EFI_STATUS load_image(EFI_HANDLE parent, const void *source, size_t len, EFI_HANDLE *ret_image) {
@@ -79,19 +70,13 @@ static EFI_STATUS load_image(EFI_HANDLE parent, const void *source, size_t len, 
 
         /* We want to support unsigned kernel images as payload, which is safe to do under secure boot
          * because it is embedded in this stub loader (and since it is already running it must be trusted). */
-        SecurityOverride security_override = {
-                .hook = security_hook,
-                .payload = source,
-                .payload_len = len,
-                .payload_device_path = &payload_device_path.payload.Header,
-        }, security2_override = {
-                .hook = security2_hook,
-                .payload = source,
-                .payload_len = len,
-                .payload_device_path = &payload_device_path.payload.Header,
-        };
-
-        install_security_override(&security_override, &security2_override);
+        install_security_override(
+                        validate_payload,
+                        &(ValidationContext) {
+                                .addr = source,
+                                .len = len,
+                                .device_path = &payload_device_path.payload.Header,
+                        });
 
         EFI_STATUS ret = BS->LoadImage(
                         /*BootPolicy=*/false,
@@ -101,7 +86,7 @@ static EFI_STATUS load_image(EFI_HANDLE parent, const void *source, size_t len, 
                         len,
                         ret_image);
 
-        uninstall_security_override(&security_override, &security2_override);
+        uninstall_security_override();
 
         return ret;
 }
