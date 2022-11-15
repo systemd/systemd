@@ -1404,6 +1404,8 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
         assert(config);
 
         if (!FLAGS_SET(json_format, JSON_FORMAT_OFF)) {
+                _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+
                 for (size_t i = 0; i < config->n_entries; i++) {
                         _cleanup_free_ char *opts = NULL;
                         const BootEntry *e = config->entries + i;
@@ -1443,8 +1445,12 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                         if (r < 0)
                                 return log_oom();
 
-                        json_variant_dump(v, json_format, stdout, NULL);
+                        r = json_variant_append_array(&array, v);
+                        if (r < 0)
+                                return log_oom();
                 }
+
+                json_variant_dump(array, json_format, NULL, NULL);
 
         } else {
                 for (size_t n = 0; n < config->n_entries; n++) {
