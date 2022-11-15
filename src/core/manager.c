@@ -1224,8 +1224,11 @@ static void unit_gc_sweep(Unit *u, unsigned gc_marker) {
         assert(u);
 
         if (IN_SET(u->gc_marker - gc_marker,
-                   GC_OFFSET_GOOD, GC_OFFSET_BAD, GC_OFFSET_UNSURE, GC_OFFSET_IN_PATH))
+                   GC_OFFSET_GOOD, GC_OFFSET_BAD, GC_OFFSET_IN_PATH))
                 return;
+
+        if (u->gc_marker - gc_marker == GC_OFFSET_UNSURE)
+                goto bad;
 
         if (u->in_cleanup_queue)
                 goto bad;
@@ -1269,6 +1272,8 @@ static void unit_gc_sweep(Unit *u, unsigned gc_marker) {
 bad:
         /* We definitely know that this one is not useful anymore, so
          * let's mark it for deletion */
+        if (u->id)
+                log_unit_debug(u, "Collecting.");
         u->gc_marker = gc_marker + GC_OFFSET_BAD;
         unit_add_to_cleanup_queue(u);
         return;
@@ -1294,20 +1299,12 @@ static unsigned manager_dispatch_gc_unit_queue(Manager *m) {
         while ((u = m->gc_unit_queue)) {
                 assert(u->in_gc_queue);
 
-                unit_gc_sweep(u, gc_marker);
-
                 LIST_REMOVE(gc_queue, m->gc_unit_queue, u);
                 u->in_gc_queue = false;
 
                 n++;
 
-                if (IN_SET(u->gc_marker - gc_marker,
-                           GC_OFFSET_BAD, GC_OFFSET_UNSURE)) {
-                        if (u->id)
-                                log_unit_debug(u, "Collecting.");
-                        u->gc_marker = gc_marker + GC_OFFSET_BAD;
-                        unit_add_to_cleanup_queue(u);
-                }
+                unit_gc_sweep(u, gc_marker);
         }
 
         return n;
