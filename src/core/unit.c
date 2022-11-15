@@ -720,7 +720,6 @@ Unit* unit_free(Unit *u) {
         if (u->on_console)
                 manager_unref_console(u->manager);
 
-
         fdset_free(u->initial_socket_bind_link_fds);
 #if BPF_FRAMEWORK
         bpf_link_free(u->ipv4_socket_bind_link);
@@ -1044,10 +1043,10 @@ static int unit_add_dependency_hashmap(
         return unit_per_dependency_type_hashmap_update(per_type, other, origin_mask, destination_mask);
 }
 
-static void unit_merge_dependencies(
-                Unit *u,
-                Unit *other) {
-
+static void unit_merge_dependencies(Unit *u, Unit *other) {
+        Hashmap *deps;
+        void *dt; /* Actually of type UnitDependency, except that we don't bother casting it here,
+                   * since the hashmaps all want it as void pointer. */
         int r;
 
         assert(u);
@@ -1056,12 +1055,19 @@ static void unit_merge_dependencies(
         if (u == other)
                 return;
 
+        /* First, remove dependency to other. */
+        HASHMAP_FOREACH_KEY(deps, dt, u->dependencies) {
+                UnitDependencyInfo di_other;
+
+                di_other.data = hashmap_remove(deps, other);
+                if (di_other.data)
+                        unit_maybe_warn_about_dependency(u, other->id, UNIT_DEPENDENCY_FROM_PTR(dt));
+        }
+
         for (;;) {
                 _cleanup_(hashmap_freep) Hashmap *other_deps = NULL;
                 UnitDependencyInfo di_back;
                 Unit *back;
-                void *dt; /* Actually of type UnitDependency, except that we don't bother casting it here,
-                           * since the hashmaps all want it as void pointer. */
 
                 /* Let's focus on one dependency type at a time, that 'other' has defined. */
                 other_deps = hashmap_steal_first_key_and_value(other->dependencies, &dt);
@@ -1077,7 +1083,7 @@ static void unit_merge_dependencies(
                         if (back == u) {
                                 /* This is a dependency pointing back to the unit we want to merge with?
                                  * Suppress it (but warn) */
-                                unit_maybe_warn_about_dependency(u, other->id, UNIT_DEPENDENCY_FROM_PTR(dt));
+                                unit_maybe_warn_about_dependency(u, u->id, UNIT_DEPENDENCY_FROM_PTR(dt));
                                 continue;
                         }
 
@@ -1103,8 +1109,6 @@ static void unit_merge_dependencies(
                  * them per type wholesale. */
                 r = hashmap_put(u->dependencies, dt, other_deps);
                 if (r == -EEXIST) {
-                        Hashmap *deps;
-
                         /* The target unit already has dependencies of this type, let's then merge this individually. */
 
                         assert_se(deps = hashmap_get(u->dependencies, dt));
@@ -1126,10 +1130,11 @@ static void unit_merge_dependencies(
                         }
                 } else {
                         assert_se(r >= 0);
-                        TAKE_PTR(other_deps);
 
                         if (hashmap_remove(other_deps, u))
                                 unit_maybe_warn_about_dependency(u, other->id, UNIT_DEPENDENCY_FROM_PTR(dt));
+
+                        TAKE_PTR(other_deps);
                 }
         }
 
@@ -1176,17 +1181,17 @@ int unit_merge(Unit *u, Unit *other) {
         if (r < 0)
                 return r;
 
-        /* Merge names */
-        r = unit_merge_names(u, other);
-        if (r < 0)
-                return r;
-
         /* Redirect all references */
         while (other->refs_by_target)
                 unit_ref_set(other->refs_by_target, other->refs_by_target->source, u);
 
         /* Merge dependencies */
         unit_merge_dependencies(u, other);
+
+        /* Merge names. It is better to do that after merging deps, otherwise the log message contains n/a. */
+        r = unit_merge_names(u, other);
+        if (r < 0)
+                return r;
 
         other->load_state = UNIT_MERGED;
         other->merged_into = u;
