@@ -1076,7 +1076,7 @@ static void unit_merge_dependencies(
                         if (back == u) {
                                 /* This is a dependency pointing back to the unit we want to merge with?
                                  * Suppress it (but warn) */
-                                unit_maybe_warn_about_dependency(u, other->id, UNIT_DEPENDENCY_FROM_PTR(dt));
+                                unit_maybe_warn_about_dependency(u, u->id, UNIT_DEPENDENCY_FROM_PTR(dt));
                                 continue;
                         }
 
@@ -1117,7 +1117,7 @@ static void unit_merge_dependencies(
                                         break; /* done */
                                 if (back == u) {
                                         /* Would point back to us, ignore */
-                                        unit_maybe_warn_about_dependency(u, other->id, UNIT_DEPENDENCY_FROM_PTR(dt));
+                                        unit_maybe_warn_about_dependency(u, u->id, UNIT_DEPENDENCY_FROM_PTR(dt));
                                         continue;
                                 }
 
@@ -1128,7 +1128,7 @@ static void unit_merge_dependencies(
                         TAKE_PTR(other_deps);
 
                         if (hashmap_remove(other_deps, u))
-                                unit_maybe_warn_about_dependency(u, other->id, UNIT_DEPENDENCY_FROM_PTR(dt));
+                                unit_maybe_warn_about_dependency(u, u->id, UNIT_DEPENDENCY_FROM_PTR(dt));
                 }
         }
 
