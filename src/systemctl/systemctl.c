@@ -116,6 +116,8 @@ TimestampStyle arg_timestamp_style = TIMESTAMP_PRETTY;
 bool arg_read_only = false;
 bool arg_mkdir = false;
 bool arg_marked = false;
+bool arg_new = false;
+const char *arg_template = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_types, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_states, strv_freep);
@@ -433,6 +435,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_READ_ONLY,
                 ARG_MKDIR,
                 ARG_MARKED,
+                ARG_NEW,
         };
 
         static const struct option options[] = {
@@ -494,6 +497,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "read-only",           no_argument,       NULL, ARG_READ_ONLY           },
                 { "mkdir",               no_argument,       NULL, ARG_MKDIR               },
                 { "marked",              no_argument,       NULL, ARG_MARKED              },
+                { "new",                 optional_argument, NULL, ARG_NEW                 },
                 {}
         };
 
@@ -924,6 +928,13 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_MARKED:
                         arg_marked = true;
+                        break;
+
+                case ARG_NEW:
+                        arg_new = true;
+                        arg_template = "default_service.template";
+                        if(optarg)
+                                arg_template = optarg;
                         break;
 
                 case '.':
