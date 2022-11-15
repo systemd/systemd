@@ -58,6 +58,35 @@ TSS2_RC (*sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal)(uint8_t const buffer[], size_t bu
 TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Marshal)(TPM2B_PUBLIC const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
 TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PUBLIC *dest) = NULL;
 
+DLSYM_ASSERT_COMPAT(Esys_Create);
+DLSYM_ASSERT_COMPAT(Esys_CreatePrimary);
+DLSYM_ASSERT_COMPAT(Esys_Finalize);
+DLSYM_ASSERT_COMPAT(Esys_FlushContext);
+DLSYM_ASSERT_COMPAT(Esys_Free);
+DLSYM_ASSERT_COMPAT(Esys_GetCapability);
+DLSYM_ASSERT_COMPAT(Esys_GetRandom);
+DLSYM_ASSERT_COMPAT(Esys_Initialize);
+DLSYM_ASSERT_COMPAT(Esys_Load);
+DLSYM_ASSERT_COMPAT(Esys_LoadExternal);
+DLSYM_ASSERT_COMPAT(Esys_PCR_Extend);
+DLSYM_ASSERT_COMPAT(Esys_PCR_Read);
+DLSYM_ASSERT_COMPAT(Esys_PolicyAuthorize);
+DLSYM_ASSERT_COMPAT(Esys_PolicyAuthValue);
+DLSYM_ASSERT_COMPAT(Esys_PolicyGetDigest);
+DLSYM_ASSERT_COMPAT(Esys_PolicyPCR);
+DLSYM_ASSERT_COMPAT(Esys_StartAuthSession);
+DLSYM_ASSERT_COMPAT(Esys_Startup);
+DLSYM_ASSERT_COMPAT(Esys_TRSess_SetAttributes);
+DLSYM_ASSERT_COMPAT(Esys_TR_GetName);
+DLSYM_ASSERT_COMPAT(Esys_TR_SetAuth);
+DLSYM_ASSERT_COMPAT(Esys_Unseal);
+DLSYM_ASSERT_COMPAT(Esys_VerifySignature);
+DLSYM_ASSERT_COMPAT(Tss2_RC_Decode);
+DLSYM_ASSERT_COMPAT(Tss2_MU_TPM2B_PRIVATE_Marshal);
+DLSYM_ASSERT_COMPAT(Tss2_MU_TPM2B_PRIVATE_Unmarshal);
+DLSYM_ASSERT_COMPAT(Tss2_MU_TPM2B_PUBLIC_Marshal);
+DLSYM_ASSERT_COMPAT(Tss2_MU_TPM2B_PUBLIC_Unmarshal);
+
 int dlopen_tpm2(void) {
         int r;
 

@@ -20,3 +20,8 @@ int dlopen_many_sym_or_warn_sentinel(void **dlp, const char *filename, int log_l
  * "foobar" is loaded into a variable "sym_foobar". */
 #define DLSYM_ARG(arg) \
         &sym_##arg, STRINGIFY(arg)
+
+/* A static assertion ensuring that the sym_xyz function pointers we prepare for dynamic symbols acquired via
+ * dlopen()/dlsym() match the types announced in the header files */
+#define DLSYM_ASSERT_COMPAT(func) \
+        assert_cc(__builtin_types_compatible_p(typeof(sym_##func), typeof(&func)))
