@@ -1133,10 +1133,11 @@ static void unit_merge_dependencies(Unit *u, Unit *other) {
                         }
                 } else {
                         assert_se(r >= 0);
-                        TAKE_PTR(other_deps);
 
                         if (hashmap_remove(other_deps, u))
                                 unit_maybe_warn_about_dependency(u, u->id, UNIT_DEPENDENCY_FROM_PTR(dt));
+
+                        TAKE_PTR(other_deps);
                 }
         }
 
