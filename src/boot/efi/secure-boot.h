@@ -17,23 +17,11 @@ SecureBootMode secure_boot_mode(void);
 
 EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path);
 
-typedef struct {
-        void *hook;
+typedef bool (*security_validator_t)(
+                const void *ctx,
+                const EFI_DEVICE_PATH *device_path,
+                const void *file_buffer,
+                size_t file_size);
 
-        /* End of EFI_SECURITY_ARCH(2)_PROTOCOL. The rest is our own protocol instance data. */
-
-        EFI_HANDLE original_handle;
-        union {
-                void *original;
-                EFI_SECURITY_ARCH_PROTOCOL *original_security;
-                EFI_SECURITY2_ARCH_PROTOCOL *original_security2;
-        };
-
-        /* Used by the stub to identify the embedded image. */
-        const void *payload;
-        size_t payload_len;
-        const EFI_DEVICE_PATH *payload_device_path;
-} SecurityOverride;
-
-void install_security_override(SecurityOverride *override, SecurityOverride *override2);
-void uninstall_security_override(SecurityOverride *override, SecurityOverride *override2);
+void install_security_override(security_validator_t validator, const void *validator_ctx);
+void uninstall_security_override(void);
