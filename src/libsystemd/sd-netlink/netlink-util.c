@@ -12,7 +12,7 @@
 #include "process-util.h"
 #include "strv.h"
 
-int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
+int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name, bool keep_old_as_alternative) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         _cleanup_strv_free_ char **alternative_names = NULL;
         char old_name[IF_NAMESIZE] = {};
@@ -53,7 +53,7 @@ int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
         if (r < 0)
                 return r;
 
-        if (!isempty(old_name)) {
+        if (!isempty(old_name) && keep_old_as_alternative) {
                 r = rtnl_set_link_alternative_names(rtnl, ifindex, STRV_MAKE(old_name));
                 if (r < 0)
                         log_debug_errno(r, "Failed to set '%s' as an alternative name on network interface %i, ignoring: %m",
