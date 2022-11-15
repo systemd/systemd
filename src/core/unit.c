@@ -1043,10 +1043,10 @@ static int unit_add_dependency_hashmap(
         return unit_per_dependency_type_hashmap_update(per_type, other, origin_mask, destination_mask);
 }
 
-static void unit_merge_dependencies(
-                Unit *u,
-                Unit *other) {
-
+static void unit_merge_dependencies(Unit *u, Unit *other) {
+        Hashmap *deps;
+        void *dt; /* Actually of type UnitDependency, except that we don't bother casting it here,
+                   * since the hashmaps all want it as void pointer. */
         int r;
 
         assert(u);
@@ -1055,12 +1055,19 @@ static void unit_merge_dependencies(
         if (u == other)
                 return;
 
+        /* First, remove dependency to other. */
+        HASHMAP_FOREACH_KEY(deps, dt, u->dependencies) {
+                UnitDependencyInfo di_other;
+
+                di_other.data = hashmap_remove(deps, other);
+                if (di_other.data)
+                        unit_maybe_warn_about_dependency(u, other->id, UNIT_DEPENDENCY_FROM_PTR(dt));
+        }
+
         for (;;) {
                 _cleanup_(hashmap_freep) Hashmap *other_deps = NULL;
                 UnitDependencyInfo di_back;
                 Unit *back;
-                void *dt; /* Actually of type UnitDependency, except that we don't bother casting it here,
-                           * since the hashmaps all want it as void pointer. */
 
                 /* Let's focus on one dependency type at a time, that 'other' has defined. */
                 other_deps = hashmap_steal_first_key_and_value(other->dependencies, &dt);
@@ -1102,8 +1109,6 @@ static void unit_merge_dependencies(
                  * them per type wholesale. */
                 r = hashmap_put(u->dependencies, dt, other_deps);
                 if (r == -EEXIST) {
-                        Hashmap *deps;
-
                         /* The target unit already has dependencies of this type, let's then merge this individually. */
 
                         assert_se(deps = hashmap_get(u->dependencies, dt));
