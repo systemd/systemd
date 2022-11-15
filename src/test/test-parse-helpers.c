@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <linux/in.h>
 #include <sys/socket.h>
 #include <stdio.h>
 
 #include "macro.h"
 #include "parse-helpers.h"
+#include "string-util.h"
 #include "tests.h"
 
 static void test_valid_item(
@@ -90,6 +92,27 @@ TEST(invalid_items) {
         test_invalid_item("ipv6:tcp:6666 zupa");
         test_invalid_item("ipv6:tcp:6666: zupa");
         test_invalid_item("ipv6:tcp:6666\n zupa");
+}
+
+TEST(parse_open_file_fields) {
+        _cleanup_free_ char *path = NULL;
+        _cleanup_free_ char *fdname = NULL;
+        int flags;
+        int r;
+
+        r = parse_open_file_fields("/proc/1/ns/mnt:host-mount-namespace:ro", &path, &fdname, &flags);
+
+        assert_se(r == 0);
+        assert_se(streq(path, "/proc/1/ns/mnt"));
+        assert_se(streq(fdname, "host-mount-namespace"));
+        assert_se(flags == O_RDONLY);
+
+        r = parse_open_file_fields("/proc/1/ns/mnt::rw", &path, &fdname, &flags);
+
+        assert_se(r == 0);
+        assert_se(streq(path, "/proc/1/ns/mnt"));
+        assert_se(streq(fdname, ""));
+        assert_se(flags == O_RDWR);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

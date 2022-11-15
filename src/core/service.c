@@ -355,10 +355,27 @@ static void service_release_resources(Unit *u) {
         service_release_fd_store(s);
 }
 
+static void service_free_open_files(Service *s) {
+        OpenFile *f;
+
+        assert(s);
+
+        while ((f = s->open_files)) {
+                LIST_REMOVE(open_files, s->open_files, f);
+
+                if (f->fd >= 0)
+                        safe_close(f->fd);
+                free_open_file_fields(f);
+                free(f);
+        }
+}
+
 static void service_done(Unit *u) {
         Service *s = SERVICE(u);
 
         assert(s);
+
+        service_free_open_files(s);
 
         s->pid_file = mfree(s->pid_file);
         s->status_text = mfree(s->status_text);
@@ -925,6 +942,13 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix, s->n_fd_store_max,
                         prefix, s->n_fd_store);
 
+        if (s->open_files) {
+                LIST_FOREACH(open_files, open_file, s->open_files) {
+                        fprintf(f, "%sOpen File: %s\n",
+                                prefix, open_file_to_string(open_file));
+                }
+        }
+
         cgroup_context_dump(UNIT(s), f, prefix);
 }
 
@@ -1355,6 +1379,63 @@ static int service_collect_fds(
                 }
 
                 rfd_names[n_fds] = NULL;
+        }
+
+        if (s->open_files) {
+                size_t n_fds = rn_socket_fds + s->n_fd_store;
+                LIST_FOREACH(open_files, f, s->open_files) {
+                        struct stat st;
+
+                        if (stat(f->path, &st) < 0) {
+                                log_error_errno(errno, "Failed to stat %s: %m", f->path);
+                                continue;
+                        }
+                        if (S_ISSOCK(st.st_mode)) {
+                                int socketfd;
+                                struct sockaddr_un addr;
+                                socklen_t sa_len;
+                                socketfd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
+                                if (socketfd < 0) {
+                                        log_unit_error_errno(UNIT(s), errno, "Failed to create socket for %s: %m", f->path);
+                                        continue;
+                                }
+                                r = sockaddr_un_set_path(&addr, f->path);
+                                if (r < 0) {
+                                        log_unit_error_errno(UNIT(s), errno, "Failed to fill sockaddr for %s: %m", f->path);
+                                        continue;
+                                }
+                                sa_len = r;
+                                f->fd = connect(socketfd, (struct sockaddr*)&addr, sa_len) >= 0 ? socketfd : -1;
+                                if (f->fd < 0) {
+                                        log_unit_error_errno(UNIT(s), errno, "Failed to connect to socket sun_path %s sun_family %d: %m", addr.sun_path, addr.sun_family);
+                                        continue;
+                                }
+                                log_unit_debug(UNIT(s), "socket %s opened (fd=%d)", f->path, f->fd);
+                        } else {
+                                f->fd = open(f->path, f->flags);
+                                if (f->fd < 0) {
+                                        log_unit_error_errno(UNIT(s), errno, "Failed to open file %s: %m", f->path);
+                                        continue;
+                                }
+                                log_unit_debug(UNIT(s), "file %s opened (fd=%d)", f->path, f->fd);
+                        }
+
+                        if (!GREEDY_REALLOC(rfds, n_fds + 1))
+                                return -ENOMEM;
+
+                        if (!GREEDY_REALLOC(rfd_names, n_fds + 2))
+                                return -ENOMEM;
+
+                        rfds[n_fds] = f->fd;
+                        rfd_names[n_fds] = strdup(strempty(f->fdname));
+                        if (!rfd_names[n_fds])
+                                return -ENOMEM;
+
+                        n_fds++;
+                        rn_storage_fds++;
+
+                        rfd_names[n_fds] = NULL;
+                }
         }
 
         *fds = TAKE_PTR(rfds);
