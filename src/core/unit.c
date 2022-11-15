@@ -939,10 +939,13 @@ static int unit_reserve_dependencies(Unit *u, Unit *other) {
 
 static void unit_maybe_warn_about_dependency(
                 Unit *u,
-                const char *other_id,
+                Unit *owner,
+                Unit *target,
                 UnitDependency dependency) {
 
         assert(u);
+        assert(owner);
+        assert(target);
 
         /* Only warn about some unit types */
         if (!IN_SET(dependency,
@@ -956,10 +959,19 @@ static void unit_maybe_warn_about_dependency(
                     UNIT_TRIGGERED_BY))
                 return;
 
-        if (streq_ptr(u->id, other_id))
-                log_unit_warning(u, "Dependency %s=%s dropped", unit_dependency_to_string(dependency), u->id);
-        else
-                log_unit_warning(u, "Dependency %s=%s dropped, merged into %s", unit_dependency_to_string(dependency), strna(other_id), u->id);
+        bool show_owner = !streq_ptr(u->id, owner->id);
+        const char *reason_id =
+                show_owner ? strna(owner->id) :
+                !streq_ptr(u->id, target->id) ? strna(target->id) : NULL;
+        log_unit_warning(u, "Dependency %s=%s%s%s is dropped%s%s%s%s.",
+                         unit_dependency_to_string(dependency),
+                         strna(target->id),
+                         show_owner ? " in " : "",
+                         show_owner ? strna(owner->id) : "",
+                         reason_id ? ", as " : "",
+                         reason_id,
+                         reason_id ? " is merged into " : "",
+                         reason_id ? strna(u->id) : "");
 }
 
 static int unit_per_dependency_type_hashmap_update(
@@ -1058,7 +1070,7 @@ static void unit_merge_dependencies(Unit *u, Unit *other) {
         /* First, remove dependency to other. */
         HASHMAP_FOREACH_KEY(deps, dt, u->dependencies) {
                 if (hashmap_remove(deps, other))
-                        unit_maybe_warn_about_dependency(u, other->id, UNIT_DEPENDENCY_FROM_PTR(dt));
+                        unit_maybe_warn_about_dependency(u, u, other, UNIT_DEPENDENCY_FROM_PTR(dt));
 
                 if (hashmap_isempty(deps))
                         hashmap_free(hashmap_remove(u->dependencies, dt));
@@ -1085,7 +1097,7 @@ static void unit_merge_dependencies(Unit *u, Unit *other) {
                         if (back == u) {
                                 /* This is a dependency pointing back to the unit we want to merge with?
                                  * Suppress it (but warn) */
-                                unit_maybe_warn_about_dependency(u, other->id, UNIT_DEPENDENCY_FROM_PTR(dt));
+                                unit_maybe_warn_about_dependency(u, other, u, UNIT_DEPENDENCY_FROM_PTR(dt));
                                 hashmap_remove(other_deps, back);
                                 continue;
                         }
@@ -3074,7 +3086,7 @@ int unit_add_dependency(
 
         /* We won't allow dependencies on ourselves. We will not consider them an error however. */
         if (u == other) {
-                unit_maybe_warn_about_dependency(original_u, original_other->id, d);
+                unit_maybe_warn_about_dependency(original_u, original_u, original_other, d);
                 return 0;
         }
 
