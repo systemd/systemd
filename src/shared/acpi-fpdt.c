@@ -61,6 +61,37 @@ struct acpi_fpdt_boot {
         uint64_t exit_services_exit;
 } _packed;
 
+/* /dev/mem is deprecated on many systems, try using /sys/firmware/acpi/fpdt parsing instead.
+ * This code requires kernel version 5.12 on x86 based machines or 6.2 for arm64 */
+static int acpi_get_boot_usec_kernel_parsed(usec_t *ret_loader_start, usec_t *ret_loader_exit) {
+        usec_t start, end;
+        int r;
+
+        r = read_timestamp_file("/sys/firmware/acpi/fpdt/boot/exitbootservice_end_ns", &end);
+        if (r < 0)
+                return r;
+
+        if (end == 0)
+                /* Non-UEFI compatible boot. */
+                return -ENODATA;
+
+        r = read_timestamp_file("/sys/firmware/acpi/fpdt/boot/bootloader_launch_ns", &start);
+        if (r < 0)
+                return r;
+
+        if (start == 0 || end < start)
+                return -EINVAL;
+        if (end > NSEC_PER_HOUR)
+                return -EINVAL;
+
+        if (ret_loader_start)
+                *ret_loader_start = start / 1000;
+        if (ret_loader_exit)
+                *ret_loader_exit = end / 1000;
+
+        return 0;
+}
+
 int acpi_get_boot_usec(usec_t *ret_loader_start, usec_t *ret_loader_exit) {
         _cleanup_free_ char *buf = NULL;
         struct acpi_table_header *tbl;
@@ -72,6 +103,10 @@ int acpi_get_boot_usec(usec_t *ret_loader_start, usec_t *ret_loader_exit) {
         _cleanup_close_ int fd = -1;
         struct acpi_fpdt_boot_header hbrec;
         struct acpi_fpdt_boot brec;
+
+        r = acpi_get_boot_usec_kernel_parsed(ret_loader_start, ret_loader_exit);
+        if (r != -ENOENT) /* fallback to /dev/mem hack only if kernel doesn't support the new sysfs files */
+                return r;
 
         r = read_full_virtual_file("/sys/firmware/acpi/tables/FPDT", &buf, &l);
         if (r < 0)
