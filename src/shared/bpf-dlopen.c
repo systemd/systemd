@@ -6,8 +6,8 @@
 #include "strv.h"
 
 #if HAVE_LIBBPF
-struct bpf_link* (*sym_bpf_program__attach_cgroup)(struct bpf_program *, int);
-struct bpf_link* (*sym_bpf_program__attach_lsm)(struct bpf_program *);
+struct bpf_link* (*sym_bpf_program__attach_cgroup)(const struct bpf_program *, int);
+struct bpf_link* (*sym_bpf_program__attach_lsm)(const struct bpf_program *);
 int (*sym_bpf_link__fd)(const struct bpf_link *);
 int (*sym_bpf_link__destroy)(struct bpf_link *);
 int (*sym_bpf_map__fd)(const struct bpf_map *);
@@ -22,7 +22,7 @@ int (*sym_bpf_object__load_skeleton)(struct bpf_object_skeleton *);
 int (*sym_bpf_object__attach_skeleton)(struct bpf_object_skeleton *);
 void (*sym_bpf_object__detach_skeleton)(struct bpf_object_skeleton *);
 void (*sym_bpf_object__destroy_skeleton)(struct bpf_object_skeleton *);
-bool (*sym_libbpf_probe_bpf_prog_type)(enum bpf_prog_type, const void *);
+int (*sym_libbpf_probe_bpf_prog_type)(enum bpf_prog_type, const void *);
 const char* (*sym_bpf_program__name)(const struct bpf_program *);
 libbpf_print_fn_t (*sym_libbpf_set_print)(libbpf_print_fn_t);
 long (*sym_libbpf_get_error)(const void *);
@@ -48,6 +48,8 @@ static int bpf_print_func(enum libbpf_print_level level, const char *fmt, va_lis
 int dlopen_bpf(void) {
         void *dl;
         int r;
+
+        DISABLE_WARNING_DEPRECATED_DECLARATIONS;
 
         dl = dlopen("libbpf.so.1", RTLD_LAZY);
         if (!dl) {
@@ -96,6 +98,9 @@ int dlopen_bpf(void) {
 
         /* We set the print helper unconditionally. Otherwise libbpf will emit not useful log messages. */
         (void) sym_libbpf_set_print(bpf_print_func);
+
+        REENABLE_WARNING;
+
         return r;
 }
 
