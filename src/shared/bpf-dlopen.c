@@ -6,8 +6,8 @@
 #include "strv.h"
 
 #if HAVE_LIBBPF
-struct bpf_link* (*sym_bpf_program__attach_cgroup)(struct bpf_program *, int);
-struct bpf_link* (*sym_bpf_program__attach_lsm)(struct bpf_program *);
+struct bpf_link* (*sym_bpf_program__attach_cgroup)(const struct bpf_program *, int);
+struct bpf_link* (*sym_bpf_program__attach_lsm)(const struct bpf_program *);
 int (*sym_bpf_link__fd)(const struct bpf_link *);
 int (*sym_bpf_link__destroy)(struct bpf_link *);
 int (*sym_bpf_map__fd)(const struct bpf_map *);
@@ -22,7 +22,7 @@ int (*sym_bpf_object__load_skeleton)(struct bpf_object_skeleton *);
 int (*sym_bpf_object__attach_skeleton)(struct bpf_object_skeleton *);
 void (*sym_bpf_object__detach_skeleton)(struct bpf_object_skeleton *);
 void (*sym_bpf_object__destroy_skeleton)(struct bpf_object_skeleton *);
-bool (*sym_libbpf_probe_bpf_prog_type)(enum bpf_prog_type, const void *);
+int (*sym_libbpf_probe_bpf_prog_type)(enum bpf_prog_type, const void *);
 const char* (*sym_bpf_program__name)(const struct bpf_program *);
 libbpf_print_fn_t (*sym_libbpf_set_print)(libbpf_print_fn_t);
 long (*sym_libbpf_get_error)(const void *);
@@ -49,6 +49,8 @@ int dlopen_bpf(void) {
         void *dl;
         int r;
 
+        DISABLE_WARNING_DEPRECATED_DECLARATIONS;
+
         dl = dlopen("libbpf.so.1", RTLD_LAZY);
         if (!dl) {
                 /* libbpf < 1.0.0 (we rely on 0.1.0+) provide most symbols we care about, but
@@ -66,9 +68,17 @@ int dlopen_bpf(void) {
                                 DLSYM_ARG(bpf_probe_prog_type));
         } else {
                 /* symbols available from 0.7.0 */
-                r = dlsym_many_or_warn(dl, LOG_DEBUG,
+                r = dlsym_many_or_warn(
+                                dl, LOG_DEBUG,
+#if __LIBBPF_CURRENT_VERSION_GEQ(0, 7)
                                 DLSYM_ARG(bpf_map_create),
-                                DLSYM_ARG(libbpf_probe_bpf_prog_type));
+                                DLSYM_ARG(libbpf_probe_bpf_prog_type)
+#else
+                                /* These symbols did not exist in old libbpf, hence we cannot type check them */
+                                DLSYM_ARG_FORCE(bpf_map_create),
+                                DLSYM_ARG_FORCE(libbpf_probe_bpf_prog_type)
+#endif
+                );
         }
 
         r = dlsym_many_or_warn(
@@ -86,8 +96,14 @@ int dlopen_bpf(void) {
                         DLSYM_ARG(bpf_object__attach_skeleton),
                         DLSYM_ARG(bpf_object__detach_skeleton),
                         DLSYM_ARG(bpf_object__destroy_skeleton),
+#if __LIBBPF_CURRENT_VERSION_GEQ(0, 7)
                         DLSYM_ARG(bpf_program__attach_cgroup),
                         DLSYM_ARG(bpf_program__attach_lsm),
+#else
+                        /* libbpf added a "const" to function parameters where it should not have, ignore this type incompatibility */
+                        DLSYM_ARG_FORCE(bpf_program__attach_cgroup),
+                        DLSYM_ARG_FORCE(bpf_program__attach_lsm),
+#endif
                         DLSYM_ARG(bpf_program__name),
                         DLSYM_ARG(libbpf_set_print),
                         DLSYM_ARG(libbpf_get_error));
@@ -96,6 +112,9 @@ int dlopen_bpf(void) {
 
         /* We set the print helper unconditionally. Otherwise libbpf will emit not useful log messages. */
         (void) sym_libbpf_set_print(bpf_print_func);
+
+        REENABLE_WARNING;
+
         return r;
 }
 
