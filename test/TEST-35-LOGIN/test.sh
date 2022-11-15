@@ -8,6 +8,7 @@ TEST_DESCRIPTION="Tests for systemd-logind"
 . "${TEST_BASE_DIR:?}/test-functions"
 
 test_append_files() {
+    image_install "$TEST_MANUAL_DIR"/test-session-properties
     image_install -o evemu-device evemu-event
 }
 
