@@ -937,29 +937,17 @@ static int unit_reserve_dependencies(Unit *u, Unit *other) {
         return 0;
 }
 
-static void unit_maybe_warn_about_dependency(
-                Unit *u,
-                const char *other_id,
-                UnitDependency dependency) {
-
-        assert(u);
-
+static bool unit_should_warn_about_dependency(UnitDependency dependency) {
         /* Only warn about some unit types */
-        if (!IN_SET(dependency,
-                    UNIT_CONFLICTS,
-                    UNIT_CONFLICTED_BY,
-                    UNIT_BEFORE,
-                    UNIT_AFTER,
-                    UNIT_ON_SUCCESS,
-                    UNIT_ON_FAILURE,
-                    UNIT_TRIGGERS,
-                    UNIT_TRIGGERED_BY))
-                return;
-
-        if (streq_ptr(u->id, other_id))
-                log_unit_warning(u, "Dependency %s=%s dropped", unit_dependency_to_string(dependency), u->id);
-        else
-                log_unit_warning(u, "Dependency %s=%s dropped, merged into %s", unit_dependency_to_string(dependency), strna(other_id), u->id);
+        return IN_SET(dependency,
+                      UNIT_CONFLICTS,
+                      UNIT_CONFLICTED_BY,
+                      UNIT_BEFORE,
+                      UNIT_AFTER,
+                      UNIT_ON_SUCCESS,
+                      UNIT_ON_FAILURE,
+                      UNIT_TRIGGERS,
+                      UNIT_TRIGGERED_BY);
 }
 
 static int unit_per_dependency_type_hashmap_update(
@@ -1057,8 +1045,10 @@ static void unit_merge_dependencies(Unit *u, Unit *other) {
 
         /* First, remove dependency to other. */
         HASHMAP_FOREACH_KEY(deps, dt, u->dependencies) {
-                if (hashmap_remove(deps, other))
-                        unit_maybe_warn_about_dependency(u, other->id, UNIT_DEPENDENCY_FROM_PTR(dt));
+                if (hashmap_remove(deps, other) && unit_should_warn_about_dependency(UNIT_DEPENDENCY_FROM_PTR(dt)))
+                        log_unit_warning(u, "Dependency %s=%s is dropped, as %s is merged into %s.",
+                                         unit_dependency_to_string(UNIT_DEPENDENCY_FROM_PTR(dt)),
+                                         other->id, other->id, u->id);
 
                 if (hashmap_isempty(deps))
                         hashmap_free(hashmap_remove(u->dependencies, dt));
@@ -1085,7 +1075,11 @@ static void unit_merge_dependencies(Unit *u, Unit *other) {
                         if (back == u) {
                                 /* This is a dependency pointing back to the unit we want to merge with?
                                  * Suppress it (but warn) */
-                                unit_maybe_warn_about_dependency(u, other->id, UNIT_DEPENDENCY_FROM_PTR(dt));
+                                if (unit_should_warn_about_dependency(UNIT_DEPENDENCY_FROM_PTR(dt)))
+                                        log_unit_warning(u, "Dependency %s=%s in %s is dropped, as %s is merged into %s.",
+                                                         unit_dependency_to_string(UNIT_DEPENDENCY_FROM_PTR(dt)),
+                                                         u->id, other->id, other->id, u->id);
+
                                 hashmap_remove(other_deps, back);
                                 continue;
                         }
@@ -3055,7 +3049,6 @@ int unit_add_dependency(
                 [UNIT_IN_SLICE]               = UNIT_SLICE_OF,
                 [UNIT_SLICE_OF]               = UNIT_IN_SLICE,
         };
-        Unit *original_u = u, *original_other = other;
         UnitDependencyAtom a;
         int r;
 
@@ -3074,7 +3067,9 @@ int unit_add_dependency(
 
         /* We won't allow dependencies on ourselves. We will not consider them an error however. */
         if (u == other) {
-                unit_maybe_warn_about_dependency(original_u, original_other->id, d);
+                if (unit_should_warn_about_dependency(d))
+                        log_unit_warning(u, "Dependency %s=%s is dropped.",
+                                         unit_dependency_to_string(d), u->id);
                 return 0;
         }
 
