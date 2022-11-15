@@ -776,7 +776,7 @@ static int get_glinksettings(int fd, struct ifreq *ifr, struct ethtool_link_uset
            https://github.com/torvalds/linux/commit/3f1ac7a700d039c61d8d8b99f28d605d489a60cf
         */
 
-        ifr->ifr_data = (void *) &ecmd;
+        ifr->ifr_data = &ecmd;
 
         if (ioctl(fd, SIOCETHTOOL, ifr) < 0)
                 return -errno;
