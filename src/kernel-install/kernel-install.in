@@ -159,7 +159,7 @@ if [ -z "$MACHINE_ID" ] && [ -f /etc/machine-info ]; then
         log_verbose "machine-id $MACHINE_ID acquired from /etc/machine-info"
 fi
 if [ -z "$MACHINE_ID" ] && [ -f /etc/machine-id ]; then
-    read -r MACHINE_ID </etc/machine-id
+    read -r MACHINE_ID </etc/machine-id || true
     [ -n "$MACHINE_ID" ] && \
         log_verbose "machine-id $MACHINE_ID acquired from /etc/machine-id"
 fi
