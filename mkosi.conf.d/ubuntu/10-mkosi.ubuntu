@@ -10,7 +10,9 @@ Repositories=main,universe
 
 [Content]
 Packages=
+        btrfs-progs
         cryptsetup-bin
+        f2fs-tools
         fdisk
         fuse
         gcc # Provides libasan/libubsan
