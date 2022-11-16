@@ -154,6 +154,12 @@ static inline pid_t raw_getpid(void) {
 
 /* ======================================================================= */
 
+static inline pid_t raw_gettid(void) {
+        return (pid_t) syscall(__NR_gettid);
+}
+
+/* ======================================================================= */
+
 #if !HAVE_RENAMEAT2
 static inline int missing_renameat2(int oldfd, const char *oldname, int newfd, const char *newname, unsigned flags) {
 #  ifdef __NR_renameat2
@@ -359,6 +365,20 @@ static inline int missing_rt_sigqueueinfo(pid_t tgid, int sig, siginfo_t *info) 
 }
 
 #  define rt_sigqueueinfo missing_rt_sigqueueinfo
+#endif
+
+/* ======================================================================= */
+
+#if !HAVE_RT_TGSIGQUEUEINFO
+static inline int missing_rt_tgsigqueueinfo(pid_t tgid, pid_t tid, int sig, siginfo_t *info) {
+#  if defined __NR_rt_tgsigqueueinfo && __NR_rt_tgsigqueueinfo >= 0
+        return syscall(__NR_rt_tgsigqueueinfo, tgid, tid, sig, info);
+#  else
+#    error "__NR_rt_tgsigqueueinfo not defined"
+#  endif
+}
+
+#  define rt_tgsigqueueinfo missing_rt_tgsigqueueinfo
 #endif
 
 /* ======================================================================= */
