@@ -4170,19 +4170,19 @@ alias_target('fuzzers', fuzzer_exes)
 
 ############################################################
 
+subdir('docs/sysvinit')
+subdir('docs/var-log')
+subdir('hwdb.d')
+subdir('man')
 subdir('modprobe.d')
+subdir('network')
+subdir('presets')
+subdir('shell-completion/bash')
+subdir('shell-completion/zsh')
 subdir('sysctl.d')
 subdir('sysusers.d')
 subdir('tmpfiles.d')
-subdir('hwdb.d')
 subdir('units')
-subdir('presets')
-subdir('network')
-subdir('man')
-subdir('shell-completion/bash')
-subdir('shell-completion/zsh')
-subdir('docs/sysvinit')
-subdir('docs/var-log')
 
 install_subdir('factory/etc',
                install_dir : factorydir)
