@@ -1975,7 +1975,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
 
 static int install_random_seed(const char *esp) {
         _cleanup_(unlink_and_freep) char *tmp = NULL;
-        unsigned char buffer[RANDOM_EFI_SEED_SIZE];
+        uint8_t buffer[RANDOM_EFI_SEED_SIZE];
         _cleanup_free_ char *path = NULL;
         _cleanup_close_ int fd = -1;
         size_t token_size;
