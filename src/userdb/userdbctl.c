@@ -101,11 +101,9 @@ static int show_user(UserRecord *ur, Table *table, JsonVariant **array) {
 
                 break;
 
-        case OUTPUT_TABLE: {
-                UserDisposition d;
-
+        case OUTPUT_TABLE:
                 assert(table);
-                d = user_record_disposition(ur);
+                UserDisposition d = user_record_disposition(ur);
 
                 r = table_add_many(
                                 table,
@@ -123,7 +121,6 @@ static int show_user(UserRecord *ur, Table *table, JsonVariant **array) {
                         return table_log_add_error(r);
 
                 break;
-        }
 
         default:
                 assert_not_reached();
@@ -403,7 +400,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
                         log_debug_errno(r, "No entries found.");
                 else if (r < 0)
                         return log_error_errno(r, "Failed to enumerate users: %m");
-                else {
+                else
                         for (;;) {
                                 _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
 
@@ -424,7 +421,6 @@ static int display_user(int argc, char *argv[], void *userdata) {
 
                                 draw_separator = true;
                         }
-                }
         }
 
         if (table) {
@@ -506,11 +502,9 @@ static int show_group(GroupRecord *gr, Table *table, JsonVariant **array) {
 
                 break;
 
-        case OUTPUT_TABLE: {
-                UserDisposition d;
-
+        case OUTPUT_TABLE:
                 assert(table);
-                d = group_record_disposition(gr);
+                UserDisposition d = group_record_disposition(gr);
 
                 r = table_add_many(
                                 table,
@@ -525,7 +519,6 @@ static int show_group(GroupRecord *gr, Table *table, JsonVariant **array) {
                         return table_log_add_error(r);
 
                 break;
-        }
 
         default:
                 assert_not_reached();
@@ -712,7 +705,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
                         log_debug_errno(r, "No entries found.");
                 else if (r < 0)
                         return log_error_errno(r, "Failed to enumerate groups: %m");
-                else {
+                else
                         for (;;) {
                                 _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
 
@@ -733,7 +726,6 @@ static int display_group(int argc, char *argv[], void *userdata) {
 
                                 draw_separator = true;
                         }
-                }
         }
 
         if (table) {
