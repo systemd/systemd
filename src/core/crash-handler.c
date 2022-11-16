@@ -47,11 +47,10 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
          * memory allocation is not async-signal-safe anyway — see signal-safety(7) for details —, and thus
          * is not permissible in signal handlers.) */
 
-        if (getpid_cached() != 1) {
+        if (getpid_cached() != 1)
                 /* Pass this on immediately, if this is not PID 1 */
-                if (rt_tgsigqueueinfo(getpid_cached(), gettid(), sig, siginfo) < 0)
-                        (void) raise(sig);
-        } else if (!arg_dump_core)
+                propagate_signal(sig, siginfo);
+        else if (!arg_dump_core)
                 log_emergency("Caught <%s>, not dumping core.", signal_to_string(sig));
         else {
                 sa = (struct sigaction) {
@@ -80,10 +79,7 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
                         (void) chdir("/");
 
                         /* Raise the signal again */
-                        pid = raw_getpid();
-                        if (rt_tgsigqueueinfo(pid, gettid(), sig, siginfo) < 0)
-                                (void) kill(pid, sig); /* raise() would kill the parent */
-
+                        propagate_signal(sig, siginfo);
                         assert_not_reached();
                         _exit(EXIT_EXCEPTION);
                 } else {
