@@ -20,7 +20,7 @@ __attribute__((noreturn)) extern void __assert_cl_failure__(void) __attribute__(
 __attribute__((noreturn)) extern void __assert_cl_failure__(void);
 #endif
 /* assert_cl generates a later-stage compile-time assertion when constant folding occurs. */
-#define assert_cl(condition) if (!(condition)) __assert_cl_failure__()
+#define assert_cl(condition) ({ if (!(condition)) __assert_cl_failure__(); })
 #else
 #define assert_cl(condition) assert(condition)
 #endif
@@ -60,7 +60,7 @@ static inline void freep(void *p) {
 
 static __always_inline void erase_obj(void *p) {
         size_t l;
-        assert_cl(p != NULL);
+        assert_cl(p);
         l = __builtin_object_size(p, 0);
         assert_cl(l != (size_t) -1);
         explicit_bzero_safe(p, l);

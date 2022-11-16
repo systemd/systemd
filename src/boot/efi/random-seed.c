@@ -59,7 +59,6 @@ static EFI_STATUS acquire_system_token(void **ret, UINTN *ret_size) {
         assert(ret);
         assert(ret_size);
 
-        *ret_size = 0;
         err = efivar_get_raw(LOADER_GUID, L"LoaderSystemToken", &data, &size);
         if (err != EFI_SUCCESS) {
                 if (err != EFI_NOT_FOUND)
@@ -187,6 +186,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
         /* Get some system specific seed that the installer might have placed in an EFI variable. We include
          * it in our hash. This is protection against golden master image sloppiness, and it remains on the
          * system, even when disk images are duplicated or swapped out. */
+        size = 0;
         err = acquire_system_token(&system_token, &size);
         if (mode != RANDOM_SEED_ALWAYS && (err != EFI_SUCCESS || size < DESIRED_SEED_SIZE) && !seeded_by_efi)
                 return err;
@@ -246,6 +246,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
         size = sizeof(uefi_monotonic_counter);
         sha256_process_bytes(&size, sizeof(size), &hash);
         sha256_process_bytes(&uefi_monotonic_counter, size, &hash);
+
         err = RT->GetTime(&now, NULL);
         size = err == EFI_SUCCESS ? sizeof(now) : 0; /* Known to be flaky, so don't bark on error. */
         sha256_process_bytes(&size, sizeof(size), &hash);
@@ -295,7 +296,8 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to flush random seed file: %r", err);
 
-        err = BS->AllocatePool(EfiACPIReclaimMemory, sizeof(*new_seed_table) + DESIRED_SEED_SIZE,
+        err = BS->AllocatePool(EfiACPIReclaimMemory,
+                               offsetof(struct linux_efi_random_seed, seed) + DESIRED_SEED_SIZE,
                                (void **) &new_seed_table);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Failed to allocate EFI table for random seed: %r", err);
