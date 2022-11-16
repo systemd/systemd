@@ -49,7 +49,7 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
 
         if (getpid_cached() != 1)
                 /* Pass this on immediately, if this is not PID 1 */
-                (void) raise(sig);
+                (void) rt_sigqueueinfo(getpid_cached(), sig, siginfo);
         else if (!arg_dump_core)
                 log_emergency("Caught <%s>, not dumping core.", signal_to_string(sig));
         else {
@@ -80,7 +80,7 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
 
                         /* Raise the signal again */
                         pid = raw_getpid();
-                        (void) kill(pid, sig); /* raise() would kill the parent */
+                        (void) rt_sigqueueinfo(pid, sig, siginfo);
 
                         assert_not_reached();
                         _exit(EXIT_EXCEPTION);
