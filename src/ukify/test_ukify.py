@@ -8,6 +8,7 @@ import json
 import os
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
 
@@ -187,9 +188,18 @@ def test_sections(kernel_initrd, tmpdir):
     for sect in 'text osrel cmdline linux initrd uname test'.split():
         assert re.search(fr'^\s*\d+\s+.{sect}\s+0', dump, re.MULTILINE)
 
+def test_uname_scraping(kernel_initrd):
+    if kernel_initrd is None:
+        pytest.skip('linux+initrd not found')
+
+    uname = ukify.Uname.scrape(kernel_initrd[0])
+    assert re.match(r'\d+\.\d+\.\d+', uname)
+
 def test_signing(kernel_initrd, tmpdir):
     if kernel_initrd is None:
         pytest.skip('linux+initrd not found')
+    if not shutil.which('sbsign'):
+        pytest.skip('sbsign not found')
 
     ourdir = pathlib.Path(__file__).parent
     cert = ourdir / 'signing.crt'
@@ -212,14 +222,15 @@ def test_signing(kernel_initrd, tmpdir):
 
     ukify.make_uki(opts)
 
-    # let's check that sbverify likes the resulting file
-    dump = subprocess.check_output([
-        'sbverify',
-        '--cert', cert,
-        output,
-    ], text=True)
+    if shutil.which('sbverify'):
+        # let's check that sbverify likes the resulting file
+        dump = subprocess.check_output([
+            'sbverify',
+            '--cert', cert,
+            output,
+        ], text=True)
 
-    assert 'Signature verification OK' in dump
+        assert 'Signature verification OK' in dump
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
