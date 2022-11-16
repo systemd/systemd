@@ -526,6 +526,23 @@
   </refsect1>
 
   <refsect1>
+    <title>Using systemd-boot in virtual machines.</title>
+
+    <para>When using qemu with OVMF (UEFI Firmware for virtual machines) the <option>-kernel</option> switch
+    works not only for linux kernels, but for any EFI binary, including sd-boot and unified linux
+    kernels.  Example command line for loading sd-boot on x64:</para>
+
+    <para>
+      <command>qemu-system-x86_64 <replaceable>[ ... ]</replaceable>
+      -kernel /usr/lib/systemd/boot/efi/systemd-bootx64.efi</command>
+    </para>
+
+    <para>systemd-boot will detect that it was started directly instead of being loaded from ESP and will
+    search for the ESP in that case, taking into account boot order information from the hypervisor (if
+    available).</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
