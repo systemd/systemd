@@ -2587,7 +2587,7 @@ if conf.get('HAVE_BLKID') == 1 and conf.get('HAVE_GNU_EFI') == 1
                 boot_link_with = [libsystemd_static, libshared_static]
         endif
 
-        public_programs += executable(
+        exe = executable(
                 'bootctl',
                 'src/boot/bootctl.c',
                 include_directories : includes,
@@ -2596,6 +2596,14 @@ if conf.get('HAVE_BLKID') == 1 and conf.get('HAVE_GNU_EFI') == 1
                                 versiondep],
                 install_rpath : rootpkglibdir,
                 install : true)
+        public_programs += exe
+
+        if want_tests != 'false'
+                test('test-bootctl-json',
+                     test_bootctl_json_sh,
+                     args : exe.full_path(),
+                     depends : exe)
+        endif
 
         public_programs += executable(
                 'systemd-bless-boot',
