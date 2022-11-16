@@ -4001,6 +4001,18 @@ if want_tests != 'false' and want_kernel_install
              args : [exe.full_path(), loaderentry_install])
 endif
 
+if get_option('ukify')
+   exe = custom_target(
+        'ukify',
+        input : 'src/ukify/ukify.py',
+        output : 'ukify',
+        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
+        install : true,
+        install_mode : 'rwxr-xr-x',
+        install_dir : rootlibexecdir)
+   public_programs += exe
+endif
+
 ############################################################
 
 runtest_env = custom_target(
