@@ -5,6 +5,7 @@
 
 #include "errno-util.h"
 #include "macro.h"
+#include "missing_syscall.h"
 #include "parse-util.h"
 #include "signal-util.h"
 #include "stdio-util.h"
@@ -281,4 +282,15 @@ int pop_pending_signal_internal(int sig, ...) {
         }
 
         return r; /* Returns the signal popped */
+}
+
+void propagate_signal(int sig, siginfo_t *siginfo) {
+        /* To be called from a signal handler. Will raise the same signal again, in our process + in our threads.
+         *
+         * Note that we use raw_getpid() instead of getpid_cached(). We might have forked with raw_clone()
+         * earlier (see PID 1), and hence let's go to the raw syscall here. In particular as this is not
+         * performance sensitive code. */
+
+        if (rt_tgsigqueueinfo(raw_getpid(), gettid(), sig, siginfo) < 0)
+                assert_se(raise(sig) >= 0);
 }
