@@ -3313,7 +3313,7 @@ static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec) {
         if (timeout_usec != UINT64_MAX && (m == USEC_INFINITY || timeout_usec < m))
                 m = timeout_usec;
 
-        r = ppoll_usec(p, n, m);
+        r = safe_ppoll_usec(p, n, m);
         if (r <= 0)
                 return r;
 
