@@ -10,6 +10,7 @@
 #include "missing_syscall.h"
 #include "process-util.h"
 #include "sigbus.h"
+#include "signal-util.h"
 
 #define SIGBUS_QUEUE_MAX 64
 
@@ -102,8 +103,7 @@ static void sigbus_handler(int sn, siginfo_t *si, void *data) {
 
         if (si->si_code != BUS_ADRERR || !si->si_addr) {
                 assert_se(sigaction(SIGBUS, &old_sigaction, NULL) == 0);
-                if (rt_tgsigqueueinfo(getpid_cached(), gettid(), SIGBUS, si) < 0)
-                        (void) raise(SIGBUS);
+                propagate_signal(sn, si);
                 return;
         }
 
