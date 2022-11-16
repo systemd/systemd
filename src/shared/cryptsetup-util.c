@@ -52,8 +52,8 @@ int (*sym_crypt_volume_key_get)(struct crypt_device *cd, int keyslot, char *volu
 #if HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE
 int (*sym_crypt_reencrypt_init_by_passphrase)(struct crypt_device *cd, const char *name, const char *passphrase, size_t passphrase_size, int keyslot_old, int keyslot_new, const char *cipher, const char *cipher_mode, const struct crypt_params_reencrypt *params);
 #endif
-#if HAVE_CRYPT_REENCRYPT
-int (*sym_crypt_reencrypt)(struct crypt_device *cd, int (*progress)(uint64_t size, uint64_t offset, void *usrptr));
+#if HAVE_CRYPT_REENCRYPT_RUN
+int (*sym_crypt_reencrypt_run)(struct crypt_device *cd, int (*progress)(uint64_t size, uint64_t offset, void *usrptr), void *usrptr);
 #endif
 int (*sym_crypt_metadata_locking)(struct crypt_device *cd, int enable);
 #if HAVE_CRYPT_SET_DATA_OFFSET
@@ -250,8 +250,8 @@ int dlopen_cryptsetup(void) {
 #if HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE
                         DLSYM_ARG(crypt_reencrypt_init_by_passphrase),
 #endif
-#if HAVE_CRYPT_REENCRYPT
-                        DLSYM_ARG(crypt_reencrypt),
+#if HAVE_CRYPT_REENCRYPT_RUN
+                        DLSYM_ARG(crypt_reencrypt_run),
 #endif
                         DLSYM_ARG(crypt_metadata_locking),
 #if HAVE_CRYPT_SET_DATA_OFFSET
