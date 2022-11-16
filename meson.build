@@ -2734,7 +2734,7 @@ if conf.get('ENABLE_USERDB') == 1
                 install : true,
                 install_dir : rootlibexecdir)
 
-        public_programs += executable(
+        exe = executable(
                 'userdbctl',
                 userdbctl_sources,
                 include_directories : includes,
@@ -2743,6 +2743,16 @@ if conf.get('ENABLE_USERDB') == 1
                                 versiondep],
                 install_rpath : rootpkglibdir,
                 install : true)
+        public_programs += exe
+
+        if want_tests != 'false'
+                test('test-userdbctl-json',
+                     test_userdbctl_json_sh,
+                     args : [exe.full_path(),
+                             nobody_user,
+                             nobody_group],
+                     depends : exe)
+        endif
 endif
 
 if conf.get('ENABLE_HOMED') == 1
