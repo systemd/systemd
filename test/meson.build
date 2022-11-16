@@ -89,6 +89,7 @@ if install_tests
                      install_dir : testdata_dir)
 endif
 
+test_bootctl_json_sh = find_program('test-bootctl-json.sh')
 test_fstab_generator_sh = find_program('test-fstab-generator.sh')
 test_network_generator_conversion_sh = find_program('test-network-generator-conversion.sh')
 test_systemctl_enable_sh = find_program('test-systemctl-enable.sh')
