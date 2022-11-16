@@ -9,9 +9,13 @@
 #define UNIT_NAME_MAX 256
 
 typedef enum UnitNameFlags {
-        UNIT_NAME_PLAIN    = 1 << 0, /* Allow foo.service */
-        UNIT_NAME_TEMPLATE = 1 << 1, /* Allow foo@.service */
-        UNIT_NAME_INSTANCE = 1 << 2, /* Allow foo@bar.service */
+        UNIT_NAME_PLAIN      = 1 << 0, /* Allow foo.service */
+        UNIT_NAME_UTEMPLATE  = 1 << 1, /* Allow foo@.service */
+        UNIT_NAME_UINSTANCE  = 1 << 2, /* Allow foo@bar.service */
+        UNIT_NAME_RTEMPLATE  = 1 << 3, /* Allow foo#.service */
+        UNIT_NAME_GENERATION = 1 << 4, /* Allow foo#bar.service */
+        UNIT_NAME_TEMPLATE   = UNIT_NAME_UTEMPLATE | UNIT_NAME_RTEMPLATE,
+        UNIT_NAME_INSTANCE   = UNIT_NAME_UINSTANCE | UNIT_NAME_GENERATION,
         UNIT_NAME_ANY = UNIT_NAME_PLAIN|UNIT_NAME_TEMPLATE|UNIT_NAME_INSTANCE,
         _UNIT_NAME_INVALID = -EINVAL,
 } UnitNameFlags;

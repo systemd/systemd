@@ -270,8 +270,8 @@ static int find_paths_to_edit(
                                 return log_error_errno(r, "Failed to extract unit name from path '%s': %m", path);
 
                         /* We follow unit aliases, but we need to propagate the instance */
-                        if (unit_name_is_valid(*name, UNIT_NAME_INSTANCE) &&
-                            unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
+                        if (unit_name_is_valid(*name, UNIT_NAME_UINSTANCE) &&
+                            unit_name_is_valid(unit_name, UNIT_NAME_UTEMPLATE)) {
                                 _cleanup_free_ char *instance = NULL, *tmp_name = NULL;
 
                                 r = unit_name_to_instance(*name, &instance);

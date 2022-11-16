@@ -739,6 +739,8 @@ int unit_file_find_fragment(
          * foo@bar.service → …/foo@.service, {foo@bar.service, foo-alias@bar.service},
          * foo-alias@bar.service → …/foo@.service, {foo@bar.service, foo-alias@bar.service},
          * foo-alias@inst.service → …/foo@inst.service, {foo@inst.service, foo-alias@inst.service}.
+         * foo@bar#gen.service -> foo@#.service
+         * foo#gen.service -> foo#.service
          */
 
         UnitNameFlags name_type = unit_name_to_instance(unit_name, &instance);

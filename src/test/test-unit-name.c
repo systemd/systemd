@@ -98,12 +98,16 @@ static void test_unit_name_replace_instance_one(const char *pattern, const char 
 TEST(unit_name_replace_instance) {
         test_unit_name_replace_instance_one("foo@.service", "waldo", "foo@waldo.service", 0);
         test_unit_name_replace_instance_one("foo@xyz.service", "waldo", "foo@waldo.service", 0);
+        test_unit_name_replace_instance_one("foo#.service", "waldo", "foo#waldo.service", 0);
+        test_unit_name_replace_instance_one("foo#xyz.service", "waldo", "foo#waldo.service", 0);
         test_unit_name_replace_instance_one("xyz", "waldo", NULL, -EINVAL);
         test_unit_name_replace_instance_one("", "waldo", NULL, -EINVAL);
         test_unit_name_replace_instance_one("foo.service", "waldo", NULL, -EINVAL);
         test_unit_name_replace_instance_one(".service", "waldo", NULL, -EINVAL);
         test_unit_name_replace_instance_one("foo@", "waldo", NULL, -EINVAL);
         test_unit_name_replace_instance_one("@bar", "waldo", NULL, -EINVAL);
+        test_unit_name_replace_instance_one("foo#", "waldo", NULL, -EINVAL);
+        test_unit_name_replace_instance_one("#bar", "waldo", NULL, -EINVAL);
 }
 
 static void test_unit_name_from_path_one(const char *path, const char *suffix, const char *expected, int ret) {

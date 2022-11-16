@@ -39,7 +39,7 @@ static int specifier_name(char specifier, const void *data, const char *root, co
         const InstallInfo *i = ASSERT_PTR(userdata);
         char *ans;
 
-        if (unit_name_is_valid(i->name, UNIT_NAME_TEMPLATE) && i->default_instance)
+        if (unit_name_is_valid(i->name, UNIT_NAME_UTEMPLATE) && i->default_instance)
                 return unit_name_replace_instance(i->name, i->default_instance, ret);
 
         ans = strdup(i->name);
@@ -63,6 +63,10 @@ static int specifier_instance(char specifier, const void *data, const char *root
         r = unit_name_to_instance(i->name, &instance);
         if (r < 0)
                 return r;
+        /* XXX No generations in [Install] section */
+        if (r & ~(UNIT_NAME_UTEMPLATE|UNIT_NAME_UINSTANCE)) {
+                return -EINVAL;
+        }
 
         if (isempty(instance)) {
                 r = free_and_strdup(&instance, strempty(i->default_instance));

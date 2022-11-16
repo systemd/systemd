@@ -6238,7 +6238,7 @@ int unit_load_fragment(Unit *u) {
                         return log_debug_errno(r, "Failed to extract filename from fragment '%s': %m", fragment);
                 id = filename;
 
-                if (unit_name_is_valid(id, UNIT_NAME_TEMPLATE)) {
+                if (unit_name_is_valid(id, UNIT_NAME_UTEMPLATE)) {
                         assert(u->instance); /* If we're not trying to use a template for non-instanced unit,
                                               * this must be set. */
 

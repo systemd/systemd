@@ -27,20 +27,20 @@
         ":-_.\\"
 
 /* The same, but also permits the single @ character that may appear */
-#define VALID_CHARS_WITH_AT                     \
-        "@"                                     \
+#define VALID_CHARS_WITH_ATHASH                 \
+        "@#"                                    \
         VALID_CHARS
 
 /* All chars valid in a unit name glob */
 #define VALID_CHARS_GLOB                        \
-        VALID_CHARS_WITH_AT                     \
+        VALID_CHARS_WITH_ATHASH                 \
         "[]!-*?"
 
 #define LONG_UNIT_NAME_HASH_KEY SD_ID128_MAKE(ec,f2,37,fb,58,32,4a,32,84,9f,06,9b,0d,21,eb,9a)
 #define UNIT_NAME_HASH_LENGTH_CHARS 16
 
 bool unit_name_is_valid(const char *n, UnitNameFlags flags) {
-        const char *e, *i, *at;
+        const char *e, *i, *at, *hash;
 
         assert((flags & ~(UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE)) == 0);
 
@@ -60,28 +60,40 @@ bool unit_name_is_valid(const char *n, UnitNameFlags flags) {
         if (unit_type_from_string(e + 1) < 0)
                 return false;
 
-        for (i = n, at = NULL; i < e; i++) {
-
+        for (i = n, at = NULL, hash = NULL; i < e; i++) {
                 if (*i == '@' && !at)
                         at = i;
+                else if (*i == '#' && !hash)
+                        hash = i;
 
-                if (!strchr(VALID_CHARS_WITH_AT, *i))
+                if (!strchr(VALID_CHARS_WITH_ATHASH, *i))
                         return false;
         }
 
-        if (at == n)
+        if (at == n || hash == n)
+                return false;
+        /* XXX support templated rtemplate handle services? foo@inst#gen.service */
+        if (at && hash)
                 return false;
 
         if (flags & UNIT_NAME_PLAIN)
-                if (!at)
+                if (!at && !hash)
                         return true;
-
-        if (flags & UNIT_NAME_INSTANCE)
+        /* (at ^ hash) below */
+        if (flags & UNIT_NAME_UINSTANCE)
                 if (at && e > at + 1)
                         return true;
 
-        if (flags & UNIT_NAME_TEMPLATE)
+        if (flags & UNIT_NAME_UTEMPLATE)
                 if (at && e == at + 1)
+                        return true;
+
+        if (flags & UNIT_NAME_GENERATION)
+                if (hash && e > hash + 1)
+                        return true;
+
+        if (flags & UNIT_NAME_RTEMPLATE)
+                if (hash && e == hash + 1)
                         return true;
 
         return false;
@@ -150,6 +162,7 @@ int unit_name_to_prefix(const char *n, char **ret) {
 
 UnitNameFlags unit_name_to_instance(const char *n, char **ret) {
         const char *p, *d;
+        char c;
 
         assert(n);
 
@@ -157,13 +170,13 @@ UnitNameFlags unit_name_to_instance(const char *n, char **ret) {
                 return -EINVAL;
 
         /* Everything past the first @ and before the last . is the instance */
-        p = strchr(n, '@');
+        p = strchr(n, '@') ?: strchr(n, '#');
         if (!p) {
                 if (ret)
                         *ret = NULL;
                 return UNIT_NAME_PLAIN;
         }
-
+        c = *p;
         p++;
 
         d = strrchr(p, '.');
@@ -177,7 +190,9 @@ UnitNameFlags unit_name_to_instance(const char *n, char **ret) {
 
                 *ret = i;
         }
-        return d > p ? UNIT_NAME_INSTANCE : UNIT_NAME_TEMPLATE;
+        return d > p ?
+                (c == '#' ? UNIT_NAME_GENERATION : UNIT_NAME_UINSTANCE) :
+                (c == '#' ? UNIT_NAME_RTEMPLATE : UNIT_NAME_UTEMPLATE);
 }
 
 int unit_name_to_prefix_and_instance(const char *n, char **ret) {
@@ -499,7 +514,8 @@ int unit_name_template(const char *f, char **ret) {
         if (!unit_name_is_valid(f, UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE))
                 return -EINVAL;
 
-        assert_se(p = strchr(f, '@'));
+        /* XXX Assumes no templated rtemplate handle unit */
+        assert_se(p = strchr(f, '@') ?: strchr(f, '#'));
         assert_se(e = strrchr(f, '.'));
 
         a = p - f;
@@ -677,7 +693,7 @@ static bool do_escape_mangle(const char *f, bool allow_globs, char *t) {
          * Returns true if any characters were mangled, false otherwise.
          */
 
-        valid_chars = allow_globs ? VALID_CHARS_GLOB : VALID_CHARS_WITH_AT;
+        valid_chars = allow_globs ? VALID_CHARS_GLOB : VALID_CHARS_WITH_ATHASH;
 
         for (; *f; f++)
                 if (*f == '/') {
