@@ -22,6 +22,8 @@ import typing
 
 import pefile
 
+__version__ = '{{GIT_VERSION}}'
+
 EFI_ARCH_MAP = {
         # host_arch glob : [efi_arch, 32_bit_efi_arch if mixed mode is supported]
         'x86_64'       : ['x64', 'ia32'],
@@ -518,6 +520,10 @@ usage: ukify [options…] linux initrd
     p.add_argument('--measure',
                    action=argparse.BooleanOptionalAction,
                    help='print systemd-measure output for the UKI')
+
+    p.add_argument('--version',
+                   action='version',
+                   version=f'ukify {__version__}')
 
     opts = p.parse_args(args)
 
