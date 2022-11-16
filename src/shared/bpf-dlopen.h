@@ -8,8 +8,8 @@
 
 #include "bpf-compat.h"
 
-extern struct bpf_link* (*sym_bpf_program__attach_cgroup)(struct bpf_program *, int);
-extern struct bpf_link* (*sym_bpf_program__attach_lsm)(struct bpf_program *);
+extern struct bpf_link* (*sym_bpf_program__attach_cgroup)(const struct bpf_program *, int);
+extern struct bpf_link* (*sym_bpf_program__attach_lsm)(const struct bpf_program *);
 extern int (*sym_bpf_link__fd)(const struct bpf_link *);
 extern int (*sym_bpf_link__destroy)(struct bpf_link *);
 extern int (*sym_bpf_map__fd)(const struct bpf_map *);

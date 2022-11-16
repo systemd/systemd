@@ -17,7 +17,7 @@ static void* idn_dl = NULL;
 
 #if HAVE_LIBIDN2
 int (*sym_idn2_lookup_u8)(const uint8_t* src, uint8_t** lookupname, int flags) = NULL;
-const char *(*sym_idn2_strerror)(int rc) = NULL;
+const char *(*sym_idn2_strerror)(int rc) _const_ = NULL;
 int (*sym_idn2_to_unicode_8z8z)(const char * input, char ** output, int flags) = NULL;
 
 int dlopen_idn(void) {
@@ -31,7 +31,7 @@ int dlopen_idn(void) {
 
 #if HAVE_LIBIDN
 int (*sym_idna_to_ascii_4i)(const uint32_t * in, size_t inlen, char *out, int flags);
-int (*sym_idna_to_unicode_44i)(const uint32_t * in, size_t inlen,uint32_t * out, size_t * outlen, int flags);
+int (*sym_idna_to_unicode_44i)(const uint32_t * in, size_t inlen, uint32_t * out, size_t * outlen, int flags);
 char* (*sym_stringprep_ucs4_to_utf8)(const uint32_t * str, ssize_t len, size_t * items_read, size_t * items_written);
 uint32_t* (*sym_stringprep_utf8_to_ucs4)(const char *str, ssize_t len, size_t *items_written);
 
