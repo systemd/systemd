@@ -320,9 +320,10 @@ static int refresh_boot_seed(void) {
         struct sha256_ctx hash_state;
         _cleanup_free_ void *seed_file_bytes = NULL;
         _cleanup_free_ char *esp_path = NULL;
-        _cleanup_close_ int seed_fd = -1;
+        _cleanup_close_ int seed_fd = -1, dir_fd = -1;
         size_t len;
-        ssize_t r;
+        ssize_t n;
+        int r;
 
         assert_cc(RANDOM_EFI_SEED_SIZE == SHA256_DIGEST_SIZE);
 
@@ -336,48 +337,48 @@ static int refresh_boot_seed(void) {
                 return r; /* find_esp_and_warn() already logged */
         }
 
-        seed_fd = chase_symlinks_and_open("/loader/random-seed", esp_path,
-                                          CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS,
-                                          O_RDWR|O_CLOEXEC|O_NOCTTY, NULL);
-        if (seed_fd == -ENOENT) {
+        r = chase_symlinks("/loader", esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, NULL, &dir_fd);
+        if (r < 0) {
+                if (r == -ENOENT) {
+                        log_debug_errno(r, "Couldn't find ESP loader directory, so not updating ESP random seed.");
+                        return 0;
+                }
+                return log_error_errno(r, "Failed to open ESP loader directory: %m");
+        }
+        seed_fd = openat(dir_fd, "random-seed", O_NOFOLLOW|O_RDWR|O_CLOEXEC|O_NOCTTY);
+        if (seed_fd < 0 && errno == ENOENT) {
                 uint64_t features;
-
                 r = efi_loader_get_features(&features);
-                if (r == 0 && FLAGS_SET(features, EFI_LOADER_FEATURE_RANDOM_SEED)) {
-                        int dir_fd = chase_symlinks_and_open("/loader", esp_path,
-                                                             CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS,
-                                                             O_DIRECTORY|O_CLOEXEC|O_NOCTTY, NULL);
-                        if (dir_fd >= 0) {
-                                seed_fd = openat(dir_fd, "random-seed", O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOCTTY, 0600);
-                                close(dir_fd);
-                        }
+                if (r == 0 && FLAGS_SET(features, EFI_LOADER_FEATURE_RANDOM_SEED))
+                        seed_fd = openat(dir_fd, "random-seed", O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOCTTY, 0600);
+                else {
+                        log_debug_errno(seed_fd, "Couldn't find ESP random seed, and not booted with systemd-boot, so not updating ESP random seed.");
+                        return 0;
                 }
         }
-        if (seed_fd < 0) {
-                log_debug_errno(seed_fd, "Failed to open EFI seed path: %m");
-                return 0;
-        }
+        if (seed_fd < 0)
+                return log_error_errno(errno, "Failed to open EFI seed path: %m");
         r = random_seed_size(seed_fd, &len);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine EFI seed path length: %m");
         seed_file_bytes = malloc(len);
         if (!seed_file_bytes)
                 return log_oom();
-        r = loop_read(seed_fd, seed_file_bytes, len, false);
-        if (r < 0)
-                return log_error_errno(r, "Failed to read EFI seed file: %m");
+        n = loop_read(seed_fd, seed_file_bytes, len, false);
+        if (n < 0)
+                return log_error_errno(n, "Failed to read EFI seed file: %m");
 
         /* Hash the old seed in so that we never regress in entropy. */
         sha256_init_ctx(&hash_state);
-        sha256_process_bytes(&r, sizeof(r), &hash_state);
-        sha256_process_bytes(seed_file_bytes, r, &hash_state);
+        sha256_process_bytes(&n, sizeof(n), &hash_state);
+        sha256_process_bytes(seed_file_bytes, n, &hash_state);
 
         /* We're doing this opportunistically, so if the seeding dance before didn't manage to initialize the
          * RNG, there's no point in doing it here. Secondly, getrandom(GRND_NONBLOCK) has been around longer
          * than EFI seeding anyway, so there's no point in having non-getrandom() fallbacks here. So if this
          * fails, just return early to cut our losses. */
-        r = getrandom(buffer, sizeof(buffer), GRND_NONBLOCK);
-        if (r < 0) {
+        n = getrandom(buffer, sizeof(buffer), GRND_NONBLOCK);
+        if (n < 0) {
                 if (errno == EAGAIN) {
                         log_debug_errno(errno, "Random pool not initialized yet, so skipping EFI seed update");
                         return 0;
@@ -388,11 +389,11 @@ static int refresh_boot_seed(void) {
                 }
                 return log_error_errno(errno, "Failed to generate random bytes for EFI seed: %m");
         }
-        assert(r == sizeof(buffer));
+        assert(n == sizeof(buffer));
 
         /* Hash the new seed into the state containing the old one to generate our final seed. */
-        sha256_process_bytes(&r, sizeof(r), &hash_state);
-        sha256_process_bytes(buffer, r, &hash_state);
+        sha256_process_bytes(&n, sizeof(n), &hash_state);
+        sha256_process_bytes(buffer, n, &hash_state);
         sha256_finish_ctx(&hash_state, buffer);
 
         if (lseek(seed_fd, 0, SEEK_SET) < 0)
@@ -404,7 +405,7 @@ static int refresh_boot_seed(void) {
                 return log_error_errno(errno, "Failed to truncate EFI seed file: %m");
         r = fsync_full(seed_fd);
         if (r < 0)
-                return log_error_errno(errno, "Failed to fsync EFI seed file: %m");
+                return log_error_errno(r, "Failed to fsync EFI seed file: %m");
 
         log_debug("Updated random seed in ESP");
         return 0;
