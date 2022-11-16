@@ -5,14 +5,17 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "id128-util.h"
 #include "mkfs-util.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "recurse-dir.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "tmpfile-util.h"
 #include "utf8.h"
 
 int mkfs_exists(const char *fstype) {
@@ -38,7 +41,7 @@ int mkfs_exists(const char *fstype) {
 }
 
 int mkfs_supports_root_option(const char *fstype) {
-        return fstype_is_ro(fstype) || STR_IN_SET(fstype, "ext2", "ext3", "ext4", "btrfs", "vfat");
+        return fstype_is_ro(fstype) || STR_IN_SET(fstype, "ext2", "ext3", "ext4", "btrfs", "vfat", "xfs");
 }
 
 static int mangle_linux_fs_label(const char *s, size_t max_len, char **ret) {
@@ -185,6 +188,96 @@ static int do_mcopy(const char *node, const char *root) {
         return 0;
 }
 
+static int protofile_print_item(
+                RecurseDirEvent event,
+                const char *path,
+                int dir_fd,
+                int inode_fd,
+                const struct dirent *de,
+                const struct statx *sx,
+                void *userdata) {
+
+        FILE *f = ASSERT_PTR(userdata);
+        _cleanup_free_ char *base = NULL;
+        int r;
+
+        if (event == RECURSE_DIR_LEAVE) {
+                fprintf(f, "$\n");
+                return 0;
+        }
+
+        if (!IN_SET(event, RECURSE_DIR_ENTER, RECURSE_DIR_ENTRY))
+                return RECURSE_DIR_CONTINUE;
+
+        r = path_extract_filename(path, &base);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract basename from %p: %m", path);
+
+        char type = S_ISDIR(sx->stx_mode)  ? 'd' :
+                    S_ISREG(sx->stx_mode)  ? '-' :
+                    S_ISLNK(sx->stx_mode)  ? 'l' :
+                    S_ISFIFO(sx->stx_mode) ? 'p' :
+                    S_ISBLK(sx->stx_mode)  ? 'b' :
+                    S_ISCHR(sx->stx_mode)  ? 'c' : 0;
+        if (type == 0)
+                return RECURSE_DIR_CONTINUE;
+
+        fprintf(f, "%s %c%c%c%03o 0 0 ",
+                base,
+                type,
+                sx->stx_mode & S_ISUID ? 'u' : '-',
+                sx->stx_mode & S_ISGID ? 'g' : '-',
+                (unsigned) (sx->stx_mode & 0777));
+
+        if (S_ISREG(sx->stx_mode))
+                fprintf(f, "%s", path);
+        else if (S_ISLNK(sx->stx_mode)) {
+                _cleanup_free_ char *p = NULL;
+
+                r = readlink_malloc(path, &p);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read symlink %s: %m", path);
+
+                fprintf(f, "%s", p);
+        } else if (S_ISBLK(sx->stx_mode) || S_ISCHR(sx->stx_mode))
+                fprintf(f, "%u %u", sx->stx_rdev_major, sx->stx_rdev_minor);
+
+        fprintf(f, "\n");
+
+        return RECURSE_DIR_CONTINUE;
+}
+
+static int make_protofile(const char *root, char **ret) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        assert(ret);
+
+        r = fopen_temporary(NULL, &f, &p);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open temporary file: %m");
+
+        fprintf(f, "/\n");
+        fprintf(f, "0 0\n");
+        fprintf(f, "d--755 0 0\n");
+
+        r = recurse_dir_at(AT_FDCWD, root, STATX_TYPE|STATX_MODE, UINT_MAX, RECURSE_DIR_SORT,
+                           protofile_print_item, f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to recurse through %s: %m", root);
+
+        fprintf(f, "$\n");
+
+        r = fflush_and_check(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to flush %s: %m", p);
+
+        *ret = TAKE_PTR(p);
+
+        return 0;
+}
+
 int make_filesystem(
                 const char *node,
                 const char *fstype,
@@ -195,6 +288,7 @@ int make_filesystem(
 
         _cleanup_free_ char *mkfs = NULL, *mangled_label = NULL;
         _cleanup_strv_free_ char **argv = NULL;
+        _cleanup_(unlink_and_freep) char *protofile = NULL;
         char vol_id[CONST_MAX(SD_ID128_UUID_STRING_MAX, 8U + 1U)] = {};
         struct stat st;
         int r;
@@ -352,6 +446,16 @@ int make_filesystem(
 
                 if (!discard) {
                         r = strv_extend(&argv, "-K");
+                        if (r < 0)
+                                return log_oom();
+                }
+
+                if (root) {
+                        r = make_protofile(root, &protofile);
+                        if (r < 0)
+                                return r;
+
+                        r = strv_extend_strv(&argv, STRV_MAKE("-p", protofile), false);
                         if (r < 0)
                                 return log_oom();
                 }
