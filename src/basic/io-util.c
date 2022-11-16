@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "errno-util.h"
 #include "io-util.h"
 #include "string-util.h"
 #include "time-util.h"
@@ -179,6 +180,29 @@ int ppoll_usec(struct pollfd *fds, size_t nfds, usec_t timeout) {
         }
 
         return r;
+}
+
+int safe_ppoll_usec(struct pollfd *fds, size_t nfds, usec_t timeout) {
+        usec_t until;
+
+        assert(fds || nfds == 0);
+
+        until = usec_add(now(CLOCK_MONOTONIC), timeout);
+
+        for (;;) {
+                usec_t n;
+                int r;
+
+                r = ppoll_usec(fds, nfds, timeout);
+                if (!ERRNO_IS_TRANSIENT(r))
+                        return r;
+
+                n = now(CLOCK_MONOTONIC);
+                if (n >= until)
+                        return 0;
+
+                timeout = usec_sub_unsigned(until, n);
+        }
 }
 
 int fd_wait_for_event(int fd, int event, usec_t timeout) {
