@@ -220,9 +220,7 @@ static bool barrier_read(Barrier *b, int64_t comp) {
                 uint64_t buf;
                 int r;
 
-                r = ppoll_usec(pfd, ELEMENTSOF(pfd), USEC_INFINITY);
-                if (r == -EINTR)
-                        continue;
+                r = safe_ppoll_usec(pfd, ELEMENTSOF(pfd), USEC_INFINITY);
                 if (r < 0)
                         goto error;
 
