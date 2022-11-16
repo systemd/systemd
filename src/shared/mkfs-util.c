@@ -198,20 +198,15 @@ static int protofile_print_item(
                 void *userdata) {
 
         FILE *f = ASSERT_PTR(userdata);
-        _cleanup_free_ char *base = NULL;
         int r;
 
         if (event == RECURSE_DIR_LEAVE) {
-                fprintf(f, "$\n");
+                fputs("$\n", f);
                 return 0;
         }
 
         if (!IN_SET(event, RECURSE_DIR_ENTER, RECURSE_DIR_ENTRY))
                 return RECURSE_DIR_CONTINUE;
-
-        r = path_extract_filename(path, &base);
-        if (r < 0)
-                return log_error_errno(r, "Failed to extract basename from %p: %m", path);
 
         char type = S_ISDIR(sx->stx_mode)  ? 'd' :
                     S_ISREG(sx->stx_mode)  ? '-' :
@@ -223,51 +218,55 @@ static int protofile_print_item(
                 return RECURSE_DIR_CONTINUE;
 
         fprintf(f, "%s %c%c%c%03o 0 0 ",
-                base,
+                de->d_name,
                 type,
                 sx->stx_mode & S_ISUID ? 'u' : '-',
                 sx->stx_mode & S_ISGID ? 'g' : '-',
                 (unsigned) (sx->stx_mode & 0777));
 
         if (S_ISREG(sx->stx_mode))
-                fprintf(f, "%s", path);
+                fputs(path, f);
         else if (S_ISLNK(sx->stx_mode)) {
                 _cleanup_free_ char *p = NULL;
 
-                r = readlink_malloc(path, &p);
+                r = readlinkat_malloc(dir_fd, de->d_name, &p);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read symlink %s: %m", path);
 
-                fprintf(f, "%s", p);
+                fputs(p, f);
         } else if (S_ISBLK(sx->stx_mode) || S_ISCHR(sx->stx_mode))
-                fprintf(f, "%u %u", sx->stx_rdev_major, sx->stx_rdev_minor);
+                fprintf(f, "%" PRIu32 " %" PRIu32, sx->stx_rdev_major, sx->stx_rdev_minor);
 
-        fprintf(f, "\n");
+        fputc('\n', f);
 
         return RECURSE_DIR_CONTINUE;
 }
 
 static int make_protofile(const char *root, char **ret) {
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *p = NULL;
+        _cleanup_(unlink_and_freep) char *p = NULL;
+        const char *vt;
         int r;
 
         assert(ret);
 
-        r = fopen_temporary_child(NULL, &f, &p);
+        r = var_tmp_dir(&vt);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get persistent temporary directory: %m");
+
+        r = fopen_temporary_child(vt, &f, &p);
         if (r < 0)
                 return log_error_errno(r, "Failed to open temporary file: %m");
 
-        fprintf(f, "/\n");
-        fprintf(f, "0 0\n");
-        fprintf(f, "d--755 0 0\n");
+        fputs("/\n"
+              "0 0\n"
+              "d--755 0 0\n", f);
 
-        r = recurse_dir_at(AT_FDCWD, root, STATX_TYPE|STATX_MODE, UINT_MAX, RECURSE_DIR_SORT,
-                           protofile_print_item, f);
+        r = recurse_dir_at(AT_FDCWD, root, STATX_TYPE|STATX_MODE, UINT_MAX, 0, protofile_print_item, f);
         if (r < 0)
                 return log_error_errno(r, "Failed to recurse through %s: %m", root);
 
-        fprintf(f, "$\n");
+        fputs("$\n", f);
 
         r = fflush_and_check(f);
         if (r < 0)
