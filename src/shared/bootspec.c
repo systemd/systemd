@@ -1323,14 +1323,21 @@ int show_boot_entry(
         if (e->id)
                 printf("           id: %s\n", e->id);
         if (e->path) {
-                _cleanup_free_ char *link = NULL;
+                _cleanup_free_ char *text = NULL, *link = NULL;
+
+                const char *p = e->root ? path_startswith(e->path, e->root) : NULL;
+                if (p) {
+                        text = strjoin(ansi_grey(), e->root, "/", ansi_normal(), "/", p);
+                        if (!text)
+                                return log_oom();
+                }
 
                 /* Let's urlify the link to make it easy to view in an editor, but only if it is a text
                  * file. Unified images are binary ELFs, and EFI variables are not pure text either. */
                 if (e->type == BOOT_ENTRY_CONF)
-                        (void) terminal_urlify_path(e->path, NULL, &link);
+                        (void) terminal_urlify_path(e->path, text, &link);
 
-                printf("       source: %s\n", link ?: e->path);
+                printf("       source: %s\n", link ?: text ?: e->path);
         }
         if (e->tries_left != UINT_MAX) {
                 printf("        tries: %u left", e->tries_left);
