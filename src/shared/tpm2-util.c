@@ -1117,7 +1117,11 @@ static int tpm2_make_policy_session(
                                 ESYS_TR_NONE,
                                 NULL,
                                 &pubkey_tpm2,
+#if HAVE_TSS2_ESYS3
+                                ESYS_TR_RH_OWNER,
+#else
                                 TPM2_RH_OWNER,
+#endif
                                 &pubkey_handle);
                 if (rc != TSS2_RC_SUCCESS) {
                         r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
