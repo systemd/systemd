@@ -263,7 +263,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
         sha256_finish_ctx(&hash, random_bytes);
 
         size = sizeof(random_bytes);
-        /* If the file size is too large, zero out the remaining bytes on disk, and then truncate. */
+        /* If the file size is too large, zero out the remaining bytes on disk. */
         if (size < info->FileSize) {
                 err = handle->SetPosition(handle, size);
                 if (err != EFI_SUCCESS)
@@ -280,10 +280,17 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
                 err = handle->SetPosition(handle, 0);
                 if (err != EFI_SUCCESS)
                         return log_error_status_stall(err, L"Failed to seek to beginning of random seed file: %r", err);
-                info->FileSize = size;
-                err = handle->SetInfo(handle, &GenericFileInfo, info->Size, info);
-                if (err != EFI_SUCCESS)
-                        return log_error_status_stall(err, L"Failed to truncate random seed file: %r", err);
+
+                /* We could truncate the file here with something like:
+                 *
+                 *     info->FileSize = size;
+                 *     err = handle->SetInfo(handle, &GenericFileInfo, info->Size, info);
+                 *     if (err != EFI_SUCCESS)
+                 *             return log_error_status_stall(err, L"Failed to truncate random seed file: %r", err);
+                 *
+                 * But this is considered slightly risky, because EFI filesystem drivers are a little bit
+                 * flimsy. So instead we rely on userspace eventually truncating this when it writes a new
+                 * seed. For now the best we do is zero it. */
         }
         /* Update the random seed on disk before we use it */
         wsize = size;
