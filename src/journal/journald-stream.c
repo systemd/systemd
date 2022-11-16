@@ -160,7 +160,8 @@ static int stdout_stream_save(StdoutStream *s) {
 
                 r = fstat(s->fd, &st);
                 if (r < 0)
-                        return log_warning_errno(errno, "Failed to stat connected stream: %m");
+                        return log_ratelimit_warning_errno(errno, JOURNALD_LOG_RATELIMIT,
+                                                           "Failed to stat connected stream: %m");
 
                 /* We use device and inode numbers as identifier for the stream */
                 r = asprintf(&s->state_file, "%s/streams/%lu:%lu", s->server->runtime_directory, (unsigned long) st.st_dev, (unsigned long) st.st_ino);
@@ -231,7 +232,7 @@ static int stdout_stream_save(StdoutStream *s) {
                 if (s->server->notify_event_source) {
                         r = sd_event_source_set_enabled(s->server->notify_event_source, SD_EVENT_ON);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to enable notify event source: %m");
+                                log_ratelimit_warning_errno(r, JOURNALD_LOG_RATELIMIT, "Failed to enable notify event source: %m");
                 }
         }
 
@@ -239,7 +240,8 @@ static int stdout_stream_save(StdoutStream *s) {
 
 fail:
         (void) unlink(s->state_file);
-        return log_error_errno(r, "Failed to save stream data %s: %m", s->state_file);
+        return log_ratelimit_error_errno(r, JOURNALD_LOG_RATELIMIT,
+                                         "Failed to save stream data %s: %m", s->state_file);
 }
 
 static int stdout_stream_log(
@@ -266,7 +268,8 @@ static int stdout_stream_log(
         else if (pid_is_valid(s->ucred.pid)) {
                 r = client_context_acquire(s->server, s->ucred.pid, &s->ucred, s->label, strlen_ptr(s->label), s->unit_id, &s->context);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to acquire client context, ignoring: %m");
+                        log_ratelimit_warning_errno(r, JOURNALD_LOG_RATELIMIT,
+                                                    "Failed to acquire client context, ignoring: %m");
         }
 
         priority = s->priority;
@@ -363,8 +366,8 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
 
         /* line breaks by NUL, line max length or EOF are not permissible during the negotiation part of the protocol */
         if (line_break != LINE_BREAK_NEWLINE && s->state != STDOUT_STREAM_RUNNING)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "Control protocol line not properly terminated.");
+                return log_ratelimit_warning_errno(SYNTHETIC_ERRNO(EINVAL), JOURNALD_LOG_RATELIMIT,
+                                                   "Control protocol line not properly terminated.");
 
         switch (s->state) {
 
@@ -395,7 +398,8 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
 
                 priority = syslog_parse_priority_and_facility(p);
                 if (priority < 0)
-                        return log_warning_errno(priority, "Failed to parse log priority line: %m");
+                        return log_ratelimit_warning_errno(priority, JOURNALD_LOG_RATELIMIT,
+                                                           "Failed to parse log priority line: %m");
 
                 s->priority = priority;
                 s->state = STDOUT_STREAM_LEVEL_PREFIX;
@@ -405,7 +409,8 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
         case STDOUT_STREAM_LEVEL_PREFIX:
                 r = parse_boolean(p);
                 if (r < 0)
-                        return log_warning_errno(r, "Failed to parse level prefix line: %m");
+                        return log_ratelimit_warning_errno(r, JOURNALD_LOG_RATELIMIT,
+                                                           "Failed to parse level prefix line: %m");
 
                 s->level_prefix = r;
                 s->state = STDOUT_STREAM_FORWARD_TO_SYSLOG;
@@ -414,7 +419,8 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
         case STDOUT_STREAM_FORWARD_TO_SYSLOG:
                 r = parse_boolean(p);
                 if (r < 0)
-                        return log_warning_errno(r, "Failed to parse forward to syslog line: %m");
+                        return log_ratelimit_warning_errno(r, JOURNALD_LOG_RATELIMIT,
+                                                           "Failed to parse forward to syslog line: %m");
 
                 s->forward_to_syslog = r;
                 s->state = STDOUT_STREAM_FORWARD_TO_KMSG;
@@ -423,7 +429,8 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
         case STDOUT_STREAM_FORWARD_TO_KMSG:
                 r = parse_boolean(p);
                 if (r < 0)
-                        return log_warning_errno(r, "Failed to parse copy to kmsg line: %m");
+                        return log_ratelimit_warning_errno(r, JOURNALD_LOG_RATELIMIT,
+                                                           "Failed to parse copy to kmsg line: %m");
 
                 s->forward_to_kmsg = r;
                 s->state = STDOUT_STREAM_FORWARD_TO_CONSOLE;
@@ -432,7 +439,8 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
         case STDOUT_STREAM_FORWARD_TO_CONSOLE:
                 r = parse_boolean(p);
                 if (r < 0)
-                        return log_warning_errno(r, "Failed to parse copy to console line.");
+                        return log_ratelimit_warning_errno(r, JOURNALD_LOG_RATELIMIT,
+                                                           "Failed to parse copy to console line.");
 
                 s->forward_to_console = r;
                 s->state = STDOUT_STREAM_RUNNING;
@@ -589,7 +597,7 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
                 if (ERRNO_IS_TRANSIENT(errno))
                         return 0;
 
-                log_warning_errno(errno, "Failed to read from stream: %m");
+                log_ratelimit_warning_errno(errno, JOURNALD_LOG_RATELIMIT, "Failed to read from stream: %m");
                 goto terminate;
         }
         cmsg_close_all(&msghdr);
@@ -648,7 +656,7 @@ int stdout_stream_install(Server *s, int fd, StdoutStream **ret) {
 
         r = sd_id128_randomize(&id);
         if (r < 0)
-                return log_error_errno(r, "Failed to generate stream ID: %m");
+                return log_ratelimit_error_errno(r, JOURNALD_LOG_RATELIMIT, "Failed to generate stream ID: %m");
 
         stream = new(StdoutStream, 1);
         if (!stream)
@@ -664,7 +672,7 @@ int stdout_stream_install(Server *s, int fd, StdoutStream **ret) {
 
         r = getpeercred(fd, &stream->ucred);
         if (r < 0)
-                return log_error_errno(r, "Failed to determine peer credentials: %m");
+                return log_ratelimit_error_errno(r, JOURNALD_LOG_RATELIMIT, "Failed to determine peer credentials: %m");
 
         r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)
@@ -673,18 +681,18 @@ int stdout_stream_install(Server *s, int fd, StdoutStream **ret) {
         if (mac_selinux_use()) {
                 r = getpeersec(fd, &stream->label);
                 if (r < 0 && r != -EOPNOTSUPP)
-                        (void) log_warning_errno(r, "Failed to determine peer security context: %m");
+                        (void) log_ratelimit_warning_errno(r, JOURNALD_LOG_RATELIMIT, "Failed to determine peer security context: %m");
         }
 
         (void) shutdown(fd, SHUT_WR);
 
         r = sd_event_add_io(s->event, &stream->event_source, fd, EPOLLIN, stdout_stream_process, stream);
         if (r < 0)
-                return log_error_errno(r, "Failed to add stream to event loop: %m");
+                return log_ratelimit_error_errno(r, JOURNALD_LOG_RATELIMIT, "Failed to add stream to event loop: %m");
 
         r = sd_event_source_set_priority(stream->event_source, SD_EVENT_PRIORITY_NORMAL+5);
         if (r < 0)
-                return log_error_errno(r, "Failed to adjust stdout event source priority: %m");
+                return log_ratelimit_error_errno(r, JOURNALD_LOG_RATELIMIT, "Failed to adjust stdout event source priority: %m");
 
         stream->fd = fd;
 
@@ -716,7 +724,7 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
                 if (ERRNO_IS_ACCEPT_AGAIN(errno))
                         return 0;
 
-                return log_error_errno(errno, "Failed to accept stdout connection: %m");
+                return log_ratelimit_error_errno(errno, JOURNALD_LOG_RATELIMIT, "Failed to accept stdout connection: %m");
         }
 
         if (s->n_stdout_streams >= STDOUT_STREAMS_MAX) {
