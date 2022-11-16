@@ -75,6 +75,125 @@ def round_up(x, blocksize=4096):
     return (x + blocksize - 1) // blocksize * blocksize
 
 
+def maybe_decompress(filename):
+    """Decompress file if compressed. Return contents."""
+    f = open(filename, 'rb')
+    start = f.read(4)
+    f.seek(0)
+
+    if start.startswith(b'\x7fELF'):
+        # not compressed
+        return f.read()
+
+    if start.startswith(b'\x1f\x8b'):
+        import gzip
+        return gzip.open(f).read()
+
+    if start.startswith(b'\x28\xb5\x2f\xfd'):
+        import zstd
+        return zstd.uncompress(f.read())
+
+    if start.startswith(b'\x02\x21\x4c\x18'):
+        import lz4.frame
+        return lz4.frame.decompress(f.read())
+
+    if start.startswith(b'\x04\x22\x4d\x18'):
+        print('Newer lz4 stream format detected! This may not boot!')
+        import lz4.frame
+        return lz4.frame.decompress(f.read())
+
+    if start.startswith(b'\x89LZO'):
+        # python3-lzo is not packaged for Fedora
+        raise NotImplementedError('lzo decompression not implemented')
+
+    if start.startswith(b'BZh'):
+        import bz2
+        return bz2.open(f).read()
+
+    if start.startswith(b'\x5d\x00\x00'):
+        import lzma
+        return lzma.open(f).read()
+
+    raise NotImplementedError(f'unknown file format (starts with {start})')
+
+
+class Uname:
+    # This class is here purely as a namespace for the functions
+
+    VERSION_PATTERN = r'(?P<version>[a-z0-9._-]+) \([^ )]+\) (?:#.*)'
+
+    NOTES_PATTERN = r'^\s+Linux\s+0x[0-9a-f]+\s+OPEN\n\s+description data: (?P<version>[0-9a-f ]+)\s*$'
+
+    # Linux version 6.0.8-300.fc37.ppc64le (mockbuild@buildvm-ppc64le-03.iad2.fedoraproject.org)
+    # (gcc (GCC) 12.2.1 20220819 (Red Hat 12.2.1-2), GNU ld version 2.38-24.fc37)
+    # #1 SMP Fri Nov 11 14:39:11 UTC 2022
+    TEXT_PATTERN = rb'Linux version (?P<version>\d\.\S+) \('
+
+    @classmethod
+    def scrape_x86(cls, filename, opts=None):
+        # Based on https://gitlab.archlinux.org/archlinux/mkinitcpio/mkinitcpio/-/blob/master/functions#L136
+        # and https://www.kernel.org/doc/html/latest/x86/boot.html#the-real-mode-kernel-header
+        with open(filename, 'rb') as f:
+            f.seek(0x202)
+            magic = f.read(4)
+            if magic != b'HdrS':
+                raise ValueError('Real-Mode Kernel Header magic not found')
+            f.seek(0x20E)
+            offset = f.read(1)[0] + f.read(1)[0]*256  # Pointer to kernel version string
+            f.seek(0x200 + offset)
+            text = f.read(128)
+        text = text.split(b'\0', maxsplit=1)[0]
+        text = text.decode()
+
+        if not (m := re.match(cls.VERSION_PATTERN, text)):
+            raise ValueError(f'Cannot parse version-host-release uname string: {text!r}')
+        return m.group('version')
+
+    @classmethod
+    def scrape_elf(cls, filename, opts=None):
+        readelf = find_tool('readelf', opts=opts)
+
+        cmd = [
+            readelf,
+            '--notes',
+            filename,
+        ]
+
+        print('+', shell_join(cmd))
+        notes = subprocess.check_output(cmd, text=True)
+
+        if not (m := re.search(cls.NOTES_PATTERN, notes, re.MULTILINE)):
+            raise ValueError('Cannot find Linux version note')
+
+        text = ''.join(chr(int(c, 16)) for c in m.group('version').split())
+        return text.rstrip('\0')
+
+    @classmethod
+    def scrape_generic(cls, filename, opts=None):
+        # import libarchive
+        # libarchive-c fails with
+        # ArchiveError: Unrecognized archive format (errno=84, retcode=-30, archive_p=94705420454656)
+
+        # Based on https://gitlab.archlinux.org/archlinux/mkinitcpio/mkinitcpio/-/blob/master/functions#L209
+
+        text = maybe_decompress(filename)
+        if not (m := re.search(cls.TEXT_PATTERN, text)):
+            raise ValueError(f'Cannot find {cls.TEXT_PATTERN!r} in {filename}')
+
+        return m.group('version').decode()
+
+    @classmethod
+    def scrape(cls, filename, opts=None):
+        for func in (cls.scrape_x86, cls.scrape_elf, cls.scrape_generic):
+            try:
+                version = func(filename, opts=opts)
+                print(f'Found uname version: {version}')
+                return version
+            except ValueError as e:
+                print(str(e))
+        return None
+
+
 @dataclasses.dataclass
 class Section:
     name: str
@@ -329,6 +448,10 @@ def make_uki(opts):
         subprocess.check_call(cmd)
     else:
         linux = opts.linux
+
+    if opts.uname is None:
+        print('Kernel version not specified, starting autodetection 😖.')
+        opts.uname = Uname.scrape(opts.linux, opts=opts)
 
     uki = UKI(opts.stub)
 

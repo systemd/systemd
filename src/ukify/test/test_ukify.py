@@ -208,6 +208,14 @@ def unbase64(filename):
     return tmp
 
 
+def test_uname_scraping(kernel_initrd):
+    if kernel_initrd is None:
+        pytest.skip('linux+initrd not found')
+
+    uname = ukify.Uname.scrape(kernel_initrd[0])
+    assert re.match(r'\d+\.\d+\.\d+', uname)
+
+
 def test_efi_signing(kernel_initrd, tmpdir):
     if kernel_initrd is None:
         pytest.skip('linux+initrd not found')
