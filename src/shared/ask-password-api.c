@@ -273,9 +273,7 @@ int ask_password_plymouth(
                         goto finish;
                 }
 
-                r = ppoll_usec(pollfd, notify >= 0 ? 2 : 1, timeout);
-                if (r == -EINTR)
-                        continue;
+                r = safe_ppoll_usec(pollfd, notify >= 0 ? 2 : 1, timeout);
                 if (r < 0)
                         goto finish;
                 if (r == 0) {
@@ -497,9 +495,7 @@ int ask_password_tty(
                                 goto finish;
                         }
 
-                r = ppoll_usec(pollfd, notify >= 0 ? 2 : 1, timeout);
-                if (r == -EINTR)
-                        continue;
+                r = safe_ppoll_usec(pollfd, notify >= 0 ? 2 : 1, timeout);
                 if (r < 0)
                         goto finish;
                 if (r == 0) {
@@ -839,9 +835,7 @@ int ask_password_agent(
                 else
                         timeout = USEC_INFINITY;
 
-                r = ppoll_usec(pollfd, notify >= 0 ? _FD_MAX : _FD_MAX - 1, timeout);
-                if (r == -EINTR)
-                        continue;
+                r = safe_ppoll_usec(pollfd, notify >= 0 ? _FD_MAX : _FD_MAX - 1, timeout);
                 if (r < 0)
                         goto finish;
                 if (r == 0) {
