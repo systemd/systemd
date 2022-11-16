@@ -102,7 +102,7 @@ static void sigbus_handler(int sn, siginfo_t *si, void *data) {
 
         if (si->si_code != BUS_ADRERR || !si->si_addr) {
                 assert_se(sigaction(SIGBUS, &old_sigaction, NULL) == 0);
-                rt_sigqueueinfo(getpid_cached(), SIGBUS, si);
+                rt_tgsigqueueinfo(getpid_cached(), gettid(), SIGBUS, si);
                 return;
         }
 
