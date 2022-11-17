@@ -2044,26 +2044,6 @@ static int install_random_seed(const char *esp) {
         if (r < 0) {
                 if (r != -ENXIO)
                          log_warning_errno(r, "Failed to parse $SYSTEMD_WRITE_SYSTEM_TOKEN, ignoring.");
-
-                if (detect_vm() > 0) {
-                        /* Let's not write a system token if we detect we are running in a VM
-                         * environment. Why? Our default security model for the random seed uses the system
-                         * token as a mechanism to ensure we are not vulnerable to golden master sloppiness
-                         * issues, i.e. that people initialize the random seed file, then copy the image to
-                         * many systems and end up with the same random seed in each that is assumed to be
-                         * valid but in reality is the same for all machines. By storing a system token in
-                         * the EFI variable space we can make sure that even though the random seeds on disk
-                         * are all the same they will be different on each system under the assumption that
-                         * the EFI variable space is maintained separate from the random seed storage. That
-                         * is generally the case on physical systems, as the ESP is stored on persistent
-                         * storage, and the EFI variables in NVRAM. However in virtualized environments this
-                         * is generally not true: the EFI variable set is typically stored along with the
-                         * disk image itself. For example, using the OVMF EFI firmware the EFI variables are
-                         * stored in a file in the ESP itself. */
-
-                        log_notice("Not installing system token, since we are running in a virtualized environment.");
-                        return 0;
-                }
         } else if (r == 0) {
                 log_notice("Not writing system token, because $SYSTEMD_WRITE_SYSTEM_TOKEN is set to false.");
                 return 0;

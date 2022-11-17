@@ -16,15 +16,11 @@ After=local-fs.target systemd-random-seed.service
 Conflicts=shutdown.target initrd-switch-root.target
 Before=shutdown.target initrd-switch-root.target
 
-# Don't run this in a VM environment, because there EFI variables are not
-# actually stored in NVRAM, independent of regular storage.
-ConditionVirtualization=no
-
 # Only run this if the boot loader can support random seed initialization.
 ConditionPathExists=/sys/firmware/efi/efivars/LoaderFeatures-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
 
-# Only run this if there is no system token defined yet, or …
-ConditionPathExists=|!/sys/firmware/efi/efivars/LoaderSystemToken-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
+# Only run this if there is no system token defined yet
+ConditionPathExists=!/sys/firmware/efi/efivars/LoaderSystemToken-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
 
 [Service]
 Type=oneshot
