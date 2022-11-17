@@ -63,7 +63,7 @@ typedef struct CommonApplicationsKeptEnhanced {
         /* Other parameters */
         int wash;
         int split_gso;
-
+        usec_t rtt;
 } CommonApplicationsKeptEnhanced;
 
 DEFINE_QDISC_CAST(CAKE, CommonApplicationsKeptEnhanced);
@@ -77,3 +77,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_cake_compensation_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_cake_flow_isolation_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_cake_priority_queueing_preset);
 CONFIG_PARSER_PROTOTYPE(config_parse_cake_fwmark);
+CONFIG_PARSER_PROTOTYPE(config_parse_cake_rtt);
