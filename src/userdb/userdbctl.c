@@ -456,8 +456,10 @@ static int display_user(int argc, char *argv[], void *userdata) {
                 }
         }
 
-        if (array)
-                json_variant_dump(array, arg_json_format_flags, NULL, NULL);
+        if (arg_output == OUTPUT_JSON)
+                json_variant_dump(array,
+                                  arg_json_format_flags | JSON_FORMAT_EMPTY_ARRAY,
+                                  NULL, NULL);
 
         return ret;
 }
@@ -761,8 +763,10 @@ static int display_group(int argc, char *argv[], void *userdata) {
                 }
         }
 
-        if (array)
-                json_variant_dump(array, arg_json_format_flags, NULL, NULL);
+        if (arg_output == OUTPUT_JSON)
+                json_variant_dump(array,
+                                  arg_json_format_flags | JSON_FORMAT_EMPTY_ARRAY,
+                                  NULL, NULL);
 
         return ret;
 }
@@ -913,8 +917,10 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
                 }
         }
 
-        if (array)
-                json_variant_dump(array, arg_json_format_flags, NULL, NULL);
+        if (arg_output == OUTPUT_JSON)
+                json_variant_dump(array,
+                                  arg_json_format_flags | JSON_FORMAT_EMPTY_ARRAY,
+                                  NULL, NULL);
 
         return ret;
 }
