@@ -2583,7 +2583,7 @@ if conf.get('HAVE_BLKID') == 1 and conf.get('HAVE_GNU_EFI') == 1
                 boot_link_with = [libsystemd_static, libshared_static]
         endif
 
-        public_programs += executable(
+        exe = executable(
                 'bootctl',
                 'src/boot/bootctl.c',
                 include_directories : includes,
@@ -2592,6 +2592,14 @@ if conf.get('HAVE_BLKID') == 1 and conf.get('HAVE_GNU_EFI') == 1
                                 versiondep],
                 install_rpath : rootpkglibdir,
                 install : true)
+        public_programs += exe
+
+        if want_tests != 'false'
+                test('test-bootctl-json',
+                     test_bootctl_json_sh,
+                     args : exe.full_path(),
+                     depends : exe)
+        endif
 
         public_programs += executable(
                 'systemd-bless-boot',
@@ -2736,7 +2744,7 @@ if conf.get('ENABLE_USERDB') == 1
                 install : true,
                 install_dir : rootlibexecdir)
 
-        public_programs += executable(
+        exe = executable(
                 'userdbctl',
                 userdbctl_sources,
                 include_directories : includes,
@@ -2745,6 +2753,16 @@ if conf.get('ENABLE_USERDB') == 1
                                 versiondep],
                 install_rpath : rootpkglibdir,
                 install : true)
+        public_programs += exe
+
+        if want_tests != 'false'
+                test('test-userdbctl-json',
+                     test_userdbctl_json_sh,
+                     args : [exe.full_path(),
+                             nobody_user,
+                             nobody_group],
+                     depends : exe)
+        endif
 endif
 
 if conf.get('ENABLE_HOMED') == 1
