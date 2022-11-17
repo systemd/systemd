@@ -3485,6 +3485,8 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
         self.assertIn('overhead 128', output)
         self.assertIn('mpu 20', output)
         self.assertIn('fwmark 0xff00', output)
+        self.assertIn('rtt 1s', output)
+        self.assertIn('ack-filter-aggressive', output)
 
     @expectedFailureIfModuleIsNotAvailable('sch_codel')
     def test_qdisc_codel(self):
