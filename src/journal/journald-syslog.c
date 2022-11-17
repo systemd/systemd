@@ -50,8 +50,7 @@ static void forward_syslog_iovec(
         j = strjoina(s->runtime_directory, "/syslog");
         r = sockaddr_un_set_path(&sa.un, j);
         if (r < 0) {
-                log_ratelimit_debug_errno(r, JOURNALD_LOG_RATELIMIT,
-                                          "Forwarding socket path %s too long for AF_UNIX, not forwarding: %m", j);
+                log_debug_errno(r, "Forwarding socket path %s too long for AF_UNIX, not forwarding: %m", j);
                 return;
         }
 
@@ -105,7 +104,7 @@ static void forward_syslog_iovec(
         }
 
         if (errno != ENOENT)
-                log_ratelimit_debug_errno(errno, JOURNALD_LOG_RATELIMIT, "Failed to forward syslog message: %m");
+                log_debug_errno(errno, "Failed to forward syslog message: %m");
 }
 
 static void forward_syslog_raw(Server *s, int priority, const char *buffer, size_t buffer_len, const struct ucred *ucred, const struct timeval *tv) {
