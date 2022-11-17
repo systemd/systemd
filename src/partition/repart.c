@@ -3178,6 +3178,7 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
         const char *passphrase = NULL;
         size_t passphrase_size = 0;
         sd_id128_t uuid;
+        const char *vt;
         int r;
 
         assert(context);
@@ -3194,7 +3195,11 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
 
         log_info("Encrypting future partition %" PRIu64 "...", p->partno);
 
-        r = fopen_temporary_child(NULL, &h, &hp);
+        r = var_tmp_dir(&vt);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine temporary files directory: %m");
+
+        r = fopen_temporary_child(vt, &h, &hp);
         if (r < 0)
                 return log_error_errno(r, "Failed to create temporary LUKS header file: %m");
 
