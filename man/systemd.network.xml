@@ -4026,6 +4026,27 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>RTTSec=</varname></term>
+        <listitem>
+          <para>Specifies the RTT for the filter. Takes a timespan. Typical values are e.g. 100us for
+          extremely high-performance 10GigE+ networks like datacentre, 1ms for non-WiFi LAN connections,
+          100ms for typical internet connections. Defaults to unset, and the kernel's default will be used.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>AckFilter=</varname></term>
+        <listitem>
+          <para>Takes a boolean value, or special value <literal>aggressive</literal>. If enabled, ACKs in
+          each flow are queued and redandant ACKs to the upstream are dropped. If yes, the filter will always
+          keep at least two redundant ACKs in the queue, while in <literal>aggressive</literal> mode, it will
+          filter down to a single ACK. This may improve download throughput on links with very asymmetrical
+          rate limits. Defaults to unset, and the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
