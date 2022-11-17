@@ -327,7 +327,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
 
         /* Check whether a variable is valid */
         
-        l_split = strv_split(l, ":");
+        l_split = strv_split(*l, ":");
         if (!l_split)
                 return -ENOMEM;
         
