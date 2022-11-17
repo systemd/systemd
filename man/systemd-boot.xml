@@ -436,28 +436,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>LoaderRandomSeed</varname></term>
-
-        <listitem><para>A binary random seed <command>systemd-boot</command> may optionally pass to the
-        OS. This is a volatile EFI variable that is hashed at boot from the combination of a random seed
-        stored in the ESP (in <filename>/loader/random-seed</filename>) and a "system token" persistently
-        stored in the EFI variable <varname>LoaderSystemToken</varname> (see below). During early OS boot the
-        system manager reads this variable and passes it to the OS kernel's random pool, crediting the full
-        entropy it contains. This is an efficient way to ensure the system starts up with a fully initialized
-        kernel random pool — as early as the initrd phase. <command>systemd-boot</command> reads
-        the random seed from the ESP, combines it with the "system token", and both derives a new random seed
-        to update in-place the seed stored in the ESP, and the random seed to pass to the OS from it via
-        SHA256 hashing in counter mode. This ensures that different physical systems that boot the same
-        "golden" OS image — i.e. containing the same random seed file in the ESP — will still pass a
-        different random seed to the OS. It is made sure the random seed stored in the ESP is fully
-        overwritten before the OS is booted, to ensure different random seed data is used between subsequent
-        boots.</para>
-
-        <para>See <ulink url="https://systemd.io/RANDOM_SEEDS">Random Seeds</ulink> for
-        further information.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><varname>LoaderSystemToken</varname></term>
 
         <listitem><para>A binary random data field, that is used for generating the random seed to pass to
@@ -523,6 +501,23 @@
     <para>The <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry> kernel
     install framework optionally sets the initial 'tries left' counter to the value specified in
     <filename>/etc/kernel/tries</filename> when a boot loader entry is first created.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Using systemd-boot in virtual machines.</title>
+
+    <para>When using qemu with OVMF (UEFI Firmware for virtual machines) the <option>-kernel</option> switch
+    works not only for linux kernels, but for any EFI binary, including sd-boot and unified linux
+    kernels.  Example command line for loading sd-boot on x64:</para>
+
+    <para>
+      <command>qemu-system-x86_64 <replaceable>[ ... ]</replaceable>
+      -kernel /usr/lib/systemd/boot/efi/systemd-bootx64.efi</command>
+    </para>
+
+    <para>systemd-boot will detect that it was started directly instead of being loaded from ESP and will
+    search for the ESP in that case, taking into account boot order information from the hypervisor (if
+    available).</para>
   </refsect1>
 
   <refsect1>

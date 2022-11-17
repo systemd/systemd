@@ -152,8 +152,19 @@ int tpm2_context_init(const char *device, struct tpm2_context *ret) {
         if (r < 0)
                 return log_error_errno(r, "TPM2 support not installed: %m");
 
-        if (!device)
+        if (!device) {
                 device = secure_getenv("SYSTEMD_TPM2_DEVICE");
+                if (device)
+                        /* Setting the env var to an empty string forces tpm2-tss' own device picking
+                         * logic to be used. */
+                        device = empty_to_null(device);
+                else
+                        /* If nothing was specified explicitly, we'll use a hardcoded default: the "device" tcti
+                         * driver and the "/dev/tpmrm0" device. We do this since on some distributions the tpm2-abrmd
+                         * might be used and we really don't want that, since it is a system service and that creates
+                         * various ordering issues/deadlocks during early boot. */
+                        device = "device:/dev/tpmrm0";
+        }
 
         if (device) {
                 const char *param, *driver, *fn;
@@ -163,14 +174,26 @@ int tpm2_context_init(const char *device, struct tpm2_context *ret) {
 
                 param = strchr(device, ':');
                 if (param) {
+                        /* Syntax #1: Pair of driver string and arbitrary parameter */
                         driver = strndupa_safe(device, param - device);
+                        if (isempty(driver))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 driver name is empty, refusing.");
+
                         param++;
-                } else {
+                } else if (path_is_absolute(device) && path_is_valid(device)) {
+                        /* Syntax #2: TPM device node */
                         driver = "device";
                         param = device;
-                }
+                } else
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid TPM2 driver string, refusing.");
+
+                log_debug("Using TPM2 TCTI driver '%s' with device '%s'.", driver, param);
 
                 fn = strjoina("libtss2-tcti-", driver, ".so.0");
+
+                /* Better safe than sorry, let's refuse strings that cannot possibly be valid driver early, before going to disk. */
+                if (!filename_is_valid(fn))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 driver name '%s' not valid, refusing.", driver);
 
                 dl = dlopen(fn, RTLD_NOW);
                 if (!dl)
@@ -1094,7 +1117,13 @@ static int tpm2_make_policy_session(
                                 ESYS_TR_NONE,
                                 NULL,
                                 &pubkey_tpm2,
+#if HAVE_TSS2_ESYS3
+                                /* tpm2-tss >= 3.0.0 requires a ESYS_TR_RH_* constant specifying the requested
+                                 * hierarchy, older versions need TPM2_RH_* instead. */
+                                ESYS_TR_RH_OWNER,
+#else
                                 TPM2_RH_OWNER,
+#endif
                                 &pubkey_handle);
                 if (rc != TSS2_RC_SUCCESS) {
                         r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),

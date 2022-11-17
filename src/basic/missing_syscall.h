@@ -363,6 +363,20 @@ static inline int missing_rt_sigqueueinfo(pid_t tgid, int sig, siginfo_t *info) 
 
 /* ======================================================================= */
 
+#if !HAVE_RT_TGSIGQUEUEINFO
+static inline int missing_rt_tgsigqueueinfo(pid_t tgid, pid_t tid, int sig, siginfo_t *info) {
+#  if defined __NR_rt_tgsigqueueinfo && __NR_rt_tgsigqueueinfo >= 0
+        return syscall(__NR_rt_tgsigqueueinfo, tgid, tid, sig, info);
+#  else
+#    error "__NR_rt_tgsigqueueinfo not defined"
+#  endif
+}
+
+#  define rt_tgsigqueueinfo missing_rt_tgsigqueueinfo
+#endif
+
+/* ======================================================================= */
+
 #if !HAVE_EXECVEAT
 static inline int missing_execveat(int dirfd, const char *pathname,
                                    char *const argv[], char *const envp[],
