@@ -14,6 +14,8 @@ int fopen_temporary_label(
 
         int r;
 
+        assert(path);
+
         r = mac_selinux_create_file_prepare(target, S_IFREG);
         if (r < 0)
                 return r;

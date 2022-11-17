@@ -3194,7 +3194,7 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
 
         log_info("Encrypting future partition %" PRIu64 "...", p->partno);
 
-        r = fopen_temporary(NULL, &h, &hp);
+        r = fopen_temporary_child(NULL, &h, &hp);
         if (r < 0)
                 return log_error_errno(r, "Failed to create temporary LUKS header file: %m");
 
