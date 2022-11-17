@@ -132,7 +132,9 @@ Features:
   Usecase: provide a minimal ESP with sd-boot and a couple of these sd-fetch
   binaries in place of UKIs, and download them on-the-fly.
 
-* bootctl: warn if ESP is mounted world-readable (and in particular the seed)
+* bootctl: warn if ESP is mounted world-readable (and in particular the seed).
+
+* sd-stub: call process_random_seed() the same way sd-boot does.
 
 * maybe: systemd-loop-generator that sets up loopback devices if requested via kernel
   cmdline. usecase: include encrypted/verity root fs in UKI.
@@ -466,18 +468,6 @@ Features:
 
 * pick up creds from EFI vars
 
-* sd-stub/sd-boot: write RNG seed to LINUX_EFI_RANDOM_SEED_TABLE_GUID config
-  table as well. (and possibly drop our efi var). Current kernels will pick up
-  the seed from there already, if EFI_RNG_PROTOCOL is not implemented by
-  firmware.
-
-* sd-boot: include domain specific hash string in hash function for random seed
-  plus sizes of everything. also include DMI/SMBIOS blob
-
-* sd-stub: invoke random seed logic the same way as in sd-boot, except if
-  random seed EFI variable is already set. That way, the variable set will be
-  set in all cases: if you just use sd-stub, or just sd-boot, or both.
-
 * sd-boot: we probably should include all BootXY EFI variable defined boot
   entries in our menu, and then suppress ourselves. Benefit: instant
   compatibility with all other OSes which register things there, in particular
@@ -754,13 +744,6 @@ Features:
 * maybe write a tool that binds an AF_VFSOCK socket, then invokes qemu,
   extending the command line to enable vsock on the VM, and using fw_cfg to
   configure socket address.
-
-* sd-boot: rework random seed handling following recent kernel changes: always
-  pass seed to kernel, but credit only if secure boot is used
-
-* sd-boot: also include the hyperv "vm generation id" in the random seed hash,
-  to cover nicely for machine clones. It's found in the ACPI tables, which
-  should be easily accessible from UEFI.
 
 * sd-boot: add menu item for shutdown? or hotkey?
 
