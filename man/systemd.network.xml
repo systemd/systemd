@@ -4026,6 +4026,16 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>RTTSec=</varname></term>
+        <listitem>
+          <para>Specifies the RTT for the filter. Takes a timespan. Typical values are e.g. 100us for
+          extremely high-performance 10GigE+ networks like datacentre, 1ms for non-WiFi LAN connections,
+          100ms for typical internet connections. Defaults to unset, and the kernel's default will be used.
+          </para>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
