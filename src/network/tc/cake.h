@@ -38,6 +38,14 @@ typedef enum CakePriorityQueueingPreset {
         _CAKE_PRESET_INVALID = -EINVAL,
 } CakePriorityQueueingPreset;
 
+typedef enum CakeAckFilter {
+        CAKE_ACK_FILTER_NO         = CAKE_ACK_NONE,
+        CAKE_ACK_FILTER_YES        = CAKE_ACK_FILTER,
+        CAKE_ACK_FILTER_AGGRESSIVE = CAKE_ACK_AGGRESSIVE,
+        _CAKE_ACK_FILTER_MAX,
+        _CAKE_ACK_FILTER_INVALID   = -EINVAL,
+} CakeAckFilter;
+
 typedef struct CommonApplicationsKeptEnhanced {
         QDisc meta;
 
@@ -64,6 +72,7 @@ typedef struct CommonApplicationsKeptEnhanced {
         int wash;
         int split_gso;
         usec_t rtt;
+        CakeAckFilter ack_filter;
 } CommonApplicationsKeptEnhanced;
 
 DEFINE_QDISC_CAST(CAKE, CommonApplicationsKeptEnhanced);
@@ -78,3 +87,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_cake_flow_isolation_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_cake_priority_queueing_preset);
 CONFIG_PARSER_PROTOTYPE(config_parse_cake_fwmark);
 CONFIG_PARSER_PROTOTYPE(config_parse_cake_rtt);
+CONFIG_PARSER_PROTOTYPE(config_parse_cake_ack_filter);
