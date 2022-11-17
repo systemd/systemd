@@ -28,7 +28,16 @@ int fopen_temporary_at(int dir_fd, const char *path, FILE **ret_file, char **ret
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
         if (path) {
-                r = tempfn_random(path, NULL, &t);
+                struct stat st;
+
+                r = RET_NERRNO(fstatat(dir_fd, path, &st, AT_EMPTY_PATH));
+                if (r < 0 && r != -ENOENT)
+                        return r;
+
+                if (r >= 0 && S_ISDIR(st.st_mode))
+                        r = tempfn_random_child(path, NULL, &t);
+                else
+                        r = tempfn_random(path, NULL, &t);
                 if (r < 0)
                         return r;
         } else {
