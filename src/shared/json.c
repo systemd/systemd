@@ -553,9 +553,34 @@ static void json_variant_copy_source(JsonVariant *v, JsonVariant *from) {
         v->source = json_source_ref(from->source);
 }
 
+static int _json_variant_array_put_element(JsonVariant *array, JsonVariant *element) {
+        assert(array);
+        JsonVariant *w = array + 1 + array->n_elements;
+
+        uint16_t d = json_variant_depth(element);
+        if (d >= DEPTH_MAX) /* Refuse too deep nesting */
+                return -ELNRNG;
+        if (d >= array->depth)
+                array->depth = d + 1;
+        array->n_elements ++;
+
+        *w = (JsonVariant) {
+                .is_embedded = true,
+                .parent = array,
+        };
+
+        json_variant_set(w, element);
+        json_variant_copy_source(w, element);
+
+        if (!json_variant_is_normalized(element))
+                array->normalized = false;
+
+        return 0;
+}
+
 int json_variant_new_array(JsonVariant **ret, JsonVariant **array, size_t n) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-        bool normalized = true;
+        int r;
 
         assert_return(ret, -EINVAL);
         if (n == 0) {
@@ -571,32 +596,14 @@ int json_variant_new_array(JsonVariant **ret, JsonVariant **array, size_t n) {
         *v = (JsonVariant) {
                 .n_ref = 1,
                 .type = JSON_VARIANT_ARRAY,
+                .normalized = true,
         };
 
-        for (v->n_elements = 0; v->n_elements < n; v->n_elements++) {
-                JsonVariant *w = v + 1 + v->n_elements,
-                            *c = array[v->n_elements];
-                uint16_t d;
-
-                d = json_variant_depth(c);
-                if (d >= DEPTH_MAX) /* Refuse too deep nesting */
-                        return -ELNRNG;
-                if (d >= v->depth)
-                        v->depth = d + 1;
-
-                *w = (JsonVariant) {
-                        .is_embedded = true,
-                        .parent = v,
-                };
-
-                json_variant_set(w, c);
-                json_variant_copy_source(w, c);
-
-                if (!json_variant_is_normalized(c))
-                        normalized = false;
+        while (v->n_elements < n) {
+                r = _json_variant_array_put_element(v, array[v->n_elements]);
+                if (r < 0)
+                        return r;
         }
-
-        v->normalized = normalized;
 
         *ret = TAKE_PTR(v);
         return 0;
@@ -821,6 +828,19 @@ static void json_variant_free_inner(JsonVariant *v, bool force_sensitive) {
 
         if (sensitive)
                 explicit_bzero_safe(v, json_variant_size(v));
+}
+
+static unsigned json_variant_n_ref(const JsonVariant *v) {
+        /* Return the number of references to v.
+         * 0  => NULL or not a regular object or embedded.
+         * >0 => number of references
+         */
+
+        if (!v || !json_variant_is_regular(v) || v->is_embedded)
+                return 0;
+
+        assert(v->n_ref > 0);
+        return v->n_ref;
 }
 
 JsonVariant *json_variant_ref(JsonVariant *v) {
@@ -2072,28 +2092,54 @@ int json_variant_append_array(JsonVariant **v, JsonVariant *element) {
 
         if (!*v || json_variant_is_null(*v))
                 blank = true;
-        else if (!json_variant_is_array(*v))
-                return -EINVAL;
-        else
+        else if (json_variant_is_array(*v))
                 blank = json_variant_elements(*v) == 0;
+        else
+                return -EINVAL;
 
-        if (blank)
+        if (blank) {
                 r = json_variant_new_array(&nv, (JsonVariant*[]) { element }, 1);
-        else {
-                _cleanup_free_ JsonVariant **array = new(JsonVariant*, json_variant_elements(*v) + 1);
+                if (r < 0)
+                        return r;
+        } else if (json_variant_n_ref(*v) == 1) {
+                /* Let's bump the reference count on element. We can't do the realloc if we're appending *v
+                 * to itself, or one of the objects embedded in *v to *v. If the reference count grows, we
+                 * need to fall back to the other method below. */
+
+                _unused_ _cleanup_(json_variant_unrefp) JsonVariant *dummy = json_variant_ref(element);
+                if (json_variant_n_ref(*v) == 1) {
+                        /* We hold the only reference. Let's mutate the object. */
+                        size_t size = json_variant_elements(*v);
+                        void *old = *v;
+
+                        if (!GREEDY_REALLOC(*v, size + 1 + 1))
+                                return -ENOMEM;
+
+                        if (old != *v)
+                                /* Readjust the parent pointers to the new address */
+                                for (size_t i = 1; i < size; i++)
+                                        (*v)[1 + i].parent = *v;
+
+                        return _json_variant_array_put_element(*v, element);
+                }
+        }
+
+        if (!blank) {
+                size_t size = json_variant_elements(*v);
+
+                _cleanup_free_ JsonVariant **array = new(JsonVariant*, size + 1);
                 if (!array)
                         return -ENOMEM;
 
-                size_t size = json_variant_elements(*v);
                 for (size_t i = 0; i < size; i++)
                         array[i] = json_variant_by_index(*v, i);
 
                 array[size] = element;
 
                 r = json_variant_new_array(&nv, array, size + 1);
+                if (r < 0)
+                        return r;
         }
-        if (r < 0)
-                return r;
 
         json_variant_propagate_sensitive(*v, nv);
         JSON_VARIANT_REPLACE(*v, TAKE_PTR(nv));
