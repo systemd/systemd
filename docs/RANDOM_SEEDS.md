@@ -232,17 +232,10 @@ boot, in order to ensure the entropy pool is filled up quickly.
    too), which should be safe even with FAT file system drivers built into
    low-quality EFI firmwares.
 
-   As a special restriction: in virtualized environments PID 1 will refrain
-   from using this mechanism, for safety reasons. This is because on VM
-   environments the EFI variable space and the disk space is generally not
-   maintained physically separate (for example, `qemu` in EFI mode stores the
-   variables in the ESP itself). The robustness towards sloppy OS image
-   generation is the main purpose of maintaining the 'system token' however,
-   and if the EFI variable storage is not kept physically separate from the OS
-   image there's no point in it. That said, OS builders that know that they are
-   not going to replicate the built image on multiple systems may opt to turn
-   off the 'system token' concept by setting `random-seed-mode always` in the
-   ESP's
+   If the system token is not desired but this seeding mechanism still is, OS
+   builders that know that they are not going to replicate the built image on
+   multiple systems may opt to turn off the 'system token' concept by setting
+   `random-seed-mode always` in the ESP's
    [`/loader/loader.conf`](https://www.freedesktop.org/software/systemd/man/loader.conf.html)
    file. If done, `systemd-boot` will use the random seed file even if no
    system token is found in EFI variables.
