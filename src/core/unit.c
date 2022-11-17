@@ -1048,7 +1048,6 @@ static void unit_merge_dependencies(Unit *u, Unit *other) {
         Hashmap *deps;
         void *dt; /* Actually of type UnitDependency, except that we don't bother casting it here,
                    * since the hashmaps all want it as void pointer. */
-        int r;
 
         assert(u);
         assert(other);
@@ -1075,6 +1074,8 @@ static void unit_merge_dependencies(Unit *u, Unit *other) {
                 if (!other_deps)
                         break; /* done! */
 
+                deps = hashmap_get(u->dependencies, dt);
+
                 /* Now iterate through all dependencies of this dependency type, of 'other'. We refer to the
                  * referenced units as 'back'. */
                 HASHMAP_FOREACH_KEY(di_back.data, back, other_deps) {
@@ -1085,6 +1086,7 @@ static void unit_merge_dependencies(Unit *u, Unit *other) {
                                 /* This is a dependency pointing back to the unit we want to merge with?
                                  * Suppress it (but warn) */
                                 unit_maybe_warn_about_dependency(u, other->id, UNIT_DEPENDENCY_FROM_PTR(dt));
+                                hashmap_remove(other_deps, back);
                                 continue;
                         }
 
@@ -1103,40 +1105,21 @@ static void unit_merge_dependencies(Unit *u, Unit *other) {
                                                           di_move.origin_mask,
                                                           di_move.destination_mask) >= 0);
                         }
-                }
 
-                /* Now all references towards 'other' of the current type 'dt' are corrected to point to
-                 * 'u'. Lets's now move the deps of type 'dt' from 'other' to 'u'. First, let's try to move
-                 * them per type wholesale. */
-                r = hashmap_put(u->dependencies, dt, other_deps);
-                if (r == -EEXIST) {
                         /* The target unit already has dependencies of this type, let's then merge this individually. */
-
-                        assert_se(deps = hashmap_get(u->dependencies, dt));
-
-                        for (;;) {
-                                UnitDependencyInfo di_move;
-
-                                /* Get first dep */
-                                di_move.data = hashmap_steal_first_key_and_value(other_deps, (void**) &back);
-                                if (!di_move.data)
-                                        break; /* done */
-                                if (back == u) {
-                                        /* Would point back to us, ignore */
-                                        unit_maybe_warn_about_dependency(u, other->id, UNIT_DEPENDENCY_FROM_PTR(dt));
-                                        continue;
-                                }
-
-                                assert_se(unit_per_dependency_type_hashmap_update(deps, back, di_move.origin_mask, di_move.destination_mask) >= 0);
-                        }
-                } else {
-                        assert_se(r >= 0);
-
-                        if (hashmap_remove(other_deps, u))
-                                unit_maybe_warn_about_dependency(u, other->id, UNIT_DEPENDENCY_FROM_PTR(dt));
-
-                        TAKE_PTR(other_deps);
+                        if (deps)
+                                assert_se(unit_per_dependency_type_hashmap_update(
+                                                          deps,
+                                                          back,
+                                                          di_back.origin_mask,
+                                                          di_back.destination_mask) >= 0);
                 }
+
+                /* Now all references towards 'other' of the current type 'dt' are corrected to point to 'u'.
+                 * Lets's now move the deps of type 'dt' from 'other' to 'u'. If the unit does not have
+                 * dependencies of this type, let's move them per type wholesale. */
+                if (!deps)
+                        assert_se(hashmap_put(u->dependencies, dt, TAKE_PTR(other_deps)) >= 0);
         }
 
         other->dependencies = hashmap_free(other->dependencies);
