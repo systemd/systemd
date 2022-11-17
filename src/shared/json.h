@@ -222,8 +222,16 @@ typedef enum JsonParseFlags {
         JSON_PARSE_SENSITIVE = 1 << 0, /* mark variant as "sensitive", i.e. something containing secret key material or such */
 } JsonParseFlags;
 
-int json_parse(const char *string, JsonParseFlags flags, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column);
-int json_parse_continue(const char **p, JsonParseFlags flags, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column);
+int json_parse_with_source(const char *string, const char *source, JsonParseFlags flags, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column);
+int json_parse_with_source_continue(const char **p, const char *source, JsonParseFlags flags, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column);
+
+static inline int json_parse(const char *string, JsonParseFlags flags, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column) {
+        return json_parse_with_source(string, NULL, flags, ret, ret_line, ret_column);
+}
+static inline int json_parse_continue(const char **p, JsonParseFlags flags, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column) {
+        return json_parse_with_source_continue(p, NULL, flags, ret, ret_line, ret_column);
+}
+
 int json_parse_file_at(FILE *f, int dir_fd, const char *path, JsonParseFlags flags, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column);
 
 static inline int json_parse_file(FILE *f, const char *path, JsonParseFlags flags, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column) {
