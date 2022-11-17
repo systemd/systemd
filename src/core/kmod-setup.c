@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "bus-util.h"
 #include "capability-util.h"
+#include "efi-api.h"
 #include "fileio.h"
 #include "kmod-setup.h"
 #include "macro.h"
@@ -120,6 +121,9 @@ int kmod_setup(void) {
 
                 /* dmi-sysfs is needed to import credentials from it super early */
                 { "dmi-sysfs", "/sys/firmware/dmi/entries", false, false,  NULL   },
+
+                /* Make sure the tpm module is available so early boot services have access to the tpm. */
+                { "tpm", "/sys/class/tpmrm", false, false, efi_has_tpm2 },
         };
         _cleanup_(kmod_unrefp) struct kmod_ctx *ctx = NULL;
         unsigned i;
