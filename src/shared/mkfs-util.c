@@ -254,7 +254,7 @@ static int make_protofile(const char *root, char **ret) {
 
         assert(ret);
 
-        r = fopen_temporary(NULL, &f, &p);
+        r = fopen_temporary_child(NULL, &f, &p);
         if (r < 0)
                 return log_error_errno(r, "Failed to open temporary file: %m");
 
