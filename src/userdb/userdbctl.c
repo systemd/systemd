@@ -1300,6 +1300,10 @@ static int parse_argv(int argc, char *argv[]) {
                 }
         }
 
+        if (arg_output == OUTPUT_JSON && streq_ptr(argv[optind], "ssh-authorized-keys"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Option --json= is not supported for verb ssh-authorized-keys.");
+
         return 1;
 }
 
