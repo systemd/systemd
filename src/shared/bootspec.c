@@ -1450,7 +1450,7 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                                 return log_oom();
                 }
 
-                json_variant_dump(array, json_format, NULL, NULL);
+                json_variant_dump(array, json_format | JSON_FORMAT_EMPTY_ARRAY, NULL, NULL);
 
         } else {
                 for (size_t n = 0; n < config->n_entries; n++) {

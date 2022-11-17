@@ -1810,8 +1810,12 @@ int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret) {
 }
 
 int json_variant_dump(JsonVariant *v, JsonFormatFlags flags, FILE *f, const char *prefix) {
-        if (!v)
-                return 0;
+        if (!v) {
+                if (flags & JSON_FORMAT_EMPTY_ARRAY)
+                        v = JSON_VARIANT_MAGIC_EMPTY_ARRAY;
+                else
+                        return 0;
+        }
 
         if (!f)
                 f = stdout;
