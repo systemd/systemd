@@ -118,8 +118,7 @@ static int determine_path_usage(
                         continue;
 
                 if (fstatat(dirfd(d), de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
-                        log_ratelimit_debug_errno(errno, JOURNALD_LOG_RATELIMIT,
-                                                 "Failed to stat %s/%s, ignoring: %m", path, de->d_name);
+                        log_debug_errno(errno, "Failed to stat %s/%s, ignoring: %m", path, de->d_name);
                         continue;
                 }
 
@@ -591,9 +590,7 @@ static int vacuum_offline_user_journals(Server *s) {
 
                 r = parse_uid(u, &uid);
                 if (r < 0) {
-                        log_ratelimit_debug_errno(r, JOURNALD_LOG_RATELIMIT,
-                                                  "Failed to parse UID from file name '%s', ignoring: %m",
-                                                  de->d_name);
+                        log_debug_errno(r, "Failed to parse UID from file name '%s', ignoring: %m", de->d_name);
                         continue;
                 }
 
@@ -641,8 +638,7 @@ static int vacuum_offline_user_journals(Server *s) {
                                                             "Failed to move %s out of the way, ignoring: %m",
                                                             full);
                         else
-                                log_ratelimit_debug(JOURNALD_LOG_RATELIMIT,
-                                                    "Successfully moved %s out of the way.", full);
+                                log_debug("Successfully moved %s out of the way.", full);
 
                         continue;
                 }
@@ -651,8 +647,7 @@ static int vacuum_offline_user_journals(Server *s) {
 
                 r = journal_file_archive(f->file, NULL);
                 if (r < 0)
-                        log_ratelimit_debug_errno(r, JOURNALD_LOG_RATELIMIT,
-                                                  "Failed to archive journal file '%s', ignoring: %m", full);
+                        log_debug_errno(r, "Failed to archive journal file '%s', ignoring: %m", full);
 
                 managed_journal_file_initiate_close(f, s->deferred_closes);
                 f = NULL;
@@ -666,7 +661,7 @@ void server_rotate(Server *s) {
         void *k;
         int r;
 
-        log_ratelimit_debug(JOURNALD_LOG_RATELIMIT, "Rotating...");
+        log_debug("Rotating...");
 
         /* First, rotate the system journal (either in its runtime flavour or in its runtime flavour) */
         (void) do_rotate(s, &s->runtime_journal, "runtime", false, 0);
@@ -743,7 +738,7 @@ static void do_vacuum(Server *s, JournalStorage *storage, bool verbose) {
 void server_vacuum(Server *s, bool verbose) {
         assert(s);
 
-        log_ratelimit_debug(JOURNALD_LOG_RATELIMIT, "Vacuuming...");
+        log_debug("Vacuuming...");
 
         s->oldest_file_usec = 0;
 
@@ -803,7 +798,7 @@ static bool shall_try_append_again(JournalFile *f, int r) {
         case -EFBIG:           /* Hit fs limit                  */
         case -EDQUOT:          /* Quota limit hit               */
         case -ENOSPC:          /* Disk full                     */
-                log_ratelimit_debug(JOURNALD_LOG_RATELIMIT, "%s: Allocation limit reached, rotating.", f->path);
+                log_debug("%s: Allocation limit reached, rotating.", f->path);
                 return true;
 
         case -EIO:             /* I/O error of some kind (mmap) */
@@ -924,7 +919,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n
         if (!f)
                 return;
 
-        log_ratelimit_debug_errno(r, JOURNALD_LOG_RATELIMIT, "Retrying write.");
+        log_debug_errno(r, "Retrying write.");
         r = journal_file_append_entry(f->file, &ts, NULL, iovec, n, &s->seqnum, NULL, NULL);
         if (r < 0)
                 log_ratelimit_error_errno(r, FAILED_TO_WRITE_ENTRY_RATELIMIT,
@@ -1211,7 +1206,7 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
         if (!s->system_journal)
                 return 0;
 
-        log_ratelimit_debug(JOURNALD_LOG_RATELIMIT, "Flushing to %s...", s->system_storage.path);
+        log_debug("Flushing to %s...", s->system_storage.path);
 
         start = now(CLOCK_MONOTONIC);
 
@@ -1258,7 +1253,7 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
                         goto finish;
                 }
 
-                log_ratelimit_debug(JOURNALD_LOG_RATELIMIT, "Retrying write.");
+                log_debug("Retrying write.");
                 r = journal_file_copy_entry(f, s->system_journal->file, o, f->current_offset);
                 if (r < 0) {
                         log_ratelimit_error_errno(r, JOURNALD_LOG_RATELIMIT, "Can't write entry: %m");
@@ -1309,7 +1304,7 @@ static int server_relinquish_var(Server *s) {
         if (s->runtime_journal && !s->system_journal)
                 return 0;
 
-        log_ratelimit_debug(JOURNALD_LOG_RATELIMIT, "Relinquishing %s...", s->system_storage.path);
+        log_debug("Relinquishing %s...", s->system_storage.path);
 
         (void) system_journal_open(s, false, true);
 
