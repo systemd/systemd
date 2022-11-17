@@ -3180,16 +3180,53 @@ finish:
         return r;
 }
 
-int json_parse(const char *input, JsonParseFlags flags, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column) {
-        return json_parse_internal(&input, NULL, flags, ret, ret_line, ret_column, false);
+int json_parse_with_source(
+                const char *input,
+                const char *source,
+                JsonParseFlags flags,
+                JsonVariant **ret,
+                unsigned *ret_line,
+                unsigned *ret_column) {
+
+        _cleanup_(json_source_unrefp) JsonSource *s = NULL;
+
+        if (source) {
+                s = json_source_new(source);
+                if (!s)
+                        return -ENOMEM;
+        }
+
+        return json_parse_internal(&input, s, flags, ret, ret_line, ret_column, false);
 }
 
-int json_parse_continue(const char **p, JsonParseFlags flags, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column) {
-        return json_parse_internal(p, NULL, flags, ret, ret_line, ret_column, true);
+int json_parse_with_source_continue(
+                const char **p,
+                const char *source,
+                JsonParseFlags flags,
+                JsonVariant **ret,
+                unsigned *ret_line,
+                unsigned *ret_column) {
+
+        _cleanup_(json_source_unrefp) JsonSource *s = NULL;
+
+        if (source) {
+                s = json_source_new(source);
+                if (!s)
+                        return -ENOMEM;
+        }
+
+        return json_parse_internal(p, s, flags, ret, ret_line, ret_column, true);
 }
 
-int json_parse_file_at(FILE *f, int dir_fd, const char *path, JsonParseFlags flags, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column) {
-        _cleanup_(json_source_unrefp) JsonSource *source = NULL;
+int json_parse_file_at(
+                FILE *f,
+                int dir_fd,
+                const char *path,
+                JsonParseFlags flags,
+                JsonVariant **ret,
+                unsigned *ret_line,
+                unsigned *ret_column) {
+
         _cleanup_free_ char *text = NULL;
         int r;
 
@@ -3205,14 +3242,7 @@ int json_parse_file_at(FILE *f, int dir_fd, const char *path, JsonParseFlags fla
         if (isempty(text))
                 return -ENODATA;
 
-        if (path) {
-                source = json_source_new(path);
-                if (!source)
-                        return -ENOMEM;
-        }
-
-        const char *p = text;
-        return json_parse_internal(&p, source, flags, ret, ret_line, ret_column, false);
+        return json_parse_with_source(text, path, flags, ret, ret_line, ret_column);
 }
 
 int json_buildv(JsonVariant **ret, va_list ap) {

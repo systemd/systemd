@@ -663,4 +663,67 @@ TEST(json_append) {
         assert_se(json_variant_equal(v, w));
 }
 
+static inline void json_array_append_with_source_one(bool source) {
+        _cleanup_(json_variant_unrefp) JsonVariant *a, *b;
+
+        /* Parse two sources, each with a different name and line/column numbers */
+
+        assert_se(json_parse_with_source(" [41]", source ? "string 1" : NULL, 0,
+                                         &a, NULL, NULL) >= 0);
+        assert_se(json_parse_with_source("\n\n   [42]", source ? "string 2" : NULL, 0,
+                                         &b, NULL, NULL) >= 0);
+
+        assert_se(json_variant_is_array(a));
+        assert_se(json_variant_elements(a) == 1);
+        assert_se(json_variant_is_array(b));
+        assert_se(json_variant_elements(b) == 1);
+
+        /* Verify source information */
+
+        const char *s1, *s2;
+        unsigned line1, col1, line2, col2;
+        assert_se(json_variant_get_source(a, &s1, &line1, &col1) >= 0);
+        assert_se(json_variant_get_source(b, &s2, &line2, &col2) >= 0);
+
+        assert_se(streq_ptr(s1, source ? "string 1" : NULL));
+        assert_se(streq_ptr(s2, source ? "string 2" : NULL));
+        assert_se(line1 == 1);
+        assert_se(col1 == 2);
+        assert_se(line2 == 3);
+        assert_se(col2 == 4);
+
+        /* Append one elem from the second array (and source) to the first. */
+
+        JsonVariant *elem;
+        assert_se(elem = json_variant_by_index(b, 0));
+        assert_se(json_variant_is_integer(elem));
+        assert_se(json_variant_elements(elem) == 0);
+
+        assert_se(json_variant_append_array(&a, elem) >= 0);
+
+        assert_se(json_variant_is_array(a));
+        assert_se(json_variant_elements(a) == 2);
+
+        /* Verify that source information was propagated correctly */
+
+        assert_se(json_variant_get_source(elem, &s1, &line1, &col1) >= 0);
+        assert_se(elem = json_variant_by_index(a, 1));
+        assert_se(json_variant_get_source(elem, &s2, &line2, &col2) >= 0);
+
+        assert_se(streq_ptr(s1, source ? "string 2" : NULL));
+        assert_se(streq_ptr(s2, source ? "string 2" : NULL));
+        assert_se(line1 == 3);
+        assert_se(col1 == 5);
+        assert_se(line2 == 3);
+        assert_se(col2 == 5);
+}
+
+TEST(json_array_append_with_source) {
+        json_array_append_with_source_one(true);
+}
+
+TEST(json_array_append_without_source) {
+        json_array_append_with_source_one(false);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
