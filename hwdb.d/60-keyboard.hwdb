@@ -296,6 +296,9 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnCompaq*:pn*Evo*N*:*
  KEYBOARD_KEY_9e=email
  KEYBOARD_KEY_9f=homepage
 
+evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:svnCompaq:pn*:pvr*:rvn*:rnN14KP6*
+ KEYBOARD_KEY_76=f21                                    # Fn+f2 toggle touchpad
+
 evdev:input:b0003v049Fp0051*
 evdev:input:b0003v049Fp008D*
  KEYBOARD_KEY_0c0011=presentation
