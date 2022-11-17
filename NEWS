@@ -1,5 +1,25 @@
 systemd System and Service Manager
 
+CHANGES WITH 253 in spe:
+
+        Changes in sd-boot, bootctl, and the Boot Loader Specification:
+
+	* systemd-boot now passes its random seed directly to the kernel's RNG
+	  via the LINUX_EFI_RANDOM_SEED_TABLE_GUID configuration table, which
+	  means the RNG gets seeded very early in boot before userspace has
+	  started.
+
+	* systemd-boot will pass a random seed when secure boot is enabled if
+	  it can additionally get a random seed from EFI itself, via EFI's RNG
+	  protocol or a prior seed in LINUX_EFI_RANDOM_SEED_TABLE_GUID from a
+	  preceding bootloader.
+
+	* The random seed stored in ESP is now refreshed whenever
+	  systemd-random-seed.service is run.
+
+	* systemd-boot handles various seed inputs using a domain- and
+	  field-separated hashing scheme.
+
 CHANGES WITH 252 🎃:
 
         Announcements of Future Feature Removals:
