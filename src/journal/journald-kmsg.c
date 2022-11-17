@@ -80,8 +80,7 @@ void server_forward_kmsg(
         iovec[n++] = IOVEC_MAKE_STRING("\n");
 
         if (writev(s->dev_kmsg_fd, iovec, n) < 0)
-                log_ratelimit_debug_errno(errno, JOURNALD_LOG_RATELIMIT,
-                                          "Failed to write to /dev/kmsg for logging: %m");
+                log_debug_errno(errno, "Failed to write to /dev/kmsg for logging: %m");
 }
 
 static bool is_us(const char *identifier, const char *pid) {
@@ -348,7 +347,7 @@ int server_flush_dev_kmsg(Server *s) {
         if (!s->dev_kmsg_readable)
                 return 0;
 
-        log_ratelimit_debug(JOURNALD_LOG_RATELIMIT, "Flushing /dev/kmsg...");
+        log_debug("Flushing /dev/kmsg...");
 
         for (;;) {
                 r = server_read_dev_kmsg(s);
