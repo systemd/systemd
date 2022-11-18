@@ -76,6 +76,23 @@ static int send_start_exec_queue(UdevConnection *conn) {
         return udev_varlink_call(conn->link, "io.systemd.udev.StartExecQueue", NULL, NULL);
 }
 
+static int send_set_env(UdevConnection *conn, const char *env) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        int r;
+
+        assert(conn);
+        assert(conn->link || conn->uctrl);
+
+        if (!conn->link)
+                return udev_ctrl_send_set_env(conn->uctrl, env);
+
+        r = json_build(&v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("assignment", JSON_BUILD_STRING(env))));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build json object: %m");
+
+        return udev_varlink_call(conn->link, "io.systemd.udev.SetEnvironment", v, NULL);
+}
+
 static int help(void) {
         printf("%s control OPTION\n\n"
                "Control the udev daemon.\n\n"
@@ -189,7 +206,7 @@ int control_main(int argc, char *argv[], void *userdata) {
                         if (!strchr(optarg, '='))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "expect <KEY>=<value> instead of '%s'", optarg);
 
-                        r = udev_ctrl_send_set_env(conn.uctrl, optarg);
+                        r = send_set_env(&conn, optarg);
                         if (r == -ENOANO)
                                 log_warning("Cannot specify --property after --exit, ignoring.");
                         else if (r < 0)
