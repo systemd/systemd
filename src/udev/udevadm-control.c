@@ -26,6 +26,7 @@
 #include "udevadm.h"
 #include "udev-ctrl.h"
 #include "udev-varlink.h"
+#include "varlink.h"
 #include "virt.h"
 
 static int help(void) {
@@ -52,6 +53,7 @@ int control_main(int argc, char *argv[], void *userdata) {
         _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
         usec_t timeout = 60 * USEC_PER_SEC;
         int c, r;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
         enum {
                 ARG_PING = 0x100,
@@ -119,10 +121,12 @@ int control_main(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse log level '%s': %m", optarg);
 
-                        r = udev_ctrl_send_set_log_level(uctrl, r);
-                        if (r == -ENOANO)
-                                log_warning("Cannot specify --log-level after --exit, ignoring.");
-                        else if (r < 0)
+                        r = json_build(&v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("log-level", JSON_BUILD_INTEGER(r))));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to build json object: %m");
+
+                        r = udev_varlink_call(link, "io.systemd.udev.SetLogLevel", v, NULL);
+                        if (r < 0)
                                 return log_error_errno(r, "Failed to send request to set log level: %m");
                         break;
                 case 's':

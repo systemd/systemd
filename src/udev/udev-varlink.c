@@ -14,6 +14,35 @@ static int vl_method_ping(Varlink *link, JsonVariant *parameters, VarlinkMethodF
         return varlink_reply(link, NULL);
 }
 
+static int vl_method_set_log_level(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        JsonVariant *v;
+        int64_t log_level;
+
+        assert(link);
+        assert(parameters);
+
+        if (json_variant_elements(parameters) != 2)
+                return varlink_error_invalid_parameter(link, parameters);
+
+        v = json_variant_by_key(parameters, "log-level");
+
+        if (!v || !json_variant_is_integer(v))
+                return varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("log-level"));
+
+        log_level = json_variant_integer(v);
+
+        log_debug("Received io.systemd.udev.SetLogLevel(%" PRIi64 ")", log_level);
+
+        if (log_level != log_get_max_level()) {
+                log_set_max_level(log_level);
+                m->log_level = log_level;
+                manager_kill_workers(m, false);
+        }
+
+        return varlink_reply(link, NULL);
+}
+
 int udev_varlink_connect(Varlink **ret_link) {
         _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
         int r;
@@ -62,7 +91,8 @@ int udev_open_varlink(Manager *m) {
 
         r = varlink_server_bind_method_many(
                         m->varlink_server,
-                        "io.systemd.udev.Ping", vl_method_ping);
+                        "io.systemd.udev.Ping", vl_method_ping,
+                        "io.systemd.udev.SetLogLevel", vl_method_set_log_level);
 
         r = varlink_server_listen_address(m->varlink_server, UDEV_VARLINK_ADDRESS, 0600);
         if (r < 0)

@@ -279,7 +279,7 @@ static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_
         return 0;
 }
 
-static void manager_kill_workers(Manager *manager, bool force) {
+void manager_kill_workers(Manager *manager, bool force) {
         Worker *worker;
 
         assert(manager);
@@ -1219,22 +1219,6 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
         assert(value);
 
         switch (type) {
-        case UDEV_CTRL_SET_LOG_LEVEL:
-                if ((value->intval & LOG_PRIMASK) != value->intval) {
-                        log_debug("Received invalid udev control message (SET_LOG_LEVEL, %i), ignoring.", value->intval);
-                        break;
-                }
-
-                log_debug("Received udev control message (SET_LOG_LEVEL), setting log_level=%i", value->intval);
-
-                r = log_get_max_level();
-                if (r == value->intval)
-                        break;
-
-                log_set_max_level(value->intval);
-                manager->log_level = value->intval;
-                manager_kill_workers(manager, false);
-                break;
         case UDEV_CTRL_STOP_EXEC_QUEUE:
                 log_debug("Received udev control message (STOP_EXEC_QUEUE)");
                 manager->stop_exec_queue = true;

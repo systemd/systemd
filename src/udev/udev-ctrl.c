@@ -323,7 +323,7 @@ int udev_ctrl_send(UdevCtrl *uctrl, UdevCtrlMessageType type, const void *data) 
         if (type == UDEV_CTRL_SET_ENV) {
                 assert(data);
                 strscpy(ctrl_msg_wire.value.buf, sizeof(ctrl_msg_wire.value.buf), data);
-        } else if (IN_SET(type, UDEV_CTRL_SET_LOG_LEVEL, UDEV_CTRL_SET_CHILDREN_MAX))
+        } else if (IN_SET(type, UDEV_CTRL_SET_CHILDREN_MAX))
                 ctrl_msg_wire.value.intval = PTR_TO_INT(data);
 
         if (!uctrl->connected) {
