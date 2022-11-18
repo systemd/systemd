@@ -424,7 +424,7 @@ static int dns_scope_socket(
                         return r;
         }
 
-        if (s->link) {
+        if (ifindex != 0) {
                 r = socket_set_unicast_if(fd, sa.sa.sa_family, ifindex);
                 if (r < 0)
                         return r;
