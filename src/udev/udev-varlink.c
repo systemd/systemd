@@ -4,6 +4,21 @@
 #include "udev-varlink.h"
 #include "varlink-io.systemd.service.h"
 
+static int vl_method_reload(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+
+        assert(link);
+
+        if (json_variant_elements(parameters) > 0)
+                return varlink_error_invalid_parameter(link, parameters);
+
+        log_debug("Received io.systemd.service.Reload()");
+
+        manager_reload(m, /* force = */ true);
+
+        return varlink_reply(link, NULL);
+}
+
 int udev_varlink_connect(Varlink **ret) {
         _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
         int r;
@@ -52,7 +67,8 @@ int manager_open_varlink(Manager *m) {
 
         r = varlink_server_bind_method_many(
                         m->varlink_server,
-                        "io.systemd.service.Ping", varlink_method_ping);
+                        "io.systemd.service.Ping", varlink_method_ping,
+                        "io.systemd.service.Reload", vl_method_reload);
 
         r = varlink_server_listen_address(m->varlink_server, UDEV_VARLINK_ADDRESS, 0600);
         if (r < 0)
