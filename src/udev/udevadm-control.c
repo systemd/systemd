@@ -71,6 +71,26 @@ static int send_set_log_level(UdevConnection *conn, int level) {
         return udev_varlink_call(conn->link, "io.systemd.service.SetLogLevel", v, NULL);
 }
 
+static int send_stop_exec_queue(UdevConnection *conn) {
+        assert(conn);
+        assert(conn->link || conn->uctrl);
+
+        if (!conn->link)
+                return udev_ctrl_send_stop_exec_queue(conn->uctrl);
+
+        return udev_varlink_call(conn->link, "io.systemd.udev.StopExecQueue", NULL, NULL);
+}
+
+static int send_start_exec_queue(UdevConnection *conn) {
+        assert(conn);
+        assert(conn->link || conn->uctrl);
+
+        if (!conn->link)
+                return udev_ctrl_send_start_exec_queue(conn->uctrl);
+
+        return udev_varlink_call(conn->link, "io.systemd.udev.StartExecQueue", NULL, NULL);
+}
+
 static int help(void) {
         printf("%s control OPTION\n\n"
                "Control the udev daemon.\n\n"
@@ -225,13 +245,13 @@ static int send_control_commands(void) {
         }
 
         if (arg_start_exec_queue == false) {
-                r = udev_ctrl_send_stop_exec_queue(conn.uctrl);
+                r = send_stop_exec_queue(&conn);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send request to stop exec queue: %m");
         }
 
         if (arg_start_exec_queue == true) {
-                r = udev_ctrl_send_start_exec_queue(conn.uctrl);
+                r = send_start_exec_queue(&conn);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send request to start exec queue: %m");
         }
