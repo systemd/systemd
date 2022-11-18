@@ -146,8 +146,6 @@ Features:
 
 * bootctl: warn if ESP is mounted world-readable (and in particular the seed).
 
-* sd-stub: call process_random_seed() the same way sd-boot does.
-
 * maybe: systemd-loop-generator that sets up loopback devices if requested via kernel
   cmdline. usecase: include encrypted/verity root fs in UKI.
 
