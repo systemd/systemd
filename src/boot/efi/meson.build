@@ -380,16 +380,16 @@ common_sources = files(
         'initrd.c',
         'measure.c',
         'pe.c',
+        'random-seed.c',
         'secure-boot.c',
         'ticks.c',
         'util.c',
+        'vmm.c',
 )
 
 systemd_boot_sources = files(
         'boot.c',
         'drivers.c',
-        'random-seed.c',
-        'vmm.c',
         'shim.c',
         'xbootldr.c',
 )

@@ -10,10 +10,12 @@
 #include "linux.h"
 #include "measure.h"
 #include "pe.h"
+#include "random-seed.h"
 #include "secure-boot.h"
 #include "splash.h"
 #include "tpm-pcr.h"
 #include "util.h"
+#include "vmm.h"
 
 /* magic string to find in the binary image */
 _used_ _section_(".sdmagic") static const char magic[] = "#### LoaderInfo: systemd-stub " GIT_VERSION " ####";
@@ -84,6 +86,7 @@ static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
                 EFI_STUB_FEATURE_PICK_UP_CREDENTIALS |      /* We pick up credentials from the boot partition */
                 EFI_STUB_FEATURE_PICK_UP_SYSEXTS |          /* We pick up system extensions from the boot partition */
                 EFI_STUB_FEATURE_THREE_PCRS |               /* We can measure kernel image, parameters and sysext */
+                EFI_STUB_FEATURE_RANDOM_SEED |              /* We pass a random seed to the kernel */
                 0;
 
         char16_t uuid[37];
@@ -130,12 +133,20 @@ static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
         (void) efivar_set_uint64_le(LOADER_GUID, L"StubFeatures", stub_features, 0);
 }
 
+static EFI_STATUS discover_root_dir(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, EFI_FILE **ret_dir) {
+        if (is_direct_boot(loaded_image->DeviceHandle))
+                return vmm_open(&loaded_image->DeviceHandle, ret_dir);
+        else
+                return open_volume(loaded_image->DeviceHandle, ret_dir);
+}
+
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         _cleanup_free_ void *credential_initrd = NULL, *global_credential_initrd = NULL, *sysext_initrd = NULL, *pcrsig_initrd = NULL, *pcrpkey_initrd = NULL;
         UINTN credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0, pcrsig_initrd_size = 0, pcrpkey_initrd_size = 0;
         UINTN cmdline_len = 0, linux_size, initrd_size, dt_size;
         EFI_PHYSICAL_ADDRESS linux_base, initrd_base, dt_base;
         _cleanup_(devicetree_cleanup) struct devicetree_state dt_state = {};
+        _cleanup_(file_closep) EFI_FILE *root_dir = NULL;
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         UINTN addrs[_UNIFIED_SECTION_MAX] = {}, szs[_UNIFIED_SECTION_MAX] = {};
         char *cmdline = NULL;
@@ -158,6 +169,17 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                         EFI_OPEN_PROTOCOL_GET_PROTOCOL);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Error getting a LoadedImageProtocol handle: %r", err);
+
+        /* XXX: root_dir isn't ESP. It's wherever this image is. Figure out how to make this ESP. */
+        err = discover_root_dir(loaded_image, &root_dir);
+        if (err != EFI_SUCCESS)
+                return log_error_status_stall(err, L"Unable to open root directory: %r", err);
+
+        /* If there's already a random seed from sd-boot, that's fine and we don't mind: this will chain the
+         * new one with the old one. And on the off chance that this sd-stub instance is configured to look
+         * elsewhere for the seed or something to that extent, then the more the marrier. */
+        (void) process_random_seed(root_dir, RANDOM_SEED_WITH_SYSTEM_TOKEN /* XXX: not loaded from config */);
+
 
         err = pe_memory_locate_sections(loaded_image->ImageBase, unified_sections, addrs, szs);
         if (err != EFI_SUCCESS || szs[UNIFIED_SECTION_LINUX] == 0) {
