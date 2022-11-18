@@ -43,6 +43,29 @@ static int vl_method_set_log_level(Varlink *link, JsonVariant *parameters, Varli
         return varlink_reply(link, NULL);
 }
 
+static int update_exec_queue(Varlink *link, JsonVariant *parameters, void *userdata, bool stop) {
+        Manager *m = ASSERT_PTR(userdata);
+
+        assert(link);
+
+        if (json_variant_elements(parameters) > 0)
+                return varlink_error_invalid_parameter(link, parameters);
+
+        log_debug("Received io.systemd.udev.%sExecQueue", stop ? "Stop" : "Start");
+
+        m->stop_exec_queue = stop;
+
+        return varlink_reply(link, NULL);
+}
+
+static int vl_method_stop_exec_queue(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        return update_exec_queue(link, parameters, userdata, /* stop = */ true);
+}
+
+static int vl_method_start_exec_queue(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        return update_exec_queue(link, parameters, userdata, /* stop = */ false);
+}
+
 int udev_varlink_connect(Varlink **ret_link) {
         _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
         int r;
@@ -92,7 +115,9 @@ int udev_open_varlink(Manager *m) {
         r = varlink_server_bind_method_many(
                         m->varlink_server,
                         "io.systemd.udev.Ping", vl_method_ping,
-                        "io.systemd.udev.SetLogLevel", vl_method_set_log_level);
+                        "io.systemd.udev.SetLogLevel", vl_method_set_log_level,
+                        "io.systemd.udev.StartExecQueue", vl_method_start_exec_queue,
+                        "io.systemd.udev.StopExecQueue", vl_method_stop_exec_queue);
 
         r = varlink_server_listen_address(m->varlink_server, UDEV_VARLINK_ADDRESS, 0600);
         if (r < 0)

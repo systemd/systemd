@@ -11,8 +11,6 @@ typedef struct UdevCtrl UdevCtrl;
 
 typedef enum UdevCtrlMessageType {
         _UDEV_CTRL_END_MESSAGES,
-        UDEV_CTRL_STOP_EXEC_QUEUE,
-        UDEV_CTRL_START_EXEC_QUEUE,
         UDEV_CTRL_RELOAD,
         UDEV_CTRL_SET_ENV,
         UDEV_CTRL_SET_CHILDREN_MAX,
@@ -40,14 +38,6 @@ sd_event_source *udev_ctrl_get_event_source(UdevCtrl *uctrl);
 int udev_ctrl_wait(UdevCtrl *uctrl, usec_t timeout);
 
 int udev_ctrl_send(UdevCtrl *uctrl, UdevCtrlMessageType type, const void *data);
-
-static inline int udev_ctrl_send_stop_exec_queue(UdevCtrl *uctrl) {
-        return udev_ctrl_send(uctrl, UDEV_CTRL_STOP_EXEC_QUEUE, NULL);
-}
-
-static inline int udev_ctrl_send_start_exec_queue(UdevCtrl *uctrl) {
-        return udev_ctrl_send(uctrl, UDEV_CTRL_START_EXEC_QUEUE, NULL);
-}
 
 static inline int udev_ctrl_send_reload(UdevCtrl *uctrl) {
         return udev_ctrl_send(uctrl, UDEV_CTRL_RELOAD, NULL);
