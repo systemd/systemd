@@ -898,7 +898,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                         }
 
                         _cleanup_free_ void *sig = malloc(ss);
-                        if (!ss) {
+                        if (!ss || !sig) {
                                 r = log_oom();
                                 goto finish;
                         }
