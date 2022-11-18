@@ -73,6 +73,33 @@ static int vl_method_start_exec_queue(Varlink *link, JsonVariant *parameters, Va
         return update_exec_queue(link, parameters, userdata, /* stop = */ false);
 }
 
+static int vl_method_set_environment(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        static const JsonDispatch dispatch_table[] = {
+                {"assignment", JSON_VARIANT_STRING, json_dispatch_const_string, 0, JSON_MANDATORY},
+                {}
+        };
+
+        Manager *m = ASSERT_PTR(userdata);
+        const char *env;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        if (json_variant_elements(parameters) != 2)
+                return varlink_error_invalid_parameter(link, parameters);
+
+        r = json_dispatch(parameters, dispatch_table, NULL, 0, &env);
+        if (r < 0)
+                return r;
+
+        r = manager_update_environment(m, env);
+        if (r < 0)
+                return r;
+
+        return varlink_reply(link, NULL);
+}
+
 int udev_varlink_connect(Varlink **ret) {
         _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
         int r;
@@ -132,6 +159,7 @@ int manager_open_varlink(Manager *m) {
                         "io.systemd.service.Reload", vl_method_reload,
                         "io.systemd.service.SetLogLevel", vl_method_set_log_level,
 
+                        "io.systemd.udev.SetEnvironment", vl_method_set_environment,
                         "io.systemd.udev.StartExecQueue", vl_method_start_exec_queue,
                         "io.systemd.udev.StopExecQueue",  vl_method_stop_exec_queue);
 
