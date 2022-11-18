@@ -3157,7 +3157,7 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
 }
 
 static int partition_encrypt(Context *context, Partition *p, const char *node) {
-#if HAVE_LIBCRYPTSETUP && HAVE_CRYPT_SET_DATA_OFFSET && HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE && HAVE_CRYPT_REENCRYPT
+#if HAVE_LIBCRYPTSETUP && HAVE_CRYPT_SET_DATA_OFFSET && HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE && HAVE_CRYPT_REENCRYPT_RUN
         struct crypt_params_luks2 luks_params = {
                 .label = strempty(p->new_label),
                 .sector_size = context->sector_size,
@@ -3375,7 +3375,7 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
         if (r < 0)
                 return log_error_errno(r, "Failed to load reencryption context: %m");
 
-        r = sym_crypt_reencrypt(cd, NULL);
+        r = sym_crypt_reencrypt_run(cd, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to encrypt %s: %m", node);
 

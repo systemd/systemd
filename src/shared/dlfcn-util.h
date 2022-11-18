@@ -19,4 +19,8 @@ int dlopen_many_sym_or_warn_sentinel(void **dlp, const char *filename, int log_l
  * that each library symbol to resolve will be placed in a variable with the "sym_" prefix, i.e. a symbol
  * "foobar" is loaded into a variable "sym_foobar". */
 #define DLSYM_ARG(arg) \
+        ({ assert_cc(__builtin_types_compatible_p(typeof(sym_##arg), typeof(&arg))); &sym_##arg; }), STRINGIFY(arg)
+
+/* libbpf is a bit confused about type-safety and API compatibility. Provide a macro that can tape over that mess. Sad. */
+#define DLSYM_ARG_FORCE(arg) \
         &sym_##arg, STRINGIFY(arg)
