@@ -127,6 +127,7 @@ const FilesystemSet filesystem_sets[_FILESYSTEM_SET_MAX] = {
                 "nfs4\0"
                 "ocfs2\0"
                 "orangefs\0"
+                "pdfs\0"
                 "pvfs2\0"
                 "smb3\0"
                 "smbfs\0"
