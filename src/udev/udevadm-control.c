@@ -43,6 +43,16 @@ static bool arg_has_control_commands(void) {
                 arg_ping;
 }
 
+static int send_reload(UdevConnection *conn) {
+        assert(conn);
+        assert(conn->link || conn->uctrl);
+
+        if (!conn->link)
+                return udev_ctrl_send_reload(conn->uctrl);
+
+        return udev_varlink_call(conn->link, "io.systemd.service.Reload", NULL, NULL);
+}
+
 static int help(void) {
         printf("%s control OPTION\n\n"
                "Control the udev daemon.\n\n"
@@ -209,7 +219,7 @@ static int send_control_commands(void) {
         }
 
         if (arg_reload) {
-                r = udev_ctrl_send_reload(conn.uctrl);
+                r = send_reload(&conn);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send reload request: %m");
         }
