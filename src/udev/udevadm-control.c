@@ -41,6 +41,16 @@ static int arg_start_exec_queue = -1;
 
 STATIC_DESTRUCTOR_REGISTER(arg_env, strv_freep);
 
+static int send_reload(UdevConnection *conn) {
+        assert(conn);
+        assert(conn->link || conn->uctrl);
+
+        if (!conn->link)
+                return udev_ctrl_send_reload(conn->uctrl);
+
+        return udev_varlink_call(conn->link, "io.systemd.service.Reload", NULL, NULL);
+}
+
 static int help(void) {
         printf("%s control OPTION\n\n"
                "Control the udev daemon.\n\n"
@@ -209,7 +219,7 @@ int control_main(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_reload) {
-                r = udev_ctrl_send_reload(conn.uctrl);
+                r = send_reload(&conn);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send reload request: %m");
         }
