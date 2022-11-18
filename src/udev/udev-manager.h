@@ -42,3 +42,5 @@ typedef struct Manager {
         bool stop_exec_queue;
         bool exit;
 } Manager;
+
+void manager_kill_workers(Manager *manager, bool force);
