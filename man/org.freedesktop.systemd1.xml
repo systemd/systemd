@@ -202,6 +202,10 @@ node /org/freedesktop/systemd1 {
       DisableUnitFiles(in  as files,
                        in  b runtime,
                        out a(sss) changes);
+      DisableUnitFilesWithInstinfo(in  as files,
+                                   in  b runtime,
+                                   out b carries_install_info,
+                                   out a(sss) changes);
       EnableUnitFilesWithFlags(in  as files,
                                in  t flags,
                                out b carries_install_info,
