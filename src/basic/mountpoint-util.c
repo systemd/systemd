@@ -390,6 +390,7 @@ bool fstype_is_network(const char *fstype) {
                           "davfs",
                           "glusterfs",
                           "lustre",
+                          "pdfs",
                           "sshfs");
 }
 
