@@ -28,6 +28,16 @@
 #include "udev-ctrl.h"
 #include "virt.h"
 
+static int send_reload(UdevConnection *conn) {
+        assert(conn);
+        assert(conn->link || conn->uctrl);
+
+        if (!conn->link)
+                return udev_ctrl_send_reload(conn->uctrl);
+
+        return udev_varlink_call(conn->link, "io.systemd.service.Reload", NULL, NULL);
+}
+
 static int help(void) {
         printf("%s control OPTION\n\n"
                "Control the udev daemon.\n\n"
@@ -131,7 +141,7 @@ int control_main(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(r, "Failed to send request to start exec queue: %m");
                         break;
                 case 'R':
-                        r = udev_ctrl_send_reload(conn.uctrl);
+                        r = send_reload(&conn);
                         if (r == -ENOANO)
                                 log_warning("Cannot specify --reload after --exit, ignoring.");
                         else if (r < 0)
