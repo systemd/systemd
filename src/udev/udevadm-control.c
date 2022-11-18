@@ -140,10 +140,8 @@ int control_main(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(r, "Failed to send request to start exec queue: %m");
                         break;
                 case 'R':
-                        r = udev_ctrl_send_reload(uctrl);
-                        if (r == -ENOANO)
-                                log_warning("Cannot specify --reload after --exit, ignoring.");
-                        else if (r < 0)
+                        r = udev_varlink_call(link, "io.systemd.udev.Reload", NULL, NULL);
+                        if (r < 0)
                                 return log_error_errno(r, "Failed to send reload request: %m");
                         break;
                 case 'p':

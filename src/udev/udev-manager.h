@@ -44,3 +44,4 @@ typedef struct Manager {
 } Manager;
 
 void manager_kill_workers(Manager *manager, bool force);
+void manager_reload(Manager *manager, bool force);

@@ -66,6 +66,21 @@ static int vl_method_start_exec_queue(Varlink *link, JsonVariant *parameters, Va
         return update_exec_queue(link, parameters, userdata, /* stop = */ false);
 }
 
+static int vl_method_reload(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+
+        assert(link);
+
+        if (json_variant_elements(parameters) > 0)
+                return varlink_error_invalid_parameter(link, parameters);
+
+        log_debug("Received io.systemd.udev.Reload");
+
+        manager_reload(m, /* force = */ true);
+
+        return varlink_reply(link, NULL);
+}
+
 int udev_varlink_connect(Varlink **ret_link) {
         _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
         int r;
@@ -115,6 +130,7 @@ int udev_open_varlink(Manager *m) {
         r = varlink_server_bind_method_many(
                         m->varlink_server,
                         "io.systemd.udev.Ping", vl_method_ping,
+                        "io.systemd.udev.Reload", vl_method_reload,
                         "io.systemd.udev.SetLogLevel", vl_method_set_log_level,
                         "io.systemd.udev.StartExecQueue", vl_method_start_exec_queue,
                         "io.systemd.udev.StopExecQueue", vl_method_stop_exec_queue);
