@@ -585,8 +585,12 @@ static int print_efi_option(uint16_t id, int *n_printed, bool in_order) {
         assert(n_printed);
 
         r = efi_get_boot_option(id, &title, &partition, &path, &active);
+        if (r == -ENOENT) {
+                log_debug_errno(r, "Boot option 0x%04X referenced but missing, ignoring: %m", id);
+                return 0;
+        }
         if (r < 0)
-                return log_debug_errno(r, "Failed to read boot option 0x%04X: %m", id);
+                return log_error_errno(r, "Failed to read boot option 0x%04X: %m", id);
 
         /* print only configured entries with partition information */
         if (!path || sd_id128_is_null(partition)) {
