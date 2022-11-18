@@ -81,6 +81,91 @@ static int vl_method_reload(Varlink *link, JsonVariant *parameters, VarlinkMetho
         return varlink_reply(link, NULL);
 }
 
+static int set_environment(Manager *m, Varlink *link, const char *e) {
+        _unused_ _cleanup_free_ char *old_val = NULL;
+        _cleanup_free_ char *key = NULL, *val = NULL, *old_key = NULL;
+        const char *eq;
+        int r;
+
+        assert(m);
+        assert(link);
+        assert(e);
+
+        eq = strchr(e, '=');
+        if (!eq) {
+                log_error("Invalid key format '%s'", e);
+                return 1;
+        }
+
+        key = strndup(e, eq - e);
+        if (!key) {
+                log_oom();
+                return 1;
+        }
+
+        old_val = hashmap_remove2(m->properties, key, (void **) &old_key);
+
+        r = hashmap_ensure_allocated(&m->properties, &string_hash_ops);
+        if (r < 0) {
+                log_oom();
+                return 1;
+        }
+
+        eq++;
+        if (isempty(eq)) {
+                log_debug("Received io.systemd.udev.SetEnvironment, unsetting '%s'", key);
+
+                r = hashmap_put(m->properties, key, NULL);
+                if (r < 0) {
+                        log_oom();
+                        return 1;
+                }
+        } else {
+                val = strdup(eq);
+                if (!val) {
+                        log_oom();
+                        return 1;
+                }
+
+                log_debug("Received io.systemd.udev.SetEnvironment, setting '%s=%s'", key, val);
+
+                r = hashmap_put(m->properties, key, val);
+                if (r < 0) {
+                        log_oom();
+                        return 1;
+                }
+        }
+
+        key = val = NULL;
+
+        return 0;
+}
+
+static int vl_method_set_environment(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        JsonVariant *v;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        if (json_variant_elements(parameters) != 2)
+                return varlink_error_invalid_parameter(link, parameters);
+
+        v = json_variant_by_key(parameters, "assignment");
+        if (!v || !json_variant_is_string(v))
+                return varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("assignment"));
+
+        r = set_environment(m, link, json_variant_string(v));
+        if (r != 0) {
+                return varlink_error_errno(link, SYNTHETIC_ERRNO(ENOMEM));
+        }
+
+        manager_kill_workers(m, false);
+
+        return varlink_reply(link, NULL);
+}
+
 int udev_varlink_connect(Varlink **ret_link) {
         _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
         int r;
@@ -131,6 +216,7 @@ int udev_open_varlink(Manager *m) {
                         m->varlink_server,
                         "io.systemd.udev.Ping", vl_method_ping,
                         "io.systemd.udev.Reload", vl_method_reload,
+                        "io.systemd.udev.SetEnvironment", vl_method_set_environment,
                         "io.systemd.udev.SetLogLevel", vl_method_set_log_level,
                         "io.systemd.udev.StartExecQueue", vl_method_start_exec_queue,
                         "io.systemd.udev.StopExecQueue", vl_method_stop_exec_queue);
