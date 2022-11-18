@@ -694,31 +694,31 @@ static int method_start_unit_generic(sd_bus_message *message, Manager *m, JobTyp
 }
 
 static int method_start_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_start_unit_generic(message, userdata, JOB_START, false, error);
+        return method_start_unit_generic(message, userdata, JOB_START, /* reload_if_possible = */ false, error);
 }
 
 static int method_stop_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_start_unit_generic(message, userdata, JOB_STOP, false, error);
+        return method_start_unit_generic(message, userdata, JOB_STOP, /* reload_if_possible = */ false, error);
 }
 
 static int method_reload_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_start_unit_generic(message, userdata, JOB_RELOAD, false, error);
+        return method_start_unit_generic(message, userdata, JOB_RELOAD, /* reload_if_possible = */ false, error);
 }
 
 static int method_restart_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_start_unit_generic(message, userdata, JOB_RESTART, false, error);
+        return method_start_unit_generic(message, userdata, JOB_RESTART, /* reload_if_possible = */ false, error);
 }
 
 static int method_try_restart_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_start_unit_generic(message, userdata, JOB_TRY_RESTART, false, error);
+        return method_start_unit_generic(message, userdata, JOB_TRY_RESTART, /* reload_if_possible = */ false, error);
 }
 
 static int method_reload_or_restart_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_start_unit_generic(message, userdata, JOB_RESTART, true, error);
+        return method_start_unit_generic(message, userdata, JOB_RESTART, /* reload_if_possible = */ true, error);
 }
 
 static int method_reload_or_try_restart_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_start_unit_generic(message, userdata, JOB_TRY_RESTART, true, error);
+        return method_start_unit_generic(message, userdata, JOB_TRY_RESTART, /* reload_if_possible = */ true, error);
 }
 
 typedef enum GenericUnitOperationFlags {
@@ -786,7 +786,7 @@ static int method_start_unit_replace(sd_bus_message *message, void *userdata, sd
         if (!u->job || u->job->type != JOB_START)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_JOB, "No job queued for unit %s", old_name);
 
-        return method_start_unit_generic(message, m, JOB_START, false, error);
+        return method_start_unit_generic(message, m, JOB_START, /* reload_if_possible = */ false, error);
 }
 
 static int method_kill_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2350,19 +2350,19 @@ static int method_enable_unit_files_generic(
 }
 
 static int method_enable_unit_files_with_flags(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_enable, true, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_enable, /* carries_install_info = */ true, error);
 }
 
 static int method_enable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_enable, true, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_enable, /* carries_install_info = */ true, error);
 }
 
 static int method_reenable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_reenable, true, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_reenable, /* carries_install_info = */ true, error);
 }
 
 static int method_link_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_link, false, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_link, /* carries_install_info = */ false, error);
 }
 
 static int unit_file_preset_without_mode(LookupScope scope, UnitFileFlags flags, const char *root_dir, char **files, InstallChange **changes, size_t *n_changes) {
@@ -2370,11 +2370,11 @@ static int unit_file_preset_without_mode(LookupScope scope, UnitFileFlags flags,
 }
 
 static int method_preset_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_preset_without_mode, true, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_preset_without_mode, /* carries_install_info = */ true, error);
 }
 
 static int method_mask_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_mask, false, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_mask, /* carries_install_info = */ false, error);
 }
 
 static int method_preset_unit_files_with_mode(sd_bus_message *message, void *userdata, sd_bus_error *error) {
