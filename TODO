@@ -121,6 +121,12 @@ Deprecations and removals:
 
 Features:
 
+* maybe prohibit setuid() to the nobody user, to lock things down, via seccomp.
+  the nobody is not a user any code should run under, ever, as that user would
+  possibly get a lot of access to resources it really shouldn't be getting
+  access to due to the userns + nfs semantics of the user. Alternatively: use
+  the seccomp log action, and allow it.
+
 * sd-boot: add a new PE section .bls or so that carries a cpio with additional
   boot loader entries (both type1 and type2). Then when initializing, find this
   section, iterate through it and populate menu with it. cpio is simple enough
