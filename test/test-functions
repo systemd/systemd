@@ -1150,7 +1150,6 @@ install_debian_systemd() {
 }
 
 install_suse_systemd() {
-    local testsdir=/usr/lib/systemd/tests
     local pkgs
 
     dinfo "Install SUSE systemd"
@@ -1179,15 +1178,21 @@ install_suse_systemd() {
         done < <(rpm -ql "$p")
     done
 
-    # we only need testsdata dir as well as the unit tests (for
-    # TEST-02-UNITTESTS) in the image.
-    dinfo "Install unit tests and testdata directory"
+    # Embed the files needed by the extended testsuite at runtime. Also include
+    # the unit tests needed by TEST-02-UNITTESTS. This is mostly equivalent to
+    # what `ninja install` does for the tests when '-Dinstall-tests=true'.
+    #
+    # Why? openSUSE ships a package named 'systemd-testsuite' which contains
+    # the minimal set of files that allows to run the testsuite on the host (as
+    # long as it runs an equivalent version of systemd) getting rid of the
+    # hassles of fetching, configuring, building the source code.
+    dinfo "Install the files needed by the tests at runtime"
+    image_install "${SOURCE_DIR}"/test-*
+    inst_recursive "${SOURCE_DIR}/testdata"
+    inst_recursive "${SOURCE_DIR}/manual"
 
-    mkdir -p "$initdir/$testsdir"
-    cp "$testsdir"/test-* "$initdir/$testsdir/"
-    cp -a "$testsdir/testdata" "$initdir/$testsdir/"
-
-    # On openSUSE, these dirs are not created at package install for now.
+    # On openSUSE, this directory is not created at package install, at least
+    # for now.
     mkdir -p "$initdir/var/log/journal/remote"
 }
 
