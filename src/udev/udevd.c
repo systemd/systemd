@@ -331,7 +331,7 @@ static void notify_ready(void) {
 }
 
 /* reload requested, HUP signal received, rules changed, builtin changed */
-static void manager_reload(Manager *manager, bool force) {
+void manager_reload(Manager *manager, bool force) {
         _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
         usec_t now_usec;
         int r;
@@ -1210,10 +1210,6 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
         assert(value);
 
         switch (type) {
-        case UDEV_CTRL_RELOAD:
-                log_debug("Received udev control message (RELOAD)");
-                manager_reload(manager, /* force = */ true);
-                break;
         case UDEV_CTRL_SET_ENV: {
                 _unused_ _cleanup_free_ char *old_val = NULL;
                 _cleanup_free_ char *key = NULL, *val = NULL, *old_key = NULL;
