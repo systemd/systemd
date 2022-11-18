@@ -4163,7 +4163,7 @@ int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot_id, u
 
 /* Ideally this would be a function parameter but initializers for static fields have to be compile
  * time constants so we hardcode the interval instead. */
-#define LOG_RATELIMIT ((RateLimit) { .interval = 60 * USEC_PER_SEC, .burst = 3 })
+#define LOG_RATELIMIT ((const RateLimit) { .interval = 60 * USEC_PER_SEC, .burst = 3 })
 
 bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int log_level) {
         assert(f);
