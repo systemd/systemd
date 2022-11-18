@@ -130,6 +130,7 @@ const FilesystemSet filesystem_sets[_FILESYSTEM_SET_MAX] = {
                 "pvfs2\0"
                 "smb3\0"
                 "smbfs\0"
+                "pdfs\0"
         },
         [FILESYSTEM_SET_PRIVILEGED_API] = {
                 .name = "@privileged-api",
