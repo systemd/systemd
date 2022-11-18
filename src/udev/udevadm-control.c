@@ -130,17 +130,13 @@ int control_main(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(r, "Failed to send request to set log level: %m");
                         break;
                 case 's':
-                        r = udev_ctrl_send_stop_exec_queue(uctrl);
-                        if (r == -ENOANO)
-                                log_warning("Cannot specify --stop-exec-queue after --exit, ignoring.");
-                        else if (r < 0)
+                        r = udev_varlink_call(link, "io.systemd.udev.StopExecQueue", NULL, NULL);
+                        if (r < 0)
                                 return log_error_errno(r, "Failed to send request to stop exec queue: %m");
                         break;
                 case 'S':
-                        r = udev_ctrl_send_start_exec_queue(uctrl);
-                        if (r == -ENOANO)
-                                log_warning("Cannot specify --start-exec-queue after --exit, ignoring.");
-                        else if (r < 0)
+                        r = udev_varlink_call(link, "io.systemd.udev.StartExecQueue", NULL, NULL);
+                        if (r < 0)
                                 return log_error_errno(r, "Failed to send request to start exec queue: %m");
                         break;
                 case 'R':
