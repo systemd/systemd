@@ -648,6 +648,11 @@ int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeature
 int dns_server_ifindex(const DnsServer *s) {
         assert(s);
 
+        /* For loopback addresses, go via the loopback interface, regardless which interface this is linked
+         * to. */
+        if (in_addr_is_localhost(s->family, &s->address))
+                return LOOPBACK_IFINDEX;
+
         /* The link ifindex always takes precedence */
         if (s->link)
                 return s->link->ifindex;
