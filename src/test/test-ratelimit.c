@@ -18,7 +18,7 @@ TEST(ratelimit_below) {
         for (i = 0; i < 10; i++)
                 assert_se(ratelimit_below(&ratelimit));
 
-        ratelimit = (RateLimit) { 0, 10 };
+        ratelimit = (const RateLimit) { 0, 10 };
         for (i = 0; i < 10000; i++)
                 assert_se(ratelimit_below(&ratelimit));
 }

@@ -903,7 +903,7 @@ int posix_fallocate_loop(int fd, uint64_t offset, uint64_t size) {
 
         /* On EINTR try a couple of times more, but protect against busy looping
          * (not more than 16 times per 10s) */
-        rl = (RateLimit) { 10 * USEC_PER_SEC, 16 };
+        rl = (const RateLimit) { 10 * USEC_PER_SEC, 16 };
         while (ratelimit_below(&rl)) {
                 r = posix_fallocate(fd, offset, size);
                 if (r != EINTR)
