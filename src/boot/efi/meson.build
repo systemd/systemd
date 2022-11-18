@@ -360,6 +360,7 @@ efi_headers = files(
         'linux.h',
         'measure.h',
         'missing_efi.h',
+        'part-discovery.h',
         'pe.h',
         'random-seed.h',
         'secure-boot.h',
@@ -367,7 +368,6 @@ efi_headers = files(
         'splash.h',
         'ticks.h',
         'util.h',
-        'xbootldr.h',
 )
 
 common_sources = files(
@@ -379,7 +379,9 @@ common_sources = files(
         'graphics.c',
         'initrd.c',
         'measure.c',
+        'part-discovery.c',
         'pe.c',
+        'random-seed.c',
         'secure-boot.c',
         'ticks.c',
         'util.c',
@@ -388,10 +390,8 @@ common_sources = files(
 systemd_boot_sources = files(
         'boot.c',
         'drivers.c',
-        'random-seed.c',
-        'vmm.c',
         'shim.c',
-        'xbootldr.c',
+        'vmm.c',
 )
 
 stub_sources = files(

@@ -15,6 +15,7 @@
 #include "initrd.h"
 #include "linux.h"
 #include "measure.h"
+#include "part-discovery.h"
 #include "pe.h"
 #include "vmm.h"
 #include "random-seed.h"
@@ -22,7 +23,6 @@
 #include "shim.h"
 #include "ticks.h"
 #include "util.h"
-#include "xbootldr.h"
 
 #ifndef GNU_EFI_USE_MS_ABI
         /* We do not use uefi_call_wrapper() in systemd-boot. As such, we rely on the
@@ -2241,7 +2241,7 @@ static void config_load_xbootldr(
         assert(config);
         assert(device);
 
-        err = xbootldr_open(device, &new_device, &root_dir);
+        err = partition_open(XBOOTLDR_GUID, device, &new_device, &root_dir);
         if (err != EFI_SUCCESS)
                 return;
 

@@ -4,8 +4,8 @@
 #include <efigpt.h>
 #include <efilib.h>
 
+#include "part-discovery.h"
 #include "util.h"
-#include "xbootldr.h"
 
 union GptHeaderBuffer {
         EFI_PARTITION_TABLE_HEADER gpt_header;
@@ -81,6 +81,7 @@ static bool verify_gpt(union GptHeaderBuffer *gpt_header_buffer, EFI_LBA lba_exp
 }
 
 static EFI_STATUS try_gpt(
+                const EFI_GUID *type,
                 EFI_BLOCK_IO_PROTOCOL *block_io,
                 EFI_LBA lba,
                 EFI_LBA *ret_backup_lba, /* May be changed even on error! */
@@ -133,7 +134,7 @@ static EFI_STATUS try_gpt(
                 EFI_PARTITION_ENTRY *entry =
                                 (EFI_PARTITION_ENTRY *) ((uint8_t *) entries + gpt.gpt_header.SizeOfPartitionEntry * i);
 
-                if (memcmp(&entry->PartitionTypeGUID, XBOOTLDR_GUID, sizeof(entry->PartitionTypeGUID)) != 0)
+                if (memcmp(&entry->PartitionTypeGUID, type, sizeof(entry->PartitionTypeGUID)) != 0)
                         continue;
 
                 if (entry->EndingLBA < entry->StartingLBA) /* Bogus? */
@@ -165,7 +166,7 @@ static EFI_STATUS try_gpt(
         return EFI_NOT_FOUND;
 }
 
-static EFI_STATUS find_device(EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_path) {
+static EFI_STATUS find_device(const EFI_GUID *type, EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_path) {
         EFI_STATUS err;
 
         assert(device);
@@ -231,8 +232,7 @@ static EFI_STATUS find_device(EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_p
                         continue;
 
                 HARDDRIVE_DEVICE_PATH hd;
-                err = try_gpt(
-                        block_io, lba,
+                err = try_gpt(type, block_io, lba,
                         nr == 0 ? &backup_lba : NULL, /* Only get backup LBA location from first GPT header. */
                         &hd);
                 if (err != EFI_SUCCESS) {
@@ -252,17 +252,18 @@ static EFI_STATUS find_device(EFI_HANDLE *device, EFI_DEVICE_PATH **ret_device_p
         return EFI_NOT_FOUND;
 }
 
-EFI_STATUS xbootldr_open(EFI_HANDLE *device, EFI_HANDLE *ret_device, EFI_FILE **ret_root_dir) {
+EFI_STATUS partition_open(const EFI_GUID *type, EFI_HANDLE *device, EFI_HANDLE *ret_device,
+                          EFI_FILE **ret_root_dir) {
         _cleanup_free_ EFI_DEVICE_PATH *partition_path = NULL;
         EFI_HANDLE new_device;
         EFI_FILE *root_dir;
         EFI_STATUS err;
 
+        assert(type);
         assert(device);
-        assert(ret_device);
         assert(ret_root_dir);
 
-        err = find_device(device, &partition_path);
+        err = find_device(type, device, &partition_path);
         if (err != EFI_SUCCESS)
                 return err;
 
@@ -275,7 +276,8 @@ EFI_STATUS xbootldr_open(EFI_HANDLE *device, EFI_HANDLE *ret_device, EFI_FILE **
         if (err != EFI_SUCCESS)
                 return err;
 
-        *ret_device = new_device;
+        if (ret_device)
+                *ret_device = new_device;
         *ret_root_dir = root_dir;
         return EFI_SUCCESS;
 }

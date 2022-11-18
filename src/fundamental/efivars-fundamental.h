@@ -22,6 +22,7 @@
 #define EFI_STUB_FEATURE_PICK_UP_CREDENTIALS       (UINT64_C(1) << 1)
 #define EFI_STUB_FEATURE_PICK_UP_SYSEXTS           (UINT64_C(1) << 2)
 #define EFI_STUB_FEATURE_THREE_PCRS                (UINT64_C(1) << 3)
+#define EFI_STUB_FEATURE_RANDOM_SEED               (UINT64_C(1) << 4)
 
 typedef enum SecureBootMode {
         SECURE_BOOT_UNSUPPORTED,
