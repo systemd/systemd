@@ -55,7 +55,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         size_t sw_alloc = MAX(h->sw_alloc, 1u);
         buf2 = malloc(sw_alloc);
-        if (!buf) {
+        if (!buf2) {
                 log_oom();
                 return 0;
         }
