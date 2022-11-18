@@ -1214,65 +1214,10 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
 /* receive the udevd message from userspace */
 static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrlMessageValue *value, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
-        int r;
 
         assert(value);
 
         switch (type) {
-        case UDEV_CTRL_SET_ENV: {
-                _unused_ _cleanup_free_ char *old_val = NULL;
-                _cleanup_free_ char *key = NULL, *val = NULL, *old_key = NULL;
-                const char *eq;
-
-                eq = strchr(value->buf, '=');
-                if (!eq) {
-                        log_error("Invalid key format '%s'", value->buf);
-                        return 1;
-                }
-
-                key = strndup(value->buf, eq - value->buf);
-                if (!key) {
-                        log_oom();
-                        return 1;
-                }
-
-                old_val = hashmap_remove2(manager->properties, key, (void **) &old_key);
-
-                r = hashmap_ensure_allocated(&manager->properties, &string_hash_ops);
-                if (r < 0) {
-                        log_oom();
-                        return 1;
-                }
-
-                eq++;
-                if (isempty(eq)) {
-                        log_debug("Received udev control message (ENV), unsetting '%s'", key);
-
-                        r = hashmap_put(manager->properties, key, NULL);
-                        if (r < 0) {
-                                log_oom();
-                                return 1;
-                        }
-                } else {
-                        val = strdup(eq);
-                        if (!val) {
-                                log_oom();
-                                return 1;
-                        }
-
-                        log_debug("Received udev control message (ENV), setting '%s=%s'", key, val);
-
-                        r = hashmap_put(manager->properties, key, val);
-                        if (r < 0) {
-                                log_oom();
-                                return 1;
-                        }
-                }
-
-                key = val = NULL;
-                manager_kill_workers(manager, false);
-                break;
-        }
         case UDEV_CTRL_SET_CHILDREN_MAX:
                 if (value->intval <= 0) {
                         log_debug("Received invalid udev control message (SET_MAX_CHILDREN, %i), ignoring.", value->intval);

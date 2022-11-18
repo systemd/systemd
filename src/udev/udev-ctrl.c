@@ -320,10 +320,7 @@ int udev_ctrl_send(UdevCtrl *uctrl, UdevCtrlMessageType type, const void *data) 
         if (uctrl->maybe_disconnected)
                 return -ENOANO; /* to distinguish this from other errors. */
 
-        if (type == UDEV_CTRL_SET_ENV) {
-                assert(data);
-                strscpy(ctrl_msg_wire.value.buf, sizeof(ctrl_msg_wire.value.buf), data);
-        } else if (IN_SET(type, UDEV_CTRL_SET_CHILDREN_MAX))
+        if (IN_SET(type, UDEV_CTRL_SET_CHILDREN_MAX))
                 ctrl_msg_wire.value.intval = PTR_TO_INT(data);
 
         if (!uctrl->connected) {

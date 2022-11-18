@@ -148,10 +148,12 @@ int control_main(int argc, char *argv[], void *userdata) {
                         if (!strchr(optarg, '='))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "expect <KEY>=<value> instead of '%s'", optarg);
 
-                        r = udev_ctrl_send_set_env(uctrl, optarg);
-                        if (r == -ENOANO)
-                                log_warning("Cannot specify --property after --exit, ignoring.");
-                        else if (r < 0)
+                        r = json_build(&v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("assignment", JSON_BUILD_STRING(optarg))));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to build json object: %m");
+
+                        r = udev_varlink_call(link, "io.systemd.udev.SetEnvironment", v, NULL);
+                        if (r < 0)
                                 return log_error_errno(r, "Failed to send request to update environment: %m");
                         break;
                 case 'm': {
