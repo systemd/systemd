@@ -2425,6 +2425,7 @@ static int method_disable_unit_files_generic(
                 sd_bus_message *message,
                 Manager *m,
                 int (*call)(LookupScope scope, UnitFileFlags flags, const char *root_dir, char *files[], InstallChange **changes, size_t *n_changes),
+                bool carries_install_info,
                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
@@ -2469,19 +2470,19 @@ static int method_disable_unit_files_generic(
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
-        return reply_install_changes_and_free(m, message, -1, changes, n_changes, error);
+        return reply_install_changes_and_free(m, message, carries_install_info ? r : -1, changes, n_changes, error);
 }
 
 static int method_disable_unit_files_with_flags(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_disable_unit_files_generic(message, userdata, unit_file_disable, error);
+        return method_disable_unit_files_generic(message, userdata, unit_file_disable, true, error);
 }
 
 static int method_disable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_disable_unit_files_generic(message, userdata, unit_file_disable, error);
+        return method_disable_unit_files_generic(message, userdata, unit_file_disable, true, error);
 }
 
 static int method_unmask_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_disable_unit_files_generic(message, userdata, unit_file_unmask, error);
+        return method_disable_unit_files_generic(message, userdata, unit_file_unmask, false, error);
 }
 
 static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -3181,7 +3182,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("DisableUnitFiles",
                                 SD_BUS_ARGS("as", files, "b", runtime),
-                                SD_BUS_RESULT("a(sss)", changes),
+                                SD_BUS_RESULT("b", carries_install_info, "a(sss)", changes),
                                 method_disable_unit_files,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("EnableUnitFilesWithFlags",
@@ -3191,7 +3192,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("DisableUnitFilesWithFlags",
                                 SD_BUS_ARGS("as", files, "t", flags),
-                                SD_BUS_RESULT("a(sss)", changes),
+                                SD_BUS_RESULT("b", carries_install_info, "a(sss)", changes),
                                 method_disable_unit_files_with_flags,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("ReenableUnitFiles",
