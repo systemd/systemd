@@ -209,6 +209,10 @@ node /org/freedesktop/systemd1 {
       DisableUnitFilesWithFlags(in  as files,
                                 in  t flags,
                                 out a(sss) changes);
+      DisableUnitFilesWithFlagsAndInstallInfo(in  as files,
+                                              in  t flags,
+                                              out b carries_install_info,
+                                              out a(sss) changes);
       ReenableUnitFiles(in  as files,
                         in  b runtime,
                         in  b force,
@@ -916,6 +920,8 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="DisableUnitFilesWithFlags()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="DisableUnitFilesWithFlagsAndInstallInfo()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="ReenableUnitFiles()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="LinkUnitFiles()"/>
@@ -1417,7 +1423,7 @@ node /org/freedesktop/systemd1 {
       enabled for runtime only (true, <filename>/run/</filename>), or persistently (false,
       <filename>/etc/</filename>). The second one controls whether symlinks pointing to other units shall be
       replaced if necessary. This method returns one boolean and an array of the changes made. The boolean
-      signals whether the unit files contained any enablement information (i.e. an [Install]) section. The
+      signals whether the unit files contained any enablement information (i.e. an [Install] section). The
       changes array consists of structures with three strings: the type of the change (one of
       <literal>symlink</literal> or <literal>unlink</literal>), the file name of the symlink and the
       destination of the symlink. Note that most of the following calls return a changes list in the same
@@ -1439,6 +1445,11 @@ node /org/freedesktop/systemd1 {
       <varname>SD_SYSTEMD_UNIT_FORCE</varname> controls whether symlinks pointing to other units shall be
       replaced if necessary. <varname>SD_SYSTEMD_UNIT_PORTABLE</varname> will add or remove the symlinks in
       <filename>/etc/systemd/system.attached</filename> and <filename>/run/systemd/system.attached</filename>.</para>
+
+      <para><function>DisableUnitFilesWithFlagsAndInstallInfo()</function> is similar to
+      <function>DisableUnitFilesWithFlags()</function> and takes the same arguments, but returns
+      a boolean to indicate whether the unit files contain any enablement information, like
+      <function>EnableUnitFiles()</function>. The changes made are still returned in an array.</para>
 
       <para>Similarly, <function>ReenableUnitFiles()</function> applies the changes to one or more units that
       would result from disabling and enabling the unit quickly one after the other in an atomic
