@@ -882,5 +882,3 @@ msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "冻结或解冻 '$(unit)' 单元进程需要认证。"
 
-#~ msgid "Authentication is required to kill '$(unit)'."
-#~ msgstr "杀死“$(unit)”需要认证。"
