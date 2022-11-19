@@ -202,6 +202,10 @@ node /org/freedesktop/systemd1 {
       DisableUnitFiles(in  as files,
                        in  b runtime,
                        out a(sss) changes);
+      DisableUnitFilesWithInstallInfo(in  as files,
+                                   in  b runtime,
+                                   out b carries_install_info,
+                                   out a(sss) changes);
       EnableUnitFilesWithFlags(in  as files,
                                in  t flags,
                                out b carries_install_info,
@@ -912,6 +916,8 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="DisableUnitFiles()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="DisableUnitFilesWithInstallInfo()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="EnableUnitFilesWithFlags()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="DisableUnitFilesWithFlags()"/>
@@ -1424,7 +1430,9 @@ node /org/freedesktop/systemd1 {
       format.</para>
 
       <para>Similarly, <function>DisableUnitFiles()</function> disables one or more units in the system,
-      i.e. removes all symlinks to them in <filename>/etc/</filename> and <filename>/run/</filename>.</para>
+      i.e. removes all symlinks to them in <filename>/etc/</filename> and <filename>/run/</filename>.
+      But it isn't aware of any enablement information. To obtain such information through a boolean like
+      <function>EnableUnitFiles()</function>, <function>DisableUnitFilesWithInstallInfo()</function> can be used.</para>
 
       <para>The <function>EnableUnitFilesWithFlags()</function> and <function>DisableUnitFilesWithFlags()</function>
       take in options as flags instead of booleans to allow for extendability, defined as follows:</para>
