@@ -373,6 +373,7 @@ XKBMODEL=pc105+inet"
     # gets along without config file
     systemctl stop systemd-localed.service
     rm -f /etc/X11/xorg.conf.d/00-keyboard.conf /etc/default/keyboard
+    sed -ie '/^XKB_/d' /etc/vconsole.conf
     output=$(localectl)
     assert_in "X11 Layout: .unset." "$output"
     assert_not_in "X11 Model:" "$output"

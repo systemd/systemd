@@ -148,9 +148,11 @@ int x11_read_data(Context *c, sd_bus_message *m) {
 
         /* Check if there is X11 keyboard data inside vconsole */
         r = vconsole_read_data(c, m);
-        if(r <= 0 && c->x11_layout != NULL && errno != ENOENT) {
-            if(r == 0) log_debug("Found X11 keyboard data inside vconsole, skipping /etc/X11/xorg.conf.d/00-keyboard.conf");
-                return r;
+        if (r < 0 && r != -ENOENT)
+            return r;
+        if (!isempty(c->x11_layout)) {
+            log_debug("Found X11 keyboard data inside vconsole, skipping /etc/X11/xorg.conf.d/00-keyboard.conf");
+            return 0;
         }
 
         if (stat("/etc/X11/xorg.conf.d/00-keyboard.conf", &st) < 0) {
