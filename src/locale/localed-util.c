@@ -122,8 +122,12 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
         context_free_vconsole(c);
 
         return parse_env_file(NULL, "/etc/vconsole.conf",
-                              "KEYMAP",        &c->vc_keymap,
-                              "KEYMAP_TOGGLE", &c->vc_keymap_toggle);
+                              "KEYMAP",         &c->vc_keymap,
+                              "KEYMAP_TOGGLE",  &c->vc_keymap_toggle,
+                              "XKB_LAYOUT",     &c->x11_layout,
+                              "XKB_MODEL",      &c->x11_model,
+                              "XKB_VARIANT",    &c->x11_variant,
+                              "XKB_OPTIONS",    &c->x11_options);
 }
 
 int x11_read_data(Context *c, sd_bus_message *m) {
@@ -140,6 +144,15 @@ int x11_read_data(Context *c, sd_bus_message *m) {
 
                 sd_bus_message_unref(c->x11_cache);
                 c->x11_cache = sd_bus_message_ref(m);
+        }
+
+        /* Check if there is X11 keyboard data inside vconsole */
+        r = vconsole_read_data(c, m);
+        if (r < 0 && r != -ENOENT)
+            return r;
+        if (!isempty(c->x11_layout)) {
+            log_debug("Found X11 keyboard data inside vconsole, skipping /etc/X11/xorg.conf.d/00-keyboard.conf");
+            return 0;
         }
 
         if (stat("/etc/X11/xorg.conf.d/00-keyboard.conf", &st) < 0) {
@@ -231,6 +244,22 @@ int vconsole_write_data(Context *c) {
                 return r;
 
         r = strv_env_assign(&l, "KEYMAP_TOGGLE", empty_to_null(c->vc_keymap_toggle));
+        if (r < 0)
+                return r;
+
+        r = strv_env_assign(&l, "XKB_LAYOUT", empty_to_null(c->x11_layout));
+        if (r < 0)
+                return r;
+
+        r = strv_env_assign(&l, "XKB_MODEL", empty_to_null(c->x11_model));
+        if (r < 0)
+                return r;
+
+        r = strv_env_assign(&l, "XKB_VARIANT", empty_to_null(c->x11_variant));
+        if (r < 0)
+                return r;
+
+        r = strv_env_assign(&l, "XKB_OPTIONS", empty_to_null(c->x11_options));
         if (r < 0)
                 return r;
 

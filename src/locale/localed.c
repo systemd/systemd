@@ -661,6 +661,11 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
                 log_error_errno(r, "Failed to set X11 keyboard layout: %m");
                 return sd_bus_error_set_errnof(error, r, "Failed to set X11 keyboard layout: %m");
         }
+        r = vconsole_write_data(c);
+        if (r < 0) {
+                log_error_errno(r, "Failed to save X11 keyboard layout to /etc/vconsole.conf: %m");
+                return sd_bus_error_set_errnof(error, r, "Failed to save X11 keyboard layout to /etc/vconsole.conf: %m");
+        }
 
         log_info("Changed X11 keyboard layout to '%s' model '%s' variant '%s' options '%s'",
                  strempty(c->x11_layout),
