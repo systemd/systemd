@@ -127,69 +127,91 @@ out_deallocate:
         return err;
 }
 
-static EFI_STATUS install_security_override_one(EFI_GUID guid, SecurityOverride *override) {
-        EFI_STATUS err;
+static struct SecurityOverride {
+        EFI_SECURITY_ARCH_PROTOCOL *security;
+        EFI_SECURITY2_ARCH_PROTOCOL *security2;
+        EFI_SECURITY_FILE_AUTHENTICATION_STATE original_hook;
+        EFI_SECURITY2_FILE_AUTHENTICATION original_hook2;
 
-        assert(override);
+        security_validator_t validator;
+        const void *validator_ctx;
+} security_override;
 
-        _cleanup_free_ EFI_HANDLE *handles = NULL;
-        size_t n_handles = 0;
+static EFIAPI EFI_STATUS security_hook(
+                const EFI_SECURITY_ARCH_PROTOCOL *this,
+                uint32_t authentication_status,
+                const EFI_DEVICE_PATH *file) {
 
-        err = BS->LocateHandleBuffer(ByProtocol, &guid, NULL, &n_handles, &handles);
-        if (err != EFI_SUCCESS)
-                /* No security arch protocol around? */
-                return err;
+        assert(security_override.validator);
+        assert(security_override.security);
+        assert(security_override.original_hook);
 
-        /* There should only ever be one security arch protocol instance, but let's be paranoid here. */
-        assert(n_handles == 1);
+        if (security_override.validator(security_override.validator_ctx, file, NULL, 0))
+                return EFI_SUCCESS;
 
-        void *security = NULL;
-        err = BS->LocateProtocol(&guid, NULL, &security);
-        if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, u"Error getting security arch protocol: %r", err);
-
-        err = BS->ReinstallProtocolInterface(handles[0], &guid, security, override);
-        if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, u"Error overriding security arch protocol: %r", err);
-
-        override->original = security;
-        override->original_handle = handles[0];
-        return EFI_SUCCESS;
+        return security_override.original_hook(security_override.security, authentication_status, file);
 }
 
-/* This replaces the platform provided security arch protocols (defined in the UEFI Platform Initialization
- * Specification) with the provided override instances. If not running in secure boot or the protocols are
- * not available nothing happens. The override instances are provided with the necessary info to undo this
- * in uninstall_security_override(). */
-void install_security_override(SecurityOverride *override, SecurityOverride *override2) {
-        assert(override);
-        assert(override2);
+static EFIAPI EFI_STATUS security2_hook(
+                const EFI_SECURITY2_ARCH_PROTOCOL *this,
+                const EFI_DEVICE_PATH *device_path,
+                void *file_buffer,
+                size_t file_size,
+                BOOLEAN boot_policy) {
+
+        assert(security_override.validator);
+        assert(security_override.security2);
+        assert(security_override.original_hook2);
+
+        if (security_override.validator(security_override.validator_ctx, device_path, file_buffer, file_size))
+                return EFI_SUCCESS;
+
+        return security_override.original_hook2(
+                        security_override.security2, device_path, file_buffer, file_size, boot_policy);
+}
+
+/* This replaces the platform provided security arch protocols hooks (defined in the UEFI Platform
+ * Initialization Specification) with our own that uses the given validator to decide if a image is to be
+ * trusted. If not running in secure boot or the protocols are not available nothing happens. The override
+ * must be removed with uninstall_security_override() after LoadImage() has been called.
+ *
+ * This is a hack as we do not own the security protocol instances and modifying them is not an official part
+ * of their spec. But there is little else we can do to circumvent secure boot short of implementing our own
+ * PE loader. We could replace the firmware instances with our own instance using
+ * ReinstallProtocolInterface(), but some firmware will still use the old ones. */
+void install_security_override(security_validator_t validator, const void *validator_ctx) {
+        EFI_STATUS err;
+
+        assert(validator);
 
         if (!secure_boot_enabled())
                 return;
 
-        (void) install_security_override_one((EFI_GUID) EFI_SECURITY_ARCH_PROTOCOL_GUID, override);
-        (void) install_security_override_one((EFI_GUID) EFI_SECURITY2_ARCH_PROTOCOL_GUID, override2);
+        security_override = (struct SecurityOverride) {
+                .validator = validator,
+                .validator_ctx = validator_ctx,
+        };
+
+        EFI_SECURITY_ARCH_PROTOCOL *security = NULL;
+        err = BS->LocateProtocol(&(EFI_GUID) EFI_SECURITY_ARCH_PROTOCOL_GUID, NULL, (void **) &security);
+        if (err == EFI_SUCCESS) {
+                security_override.security = security;
+                security_override.original_hook = security->FileAuthenticationState;
+                security->FileAuthenticationState = security_hook;
+        }
+
+        EFI_SECURITY2_ARCH_PROTOCOL *security2 = NULL;
+        err = BS->LocateProtocol(&(EFI_GUID) EFI_SECURITY2_ARCH_PROTOCOL_GUID, NULL, (void **) &security2);
+        if (err == EFI_SUCCESS) {
+                security_override.security2 = security2;
+                security_override.original_hook2 = security2->FileAuthentication;
+                security2->FileAuthentication = security2_hook;
+        }
 }
 
-void uninstall_security_override(SecurityOverride *override, SecurityOverride *override2) {
-        assert(override);
-        assert(override2);
-
-        /* We use assert_se here to guarantee the system is not in a weird state in the unlikely case of an
-         * error restoring the original protocols. */
-
-        if (override->original_handle)
-                assert_se(BS->ReinstallProtocolInterface(
-                                          override->original_handle,
-                                          &(EFI_GUID) EFI_SECURITY_ARCH_PROTOCOL_GUID,
-                                          override,
-                                          override->original) == EFI_SUCCESS);
-
-        if (override2->original_handle)
-                assert_se(BS->ReinstallProtocolInterface(
-                                          override2->original_handle,
-                                          &(EFI_GUID) EFI_SECURITY2_ARCH_PROTOCOL_GUID,
-                                          override2,
-                                          override2->original) == EFI_SUCCESS);
+void uninstall_security_override(void) {
+        if (security_override.original_hook)
+                security_override.security->FileAuthenticationState = security_override.original_hook;
+        if (security_override.original_hook2)
+                security_override.security2->FileAuthentication = security_override.original_hook2;
 }
