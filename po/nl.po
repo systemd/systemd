@@ -2,12 +2,13 @@
 #
 # Dutch translation of systemd.
 # Pjotr Vertaalt <pjotrvertaalt@gmail.com>, 2021.
+# Richard E. van der Luit <fedoraproject@veneax.nl>, 2022.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2022-10-20 10:35+0200\n"
-"PO-Revision-Date: 2021-03-24 09:16+0000\n"
-"Last-Translator: Pjotr Vertaalt <pjotrvertaalt@gmail.com>\n"
+"PO-Revision-Date: 2022-11-20 15:19+0000\n"
+"Last-Translator: Richard E. van der Luit <fedoraproject@veneax.nl>\n"
 "Language-Team: Dutch <https://translate.fedoraproject.org/projects/systemd/"
 "master/nl/>\n"
 "Language: nl\n"
@@ -15,7 +16,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.5.1\n"
+"X-Generator: Weblate 4.14.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -171,23 +172,22 @@ msgstr ""
 
 #: src/hostname/org.freedesktop.hostname1.policy:61
 msgid "Get hardware serial number"
-msgstr ""
+msgstr "Serienummer hardware verkrijgen"
 
 #: src/hostname/org.freedesktop.hostname1.policy:62
-#, fuzzy
 msgid "Authentication is required to get hardware serial number."
-msgstr "Authenticatie is vereist voor het instellen van de systeemtijd."
+msgstr ""
+"Authenticatie is vereist voor het verkrijgen van het serienummer van de "
+"hardware."
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
-#, fuzzy
 msgid "Get system description"
-msgstr "Stel de tijdzone van het systeem in"
+msgstr "Systeembeschrijving verkrijgen"
 
 #: src/hostname/org.freedesktop.hostname1.policy:72
-#, fuzzy
 msgid "Authentication is required to get system description."
 msgstr ""
-"Authenticatie is vereist voor het instellen van de tijdzone van het systeem."
+"Authenticatie is vereist voor het verkrijgen van de systeembeschrijving."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
