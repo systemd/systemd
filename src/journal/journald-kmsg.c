@@ -320,7 +320,7 @@ static int server_read_dev_kmsg(Server *s) {
         if (l < 0) {
                 /* Old kernels who don't allow reading from /dev/kmsg
                  * return EINVAL when we try. So handle this cleanly,
-                 * but don' try to ever read from it again. */
+                 * but don't try to ever read from it again. */
                 if (errno == EINVAL) {
                         s->dev_kmsg_event_source = sd_event_source_unref(s->dev_kmsg_event_source);
                         return 0;

@@ -3177,7 +3177,7 @@ static int event_arm_timer(
         assert_se(d->fd >= 0);
 
         if (t == 0) {
-                /* We don' want to disarm here, just mean some time looooong ago. */
+                /* We don't want to disarm here, just mean some time looooong ago. */
                 its.it_value.tv_sec = 0;
                 its.it_value.tv_nsec = 1;
         } else
