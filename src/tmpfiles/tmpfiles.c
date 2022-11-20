@@ -1979,7 +1979,7 @@ static int create_fifo(Item *i) {
 
         creation = r >= 0 ? CREATION_NORMAL : CREATION_EXISTING;
 
-        /* Open the inode via O_PATH, regardless if we managed to create it or not. Maybe it is is already the FIFO we want */
+        /* Open the inode via O_PATH, regardless if we managed to create it or not. Maybe it is already the FIFO we want */
         fd = openat(pfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
         if (fd < 0) {
                 if (r < 0)
