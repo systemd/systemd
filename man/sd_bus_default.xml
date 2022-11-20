@@ -182,7 +182,7 @@
 
     <para><function>sd_bus_open_system_remote()</function> connects to the system bus on
     the specified host using
-    <citerefentry project='die-net'><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+    <citerefentry project='man-pages'><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
     <parameter>host</parameter> consists of an optional user name followed by the
     <literal>@</literal> symbol, and the hostname, optionally followed by a
     <literal>:</literal> and a port, optionally followed by a
@@ -339,7 +339,7 @@
       <citerefentry><refentrytitle>sd_bus_ref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_close</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry project='die-net'><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
