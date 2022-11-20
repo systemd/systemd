@@ -1826,26 +1826,12 @@ static int luks_format(
         return 0;
 }
 
-static int make_partition_table(
-                int fd,
+static int make_partition(
                 const char *label,
                 sd_id128_t uuid,
-                uint64_t *ret_offset,
-                uint64_t *ret_size,
-                sd_id128_t *ret_disk_uuid) {
-
-        _cleanup_(fdisk_unref_partitionp) struct fdisk_partition *p = NULL, *q = NULL;
+                struct fdisk_partition *p) {
         _cleanup_(fdisk_unref_parttypep) struct fdisk_parttype *t = NULL;
-        _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
-        _cleanup_free_ char *path = NULL, *disk_uuid_as_string = NULL;
-        uint64_t offset, size, first_lba, start, last_lba, end;
-        sd_id128_t disk_uuid;
         int r;
-
-        assert(fd >= 0);
-        assert(label);
-        assert(ret_offset);
-        assert(ret_size);
 
         t = fdisk_new_parttype();
         if (!t)
@@ -1854,6 +1840,72 @@ static int make_partition_table(
         r = fdisk_parttype_set_typestr(t, SD_GPT_USER_HOME_STR);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize partition type: %m");
+
+        r = fdisk_partition_set_type(p, t);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set partition type: %m");
+
+        r = fdisk_partition_set_name(p, label);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set partition name: %m");
+
+        r = fdisk_partition_set_uuid(p, SD_ID128_TO_UUID_STRING(uuid));
+        if (r < 0)
+                return log_error_errno(r, "Failed to set partition UUID: %m");
+
+        return 0;
+}
+
+static int query_partition_offset_and_size(
+                struct fdisk_context *c,
+                int partno,
+                uint64_t *ret_offset,
+                uint64_t *ret_size) {
+        _cleanup_(fdisk_unref_partitionp) struct fdisk_partition *q = NULL;
+        uint64_t offset, size;
+        int r;
+
+        assert(partno >= 0);
+
+        r = fdisk_get_partition(c, partno, &q);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read created partition metadata: %m");
+
+        assert(fdisk_partition_has_start(q));
+        offset = fdisk_partition_get_start(q);
+        if (offset > UINT64_MAX / 512U)
+                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Partition offset too large.");
+
+        assert(fdisk_partition_has_size(q));
+        size = fdisk_partition_get_size(q);
+        if (size > UINT64_MAX / 512U)
+                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Partition size too large.");
+
+        *ret_offset = offset * 512U;
+        *ret_size = size * 512U;
+
+        return 0;
+}
+
+static int make_partition_table(
+                int fd,
+                const char *label,
+                sd_id128_t uuid,
+                uint64_t *ret_offset,
+                uint64_t *ret_size,
+                sd_id128_t *ret_disk_uuid) {
+
+        _cleanup_(fdisk_unref_partitionp) struct fdisk_partition *p = NULL;
+        _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
+        _cleanup_free_ char *path = NULL, *disk_uuid_as_string = NULL;
+        sd_id128_t disk_uuid;
+        uint64_t first_lba, start, last_lba, end;
+        int r;
+
+        assert(fd >= 0);
+        assert(label);
+        assert(ret_offset);
+        assert(ret_size);
 
         c = fdisk_new_context();
         if (!c)
@@ -1873,10 +1925,6 @@ static int make_partition_table(
         p = fdisk_new_partition();
         if (!p)
                 return log_oom();
-
-        r = fdisk_partition_set_type(p, t);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set partition type: %m");
 
         r = fdisk_partition_partno_follow_default(p, 1);
         if (r < 0)
@@ -1906,13 +1954,9 @@ static int make_partition_table(
         if (r < 0)
                 return log_error_errno(r, "Failed to end partition at offset %" PRIu64 ": %m", end);
 
-        r = fdisk_partition_set_name(p, label);
+        r = make_partition(label, uuid, p);
         if (r < 0)
-                return log_error_errno(r, "Failed to set partition name: %m");
-
-        r = fdisk_partition_set_uuid(p, SD_ID128_TO_UUID_STRING(uuid));
-        if (r < 0)
-                return log_error_errno(r, "Failed to set partition UUID: %m");
+                return r;
 
         r = fdisk_add_partition(c, p, NULL);
         if (r < 0)
@@ -1930,23 +1974,69 @@ static int make_partition_table(
         if (r < 0)
                 return log_error_errno(r, "Failed to parse disk label UUID: %m");
 
-        r = fdisk_get_partition(c, 0, &q);
+        r = query_partition_offset_and_size(c, 0, ret_offset, ret_size);
         if (r < 0)
-                return log_error_errno(r, "Failed to read created partition metadata: %m");
+                return r;
 
-        assert(fdisk_partition_has_start(q));
-        offset = fdisk_partition_get_start(q);
-        if (offset > UINT64_MAX / 512U)
-                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Partition offset too large.");
-
-        assert(fdisk_partition_has_size(q));
-        size = fdisk_partition_get_size(q);
-        if (size > UINT64_MAX / 512U)
-                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Partition size too large.");
-
-        *ret_offset = offset * 512U;
-        *ret_size = size * 512U;
         *ret_disk_uuid = disk_uuid;
+
+        return 0;
+}
+
+static int update_partition_table(
+                int fd,
+                const char *label,
+                int partno,
+                sd_id128_t partition_uuid,
+                uint64_t *ret_offset,
+                uint64_t *ret_size,
+                sd_id128_t *ret_disk_uuid) {
+        uint64_t partition_offset = 0, partition_size = 0;
+        _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
+        _cleanup_(fdisk_unref_partitionp) struct fdisk_partition *p = NULL;
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        c = fdisk_new_context();
+        if (!c)
+                return log_oom();
+
+        if (asprintf(&path, "/proc/self/fd/%i", fd) < 0)
+                return log_oom();
+
+        r = fdisk_assign_device(c, path, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open device: %m");
+
+        if (!fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOMEDIUM), "Disk has no GPT partition table.");
+
+        r = fdisk_get_partition(c, partno, &p);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get partition %d: %m", partno);
+
+        r = make_partition(label, partition_uuid, p);
+        if (r < 0)
+                return r;
+
+        r = fdisk_set_partition(c, partno, p);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set partition %d: %m", partno);
+
+        r = fdisk_write_disklabel(c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write disk label: %m");
+
+        r = query_partition_offset_and_size(c, partno, &partition_offset, &partition_size);
+        if (r < 0)
+                return r;
+
+        r = sd_id128_from_string(fdisk_partition_get_uuid(p), ret_disk_uuid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse disk label UUID: %m");
+
+        *ret_offset = partition_offset;
+        *ret_size = partition_size;
 
         return 0;
 }
@@ -2125,7 +2215,9 @@ int home_create_luks(
         _cleanup_close_ int mount_fd = -1;
         const char *fstype, *ip;
         struct statfs sfs;
-        int r;
+        int r, partno;
+        bool is_partition = false;
+        dev_t dev_parent;
 
         assert(h);
         assert(h->storage < 0 || h->storage == USER_LUKS);
@@ -2212,8 +2304,34 @@ int home_create_luks(
                 if (access(sysfs, F_OK) < 0) {
                         if (errno != ENOENT)
                                 return log_error_errno(errno, "Failed to check whether %s exists: %m", sysfs);
-                } else
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Operating on partitions is currently not supported, sorry. Please specify a top-level block device.");
+                } else {
+                        _cleanup_free_ char *parent_path = NULL, *partno_buf = NULL;
+
+                        is_partition = true;
+                        r = block_get_whole_disk(st.st_rdev, &dev_parent);
+                        if (r < 0)
+                                return r;
+
+                        r = read_one_line_file(sysfs, &partno_buf);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read partition number: %m");
+
+                        r = safe_atoi(partno_buf, &partno);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse partition number: %m");
+
+                        if (partno <= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid partition number");
+                        partno--;
+
+                        r = device_path_make_canonical(S_IFBLK, dev_parent, &parent_path);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to build partition parent path: %m");
+
+                        setup->image_fd = open_image_file(h, parent_path, &st);
+                        if (setup->image_fd < 0)
+                                return setup->image_fd;
+                }
 
                 if (flock(setup->image_fd, LOCK_EX) < 0) /* make sure udev doesn't read from it while we operate on the device */
                         return log_error_errno(errno, "Failed to lock block device %s: %m", ip);
@@ -2287,15 +2405,28 @@ int home_create_luks(
                 log_info("Allocating image file completed.");
         }
 
-        r = make_partition_table(
-                        setup->image_fd,
-                        user_record_user_name_and_realm(h),
-                        partition_uuid,
-                        &partition_offset,
-                        &partition_size,
-                        &disk_uuid);
-        if (r < 0)
-                return r;
+        if (!is_partition) {
+                r = make_partition_table(
+                                setup->image_fd,
+                                user_record_user_name_and_realm(h),
+                                partition_uuid,
+                                &partition_offset,
+                                &partition_size,
+                                &disk_uuid);
+                if (r < 0)
+                        return r;
+        } else {
+                r = update_partition_table(
+                                setup->image_fd,
+                                user_record_user_name_and_realm(h),
+                                partno,
+                                partition_uuid,
+                                &partition_offset,
+                                &partition_size,
+                                &disk_uuid);
+                if (r < 0)
+                        return r;
+        }
 
         log_info("Writing of partition table completed.");
 
@@ -2416,7 +2547,8 @@ int home_create_luks(
         if (r < 0)
                 return r;
 
-        setup->loop = loop_device_unref(setup->loop);
+        if (setup->loop)
+                setup->loop = loop_device_unref(setup->loop);
 
         if (!user_record_luks_offline_discard(h)) {
                 r= run_fallocate(setup->image_fd, NULL /* refresh stat() data */);
