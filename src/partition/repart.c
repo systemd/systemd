@@ -109,7 +109,7 @@ static enum {
         EMPTY_CREATE,   /* create disk as loopback file, create a partition table always */
 } arg_empty = EMPTY_REFUSE;
 
-typedef enum {
+typedef enum FilterPartitionType {
         FILTER_PARTITIONS_NONE,
         FILTER_PARTITIONS_EXCLUDE,
         FILTER_PARTITIONS_INCLUDE,
@@ -1056,16 +1056,13 @@ static uint64_t find_first_unused_partno(Context *context) {
 
         assert(context);
 
-        for (bool changed = true; changed;) {
-                changed = false;
-
-                LIST_FOREACH(partitions, p, context->partitions) {
-                        if (p->partno != UINT64_MAX && p->partno == partno) {
-                                partno++;
-                                changed = true;
-                                break;
-                        }
-                }
+        for (partno = 0;; partno++) {
+                bool found = false;
+                LIST_FOREACH(partitions, p, context->partitions)
+                        if (p->partno != UINT64_MAX && p->partno == partno)
+                                found = true;
+                if (!found)
+                        break;
         }
 
         return partno;
@@ -1643,9 +1640,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                                   verity_mode_to_string(p->verity));
 
         /* Verity partitions are read only, let's imply the RO flag hence, unless explicitly configured otherwise. */
-        if ((p->type.designator == PARTITION_ROOT_VERITY ||
-             p->type.designator == PARTITION_USR_VERITY) &&
-            p->read_only < 0)
+        if (IN_SET(p->type.designator, PARTITION_ROOT_VERITY, PARTITION_USR_VERITY) && p->read_only < 0)
                 p->read_only = true;
 
         /* Default to "growfs" on, unless read-only */
@@ -3052,9 +3047,13 @@ static int partition_target_prepare(
          * the result into the image.
          */
 
-        t = new0(PartitionTarget, 1);
+        t = new(PartitionTarget, 1);
         if (!t)
                 return log_oom();
+        *t = (PartitionTarget) {
+                .fd = -1,
+                .whole_fd = -1,
+        };
 
         if (S_ISBLK(st.st_mode) || (p->format && !mkfs_supports_root_option(p->format))) {
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
@@ -3066,10 +3065,7 @@ static int partition_target_prepare(
                 if (r < 0)
                         return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
 
-                *t = (PartitionTarget) {
-                        .loop = TAKE_PTR(d),
-                        .fd = -1,
-                };
+                t->loop = TAKE_PTR(d);
         } else if (need_path) {
                 _cleanup_(unlink_and_freep) char *temp = NULL;
                 _cleanup_close_ int fd = -1;
@@ -3091,18 +3087,13 @@ static int partition_target_prepare(
                         return log_error_errno(errno, "Failed to truncate temporary file to %s: %m",
                                                FORMAT_BYTES(size));
 
-                *t = (PartitionTarget) {
-                        .fd = TAKE_FD(fd),
-                        .path = TAKE_PTR(temp),
-                };
+                t->fd = TAKE_FD(fd);
+                t->path = TAKE_PTR(temp);
         } else {
                 if (lseek(whole_fd, p->offset, SEEK_SET) == (off_t) -1)
                         return log_error_errno(errno, "Failed to seek to partition offset: %m");
 
-                *t = (PartitionTarget) {
-                        .fd = -1,
-                        .whole_fd = whole_fd,
-                };
+                t->whole_fd = whole_fd;
         }
 
         *ret = TAKE_PTR(t);
@@ -3159,8 +3150,8 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
 static int partition_encrypt(Context *context, Partition *p, const char *node) {
 #if HAVE_LIBCRYPTSETUP && HAVE_CRYPT_SET_DATA_OFFSET && HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE && HAVE_CRYPT_REENCRYPT
         struct crypt_params_luks2 luks_params = {
-                .label = strempty(p->new_label),
-                .sector_size = context->sector_size,
+                .label = strempty(ASSERT_PTR(p)->new_label),
+                .sector_size = ASSERT_PTR(context)->sector_size,
                 .data_device = node,
         };
         struct crypt_params_reencrypt reencrypt_params = {
@@ -3204,7 +3195,7 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
                 return log_error_errno(r, "Failed to create temporary LUKS header file: %m");
 
         /* Weird cryptsetup requirement which requires the header file to be the size of at least one sector. */
-        r = posix_fallocate(fileno(h), 0, context->sector_size);
+        r = ftruncate(fileno(h), context->sector_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to grow temporary LUKS header file: %m");
 
@@ -3787,20 +3778,21 @@ static int do_make_directories(Partition *p, const char *root) {
 
 static int partition_populate_directory(Partition *p, const Set *denylist, char **ret) {
         _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
+        _cleanup_close_ int rfd = -1;
         int r;
 
         assert(ret);
 
-        if ((strv_isempty(p->copy_files) && strv_isempty(p->make_directories))) {
+        if (strv_isempty(p->copy_files) && strv_isempty(p->make_directories)) {
                 *ret = NULL;
                 return 0;
         }
 
-        r = mkdtemp_malloc("/var/tmp/repart-XXXXXX", &root);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create temporary directory: %m");
+        rfd = mkdtemp_open("/var/tmp/repart-XXXXXX", 0, &root);
+        if (rfd < 0)
+                return log_error_errno(rfd, "Failed to create temporary directory: %m");
 
-        if (chmod(root, 0755) < 0)
+        if (fchmod(rfd, 0755) < 0)
                 return log_error_errno(errno, "Failed to change mode of temporary directory: %m");
 
         /* Make sure everything is owned by the user running repart so that make_filesystem() can map the
@@ -5350,11 +5342,11 @@ static int parse_filter_partitions(const char *p) {
                 if (r == 0)
                         break;
                 if (r < 0)
-                        return log_error_errno(r, "Failed to extract partition designator: %s", optarg);
+                        return log_error_errno(r, "Failed to extract partition type identifier or GUID: %s", p);
 
                 r = gpt_partition_type_from_string(name, &type);
                 if (r < 0)
-                        return log_error_errno(r, "'%s' is not a valid partition designator", name);
+                        return log_error_errno(r, "'%s' is not a valid partition type identifier or GUID", name);
 
                 if (!GREEDY_REALLOC(arg_filter_partitions, arg_filter_partitions_size + 1))
                         return log_oom();
