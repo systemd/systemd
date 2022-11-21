@@ -97,7 +97,6 @@ typedef struct {
         bool beep;
         int64_t console_mode;
         int64_t console_mode_efivar;
-        RandomSeedMode random_seed_mode;
 } Config;
 
 /* These values have been chosen so that the transitions the user sees could
@@ -529,7 +528,6 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
           ps_bool(L"         auto-firmware: %s\n", config->auto_firmware);
           ps_bool(L"                  beep: %s\n", config->beep);
           ps_bool(L"  reboot-for-bitlocker: %s\n", config->reboot_for_bitlocker);
-        ps_string(L"      random-seed-mode: %s\n", random_seed_modes_table[config->random_seed_mode]);
 
         switch (config->secure_boot_enroll) {
         case ENROLL_OFF:
@@ -1273,27 +1271,6 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                         }
                         continue;
                 }
-
-                if (streq8(key, "random-seed-mode")) {
-                        if (streq8(value, "off"))
-                                config->random_seed_mode = RANDOM_SEED_OFF;
-                        else if (streq8(value, "with-system-token"))
-                                config->random_seed_mode = RANDOM_SEED_WITH_SYSTEM_TOKEN;
-                        else if (streq8(value, "always"))
-                                config->random_seed_mode = RANDOM_SEED_ALWAYS;
-                        else {
-                                bool on;
-
-                                err = parse_boolean(value, &on);
-                                if (err != EFI_SUCCESS) {
-                                        log_error_stall(L"Error parsing 'random-seed-mode' config option: %a", value);
-                                        continue;
-                                }
-
-                                config->random_seed_mode = on ? RANDOM_SEED_ALWAYS : RANDOM_SEED_OFF;
-                        }
-                        continue;
-                }
         }
 }
 
@@ -1584,7 +1561,6 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .auto_firmware = true,
                 .reboot_for_bitlocker = false,
                 .secure_boot_enroll = ENROLL_MANUAL,
-                .random_seed_mode = RANDOM_SEED_WITH_SYSTEM_TOKEN,
                 .idx_default_efivar = IDX_INVALID,
                 .console_mode = CONSOLE_MODE_KEEP,
                 .console_mode_efivar = CONSOLE_MODE_KEEP,
@@ -2743,7 +2719,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 save_selected_entry(&config, entry);
 
                 /* Optionally, read a random seed off the ESP and pass it to the OS */
-                (void) process_random_seed(root_dir, config.random_seed_mode);
+                (void) process_random_seed(root_dir);
 
                 err = image_start(image, entry);
                 if (err != EFI_SUCCESS)
