@@ -69,5 +69,6 @@ void manager_set_log_level(Manager *manager, int level);
 int manager_set_environment(Manager *manager, char **assignments);
 int manager_unset_environment(Manager *manager, char **names);
 void manager_set_children_max(Manager *manager, unsigned n);
+void manager_exit(Manager *manager);
 
 bool devpath_conflict(const char *a, const char *b);

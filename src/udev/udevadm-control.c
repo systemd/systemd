@@ -187,6 +187,16 @@ static int send_set_children_max(UdevConnection *conn, unsigned n) {
         return udev_varlink_call(conn->link, "io.systemd.udev.SetChildrenMax", v, NULL);
 }
 
+static int send_exit(UdevConnection *conn) {
+        assert(conn);
+        assert(conn->link || conn->uctrl);
+
+        if (!conn->link)
+                return udev_ctrl_send_exit(conn->uctrl);
+
+        return udev_varlink_call(conn->link, "io.systemd.udev.Exit", NULL, NULL);
+}
+
 static int help(void) {
         printf("%s control OPTION\n\n"
                "Control the udev daemon.\n\n"
@@ -328,7 +338,7 @@ static int send_control_commands(void) {
                 return log_error_errno(r, "Failed to initialize udev connection: %m");
 
         if (arg_exit) {
-                r = udev_ctrl_send_exit(conn.uctrl);
+                r = send_exit(&conn);
                 if (r < 0)
                        return log_error_errno(r, "Failed to send exit request: %m");
                 return 0;
