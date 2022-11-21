@@ -83,7 +83,7 @@
 
 #define IDLE_TIMEOUT_USEC (30*USEC_PER_SEC)
 
-#define FAILED_TO_WRITE_ENTRY_RATELIMIT ((RateLimit) { .interval = 1 * USEC_PER_SEC, .burst = 1 })
+#define FAILED_TO_WRITE_ENTRY_RATELIMIT ((const RateLimit) { .interval = 1 * USEC_PER_SEC, .burst = 1 })
 
 static int determine_path_usage(
                 Server *s,

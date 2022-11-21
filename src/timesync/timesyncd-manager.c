@@ -1112,7 +1112,7 @@ int manager_new(Manager **ret) {
 
                 .server_socket = -1,
 
-                .ratelimit = (RateLimit) {
+                .ratelimit = (const RateLimit) {
                         RATELIMIT_INTERVAL_USEC,
                         RATELIMIT_BURST
                 },
