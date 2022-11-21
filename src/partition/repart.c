@@ -5345,11 +5345,11 @@ static int parse_filter_partitions(const char *p) {
                 if (r == 0)
                         break;
                 if (r < 0)
-                        return log_error_errno(r, "Failed to extract partition designator: %s", optarg);
+                        return log_error_errno(r, "Failed to extract partition type identifier or GUID: %s", p);
 
                 r = gpt_partition_type_from_string(name, &type);
                 if (r < 0)
-                        return log_error_errno(r, "'%s' is not a valid partition designator", name);
+                        return log_error_errno(r, "'%s' is not a valid partition type identifier or GUID", name);
 
                 if (!GREEDY_REALLOC(arg_filter_partitions, arg_filter_partitions_size + 1))
                         return log_oom();
