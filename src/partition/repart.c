@@ -109,7 +109,7 @@ static enum {
         EMPTY_CREATE,   /* create disk as loopback file, create a partition table always */
 } arg_empty = EMPTY_REFUSE;
 
-typedef enum {
+typedef enum FilterPartitionType {
         FILTER_PARTITIONS_NONE,
         FILTER_PARTITIONS_EXCLUDE,
         FILTER_PARTITIONS_INCLUDE,
