@@ -3782,6 +3782,7 @@ static int do_make_directories(Partition *p, const char *root) {
 
 static int partition_populate_directory(Partition *p, const Set *denylist, char **ret) {
         _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
+        _cleanup_close_ int rfd = -1;
         int r;
 
         assert(ret);
@@ -3791,11 +3792,11 @@ static int partition_populate_directory(Partition *p, const Set *denylist, char 
                 return 0;
         }
 
-        r = mkdtemp_malloc("/var/tmp/repart-XXXXXX", &root);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create temporary directory: %m");
+        rfd = mkdtemp_open("/var/tmp/repart-XXXXXX", 0, &root);
+        if (rfd < 0)
+                return log_error_errno(rfd, "Failed to create temporary directory: %m");
 
-        if (chmod(root, 0755) < 0)
+        if (fchmod(rfd, 0755) < 0)
                 return log_error_errno(errno, "Failed to change mode of temporary directory: %m");
 
         /* Make sure everything is owned by the user running repart so that make_filesystem() can map the
