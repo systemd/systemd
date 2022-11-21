@@ -3047,9 +3047,13 @@ static int partition_target_prepare(
          * the result into the image.
          */
 
-        t = new0(PartitionTarget, 1);
+        t = new(PartitionTarget, 1);
         if (!t)
                 return log_oom();
+        *t = (PartitionTarget) {
+                .fd = -1,
+                .whole_fd = -1,
+        };
 
         if (S_ISBLK(st.st_mode) || (p->format && !mkfs_supports_root_option(p->format))) {
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
@@ -3061,10 +3065,7 @@ static int partition_target_prepare(
                 if (r < 0)
                         return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
 
-                *t = (PartitionTarget) {
-                        .loop = TAKE_PTR(d),
-                        .fd = -1,
-                };
+                t->loop = TAKE_PTR(d);
         } else if (need_path) {
                 _cleanup_(unlink_and_freep) char *temp = NULL;
                 _cleanup_close_ int fd = -1;
@@ -3086,18 +3087,13 @@ static int partition_target_prepare(
                         return log_error_errno(errno, "Failed to truncate temporary file to %s: %m",
                                                FORMAT_BYTES(size));
 
-                *t = (PartitionTarget) {
-                        .fd = TAKE_FD(fd),
-                        .path = TAKE_PTR(temp),
-                };
+                t->fd = TAKE_FD(fd);
+                t->path = TAKE_PTR(temp);
         } else {
                 if (lseek(whole_fd, p->offset, SEEK_SET) == (off_t) -1)
                         return log_error_errno(errno, "Failed to seek to partition offset: %m");
 
-                *t = (PartitionTarget) {
-                        .fd = -1,
-                        .whole_fd = whole_fd,
-                };
+                t->whole_fd = whole_fd;
         }
 
         *ret = TAKE_PTR(t);
