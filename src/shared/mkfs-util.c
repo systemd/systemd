@@ -165,7 +165,7 @@ static int do_mcopy(const char *node, const char *root) {
         if (r < 0)
                 return log_oom();
 
-        if (stat(root, &st) < 0)
+        if (fstat(dirfd(rootdir), &st) < 0)
                 return log_error_errno(errno, "Failed to stat '%s': %m", root);
 
         r = safe_fork("(mcopy)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR|FORK_NEW_USERNS, NULL);
