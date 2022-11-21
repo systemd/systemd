@@ -329,9 +329,6 @@ int udev_ctrl_send(UdevCtrl *uctrl, UdevCtrlMessageType type, const void *data) 
         if (send(uctrl->sock, &ctrl_msg_wire, sizeof(ctrl_msg_wire), 0) < 0)
                 return -errno;
 
-        if (type == UDEV_CTRL_EXIT)
-                uctrl->maybe_disconnected = true;
-
         return 0;
 }
 
