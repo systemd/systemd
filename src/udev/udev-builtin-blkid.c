@@ -120,14 +120,14 @@ static int find_gpt_root(sd_device *dev, blkid_probe pr, bool test) {
 #if defined(SD_GPT_ROOT_NATIVE) && ENABLE_EFI
 
         _cleanup_free_ char *root_id = NULL, *root_label = NULL;
-        bool found_esp = false;
+        bool found_esp_or_xbootldr = false;
         int r;
 
         assert(pr);
 
-        /* Iterate through the partitions on this disk, and see if the
-         * EFI ESP we booted from is on it. If so, find the first root
-         * disk, and add a property indicating its partition UUID. */
+        /* Iterate through the partitions on this disk, and see if the UEFI ESP or XBOOTLDR partition we
+         * booted from is on it. If so, find the first root disk, and add a property indicating its partition
+         * UUID. */
 
         errno = 0;
         blkid_partlist pl = blkid_probe_get_partitions(pr);
@@ -157,21 +157,20 @@ static int find_gpt_root(sd_device *dev, blkid_probe pr, bool test) {
                 if (sd_id128_from_string(stype, &type) < 0)
                         continue;
 
-                if (sd_id128_equal(type, SD_GPT_ESP)) {
-                        sd_id128_t id, esp;
+                if (sd_id128_in_set(type, SD_GPT_ESP, SD_GPT_XBOOTLDR)) {
+                        sd_id128_t id, esp_or_xbootldr;
 
-                        /* We found an ESP, let's see if it matches
-                         * the ESP we booted from. */
+                        /* We found an ESP or XBOOTLDR, let's see if it matches the ESP/XBOOTLDR we booted from. */
 
                         if (sd_id128_from_string(sid, &id) < 0)
                                 continue;
 
-                        r = efi_loader_get_device_part_uuid(&esp);
+                        r = efi_loader_get_device_part_uuid(&esp_or_xbootldr);
                         if (r < 0)
                                 return r;
 
-                        if (sd_id128_equal(id, esp))
-                                found_esp = true;
+                        if (sd_id128_equal(id, esp_or_xbootldr))
+                                found_esp_or_xbootldr = true;
 
                 } else if (sd_id128_equal(type, SD_GPT_ROOT_NATIVE)) {
                         unsigned long long flags;
@@ -195,9 +194,9 @@ static int find_gpt_root(sd_device *dev, blkid_probe pr, bool test) {
                 }
         }
 
-        /* We found the ESP on this disk, and also found a root
-         * partition, nice! Let's export its UUID */
-        if (found_esp && root_id)
+        /* We found the ESP/XBOOTLDR on this disk, and also found a root partition, nice! Let's export its
+         * UUID */
+        if (found_esp_or_xbootldr && root_id)
                 udev_builtin_add_property(dev, test, "ID_PART_GPT_AUTO_ROOT_UUID", root_id);
 #endif
 
