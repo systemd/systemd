@@ -4,6 +4,9 @@
 #include <fcntl.h>
 #include <stdio.h>
 
+int open_temporary_child_at(int dir_fd, const char *extra, char **ret_path);
+int open_temporary_child(const char *path, const char *extra, char **ret_path);
+
 int fopen_temporary_at(int dir_fd, const char *path, FILE **ret_file, char **ret_path);
 static inline int fopen_temporary(const char *path, FILE **ret_file, char **ret_path) {
         return fopen_temporary_at(AT_FDCWD, path, ret_file, ret_path);
