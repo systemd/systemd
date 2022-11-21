@@ -168,7 +168,7 @@ static int do_mcopy(const char *node, const char *root) {
         if (fstat(dirfd(rootdir), &st) < 0)
                 return log_error_errno(errno, "Failed to stat '%s': %m", root);
 
-        r = safe_fork("(mcopy)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR|FORK_NEW_USERNS, NULL);
+        r = safe_fork("(mcopy)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR|FORK_NEW_USERNS|FORK_CLOSE_ALL_FDS, NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -492,7 +492,7 @@ int make_filesystem(
         if (root && stat(root, &st) < 0)
                 return log_error_errno(errno, "Failed to stat %s: %m", root);
 
-        r = safe_fork("(mkfs)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR|(root ? FORK_NEW_USERNS : 0), NULL);
+        r = safe_fork("(mkfs)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS|(root ? FORK_NEW_USERNS : 0), NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
