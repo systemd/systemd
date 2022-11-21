@@ -298,7 +298,7 @@ void manager_kill_workers(Manager *manager, bool force) {
         }
 }
 
-static void manager_exit(Manager *manager) {
+void manager_exit(Manager *manager) {
         assert(manager);
 
         manager->exit = true;
@@ -1213,15 +1213,9 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
 /* receive the udevd message from userspace */
 static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrlMessageValue *value, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-
         assert(value);
 
         switch (type) {
-        case UDEV_CTRL_EXIT:
-                log_debug("Received udev control message (EXIT)");
-                manager_exit(manager);
-                break;
         default:
                 log_debug("Received unknown udev control message, ignoring");
         }

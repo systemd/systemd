@@ -11,7 +11,6 @@ typedef struct UdevCtrl UdevCtrl;
 
 typedef enum UdevCtrlMessageType {
         _UDEV_CTRL_END_MESSAGES,
-        UDEV_CTRL_EXIT,
 } UdevCtrlMessageType;
 
 typedef union UdevCtrlMessageValue {
@@ -37,9 +36,5 @@ int udev_ctrl_wait(UdevCtrl *uctrl, usec_t timeout);
 int udev_ctrl_send(UdevCtrl *uctrl, UdevCtrlMessageType type, const void *data);
 
 int udev_ctrl_send_ping(UdevCtrl *uctrl);
-
-static inline int udev_ctrl_send_exit(UdevCtrl *uctrl) {
-        return udev_ctrl_send(uctrl, UDEV_CTRL_EXIT, NULL);
-}
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(UdevCtrl*, udev_ctrl_unref);

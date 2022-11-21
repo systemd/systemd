@@ -110,10 +110,8 @@ int control_main(int argc, char *argv[], void *userdata) {
         while ((c = getopt_long(argc, argv, "el:sSRp:m:t:Vh", options, NULL)) >= 0)
                 switch (c) {
                 case 'e':
-                        r = udev_ctrl_send_exit(uctrl);
-                        if (r == -ENOANO)
-                                log_warning("Cannot specify --exit after --exit, ignoring.");
-                        else if (r < 0)
+                        r = udev_varlink_call(link, "io.systemd.udev.Exit", NULL, NULL);
+                        if (r < 0)
                                 return log_error_errno(r, "Failed to send exit request: %m");
                         break;
                 case 'l':
