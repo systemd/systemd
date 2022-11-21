@@ -18,7 +18,7 @@ Packages=
         iproute2
         isc-dhcp-server
         libasound2
-        libbpf0
+        libbpf1
         libc6-i386
         libcap-ng0
         libfido2-1
