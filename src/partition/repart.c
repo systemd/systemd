@@ -1643,9 +1643,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                                   verity_mode_to_string(p->verity));
 
         /* Verity partitions are read only, let's imply the RO flag hence, unless explicitly configured otherwise. */
-        if ((p->type.designator == PARTITION_ROOT_VERITY ||
-             p->type.designator == PARTITION_USR_VERITY) &&
-            p->read_only < 0)
+        if (IN_SET(p->type.designator, PARTITION_ROOT_VERITY, PARTITION_USR_VERITY) && p->read_only < 0)
                 p->read_only = true;
 
         /* Default to "growfs" on, unless read-only */
