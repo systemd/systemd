@@ -357,8 +357,14 @@ static void service_release_resources(Unit *u) {
 
 static void service_done(Unit *u) {
         Service *s = SERVICE(u);
+        OpenFile *f;
 
         assert(s);
+
+        while ((f = s->open_files)) {
+                LIST_REMOVE(open_files, s->open_files, f);
+                open_file_free(f);
+        }
 
         s->pid_file = mfree(s->pid_file);
         s->status_text = mfree(s->status_text);
@@ -925,6 +931,12 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix, s->n_fd_store_max,
                         prefix, s->n_fd_store);
 
+        if (s->open_files) {
+                LIST_FOREACH(open_files, of, s->open_files)
+                        fprintf(f, "%sOpen File: %s\n",
+                                prefix, open_file_to_string(of));
+        }
+
         cgroup_context_dump(UNIT(s), f, prefix);
 }
 
@@ -1255,11 +1267,12 @@ static int service_collect_fds(
                 int **fds,
                 char ***fd_names,
                 size_t *n_socket_fds,
-                size_t *n_storage_fds) {
+                size_t *n_storage_fds,
+                size_t *n_openfile_fds) {
 
         _cleanup_strv_free_ char **rfd_names = NULL;
         _cleanup_free_ int *rfds = NULL;
-        size_t rn_socket_fds = 0, rn_storage_fds = 0;
+        size_t rn_socket_fds = 0, rn_storage_fds = 0, rn_openfile_fds = 0;
         int r;
 
         assert(s);
@@ -1267,6 +1280,7 @@ static int service_collect_fds(
         assert(fd_names);
         assert(n_socket_fds);
         assert(n_storage_fds);
+        assert(n_openfile_fds);
 
         if (s->socket_fd >= 0) {
 
@@ -1357,10 +1371,69 @@ static int service_collect_fds(
                 rfd_names[n_fds] = NULL;
         }
 
+        if (s->open_files) {
+                size_t n_fds = rn_socket_fds + s->n_fd_store;
+
+                LIST_FOREACH(open_files, f, s->open_files) {
+                        struct stat st;
+                        _cleanup_close_ int fd = -1;
+
+                        if (stat(f->path, &st) < 0)
+                                return log_error_errno(errno, "Failed to stat %s: %m", f->path);
+
+                        if (S_ISSOCK(st.st_mode)) {
+                                struct sockaddr_un addr;
+                                socklen_t sa_len;
+
+                                fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
+                                if (fd < 0) {
+                                        log_unit_error_errno(UNIT(s), errno, "Failed to create socket for %s: %m", f->path);
+                                        continue;
+                                }
+
+                                r = sockaddr_un_set_path(&addr, f->path);
+                                if (r < 0) {
+                                        log_unit_error_errno(UNIT(s), errno, "Failed to fill sockaddr for %s: %m", f->path);
+                                        continue;
+                                }
+
+                                sa_len = r;
+                                r = connect(fd, (struct sockaddr*)&addr, sa_len);
+                                if (r < 0) {
+                                        log_unit_error_errno(UNIT(s), errno, "Failed to connect to socket sun_path %s sun_family %d: %m", addr.sun_path, addr.sun_family);
+                                        continue;
+                                }
+
+                                log_unit_debug(UNIT(s), "socket %s opened (fd=%d)", f->path, fd);
+                        } else {
+                                fd = open(f->path, (FLAGS_SET(f->flags, OPENFILE_RDONLY) ? O_RDONLY : O_RDWR)|O_CLOEXEC);
+                                if (fd < 0) {
+                                        log_unit_error_errno(UNIT(s), errno, "Failed to open file %s: %m", f->path);
+                                        continue;
+                                }
+
+                                log_unit_debug(UNIT(s), "file %s opened (fd=%d)", f->path, fd);
+                        }
+
+                        if (!GREEDY_REALLOC(rfds, n_fds + 1))
+                                return -ENOMEM;
+
+                        rfds[n_fds] = TAKE_FD(fd);
+
+                        r = strv_extend(&rfd_names, f->fdname);
+                        if (r < 0)
+                                return r;
+
+                        n_fds++;
+                        rn_openfile_fds++;
+                }
+        }
+
         *fds = TAKE_PTR(rfds);
         *fd_names = TAKE_PTR(rfd_names);
         *n_socket_fds = rn_socket_fds;
         *n_storage_fds = rn_storage_fds;
+        *n_openfile_fds = rn_openfile_fds;
 
         return 0;
 }
@@ -1524,11 +1597,12 @@ static int service_spawn_internal(
                                         &exec_params.fds,
                                         &exec_params.fd_names,
                                         &exec_params.n_socket_fds,
-                                        &exec_params.n_storage_fds);
+                                        &exec_params.n_storage_fds,
+                                        &exec_params.n_openfile_fds);
                 if (r < 0)
                         return r;
 
-                log_unit_debug(UNIT(s), "Passing %zu fds to service", exec_params.n_socket_fds + exec_params.n_storage_fds);
+                log_unit_debug(UNIT(s), "Passing %zu fds to service", exec_params.n_socket_fds + exec_params.n_storage_fds + exec_params.n_openfile_fds);
         }
 
         if (!FLAGS_SET(flags, EXEC_IS_CONTROL) && s->type == SERVICE_EXEC) {
