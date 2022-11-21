@@ -375,14 +375,13 @@ EOF
                                            --json=pretty \
                                            "$imgs/zzz")
 
-    diff -u <(echo "$output") - <<EOF
+    diff -I "\"node\" :" -u <(echo "$output") - <<EOF
 [
 	{
 		"type" : "swap",
 		"label" : "label2",
 		"uuid" : "837c3d67-21b3-478e-be82-7e7f83bf96d3",
 		"file" : "root.conf",
-		"node" : "$imgs/zzz1",
 		"offset" : 1048576,
 		"old_size" : 0,
 		"raw_size" : 33554432,
@@ -435,14 +434,13 @@ EOF
                                            --json=pretty \
                                            "$imgs/zzz")
 
-    diff -u <(echo "$output") - <<EOF
+    diff -I "\"node\" :" -u <(echo "$output") - <<EOF
 [
 	{
 		"type" : "swap",
 		"label" : "label1",
 		"uuid" : "7b93d1f2-595d-4ce3-b0b9-837fbd9e63b0",
 		"file" : "root1.conf",
-		"node" : "$imgs/zzz1",
 		"offset" : 1048576,
 		"old_size" : 0,
 		"raw_size" : 33554432,
@@ -457,7 +455,6 @@ EOF
 		"label" : "label2",
 		"uuid" : "837c3d67-21b3-478e-be82-7e7f83bf96d3",
 		"file" : "root2.conf",
-		"node" : "$imgs/zzz2",
 		"offset" : 34603008,
 		"old_size" : 0,
 		"raw_size" : 33554432,
