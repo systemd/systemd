@@ -3199,7 +3199,7 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
                 return log_error_errno(r, "Failed to create temporary LUKS header file: %m");
 
         /* Weird cryptsetup requirement which requires the header file to be the size of at least one sector. */
-        r = posix_fallocate(fileno(h), 0, context->sector_size);
+        r = ftruncate(fileno(h), context->sector_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to grow temporary LUKS header file: %m");
 
