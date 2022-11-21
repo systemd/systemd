@@ -78,7 +78,7 @@
           <programlisting>add <replaceable>KERNEL-VERSION</replaceable> <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename> <replaceable>KERNEL-IMAGE</replaceable> [<replaceable>INITRD-FILE</replaceable> ...]</programlisting>
 
           <para>The third argument directly refers to the path where to place kernel images, initrd
-          images and other resources for <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot
+          images and other resources for <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot
           Loader Specification</ulink> Type #1 entries (the "entry directory"). If other boot loader schemes
           are used the parameter may be ignored. The <replaceable>ENTRY-TOKEN</replaceable> string is
           typically the machine ID and is supposed to identify the local installation on the system. For
@@ -101,7 +101,7 @@
             If <replaceable>INITRD-FILE</replaceable>s are provided, it also copies them to
             <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable>/<replaceable>KERNEL_VERSION</replaceable>/<replaceable>INITRD-FILE</replaceable></filename>.
             It also creates a boot loader entry according to the <ulink
-            url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink> (Type #1) in
+            url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink> (Type #1) in
             <filename>$BOOT/loader/entries/<replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable>.conf</filename>.
             The title of the entry is the <replaceable>PRETTY_NAME</replaceable> parameter specified in
             <filename>/etc/os-release</filename> or <filename>/usr/lib/os-release</filename> (if the former
@@ -150,7 +150,7 @@
   <refsect1>
     <title>The <varname>$BOOT</varname> partition</title>
 
-    <para>The partition where the kernels and <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot
+    <para>The partition where the kernels and <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot
     Loader Specification</ulink> snippets are located is called <varname>$BOOT</varname>.
     <command>kernel-install</command> determines the location of this partition by checking
     <filename>/efi/</filename>, <filename>/boot/</filename>, and <filename>/boot/efi/</filename> in turn. The
@@ -225,7 +225,7 @@
         <varlistentry>
           <term>bls</term>
           <listitem>
-            <para>Standard <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader
+            <para>Standard <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader
             Specification</ulink> Type #1 layout, compatible with
             <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>:
             entries in
@@ -385,7 +385,7 @@
       <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>depmod</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>
+      <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink>
     </para>
   </refsect1>
 
