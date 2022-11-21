@@ -20,6 +20,7 @@ int loop_write(int fd, const void *buf, size_t nbytes, bool do_poll);
 int pipe_eof(int fd);
 
 int ppoll_usec(struct pollfd *fds, size_t nfds, usec_t timeout);
+int safe_ppoll_usec(struct pollfd *fds, size_t nfds, usec_t timeout);
 int fd_wait_for_event(int fd, int event, usec_t timeout);
 
 ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length);

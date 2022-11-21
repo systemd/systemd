@@ -389,9 +389,7 @@ static int process_and_watch_password_files(bool watch) {
                 if (!watch)
                         break;
 
-                r = ppoll_usec(pollfd, _FD_MAX, timeout);
-                if (r == -EINTR)
-                        continue;
+                r = safe_ppoll_usec(pollfd, _FD_MAX, timeout);
                 if (r < 0)
                         return r;
 
