@@ -5069,8 +5069,8 @@ static int context_open_copy_block_paths(
                 uint64_t size;
                 struct stat st;
 
-                assert(p->copy_blocks_fd < 0);
-                assert(p->copy_blocks_size == UINT64_MAX);
+                if (p->copy_blocks_fd >= 0)
+                        continue;
 
                 if (PARTITION_EXISTS(p)) /* Never copy over partitions that already exist! */
                         continue;
@@ -5226,6 +5226,7 @@ static int context_minimize(Context *context) {
                 _cleanup_close_ int fd = -1;
                 sd_id128_t fs_uuid;
                 uint64_t fsz;
+                struct stat st;
 
                 if (p->dropped)
                         continue;
@@ -5278,7 +5279,20 @@ static int context_minimize(Context *context) {
                 /* Read-only filesystems are minimal from the first try because they create and size the
                  * loopback file for us. */
                 if (fstype_is_ro(p->format)) {
+                        fd = open(temp, O_RDONLY|O_CLOEXEC);
+                        if (fd < 0)
+                                return log_error_errno(errno, "Failed to open temporary file %s: %m", temp);
+
+                        if (fstat(fd, &st) < 0)
+                                return log_error_errno(errno, "Failed to stat temporary file %s: %m", temp);
+
+                        if (unlink(temp) < 0)
+                                return log_error_errno(errno, "Failed to unlink temporary file %s: %m", temp);
+
                         p->copy_blocks_path = TAKE_PTR(temp);
+                        p->copy_blocks_fd = TAKE_FD(fd);
+                        p->copy_blocks_size = st.st_size;
+
                         continue;
                 }
 
@@ -5325,7 +5339,15 @@ static int context_minimize(Context *context) {
                                 return r;
                 }
 
+                if (fstat(fd, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat temporary file %s: %m", temp);
+
+                if (unlink(temp) < 0)
+                        return log_error_errno(errno, "Failed to unlink temporary file %s: %m", temp);
+
                 p->copy_blocks_path = TAKE_PTR(temp);
+                p->copy_blocks_fd = TAKE_FD(fd);
+                p->copy_blocks_size = st.st_size;
         }
 
         return 0;
