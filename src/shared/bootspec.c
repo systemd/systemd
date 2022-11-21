@@ -419,7 +419,6 @@ void boot_config_free(BootConfig *config) {
         free(config->auto_entries);
         free(config->auto_firmware);
         free(config->console_mode);
-        free(config->random_seed_mode);
         free(config->beep);
 
         free(config->entry_oneshot);
@@ -485,8 +484,6 @@ int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path) {
                         r = free_and_strdup(&config->auto_firmware, p);
                 else if (streq(field, "console-mode"))
                         r = free_and_strdup(&config->console_mode, p);
-                else if (streq(field, "random-seed-mode"))
-                        r = free_and_strdup(&config->random_seed_mode, p);
                 else if (streq(field, "beep"))
                         r = free_and_strdup(&config->beep, p);
                 else {
