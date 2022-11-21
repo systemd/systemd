@@ -3154,8 +3154,8 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
 static int partition_encrypt(Context *context, Partition *p, const char *node) {
 #if HAVE_LIBCRYPTSETUP && HAVE_CRYPT_SET_DATA_OFFSET && HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE && HAVE_CRYPT_REENCRYPT
         struct crypt_params_luks2 luks_params = {
-                .label = strempty(p->new_label),
-                .sector_size = context->sector_size,
+                .label = strempty(ASSERT_PTR(p)->new_label),
+                .sector_size = ASSERT_PTR(context)->sector_size,
                 .data_device = node,
         };
         struct crypt_params_reencrypt reencrypt_params = {
