@@ -419,7 +419,6 @@ void boot_config_free(BootConfig *config) {
         free(config->auto_entries);
         free(config->auto_firmware);
         free(config->console_mode);
-        free(config->random_seed_mode);
         free(config->beep);
 
         free(config->entry_oneshot);
@@ -486,7 +485,7 @@ int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path) {
                 else if (streq(field, "console-mode"))
                         r = free_and_strdup(&config->console_mode, p);
                 else if (streq(field, "random-seed-mode"))
-                        r = free_and_strdup(&config->random_seed_mode, p);
+                        log_syntax(NULL, LOG_WARNING, path, line, 0, "'random-seed-mode' has been deprecated, ignoring.");
                 else if (streq(field, "beep"))
                         r = free_and_strdup(&config->beep, p);
                 else {

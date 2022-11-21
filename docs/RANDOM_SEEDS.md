@@ -232,14 +232,6 @@ boot, in order to ensure the entropy pool is filled up quickly.
    too), which should be safe even with FAT file system drivers built into
    low-quality EFI firmwares.
 
-   If the system token is not desired but this seeding mechanism still is, OS
-   builders that know that they are not going to replicate the built image on
-   multiple systems may opt to turn off the 'system token' concept by setting
-   `random-seed-mode always` in the ESP's
-   [`/loader/loader.conf`](https://www.freedesktop.org/software/systemd/man/loader.conf.html)
-   file. If done, `systemd-boot` will use the random seed file even if no
-   system token is found in EFI variables.
-
 4. A kernel command line option `systemd.random_seed=` may be used to pass in a
    base64 encoded seed to initialize the kernel's entropy pool from during
    early service manager initialization. This option is only safe in testing

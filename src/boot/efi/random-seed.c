@@ -116,7 +116,7 @@ static void validate_sha256(void) {
 #endif
 }
 
-EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
+EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
         _cleanup_erase_ uint8_t random_bytes[DESIRED_SEED_SIZE], hash_key[HASH_VALUE_SIZE];
         _cleanup_free_ struct linux_efi_random_seed *new_seed_table = NULL;
         struct linux_efi_random_seed *previous_seed_table = NULL;
@@ -134,9 +134,6 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
         assert_cc(DESIRED_SEED_SIZE == HASH_VALUE_SIZE);
 
         validate_sha256();
-
-        if (mode == RANDOM_SEED_OFF)
-                return EFI_NOT_FOUND;
 
         /* hash = LABEL || sizeof(input1) || input1 || ... || sizeof(inputN) || inputN */
         sha256_init_ctx(&hash);
@@ -188,7 +185,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir, RandomSeedMode mode) {
          * system, even when disk images are duplicated or swapped out. */
         size = 0;
         err = acquire_system_token(&system_token, &size);
-        if (mode != RANDOM_SEED_ALWAYS && (err != EFI_SUCCESS || size < DESIRED_SEED_SIZE) && !seeded_by_efi)
+        if ((err != EFI_SUCCESS || size < DESIRED_SEED_SIZE) && !seeded_by_efi)
                 return err;
         sha256_process_bytes(&size, sizeof(size), &hash);
         if (system_token) {
