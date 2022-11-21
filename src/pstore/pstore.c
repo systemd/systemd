@@ -114,7 +114,7 @@ static int compare_pstore_entries(const PStoreEntry *a, const PStoreEntry *b) {
         return strcmp(a->dirent.d_name, b->dirent.d_name);
 }
 
-static int move_file(PStoreEntry *pe, const char *subdir) {
+static int move_file(PStoreEntry *pe, const char *subdir1, const char *subdir2) {
         _cleanup_free_ char *ifd_path = NULL, *ofd_path = NULL;
         _cleanup_free_ void *field = NULL;
         const char *suffix, *message;
@@ -128,7 +128,7 @@ static int move_file(PStoreEntry *pe, const char *subdir) {
         if (!ifd_path)
                 return log_oom();
 
-        ofd_path = path_join(arg_archivedir, subdir, pe->dirent.d_name);
+        ofd_path = path_join(arg_archivedir, subdir1, subdir2, pe->dirent.d_name);
         if (!ofd_path)
                 return log_oom();
 
@@ -171,153 +171,115 @@ static int move_file(PStoreEntry *pe, const char *subdir) {
         return 0;
 }
 
-static int write_dmesg(const char *dmesg, size_t size, const char *id) {
-        _cleanup_(unlink_and_freep) char *tmp_path = NULL;
+static int append_dmesg(PStoreEntry *pe, const char *subdir1, const char *subdir2) {
+        /* Append dmesg chunk to end, create if needed */
         _cleanup_free_ char *ofd_path = NULL;
         _cleanup_close_ int ofd = -1;
         ssize_t wr;
-        int r;
 
-        if (size == 0)
+        assert(pe);
+
+        if (pe->content_size == 0)
                 return 0;
 
-        assert(dmesg);
-
-        ofd_path = path_join(arg_archivedir, id, "dmesg.txt");
+        ofd_path = path_join(arg_archivedir, subdir1, subdir2, "dmesg.txt");
         if (!ofd_path)
                 return log_oom();
 
-        ofd = open_tmpfile_linkable(ofd_path, O_CLOEXEC|O_CREAT|O_TRUNC|O_WRONLY, &tmp_path);
+        ofd = open(ofd_path, O_CREAT|O_NOFOLLOW|O_NOCTTY|O_CLOEXEC|O_APPEND|O_WRONLY, 0640);
         if (ofd < 0)
-                return log_error_errno(ofd, "Failed to open temporary file %s: %m", ofd_path);
-        wr = write(ofd, dmesg, size);
+                return log_error_errno(ofd, "Failed to open file %s: %m", ofd_path);
+        wr = write(ofd, pe->content, pe->content_size);
         if (wr < 0)
                 return log_error_errno(errno, "Failed to store dmesg to %s: %m", ofd_path);
-        if (wr != (ssize_t)size)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to store dmesg to %s. %zu bytes are lost.", ofd_path, size - wr);
-        r = link_tmpfile(ofd, tmp_path, ofd_path);
-        if (r < 0)
-                return log_error_errno(r, "Failed to write temporary file %s: %m", ofd_path);
-        tmp_path = mfree(tmp_path);
+        if ((size_t)wr != pe->content_size)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to store dmesg to %s. %zu bytes are lost.", ofd_path, pe->content_size - wr);
 
         return 0;
 }
 
-static void process_dmesg_files(PStoreList *list) {
+static int process_dmesg_files(PStoreList *list) {
         /* Move files, reconstruct dmesg.txt */
-        _cleanup_free_ char *dmesg = NULL, *dmesg_id = NULL;
-        size_t dmesg_size = 0;
-        bool dmesg_bad = false;
-        PStoreEntry *pe;
+        _cleanup_free_ char *erst_subdir = NULL;
+        uint64_t last_record_id = 0;
 
-        /* Handle each dmesg file: files processed in reverse
-         * order so as to properly reconstruct original dmesg */
+        /* When dmesg is written into pstore, it is done so in small chunks, whatever the exchange buffer
+         * size is with the underlying pstore backend (ie. EFI may be ~2KiB), which means an example
+         * pstore with approximately 64KB of storage may have up to roughly 32 dmesg files, some likely
+         * related.
+         *
+         * Here we look at the dmesg filename and try to discern if files are part of a related group,
+         * meaning the same original dmesg.
+         *
+         * The dmesg- filename contains the backend-type and the Common Platform Error Record, CPER,
+         * record id, a 64-bit number.
+         *
+         * Files are processed in reverse lexigraphical order so as to properly reconstruct original dmesg.*/
+
         for (size_t n = list->n_entries; n > 0; n--) {
-                bool move_file_and_continue = false;
-                _cleanup_free_ char *pe_id = NULL;
+                PStoreEntry *pe;
                 char *p;
-                size_t plen;
 
                 pe = &list->entries[n-1];
 
                 if (pe->handled)
                         continue;
+                if (endswith(pe->dirent.d_name, ".enc.z")) /* indicates a problem */
+                        continue;
                 if (!startswith(pe->dirent.d_name, "dmesg-"))
                         continue;
 
-                if (endswith(pe->dirent.d_name, ".enc.z")) /* indicates a problem */
-                        move_file_and_continue = true;
-                p = strrchr(pe->dirent.d_name, '-');
-                if (!p)
-                        move_file_and_continue = true;
+                if ((p = startswith(pe->dirent.d_name, "dmesg-efi-"))) {
+                        /* For the EFI backend, the 3 least significant digits of record id encodes a
+                         * "count" number, the next 2 least significant digits for the dmesg part
+                         * (chunk) number, and the remaining digits as the timestamp.  See
+                         * linux/drivers/firmware/efi/efi-pstore.c in efi_pstore_write(). */
+                        _cleanup_free_ char *subdir1 = NULL, *subdir2 = NULL;
+                        size_t plen = strlen(p);
 
-                if (move_file_and_continue) {
-                        /* A dmesg file on which we do NO additional processing */
-                        (void) move_file(pe, NULL);
-                        continue;
-                }
+                        if (plen < 6)
+                                continue;
 
-                /* See if this file is one of a related group of files
-                 * in order to reconstruct dmesg */
+                        /* Extract base record id */
+                        subdir1 = strndup(p, plen - 5);
+                        if (!subdir1)
+                                return log_oom();
+                        /* Extract "count" field */
+                        subdir2 = strndup(p + plen - 3, 3);
+                        if (!subdir2)
+                                return log_oom();
 
-                /* When dmesg is written into pstore, it is done so in
-                 * small chunks, whatever the exchange buffer size is
-                 * with the underlying pstore backend (ie. EFI may be
-                 * ~2KiB), which means an example pstore with approximately
-                 * 64KB of storage may have up to roughly 32 dmesg files
-                 * that could be related, depending upon the size of the
-                 * original dmesg.
-                 *
-                 * Here we look at the dmesg filename and try to discern
-                 * if files are part of a related group, meaning the same
-                 * original dmesg.
-                 *
-                 * The two known pstore backends are EFI and ERST. These
-                 * backends store data in the Common Platform Error
-                 * Record, CPER, format. The dmesg- filename contains the
-                 * CPER record id, a 64bit number (in decimal notation).
-                 * In Linux, the record id is encoded with two digits for
-                 * the dmesg part (chunk) number and 3 digits for the
-                 * count number. So allowing an additional digit to
-                 * compensate for advancing time, this code ignores the
-                 * last six digits of the filename in determining the
-                 * record id.
-                 *
-                 * For the EFI backend, the record id encodes an id in the
-                 * upper 32 bits, and a timestamp in the lower 32-bits.
-                 * So ignoring the least significant 6 digits has proven
-                 * to generally identify related dmesg entries.  */
-#define PSTORE_FILENAME_IGNORE 6
+                        /* Now move file from pstore to archive storage */
+                        (void) move_file(pe, subdir1, subdir2);
 
-                /* determine common portion of record id */
-                ++p; /* move beyond dmesg- */
-                plen = strlen(p);
-                if (plen > PSTORE_FILENAME_IGNORE) {
-                        pe_id = memdup_suffix0(p, plen - PSTORE_FILENAME_IGNORE);
-                        if (!pe_id) {
-                                log_oom();
-                                return;
-                        }
+                        /* Append to the dmesg */
+                        (void) append_dmesg(pe, subdir1, subdir2);
+                } else if ((p = startswith(pe->dirent.d_name, "dmesg-erst-"))) {
+                        /* For the ERST backend, the record is a monotonically increasing number, seeded as
+                         * a timestamp. See linux/drivers/acpi/apei/erst.c in erst_writer(). */
+                        uint64_t record_id;
+
+                        if (safe_atou64(p, &record_id) < 0)
+                                continue;
+                        if (last_record_id - 1 != record_id)
+                                /* A discontinuity in the number has been detected, this current record id
+                                 * will become the directory name for all pieces of the dmesg in this
+                                 * series. */
+                                if (free_and_strdup(&erst_subdir, p) < 0)
+                                        return log_oom();
+
+                        /* Now move file from pstore to archive storage */
+                        (void) move_file(pe, erst_subdir, NULL);
+
+                        /* Append to the dmesg */
+                        (void) append_dmesg(pe, erst_subdir, NULL);
+
+                        /* Update, but keep erst_subdir for next file */
+                        last_record_id = record_id;
                 } else
-                        pe_id = mfree(pe_id);
-
-                /* Now move file from pstore to archive storage */
-                move_file(pe, pe_id);
-
-                if (dmesg_bad)
-                        continue;
-
-                /* If the current record id is NOT the same as the
-                 * previous record id, then start a new dmesg.txt file */
-                if (!streq_ptr(pe_id, dmesg_id)) {
-                        /* Encountered a new dmesg group, close out old one, open new one */
-                        (void) write_dmesg(dmesg, dmesg_size, dmesg_id);
-                        dmesg_size = 0;
-
-                        /* now point dmesg_id to storage of pe_id */
-                        free_and_replace(dmesg_id, pe_id);
-                }
-
-                /* Reconstruction of dmesg is done as a useful courtesy: do not fail, but don't write garbled
-                 * output either. */
-                size_t needed = strlen(pe->dirent.d_name) + strlen(":\n") + pe->content_size + 1;
-                if (!GREEDY_REALLOC(dmesg, dmesg_size + needed)) {
-                        log_oom();
-                        dmesg_bad = true;
-                        continue;
-                }
-
-                dmesg_size += sprintf(dmesg + dmesg_size, "%s:\n", pe->dirent.d_name);
-                if (pe->content) {
-                        memcpy(dmesg + dmesg_size, pe->content, pe->content_size);
-                        dmesg_size += pe->content_size;
-                }
-
-                pe_id = mfree(pe_id);
+                        log_debug("Unknown backend, ignoring \"%s\".", pe->dirent.d_name);
         }
-
-        if (!dmesg_bad)
-                (void) write_dmesg(dmesg, dmesg_size, dmesg_id);
+        return 0;
 }
 
 static int list_files(PStoreList *list, const char *sourcepath) {
@@ -393,11 +355,11 @@ static int run(int argc, char *argv[]) {
         typesafe_qsort(list.entries, list.n_entries, compare_pstore_entries);
 
         /* Process known file types */
-        process_dmesg_files(&list);
+        (void) process_dmesg_files(&list);
 
         /* Move left over files out of pstore */
         for (size_t n = 0; n < list.n_entries; n++)
-                move_file(&list.entries[n], NULL);
+                (void) move_file(&list.entries[n], NULL, NULL);
 
         return 0;
 }
