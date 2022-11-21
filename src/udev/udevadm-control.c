@@ -110,6 +110,16 @@ static int send_set_children_max(UdevConnection *conn, unsigned n) {
         return udev_varlink_call(conn->link, "io.systemd.udev.SetChildrenMax", v, NULL);
 }
 
+static int send_exit(UdevConnection *conn) {
+        assert(conn);
+        assert(conn->link || conn->uctrl);
+
+        if (!conn->link)
+                return udev_ctrl_send_exit(conn->uctrl);
+
+        return udev_varlink_call(conn->link, "io.systemd.udev.Exit", NULL, NULL);
+}
+
 static int help(void) {
         printf("%s control OPTION\n\n"
                "Control the udev daemon.\n\n"
@@ -181,7 +191,7 @@ int control_main(int argc, char *argv[], void *userdata) {
         while ((c = getopt_long(argc, argv, "el:sSRp:m:t:Vh", options, NULL)) >= 0)
                 switch (c) {
                 case 'e':
-                        r = udev_ctrl_send_exit(conn.uctrl);
+                        r = send_exit(&conn);
                         if (r == -ENOANO)
                                 log_warning("Cannot specify --exit after --exit, ignoring.");
                         else if (r < 0)
