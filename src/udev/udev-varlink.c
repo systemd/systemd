@@ -146,6 +146,21 @@ static int vl_method_set_children_max(Varlink *link, JsonVariant *parameters, Va
         return varlink_reply(link, NULL);
 }
 
+static int vl_method_exit(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+
+        assert(link);
+
+        if (json_variant_elements(parameters) > 0)
+                return varlink_error_invalid_parameter(link, parameters);
+
+        log_debug("Received io.systemd.udev.Exit()");
+
+        manager_exit(m);
+
+        return varlink_reply(link, NULL);
+}
+
 int udev_varlink_connect(Varlink **ret) {
         _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
         int r;
@@ -204,6 +219,7 @@ int manager_open_varlink(Manager *m) {
                         "io.systemd.service.Reload", vl_method_reload,
                         "io.systemd.service.SetLogLevel", vl_method_set_log_level,
 
+                        "io.systemd.udev.Exit", vl_method_exit,
                         "io.systemd.udev.SetChildrenMax", vl_method_set_children_max,
                         "io.systemd.udev.SetEnvironment", vl_method_set_environment,
                         "io.systemd.udev.UnsetEnvironment", vl_method_unset_environment,
