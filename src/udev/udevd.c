@@ -1218,17 +1218,6 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
         assert(value);
 
         switch (type) {
-        case UDEV_CTRL_SET_CHILDREN_MAX:
-                if (value->intval <= 0) {
-                        log_debug("Received invalid udev control message (SET_MAX_CHILDREN, %i), ignoring.", value->intval);
-                        return 0;
-                }
-
-                log_debug("Received udev control message (SET_MAX_CHILDREN), setting children_max=%i", value->intval);
-                arg_children_max = value->intval;
-
-                notify_ready();
-                break;
         case UDEV_CTRL_EXIT:
                 log_debug("Received udev control message (EXIT)");
                 manager_exit(manager);
@@ -1783,6 +1772,15 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent) {
         *ret = TAKE_PTR(manager);
 
         return 0;
+}
+
+void manager_set_children_max(Manager *manager, unsigned children) {
+        assert(manager);
+        assert(children > 0);
+
+        arg_children_max = children;
+
+        notify_ready();
 }
 
 static int main_loop(Manager *manager) {

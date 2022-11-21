@@ -163,10 +163,12 @@ int control_main(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse maximum number of events '%s': %m", optarg);
 
-                        r = udev_ctrl_send_set_children_max(uctrl, i);
-                        if (r == -ENOANO)
-                                log_warning("Cannot specify --children-max after --exit, ignoring.");
-                        else if (r < 0)
+                        r = json_build(&v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("n", JSON_BUILD_UNSIGNED(i))));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to build json object: %m");
+
+                        r = udev_varlink_call(link, "io.systemd.udev.SetChildrenMax", v, NULL);
+                        if (r < 0)
                                 return log_error_errno(r, "Failed to send request to set number of children: %m");
                         break;
                 }

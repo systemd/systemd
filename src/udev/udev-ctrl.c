@@ -320,9 +320,6 @@ int udev_ctrl_send(UdevCtrl *uctrl, UdevCtrlMessageType type, const void *data) 
         if (uctrl->maybe_disconnected)
                 return -ENOANO; /* to distinguish this from other errors. */
 
-        if (IN_SET(type, UDEV_CTRL_SET_CHILDREN_MAX))
-                ctrl_msg_wire.value.intval = PTR_TO_INT(data);
-
         if (!uctrl->connected) {
                 if (connect(uctrl->sock, &uctrl->saddr.sa, uctrl->addrlen) < 0)
                         return -errno;
