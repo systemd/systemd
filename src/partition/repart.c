@@ -3786,7 +3786,7 @@ static int partition_populate_directory(Partition *p, const Set *denylist, char 
 
         assert(ret);
 
-        if ((strv_isempty(p->copy_files) && strv_isempty(p->make_directories))) {
+        if (strv_isempty(p->copy_files) && strv_isempty(p->make_directories)) {
                 *ret = NULL;
                 return 0;
         }
