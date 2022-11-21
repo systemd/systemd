@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
+
 #include "af-list.h"
 #include "extract-word.h"
 #include "ip-protocol-list.h"
@@ -7,6 +9,8 @@
 #include "parse-helpers.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "string-table.h"
+#include "string-util.h"
 #include "utf8.h"
 
 int path_simplify_and_warn(
@@ -196,3 +200,85 @@ int parse_socket_bind_item(
         *port_min = mn;
         return 0;
 }
+
+int open_file_parse(const char *v, OpenFile **ret) {
+        _cleanup_free_ char *options = NULL;
+        _cleanup_(open_file_freep) OpenFile *of = NULL;
+        int r;
+
+        assert(v);
+        assert(ret);
+
+        of = new0(OpenFile, 1);
+        if (!of)
+                return -ENOMEM;
+
+        r = extract_many_words(&v, ":", EXTRACT_DONT_COALESCE_SEPARATORS, &of->path, &of->fdname, &options, NULL);
+        if (r < 0)
+                return r;
+
+        if (r == 0)
+                return -EINVAL;
+
+        if (!path_is_absolute(of->path))
+                return -EINVAL;
+
+        if (isempty(of->fdname)) {
+                r = free_and_strdup(&of->fdname, of->path);
+                if (r < 0)
+                        return r;
+        }
+
+        for (const char *p = options;;) {
+                OpenFileFlags flag;
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, ",", 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                flag = open_file_flags_from_string(word);
+                if (flag < 0)
+                        return flag;
+
+                of->flags |= flag;
+        }
+
+        *ret = TAKE_PTR(of);
+
+        return 0;
+}
+
+const char *open_file_to_string(const OpenFile *of) {
+        _cleanup_free_ char *options = NULL;
+
+        if (!of)
+                return "";
+
+        for (OpenFileFlags flag = OPENFILE_RDONLY; flag < _OPENFILE_MAX; flag <<= 1) {
+                if ((flag & ~_OPENFILE_MASK_PUBLIC) != 0)
+                        continue;
+
+                if (FLAGS_SET(of->flags, flag) && !strextend_with_separator(&options, ",", open_file_flags_to_string(flag)))
+                                return NULL;
+        }
+
+        return strjoin(of->path, ":", of->fdname, ":", options);
+}
+
+OpenFile* open_file_free(OpenFile *of) {
+        if (!of)
+                return NULL;
+
+        free(of->path);
+        free(of->fdname);
+        return mfree(of);
+}
+
+static const char* const open_file_flags_table[_OPENFILE_MAX] = {
+        [OPENFILE_RDONLY] = "ro",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(open_file_flags, OpenFileFlags);
