@@ -118,10 +118,10 @@ static int setup_userns(uid_t uid, gid_t gid) {
                 return log_error_errno(r, "Failed to write 'deny' to /proc/self/setgroups: %m");
 
         r = write_string_filef("/proc/self/gid_map", WRITE_STRING_FILE_DISABLE_BUFFER,
-                                UID_FMT " " UID_FMT " " UID_FMT, 0u, gid, 1u);
+                                GID_FMT " " GID_FMT " " GID_FMT, 0u, gid, 1u);
         if (r < 0)
                 return log_error_errno(r,
-                                       "Failed to write mapping for "UID_FMT" to /proc/self/gid_map: %m",
+                                       "Failed to write mapping for "GID_FMT" to /proc/self/gid_map: %m",
                                        gid);
 
         return 0;
