@@ -35,12 +35,11 @@ fi
 # should be flushed and moved out of /run
 # expect /var/log/journal/%m.foobar
 mkdir -p /var/log/journal
-systemd-run --wait -p LogNamespace=foobar echo "hello world"
-
 MACHINE_ID=$(cat /etc/machine-id)
 
 # allow a few seconds for the flush to occur due to machine speeds
 WAS_FLUSHED=false
+# shellcheck disable=SC2034,SC2015
 for i in {1..5}; do [ -d "/var/log/journal/$MACHINE_ID.foobar" ] && WAS_FLUSHED=true && break || sleep 1; done
 if ! $WAS_FLUSHED; then
     echo "/var/log/journal/$MACHINE_ID.foobar did not get created" >/failed
