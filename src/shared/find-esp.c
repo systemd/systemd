@@ -353,8 +353,9 @@ static int verify_esp(
                 dev_t *ret_devid,
                 VerifyESPFlags flags) {
 
-        bool relax_checks, searching = FLAGS_SET(flags, VERIFY_ESP_SEARCHING),
+        bool searching = FLAGS_SET(flags, VERIFY_ESP_SEARCHING),
              unprivileged_mode = FLAGS_SET(flags, VERIFY_ESP_UNPRIVILEGED_MODE);
+        struct statfs sfs;
         dev_t devid = 0;
         int r;
 
@@ -367,39 +368,36 @@ static int verify_esp(
          *  -EACESS        → if 'unprivileged_mode' is set, and we have trouble accessing the thing
          */
 
-        relax_checks =
-                getenv_bool("SYSTEMD_RELAX_ESP_CHECKS") > 0 ||
-                FLAGS_SET(flags, VERIFY_ESP_RELAX_CHECKS);
+        /* Non-root user can only check the status, so if an error occurred in the following, it does not
+         * cause any issues. Let's also, silence the error messages. */
 
-        /* Non-root user can only check the status, so if an error occurred in the following, it does not cause any
-         * issues. Let's also, silence the error messages. */
+        if (getenv_bool("SYSTEMD_RELAX_ESP_CHECKS") > 0 || FLAGS_SET(flags, VERIFY_ESP_RELAX_CHECKS))
+                /* If relaxed checks are requested, don't require the ESP directory to be the root of the
+                 * filesystem so that image builders can install the bootloader to a regular directory before
+                 * packing that directory up into its own partition. */
+                goto finish;
 
-        if (!relax_checks) {
-                struct statfs sfs;
+        if (statfs(p, &sfs) < 0)
+                /* If we are searching for the mount point, don't generate a log message if we can't
+                 * find the path */
+                return log_full_errno((searching && errno == ENOENT) || (unprivileged_mode && errno == EACCES) ? LOG_DEBUG : LOG_ERR,
+                                      errno,
+                                      "Failed to check file system type of \"%s\": %m",
+                                      p);
 
-                if (statfs(p, &sfs) < 0)
-                        /* If we are searching for the mount point, don't generate a log message if we can't find the path */
-                        return log_full_errno((searching && errno == ENOENT) ||
-                                              (unprivileged_mode && errno == EACCES) ? LOG_DEBUG : LOG_ERR, errno,
-                                              "Failed to check file system type of \"%s\": %m", p);
+        if (!F_TYPE_EQUAL(sfs.f_type, MSDOS_SUPER_MAGIC))
+                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
+                                      SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
+                                      "File system \"%s\" is not a FAT EFI System Partition (ESP) file system.",
+                                      p);
 
-                if (!F_TYPE_EQUAL(sfs.f_type, MSDOS_SUPER_MAGIC))
-                        return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                              SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
-                                              "File system \"%s\" is not a FAT EFI System Partition (ESP) file system.", p);
-        }
-
-        relax_checks =
-                relax_checks ||
-                detect_container() > 0;
-
-        r = verify_fsroot_dir(p, searching, unprivileged_mode, relax_checks ? NULL : &devid);
+        r = verify_fsroot_dir(p, searching, unprivileged_mode, detect_container() > 0 ? NULL : &devid);
         if (r < 0)
                 return r;
 
         /* In a container we don't have access to block devices, skip this part of the verification, we trust
          * the container manager set everything up correctly on its own. */
-        if (relax_checks)
+        if (detect_container() > 0)
                 goto finish;
 
         /* If we are unprivileged we ask udev for the metadata about the partition. If we are privileged we
@@ -705,21 +703,22 @@ static int verify_xbootldr(
                 sd_id128_t *ret_uuid,
                 dev_t *ret_devid) {
 
-        bool relax_checks;
         dev_t devid = 0;
         int r;
 
         assert(p);
 
-        relax_checks =
-                getenv_bool("SYSTEMD_RELAX_XBOOTLDR_CHECKS") > 0 ||
-                detect_container() > 0;
+        /* If relaxed checks are requested, don't require the XBOOTLDR directory to be the root of the
+         * filesystem so that image builders can install the bootloader to a regular directory before
+         * packing that directory up into its own partition. */
+        if (getenv_bool("SYSTEMD_RELAX_XBOOTLDR_CHECKS") > 0)
+                goto finish;
 
-        r = verify_fsroot_dir(p, searching, unprivileged_mode, relax_checks ? NULL : &devid);
+        r = verify_fsroot_dir(p, searching, unprivileged_mode, detect_container() > 0 ? NULL : &devid);
         if (r < 0)
                 return r;
 
-        if (relax_checks)
+        if (detect_container() > 0)
                 goto finish;
 
         if (unprivileged_mode)
