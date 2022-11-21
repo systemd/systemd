@@ -219,7 +219,7 @@ static void manager_kill_workers(Manager *manager, bool force) {
         }
 }
 
-static void manager_exit(Manager *manager) {
+void manager_exit(Manager *manager) {
         assert(manager);
 
         manager->exit = true;
