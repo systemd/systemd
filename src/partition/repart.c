@@ -1056,16 +1056,13 @@ static uint64_t find_first_unused_partno(Context *context) {
 
         assert(context);
 
-        for (bool changed = true; changed;) {
-                changed = false;
-
-                LIST_FOREACH(partitions, p, context->partitions) {
-                        if (p->partno != UINT64_MAX && p->partno == partno) {
-                                partno++;
-                                changed = true;
-                                break;
-                        }
-                }
+        for (partno = 0;; partno++) {
+                bool found = false;
+                LIST_FOREACH(partitions, p, context->partitions)
+                        if (p->partno != UINT64_MAX && p->partno == partno)
+                                found = true;
+                if (!found)
+                        break;
         }
 
         return partno;
