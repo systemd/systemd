@@ -59,6 +59,7 @@
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "recurse-dir.h"
 #include "resize-fs.h"
 #include "rm-rf.h"
 #include "sort-util.h"
@@ -261,6 +262,9 @@ struct Context {
         uint64_t grain_size;
 
         sd_id128_t seed;
+
+        char *staging_directory;
+        int staging_fd;
 };
 
 static const char *encrypt_mode_table[_ENCRYPT_MODE_MAX] = {
@@ -424,6 +428,7 @@ static Context *context_new(sd_id128_t seed) {
                 .end = UINT64_MAX,
                 .total = UINT64_MAX,
                 .seed = seed,
+                .staging_fd = -1,
         };
 
         return context;
@@ -451,6 +456,9 @@ static Context *context_free(Context *context) {
 
         if (context->fdisk_context)
                 fdisk_unref_context(context->fdisk_context);
+
+        safe_close(context->staging_fd);
+        rm_rf_physical_and_free(context->staging_directory);
 
         return mfree(context);
 }
@@ -3075,11 +3083,7 @@ static int partition_target_prepare(
                 if (r < 0)
                         return log_error_errno(r, "Could not determine temporary directory: %m");
 
-                temp = path_join(vt, "repart-XXXXXX");
-                if (!temp)
-                        return log_oom();
-
-                fd = mkostemp_safe(temp);
+                fd = open_temporary_child(vt, "repart-partition-target", &temp);
                 if (fd < 0)
                         return log_error_errno(fd, "Failed to create temporary file: %m");
 
@@ -3164,7 +3168,7 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
         };
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
-        _cleanup_fclose_ FILE *h = NULL;
+        _cleanup_close_ int hfd = -1;
         _cleanup_free_ char *hp = NULL;
         const char *passphrase = NULL;
         size_t passphrase_size = 0;
@@ -3190,12 +3194,12 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine temporary files directory: %m");
 
-        r = fopen_temporary_child(vt, &h, &hp);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create temporary LUKS header file: %m");
+        hfd = open_temporary_child(vt, "repart-encrypt", &hp);
+        if (hfd < 0)
+                return log_error_errno(hfd, "Failed to create temporary LUKS header file: %m");
 
         /* Weird cryptsetup requirement which requires the header file to be the size of at least one sector. */
-        r = ftruncate(fileno(h), context->sector_size);
+        r = ftruncate(hfd, context->sector_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to grow temporary LUKS header file: %m");
 
@@ -4528,7 +4532,6 @@ static int split_node(const char *node, char **ret_base, char **ret_ext) {
 
 static int context_split(Context *context) {
         _cleanup_free_ char *base = NULL, *ext = NULL;
-        _cleanup_close_ int dir_fd = -1;
         int fd = -1, r;
 
         if (!arg_split)
@@ -4548,12 +4551,6 @@ static int context_split(Context *context) {
         if (r < 0)
                 return r;
 
-        dir_fd = r = open_parent(arg_node, O_PATH|O_CLOEXEC, 0);
-        if (r == -EDESTADDRREQ)
-                dir_fd = AT_FDCWD;
-        else if (r < 0)
-                return log_error_errno(r, "Failed to open parent directory of %s: %m", arg_node);
-
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_free_ char *fname = NULL;
                 _cleanup_close_ int fdt = -1;
@@ -4571,7 +4568,7 @@ static int context_split(Context *context) {
                 if (!fname)
                         return log_oom();
 
-                fdt = openat(dir_fd, fname, O_WRONLY|O_NOCTTY|O_CLOEXEC|O_NOFOLLOW|O_CREAT|O_EXCL, 0666);
+                fdt = openat(context->staging_fd, fname, O_WRONLY|O_NOCTTY|O_CLOEXEC|O_NOFOLLOW|O_CREAT|O_EXCL, 0666);
                 if (fdt < 0)
                         return log_error_errno(errno, "Failed to open %s: %m", fname);
 
@@ -5242,16 +5239,16 @@ static int context_minimize(Context *context) {
 
                 assert(!p->copy_blocks_path);
 
-                r = tempfn_random_child(vt, "repart", &temp);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to generate temporary file path: %m");
+                if (fstype_is_ro(p->format)) {
+                        r = tempfn_random_child(vt, "repart-minimize", &temp);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to generate temporary file path: %m");
 
-                if (fstype_is_ro(p->format))
                         fs_uuid = p->fs_uuid;
-                else {
-                        fd = open(temp, O_CREAT|O_EXCL|O_CLOEXEC|O_RDWR|O_NOCTTY, 0600);
+                } else {
+                        fd = open_temporary_child(vt, "repart-minimize", &temp);
                         if (fd < 0)
-                                return log_error_errno(errno, "Failed to open temporary file %s: %m", temp);
+                                return log_error_errno(errno, "Failed to open temporary file: %m");
 
                         /* This may seem huge but it will be created sparse so it doesn't take up any space
                         * on disk until written to. */
@@ -5972,25 +5969,30 @@ static int acquire_root_devno(
         return 0;
 }
 
-static int find_root(char **ret, int *ret_fd) {
+static int find_root(Context *context, char **ret, int *ret_fd) {
         _cleanup_free_ char *device = NULL;
         int r;
 
+        assert(context);
         assert(ret);
         assert(ret_fd);
 
         if (arg_node) {
                 if (arg_empty == EMPTY_CREATE) {
                         _cleanup_close_ int fd = -1;
-                        _cleanup_free_ char *s = NULL;
+                        _cleanup_free_ char *f = NULL, *s = NULL;
 
-                        s = strdup(arg_node);
+                        r = path_extract_filename(arg_node, &f);
+                        if (r < 0)
+                                return r;
+
+                        s = path_join(context->staging_directory, f);
                         if (!s)
                                 return log_oom();
 
-                        fd = open(arg_node, O_RDONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOFOLLOW, 0666);
+                        fd = openat(context->staging_fd, f, O_RDONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOFOLLOW, 0666);
                         if (fd < 0)
-                                return log_error_errno(errno, "Failed to create '%s': %m", arg_node);
+                                return log_error_errno(errno, "Failed to create '%s': %m", s);
 
                         *ret = TAKE_PTR(s);
                         *ret_fd = TAKE_FD(fd);
@@ -6239,6 +6241,55 @@ static int determine_auto_size(Context *c) {
         return 0;
 }
 
+static int make_staging_directory(Context *context) {
+        _cleanup_free_ char *p = NULL;
+        _cleanup_close_ int fd = -1;
+        int r;
+
+        assert(context);
+
+        r = tempfn_random(arg_node, "repart", &p);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate temporary directory name: %m");
+
+        fd = open_mkdir_at(AT_FDCWD, p, O_DIRECTORY|O_EXCL|O_CLOEXEC, 0700);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to create temporary directory: %m");
+
+        context->staging_directory = TAKE_PTR(p);
+        context->staging_fd = TAKE_FD(fd);
+
+        return 0;
+}
+
+static int empty_staging_directory(Context *context) {
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        _cleanup_close_ int dir_fd = -1;
+        int r;
+
+        assert(context);
+
+        dir_fd = r = open_parent(arg_node, O_PATH|O_CLOEXEC, 0);
+        if (r == -EDESTADDRREQ)
+                dir_fd = AT_FDCWD;
+        else if (r < 0)
+                return log_error_errno(r, "Failed to open parent directory of %s: %m", arg_node);
+
+        r = readdir_all(context->staging_fd, RECURSE_DIR_SORT, &de);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read staging directory entries: %m");
+
+        for (size_t i = 0; i < de->n_entries; i++) {
+                const char *name = de->entries[i]->d_name;
+
+                r = renameat(context->staging_fd, name, dir_fd, name);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to move %s/%s to %s: %m", context->staging_directory, name, name);
+        }
+
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
@@ -6305,6 +6356,10 @@ static int run(int argc, char *argv[]) {
         if (!context)
                 return log_oom();
 
+        r = make_staging_directory(context);
+        if (r < 0)
+                return r;
+
         strv_uniq(arg_definitions);
 
         r = context_read_definitions(context, arg_definitions, arg_root);
@@ -6316,7 +6371,7 @@ static int run(int argc, char *argv[]) {
                 return 0;
         }
 
-        r = find_root(&node, &backing_fd);
+        r = find_root(context, &node, &backing_fd);
         if (r < 0)
                 return r;
 
@@ -6448,6 +6503,10 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         (void) context_dump(context, node, /*late=*/ true);
+
+        r = empty_staging_directory(context);
+        if (r < 0)
+                return r;
 
         return 0;
 }
