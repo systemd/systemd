@@ -12,7 +12,7 @@
 #include "string-util.h"
 #include "wifi-util.h"
 
-static int link_get_wlan_interface(Link *link) {
+int link_get_wlan_interface(Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         int r;
 
