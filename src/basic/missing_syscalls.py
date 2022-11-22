@@ -9,7 +9,6 @@ SYSCALLS = [
     'bpf',
     'close_range',
     'copy_file_range',
-    'epoll_pwait2',
     'getrandom',
     'memfd_create',
     'mount_setattr',
