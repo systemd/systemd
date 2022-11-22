@@ -16,7 +16,7 @@ ConditionPathIsReadWrite=/sys
 
 [Socket]
 Service=systemd-udevd.service
-ListenSequentialPacket=/run/udev/control
+ListenStream=/run/udev/io.systemd.udev
 SocketMode=0600
 PassCredentials=yes
 RemoveOnStop=yes
