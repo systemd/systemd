@@ -1178,7 +1178,7 @@ static int link_get_network(Link *link, Network **ret) {
         return -ENOENT;
 }
 
-static int link_reconfigure_impl(Link *link, bool force) {
+int link_reconfigure_impl(Link *link, bool force) {
         Network *network = NULL;
         NetDev *netdev = NULL;
         int r;
