@@ -18,7 +18,7 @@
 
   <refnamediv>
     <refname>journalctl</refname>
-    <refpurpose>Query the systemd journal</refpurpose>
+    <refpurpose>Print log entries from the the systemd journal</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -32,13 +32,14 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>journalctl</command> may be used to query the contents of the
-    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> journal as
-    written by
-    <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+    <para><command>journalctl</command> is used to print the log entries stored in the journal by
+    <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>systemd-journal-remote.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    </para>
 
-    <para>If called without parameters, it will show the full contents of the journal, starting with the
-    oldest entry collected.</para>
+    <para>If called without parameters, it will show the contents of the journal accessible to the calling
+    user, starting with the oldest entry collected.</para>
 
     <para>If one or more match arguments are passed, the output is filtered accordingly. A match is in the
     format <literal>FIELD=VALUE</literal>, e.g. <literal>_SYSTEMD_UNIT=httpd.service</literal>, referring to
@@ -93,6 +94,13 @@
     <para>When outputting to a tty, lines are colored according to priority: lines of level ERROR and higher
     are colored red; lines of level NOTICE and higher are highlighted; lines of level DEBUG are colored
     lighter grey; other lines are displayed normally.</para>
+
+    <para>To write entries <emphasis>to</emphasis> the journal, a few methods may be used. In general, output
+    from systemd units is automatically connected to the journal, see
+    <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    In addition,
+    <citerefentry><refentrytitle>systemd-cat</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    may be used to send messages to the journal directly.</para>
   </refsect1>
 
   <refsect1>
@@ -930,6 +938,7 @@ journalctl _SYSTEMD_CGROUP=/user.slice/user-42.slice/session-c1.scope</programli
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-cat</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>coredumpctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
