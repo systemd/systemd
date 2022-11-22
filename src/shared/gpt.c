@@ -59,7 +59,7 @@ PartitionDesignator partition_verity_sig_of(PartitionDesignator p) {
 }
 
 
-static const char *const partition_designator_table[] = {
+static const char *const partition_designator_table[_PARTITION_DESIGNATOR_MAX] = {
         [PARTITION_ROOT]                      = "root",
         [PARTITION_USR]                       = "usr",
         [PARTITION_HOME]                      = "home",
@@ -79,7 +79,7 @@ static const char *const partition_designator_table[] = {
 
 DEFINE_STRING_TABLE_LOOKUP(partition_designator, PartitionDesignator);
 
-static const char *const partition_mountpoint_table[] = {
+static const char *const partition_mountpoint_table[_PARTITION_DESIGNATOR_MAX] = {
         [PARTITION_ROOT]                      = "/\0",
         [PARTITION_USR]                       = "/usr\0",
         [PARTITION_HOME]                      = "/home\0",
