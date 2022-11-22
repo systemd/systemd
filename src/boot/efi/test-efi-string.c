@@ -324,6 +324,33 @@ TEST(xstrdup16) {
         free(s);
 }
 
+TEST(xstrn8_to_16) {
+        char16_t *s = NULL;
+
+        assert_se(xstrn8_to_16(NULL, 1) == NULL);
+        assert_se(xstrn8_to_16("a", 0) == NULL);
+
+        assert_se(s = xstrn8_to_16("", 1));
+        assert_se(streq16(s, u""));
+        free(s);
+
+        assert_se(s = xstrn8_to_16("1", 1));
+        assert_se(streq16(s, u"1"));
+        free(s);
+
+        assert_se(s = xstr8_to_16("abcxyzABCXYZ09 .,-_#*!\"§$%&/()=?`~"));
+        assert_se(streq16(s, u"abcxyzABCXYZ09 .,-_#*!\"§$%&/()=?`~"));
+        free(s);
+
+        assert_se(s = xstr8_to_16("ÿⱿ𝇉 😺"));
+        assert_se(streq16(s, u"ÿⱿ "));
+        free(s);
+
+        assert_se(s = xstrn8_to_16("¶¶", 3));
+        assert_se(streq16(s, u"¶"));
+        free(s);
+}
+
 #define TEST_FNMATCH_ONE(pattern, haystack, expect)                                     \
         ({                                                                              \
                 assert_se(fnmatch(pattern, haystack, 0) == (expect ? 0 : FNM_NOMATCH)); \

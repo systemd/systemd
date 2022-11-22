@@ -9,7 +9,8 @@
 #  include "util.h"
 #else
 #  include <stdlib.h>
-#  include "macro.h"
+#  include "alloc-util.h"
+#  define xnew(t, n) ASSERT_SE_PTR(new(t, n))
 #  define xmalloc(n) ASSERT_SE_PTR(malloc(n))
 #endif
 
@@ -137,6 +138,81 @@ DEFINE_STRCHR(char16_t, strchr16);
 
 DEFINE_STRNDUP(char, xstrndup8, strnlen8);
 DEFINE_STRNDUP(char16_t, xstrndup16, strnlen16);
+
+static unsigned utf8_to_unichar(const char *utf8, size_t n, char32_t *c) {
+        char32_t unichar;
+        unsigned len;
+
+        assert(utf8);
+        assert(c);
+
+        if (!(utf8[0] & 0x80)) {
+                *c = utf8[0];
+                return 1;
+        } else if ((utf8[0] & 0xe0) == 0xc0) {
+                len = 2;
+                unichar = utf8[0] & 0x1f;
+        } else if ((utf8[0] & 0xf0) == 0xe0) {
+                len = 3;
+                unichar = utf8[0] & 0x0f;
+        } else if ((utf8[0] & 0xf8) == 0xf0) {
+                len = 4;
+                unichar = utf8[0] & 0x07;
+        } else if ((utf8[0] & 0xfc) == 0xf8) {
+                len = 5;
+                unichar = utf8[0] & 0x03;
+        } else if ((utf8[0] & 0xfe) == 0xfc) {
+                len = 6;
+                unichar = utf8[0] & 0x01;
+        } else {
+                *c = UINT32_MAX;
+                return 1;
+        }
+
+        if (len > n) {
+                *c = UINT32_MAX;
+                return len;
+        }
+
+        for (unsigned i = 1; i < len; i++) {
+                if ((utf8[i] & 0xc0) != 0x80) {
+                        *c = UINT32_MAX;
+                        return len;
+                }
+                unichar <<= 6;
+                unichar |= utf8[i] & 0x3f;
+        }
+
+        *c = unichar;
+        return len;
+}
+
+/* Convert UTF-8 to UCS-2, skipping any invalid or short byte sequences. */
+char16_t *xstrn8_to_16(const char *str8, size_t n) {
+        if (!str8 || n == 0)
+                return NULL;
+
+        size_t i = 0;
+        char16_t *str16 = xnew(char16_t, n + 1);
+
+        while (n > 0 && *str8 != '\0') {
+                char32_t unichar;
+
+                size_t utf8len = utf8_to_unichar(str8, n, &unichar);
+                str8 += utf8len;
+                n = LESS_BY(n, utf8len);
+
+                switch (unichar) {
+                case 0 ... 0xd7ffU:
+                case 0xe000U ... 0xffffU:
+                        str16[i++] = unichar;
+                        break;
+                }
+        }
+
+        str16[i] = '\0';
+        return str16;
+}
 
 static bool efi_fnmatch_prefix(const char16_t *p, const char16_t *h, const char16_t **ret_p, const char16_t **ret_h) {
         assert(p);

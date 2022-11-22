@@ -99,6 +99,11 @@ static inline char16_t *xstrdup16(const char16_t *s) {
         return xstrndup16(s, SIZE_MAX);
 }
 
+char16_t *xstrn8_to_16(const char *str8, size_t n);
+static inline char16_t *xstr8_to_16(const char *str8) {
+        return xstrn8_to_16(str8, strlen8(str8));
+}
+
 bool efi_fnmatch(const char16_t *pattern, const char16_t *haystack);
 
 bool parse_number8(const char *s, uint64_t *ret_u, const char **ret_tail);
