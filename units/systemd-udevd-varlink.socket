@@ -8,8 +8,8 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=udev Control Socket
-Documentation=man:systemd-udevd-control.socket(8) man:udev(7)
+Description=udev Varlink Socket
+Documentation=man:systemd-udevd-varlink.socket(8) man:udev(7)
 DefaultDependencies=no
 Before=sockets.target
 ConditionPathIsReadWrite=/sys
@@ -17,5 +17,6 @@ ConditionPathIsReadWrite=/sys
 [Socket]
 Service=systemd-udevd.service
 ListenStream=/run/udev/io.systemd.udev
-SocketMode=0600
-RemoveOnStop=yes
+#SocketMode=0600
+#PassCredentials=yes
+#RemoveOnStop=yes
