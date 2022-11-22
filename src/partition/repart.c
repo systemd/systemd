@@ -2803,6 +2803,9 @@ static int context_discard_range(
         assert(offset != UINT64_MAX);
         assert(size != UINT64_MAX);
 
+        if (!arg_discard)
+                return 0;
+
         if (size <= 0)
                 return 0;
 
