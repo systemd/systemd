@@ -5333,8 +5333,11 @@ static int context_minimize(Context *context) {
         return 0;
 }
 
-static int parse_filter_partitions(const char *p) {
+static int parse_partition_types(const char *p, sd_id128_t **partitions, size_t *n_partitions) {
         int r;
+
+        assert(partitions);
+        assert(n_partitions);
 
         for (;;) {
                 _cleanup_free_ char *name = NULL;
@@ -5350,10 +5353,10 @@ static int parse_filter_partitions(const char *p) {
                 if (r < 0)
                         return log_error_errno(r, "'%s' is not a valid partition type identifier or GUID", name);
 
-                if (!GREEDY_REALLOC(arg_filter_partitions, arg_n_filter_partitions + 1))
+                if (!GREEDY_REALLOC(*partitions, *n_partitions + 1))
                         return log_oom();
 
-                arg_filter_partitions[arg_n_filter_partitions++] = type.uuid;
+                (*partitions)[(*n_partitions)++] = type.uuid;
         }
 
         return 0;
@@ -5730,7 +5733,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Combination of --include-partitions= and --exclude-partitions= is invalid.");
 
-                        r = parse_filter_partitions(optarg);
+                        r = parse_partition_types(optarg, &arg_filter_partitions, &arg_n_filter_partitions);
                         if (r < 0)
                                 return r;
 
@@ -5743,7 +5746,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Combination of --include-partitions= and --exclude-partitions= is invalid.");
 
-                        r = parse_filter_partitions(optarg);
+                        r = parse_partition_types(optarg, &arg_filter_partitions, &arg_n_filter_partitions);
                         if (r < 0)
                                 return r;
 
