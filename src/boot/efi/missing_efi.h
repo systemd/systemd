@@ -385,3 +385,16 @@ typedef struct _EFI_CONSOLE_CONTROL_PROTOCOL {
         { 0xd719b2cb, 0x3d3a, 0x4596, {0xa3, 0xbc, 0xda, 0xd0,  0xe, 0x67, 0x65, 0x6f }}
 
 #endif
+
+#ifndef EFI_SHELL_PARAMETERS_PROTOCOL_GUID
+#  define EFI_SHELL_PARAMETERS_PROTOCOL_GUID \
+        { 0x752f3136, 0x4e16, 0x4fdc, { 0xa2, 0x2a, 0xe5, 0xf4, 0x68, 0x12, 0xf4, 0xca } }
+
+typedef struct {
+        CHAR16 **Argv;
+        UINTN Argc;
+        void *StdIn;
+        void *StdOut;
+        void *StdErr;
+} EFI_SHELL_PARAMETERS_PROTOCOL;
+#endif

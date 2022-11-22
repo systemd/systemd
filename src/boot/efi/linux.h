@@ -2,14 +2,19 @@
 #pragma once
 
 #include <efi.h>
+#include <uchar.h>
 
 EFI_STATUS linux_exec(
                 EFI_HANDLE parent,
-                const char *cmdline, UINTN cmdline_len,
-                const void *linux_buffer, UINTN linux_length,
-                const void *initrd_buffer, UINTN initrd_length);
+                const char16_t *cmdline,
+                const void *linux_buffer,
+                size_t linux_length,
+                const void *initrd_buffer,
+                size_t initrd_length);
 EFI_STATUS linux_exec_efi_handover(
                 EFI_HANDLE parent,
-                const char *cmdline, UINTN cmdline_len,
-                const void *linux_buffer, UINTN linux_length,
-                const void *initrd_buffer, UINTN initrd_length);
+                const char16_t *cmdline,
+                const void *linux_buffer,
+                size_t linux_length,
+                const void *initrd_buffer,
+                size_t initrd_length);
