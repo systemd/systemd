@@ -1448,7 +1448,7 @@ static int setup_event(Manager *manager, int fd_worker) {
         return 0;
 }
 
-int manager_main(Manager *manager) {
+int manager_main(Manager *manager, int fd_varlink) {
         int fd_worker, r;
 
         manager_set_default_children_max(manager);
@@ -1477,7 +1477,7 @@ int manager_main(Manager *manager) {
         if (r < 0)
                 return r;
 
-        r = manager_open_varlink(manager, -EBADF);
+        r = manager_open_varlink(manager, fd_varlink);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize varlink server: %m");
 
