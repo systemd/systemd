@@ -948,11 +948,11 @@ static int activation_details_timer_append_env(ActivationDetails *details, char 
         if (!dual_timestamp_is_set(&t->last_trigger))
                 return 0;
 
-        r = strv_extendf(strv, "TRIGGER_TIMER_REALTIME_USEC=%" USEC_FMT, t->last_trigger.realtime);
+        r = strv_extendf(strv, "TRIGGER_TIMER_REALTIME_USEC=" USEC_FMT, t->last_trigger.realtime);
         if (r < 0)
                 return r;
 
-        r = strv_extendf(strv, "TRIGGER_TIMER_MONOTONIC_USEC=%" USEC_FMT, t->last_trigger.monotonic);
+        r = strv_extendf(strv, "TRIGGER_TIMER_MONOTONIC_USEC=" USEC_FMT, t->last_trigger.monotonic);
         if (r < 0)
                 return r;
 
@@ -974,7 +974,7 @@ static int activation_details_timer_append_pair(ActivationDetails *details, char
         if (r < 0)
                 return r;
 
-        r = strv_extendf(strv, "%" USEC_FMT, t->last_trigger.realtime);
+        r = strv_extendf(strv, USEC_FMT, t->last_trigger.realtime);
         if (r < 0)
                 return r;
 
@@ -982,7 +982,7 @@ static int activation_details_timer_append_pair(ActivationDetails *details, char
         if (r < 0)
                 return r;
 
-        r = strv_extendf(strv, "%" USEC_FMT, t->last_trigger.monotonic);
+        r = strv_extendf(strv, USEC_FMT, t->last_trigger.monotonic);
         if (r < 0)
                 return r;
 
