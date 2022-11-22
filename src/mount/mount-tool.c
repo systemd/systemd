@@ -1136,24 +1136,31 @@ static int acquire_mount_where(sd_device *d) {
         return 1;
 }
 
-static int acquire_mount_where_for_loop_dev(const char *loop_dev) {
+static int acquire_mount_where_for_loop_dev(sd_device *dev) {
         _cleanup_strv_free_ char **list = NULL;
+        const char *node;
         int r;
+
+        assert(dev);
 
         if (arg_mount_where)
                 return 0;
 
-        r = find_mount_points(loop_dev, &list);
+        r = sd_device_get_devname(dev, &node);
         if (r < 0)
                 return r;
-        else if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Can't find mount point of %s. It is expected that %s is already mounted on a place.",
-                                       loop_dev, loop_dev);
-        else if (r >= 2)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s is mounted on %d places. It is expected that %s is mounted on a place.",
-                                       loop_dev, r, loop_dev);
+
+        r = find_mount_points(node, &list);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return log_device_error_errno(dev, SYNTHETIC_ERRNO(EINVAL),
+                                              "Can't find mount point of %s. It is expected that %s is already mounted on a place.",
+                                              node, node);
+        if (r >= 2)
+                return log_device_error_errno(dev, SYNTHETIC_ERRNO(EINVAL),
+                                              "%s is mounted on %d places. It is expected that %s is mounted on a place.",
+                                              node, r, node);
 
         arg_mount_where = strdup(list[0]);
         if (!arg_mount_where)
@@ -1288,7 +1295,7 @@ static int discover_loop_backing_file(void) {
         if (r < 0)
                 return r;
 
-        r = acquire_mount_where_for_loop_dev(loop_dev);
+        r = acquire_mount_where_for_loop_dev(d);
         if (r < 0)
                 return r;
 
