@@ -143,7 +143,7 @@ static char *arg_tpm2_public_key = NULL;
 static uint32_t arg_tpm2_public_key_pcr_mask = UINT32_MAX;
 static bool arg_split = false;
 static sd_id128_t *arg_filter_partitions = NULL;
-static size_t arg_filter_partitions_size = 0;
+static size_t arg_n_filter_partitions = 0;
 static FilterPartitionsType arg_filter_partitions_type = FILTER_PARTITIONS_NONE;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -391,7 +391,7 @@ static bool partition_skip(const Partition *p) {
         if (arg_filter_partitions_type == FILTER_PARTITIONS_NONE)
                 return false;
 
-        for (size_t i = 0; i < arg_filter_partitions_size; i++)
+        for (size_t i = 0; i < arg_n_filter_partitions; i++)
                 if (sd_id128_equal(p->type.uuid, arg_filter_partitions[i]))
                         return arg_filter_partitions_type == FILTER_PARTITIONS_EXCLUDE;
 
@@ -5350,10 +5350,10 @@ static int parse_filter_partitions(const char *p) {
                 if (r < 0)
                         return log_error_errno(r, "'%s' is not a valid partition type identifier or GUID", name);
 
-                if (!GREEDY_REALLOC(arg_filter_partitions, arg_filter_partitions_size + 1))
+                if (!GREEDY_REALLOC(arg_filter_partitions, arg_n_filter_partitions + 1))
                         return log_oom();
 
-                arg_filter_partitions[arg_filter_partitions_size++] = type.uuid;
+                arg_filter_partitions[arg_n_filter_partitions++] = type.uuid;
         }
 
         return 0;
