@@ -168,8 +168,10 @@ static int create_edit_temp_file(
 
                 fprintf(f,
                         "### Editing %s\n"
-                        EDIT_MARKER_START
-                        "\n\n%s%s\n"
+                        EDIT_MARKER_START "\n"
+                        "\n"
+                        "%s%s"
+                        "\n"
                         EDIT_MARKER_END,
                         new_path,
                         strempty(new_contents),
