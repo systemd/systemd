@@ -187,7 +187,7 @@ EFI_STATUS tpm_log_event_ascii(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, U
         _cleanup_free_ char16_t *c = NULL;
 
         if (description)
-                c = xstra_to_str(description);
+                c = xstr8_to_16(description);
 
         return tpm_log_event(pcrindex, buffer, buffer_size, c, ret_measured);
 }

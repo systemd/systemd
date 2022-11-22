@@ -298,36 +298,6 @@ static int utf8_to_16(const char *stra, char16_t *c) {
         return len;
 }
 
-char16_t *xstra_to_str(const char *stra) {
-        UINTN strlen;
-        UINTN len;
-        UINTN i;
-        char16_t *str;
-
-        assert(stra);
-
-        len = strlen8(stra);
-        str = xnew(char16_t, len + 1);
-
-        strlen = 0;
-        i = 0;
-        while (i < len) {
-                int utf8len;
-
-                utf8len = utf8_to_16(stra + i, str + strlen);
-                if (utf8len <= 0) {
-                        /* invalid utf8 sequence, skip the garbage */
-                        i++;
-                        continue;
-                }
-
-                strlen++;
-                i += utf8len;
-        }
-        str[strlen] = '\0';
-        return str;
-}
-
 char16_t *xstra_to_path(const char *stra) {
         char16_t *str;
         UINTN strlen;
