@@ -18,7 +18,6 @@
 #include "socket-util.h"
 #include "strxcpyx.h"
 #include "udev-ctrl.h"
-#include "udev-varlink.h"
 
 /* wire protocol magic must match */
 #define UDEV_CTRL_MAGIC                                0xdead1dea
@@ -330,13 +329,6 @@ int udev_ctrl_send(UdevCtrl *uctrl, UdevCtrlMessageType type, const void *data) 
                 return -errno;
 
         return 0;
-}
-
-int udev_ctrl_send_ping(UdevCtrl *uctrl) {
-        assert(uctrl);
-        assert(uctrl->varlink);
-
-        return udev_varlink_call(uctrl->varlink, "io.systemd.udev.Ping", NULL, NULL);
 }
 
 int udev_ctrl_wait(UdevCtrl *uctrl, usec_t timeout) {

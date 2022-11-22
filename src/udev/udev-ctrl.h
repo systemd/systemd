@@ -35,6 +35,4 @@ int udev_ctrl_wait(UdevCtrl *uctrl, usec_t timeout);
 
 int udev_ctrl_send(UdevCtrl *uctrl, UdevCtrlMessageType type, const void *data);
 
-int udev_ctrl_send_ping(UdevCtrl *uctrl);
-
 DEFINE_TRIVIAL_CLEANUP_FUNC(UdevCtrl*, udev_ctrl_unref);
