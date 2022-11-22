@@ -914,49 +914,56 @@ static int stop_mounts(
         return 0;
 }
 
-static int umount_by_device(sd_bus *bus, const char *what) {
+static int umount_by_device(sd_bus *bus, sd_device *dev) {
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         _cleanup_strv_free_ char **list = NULL;
-        struct stat st;
         const char *v;
-        char **l;
-        int r, r2 = 0;
+        int r, ret = 0;
 
-        assert(what);
-
-        if (stat(what, &st) < 0)
-                return log_error_errno(errno, "Can't stat %s: %m", what);
-
-        if (!S_ISBLK(st.st_mode))
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK),
-                                       "Not a block device: %s", what);
-
-        r = sd_device_new_from_stat_rdev(&d, &st);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get device from device number: %m");
-
-        r = sd_device_get_property_value(d, "ID_FS_USAGE", &v);
-        if (r < 0)
-                return log_device_error_errno(d, r, "Failed to get device property: %m");
-
-        if (!streq(v, "filesystem"))
-                return log_device_error_errno(d, SYNTHETIC_ERRNO(EINVAL),
-                                              "%s does not contain a known file system.", what);
+        assert(bus);
+        assert(dev);
 
         if (sd_device_get_property_value(d, "SYSTEMD_MOUNT_WHERE", &v) >= 0)
-                r2 = stop_mounts(bus, v);
+                ret = stop_mounts(bus, v);
 
-        r = find_mount_points(what, &list);
+        r = sd_device_get_devname(dev, &v);
         if (r < 0)
                 return r;
 
-        for (l = list; *l; l++) {
+        r = find_mount_points(v, &list);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(l, list) {
                 r = stop_mounts(bus, *l);
                 if (r < 0)
-                        r2 = r;
+                        ret = r;
         }
 
-        return r2;
+        return ret;
+}
+
+static int umount_by_device_node(sd_bus *bus, const char *node) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        const char *v;
+        int r;
+
+        assert(bus);
+        assert(node);
+
+        r = sd_device_new_from_devname(&dev, node);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get device from %s: %m", node);
+
+        r = sd_device_get_property_value(dev, "ID_FS_USAGE", &v);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to get \"ID_FS_USAGE\" device property: %m");
+
+        if (!streq(v, "filesystem"))
+                return log_device_error_errno(dev, SYNTHETIC_ERRNO(EINVAL),
+                                              "%s does not contain a known file system.", node);
+
+        return umount_by_device(bus, dev);
 }
 
 static int umount_loop(sd_bus *bus, const char *backing_file) {
@@ -969,7 +976,7 @@ static int umount_loop(sd_bus *bus, const char *backing_file) {
         if (r < 0)
                 return log_error_errno(r, r == -ENXIO ? "File %s is not mounted." : "Can't get loop device for %s: %m", backing_file);
 
-        return umount_by_device(bus, loop_dev);
+        return umount_by_device_node(bus, loop_dev);
 }
 
 static int action_umount(
@@ -1014,7 +1021,7 @@ static int action_umount(
                         return log_error_errno(errno, "Can't stat %s (from %s): %m", p, argv[i]);
 
                 if (S_ISBLK(st.st_mode))
-                        r = umount_by_device(bus, p);
+                        r = umount_by_device_node(bus, p);
                 else if (S_ISREG(st.st_mode))
                         r = umount_loop(bus, p);
                 else if (S_ISDIR(st.st_mode))
