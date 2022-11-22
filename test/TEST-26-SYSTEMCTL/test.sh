@@ -7,4 +7,6 @@ TEST_DESCRIPTION="systemctl-related tests"
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
+image_install script
+
 do_test "$@"
