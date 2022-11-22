@@ -8,7 +8,12 @@ TEST_DESCRIPTION="systemctl-related tests"
 . "${TEST_BASE_DIR:?}/test-functions"
 
 test_append_files() (
-        image_install script ed
+        workspace="${1:?}"
+
+        image_install script
+
+        mkdir "$workspace/systemd-test-module"
+        cp ed-3a "$workspace/systemd-test-module"
 )
 
 do_test "$@"
