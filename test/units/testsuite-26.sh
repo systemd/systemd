@@ -5,7 +5,7 @@ set -o pipefail
 
 at_exit() {
     if [[ -v UNIT_NAME && -e "/usr/lib/systemd/system/$UNIT_NAME" ]]; then
-        rm -fv "/usr/lib/systemd/system/$UNIT_NAME"
+        rm -fvr "/usr/lib/systemd/system/$UNIT_NAME" "/etc/systemd/system/$UNIT_NAME.d"
     fi
 }
 
@@ -14,7 +14,7 @@ trap at_exit EXIT
 # Create a simple unit file for testing
 # Note: the service file is created under /usr on purpose to test
 #       the 'revert' verb as well
-UNIT_NAME="systemctl-test-$RANDOM.service"
+export UNIT_NAME="systemctl-test-$RANDOM.service"
 cat >"/usr/lib/systemd/system/$UNIT_NAME" <<\EOF
 [Unit]
 Description=systemctl test
@@ -38,7 +38,11 @@ EOF
 mkdir /run/systemd/system-preset/
 echo "disable $UNIT_NAME" >/run/systemd/system-preset/99-systemd-test.preset
 
-systemctl daemon-reload
+EDITOR='true' script -ec 'systemctl edit "$UNIT_NAME"' /dev/null
+[ ! -e "/etc/systemd/system/$UNIT_NAME.d/override.conf" ]
+
+printf '%s\n' 3a '[Service]' 'ExecStart=' 'ExecStart=sleep 10d' . w | EDITOR='ed' script -ec 'systemctl edit "$UNIT_NAME"' /dev/null
+printf '%s\n'    '[Service]' 'ExecStart=' 'ExecStart=sleep 10d'     | cmp - "/etc/systemd/system/$UNIT_NAME.d/override.conf"
 
 # Argument help
 systemctl --state help
