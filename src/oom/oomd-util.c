@@ -164,7 +164,7 @@ int oomd_fetch_cgroup_oom_preference(OomdCGroupContext *ctx, const char *prefix)
         if (r < 0)
                 return log_debug_errno(r, "Failed to get owner/group from %s: %m", ctx->path);
 
-        if (uid == prefix_uid) {
+        if (uid == prefix_uid || uid == 0) {
                 /* Ignore most errors when reading the xattr since it is usually unset and cgroup xattrs are only used
                  * as an optional feature of systemd-oomd (and the system might not even support them). */
                 r = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, ctx->path, "user.oomd_avoid");
