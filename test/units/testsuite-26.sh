@@ -42,7 +42,7 @@ echo "disable $UNIT_NAME" >/run/systemd/system-preset/99-systemd-test.preset
 EDITOR='true' script -ec 'systemctl edit "$UNIT_NAME"' /dev/null
 [ ! -e "/etc/systemd/system/$UNIT_NAME.d/override.conf" ]
 
-# On CI ed=ex, so it needs a bit more babysitting (TERM=dumb amd q) to not throw a fit
+# On CI ed=ex, so it needs a bit more babysitting (TERM=dumb and q) to not throw a fit
 printf '%s\n' 3a '[Service]' 'ExecStart=' 'ExecStart=sleep 10d' . w q | EDITOR='ed' TERM='dumb' script -ec 'systemctl edit "$UNIT_NAME"' /dev/null
 printf '%s\n'    '[Service]' 'ExecStart=' 'ExecStart=sleep 10d'       | cmp - "/etc/systemd/system/$UNIT_NAME.d/override.conf"
 

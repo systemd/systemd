@@ -8,7 +8,7 @@ TEST_DESCRIPTION="systemctl-related tests"
 . "${TEST_BASE_DIR:?}/test-functions"
 
 test_append_files() (
-        image_install script
+        image_install script ed
 )
 
 do_test "$@"
