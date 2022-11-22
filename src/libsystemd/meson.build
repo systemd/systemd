@@ -276,6 +276,11 @@ tests += [
 
         [files('sd-netlink/test-netlink.c')],
 
+        [files('sd-netlink/test-netlink-util.c'),
+         [],
+         [libkmod],
+         [], 'HAVE_KMOD', ''],
+
         [files('sd-resolve/test-resolve.c'),
          [],
          [threads],
