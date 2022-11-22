@@ -110,7 +110,12 @@ int verb_cat(int argc, char *argv[], void *userdata) {
         return rc;
 }
 
-static int create_edit_temp_file(const char *new_path, const char *original_path, char ** const original_unit_paths, char **ret_tmp_fn) {
+static int create_edit_temp_file(
+                const char *new_path,
+                const char *original_path,
+                char ** const original_unit_paths,
+                char **ret_tmp_fn) {
+
         _cleanup_free_ char *t = NULL;
         int r;
 
@@ -154,8 +159,7 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
                 if (!f)
                         return log_error_errno(errno, "Failed to open \"%s\": %m", t);
 
-                r = fchmod(fileno(f), 0644);
-                if (r < 0)
+                if (fchmod(fileno(f), 0644) < 0)
                         return log_error_errno(errno, "Failed to change mode of \"%s\": %m", t);
 
                 r = read_full_file(new_path, &new_contents, NULL);
@@ -200,7 +204,6 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
         }
 
         *ret_tmp_fn = TAKE_PTR(t);
-
         return 0;
 }
 
@@ -222,9 +225,7 @@ static int get_file_to_edit(
                 run = path_join(paths->runtime_config, name);
                 if (!run)
                         return log_oom();
-        }
 
-        if (arg_runtime) {
                 if (access(path, F_OK) >= 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
                                                "Refusing to create \"%s\" because it would be overridden by \"%s\" anyway.",
