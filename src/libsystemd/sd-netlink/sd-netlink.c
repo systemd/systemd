@@ -464,13 +464,18 @@ static int netlink_poll(sd_netlink *nl, bool need_more, usec_t timeout_usec) {
 }
 
 int sd_netlink_wait(sd_netlink *nl, uint64_t timeout_usec) {
+        int r;
+
         assert_return(nl, -EINVAL);
         assert_return(!netlink_pid_changed(nl), -ECHILD);
 
         if (nl->rqueue_size > 0)
                 return 0;
 
-        return netlink_poll(nl, false, timeout_usec);
+        r = netlink_poll(nl, false, timeout_usec);
+        if (r < 0 && ERRNO_IS_TRANSIENT(r)) /* Convert EINTR to "something happened" and give user a chance to run some code before calling back into us */
+                return 1;
+        return r;
 }
 
 static int timeout_compare(const void *a, const void *b) {
