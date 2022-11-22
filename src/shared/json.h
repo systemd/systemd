@@ -194,7 +194,8 @@ typedef enum JsonFormatFlags {
         JSON_FORMAT_SSE         = 1 << 6, /* prefix/suffix with W3C server-sent events */
         JSON_FORMAT_SEQ         = 1 << 7, /* prefix/suffix with RFC 7464 application/json-seq */
         JSON_FORMAT_FLUSH       = 1 << 8, /* call fflush() after dumping JSON */
-        JSON_FORMAT_OFF         = 1 << 9, /* make json_variant_format() fail with -ENOEXEC */
+        JSON_FORMAT_EMPTY_ARRAY = 1 << 9, /* output "[]" for empty input */
+        JSON_FORMAT_OFF         = 1 << 10, /* make json_variant_format() fail with -ENOEXEC */
 } JsonFormatFlags;
 
 int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret);
@@ -222,8 +223,16 @@ typedef enum JsonParseFlags {
         JSON_PARSE_SENSITIVE = 1 << 0, /* mark variant as "sensitive", i.e. something containing secret key material or such */
 } JsonParseFlags;
 
-int json_parse(const char *string, JsonParseFlags flags, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column);
-int json_parse_continue(const char **p, JsonParseFlags flags, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column);
+int json_parse_source(const char *string, const char *source, JsonParseFlags flags, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column);
+int json_parse_source_continue(const char **p, const char *source, JsonParseFlags flags, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column);
+
+static inline int json_parse(const char *string, JsonParseFlags flags, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column) {
+        return json_parse_source(string, NULL, flags, ret, ret_line, ret_column);
+}
+static inline int json_parse_continue(const char **p, JsonParseFlags flags, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column) {
+        return json_parse_source_continue(p, NULL, flags, ret, ret_line, ret_column);
+}
+
 int json_parse_file_at(FILE *f, int dir_fd, const char *path, JsonParseFlags flags, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column);
 
 static inline int json_parse_file(FILE *f, const char *path, JsonParseFlags flags, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column) {
