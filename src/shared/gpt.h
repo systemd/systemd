@@ -24,8 +24,6 @@ typedef enum PartitionDesignator {
         PARTITION_USR_VERITY_SIG,
         PARTITION_TMP,
         PARTITION_VAR,
-        PARTITION_USER_HOME,
-        PARTITION_LINUX_GENERIC,
         _PARTITION_DESIGNATOR_MAX,
         _PARTITION_DESIGNATOR_INVALID = -EINVAL,
 } PartitionDesignator;
