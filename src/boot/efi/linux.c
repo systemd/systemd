@@ -133,7 +133,7 @@ EFI_STATUS linux_exec(
                 return log_error_status_stall(err, u"Error getting kernel loaded image protocol: %r", err);
 
         if (cmdline) {
-                loaded_image->LoadOptions = xstra_to_str(cmdline);
+                loaded_image->LoadOptions = xstrn8_to_16(cmdline, cmdline_len);
                 loaded_image->LoadOptionsSize = strsize16(loaded_image->LoadOptions);
         }
 
