@@ -269,6 +269,18 @@ int manager_genl_process_nl80211_mlme(sd_netlink *genl, sd_netlink_message *mess
                 if (link->wlan_iftype == NL80211_IFTYPE_STATION && link->ssid)
                         log_link_info(link, "Connected WiFi access point: %s (%s)",
                                       link->ssid, ETHER_ADDR_TO_STR(&link->bssid));
+
+                /* Sometimes, RTM_NEWLINK message with carrier is received earlier than NL80211_CMD_CONNECT.
+                 * To make SSID= or other WiFi related settings in [Match] section work, let's try to
+                 * reconfigure the interface. */
+                if (link->ssid && link_has_carrier(link)) {
+                        r = link_reconfigure_impl(link, /* force = */ false);
+                        if (r < 0) {
+                                log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
+                                link_enter_failed(link);
+                                return 0;
+                        }
+                }
                 break;
         }
         case NL80211_CMD_DISCONNECT:
