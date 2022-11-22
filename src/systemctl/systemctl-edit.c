@@ -459,51 +459,42 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
 }
 
 static int trim_edit_markers(const char *path) {
-        _cleanup_free_ char *contents = NULL;
-        char *contents_start = NULL;
-        const char *contents_end = NULL;
-        size_t size;
+        _cleanup_free_ char *old_contents = NULL, *new_contents = NULL;
+        char *contents_start, *contents_end;
+        const char *c = NULL;
         int r;
 
         /* Trim out the lines between the two markers */
-        r = read_full_file(path, &contents, NULL);
+        r = read_full_file(path, &old_contents, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to read temporary file \"%s\": %m", path);
 
-        size = strlen(contents);
-
-        contents_start = strstr(contents, EDIT_MARKER_START);
+        contents_start = strstr(old_contents, EDIT_MARKER_START);
         if (contents_start)
                 contents_start += strlen(EDIT_MARKER_START);
         else
-                contents_start = contents;
+                contents_start = old_contents;
 
         contents_end = strstr(contents_start, EDIT_MARKER_END);
         if (contents_end)
-                strshorten(contents_start, contents_end - contents_start);
+                contents_end[0] = 0;
 
-        contents_start = strstrip(contents_start);
-        if (*contents_start && !endswith(contents_start, "\n")) {
-                char *tmp = contents_start;
-                if (MALLOC_SIZEOF_SAFE(contents) - (contents_start - contents) - strlen(contents_start) < 2) {
-                        if ((tmp = realloc(contents, size + 1))) {
-                                contents_start = tmp + (contents_start - contents);
-                                contents = tmp;
-                        }
-                }
+        c = strstrip(contents_start);
+        if (isempty(c))
+                return 0; /* All gone now */
 
-                if (tmp)
-                        strcat(contents_start, "\n");
-        }
+        new_contents = strjoin(c, "\n"); /* Trim prefix and suffix, but ensure suffixed by single newline */
+        if (!new_contents)
+                return log_oom();
 
-        /* Write new contents if the trimming actually changed anything */
-        if (strlen(contents) != size) {
-                r = write_string_file(path, contents_start, WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_TRUNCATE | WRITE_STRING_FILE_AVOID_NEWLINE);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to modify temporary file \"%s\": %m", path);
-        }
+        if (streq(old_contents, new_contents)) /* Don't touch the file if the above didn't change a thing */
+                return 1; /* Unchanged, but good */
 
-        return 0;
+        r = write_string_file(path, new_contents, WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_TRUNCATE | WRITE_STRING_FILE_AVOID_NEWLINE);
+        if (r < 0)
+                return log_error_errno(r, "Failed to modify temporary file \"%s\": %m", path);
+
+        return 1; /* Changed, but good */
 }
 
 int verb_edit(int argc, char *argv[], void *userdata) {
@@ -561,16 +552,13 @@ int verb_edit(int argc, char *argv[], void *userdata) {
                  * modification. */
                 r = trim_edit_markers(*tmp);
                 if (r < 0)
+                        goto end;
+                if (r == 0) /* has no actual contents? then ignore it */
                         continue;
 
-                if (null_or_empty_path(*tmp)) {
-                        log_warning("Editing \"%s\" canceled: temporary file is empty.", *original);
-                        continue;
-                }
-
-                r = rename(*tmp, *original);
+                r = RET_NERRNO(rename(*tmp, *original));
                 if (r < 0) {
-                        r = log_error_errno(errno, "Failed to rename \"%s\" to \"%s\": %m", *tmp, *original);
+                        log_error_errno(r, "Failed to rename \"%s\" to \"%s\": %m", *tmp, *original);
                         goto end;
                 }
         }
