@@ -1201,7 +1201,7 @@ Manager* manager_new(void) {
         return manager;
 }
 
-int manager_init(Manager *manager, int fd_ctrl, int fd_uevent) {
+int manager_init(Manager *manager, int fd_ctrl, int fd_uevent, int fd_varlink) {
         _cleanup_free_ char *cgroup = NULL;
         int r;
 
@@ -1215,7 +1215,7 @@ int manager_init(Manager *manager, int fd_ctrl, int fd_uevent) {
         if (r < 0)
                 return log_error_errno(r, "Failed to bind udev control socket: %m");
 
-        r = manager_open_varlink(manager, -EBADF);
+        r = manager_open_varlink(manager, fd_varlink);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize varlink server: %m");
 

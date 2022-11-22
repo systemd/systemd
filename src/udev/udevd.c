@@ -24,18 +24,20 @@
 #include "syslog-util.h"
 #include "udev-manager.h"
 #include "udev-util.h"
+#include "udev-varlink.h"
 #include "udevd.h"
 #include "version.h"
 
 static bool arg_debug = false;
 static int arg_daemonize = false;
 
-static int listen_fds(int *ret_ctrl, int *ret_netlink) {
-        int ctrl_fd = -EBADF, netlink_fd = -EBADF;
+static int listen_fds(int *ret_ctrl, int *ret_netlink, int *ret_varlink) {
+        int ctrl_fd = -EBADF, netlink_fd = -EBADF, varlink_fd = -EBADF;
         int fd, n;
 
         assert(ret_ctrl);
         assert(ret_netlink);
+        assert(ret_varlink);
 
         n = sd_listen_fds(true);
         if (n < 0)
@@ -53,6 +55,13 @@ static int listen_fds(int *ret_ctrl, int *ret_netlink) {
                         if (netlink_fd >= 0)
                                 return -EINVAL;
                         netlink_fd = fd;
+                        continue;
+                }
+
+                if (sd_is_socket_unix(fd, SOCK_STREAM, 1, UDEV_VARLINK_ADDRESS, 0) > 0) {
+                        if (varlink_fd >= 0)
+                                return -EINVAL;
+                        varlink_fd = fd;
                         continue;
                 }
 
@@ -327,7 +336,7 @@ static int parse_argv(int argc, char *argv[], Manager *manager) {
 
 int run_udevd(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *manager = NULL;
-        int fd_ctrl = -EBADF, fd_uevent = -EBADF;
+        int fd_ctrl = -EBADF, fd_uevent = -EBADF, fd_varlink = -EBADF;
         int r;
 
         log_set_target(LOG_TARGET_AUTO);
@@ -373,11 +382,11 @@ int run_udevd(int argc, char *argv[]) {
         if (r < 0 && r != -EEXIST)
                 return log_error_errno(r, "Failed to create /run/udev: %m");
 
-        r = listen_fds(&fd_ctrl, &fd_uevent);
+        r = listen_fds(&fd_ctrl, &fd_uevent, &fd_varlink);
         if (r < 0)
                 return log_error_errno(r, "Failed to listen on fds: %m");
 
-        r = manager_init(manager, fd_ctrl, fd_uevent);
+        r = manager_init(manager, fd_ctrl, fd_uevent, fd_varlink);
         if (r < 0)
                 return log_error_errno(r, "Failed to create manager: %m");
 
