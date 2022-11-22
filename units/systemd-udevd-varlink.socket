@@ -8,15 +8,14 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Coldplug All udev Devices
-Documentation=man:udev(7) man:systemd-udevd.service(8)
+Description=udev Varlink Socket
+Documentation=man:systemd-udevd-varlink.socket(8) man:udev(7)
 DefaultDependencies=no
-Wants=systemd-udevd.service
-After=systemd-udevd-kernel.socket systemd-udevd-control.socket systemd-udevd-varlink.socket
-Before=sysinit.target
+Before=sockets.target
 ConditionPathIsReadWrite=/sys
 
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=-udevadm trigger --type=all --action=add --prioritized-subsystem=module,block,tpmrm,net,tty,input
+[Socket]
+Service=systemd-udevd.service
+ListenStream=/run/udev/io.systemd.udev
+SocketMode=0600
+RemoveOnStop=yes
