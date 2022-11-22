@@ -292,8 +292,10 @@ static int write_to_terminal(const char *tty, const char *message) {
         assert(message);
 
         fd = open(tty, O_WRONLY|O_NONBLOCK|O_NOCTTY|O_CLOEXEC);
-        if (fd < 0 || !isatty(fd))
+        if (fd < 0)
                 return -errno;
+        if (!isatty(fd))
+                return -ENOTTY;
 
         p = message;
         left = strlen(message);
