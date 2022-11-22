@@ -2219,13 +2219,11 @@ static void config_entry_add_unified(
                 content = mfree(content);
 
                 /* read the embedded cmdline file */
-                err = file_read(linux_dir, f->FileName, offs[SECTION_CMDLINE], szs[SECTION_CMDLINE], &content, NULL);
+                size_t cmdline_len;
+                err = file_read(linux_dir, f->FileName, offs[SECTION_CMDLINE], szs[SECTION_CMDLINE], &content, &cmdline_len);
                 if (err == EFI_SUCCESS) {
-                        /* chomp the newline */
-                        if (content[szs[SECTION_CMDLINE] - 1] == '\n')
-                                content[szs[SECTION_CMDLINE] - 1] = '\0';
-
-                        entry->options = xstr8_to_16(content);
+                        entry->options = xstrn8_to_16(content, cmdline_len);
+                        mangle_stub_cmdline(entry->options);
                 }
         }
 }

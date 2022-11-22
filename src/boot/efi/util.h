@@ -139,6 +139,7 @@ EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const char16_t *name, b
 
 void convert_efi_path(char16_t *path);
 char16_t *xstr8_to_path(const char *stra);
+void mangle_stub_cmdline(char16_t *cmdline);
 
 EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, UINTN off, UINTN size, char **content, UINTN *content_size);
 
