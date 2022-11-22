@@ -237,6 +237,8 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet, const char* const*
                         log_error("Job for %s canceled.", strna(d->name));
                 else if (streq(d->result, "timeout"))
                         log_error("Job for %s timed out.", strna(d->name));
+                else if (streq(d->result, "failed"))
+                        log_error("Failed to start job for %s.", strna(d->name));
                 else if (streq(d->result, "dependency"))
                         log_error("A dependency job for %s failed. See 'journalctl -xe' for details.", strna(d->name));
                 else if (streq(d->result, "invalid"))
@@ -269,6 +271,8 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet, const char* const*
                 return -ECANCELED;
         else if (streq(d->result, "timeout"))
                 return -ETIME;
+        else if (streq(d->result, "failed"))
+                return -EINVAL;
         else if (streq(d->result, "dependency"))
                 return -EIO;
         else if (streq(d->result, "invalid"))
