@@ -1443,7 +1443,7 @@ static void config_entry_add_type1(
                 if (streq8(key, "linux")) {
                         free(entry->loader);
                         entry->type = LOADER_LINUX;
-                        entry->loader = xstra_to_path(value);
+                        entry->loader = xstr8_to_path(value);
                         entry->key = 'l';
                         continue;
                 }
@@ -1451,7 +1451,7 @@ static void config_entry_add_type1(
                 if (streq8(key, "efi")) {
                         entry->type = LOADER_EFI;
                         free(entry->loader);
-                        entry->loader = xstra_to_path(value);
+                        entry->loader = xstr8_to_path(value);
 
                         /* do not add an entry for ourselves */
                         if (strcaseeq16(entry->loader, loaded_image_path)) {
@@ -1472,7 +1472,7 @@ static void config_entry_add_type1(
 
                 if (streq8(key, "devicetree")) {
                         free(entry->devicetree);
-                        entry->devicetree = xstra_to_path(value);
+                        entry->devicetree = xstr8_to_path(value);
                         continue;
                 }
 
@@ -1481,7 +1481,7 @@ static void config_entry_add_type1(
                                 entry->initrd,
                                 n_initrd == 0 ? 0 : (n_initrd + 1) * sizeof(uint16_t *),
                                 (n_initrd + 2) * sizeof(uint16_t *));
-                        entry->initrd[n_initrd++] = xstra_to_path(value);
+                        entry->initrd[n_initrd++] = xstr8_to_path(value);
                         entry->initrd[n_initrd] = NULL;
                         continue;
                 }
