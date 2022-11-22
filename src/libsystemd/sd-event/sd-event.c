@@ -3969,15 +3969,18 @@ static int epoll_wait_usec(
                 usec_t timeout) {
 
         int msec;
-#if 0
+        /* A wrapper that uses epoll_pwait2() if available, and falls back to epoll_wait() if not. */
+
+#if HAVE_EPOLL_PWAIT2
         static bool epoll_pwait2_absent = false;
         int r;
 
-        /* A wrapper that uses epoll_pwait2() if available, and falls back to epoll_wait() if not.
-         *
-         * FIXME: this is temporarily disabled until epoll_pwait2() becomes more widely available.
-         * See https://github.com/systemd/systemd/pull/18973 and
-         * https://github.com/systemd/systemd/issues/19052. */
+        /* epoll_pwait2() was added to Linux 5.11 (2021-02-14) and to glibc in 2.35 (2022-02-03). In contrast
+         * to other syscalls we don't bother with our own fallback syscall wrappers on old libcs, since this
+         * is not that obvious to implement given the libc and kernel definitions differ in the last
+         * argument. Moreover, the only reason to use it is the more accurate time-outs (which is not a
+         * biggie), let's hence rely on glibc's definitions, and fallback to epoll_pwait() when that's
+         * missing. */
 
         if (!epoll_pwait2_absent && timeout != USEC_INFINITY) {
                 r = epoll_pwait2(fd,
