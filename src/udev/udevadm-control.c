@@ -161,7 +161,7 @@ int control_main(int argc, char *argv[], void *userdata) {
 
                         r = safe_atou(optarg, &i);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse maximum number of events '%s': %m", optarg);
+                                return log_error_errno(r, "Failed to parse maximum number of children '%s': %m", optarg);
 
                         r = json_build(&v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("n", JSON_BUILD_UNSIGNED(i))));
                         if (r < 0)
