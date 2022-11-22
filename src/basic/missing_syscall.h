@@ -426,44 +426,6 @@ static inline int missing_close_range(int first_fd, int end_fd, unsigned flags) 
 
 /* ======================================================================= */
 
-#if !HAVE_EPOLL_PWAIT2
-
-/* Defined to be equivalent to the kernel's _NSIG_WORDS, i.e. the size of the array of longs that is
- * encapsulated by sigset_t. */
-#define KERNEL_NSIG_WORDS (64 / (sizeof(long) * 8))
-#define KERNEL_NSIG_BYTES (KERNEL_NSIG_WORDS * sizeof(long))
-
-struct epoll_event;
-
-static inline int missing_epoll_pwait2(
-                int fd,
-                struct epoll_event *events,
-                int maxevents,
-                const struct timespec *timeout,
-                const sigset_t *sigset) {
-
-#  if defined(__NR_epoll_pwait2) && HAVE_LINUX_TIME_TYPES_H
-        if (timeout) {
-                /* Convert from userspace timespec to kernel timespec */
-                struct __kernel_timespec ts = {
-                        .tv_sec = timeout->tv_sec,
-                        .tv_nsec = timeout->tv_nsec,
-                };
-
-                return syscall(__NR_epoll_pwait2, fd, events, maxevents, &ts, sigset, sigset ? KERNEL_NSIG_BYTES : 0);
-        } else
-                return syscall(__NR_epoll_pwait2, fd, events, maxevents, NULL, sigset, sigset ? KERNEL_NSIG_BYTES : 0);
-#  else
-        errno = ENOSYS;
-        return -1;
-#  endif
-}
-
-#  define epoll_pwait2 missing_epoll_pwait2
-#endif
-
-/* ======================================================================= */
-
 #if !HAVE_MOUNT_SETATTR
 
 #if !HAVE_STRUCT_MOUNT_ATTR
