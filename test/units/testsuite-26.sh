@@ -5,7 +5,7 @@ set -o pipefail
 
 at_exit() {
     if [[ -v UNIT_NAME && -e "/usr/lib/systemd/system/$UNIT_NAME" ]]; then
-        rm -fv "/usr/lib/systemd/system/$UNIT_NAME"
+        rm -fvr "/usr/lib/systemd/system/$UNIT_NAME" "/etc/systemd/system/$UNIT_NAME.d"
     fi
 }
 
@@ -38,7 +38,11 @@ EOF
 mkdir /run/systemd/system-preset/
 echo "disable $UNIT_NAME" >/run/systemd/system-preset/99-systemd-test.preset
 
-systemctl daemon-reload
+EDITOR='true' systemctl edit "$UNIT_NAME"
+[ ! -e "/etc/systemd/system/$UNIT_NAME.d/override.conf" ]
+
+printf '%s\n' 3a '[Service]' 'ExecStart=' 'ExecStart=sleep 10d' . w | EDITOR='ed' systemctl edit "$UNIT_NAME"
+printf '%s\n'    '[Service]' 'ExecStart=' 'ExecStart=sleep 10d'     | cmp - "/etc/systemd/system/$UNIT_NAME.d/override.conf"
 
 # Argument help
 systemctl --state help
