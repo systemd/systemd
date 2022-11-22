@@ -359,24 +359,7 @@ static char16_t *get_dropin_dir(const EFI_DEVICE_PATH *file_path) {
         if (device_path_to_str(file_path, &file_path_str) != EFI_SUCCESS)
                 return NULL;
 
-        for (char16_t *i = file_path_str, *fixed = i;; i++) {
-                if (*i == '\0') {
-                        *fixed = '\0';
-                        break;
-                }
-
-                /* Fix device path node separator. */
-                if (*i == '/')
-                        *i = '\\';
-
-                /* Double '\' is not allowed in EFI file paths. */
-                if (fixed != file_path_str && fixed[-1] == '\\' && *i == '\\')
-                        continue;
-
-                *fixed = *i;
-                fixed++;
-        }
-
+        convert_efi_path(file_path_str);
         return xpool_print(u"%s.extra.d", file_path_str);
 }
 

@@ -93,15 +93,16 @@ static EFI_STATUS load_image(EFI_HANDLE parent, const void *source, size_t len, 
 
 EFI_STATUS linux_exec(
                 EFI_HANDLE parent,
-                const char *cmdline, UINTN cmdline_len,
-                const void *linux_buffer, UINTN linux_length,
-                const void *initrd_buffer, UINTN initrd_length) {
+                const char16_t *cmdline,
+                const void *linux_buffer,
+                size_t linux_length,
+                const void *initrd_buffer,
+                size_t initrd_length) {
 
         uint32_t compat_address;
         EFI_STATUS err;
 
         assert(parent);
-        assert(cmdline || cmdline_len == 0);
         assert(linux_buffer && linux_length > 0);
         assert(initrd_buffer || initrd_length == 0);
 
@@ -113,7 +114,6 @@ EFI_STATUS linux_exec(
                 return linux_exec_efi_handover(
                                 parent,
                                 cmdline,
-                                cmdline_len,
                                 linux_buffer,
                                 linux_length,
                                 initrd_buffer,
@@ -133,7 +133,7 @@ EFI_STATUS linux_exec(
                 return log_error_status_stall(err, u"Error getting kernel loaded image protocol: %r", err);
 
         if (cmdline) {
-                loaded_image->LoadOptions = xstra_to_str(cmdline);
+                loaded_image->LoadOptions = (void *) cmdline;
                 loaded_image->LoadOptionsSize = strsize16(loaded_image->LoadOptions);
         }
 

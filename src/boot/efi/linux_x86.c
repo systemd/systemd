@@ -126,12 +126,13 @@ static void linux_efi_handover(EFI_HANDLE parent, uintptr_t kernel, BootParams *
 
 EFI_STATUS linux_exec_efi_handover(
                 EFI_HANDLE parent,
-                const char *cmdline, UINTN cmdline_len,
-                const void *linux_buffer, UINTN linux_length,
-                const void *initrd_buffer, UINTN initrd_length) {
+                const char16_t *cmdline,
+                const void *linux_buffer,
+                size_t linux_length,
+                const void *initrd_buffer,
+                size_t initrd_length) {
 
         assert(parent);
-        assert(cmdline || cmdline_len == 0);
         assert(linux_buffer);
         assert(initrd_buffer || initrd_length == 0);
 
@@ -185,14 +186,20 @@ EFI_STATUS linux_exec_efi_handover(
 
         _cleanup_pages_ Pages cmdline_pages = {};
         if (cmdline) {
+                size_t len = MIN(strlen16(cmdline), image_params->hdr.cmdline_size);
+
                 cmdline_pages = xmalloc_pages(
                                 can_4g ? AllocateAnyPages : AllocateMaxAddress,
                                 EfiLoaderData,
-                                EFI_SIZE_TO_PAGES(cmdline_len + 1),
+                                EFI_SIZE_TO_PAGES(len + 1),
                                 CMDLINE_PTR_MAX);
 
-                memcpy(PHYSICAL_ADDRESS_TO_POINTER(cmdline_pages.addr), cmdline, cmdline_len);
-                ((char *) PHYSICAL_ADDRESS_TO_POINTER(cmdline_pages.addr))[cmdline_len] = 0;
+                /* Convert cmdline to ASCII. */
+                char *cmdline8 = PHYSICAL_ADDRESS_TO_POINTER(cmdline_pages.addr);
+                for (size_t i = 0; i < len; i++)
+                        cmdline8[i] = cmdline[i] <= 0x7E ? cmdline[i] : ' ';
+                cmdline8[len] = '\0';
+
                 boot_params->hdr.cmd_line_ptr = (uint32_t) cmdline_pages.addr;
                 boot_params->ext_cmd_line_ptr = cmdline_pages.addr >> 32;
                 assert(can_4g || cmdline_pages.addr <= CMDLINE_PTR_MAX);
