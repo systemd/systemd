@@ -392,7 +392,6 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
         STRV_FOREACH(name, names) {
                 _cleanup_free_ char *path = NULL, *new_path = NULL, *tmp_path = NULL, *tmp_name = NULL;
                 _cleanup_strv_free_ char **unit_paths = NULL;
-                const char *unit_name;
 
                 r = unit_find_paths(bus, *name, &lp, false, &cached_name_map, &cached_id_map, &path, &unit_paths);
                 if (r == -EKEYREJECTED) {
@@ -416,12 +415,16 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                         }
 
                         /* Create a new unit from scratch */
-                        unit_name = *name;
-                        r = unit_file_create_new(&lp, unit_name,
+                        r = unit_file_create_new(&lp, *name,
                                                  arg_full ? NULL : ".d/override.conf",
                                                  NULL, &new_path, &tmp_path);
                 } else {
-                        unit_name = basename(path);
+                        _cleanup_free_ char *unit_name = NULL;
+
+                        r = path_extract_filename(path, &unit_name);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract unit name from path '%s': %m", path);
+
                         /* We follow unit aliases, but we need to propagate the instance */
                         if (unit_name_is_valid(*name, UNIT_NAME_INSTANCE) &&
                             unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
