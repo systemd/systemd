@@ -284,6 +284,12 @@ systemctl unset-environment IMPORT_THIS IMPORT_THIS_TOO
 (! systemctl show-environment | grep "^IMPORT_THIS=")
 (! systemctl show-environment | grep "^IMPORT_THIS_TOO=")
 
+EDITOR='true' systemctl edit "$UNIT_NAME"
+[ ! -e "etc/systemd/system/$UNIT_NAME.d/override.conf" ]
+
+printf '%s\n' 3a '[Service]' 'ExecStart=' . w | EDITOR='ed' systemctl edit "$UNIT_NAME"
+printf '%s\n'    '[Service]' 'ExecStart='     | cmp - "/etc/systemd/system/$UNIT_NAME.d/override.conf"
+
 echo OK >/testok
 
 exit 0
