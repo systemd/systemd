@@ -217,10 +217,10 @@ int settle_main(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Failed to connect to udev daemon, ignoring: %m");
         } else {
                 /* For non-privileged users, at least check if udevd is running. */
-                if (access("/run/udev/control", F_OK) < 0)
+                if (access(UDEV_VARLINK_ADDRESS, F_OK) < 0)
                         return log_error_errno(errno,
                                                errno == ENOENT ? "systemd-udevd is not running." :
-                                                                 "Failed to check if /run/udev/control exists: %m");
+                                                                 "Failed to check if " UDEV_VARLINK_ADDRESS " exists: %m");
         }
 
         r = sd_event_default(&event);
