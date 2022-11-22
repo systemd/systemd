@@ -269,6 +269,13 @@ char16_t *xstr8_to_path(const char *str8) {
         return path;
 }
 
+void mangle_stub_cmdline(char16_t *cmdline) {
+        for (; *cmdline != '\0'; cmdline++)
+                /* Convert ASCII control characters to spaces. */
+                if (*cmdline <= 0x1F)
+                        *cmdline = ' ';
+}
+
 EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, UINTN off, UINTN size, char **ret, UINTN *ret_size) {
         _cleanup_(file_closep) EFI_FILE *handle = NULL;
         _cleanup_free_ char *buf = NULL;
