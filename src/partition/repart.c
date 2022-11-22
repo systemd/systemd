@@ -4618,13 +4618,15 @@ static int context_write_partition_table(
 
                 log_info("Wiped block device.");
 
-                r = context_discard_range(context, 0, context->total);
-                if (r == -EOPNOTSUPP)
-                        log_info("Storage does not support discard, not discarding entire block device data.");
-                else if (r < 0)
-                        return log_error_errno(r, "Failed to discard entire block device: %m");
-                else if (r > 0)
-                        log_info("Discarded entire block device.");
+                if (arg_discard) {
+                        r = context_discard_range(context, 0, context->total);
+                        if (r == -EOPNOTSUPP)
+                                log_info("Storage does not support discard, not discarding entire block device data.");
+                        else if (r < 0)
+                                return log_error_errno(r, "Failed to discard entire block device: %m");
+                        else if (r > 0)
+                                log_info("Discarded entire block device.");
+                }
         }
 
         r = fdisk_get_partitions(context->fdisk_context, &original_table);
