@@ -2017,9 +2017,12 @@ static int wait_for_devlink(const char *path) {
                 if (w >= until)
                         return log_error_errno(SYNTHETIC_ERRNO(ETIMEDOUT), "Device link %s still hasn't shown up, giving up.", path);
 
-                r = fd_wait_for_event(inotify_fd, POLLIN, usec_sub_unsigned(until, w));
-                if (r < 0)
+                r = fd_wait_for_event(inotify_fd, POLLIN, until - w);
+                if (r < 0) {
+                        if (ERRNO_IS_TRANSIENT(r))
+                                continue;
                         return log_error_errno(r, "Failed to watch inotify: %m");
+                }
 
                 (void) flush_fd(inotify_fd);
         }

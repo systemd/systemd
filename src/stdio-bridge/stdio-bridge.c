@@ -242,8 +242,11 @@ static int run(int argc, char *argv[]) {
                 };
 
                 r = ppoll_usec(p, ELEMENTSOF(p), t);
-                if (r < 0)
+                if (r < 0) {
+                        if (ERRNO_IS_TRANSIENT(r)) /* don't be bothered by signals, i.e. EINTR */
+                                continue;
                         return log_error_errno(r, "ppoll() failed: %m");
+                }
         }
 
         return 0;

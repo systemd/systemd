@@ -92,7 +92,6 @@
  */
 int barrier_create(Barrier *b) {
         _unused_ _cleanup_(barrier_destroyp) Barrier *staging = b;
-        int r;
 
         assert(b);
 
@@ -104,8 +103,7 @@ int barrier_create(Barrier *b) {
         if (b->them < 0)
                 return -errno;
 
-        r = pipe2(b->pipe, O_CLOEXEC | O_NONBLOCK);
-        if (r < 0)
+        if (pipe2(b->pipe, O_CLOEXEC | O_NONBLOCK) < 0)
                 return -errno;
 
         staging = NULL;
