@@ -145,6 +145,8 @@ static bool arg_split = false;
 static sd_id128_t *arg_filter_partitions = NULL;
 static size_t arg_n_filter_partitions = 0;
 static FilterPartitionsType arg_filter_partitions_type = FILTER_PARTITIONS_NONE;
+static sd_id128_t *arg_skip_partitions = NULL;
+static size_t arg_n_skip_partitions = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -385,7 +387,7 @@ static void partition_foreignize(Partition *p) {
         p->verity = VERITY_OFF;
 }
 
-static bool partition_skip(const Partition *p) {
+static bool partition_exclude(const Partition *p) {
         assert(p);
 
         if (arg_filter_partitions_type == FILTER_PARTITIONS_NONE)
@@ -396,6 +398,16 @@ static bool partition_skip(const Partition *p) {
                         return arg_filter_partitions_type == FILTER_PARTITIONS_EXCLUDE;
 
         return arg_filter_partitions_type == FILTER_PARTITIONS_INCLUDE;
+}
+
+static bool partition_skip(const Partition *p) {
+        assert(p);
+
+        for (size_t i = 0; i < arg_n_skip_partitions; i++)
+                if (sd_id128_equal(p->type.uuid, arg_skip_partitions[i]))
+                        return true;
+
+        return false;
 }
 
 static Partition* partition_unlink_and_free(Context *context, Partition *p) {
@@ -1559,6 +1571,9 @@ static int partition_read_definition(Partition *p, const char *path, const char 
         if (r < 0)
                 return r;
 
+        if (partition_exclude(p))
+                return 0;
+
         if (p->size_min != UINT64_MAX && p->size_max != UINT64_MAX && p->size_min > p->size_max)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "SizeMinBytes= larger than SizeMaxBytes=, refusing.");
@@ -1657,7 +1672,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
         } else if (streq(p->split_name_format, "-"))
                 p->split_name_format = mfree(p->split_name_format);
 
-        return 0;
+        return 1;
 }
 
 static int find_verity_sibling(Context *context, Partition *p, VerityMode mode, Partition **ret) {
@@ -1732,6 +1747,8 @@ static int context_read_definitions(
                 r = partition_read_definition(p, *f, dirs);
                 if (r < 0)
                         return r;
+                if (r == 0)
+                        continue;
 
                 LIST_INSERT_AFTER(partitions, context->partitions, last, p);
                 last = TAKE_PTR(p);
@@ -5405,9 +5422,12 @@ static int help(void) {
                "                          Generate JSON output\n"
                "     --split=BOOL         Whether to generate split artifacts\n"
                "     --include-partitions=PARTITION1,PARTITION2,PARTITION3,…\n"
-               "                          Only operate on partitions of the specified types\n"
+               "                          Ignore partitions not of the specified types\n"
                "     --exclude-partitions=PARTITION1,PARTITION2,PARTITION3,…\n"
-               "                          Don't operate on partitions of the specified types\n"
+               "                          Ignore partitions of the specified types\n"
+               "     --skip-partitions=PARTITION1,PARTITION2,PARTITION3,…\n"
+               "                          Take partitions of the specified types into account\n"
+               "                          but don't populate them yet\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -5445,6 +5465,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SPLIT,
                 ARG_INCLUDE_PARTITIONS,
                 ARG_EXCLUDE_PARTITIONS,
+                ARG_SKIP_PARTITIONS,
         };
 
         static const struct option options[] = {
@@ -5474,6 +5495,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "split",                required_argument, NULL, ARG_SPLIT                },
                 { "include-partitions",   required_argument, NULL, ARG_INCLUDE_PARTITIONS   },
                 { "exclude-partitions",   required_argument, NULL, ARG_EXCLUDE_PARTITIONS   },
+                { "skip-partitions",      required_argument, NULL, ARG_SKIP_PARTITIONS      },
                 {}
         };
 
@@ -5751,6 +5773,13 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         arg_filter_partitions_type = FILTER_PARTITIONS_EXCLUDE;
+
+                        break;
+
+                case ARG_SKIP_PARTITIONS:
+                        r = parse_partition_types(optarg, &arg_skip_partitions, &arg_n_skip_partitions);
+                        if (r < 0)
+                                return r;
 
                         break;
 
