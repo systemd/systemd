@@ -191,9 +191,5 @@ int control_main(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Extraneous argument: %s", argv[optind]);
 
-        r = udev_ctrl_wait(uctrl, timeout);
-        if (r < 0)
-                return log_error_errno(r, "Failed to wait for daemon to reply: %m");
-
         return 0;
 }

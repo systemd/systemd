@@ -507,10 +507,6 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 r = udev_varlink_call(link, "io.systemd.udev.Ping", NULL, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to connect to udev daemon: %m");
-
-                r = udev_ctrl_wait(uctrl, ping_timeout_usec);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to wait for daemon to reply: %m");
         }
 
         for (; optind < argc; optind++) {

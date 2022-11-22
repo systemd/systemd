@@ -217,14 +217,8 @@ int settle_main(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Failed to create control socket for udev daemon: %m");
 
                 r = udev_varlink_call(link, "io.systemd.udev.Ping", NULL, NULL);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to connect to udev daemon, ignoring: %m");
-                        return 0;
-                }
-
-                r = udev_ctrl_wait(uctrl, MAX(5 * USEC_PER_SEC, arg_timeout_usec));
                 if (r < 0)
-                        return log_error_errno(r, "Failed to wait for daemon to reply: %m");
+                        return log_error_errno(r, "Failed to connect to udev daemon, ignoring: %m");
         } else {
                 /* For non-privileged users, at least check if udevd is running. */
                 if (access("/run/udev/control", F_OK) < 0)
