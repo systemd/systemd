@@ -216,7 +216,7 @@ int settle_main(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to create control socket for udev daemon: %m");
 
-                r = udev_ctrl_send_ping(uctrl);
+                r = udev_varlink_call(link, "io.systemd.udev.Ping", NULL, NULL);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to connect to udev daemon, ignoring: %m");
                         return 0;
