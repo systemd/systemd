@@ -59,7 +59,7 @@ PartitionDesignator partition_verity_sig_of(PartitionDesignator p) {
 }
 
 
-static const char *const partition_designator_table[] = {
+static const char *const partition_designator_table[_PARTITION_DESIGNATOR_MAX] = {
         [PARTITION_ROOT]                      = "root",
         [PARTITION_USR]                       = "usr",
         [PARTITION_HOME]                      = "home",
@@ -73,13 +73,11 @@ static const char *const partition_designator_table[] = {
         [PARTITION_USR_VERITY_SIG]            = "usr-verity-sig",
         [PARTITION_TMP]                       = "tmp",
         [PARTITION_VAR]                       = "var",
-        [PARTITION_USER_HOME]                 = "user-home",
-        [PARTITION_LINUX_GENERIC]             = "linux-generic",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(partition_designator, PartitionDesignator);
 
-static const char *const partition_mountpoint_table[] = {
+static const char *const partition_mountpoint_table[_PARTITION_DESIGNATOR_MAX] = {
         [PARTITION_ROOT]                      = "/\0",
         [PARTITION_USR]                       = "/usr\0",
         [PARTITION_HOME]                      = "/home\0",
@@ -144,8 +142,8 @@ const GptPartitionType gpt_partition_type_table[] = {
         { SD_GPT_SRV,                    "srv",           _ARCHITECTURE_INVALID, .designator = PARTITION_SRV },
         { SD_GPT_VAR,                    "var",           _ARCHITECTURE_INVALID, .designator = PARTITION_VAR },
         { SD_GPT_TMP,                    "tmp",           _ARCHITECTURE_INVALID, .designator = PARTITION_TMP },
-        { SD_GPT_USER_HOME,              "user-home",     _ARCHITECTURE_INVALID, .designator = PARTITION_USER_HOME },
-        { SD_GPT_LINUX_GENERIC,          "linux-generic", _ARCHITECTURE_INVALID, .designator = PARTITION_LINUX_GENERIC },
+        { SD_GPT_USER_HOME,              "user-home",     _ARCHITECTURE_INVALID, .designator = _PARTITION_DESIGNATOR_INVALID },
+        { SD_GPT_LINUX_GENERIC,          "linux-generic", _ARCHITECTURE_INVALID, .designator = _PARTITION_DESIGNATOR_INVALID },
         {}
 };
 
