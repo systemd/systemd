@@ -1438,8 +1438,8 @@ static int on_post(sd_event_source *s, void *userdata) {
         return 1;
 }
 
-static int listen_fds(int *ret_ctrl, int *ret_netlink) {
-        int ctrl_fd = -EBADF, netlink_fd = -EBADF;
+static int listen_fds(int *ret_ctrl, int *ret_netlink, int *ret_varlink) {
+        int ctrl_fd = -EBADF, netlink_fd = -EBADF, varlink_fd = -EBADF;
         int fd, n;
 
         assert(ret_ctrl);
@@ -1464,11 +1464,19 @@ static int listen_fds(int *ret_ctrl, int *ret_netlink) {
                         continue;
                 }
 
+                if (sd_is_socket_unix(fd, SOCK_STREAM, 1, UDEV_VARLINK_ADDRESS, 0) > 0) {
+                        if (varlink_fd >= 0)
+                                return -EINVAL;
+                        varlink_fd = fd;
+                        continue;
+                }
+
                 return -EINVAL;
         }
 
         *ret_ctrl = ctrl_fd;
         *ret_netlink = netlink_fd;
+        *ret_varlink = varlink_fd;
 
         return 0;
 }
@@ -1711,7 +1719,7 @@ static int create_subcgroup(char **ret) {
         return 0;
 }
 
-static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent) {
+static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, int fd_varlink) {
         _cleanup_(manager_freep) Manager *manager = NULL;
         _cleanup_free_ char *cgroup = NULL;
         int r;
@@ -1738,7 +1746,7 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent) {
         if (r < 0)
                 return log_error_errno(r, "Failed to bind udev control socket: %m");
 
-        r = udev_open_varlink(manager, -EBADFD);
+        r = udev_open_varlink(manager, fd_varlink);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize varlink server: %m");
 
@@ -1882,7 +1890,7 @@ static int main_loop(Manager *manager) {
 
 int run_udevd(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *manager = NULL;
-        int fd_ctrl = -EBADF, fd_uevent = -EBADF;
+        int fd_ctrl = -EBADF, fd_uevent = -EBADF, fd_varlink = -EBADF;
         int r;
 
         log_set_target(LOG_TARGET_AUTO);
@@ -1937,11 +1945,11 @@ int run_udevd(int argc, char *argv[]) {
         if (r < 0 && r != -EEXIST)
                 return log_error_errno(r, "Failed to create /run/udev: %m");
 
-        r = listen_fds(&fd_ctrl, &fd_uevent);
+        r = listen_fds(&fd_ctrl, &fd_uevent, &fd_varlink);
         if (r < 0)
                 return log_error_errno(r, "Failed to listen on fds: %m");
 
-        r = manager_new(&manager, fd_ctrl, fd_uevent);
+        r = manager_new(&manager, fd_ctrl, fd_uevent, fd_varlink);
         if (r < 0)
                 return log_error_errno(r, "Failed to create manager: %m");
 
