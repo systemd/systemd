@@ -32,6 +32,11 @@ CHANGES WITH 253 in spe:
 	  virtualized ones, and is activated in the case that the system token
 	  is missing from either sd-boot and sd-stub booted systems.
 
+        Changes in systemctl:
+
+    * systemctl reboot has dropped support for accepting a positional argument
+      as the argument to reboot(2) syscall. Please use --reboot-argument instead.
+
 CHANGES WITH 252 🎃:
 
         Announcements of Future Feature Removals:

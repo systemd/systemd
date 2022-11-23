@@ -153,19 +153,8 @@ int verb_start_special(int argc, char *argv[], void *userdata) {
                 return r;
 
         if (a == ACTION_REBOOT) {
-                const char *arg = NULL;
-
-                if (argc > 1) {
-                        if (arg_reboot_argument)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Both --reboot-argument= and positional argument passed to reboot command, refusing.");
-
-                        log_notice("Positional argument to reboot command is deprecated, please use --reboot-argument= instead. Accepting anyway.");
-                        arg = argv[1];
-                } else
-                        arg = arg_reboot_argument;
-
-                if (arg) {
-                        r = update_reboot_parameter_and_warn(arg, false);
+                if (arg_reboot_argument) {
+                        r = update_reboot_parameter_and_warn(arg_reboot_argument, false);
                         if (r < 0)
                                 return r;
                 }
