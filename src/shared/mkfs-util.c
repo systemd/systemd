@@ -130,7 +130,8 @@ static int setup_userns(uid_t uid, gid_t gid) {
 static int do_mcopy(const char *node, const char *root) {
         _cleanup_free_ char *mcopy = NULL;
         _cleanup_strv_free_ char **argv = NULL;
-        _cleanup_closedir_ DIR *rootdir = NULL;
+        _cleanup_close_ int rfd = -1;
+        _cleanup_free_ DirectoryEntries *de = NULL;
         struct stat st;
         int r;
 
@@ -154,14 +155,23 @@ static int do_mcopy(const char *node, const char *root) {
         /* mcopy copies the top level directory instead of everything in it so we have to pass all
          * the subdirectories to mcopy instead to end up with the correct directory structure. */
 
-        rootdir = opendir(root);
-        if (!rootdir)
-                return log_error_errno(errno, "Failed to open directory '%s'", root);
+        rfd = open(root, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        if (rfd < 0)
+                return log_error_errno(errno, "Failed to open directory '%s': %m", root);
 
-        FOREACH_DIRENT(de, rootdir, return -errno) {
-                char *p = path_join(root, de->d_name);
+        r = readdir_all(rfd, RECURSE_DIR_SORT|RECURSE_DIR_ENSURE_TYPE, &de);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read '%s' contents: %m", root);
+
+        for (size_t i = 0; i < de->n_entries; i++) {
+                char *p = path_join(root, de->entries[i]->d_name);
                 if (!p)
                         return log_oom();
+
+                if (!IN_SET(de->entries[i]->d_type, DT_REG, DT_DIR)) {
+                        log_debug("%s is not a file/directory which are the only file types supported by vfat, ignoring", p);
+                        continue;
+                }
 
                 r = strv_consume(&argv, TAKE_PTR(p));
                 if (r < 0)
@@ -172,7 +182,7 @@ static int do_mcopy(const char *node, const char *root) {
         if (r < 0)
                 return log_oom();
 
-        if (fstat(dirfd(rootdir), &st) < 0)
+        if (fstat(rfd, &st) < 0)
                 return log_error_errno(errno, "Failed to stat '%s': %m", root);
 
         r = safe_fork("(mcopy)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR|FORK_NEW_USERNS|FORK_CLOSE_ALL_FDS, NULL);
@@ -269,7 +279,7 @@ static int make_protofile(const char *root, char **ret) {
               "0 0\n"
               "d--755 0 0\n", f);
 
-        r = recurse_dir_at(AT_FDCWD, root, STATX_TYPE|STATX_MODE, UINT_MAX, 0, protofile_print_item, f);
+        r = recurse_dir_at(AT_FDCWD, root, STATX_TYPE|STATX_MODE, UINT_MAX, RECURSE_DIR_SORT, protofile_print_item, f);
         if (r < 0)
                 return log_error_errno(r, "Failed to recurse through %s: %m", root);
 
