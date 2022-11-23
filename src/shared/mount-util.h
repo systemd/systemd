@@ -55,6 +55,7 @@ static inline int bind_remount_recursive(const char *prefix, unsigned long new_f
 int bind_remount_one_with_mountinfo(const char *path, unsigned long new_flags, unsigned long flags_mask, FILE *proc_self_mountinfo);
 
 int mount_move_root(const char *path);
+int mount_pivot_root(const char *path);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(FILE*, endmntent, NULL);
 #define _cleanup_endmntent_ _cleanup_(endmntentp)
