@@ -284,6 +284,10 @@ static int fido2_is_cred_in_specific_token(
                                        "Failed to open FIDO2 device %s: %s", path, sym_fido_strerr(r));
 
         r = verify_features(d, path, LOG_ERR, NULL, NULL, &has_up, &has_uv);
+        if (r == -ENODEV) { /* Not a FIDO2 device or lacking HMAC-SECRET extension */
+                log_debug_errno(r, "%s is not a FIDO2 device, or it lacks the hmac-secret extension", path);
+                return false;
+        }
         if (r < 0)
                 return r;
 
@@ -296,14 +300,15 @@ static int fido2_is_cred_in_specific_token(
                 return r;
 
         /* FIDO2 devices may not support pre-flight requests with UV, at least not
-         * without user interaction [1]. As a result, let's just return -EOPNOTSUPP
+         * without user interaction [1]. As a result, let's just return true
          * here and go ahead with trying the unlock directly.
          * Reference:
          * 1: https://fidoalliance.org/specs/fido-v2.1-ps-20210615/fido-client-to-authenticator-protocol-v2.1-ps-20210615.html#sctn-getAssert-authnr-alg
          *    See section 7.4 */
-        if (has_uv && FLAGS_SET(flags, FIDO2ENROLL_UV))
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Pre-flight requests with UV are unsupported");
+        if (has_uv && FLAGS_SET(flags, FIDO2ENROLL_UV)) {
+                log_debug("Pre-flight requests with UV are unsupported, device: %s", path);
+                return true;
+        }
 
         /* According to CTAP 2.1 specification, to do pre-flight we need to set up option to false
          * with optionally pinUvAuthParam in assertion[1]. But for authenticator that doesn't support
@@ -586,16 +591,13 @@ int fido2_use_hmac_hash(
 
         if (device) {
                 r = fido2_is_cred_in_specific_token(device, rp_id, cid, cid_size, required);
-                if (r == -ENODEV) /* not a FIDO2 device or lacking HMAC-SECRET extension */
-                        return log_error_errno(r,
-                                               "%s is not a FIDO2 device or it lacks support for HMAC-SECRET.", device);
                 if (r == 0)
                         /* The caller is expected to attempt other key slots in this case,
                          * therefore, do not spam the console with error logs here. */
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADSLT),
                                                "The credential is not in the token %s.", device);
                 if (r < 0)
-                        log_error_errno(r, "Failed to determine whether the credential is in the token, trying anyway: %m");
+                        return log_error_errno(r, "Token returned error during pre-flight: %m");
 
                 return fido2_use_hmac_hash_specific_token(device, rp_id, salt, salt_size, cid, cid_size, pins, required, ret_hmac, ret_hmac_size);
         }
@@ -634,10 +636,10 @@ int fido2_use_hmac_hash(
                 }
 
                 r = fido2_is_cred_in_specific_token(path, rp_id, cid, cid_size, required);
-                if (r == -ENODEV) /* not a FIDO2 device or lacking HMAC-SECRET extension */
-                        continue;
-                if (r < 0)
-                        log_error_errno(r, "Failed to determine whether the credential is in the token, trying anyway: %m");
+                if (r < 0) {
+                        log_error_errno(r, "Token returned error during pre-flight: %m");
+                        goto finish;
+                }
                 if (r == 0) {
                         log_debug("The credential is not in the token %s, skipping.", path);
                         continue;
