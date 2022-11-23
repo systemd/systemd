@@ -135,30 +135,6 @@ static EFI_STATUS bmp_parse_header(
         return EFI_SUCCESS;
 }
 
-static void pixel_blend(uint32_t *dst, const uint32_t source) {
-        uint32_t alpha, src, src_rb, src_g, dst_rb, dst_g, rb, g;
-
-        assert(dst);
-
-        alpha = (source & 0xff);
-
-        /* convert src from RGBA to XRGB */
-        src = source >> 8;
-
-        /* decompose into RB and G components */
-        src_rb = (src & 0xff00ff);
-        src_g  = (src & 0x00ff00);
-
-        dst_rb = (*dst & 0xff00ff);
-        dst_g  = (*dst & 0x00ff00);
-
-        /* blend */
-        rb = ((((src_rb - dst_rb) * alpha + 0x800080) >> 8) + dst_rb) & 0xff00ff;
-        g  = ((((src_g  -  dst_g) * alpha + 0x008000) >> 8) +  dst_g) & 0x00ff00;
-
-        *dst = (rb | g);
-}
-
 static EFI_STATUS bmp_to_blt(
                 EFI_GRAPHICS_OUTPUT_BLT_PIXEL *buf,
                 struct bmp_dib *dib,
@@ -236,10 +212,10 @@ static EFI_STATUS bmp_to_blt(
                                 break;
 
                         case 32: {
-                                uint32_t i = *(uint32_t *) in;
-
-                                pixel_blend((uint32_t *)out, i);
-
+                                uint8_t alpha = in[3];
+                                out->Red = (out->Red * (0xff - alpha) + in[2] * alpha) >> 8;
+                                out->Green = (out->Green * (0xff - alpha) + in[1] * alpha) >> 8;
+                                out->Blue = (out->Blue * (0xff - alpha) + in[0] * alpha) >> 8;
                                 in += 3;
                                 break;
                         }
