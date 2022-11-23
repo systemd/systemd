@@ -338,6 +338,54 @@ evdev:name:Atmel maXTouch Touch*:dmi:bvn*:bvr*:bd*:svnGOOGLE:pnSamus:*
  EVDEV_ABS_36=::10
 
 #########################################
+# Granite Devices Simucube wheel bases
+#########################################
+
+# Granite Devices Simucube 1
+evdev:input:b0003v16D0p0D5A*
+ EVDEV_ABS_00=:::0:0
+ EVDEV_ABS_01=:::0:0
+ EVDEV_ABS_02=:::0:0
+ EVDEV_ABS_03=:::0:0
+ EVDEV_ABS_04=:::0:0
+ EVDEV_ABS_05=:::0:0
+ EVDEV_ABS_06=:::0:0
+ EVDEV_ABS_07=:::0:0
+
+# Granite Devices Simucube 2 Sport
+evdev:input:b0003v16D0p0D61*
+ EVDEV_ABS_00=:::0:0
+ EVDEV_ABS_01=:::0:0
+ EVDEV_ABS_02=:::0:0
+ EVDEV_ABS_03=:::0:0
+ EVDEV_ABS_04=:::0:0
+ EVDEV_ABS_05=:::0:0
+ EVDEV_ABS_06=:::0:0
+ EVDEV_ABS_07=:::0:0
+
+# Granite Devices Simucube 2 Pro
+evdev:input:b0003v16D0p0D60*
+ EVDEV_ABS_00=:::0:0
+ EVDEV_ABS_01=:::0:0
+ EVDEV_ABS_02=:::0:0
+ EVDEV_ABS_03=:::0:0
+ EVDEV_ABS_04=:::0:0
+ EVDEV_ABS_05=:::0:0
+ EVDEV_ABS_06=:::0:0
+ EVDEV_ABS_07=:::0:0
+
+# Granite Devices Simucube 2 Ultimate
+evdev:input:b0003v16D0p0D5F*
+ EVDEV_ABS_00=:::0:0
+ EVDEV_ABS_01=:::0:0
+ EVDEV_ABS_02=:::0:0
+ EVDEV_ABS_03=:::0:0
+ EVDEV_ABS_04=:::0:0
+ EVDEV_ABS_05=:::0:0
+ EVDEV_ABS_06=:::0:0
+ EVDEV_ABS_07=:::0:0
+
+#########################################
 # HP
 #########################################
 
