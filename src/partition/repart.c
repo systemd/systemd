@@ -3037,6 +3037,36 @@ static PartitionTarget *partition_target_free(PartitionTarget *t) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(PartitionTarget*, partition_target_free);
 
+static int prepare_temporary_file(PartitionTarget *t, uint64_t size) {
+        _cleanup_(unlink_and_freep) char *temp = NULL;
+        _cleanup_close_ int fd = -1;
+        const char *vt;
+        int r;
+
+        assert(t);
+
+        r = var_tmp_dir(&vt);
+        if (r < 0)
+                return log_error_errno(r, "Could not determine temporary directory: %m");
+
+        temp = path_join(vt, "repart-XXXXXX");
+        if (!temp)
+                return log_oom();
+
+        fd = mkostemp_safe(temp);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to create temporary file: %m");
+
+        if (ftruncate(fd, size) < 0)
+                return log_error_errno(errno, "Failed to truncate temporary file to %s: %m",
+                                        FORMAT_BYTES(size));
+
+        t->fd = TAKE_FD(fd);
+        t->path = TAKE_PTR(temp);
+
+        return 0;
+}
+
 static int partition_target_prepare(
                 Context *context,
                 Partition *p,
@@ -3045,25 +3075,14 @@ static int partition_target_prepare(
                 PartitionTarget **ret) {
 
         _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
-        struct stat st;
-        int whole_fd;
-        int r;
+        _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+        int whole_fd, r;
 
         assert(context);
         assert(p);
         assert(ret);
 
         assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
-
-        if (fstat(whole_fd, &st) < 0)
-                return -errno;
-
-        /* If we're operating on a block device, we definitely need privileges to access block devices so we
-         * can just use loop devices as our target. Otherwise, we're operating on a regular file, in that
-         * case, let's write to regular files and copy those into the final image so we can run without root
-         * privileges. On filesystems with reflinking support, we can take advantage of this and just reflink
-         * the result into the image.
-         */
 
         t = new(PartitionTarget, 1);
         if (!t)
@@ -3073,46 +3092,37 @@ static int partition_target_prepare(
                 .whole_fd = -1,
         };
 
-        if (S_ISBLK(st.st_mode) || (p->format && !mkfs_supports_root_option(p->format))) {
-                _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-
-                /* Loopback block devices are not only useful to turn regular files into block devices, but
-                 * also to cut out sections of block devices into new block devices. */
-
-                r = loop_device_make(whole_fd, O_RDWR, p->offset, size, 0, 0, LOCK_EX, &d);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
-
-                t->loop = TAKE_PTR(d);
-        } else if (need_path) {
-                _cleanup_(unlink_and_freep) char *temp = NULL;
-                _cleanup_close_ int fd = -1;
-                const char *vt;
-
-                r = var_tmp_dir(&vt);
-                if (r < 0)
-                        return log_error_errno(r, "Could not determine temporary directory: %m");
-
-                temp = path_join(vt, "repart-XXXXXX");
-                if (!temp)
-                        return log_oom();
-
-                fd = mkostemp_safe(temp);
-                if (fd < 0)
-                        return log_error_errno(fd, "Failed to create temporary file: %m");
-
-                if (ftruncate(fd, size) < 0)
-                        return log_error_errno(errno, "Failed to truncate temporary file to %s: %m",
-                                               FORMAT_BYTES(size));
-
-                t->fd = TAKE_FD(fd);
-                t->path = TAKE_PTR(temp);
-        } else {
+        if (!need_path) {
                 if (lseek(whole_fd, p->offset, SEEK_SET) == (off_t) -1)
                         return log_error_errno(errno, "Failed to seek to partition offset: %m");
 
                 t->whole_fd = whole_fd;
+                *ret = TAKE_PTR(t);
+                return 0;
         }
+
+        /* Loopback block devices are not only useful to turn regular files into block devices, but
+         * also to cut out sections of block devices into new block devices. */
+
+        r = loop_device_make(whole_fd, O_RDWR, p->offset, size, 0, 0, LOCK_EX, &d);
+        if (r < 0 && r != -ENOENT && !ERRNO_IS_PRIVILEGE(r))
+                return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
+        if (r >= 0) {
+                t->loop = TAKE_PTR(d);
+                *ret = TAKE_PTR(t);
+                return 0;
+        }
+
+        /* If we can't allocate a loop device, let's write to a regular file that we copy into the final
+         * image so we can run in containers and without needing root privileges. On filesystems with
+         * reflinking support, we can take advantage of this and just reflink the result into the image.
+         */
+
+        log_debug_errno(r, "No access to loop devices, falling back to a regular file");
+
+        r = prepare_temporary_file(t, size);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PTR(t);
 
@@ -3806,17 +3816,17 @@ static int do_make_directories(Partition *p, uid_t override_uid, gid_t override_
         return 0;
 }
 
+static bool partition_needs_populate(Partition *p) {
+        assert(p);
+        return !strv_isempty(p->copy_files) || !strv_isempty(p->make_directories);
+}
+
 static int partition_populate_directory(Partition *p, const Set *denylist, char **ret) {
         _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
         _cleanup_close_ int rfd = -1;
         int r;
 
         assert(ret);
-
-        if (strv_isempty(p->copy_files) && strv_isempty(p->make_directories)) {
-                *ret = NULL;
-                return 0;
-        }
 
         rfd = mkdtemp_open("/var/tmp/repart-XXXXXX", 0, &root);
         if (rfd < 0)
@@ -3838,26 +3848,10 @@ static int partition_populate_directory(Partition *p, const Set *denylist, char 
 }
 
 static int partition_populate_filesystem(Partition *p, const char *node, const Set *denylist) {
-        _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-        struct stat st;
         int r;
 
         assert(p);
         assert(node);
-
-        if (strv_isempty(p->copy_files) && strv_isempty(p->make_directories))
-                return 0;
-
-        if (stat(node, &st) < 0)
-                return log_error_errno(errno, "Failed to stat %s: %m", node);
-
-        if (!S_ISBLK(st.st_mode)) {
-                r = loop_device_make_by_path(node, O_RDWR, 0, LOCK_EX, &d);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to make loopback device of %s: %m", node);
-
-                node = d->node;
-        }
 
         log_info("Populating %s filesystem with files.", p->format);
 
@@ -3987,11 +3981,16 @@ static int context_mkfs(Context *context) {
 
                 log_info("Formatting future partition %" PRIu64 ".", p->partno);
 
-                /* We prefer (or are required in the case of read-only filesystems) to populate filesystems
-                 * directly via the corresponding mkfs binary if it supports a --rootdir (or equivalent)
-                 * option. To do that, we need to setup the final directory tree beforehand. */
+                /* If we're not writing to a loop device or if we're populating a read-only filesystem, we
+                 * have to populate using the filesystem's mkfs's --root (or equivalent) option. To do that,
+                 * we need to set up the final directory tree beforehand. */
 
-                if (mkfs_supports_root_option(p->format)) {
+                if (partition_needs_populate(p) && (!t->loop || fstype_is_ro(p->format))) {
+                        if (!mkfs_supports_root_option(p->format))
+                                return log_error_errno(SYNTHETIC_ERRNO(ENODEV),
+                                                        "Loop device access is required to populate %s filesystems.",
+                                                        p->format);
+
                         r = partition_populate_directory(p, denylist, &root);
                         if (r < 0)
                                 return r;
@@ -4004,9 +4003,11 @@ static int context_mkfs(Context *context) {
 
                 log_info("Successfully formatted future partition %" PRIu64 ".", p->partno);
 
-                /* Now, we can populate all the other filesystems that we couldn't populate earlier. */
-                if (!mkfs_supports_root_option(p->format)) {
-                        r = partition_populate_filesystem(p, partition_target_path(t), denylist);
+                /* If we're writing to a loop device, we can now mount the empty filesystem and populate it. */
+                if (partition_needs_populate(p) && !root) {
+                        assert(t->loop);
+
+                        r = partition_populate_filesystem(p, t->loop->node, denylist);
                         if (r < 0)
                                 return r;
                 }
@@ -5251,6 +5252,7 @@ static int context_minimize(Context *context) {
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
                 _cleanup_(unlink_and_freep) char *temp = NULL;
+                _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
                 _cleanup_close_ int fd = -1;
                 sd_id128_t fs_uuid;
                 uint64_t fsz;
@@ -5267,6 +5269,9 @@ static int context_minimize(Context *context) {
                 if (!p->minimize)
                         continue;
 
+                if (!partition_needs_populate(p))
+                        continue;
+
                 assert(!p->copy_blocks_path);
 
                 r = tempfn_random_child(vt, "repart", &temp);
@@ -5281,10 +5286,14 @@ static int context_minimize(Context *context) {
                                 return log_error_errno(errno, "Failed to open temporary file %s: %m", temp);
 
                         /* This may seem huge but it will be created sparse so it doesn't take up any space
-                        * on disk until written to. */
+                         * on disk until written to. */
                         if (ftruncate(fd, 1024ULL * 1024ULL * 1024ULL * 1024ULL) < 0)
                                 return log_error_errno(errno, "Failed to truncate temporary file to %s: %m",
                                                        FORMAT_BYTES(1024ULL * 1024ULL * 1024ULL * 1024ULL));
+
+                        r = loop_device_make(fd, O_RDWR, 0, UINT64_MAX, 0, 0, LOCK_EX, &d);
+                        if (r < 0 && r != -ENOENT && !ERRNO_IS_PRIVILEGE(r))
+                                return log_error_errno(r, "Failed to make loopback device of %s: %m", temp);
 
                         /* We're going to populate this filesystem twice so use a random UUID the first time
                          * to avoid UUID conflicts. */
@@ -5293,13 +5302,18 @@ static int context_minimize(Context *context) {
                                 return r;
                 }
 
-                if (mkfs_supports_root_option(p->format)) {
+                if (!d || fstype_is_ro(p->format)) {
+                        if (!mkfs_supports_root_option(p->format))
+                                return log_error_errno(SYNTHETIC_ERRNO(ENODEV),
+                                                       "Loop device access is required to populate %s filesystems",
+                                                       p->format);
+
                         r = partition_populate_directory(p, denylist, &root);
                         if (r < 0)
                                 return r;
                 }
 
-                r = make_filesystem(temp, p->format, strempty(p->new_label), root, fs_uuid, arg_discard);
+                r = make_filesystem(d ? d->node : temp, p->format, strempty(p->new_label), root, fs_uuid, arg_discard);
                 if (r < 0)
                         return r;
 
@@ -5310,8 +5324,10 @@ static int context_minimize(Context *context) {
                         continue;
                 }
 
-                if (!mkfs_supports_root_option(p->format)) {
-                        r = partition_populate_filesystem(p, temp, denylist);
+                if (!root) {
+                        assert(d);
+
+                        r = partition_populate_filesystem(p, d->node, denylist);
                         if (r < 0)
                                 return r;
                 }
@@ -5336,6 +5352,8 @@ static int context_minimize(Context *context) {
                 if (minimal_size_by_fs_name(p->format) != UINT64_MAX)
                         fsz = MAX(minimal_size_by_fs_name(p->format), fsz);
 
+                d = loop_device_unref(d);
+
                 /* Erase the previous filesystem first. */
                 if (ftruncate(fd, 0))
                         return log_error_errno(errno, "Failed to erase temporary file: %m");
@@ -5343,12 +5361,18 @@ static int context_minimize(Context *context) {
                 if (ftruncate(fd, fsz))
                         return log_error_errno(errno, "Failed to truncate temporary file to %s: %m", FORMAT_BYTES(fsz));
 
-                r = make_filesystem(temp, p->format, strempty(p->new_label), root, p->fs_uuid, arg_discard);
+                r = loop_device_make(fd, O_RDWR, 0, UINT64_MAX, 0, 0, LOCK_EX, &d);
+                if (r < 0 && r != -ENOENT && !ERRNO_IS_PRIVILEGE(r))
+                        return log_error_errno(r, "Failed to make loopback device of %s: %m", temp);
+
+                r = make_filesystem(d ? d->node : temp, p->format, strempty(p->new_label), root, p->fs_uuid, arg_discard);
                 if (r < 0)
                         return r;
 
-                if (!mkfs_supports_root_option(p->format)) {
-                        r = partition_populate_filesystem(p, temp, denylist);
+                if (!root) {
+                        assert(d);
+
+                        r = partition_populate_filesystem(p, d->node, denylist);
                         if (r < 0)
                                 return r;
                 }
