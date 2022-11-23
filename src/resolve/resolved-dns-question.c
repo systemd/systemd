@@ -418,7 +418,8 @@ int dns_question_new_service(
                 const char *type,
                 const char *domain,
                 bool with_txt,
-                bool convert_idna) {
+                bool convert_idna,
+                uint16_t record_type) {
 
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
         _cleanup_(dns_question_unrefp) DnsQuestion *q = NULL;
@@ -442,6 +443,9 @@ int dns_question_new_service(
          *
          * It's not supported to specify a service name without a type, or no domain name.
          */
+
+        if (record_type != DNS_TYPE_SRV && with_txt)
+                return -EINVAL;
 
         if (!domain)
                 return -EINVAL;
@@ -471,7 +475,7 @@ int dns_question_new_service(
         if (!q)
                 return -ENOMEM;
 
-        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SRV, name);
+        key = dns_resource_key_new(DNS_CLASS_IN, record_type, name);
         if (!key)
                 return -ENOMEM;
 
