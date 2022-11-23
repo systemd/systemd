@@ -135,28 +135,51 @@ static EFI_STATUS bmp_parse_header(
         return EFI_SUCCESS;
 }
 
-static void pixel_blend(uint32_t *dst, const uint32_t source) {
-        uint32_t alpha, src, src_rb, src_g, dst_rb, dst_g, rb, g;
+enum Channels { R, G, B, A, _CHANNELS_MAX };
+static void read_channel_maks(
+                const struct bmp_dib *dib,
+                uint32_t channel_mask[static _CHANNELS_MAX],
+                uint8_t channel_shift[static _CHANNELS_MAX],
+                uint8_t channel_scale[static _CHANNELS_MAX]) {
 
-        assert(dst);
+        assert(dib);
 
-        alpha = (source & 0xff);
+        if (IN_SET(dib->depth, 16, 32) && dib->size >= sizeof(*dib) + 3 * sizeof(uint32_t)) {
+                uint32_t *mask = (uint32_t *) ((uint8_t *) dib + sizeof(*dib));
+                channel_mask[R] = mask[R];
+                channel_mask[G] = mask[G];
+                channel_mask[B] = mask[B];
+                channel_shift[R] = __builtin_ctz(mask[R]);
+                channel_shift[G] = __builtin_ctz(mask[G]);
+                channel_shift[B] = __builtin_ctz(mask[B]);
+                channel_scale[R] = 0xff / ((1 << __builtin_popcount(mask[R])) - 1);
+                channel_scale[G] = 0xff / ((1 << __builtin_popcount(mask[G])) - 1);
+                channel_scale[B] = 0xff / ((1 << __builtin_popcount(mask[B])) - 1);
 
-        /* convert src from RGBA to XRGB */
-        src = source >> 8;
-
-        /* decompose into RB and G components */
-        src_rb = (src & 0xff00ff);
-        src_g  = (src & 0x00ff00);
-
-        dst_rb = (*dst & 0xff00ff);
-        dst_g  = (*dst & 0x00ff00);
-
-        /* blend */
-        rb = ((((src_rb - dst_rb) * alpha + 0x800080) >> 8) + dst_rb) & 0xff00ff;
-        g  = ((((src_g  -  dst_g) * alpha + 0x008000) >> 8) +  dst_g) & 0x00ff00;
-
-        *dst = (rb | g);
+                if (dib->size >= sizeof(*dib) + 4 * sizeof(uint32_t) && mask[A] != 0) {
+                        channel_mask[A] = mask[A];
+                        channel_shift[A] = __builtin_ctz(mask[A]);
+                        channel_scale[A] = 0xff / ((1 << __builtin_popcount(mask[A])) - 1);
+                } else {
+                        channel_mask[A] = 0;
+                        channel_shift[A] = 0;
+                        channel_scale[A] = 0;
+                }
+        } else {
+                bool bpp16 = dib->depth == 16;
+                channel_mask[R] = bpp16 ? 0x7C00 : 0xFF0000;
+                channel_mask[G] = bpp16 ? 0x03E0 : 0x00FF00;
+                channel_mask[B] = bpp16 ? 0x001F : 0x0000FF;
+                channel_mask[A] = bpp16 ? 0x0000 : 0x000000;
+                channel_shift[R] = bpp16 ? 0xA : 0x10;
+                channel_shift[G] = bpp16 ? 0x5 : 0x08;
+                channel_shift[B] = bpp16 ? 0x0 : 0x00;
+                channel_shift[A] = bpp16 ? 0x0 : 0x00;
+                channel_scale[R] = bpp16 ? 0x08 : 0x1;
+                channel_scale[G] = bpp16 ? 0x08 : 0x1;
+                channel_scale[B] = bpp16 ? 0x08 : 0x1;
+                channel_scale[A] = bpp16 ? 0x00 : 0x0;
+        }
 }
 
 static EFI_STATUS bmp_to_blt(
@@ -171,6 +194,10 @@ static EFI_STATUS bmp_to_blt(
         assert(dib);
         assert(map);
         assert(pixmap);
+
+        uint32_t channel_mask[_CHANNELS_MAX];
+        uint8_t channel_shift[_CHANNELS_MAX], channel_scale[_CHANNELS_MAX];
+        read_channel_maks(dib, channel_mask, channel_shift, channel_scale);
 
         /* transform and copy pixels */
         in = pixmap;
@@ -218,16 +245,6 @@ static EFI_STATUS bmp_to_blt(
                                 out->Blue = map[*in].blue;
                                 break;
 
-                        case 16: {
-                                uint16_t i = *(uint16_t *) in;
-
-                                out->Red = (i & 0x7c00) >> 7;
-                                out->Green = (i & 0x3e0) >> 2;
-                                out->Blue = (i & 0x1f) << 3;
-                                in += 1;
-                                break;
-                        }
-
                         case 24:
                                 out->Red = in[2];
                                 out->Green = in[1];
@@ -235,12 +252,22 @@ static EFI_STATUS bmp_to_blt(
                                 in += 2;
                                 break;
 
+                        case 16:
                         case 32: {
-                                uint32_t i = *(uint32_t *) in;
+                                uint32_t i = dib->depth == 16 ? *(uint16_t *) in : *(uint32_t *) in;
 
-                                pixel_blend((uint32_t *)out, i);
+                                uint8_t r = ((i & channel_mask[R]) >> channel_shift[R]) * channel_scale[R],
+                                        g = ((i & channel_mask[G]) >> channel_shift[G]) * channel_scale[G],
+                                        b = ((i & channel_mask[B]) >> channel_shift[B]) * channel_scale[B],
+                                        a = 0xFFu;
+                                if (channel_mask[A] != 0)
+                                        a = ((i & channel_mask[A]) >> channel_shift[A]) * channel_scale[A];
 
-                                in += 3;
+                                out->Red = (out->Red * (0xFFu - a) + r * a) >> 8;
+                                out->Green = (out->Green * (0xFFu - a) + g * a) >> 8;
+                                out->Blue = (out->Blue * (0xFFu - a) + b * a) >> 8;
+
+                                in += dib->depth == 16 ? 1 : 3;
                                 break;
                         }
                         }
