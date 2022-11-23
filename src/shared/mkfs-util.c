@@ -140,6 +140,12 @@ static int do_mcopy(const char *node, const char *root) {
         if (dir_is_empty(root, /*ignore_hidden_or_backup=*/ false))
                 return 0;
 
+        r = find_executable("mcopy", NULL);
+        if (r == -ENOENT)
+                return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "Could not find mcopy binary.");
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether mcopy binary exists: %m");
+
         argv = strv_new("mcopy", "-b", "-s", "-p", "-Q", "-n", "-m", "-i", node);
         if (!argv)
                 return log_oom();
