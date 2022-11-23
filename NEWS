@@ -20,6 +20,18 @@ CHANGES WITH 253 in spe:
 	* systemd-boot handles various seed inputs using a domain- and
 	  field-separated hashing scheme.
 
+	* systemd-boot's 'random-seed-mode' option has been removed. A system
+	  token is now always required to be present for random seeds to be
+	  used.
+
+	* systemd-stub now processes random seeds in the same way as
+	  systemd-boot, in case a unified kernel image is being used from a
+	  different bootloader than systemd-boot.
+
+	* bootctl will now generate a system token on all EFI systems, even
+	  virtualized ones, and is activated in the case that the system token
+	  is missing from either sd-boot and sd-stub booted systems.
+
 CHANGES WITH 252 🎃:
 
         Announcements of Future Feature Removals:
