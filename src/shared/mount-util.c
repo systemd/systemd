@@ -39,6 +39,7 @@
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
+#include "util.h"
 
 int mount_fd(const char *source,
              int target_fd,
@@ -488,6 +489,52 @@ int mount_move_root(const char *path) {
 
         return RET_NERRNO(chdir("/"));
 }
+
+int mount_pivot_root(const char *path) {
+        _cleanup_close_ int fd_oldroot = -EBADF, fd_newroot = -EBADF;
+
+        assert(path);
+
+        /* pivot_root() isn't currently supported in the initramfs. */
+        if (in_initrd())
+                return mount_move_root(path);
+
+        fd_oldroot = open("/", O_PATH|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        if (fd_oldroot < 0)
+                return log_debug_errno(errno, "Failed to open old rootfs");
+
+        fd_newroot = open(path, O_PATH|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        if (fd_newroot < 0)
+                return log_debug_errno(errno, "Failed to open new rootfs '%s': %m", path);
+
+        /* Change into the new rootfs. */
+        if (fchdir(fd_newroot) < 0)
+                return log_debug_errno(errno, "Failed to change into new rootfs '%s': %m", path);
+
+        /* Let the kernel tuck the new root under the old one. */
+        if (pivot_root(".", ".") < 0)
+                return log_debug_errno(errno, "Failed to pivot root to new rootfs '%s': %m", path);
+
+
+        /* At this point the new root is tucked under the old root. If we want
+         * to unmount it we cannot be fchdir()ed into it. So escape back to the
+         * old root. */
+        if (fchdir(fd_oldroot) < 0)
+                return log_debug_errno(errno, "Failed to change back to old rootfs: %m");
+
+        /* Note, usually we should set mount propagation up here but we'll
+         * assume that the caller has already done that. */
+
+        /* Get rid of the old root and reveal our brand new root. */
+        if (umount2(".", MNT_DETACH) < 0)
+                return log_debug_errno(errno, "Failed to unmount old rootfs: %m");
+
+        if (fchdir(fd_newroot) < 0)
+                return log_debug_errno(errno, "Failed to switch to new rootfs '%s': %m", path);
+
+        return 0;
+}
+
 
 int repeat_unmount(const char *path, int flags) {
         bool done = false;
