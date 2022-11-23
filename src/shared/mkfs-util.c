@@ -128,6 +128,7 @@ static int setup_userns(uid_t uid, gid_t gid) {
 }
 
 static int do_mcopy(const char *node, const char *root) {
+        _cleanup_free_ char *mcopy = NULL;
         _cleanup_strv_free_ char **argv = NULL;
         _cleanup_closedir_ DIR *rootdir = NULL;
         struct stat st;
@@ -140,7 +141,13 @@ static int do_mcopy(const char *node, const char *root) {
         if (dir_is_empty(root, /*ignore_hidden_or_backup=*/ false))
                 return 0;
 
-        argv = strv_new("mcopy", "-b", "-s", "-p", "-Q", "-n", "-m", "-i", node);
+        r = find_executable("mcopy", &mcopy);
+        if (r == -ENOENT)
+                return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "Could not find mcopy binary.");
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether mcopy binary exists: %m");
+
+        argv = strv_new(mcopy, "-b", "-s", "-p", "-Q", "-n", "-m", "-i", node);
         if (!argv)
                 return log_oom();
 
@@ -178,7 +185,7 @@ static int do_mcopy(const char *node, const char *root) {
 
                 /* Avoid failures caused by mismatch in expectations between mkfs.vfat and mcopy by disabling
                  * the stricter mcopy checks using MTOOLS_SKIP_CHECK. */
-                execvpe("mcopy", argv, STRV_MAKE("MTOOLS_SKIP_CHECK=1"));
+                execve(mcopy, argv, STRV_MAKE("MTOOLS_SKIP_CHECK=1"));
 
                 log_error_errno(errno, "Failed to execute mcopy: %m");
 
