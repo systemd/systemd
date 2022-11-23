@@ -234,7 +234,7 @@ struct Partition {
         size_t roothash_size;
 
         char *split_name_format;
-        char *split_name_resolved;
+        char *split_path;
 
         Partition *siblings[_VERITY_MODE_MAX];
 
@@ -355,7 +355,7 @@ static Partition* partition_free(Partition *p) {
         free(p->roothash);
 
         free(p->split_name_format);
-        free(p->split_name_resolved);
+        free(p->split_path);
 
         return mfree(p);
 }
@@ -4460,7 +4460,7 @@ static int context_mangle_partitions(Context *context) {
         return 0;
 }
 
-static int split_name_printf(Partition *p) {
+static int split_name_printf(Partition *p, char **ret) {
         assert(p);
 
         const Specifier table[] = {
@@ -4473,45 +4473,7 @@ static int split_name_printf(Partition *p) {
                 {}
         };
 
-        return specifier_printf(p->split_name_format, NAME_MAX, table, arg_root, p, &p->split_name_resolved);
-}
-
-static int split_name_resolve(Context *context) {
-        int r;
-
-        LIST_FOREACH(partitions, p, context->partitions) {
-                if (p->dropped)
-                        continue;
-
-                if (!p->split_name_format)
-                        continue;
-
-                r = split_name_printf(p);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to resolve specifiers in %s: %m", p->split_name_format);
-        }
-
-        LIST_FOREACH(partitions, p, context->partitions) {
-                if (!p->split_name_resolved)
-                        continue;
-
-                LIST_FOREACH(partitions, q, context->partitions) {
-                        if (p == q)
-                                continue;
-
-                        if (!q->split_name_resolved)
-                                continue;
-
-                        if (!streq(p->split_name_resolved, q->split_name_resolved))
-                                continue;
-
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ),
-                                               "%s and %s have the same resolved split name \"%s\", refusing",
-                                               p->definition_path, q->definition_path, p->split_name_resolved);
-                }
-        }
-
-        return 0;
+        return specifier_printf(p->split_name_format, NAME_MAX, table, arg_root, p, ret);
 }
 
 static int split_node(const char *node, char **ret_base, char **ret_ext) {
@@ -4525,9 +4487,9 @@ static int split_node(const char *node, char **ret_base, char **ret_ext) {
 
         r = path_extract_filename(node, &base);
         if (r == O_DIRECTORY || r == -EADDRNOTAVAIL)
-                return log_error_errno(r, "Device node %s cannot be a directory", arg_node);
+                return log_error_errno(r, "Device node %s cannot be a directory", node);
         if (r < 0)
-                return log_error_errno(r, "Failed to extract filename from %s: %m", arg_node);
+                return log_error_errno(r, "Failed to extract filename from %s: %m", node);
 
         e = endswith(base, ".raw");
         if (e) {
@@ -4544,54 +4506,96 @@ static int split_node(const char *node, char **ret_base, char **ret_ext) {
         return 0;
 }
 
-static int context_split(Context *context) {
-        _cleanup_free_ char *base = NULL, *ext = NULL;
-        _cleanup_close_ int dir_fd = -1;
+static int split_name_resolve(Context *context, const char *node) {
+        _cleanup_free_ char *parent = NULL, *base = NULL, *ext = NULL;
+        int r;
+
+        assert(context);
+        assert(node);
+
+        r = path_extract_directory(node, &parent);
+        if (r < 0 && r != -EDESTADDRREQ)
+                return log_error_errno(r, "Failed to extract directory from %s: %m", node);
+
+        r = split_node(node, &base, &ext);
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_free_ char *resolved = NULL;
+
+                if (p->dropped)
+                        continue;
+
+                if (!p->split_name_format)
+                        continue;
+
+                r = split_name_printf(p, &resolved);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve specifiers in %s: %m", p->split_name_format);
+
+                if (parent)
+                        p->split_path = strjoin(parent, "/", base, ".", resolved, ext);
+                else
+                        p->split_path = strjoin(base, ".", resolved, ext);
+                if (!p->split_path)
+                        return log_oom();
+        }
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                if (!p->split_path)
+                        continue;
+
+                LIST_FOREACH(partitions, q, context->partitions) {
+                        if (p == q)
+                                continue;
+
+                        if (!q->split_path)
+                                continue;
+
+                        if (!streq(p->split_path, q->split_path))
+                                continue;
+
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ),
+                                               "%s and %s have the same resolved split name \"%s\", refusing",
+                                               p->definition_path, q->definition_path, p->split_path);
+                }
+        }
+
+        return 0;
+}
+
+static int context_split(Context *context, const char *node) {
         int fd = -1, r;
 
         if (!arg_split)
                 return 0;
 
         assert(context);
-        assert(arg_node);
+        assert(node);
 
         /* We can't do resolution earlier because the partition UUIDs for verity partitions are only filled
          * in after they've been generated. */
 
-        r = split_name_resolve(context);
+        r = split_name_resolve(context, node);
         if (r < 0)
                 return r;
-
-        r = split_node(arg_node, &base, &ext);
-        if (r < 0)
-                return r;
-
-        dir_fd = r = open_parent(arg_node, O_PATH|O_CLOEXEC, 0);
-        if (r == -EDESTADDRREQ)
-                dir_fd = AT_FDCWD;
-        else if (r < 0)
-                return log_error_errno(r, "Failed to open parent directory of %s: %m", arg_node);
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_free_ char *fname = NULL;
                 _cleanup_close_ int fdt = -1;
 
                 if (p->dropped)
                         continue;
 
-                if (!p->split_name_resolved)
+                if (!p->split_path)
                         continue;
 
                 if (partition_skip(p))
                         continue;
 
-                fname = strjoin(base, ".", p->split_name_resolved, ext);
-                if (!fname)
-                        return log_oom();
-
-                fdt = openat(dir_fd, fname, O_WRONLY|O_NOCTTY|O_CLOEXEC|O_NOFOLLOW|O_CREAT|O_EXCL, 0666);
+                fdt = open(p->split_path, O_WRONLY|O_NOCTTY|O_CLOEXEC|O_NOFOLLOW|O_CREAT|O_EXCL, 0666);
                 if (fdt < 0)
-                        return log_error_errno(errno, "Failed to open %s: %m", fname);
+                        return log_error_errno(fdt, "Failed to open split partition file %s: %m", p->split_path);
 
                 if (fd < 0)
                         assert_se((fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
@@ -4601,7 +4605,7 @@ static int context_split(Context *context) {
 
                 r = copy_bytes(fd, fdt, p->new_size, COPY_REFLINK|COPY_HOLES);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to copy to split partition %s: %m", fname);
+                        return log_error_errno(r, "Failed to copy to split partition %s: %m", p->split_path);
         }
 
         return 0;
@@ -6470,7 +6474,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = context_split(context);
+        r = context_split(context, node);
         if (r < 0)
                 return r;
 
