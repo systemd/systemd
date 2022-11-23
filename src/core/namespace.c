@@ -2486,7 +2486,7 @@ int setup_namespace(
                 goto finish;
 
         /* MS_MOVE does not work on MS_SHARED so the remount MS_SHARED will be done later */
-        r = mount_move_root(root);
+        r = mount_pivot_root(root);
         if (r == -EINVAL && root_directory) {
                 /* If we are using root_directory and we don't have privileges (ie: user manager in a user
                  * namespace) and the root_directory is already a mount point in the parent namespace,
@@ -2496,7 +2496,7 @@ int setup_namespace(
                 r = mount_nofollow_verbose(LOG_DEBUG, root, root, NULL, MS_BIND|MS_REC, NULL);
                 if (r < 0)
                         goto finish;
-                r = mount_move_root(root);
+                r = mount_pivot_root(root);
         }
         if (r < 0) {
                 log_debug_errno(r, "Failed to mount root with MS_MOVE: %m");
