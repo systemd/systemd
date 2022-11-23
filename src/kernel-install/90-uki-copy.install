@@ -1,0 +1,97 @@
+#!/bin/sh
+# -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
+# ex: ts=8 sw=4 sts=4 et filetype=sh
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# This file is part of systemd.
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
+
+set -e
+
+COMMAND="${1:?}"
+KERNEL_VERSION="${2:?}"
+# shellcheck disable=SC2034
+ENTRY_DIR_ABS="$3"
+KERNEL_IMAGE="$4"
+
+[ "$KERNEL_INSTALL_LAYOUT" = "uki" ] || exit 0
+
+ENTRY_TOKEN="$KERNEL_INSTALL_ENTRY_TOKEN"
+BOOT_ROOT="$KERNEL_INSTALL_BOOT_ROOT"
+
+UKI_DIR="$BOOT_ROOT/EFI/Linux"
+
+case "$COMMAND" in
+    remove)
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+            echo "Removing $UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION*.efi"
+        exec rm -f \
+            "$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION.efi" \
+            "$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION+"*".efi"
+        ;;
+    add)
+        ;;
+    *)
+        exit 0
+        ;;
+esac
+
+if ! [ -d "$UKI_DIR" ]; then
+    echo "Error: entry directory '$UKI_DIR' does not exist" >&2
+    exit 1
+fi
+
+TRIES_FILE="${KERNEL_INSTALL_CONF_ROOT:-/etc/kernel}/tries"
+
+if [ -f "$TRIES_FILE" ]; then
+    read -r TRIES <"$TRIES_FILE"
+    if ! echo "$TRIES" | grep -q '^[0-9][0-9]*$'; then
+        echo "$TRIES_FILE does not contain an integer." >&2
+        exit 1
+    fi
+    UKI_FILE="$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION+$TRIES.efi"
+else
+    UKI_FILE="$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION.efi"
+fi
+
+# If there is a UKI named uki.efi on the staging area use that, if not use what
+# was passed in as $KERNEL_IMAGE but insist it has a .efi extension
+if [ -f "$KERNEL_INSTALL_STAGING_AREA/uki.efi" ]; then
+    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Installing $KERNEL_INSTALL_STAGING_AREA/uki.efi"
+    install -m 0644 "$KERNEL_INSTALL_STAGING_AREA/uki.efi" "$UKI_FILE" || {
+        echo "Error: could not copy '$KERNEL_INSTALL_STAGING_AREA/uki.efi' to '$UKI_FILE'." >&2
+        exit 1
+    }
+elif [ -n "$KERNEL_IMAGE" ]; then
+    [ -f "$KERNEL_IMAGE" ] || {
+        echo "Error: UKI '$KERNEL_IMAGE' not a file." >&2
+        exit 1
+    }
+    [ "$KERNEL_IMAGE" != "${KERNEL_IMAGE%*.efi}.efi" ] && {
+        echo "Error: $KERNEL_IMAGE is missing .efi suffix." >&2
+        exit 1
+    }
+    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Installing $KERNEL_IMAGE"
+    install -m 0644 "$KERNEL_IMAGE" "$UKI_FILE" || {
+        echo "Error: could not copy '$KERNEL_IMAGE' to '$UKI_FILE'." >&2
+        exit 1
+    }
+else
+    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "No UKI available. Nothing to do."
+    exit 0
+fi
+chown root:root "$UKI_FILE" || :
+
+exit 0
