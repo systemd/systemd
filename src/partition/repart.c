@@ -3721,6 +3721,10 @@ static int do_copy_files(Partition *p, const char *root, const Set *denylist) {
                                 if (pfd < 0)
                                         return log_error_errno(pfd, "Failed to open parent directory of target: %m");
 
+                                /* Make sure everything is owned by the user running repart so that
+                                 * make_filesystem() can map the user running repart to "root" in a user
+                                 * namespace to have the files owned by root in the final image. */
+
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 pfd, fn,
@@ -3812,10 +3816,6 @@ static int partition_populate_directory(Partition *p, const Set *denylist, char 
 
         if (fchmod(rfd, 0755) < 0)
                 return log_error_errno(errno, "Failed to change mode of temporary directory: %m");
-
-        /* Make sure everything is owned by the user running repart so that make_filesystem() can map the
-         * user running repart to "root" in a user namespace to have the files owned by root in the final
-         * image. */
 
         r = do_copy_files(p, root, denylist);
         if (r < 0)
