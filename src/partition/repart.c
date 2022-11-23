@@ -3678,7 +3678,12 @@ static int context_copy_blocks(Context *context) {
         return 0;
 }
 
-static int do_copy_files(Partition *p, const char *root, const Set *denylist) {
+static int do_copy_files(
+                Partition *p,
+                const char *root,
+                uid_t override_uid,
+                gid_t override_gid,
+                const Set *denylist) {
 
         int r;
 
@@ -3728,14 +3733,14 @@ static int do_copy_files(Partition *p, const char *root, const Set *denylist) {
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 pfd, fn,
-                                                getuid(), getgid(),
+                                                override_uid, override_gid,
                                                 COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS,
                                                 denylist);
                         } else
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 tfd, ".",
-                                                getuid(), getgid(),
+                                                override_uid, override_gid,
                                                 COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS,
                                                 denylist);
                         if (r < 0)
@@ -3773,6 +3778,9 @@ static int do_copy_files(Partition *p, const char *root, const Set *denylist) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", *source, strempty(arg_root), *target);
 
+                        if (fchown(tfd, override_uid, override_gid) < 0)
+                                return log_error_errno(r, "Failed to change ownership of %s", *target);
+
                         (void) copy_xattr(sfd, tfd, COPY_ALL_XATTRS);
                         (void) copy_access(sfd, tfd);
                         (void) copy_times(sfd, tfd, 0);
@@ -3782,7 +3790,7 @@ static int do_copy_files(Partition *p, const char *root, const Set *denylist) {
         return 0;
 }
 
-static int do_make_directories(Partition *p, const char *root) {
+static int do_make_directories(Partition *p, uid_t override_uid, gid_t override_gid, const char *root) {
         int r;
 
         assert(p);
@@ -3790,7 +3798,7 @@ static int do_make_directories(Partition *p, const char *root) {
 
         STRV_FOREACH(d, p->make_directories) {
 
-                r = mkdir_p_root(root, *d, getuid(), getgid(), 0755);
+                r = mkdir_p_root(root, *d, override_uid, override_gid, 0755);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create directory '%s' in file system: %m", *d);
         }
@@ -3817,11 +3825,11 @@ static int partition_populate_directory(Partition *p, const Set *denylist, char 
         if (fchmod(rfd, 0755) < 0)
                 return log_error_errno(errno, "Failed to change mode of temporary directory: %m");
 
-        r = do_copy_files(p, root, denylist);
+        r = do_copy_files(p, root, getuid(), getgid(), denylist);
         if (r < 0)
                 return r;
 
-        r = do_make_directories(p, root);
+        r = do_make_directories(p, getuid(), getgid(), root);
         if (r < 0)
                 return r;
 
@@ -3873,10 +3881,10 @@ static int partition_populate_filesystem(Partition *p, const char *node, const S
                 if (mount_nofollow_verbose(LOG_ERR, node, fs, p->format, MS_NOATIME|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL) < 0)
                         _exit(EXIT_FAILURE);
 
-                if (do_copy_files(p, fs, denylist) < 0)
+                if (do_copy_files(p, fs, 0, 0, denylist) < 0)
                         _exit(EXIT_FAILURE);
 
-                if (do_make_directories(p, fs) < 0)
+                if (do_make_directories(p, 0, 0, fs) < 0)
                         _exit(EXIT_FAILURE);
 
                 r = syncfs_path(AT_FDCWD, fs);
