@@ -156,6 +156,14 @@ static int do_mcopy(const char *node, const char *root) {
                 if (!p)
                         return log_oom();
 
+                if (fstatat(dirfd(rootdir), de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0)
+                        return log_error_errno(errno, "Failed to stat %s", p);
+
+                if (S_ISLNK(st.st_mode)) {
+                        log_debug("%s is a symlink which are not supported by vfat, ignoring", p);
+                        continue;
+                }
+
                 r = strv_consume(&argv, TAKE_PTR(p));
                 if (r < 0)
                         return log_oom();
