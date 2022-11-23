@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/file.h>
+
 #include "blockdev-util.h"
 #include "errno-util.h"
 #include "tests.h"
+#include "fd-util.h"
 
 static void test_path_is_encrypted_one(const char *p, int expect) {
         int r;
@@ -34,6 +37,20 @@ TEST(path_is_encrypted) {
         test_path_is_encrypted_one("/proc", false);
         test_path_is_encrypted_one("/sys", false);
         test_path_is_encrypted_one("/dev", booted > 0 ? false : -1);
+}
+
+TEST(lock_whole_disk_from_devname) {
+        if(access("/dev/sda1", F_OK) == 0){
+                _cleanup_close_ int fd;
+
+                log_info("/* %s (lock_whole_disk /dev/sda1) */", __func__);
+
+                fd = lock_whole_disk_from_devname("/dev/sda1", O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY ,LOCK_EX|LOCK_NB);
+
+                log_info("get BSD lock fd: %d", fd);
+
+                assert_se(fd > 0);
+        }
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
