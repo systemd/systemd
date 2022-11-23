@@ -80,6 +80,10 @@ Janitorial Clean-ups:
 
 * get rid of basename() and replace by path_extract_filename()
 
+* Replace our fstype_is_network() with a call to libmount's mnt_fstype_is_netfs()?
+  Having two lists is not nice, but maybe it's now worth making a dependency on
+  libmount for something so trivial.
+
 Deprecations and removals:
 
 * Remove any support for booting without /usr pre-mounted in the initrd entirely.
