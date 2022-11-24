@@ -368,6 +368,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "sigreturn\0"
                 "time\0"
                 "ugetrlimit\0"
+                "vgetrandom_alloc\0"
         },
         [SYSCALL_FILTER_SET_AIO] = {
                 .name = "@aio",
