@@ -11,6 +11,15 @@
 #include "errno-util.h"
 #include "macro.h"
 
+typedef enum MountAttrPropagationType {
+        PROPAGATION_INHERIT,
+        PROPAGATION_PRIVATE,
+        PROPAGATION_DEPENDENT,
+        PROPAGATION_SHARED,
+        _PROPAGATION_MAX,
+        _PROPAGATION_INVALID = -EINVAL,
+} MountAttrPropagationType;
+
 /* The limit used for /dev itself. 4MB should be enough since device nodes and symlinks don't
  * consume any space and udev isn't supposed to create regular file either. There's no limit on the
  * max number of inodes since such limit is hard to guess especially on large storage array
@@ -54,8 +63,7 @@ static inline int bind_remount_recursive(const char *prefix, unsigned long new_f
 
 int bind_remount_one_with_mountinfo(const char *path, unsigned long new_flags, unsigned long flags_mask, FILE *proc_self_mountinfo);
 
-int mount_move_root(const char *path);
-int mount_pivot_root(const char *path);
+int mount_pivot_root(const char *path, MountAttrPropagationType type);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(FILE*, endmntent, NULL);
 #define _cleanup_endmntent_ _cleanup_(endmntentp)
