@@ -98,3 +98,124 @@ Summarizing: it is recommended to take `LOCK_EX` BSD file locks when
 manipulating block devices in all tools that change file system block devices
 (`mkfs`, `fsck`, …) or partition tables (`fdisk`, `parted`, …), right after
 opening the node.
+
+# Sample of Locking The Whole Disk
+
+The following is a sample to leverage `libsystemd` infrastructure to get the whole disk of a block device and add BSD lock on it.
+
+## Compile and Execute
+Note the version of `libsystemd` should be equal or greater than v251.
+
+Place the code in a source file, e.g. `main.c`. Assuming the version of systemd is satisfied, run the following commands:
+```
+# gcc -o main -lsystemd main.c
+
+# ./main /dev/sda1
+Successfully get the lock: /dev/sda
+
+# flock -x /dev/sda ./main /dev/sda1
+Failed to get the lock: /dev/sda
+```
+
+If the version of `systemd` is not satisfied, download and compile the satisfied version of `systemd` source code. Assuming the code of `systemd` is placed in `/path/to/systemd/` and the targets are placed in `/path/to/systemd/build/`, run the following commands:
+```
+# gcc main.c -L/path/to/systemd/build/ -lsystemd -I/path/to/systemd/src/ -o main
+
+# LD_LIBRARY_PATH=/path/to/systemd/build:${LD_LIBRARY_PATH} ./main /dev/sda1
+Successfully get the lock: /dev/sda
+
+# LD_LIBRARY_PATH=/path/to/systemd/build:${LD_LIBRARY_PATH} flock -x /dev/sda ./main /dev/sda1
+Failed to get the lock: /dev/sda
+```
+
+## Code
+```
+/* SPDX-License-Identifier: MIT-0 */
+
+#include <stdio.h>
+#include <string.h>
+#include <sys/file.h>
+#include <systemd/sd-device.h>
+#include <unistd.h>
+
+/**
+ * lock_whole_disk_from_devname
+ * @devname: devname of a block device, e.g., /dev/sda or /dev/sda1
+ * @open_mode: the mode to open the device, e.g., O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY
+ * @lock_mode: the mode to add flock, e.g., LOCK_EX|LOCK_NB
+ *
+ * given the devname of a block device, lock the whole disk
+ *
+ * Returns: 0 if add lock successfully
+ **/
+int lock_whole_disk_from_devname(const char *devname, int open_mode, int lock_mode, int *ret_fd) {
+    sd_device *dev = NULL, *whole_dev = NULL;
+    const char *whole_disk_devname, *subsystem, *devtype;
+    int r;
+
+    // create a sd_device instance from devname
+    r = sd_device_new_from_devname(&dev, devname);
+    if(r < 0)
+        goto finalize;
+
+    // if the subsystem of dev is block, but its devtype is not disk, find its parent
+    r = sd_device_get_subsystem(dev, &subsystem);
+    if(r < 0)
+        goto finalize;
+    if(strcmp(subsystem, "block") != 0) {
+        r = -EINVAL;
+        goto finalize;
+    }
+
+    r = sd_device_get_devtype(dev, &devtype);
+    if(r < 0)
+        goto finalize;
+    if(strcmp(devtype, "disk") == 0)
+        whole_dev = dev;
+    else {
+        r = sd_device_get_parent_with_subsystem_devtype(dev, "block", "disk", &whole_dev);
+        if (r < 0)
+            goto finalize;
+    }
+
+    // open the whole disk device node
+    int fd = sd_device_open(whole_dev, open_mode);
+    if(fd < 0){
+        r = fd;
+        goto finalize;
+    }
+
+    // get the whole disk devname
+    r = sd_device_get_devname(whole_dev, &whole_disk_devname);
+    if(r < 0)
+        goto finalize;
+
+    // add BSD lock on the whole disk device node
+    r = flock(fd, lock_mode);
+    if(r != 0){
+        printf("Failed to get the lock: %s\n", whole_disk_devname);
+        goto finalize;
+    }
+
+    printf("Successfully get the lock: %s\n", whole_disk_devname);
+    *ret_fd = fd;
+
+finalize:
+    if(dev != whole_dev) {
+        sd_device_unref(whole_dev);
+    }
+    sd_device_unref(dev);
+    return r;
+}
+
+int main(int argc, char **argv){
+
+    // try to add exclusive and nonblocking BSD lock
+    int fd = 0;
+    lock_whole_disk_from_devname(argv[1], O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, LOCK_EX|LOCK_NB, &fd);
+    if(fd > 0)
+        close(fd);
+
+    return 0;
+}
+```
