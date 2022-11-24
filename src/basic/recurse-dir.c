@@ -33,6 +33,7 @@ int readdir_all(int dir_fd,
         struct dirent *entry;
         DirectoryEntries *nde;
         size_t add, sz, j;
+        int r;
 
         assert(dir_fd >= 0);
 
@@ -104,6 +105,14 @@ int readdir_all(int dir_fd,
                 if (ignore_dirent(entry, flags))
                         continue;
 
+                if (FLAGS_SET(flags, RECURSE_DIR_ENSURE_TYPE)) {
+                        r = dirent_ensure_type(dir_fd, entry);
+                        if (r == -ENOENT)
+                                continue;
+                        if (r < 0)
+                                return r;
+                }
+
                 de->entries[j++] = entry;
         }
 
@@ -160,7 +169,8 @@ int recurse_dir(
                         return r;
         }
 
-        r = readdir_all(dir_fd, flags, &de);
+        /* Mask out RECURSE_DIR_ENSURE_TYPE so we can do it ourselves and avoid an extra statx() call. */
+        r = readdir_all(dir_fd, flags & ~RECURSE_DIR_ENSURE_TYPE, &de);
         if (r < 0)
                 return r;
 
