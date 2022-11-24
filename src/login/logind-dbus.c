@@ -3970,6 +3970,12 @@ int manager_start_scope(
         if (r < 0)
                 return r;
 
+        /* For login session scopes, if a process is OOM killed by the kernel, *don't* terminate the rest of
+           the scope */
+        r = sd_bus_message_append(m, "(sv)", "OOMPolicy", "s", "continue");
+        if (r < 0)
+                return r;
+
         /* disable TasksMax= for the session scope, rely on the slice setting for it */
         r = sd_bus_message_append(m, "(sv)", "TasksMax", "t", UINT64_MAX);
         if (r < 0)
