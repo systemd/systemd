@@ -262,6 +262,7 @@ typedef struct Context {
         sd_id128_t seed;
 
         char *node;
+        bool node_created_by_us;
         int backing_fd;
 
         bool from_scratch;
@@ -460,7 +461,10 @@ static Context *context_free(Context *context) {
                 fdisk_unref_context(context->fdisk_context);
 
         safe_close(context->backing_fd);
-        free(context->node);
+        if (context->node_created_by_us)
+                unlink_and_free(context->node);
+        else
+                free(context->node);
 
         return mfree(context);
 }
@@ -5975,6 +5979,7 @@ static int find_root(Context *context) {
                                 return log_error_errno(errno, "Failed to create '%s': %m", arg_node);
 
                         context->node = TAKE_PTR(s);
+                        context->node_created_by_us = true;
                         context->backing_fd = TAKE_FD(fd);
                         return 0;
                 }
@@ -6424,6 +6429,8 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         (void) context_dump(context, /*late=*/ true);
+
+        context->node = mfree(context->node);
 
         LIST_FOREACH(partitions, p, context->partitions)
                 p->split_path = mfree(p->split_path);
