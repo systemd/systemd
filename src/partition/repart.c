@@ -209,6 +209,7 @@ struct Partition {
         FreeArea *allocated_to_area;
 
         char *copy_blocks_path;
+        bool copy_blocks_path_created_by_us;
         bool copy_blocks_auto;
         const char *copy_blocks_root;
         int copy_blocks_fd;
@@ -338,7 +339,10 @@ static Partition* partition_free(Partition *p) {
         if (p->new_partition)
                 fdisk_unref_partition(p->new_partition);
 
-        free(p->copy_blocks_path);
+        if (p->copy_blocks_path_created_by_us)
+                unlink_and_free(p->copy_blocks_path);
+        else
+                free(p->copy_blocks_path);
         safe_close(p->copy_blocks_fd);
 
         free(p->format);
@@ -5281,6 +5285,7 @@ static int context_minimize(Context *context) {
                  * loopback file for us. */
                 if (fstype_is_ro(p->format)) {
                         p->copy_blocks_path = TAKE_PTR(temp);
+                        p->copy_blocks_path_created_by_us = true;
                         continue;
                 }
 
@@ -5328,6 +5333,7 @@ static int context_minimize(Context *context) {
                 }
 
                 p->copy_blocks_path = TAKE_PTR(temp);
+                p->copy_blocks_path_created_by_us = true;
         }
 
         return 0;
