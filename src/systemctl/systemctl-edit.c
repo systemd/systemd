@@ -626,6 +626,7 @@ int verb_edit(int argc, char *argv[], void *userdata) {
                         goto end;
                 }
 
+                f->tmp = mfree(f->tmp);
                 log_info("Successfully installed edited file '%s'.", f->path);
         }
 
@@ -638,8 +639,10 @@ int verb_edit(int argc, char *argv[], void *userdata) {
         }
 
 end:
-        for (EditFile *f = edit_files; f && f->path; f++) {
-                (void) unlink(f->tmp);
+        for (EditFile *f = ASSERT_PTR(edit_files); f->path; f++) {
+
+                if (f->tmp)
+                        (void) unlink(f->tmp);
 
                 /* Removing empty dropin dirs */
                 if (!arg_full) {
