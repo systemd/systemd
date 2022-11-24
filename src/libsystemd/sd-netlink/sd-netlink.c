@@ -61,10 +61,6 @@ static int netlink_new(sd_netlink **ret) {
                 .serial = (uint32_t) (now(CLOCK_MONOTONIC) % UINT32_MAX) + 1,
         };
 
-        /* We guarantee that the read buffer has at least space for a message header */
-        if (!greedy_realloc((void**) &nl->rbuffer, sizeof(struct nlmsghdr), sizeof(uint8_t)))
-                return -ENOMEM;
-
         *ret = TAKE_PTR(nl);
         return 0;
 }
