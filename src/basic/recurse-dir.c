@@ -33,6 +33,7 @@ int readdir_all(int dir_fd,
         struct dirent *entry;
         DirectoryEntries *nde;
         size_t add, sz, j;
+        int r;
 
         assert(dir_fd >= 0);
 
@@ -83,6 +84,12 @@ int readdir_all(int dir_fd,
         FOREACH_DIRENT_IN_BUFFER(entry, de->buffer, de->buffer_size) {
                 if (ignore_dirent(entry, flags))
                         continue;
+
+                if (FLAGS_SET(flags, RECURSE_DIR_ENSURE_TYPE)) {
+                        r = dirent_ensure_type(dir_fd, entry);
+                        if (r < 0 && r != -ENOENT)
+                                return r;
+                }
 
                 de->n_entries++;
         }
@@ -283,7 +290,7 @@ int recurse_dir(
                                         inode_fd = safe_close(inode_fd);
                                 }
 
-                        } else if (statx_mask != 0 || (de->entries[i]->d_type == DT_UNKNOWN && (flags & RECURSE_DIR_ENSURE_TYPE))) {
+                        } else if (statx_mask != 0) {
 
                                 r = statx_fallback(dir_fd, de->entries[i]->d_name, AT_SYMLINK_NOFOLLOW, statx_mask | STATX_TYPE, &sx);
                                 if (r == -ENOENT) /* Vanished by now? Go for next file immediately */
