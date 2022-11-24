@@ -349,7 +349,7 @@ static Partition* partition_free(Partition *p) {
         free(p->roothash);
 
         free(p->split_name_format);
-        free(p->split_path);
+        unlink_and_free(p->split_path);
 
         return mfree(p);
 }
@@ -6454,6 +6454,9 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         (void) context_dump(context, node, /*late=*/ true);
+
+        LIST_FOREACH(partitions, p, context->partitions)
+                p->split_path = mfree(p->split_path);
 
         return 0;
 }
