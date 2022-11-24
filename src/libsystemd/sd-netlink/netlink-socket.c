@@ -258,8 +258,7 @@ int socket_read_message(sd_netlink *nl) {
         r = socket_recv_message(nl->fd, &iov, NULL, true);
         if (r <= 0)
                 return r;
-        else
-                len = (size_t) r;
+        len = (size_t) r;
 
         /* make room for the pending message */
         if (!greedy_realloc((void**) &nl->rbuffer, len, sizeof(uint8_t)))
@@ -272,8 +271,7 @@ int socket_read_message(sd_netlink *nl) {
         r = socket_recv_message(nl->fd, &iov, &group, false);
         if (r <= 0)
                 return r;
-        else
-                len = (size_t) r;
+        len = (size_t) r;
 
         if (len > allocated)
                 /* message did not fit in read buffer */
