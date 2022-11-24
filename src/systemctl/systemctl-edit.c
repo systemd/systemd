@@ -478,19 +478,24 @@ static int trim_edit_markers(const char *path) {
         if (contents_end)
                 contents_end[0] = 0;
 
-        /* Trim prefix and suffix, but ensure suffixed by single newline. */
+        /* Trim prefix and suffix */
         contents_start = strstrip(contents_start);
-        if (!isempty(contents_start)) {
-                new_contents = strjoin(contents_start, "\n");
-                if (!new_contents)
-                        return log_oom();
+        if (isempty(contents_start)) {
+                if (unlink(path) < 0)
+                        return log_error_errno(errno, "Failed to remove temporary file \"%s\": %m", path);
+                return 0;
         }
 
+        /* but ensure suffixed by single newline. */
+        new_contents = strjoin(contents_start, "\n");
+        if (!new_contents)
+                return log_oom();
+
         /* Don't touch the file if the above didn't change a thing */
-        if (streq(old_contents, strempty(new_contents)))
+        if (streq(old_contents, new_contents))
                 return 0;
 
-        r = write_string_file(path, strempty(new_contents), WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_TRUNCATE | WRITE_STRING_FILE_AVOID_NEWLINE);
+        r = write_string_file(path, new_contents, WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_TRUNCATE | WRITE_STRING_FILE_AVOID_NEWLINE);
         if (r < 0)
                 return log_error_errno(r, "Failed to modify temporary file \"%s\": %m", path);
 
@@ -554,13 +559,16 @@ int verb_edit(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         continue;
 
-                if (null_or_empty_path(*tmp)) {
-                        log_warning("Editing \"%s\" canceled: temporary file is empty.", *original);
+                r = null_or_empty_path(*tmp);
+                if (r != 0) {
+                        if (r < 0 && r != -ENOENT)
+                                log_warning_errno(r, "Failed to check if temporary file \"%s\" is empty, editing \"%s\" canceled: %m", *tmp, *original);
+                        else
+                                log_warning("Temporary file \"%s\" is empty, editing \"%s\" canceled.", *tmp, *original);
                         continue;
                 }
 
-                r = rename(*tmp, *original);
-                if (r < 0) {
+                if (rename(*tmp, *original) < 0) {
                         r = log_error_errno(errno, "Failed to rename \"%s\" to \"%s\": %m", *tmp, *original);
                         goto end;
                 }
