@@ -180,11 +180,12 @@ int socket_write_message(sd_netlink *nl, sd_netlink_message *m) {
         return k;
 }
 
-static int socket_recv_message(int fd, struct iovec *iov, uint32_t *ret_mcast_group, bool peek) {
+static int socket_recv_message(int fd, void *buf, size_t buf_size, uint32_t *ret_mcast_group, bool peek) {
+        struct iovec iov = IOVEC_MAKE(buf, buf_size);
         union sockaddr_union sender;
         CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct nl_pktinfo))) control;
         struct msghdr msg = {
-                .msg_iov = iov,
+                .msg_iov = &iov,
                 .msg_iovlen = 1,
                 .msg_name = &sender,
                 .msg_namelen = sizeof(sender),
@@ -194,7 +195,7 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *ret_mcast_gr
         ssize_t n;
 
         assert(fd >= 0);
-        assert(iov);
+        assert(peek || (buf && buf_size > 0));
 
         n = recvmsg_safe(fd, &msg, MSG_TRUNC | (peek ? MSG_PEEK : 0));
         if (n < 0) {
@@ -224,6 +225,9 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *ret_mcast_gr
                 return 0;
         }
 
+        if (!peek && (size_t) n > buf_size) /* message did not fit in read buffer */
+                return -EIO;
+
         if (ret_mcast_group) {
                 struct nl_pktinfo *pi;
 
@@ -245,8 +249,7 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *ret_mcast_gr
 int socket_read_message(sd_netlink *nl) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *first = NULL;
         bool multi_part = false, done = false;
-        size_t len, allocated;
-        struct iovec iov = {};
+        size_t len;
         uint32_t group;
         unsigned i = 0;
         int r;
@@ -255,7 +258,7 @@ int socket_read_message(sd_netlink *nl) {
         assert(nl->rbuffer);
 
         /* read nothing, just get the pending message size */
-        r = socket_recv_message(nl->fd, &iov, NULL, true);
+        r = socket_recv_message(nl->fd, NULL, 0, NULL, true);
         if (r <= 0)
                 return r;
         len = (size_t) r;
@@ -264,18 +267,11 @@ int socket_read_message(sd_netlink *nl) {
         if (!greedy_realloc((void**) &nl->rbuffer, len, sizeof(uint8_t)))
                 return -ENOMEM;
 
-        allocated = MALLOC_SIZEOF_SAFE(nl->rbuffer);
-        iov = IOVEC_MAKE(nl->rbuffer, allocated);
-
         /* read the pending message */
-        r = socket_recv_message(nl->fd, &iov, &group, false);
+        r = socket_recv_message(nl->fd, nl->rbuffer, MALLOC_SIZEOF_SAFE(nl->rbuffer), &group, false);
         if (r <= 0)
                 return r;
         len = (size_t) r;
-
-        if (len > allocated)
-                /* message did not fit in read buffer */
-                return -EIO;
 
         if (NLMSG_OK(nl->rbuffer, len) && nl->rbuffer->nlmsg_flags & NLM_F_MULTI) {
                 multi_part = true;
