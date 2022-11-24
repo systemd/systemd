@@ -39,15 +39,10 @@ struct bmp_map {
 
 static EFI_STATUS bmp_parse_header(
                 const uint8_t *bmp,
-                UINTN size,
+                size_t size,
                 struct bmp_dib **ret_dib,
                 struct bmp_map **ret_map,
                 const uint8_t **pixmap) {
-
-        struct bmp_file *file;
-        struct bmp_dib *dib;
-        struct bmp_map *map;
-        UINTN row_size;
 
         assert(bmp);
         assert(ret_dib);
@@ -58,7 +53,7 @@ static EFI_STATUS bmp_parse_header(
                 return EFI_INVALID_PARAMETER;
 
         /* check file header */
-        file = (struct bmp_file *)bmp;
+        struct bmp_file *file = (struct bmp_file *) bmp;
         if (file->signature[0] != 'B' || file->signature[1] != 'M')
                 return EFI_INVALID_PARAMETER;
         if (file->size != size)
@@ -67,7 +62,7 @@ static EFI_STATUS bmp_parse_header(
                 return EFI_INVALID_PARAMETER;
 
         /*  check device-independent bitmap */
-        dib = (struct bmp_dib *)(bmp + sizeof(struct bmp_file));
+        struct bmp_dib *dib = (struct bmp_dib *) (bmp + sizeof(struct bmp_file));
         if (dib->size < sizeof(struct bmp_dib))
                 return EFI_UNSUPPORTED;
 
@@ -92,38 +87,26 @@ static EFI_STATUS bmp_parse_header(
                 return EFI_UNSUPPORTED;
         }
 
-        row_size = ((UINTN) dib->depth * dib->x + 31) / 32 * 4;
+        size_t row_size = ((size_t) dib->depth * dib->x + 31) / 32 * 4;
         if (file->size - file->offset <  dib->y * row_size)
                 return EFI_INVALID_PARAMETER;
         if (row_size * dib->y > 64 * 1024 * 1024)
                 return EFI_INVALID_PARAMETER;
 
         /* check color table */
-        map = (struct bmp_map *)(bmp + sizeof(struct bmp_file) + dib->size);
+        struct bmp_map *map = (struct bmp_map *) (bmp + sizeof(struct bmp_file) + dib->size);
         if (file->offset < sizeof(struct bmp_file) + dib->size)
                 return EFI_INVALID_PARAMETER;
 
         if (file->offset > sizeof(struct bmp_file) + dib->size) {
-                uint32_t map_count;
-                UINTN map_size;
+                uint32_t map_count = 0;
 
                 if (dib->colors_used)
                         map_count = dib->colors_used;
-                else {
-                        switch (dib->depth) {
-                        case 1:
-                        case 4:
-                        case 8:
-                                map_count = 1 << dib->depth;
-                                break;
+                else if (IN_SET(dib->depth, 1, 4, 8))
+                        map_count = 1 << dib->depth;
 
-                        default:
-                                map_count = 0;
-                                break;
-                        }
-                }
-
-                map_size = file->offset - (sizeof(struct bmp_file) + dib->size);
+                size_t map_size = file->offset - (sizeof(struct bmp_file) + dib->size);
                 if (map_size != sizeof(struct bmp_map) * map_count)
                         return EFI_INVALID_PARAMETER;
         }
@@ -201,15 +184,13 @@ static EFI_STATUS bmp_to_blt(
 
         /* transform and copy pixels */
         in = pixmap;
-        for (UINTN y = 0; y < dib->y; y++) {
-                EFI_GRAPHICS_OUTPUT_BLT_PIXEL *out;
-                UINTN row_size;
+        for (uint32_t y = 0; y < dib->y; y++) {
+                EFI_GRAPHICS_OUTPUT_BLT_PIXEL *out = &buf[(dib->y - y - 1) * dib->x];
 
-                out = &buf[(dib->y - y - 1) * dib->x];
-                for (UINTN x = 0; x < dib->x; x++, in++, out++) {
+                for (uint32_t x = 0; x < dib->x; x++, in++, out++) {
                         switch (dib->depth) {
                         case 1: {
-                                for (UINTN i = 0; i < 8 && x < dib->x; i++) {
+                                for (unsigned i = 0; i < 8 && x < dib->x; i++) {
                                         out->Red = map[((*in) >> (7 - i)) & 1].red;
                                         out->Green = map[((*in) >> (7 - i)) & 1].green;
                                         out->Blue = map[((*in) >> (7 - i)) & 1].blue;
@@ -222,9 +203,7 @@ static EFI_STATUS bmp_to_blt(
                         }
 
                         case 4: {
-                                UINTN i;
-
-                                i = (*in) >> 4;
+                                unsigned i = (*in) >> 4;
                                 out->Red = map[i].red;
                                 out->Green = map[i].green;
                                 out->Blue = map[i].blue;
@@ -274,22 +253,20 @@ static EFI_STATUS bmp_to_blt(
                 }
 
                 /* add row padding; new lines always start at 32 bit boundary */
-                row_size = in - pixmap;
+                size_t row_size = in - pixmap;
                 in += ((row_size + 3) & ~3) - row_size;
         }
 
         return EFI_SUCCESS;
 }
 
-EFI_STATUS graphics_splash(const uint8_t *content, UINTN len) {
+EFI_STATUS graphics_splash(const uint8_t *content, size_t len) {
         EFI_GRAPHICS_OUTPUT_BLT_PIXEL background = {};
         EFI_GRAPHICS_OUTPUT_PROTOCOL *GraphicsOutput = NULL;
         struct bmp_dib *dib;
         struct bmp_map *map;
         const uint8_t *pixmap;
-        _cleanup_free_ void *blt = NULL;
-        UINTN x_pos = 0;
-        UINTN y_pos = 0;
+        size_t x_pos = 0, y_pos = 0;
         EFI_STATUS err;
 
         if (len == 0)
@@ -324,9 +301,9 @@ EFI_STATUS graphics_splash(const uint8_t *content, UINTN len) {
         if (err != EFI_SUCCESS)
                 return err;
 
-        /* EFI buffer */
-        blt = xnew(EFI_GRAPHICS_OUTPUT_BLT_PIXEL, dib->x * dib->y);
-
+        /* Read in current screen content to perform proper alpha blending. */
+        _cleanup_free_ EFI_GRAPHICS_OUTPUT_BLT_PIXEL *blt = xnew(
+                        EFI_GRAPHICS_OUTPUT_BLT_PIXEL, dib->x * dib->y);
         err = GraphicsOutput->Blt(
                         GraphicsOutput, blt,
                         EfiBltVideoToBltBuffer, x_pos, y_pos, 0, 0,
