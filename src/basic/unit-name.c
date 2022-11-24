@@ -109,18 +109,47 @@ bool unit_prefix_is_valid(const char *p) {
         return in_charset(p, VALID_CHARS);
 }
 
-bool unit_instance_is_valid(const char *i) {
+bool unit_instance_is_null(UnitInstanceArg i) {
+        return !i.instance && !i.generation;
+}
+
+bool unit_instance_is_valid(UnitInstanceArg i) {
 
         /* The max length depends on the length of the string, so we
          * don't really check this here. */
 
-        if (isempty(i))
-                return false;
-
         /* We allow additional @ in the instance string, we do not
          * allow them in the prefix! */
+        if (!isempty(i.instance) && !in_charset(i.instance, "@" VALID_CHARS))
+                return false;
 
-        return in_charset(i, "@" VALID_CHARS);
+        if (!isempty(i.generation) && !in_charset(i.generation, VALID_CHARS))
+                return false;
+
+        return !(isempty(i.instance) && isempty(i.generation));
+}
+
+// TODO better return the result
+int unit_instance_to_string(UnitInstanceArg i, char **ret) {
+        char *s;
+        assert(ret);
+
+        /* XXX no support for templated rtemplate handle units */
+        if (!isempty(i.instance) && !isempty(i.generation))
+                return -ENOTSUP;
+
+        s = i.instance ? strdup(i.instance) :
+            i.generation ? strdup(i.generation) :
+            strdup("");
+        if (!s)
+                return -ENOMEM;
+        *ret = s;
+        return 0;
+}
+
+bool unit_instance_eq(UnitInstanceArg a, UnitInstanceArg b) {
+        return streq_ptr(a.instance, b.instance) &&
+               streq_ptr(a.generation, b.generation);
 }
 
 bool unit_suffix_is_valid(const char *s) {
@@ -146,7 +175,7 @@ int unit_name_to_prefix(const char *n, char **ret) {
         if (!unit_name_is_valid(n, UNIT_NAME_ANY))
                 return -EINVAL;
 
-        p = strchr(n, '@');
+        p = strchr(n, '@') ?: strchr(n, '#');
         if (!p)
                 p = strrchr(n, '.');
 
@@ -160,7 +189,7 @@ int unit_name_to_prefix(const char *n, char **ret) {
         return 0;
 }
 
-UnitNameFlags unit_name_to_instance(const char *n, char **ret) {
+UnitNameFlags unit_name_to_instance(const char *n, UnitInstanceArg *ret) {
         const char *p, *d;
         char c;
 
@@ -173,7 +202,7 @@ UnitNameFlags unit_name_to_instance(const char *n, char **ret) {
         p = strchr(n, '@') ?: strchr(n, '#');
         if (!p) {
                 if (ret)
-                        *ret = NULL;
+                        *ret = (UnitInstanceArg){ NULL };
                 return UNIT_NAME_PLAIN;
         }
         c = *p;
@@ -184,9 +213,14 @@ UnitNameFlags unit_name_to_instance(const char *n, char **ret) {
                 return -EINVAL;
 
         if (ret) {
-                char *i = strndup(p, d-p);
-                if (!i)
+                UnitInstanceArg i = {
+                        .instance = strndup(p, d-p),
+                        .generation = NULL,
+                };
+                if (!i.instance)
                         return -ENOMEM;
+                if (c == '#')
+                        SWAP_TWO(i.instance, i.generation);
 
                 *ret = i;
         }
@@ -264,7 +298,7 @@ int unit_name_change_suffix(const char *n, const char *suffix, char **ret) {
         return 0;
 }
 
-int unit_name_build(const char *prefix, const char *instance, const char *suffix, char **ret) {
+int unit_name_build(const char *prefix, UnitInstanceArg instance, const char *suffix, char **ret) {
         UnitType type;
 
         assert(prefix);
@@ -281,7 +315,7 @@ int unit_name_build(const char *prefix, const char *instance, const char *suffix
         return unit_name_build_from_type(prefix, instance, type, ret);
 }
 
-int unit_name_build_from_type(const char *prefix, const char *instance, UnitType type, char **ret) {
+int unit_name_build_from_type(const char *prefix, UnitInstanceArg instance, UnitType type, char **ret) {
         _cleanup_free_ char *s = NULL;
         const char *ut;
 
@@ -295,18 +329,21 @@ int unit_name_build_from_type(const char *prefix, const char *instance, UnitType
 
         ut = unit_type_to_string(type);
 
-        if (instance) {
+        if (!unit_instance_is_null(instance)) {
                 if (!unit_instance_is_valid(instance))
                         return -EINVAL;
 
-                s = strjoin(prefix, "@", instance, ".", ut);
+                if (instance.instance)
+                        s = strjoin(prefix, "@", instance.instance, ".", ut);
+                else if (instance.generation)
+                        s = strjoin(prefix, "#", instance.generation, ".", ut);
         } else
                 s = strjoin(prefix, ".", ut);
         if (!s)
                 return -ENOMEM;
 
         /* Verify that this didn't grow too large (or otherwise is invalid) */
-        if (!unit_name_is_valid(s, instance ? UNIT_NAME_INSTANCE : UNIT_NAME_PLAIN))
+        if (!unit_name_is_valid(s, !unit_instance_is_null(instance) ? UNIT_NAME_INSTANCE : UNIT_NAME_PLAIN))
                 return -EINVAL;
 
         *ret = TAKE_PTR(s);
@@ -469,13 +506,13 @@ int unit_name_path_unescape(const char *f, char **ret) {
         return 0;
 }
 
-int unit_name_replace_instance(const char *f, const char *i, char **ret) {
-        _cleanup_free_ char *s = NULL;
+int unit_name_replace_instance(const char *f, UnitInstanceArg i, char **ret) {
+        _cleanup_free_ char *s = NULL, *n = NULL;
         const char *p, *e;
         size_t a, b;
+        int r;
 
         assert(f);
-        assert(i);
         assert(ret);
 
         if (!unit_name_is_valid(f, UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE))
@@ -483,17 +520,21 @@ int unit_name_replace_instance(const char *f, const char *i, char **ret) {
         if (!unit_instance_is_valid(i))
                 return -EINVAL;
 
-        assert_se(p = strchr(f, '@'));
+        assert_se(p = strchr(f, '@') ?: strchr(f, '#'));
         assert_se(e = strrchr(f, '.'));
 
         a = p - f;
-        b = strlen(i);
+        b = i.instance ? strlen(i.instance) : 0;
+        b += i.generation ? strlen(i.generation) : 0;
 
         s = new(char, a + 1 + b + strlen(e) + 1);
         if (!s)
                 return -ENOMEM;
+        r = unit_instance_to_string(i, &n);
+        if (r < 0)
+                return r;
 
-        strcpy(mempcpy(mempcpy(s, f, a + 1), i, b), e);
+        strcpy(mempcpy(mempcpy(s, f, a + 1), n, b), e);
 
         /* Make sure the resulting name still is valid, i.e. didn't grow too large */
         if (!unit_name_is_valid(s, UNIT_NAME_INSTANCE))

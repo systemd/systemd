@@ -1687,7 +1687,7 @@ static int make_service_name(const char *name, char **ret) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Invalid machine name %s.", name);
 
-        r = unit_name_build("systemd-nspawn", name, ".service", ret);
+        r = unit_name_build("systemd-nspawn", UNIT_ARG_INSTANCE(name), ".service", ret);
         if (r < 0)
                 return log_error_errno(r, "Failed to build unit name: %m");
 

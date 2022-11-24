@@ -272,7 +272,8 @@ static int find_paths_to_edit(
                         /* We follow unit aliases, but we need to propagate the instance */
                         if (unit_name_is_valid(*name, UNIT_NAME_UINSTANCE) &&
                             unit_name_is_valid(unit_name, UNIT_NAME_UTEMPLATE)) {
-                                _cleanup_free_ char *instance = NULL, *tmp_name = NULL;
+                                _cleanup_(unit_instance_freep) UnitInstanceArg instance = {};
+                                _cleanup_free_ char *tmp_name = NULL;
 
                                 r = unit_name_to_instance(*name, &instance);
                                 if (r < 0)

@@ -117,7 +117,7 @@ bool log_namespace_name_valid(const char *s) {
         if (strlen(s) > LOG_NAMESPACE_MAX)
                 return false;
 
-        if (!unit_instance_is_valid(s))
+        if (!unit_instance_is_valid(UNIT_ARG_INSTANCE(s)))
                 return false;
 
         if (!string_is_safe(s))

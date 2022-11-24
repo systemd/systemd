@@ -211,7 +211,8 @@ static int run(int argc, char *argv[]) {
                         if (arg_template) {
                                 char *x;
 
-                                r = unit_name_replace_instance(arg_template, e, &x);
+                                /* XXX UNIT_ARG_INSTANCE works for generation arg_template too) */
+                                r = unit_name_replace_instance(arg_template, UNIT_ARG_INSTANCE(e), &x);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to replace instance: %m");
 
@@ -228,13 +229,17 @@ static int run(int argc, char *argv[]) {
 
                         if (arg_template || arg_instance) {
                                 _cleanup_free_ char *template = NULL;
+                                _cleanup_(unit_instance_freep) UnitInstanceArg instance = {};
 
-                                r = unit_name_to_instance(*i, &name);
+                                r = unit_name_to_instance(*i, &instance);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to extract instance: %m");
-                                if (isempty(name))
+                                if (unit_instance_is_null(instance))
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                                "Unit %s is missing the instance name.", *i);
+                                r = unit_instance_to_string(instance, &name);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to extract instance: %m");
 
                                 r = unit_name_template(*i, &template);
                                 if (r < 0)

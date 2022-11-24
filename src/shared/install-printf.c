@@ -40,7 +40,7 @@ static int specifier_name(char specifier, const void *data, const char *root, co
         char *ans;
 
         if (unit_name_is_valid(i->name, UNIT_NAME_UTEMPLATE) && i->default_instance)
-                return unit_name_replace_instance(i->name, i->default_instance, ret);
+                return unit_name_replace_instance(i->name, UNIT_ARG_INSTANCE(i->default_instance), ret);
 
         ans = strdup(i->name);
         if (!ans)
@@ -57,7 +57,7 @@ static int specifier_prefix(char specifier, const void *data, const char *root, 
 
 static int specifier_instance(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const InstallInfo *i = ASSERT_PTR(userdata);
-        char *instance;
+        UnitInstanceArg instance;
         int r;
 
         r = unit_name_to_instance(i->name, &instance);
@@ -65,16 +65,18 @@ static int specifier_instance(char specifier, const void *data, const char *root
                 return r;
         /* XXX No generations in [Install] section */
         if (r & ~(UNIT_NAME_UTEMPLATE|UNIT_NAME_UINSTANCE)) {
+                unit_instance_free(instance);
                 return -EINVAL;
         }
 
-        if (isempty(instance)) {
-                r = free_and_strdup(&instance, strempty(i->default_instance));
-                if (r < 0)
-                        return r;
+        if (isempty(instance.instance)) {
+                unit_instance_free(instance);
+                instance.instance = strdup(strempty(i->default_instance));
+                if (!instance.instance)
+                        return -ENOMEM;
         }
 
-        *ret = instance;
+        *ret = (char *)instance.instance;
         return 0;
 }
 

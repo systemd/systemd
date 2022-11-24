@@ -76,11 +76,11 @@ int user_new(User **ret,
         if (r < 0)
                 return r;
 
-        r = unit_name_build("user", lu, ".service", &u->service);
+        r = unit_name_build("user", UNIT_ARG_INSTANCE(lu), ".service", &u->service);
         if (r < 0)
                 return r;
 
-        r = unit_name_build("user-runtime-dir", lu, ".service", &u->runtime_dir_service);
+        r = unit_name_build("user-runtime-dir", UNIT_ARG_INSTANCE(lu), ".service", &u->runtime_dir_service);
         if (r < 0)
                 return r;
 

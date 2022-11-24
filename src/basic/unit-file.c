@@ -72,7 +72,7 @@ int unit_symlink_name_compatible(const char *symlink, const char *target, bool i
 
 int unit_validate_alias_symlink_or_warn(int log_level, const char *filename, const char *target) {
         _cleanup_free_ char *src = NULL, *dst = NULL;
-        _cleanup_free_ char *src_instance = NULL, *dst_instance = NULL;
+        _cleanup_(unit_instance_freep) UnitInstanceArg src_instance = {}, dst_instance = {};
         UnitType src_unit_type, dst_unit_type;
         UnitNameFlags src_name_type, dst_name_type;
         int r;
@@ -137,9 +137,9 @@ int unit_validate_alias_symlink_or_warn(int log_level, const char *filename, con
                                       filename, dst);
 
         if (dst_name_type == UNIT_NAME_INSTANCE) {
-                assert(src_instance);
-                assert(dst_instance);
-                if (!streq(src_instance, dst_instance))
+                assert(!unit_instance_is_null(src_instance));
+                assert(!unit_instance_is_null(dst_instance));
+                if (!unit_instance_eq(src_instance, dst_instance))
                         return log_full_errno(log_level, SYNTHETIC_ERRNO(EXDEV),
                                               "%s: unit symlink target \"%s\" instance name doesn't match, rejecting.",
                                               filename, dst);
@@ -586,7 +586,8 @@ int unit_file_build_name_map(
         /* Let's also put the names in the reverse db. */
         const char *dummy, *src;
         HASHMAP_FOREACH_KEY(dummy, src, ids) {
-                _cleanup_free_ char *inst = NULL, *dst_inst = NULL;
+                _cleanup_(unit_instance_freep) UnitInstanceArg inst = {};
+                _cleanup_free_ char *dst_name = NULL;
                 const char *dst;
 
                 r = unit_ids_map_get(ids, src, &dst);
@@ -605,16 +606,17 @@ int unit_file_build_name_map(
                         if (t < 0)
                                 return log_error_errno(t, "Failed to extract instance part from %s: %m", src);
                         if (t == UNIT_NAME_INSTANCE) {
-                                r = unit_name_replace_instance(dst, inst, &dst_inst);
+                                r = unit_name_replace_instance(dst, inst, &dst_name);
                                 if (r < 0) {
                                         /* This might happen e.g. if the combined length is too large.
                                          * Let's not make too much of a fuss. */
-                                        log_debug_errno(r, "Failed to build alias name (%s + %s), ignoring: %m",
-                                                        dst, inst);
+                                        // XXX use proper unit_instance_to_string
+                                        log_debug_errno(r, "Failed to build alias name (%s + %s%s), ignoring: %m",
+                                                        dst, inst.instance, inst.generation);
                                         continue;
                                 }
 
-                                dst = dst_inst;
+                                dst = dst_name;
                         }
                 }
 
@@ -658,14 +660,14 @@ static int add_names(
                 const char *unit_name,
                 const char *fragment_basename,  /* Only set when adding additional names based on fragment path */
                 UnitNameFlags name_type,
-                const char *instance,
+                UnitInstanceArg instance,
                 Set **names,
                 const char *name) {
 
         char **aliases;
         int r;
 
-        assert(name_type == UNIT_NAME_PLAIN || instance);
+        assert(name_type == UNIT_NAME_PLAIN || !unit_instance_is_null(instance));
 
         /* The unit has its own name if it's not a template. If we're looking at a fragment, the fragment
          * name (possibly with instance inserted), is also always one of the unit names. */
@@ -687,8 +689,9 @@ static int add_names(
 
                         r = unit_name_replace_instance(*alias, instance, &inst);
                         if (r < 0)
-                                return log_debug_errno(r, "Cannot build instance name %s + %s: %m",
-                                                       *alias, instance);
+                                // XXX use proper unit_instance_to_string
+                                return log_debug_errno(r, "Cannot build instance name %s + %s%s: %m",
+                                                       *alias, instance.instance, instance.generation);
 
                         /* Exclude any aliases that point in some other direction.
                          *
@@ -723,7 +726,8 @@ int unit_file_find_fragment(
                 Set **ret_names) {
 
         const char *fragment = NULL;
-        _cleanup_free_ char *template = NULL, *instance = NULL;
+        _cleanup_free_ char *template = NULL;
+        _cleanup_(unit_instance_freep) UnitInstanceArg instance = {};
         _cleanup_set_free_ Set *names = NULL;
         int r;
 

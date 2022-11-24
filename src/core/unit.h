@@ -207,7 +207,7 @@ typedef struct Unit {
         Unit *merged_into;
 
         char *id;   /* The one special name that we use for identification */
-        char *instance;
+        UnitInstanceArg instance;
 
         Set *aliases; /* All the other names. */
 

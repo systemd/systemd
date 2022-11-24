@@ -6239,12 +6239,12 @@ int unit_load_fragment(Unit *u) {
                 id = filename;
 
                 if (unit_name_is_valid(id, UNIT_NAME_UTEMPLATE)) {
-                        assert(u->instance); /* If we're not trying to use a template for non-instanced unit,
-                                              * this must be set. */
+                        assert(u->instance.instance); /* If we're not trying to use a template for non-instanced unit,
+                                                       * this must be set. */
 
                         r = unit_name_replace_instance(id, u->instance, &free_id);
                         if (r < 0)
-                                return log_debug_errno(r, "Failed to build id (%s + %s): %m", id, u->instance);
+                                return log_debug_errno(r, "Failed to build id (%s + %s): %m", id, u->instance.instance);
                         id = free_id;
                 }
         }

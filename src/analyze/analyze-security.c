@@ -2865,8 +2865,7 @@ static int analyze_security(sd_bus *bus,
 
         } else
                 STRV_FOREACH(i, units) {
-                        _cleanup_free_ char *mangled = NULL, *instance = NULL;
-                        const char *name;
+                        _cleanup_free_ char *mangled = NULL, *name = NULL;
 
                         if (!FLAGS_SET(flags, ANALYZE_SECURITY_SHORT) && i != units) {
                                 putc('\n', stdout);
@@ -2883,13 +2882,11 @@ static int analyze_security(sd_bus *bus,
                                                        *i);
 
                         if (unit_name_is_valid(mangled, UNIT_NAME_TEMPLATE)) {
-                                r = unit_name_replace_instance(mangled, "test-instance", &instance);
+                                r = unit_name_replace_instance(mangled, UNIT_ARG_INSTANCE("test-instance"), &name);
                                 if (r < 0)
                                         return log_oom();
-
-                                name = instance;
                         } else
-                                name = mangled;
+                                name = TAKE_PTR(mangled);
 
                         r = analyze_security_one(bus, name, overview_table, flags, threshold, policy, pager_flags, json_format_flags);
                         if (r < 0 && ret >= 0)
