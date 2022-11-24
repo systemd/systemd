@@ -358,15 +358,11 @@ static int add_automount(
 
         _cleanup_free_ char *unit = NULL, *p = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        const char *opt = "noauto";
         int r;
 
         assert(id);
         assert(where);
         assert(description);
-
-        if (options)
-                opt = strjoina(options, ",", opt);
 
         r = add_mount(id,
                       what,
@@ -374,7 +370,7 @@ static int add_automount(
                       fstype,
                       rw,
                       growfs,
-                      opt,
+                      options,
                       description,
                       NULL);
         if (r < 0)
