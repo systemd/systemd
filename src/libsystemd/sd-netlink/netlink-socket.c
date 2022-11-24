@@ -255,7 +255,6 @@ int socket_read_message(sd_netlink *nl) {
         int r;
 
         assert(nl);
-        assert(nl->rbuffer);
 
         /* read nothing, just get the pending message size */
         r = socket_recv_message(nl->fd, NULL, 0, NULL, true);
