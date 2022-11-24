@@ -241,6 +241,24 @@ static int socket_recv_message(int fd, void *buf, size_t buf_size, uint32_t *ret
         return (int) n;
 }
 
+static sd_netlink_message *netlink_take_partial_message(sd_netlink *nl, uint32_t seqnum) {
+        assert(nl);
+
+        for (unsigned i = 0; i < nl->rqueue_partial_size; i++)
+                if (message_get_serial(nl->rqueue_partial[i]) == seqnum) {
+                        sd_netlink_message *found = nl->rqueue_partial[i];
+
+                        /* remove the message form the partial read queue */
+                        memmove(nl->rqueue_partial + i, nl->rqueue_partial + i + 1,
+                                sizeof(sd_netlink_message*) * (nl->rqueue_partial_size - i - 1));
+                        nl->rqueue_partial_size--;
+
+                        return found;
+                }
+
+        return NULL;
+}
+
 /* On success, the number of bytes received is returned and *ret points to the received message
  * which has a valid header and the correct size.
  * If nothing useful was received 0 is returned.
@@ -251,7 +269,6 @@ int socket_read_message(sd_netlink *nl) {
         bool multi_part = false, done = false;
         size_t len;
         uint32_t group;
-        unsigned i = 0;
         int r;
 
         assert(nl);
@@ -279,13 +296,7 @@ int socket_read_message(sd_netlink *nl) {
 
         if (nl->rbuffer->nlmsg_flags & NLM_F_MULTI) {
                 multi_part = true;
-
-                for (i = 0; i < nl->rqueue_partial_size; i++)
-                        if (message_get_serial(nl->rqueue_partial[i]) ==
-                            nl->rbuffer->nlmsg_seq) {
-                                first = nl->rqueue_partial[i];
-                                break;
-                        }
+                first = netlink_take_partial_message(nl, nl->rbuffer->nlmsg_seq);
         }
 
         for (struct nlmsghdr *new_msg = nl->rbuffer; NLMSG_OK(new_msg, len) && !done; new_msg = NLMSG_NEXT(new_msg, len)) {
@@ -358,28 +369,14 @@ int socket_read_message(sd_netlink *nl) {
                         return r;
 
                 nl->rqueue[nl->rqueue_size++] = TAKE_PTR(first);
-
-                if (multi_part && (i < nl->rqueue_partial_size)) {
-                        /* remove the message form the partial read queue */
-                        memmove(nl->rqueue_partial + i, nl->rqueue_partial + i + 1,
-                                sizeof(sd_netlink_message*) * (nl->rqueue_partial_size - i - 1));
-                        nl->rqueue_partial_size--;
-                }
-
                 return 1;
         } else {
-                /* we only got a partial multi-part message, push it on the
-                   partial read queue */
-                if (i < nl->rqueue_partial_size)
-                        nl->rqueue_partial[i] = TAKE_PTR(first);
-                else {
-                        r = netlink_rqueue_partial_make_room(nl);
-                        if (r < 0)
-                                return r;
+                /* we only got a partial multi-part message, push it on the partial read queue. */
+                r = netlink_rqueue_partial_make_room(nl);
+                if (r < 0)
+                        return r;
 
-                        nl->rqueue_partial[nl->rqueue_partial_size++] = TAKE_PTR(first);
-                }
-
+                nl->rqueue_partial[nl->rqueue_partial_size++] = TAKE_PTR(first);
                 return 0;
         }
 }
