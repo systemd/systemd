@@ -6388,11 +6388,6 @@ static int run(int argc, char *argv[]) {
                         return r;
         }
 
-#if 0
-        (void) context_dump_partitions(context, node);
-        putchar('\n');
-#endif
-
         r = context_read_seed(context, arg_root);
         if (r < 0)
                 return r;
