@@ -156,9 +156,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_filter_partitions, freep);
 
-typedef struct Partition Partition;
 typedef struct FreeArea FreeArea;
-typedef struct Context Context;
 
 typedef enum EncryptMode {
         ENCRYPT_OFF,
@@ -178,7 +176,7 @@ typedef enum VerityMode {
         _VERITY_MODE_INVALID = -EINVAL,
 } VerityMode;
 
-struct Partition {
+typedef struct Partition {
         char *definition_path;
         char **drop_in_files;
 
@@ -234,10 +232,10 @@ struct Partition {
         char *split_name_format;
         char *split_path;
 
-        Partition *siblings[_VERITY_MODE_MAX];
+        struct Partition *siblings[_VERITY_MODE_MAX];
 
-        LIST_FIELDS(Partition, partitions);
-};
+        LIST_FIELDS(struct Partition, partitions);
+} Partition;
 
 #define PARTITION_IS_FOREIGN(p) (!(p)->definition_path)
 #define PARTITION_EXISTS(p) (!!(p)->current_partition)
@@ -248,7 +246,7 @@ struct FreeArea {
         uint64_t allocated;
 };
 
-struct Context {
+typedef struct Context {
         LIST_HEAD(Partition, partitions);
         size_t n_partitions;
 
@@ -267,7 +265,7 @@ struct Context {
         int backing_fd;
 
         bool from_scratch;
-};
+} Context;
 
 static const char *encrypt_mode_table[_ENCRYPT_MODE_MAX] = {
         [ENCRYPT_OFF] = "off",
