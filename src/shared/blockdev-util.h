@@ -38,6 +38,7 @@ int get_block_device_harder_fd(int fd, dev_t *dev);
 int get_block_device_harder(const char *path, dev_t *dev);
 
 int lock_whole_block_device(dev_t devt, int operation);
+int lock_whole_disk_from_devname(const char *devname, int open_mode , int lock_mode);
 
 int blockdev_partscan_enabled(int fd);
 

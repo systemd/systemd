@@ -788,3 +788,58 @@ int blockdev_reread_partition_table(sd_device *dev) {
 
         return 0;
 }
+
+/**
+ * lock_whole_disk_from_devname
+ * @devname: devname of a block device, e.g., /dev/sda or /dev/sda1
+ * @open_mode: the mode to open the device, e.g., O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY
+ * @lock_mode: the mode to add flock, e.g., LOCK_EX|LOCK_NB
+ *
+ * given the devname of a block device, lock the whole disk
+ **/
+int lock_whole_disk_from_devname(const char *devname, int open_mode , int lock_mode){
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        const char *val;
+        int r;
+
+        r = sd_device_new_from_devname(&dev, devname);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get sd-device from devname %s: %m", devname);
+
+        r = sd_device_get_sysname(dev, &val);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get sysname: %m");
+
+        if (STARTSWITH_SET(val, "dm-", "md", "drbd")){
+                return -1;
+        }
+
+        r = block_device_get_whole_disk(dev, &dev);
+        if (IN_SET(r,
+                   -ENOTBLK, /* The device is not a block device. */
+                   -ENODEV   /* The whole disk device was not found, it may already be removed. */)){
+                return -1;
+        }
+
+        r = sd_device_get_devname(dev, &val);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get devname: %m");
+
+        int fd = sd_device_open(dev, open_mode);
+
+        if (fd < 0) {
+                bool ignore = ERRNO_IS_DEVICE_ABSENT(fd);
+
+                log_device_debug_errno(dev, fd, "Failed to open '%s'%s: %m", val, ignore ? ", ignoring" : "");
+                if (!ignore)
+                        return fd;
+
+                return -1;
+        }
+
+        if (flock(fd, lock_mode) < 0)
+                return log_device_debug_errno(dev, errno, "Failed to flock(%s): %m", val);
+
+        dev = sd_device_unref(dev);
+        return TAKE_FD(fd);
+}
