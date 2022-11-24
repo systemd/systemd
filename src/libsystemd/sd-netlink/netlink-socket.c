@@ -200,8 +200,11 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *ret_mcast_gr
         if (n < 0) {
                 if (n == -ENOBUFS)
                         return log_debug_errno(n, "sd-netlink: kernel receive buffer overrun");
-                if (ERRNO_IS_TRANSIENT(n))
+                if (ERRNO_IS_TRANSIENT(n)) {
+                        if (ret_mcast_group)
+                                *ret_mcast_group = 0;
                         return 0;
+                }
                 return (int) n;
         }
 
@@ -216,6 +219,8 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *ret_mcast_gr
                                 return (int) n;
                 }
 
+                if (ret_mcast_group)
+                        *ret_mcast_group = 0;
                 return 0;
         }
 
@@ -242,7 +247,7 @@ int socket_read_message(sd_netlink *nl) {
         bool multi_part = false, done = false;
         size_t len, allocated;
         struct iovec iov = {};
-        uint32_t group = 0;
+        uint32_t group;
         unsigned i = 0;
         int r;
 
