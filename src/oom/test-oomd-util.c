@@ -475,9 +475,9 @@ static void test_oomd_fetch_cgroup_oom_preference(void) {
 
         /* Assert that avoid/omit are not set if the cgroup and prefix are not
          * owned by the same user.*/
-        if (test_xattrs && !empty_or_root(ctx->path)) {
+        if (test_xattrs && !empty_or_root(cgroup)) {
                 ctx = oomd_cgroup_context_free(ctx);
-                assert_se(cg_set_access(SYSTEMD_CGROUP_CONTROLLER, cgroup, 65534, 0) >= 0);
+                assert_se(cg_set_access(SYSTEMD_CGROUP_CONTROLLER, cgroup, 61183, 0) >= 0);
                 assert_se(oomd_cgroup_context_acquire(cgroup, &ctx) == 0);
 
                 assert_se(oomd_fetch_cgroup_oom_preference(ctx, NULL) == 0);
