@@ -10,6 +10,7 @@
 
 bool dirent_is_file(const struct dirent *de) _pure_;
 bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix) _pure_;
+int dirent_ensure_type(int dir_fd, struct dirent *de);
 
 struct dirent *readdir_ensure_type(DIR *d);
 struct dirent *readdir_no_dot(DIR *dirp);
