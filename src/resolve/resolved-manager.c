@@ -868,10 +868,13 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
 }
 
 static int sendmsg_loop(int fd, struct msghdr *mh, int flags) {
+        usec_t end;
         int r;
 
         assert(fd >= 0);
         assert(mh);
+
+        end = usec_add(now(CLOCK_MONOTONIC), SEND_TIMEOUT_USEC);
 
         for (;;) {
                 if (sendmsg(fd, mh, flags) >= 0)
@@ -881,19 +884,25 @@ static int sendmsg_loop(int fd, struct msghdr *mh, int flags) {
                 if (errno != EAGAIN)
                         return -errno;
 
-                r = fd_wait_for_event(fd, POLLOUT, SEND_TIMEOUT_USEC);
-                if (r < 0)
+                r = fd_wait_for_event(fd, POLLOUT, LESS_BY(end, now(CLOCK_MONOTONIC)));
+                if (r < 0) {
+                        if (ERRNO_IS_TRANSIENT(r))
+                                continue;
                         return r;
+                }
                 if (r == 0)
                         return -ETIMEDOUT;
         }
 }
 
 static int write_loop(int fd, void *message, size_t length) {
+        usec_t end;
         int r;
 
         assert(fd >= 0);
         assert(message);
+
+        end = usec_add(now(CLOCK_MONOTONIC), SEND_TIMEOUT_USEC);
 
         for (;;) {
                 if (write(fd, message, length) >= 0)
@@ -903,9 +912,12 @@ static int write_loop(int fd, void *message, size_t length) {
                 if (errno != EAGAIN)
                         return -errno;
 
-                r = fd_wait_for_event(fd, POLLOUT, SEND_TIMEOUT_USEC);
-                if (r < 0)
+                r = fd_wait_for_event(fd, POLLOUT, LESS_BY(end, now(CLOCK_MONOTONIC)));
+                if (r < 0) {
+                        if (ERRNO_IS_TRANSIENT(r))
+                                continue;
                         return r;
+                }
                 if (r == 0)
                         return -ETIMEDOUT;
         }
