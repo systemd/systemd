@@ -272,7 +272,12 @@ int socket_read_message(sd_netlink *nl) {
                 return r;
         len = (size_t) r;
 
-        if (NLMSG_OK(nl->rbuffer, len) && nl->rbuffer->nlmsg_flags & NLM_F_MULTI) {
+        if (!NLMSG_OK(nl->rbuffer, len)) {
+                log_debug("sd-netlink: received invalid message, discarding %zu bytes of incoming message", len);
+                return 0;
+        }
+
+        if (nl->rbuffer->nlmsg_flags & NLM_F_MULTI) {
                 multi_part = true;
 
                 for (i = 0; i < nl->rqueue_partial_size; i++)
@@ -341,7 +346,7 @@ int socket_read_message(sd_netlink *nl) {
         }
 
         if (len > 0)
-                log_debug("sd-netlink: discarding %zu bytes of incoming message", len);
+                log_debug("sd-netlink: discarding trailing %zu bytes of incoming message", len);
 
         if (!first)
                 return 0;
