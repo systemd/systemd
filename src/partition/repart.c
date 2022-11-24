@@ -2354,26 +2354,43 @@ static int context_dump_partitions(Context *context) {
         _cleanup_(table_unrefp) Table *t = NULL;
         uint64_t sum_padding = 0, sum_size = 0;
         int r;
-        const size_t roothash_col = 13, dropin_files_col = 14;
-        bool has_roothash = false, has_dropin_files = false;
+        const size_t roothash_col = 13, dropin_files_col = 14, split_path_col = 15;
+        bool has_roothash = false, has_dropin_files = false, has_split_path = false;
 
         if ((arg_json_format_flags & JSON_FORMAT_OFF) && context->n_partitions == 0) {
                 log_info("Empty partition table.");
                 return 0;
         }
 
-        t = table_new("type", "label", "uuid", "file", "node", "offset", "old size", "raw size", "size", "old padding", "raw padding", "padding", "activity", "roothash", "drop-in files");
+        t = table_new("type",
+                      "label",
+                      "uuid",
+                      "file",
+                      "node",
+                      "offset",
+                      "old size",
+                      "raw size",
+                      "size",
+                      "old padding",
+                      "raw padding",
+                      "padding",
+                      "activity",
+                      "roothash",
+                      "drop-in files",
+                      "split path");
         if (!t)
                 return log_oom();
 
         if (!DEBUG_LOGGING) {
                 if (arg_json_format_flags & JSON_FORMAT_OFF)
                         (void) table_set_display(t, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4,
-                                                    (size_t) 8, (size_t) 11, roothash_col, dropin_files_col);
+                                                    (size_t) 8, (size_t) 11, roothash_col, dropin_files_col,
+                                                    split_path_col);
                 else
                         (void) table_set_display(t, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4,
                                                     (size_t) 5, (size_t) 6, (size_t) 7, (size_t) 9, (size_t) 10,
-                                                    (size_t) 12, roothash_col, dropin_files_col);
+                                                    (size_t) 12, roothash_col, dropin_files_col,
+                                                    split_path_col);
         }
 
         (void) table_set_align_percent(t, table_get_cell(t, 0, 5), 100);
@@ -2435,12 +2452,14 @@ static int context_dump_partitions(Context *context) {
                                 TABLE_STRING, padding_change, TABLE_SET_COLOR, !p->partitions_next && sum_padding > 0 ? ansi_underline() : NULL,
                                 TABLE_STRING, activity ?: "unchanged",
                                 TABLE_STRING, rh,
-                                TABLE_STRV, p->drop_in_files);
+                                TABLE_STRV, p->drop_in_files,
+                                TABLE_STRING, empty_to_null(p->split_path) ?: "-");
                 if (r < 0)
                         return table_log_add_error(r);
 
                 has_roothash = has_roothash || !isempty(rh);
                 has_dropin_files = has_dropin_files || !strv_isempty(p->drop_in_files);
+                has_split_path = has_split_path || !isempty(p->split_path);
         }
 
         if ((arg_json_format_flags & JSON_FORMAT_OFF) && (sum_padding > 0 || sum_size > 0)) {
@@ -2465,6 +2484,7 @@ static int context_dump_partitions(Context *context) {
                                 TABLE_STRING, b,
                                 TABLE_EMPTY,
                                 TABLE_EMPTY,
+                                TABLE_EMPTY,
                                 TABLE_EMPTY);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -2478,6 +2498,12 @@ static int context_dump_partitions(Context *context) {
 
         if (!has_dropin_files) {
                 r = table_hide_column_from_display(t, dropin_files_col);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set columns to display: %m");
+        }
+
+        if (!has_split_path) {
+                r = table_hide_column_from_display(t, split_path_col);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set columns to display: %m");
         }
