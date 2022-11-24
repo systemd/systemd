@@ -33,6 +33,7 @@ int readdir_all(int dir_fd,
         struct dirent *entry;
         DirectoryEntries *nde;
         size_t add, sz, j;
+        int r;
 
         assert(dir_fd >= 0);
 
@@ -84,6 +85,15 @@ int readdir_all(int dir_fd,
                 if (ignore_dirent(entry, flags))
                         continue;
 
+                if (FLAGS_SET(flags, RECURSE_DIR_ENSURE_TYPE)) {
+                        r = dirent_ensure_type(dir_fd, entry);
+                        if (r == -ENOENT)
+                                /* dentry gone by now? no problem, let's just suppress it */
+                                continue;
+                        if (r < 0)
+                                return r;
+                }
+
                 de->n_entries++;
         }
 
@@ -104,8 +114,14 @@ int readdir_all(int dir_fd,
                 if (ignore_dirent(entry, flags))
                         continue;
 
+                /* If d_type == DT_UNKNOWN that means we failed to ensure the type in the earlier loop and
+                 * didn't include the dentry in de->n_entries and as such should skip it here as well. */
+                if (FLAGS_SET(flags, RECURSE_DIR_ENSURE_TYPE) && entry->d_type == DT_UNKNOWN)
+                        continue;
+
                 de->entries[j++] = entry;
         }
+        assert(j == de->n_entries);
 
         if (FLAGS_SET(flags, RECURSE_DIR_SORT))
                 typesafe_qsort(de->entries, de->n_entries, sort_func);
@@ -160,7 +176,8 @@ int recurse_dir(
                         return r;
         }
 
-        r = readdir_all(dir_fd, flags, &de);
+        /* Mask out RECURSE_DIR_ENSURE_TYPE so we can do it ourselves and avoid an extra statx() call. */
+        r = readdir_all(dir_fd, flags & ~RECURSE_DIR_ENSURE_TYPE, &de);
         if (r < 0)
                 return r;
 
