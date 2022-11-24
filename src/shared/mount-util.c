@@ -36,6 +36,7 @@
 #include "set.h"
 #include "stat-util.h"
 #include "stdio-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
@@ -475,46 +476,40 @@ int bind_remount_one_with_mountinfo(
         return 0;
 }
 
-int mount_move_root(const char *path) {
-        assert(path);
+static const char *const mount_attr_propagation_type_table[_MOUNT_ATTR_PROPAGATION_TYPE_MAX] = {
+        [MOUNT_ATTR_PROPAGATION_INHERIT]   = "inherited",
+        [MOUNT_ATTR_PROPAGATION_PRIVATE]   = "private",
+        [MOUNT_ATTR_PROPAGATION_DEPENDENT] = "dependent",
+        [MOUNT_ATTR_PROPAGATION_SHARED]    = "shared",
+};
 
-        if (chdir(path) < 0)
-                return -errno;
+DEFINE_STRING_TABLE_LOOKUP(mount_attr_propagation_type, MountAttrPropagationType);
 
-        if (mount(path, "/", NULL, MS_MOVE, NULL) < 0)
-                return -errno;
-
-        if (chroot(".") < 0)
-                return -errno;
-
-        return RET_NERRNO(chdir("/"));
+unsigned int mount_attr_propagation_type_to_flag(MountAttrPropagationType t) {
+        switch (t) {
+        case MOUNT_ATTR_PROPAGATION_INHERIT:
+                return 0;
+        case MOUNT_ATTR_PROPAGATION_PRIVATE:
+                return MS_PRIVATE;
+        case MOUNT_ATTR_PROPAGATION_DEPENDENT:
+                return MS_SLAVE;
+        case MOUNT_ATTR_PROPAGATION_SHARED:
+                return MS_SHARED;
+        default:
+                assert_not_reached();
+        }
 }
 
-int mount_pivot_root(const char *path) {
-        _cleanup_close_ int fd_oldroot = -EBADF, fd_newroot = -EBADF;
-
-        assert(path);
-
-        /* pivot_root() isn't currently supported in the initramfs. */
-        if (in_initrd())
-                return mount_move_root(path);
+static inline int mount_switch_root_pivot(const char *path, int fd_newroot) {
+        _cleanup_close_ int fd_oldroot = -EBADF;
 
         fd_oldroot = open("/", O_PATH|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
         if (fd_oldroot < 0)
                 return log_debug_errno(errno, "Failed to open old rootfs");
 
-        fd_newroot = open(path, O_PATH|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
-        if (fd_newroot < 0)
-                return log_debug_errno(errno, "Failed to open new rootfs '%s': %m", path);
-
-        /* Change into the new rootfs. */
-        if (fchdir(fd_newroot) < 0)
-                return log_debug_errno(errno, "Failed to change into new rootfs '%s': %m", path);
-
         /* Let the kernel tuck the new root under the old one. */
         if (pivot_root(".", ".") < 0)
                 return log_debug_errno(errno, "Failed to pivot root to new rootfs '%s': %m", path);
-
 
         /* At this point the new root is tucked under the old root. If we want
          * to unmount it we cannot be fchdir()ed into it. So escape back to the
@@ -535,6 +530,52 @@ int mount_pivot_root(const char *path) {
         return 0;
 }
 
+static inline int mount_switch_root_move(const char *path) {
+        if (mount(path, "/", NULL, MS_MOVE, NULL) < 0)
+                return log_debug_errno(errno, "Failed to move new rootfs '%s': %m", path);
+
+        if (chroot(".") < 0)
+                return log_debug_errno(errno, "Failed to chroot to new rootfs '%s': %m", path);
+
+        if (chdir("/"))
+                return log_debug_errno(errno, "Failed to chdir to new rootfs '%s': %m", path);
+
+        return 0;
+}
+
+int mount_switch_root(const char *path, MountAttrPropagationType type) {
+        int r;
+        _cleanup_close_ int fd_newroot = -EBADF;
+        unsigned int flags;
+
+        assert(path);
+
+        fd_newroot = open(path, O_PATH|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        if (fd_newroot < 0)
+                return log_debug_errno(errno, "Failed to open new rootfs '%s': %m", path);
+
+        /* Change into the new rootfs. */
+        if (fchdir(fd_newroot) < 0)
+                return log_debug_errno(errno, "Failed to change into new rootfs '%s': %m", path);
+
+        r = mount_switch_root_pivot(path, fd_newroot);
+        if (r < 0) {
+                /* Failed to pivot_root() fallback to MS_MOVE. For example, this may happen if the
+                 * rootfs is an initramfs in which case pivot_root() isn't supported. */
+                log_debug_errno(r, "Failed to pivot into new rootfs '%s': %m", path);
+                r = mount_switch_root_move(path);
+        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to switch to new rootfs '%s': %m", path);
+
+        /* Finally, let's establish the requested propagation type. */
+        flags = mount_attr_propagation_type_to_flag(type);
+        if ((flags != 0) && mount(NULL, ".", NULL, flags|MS_REC, 0) < 0)
+                return log_debug_errno(errno, "Failed to turn new rootfs '%s' into %s mount: %m",
+                                       mount_attr_propagation_type_to_string(type), path);
+
+        return 0;
+}
 
 int repeat_unmount(const char *path, int flags) {
         bool done = false;
