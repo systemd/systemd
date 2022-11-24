@@ -8,11 +8,11 @@
 #include "stat-util.h"
 #include "string-util.h"
 
-static int dirent_ensure_type(DIR *d, struct dirent *de) {
+int dirent_ensure_type(int dir_fd, struct dirent *de) {
         STRUCT_STATX_DEFINE(sx);
         int r;
 
-        assert(d);
+        assert(dir_fd >= 0);
         assert(de);
 
         if (de->d_type != DT_UNKNOWN)
@@ -24,7 +24,7 @@ static int dirent_ensure_type(DIR *d, struct dirent *de) {
         }
 
         /* Let's ask only for the type, nothing else. */
-        r = statx_fallback(dirfd(d), de->d_name, AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT, STATX_TYPE, &sx);
+        r = statx_fallback(dir_fd, de->d_name, AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT, STATX_TYPE, &sx);
         if (r < 0)
                 return r;
 
@@ -80,7 +80,7 @@ struct dirent *readdir_ensure_type(DIR *d) {
                 if (!de)
                         return NULL;
 
-                r = dirent_ensure_type(d, de);
+                r = dirent_ensure_type(dirfd(d), de);
                 if (r >= 0)
                         return de;
                 if (r != -ENOENT) {
