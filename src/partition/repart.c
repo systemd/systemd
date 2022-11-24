@@ -261,6 +261,11 @@ struct Context {
         uint64_t grain_size;
 
         sd_id128_t seed;
+
+        char *node;
+        int backing_fd;
+
+        bool from_scratch;
 };
 
 static const char *encrypt_mode_table[_ENCRYPT_MODE_MAX] = {
@@ -451,6 +456,9 @@ static Context *context_free(Context *context) {
 
         if (context->fdisk_context)
                 fdisk_unref_context(context->fdisk_context);
+
+        safe_close(context->backing_fd);
+        free(context->node);
 
         return mfree(context);
 }
@@ -1903,11 +1911,7 @@ static int derive_uuid(sd_id128_t base, const char *token, sd_id128_t *ret) {
         return 0;
 }
 
-static int context_load_partition_table(
-                Context *context,
-                const char *node,
-                int *backing_fd) {
-
+static int context_load_partition_table(Context *context) {
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *t = NULL;
         uint64_t left_boundary = UINT64_MAX, first_lba, last_lba, nsectors;
@@ -1920,8 +1924,6 @@ static int context_load_partition_table(
         int r;
 
         assert(context);
-        assert(node);
-        assert(backing_fd);
         assert(!context->fdisk_context);
         assert(!context->free_areas);
         assert(context->start == UINT64_MAX);
@@ -1934,22 +1936,22 @@ static int context_load_partition_table(
 
         /* libfdisk doesn't have an API to operate on arbitrary fds, hence reopen the fd going via the
          * /proc/self/fd/ magic path if we have an existing fd. Open the original file otherwise. */
-        if (*backing_fd < 0)
-                r = fdisk_assign_device(c, node, arg_dry_run);
+        if (context->backing_fd < 0)
+                r = fdisk_assign_device(c, context->node, arg_dry_run);
         else
-                r = fdisk_assign_device(c, FORMAT_PROC_FD_PATH(*backing_fd), arg_dry_run);
+                r = fdisk_assign_device(c, FORMAT_PROC_FD_PATH(context->backing_fd), arg_dry_run);
         if (r == -EINVAL && arg_size_auto) {
                 struct stat st;
 
                 /* libfdisk returns EINVAL if opening a file of size zero. Let's check for that, and accept
                  * it if automatic sizing is requested. */
 
-                if (*backing_fd < 0)
-                        r = stat(node, &st);
+                if (context->backing_fd < 0)
+                        r = stat(context->node, &st);
                 else
-                        r = fstat(*backing_fd, &st);
+                        r = fstat(context->backing_fd, &st);
                 if (r < 0)
-                        return log_error_errno(errno, "Failed to stat block device '%s': %m", node);
+                        return log_error_errno(errno, "Failed to stat block device '%s': %m", context->node);
 
                 if (S_ISREG(st.st_mode) && st.st_size == 0) {
                         /* User the fallback values if we have no better idea */
@@ -1961,16 +1963,16 @@ static int context_load_partition_table(
                 r = -EINVAL;
         }
         if (r < 0)
-                return log_error_errno(r, "Failed to open device '%s': %m", node);
+                return log_error_errno(r, "Failed to open device '%s': %m", context->node);
 
-        if (*backing_fd < 0) {
+        if (context->backing_fd < 0) {
                 /* If we have no fd referencing the device yet, make a copy of the fd now, so that we have one */
-                *backing_fd = fd_reopen(fdisk_get_devfd(c), O_RDONLY|O_CLOEXEC);
-                if (*backing_fd < 0)
-                        return log_error_errno(*backing_fd, "Failed to duplicate fdisk fd: %m");
+                context->backing_fd = fd_reopen(fdisk_get_devfd(c), O_RDONLY|O_CLOEXEC);
+                if (context->backing_fd < 0)
+                        return log_error_errno(context->backing_fd, "Failed to duplicate fdisk fd: %m");
 
                 /* Tell udev not to interfere while we are processing the device */
-                if (flock(*backing_fd, arg_dry_run ? LOCK_SH : LOCK_EX) < 0)
+                if (flock(context->backing_fd, arg_dry_run ? LOCK_SH : LOCK_EX) < 0)
                         return log_error_errno(errno, "Failed to lock block device: %m");
         }
 
@@ -1996,7 +1998,7 @@ static int context_load_partition_table(
         case EMPTY_REFUSE:
                 /* Refuse empty disks, insist on an existing GPT partition table */
                 if (!fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
-                        return log_notice_errno(SYNTHETIC_ERRNO(EHWPOISON), "Disk %s has no GPT disk label, not repartitioning.", node);
+                        return log_notice_errno(SYNTHETIC_ERRNO(EHWPOISON), "Disk %s has no GPT disk label, not repartitioning.", context->node);
 
                 break;
 
@@ -2004,9 +2006,9 @@ static int context_load_partition_table(
                 /* Require an empty disk, refuse any existing partition table */
                 r = fdisk_has_label(c);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to determine whether disk %s has a disk label: %m", node);
+                        return log_error_errno(r, "Failed to determine whether disk %s has a disk label: %m", context->node);
                 if (r > 0)
-                        return log_notice_errno(SYNTHETIC_ERRNO(EHWPOISON), "Disk %s already has a disk label, refusing.", node);
+                        return log_notice_errno(SYNTHETIC_ERRNO(EHWPOISON), "Disk %s already has a disk label, refusing.", context->node);
 
                 from_scratch = true;
                 break;
@@ -2015,10 +2017,10 @@ static int context_load_partition_table(
                 /* Allow both an empty disk and an existing partition table, but only GPT */
                 r = fdisk_has_label(c);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to determine whether disk %s has a disk label: %m", node);
+                        return log_error_errno(r, "Failed to determine whether disk %s has a disk label: %m", context->node);
                 if (r > 0) {
                         if (!fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
-                                return log_notice_errno(SYNTHETIC_ERRNO(EHWPOISON), "Disk %s has non-GPT disk label, not repartitioning.", node);
+                                return log_notice_errno(SYNTHETIC_ERRNO(EHWPOISON), "Disk %s has non-GPT disk label, not repartitioning.", context->node);
                 } else
                         from_scratch = true;
 
@@ -2337,7 +2339,7 @@ static const char *partition_label(const Partition *p) {
         return gpt_partition_type_uuid_to_string(p->type.uuid);
 }
 
-static int context_dump_partitions(Context *context, const char *node) {
+static int context_dump_partitions(Context *context) {
         _cleanup_(table_unrefp) Table *t = NULL;
         uint64_t sum_padding = 0, sum_size = 0;
         int r;
@@ -2385,7 +2387,7 @@ static int context_dump_partitions(Context *context, const char *node) {
                         activity = "resize";
 
                 label = partition_label(p);
-                partname = p->partno != UINT64_MAX ? fdisk_partname(node, p->partno+1) : NULL;
+                partname = p->partno != UINT64_MAX ? fdisk_partname(context->node, p->partno+1) : NULL;
 
                 r = format_size_change(p->current_size, p->new_size, &size_change);
                 if (r < 0)
@@ -2554,7 +2556,7 @@ done:
         return 0;
 }
 
-static int context_dump_partition_bar(Context *context, const char *node) {
+static int context_dump_partition_bar(Context *context) {
         _cleanup_free_ Partition **bar = NULL;
         _cleanup_free_ size_t *start_array = NULL;
         Partition *last = NULL;
@@ -2630,7 +2632,7 @@ static int context_dump_partition_bar(Context *context, const char *node) {
                         } else if (i == context->n_partitions - j) {
                                 _cleanup_free_ char *hint = NULL;
 
-                                (void) partition_hint(p, node, &hint);
+                                (void) partition_hint(p, context->node, &hint);
 
                                 if (streq_ptr(line[start_array[j-1]], special_glyph(SPECIAL_GLYPH_TREE_VERTICAL)))
                                         d = strjoin(special_glyph(SPECIAL_GLYPH_TREE_BRANCH), " ", strna(hint));
@@ -2675,11 +2677,10 @@ static bool context_has_roothash(Context *context) {
         return false;
 }
 
-static int context_dump(Context *context, const char *node, bool late) {
+static int context_dump(Context *context, bool late) {
         int r;
 
         assert(context);
-        assert(node);
 
         if (arg_pretty == 0 && FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
                 return 0;
@@ -2694,7 +2695,7 @@ static int context_dump(Context *context, const char *node, bool late) {
         if (late && FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF) && !context_has_roothash(context))
                 return 0;
 
-        r = context_dump_partitions(context, node);
+        r = context_dump_partitions(context);
         if (r < 0)
                 return r;
 
@@ -2703,7 +2704,7 @@ static int context_dump(Context *context, const char *node, bool late) {
         if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF) && !late) {
                 putc('\n', stdout);
 
-                r = context_dump_partition_bar(context, node);
+                r = context_dump_partition_bar(context);
                 if (r < 0)
                         return r;
 
@@ -2946,7 +2947,7 @@ static int context_discard_gap_after(Context *context, Partition *p) {
         return 0;
 }
 
-static int context_wipe_and_discard(Context *context, bool from_scratch) {
+static int context_wipe_and_discard(Context *context) {
         int r;
 
         assert(context);
@@ -2967,7 +2968,7 @@ static int context_wipe_and_discard(Context *context, bool from_scratch) {
                 if (r < 0)
                         return r;
 
-                if (!from_scratch) {
+                if (!context->from_scratch) {
                         r = context_discard_partition(context, p);
                         if (r < 0)
                                 return r;
@@ -2978,7 +2979,7 @@ static int context_wipe_and_discard(Context *context, bool from_scratch) {
                 }
         }
 
-        if (!from_scratch) {
+        if (!context->from_scratch) {
                 r = context_discard_gap_after(context, NULL);
                 if (r < 0)
                         return r;
@@ -4488,18 +4489,17 @@ static int split_node(const char *node, char **ret_base, char **ret_ext) {
         return 0;
 }
 
-static int split_name_resolve(Context *context, const char *node) {
+static int split_name_resolve(Context *context) {
         _cleanup_free_ char *parent = NULL, *base = NULL, *ext = NULL;
         int r;
 
         assert(context);
-        assert(node);
 
-        r = path_extract_directory(node, &parent);
+        r = path_extract_directory(context->node, &parent);
         if (r < 0 && r != -EDESTADDRREQ)
-                return log_error_errno(r, "Failed to extract directory from %s: %m", node);
+                return log_error_errno(r, "Failed to extract directory from %s: %m", context->node);
 
-        r = split_node(node, &base, &ext);
+        r = split_node(context->node, &base, &ext);
         if (r < 0)
                 return r;
 
@@ -4547,19 +4547,18 @@ static int split_name_resolve(Context *context, const char *node) {
         return 0;
 }
 
-static int context_split(Context *context, const char *node) {
+static int context_split(Context *context) {
         int fd = -1, r;
 
         if (!arg_split)
                 return 0;
 
         assert(context);
-        assert(node);
 
         /* We can't do resolution earlier because the partition UUIDs for verity partitions are only filled
          * in after they've been generated. */
 
-        r = split_name_resolve(context, node);
+        r = split_name_resolve(context);
         if (r < 0)
                 return r;
 
@@ -4593,17 +4592,13 @@ static int context_split(Context *context, const char *node) {
         return 0;
 }
 
-static int context_write_partition_table(
-                Context *context,
-                const char *node,
-                bool from_scratch) {
-
+static int context_write_partition_table(Context *context) {
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *original_table = NULL;
         int capable, r;
 
         assert(context);
 
-        if (!from_scratch && !context_changed(context)) {
+        if (!context->from_scratch && !context_changed(context)) {
                 log_info("No changes.");
                 return 0;
         }
@@ -4615,7 +4610,7 @@ static int context_write_partition_table(
 
         log_info("Applying changes.");
 
-        if (from_scratch) {
+        if (context->from_scratch) {
                 r = context_wipe_range(context, 0, context->total);
                 if (r < 0)
                         return r;
@@ -4639,7 +4634,7 @@ static int context_write_partition_table(
 
         /* Wipe fs signatures and discard sectors where the new partitions are going to be placed and in the
          * gaps between partitions, just to be sure. */
-        r = context_wipe_and_discard(context, from_scratch);
+        r = context_wipe_and_discard(context);
         if (r < 0)
                 return r;
 
@@ -4669,7 +4664,7 @@ static int context_write_partition_table(
         else if (capable > 0) {
                 log_info("Telling kernel to reread partition table.");
 
-                if (from_scratch)
+                if (context->from_scratch)
                         r = fdisk_reread_partition_table(context->fdisk_context);
                 else
                         r = fdisk_reread_changes(context->fdisk_context, original_table);
@@ -4717,7 +4712,7 @@ static int context_read_seed(Context *context, const char *root) {
         return 0;
 }
 
-static int context_factory_reset(Context *context, bool from_scratch) {
+static int context_factory_reset(Context *context) {
         size_t n = 0;
         int r;
 
@@ -4726,7 +4721,7 @@ static int context_factory_reset(Context *context, bool from_scratch) {
         if (arg_factory_reset <= 0)
                 return 0;
 
-        if (from_scratch) /* Nothing to reset if we start from scratch */
+        if (context->from_scratch) /* Nothing to reset if we start from scratch */
                 return 0;
 
         if (arg_dry_run) {
@@ -5978,12 +5973,11 @@ static int acquire_root_devno(
         return 0;
 }
 
-static int find_root(char **ret, int *ret_fd) {
+static int find_root(Context *context) {
         _cleanup_free_ char *device = NULL;
         int r;
 
-        assert(ret);
-        assert(ret_fd);
+        assert(context);
 
         if (arg_node) {
                 if (arg_empty == EMPTY_CREATE) {
@@ -5998,14 +5992,14 @@ static int find_root(char **ret, int *ret_fd) {
                         if (fd < 0)
                                 return log_error_errno(errno, "Failed to create '%s': %m", arg_node);
 
-                        *ret = TAKE_PTR(s);
-                        *ret_fd = TAKE_FD(fd);
+                        context->node = TAKE_PTR(s);
+                        context->backing_fd = TAKE_FD(fd);
                         return 0;
                 }
 
                 /* Note that we don't specify a root argument here: if the user explicitly configured a node
                  * we'll take it relative to the host, not the image */
-                r = acquire_root_devno(arg_node, NULL, O_RDONLY|O_CLOEXEC, ret, ret_fd);
+                r = acquire_root_devno(arg_node, NULL, O_RDONLY|O_CLOEXEC, &context->node, &context->backing_fd);
                 if (r == -EUCLEAN)
                         return btrfs_log_dev_root(LOG_ERR, r, arg_node);
                 if (r < 0)
@@ -6027,7 +6021,8 @@ static int find_root(char **ret, int *ret_fd) {
 
                 FOREACH_STRING(p, "/", "/usr") {
 
-                        r = acquire_root_devno(p, arg_root, O_RDONLY|O_DIRECTORY|O_CLOEXEC, ret, ret_fd);
+                        r = acquire_root_devno(p, arg_root, O_RDONLY|O_DIRECTORY|O_CLOEXEC, &context->node,
+                                               &context->backing_fd);
                         if (r < 0) {
                                 if (r == -EUCLEAN)
                                         return btrfs_log_dev_root(LOG_ERR, r, p);
@@ -6039,7 +6034,7 @@ static int find_root(char **ret, int *ret_fd) {
         } else if (r < 0)
                 return log_error_errno(r, "Failed to read symlink /run/systemd/volatile-root: %m");
         else {
-                r = acquire_root_devno(device, NULL, O_RDONLY|O_CLOEXEC, ret, ret_fd);
+                r = acquire_root_devno(device, NULL, O_RDONLY|O_CLOEXEC, &context->node, &context->backing_fd);
                 if (r == -EUCLEAN)
                         return btrfs_log_dev_root(LOG_ERR, r, device);
                 if (r < 0)
@@ -6249,9 +6244,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_(context_freep) Context* context = NULL;
-        _cleanup_free_ char *node = NULL;
-        _cleanup_close_ int backing_fd = -1;
-        bool from_scratch, node_is_our_loop = false;
+        bool node_is_our_loop = false;
         int r;
 
         log_show_color(true);
@@ -6322,27 +6315,27 @@ static int run(int argc, char *argv[]) {
                 return 0;
         }
 
-        r = find_root(&node, &backing_fd);
+        r = find_root(context);
         if (r < 0)
                 return r;
 
         if (arg_size != UINT64_MAX) {
                 r = resize_backing_fd(
-                                node,
-                                &backing_fd,
+                                context->node,
+                                &context->backing_fd,
                                 node_is_our_loop ? arg_image : NULL,
                                 node_is_our_loop ? loop_device : NULL);
                 if (r < 0)
                         return r;
         }
 
-        r = context_load_partition_table(context, node, &backing_fd);
+        r = context_load_partition_table(context);
         if (r == -EHWPOISON)
                 return 77; /* Special return value which means "Not GPT, so not doing anything". This isn't
                             * really an error when called at boot. */
         if (r < 0)
                 return r;
-        from_scratch = r > 0; /* Starting from scratch */
+        context->from_scratch = r > 0; /* Starting from scratch */
 
         if (arg_can_factory_reset) {
                 r = context_can_factory_reset(context);
@@ -6354,7 +6347,7 @@ static int run(int argc, char *argv[]) {
                 return 0;
         }
 
-        r = context_factory_reset(context, from_scratch);
+        r = context_factory_reset(context);
         if (r < 0)
                 return r;
         if (r > 0) {
@@ -6365,7 +6358,7 @@ static int run(int argc, char *argv[]) {
 
                 /* Reload the reduced partition table */
                 context_unload_partition_table(context);
-                r = context_load_partition_table(context, node, &backing_fd);
+                r = context_load_partition_table(context);
                 if (r < 0)
                         return r;
         }
@@ -6407,14 +6400,14 @@ static int run(int argc, char *argv[]) {
 
                 assert(arg_size != UINT64_MAX);
                 r = resize_backing_fd(
-                                node,
-                                &backing_fd,
+                                context->node,
+                                &context->backing_fd,
                                 node_is_our_loop ? arg_image : NULL,
                                 node_is_our_loop ? loop_device : NULL);
                 if (r < 0)
                         return r;
 
-                r = context_load_partition_table(context, node, &backing_fd);
+                r = context_load_partition_table(context);
                 if (r < 0)
                         return r;
         }
@@ -6443,17 +6436,17 @@ static int run(int argc, char *argv[]) {
         /* Now calculate where each new partition gets placed */
         context_place_partitions(context);
 
-        (void) context_dump(context, node, /*late=*/ false);
+        (void) context_dump(context, /*late=*/ false);
 
-        r = context_write_partition_table(context, node, from_scratch);
+        r = context_write_partition_table(context);
         if (r < 0)
                 return r;
 
-        r = context_split(context, node);
+        r = context_split(context);
         if (r < 0)
                 return r;
 
-        (void) context_dump(context, node, /*late=*/ true);
+        (void) context_dump(context, /*late=*/ true);
 
         LIST_FOREACH(partitions, p, context->partitions)
                 p->split_path = mfree(p->split_path);
