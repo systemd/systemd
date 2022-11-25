@@ -244,7 +244,7 @@ int udev_varlink_call(Varlink *link, const char *method, JsonVariant *parameters
         return 0;
 }
 
-int udev_open_varlink(Manager *m) {
+int udev_open_varlink(Manager *m, int fd) {
         int r;
 
         assert(m);
@@ -266,7 +266,8 @@ int udev_open_varlink(Manager *m) {
                         "io.systemd.udev.StartExecQueue", vl_method_start_exec_queue,
                         "io.systemd.udev.StopExecQueue", vl_method_stop_exec_queue);
 
-        r = varlink_server_listen_address(m->varlink_server, UDEV_VARLINK_ADDRESS, 0600);
+        r = fd < 0 ? varlink_server_listen_address(m->varlink_server, UDEV_VARLINK_ADDRESS, 0600)
+                   : varlink_server_listen_fd(m->varlink_server, fd);
         if (r < 0)
                 return r;
 
