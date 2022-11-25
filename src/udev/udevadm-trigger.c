@@ -19,7 +19,6 @@
 #include "strv.h"
 #include "udevadm.h"
 #include "udevadm-util.h"
-#include "udev-ctrl.h"
 #include "udev-varlink.h"
 #include "virt.h"
 
@@ -452,15 +451,10 @@ int trigger_main(int argc, char *argv[], void *userdata) {
 
         if (ping) {
                 _cleanup_(varlink_close_unrefp) Varlink *link = NULL;
-                _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
 
                 r = udev_varlink_connect(&link);
                 if (r < 0)
                         return log_error_errno(r, "Failed to initialize varlink connection: %m");
-
-                r = udev_ctrl_new_with_link(&uctrl, link);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to initialize udev control: %m");
 
                 r = udev_varlink_call(link, "io.systemd.udev.Ping", NULL, NULL);
                 if (r < 0)
