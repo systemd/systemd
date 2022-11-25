@@ -635,8 +635,11 @@ DnsScopeMatch dns_scope_good_domain(
         if (dns_name_dont_resolve(domain))
                 return DNS_SCOPE_NO;
 
-        /* Never go to network for the _gateway or _outbound domain — they're something special, synthesized locally. */
-        if (is_gateway_hostname(domain) || is_outbound_hostname(domain))
+        /* Never go to network for the _gateway, _outbound, _localdnsstub, _localdnsproxy domain — they're something special, synthesized locally. */
+        if (is_gateway_hostname(domain) ||
+            is_outbound_hostname(domain) ||
+            is_dns_stub_hostname(domain) ||
+            is_dns_proxy_stub_hostname(domain))
                 return DNS_SCOPE_NO;
 
         switch (s->protocol) {
@@ -764,8 +767,6 @@ DnsScopeMatch dns_scope_good_domain(
                         return DNS_SCOPE_MAYBE;
 
                 if ((dns_name_is_single_label(domain) && /* only resolve single label names via LLMNR */
-                     !is_gateway_hostname(domain) && /* don't resolve "_gateway" with LLMNR, let local synthesizing logic handle that */
-                     !is_outbound_hostname(domain) && /* similar for "_outbound" */
                      dns_name_equal(domain, "local") == 0 && /* don't resolve "local" with LLMNR, it's the top-level domain of mDNS after all, see above */
                      manager_is_own_hostname(s->manager, domain) <= 0))  /* never resolve the local hostname via LLMNR */
                         return DNS_SCOPE_YES_BASE + 1; /* Return +1, as we consider ourselves authoritative

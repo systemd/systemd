@@ -56,6 +56,17 @@ echo nameserver 10.0.3.3 10.0.3.4 | "$RESOLVCONF" -a hoge.foo.dhcp
 assert_in '10.0.3.1 10.0.3.2' "$(resolvectl dns hoge)"
 assert_in '10.0.3.3 10.0.3.4' "$(resolvectl dns hoge.foo)"
 
+# Tests for _localdnsstub and _localdnsproxy
+assert_in '127.0.0.53' "$(resolvectl query _localdnsstub)"
+assert_in '_localdnsstub' "$(resolvectl query 127.0.0.53)"
+assert_in '127.0.0.54' "$(resolvectl query _localdnsproxy)"
+assert_in '_localdnsproxy' "$(resolvectl query 127.0.0.54)"
+
+assert_in '127.0.0.53' "$(dig @127.0.0.53 _localdnsstub)"
+assert_in '_localdnsstub' "$(dig @127.0.0.53 -x 127.0.0.53)"
+assert_in '127.0.0.54' "$(dig @127.0.0.53 _localdnsproxy)"
+assert_in '_localdnsproxy' "$(dig @127.0.0.53 -x 127.0.0.54)"
+
 # Tests for mDNS and LLMNR settings
 mkdir -p /run/systemd/resolved.conf.d
 {
