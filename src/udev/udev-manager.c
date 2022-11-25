@@ -1486,7 +1486,7 @@ int manager_main(Manager *manager) {
         if (r < 0)
                 return r;
 
-        r = manager_open_varlink(manager);
+        r = manager_open_varlink(manager, -EBADF);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize varlink server: %m");
 

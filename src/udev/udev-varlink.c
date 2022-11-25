@@ -198,7 +198,7 @@ int udev_varlink_call(sd_varlink *link, const char *method, sd_json_variant *par
         return 0;
 }
 
-int manager_open_varlink(Manager *m) {
+int manager_open_varlink(Manager *m, int fd) {
         int r;
 
         assert(m);
@@ -233,7 +233,8 @@ int manager_open_varlink(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_varlink_server_listen_address(m->varlink_server, UDEV_VARLINK_ADDRESS, 0600);
+        r = fd < 0 ? sd_varlink_server_listen_address(m->varlink_server, UDEV_VARLINK_ADDRESS, 0600)
+                   : sd_varlink_server_listen_fd(m->varlink_server, fd);
         if (r < 0)
                 return r;
 
