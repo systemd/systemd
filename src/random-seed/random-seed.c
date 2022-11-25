@@ -358,6 +358,8 @@ static int refresh_boot_seed(void) {
         }
         if (seed_fd < 0)
                 return log_error_errno(errno, "Failed to open EFI seed path: %m");
+        verify_random_seed_file_permissions(seed_fd);
+
         r = random_seed_size(seed_fd, &len);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine EFI seed path length: %m");

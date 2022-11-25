@@ -30,3 +30,5 @@ size_t random_pool_size(void);
 int random_write_entropy(int fd, const void *seed, size_t size, bool credit);
 
 uint64_t random_u64_range(uint64_t max);
+
+int verify_random_seed_file_permissions(int fd);
