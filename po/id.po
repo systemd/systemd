@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Indonesian translation for systemd.
-# Andika Triwidada <andika@gmail.com>, 2014, 2021.
+# Andika Triwidada <andika@gmail.com>, 2014, 2021, 2022.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2022-10-20 10:35+0200\n"
-"PO-Revision-Date: 2021-09-24 11:05+0000\n"
+"PO-Revision-Date: 2022-11-25 08:19+0000\n"
 "Last-Translator: Andika Triwidada <andika@gmail.com>\n"
 "Language-Team: Indonesian <https://translate.fedoraproject.org/projects/"
 "systemd/master/id/>\n"
@@ -15,7 +15,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 4.8\n"
+"X-Generator: Weblate 4.14.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -157,22 +157,19 @@ msgstr "Otentikasi diperlukan untuk mendapatkan UUID produk."
 
 #: src/hostname/org.freedesktop.hostname1.policy:61
 msgid "Get hardware serial number"
-msgstr ""
+msgstr "Dapatkan nomor seri perangkat keras"
 
 #: src/hostname/org.freedesktop.hostname1.policy:62
-#, fuzzy
 msgid "Authentication is required to get hardware serial number."
-msgstr "Otentikasi diperlukan untuk menyetel waktu sistem."
+msgstr "Otentikasi diperlukan untuk mendapatkan nomor seri perangkat keras."
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
-#, fuzzy
 msgid "Get system description"
-msgstr "Setel zona waktu sistem"
+msgstr "Dapatkan deskripsi sistem"
 
 #: src/hostname/org.freedesktop.hostname1.policy:72
-#, fuzzy
 msgid "Authentication is required to get system description."
-msgstr "Otentikasi diperlukan untuk menyetel zona waktu sistem."
+msgstr "Otentikasi diperlukan untuk mendapatkan deskripsi sistem."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
@@ -495,7 +492,7 @@ msgstr "Otentikasi diperlukan untuk menghibernasi sistem."
 
 #: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while other users are logged in"
-msgstr "Hibernasikan sistem ketika pengguna lain sedang log masuk."
+msgstr "Hibernasikan sistem ketika pengguna lain sedang log masuk"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
@@ -507,7 +504,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
-msgstr "Hibernasikan sistem ketika sebuah aplikasi meminta untuk mencegahnya."
+msgstr "Hibernasikan sistem ketika sebuah aplikasi meminta untuk mencegahnya"
 
 #: src/login/org.freedesktop.login1.policy:322
 msgid ""
