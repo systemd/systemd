@@ -5,12 +5,10 @@
 
 #include "macro.h"
 #include "time-util.h"
-#include "varlink.h"
 
 typedef struct UdevCtrl UdevCtrl;
 
 int udev_ctrl_new_from_fd(UdevCtrl **ret, int fd);
-int udev_ctrl_new_with_link(UdevCtrl **ret, Varlink *link);
 
 int udev_ctrl_enable_receiving(UdevCtrl *uctrl);
 UdevCtrl *udev_ctrl_ref(UdevCtrl *uctrl);
