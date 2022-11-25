@@ -6323,11 +6323,6 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        if (context->n_partitions <= 0 && arg_empty == EMPTY_REFUSE) {
-                log_info("Didn't find any partition definition files, nothing to do.");
-                return 0;
-        }
-
         r = find_root(&node, &backing_fd);
         if (r < 0)
                 return r;
