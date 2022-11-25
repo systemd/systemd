@@ -635,8 +635,11 @@ DnsScopeMatch dns_scope_good_domain(
         if (dns_name_dont_resolve(domain))
                 return DNS_SCOPE_NO;
 
-        /* Never go to network for the _gateway or _outbound domain — they're something special, synthesized locally. */
-        if (is_gateway_hostname(domain) || is_outbound_hostname(domain))
+        /* Never go to network for the _gateway, _outbound, _localdnsstub, _localdnsproxy domain — they're something special, synthesized locally. */
+        if (is_gateway_hostname(domain) ||
+            is_outbound_hostname(domain) ||
+            is_dns_stub_hostname(domain) ||
+            is_dns_proxy_stub_hostname(domain))
                 return DNS_SCOPE_NO;
 
         switch (s->protocol) {
