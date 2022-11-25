@@ -1838,6 +1838,65 @@ static int luks_format(
         return 0;
 }
 
+static int make_partition(
+                struct fdisk_partition *p,
+                const char *label,
+                sd_id128_t uuid) {
+        _cleanup_(fdisk_unref_parttypep) struct fdisk_parttype *t = NULL;
+        int r;
+
+        t = fdisk_new_parttype();
+        if (!t)
+                return log_oom();
+
+        r = fdisk_parttype_set_typestr(t, SD_GPT_USER_HOME_STR);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize partition type: %m");
+
+        r = fdisk_partition_set_type(p, t);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set partition type: %m");
+
+        r = fdisk_partition_set_name(p, label);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set partition name: %m");
+
+        r = fdisk_partition_set_uuid(p, SD_ID128_TO_UUID_STRING(uuid));
+        if (r < 0)
+                return log_error_errno(r, "Failed to set partition UUID: %m");
+
+        return 0;
+}
+
+static int query_partition_offset_and_size(
+                struct fdisk_context *c,
+                uint64_t partno,
+                uint64_t *ret_offset,
+                uint64_t *ret_size) {
+        _cleanup_(fdisk_unref_partitionp) struct fdisk_partition *q = NULL;
+        uint64_t offset, size;
+        int r;
+
+        r = fdisk_get_partition(c, partno, &q);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read created partition metadata: %m");
+
+        assert(fdisk_partition_has_start(q));
+        offset = fdisk_partition_get_start(q);
+        if (offset > UINT64_MAX / 512U)
+                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Partition offset too large.");
+
+        assert(fdisk_partition_has_size(q));
+        size = fdisk_partition_get_size(q);
+        if (size > UINT64_MAX / 512U)
+                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Partition size too large.");
+
+        *ret_offset = offset * 512U;
+        *ret_size = size * 512U;
+
+        return 0;
+}
+
 static int make_partition_table(
                 int fd,
                 uint32_t sector_size,
@@ -1847,11 +1906,10 @@ static int make_partition_table(
                 uint64_t *ret_size,
                 sd_id128_t *ret_disk_uuid) {
 
-        _cleanup_(fdisk_unref_partitionp) struct fdisk_partition *p = NULL, *q = NULL;
-        _cleanup_(fdisk_unref_parttypep) struct fdisk_parttype *t = NULL;
+        _cleanup_(fdisk_unref_partitionp) struct fdisk_partition *p = NULL;
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         _cleanup_free_ char *disk_uuid_as_string = NULL;
-        uint64_t offset, size, first_lba, start, last_lba, end;
+        uint64_t first_lba, start, last_lba, end;
         sd_id128_t disk_uuid;
         int r;
 
@@ -1859,14 +1917,6 @@ static int make_partition_table(
         assert(label);
         assert(ret_offset);
         assert(ret_size);
-
-        t = fdisk_new_parttype();
-        if (!t)
-                return log_oom();
-
-        r = fdisk_parttype_set_typestr(t, SD_GPT_USER_HOME_STR);
-        if (r < 0)
-                return log_error_errno(r, "Failed to initialize partition type: %m");
 
         r = fdisk_new_context_at(fd, /* path= */ NULL, /* read_only= */ false, sector_size, &c);
         if (r < 0)
@@ -1879,10 +1929,6 @@ static int make_partition_table(
         p = fdisk_new_partition();
         if (!p)
                 return log_oom();
-
-        r = fdisk_partition_set_type(p, t);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set partition type: %m");
 
         r = fdisk_partition_partno_follow_default(p, 1);
         if (r < 0)
@@ -1912,13 +1958,9 @@ static int make_partition_table(
         if (r < 0)
                 return log_error_errno(r, "Failed to end partition at offset %" PRIu64 ": %m", end);
 
-        r = fdisk_partition_set_name(p, label);
+        r = make_partition(p, label, uuid);
         if (r < 0)
-                return log_error_errno(r, "Failed to set partition name: %m");
-
-        r = fdisk_partition_set_uuid(p, SD_ID128_TO_UUID_STRING(uuid));
-        if (r < 0)
-                return log_error_errno(r, "Failed to set partition UUID: %m");
+                return r;
 
         r = fdisk_add_partition(c, p, NULL);
         if (r < 0)
@@ -1936,22 +1978,10 @@ static int make_partition_table(
         if (r < 0)
                 return log_error_errno(r, "Failed to parse disk label UUID: %m");
 
-        r = fdisk_get_partition(c, 0, &q);
+        r = query_partition_offset_and_size(c, 0, ret_offset, ret_size);
         if (r < 0)
-                return log_error_errno(r, "Failed to read created partition metadata: %m");
+                return r;
 
-        assert(fdisk_partition_has_start(q));
-        offset = fdisk_partition_get_start(q);
-        if (offset > UINT64_MAX / 512U)
-                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Partition offset too large.");
-
-        assert(fdisk_partition_has_size(q));
-        size = fdisk_partition_get_size(q);
-        if (size > UINT64_MAX / 512U)
-                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Partition size too large.");
-
-        *ret_offset = offset * 512U;
-        *ret_size = size * 512U;
         *ret_disk_uuid = disk_uuid;
 
         return 0;
