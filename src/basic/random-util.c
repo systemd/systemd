@@ -25,6 +25,7 @@
 #include "missing_random.h"
 #include "missing_syscall.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "random-util.h"
 #include "sha256.h"
 #include "time-util.h"
@@ -247,4 +248,35 @@ uint64_t random_u64_range(uint64_t m) {
         } while (x >= UINT64_MAX - remainder);
 
         return x % m;
+}
+
+/* Returns 1 if the seed file is okay, 0 if not, and < 0 on error determining. */
+int verify_random_seed_file_permissions(int seed_fd) {
+        _cleanup_free_ char *full_path = NULL, *prefix = NULL;
+        struct stat st;
+        int r;
+
+        if (fstat(seed_fd, &st) < 0)
+                return log_error_errno(errno, "Unable to fstat random seed file descriptor: %m");
+        if (!S_ISREG(st.st_mode))
+                return log_error_errno(EBADE, "Random seed file is not a regular file");
+        if (!(st.st_mode & 0007))
+                return 1;
+
+        r = fd_get_path(seed_fd, &full_path);
+        if (r < 0)
+                return log_error_errno(r, "Unable to determine full path of random seed file: %m");
+        prefix = malloc((strlen(full_path) ?: 1) + 1);
+        if (!prefix)
+                return log_error_errno(errno, "Unable to allocate prefix buffer: %m");
+        PATH_FOREACH_PREFIX(prefix, full_path) {
+                if (prefix[0] == '\0')
+                        memcpy(prefix, "/", 2);
+                if (stat(prefix, &st) < 0)
+                        return log_error_errno(errno, "Unable to stat '%s': %m", prefix);
+                if (!(st.st_mode & 0007))
+                        return 1;
+        }
+        log_emergency("DANGER ACHTUNG - Random seed file is world readable! - ACHTUNG DANGER");
+        return 0;
 }

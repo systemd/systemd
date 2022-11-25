@@ -2013,6 +2013,7 @@ static int install_random_seed(const char *esp) {
                 tmp = mfree(tmp);
                 return log_error_errno(fd, "Failed to open random seed file for writing: %m");
         }
+        verify_random_seed_file_permissions(fd);
 
         n = write(fd, buffer, sizeof(buffer));
         if (n < 0)
