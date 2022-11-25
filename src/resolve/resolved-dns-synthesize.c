@@ -217,7 +217,7 @@ static int synthesize_system_hostname_rr(Manager *m, const DnsResourceKey *key, 
                                 buffer[n++] = (struct local_address) {
                                         .family = AF_INET,
                                         .ifindex = LOOPBACK_IFINDEX,
-                                        .address.in.s_addr = htobe32(0x7F000002),
+                                        .address.in.s_addr = htobe32(INADDR_LOCALADDRESS),
                                 };
 
                         if (IN_SET(af, AF_INET6, AF_UNSPEC) && socket_ipv6_is_enabled())
@@ -245,7 +245,7 @@ static int synthesize_system_hostname_ptr(Manager *m, int af, const union in_add
         assert(address);
         assert(answer);
 
-        if (af == AF_INET && address->in.s_addr == htobe32(0x7F000002)) {
+        if (af == AF_INET && address->in.s_addr == htobe32(INADDR_LOCALADDRESS)) {
 
                 /* Always map the IPv4 address 127.0.0.2 to the local hostname, in addition to "localhost": */
 
