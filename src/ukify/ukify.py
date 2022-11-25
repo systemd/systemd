@@ -20,7 +20,6 @@ import subprocess
 import tempfile
 import typing
 
-import pefile
 
 __version__ = '{{GIT_VERSION}}'
 
@@ -66,6 +65,8 @@ def shell_join(cmd):
 
 
 def pe_executable_size(filename):
+    import pefile
+
     pe = pefile.PE(filename)
     section = pe.sections[-1]
     return section.VirtualAddress + section.Misc_VirtualSize
