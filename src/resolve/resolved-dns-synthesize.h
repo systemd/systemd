@@ -5,7 +5,6 @@
 #include "resolved-dns-question.h"
 #include "resolved-manager.h"
 
-int dns_synthesize_ifindex(int ifindex);
 int dns_synthesize_family(uint64_t flags);
 DnsProtocol dns_synthesize_protocol(uint64_t flags);
 
