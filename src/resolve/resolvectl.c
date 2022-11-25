@@ -480,7 +480,11 @@ static bool single_label_nonsynthetic(const char *name) {
         if (!dns_name_is_single_label(name))
                 return false;
 
-        if (is_localhost(name) || is_gateway_hostname(name))
+        if (is_localhost(name) ||
+            is_gateway_hostname(name) ||
+            is_outbound_hostname(name) ||
+            is_dns_stub_hostname(name) ||
+            is_dns_proxy_stub_hostname(name))
                 return false;
 
         r = resolve_system_hostname(NULL, &first_label);
