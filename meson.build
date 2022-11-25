@@ -2198,6 +2198,7 @@ subdir('src/test')
 subdir('src/fuzz')
 subdir('rules.d')
 subdir('test')
+subdir('src/ukify/test')  # needs to be last for test_env variable
 
 ############################################################
 
