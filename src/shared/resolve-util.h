@@ -11,6 +11,9 @@
 /* 127.0.0.54 in native endian (The IP address we listen on we only implement "proxy" mode) */
 #define INADDR_DNS_PROXY_STUB ((in_addr_t) 0x7f000036U)
 
+/* 127.0.0.2 is an address we always map to the local hostname. This is different from 127.0.0.1 which maps to "localhost" */
+#define INADDR_LOCALADDRESS ((in_addr_t) 0x7f000002U)
+
 typedef enum DnsCacheMode DnsCacheMode;
 
 enum DnsCacheMode {

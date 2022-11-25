@@ -7,20 +7,6 @@
 #include "missing_network.h"
 #include "resolved-dns-synthesize.h"
 
-int dns_synthesize_ifindex(int ifindex) {
-
-        /* When the caller asked for resolving on a specific
-         * interface, we synthesize the answer for that
-         * interface. However, if nothing specific was claimed and we
-         * only return localhost RRs, we synthesize the answer for
-         * localhost. */
-
-        if (ifindex > 0)
-                return ifindex;
-
-        return LOOPBACK_IFINDEX;
-}
-
 int dns_synthesize_family(uint64_t flags) {
 
         /* Picks an address family depending on set flags. This is
@@ -57,7 +43,7 @@ DnsProtocol dns_synthesize_protocol(uint64_t flags) {
         return DNS_PROTOCOL_DNS;
 }
 
-static int synthesize_localhost_rr(Manager *m, const DnsResourceKey *key, int ifindex, DnsAnswer **answer) {
+static int synthesize_localhost_rr(Manager *m, const DnsResourceKey *key, DnsAnswer **answer) {
         int r;
 
         assert(m);
@@ -77,7 +63,7 @@ static int synthesize_localhost_rr(Manager *m, const DnsResourceKey *key, int if
 
                 rr->a.in_addr.s_addr = htobe32(INADDR_LOOPBACK);
 
-                r = dns_answer_add(*answer, rr, dns_synthesize_ifindex(ifindex), DNS_ANSWER_AUTHENTICATED, NULL);
+                r = dns_answer_add(*answer, rr, LOOPBACK_IFINDEX, DNS_ANSWER_AUTHENTICATED, NULL);
                 if (r < 0)
                         return r;
         }
@@ -91,7 +77,7 @@ static int synthesize_localhost_rr(Manager *m, const DnsResourceKey *key, int if
 
                 rr->aaaa.in6_addr = in6addr_loopback;
 
-                r = dns_answer_add(*answer, rr, dns_synthesize_ifindex(ifindex), DNS_ANSWER_AUTHENTICATED, NULL);
+                r = dns_answer_add(*answer, rr, LOOPBACK_IFINDEX, DNS_ANSWER_AUTHENTICATED, NULL);
                 if (r < 0)
                         return r;
         }
@@ -113,7 +99,7 @@ static int answer_add_ptr(DnsAnswer **answer, const char *from, const char *to, 
         return dns_answer_add(*answer, rr, ifindex, flags, NULL);
 }
 
-static int synthesize_localhost_ptr(Manager *m, const DnsResourceKey *key, int ifindex, DnsAnswer **answer) {
+static int synthesize_localhost_ptr(Manager *m, const DnsResourceKey *key, DnsAnswer **answer) {
         int r;
 
         assert(m);
@@ -125,7 +111,7 @@ static int synthesize_localhost_ptr(Manager *m, const DnsResourceKey *key, int i
                 if (r < 0)
                         return r;
 
-                r = answer_add_ptr(answer, dns_resource_key_name(key), "localhost", dns_synthesize_ifindex(ifindex), DNS_ANSWER_AUTHENTICATED);
+                r = answer_add_ptr(answer, dns_resource_key_name(key), "localhost", LOOPBACK_IFINDEX, DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
         }
@@ -225,20 +211,19 @@ static int synthesize_system_hostname_rr(Manager *m, const DnsResourceKey *key, 
                 if (n == 0) {
                         struct local_address buffer[2];
 
-                        /* If we have no local addresses then use ::1
-                         * and 127.0.0.2 as local ones. */
+                        /* If we have no local addresses then use ::1 and 127.0.0.2 as local ones. */
 
                         if (IN_SET(af, AF_INET, AF_UNSPEC))
                                 buffer[n++] = (struct local_address) {
                                         .family = AF_INET,
-                                        .ifindex = dns_synthesize_ifindex(ifindex),
-                                        .address.in.s_addr = htobe32(0x7F000002),
+                                        .ifindex = LOOPBACK_IFINDEX,
+                                        .address.in.s_addr = htobe32(INADDR_LOCALADDRESS),
                                 };
 
                         if (IN_SET(af, AF_INET6, AF_UNSPEC) && socket_ipv6_is_enabled())
                                 buffer[n++] = (struct local_address) {
                                         .family = AF_INET6,
-                                        .ifindex = dns_synthesize_ifindex(ifindex),
+                                        .ifindex = LOOPBACK_IFINDEX,
                                         .address.in6 = in6addr_loopback,
                                 };
 
@@ -260,7 +245,7 @@ static int synthesize_system_hostname_ptr(Manager *m, int af, const union in_add
         assert(address);
         assert(answer);
 
-        if (af == AF_INET && address->in.s_addr == htobe32(0x7F000002)) {
+        if (af == AF_INET && address->in.s_addr == htobe32(INADDR_LOCALADDRESS)) {
 
                 /* Always map the IPv4 address 127.0.0.2 to the local hostname, in addition to "localhost": */
 
@@ -268,19 +253,19 @@ static int synthesize_system_hostname_ptr(Manager *m, int af, const union in_add
                 if (r < 0)
                         return r;
 
-                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", m->full_hostname, dns_synthesize_ifindex(ifindex), DNS_ANSWER_AUTHENTICATED);
+                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", m->full_hostname, LOOPBACK_IFINDEX, DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
 
-                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", m->llmnr_hostname, dns_synthesize_ifindex(ifindex), DNS_ANSWER_AUTHENTICATED);
+                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", m->llmnr_hostname, LOOPBACK_IFINDEX, DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
 
-                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", m->mdns_hostname, dns_synthesize_ifindex(ifindex), DNS_ANSWER_AUTHENTICATED);
+                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", m->mdns_hostname, LOOPBACK_IFINDEX, DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
 
-                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", "localhost", dns_synthesize_ifindex(ifindex), DNS_ANSWER_AUTHENTICATED);
+                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", "localhost", LOOPBACK_IFINDEX, DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
 
@@ -356,7 +341,90 @@ static int synthesize_gateway_rr(
         return 1; /* > 0 means: we have some gateway */
 }
 
-static int synthesize_gateway_ptr(Manager *m, int af, const union in_addr_union *address, int ifindex, DnsAnswer **answer) {
+static int synthesize_dns_stub_rr(
+                Manager *m,
+                const DnsResourceKey *key,
+                in_addr_t addr,
+                DnsAnswer **answer) {
+
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        int r;
+
+        assert(m);
+        assert(key);
+        assert(answer);
+
+        if (!IN_SET(key->type, DNS_TYPE_A, DNS_TYPE_ANY))
+                return 1; /* we still consider ourselves the owner of this name */
+
+        r = dns_answer_reserve(answer, 1);
+        if (r < 0)
+                return r;
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, dns_resource_key_name(key));
+        if (!rr)
+                return -ENOMEM;
+
+        rr->a.in_addr.s_addr = htobe32(addr);
+
+        r = dns_answer_add(*answer, rr, LOOPBACK_IFINDEX, DNS_ANSWER_AUTHENTICATED, NULL);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+static int synthesize_dns_stub_ptr(
+                Manager *m,
+                int af,
+                const union in_addr_union *address,
+                DnsAnswer **answer) {
+
+        int r;
+
+        assert(m);
+        assert(address);
+        assert(answer);
+
+        if (af != AF_INET)
+                return 0;
+
+        if (address->in.s_addr == htobe32(INADDR_DNS_STUB)) {
+
+                r = dns_answer_reserve(answer, 1);
+                if (r < 0)
+                        return r;
+
+                r = answer_add_ptr(answer, "53.0.0.127.in-addr.arpa", "_localdnsstub", LOOPBACK_IFINDEX, DNS_ANSWER_AUTHENTICATED);
+                if (r < 0)
+                        return r;
+
+                return 1;
+        }
+
+        if (address->in.s_addr == htobe32(INADDR_DNS_PROXY_STUB)) {
+
+                r = dns_answer_reserve(answer, 1);
+                if (r < 0)
+                        return r;
+
+                r = answer_add_ptr(answer, "54.0.0.127.in-addr.arpa", "_localdnsproxy", LOOPBACK_IFINDEX, DNS_ANSWER_AUTHENTICATED);
+                if (r < 0)
+                        return r;
+
+                return 1;
+        }
+
+        return 0;
+}
+
+static int synthesize_gateway_ptr(
+                Manager *m,
+                int af,
+                const union in_addr_union *address,
+                int ifindex,
+                DnsAnswer **answer) {
+
         _cleanup_free_ struct local_address *addresses = NULL;
         int n;
 
@@ -405,7 +473,7 @@ int dns_synthesize_answer(
 
                 } else if (is_localhost(name)) {
 
-                        r = synthesize_localhost_rr(m, key, ifindex, &answer);
+                        r = synthesize_localhost_rr(m, key, &answer);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to synthesize localhost RRs: %m");
 
@@ -437,15 +505,30 @@ int dns_synthesize_answer(
                                 continue;
                         }
 
-                } else if ((dns_name_endswith(name, "127.in-addr.arpa") > 0 && dns_name_equal(name, "2.0.0.127.in-addr.arpa") == 0) ||
+                } else if (is_dns_stub_hostname(name)) {
+
+                        r = synthesize_dns_stub_rr(m, key, INADDR_DNS_STUB, &answer);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to synthesize local DNS stub RRs: %m");
+
+                } else if (is_dns_proxy_stub_hostname(name)) {
+
+                        r = synthesize_dns_stub_rr(m, key, INADDR_DNS_PROXY_STUB, &answer);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to synthesize local DNS stub RRs: %m");
+
+                } else if ((dns_name_endswith(name, "127.in-addr.arpa") > 0 &&
+                            dns_name_equal(name, "2.0.0.127.in-addr.arpa") == 0 &&
+                            dns_name_equal(name, "53.0.0.127.in-addr.arpa") == 0 &&
+                            dns_name_equal(name, "54.0.0.127.in-addr.arpa") == 0) ||
                            dns_name_equal(name, "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0) {
 
-                        r = synthesize_localhost_ptr(m, key, ifindex, &answer);
+                        r = synthesize_localhost_ptr(m, key, &answer);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to synthesize localhost PTR RRs: %m");
 
                 } else if (dns_name_address(name, &af, &address) > 0) {
-                        int v, w;
+                        int v, w, u;
 
                         if (getenv_bool("SYSTEMD_RESOLVED_SYNTHESIZE_HOSTNAME") == 0)
                                 continue;
@@ -458,7 +541,11 @@ int dns_synthesize_answer(
                         if (w < 0)
                                 return log_error_errno(w, "Failed to synthesize gateway hostname PTR RR: %m");
 
-                        if (v == 0 && w == 0) /* This IP address is neither a local one nor a gateway */
+                        u = synthesize_dns_stub_ptr(m, af, &address, &answer);
+                        if (u < 0)
+                                return log_error_errno(u, "Failed to synthesize local stub hostname PTR PR: %m");
+
+                        if (v == 0 && w == 0 && u == 0) /* This IP address is neither a local one, nor a gateway, nor a stub address */
                                 continue;
 
                         /* Note that we never synthesize reverse PTR for _outbound, since those are local
