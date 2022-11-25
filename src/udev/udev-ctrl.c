@@ -308,25 +308,3 @@ int udev_ctrl_start(UdevCtrl *uctrl, udev_ctrl_handler_t callback, void *userdat
 
         return 0;
 }
-
-int udev_ctrl_send(UdevCtrl *uctrl, UdevCtrlMessageType type, const void *data) {
-        UdevCtrlMessageWire ctrl_msg_wire = {
-                .version = "udev-" STRINGIFY(PROJECT_VERSION),
-                .magic = UDEV_CTRL_MAGIC,
-                .type = type,
-        };
-
-        if (uctrl->maybe_disconnected)
-                return -ENOANO; /* to distinguish this from other errors. */
-
-        if (!uctrl->connected) {
-                if (connect(uctrl->sock, &uctrl->saddr.sa, uctrl->addrlen) < 0)
-                        return -errno;
-                uctrl->connected = true;
-        }
-
-        if (send(uctrl->sock, &ctrl_msg_wire, sizeof(ctrl_msg_wire), 0) < 0)
-                return -errno;
-
-        return 0;
-}

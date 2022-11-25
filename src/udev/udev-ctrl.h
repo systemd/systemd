@@ -31,6 +31,4 @@ int udev_ctrl_attach_event(UdevCtrl *uctrl, sd_event *event);
 int udev_ctrl_start(UdevCtrl *uctrl, udev_ctrl_handler_t callback, void *userdata);
 sd_event_source *udev_ctrl_get_event_source(UdevCtrl *uctrl);
 
-int udev_ctrl_send(UdevCtrl *uctrl, UdevCtrlMessageType type, const void *data);
-
 DEFINE_TRIVIAL_CLEANUP_FUNC(UdevCtrl*, udev_ctrl_unref);
