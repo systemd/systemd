@@ -19,14 +19,15 @@ udevadm_sources = files(
 )
 
 libudevd_core_sources = files(
-        'udev-ctrl.c',
-        'udev-ctrl.h',
         'udev-event.c',
         'udev-event.h',
+        'udev-manager.h',
         'udev-node.c',
         'udev-node.h',
         'udev-rules.c',
         'udev-rules.h',
+        'udev-varlink.c',
+        'udev-varlink.h',
         'udev-watch.c',
         'udev-watch.h',
         'udev-builtin.c',

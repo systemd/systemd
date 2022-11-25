@@ -130,7 +130,7 @@ _public_ unsigned long long int udev_queue_get_udev_seqnum(struct udev_queue *ud
  * Returns: a flag indicating if udev is active.
  **/
 _public_ int udev_queue_get_udev_is_active(struct udev_queue *udev_queue) {
-        return access("/run/udev/control", F_OK) >= 0;
+        return access("/run/udev/io.systemd.udev", F_OK) >= 0;
 }
 
 /**

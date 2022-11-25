@@ -64,10 +64,11 @@
 #include "syslog-util.h"
 #include "udevd.h"
 #include "udev-builtin.h"
-#include "udev-ctrl.h"
 #include "udev-event.h"
+#include "udev-manager.h"
 #include "udev-node.h"
 #include "udev-util.h"
+#include "udev-varlink.h"
 #include "udev-watch.h"
 #include "user-util.h"
 #include "version.h"
@@ -85,38 +86,7 @@ static usec_t arg_event_timeout_usec = 180 * USEC_PER_SEC;
 static int arg_timeout_signal = SIGKILL;
 static bool arg_blockdev_read_only = false;
 
-typedef struct Event Event;
 typedef struct Worker Worker;
-
-typedef struct Manager {
-        sd_event *event;
-        Hashmap *workers;
-        LIST_HEAD(Event, events);
-        char *cgroup;
-        pid_t pid; /* the process that originally allocated the manager object */
-        int log_level;
-
-        UdevRules *rules;
-        Hashmap *properties;
-
-        sd_netlink *rtnl;
-
-        sd_device_monitor *monitor;
-        UdevCtrl *ctrl;
-        int worker_watch[2];
-
-        /* used by udev-watch */
-        int inotify_fd;
-        sd_event_source *inotify_event;
-
-        sd_event_source *kill_workers_event;
-
-        usec_t last_usec;
-
-        bool udev_node_needs_cleanup;
-        bool stop_exec_queue;
-        bool exit;
-} Manager;
 
 typedef enum EventState {
         EVENT_UNDEF,
@@ -242,7 +212,7 @@ static void manager_clear_for_worker(Manager *manager) {
         event_queue_cleanup(manager, EVENT_UNDEF);
 
         manager->monitor = sd_device_monitor_unref(manager->monitor);
-        manager->ctrl = udev_ctrl_unref(manager->ctrl);
+        manager->varlink_server = varlink_server_unref(manager->varlink_server);
 
         manager->worker_watch[READ_END] = safe_close(manager->worker_watch[READ_END]);
 }
@@ -306,7 +276,7 @@ static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_
         return 0;
 }
 
-static void manager_kill_workers(Manager *manager, bool force) {
+void manager_kill_workers(Manager *manager, bool force) {
         Worker *worker;
 
         assert(manager);
@@ -325,7 +295,7 @@ static void manager_kill_workers(Manager *manager, bool force) {
         }
 }
 
-static void manager_exit(Manager *manager) {
+void manager_exit(Manager *manager) {
         assert(manager);
 
         manager->exit = true;
@@ -335,7 +305,7 @@ static void manager_exit(Manager *manager) {
                   "STATUS=Starting shutdown...");
 
         /* close sources of new events and discard buffered events */
-        manager->ctrl = udev_ctrl_unref(manager->ctrl);
+        manager->varlink_server = varlink_server_unref(manager->varlink_server);
 
         manager->inotify_event = sd_event_source_disable_unref(manager->inotify_event);
         manager->inotify_fd = safe_close(manager->inotify_fd);
@@ -358,7 +328,7 @@ static void notify_ready(void) {
 }
 
 /* reload requested, HUP signal received, rules changed, builtin changed */
-static void manager_reload(Manager *manager, bool force) {
+void manager_reload(Manager *manager, bool force) {
         _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
         usec_t now_usec;
         int r;
@@ -1229,122 +1199,6 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
         return 1;
 }
 
-/* receive the udevd message from userspace */
-static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrlMessageValue *value, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-        int r;
-
-        assert(value);
-
-        switch (type) {
-        case UDEV_CTRL_SET_LOG_LEVEL:
-                if ((value->intval & LOG_PRIMASK) != value->intval) {
-                        log_debug("Received invalid udev control message (SET_LOG_LEVEL, %i), ignoring.", value->intval);
-                        break;
-                }
-
-                log_debug("Received udev control message (SET_LOG_LEVEL), setting log_level=%i", value->intval);
-
-                r = log_get_max_level();
-                if (r == value->intval)
-                        break;
-
-                log_set_max_level(value->intval);
-                manager->log_level = value->intval;
-                manager_kill_workers(manager, false);
-                break;
-        case UDEV_CTRL_STOP_EXEC_QUEUE:
-                log_debug("Received udev control message (STOP_EXEC_QUEUE)");
-                manager->stop_exec_queue = true;
-                break;
-        case UDEV_CTRL_START_EXEC_QUEUE:
-                log_debug("Received udev control message (START_EXEC_QUEUE)");
-                manager->stop_exec_queue = false;
-                /* It is not necessary to call event_queue_start() here, as it will be called in on_post() if necessary. */
-                break;
-        case UDEV_CTRL_RELOAD:
-                log_debug("Received udev control message (RELOAD)");
-                manager_reload(manager, /* force = */ true);
-                break;
-        case UDEV_CTRL_SET_ENV: {
-                _unused_ _cleanup_free_ char *old_val = NULL;
-                _cleanup_free_ char *key = NULL, *val = NULL, *old_key = NULL;
-                const char *eq;
-
-                eq = strchr(value->buf, '=');
-                if (!eq) {
-                        log_error("Invalid key format '%s'", value->buf);
-                        return 1;
-                }
-
-                key = strndup(value->buf, eq - value->buf);
-                if (!key) {
-                        log_oom();
-                        return 1;
-                }
-
-                old_val = hashmap_remove2(manager->properties, key, (void **) &old_key);
-
-                r = hashmap_ensure_allocated(&manager->properties, &string_hash_ops);
-                if (r < 0) {
-                        log_oom();
-                        return 1;
-                }
-
-                eq++;
-                if (isempty(eq)) {
-                        log_debug("Received udev control message (ENV), unsetting '%s'", key);
-
-                        r = hashmap_put(manager->properties, key, NULL);
-                        if (r < 0) {
-                                log_oom();
-                                return 1;
-                        }
-                } else {
-                        val = strdup(eq);
-                        if (!val) {
-                                log_oom();
-                                return 1;
-                        }
-
-                        log_debug("Received udev control message (ENV), setting '%s=%s'", key, val);
-
-                        r = hashmap_put(manager->properties, key, val);
-                        if (r < 0) {
-                                log_oom();
-                                return 1;
-                        }
-                }
-
-                key = val = NULL;
-                manager_kill_workers(manager, false);
-                break;
-        }
-        case UDEV_CTRL_SET_CHILDREN_MAX:
-                if (value->intval <= 0) {
-                        log_debug("Received invalid udev control message (SET_MAX_CHILDREN, %i), ignoring.", value->intval);
-                        return 0;
-                }
-
-                log_debug("Received udev control message (SET_MAX_CHILDREN), setting children_max=%i", value->intval);
-                arg_children_max = value->intval;
-
-                notify_ready();
-                break;
-        case UDEV_CTRL_PING:
-                log_debug("Received udev control message (PING)");
-                break;
-        case UDEV_CTRL_EXIT:
-                log_debug("Received udev control message (EXIT)");
-                manager_exit(manager);
-                break;
-        default:
-                log_debug("Received unknown udev control message, ignoring");
-        }
-
-        return 1;
-}
-
 static int synthesize_change_one(sd_device *dev, sd_device *target) {
         int r;
 
@@ -1852,13 +1706,9 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent) {
                 .cgroup = TAKE_PTR(cgroup),
         };
 
-        r = udev_ctrl_new_from_fd(&manager->ctrl, fd_ctrl);
+        r = udev_open_varlink(manager);
         if (r < 0)
-                return log_error_errno(r, "Failed to initialize udev control socket: %m");
-
-        r = udev_ctrl_enable_receiving(manager->ctrl);
-        if (r < 0)
-                return log_error_errno(r, "Failed to bind udev control socket: %m");
+                return log_error_errno(r, "Failed to initialize varlink server: %m");
 
         r = device_monitor_new_full(&manager->monitor, MONITOR_GROUP_KERNEL, fd_uevent);
         if (r < 0)
@@ -1884,6 +1734,15 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent) {
         *ret = TAKE_PTR(manager);
 
         return 0;
+}
+
+void manager_set_children_max(Manager *manager, unsigned children) {
+        assert(manager);
+        assert(children > 0);
+
+        arg_children_max = children;
+
+        notify_ready();
 }
 
 static int main_loop(Manager *manager) {
@@ -1930,22 +1789,6 @@ static int main_loop(Manager *manager) {
         r = sd_event_set_watchdog(manager->event, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to create watchdog event source: %m");
-
-        r = udev_ctrl_attach_event(manager->ctrl, manager->event);
-        if (r < 0)
-                return log_error_errno(r, "Failed to attach event to udev control: %m");
-
-        r = udev_ctrl_start(manager->ctrl, on_ctrl_msg, manager);
-        if (r < 0)
-                return log_error_errno(r, "Failed to start device monitor: %m");
-
-        /* This needs to be after the inotify and uevent handling, to make sure
-         * that the ping is send back after fully processing the pending uevents
-         * (including the synthetic ones we may create due to inotify events).
-         */
-        r = sd_event_source_set_priority(udev_ctrl_get_event_source(manager->ctrl), SD_EVENT_PRIORITY_IDLE);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set IDLE event priority for udev control event source: %m");
 
         r = sd_event_add_io(manager->event, &manager->inotify_event, manager->inotify_fd, EPOLLIN, on_inotify, manager);
         if (r < 0)

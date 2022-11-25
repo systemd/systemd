@@ -5401,7 +5401,7 @@ static int cant_be_in_netns(void) {
         if (fd < 0)
                 return log_error_errno(errno, "Failed to allocate udev control socket: %m");
 
-        r = connect_unix_path(fd, AT_FDCWD, "/run/udev/control");
+        r = connect_unix_path(fd, AT_FDCWD, "/run/udev/io.systemd.udev");
         if (r < 0) {
                 if (r == -ENOENT || ERRNO_IS_DISCONNECT(r))
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),

@@ -75,7 +75,7 @@ fi
 %transfiletriggerin -P 1000600 udev -- {{UDEV_RULES_DIR}}
 # This script will automatically update udev with new rules if files
 # have been installed or updated in {{UDEV_RULES_DIR}}.
-if test -e /run/udev/control; then
+if test -e /run/udev/io.systemd.udev; then
   udevadm control --reload || :
 fi
 
