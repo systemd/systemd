@@ -18,6 +18,7 @@
 #include "daemon-util.h"
 #include "device-util.h"
 #include "dirent-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -299,11 +300,16 @@ static int manager_enumerate_linger_users(Manager *m) {
 
         FOREACH_DIRENT(de, d, return -errno) {
                 int k;
+                _cleanup_free_ char *n = NULL;
 
                 if (!dirent_is_file(de))
                         continue;
-
-                k = manager_add_user_by_name(m, de->d_name, NULL);
+                k = cunescape(de->d_name, 0, &n);
+                if (k < 0) {
+                        r = log_warning_errno(k, "Failed to unescape username '%s', ignoring: %m", de->d_name);
+                        continue;
+                }
+                k = manager_add_user_by_name(m, n, NULL);
                 if (k < 0)
                         r = log_warning_errno(k, "Couldn't add lingering user %s, ignoring: %m", de->d_name);
         }
