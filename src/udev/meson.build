@@ -17,7 +17,6 @@ udevadm_sources = files(
 )
 
 libudevd_core_sources = files(
-        'udev-ctrl.c',
         'udev-event.c',
         'udev-node.c',
         'udev-rules.c',
