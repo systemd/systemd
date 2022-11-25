@@ -6,7 +6,6 @@
 
 #include "hashmap.h"
 #include "list.h"
-#include "udev-ctrl.h"
 #include "udev-rules.h"
 #include "varlink.h"
 
@@ -26,7 +25,6 @@ typedef struct Manager {
         sd_netlink *rtnl;
 
         sd_device_monitor *monitor;
-        UdevCtrl *ctrl;
         VarlinkServer *varlink_server;
         int worker_watch[2];
 
