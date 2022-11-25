@@ -31,7 +31,6 @@ struct UdevCtrl {
         sd_event *event;
         sd_event_source *event_source;
         sd_event_source *event_source_connect;
-        Varlink *varlink;
         void *userdata;
 };
 
@@ -64,23 +63,6 @@ int udev_ctrl_new_from_fd(UdevCtrl **ret, int fd) {
         };
 
         uctrl->addrlen = SOCKADDR_UN_LEN(uctrl->saddr.un);
-
-        *ret = TAKE_PTR(uctrl);
-        return 0;
-}
-
-int udev_ctrl_new_with_link(UdevCtrl **ret, Varlink *link) {
-        UdevCtrl *uctrl;
-        int r;
-
-        assert(ret);
-        assert(link);
-
-        r = udev_ctrl_new_from_fd(&uctrl, -1);
-        if (r < 0)
-                return r;
-
-        uctrl->varlink = varlink_ref(link);
 
         *ret = TAKE_PTR(uctrl);
         return 0;
@@ -120,8 +102,6 @@ static UdevCtrl *udev_ctrl_free(UdevCtrl *uctrl) {
         safe_close(uctrl->sock);
 
         sd_event_unref(uctrl->event);
-
-        varlink_unref(uctrl->varlink);
 
         return mfree(uctrl);
 }
