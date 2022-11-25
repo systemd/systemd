@@ -64,7 +64,7 @@ static const char *user_disposition_to_color(UserDisposition d) {
         }
 }
 
-static int show_user(UserRecord *ur, Table *table) {
+static int show_user(UserRecord *ur, Table *table, JsonVariant **array) {
         int r;
 
         assert(ur);
@@ -86,7 +86,9 @@ static int show_user(UserRecord *ur, Table *table) {
                 break;
 
         case OUTPUT_JSON:
-                json_variant_dump(ur->json, arg_json_format_flags, NULL, 0);
+                r = json_variant_append_array(array, ur->json);
+                if (r < 0)
+                        return log_oom();
                 break;
 
         case OUTPUT_FRIENDLY:
@@ -99,11 +101,9 @@ static int show_user(UserRecord *ur, Table *table) {
 
                 break;
 
-        case OUTPUT_TABLE: {
-                UserDisposition d;
-
+        case OUTPUT_TABLE:
                 assert(table);
-                d = user_record_disposition(ur);
+                UserDisposition d = user_record_disposition(ur);
 
                 r = table_add_many(
                                 table,
@@ -121,7 +121,6 @@ static int show_user(UserRecord *ur, Table *table) {
                         return table_log_add_error(r);
 
                 break;
-        }
 
         default:
                 assert_not_reached();
@@ -342,6 +341,7 @@ static int table_add_uid_map(
 
 static int display_user(int argc, char *argv[], void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
         bool draw_separator = false;
         int ret = 0, r;
 
@@ -383,7 +383,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
                                 if (draw_separator && arg_output == OUTPUT_FRIENDLY)
                                         putchar('\n');
 
-                                r = show_user(ur, table);
+                                r = show_user(ur, table, &array);
                                 if (r < 0)
                                         return r;
 
@@ -400,7 +400,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
                         log_debug_errno(r, "No entries found.");
                 else if (r < 0)
                         return log_error_errno(r, "Failed to enumerate users: %m");
-                else {
+                else
                         for (;;) {
                                 _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
 
@@ -415,13 +415,12 @@ static int display_user(int argc, char *argv[], void *userdata) {
                                 if (draw_separator && arg_output == OUTPUT_FRIENDLY)
                                         putchar('\n');
 
-                                r = show_user(ur, table);
+                                r = show_user(ur, table, &array);
                                 if (r < 0)
                                         return r;
 
                                 draw_separator = true;
                         }
-                }
         }
 
         if (table) {
@@ -457,10 +456,15 @@ static int display_user(int argc, char *argv[], void *userdata) {
                 }
         }
 
+        if (arg_output == OUTPUT_JSON)
+                json_variant_dump(array,
+                                  arg_json_format_flags | JSON_FORMAT_EMPTY_ARRAY,
+                                  NULL, NULL);
+
         return ret;
 }
 
-static int show_group(GroupRecord *gr, Table *table) {
+static int show_group(GroupRecord *gr, Table *table, JsonVariant **array) {
         int r;
 
         assert(gr);
@@ -485,7 +489,9 @@ static int show_group(GroupRecord *gr, Table *table) {
         }
 
         case OUTPUT_JSON:
-                json_variant_dump(gr->json, arg_json_format_flags, NULL, 0);
+                r = json_variant_append_array(array, gr->json);
+                if (r < 0)
+                        return log_oom();
                 break;
 
         case OUTPUT_FRIENDLY:
@@ -498,11 +504,9 @@ static int show_group(GroupRecord *gr, Table *table) {
 
                 break;
 
-        case OUTPUT_TABLE: {
-                UserDisposition d;
-
+        case OUTPUT_TABLE:
                 assert(table);
-                d = group_record_disposition(gr);
+                UserDisposition d = group_record_disposition(gr);
 
                 r = table_add_many(
                                 table,
@@ -517,7 +521,6 @@ static int show_group(GroupRecord *gr, Table *table) {
                         return table_log_add_error(r);
 
                 break;
-        }
 
         default:
                 assert_not_reached();
@@ -646,6 +649,7 @@ static int add_unavailable_gid(Table *table, uid_t start, uid_t end) {
 
 static int display_group(int argc, char *argv[], void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
         bool draw_separator = false;
         int ret = 0, r;
 
@@ -686,7 +690,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
                                 if (draw_separator && arg_output == OUTPUT_FRIENDLY)
                                         putchar('\n');
 
-                                r = show_group(gr, table);
+                                r = show_group(gr, table, &array);
                                 if (r < 0)
                                         return r;
 
@@ -703,7 +707,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
                         log_debug_errno(r, "No entries found.");
                 else if (r < 0)
                         return log_error_errno(r, "Failed to enumerate groups: %m");
-                else {
+                else
                         for (;;) {
                                 _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
 
@@ -718,13 +722,12 @@ static int display_group(int argc, char *argv[], void *userdata) {
                                 if (draw_separator && arg_output == OUTPUT_FRIENDLY)
                                         putchar('\n');
 
-                                r = show_group(gr, table);
+                                r = show_group(gr, table, &array);
                                 if (r < 0)
                                         return r;
 
                                 draw_separator = true;
                         }
-                }
         }
 
         if (table) {
@@ -760,10 +763,15 @@ static int display_group(int argc, char *argv[], void *userdata) {
                 }
         }
 
+        if (arg_output == OUTPUT_JSON)
+                json_variant_dump(array,
+                                  arg_json_format_flags | JSON_FORMAT_EMPTY_ARRAY,
+                                  NULL, NULL);
+
         return ret;
 }
 
-static int show_membership(const char *user, const char *group, Table *table) {
+static int show_membership(const char *user, const char *group, Table *table, JsonVariant **array) {
         int r;
 
         assert(user);
@@ -785,9 +793,12 @@ static int show_membership(const char *user, const char *group, Table *table) {
                                                JSON_BUILD_PAIR("user", JSON_BUILD_STRING(user)),
                                                JSON_BUILD_PAIR("group", JSON_BUILD_STRING(group))));
                 if (r < 0)
-                        return log_error_errno(r, "Failed to build JSON object: %m");
+                        return log_oom();
 
-                json_variant_dump(v, arg_json_format_flags, NULL, NULL);
+                r = json_variant_append_array(array, v);
+                if (r < 0)
+                        return log_oom();
+
                 break;
         }
 
@@ -817,6 +828,7 @@ static int show_membership(const char *user, const char *group, Table *table) {
 
 static int display_memberships(int argc, char *argv[], void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
         int ret = 0, r;
 
         if (arg_output < 0)
@@ -856,7 +868,7 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed acquire next membership: %m");
 
-                                r = show_membership(user, group, table);
+                                r = show_membership(user, group, table, &array);
                                 if (r < 0)
                                         return r;
                         }
@@ -883,7 +895,7 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed acquire next membership: %m");
 
-                                r = show_membership(user, group, table);
+                                r = show_membership(user, group, table, &array);
                                 if (r < 0)
                                         return r;
                         }
@@ -904,6 +916,11 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
                                 printf("No memberships.\n");
                 }
         }
+
+        if (arg_output == OUTPUT_JSON)
+                json_variant_dump(array,
+                                  arg_json_format_flags | JSON_FORMAT_EMPTY_ARRAY,
+                                  NULL, NULL);
 
         return ret;
 }
@@ -962,7 +979,7 @@ static int display_services(int argc, char *argv[], void *userdata) {
                         return table_log_print_error(r);
         }
 
-        if (arg_legend) {
+        if (arg_legend && arg_output != OUTPUT_JSON) {
                 if (table_get_rows(t) > 1)
                         printf("\n%zu services listed.\n", table_get_rows(t) - 1);
                 else
@@ -1282,6 +1299,10 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
         }
+
+        if (arg_output == OUTPUT_JSON && streq_ptr(argv[optind], "ssh-authorized-keys"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Option --json= is not supported for verb ssh-authorized-keys.");
 
         return 1;
 }
