@@ -67,9 +67,9 @@ static bool arg_recursive = true;
 static bool arg_recursive_unset = false;
 
 static enum {
-        COUNT_PIDS,
         COUNT_USERSPACE_PROCESSES,
         COUNT_ALL_PROCESSES,
+        COUNT_PIDS,
 } arg_count = COUNT_PIDS;
 
 static enum {
@@ -916,6 +916,7 @@ static int run(int argc, char *argv[]) {
         usec_t last_refresh = 0;
         bool quit = false, immediate_refresh = false;
         _cleanup_free_ char *root = NULL;
+        typeof(arg_count) possible_count;
         CGroupMask mask;
         int r;
 
@@ -929,7 +930,8 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine supported controllers: %m");
 
-        arg_count = (mask & CGROUP_MASK_PIDS) ? COUNT_PIDS : COUNT_USERSPACE_PROCESSES;
+        possible_count = (mask & CGROUP_MASK_PIDS) ? COUNT_PIDS : COUNT_ALL_PROCESSES;
+        arg_count = MIN(possible_count, arg_count);
 
         if (arg_recursive_unset && arg_count == COUNT_PIDS)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
