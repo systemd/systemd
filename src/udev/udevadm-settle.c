@@ -16,7 +16,6 @@
 #include "path-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "udev-ctrl.h"
 #include "udev-util.h"
 #include "udev-varlink.h"
 #include "udevadm.h"
@@ -200,7 +199,6 @@ int settle_main(int argc, char *argv[], void *userdata) {
 
         if (getuid() == 0) {
                 _cleanup_(varlink_close_unrefp) Varlink *link = NULL;
-                _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
 
                 /* guarantee that the udev daemon isn't pre-processing */
 
@@ -211,10 +209,6 @@ int settle_main(int argc, char *argv[], void *userdata) {
                 r = varlink_set_relative_timeout(link, arg_timeout_usec);
                 if (r < 0)
                         return log_error_errno(r, "Failed to apply timeout: %m");
-
-                r = udev_ctrl_new_with_link(&uctrl, link);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create control socket for udev daemon: %m");
 
                 r = udev_varlink_call(link, "io.systemd.udev.Ping", NULL, NULL);
                 if (r < 0)
