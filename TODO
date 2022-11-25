@@ -125,6 +125,11 @@ Deprecations and removals:
 
 Features:
 
+* sd-boot: make boot loader spec type #1 accept http urls in "linux"
+  lines. THen, do the uefi http dance to download kernels and boot them. This
+  is then useful for network boot, by embdedding a cpio with type #1 snippets
+  in sd-boot, which reference remote kernels.
+
 * fix systemd-gpt-auto-generator in case a UKI is spawned from XBOOTLDR without
   sd-boot. In that case LoaderDevicePartUUID will point to the XBOOTLDR, and we
   should then derive the root disk from that, and then the ESP/XBOOTLDR from
@@ -143,6 +148,8 @@ Features:
   to make a parser for this reasonably robust. use same path structures as in
   the ESP. Similar add one for signature key drop-ins.
 
+* sd-boot: also allow passing in the cpio as in the previous item via SMBIOS
+
 * add a new EFI tool "sd-fetch" or so. It looks in a PE section ".url" for an
   URL, then downloads the file from it using UEFI HTTP APIs, and executes it.
   Usecase: provide a minimal ESP with sd-boot and a couple of these sd-fetch
@@ -158,6 +165,7 @@ Features:
   encrypted/verity root fs in UKI.
 
 * sd-stub: add ".bootcfg" section for kernel bootconfig data (as per
+  https://docs.kernel.org/admin-guide/bootconfig.html)
 
 * tpm2: add (optional) support for generating a local signing key from PCR 15
   state. use private key part to sign PCR 7+14 policies. stash signatures for
