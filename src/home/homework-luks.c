@@ -1987,6 +1987,57 @@ static int make_partition_table(
         return 0;
 }
 
+static int update_partition_table(
+                int fd,
+                uint32_t sector_size,
+                const char *label,
+                uint64_t partno,
+                sd_id128_t partition_uuid,
+                uint64_t *ret_offset,
+                uint64_t *ret_size,
+                sd_id128_t *ret_disk_uuid) {
+        uint64_t partition_offset = 0, partition_size = 0;
+        _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
+        _cleanup_(fdisk_unref_partitionp) struct fdisk_partition *p = NULL;
+        int r;
+
+        r = fdisk_new_context_at(fd, /* path= */ NULL, /* read_only= */ false, sector_size, &c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open device: %m");
+
+        if (!fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOMEDIUM), "Disk has no GPT partition table.");
+
+        r = fdisk_get_partition(c, partno, &p);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get partition %" PRIu64 ": %m", partno);
+
+        r = make_partition(p, label, partition_uuid);
+        if (r < 0)
+                return r;
+
+        r = fdisk_set_partition(c, partno, p);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set partition %" PRIu64 ": %m", partno);
+
+        r = fdisk_write_disklabel(c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write disk label: %m");
+
+        r = query_partition_offset_and_size(c, partno, &partition_offset, &partition_size);
+        if (r < 0)
+                return r;
+
+        r = sd_id128_from_string(ASSERT_PTR(fdisk_partition_get_uuid(p)), ret_disk_uuid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse disk label UUID: %m");
+
+        *ret_offset = partition_offset;
+        *ret_size = partition_size;
+
+        return 0;
+}
+
 static bool supported_fs_size(const char *fstype, uint64_t host_size) {
         uint64_t m;
 
@@ -2155,8 +2206,8 @@ int home_create_luks(
                 char **effective_passwords,
                 UserRecord **ret_home) {
 
-        _cleanup_free_ char *subdir = NULL, *disk_uuid_path = NULL;
-        uint64_t encrypted_size,
+        _cleanup_free_ char *subdir = NULL, *disk_uuid_path = NULL, *partno_buf = NULL;
+        uint64_t encrypted_size, partno,
                 host_size = 0, partition_offset = 0, partition_size = 0; /* Unnecessary initialization to appease gcc */
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         sd_id128_t partition_uuid, fs_uuid, luks_uuid, disk_uuid;
@@ -2165,6 +2216,8 @@ int home_create_luks(
         struct statfs sfs;
         int r;
         _cleanup_strv_free_ char **extra_mkfs_options = NULL;
+        bool is_partition = false;
+        dev_t dev_parent;
 
         assert(h);
         assert(h->storage < 0 || h->storage == USER_LUKS);
@@ -2248,11 +2301,34 @@ int home_create_luks(
 
                 if (asprintf(&sysfs, "/sys/dev/block/" DEVNUM_FORMAT_STR "/partition", DEVNUM_FORMAT_VAL(st.st_rdev)) < 0)
                         return log_oom();
-                if (access(sysfs, F_OK) < 0) {
+
+                if (read_virtual_file(sysfs, DECIMAL_STR_MAX(uint64_t) + 1, &partno_buf, NULL) < 0) {
                         if (errno != ENOENT)
                                 return log_error_errno(errno, "Failed to check whether %s exists: %m", sysfs);
-                } else
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Operating on partitions is currently not supported, sorry. Please specify a top-level block device.");
+                } else {
+                        _cleanup_free_ char *parent_path = NULL;
+
+                        is_partition = true;
+                        r = block_get_whole_disk(st.st_rdev, &dev_parent);
+                        if (r < 0)
+                                return r;
+
+                        r = safe_atou64(partno_buf, &partno);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse partition number: %m");
+
+                        if (partno <= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid partition number");
+                        partno--;
+
+                        r = device_path_make_canonical(S_IFBLK, dev_parent, &parent_path);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to build partition parent path: %m");
+
+                        setup->image_fd = open_image_file(h, parent_path, &st);
+                        if (setup->image_fd < 0)
+                                return setup->image_fd;
+                }
 
                 if (flock(setup->image_fd, LOCK_EX) < 0) /* make sure udev doesn't read from it while we operate on the device */
                         return log_error_errno(errno, "Failed to lock block device %s: %m", ip);
@@ -2326,14 +2402,25 @@ int home_create_luks(
                 log_info("Allocating image file completed.");
         }
 
-        r = make_partition_table(
-                        setup->image_fd,
-                        user_record_luks_sector_size(h),
-                        user_record_user_name_and_realm(h),
-                        partition_uuid,
-                        &partition_offset,
-                        &partition_size,
-                        &disk_uuid);
+        if (!is_partition)
+                r = make_partition_table(
+                                setup->image_fd,
+                                user_record_luks_sector_size(h),
+                                user_record_user_name_and_realm(h),
+                                partition_uuid,
+                                &partition_offset,
+                                &partition_size,
+                                &disk_uuid);
+        else
+                r = update_partition_table(
+                                setup->image_fd,
+                                user_record_luks_sector_size(h),
+                                user_record_user_name_and_realm(h),
+                                partno,
+                                partition_uuid,
+                                &partition_offset,
+                                &partition_size,
+                                &disk_uuid);
         if (r < 0)
                 return r;
 

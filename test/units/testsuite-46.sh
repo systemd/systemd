@@ -150,6 +150,23 @@ if ! systemd-detect-virt -cq ; then
     homectl rebalance
     inspect test-user
     inspect test-user2
+
+    # loop device are not available inside containers
+    imgs="$(mktemp --directory "/var/tmp/test-homed.XXXXXXXXXX")"
+    truncate -s 1G "$imgs/disk.img"
+    sfdisk "$imgs/disk.img" <<EOF
+label: gpt
+device: disk
+unit: sectors
+first-sector: 2048
+sector-size: 512
+
+disk1 : size 500M
+EOF
+    DISK_LOOPBACK=$(losetup --find --show --partscan "$imgs/disk.img")
+    PART_LOOPBACK="${DISK_LOOPBACK}p1"
+    PASSWORD=7NZCKHrYlI homectl create test-user3 --storage=luks --image-path="$PART_LOOPBACK" --fs-type=ext4
+    inspect test-user3
 fi
 
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- test ! -f /home/test-user/xyz
