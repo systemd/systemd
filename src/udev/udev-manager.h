@@ -61,7 +61,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 int manager_init(Manager *manager, int fd_ctrl, int fd_uevent);
 int manager_main(Manager *manager);
 
-int manager_open_varlink(Manager *m);
+int manager_open_varlink(Manager *m, int fd);
 
 void manager_reload(Manager *manager, bool force);
 void manager_set_log_level(Manager *manager, int level);

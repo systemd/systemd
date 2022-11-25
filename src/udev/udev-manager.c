@@ -1305,7 +1305,7 @@ int manager_init(Manager *manager, int fd_ctrl, int fd_uevent) {
         if (r < 0)
                 return log_error_errno(r, "Failed to bind udev control socket: %m");
 
-        r = manager_open_varlink(manager);
+        r = manager_open_varlink(manager, -EBADF);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize varlink server: %m");
 
