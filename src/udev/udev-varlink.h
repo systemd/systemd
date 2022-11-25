@@ -6,7 +6,7 @@
 
 typedef struct Manager Manager;
 
-int udev_open_varlink(Manager *m);
+int udev_open_varlink(Manager *m, int fd);
 
 int udev_varlink_connect(Varlink **ret_link);
 int udev_varlink_call(Varlink *link, const char *method, JsonVariant *parameters, JsonVariant **ret_parameters);
