@@ -19,16 +19,6 @@
 #include "strxcpyx.h"
 #include "udev-ctrl.h"
 
-/* wire protocol magic must match */
-#define UDEV_CTRL_MAGIC                                0xdead1dea
-
-typedef struct UdevCtrlMessageWire {
-        char version[16];
-        unsigned magic;
-        UdevCtrlMessageType type;
-        UdevCtrlMessageValue value;
-} UdevCtrlMessageWire;
-
 struct UdevCtrl {
         unsigned n_ref;
         int sock;
@@ -41,7 +31,6 @@ struct UdevCtrl {
         sd_event *event;
         sd_event_source *event_source;
         sd_event_source *event_source_connect;
-        udev_ctrl_handler_t callback;
         Varlink *varlink;
         void *userdata;
 };
@@ -170,141 +159,3 @@ static void udev_ctrl_disconnect_and_listen_again(UdevCtrl *uctrl) {
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(UdevCtrl*, udev_ctrl_disconnect_and_listen_again, NULL);
-
-static int udev_ctrl_connection_event_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(udev_ctrl_disconnect_and_listen_againp) UdevCtrl *uctrl = NULL;
-        UdevCtrlMessageWire msg_wire;
-        struct iovec iov = IOVEC_MAKE(&msg_wire, sizeof(UdevCtrlMessageWire));
-        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
-        struct msghdr smsg = {
-                .msg_iov = &iov,
-                .msg_iovlen = 1,
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-        };
-        struct cmsghdr *cmsg;
-        struct ucred *cred;
-        ssize_t size;
-
-        assert(userdata);
-
-        /* When UDEV_CTRL_EXIT is received, manager unref udev_ctrl object.
-         * To avoid the object freed, let's increment the refcount. */
-        uctrl = udev_ctrl_ref(userdata);
-
-        size = next_datagram_size_fd(fd);
-        if (size < 0)
-                return log_error_errno(size, "Failed to get size of message: %m");
-        if (size == 0)
-                return 0; /* Client disconnects? */
-
-        size = recvmsg_safe(fd, &smsg, 0);
-        if (size == -EINTR)
-                return 0;
-        if (size < 0)
-                return log_error_errno(size, "Failed to receive ctrl message: %m");
-
-        cmsg_close_all(&smsg);
-
-        cmsg = CMSG_FIRSTHDR(&smsg);
-
-        if (!cmsg || cmsg->cmsg_type != SCM_CREDENTIALS) {
-                log_error("No sender credentials received, ignoring message");
-                return 0;
-        }
-
-        cred = (struct ucred *) CMSG_DATA(cmsg);
-
-        if (cred->uid != 0) {
-                log_error("Invalid sender uid "UID_FMT", ignoring message", cred->uid);
-                return 0;
-        }
-
-        if (msg_wire.magic != UDEV_CTRL_MAGIC) {
-                log_error("Message magic 0x%08x doesn't match, ignoring message", msg_wire.magic);
-                return 0;
-        }
-
-        if (msg_wire.type == _UDEV_CTRL_END_MESSAGES)
-                return 0;
-
-        if (uctrl->callback)
-                (void) uctrl->callback(uctrl, msg_wire.type, &msg_wire.value, uctrl->userdata);
-
-        /* Do not disconnect and wait for next message. */
-        uctrl = udev_ctrl_unref(uctrl);
-        return 0;
-}
-
-static int udev_ctrl_event_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        UdevCtrl *uctrl = ASSERT_PTR(userdata);
-        _cleanup_close_ int sock = -EBADF;
-        struct ucred ucred;
-        int r;
-
-        sock = accept4(fd, NULL, NULL, SOCK_CLOEXEC|SOCK_NONBLOCK);
-        if (sock < 0) {
-                if (ERRNO_IS_ACCEPT_AGAIN(errno))
-                        return 0;
-
-                return log_error_errno(errno, "Failed to accept ctrl connection: %m");
-        }
-
-        /* check peer credential of connection */
-        r = getpeercred(sock, &ucred);
-        if (r < 0) {
-                log_error_errno(r, "Failed to receive credentials of ctrl connection: %m");
-                return 0;
-        }
-
-        if (ucred.uid > 0) {
-                log_error("Invalid sender uid "UID_FMT", closing connection", ucred.uid);
-                return 0;
-        }
-
-        /* enable receiving of the sender credentials in the messages */
-        r = setsockopt_int(sock, SOL_SOCKET, SO_PASSCRED, true);
-        if (r < 0)
-                log_warning_errno(r, "Failed to set SO_PASSCRED, ignoring: %m");
-
-        r = sd_event_add_io(uctrl->event, &uctrl->event_source_connect, sock, EPOLLIN, udev_ctrl_connection_event_handler, uctrl);
-        if (r < 0) {
-                log_error_errno(r, "Failed to create event source for udev control connection: %m");
-                return 0;
-        }
-
-        (void) sd_event_source_set_description(uctrl->event_source_connect, "udev-ctrl-connection");
-
-        /* Do not accept multiple connection. */
-        (void) sd_event_source_set_enabled(uctrl->event_source, SD_EVENT_OFF);
-
-        uctrl->sock_connect = TAKE_FD(sock);
-        return 0;
-}
-
-int udev_ctrl_start(UdevCtrl *uctrl, udev_ctrl_handler_t callback, void *userdata) {
-        int r;
-
-        assert(uctrl);
-
-        if (!uctrl->event) {
-                r = udev_ctrl_attach_event(uctrl, NULL);
-                if (r < 0)
-                        return r;
-        }
-
-        r = udev_ctrl_enable_receiving(uctrl);
-        if (r < 0)
-                return r;
-
-        uctrl->callback = callback;
-        uctrl->userdata = userdata;
-
-        r = sd_event_add_io(uctrl->event, &uctrl->event_source, uctrl->sock, EPOLLIN, udev_ctrl_event_handler, uctrl);
-        if (r < 0)
-                return r;
-
-        (void) sd_event_source_set_description(uctrl->event_source, "udev-ctrl");
-
-        return 0;
-}
