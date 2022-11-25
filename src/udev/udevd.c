@@ -1213,18 +1213,6 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
         return 1;
 }
 
-/* receive the udevd message from userspace */
-static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrlMessageValue *value, void *userdata) {
-        assert(value);
-
-        switch (type) {
-        default:
-                log_debug("Received unknown udev control message, ignoring");
-        }
-
-        return 1;
-}
-
 static int synthesize_change_one(sd_device *dev, sd_device *target) {
         int r;
 
@@ -1850,10 +1838,6 @@ static int main_loop(Manager *manager) {
         r = udev_ctrl_attach_event(manager->ctrl, manager->event);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach event to udev control: %m");
-
-        r = udev_ctrl_start(manager->ctrl, on_ctrl_msg, manager);
-        if (r < 0)
-                return log_error_errno(r, "Failed to start device monitor: %m");
 
         /* This needs to be after the inotify and uevent handling, to make sure
          * that the ping is send back after fully processing the pending uevents
