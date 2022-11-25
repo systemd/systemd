@@ -148,7 +148,7 @@ static int do_mcopy(const char *node, const char *root) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether mcopy binary exists: %m");
 
-        argv = strv_new(mcopy, "-b", "-s", "-p", "-Q", "-n", "-m", "-i", node);
+        argv = strv_new(mcopy, "-s", "-p", "-Q", "-m", "-i", node);
         if (!argv)
                 return log_oom();
 
