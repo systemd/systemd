@@ -1837,7 +1837,7 @@ static int make_partition_table(
         _cleanup_(fdisk_unref_partitionp) struct fdisk_partition *p = NULL, *q = NULL;
         _cleanup_(fdisk_unref_parttypep) struct fdisk_parttype *t = NULL;
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
-        _cleanup_free_ char *path = NULL, *disk_uuid_as_string = NULL;
+        _cleanup_free_ char *disk_uuid_as_string = NULL;
         uint64_t offset, size, first_lba, start, last_lba, end;
         sd_id128_t disk_uuid;
         int r;
@@ -1855,14 +1855,7 @@ static int make_partition_table(
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize partition type: %m");
 
-        c = fdisk_new_context();
-        if (!c)
-                return log_oom();
-
-        if (asprintf(&path, "/proc/self/fd/%i", fd) < 0)
-                return log_oom();
-
-        r = fdisk_assign_device(c, path, 0);
+        r = fdisk_new_context_fd(fd, /* read_only= */ false, &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to open device: %m");
 
@@ -2645,7 +2638,7 @@ static int prepare_resize_partition(
 
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *t = NULL;
-        _cleanup_free_ char *path = NULL, *disk_uuid_as_string = NULL;
+        _cleanup_free_ char *disk_uuid_as_string = NULL;
         struct fdisk_partition *found = NULL;
         sd_id128_t disk_uuid;
         size_t n_partitions;
@@ -2668,14 +2661,7 @@ static int prepare_resize_partition(
                 return 0;
         }
 
-        c = fdisk_new_context();
-        if (!c)
-                return log_oom();
-
-        if (asprintf(&path, "/proc/self/fd/%i", fd) < 0)
-                return log_oom();
-
-        r = fdisk_assign_device(c, path, 0);
+        r = fdisk_new_context_fd(fd, /* read_only= */ false, &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to open device: %m");
 
@@ -2759,7 +2745,6 @@ static int apply_resize_partition(
 
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         _cleanup_free_ void *two_zero_lbas = NULL;
-        _cleanup_free_ char *path = NULL;
         ssize_t n;
         int r;
 
@@ -2791,14 +2776,7 @@ static int apply_resize_partition(
         if (n != 1024)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write while wiping partition table.");
 
-        c = fdisk_new_context();
-        if (!c)
-                return log_oom();
-
-        if (asprintf(&path, "/proc/self/fd/%i", fd) < 0)
-                return log_oom();
-
-        r = fdisk_assign_device(c, path, 0);
+        r = fdisk_new_context_fd(fd, /* read_only= */ false, &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to open device: %m");
 
