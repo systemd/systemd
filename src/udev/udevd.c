@@ -65,7 +65,6 @@
 #include "syslog-util.h"
 #include "udevd.h"
 #include "udev-builtin.h"
-#include "udev-ctrl.h"
 #include "udev-event.h"
 #include "udev-manager.h"
 #include "udev-node.h"
@@ -214,7 +213,6 @@ static void manager_clear_for_worker(Manager *manager) {
         event_queue_cleanup(manager, EVENT_UNDEF);
 
         manager->monitor = sd_device_monitor_unref(manager->monitor);
-        manager->ctrl = udev_ctrl_unref(manager->ctrl);
         manager->varlink_server = varlink_server_unref(manager->varlink_server);
 
         manager->worker_watch[READ_END] = safe_close(manager->worker_watch[READ_END]);
@@ -306,7 +304,6 @@ void manager_exit(Manager *manager) {
         (void) sd_notify(/* unset= */ false, NOTIFY_STOPPING);
 
         /* close sources of new events and discard buffered events */
-        manager->ctrl = udev_ctrl_unref(manager->ctrl);
         manager->varlink_server = varlink_server_unref(manager->varlink_server);
 
         manager->inotify_event = sd_event_source_disable_unref(manager->inotify_event);
@@ -1726,14 +1723,6 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, int fd_varlink
                 .cgroup = TAKE_PTR(cgroup),
         };
 
-        r = udev_ctrl_new_from_fd(&manager->ctrl, fd_ctrl);
-        if (r < 0)
-                return log_error_errno(r, "Failed to initialize udev control socket: %m");
-
-        r = udev_ctrl_enable_receiving(manager->ctrl);
-        if (r < 0)
-                return log_error_errno(r, "Failed to bind udev control socket: %m");
-
         r = udev_open_varlink(manager, fd_varlink);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize varlink server: %m");
@@ -1817,18 +1806,6 @@ static int main_loop(Manager *manager) {
         r = sd_event_set_watchdog(manager->event, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to create watchdog event source: %m");
-
-        r = udev_ctrl_attach_event(manager->ctrl, manager->event);
-        if (r < 0)
-                return log_error_errno(r, "Failed to attach event to udev control: %m");
-
-        /* This needs to be after the inotify and uevent handling, to make sure
-         * that the ping is send back after fully processing the pending uevents
-         * (including the synthetic ones we may create due to inotify events).
-         */
-        r = sd_event_source_set_priority(udev_ctrl_get_event_source(manager->ctrl), SD_EVENT_PRIORITY_IDLE);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set IDLE event priority for udev control event source: %m");
 
         r = sd_event_add_io(manager->event, &manager->inotify_event, manager->inotify_fd, EPOLLIN, on_inotify, manager);
         if (r < 0)
