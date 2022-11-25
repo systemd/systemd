@@ -624,11 +624,12 @@ DnsScopeMatch dns_scope_good_domain(
         if ((SD_RESOLVED_FLAGS_MAKE(s->protocol, s->family, false, false) & flags) == 0)
                 return DNS_SCOPE_NO;
 
-        /* Never resolve any loopback hostname or IP address via DNS, LLMNR or mDNS. Instead, always rely on
-         * synthesized RRs for these. */
+        /* Never resolve the local hostname, any loopback hostname or IP address via DNS, LLMNR or mDNS.
+         * Instead, always rely on synthesized RRs for these. */
         if (is_localhost(domain) ||
             dns_name_endswith(domain, "127.in-addr.arpa") > 0 ||
-            dns_name_equal(domain, "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0)
+            dns_name_equal(domain, "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0 ||
+            manager_is_own_hostname(s->manager, domain) > 0)
                 return DNS_SCOPE_NO;
 
         /* Never respond to some of the domains listed in RFC6303 + RFC6761 */
@@ -741,8 +742,7 @@ DnsScopeMatch dns_scope_good_domain(
                         return DNS_SCOPE_MAYBE;
 
                 if ((dns_name_endswith(domain, "local") > 0 && /* only resolve names ending in .local via mDNS */
-                     dns_name_equal(domain, "local") == 0 &&   /* but not the single-label "local" name itself */
-                     manager_is_own_hostname(s->manager, domain) <= 0)) /* never resolve the local hostname via mDNS */
+                     dns_name_equal(domain, "local") == 0))    /* but not the single-label "local" name itself */
                         return DNS_SCOPE_YES_BASE + 1; /* Return +1, as the top-level .local domain matches, i.e. one label */
 
                 return DNS_SCOPE_NO;
@@ -766,8 +766,7 @@ DnsScopeMatch dns_scope_good_domain(
                 if ((dns_name_is_single_label(domain) && /* only resolve single label names via LLMNR */
                      !is_gateway_hostname(domain) && /* don't resolve "_gateway" with LLMNR, let local synthesizing logic handle that */
                      !is_outbound_hostname(domain) && /* similar for "_outbound" */
-                     dns_name_equal(domain, "local") == 0 && /* don't resolve "local" with LLMNR, it's the top-level domain of mDNS after all, see above */
-                     manager_is_own_hostname(s->manager, domain) <= 0))  /* never resolve the local hostname via LLMNR */
+                     dns_name_equal(domain, "local") == 0)) /* don't resolve "local" with LLMNR, it's the top-level domain of mDNS after all, see above */
                         return DNS_SCOPE_YES_BASE + 1; /* Return +1, as we consider ourselves authoritative
                                                         * for single-label names, i.e. one label. This is
                                                         * particularly relevant as it means a "." route on some
