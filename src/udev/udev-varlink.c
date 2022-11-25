@@ -209,6 +209,26 @@ static int vl_method_exit(Varlink *link, JsonVariant *parameters, VarlinkMethodF
         return varlink_reply(link, NULL);
 }
 
+static int vl_method_get_log_level(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        JsonVariant *v;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        if (json_variant_elements(parameters) != 0)
+                return varlink_error_invalid_parameter(link, parameters);
+
+        log_debug("Received io.systemd.udev.GetLogLevel");
+
+        r = json_build(&v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("log-level", JSON_BUILD_INTEGER(m->log_level))));
+        if (r < 0)
+            return varlink_error_errno(link, r);
+
+        return varlink_reply(link, v);
+}
+
 int udev_varlink_connect(Varlink **ret_link) {
         _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
         int r;
@@ -258,6 +278,7 @@ int udev_open_varlink(Manager *m, int fd) {
         r = varlink_server_bind_method_many(
                         m->varlink_server,
                         "io.systemd.udev.Exit", vl_method_exit,
+                        "io.systemd.udev.GetLogLevel", vl_method_get_log_level,
                         "io.systemd.udev.Ping", vl_method_ping,
                         "io.systemd.udev.Reload", vl_method_reload,
                         "io.systemd.udev.SetChildrenMax", vl_method_set_children_max,

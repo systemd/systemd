@@ -34,7 +34,7 @@ static int help(void) {
                "  -h --help                Show this help\n"
                "  -V --version             Show package version\n"
                "  -e --exit                Instruct the daemon to cleanup and exit\n"
-               "  -l --log-level=LEVEL     Set the udev log level for the daemon\n"
+               "  -l --log-level[=LEVEL]   Get or set the udev log level for the daemon\n"
                "  -s --stop-exec-queue     Do not execute events, queue only\n"
                "  -S --start-exec-queue    Execute events, flush queue\n"
                "  -R --reload              Reload rules and databases\n"
@@ -59,7 +59,7 @@ int control_main(int argc, char *argv[], void *userdata) {
 
         static const struct option options[] = {
                 { "exit",             no_argument,       NULL, 'e'      },
-                { "log-level",        required_argument, NULL, 'l'      },
+                { "log-level",        optional_argument, NULL, 'l'      },
                 { "log-priority",     required_argument, NULL, 'l'      }, /* for backward compatibility */
                 { "stop-exec-queue",  no_argument,       NULL, 's'      },
                 { "start-exec-queue", no_argument,       NULL, 'S'      },
@@ -109,17 +109,36 @@ int control_main(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(r, "Failed to send exit request: %m");
                         break;
                 case 'l':
-                        r = log_level_from_string(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse log level '%s': %m", optarg);
+                        if (optarg) {
+                            r = log_level_from_string(optarg);
+                            if (r < 0)
+                                    return log_error_errno(r, "Failed to parse log level '%s': %m", optarg);
 
-                        r = json_build(&v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("log-level", JSON_BUILD_INTEGER(r))));
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to build json object: %m");
+                            r = json_build(&v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("log-level", JSON_BUILD_INTEGER(r))));
+                            if (r < 0)
+                                    return log_error_errno(r, "Failed to build json object: %m");
 
-                        r = udev_varlink_call(link, "io.systemd.udev.SetLogLevel", v, NULL);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to send request to set log level: %m");
+                            r = udev_varlink_call(link, "io.systemd.udev.SetLogLevel", v, NULL);
+                            if (r < 0)
+                                    return log_error_errno(r, "Failed to send request to set log level: %m");
+                        } else {
+                            JsonVariant *log_level;
+                            _cleanup_free_ char *log_level_str = NULL;
+
+                            r = udev_varlink_call(link, "io.systemd.udev.GetLogLevel", NULL, &v);
+                            if (r < 0)
+                                    return log_error_errno(r, "Failed to send request to get log level: %m");
+
+                            log_level = json_variant_by_key(v, "log-level");
+                            if (!log_level || !json_variant_is_integer(log_level))
+                                return log_error_errno(r, "Received invalid result");
+
+                            r = log_level_to_string_alloc(json_variant_integer(log_level), &log_level_str);
+                            if (r < 0)
+                                return log_error_errno(r, "Failed to convert log level to string: %m");
+
+                            printf("%s", log_level_str);
+                        }
                         break;
                 case 's':
                         r = udev_varlink_call(link, "io.systemd.udev.StopExecQueue", NULL, NULL);
