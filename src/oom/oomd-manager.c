@@ -2,6 +2,7 @@
 
 #include "sd-daemon.h"
 
+#include "bus-internal.h"
 #include "bus-log-control-api.h"
 #include "bus-util.h"
 #include "bus-polkit.h"
@@ -693,6 +694,8 @@ static int manager_connect_bus(Manager *m) {
         r = bus_open_system_watch_bind_with_description(&m->bus, "bus-api-oom");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to bus: %m");
+
+        bus_enable_log_context(m->bus);
 
         r = bus_add_implementation(m->bus, &manager_object, m);
         if (r < 0)

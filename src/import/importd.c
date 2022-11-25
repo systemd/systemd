@@ -8,6 +8,7 @@
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
+#include "bus-internal.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
 #include "constants.h"
@@ -641,6 +642,8 @@ static int manager_new(Manager **ret) {
         r = sd_bus_default_system(&m->bus);
         if (r < 0)
                 return r;
+
+        bus_enable_log_context(m->bus);
 
         m->notify_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (m->notify_fd < 0)

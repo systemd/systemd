@@ -320,6 +320,8 @@ struct sd_bus {
 
         /* zero means use value specified by $SYSTEMD_BUS_TIMEOUT= environment variable or built-in default */
         usec_t method_call_timeout;
+
+        bool enable_log_context;
 };
 
 /* For method calls we timeout at 25s, like in the D-Bus reference implementation */
@@ -412,3 +414,9 @@ int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error);
 void bus_enter_closing(sd_bus *bus);
 
 void bus_set_state(sd_bus *bus, enum bus_state state);
+
+static inline void bus_enable_log_context(sd_bus *bus) {
+        assert(bus);
+
+        bus->enable_log_context = true;
+}
