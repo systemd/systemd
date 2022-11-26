@@ -175,34 +175,6 @@ int sd_netlink_send(
         return 1;
 }
 
-int netlink_rqueue_make_room(sd_netlink *nl) {
-        assert(nl);
-
-        if (nl->rqueue_size >= NETLINK_RQUEUE_MAX)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS),
-                                       "sd-netlink: exhausted the read queue size (%d)",
-                                       NETLINK_RQUEUE_MAX);
-
-        if (!GREEDY_REALLOC(nl->rqueue, nl->rqueue_size + 1))
-                return -ENOMEM;
-
-        return 0;
-}
-
-int netlink_rqueue_partial_make_room(sd_netlink *nl) {
-        assert(nl);
-
-        if (nl->rqueue_partial_size >= NETLINK_RQUEUE_MAX)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS),
-                                       "sd-netlink: exhausted the partial read queue size (%d)",
-                                       NETLINK_RQUEUE_MAX);
-
-        if (!GREEDY_REALLOC(nl->rqueue_partial, nl->rqueue_partial_size + 1))
-                return -ENOMEM;
-
-        return 0;
-}
-
 static int dispatch_rqueue(sd_netlink *nl, sd_netlink_message **message) {
         int r;
 

@@ -148,8 +148,6 @@ void message_seal(sd_netlink_message *m);
 
 int netlink_open_family(sd_netlink **ret, int family);
 bool netlink_pid_changed(sd_netlink *nl);
-int netlink_rqueue_make_room(sd_netlink *nl);
-int netlink_rqueue_partial_make_room(sd_netlink *nl);
 
 int socket_bind(sd_netlink *nl);
 int socket_broadcast_group_ref(sd_netlink *nl, unsigned group);
