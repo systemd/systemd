@@ -241,55 +241,48 @@ static int socket_recv_message(int fd, void *buf, size_t buf_size, uint32_t *ret
         return (int) n;
 }
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        netlink_message_hash_ops,
+        void, trivial_hash_func, trivial_compare_func,
+        sd_netlink_message, sd_netlink_message_unref);
+
 static int netlink_queue_received_message(sd_netlink *nl, sd_netlink_message *m) {
+        int r;
+
         assert(nl);
         assert(m);
 
-        if (nl->rqueue_size >= NETLINK_RQUEUE_MAX)
+        if (ordered_set_size(nl->rqueue) >= NETLINK_RQUEUE_MAX)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS),
-                                       "sd-netlink: exhausted the read queue size (%d)",
-                                       NETLINK_RQUEUE_MAX);
+                                       "sd-netlink: exhausted the read queue size (%d)", NETLINK_RQUEUE_MAX);
 
-        if (!GREEDY_REALLOC(nl->rqueue, nl->rqueue_size + 1))
-                return -ENOMEM;
+        r = ordered_set_ensure_put(&nl->rqueue, &netlink_message_hash_ops, m);
+        if (r < 0)
+                return r;
 
-        nl->rqueue[nl->rqueue_size++] = sd_netlink_message_ref(m);
+        sd_netlink_message_ref(m);
         return 0;
 }
 
 static int netlink_queue_partially_received_message(sd_netlink *nl, sd_netlink_message *m) {
+        uint32_t serial;
+        int r;
+
         assert(nl);
         assert(m);
         assert(m->hdr->nlmsg_flags & NLM_F_MULTI);
 
-        if (nl->rqueue_partial_size >= NETLINK_RQUEUE_MAX)
+        if (hashmap_size(nl->rqueue_partial_by_serial) >= NETLINK_RQUEUE_MAX)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS),
-                                       "sd-netlink: exhausted the partial read queue size (%d)",
-                                       NETLINK_RQUEUE_MAX);
+                                       "sd-netlink: exhausted the partial read queue size (%d)", NETLINK_RQUEUE_MAX);
 
-        if (!GREEDY_REALLOC(nl->rqueue_partial, nl->rqueue_partial_size + 1))
-                return -ENOMEM;
+        serial = message_get_serial(m);
+        r = hashmap_ensure_put(&nl->rqueue_partial_by_serial, &netlink_message_hash_ops, UINT32_TO_PTR(serial), m);
+        if (r < 0)
+                return r;
 
-        nl->rqueue_partial[nl->rqueue_partial_size++] = sd_netlink_message_ref(m);
+        sd_netlink_message_ref(m);
         return 0;
-}
-
-static sd_netlink_message *netlink_take_partial_message(sd_netlink *nl, uint32_t seqnum) {
-        assert(nl);
-
-        for (unsigned i = 0; i < nl->rqueue_partial_size; i++)
-                if (message_get_serial(nl->rqueue_partial[i]) == seqnum) {
-                        sd_netlink_message *found = nl->rqueue_partial[i];
-
-                        /* remove the message form the partial read queue */
-                        memmove(nl->rqueue_partial + i, nl->rqueue_partial + i + 1,
-                                sizeof(sd_netlink_message*) * (nl->rqueue_partial_size - i - 1));
-                        nl->rqueue_partial_size--;
-
-                        return found;
-                }
-
-        return NULL;
 }
 
 /* On success, the number of bytes received is returned and *ret points to the received message
@@ -329,7 +322,7 @@ int socket_read_message(sd_netlink *nl) {
 
         if (nl->rbuffer->nlmsg_flags & NLM_F_MULTI) {
                 multi_part = true;
-                first = netlink_take_partial_message(nl, nl->rbuffer->nlmsg_seq);
+                first = hashmap_remove(nl->rqueue_partial_by_serial, UINT32_TO_PTR(nl->rbuffer->nlmsg_seq));
         }
 
         for (struct nlmsghdr *new_msg = nl->rbuffer; NLMSG_OK(new_msg, len) && !done; new_msg = NLMSG_NEXT(new_msg, len)) {
