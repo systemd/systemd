@@ -74,6 +74,7 @@ struct sd_netlink {
         bool broadcast_group_dont_leave:1; /* until we can rely on 4.2 */
 
         OrderedSet *rqueue;
+        Hashmap *rqueue_by_serial;
         Hashmap *rqueue_partial_by_serial;
 
         struct nlmsghdr *rbuffer;

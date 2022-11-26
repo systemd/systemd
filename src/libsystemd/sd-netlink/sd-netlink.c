@@ -120,6 +120,7 @@ static sd_netlink *netlink_free(sd_netlink *nl) {
         assert(nl);
 
         ordered_set_free(nl->rqueue);
+        hashmap_free(nl->rqueue_by_serial);
         hashmap_free(nl->rqueue_partial_by_serial);
         free(nl->rbuffer);
 
@@ -186,6 +187,7 @@ static int dispatch_rqueue(sd_netlink *nl, sd_netlink_message **ret) {
 
         /* Dispatch a queued message */
         m = ordered_set_steal_first(nl->rqueue);
+        sd_netlink_message_unref(hashmap_remove_value(nl->rqueue_by_serial, UINT32_TO_PTR(message_get_serial(m)), m));
         *ret = m;
         return !!m;
 }
@@ -528,27 +530,21 @@ int sd_netlink_read(
         timeout = calc_elapse(usec);
 
         for (;;) {
-                sd_netlink_message *m;
+                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
                 usec_t left;
 
-                ORDERED_SET_FOREACH(m, nl->rqueue) {
-                        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *incoming = NULL;
-                        uint32_t received_serial;
+                m = hashmap_remove(nl->rqueue_by_serial, UINT32_TO_PTR(serial));
+                if (m) {
                         uint16_t type;
 
-                        received_serial = message_get_serial(m);
-                        if (received_serial != serial)
-                                continue;
-
                         /* found a match, remove from rqueue and return it */
-                        ordered_set_remove(nl->rqueue, m);
-                        incoming = TAKE_PTR(m);
+                        sd_netlink_message_unref(ordered_set_remove(nl->rqueue, m));
 
-                        r = sd_netlink_message_get_errno(incoming);
+                        r = sd_netlink_message_get_errno(m);
                         if (r < 0)
                                 return r;
 
-                        r = sd_netlink_message_get_type(incoming, &type);
+                        r = sd_netlink_message_get_type(m, &type);
                         if (r < 0)
                                 return r;
 
@@ -559,7 +555,7 @@ int sd_netlink_read(
                         }
 
                         if (ret)
-                                *ret = TAKE_PTR(incoming);
+                                *ret = TAKE_PTR(m);
                         return 1;
                 }
 
