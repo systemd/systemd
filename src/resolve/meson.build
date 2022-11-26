@@ -237,6 +237,11 @@ fuzzers += [
           libshared],
          [lib_openssl_or_gcrypt,
           libm]],
+        [files('fuzz-resource-record.c'),
+         [libsystemd_resolve_core,
+          libshared],
+         [lib_openssl_or_gcrypt,
+          libm]],
 ]
 
 systemd_resolved_sources += files('resolved.c')
