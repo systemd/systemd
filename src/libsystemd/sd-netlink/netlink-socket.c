@@ -429,15 +429,20 @@ int socket_read_message(sd_netlink *nl) {
                         } else {
                                 sd_netlink_message *existing;
 
-                                existing = hashmap_remove(nl->rqueue_partial_by_serial, UINT32_TO_PTR(hdr->nlmsg_seq));
-                                if (existing)
-                                        /* push the message onto the multi-part message stack */
-                                        m->next = existing;
-
-                                /* put it into the queue for partially received messages. */
-                                r = netlink_queue_partially_received_message(nl, m);
-                                if (r < 0)
-                                        return r;
+                                existing = hashmap_get(nl->rqueue_partial_by_serial, UINT32_TO_PTR(hdr->nlmsg_seq));
+                                if (existing) {
+                                        /* This is the continuation of the previously read messages.
+                                         * Let's append this message at the end. */
+                                        while (existing->next)
+                                                existing = existing->next;
+                                        existing->next = TAKE_PTR(m);
+                                } else {
+                                        /* This is the first message. Put it into the queue for partially
+                                         * received messages. */
+                                        r = netlink_queue_partially_received_message(nl, m);
+                                        if (r < 0)
+                                                return r;
+                                }
                         }
 
                 } else {
