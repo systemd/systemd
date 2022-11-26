@@ -673,6 +673,15 @@ int netlink_open_family(sd_netlink **ret, int family) {
         return 0;
 }
 
+static bool serial_used(sd_netlink *nl, uint32_t serial) {
+        assert(nl);
+
+        return
+                hashmap_contains(nl->reply_callbacks, UINT32_TO_PTR(serial)) ||
+                hashmap_contains(nl->rqueue_by_serial, UINT32_TO_PTR(serial)) ||
+                hashmap_contains(nl->rqueue_partial_by_serial, UINT32_TO_PTR(serial));
+}
+
 void netlink_seal_message(sd_netlink *nl, sd_netlink_message *m) {
         uint32_t picked;
 
@@ -689,7 +698,7 @@ void netlink_seal_message(sd_netlink *nl, sd_netlink_message *m) {
                    such messages */
                 nl->serial = nl->serial == UINT32_MAX ? 1 : nl->serial + 1;
 
-        } while (hashmap_contains(nl->reply_callbacks, UINT32_TO_PTR(picked)));
+        } while (serial_used(nl, picked));
 
         m->hdr->nlmsg_seq = picked;
         message_seal(m);
