@@ -376,10 +376,9 @@ finalize:
  * On failure, a negative error code is returned.
  */
 int socket_read_message(sd_netlink *nl) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *first = NULL;
-        bool multi_part = false, done = false;
-        size_t len;
+        bool done = false;
         uint32_t group;
+        size_t len;
         int r;
 
         assert(nl);
@@ -405,12 +404,7 @@ int socket_read_message(sd_netlink *nl) {
                 return 0;
         }
 
-        if (nl->rbuffer->nlmsg_flags & NLM_F_MULTI) {
-                multi_part = true;
-                first = hashmap_remove(nl->rqueue_partial_by_serial, UINT32_TO_PTR(nl->rbuffer->nlmsg_seq));
-        }
-
-        for (struct nlmsghdr *hdr = nl->rbuffer; NLMSG_OK(hdr, len) && !done; hdr = NLMSG_NEXT(hdr, len)) {
+        for (struct nlmsghdr *hdr = nl->rbuffer; NLMSG_OK(hdr, len); hdr = NLMSG_NEXT(hdr, len)) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
 
                 r = parse_message_one(nl, group, hdr, &m);
@@ -419,36 +413,44 @@ int socket_read_message(sd_netlink *nl) {
                 if (r == 0)
                         continue;
 
-                if (hdr->nlmsg_type == NLMSG_DONE) {
-                        /* finished reading multi-part message */
+                if (hdr->nlmsg_flags & NLM_F_MULTI) {
+                        if (hdr->nlmsg_type == NLMSG_DONE) {
+                                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *existing = NULL;
+
+                                /* finished reading multi-part message */
+                                existing = hashmap_remove(nl->rqueue_partial_by_serial, UINT32_TO_PTR(hdr->nlmsg_seq));
+
+                                /* if we receive only NLMSG_DONE, put it into the receive queue. */
+                                r = netlink_queue_received_message(nl, existing ?: m);
+                                if (r < 0)
+                                        return r;
+
+                                done = true;
+                        } else {
+                                sd_netlink_message *existing;
+
+                                existing = hashmap_remove(nl->rqueue_partial_by_serial, UINT32_TO_PTR(hdr->nlmsg_seq));
+                                if (existing)
+                                        /* push the message onto the multi-part message stack */
+                                        m->next = existing;
+
+                                /* put it into the queue for partially received messages. */
+                                r = netlink_queue_partially_received_message(nl, m);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                } else {
+                        r = netlink_queue_received_message(nl, m);
+                        if (r < 0)
+                                return r;
+
                         done = true;
-
-                        /* if first is not defined, put NLMSG_DONE into the receive queue. */
-                        if (first)
-                                continue;
                 }
-
-                /* push the message onto the multi-part message stack */
-                if (first)
-                        m->next = first;
-                first = TAKE_PTR(m);
         }
 
         if (len > 0)
                 log_debug("sd-netlink: discarding trailing %zu bytes of incoming message", len);
-
-        if (!first)
-                return 0;
-
-        done = done || !multi_part;
-        if (done)
-                /* we got a complete message, push it on the read queue */
-                r = netlink_queue_received_message(nl, first);
-        else
-                /* we only got a partial multi-part message, push it on the partial read queue. */
-                r = netlink_queue_partially_received_message(nl, first);
-        if (r < 0)
-                return r;
 
         return done;
 }
