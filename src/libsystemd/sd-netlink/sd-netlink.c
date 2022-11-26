@@ -116,18 +116,11 @@ int sd_netlink_increase_rxbuf(sd_netlink *nl, size_t size) {
 
 static sd_netlink *netlink_free(sd_netlink *nl) {
         sd_netlink_slot *s;
-        unsigned i;
 
         assert(nl);
 
-        for (i = 0; i < nl->rqueue_size; i++)
-                sd_netlink_message_unref(nl->rqueue[i]);
-        free(nl->rqueue);
-
-        for (i = 0; i < nl->rqueue_partial_size; i++)
-                sd_netlink_message_unref(nl->rqueue_partial[i]);
-        free(nl->rqueue_partial);
-
+        ordered_set_free(nl->rqueue);
+        hashmap_free(nl->rqueue_partial_by_serial);
         free(nl->rbuffer);
 
         while ((s = nl->slots)) {
@@ -175,29 +168,26 @@ int sd_netlink_send(
         return 1;
 }
 
-static int dispatch_rqueue(sd_netlink *nl, sd_netlink_message **message) {
+static int dispatch_rqueue(sd_netlink *nl, sd_netlink_message **ret) {
+        sd_netlink_message *m;
         int r;
 
         assert(nl);
-        assert(message);
+        assert(ret);
 
-        if (nl->rqueue_size <= 0) {
+        if (ordered_set_size(nl->rqueue) <= 0) {
                 /* Try to read a new message */
                 r = socket_read_message(nl);
-                if (r == -ENOBUFS) { /* FIXME: ignore buffer overruns for now */
+                if (r == -ENOBUFS) /* FIXME: ignore buffer overruns for now */
                         log_debug_errno(r, "sd-netlink: Got ENOBUFS from netlink socket, ignoring.");
-                        return 1;
-                }
-                if (r <= 0)
+                else if (r < 0)
                         return r;
         }
 
         /* Dispatch a queued message */
-        *message = nl->rqueue[0];
-        nl->rqueue_size--;
-        memmove(nl->rqueue, nl->rqueue + 1, sizeof(sd_netlink_message*) * nl->rqueue_size);
-
-        return 1;
+        m = ordered_set_steal_first(nl->rqueue);
+        *ret = m;
+        return !!m;
 }
 
 static int process_timeout(sd_netlink *nl) {
@@ -437,7 +427,7 @@ int sd_netlink_wait(sd_netlink *nl, uint64_t timeout_usec) {
         assert_return(nl, -EINVAL);
         assert_return(!netlink_pid_changed(nl), -ECHILD);
 
-        if (nl->rqueue_size > 0)
+        if (ordered_set_size(nl->rqueue) > 0)
                 return 0;
 
         r = netlink_poll(nl, false, timeout_usec);
@@ -538,23 +528,21 @@ int sd_netlink_read(
         timeout = calc_elapse(usec);
 
         for (;;) {
+                sd_netlink_message *m;
                 usec_t left;
 
-                for (unsigned i = 0; i < nl->rqueue_size; i++) {
+                ORDERED_SET_FOREACH(m, nl->rqueue) {
                         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *incoming = NULL;
                         uint32_t received_serial;
                         uint16_t type;
 
-                        received_serial = message_get_serial(nl->rqueue[i]);
+                        received_serial = message_get_serial(m);
                         if (received_serial != serial)
                                 continue;
 
-                        incoming = nl->rqueue[i];
-
                         /* found a match, remove from rqueue and return it */
-                        memmove(nl->rqueue + i, nl->rqueue + i + 1,
-                                sizeof(sd_netlink_message*) * (nl->rqueue_size - i - 1));
-                        nl->rqueue_size--;
+                        ordered_set_remove(nl->rqueue, m);
+                        incoming = TAKE_PTR(m);
 
                         r = sd_netlink_message_get_errno(incoming);
                         if (r < 0)
@@ -625,7 +613,7 @@ int sd_netlink_get_events(sd_netlink *nl) {
         assert_return(nl, -EINVAL);
         assert_return(!netlink_pid_changed(nl), -ECHILD);
 
-        return nl->rqueue_size == 0 ? POLLIN : 0;
+        return ordered_set_size(nl->rqueue) == 0 ? POLLIN : 0;
 }
 
 int sd_netlink_get_timeout(sd_netlink *nl, uint64_t *timeout_usec) {
@@ -635,7 +623,7 @@ int sd_netlink_get_timeout(sd_netlink *nl, uint64_t *timeout_usec) {
         assert_return(timeout_usec, -EINVAL);
         assert_return(!netlink_pid_changed(nl), -ECHILD);
 
-        if (nl->rqueue_size > 0) {
+        if (ordered_set_size(nl->rqueue) > 0) {
                 *timeout_usec = 0;
                 return 1;
         }
@@ -647,7 +635,6 @@ int sd_netlink_get_timeout(sd_netlink *nl, uint64_t *timeout_usec) {
         }
 
         *timeout_usec = c->timeout;
-
         return 1;
 }
 

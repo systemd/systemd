@@ -7,6 +7,7 @@
 
 #include "list.h"
 #include "netlink-types.h"
+#include "ordered-set.h"
 #include "prioq.h"
 #include "time-util.h"
 
@@ -72,11 +73,8 @@ struct sd_netlink {
         Hashmap *broadcast_group_refs;
         bool broadcast_group_dont_leave:1; /* until we can rely on 4.2 */
 
-        sd_netlink_message **rqueue;
-        unsigned rqueue_size;
-
-        sd_netlink_message **rqueue_partial;
-        unsigned rqueue_partial_size;
+        OrderedSet *rqueue;
+        Hashmap *rqueue_partial_by_serial;
 
         struct nlmsghdr *rbuffer;
 
