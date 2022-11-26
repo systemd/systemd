@@ -1137,12 +1137,15 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 break;
 
         default:
-                t = hexmem(rr->generic.data, rr->generic.data_size);
-                if (!t)
-                        return NULL;
-
                 /* Format as documented in RFC 3597, Section 5 */
-                r = asprintf(&s, "%s \\# %zu %s", k, rr->generic.data_size, t);
+                if (rr->generic.data_size == 0)
+                        r = asprintf(&s, "%s \\# 0", k);
+                else {
+                        t = hexmem(rr->generic.data, rr->generic.data_size);
+                        if (!t)
+                                return NULL;
+                        r = asprintf(&s, "%s \\# %zu %s", k, rr->generic.data_size, t);
+                }
                 if (r < 0)
                         return NULL;
                 break;
