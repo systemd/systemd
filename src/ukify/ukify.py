@@ -206,8 +206,9 @@ class Section:
 
     @classmethod
     def create(cls, name, contents, flags=None, measure=False):
-        if isinstance(contents, str):
-            tmp = tempfile.NamedTemporaryFile(mode='wt', prefix=f'tmp{name}')
+        if isinstance(contents, str | bytes):
+            mode = 'wt' if isinstance(contents, str) else 'wb'
+            tmp = tempfile.NamedTemporaryFile(mode=mode, prefix=f'tmp{name}')
             tmp.write(contents)
             tmp.flush()
             contents = pathlib.Path(tmp.name)
@@ -404,6 +405,24 @@ def call_systemd_measure(uki, linux, opts):
         uki.add_section(Section.create('.pcrsig', combined))
 
 
+def join_initrds(initrds):
+    match initrds:
+        case []:
+            return None
+        case [initrd]:
+            return initrd
+        case multiple:
+            seq = []
+            for file in multiple:
+                initrd = file.read_bytes()
+                padding = b'\0' * round_up(len(initrd), 4)  # pad to 32 bit alignment
+                seq += [initrd, padding]
+
+            return b''.join(seq)
+
+    assert False
+
+
 def make_uki(opts):
     # kernel payload signing
 
@@ -455,6 +474,7 @@ def make_uki(opts):
         opts.uname = Uname.scrape(opts.linux, opts=opts)
 
     uki = UKI(opts.stub)
+    initrd = join_initrds(opts.initrd)
 
     # TODO: derive public key from from opts.pcr_private_keys?
     pcrpkey = opts.pcrpkey
@@ -469,7 +489,7 @@ def make_uki(opts):
         ('.dtb',     opts.devicetree, True ),
         ('.splash',  opts.splash,     True ),
         ('.pcrpkey', pcrpkey,         True ),
-        ('.initrd',  opts.initrd,     True ),
+        ('.initrd',  initrd,          True ),
         ('.uname',   opts.uname,      False),
 
         # linux shall be last to leave breathing room for decompression.
@@ -541,7 +561,7 @@ def parse_args(args=None):
         description='Build and sign Unified Kernel Images',
         allow_abbrev=False,
         usage='''\
-usage: ukify [options…] linux initrd
+usage: ukify [options…] linux initrd…
        ukify -h | --help
 ''')
 
@@ -553,7 +573,8 @@ usage: ukify [options…] linux initrd
                    help='vmlinuz file [.linux section]')
     p.add_argument('initrd',
                    type=pathlib.Path,
-                   help='initrd file [.initrd section]')
+                   nargs='*',
+                   help='initrd files [.initrd section]')
 
     p.add_argument('--cmdline',
                    metavar='TEXT|@PATH',

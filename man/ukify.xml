@@ -24,7 +24,7 @@
     <cmdsynopsis>
       <command>/usr/lib/systemd/ukify</command>
       <arg choice="plain"><replaceable>LINUX</replaceable></arg>
-      <arg choice="plain"><replaceable>INITRD</replaceable></arg>
+      <arg choice="plain" rep="repeat"><replaceable>INITRD</replaceable></arg>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
@@ -78,8 +78,10 @@
   <refsect1>
     <title>Options</title>
 
-    <para>Note that the <replaceable>LINUX</replaceable> and <replaceable>INITRD</replaceable> positional
-    arguments are mandatory.</para>
+    <para>Note that the <replaceable>LINUX</replaceable> positional argument is mandatory. The
+    <replaceable>INITRD</replaceable> positional arguments are optional. If more than one is specified, they
+    will all be combined into a single PE section. This is useful to for example prepend microcode before the
+    actual initrd.</para>
 
     <para>The following options are understood:</para>
 
@@ -268,6 +270,7 @@
 
       <programlisting>/usr/lib/systemd/ukify \
       /lib/modules/6.0.9-300.fc37.x86_64/vmlinuz \
+      early_cpio \
       /some/path/initramfs-6.0.9-300.fc37.x86_64.img \
       --pcr-private-key=pcr-private-initrd-key.pem \
       --pcr-public-key=pcr-public-initrd-key.pem \
@@ -284,6 +287,8 @@
       </programlisting>
 
       <para>This creates a signed UKI <filename index='false'>./vmlinuz.signed.efi</filename>.
+      The initrd section contains two concatenated parts, <filename index='false'>early_cpio</filename>
+      and <filename index='false'>initramfs-6.0.9-300.fc37.x86_64.img</filename>.
       The policy embedded in the <literal>.pcrsig</literal> section will be signed for the initrd (the
       <constant>enter-initrd</constant> phase) with the key
       <filename index='false'>pcr-private-initrd-key.pem</filename>, and for the main system (phases
