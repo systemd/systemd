@@ -241,6 +241,39 @@ static int socket_recv_message(int fd, void *buf, size_t buf_size, uint32_t *ret
         return (int) n;
 }
 
+static int netlink_queue_received_message(sd_netlink *nl, sd_netlink_message *m) {
+        assert(nl);
+        assert(m);
+
+        if (nl->rqueue_size >= NETLINK_RQUEUE_MAX)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS),
+                                       "sd-netlink: exhausted the read queue size (%d)",
+                                       NETLINK_RQUEUE_MAX);
+
+        if (!GREEDY_REALLOC(nl->rqueue, nl->rqueue_size + 1))
+                return -ENOMEM;
+
+        nl->rqueue[nl->rqueue_size++] = sd_netlink_message_ref(m);
+        return 0;
+}
+
+static int netlink_queue_partially_received_message(sd_netlink *nl, sd_netlink_message *m) {
+        assert(nl);
+        assert(m);
+        assert(m->hdr->nlmsg_flags & NLM_F_MULTI);
+
+        if (nl->rqueue_partial_size >= NETLINK_RQUEUE_MAX)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS),
+                                       "sd-netlink: exhausted the partial read queue size (%d)",
+                                       NETLINK_RQUEUE_MAX);
+
+        if (!GREEDY_REALLOC(nl->rqueue_partial, nl->rqueue_partial_size + 1))
+                return -ENOMEM;
+
+        nl->rqueue_partial[nl->rqueue_partial_size++] = sd_netlink_message_ref(m);
+        return 0;
+}
+
 static sd_netlink_message *netlink_take_partial_message(sd_netlink *nl, uint32_t seqnum) {
         assert(nl);
 
@@ -362,21 +395,15 @@ int socket_read_message(sd_netlink *nl) {
         if (!first)
                 return 0;
 
-        if (!multi_part || done) {
+        done = done || !multi_part;
+        if (done)
                 /* we got a complete message, push it on the read queue */
-                r = netlink_rqueue_make_room(nl);
-                if (r < 0)
-                        return r;
-
-                nl->rqueue[nl->rqueue_size++] = TAKE_PTR(first);
-                return 1;
-        } else {
+                r = netlink_queue_received_message(nl, first);
+        else
                 /* we only got a partial multi-part message, push it on the partial read queue. */
-                r = netlink_rqueue_partial_make_room(nl);
-                if (r < 0)
-                        return r;
+                r = netlink_queue_partially_received_message(nl, first);
+        if (r < 0)
+                return r;
 
-                nl->rqueue_partial[nl->rqueue_partial_size++] = TAKE_PTR(first);
-                return 0;
-        }
+        return done;
 }
