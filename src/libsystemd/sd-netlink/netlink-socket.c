@@ -316,6 +316,60 @@ static int netlink_queue_partially_received_message(sd_netlink *nl, sd_netlink_m
         return 0;
 }
 
+static int parse_message_one(sd_netlink *nl, uint32_t group, const struct nlmsghdr *hdr, sd_netlink_message **ret) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        size_t size;
+        int r;
+
+        assert(nl);
+        assert(hdr);
+        assert(ret);
+
+        /* not broadcast and not for us */
+        if (group == 0 && hdr->nlmsg_pid != nl->sockaddr.nl.nl_pid)
+                goto finalize;
+
+        /* silently drop noop messages */
+        if (hdr->nlmsg_type == NLMSG_NOOP)
+                goto finalize;
+
+        /* check that we support this message type */
+        r = netlink_get_policy_set_and_header_size(nl, hdr->nlmsg_type, NULL, &size);
+        if (r == -EOPNOTSUPP) {
+                log_debug("sd-netlink: ignored message with unknown type: %i", hdr->nlmsg_type);
+                goto finalize;
+        }
+        if (r < 0)
+                return r;
+
+        /* check that the size matches the message type */
+        if (hdr->nlmsg_len < NLMSG_LENGTH(size)) {
+                log_debug("sd-netlink: message is shorter than expected, dropping.");
+                goto finalize;
+        }
+
+        r = message_new_empty(nl, &m);
+        if (r < 0)
+                return r;
+
+        m->multicast_group = group;
+        m->hdr = memdup(hdr, hdr->nlmsg_len);
+        if (!m->hdr)
+                return -ENOMEM;
+
+        /* seal and parse the top-level message */
+        r = sd_netlink_message_rewind(m, nl);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(m);
+        return 1;
+
+finalize:
+        *ret = NULL;
+        return 0;
+}
+
 /* On success, the number of bytes received is returned and *ret points to the received message
  * which has a valid header and the correct size.
  * If nothing useful was received 0 is returned.
@@ -356,19 +410,16 @@ int socket_read_message(sd_netlink *nl) {
                 first = hashmap_remove(nl->rqueue_partial_by_serial, UINT32_TO_PTR(nl->rbuffer->nlmsg_seq));
         }
 
-        for (struct nlmsghdr *new_msg = nl->rbuffer; NLMSG_OK(new_msg, len) && !done; new_msg = NLMSG_NEXT(new_msg, len)) {
+        for (struct nlmsghdr *hdr = nl->rbuffer; NLMSG_OK(hdr, len) && !done; hdr = NLMSG_NEXT(hdr, len)) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-                size_t size;
 
-                if (group == 0 && new_msg->nlmsg_pid != nl->sockaddr.nl.nl_pid)
-                        /* not broadcast and not for us */
+                r = parse_message_one(nl, group, hdr, &m);
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         continue;
 
-                if (new_msg->nlmsg_type == NLMSG_NOOP)
-                        /* silently drop noop messages */
-                        continue;
-
-                if (new_msg->nlmsg_type == NLMSG_DONE) {
+                if (hdr->nlmsg_type == NLMSG_DONE) {
                         /* finished reading multi-part message */
                         done = true;
 
@@ -376,36 +427,6 @@ int socket_read_message(sd_netlink *nl) {
                         if (first)
                                 continue;
                 }
-
-                /* check that we support this message type */
-                r = netlink_get_policy_set_and_header_size(nl, new_msg->nlmsg_type, NULL, &size);
-                if (r < 0) {
-                        if (r == -EOPNOTSUPP)
-                                log_debug("sd-netlink: ignored message with unknown type: %i",
-                                          new_msg->nlmsg_type);
-
-                        continue;
-                }
-
-                /* check that the size matches the message type */
-                if (new_msg->nlmsg_len < NLMSG_LENGTH(size)) {
-                        log_debug("sd-netlink: message is shorter than expected, dropping");
-                        continue;
-                }
-
-                r = message_new_empty(nl, &m);
-                if (r < 0)
-                        return r;
-
-                m->multicast_group = group;
-                m->hdr = memdup(new_msg, new_msg->nlmsg_len);
-                if (!m->hdr)
-                        return -ENOMEM;
-
-                /* seal and parse the top-level message */
-                r = sd_netlink_message_rewind(m, nl);
-                if (r < 0)
-                        return r;
 
                 /* push the message onto the multi-part message stack */
                 if (first)
