@@ -247,6 +247,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
         sd_netlink_message, sd_netlink_message_unref);
 
 static int netlink_queue_received_message(sd_netlink *nl, sd_netlink_message *m) {
+        uint32_t serial;
         int r;
 
         assert(nl);
@@ -259,6 +260,36 @@ static int netlink_queue_received_message(sd_netlink *nl, sd_netlink_message *m)
         r = ordered_set_ensure_put(&nl->rqueue, &netlink_message_hash_ops, m);
         if (r < 0)
                 return r;
+
+        sd_netlink_message_ref(m);
+
+        if (sd_netlink_message_is_broadcast(m))
+                return 0;
+
+        serial = message_get_serial(m);
+        if (serial == 0)
+                return 0;
+
+        if (sd_netlink_message_get_errno(m) < 0) {
+                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *old = NULL;
+
+                old = hashmap_remove(nl->rqueue_by_serial, UINT32_TO_PTR(serial));
+                if (old)
+                        log_debug("sd-netlink: received error message with serial %"PRIu32", but another message with "
+                                  "the same serial is already stored in the read queue, replacing.", serial);
+        }
+
+        r = hashmap_ensure_put(&nl->rqueue_by_serial, &netlink_message_hash_ops, UINT32_TO_PTR(serial), m);
+        if (r == -EEXIST) {
+                if (!sd_netlink_message_is_error(m))
+                        log_debug("sd-netlink: received message with serial %"PRIu32", but another message with "
+                                  "the same serial is already stored in the read queue, ignoring.", serial);
+                return 0;
+        }
+        if (r < 0) {
+                sd_netlink_message_unref(ordered_set_remove(nl->rqueue, m));
+                return r;
+        }
 
         sd_netlink_message_ref(m);
         return 0;
