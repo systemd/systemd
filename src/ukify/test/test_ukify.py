@@ -49,13 +49,13 @@ def test_round_up():
 def test_parse_args_minimal():
     opts = ukify.parse_args('arg1 arg2'.split())
     assert opts.linux == pathlib.Path('arg1')
-    assert opts.initrd == pathlib.Path('arg2')
+    assert opts.initrd == [pathlib.Path('arg2')]
     assert opts.os_release in (pathlib.Path('/etc/os-release'),
                                pathlib.Path('/usr/lib/os-release'))
 
 def test_parse_args_many():
     opts = ukify.parse_args(
-        ['/ARG1', '///ARG2',
+        ['/ARG1', '///ARG2', '/ARG3 WITH SPACE',
          '--cmdline=a b c',
          '--os-release=K1=V1\nK2=V2',
          '--devicetree=DDDDTTTT',
@@ -77,7 +77,7 @@ def test_parse_args_many():
          '--no-measure',
          ])
     assert opts.linux == pathlib.Path('/ARG1')
-    assert opts.initrd == pathlib.Path('/ARG2')
+    assert opts.initrd == [pathlib.Path('/ARG2'), pathlib.Path('/ARG3 WITH SPACE')]
     assert opts.os_release == 'K1=V1\nK2=V2'
     assert opts.devicetree == pathlib.Path('DDDDTTTT')
     assert opts.splash == pathlib.Path('splash')
@@ -103,7 +103,7 @@ def test_parse_sections():
          ])
 
     assert opts.linux == pathlib.Path('/ARG1')
-    assert opts.initrd == pathlib.Path('/ARG2')
+    assert opts.initrd == [pathlib.Path('/ARG2')]
     assert len(opts.sections) == 2
 
     assert opts.sections[0].name == 'test'
@@ -334,9 +334,13 @@ def test_pcr_signing2(kernel_initrd, tmpdir):
     pub2 = unbase64(ourdir / 'example.tpm2-pcr-public2.pem.base64')
     priv2 = unbase64(ourdir / 'example.tpm2-pcr-private2.pem.base64')
 
+    # simulate a microcode file
+    with open(f'{tmpdir}/microcode', 'wb') as microcode:
+        microcode.write(b'1234567890')
+
     output = f'{tmpdir}/signed.efi'
     opts = ukify.parse_args([
-        *kernel_initrd,
+        kernel_initrd[0], microcode.name, kernel_initrd[1],
         f'--output={output}',
         '--uname=1.2.3',
         '--cmdline=ARG1 ARG2 ARG3',
@@ -367,7 +371,7 @@ def test_pcr_signing2(kernel_initrd, tmpdir):
     subprocess.check_call([
         'objcopy',
         *(f'--dump-section=.{n}={tmpdir}/out.{n}' for n in (
-            'pcrpkey', 'pcrsig', 'osrel', 'uname', 'cmdline')),
+            'pcrpkey', 'pcrsig', 'osrel', 'uname', 'cmdline', 'initrd')),
         output,
         tmpdir / 'dummy',
     ],
@@ -377,6 +381,8 @@ def test_pcr_signing2(kernel_initrd, tmpdir):
     assert open(tmpdir / 'out.osrel').read() == 'ID=foobar\n'
     assert open(tmpdir / 'out.uname').read() == '1.2.3'
     assert open(tmpdir / 'out.cmdline').read() == 'ARG1 ARG2 ARG3'
+    assert open(tmpdir / 'out.initrd', 'rb').read(10) == b'1234567890'
+
     sig = open(tmpdir / 'out.pcrsig').read()
     sig = json.loads(sig)
     assert list(sig.keys()) == ['sha1']
