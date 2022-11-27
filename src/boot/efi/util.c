@@ -244,127 +244,36 @@ void efivar_set_time_usec(const EFI_GUID *vendor, const char16_t *name, uint64_t
         efivar_set(vendor, name, str, 0);
 }
 
-static int utf8_to_16(const char *stra, char16_t *c) {
-        char16_t unichar;
-        UINTN len;
+void convert_efi_path(char16_t *path) {
+        assert(path);
 
-        assert(stra);
-        assert(c);
+        for (size_t i = 0, fixed = 0;; i++) {
+                /* Fix device path node separator. */
+                path[fixed] = (path[i] == '/') ? '\\' : path[i];
 
-        if (!(stra[0] & 0x80))
-                len = 1;
-        else if ((stra[0] & 0xe0) == 0xc0)
-                len = 2;
-        else if ((stra[0] & 0xf0) == 0xe0)
-                len = 3;
-        else if ((stra[0] & 0xf8) == 0xf0)
-                len = 4;
-        else if ((stra[0] & 0xfc) == 0xf8)
-                len = 5;
-        else if ((stra[0] & 0xfe) == 0xfc)
-                len = 6;
-        else
-                return -1;
+                /* Double '\' is not allowed in EFI file paths. */
+                if (fixed > 0 && path[fixed - 1] == '\\' && path[fixed] == '\\')
+                        continue;
 
-        switch (len) {
-        case 1:
-                unichar = stra[0];
-                break;
-        case 2:
-                unichar = stra[0] & 0x1f;
-                break;
-        case 3:
-                unichar = stra[0] & 0x0f;
-                break;
-        case 4:
-                unichar = stra[0] & 0x07;
-                break;
-        case 5:
-                unichar = stra[0] & 0x03;
-                break;
-        case 6:
-                unichar = stra[0] & 0x01;
-                break;
+                if (path[i] == '\0')
+                        break;
+
+                fixed++;
         }
-
-        for (UINTN i = 1; i < len; i++) {
-                if ((stra[i] & 0xc0) != 0x80)
-                        return -1;
-                unichar <<= 6;
-                unichar |= stra[i] & 0x3f;
-        }
-
-        *c = unichar;
-        return len;
 }
 
-char16_t *xstra_to_str(const char *stra) {
-        UINTN strlen;
-        UINTN len;
-        UINTN i;
-        char16_t *str;
-
-        assert(stra);
-
-        len = strlen8(stra);
-        str = xnew(char16_t, len + 1);
-
-        strlen = 0;
-        i = 0;
-        while (i < len) {
-                int utf8len;
-
-                utf8len = utf8_to_16(stra + i, str + strlen);
-                if (utf8len <= 0) {
-                        /* invalid utf8 sequence, skip the garbage */
-                        i++;
-                        continue;
-                }
-
-                strlen++;
-                i += utf8len;
-        }
-        str[strlen] = '\0';
-        return str;
+char16_t *xstr8_to_path(const char *str8) {
+        assert(str8);
+        char16_t *path = xstr8_to_16(str8);
+        convert_efi_path(path);
+        return path;
 }
 
-char16_t *xstra_to_path(const char *stra) {
-        char16_t *str;
-        UINTN strlen;
-        UINTN len;
-        UINTN i;
-
-        assert(stra);
-
-        len = strlen8(stra);
-        str = xnew(char16_t, len + 2);
-
-        str[0] = '\\';
-        strlen = 1;
-        i = 0;
-        while (i < len) {
-                int utf8len;
-
-                utf8len = utf8_to_16(stra + i, str + strlen);
-                if (utf8len <= 0) {
-                        /* invalid utf8 sequence, skip the garbage */
-                        i++;
-                        continue;
-                }
-
-                if (str[strlen] == '/')
-                        str[strlen] = '\\';
-                if (str[strlen] == '\\' && str[strlen-1] == '\\') {
-                        /* skip double slashes */
-                        i += utf8len;
-                        continue;
-                }
-
-                strlen++;
-                i += utf8len;
-        }
-        str[strlen] = '\0';
-        return str;
+void mangle_stub_cmdline(char16_t *cmdline) {
+        for (; *cmdline != '\0'; cmdline++)
+                /* Convert ASCII control characters to spaces. */
+                if (*cmdline <= 0x1F)
+                        *cmdline = ' ';
 }
 
 EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, UINTN off, UINTN size, char **ret, UINTN *ret_size) {

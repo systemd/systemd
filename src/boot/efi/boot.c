@@ -1204,7 +1204,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                                 continue;
                         }
                         free(config->entry_default_config);
-                        config->entry_default_config = xstra_to_str(value);
+                        config->entry_default_config = xstr8_to_16(value);
                         continue;
                 }
 
@@ -1418,32 +1418,32 @@ static void config_entry_add_type1(
         while ((line = line_get_key_value(content, " \t", &pos, &key, &value))) {
                 if (streq8(key, "title")) {
                         free(entry->title);
-                        entry->title = xstra_to_str(value);
+                        entry->title = xstr8_to_16(value);
                         continue;
                 }
 
                 if (streq8(key, "sort-key")) {
                         free(entry->sort_key);
-                        entry->sort_key = xstra_to_str(value);
+                        entry->sort_key = xstr8_to_16(value);
                         continue;
                 }
 
                 if (streq8(key, "version")) {
                         free(entry->version);
-                        entry->version = xstra_to_str(value);
+                        entry->version = xstr8_to_16(value);
                         continue;
                 }
 
                 if (streq8(key, "machine-id")) {
                         free(entry->machine_id);
-                        entry->machine_id = xstra_to_str(value);
+                        entry->machine_id = xstr8_to_16(value);
                         continue;
                 }
 
                 if (streq8(key, "linux")) {
                         free(entry->loader);
                         entry->type = LOADER_LINUX;
-                        entry->loader = xstra_to_path(value);
+                        entry->loader = xstr8_to_path(value);
                         entry->key = 'l';
                         continue;
                 }
@@ -1451,7 +1451,7 @@ static void config_entry_add_type1(
                 if (streq8(key, "efi")) {
                         entry->type = LOADER_EFI;
                         free(entry->loader);
-                        entry->loader = xstra_to_path(value);
+                        entry->loader = xstr8_to_path(value);
 
                         /* do not add an entry for ourselves */
                         if (strcaseeq16(entry->loader, loaded_image_path)) {
@@ -1472,7 +1472,7 @@ static void config_entry_add_type1(
 
                 if (streq8(key, "devicetree")) {
                         free(entry->devicetree);
-                        entry->devicetree = xstra_to_path(value);
+                        entry->devicetree = xstr8_to_path(value);
                         continue;
                 }
 
@@ -1481,7 +1481,7 @@ static void config_entry_add_type1(
                                 entry->initrd,
                                 n_initrd == 0 ? 0 : (n_initrd + 1) * sizeof(uint16_t *),
                                 (n_initrd + 2) * sizeof(uint16_t *));
-                        entry->initrd[n_initrd++] = xstra_to_path(value);
+                        entry->initrd[n_initrd++] = xstr8_to_path(value);
                         entry->initrd[n_initrd] = NULL;
                         continue;
                 }
@@ -1489,7 +1489,7 @@ static void config_entry_add_type1(
                 if (streq8(key, "options")) {
                         _cleanup_free_ char16_t *new = NULL;
 
-                        new = xstra_to_str(value);
+                        new = xstr8_to_16(value);
                         if (entry->options) {
                                 char16_t *s = xpool_print(L"%s %s", entry->options, new);
                                 free(entry->options);
@@ -2134,49 +2134,49 @@ static void config_entry_add_unified(
                 while ((line = line_get_key_value(content, "=", &pos, &key, &value))) {
                         if (streq8(key, "PRETTY_NAME")) {
                                 free(os_pretty_name);
-                                os_pretty_name = xstra_to_str(value);
+                                os_pretty_name = xstr8_to_16(value);
                                 continue;
                         }
 
                         if (streq8(key, "IMAGE_ID")) {
                                 free(os_image_id);
-                                os_image_id = xstra_to_str(value);
+                                os_image_id = xstr8_to_16(value);
                                 continue;
                         }
 
                         if (streq8(key, "NAME")) {
                                 free(os_name);
-                                os_name = xstra_to_str(value);
+                                os_name = xstr8_to_16(value);
                                 continue;
                         }
 
                         if (streq8(key, "ID")) {
                                 free(os_id);
-                                os_id = xstra_to_str(value);
+                                os_id = xstr8_to_16(value);
                                 continue;
                         }
 
                         if (streq8(key, "IMAGE_VERSION")) {
                                 free(os_image_version);
-                                os_image_version = xstra_to_str(value);
+                                os_image_version = xstr8_to_16(value);
                                 continue;
                         }
 
                         if (streq8(key, "VERSION")) {
                                 free(os_version);
-                                os_version = xstra_to_str(value);
+                                os_version = xstr8_to_16(value);
                                 continue;
                         }
 
                         if (streq8(key, "VERSION_ID")) {
                                 free(os_version_id);
-                                os_version_id = xstra_to_str(value);
+                                os_version_id = xstr8_to_16(value);
                                 continue;
                         }
 
                         if (streq8(key, "BUILD_ID")) {
                                 free(os_build_id);
-                                os_build_id = xstra_to_str(value);
+                                os_build_id = xstr8_to_16(value);
                                 continue;
                         }
                 }
@@ -2219,13 +2219,11 @@ static void config_entry_add_unified(
                 content = mfree(content);
 
                 /* read the embedded cmdline file */
-                err = file_read(linux_dir, f->FileName, offs[SECTION_CMDLINE], szs[SECTION_CMDLINE], &content, NULL);
+                size_t cmdline_len;
+                err = file_read(linux_dir, f->FileName, offs[SECTION_CMDLINE], szs[SECTION_CMDLINE], &content, &cmdline_len);
                 if (err == EFI_SUCCESS) {
-                        /* chomp the newline */
-                        if (content[szs[SECTION_CMDLINE] - 1] == '\n')
-                                content[szs[SECTION_CMDLINE] - 1] = '\0';
-
-                        entry->options = xstra_to_str(content);
+                        entry->options = xstrn8_to_16(content, cmdline_len);
+                        mangle_stub_cmdline(entry->options);
                 }
         }
 }
