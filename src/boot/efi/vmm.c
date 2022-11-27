@@ -83,6 +83,10 @@ EFI_STATUS vmm_open(EFI_HANDLE *ret_vmm_dev, EFI_FILE **ret_vmm_dir) {
         assert(ret_vmm_dev);
         assert(ret_vmm_dir);
 
+        /* Make sure all file systems have been initialized. Only do this in VMs as this is slow
+         * on some real firmwares. */
+        (void) reconnect_all_drivers();
+
         /* find all file system handles */
         err = BS->LocateHandleBuffer(ByProtocol, &FileSystemProtocol, NULL, &n_handles, &handles);
         if (err != EFI_SUCCESS)
