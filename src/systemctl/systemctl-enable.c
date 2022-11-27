@@ -67,7 +67,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
         InstallChange *changes = NULL;
         size_t n_changes = 0;
         int carries_install_info = -1;
-        bool ignore_carries_install_info = arg_quiet;
+        bool ignore_carries_install_info = arg_quiet || arg_no_warn;
         int r;
 
         if (!argv[1])
@@ -109,9 +109,10 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                 if (streq(verb, "enable")) {
                         r = unit_file_enable(arg_scope, flags, arg_root, names, &changes, &n_changes);
                         carries_install_info = r;
-                } else if (streq(verb, "disable"))
+                } else if (streq(verb, "disable")) {
                         r = unit_file_disable(arg_scope, flags, arg_root, names, &changes, &n_changes);
-                else if (streq(verb, "reenable")) {
+                        carries_install_info = r;
+                } else if (streq(verb, "reenable")) {
                         r = unit_file_reenable(arg_scope, flags, arg_root, names, &changes, &n_changes);
                         carries_install_info = r;
                 } else if (streq(verb, "link"))
@@ -165,7 +166,8 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                         method = "EnableUnitFiles";
                         expect_carries_install_info = true;
                 } else if (streq(verb, "disable")) {
-                        method = "DisableUnitFiles";
+                        method = "DisableUnitFilesWithFlagsAndInstallInfo";
+                        expect_carries_install_info = true;
                         send_force = false;
                 } else if (streq(verb, "reenable")) {
                         method = "ReenableUnitFiles";
@@ -208,7 +210,10 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                 }
 
                 if (send_runtime) {
-                        r = sd_bus_message_append(m, "b", arg_runtime);
+                        if (streq(method, "DisableUnitFilesWithFlagsAndInstallInfo"))
+                                r = sd_bus_message_append(m, "t", arg_runtime ? UNIT_FILE_RUNTIME : 0);
+                        else
+                                r = sd_bus_message_append(m, "b", arg_runtime);
                         if (r < 0)
                                 return bus_log_create_error(r);
                 }
@@ -245,7 +250,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
         if (carries_install_info == 0 && !ignore_carries_install_info)
                 log_notice("The unit files have no installation config (WantedBy=, RequiredBy=, Also=,\n"
                            "Alias= settings in the [Install] section, and DefaultInstance= for template\n"
-                           "units). This means they are not meant to be enabled using systemctl.\n"
+                           "units). This means they are not meant to be enabled or disabled using systemctl.\n"
                            " \n" /* trick: the space is needed so that the line does not get stripped from output */
                            "Possible reasons for having this kind of units are:\n"
                            "%1$s A unit may be statically enabled by being symlinked from another unit's\n"

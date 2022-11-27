@@ -84,6 +84,7 @@ bool arg_show_types = false;
 int arg_check_inhibitors = -1;
 bool arg_dry_run = false;
 bool arg_quiet = false;
+bool arg_no_warn = false;
 bool arg_full = false;
 bool arg_recursive = false;
 bool arg_with_dependencies = false;
@@ -277,6 +278,8 @@ static int systemctl_help(void) {
                "                             kexec, suspend, hibernate, suspend-then-hibernate,\n"
                "                             hybrid-sleep, default, rescue, emergency, and exit.\n"
                "  -q --quiet             Suppress output\n"
+               "     --no-warn           Don't generate warning when trying to enable/disable\n"
+               "                         units without install information\n"
                "     --wait              For (re)start, wait until service stopped again\n"
                "                         For is-system-running, wait until startup is completed\n"
                "     --no-block          Do not wait until operation finished\n"
@@ -433,6 +436,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_READ_ONLY,
                 ARG_MKDIR,
                 ARG_MARKED,
+                ARG_NO_WARN,
         };
 
         static const struct option options[] = {
@@ -465,6 +469,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "no-wall",             no_argument,       NULL, ARG_NO_WALL             },
                 { "dry-run",             no_argument,       NULL, ARG_DRY_RUN             },
                 { "quiet",               no_argument,       NULL, 'q'                     },
+                { "no-warn",             no_argument,       NULL, ARG_NO_WARN             },
                 { "root",                required_argument, NULL, ARG_ROOT                },
                 { "image",               required_argument, NULL, ARG_IMAGE               },
                 { "force",               no_argument,       NULL, 'f'                     },
@@ -924,6 +929,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_MARKED:
                         arg_marked = true;
+                        break;
+
+                case ARG_NO_WARN:
+                        arg_no_warn = true;
                         break;
 
                 case '.':

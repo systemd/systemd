@@ -65,6 +65,7 @@ extern bool arg_show_types;
 extern int arg_check_inhibitors;
 extern bool arg_dry_run;
 extern bool arg_quiet;
+extern bool arg_no_warn;
 extern bool arg_full;
 extern bool arg_recursive;
 extern bool arg_with_dependencies;
