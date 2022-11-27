@@ -385,3 +385,20 @@ typedef struct _EFI_CONSOLE_CONTROL_PROTOCOL {
         { 0xd719b2cb, 0x3d3a, 0x4596, {0xa3, 0xbc, 0xda, 0xd0,  0xe, 0x67, 0x65, 0x6f }}
 
 #endif
+
+#define EFI_BOOT_MANAGER_POLICY_PROTOCOL_GUID \
+        { 0xFEDF8E0C, 0xE147, 0x11E3, { 0x99, 0x03, 0xB8, 0xE8, 0x56, 0x2C, 0xBA, 0xFA } }
+#define EFI_BOOT_MANAGER_POLICY_CONSOLE_GUID \
+        { 0xCAB0E94C, 0xE15F, 0x11E3, { 0x91, 0x8D, 0xB8, 0xE8, 0x56, 0x2C, 0xBA, 0xFA } }
+
+typedef struct EFI_BOOT_MANAGER_POLICY_PROTOCOL EFI_BOOT_MANAGER_POLICY_PROTOCOL;
+struct EFI_BOOT_MANAGER_POLICY_PROTOCOL {
+        UINT64 Revision;
+        EFI_STATUS (EFIAPI *ConnectDevicePath)(
+                EFI_BOOT_MANAGER_POLICY_PROTOCOL *This,
+                EFI_DEVICE_PATH *DevicePath,
+                BOOLEAN Recursive);
+        EFI_STATUS (EFIAPI *ConnectDeviceClass)(
+                EFI_BOOT_MANAGER_POLICY_PROTOCOL *This,
+                EFI_GUID *Class);
+};

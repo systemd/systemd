@@ -12,6 +12,20 @@
 #define VERTICAL_MAX_OK 1080
 #define VIEWPORT_RATIO 10
 
+static EFI_STATUS console_connect(void) {
+        EFI_BOOT_MANAGER_POLICY_PROTOCOL *boot_policy;
+        EFI_STATUS err;
+
+        /* This should make console devices appear/fully initialize on fastboot firmware. */
+
+        err = BS->LocateProtocol(
+                        &(EFI_GUID) EFI_BOOT_MANAGER_POLICY_PROTOCOL_GUID, NULL, (void **) &boot_policy);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        return boot_policy->ConnectDeviceClass(boot_policy, &(EFI_GUID) EFI_BOOT_MANAGER_POLICY_CONSOLE_GUID);
+}
+
 static inline void event_closep(EFI_EVENT *event) {
         if (!*event)
                 return;
@@ -47,6 +61,8 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
         assert(key);
 
         if (!checked) {
+                console_connect();
+
                 /* Get the *first* TextInputEx device.*/
                 err = BS->LocateProtocol(&SimpleTextInputExProtocol, NULL, (void **) &extraInEx);
                 if (err != EFI_SUCCESS || BS->CheckEvent(extraInEx->WaitForKeyEx) == EFI_INVALID_PARAMETER)
