@@ -67,7 +67,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
         InstallChange *changes = NULL;
         size_t n_changes = 0;
         int carries_install_info = -1;
-        bool ignore_carries_install_info = arg_quiet;
+        bool ignore_carries_install_info = arg_quiet || arg_no_warn;
         int r;
 
         if (!argv[1])
