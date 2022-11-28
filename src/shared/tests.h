@@ -34,6 +34,8 @@ int write_tmpfile(char *pattern, const char *contents);
 
 bool have_namespaces(void);
 
+int load_module(const char *mod_name);
+
 /* We use the small but non-trivial limit here */
 #define CAN_MEMLOCK_SIZE (512 * 1024U)
 bool can_memlock(void);
