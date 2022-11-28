@@ -27,6 +27,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "log.h"
+#include "module-util.h"
 #include "namespace-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -359,4 +360,31 @@ const char *ci_environment(void) {
         }
 
         return (ans = NULL);
+}
+
+int load_module(const char *mod_name) {
+        _cleanup_(kmod_unrefp) struct kmod_ctx *ctx = NULL;
+        _cleanup_(kmod_module_unref_listp) struct kmod_list *list = NULL;
+        struct kmod_list *l;
+        int r;
+
+        ctx = kmod_new(NULL, NULL);
+        if (!ctx)
+                return log_oom();
+
+        r = kmod_module_new_from_lookup(ctx, mod_name, &list);
+        if (r < 0)
+                return r;
+
+        kmod_list_foreach(l, list) {
+                _cleanup_(kmod_module_unrefp) struct kmod_module *mod = NULL;
+
+                mod = kmod_module_get_module(l);
+
+                r = kmod_module_probe_insert_module(mod, 0, NULL, NULL, NULL, NULL);
+                if (r > 0)
+                        r = -EINVAL;
+        }
+
+        return r;
 }
