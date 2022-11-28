@@ -81,6 +81,10 @@ resolvectl_sources = files(
          'resolvectl.h',
 )
 
+mdns_browse_services_sources = files(
+         'test-mdns-browse-services.c',
+)
+
 ############################################################
 
 dns_type_list_txt = custom_target(
