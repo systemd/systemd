@@ -52,6 +52,10 @@ usb:v0FD9p006D*
 usb:v0FD9p0080*
  ID_AV_PRODUCTION_CONTROLLER=1
 
+# Stream Deck Pedal
+usb:v0FD9p0086*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
 #############################
 # Hercules (Guillemot Corp)
 #############################
