@@ -13,6 +13,7 @@
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "namespace-util.h"
 #include "nspawn-mount.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -1335,4 +1336,58 @@ done:
                 (void) rmdir(pivot_tmp);
 
         return r;
+}
+
+int pin_fully_visible_fs(void) {
+        int r;
+
+        (void) mkdir_p("/dev/.proc", 0755);
+        (void) mkdir_p("/dev/.sys", 0755);
+
+        r = mount_follow_verbose(LOG_ERR, "proc", "/dev/.proc", "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to mount temporary proc: %m");
+
+        r = mount_follow_verbose(LOG_ERR, "sysfs", "/dev/.sys", "sysfs", MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to mount temporary sys: %m");
+
+        return 0;
+}
+
+static inline int __wipe_fully_visible_fs(void) {
+        if (umount2("/dev/.proc", MNT_DETACH) < 0)
+                return log_error_errno(errno, "Failed to unmount temporary proc: %m");
+
+        if (rmdir("/dev/.proc") < 0)
+                return log_error_errno(errno, "Failed to remove temporary proc mountpoint: %m");
+
+        if (umount2("/dev/.sys", MNT_DETACH) < 0)
+                return log_error_errno(errno, "Failed to unmount temporary sys: %m");
+
+        if (rmdir("/dev/.sys") < 0)
+                return log_error_errno(errno, "Failed to remove temporary sys mountpoint: %m");
+
+        return 0;
+}
+
+int wipe_fully_visible_fs(int mntns_fd) {
+        _cleanup_close_ int orig_mntns_fd = -EBADF;
+        int r, rr;
+
+        r = namespace_open(getpid(), NULL, &orig_mntns_fd, NULL, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to pin originating mount namespace: %m");
+
+        r = namespace_enter(-EBADF, mntns_fd, -EBADF, -EBADF, -EBADF);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enter mount namespace: %m");
+
+        rr = __wipe_fully_visible_fs();
+
+        r = namespace_enter(-EBADF, orig_mntns_fd, -EBADF, -EBADF, -EBADF);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enter original mount namespace: %m");
+
+        return rr;
 }
