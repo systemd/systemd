@@ -233,7 +233,7 @@ static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
                 link->ndisc_configured = false;
 
         return link_request_address(link, TAKE_PTR(address), true, &link->ndisc_messages,
-                                 ndisc_address_handler, NULL);
+                                    ndisc_address_handler, NULL);
 }
 
 static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
