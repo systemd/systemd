@@ -30,7 +30,6 @@
     <para><filename>/etc/environment.d/*.conf</filename></para>
     <para><filename>/run/environment.d/*.conf</filename></para>
     <para><filename>/usr/lib/environment.d/*.conf</filename></para>
-    <para><filename>/etc/environment</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -43,9 +42,6 @@
     discussion of which processes inherit those variables.</para>
 
     <para>It is recommended to use numerical prefixes for file names to simplify ordering.</para>
-
-    <para>For backwards compatibility, a symlink to <filename>/etc/environment</filename> is
-    installed, so this file is also parsed.</para>
   </refsect1>
 
   <xi:include href="standard-conf.xml" xpointer="confd" />
