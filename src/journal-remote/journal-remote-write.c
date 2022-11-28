@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <libgen.h>
+
 #include "alloc-util.h"
+#include "stat-util.h"
+#include "path-util.h"
 #include "journal-remote.h"
 
 static int do_rotate(ManagedJournalFile **f, MMapCache *m, JournalFileFlags file_flags) {
@@ -19,12 +23,14 @@ static int do_rotate(ManagedJournalFile **f, MMapCache *m, JournalFileFlags file
 
 Writer* writer_new(RemoteServer *server) {
         Writer *w;
+        _cleanup_free_ char *dirname = NULL;
+        int r;
 
         w = new0(Writer, 1);
         if (!w)
                 return NULL;
 
-        memset(&w->metrics, 0xFF, sizeof(w->metrics));
+        memcpy(&w->metrics, &server->metrics, sizeof(w->metrics));
 
         w->mmap = mmap_cache_new();
         if (!w->mmap)
@@ -32,6 +38,17 @@ Writer* writer_new(RemoteServer *server) {
 
         w->n_ref = 1;
         w->server = server;
+
+        if (is_dir(server->output, true) > 0)
+                w->output = server->output;
+        else {
+                r = path_extract_directory(server->output, &dirname);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to find directory of file %s", server->output);
+                        return NULL;
+                }
+                w->output = dirname;
+        }
 
         return w;
 }
@@ -75,6 +92,9 @@ int writer_write(Writer *w,
                 r = do_rotate(&w->journal, w->mmap, file_flags);
                 if (r < 0)
                         return r;
+                r = journal_directory_vacuum(w->output, w->metrics.max_use, w->metrics.n_max_files, 0, NULL, true);
+                if (r < 0)
+                        return r;
         }
 
         r = journal_file_append_entry(w->journal->file, ts, boot_id,
@@ -93,6 +113,9 @@ int writer_write(Writer *w,
                 return r;
         else
                 log_debug("%s: Successfully rotated journal", w->journal->file->path);
+        r = journal_directory_vacuum(w->output, w->metrics.max_use, w->metrics.n_max_files, 0, NULL, true);
+        if (r < 0)
+                return r;
 
         log_debug("Retrying write.");
         r = journal_file_append_entry(w->journal->file, ts, boot_id,
