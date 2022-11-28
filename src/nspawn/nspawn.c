@@ -3632,7 +3632,7 @@ static int outer_child(
 
         _cleanup_(bind_user_context_freep) BindUserContext *bind_user_context = NULL;
         _cleanup_strv_free_ char **os_release_pairs = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -1, mntns_fd = -EBADF;
         bool idmap = false;
         const char *p;
         pid_t pid;
@@ -3697,6 +3697,15 @@ static int outer_child(
                 return r;
 
         if (arg_userns_mode != USER_NAMESPACE_NO) {
+                r = namespace_open(0, NULL, &mntns_fd, NULL, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to pin outer mount namespace: %m");
+
+                l = send_one_fd(notify_socket, mntns_fd, 0);
+                if (l < 0)
+                        return log_error_errno(l, "Failed to send outer mount namespace fd: %m");
+                mntns_fd = safe_close(mntns_fd);
+
                 /* Let the parent know which UID shift we read from the image */
                 l = send(uid_shift_socket, &arg_uid_shift, sizeof(arg_uid_shift), MSG_NOSIGNAL);
                 if (l < 0)
@@ -3973,6 +3982,20 @@ static int outer_child(
         r = mount_switch_root(directory, MOUNT_ATTR_PROPAGATION_SHARED);
         if (r < 0)
                 return log_error_errno(r, "Failed to move root directory: %m");
+
+        if (arg_userns_mode != USER_NAMESPACE_NO) {
+                /* In order to mount procfs and sysfs in an unprivileged container the kernel
+                 * requires that a fully visible instance is already present in the target mount
+                 * namespace. Mount one here so the inner child can mount its own instances. Later
+                 * we umount the temporary instances created here before we actually exec the
+                 * payload. Since the rootfs is shared the umount will propagate into the container.
+                 * Note, the inner child wouldn't be able to unmount the instances on its own since
+                 * it doesn't own the originating mount namespace. IOW, the outer child needs to do
+                 * this. */
+                r = pin_fully_visible_fs();
+                if (r < 0)
+                        return r;
+        }
 
         fd = setup_notify_child();
         if (fd < 0)
@@ -4731,12 +4754,12 @@ static int run_container(
                 rtnl_socket_pair[2] = { -1, -1 },
                 pid_socket_pair[2] = { -1, -1 },
                 uuid_socket_pair[2] = { -1, -1 },
-                notify_socket_pair[2] = { -1, -1 },
+                fd_socket_pair[2] = { -EBADF, -EBADF },
                 uid_shift_socket_pair[2] = { -1, -1 },
                 master_pty_socket_pair[2] = { -1, -1 },
                 unified_cgroup_hierarchy_socket_pair[2] = { -1, -1};
 
-        _cleanup_close_ int notify_socket = -1;
+        _cleanup_close_ int notify_socket = -1, mntns_fd = -EBADF;
         _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -4783,7 +4806,7 @@ static int run_container(
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, uuid_socket_pair) < 0)
                 return log_error_errno(errno, "Failed to create id socket pair: %m");
 
-        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, notify_socket_pair) < 0)
+        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, fd_socket_pair) < 0)
                 return log_error_errno(errno, "Failed to create notify socket pair: %m");
 
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, master_pty_socket_pair) < 0)
@@ -4836,7 +4859,7 @@ static int run_container(
                 rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
                 pid_socket_pair[0] = safe_close(pid_socket_pair[0]);
                 uuid_socket_pair[0] = safe_close(uuid_socket_pair[0]);
-                notify_socket_pair[0] = safe_close(notify_socket_pair[0]);
+                fd_socket_pair[0] = safe_close(fd_socket_pair[0]);
                 master_pty_socket_pair[0] = safe_close(master_pty_socket_pair[0]);
                 uid_shift_socket_pair[0] = safe_close(uid_shift_socket_pair[0]);
                 unified_cgroup_hierarchy_socket_pair[0] = safe_close(unified_cgroup_hierarchy_socket_pair[0]);
@@ -4850,7 +4873,7 @@ static int run_container(
                                 secondary,
                                 pid_socket_pair[1],
                                 uuid_socket_pair[1],
-                                notify_socket_pair[1],
+                                fd_socket_pair[1],
                                 kmsg_socket_pair[1],
                                 rtnl_socket_pair[1],
                                 uid_shift_socket_pair[1],
@@ -4872,12 +4895,16 @@ static int run_container(
         rtnl_socket_pair[1] = safe_close(rtnl_socket_pair[1]);
         pid_socket_pair[1] = safe_close(pid_socket_pair[1]);
         uuid_socket_pair[1] = safe_close(uuid_socket_pair[1]);
-        notify_socket_pair[1] = safe_close(notify_socket_pair[1]);
+        fd_socket_pair[1] = safe_close(fd_socket_pair[1]);
         master_pty_socket_pair[1] = safe_close(master_pty_socket_pair[1]);
         uid_shift_socket_pair[1] = safe_close(uid_shift_socket_pair[1]);
         unified_cgroup_hierarchy_socket_pair[1] = safe_close(unified_cgroup_hierarchy_socket_pair[1]);
 
         if (arg_userns_mode != USER_NAMESPACE_NO) {
+                mntns_fd = receive_one_fd(fd_socket_pair[0], 0);
+                if (mntns_fd < 0)
+                        return log_error_errno(mntns_fd, "Failed to receive mount namespace fd from outer child: %m");
+
                 /* The child just let us know the UID shift it might have read from the image. */
                 l = recv(uid_shift_socket_pair[0], &arg_uid_shift, sizeof arg_uid_shift, 0);
                 if (l < 0)
@@ -4954,7 +4981,7 @@ static int run_container(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading container machined ID.");
 
         /* We also retrieve the socket used for notifications generated by outer child */
-        notify_socket = receive_one_fd(notify_socket_pair[0], 0);
+        notify_socket = receive_one_fd(fd_socket_pair[0], 0);
         if (notify_socket < 0)
                 return log_error_errno(notify_socket,
                                        "Failed to receive notification socket from the outer child: %m");
@@ -5138,6 +5165,13 @@ static int run_container(
         r = setup_notify_parent(event, notify_socket, PID_TO_PTR(*pid), &notify_event_source);
         if (r < 0)
                 return r;
+
+        if (arg_userns_mode != USER_NAMESPACE_NO) {
+                r = wipe_fully_visible_fs(mntns_fd);
+                if (r < 0)
+                        return r;
+                mntns_fd = safe_close(mntns_fd);
+        }
 
         /* Let the child know that we are ready and wait that the child is completely ready now. */
         if (!barrier_place_and_sync(&barrier)) /* #5 */

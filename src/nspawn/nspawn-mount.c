@@ -13,6 +13,7 @@
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "namespace-util.h"
 #include "nspawn-mount.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -510,6 +511,9 @@ int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
                                       MS_BIND|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT|extra_flags, NULL);
 }
 
+#define PROC_DEFAULT_MOUNT_FLAGS (MS_NOSUID|MS_NOEXEC|MS_NODEV)
+#define SYS_DEFAULT_MOUNT_FLAGS  (MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV)
+
 int mount_all(const char *dest,
               MountSettingsMask mount_settings,
               uid_t uid_shift,
@@ -538,7 +542,7 @@ int mount_all(const char *dest,
 
         static const MountPoint mount_table[] = {
                 /* First we list inner child mounts (i.e. mounts applied *after* entering user namespacing) */
-                { "proc",            "/proc",           "proc",  NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                { "proc",            "/proc",           "proc",  NULL,        PROC_DEFAULT_MOUNT_FLAGS,
                   MOUNT_FATAL|MOUNT_IN_USERNS|MOUNT_MKDIR|MOUNT_FOLLOW_SYMLINKS }, /* we follow symlinks here since not following them requires /proc/ already being mounted, which we don't have here. */
 
                 { "/proc/sys",       "/proc/sys",       NULL,    NULL,        MS_BIND,
@@ -576,7 +580,7 @@ int mount_all(const char *dest,
                   MOUNT_FATAL|MOUNT_APPLY_TMPFS_TMP|MOUNT_MKDIR },
                 { "tmpfs",                  "/sys",                         "tmpfs", "mode=555" TMPFS_LIMITS_SYS,      MS_NOSUID|MS_NOEXEC|MS_NODEV,
                   MOUNT_FATAL|MOUNT_APPLY_APIVFS_NETNS|MOUNT_MKDIR },
-                { "sysfs",                  "/sys",                         "sysfs", NULL,                             MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                { "sysfs",                  "/sys",                         "sysfs", NULL,                             SYS_DEFAULT_MOUNT_FLAGS,
                   MOUNT_FATAL|MOUNT_APPLY_APIVFS_RO|MOUNT_MKDIR },    /* skipped if above was mounted */
                 { "sysfs",                  "/sys",                         "sysfs", NULL,                             MS_NOSUID|MS_NOEXEC|MS_NODEV,
                   MOUNT_FATAL|MOUNT_MKDIR },                          /* skipped if above was mounted */
@@ -1335,4 +1339,61 @@ done:
                 (void) rmdir(pivot_tmp);
 
         return r;
+}
+
+#define NSPAWN_PRIVATE_FULLY_VISIBLE_PROCFS "/run/host/proc"
+#define NSPAWN_PRIVATE_FULLY_VISIBLE_SYSFS "/run/host/sys"
+
+int pin_fully_visible_fs(void) {
+        int r;
+
+        (void) mkdir_p(NSPAWN_PRIVATE_FULLY_VISIBLE_PROCFS, 0755);
+        (void) mkdir_p(NSPAWN_PRIVATE_FULLY_VISIBLE_SYSFS, 0755);
+
+        r = mount_follow_verbose(LOG_ERR, "proc", NSPAWN_PRIVATE_FULLY_VISIBLE_PROCFS, "proc", PROC_DEFAULT_MOUNT_FLAGS, NULL);
+        if (r < 0)
+                return r;
+
+        r = mount_follow_verbose(LOG_ERR, "sysfs", NSPAWN_PRIVATE_FULLY_VISIBLE_SYSFS, "sysfs", SYS_DEFAULT_MOUNT_FLAGS, NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int do_wipe_fully_visible_fs(void) {
+        if (umount2(NSPAWN_PRIVATE_FULLY_VISIBLE_PROCFS, MNT_DETACH) < 0)
+                return log_error_errno(errno, "Failed to unmount temporary proc: %m");
+
+        if (rmdir(NSPAWN_PRIVATE_FULLY_VISIBLE_PROCFS) < 0)
+                return log_error_errno(errno, "Failed to remove temporary proc mountpoint: %m");
+
+        if (umount2(NSPAWN_PRIVATE_FULLY_VISIBLE_SYSFS, MNT_DETACH) < 0)
+                return log_error_errno(errno, "Failed to unmount temporary sys: %m");
+
+        if (rmdir(NSPAWN_PRIVATE_FULLY_VISIBLE_SYSFS) < 0)
+                return log_error_errno(errno, "Failed to remove temporary sys mountpoint: %m");
+
+        return 0;
+}
+
+int wipe_fully_visible_fs(int mntns_fd) {
+        _cleanup_close_ int orig_mntns_fd = -EBADF;
+        int r, rr;
+
+        r = namespace_open(0, NULL, &orig_mntns_fd, NULL, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to pin originating mount namespace: %m");
+
+        r = namespace_enter(-EBADF, mntns_fd, -EBADF, -EBADF, -EBADF);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enter mount namespace: %m");
+
+        rr = do_wipe_fully_visible_fs();
+
+        r = namespace_enter(-EBADF, orig_mntns_fd, -EBADF, -EBADF, -EBADF);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enter original mount namespace: %m");
+
+        return rr;
 }

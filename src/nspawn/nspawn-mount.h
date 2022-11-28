@@ -67,3 +67,5 @@ int pivot_root_parse(char **pivot_root_new, char **pivot_root_old, const char *s
 int setup_pivot_root(const char *directory, const char *pivot_root_new, const char *pivot_root_old);
 
 int tmpfs_patch_options(const char *options,uid_t uid_shift, const char *selinux_apifs_context, char **ret);
+int pin_fully_visible_fs(void);
+int wipe_fully_visible_fs(int mntns_fd);
