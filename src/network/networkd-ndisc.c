@@ -442,7 +442,6 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
                 return log_oom();
 
         route->family = AF_INET6;
-        route->flags = RTM_F_PREFIX;
         route->dst.in6 = prefix;
         route->dst_prefixlen = prefixlen;
         route->lifetime_usec = sec_to_usec(lifetime_sec, timestamp_usec);
