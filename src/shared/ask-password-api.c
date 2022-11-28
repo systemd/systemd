@@ -20,8 +20,8 @@
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
+#include "constants.h"
 #include "creds-util.h"
-#include "def.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -34,6 +34,7 @@
 #include "memory-util.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
+#include "nulstr-util.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "signal-util.h"
@@ -111,6 +112,10 @@ static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **pa
         r = strv_make_nulstr(l, &p, &n);
         if (r < 0)
                 return r;
+
+        /* chop off the final NUL byte. We do this because we want to use the separator NUL bytes only if we
+         * have multiple passwords. */
+        n = LESS_BY(n, (size_t) 1);
 
         serial = add_key("user", keyname, p, n, KEY_SPEC_USER_KEYRING);
         if (serial == -1)
@@ -230,8 +235,7 @@ int ask_password_plymouth(
                 if (notify < 0)
                         return -errno;
 
-                r = inotify_add_watch(notify, flag_file, IN_ATTRIB); /* for the link count */
-                if (r < 0)
+                if (inotify_add_watch(notify, flag_file, IN_ATTRIB) < 0) /* for the link count */
                         return -errno;
         }
 
@@ -239,8 +243,7 @@ int ask_password_plymouth(
         if (fd < 0)
                 return -errno;
 
-        r = connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
-        if (r < 0)
+        if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
                 return -errno;
 
         if (FLAGS_SET(flags, ASK_PASSWORD_ACCEPT_CACHED)) {
@@ -464,10 +467,9 @@ int ask_password_tty(
                 new_termios.c_cc[VMIN] = 1;
                 new_termios.c_cc[VTIME] = 0;
 
-                if (tcsetattr(ttyfd, TCSADRAIN, &new_termios) < 0) {
-                        r = -errno;
+                r = RET_NERRNO(tcsetattr(ttyfd, TCSADRAIN, &new_termios));
+                if (r < 0)
                         goto finish;
-                }
 
                 reset_tty = true;
         }
@@ -491,11 +493,11 @@ int ask_password_tty(
                 else
                         timeout = USEC_INFINITY;
 
-                if (flag_file)
-                        if (access(flag_file, F_OK) < 0) {
-                                r = -errno;
+                if (flag_file) {
+                        r = RET_NERRNO(access(flag_file, F_OK));
+                        if (r < 0)
                                 goto finish;
-                        }
+                }
 
                 r = ppoll_usec(pollfd, notify >= 0 ? 2 : 1, timeout);
                 if (r == -EINTR)
@@ -747,10 +749,10 @@ int ask_password_agent(
                         r = -errno;
                         goto finish;
                 }
-                if (inotify_add_watch(notify, "/run/systemd/ask-password", IN_ATTRIB /* for mtime */) < 0) {
-                        r = -errno;
+
+                r = RET_NERRNO(inotify_add_watch(notify, "/run/systemd/ask-password", IN_ATTRIB /* for mtime */));
+                if (r < 0)
                         goto finish;
-                }
         }
 
         fd = mkostemp_safe(temp);
@@ -813,10 +815,9 @@ int ask_password_agent(
         final[sizeof(final)-10] = 's';
         final[sizeof(final)-9] = 'k';
 
-        if (rename(temp, final) < 0) {
-                r = -errno;
+        r = RET_NERRNO(rename(temp, final));
+        if (r < 0)
                 goto finish;
-        }
 
         zero(pollfd);
         pollfd[FD_SOCKET].fd = socket_fd;

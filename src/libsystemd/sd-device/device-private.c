@@ -559,7 +559,6 @@ static int device_update_properties_bufs(sd_device *device) {
                 return -ENOMEM;
 
         size_t i = 0;
-        char *p;
         NULSTR_FOREACH(p, buf_nulstr)
                 buf_strv[i++] = p;
         assert(i == num);
@@ -664,7 +663,7 @@ int device_rename(sd_device *device, const char *name) {
         return device_add_property_internal(device, "INTERFACE", name);
 }
 
-int device_shallow_clone(sd_device *device, sd_device **ret) {
+static int device_shallow_clone(sd_device *device, sd_device **ret) {
         _cleanup_(sd_device_unrefp) sd_device *dest = NULL;
         const char *val = NULL;
         int r;
@@ -734,32 +733,6 @@ int device_clone_with_db(sd_device *device, sd_device **ret) {
         dest->sealed = true;
 
         *ret = TAKE_PTR(dest);
-        return 0;
-}
-
-int device_copy_properties(sd_device *device_dst, sd_device *device_src) {
-        const char *property, *value;
-        int r;
-
-        assert(device_dst);
-        assert(device_src);
-
-        r = device_properties_prepare(device_src);
-        if (r < 0)
-                return r;
-
-        ORDERED_HASHMAP_FOREACH_KEY(value, property, device_src->properties_db) {
-                r = device_add_property_aux(device_dst, property, value, true);
-                if (r < 0)
-                        return r;
-        }
-
-        ORDERED_HASHMAP_FOREACH_KEY(value, property, device_src->properties) {
-                r = device_add_property_aux(device_dst, property, value, false);
-                if (r < 0)
-                        return r;
-        }
-
         return 0;
 }
 

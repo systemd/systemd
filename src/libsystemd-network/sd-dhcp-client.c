@@ -14,6 +14,7 @@
 #include "sd-dhcp-client.h"
 
 #include "alloc-util.h"
+#include "device-util.h"
 #include "dhcp-identifier.h"
 #include "dhcp-internal.h"
 #include "dhcp-lease-internal.h"
@@ -77,8 +78,12 @@ struct sd_dhcp_client {
         sd_event *event;
         int event_priority;
         sd_event_source *timeout_resend;
+
         int ifindex;
         char *ifname;
+
+        sd_device *dev;
+
         int fd;
         uint16_t port;
         union sockaddr_union link;
@@ -117,7 +122,7 @@ struct sd_dhcp_client {
         usec_t start_delay;
         int ip_service_type;
 
-        /* Ignore ifindex when generating iaid. See dhcp_identifier_set_iaid(). */
+        /* Ignore machine-ID when generating DUID. See dhcp_identifier_set_duid_en(). */
         bool test_mode;
 };
 
@@ -420,9 +425,8 @@ static int dhcp_client_set_iaid_duid_internal(
                 if (iaid_set)
                         client->client_id.ns.iaid = htobe32(iaid);
                 else {
-                        r = dhcp_identifier_set_iaid(client->ifindex, &client->hw_addr,
+                        r = dhcp_identifier_set_iaid(client->dev, &client->hw_addr,
                                                      /* legacy_unstable_byteorder = */ true,
-                                                     /* use_mac = */ client->test_mode,
                                                      &client->client_id.ns.iaid);
                         if (r < 0)
                                 return log_dhcp_client_errno(client, r, "Failed to set IAID: %m");
@@ -799,9 +803,8 @@ static int client_message_init(
 
                 client->client_id.type = 255;
 
-                r = dhcp_identifier_set_iaid(client->ifindex, &client->hw_addr,
+                r = dhcp_identifier_set_iaid(client->dev, &client->hw_addr,
                                              /* legacy_unstable_byteorder = */ true,
-                                             /* use_mac = */ client->test_mode,
                                              &client->client_id.ns.iaid);
                 if (r < 0)
                         return r;
@@ -2153,6 +2156,12 @@ sd_event *sd_dhcp_client_get_event(sd_dhcp_client *client) {
         return client->event;
 }
 
+int sd_dhcp_client_attach_device(sd_dhcp_client *client, sd_device *dev) {
+        assert_return(client, -EINVAL);
+
+        return device_unref_and_replace(client->dev, dev);
+}
+
 static sd_dhcp_client *dhcp_client_free(sd_dhcp_client *client) {
         if (!client)
                 return NULL;
@@ -2167,6 +2176,8 @@ static sd_dhcp_client *dhcp_client_free(sd_dhcp_client *client) {
         client->timeout_expire = sd_event_source_unref(client->timeout_expire);
 
         sd_dhcp_client_detach_event(client);
+
+        sd_device_unref(client->dev);
 
         set_free(client->req_opts);
         free(client->hostname);

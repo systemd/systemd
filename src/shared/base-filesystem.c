@@ -135,7 +135,7 @@ int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
                         continue;
 
                 if (table[i].target) {
-                        const char *target = NULL, *s;
+                        const char *target = NULL;
 
                         /* check if one of the targets exists */
                         NULSTR_FOREACH(s, table[i].target) {

@@ -3,6 +3,7 @@
 #include <getopt.h>
 #include <unistd.h>
 
+#include "build.h"
 #include "creds-util.h"
 #include "dirent-util.h"
 #include "escape.h"
@@ -637,10 +638,12 @@ static int verb_has_tpm2(int argc, char **argv, void *userdata) {
 
                 printf("%sfirmware\n"
                        "%sdriver\n"
-                       "%ssystem\n",
+                       "%ssystem\n"
+                       "%ssubsystem\n",
                        plus_minus(s & TPM2_SUPPORT_FIRMWARE),
                        plus_minus(s & TPM2_SUPPORT_DRIVER),
-                       plus_minus(s & TPM2_SUPPORT_SYSTEM));
+                       plus_minus(s & TPM2_SUPPORT_SYSTEM),
+                       plus_minus(s & TPM2_SUPPORT_SUBSYSTEM));
         }
 
         /* Return inverted bit flags. So that TPM2_SUPPORT_FULL becomes EXIT_SUCCESS and the other values

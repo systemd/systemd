@@ -30,13 +30,13 @@
 #include "bus-util.h"
 #include "clean-ipc.h"
 #include "clock-util.h"
+#include "constants.h"
 #include "core-varlink.h"
 #include "creds-util.h"
 #include "dbus-job.h"
 #include "dbus-manager.h"
 #include "dbus-unit.h"
 #include "dbus.h"
-#include "def.h"
 #include "dirent-util.h"
 #include "env-util.h"
 #include "escape.h"
@@ -48,6 +48,7 @@
 #include "fileio.h"
 #include "generator-setup.h"
 #include "hashmap.h"
+#include "initrd-util.h"
 #include "inotify-util.h"
 #include "install.h"
 #include "io-util.h"
@@ -889,7 +890,7 @@ int manager_new(LookupScope scope, ManagerTestRunFlags test_run_flags, Manager *
         }
 
         /* Reboot immediately if the user hits C-A-D more often than 7x per 2s */
-        m->ctrl_alt_del_ratelimit = (RateLimit) { .interval = 2 * USEC_PER_SEC, .burst = 7 };
+        m->ctrl_alt_del_ratelimit = (const RateLimit) { .interval = 2 * USEC_PER_SEC, .burst = 7 };
 
         r = manager_default_environment(m);
         if (r < 0)

@@ -10,13 +10,13 @@
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
+#include "build.h"
 #include "bus-internal.h"
 #include "bus-util.h"
 #include "errno-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "util.h"
 #include "version.h"
 
 #define DEFAULT_BUS_PATH "unix:path=/run/dbus/system_bus_socket"
@@ -242,8 +242,11 @@ static int run(int argc, char *argv[]) {
                 };
 
                 r = ppoll_usec(p, ELEMENTSOF(p), t);
-                if (r < 0)
+                if (r < 0) {
+                        if (ERRNO_IS_TRANSIENT(r)) /* don't be bothered by signals, i.e. EINTR */
+                                continue;
                         return log_error_errno(r, "ppoll() failed: %m");
+                }
         }
 
         return 0;

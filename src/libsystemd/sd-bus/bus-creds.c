@@ -15,13 +15,13 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "hexdecoct.h"
+#include "nulstr-util.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "user-util.h"
-#include "util.h"
 
 enum {
         CAP_OFFSET_INHERITABLE = 0,

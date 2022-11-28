@@ -45,7 +45,7 @@ static inline int strv_extend(char ***l, const char *value) {
         return strv_extend_with_size(l, NULL, value);
 }
 
-int strv_extendf(char ***l, const char *format, ...) _printf_(2,0);
+int strv_extendf(char ***l, const char *format, ...) _printf_(2,3);
 int strv_extend_front(char ***l, const char *value);
 
 int strv_push_with_size(char ***l, size_t *n, char *value);
@@ -122,20 +122,6 @@ int strv_split_colon_pairs(char ***t, const char *s);
 char* strv_join_full(char * const *l, const char *separator, const char *prefix, bool escape_separator);
 static inline char *strv_join(char * const *l, const char *separator) {
         return strv_join_full(l, separator, NULL, false);
-}
-
-char** strv_parse_nulstr(const char *s, size_t l);
-char** strv_split_nulstr(const char *s);
-int strv_make_nulstr(char * const *l, char **p, size_t *n);
-
-static inline int strv_from_nulstr(char ***a, const char *nulstr) {
-        char **t;
-
-        t = strv_split_nulstr(nulstr);
-        if (!t)
-                return -ENOMEM;
-        *a = t;
-        return 0;
 }
 
 bool strv_overlap(char * const *a, char * const *b) _pure_;

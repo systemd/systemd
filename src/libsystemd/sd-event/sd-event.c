@@ -16,6 +16,7 @@
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "list.h"
+#include "logarithm.h"
 #include "macro.h"
 #include "memory-util.h"
 #include "missing_syscall.h"
@@ -2171,9 +2172,9 @@ _public_ int sd_event_add_inotify(
 
         assert_return(path, -EINVAL);
 
-        fd = open(path, O_PATH|O_CLOEXEC|
-                  (mask & IN_ONLYDIR ? O_DIRECTORY : 0)|
-                  (mask & IN_DONT_FOLLOW ? O_NOFOLLOW : 0));
+        fd = open(path, O_PATH | O_CLOEXEC |
+                        (mask & IN_ONLYDIR ? O_DIRECTORY : 0) |
+                        (mask & IN_DONT_FOLLOW ? O_NOFOLLOW : 0));
         if (fd < 0)
                 return -errno;
 
@@ -3176,7 +3177,7 @@ static int event_arm_timer(
         assert_se(d->fd >= 0);
 
         if (t == 0) {
-                /* We don' want to disarm here, just mean some time looooong ago. */
+                /* We don't want to disarm here, just mean some time looooong ago. */
                 its.it_value.tv_sec = 0;
                 its.it_value.tv_nsec = 1;
         } else
@@ -3968,15 +3969,18 @@ static int epoll_wait_usec(
                 usec_t timeout) {
 
         int msec;
-#if 0
+        /* A wrapper that uses epoll_pwait2() if available, and falls back to epoll_wait() if not. */
+
+#if HAVE_EPOLL_PWAIT2
         static bool epoll_pwait2_absent = false;
         int r;
 
-        /* A wrapper that uses epoll_pwait2() if available, and falls back to epoll_wait() if not.
-         *
-         * FIXME: this is temporarily disabled until epoll_pwait2() becomes more widely available.
-         * See https://github.com/systemd/systemd/pull/18973 and
-         * https://github.com/systemd/systemd/issues/19052. */
+        /* epoll_pwait2() was added to Linux 5.11 (2021-02-14) and to glibc in 2.35 (2022-02-03). In contrast
+         * to other syscalls we don't bother with our own fallback syscall wrappers on old libcs, since this
+         * is not that obvious to implement given the libc and kernel definitions differ in the last
+         * argument. Moreover, the only reason to use it is the more accurate time-outs (which is not a
+         * biggie), let's hence rely on glibc's definitions, and fallback to epoll_pwait() when that's
+         * missing. */
 
         if (!epoll_pwait2_absent && timeout != USEC_INFINITY) {
                 r = epoll_pwait2(fd,

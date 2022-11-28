@@ -5,6 +5,9 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/assert.sh
+. "$(dirname "$0")"/assert.sh
+
 : >/failed
 
 RUN_OUT="$(mktemp)"
@@ -24,6 +27,120 @@ monitor_check_rr() {
     journalctl -u resmontest.service -f --full | grep -m1 "$match"
     set -o pipefail
 }
+
+# Test for resolvectl, resolvconf
+systemctl unmask systemd-resolved.service
+systemctl start systemd-resolved.service
+systemctl service-log-level systemd-resolved.service debug
+ip link add hoge type dummy
+ip link add hoge.foo type dummy
+resolvectl dns hoge 10.0.0.1 10.0.0.2
+resolvectl dns hoge.foo 10.0.0.3 10.0.0.4
+assert_in '10.0.0.1 10.0.0.2' "$(resolvectl dns hoge)"
+assert_in '10.0.0.3 10.0.0.4' "$(resolvectl dns hoge.foo)"
+resolvectl dns hoge 10.0.1.1 10.0.1.2
+resolvectl dns hoge.foo 10.0.1.3 10.0.1.4
+assert_in '10.0.1.1 10.0.1.2' "$(resolvectl dns hoge)"
+assert_in '10.0.1.3 10.0.1.4' "$(resolvectl dns hoge.foo)"
+if ! RESOLVCONF=$(command -v resolvconf 2>/dev/null); then
+    TMPDIR=$(mktemp -d -p /tmp resolvconf-tests.XXXXXX)
+    RESOLVCONF="$TMPDIR"/resolvconf
+    ln -s "$(command -v resolvectl 2>/dev/null)" "$RESOLVCONF"
+fi
+echo nameserver 10.0.2.1 10.0.2.2 | "$RESOLVCONF" -a hoge
+echo nameserver 10.0.2.3 10.0.2.4 | "$RESOLVCONF" -a hoge.foo
+assert_in '10.0.2.1 10.0.2.2' "$(resolvectl dns hoge)"
+assert_in '10.0.2.3 10.0.2.4' "$(resolvectl dns hoge.foo)"
+echo nameserver 10.0.3.1 10.0.3.2 | "$RESOLVCONF" -a hoge.inet.ipsec.192.168.35
+echo nameserver 10.0.3.3 10.0.3.4 | "$RESOLVCONF" -a hoge.foo.dhcp
+assert_in '10.0.3.1 10.0.3.2' "$(resolvectl dns hoge)"
+assert_in '10.0.3.3 10.0.3.4' "$(resolvectl dns hoge.foo)"
+
+# Tests for _localdnsstub and _localdnsproxy
+assert_in '127.0.0.53' "$(resolvectl query _localdnsstub)"
+assert_in '_localdnsstub' "$(resolvectl query 127.0.0.53)"
+assert_in '127.0.0.54' "$(resolvectl query _localdnsproxy)"
+assert_in '_localdnsproxy' "$(resolvectl query 127.0.0.54)"
+
+assert_in '127.0.0.53' "$(dig @127.0.0.53 _localdnsstub)"
+assert_in '_localdnsstub' "$(dig @127.0.0.53 -x 127.0.0.53)"
+assert_in '127.0.0.54' "$(dig @127.0.0.53 _localdnsproxy)"
+assert_in '_localdnsproxy' "$(dig @127.0.0.53 -x 127.0.0.54)"
+
+# Tests for mDNS and LLMNR settings
+mkdir -p /run/systemd/resolved.conf.d
+{
+    echo "[Resolve]"
+    echo "MulticastDNS=yes"
+    echo "LLMNR=yes"
+} >/run/systemd/resolved.conf.d/mdns-llmnr.conf
+systemctl restart systemd-resolved.service
+systemctl service-log-level systemd-resolved.service debug
+# make sure networkd is not running.
+systemctl stop systemd-networkd.service
+# defaults to yes (both the global and per-link settings are yes)
+assert_in 'yes' "$(resolvectl mdns hoge)"
+assert_in 'yes' "$(resolvectl llmnr hoge)"
+# set per-link setting
+resolvectl mdns hoge yes
+resolvectl llmnr hoge yes
+assert_in 'yes' "$(resolvectl mdns hoge)"
+assert_in 'yes' "$(resolvectl llmnr hoge)"
+resolvectl mdns hoge resolve
+resolvectl llmnr hoge resolve
+assert_in 'resolve' "$(resolvectl mdns hoge)"
+assert_in 'resolve' "$(resolvectl llmnr hoge)"
+resolvectl mdns hoge no
+resolvectl llmnr hoge no
+assert_in 'no' "$(resolvectl mdns hoge)"
+assert_in 'no' "$(resolvectl llmnr hoge)"
+# downgrade global setting to resolve
+{
+    echo "[Resolve]"
+    echo "MulticastDNS=resolve"
+    echo "LLMNR=resolve"
+} >/run/systemd/resolved.conf.d/mdns-llmnr.conf
+systemctl restart systemd-resolved.service
+systemctl service-log-level systemd-resolved.service debug
+# set per-link setting
+resolvectl mdns hoge yes
+resolvectl llmnr hoge yes
+assert_in 'resolve' "$(resolvectl mdns hoge)"
+assert_in 'resolve' "$(resolvectl llmnr hoge)"
+resolvectl mdns hoge resolve
+resolvectl llmnr hoge resolve
+assert_in 'resolve' "$(resolvectl mdns hoge)"
+assert_in 'resolve' "$(resolvectl llmnr hoge)"
+resolvectl mdns hoge no
+resolvectl llmnr hoge no
+assert_in 'no' "$(resolvectl mdns hoge)"
+assert_in 'no' "$(resolvectl llmnr hoge)"
+# downgrade global setting to no
+{
+    echo "[Resolve]"
+    echo "MulticastDNS=no"
+    echo "LLMNR=no"
+} >/run/systemd/resolved.conf.d/mdns-llmnr.conf
+systemctl restart systemd-resolved.service
+systemctl service-log-level systemd-resolved.service debug
+# set per-link setting
+resolvectl mdns hoge yes
+resolvectl llmnr hoge yes
+assert_in 'no' "$(resolvectl mdns hoge)"
+assert_in 'no' "$(resolvectl llmnr hoge)"
+resolvectl mdns hoge resolve
+resolvectl llmnr hoge resolve
+assert_in 'no' "$(resolvectl mdns hoge)"
+assert_in 'no' "$(resolvectl llmnr hoge)"
+resolvectl mdns hoge no
+resolvectl llmnr hoge no
+assert_in 'no' "$(resolvectl mdns hoge)"
+assert_in 'no' "$(resolvectl llmnr hoge)"
+
+# Cleanup
+rm -f /run/systemd/resolved.conf.d/mdns-llmnr.conf
+ip link del hoge
+ip link del hoge.foo
 
 ### SETUP ###
 # Configure network
@@ -46,11 +163,13 @@ DNSSEC=allow-downgrade
 DNS=10.0.0.1
 EOF
 
+mkdir -p /run/systemd/resolved.conf.d
 {
+    echo "[Resolve]"
     echo "FallbackDNS="
     echo "DNSSEC=allow-downgrade"
     echo "DNSOverTLS=opportunistic"
-} >>/etc/systemd/resolved.conf
+} >/run/systemd/resolved.conf.d/test.conf
 ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 # Override the default NTA list, which turns off DNSSEC validation for (among
 # others) the test. domain
@@ -74,8 +193,9 @@ mkdir -p /etc/bind
 ln -svf /etc/bind.keys /etc/bind/bind.keys
 
 # Start the services
-systemctl unmask systemd-networkd systemd-resolved
-systemctl start systemd-networkd systemd-resolved
+systemctl unmask systemd-networkd
+systemctl start systemd-networkd
+systemctl restart systemd-resolved
 # Create knot's runtime dir, since from certain version it's provided only by
 # the package and not created by tmpfiles/systemd
 if [[ ! -d /run/knot ]]; then

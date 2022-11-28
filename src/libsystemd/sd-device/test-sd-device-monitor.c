@@ -14,7 +14,6 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "tests.h"
-#include "util.h"
 #include "virt.h"
 
 static int monitor_handler(sd_device_monitor *m, sd_device *d, void *userdata) {
@@ -293,15 +292,6 @@ static void test_sd_device_monitor_filter_remove(sd_device *device) {
         assert_se(sd_event_loop(sd_device_monitor_get_event(monitor_client)) == 100);
 }
 
-static void test_device_copy_properties(sd_device *device) {
-        _cleanup_(sd_device_unrefp) sd_device *copy = NULL;
-
-        assert_se(device_shallow_clone(device, &copy) >= 0);
-        assert_se(device_copy_properties(copy, device) >= 0);
-
-        test_send_receive_one(copy, false, false, false);
-}
-
 int main(int argc, char *argv[]) {
         _cleanup_(sd_device_unrefp) sd_device *loopback = NULL, *sda = NULL;
         int r;
@@ -333,7 +323,6 @@ int main(int argc, char *argv[]) {
         test_tag_filter(loopback);
         test_sysattr_filter(loopback, "ifindex");
         test_sd_device_monitor_filter_remove(loopback);
-        test_device_copy_properties(loopback);
 
         r = sd_device_new_from_subsystem_sysname(&sda, "block", "sda");
         if (r < 0) {

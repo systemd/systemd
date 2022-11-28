@@ -5,9 +5,10 @@
 
 #include "sd-daemon.h"
 
+#include "build.h"
 #include "conf-parser.h"
+#include "constants.h"
 #include "daemon-util.h"
-#include "def.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "journal-remote-write.h"

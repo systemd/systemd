@@ -22,7 +22,6 @@
 #include "tmpfile-util.h"
 #include "umask-util.h"
 #include "user-util.h"
-#include "util.h"
 #include "virt.h"
 
 static const char *arg_test_dir = NULL;
@@ -216,7 +215,7 @@ TEST(chase_symlinks) {
         result = mfree(result);
 
         r = chase_symlinks("/etc/machine-id/foo", NULL, 0, &result, NULL);
-        assert_se(r == -ENOTDIR);
+        assert_se(IN_SET(r, -ENOTDIR, -ENOENT));
         result = mfree(result);
 
         /* Path that loops back to self */
@@ -386,6 +385,15 @@ TEST(chase_symlinks) {
         assert_se(r > 0);
         assert_se(path_equal(path_startswith(result, p), "usr"));
         result = mfree(result);
+
+        /* Test CHASE_PROHIBIT_SYMLINKS */
+
+        assert_se(chase_symlinks("top/dot", temp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, NULL, NULL) == -EREMCHG);
+        assert_se(chase_symlinks("top/dot", temp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_WARN, NULL, NULL) == -EREMCHG);
+        assert_se(chase_symlinks("top/dotdot", temp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, NULL, NULL) == -EREMCHG);
+        assert_se(chase_symlinks("top/dotdot", temp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_WARN, NULL, NULL) == -EREMCHG);
+        assert_se(chase_symlinks("top/dot/dot", temp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, NULL, NULL) == -EREMCHG);
+        assert_se(chase_symlinks("top/dot/dot", temp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_WARN, NULL, NULL) == -EREMCHG);
 
  cleanup:
         assert_se(rm_rf(temp, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);

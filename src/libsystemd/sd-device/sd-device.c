@@ -33,7 +33,6 @@
 #include "strv.h"
 #include "strxcpyx.h"
 #include "user-util.h"
-#include "util.h"
 
 int device_new_aux(sd_device **ret) {
         sd_device *device;

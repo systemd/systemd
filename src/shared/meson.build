@@ -125,7 +125,6 @@ shared_sources = files(
         'exit-status.h',
         'extension-release.c',
         'extension-release.h',
-        'fdisk-util.h',
         'fdset.c',
         'fdset.h',
         'fileio-label.c',
@@ -193,6 +192,7 @@ shared_sources = files(
         'libcrypt-util.h',
         'libfido2-util.c',
         'libfido2-util.h',
+        'libmount-util.c',
         'libmount-util.h',
         'linux/auto_dev-ioctl.h',
         'linux/bpf.h',
@@ -464,8 +464,10 @@ libshared_deps = [threads,
                   librt,
                   libseccomp,
                   libselinux,
+                  libxenctrl,
+                  libxz,
                   libzstd,
-                  libxz]
+                  versiondep]
 
 libshared_sym_path = '@0@/libshared.sym'.format(meson.current_source_dir())
 
@@ -490,3 +492,18 @@ libshared = shared_library(
         dependencies : libshared_deps,
         install : true,
         install_dir : rootpkglibdir)
+
+shared_fdisk_sources = files(
+        'fdisk-util.h',
+        'fdisk-util.c',
+)
+
+if get_option('fdisk') != 'false'
+        libshared_fdisk = static_library(
+                'shared-fdisk',
+                shared_fdisk_sources,
+                include_directories : includes,
+                dependencies : [libfdisk],
+                c_args : ['-fvisibility=default'],
+                build_by_default : false)
+endif

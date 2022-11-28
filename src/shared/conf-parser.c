@@ -10,7 +10,7 @@
 #include "alloc-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
-#include "def.h"
+#include "constants.h"
 #include "dns-domain.h"
 #include "escape.h"
 #include "ether-addr-util.h"
@@ -211,7 +211,6 @@ static int parse_line(
 
                 if (sections && !nulstr_contains(sections, n)) {
                         bool ignore;
-                        const char *t;
 
                         ignore = (flags & CONFIG_PARSE_RELAXED) || startswith(n, "X-");
 

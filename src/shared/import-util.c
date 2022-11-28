@@ -179,7 +179,6 @@ int raw_strip_suffixes(const char *p, char **ret) {
                 return -ENOMEM;
 
         for (;;) {
-                const char *sfx;
                 bool changed = false;
 
                 NULSTR_FOREACH(sfx, suffixes) {

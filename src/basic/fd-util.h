@@ -56,6 +56,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(DIR*, closedir, NULL);
 
 int fd_nonblock(int fd, bool nonblock);
 int fd_cloexec(int fd, bool cloexec);
+int fd_cloexec_many(const int fds[], size_t n_fds, bool cloexec);
 
 int get_max_fd(void);
 
@@ -108,7 +109,6 @@ static inline int make_null_stdio(void) {
 
 int fd_reopen(int fd, int flags);
 int read_nr_open(void);
-int btrfs_defrag_fd(int fd);
 int fd_get_diskseq(int fd, uint64_t *ret);
 
 /* The maximum length a buffer for a /proc/self/fd/<fd> path needs */

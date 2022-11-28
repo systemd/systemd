@@ -12,6 +12,7 @@
 #include "local-addresses.h"
 #include "macro.h"
 #include "nss-util.h"
+#include "resolve-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "string-util.h"
@@ -21,7 +22,7 @@
  * IPv6 we use ::1 which unfortunately will not translate back to the
  * hostname but instead something like "localhost" or so. */
 
-#define LOCALADDRESS_IPV4 (htobe32(0x7F000002))
+#define LOCALADDRESS_IPV4 (htobe32(INADDR_LOCALADDRESS))
 #define LOCALADDRESS_IPV6 &in6addr_loopback
 
 NSS_GETHOSTBYNAME_PROTOTYPES(myhostname);

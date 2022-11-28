@@ -197,6 +197,7 @@ BASICTOOLS=(
     nproc
     pkill
     readlink
+    realpath
     rev
     rm
     rmdir
@@ -954,6 +955,8 @@ install_modules() {
 
     if get_bool "$LOOKS_LIKE_SUSE"; then
         instmods ext4
+        # for TEST-54-CREDS
+        instmods dmi-sysfs
     fi
 }
 
@@ -1147,7 +1150,6 @@ install_debian_systemd() {
 }
 
 install_suse_systemd() {
-    local testsdir=/usr/lib/systemd/tests
     local pkgs
 
     dinfo "Install SUSE systemd"
@@ -1158,6 +1160,9 @@ install_suse_systemd() {
         systemd-coredump
         systemd-experimental
         systemd-journal-remote
+        # Since commit fb6f25d7b979134a, systemd-resolved, which is shipped by
+        # systemd-network sub-package on openSUSE, has its own testsuite.
+        systemd-network
         systemd-portable
         udev
     )
@@ -1173,15 +1178,21 @@ install_suse_systemd() {
         done < <(rpm -ql "$p")
     done
 
-    # we only need testsdata dir as well as the unit tests (for
-    # TEST-02-UNITTESTS) in the image.
-    dinfo "Install unit tests and testdata directory"
+    # Embed the files needed by the extended testsuite at runtime. Also include
+    # the unit tests needed by TEST-02-UNITTESTS. This is mostly equivalent to
+    # what `ninja install` does for the tests when '-Dinstall-tests=true'.
+    #
+    # Why? openSUSE ships a package named 'systemd-testsuite' which contains
+    # the minimal set of files that allows to run the testsuite on the host (as
+    # long as it runs an equivalent version of systemd) getting rid of the
+    # hassles of fetching, configuring, building the source code.
+    dinfo "Install the files needed by the tests at runtime"
+    image_install "${SOURCE_DIR}"/test-*
+    inst_recursive "${SOURCE_DIR}/testdata"
+    inst_recursive "${SOURCE_DIR}/manual"
 
-    mkdir -p "$initdir/$testsdir"
-    cp "$testsdir"/test-* "$initdir/$testsdir/"
-    cp -a "$testsdir/testdata" "$initdir/$testsdir/"
-
-    # On openSUSE, these dirs are not created at package install for now on.
+    # On openSUSE, this directory is not created at package install, at least
+    # for now.
     mkdir -p "$initdir/var/log/journal/remote"
 }
 
@@ -1309,6 +1320,11 @@ install_missing_libraries() {
     inst_simple "${path}/engines-3/capi.so" || true
     inst_simple "${path}/engines-3/loader_attic.so" || true
     inst_simple "${path}/engines-3/padlock.so" || true
+
+    # Binaries from mtools depend on the gconv modules to translate between codepages. Because there's no
+    # pkg-config file for these, we copy every gconv/ directory we can find in /usr/lib and /usr/lib64.
+    # shellcheck disable=SC2046
+    inst_recursive $(find /usr/lib* -name gconv 2>/dev/null)
 }
 
 cleanup_loopdev() {
@@ -1344,6 +1360,9 @@ create_empty_image() {
     if ! get_bool "$STRIP_BINARIES"; then
         root_size=$((4 * root_size))
         data_size=$((2 * data_size))
+    fi
+    if [ "$IMAGE_NAME" = "repart" ]; then
+        root_size=$((root_size+=1000))
     fi
 
     echo "Setting up ${IMAGE_PUBLIC:?} (${root_size} MB)"
@@ -1988,21 +2007,27 @@ install_locales() {
         inst /usr/share/i18n/SUPPORTED || :
         inst_recursive /usr/share/i18n/charmaps
         inst_recursive /usr/share/i18n/locales
-        inst_recursive /usr/share/locale/en
-        inst_recursive /usr/share/locale/en_*
+        inst_recursive /usr/share/locale/en*
+        inst_recursive /usr/share/locale/de*
+        image_install /usr/share/locale/locale.alias
+        # locale-gen might either generate each locale separately or merge them
+        # into a single archive
+        if ! (inst_recursive /usr/lib/locale/C.*8 /usr/lib/locale/en_*8 ||
+              image_install /usr/lib/locale/locale-archive); then
+            dfatal "Failed to install required locales"
+            exit 1
+        fi
+    else
+        inst_recursive /usr/lib/locale/C.*8 /usr/lib/locale/en_*8
     fi
-
-    inst_recursive /usr/lib/locale/C.utf8
-    inst_recursive /usr/lib/locale/C.UTF-8
-    inst_recursive /usr/lib/locale/en_*.utf8
-    inst_recursive /usr/lib/locale/en_*.UTF-8
 }
 
 # shellcheck disable=SC2120
 install_keymaps() {
     local i p
     local -a prefix=(
-        "/usr"
+        "/usr/lib"
+        "/usr/share"
     )
 
     dinfo "Install console keymaps"
@@ -2011,7 +2036,7 @@ install_keymaps() {
             && [[ "$(meson configure "${BUILD_DIR:?}" | grep 'split-usr' | awk '{ print $2 }')" == "true" ]] \
             || [[ ! -L /lib ]]; then
         prefix+=(
-            ""
+            "/lib"
         )
     fi
 
@@ -2020,12 +2045,12 @@ install_keymaps() {
             # The first three paths may be deprecated.
             # It seems now the last three paths are used by many distributions.
             for i in \
-                "$p"/lib/kbd/keymaps/include/* \
-                "$p"/lib/kbd/keymaps/i386/include/* \
-                "$p"/lib/kbd/keymaps/i386/qwerty/us.* \
-                "$p"/lib/kbd/keymaps/legacy/include/* \
-                "$p"/lib/kbd/keymaps/legacy/i386/qwerty/us.* \
-                "$p"/lib/kbd/keymaps/xkb/us*; do
+                "$p"/kbd/keymaps/include/* \
+                "$p"/kbd/keymaps/i386/include/* \
+                "$p"/kbd/keymaps/i386/qwerty/us.* \
+                "$p"/kbd/keymaps/legacy/include/* \
+                "$p"/kbd/keymaps/legacy/i386/qwerty/us.* \
+                "$p"/kbd/keymaps/xkb/us*; do
                     [[ -f "$i" ]] || continue
                     inst "$i"
             done
@@ -2034,10 +2059,10 @@ install_keymaps() {
         # When it takes any argument, then install more keymaps.
         for p in "${prefix[@]}"; do
             for i in \
-                "$p"/lib/kbd/keymaps/include/* \
-                "$p"/lib/kbd/keymaps/i386/*/* \
-                "$p"/lib/kbd/keymaps/legacy/i386/*/* \
-                "$p"/lib/kbd/keymaps/xkb/*; do
+                "$p"/kbd/keymaps/include/* \
+                "$p"/kbd/keymaps/i386/*/* \
+                "$p"/kbd/keymaps/legacy/i386/*/* \
+                "$p"/kbd/keymaps/xkb/*; do
                     [[ -f "$i" ]] || continue
                     inst "$i"
             done
@@ -2773,6 +2798,10 @@ inst_recursive() {
     local p item
 
     for p in "$@"; do
+        # Make sure the source exists, as the process substitution below
+        # suppresses errors
+        stat "$p" >/dev/null || return 1
+
         while read -r item; do
             if [[ -d "$item" ]]; then
                 inst_dir "$item"

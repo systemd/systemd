@@ -3,11 +3,12 @@
 #include <getopt.h>
 #include <unistd.h>
 
+#include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "chase-symlinks.h"
 #include "conf-files.h"
-#include "def.h"
+#include "constants.h"
 #include "dirent-util.h"
 #include "dissect-image.h"
 #include "fd-util.h"

@@ -69,8 +69,9 @@
         <term><option>-p</option></term>
         <term><option>--poweroff</option></term>
 
-        <listitem><para>Power-off the machine, regardless of which one
-        of the three commands is invoked.</para></listitem>
+        <listitem><para>Power-off the machine, when either <command>halt</command>
+        or <command>poweroff</command> is invoked. This option is ignored when
+        <command>reboot</command> is invoked.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -12,6 +12,7 @@
 #include <utmpx.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "hostname-util.h"
 #include "io-util.h"
@@ -292,13 +293,15 @@ static int write_to_terminal(const char *tty, const char *message) {
         assert(message);
 
         fd = open(tty, O_WRONLY|O_NONBLOCK|O_NOCTTY|O_CLOEXEC);
-        if (fd < 0 || !isatty(fd))
+        if (fd < 0)
                 return -errno;
+        if (!isatty(fd))
+                return -ENOTTY;
 
         p = message;
         left = strlen(message);
 
-        end = now(CLOCK_MONOTONIC) + TIMEOUT_USEC;
+        end = usec_add(now(CLOCK_MONOTONIC), TIMEOUT_USEC);
 
         while (left > 0) {
                 ssize_t n;
@@ -306,19 +309,21 @@ static int write_to_terminal(const char *tty, const char *message) {
                 int k;
 
                 t = now(CLOCK_MONOTONIC);
-
                 if (t >= end)
                         return -ETIME;
 
                 k = fd_wait_for_event(fd, POLLOUT, end - t);
-                if (k < 0)
+                if (k < 0) {
+                        if (ERRNO_IS_TRANSIENT(k))
+                                continue;
                         return k;
+                }
                 if (k == 0)
                         return -ETIME;
 
                 n = write(fd, p, left);
                 if (n < 0) {
-                        if (errno == EAGAIN)
+                        if (ERRNO_IS_TRANSIENT(errno))
                                 continue;
 
                         return -errno;

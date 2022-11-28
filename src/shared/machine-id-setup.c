@@ -24,7 +24,6 @@
 #include "string-util.h"
 #include "sync-util.h"
 #include "umask-util.h"
-#include "util.h"
 #include "virt.h"
 
 static int generate_machine_id(const char *root, sd_id128_t *ret) {

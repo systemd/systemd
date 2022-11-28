@@ -15,13 +15,14 @@
 #include "initrd.h"
 #include "linux.h"
 #include "measure.h"
+#include "part-discovery.h"
 #include "pe.h"
+#include "vmm.h"
 #include "random-seed.h"
 #include "secure-boot.h"
 #include "shim.h"
 #include "ticks.h"
 #include "util.h"
-#include "xbootldr.h"
 
 #ifndef GNU_EFI_USE_MS_ABI
         /* We do not use uefi_call_wrapper() in systemd-boot. As such, we rely on the
@@ -96,7 +97,6 @@ typedef struct {
         bool beep;
         int64_t console_mode;
         int64_t console_mode_efivar;
-        RandomSeedMode random_seed_mode;
 } Config;
 
 /* These values have been chosen so that the transitions the user sees could
@@ -471,7 +471,6 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         _cleanup_free_ char16_t *device_part_uuid = NULL;
 
         assert(config);
-        assert(loaded_image_path);
 
         clear_screen(COLOR_NORMAL);
         console_query_mode(&x_max, &y_max);
@@ -529,7 +528,6 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
           ps_bool(L"         auto-firmware: %s\n", config->auto_firmware);
           ps_bool(L"                  beep: %s\n", config->beep);
           ps_bool(L"  reboot-for-bitlocker: %s\n", config->reboot_for_bitlocker);
-        ps_string(L"      random-seed-mode: %s\n", random_seed_modes_table[config->random_seed_mode]);
 
         switch (config->secure_boot_enroll) {
         case ENROLL_OFF:
@@ -619,7 +617,6 @@ static bool menu_run(
 
         assert(config);
         assert(chosen_entry);
-        assert(loaded_image_path);
 
         EFI_STATUS err;
         UINTN visible_max = 0;
@@ -1274,27 +1271,6 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                         }
                         continue;
                 }
-
-                if (streq8(key, "random-seed-mode")) {
-                        if (streq8(value, "off"))
-                                config->random_seed_mode = RANDOM_SEED_OFF;
-                        else if (streq8(value, "with-system-token"))
-                                config->random_seed_mode = RANDOM_SEED_WITH_SYSTEM_TOKEN;
-                        else if (streq8(value, "always"))
-                                config->random_seed_mode = RANDOM_SEED_ALWAYS;
-                        else {
-                                bool on;
-
-                                err = parse_boolean(value, &on);
-                                if (err != EFI_SUCCESS) {
-                                        log_error_stall(L"Error parsing 'random-seed-mode' config option: %a", value);
-                                        continue;
-                                }
-
-                                config->random_seed_mode = on ? RANDOM_SEED_ALWAYS : RANDOM_SEED_OFF;
-                        }
-                        continue;
-                }
         }
 }
 
@@ -1478,7 +1454,7 @@ static void config_entry_add_type1(
                         entry->loader = xstra_to_path(value);
 
                         /* do not add an entry for ourselves */
-                        if (loaded_image_path && strcaseeq16(entry->loader, loaded_image_path)) {
+                        if (strcaseeq16(entry->loader, loaded_image_path)) {
                                 entry->type = LOADER_UNDEFINED;
                                 break;
                         }
@@ -1585,7 +1561,6 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .auto_firmware = true,
                 .reboot_for_bitlocker = false,
                 .secure_boot_enroll = ENROLL_MANUAL,
-                .random_seed_mode = RANDOM_SEED_WITH_SYSTEM_TOKEN,
                 .idx_default_efivar = IDX_INVALID,
                 .console_mode = CONSOLE_MODE_KEEP,
                 .console_mode_efivar = CONSOLE_MODE_KEEP,
@@ -1908,12 +1883,11 @@ static ConfigEntry *config_entry_add_loader_auto(
         assert(root_dir);
         assert(id);
         assert(title);
-        assert(loader || loaded_image_path);
 
         if (!config->auto_entries)
                 return NULL;
 
-        if (loaded_image_path) {
+        if (!loader) {
                 loader = L"\\EFI\\BOOT\\BOOT" EFI_MACHINE_TYPE_NAME ".efi";
 
                 /* We are trying to add the default EFI loader here,
@@ -2267,7 +2241,7 @@ static void config_load_xbootldr(
         assert(config);
         assert(device);
 
-        err = xbootldr_open(device, &new_device, &root_dir);
+        err = partition_open(XBOOTLDR_GUID, device, &new_device, &root_dir);
         if (err != EFI_SUCCESS)
                 return;
 
@@ -2562,7 +2536,6 @@ static void export_variables(
         char16_t uuid[37];
 
         assert(loaded_image);
-        assert(loaded_image_path);
 
         efivar_set_time_usec(LOADER_GUID, L"LoaderTimeInitUSec", init_usec);
         efivar_set(LOADER_GUID, L"LoaderInfo", L"systemd-boot " GIT_VERSION, 0);
@@ -2591,7 +2564,6 @@ static void config_load_all_entries(
 
         assert(config);
         assert(loaded_image);
-        assert(loaded_image_path);
         assert(root_dir);
 
         config_load_defaults(config, root_dir);
@@ -2646,11 +2618,18 @@ static void config_load_all_entries(
         config_default_entry_select(config);
 }
 
+static EFI_STATUS discover_root_dir(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, EFI_FILE **ret_dir) {
+        if (is_direct_boot(loaded_image->DeviceHandle))
+                return vmm_open(&loaded_image->DeviceHandle, ret_dir);
+        else
+                return open_volume(loaded_image->DeviceHandle, ret_dir);
+}
+
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         _cleanup_(file_closep) EFI_FILE *root_dir = NULL;
         _cleanup_(config_free) Config config = {};
-        char16_t *loaded_image_path;
+        _cleanup_free_ char16_t *loaded_image_path = NULL;
         EFI_STATUS err;
         uint64_t init_usec;
         bool menu = false;
@@ -2676,13 +2655,11 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Error getting a LoadedImageProtocol handle: %r", err);
 
-        err = device_path_to_str(loaded_image->FilePath, &loaded_image_path);
-        if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Error getting loaded image path: %m");
+        (void) device_path_to_str(loaded_image->FilePath, &loaded_image_path);
 
         export_variables(loaded_image, loaded_image_path, init_usec);
 
-        err = open_volume(loaded_image->DeviceHandle, &root_dir);
+        err = discover_root_dir(loaded_image, &root_dir);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Unable to open root directory: %r", err);
 
@@ -2742,7 +2719,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 save_selected_entry(&config, entry);
 
                 /* Optionally, read a random seed off the ESP and pass it to the OS */
-                (void) process_random_seed(root_dir, config.random_seed_mode);
+                (void) process_random_seed(root_dir);
 
                 err = image_start(image, entry);
                 if (err != EFI_SUCCESS)

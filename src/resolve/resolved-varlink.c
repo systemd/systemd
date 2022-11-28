@@ -503,7 +503,7 @@ static int vl_method_resolve_address(Varlink *link, JsonVariant *parameters, Var
                 return varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("family"));
 
         if (FAMILY_ADDRESS_SIZE(p.family) != p.address_size)
-                return varlink_error(link, "io.systemd.UserDatabase.BadAddressSize", NULL);
+                return varlink_error(link, "io.systemd.Resolve.BadAddressSize", NULL);
 
         if (!validate_and_mangle_flags(NULL, &p.flags, 0))
                 return varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("flags"));

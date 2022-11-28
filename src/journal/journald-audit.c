@@ -441,7 +441,7 @@ void server_process_audit_message(
         }
 
         if (!NLMSG_OK(nl, buffer_size)) {
-                log_error("Audit netlink message truncated.");
+                log_ratelimit_error(JOURNALD_LOG_RATELIMIT, "Audit netlink message truncated.");
                 return;
         }
 

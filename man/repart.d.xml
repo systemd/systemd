@@ -237,7 +237,7 @@
         <para>This setting defaults to <constant>linux-generic</constant>.</para>
 
         <para>Most of the partition type UUIDs listed above are defined in the <ulink
-        url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions
+        url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions
         Specification</ulink>.</para></listitem>
       </varlistentry>
 
@@ -542,7 +542,7 @@
 
         <listitem><para>Configures the No-Auto, Read-Only and Grow-File-System partition flags (bit 63, 60
         and 59) of the partition table entry, as defined by the <ulink
-        url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>. Only
+        url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions Specification</ulink>. Only
         available for partition types supported by the specification. This option is a friendly way to set
         bits 63, 60 and 59 of the partition flags value without setting any of the other bits, and may be set
         via <varname>Flags=</varname> too, see above.</para>
@@ -580,6 +580,17 @@
         option of <command>systemd-repart</command> is used. Simple specifier expansion is supported, see
         below. Defaults to <literal>%t</literal>. To disable split artifact generation for a partition, set
         <varname>SplitName=</varname> to <literal>-</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Minimize=</varname></term>
+
+        <listitem><para>Takes a boolean. Disabled by default. If enabled, the partition is created at least
+        as big as required for the minimal file system of the type specified by <varname>Format=</varname>,
+        taking into account the sources configured with  <varname>CopyFiles=</varname>. Note that unless the
+        filesystem is a read-only filesystem, <command>systemd-repart</command> will have to populate the
+        filesystem twice, so enabling this option might slow down repart when populating large partitions.
+        </para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

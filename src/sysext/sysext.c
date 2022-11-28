@@ -7,6 +7,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
+#include "build.h"
 #include "capability-util.h"
 #include "chase-symlinks.h"
 #include "devnum-util.h"
@@ -20,6 +21,7 @@
 #include "format-table.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "initrd-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "missing_magic.h"

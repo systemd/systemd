@@ -4,7 +4,7 @@
 
 #include "alloc-util.h"
 #include "conf-files.h"
-#include "def.h"
+#include "constants.h"
 #include "dns-domain.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -165,7 +165,6 @@ static int dns_trust_anchor_add_builtin_negative(DnsTrustAnchor *d) {
                 /* Defined by RFC 8375. The most official choice. */
                 "home.arpa\0";
 
-        const char *name;
         int r;
 
         assert(d);

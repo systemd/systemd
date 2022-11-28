@@ -23,7 +23,7 @@
 #endif
 
 struct ShimLock {
-        EFI_STATUS __sysv_abi__ (*shim_verify) (void *buffer, uint32_t size);
+        EFI_STATUS __sysv_abi__ (*shim_verify) (const void *buffer, uint32_t size);
 
         /* context is actually a struct for the PE header, but it isn't needed so void is sufficient just do define the interface
          * see shim.c/shim.h and PeHeader.h in the github shim repo */
@@ -41,79 +41,45 @@ bool shim_loaded(void) {
         return BS->LocateProtocol((EFI_GUID*) SHIM_LOCK_GUID, NULL, (void**) &shim_lock) == EFI_SUCCESS;
 }
 
-static bool shim_validate(void *data, uint32_t size) {
-        struct ShimLock *shim_lock;
-
-        if (!data)
-                return false;
-
-        if (BS->LocateProtocol((EFI_GUID*) SHIM_LOCK_GUID, NULL, (void**) &shim_lock) != EFI_SUCCESS)
-                return false;
-
-        if (!shim_lock)
-                return false;
-
-        return shim_lock->shim_verify(data, size) == EFI_SUCCESS;
-}
-
-static EFIAPI EFI_STATUS security2_hook(
-                const SecurityOverride *this,
-                const EFI_DEVICE_PATH *device_path,
-                void *file_buffer,
-                UINTN file_size,
-                BOOLEAN boot_policy) {
-
-        assert(this);
-        assert(this->hook == security2_hook);
-
-        if (shim_validate(file_buffer, file_size))
-                return EFI_SUCCESS;
-
-        return this->original_security2->FileAuthentication(
-                        this->original_security2, device_path, file_buffer, file_size, boot_policy);
-}
-
-static EFIAPI EFI_STATUS security_hook(
-                const SecurityOverride *this,
-                uint32_t authentication_status,
-                const EFI_DEVICE_PATH *device_path) {
+static bool shim_validate(
+                const void *ctx, const EFI_DEVICE_PATH *device_path, const void *file_buffer, size_t file_size) {
 
         EFI_STATUS err;
+        _cleanup_free_ char *file_buffer_owned = NULL;
 
-        assert(this);
-        assert(this->hook == security_hook);
+        if (!file_buffer) {
+                if (!device_path)
+                        return false;
 
-        if (!device_path)
-                return this->original_security->FileAuthenticationState(
-                                this->original_security, authentication_status, device_path);
+                EFI_HANDLE device_handle;
+                EFI_DEVICE_PATH *file_dp = (EFI_DEVICE_PATH *) device_path;
+                err = BS->LocateDevicePath(&FileSystemProtocol, &file_dp, &device_handle);
+                if (err != EFI_SUCCESS)
+                        return false;
 
-        EFI_HANDLE device_handle;
-        EFI_DEVICE_PATH *dp = (EFI_DEVICE_PATH *) device_path;
-        err = BS->LocateDevicePath(&FileSystemProtocol, &dp, &device_handle);
+                _cleanup_(file_closep) EFI_FILE *root = NULL;
+                err = open_volume(device_handle, &root);
+                if (err != EFI_SUCCESS)
+                        return false;
+
+                _cleanup_free_ char16_t *dp_str = NULL;
+                err = device_path_to_str(file_dp, &dp_str);
+                if (err != EFI_SUCCESS)
+                        return false;
+
+                err = file_read(root, dp_str, 0, 0, &file_buffer_owned, &file_size);
+                if (err != EFI_SUCCESS)
+                        return false;
+
+                file_buffer = file_buffer_owned;
+        }
+
+        struct ShimLock *shim_lock;
+        err = BS->LocateProtocol((EFI_GUID *) SHIM_LOCK_GUID, NULL, (void **) &shim_lock);
         if (err != EFI_SUCCESS)
-                return err;
+                return false;
 
-        _cleanup_(file_closep) EFI_FILE *root = NULL;
-        err = open_volume(device_handle, &root);
-        if (err != EFI_SUCCESS)
-                return err;
-
-        _cleanup_free_ char16_t *dp_str = NULL;
-        err = device_path_to_str(dp, &dp_str);
-        if (err != EFI_SUCCESS)
-                return err;
-
-        char *file_buffer;
-        size_t file_size;
-        err = file_read(root, dp_str, 0, 0, &file_buffer, &file_size);
-        if (err != EFI_SUCCESS)
-                return err;
-
-        if (shim_validate(file_buffer, file_size))
-                return EFI_SUCCESS;
-
-        return this->original_security->FileAuthenticationState(
-                        this->original_security, authentication_status, device_path);
+        return shim_lock->shim_verify(file_buffer, file_size) == EFI_SUCCESS;
 }
 
 EFI_STATUS shim_load_image(EFI_HANDLE parent, const EFI_DEVICE_PATH *device_path, EFI_HANDLE *ret_image) {
@@ -122,20 +88,14 @@ EFI_STATUS shim_load_image(EFI_HANDLE parent, const EFI_DEVICE_PATH *device_path
 
         bool have_shim = shim_loaded();
 
-        SecurityOverride security_override = {
-                .hook = security_hook,
-        }, security2_override = {
-                .hook = security2_hook,
-        };
-
         if (have_shim)
-                install_security_override(&security_override, &security2_override);
+                install_security_override(shim_validate, NULL);
 
         EFI_STATUS ret = BS->LoadImage(
                         /*BootPolicy=*/false, parent, (EFI_DEVICE_PATH *) device_path, NULL, 0, ret_image);
 
         if (have_shim)
-                uninstall_security_override(&security_override, &security2_override);
+                uninstall_security_override();
 
         return ret;
 }

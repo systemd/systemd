@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "bus-util.h"
 #include "capability-util.h"
+#include "efi-api.h"
 #include "fileio.h"
 #include "kmod-setup.h"
 #include "macro.h"
@@ -99,27 +100,32 @@ int kmod_setup(void) {
         } kmod_table[] = {
                 /* This one we need to load explicitly, since auto-loading on use doesn't work
                  * before udev created the ghost device nodes, and we need it earlier than that. */
-                { "autofs4",   "/sys/class/misc/autofs",    true,   false,   NULL      },
+                { "autofs4",     "/sys/class/misc/autofs",    true,  false, NULL           },
 
                 /* This one we need to load explicitly, since auto-loading of IPv6 is not done when
                  * we try to configure ::1 on the loopback device. */
-                { "ipv6",      "/sys/module/ipv6",          false,  true,    NULL      },
+                { "ipv6",        "/sys/module/ipv6",          false, true,  NULL           },
 
                 /* This should never be a module */
-                { "unix",      "/proc/net/unix",            true,   true,    NULL      },
+                { "unix",        "/proc/net/unix",            true,  true,  NULL           },
 
 #if HAVE_LIBIPTC
                 /* netfilter is needed by networkd, nspawn among others, and cannot be autoloaded */
-                { "ip_tables", "/proc/net/ip_tables_names", false,  false,   NULL      },
+                { "ip_tables",   "/proc/net/ip_tables_names", false, false, NULL           },
 #endif
                 /* virtio_rng would be loaded by udev later, but real entropy might be needed very early */
-                { "virtio_rng", NULL,                       false,  false,   has_virtio_rng },
+                { "virtio_rng",  NULL,                        false, false, has_virtio_rng },
 
                 /* qemu_fw_cfg would be loaded by udev later, but we want to import credentials from it super early */
-                { "qemu_fw_cfg", "/sys/firmware/qemu_fw_cfg", false, false,  in_qemu   },
+                { "qemu_fw_cfg", "/sys/firmware/qemu_fw_cfg", false, false, in_qemu        },
 
                 /* dmi-sysfs is needed to import credentials from it super early */
-                { "dmi-sysfs", "/sys/firmware/dmi/entries", false, false,  NULL   },
+                { "dmi-sysfs",   "/sys/firmware/dmi/entries", false, false, NULL           },
+
+#if HAVE_TPM2
+                /* Make sure the tpm subsystem is available which ConditionSecurity=tpm2 depends on. */
+                { "tpm",         "/sys/class/tpmrm",          false, false, efi_has_tpm2   },
+#endif
         };
         _cleanup_(kmod_unrefp) struct kmod_ctx *ctx = NULL;
         unsigned i;

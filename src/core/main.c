@@ -22,6 +22,7 @@
 #include "alloc-util.h"
 #include "apparmor-setup.h"
 #include "architecture.h"
+#include "argv-util.h"
 #if HAVE_LIBBPF
 #include "bpf-lsm.h"
 #endif
@@ -36,7 +37,7 @@
 #include "crash-handler.h"
 #include "dbus-manager.h"
 #include "dbus.h"
-#include "def.h"
+#include "constants.h"
 #include "dev-setup.h"
 #include "efi-random.h"
 #include "efivars.h"
@@ -52,6 +53,7 @@
 #include "hostname-setup.h"
 #include "ima-setup.h"
 #include "import-creds.h"
+#include "initrd-util.h"
 #include "killall.h"
 #include "kmod-setup.h"
 #include "limits-util.h"
@@ -92,7 +94,6 @@
 #include "time-util.h"
 #include "umask-util.h"
 #include "user-util.h"
-#include "util.h"
 #include "virt.h"
 #include "watchdog.h"
 
@@ -2830,8 +2831,8 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                /* The efivarfs is now mounted, let's read the random seed off it */
-                (void) efi_take_random_seed();
+                /* The efivarfs is now mounted, let's lock down the system token. */
+                lock_down_efi_variables();
 
                 /* Cache command-line options passed from EFI variables */
                 if (!skip_setup)

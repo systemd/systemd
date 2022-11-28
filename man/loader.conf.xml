@@ -36,7 +36,7 @@
     <literal>.conf</literal> extension under
     <filename><replaceable>ESP</replaceable>/loader/entries/</filename> on the EFI system partition (ESP),
     and <filename><replaceable>XBOOTLDR</replaceable>/loader/entries/</filename> on the extended boot loader
-    partition (XBOOTLDR) as defined by <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader
+    partition (XBOOTLDR) as defined by <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader
     Specification</ulink>.
     </para>
 
@@ -57,7 +57,7 @@
     <para>The configuration options supported by
     <filename><replaceable>ESP</replaceable>/loader/entries/*.conf</filename> and
     <filename><replaceable>XBOOTLDR</replaceable>/loader/entries/*.conf</filename> files are defined as part
-    of the <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader
+    of the <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader
     Specification</ulink>.</para>
 
     <para>The following configuration are supported by the <filename>loader.conf</filename> configuration
@@ -236,7 +236,7 @@
 
         <para>The different sets of variables can be set up under <filename>/loader/keys/<replaceable>NAME</replaceable></filename>
         where <replaceable>NAME</replaceable> is the name that is going to be used as the name of the entry.
-        This allows to ship multiple sets of Secure Boot variables and choose which one to enroll at runtime.</para>
+        This allows one to ship multiple sets of Secure Boot variables and choose which one to enroll at runtime.</para>
 
         <para>Supported secure boot variables are one database for authorized images, one key exchange key (KEK)
         and one platform key (PK). For more information, refer to the <ulink url="https://uefi.org/specifications">UEFI specification</ulink>,
@@ -308,25 +308,6 @@ sign-efi-sig-list -c KEK.crt -k KEK.key db db.esl db.auth
         The TPM key protector needs to be removed and then added back for the PCRs on an already
         encrypted drive to change. If PCR 4 is not measured, this setting can be disabled to speed
         up booting into Windows.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term>random-seed-mode</term>
-
-        <listitem><para>Takes one of <literal>off</literal>, <literal>with-system-token</literal> and
-        <literal>always</literal>. If <literal>off</literal> no random seed data is read off the ESP, nor
-        passed to the OS. If <literal>with-system-token</literal> (the default)
-        <command>systemd-boot</command> will read a random seed from the ESP (from the file
-        <filename>/loader/random-seed</filename>) only if the <varname>LoaderSystemToken</varname> EFI
-        variable is set, and then derive the random seed to pass to the OS from the combination. If
-        <literal>always</literal> the boot loader will do so even if <varname>LoaderSystemToken</varname> is
-        not set. This mode is useful in environments where protection against OS image reuse is not a
-        concern, and the random seed shall be used even with no further setup in place. Use <command>bootctl
-        random-seed</command> to initialize both the random seed file in the ESP and the system token EFI
-        variable.</para>
-
-        <para>See <ulink url="https://systemd.io/RANDOM_SEEDS">Random Seeds</ulink> for further
-        information.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

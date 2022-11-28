@@ -243,8 +243,8 @@
     --add-section .initrd=initrd.cpio --change-section-vma .initrd=0x3000000 \
     --add-section .splash=splash.bmp --change-section-vma .splash=0x100000 \
     --add-section .dtb=devicetree.dtb --change-section-vma .dtb=0x40000 \
-    --add-section .pcrsig=tpm2-pcr-signature.json --change-section-vma .splash=0x80000 \
-    --add-section .pcrpkey=tpm2-pcr-public.pem --change-section-vma .splash=0x90000 \
+    --add-section .pcrsig=tpm2-pcr-signature.json --change-section-vma .pcrsig=0x80000 \
+    --add-section .pcrpkey=tpm2-pcr-public.pem --change-section-vma .pcrpkey=0x90000 \
     /usr/lib/systemd/boot/efi/linuxx64.efi.stub \
     foo.efi</programlisting>
 

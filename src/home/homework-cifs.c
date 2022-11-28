@@ -64,7 +64,7 @@ int home_setup_cifs(
                 pid_t mount_pid;
                 int exit_status;
 
-                r = fopen_temporary(NULL, &f, &p);
+                r = fopen_temporary_child(NULL, &f, &p);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create temporary credentials file: %m");
 

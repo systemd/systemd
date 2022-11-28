@@ -6,6 +6,7 @@
 #include <stdlib.h>
 
 #include "alloc-util.h"
+#include "build.h"
 #include "dissect-image.h"
 #include "id128-util.h"
 #include "log.h"
@@ -16,7 +17,6 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "terminal-util.h"
-#include "util.h"
 
 static char *arg_root = NULL;
 static char *arg_image = NULL;

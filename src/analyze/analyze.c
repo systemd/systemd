@@ -37,6 +37,7 @@
 #include "analyze-unit-paths.h"
 #include "analyze-compare-versions.h"
 #include "analyze-verify.h"
+#include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
@@ -46,7 +47,7 @@
 #include "capability-util.h"
 #include "conf-files.h"
 #include "copy.h"
-#include "def.h"
+#include "constants.h"
 #include "exit-status.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -79,7 +80,6 @@
 #include "time-util.h"
 #include "tmpfile-util.h"
 #include "unit-name.h"
-#include "util.h"
 #include "verb-log-control.h"
 #include "verbs.h"
 #include "version.h"
@@ -241,6 +241,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -h --help                  Show this help\n"
                "     --version               Show package version\n"
                "  -q --quiet                 Do not emit hints\n"
+               "     --root=PATH             Operate on an alternate filesystem root\n"
+               "     --image=PATH            Operate on disk image as filesystem root\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),

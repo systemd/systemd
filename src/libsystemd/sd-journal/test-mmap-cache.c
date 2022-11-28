@@ -9,7 +9,6 @@
 #include "macro.h"
 #include "mmap-cache.h"
 #include "tmpfile-util.h"
-#include "util.h"
 
 int main(int argc, char *argv[]) {
         MMapFileDescriptor *fx;

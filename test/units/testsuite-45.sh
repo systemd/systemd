@@ -39,7 +39,7 @@ test_timezone() {
     if [[ -f /etc/timezone ]]; then
         assert_eq "$(cat /etc/timezone)" "Europe/Kiev"
     fi
-    assert_in "Time zone: Europe/Kiev \(EEST, \+0[0-9]00\)" "$(timedatectl)"
+    assert_in "Time zone: Europe/Kiev \(EES*T, \+0[0-9]00\)" "$(timedatectl)"
 
     if [[ -n "$ORIG_TZ" ]]; then
         echo 'reset timezone to original'

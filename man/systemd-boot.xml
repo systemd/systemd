@@ -39,12 +39,12 @@
 
     <itemizedlist>
       <listitem><para>Boot entries defined with <ulink
-      url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink> Type #1
+      url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink> Type #1
       description files located in <filename>/loader/entries/</filename> on the ESP and the Extended Boot
       Loader Partition. These usually describe Linux kernel images with associated initrd images, but
       alternatively may also describe other arbitrary EFI executables.</para></listitem>
 
-      <listitem><para>Unified kernel images, <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot
+      <listitem><para>Unified kernel images, <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot
       Loader Specification</ulink> Type #2, which are executable EFI binaries in
       <filename>/EFI/Linux/</filename> on the ESP and the Extended Boot Loader Partition.</para></listitem>
 
@@ -304,11 +304,11 @@
     <citerefentry><refentrytitle>loader.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
     <para>Boot entry description files following the <ulink
-    url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink> are read from
+    url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink> are read from
     <filename>/loader/entries/</filename> on the ESP and the Extended Boot Loader partition.</para>
 
     <para>Unified kernel boot entries following the <ulink
-    url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink> are read from
+    url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink> are read from
     <filename>/EFI/Linux/</filename> on the ESP and the Extended Boot Loader partition.</para>
 
     <para>Optionally, a random seed for early boot entropy pool provisioning is stored in
@@ -436,28 +436,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>LoaderRandomSeed</varname></term>
-
-        <listitem><para>A binary random seed <command>systemd-boot</command> may optionally pass to the
-        OS. This is a volatile EFI variable that is hashed at boot from the combination of a random seed
-        stored in the ESP (in <filename>/loader/random-seed</filename>) and a "system token" persistently
-        stored in the EFI variable <varname>LoaderSystemToken</varname> (see below). During early OS boot the
-        system manager reads this variable and passes it to the OS kernel's random pool, crediting the full
-        entropy it contains. This is an efficient way to ensure the system starts up with a fully initialized
-        kernel random pool — as early as the initrd phase. <command>systemd-boot</command> reads
-        the random seed from the ESP, combines it with the "system token", and both derives a new random seed
-        to update in-place the seed stored in the ESP, and the random seed to pass to the OS from it via
-        SHA256 hashing in counter mode. This ensures that different physical systems that boot the same
-        "golden" OS image — i.e. containing the same random seed file in the ESP — will still pass a
-        different random seed to the OS. It is made sure the random seed stored in the ESP is fully
-        overwritten before the OS is booted, to ensure different random seed data is used between subsequent
-        boots.</para>
-
-        <para>See <ulink url="https://systemd.io/RANDOM_SEEDS">Random Seeds</ulink> for
-        further information.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><varname>LoaderSystemToken</varname></term>
 
         <listitem><para>A binary random data field, that is used for generating the random seed to pass to
@@ -474,7 +452,7 @@
     <title>Boot Counting</title>
 
     <para><command>systemd-boot</command> implements a simple boot counting mechanism on top of the <ulink
-    url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>, for automatic and unattended
+    url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink>, for automatic and unattended
     fallback to older kernel versions/boot loader entries when a specific entry continuously fails. Any boot loader
     entry file and unified kernel image file that contains a <literal>+</literal> followed by one or two numbers (if
     two they need to be separated by a <literal>-</literal>), before the <filename>.conf</filename> or
@@ -526,6 +504,23 @@
   </refsect1>
 
   <refsect1>
+    <title>Using systemd-boot in virtual machines.</title>
+
+    <para>When using qemu with OVMF (UEFI Firmware for virtual machines) the <option>-kernel</option> switch
+    works not only for linux kernels, but for any EFI binary, including sd-boot and unified linux
+    kernels.  Example command line for loading sd-boot on x64:</para>
+
+    <para>
+      <command>qemu-system-x86_64 <replaceable>[ ... ]</replaceable>
+      -kernel /usr/lib/systemd/boot/efi/systemd-bootx64.efi</command>
+    </para>
+
+    <para>systemd-boot will detect that it was started directly instead of being loaded from ESP and will
+    search for the ESP in that case, taking into account boot order information from the hypervisor (if
+    available).</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
@@ -534,7 +529,7 @@
       <citerefentry><refentrytitle>systemd-boot-system-token.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>,
+      <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink>,
       <ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>
     </para>
   </refsect1>

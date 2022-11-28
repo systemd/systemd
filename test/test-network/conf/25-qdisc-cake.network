@@ -21,3 +21,5 @@ PriorityQueueingPreset=diffserv8
 FirewallMark=0xff00
 Wash=yes
 SplitGSO=yes
+RTTSec=1sec
+AckFilter=aggressive

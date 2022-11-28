@@ -28,6 +28,7 @@
 #include "base-filesystem.h"
 #include "blkid-util.h"
 #include "btrfs-util.h"
+#include "build.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "cap-list.h"
@@ -110,7 +111,6 @@
 #include "umask-util.h"
 #include "unit-name.h"
 #include "user-util.h"
-#include "util.h"
 
 /* The notify socket inside the container it can use to talk to nspawn using the sd_notify(3) protocol */
 #define NSPAWN_NOTIFY_SOCKET_PATH "/run/host/notify"
@@ -2219,7 +2219,6 @@ static int copy_devnodes(const char *dest) {
                 "tty\0"
                 "net/tun\0";
 
-        const char *d;
         int r = 0;
 
         assert(dest);
@@ -5754,7 +5753,7 @@ static int run(int argc, char *argv[]) {
                         log_notice("Note that the disk image needs to\n"
                                    "    a) either contain only a single MBR partition of type 0x83 that is marked bootable\n"
                                    "    b) or contain a single GPT partition of type 0FC63DAF-8483-4772-8E79-3D69D8477DE4\n"
-                                   "    c) or follow https://systemd.io/DISCOVERABLE_PARTITIONS\n"
+                                   "    c) or follow https://uapi-group.org/specifications/specs/discoverable_partitions_specification\n"
                                    "    d) or contain a file system without a partition table\n"
                                    "in order to be bootable with systemd-nspawn.");
                         goto finish;

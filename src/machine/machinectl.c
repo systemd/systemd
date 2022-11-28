@@ -14,6 +14,7 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
+#include "build.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -24,8 +25,8 @@
 #include "bus-wait-for-jobs.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
+#include "constants.h"
 #include "copy.h"
-#include "def.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "format-table.h"
@@ -60,8 +61,6 @@
 #include "verbs.h"
 #include "web-util.h"
 
-#define ALL_ADDRESSES -1
-
 static char **arg_property = NULL;
 static bool arg_all = false;
 static BusPrintPropertyFlags arg_print_flags = 0;
@@ -83,7 +82,7 @@ static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
 static const char* arg_format = NULL;
 static const char *arg_uid = NULL;
 static char **arg_setenv = NULL;
-static int arg_max_addresses = 1;
+static unsigned arg_max_addresses = 1;
 
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_setenv, strv_freep);
@@ -99,7 +98,7 @@ static OutputFlags get_output_flags(void) {
 static int call_get_os_release(sd_bus *bus, const char *method, const char *name, const char *query, ...) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        const char *k, *v, *iter, **query_res = NULL;
+        const char *k, *v, **query_res = NULL;
         size_t count = 0, awaited_args = 0;
         va_list ap;
         int r;
@@ -260,7 +259,6 @@ static int show_table(Table *table, const char *word) {
 }
 
 static int list_machines(int argc, char *argv[], void *userdata) {
-
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -273,12 +271,13 @@ static int list_machines(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Could not get machines: %s", bus_error_message(&error, r));
 
-        table = table_new("machine", "class", "service", "os", "version", "addresses");
+        table = table_new("machine", "class", "service", "os", "version",
+                          arg_max_addresses > 0 ? "addresses" : NULL);
         if (!table)
                 return log_oom();
 
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
-        if (!arg_full && arg_max_addresses != ALL_ADDRESSES)
+        if (!arg_full && arg_max_addresses > 0 && arg_max_addresses < UINT_MAX)
                 table_set_cell_height_max(table, arg_max_addresses);
 
         if (arg_full)
@@ -310,23 +309,23 @@ static int list_machines(int argc, char *argv[], void *userdata) {
                                 &os,
                                 &version_id);
 
-                (void) call_get_addresses(
-                                bus,
-                                name,
-                                0,
-                                "",
-                                "\n",
-                                &addresses);
-
                 r = table_add_many(table,
                                    TABLE_STRING, empty_to_null(name),
                                    TABLE_STRING, empty_to_null(class),
                                    TABLE_STRING, empty_to_null(service),
                                    TABLE_STRING, empty_to_null(os),
-                                   TABLE_STRING, empty_to_null(version_id),
-                                   TABLE_STRING, empty_to_null(addresses));
+                                   TABLE_STRING, empty_to_null(version_id));
                 if (r < 0)
                         return table_log_add_error(r);
+
+                if (arg_max_addresses > 0) {
+                        (void) call_get_addresses(bus, name, 0, "", "\n", &addresses);
+
+                        r = table_add_many(table,
+                                           TABLE_STRING, empty_to_null(addresses));
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
         }
 
         r = sd_bus_message_exit_container(reply);
@@ -2717,13 +2716,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_MAX_ADDRESSES:
                         if (streq(optarg, "all"))
-                                arg_max_addresses = ALL_ADDRESSES;
-                        else if (safe_atoi(optarg, &arg_max_addresses) < 0)
+                                arg_max_addresses = UINT_MAX;
+                        else if (safe_atou(optarg, &arg_max_addresses) < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Invalid number of addresses: %s", optarg);
-                        else if (arg_max_addresses <= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Number of IPs cannot be negative or zero: %s", optarg);
                         break;
 
                 case '?':

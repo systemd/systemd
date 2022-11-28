@@ -73,13 +73,9 @@ All tools:
   (relevant in particular for the system manager and `systemd-hostnamed`).
   Must be a valid hostname (either a single label or a FQDN).
 
-* `$SYSTEMD_IN_INITRD=[auto|lenient|0|1]` — if set, specifies initrd detection
-  method. Defaults to `auto`. Behavior is defined as follows:
-  `auto`: Checks if `/etc/initrd-release` exists, and a temporary fs is mounted
-          on `/`. If both conditions meet, then it's in initrd.
-  `lenient`: Similar to `auto`, but the rootfs check is skipped.
-  `0|1`: Simply overrides initrd detection. This is useful for debugging and
-         testing initrd-only programs in the main system.
+* `$SYSTEMD_IN_INITRD` — takes a boolean. If set, overrides initrd detection.
+  This is useful for debugging and testing initrd-only programs in the main
+  system.
 
 * `$SYSTEMD_BUS_TIMEOUT=SECS` — specifies the maximum time to wait for method call
   completion. If no time unit is specified, assumes seconds. The usual other units
@@ -88,6 +84,12 @@ All tools:
 
 * `$SYSTEMD_MEMPOOL=0` — if set, the internal memory caching logic employed by
   hash tables is turned off, and libc `malloc()` is used for all allocations.
+
+* `$SYSTEMD_UTF8=` — takes a boolean value, and overrides whether to generate
+  non-ASCII special glyphs at various places (i.e. "→" instead of
+  "->"). Usually this is deterined automatically, based on $LC_CTYPE, but in
+  scenarios where locale definitions are not installed it might make sense to
+  override this check explicitly.
 
 * `$SYSTEMD_EMOJI=0` — if set, tools such as `systemd-analyze security` will
   not output graphical smiley emojis, but ASCII alternatives instead. Note that
@@ -186,12 +188,12 @@ All tools:
   file may be checked for by services run during system shutdown in order to
   request the appropriate operation from the boot loader in an alternative
   fashion. Note that by default only boot loader entries which follow the
-  [Boot Loader Specification](BOOT_LOADER_SPECIFICATION.md) and are
-  placed in the ESP or the Extended Boot Loader partition may be selected this
-  way. However, if a directory `/run/boot-loader-entries/` exists, the entries
-  are loaded from there instead. The directory should contain the usual
-  directory hierarchy mandated by the Boot Loader Specification, i.e. the entry
-  drop-ins should be placed in
+  [Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification)
+  and are placed in the ESP or the Extended Boot Loader partition may be
+  selected this way. However, if a directory `/run/boot-loader-entries/`
+  exists, the entries are loaded from there instead. The directory should
+  contain the usual directory hierarchy mandated by the Boot Loader
+  Specification, i.e. the entry drop-ins should be placed in
   `/run/boot-loader-entries/loader/entries/*.conf`, and the files referenced by
   the drop-ins (including the kernels and initrds) somewhere else below
   `/run/boot-loader-entries/`. Note that all these files may be (and are
@@ -271,6 +273,15 @@ All tools:
 * `$SYSTEMD_ACTIVATION_SCOPE` — closely related to `$SYSTEMD_ACTIVATION_UNIT`,
   it is either set to `system` or `user` depending on whether the NSS/PAM
   module is called by systemd in `--system` or `--user` mode.
+
+* `$SYSTEMD_SUPPORT_DEVICE`, `$SYSTEMD_SUPPORT_MOUNT`, `$SYSTEMD_SUPPORT_SWAP` -
+  can be set to `0` to mark respective unit type as unsupported. Generally,
+  having less units saves system resources so these options might be useful
+  for cases where we don't need to track given unit type, e.g. `--user` manager
+  often doesn't need to deal with device or swap units because they are
+  handled by the `--system` manager (PID 1). Note that setting certain unit
+  type as unsupported may not prevent loading some units of that type if they
+  are referenced by other units of another supported type.
 
 `systemd-remount-fs`:
 
@@ -382,7 +393,7 @@ disk images with `--image=` or similar:
   to load the embedded Verity signature data. If enabled (which is the
   default), Verity root hash information and a suitable signature is
   automatically acquired from a signature partition, following the
-  [Discoverable Partitions Specification](DISCOVERABLE_PARTITIONS.md).
+  [Discoverable Partitions Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification).
   If disabled any such partition is ignored. Note that this only disables
   discovery of the root hash and its signature, the Verity data partition
   itself is still searched in the GPT image.
@@ -471,7 +482,12 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
 
 `systemd-journald`:
 
-* `$SYSTEMD_JOURNAL_COMPACT` - Takes a boolean. If enabled, journal files are written
+* `$SYSTEMD_JOURNAL_COMPACT` – Takes a boolean. If enabled, journal files are written
   in a more compact format that reduces the amount of disk space required by the
   journal. Note that journal files in compact mode are limited to 4G to allow use of
   32-bit offsets. Enabled by default.
+
+`systemd-pcrphase`:
+
+* `$SYSTEMD_PCRPHASE_STUB_VERIFY` – Takes a boolean. If false the requested
+  measurement is done even if no EFI stub usage was reported via EFI variables.

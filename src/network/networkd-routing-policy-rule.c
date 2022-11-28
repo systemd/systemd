@@ -1250,7 +1250,7 @@ int config_parse_routing_policy_rule_table(
         r = manager_get_route_table_from_string(network->manager, rvalue, &n->table);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Could not parse RPDB rule route table number \"%s\", ignoring assignment: %m", rvalue);
+                           "Could not parse RPDB rule route table \"%s\", ignoring assignment: %m", rvalue);
                 return 0;
         }
 

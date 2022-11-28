@@ -15,6 +15,7 @@
 #include "alloc-util.h"
 #include "blkid-util.h"
 #include "bootspec.h"
+#include "build.h"
 #include "chase-symlinks.h"
 #include "copy.h"
 #include "devnum-util.h"
@@ -53,7 +54,6 @@
 #include "tpm2-util.h"
 #include "umask-util.h"
 #include "utf8.h"
-#include "util.h"
 #include "verbs.h"
 #include "virt.h"
 
@@ -484,7 +484,7 @@ static int enumerate_binaries(
         assert(previous);
         assert(is_first);
 
-        r = chase_symlinks_and_opendir(path, esp_path, CHASE_PREFIX_ROOT, &p, &d);
+        r = chase_symlinks_and_opendir(path, esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, &p, &d);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -585,12 +585,16 @@ static int print_efi_option(uint16_t id, int *n_printed, bool in_order) {
         assert(n_printed);
 
         r = efi_get_boot_option(id, &title, &partition, &path, &active);
+        if (r == -ENOENT) {
+                log_debug_errno(r, "Boot option 0x%04X referenced but missing, ignoring: %m", id);
+                return 0;
+        }
         if (r < 0)
-                return log_error_errno(r, "Failed to read boot option %u: %m", id);
+                return log_error_errno(r, "Failed to read boot option 0x%04X: %m", id);
 
         /* print only configured entries with partition information */
         if (!path || sd_id128_is_null(partition)) {
-                log_debug("Ignoring boot entry %u without partition information.", id);
+                log_debug("Ignoring boot entry 0x%04X without partition information.", id);
                 return 0;
         }
 
@@ -913,10 +917,10 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
         if (!p)
                 return log_oom();
 
-        r = chase_symlinks(p, root, CHASE_PREFIX_ROOT, &source_path, NULL);
+        r = chase_symlinks(p, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, &source_path, NULL);
         /* If we had a root directory to try, we didn't find it and we are in auto mode, retry on the host */
         if (r == -ENOENT && root && arg_install_source == ARG_INSTALL_SOURCE_AUTO)
-                r = chase_symlinks(p, NULL, CHASE_PREFIX_ROOT, &source_path, NULL);
+                r = chase_symlinks(p, NULL, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, &source_path, NULL);
         if (r < 0)
                 return log_error_errno(r,
                                        "Failed to resolve path %s%s%s: %m",
@@ -928,7 +932,7 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
         if (!q)
                 return log_oom();
 
-        r = chase_symlinks(q, esp_path, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &dest_path, NULL);
+        r = chase_symlinks(q, esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_NONEXISTENT, &dest_path, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve path %s under directory %s: %m", q, esp_path);
 
@@ -945,7 +949,7 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
                 v = strjoina("/EFI/BOOT/BOOT", e);
                 ascii_strupper(strrchr(v, '/') + 1);
 
-                r = chase_symlinks(v, esp_path, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &default_dest_path, NULL);
+                r = chase_symlinks(v, esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_NONEXISTENT, &default_dest_path, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve path %s under directory %s: %m", v, esp_path);
 
@@ -963,10 +967,10 @@ static int install_binaries(const char *esp_path, const char *arch, bool force) 
         _cleanup_free_ char *path = NULL;
         int r;
 
-        r = chase_symlinks_and_opendir(BOOTLIBDIR, root, CHASE_PREFIX_ROOT, &path, &d);
+        r = chase_symlinks_and_opendir(BOOTLIBDIR, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, &path, &d);
         /* If we had a root directory to try, we didn't find it and we are in auto mode, retry on the host */
         if (r == -ENOENT && root && arg_install_source == ARG_INSTALL_SOURCE_AUTO)
-                r = chase_symlinks_and_opendir(BOOTLIBDIR, NULL, CHASE_PREFIX_ROOT, &path, &d);
+                r = chase_symlinks_and_opendir(BOOTLIBDIR, NULL, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, &path, &d);
         if (r < 0)
                 return log_error_errno(r, "Failed to open boot loader directory %s%s: %m", strempty(root), BOOTLIBDIR);
 
@@ -1136,7 +1140,7 @@ static int install_variables(
                 return 0;
         }
 
-        r = chase_symlinks_and_access(path, esp_path, CHASE_PREFIX_ROOT, F_OK, NULL, NULL);
+        r = chase_symlinks_and_access(path, esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, F_OK, NULL, NULL);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -1167,7 +1171,7 @@ static int remove_boot_efi(const char *esp_path) {
         _cleanup_free_ char *p = NULL;
         int r, c = 0;
 
-        r = chase_symlinks_and_opendir("/EFI/BOOT", esp_path, CHASE_PREFIX_ROOT, &p, &d);
+        r = chase_symlinks_and_opendir("/EFI/BOOT", esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, &p, &d);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -1804,6 +1808,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                         { EFI_STUB_FEATURE_PICK_UP_CREDENTIALS,       "Picks up credentials from boot partition"             },
                         { EFI_STUB_FEATURE_PICK_UP_SYSEXTS,           "Picks up system extension images from boot partition" },
                         { EFI_STUB_FEATURE_THREE_PCRS,                "Measures kernel+command line+sysexts"                 },
+                        { EFI_STUB_FEATURE_RANDOM_SEED,               "Support for passing random seed to OS"                },
                 };
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL;
                 sd_id128_t loader_part_uuid = SD_ID128_NULL;
@@ -1886,8 +1891,6 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 printf("\n");
 
                 printf("%sRandom Seed:%s\n", ansi_underline(), ansi_normal());
-                have = access(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderRandomSeed)), F_OK) >= 0;
-                printf(" Passed to OS: %s\n", yes_no(have));
                 have = access(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderSystemToken)), F_OK) >= 0;
                 printf(" System Token: %s\n", have ? "set" : "not set");
 
@@ -1977,10 +1980,10 @@ static int verb_list(int argc, char *argv[], void *userdata) {
 
 static int install_random_seed(const char *esp) {
         _cleanup_(unlink_and_freep) char *tmp = NULL;
-        _cleanup_free_ void *buffer = NULL;
+        uint8_t buffer[RANDOM_EFI_SEED_SIZE];
         _cleanup_free_ char *path = NULL;
         _cleanup_close_ int fd = -1;
-        size_t sz, token_size;
+        size_t token_size;
         ssize_t n;
         int r;
 
@@ -1990,13 +1993,7 @@ static int install_random_seed(const char *esp) {
         if (!path)
                 return log_oom();
 
-        sz = random_pool_size();
-
-        buffer = malloc(sz);
-        if (!buffer)
-                return log_oom();
-
-        r = crypto_random_bytes(buffer, sz);
+        r = crypto_random_bytes(buffer, sizeof(buffer));
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire random seed: %m");
 
@@ -2017,10 +2014,10 @@ static int install_random_seed(const char *esp) {
                 return log_error_errno(fd, "Failed to open random seed file for writing: %m");
         }
 
-        n = write(fd, buffer, sz);
+        n = write(fd, buffer, sizeof(buffer));
         if (n < 0)
                 return log_error_errno(errno, "Failed to write random seed file: %m");
-        if ((size_t) n != sz)
+        if ((size_t) n != sizeof(buffer))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write while writing random seed file.");
 
         if (rename(tmp, path) < 0)
@@ -2028,7 +2025,7 @@ static int install_random_seed(const char *esp) {
 
         tmp = mfree(tmp);
 
-        log_info("Random seed file %s successfully written (%zu bytes).", path, sz);
+        log_info("Random seed file %s successfully written (%zu bytes).", path, sizeof(buffer));
 
         if (!arg_touch_variables)
                 return 0;
@@ -2048,26 +2045,6 @@ static int install_random_seed(const char *esp) {
         if (r < 0) {
                 if (r != -ENXIO)
                          log_warning_errno(r, "Failed to parse $SYSTEMD_WRITE_SYSTEM_TOKEN, ignoring.");
-
-                if (detect_vm() > 0) {
-                        /* Let's not write a system token if we detect we are running in a VM
-                         * environment. Why? Our default security model for the random seed uses the system
-                         * token as a mechanism to ensure we are not vulnerable to golden master sloppiness
-                         * issues, i.e. that people initialize the random seed file, then copy the image to
-                         * many systems and end up with the same random seed in each that is assumed to be
-                         * valid but in reality is the same for all machines. By storing a system token in
-                         * the EFI variable space we can make sure that even though the random seeds on disk
-                         * are all the same they will be different on each system under the assumption that
-                         * the EFI variable space is maintained separate from the random seed storage. That
-                         * is generally the case on physical systems, as the ESP is stored on persistent
-                         * storage, and the EFI variables in NVRAM. However in virtualized environments this
-                         * is generally not true: the EFI variable set is typically stored along with the
-                         * disk image itself. For example, using the OVMF EFI firmware the EFI variables are
-                         * stored in a file in the ESP itself. */
-
-                        log_notice("Not installing system token, since we are running in a virtualized environment.");
-                        return 0;
-                }
         } else if (r == 0) {
                 log_notice("Not writing system token, because $SYSTEMD_WRITE_SYSTEM_TOKEN is set to false.");
                 return 0;
@@ -2080,16 +2057,16 @@ static int install_random_seed(const char *esp) {
                 if (r != -ENOENT)
                         return log_error_errno(r, "Failed to test system token validity: %m");
         } else {
-                if (token_size >= sz) {
+                if (token_size >= sizeof(buffer)) {
                         /* Let's avoid writes if we can, and initialize this only once. */
                         log_debug("System token already written, not updating.");
                         return 0;
                 }
 
-                log_debug("Existing system token size (%zu) does not match our expectations (%zu), replacing.", token_size, sz);
+                log_debug("Existing system token size (%zu) does not match our expectations (%zu), replacing.", token_size, sizeof(buffer));
         }
 
-        r = crypto_random_bytes(buffer, sz);
+        r = crypto_random_bytes(buffer, sizeof(buffer));
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire random seed: %m");
 
@@ -2097,7 +2074,7 @@ static int install_random_seed(const char *esp) {
          * and possibly get identification information or too much insight into the kernel's entropy pool
          * state. */
         RUN_WITH_UMASK(0077) {
-                r = efi_set_variable(EFI_LOADER_VARIABLE(LoaderSystemToken), buffer, sz);
+                r = efi_set_variable(EFI_LOADER_VARIABLE(LoaderSystemToken), buffer, sizeof(buffer));
                 if (r < 0) {
                         if (!arg_graceful)
                                 return log_error_errno(r, "Failed to write 'LoaderSystemToken' EFI variable: %m");
@@ -2107,7 +2084,7 @@ static int install_random_seed(const char *esp) {
                         else
                                 log_warning_errno(r, "Unable to write 'LoaderSystemToken' EFI variable, ignoring: %m");
                 } else
-                        log_info("Successfully initialized system token in EFI variable with %zu bytes.", sz);
+                        log_info("Successfully initialized system token in EFI variable with %zu bytes.", sizeof(buffer));
         }
 
         return 0;

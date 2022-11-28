@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 if [ "$1" = "final" ]; then
-    if command -v bootctl > /dev/null && [ -d "/efi" ]; then
+    if command -v bootctl >/dev/null && [ -d "/efi" ]; then
         bootctl install
     fi
 
-    cat >> /root/.gdbinit <<EOF
+    cat >>/root/.gdbinit <<EOF
 set debuginfod enabled off
 set build-id-verbose 0
 EOF

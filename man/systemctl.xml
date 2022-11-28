@@ -986,7 +986,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <term><command>link <replaceable>PATH</replaceable>…</command></term>
 
           <listitem>
-            <para>Link a unit file that is not in the unit file search paths into the unit file search path. This
+            <para>Link a unit file that is not in the unit file search path into the unit file search path. This
             command expects an absolute path to a unit file. The effect of this may be undone with
             <command>disable</command>. The effect of this command is that a unit file is made available for commands
             such as <command>start</command>, even though it is not installed directly in the unit search path. The
@@ -2208,7 +2208,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         are applied to file system in the indicated disk image. This option is similar to
         <option>--root=</option>, but operates on file systems stored in disk images or block devices. The
         disk image should either contain just a file system or a set of file systems within a GPT partition
-        table, following the <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions
+        table, following the <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions
         Specification</ulink>. For further information on supported disk images, see
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         switch of the same name.</para></listitem>
@@ -2386,7 +2386,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <listitem><para>Only allowed with <command>reload-or-restart</command>. Enqueues restart jobs for all
         units that have the <literal>needs-restart</literal> mark, and reload jobs for units that have the
         <literal>needs-reload</literal> mark. When a unit marked for reload does not support reload, restart
-        will be queued. Those properties can be set using <command>set-property Marks</command>.</para>
+        will be queued. Those properties can be set using <command>set-property Markers=…</command>.</para>
 
         <para>Unless <option>--no-block</option> is used, <command>systemctl</command> will wait for the
         queued jobs to finish.</para></listitem>

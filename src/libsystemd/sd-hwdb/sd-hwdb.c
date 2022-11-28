@@ -300,13 +300,15 @@ static int hwdb_new(const char *path, sd_hwdb **ret) {
                 if (!hwdb->f)
                         return log_debug_errno(errno, "Failed to open %s: %m", path);
         } else {
-                NULSTR_FOREACH(path, hwdb_bin_paths) {
-                        log_debug("Trying to open \"%s\"...", path);
-                        hwdb->f = fopen(path, "re");
-                        if (hwdb->f)
+                NULSTR_FOREACH(p, hwdb_bin_paths) {
+                        log_debug("Trying to open \"%s\"...", p);
+                        hwdb->f = fopen(p, "re");
+                        if (hwdb->f) {
+                                path = p;
                                 break;
+                        }
                         if (errno != ENOENT)
-                                return log_debug_errno(errno, "Failed to open %s: %m", path);
+                                return log_debug_errno(errno, "Failed to open %s: %m", p);
                 }
 
                 if (!hwdb->f)

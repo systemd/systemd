@@ -11,13 +11,13 @@
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "in-addr-util.h"
+#include "logarithm.h"
 #include "macro.h"
 #include "parse-util.h"
 #include "random-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strxcpyx.h"
-#include "util.h"
 
 bool in4_addr_is_null(const struct in_addr *a) {
         assert(a);

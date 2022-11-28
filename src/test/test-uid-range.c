@@ -11,7 +11,6 @@
 #include "tmpfile-util.h"
 #include "uid-range.h"
 #include "user-util.h"
-#include "util.h"
 #include "virt.h"
 
 TEST(uid_range) {
@@ -115,7 +114,7 @@ TEST(load_userns) {
                 assert_se(uid_range_covers(p, 0, UINT32_MAX));
         }
 
-        assert_se(fopen_temporary(NULL, &f, &fn) >= 0);
+        assert_se(fopen_temporary_child(NULL, &f, &fn) >= 0);
         fputs("0 0 20\n"
               "100 0 20\n", f);
         assert_se(fflush_and_check(f) >= 0);

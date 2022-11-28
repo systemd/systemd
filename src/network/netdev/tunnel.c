@@ -18,7 +18,6 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "tunnel.h"
-#include "util.h"
 
 #define DEFAULT_IPV6_TTL   64
 #define IP6_FLOWINFO_FLOWLABEL  htobe32(0x000FFFFF)

@@ -31,7 +31,6 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "time-util.h"
-#include "util.h"
 
 /* WARNING: Be careful with file system ioctls! When we get an fd, we
  * need to make sure it either refers to only a regular file or
@@ -246,7 +245,6 @@ int btrfs_clone_range(int infd, uint64_t in_offset, int outfd, uint64_t out_offs
 
         assert(infd >= 0);
         assert(outfd >= 0);
-        assert(sz > 0);
 
         r = fd_verify_regular(outfd);
         if (r < 0)
@@ -737,6 +735,18 @@ int btrfs_subvol_get_subtree_quota(const char *path, uint64_t subvol_id, BtrfsQu
                 return -errno;
 
         return btrfs_subvol_get_subtree_quota_fd(fd, subvol_id, ret);
+}
+
+int btrfs_defrag_fd(int fd) {
+        int r;
+
+        assert(fd >= 0);
+
+        r = fd_verify_regular(fd);
+        if (r < 0)
+                return r;
+
+        return RET_NERRNO(ioctl(fd, BTRFS_IOC_DEFRAG, NULL));
 }
 
 int btrfs_defrag(const char *p) {

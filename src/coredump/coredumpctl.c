@@ -11,12 +11,13 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-util.h"
 #include "chase-symlinks.h"
 #include "compress.h"
-#include "def.h"
+#include "constants.h"
 #include "dissect-image.h"
 #include "fd-util.h"
 #include "format-table.h"
@@ -42,7 +43,6 @@
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
-#include "util.h"
 #include "verbs.h"
 
 #define SHORT_BUS_CALL_TIMEOUT_USEC (3 * USEC_PER_SEC)
@@ -195,6 +195,8 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "  -D --directory=DIR           Use journal files from directory\n\n"
                "  -q --quiet                   Do not show info messages and privilege warning\n"
                "     --all                     Look at all journal files instead of local ones\n"
+               "     --root=PATH               Operate on an alternate filesystem root\n"
+               "     --image=PATH              Operate on disk image as filesystem root\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,

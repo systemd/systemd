@@ -21,7 +21,6 @@
 #include "fd-util.h"
 #include "random-util.h"
 #include "tests.h"
-#include "util.h"
 
 static struct hw_addr_data hw_addr = {
         .length = ETH_ALEN,
@@ -144,10 +143,8 @@ static void test_dhcp_identifier_set_iaid(void) {
         uint32_t iaid_legacy;
         be32_t iaid;
 
-        assert_se(dhcp_identifier_set_iaid(42, &hw_addr, /* legacy = */ true,
-                                           /* use_mac = */ true, &iaid_legacy) >= 0);
-        assert_se(dhcp_identifier_set_iaid(42, &hw_addr, /* legacy = */ false,
-                                           /* use_mac = */ true, &iaid) >= 0);
+        assert_se(dhcp_identifier_set_iaid(NULL, &hw_addr, /* legacy = */ true, &iaid_legacy) >= 0);
+        assert_se(dhcp_identifier_set_iaid(NULL, &hw_addr, /* legacy = */ false, &iaid) >= 0);
 
         /* we expect, that the MAC address was hashed. The legacy value is in native
          * endianness. */
@@ -169,7 +166,7 @@ static int check_options(uint8_t code, uint8_t len, const void *option, void *us
                 size_t duid_len;
 
                 assert_se(dhcp_identifier_set_duid_en(/* test_mode = */ true, &duid, &duid_len) >= 0);
-                assert_se(dhcp_identifier_set_iaid(42, &hw_addr, /* legacy = */ true, /* use_mac = */ true, &iaid) >= 0);
+                assert_se(dhcp_identifier_set_iaid(NULL, &hw_addr, /* legacy = */ true, &iaid) >= 0);
 
                 assert_se(len == sizeof(uint8_t) + sizeof(uint32_t) + duid_len);
                 assert_se(len == 19);

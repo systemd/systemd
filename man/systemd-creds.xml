@@ -175,8 +175,8 @@
         by the OS kernel drivers and by userspace (i.e. systemd) this prints <literal>yes</literal> and exits
         with exit status zero. If no such device is discovered/supported/used, prints
         <literal>no</literal>. Otherwise prints <literal>partial</literal>. In either of these two cases
-        exits with non-zero exit status. It also shows three lines indicating separately whether drivers,
-        firmware and the system discovered/support/use TPM2.</para>
+        exits with non-zero exit status. It also shows four lines indicating separately whether firmware,
+        drivers, the system and the kernel discovered/support/use TPM2.</para>
 
         <para>Combine with <option>--quiet</option> to suppress the output.</para></listitem>
       </varlistentry>

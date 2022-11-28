@@ -161,8 +161,18 @@ usb:v1C7Ap0603*
  ID_AUTOSUSPEND=1
  ID_PERSIST=0
 
+# Supported by libfprint driver fpcmoc
+usb:v10A5pFFE0*
+usb:v10A5pA305*
+usb:v10A5pDA04*
+usb:v10A5pD805*
+usb:v10A5pD205*
+ ID_AUTOSUSPEND=1
+ ID_PERSIST=0
+
 # Supported by libfprint driver goodixmoc
 usb:v27C6p5840*
+usb:v27C6p6014*
 usb:v27C6p6094*
 usb:v27C6p609C*
 usb:v27C6p60A2*
