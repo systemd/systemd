@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "device-nodes.h"
 #include "fstab-util.h"
+#include "initrd-util.h"
 #include "macro.h"
 #include "mount-util.h"
 #include "nulstr-util.h"
@@ -87,7 +88,7 @@ int fstab_filter_options(
                 char ***ret_values,
                 char **ret_filtered) {
 
-        const char *name, *namefound = NULL, *x;
+        const char *namefound = NULL, *x;
         _cleanup_strv_free_ char **stor = NULL, **values = NULL;
         _cleanup_free_ char *value = NULL, **filtered = NULL;
         int r;
@@ -126,17 +127,17 @@ int fstab_filter_options(
                                 if (!x)
                                         continue;
                                 /* Match name, but when ret_values, only when followed by assignment. */
-                                if (*x == '=' || (!ret_values && *x == '\0'))
+                                if (*x == '=' || (!ret_values && *x == '\0')) {
+                                        /* Keep the last occurrence found */
+                                        namefound = name;
                                         goto found;
+                                }
                         }
 
                         *t = *s;
                         t++;
                         continue;
                 found:
-                        /* Keep the last occurrence found */
-                        namefound = name;
-
                         if (ret_value || ret_values) {
                                 assert(IN_SET(*x, '=', '\0'));
 

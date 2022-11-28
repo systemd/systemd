@@ -32,7 +32,6 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "unaligned.h"
-#include "util.h"
 
 #if HAVE_LZ4
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(LZ4F_compressionContext_t, LZ4F_freeCompressionContext, NULL);

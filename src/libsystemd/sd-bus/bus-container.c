@@ -10,7 +10,6 @@
 #include "namespace-util.h"
 #include "process-util.h"
 #include "string-util.h"
-#include "util.h"
 
 int bus_container_connect_socket(sd_bus *b) {
         _cleanup_close_pair_ int pair[2] = { -1, -1 };

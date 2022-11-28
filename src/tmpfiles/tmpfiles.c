@@ -20,13 +20,14 @@
 #include "acl-util.h"
 #include "alloc-util.h"
 #include "btrfs-util.h"
+#include "build.h"
 #include "capability-util.h"
 #include "chase-symlinks.h"
 #include "chattr-util.h"
 #include "conf-files.h"
+#include "constants.h"
 #include "copy.h"
 #include "creds-util.h"
-#include "def.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
 #include "dissect-image.h"
@@ -49,6 +50,7 @@
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "nulstr-util.h"
 #include "offline-passwd.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -961,22 +963,34 @@ shortcut:
         return label_fix_full(fd, /* inode_path= */ NULL, /* label_path= */ path, 0);
 }
 
-static int path_open_parent_safe(const char *path) {
+static int path_open_parent_safe(const char *path, bool allow_failure) {
         _cleanup_free_ char *dn = NULL;
         int r, fd;
 
         if (!path_is_normalized(path))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to open parent of '%s': path not normalized.", path);
+                return log_full_errno(allow_failure ? LOG_INFO : LOG_ERR,
+                                      SYNTHETIC_ERRNO(EINVAL),
+                                      "Failed to open parent of '%s': path not normalized%s.",
+                                      path,
+                                      allow_failure ? ", ignoring" : "");
 
         r = path_extract_directory(path, &dn);
         if (r < 0)
-                return log_error_errno(r, "Unable to determine parent directory of '%s': %m", path);
+                return log_full_errno(allow_failure ? LOG_INFO : LOG_ERR,
+                                      r,
+                                      "Unable to determine parent directory of '%s'%s: %m",
+                                      path,
+                                      allow_failure ? ", ignoring" : "");
 
-        r = chase_symlinks(dn, arg_root, CHASE_SAFE|CHASE_WARN, NULL, &fd);
+        r = chase_symlinks(dn, arg_root, allow_failure ? CHASE_SAFE : CHASE_SAFE|CHASE_WARN, NULL, &fd);
         if (r == -ENOLINK) /* Unsafe symlink: already covered by CHASE_WARN */
                 return r;
         if (r < 0)
-                return log_error_errno(r, "Failed to open path '%s': %m", dn);
+                return log_full_errno(allow_failure ? LOG_INFO : LOG_ERR,
+                                      r,
+                                      "Failed to open path '%s'%s: %m",
+                                      dn,
+                                      allow_failure ? ", ignoring" : "");
 
         return fd;
 }
@@ -1431,7 +1445,7 @@ static int write_one_file(Item *i, const char *path, CreationMode creation) {
 
         /* Validate the path and keep the fd on the directory for opening the file so we're sure that it
          * can't be changed behind our back. */
-        dir_fd = path_open_parent_safe(path);
+        dir_fd = path_open_parent_safe(path, i->allow_failure);
         if (dir_fd < 0)
                 return dir_fd;
 
@@ -1481,7 +1495,7 @@ static int create_file(Item *i, const char *path) {
 
         /* Validate the path and keep the fd on the directory for opening the file so we're sure that it
          * can't be changed behind our back. */
-        dir_fd = path_open_parent_safe(path);
+        dir_fd = path_open_parent_safe(path, i->allow_failure);
         if (dir_fd < 0)
                 return dir_fd;
 
@@ -1549,7 +1563,7 @@ static int truncate_file(Item *i, const char *path) {
 
         /* Validate the path and keep the fd on the directory for opening the file so we're sure that it
          * can't be changed behind our back. */
-        dir_fd = path_open_parent_safe(path);
+        dir_fd = path_open_parent_safe(path, i->allow_failure);
         if (dir_fd < 0)
                 return dir_fd;
 
@@ -1628,7 +1642,7 @@ static int copy_files(Item *i) {
 
         /* Validate the path and use the returned directory fd for copying the target so we're sure that the
          * path can't be changed behind our back. */
-        dfd = path_open_parent_safe(i->path);
+        dfd = path_open_parent_safe(i->path, i->allow_failure);
         if (dfd < 0)
                 return dfd;
 
@@ -1636,7 +1650,8 @@ static int copy_files(Item *i) {
                          dfd, bn,
                          i->uid_set ? i->uid : UID_INVALID,
                          i->gid_set ? i->gid : GID_INVALID,
-                         COPY_REFLINK | COPY_MERGE_EMPTY | COPY_MAC_CREATE | COPY_HARDLINKS);
+                         COPY_REFLINK | COPY_MERGE_EMPTY | COPY_MAC_CREATE | COPY_HARDLINKS,
+                         NULL);
 
         fd = openat(dfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
         if (fd < 0) {
@@ -1664,6 +1679,7 @@ static int create_directory_or_subvolume(
                 const char *path,
                 mode_t mode,
                 bool subvol,
+                bool allow_failure,
                 struct stat *ret_st,
                 CreationMode *ret_creation) {
 
@@ -1679,7 +1695,7 @@ static int create_directory_or_subvolume(
         if (r < 0)
                 return log_error_errno(r, "Failed to extract filename from path '%s': %m", path);
 
-        pfd = path_open_parent_safe(path);
+        pfd = path_open_parent_safe(path, allow_failure);
         if (pfd < 0)
                 return pfd;
 
@@ -1720,7 +1736,11 @@ static int create_directory_or_subvolume(
 
                 /* Then look at the original error */
                 if (r < 0)
-                        return log_error_errno(r, "Failed to create directory or subvolume \"%s\": %m", path);
+                        return log_full_errno(allow_failure ? LOG_INFO : LOG_ERR,
+                                              r,
+                                              "Failed to create directory or subvolume \"%s\"%s: %m",
+                                              path,
+                                              allow_failure ? ", ignoring" : "");
 
                 return log_error_errno(errno, "Failed to open directory/subvolume we just created '%s': %m", path);
         }
@@ -1748,7 +1768,7 @@ static int create_directory(Item *i, const char *path) {
         assert(i);
         assert(IN_SET(i->type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY));
 
-        fd = create_directory_or_subvolume(path, i->mode, /* subvol= */ false, &st, &creation);
+        fd = create_directory_or_subvolume(path, i->mode, /* subvol= */ false, i->allow_failure, &st, &creation);
         if (fd == -EEXIST)
                 return 0;
         if (fd < 0)
@@ -1766,7 +1786,7 @@ static int create_subvolume(Item *i, const char *path) {
         assert(i);
         assert(IN_SET(i->type, CREATE_SUBVOLUME, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA));
 
-        fd = create_directory_or_subvolume(path, i->mode, /* subvol = */ true, &st, &creation);
+        fd = create_directory_or_subvolume(path, i->mode, /* subvol = */ true, i->allow_failure, &st, &creation);
         if (fd == -EEXIST)
                 return 0;
         if (fd < 0)
@@ -1845,7 +1865,7 @@ static int create_device(Item *i, mode_t file_type) {
 
         /* Validate the path and use the returned directory fd for copying the target so we're sure that the
          * path can't be changed behind our back. */
-        dfd = path_open_parent_safe(i->path);
+        dfd = path_open_parent_safe(i->path, i->allow_failure);
         if (dfd < 0)
                 return dfd;
 
@@ -1947,7 +1967,7 @@ static int create_fifo(Item *i) {
         if (r == O_DIRECTORY)
                 return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Cannot open path '%s' for creating FIFO, is a directory.", i->path);
 
-        pfd = path_open_parent_safe(i->path);
+        pfd = path_open_parent_safe(i->path, i->allow_failure);
         if (pfd < 0)
                 return pfd;
 
@@ -1959,7 +1979,7 @@ static int create_fifo(Item *i) {
 
         creation = r >= 0 ? CREATION_NORMAL : CREATION_EXISTING;
 
-        /* Open the inode via O_PATH, regardless if we managed to create it or not. Maybe it is is already the FIFO we want */
+        /* Open the inode via O_PATH, regardless if we managed to create it or not. Maybe it is already the FIFO we want */
         fd = openat(pfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
         if (fd < 0) {
                 if (r < 0)
@@ -2032,7 +2052,7 @@ static int create_symlink(Item *i) {
         if (r == O_DIRECTORY)
                 return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Cannot open path '%s' for creating FIFO, is a directory.", i->path);
 
-        pfd = path_open_parent_safe(i->path);
+        pfd = path_open_parent_safe(i->path, i->allow_failure);
         if (pfd < 0)
                 return pfd;
 
@@ -3335,7 +3355,7 @@ static int parse_line(
 
                 if (laccess(i.argument, F_OK) == -ENOENT) {
                         /* Silently skip over lines where the source file is missing. */
-                        log_syntax(NULL, LOG_INFO, fname, line, 0, "Copy source path '%s' does not exist, skipping line.", i.argument);
+                        log_syntax(NULL, LOG_DEBUG, fname, line, 0, "Copy source path '%s' does not exist, skipping line.", i.argument);
                         return 0;
                 }
 
@@ -3441,7 +3461,7 @@ static int parse_line(
                 r = read_credential(i.argument, &i.binary_argument, &i.binary_argument_size);
                 if (IN_SET(r, -ENXIO, -ENOENT)) {
                         /* Silently skip over lines that have no credentials passed */
-                        log_syntax(NULL, LOG_INFO, fname, line, 0,
+                        log_syntax(NULL, LOG_DEBUG, fname, line, 0,
                                    "Credential '%s' not specified, skipping line.", i.argument);
                         return 0;
                 }

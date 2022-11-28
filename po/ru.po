@@ -6,12 +6,13 @@
 # Sergey Ptashnick <0comffdiz@inbox.ru>, 2013-2018.
 # Vladimir Yerilov <openmindead@gmail.com>, 2020.
 # Alexey Rubtsov <rushills@gmail.com>, 2021.
+# Olga Smirnova <mistresssilvara@hotmail.com>, 2022.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2021-07-02 09:04+0000\n"
-"Last-Translator: Alexey Rubtsov <rushills@gmail.com>\n"
+"POT-Creation-Date: 2022-10-20 10:35+0200\n"
+"PO-Revision-Date: 2022-10-27 23:19+0000\n"
+"Last-Translator: Olga Smirnova <mistresssilvara@hotmail.com>\n"
 "Language-Team: Russian <https://translate.fedoraproject.org/projects/systemd/"
 "master/ru/>\n"
 "Language: ru\n"
@@ -20,7 +21,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
 "%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 4.7.1\n"
+"X-Generator: Weblate 4.14.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -171,6 +172,22 @@ msgstr "Получить UUID продукта"
 #: src/hostname/org.freedesktop.hostname1.policy:52
 msgid "Authentication is required to get product UUID."
 msgstr "Чтобы получить UUID продукта, необходимо пройти аутентификацию."
+
+#: src/hostname/org.freedesktop.hostname1.policy:61
+msgid "Get hardware serial number"
+msgstr "Получить серийный номер оборудования"
+
+#: src/hostname/org.freedesktop.hostname1.policy:62
+msgid "Authentication is required to get hardware serial number."
+msgstr "Чтобы получить серийный номер, необходимо пройти аутентификацию."
+
+#: src/hostname/org.freedesktop.hostname1.policy:71
+msgid "Get system description"
+msgstr "Получить описание системы"
+
+#: src/hostname/org.freedesktop.hostname1.policy:72
+msgid "Authentication is required to get system description."
+msgstr "Чтобы получить описание системы, необходимо пройти аутентификацию."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
@@ -991,7 +1008,7 @@ msgstr ""
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Чтобы перезапустить «$(unit)», необходимо пройти аутентификацию."
 
-#: src/core/dbus-unit.c:535
+#: src/core/dbus-unit.c:546
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
@@ -999,18 +1016,18 @@ msgstr ""
 "Чтобы отправить сигнал UNIX процессам юнита «$(unit)», необходимо пройти "
 "аутентификацию."
 
-#: src/core/dbus-unit.c:566
+#: src/core/dbus-unit.c:576
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Чтобы сбросить состояние «failed» у юнита «$(unit)», необходимо пройти "
 "аутентификацию."
 
-#: src/core/dbus-unit.c:599
+#: src/core/dbus-unit.c:608
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 "Чтобы изменить параметры юнита «$(unit)», необходимо пройти аутентификацию."
 
-#: src/core/dbus-unit.c:708
+#: src/core/dbus-unit.c:714
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
@@ -1018,7 +1035,7 @@ msgstr ""
 "Чтобы удалить файлы и директории, относящиеся к юниту «$(unit)», необходимо "
 "пройти аутентификацию."
 
-#: src/core/dbus-unit.c:757
+#: src/core/dbus-unit.c:762
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

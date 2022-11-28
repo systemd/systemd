@@ -771,7 +771,8 @@ void client_context_acquire_default(Server *s) {
 
                 r = client_context_acquire(s, ucred.pid, &ucred, NULL, 0, NULL, &s->my_context);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to acquire our own context, ignoring: %m");
+                        log_ratelimit_warning_errno(r, JOURNALD_LOG_RATELIMIT,
+                                                    "Failed to acquire our own context, ignoring: %m");
         }
 
         if (!s->namespace && !s->pid1_context) {
@@ -780,7 +781,8 @@ void client_context_acquire_default(Server *s) {
 
                 r = client_context_acquire(s, 1, NULL, NULL, 0, NULL, &s->pid1_context);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to acquire PID1's context, ignoring: %m");
+                        log_ratelimit_warning_errno(r, JOURNALD_LOG_RATELIMIT,
+                                                    "Failed to acquire PID1's context, ignoring: %m");
 
         }
 }

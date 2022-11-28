@@ -1980,8 +1980,8 @@ EOF
                                 not_exp_links   => ["notthere"],
                         }],
                 rules           => <<EOF
-TEST=="/etc/machine-id", SYMLINK+="there"
-TEST!="/etc/machine-id", SYMLINK+="notthere"
+TEST=="/etc/passwd", SYMLINK+="there"
+TEST!="/etc/passwd", SYMLINK+="notthere"
 EOF
         },
         {

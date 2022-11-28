@@ -118,6 +118,12 @@
       local default gateway configured. This assigns a stable hostname to the local outbound IP addresses,
       useful for referencing them independently of the current network configuration state.</para></listitem>
 
+      <listitem><para>The hostname <literal>_localdnsstub</literal> is resolved to the IP address 127.0.0.53,
+      i.e. the address the local DNS stub (see above) is listening on.</para></listitem>
+
+      <listitem><para>The hostname <literal>_localdnsproxy</literal> is resolved to the IP address 127.0.0.54,
+      i.e. the address the local DNS proxy (see above) is listening on.</para></listitem>
+
       <listitem><para>The mappings defined in <filename>/etc/hosts</filename> are resolved to their
       configured addresses and back, but they will not affect lookups for non-address types (like MX).
       Support for <filename>/etc/hosts</filename> may be disabled with <varname>ReadEtcHosts=no</varname>,

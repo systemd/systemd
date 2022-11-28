@@ -6,7 +6,7 @@
 #include "architecture.h"
 #include "conf-files.h"
 #include "conf-parser.h"
-#include "def.h"
+#include "constants.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
@@ -1341,7 +1341,7 @@ bool udev_rules_should_reload(UdevRules *rules) {
 }
 
 static bool token_match_string(UdevRuleToken *token, const char *str) {
-        const char *i, *value;
+        const char *value;
         bool match = false;
 
         assert(token);

@@ -47,4 +47,35 @@ TEST(STRERROR_OR_ELSE) {
         log_info("STRERROR_OR_ELSE(-EPERM, \"EOF\") → %s", STRERROR_OR_EOF(-EPERM));
 }
 
+TEST(PROTECT_ERRNO) {
+        errno = 12;
+        {
+                PROTECT_ERRNO;
+                errno = 11;
+        }
+        assert_se(errno == 12);
+}
+
+static void test_unprotect_errno_inner_function(void) {
+        PROTECT_ERRNO;
+
+        errno = 2222;
+}
+
+TEST(UNPROTECT_ERRNO) {
+        errno = 4711;
+
+        PROTECT_ERRNO;
+
+        errno = 815;
+
+        UNPROTECT_ERRNO;
+
+        assert_se(errno == 4711);
+
+        test_unprotect_errno_inner_function();
+
+        assert_se(errno == 4711);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);

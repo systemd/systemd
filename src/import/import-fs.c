@@ -4,6 +4,7 @@
 #include <locale.h>
 
 #include "alloc-util.h"
+#include "build.h"
 #include "btrfs-util.h"
 #include "discover-image.h"
 #include "fd-util.h"
@@ -187,7 +188,7 @@ static int import_fs(int argc, char *argv[], void *userdata) {
 
         (void) mkdir_parents_label(dest, 0700);
 
-        progress.limit = (RateLimit) { 200*USEC_PER_MSEC, 1 };
+        progress.limit = (const RateLimit) { 200*USEC_PER_MSEC, 1 };
 
         {
                 BLOCK_SIGNALS(SIGINT, SIGTERM);

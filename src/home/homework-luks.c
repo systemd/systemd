@@ -1837,7 +1837,7 @@ static int make_partition_table(
         _cleanup_(fdisk_unref_partitionp) struct fdisk_partition *p = NULL, *q = NULL;
         _cleanup_(fdisk_unref_parttypep) struct fdisk_parttype *t = NULL;
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
-        _cleanup_free_ char *path = NULL, *disk_uuid_as_string = NULL;
+        _cleanup_free_ char *disk_uuid_as_string = NULL;
         uint64_t offset, size, first_lba, start, last_lba, end;
         sd_id128_t disk_uuid;
         int r;
@@ -1855,14 +1855,7 @@ static int make_partition_table(
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize partition type: %m");
 
-        c = fdisk_new_context();
-        if (!c)
-                return log_oom();
-
-        if (asprintf(&path, "/proc/self/fd/%i", fd) < 0)
-                return log_oom();
-
-        r = fdisk_assign_device(c, path, 0);
+        r = fdisk_new_context_fd(fd, /* read_only= */ false, &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to open device: %m");
 
@@ -2017,9 +2010,12 @@ static int wait_for_devlink(const char *path) {
                 if (w >= until)
                         return log_error_errno(SYNTHETIC_ERRNO(ETIMEDOUT), "Device link %s still hasn't shown up, giving up.", path);
 
-                r = fd_wait_for_event(inotify_fd, POLLIN, usec_sub_unsigned(until, w));
-                if (r < 0)
+                r = fd_wait_for_event(inotify_fd, POLLIN, until - w);
+                if (r < 0) {
+                        if (ERRNO_IS_TRANSIENT(r))
+                                continue;
                         return log_error_errno(r, "Failed to watch inotify: %m");
+                }
 
                 (void) flush_fd(inotify_fd);
         }
@@ -2642,7 +2638,7 @@ static int prepare_resize_partition(
 
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *t = NULL;
-        _cleanup_free_ char *path = NULL, *disk_uuid_as_string = NULL;
+        _cleanup_free_ char *disk_uuid_as_string = NULL;
         struct fdisk_partition *found = NULL;
         sd_id128_t disk_uuid;
         size_t n_partitions;
@@ -2661,17 +2657,11 @@ static int prepare_resize_partition(
                 log_debug("Not rewriting partition table, operating on naked device.");
                 *ret_disk_uuid = SD_ID128_NULL;
                 *ret_table = NULL;
+                *ret_partition = NULL;
                 return 0;
         }
 
-        c = fdisk_new_context();
-        if (!c)
-                return log_oom();
-
-        if (asprintf(&path, "/proc/self/fd/%i", fd) < 0)
-                return log_oom();
-
-        r = fdisk_assign_device(c, path, 0);
+        r = fdisk_new_context_fd(fd, /* read_only= */ false, &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to open device: %m");
 
@@ -2755,7 +2745,6 @@ static int apply_resize_partition(
 
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         _cleanup_free_ void *two_zero_lbas = NULL;
-        _cleanup_free_ char *path = NULL;
         ssize_t n;
         int r;
 
@@ -2787,14 +2776,7 @@ static int apply_resize_partition(
         if (n != 1024)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write while wiping partition table.");
 
-        c = fdisk_new_context();
-        if (!c)
-                return log_oom();
-
-        if (asprintf(&path, "/proc/self/fd/%i", fd) < 0)
-                return log_oom();
-
-        r = fdisk_assign_device(c, path, 0);
+        r = fdisk_new_context_fd(fd, /* read_only= */ false, &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to open device: %m");
 

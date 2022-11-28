@@ -19,6 +19,7 @@
 #include "pretty-print.h"
 #include "recurse-dir.h"
 #include "sort-util.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -418,7 +419,6 @@ void boot_config_free(BootConfig *config) {
         free(config->auto_entries);
         free(config->auto_firmware);
         free(config->console_mode);
-        free(config->random_seed_mode);
         free(config->beep);
 
         free(config->entry_oneshot);
@@ -485,7 +485,7 @@ int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path) {
                 else if (streq(field, "console-mode"))
                         r = free_and_strdup(&config->console_mode, p);
                 else if (streq(field, "random-seed-mode"))
-                        r = free_and_strdup(&config->random_seed_mode, p);
+                        log_syntax(NULL, LOG_WARNING, path, line, 0, "'random-seed-mode' has been deprecated, ignoring.");
                 else if (streq(field, "beep"))
                         r = free_and_strdup(&config->beep, p);
                 else {
@@ -507,7 +507,7 @@ static int boot_loader_read_conf_path(BootConfig *config, const char *root, cons
         assert(config);
         assert(path);
 
-        r = chase_symlinks_and_fopen_unlocked(path, root, CHASE_PREFIX_ROOT, "re", &full, &f);
+        r = chase_symlinks_and_fopen_unlocked(path, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, "re", &full, &f);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -542,23 +542,6 @@ static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
 
         return -strverscmp_improved(a->id, b->id);
 }
-
-static void inode_hash_func(const struct stat *q, struct siphash *state) {
-        siphash24_compress(&q->st_dev, sizeof(q->st_dev), state);
-        siphash24_compress(&q->st_ino, sizeof(q->st_ino), state);
-}
-
-static int inode_compare_func(const struct stat *a, const struct stat *b) {
-        int r;
-
-        r = CMP(a->st_dev, b->st_dev);
-        if (r != 0)
-                return r;
-
-        return CMP(a->st_ino, b->st_ino);
-}
-
-DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(inode_hash_ops, struct stat, inode_hash_func, inode_compare_func, free);
 
 static int config_check_inode_relevant_and_unseen(BootConfig *config, int fd, const char *fname) {
         _cleanup_free_ char *d = NULL;
@@ -609,7 +592,7 @@ static int boot_entries_find_type1(
         assert(root);
         assert(dir);
 
-        dir_fd = chase_symlinks_and_open(dir, root, CHASE_PREFIX_ROOT, O_DIRECTORY|O_CLOEXEC, &full);
+        dir_fd = chase_symlinks_and_open(dir, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, O_DIRECTORY|O_CLOEXEC, &full);
         if (dir_fd == -ENOENT)
                 return 0;
         if (dir_fd < 0)
@@ -726,7 +709,7 @@ static int boot_entry_load_unified(
         if (!tmp.root)
                 return log_oom();
 
-        tmp.kernel = strdup(skip_leading_chars(k, "/"));
+        tmp.kernel = path_make_absolute(k, "/");
         if (!tmp.kernel)
                 return log_oom();
 
@@ -869,7 +852,7 @@ static int boot_entries_find_unified(
         assert(config);
         assert(dir);
 
-        r = chase_symlinks_and_opendir(dir, root, CHASE_PREFIX_ROOT, &full, &d);
+        r = chase_symlinks_and_opendir(dir, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, &full, &d);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -993,6 +976,12 @@ static int boot_config_find(const BootConfig *config, const char *id) {
 
         if (!id)
                 return -1;
+
+        if (id[0] == '@') {
+                if (!strcaseeq(id, "@saved"))
+                        return -1;
+                id = config->entry_selected;
+        }
 
         for (size_t i = 0; i < config->n_entries; i++)
                 if (fnmatch(id, config->entries[i].id, FNM_CASEFOLD) == 0)
@@ -1276,9 +1265,13 @@ static void boot_entry_file_list(
         assert(p);
         assert(ret_status);
 
-        int status = chase_symlinks_and_access(p, root, CHASE_PREFIX_ROOT, F_OK, NULL, NULL);
+        int status = chase_symlinks_and_access(p, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, F_OK, NULL, NULL);
 
-        printf("%13s%s ", strempty(field), field ? ":" : " ");
+        /* Note that this shows two '/' between the root and the file. This is intentional to highlight (in
+         * the abscence of color support) to the user that the boot loader is only interested in the second
+         * part of the file. */
+        printf("%13s%s %s%s/%s", strempty(field), field ? ":" : " ", ansi_grey(), root, ansi_normal());
+
         if (status < 0) {
                 errno = -status;
                 printf("%s%s%s (%m)\n", ansi_highlight_red(), p, ansi_normal());
@@ -1330,14 +1323,21 @@ int show_boot_entry(
         if (e->id)
                 printf("           id: %s\n", e->id);
         if (e->path) {
-                _cleanup_free_ char *link = NULL;
+                _cleanup_free_ char *text = NULL, *link = NULL;
+
+                const char *p = e->root ? path_startswith(e->path, e->root) : NULL;
+                if (p) {
+                        text = strjoin(ansi_grey(), e->root, "/", ansi_normal(), "/", p);
+                        if (!text)
+                                return log_oom();
+                }
 
                 /* Let's urlify the link to make it easy to view in an editor, but only if it is a text
                  * file. Unified images are binary ELFs, and EFI variables are not pure text either. */
                 if (e->type == BOOT_ENTRY_CONF)
-                        (void) terminal_urlify_path(e->path, NULL, &link);
+                        (void) terminal_urlify_path(e->path, text, &link);
 
-                printf("       source: %s\n", link ?: e->path);
+                printf("       source: %s\n", link ?: text ?: e->path);
         }
         if (e->tries_left != UINT_MAX) {
                 printf("        tries: %u left", e->tries_left);

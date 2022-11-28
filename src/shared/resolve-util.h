@@ -11,6 +11,9 @@
 /* 127.0.0.54 in native endian (The IP address we listen on we only implement "proxy" mode) */
 #define INADDR_DNS_PROXY_STUB ((in_addr_t) 0x7f000036U)
 
+/* 127.0.0.2 is an address we always map to the local hostname. This is different from 127.0.0.1 which maps to "localhost" */
+#define INADDR_LOCALADDRESS ((in_addr_t) 0x7f000002U)
+
 typedef enum DnsCacheMode DnsCacheMode;
 
 enum DnsCacheMode {
@@ -25,10 +28,11 @@ typedef enum ResolveSupport ResolveSupport;
 typedef enum DnssecMode DnssecMode;
 typedef enum DnsOverTlsMode DnsOverTlsMode;
 
+/* Do not change the order, see link_get_llmnr_support() or link_get_mdns_support(). */
 enum ResolveSupport {
         RESOLVE_SUPPORT_NO,
-        RESOLVE_SUPPORT_YES,
         RESOLVE_SUPPORT_RESOLVE,
+        RESOLVE_SUPPORT_YES,
         _RESOLVE_SUPPORT_MAX,
         _RESOLVE_SUPPORT_INVALID = -EINVAL,
 };

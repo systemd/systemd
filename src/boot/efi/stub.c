@@ -9,7 +9,9 @@
 #include "graphics.h"
 #include "linux.h"
 #include "measure.h"
+#include "part-discovery.h"
 #include "pe.h"
+#include "random-seed.h"
 #include "secure-boot.h"
 #include "splash.h"
 #include "tpm-pcr.h"
@@ -84,6 +86,7 @@ static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
                 EFI_STUB_FEATURE_PICK_UP_CREDENTIALS |      /* We pick up credentials from the boot partition */
                 EFI_STUB_FEATURE_PICK_UP_SYSEXTS |          /* We pick up system extensions from the boot partition */
                 EFI_STUB_FEATURE_THREE_PCRS |               /* We can measure kernel image, parameters and sysext */
+                EFI_STUB_FEATURE_RANDOM_SEED |              /* We pass a random seed to the kernel */
                 0;
 
         char16_t uuid[37];
@@ -142,6 +145,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         _cleanup_free_ char *cmdline_owned = NULL;
         int sections_measured = -1, parameters_measured = -1;
         bool sysext_measured = false, m;
+        uint64_t loader_features = 0;
         EFI_STATUS err;
 
         InitializeLib(image, sys_table);
@@ -158,6 +162,15 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                         EFI_OPEN_PROTOCOL_GET_PROTOCOL);
         if (err != EFI_SUCCESS)
                 return log_error_status_stall(err, L"Error getting a LoadedImageProtocol handle: %r", err);
+
+        if (efivar_get_uint64_le(LOADER_GUID, L"LoaderFeatures", &loader_features) != EFI_SUCCESS ||
+            !FLAGS_SET(loader_features, EFI_LOADER_FEATURE_RANDOM_SEED)) {
+                _cleanup_(file_closep) EFI_FILE *esp_dir = NULL;
+
+                err = partition_open(ESP_GUID, loaded_image->DeviceHandle, NULL, &esp_dir);
+                if (err == EFI_SUCCESS) /* Non-fatal on failure, so that we still boot without it. */
+                        (void) process_random_seed(esp_dir);
+        }
 
         err = pe_memory_locate_sections(loaded_image->ImageBase, unified_sections, addrs, szs);
         if (err != EFI_SUCCESS || szs[UNIFIED_SECTION_LINUX] == 0) {

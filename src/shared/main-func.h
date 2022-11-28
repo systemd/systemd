@@ -5,12 +5,12 @@
 
 #include "sd-daemon.h"
 
+#include "argv-util.h"
 #include "pager.h"
 #include "selinux-util.h"
 #include "spawn-ask-password-agent.h"
 #include "spawn-polkit-agent.h"
 #include "static-destruct.h"
-#include "util.h"
 
 #define _DEFINE_MAIN_FUNCTION(intro, impl, ret)                         \
         int main(int argc, char *argv[]) {                              \

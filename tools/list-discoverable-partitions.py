@@ -90,7 +90,8 @@ DESCRIPTIONS = {
         'The Extended Boot Loader Partition (XBOOTLDR) used for the current boot is automatically '
         'mounted to `/boot/`, unless a different partition is mounted there (possibly via '
         '`/etc/fstab`) or the directory is non-empty on the root disk. This partition type '
-        'is defined by the [Boot Loader Specification](https://systemd.io/BOOT_LOADER_SPECIFICATION).'),
+        'is defined by the [Boot Loader '
+        'Specification](https://uapi-group.org/specifications/specs/boot_loader_specification).'),
     'SWAP': (
         'Swap, optionally in LUKS',
         'All swap partitions on the disk containing the root partition are automatically enabled. '

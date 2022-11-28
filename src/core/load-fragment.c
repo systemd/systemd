@@ -1599,7 +1599,7 @@ int config_parse_exec_cpu_sched_prio(const char *unit,
                                      void *userdata) {
 
         ExecContext *c = ASSERT_PTR(data);
-        int i, min, max, r;
+        int i, r;
 
         assert(filename);
         assert(lvalue);
@@ -1611,11 +1611,9 @@ int config_parse_exec_cpu_sched_prio(const char *unit,
                 return 0;
         }
 
-        /* On Linux RR/FIFO range from 1 to 99 and OTHER/BATCH may only be 0 */
-        min = sched_get_priority_min(c->cpu_sched_policy);
-        max = sched_get_priority_max(c->cpu_sched_policy);
-
-        if (i < min || i > max) {
+        /* On Linux RR/FIFO range from 1 to 99 and OTHER/BATCH may only be 0. Policy might be set later so
+         * we do not check the precise range, but only the generic outer bounds. */
+        if (i < 0 || i > 99) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "CPU scheduling priority is out of range, ignoring: %s", rvalue);
                 return 0;
         }
@@ -3828,7 +3826,7 @@ int config_parse_memory_limit(
                         bytes = physical_memory_scale(r, 10000U);
 
                 if (bytes >= UINT64_MAX ||
-                    (bytes <= 0 && !STR_IN_SET(lvalue, "MemorySwapMax", "MemoryLow", "MemoryMin", "DefaultMemoryLow", "DefaultMemoryMin"))) {
+                    (bytes <= 0 && !STR_IN_SET(lvalue, "MemorySwapMax", "MemoryZSwapMax", "MemoryLow", "MemoryMin", "DefaultMemoryLow", "DefaultMemoryMin"))) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0, "Memory limit '%s' out of range, ignoring.", rvalue);
                         return 0;
                 }
@@ -3852,6 +3850,8 @@ int config_parse_memory_limit(
                 c->memory_max = bytes;
         else if (streq(lvalue, "MemorySwapMax"))
                 c->memory_swap_max = bytes;
+        else if (streq(lvalue, "MemoryZSwapMax"))
+                c->memory_zswap_max = bytes;
         else if (streq(lvalue, "MemoryLimit")) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Unit uses MemoryLimit=; please use MemoryMax= instead. Support for MemoryLimit= will be removed soon.");
@@ -6228,7 +6228,6 @@ void unit_dump_config_items(FILE *f) {
         };
 
         const char *prev = NULL;
-        const char *i;
 
         assert(f);
 

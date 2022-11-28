@@ -13,9 +13,9 @@
 #include "bus-kernel.h"
 #include "bus-util.h"
 #include "chase-symlinks.h"
+#include "constants.h"
 #include "dbus-service.h"
 #include "dbus-unit.h"
-#include "def.h"
 #include "env-util.h"
 #include "escape.h"
 #include "exit-status.h"
@@ -41,7 +41,6 @@
 #include "unit-name.h"
 #include "unit.h"
 #include "utf8.h"
-#include "util.h"
 
 #define service_spawn(...) service_spawn_internal(__func__, __VA_ARGS__)
 
@@ -2422,7 +2421,7 @@ static void service_enter_reload(Service *s) {
                 r = service_spawn(s,
                                   s->control_command,
                                   s->timeout_start_usec,
-                                  EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_CONTROL_CGROUP,
+                                  EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_CONTROL_CGROUP|EXEC_WRITE_CREDENTIALS,
                                   &s->control_pid);
                 if (r < 0)
                         goto fail;

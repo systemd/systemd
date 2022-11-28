@@ -17,8 +17,8 @@
 #include "bus-polkit.h"
 #include "bus-util.h"
 #include "conf-parser.h"
+#include "constants.h"
 #include "daemon-util.h"
-#include "def.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "dns-domain.h"
@@ -26,6 +26,7 @@
 #include "fileio.h"
 #include "firewall-util.h"
 #include "fs-util.h"
+#include "initrd-util.h"
 #include "local-addresses.h"
 #include "netlink-util.h"
 #include "network-internal.h"
@@ -64,25 +65,9 @@
 /* use 128 MB for receive socket kernel queue. */
 #define RCVBUF_SIZE    (128*1024*1024)
 
-static int manager_reset_all(Manager *m) {
-        Link *link;
-        int r;
-
-        assert(m);
-
-        HASHMAP_FOREACH(link, m->links_by_index) {
-                r = link_reconfigure_after_sleep(link);
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
-                        link_enter_failed(link);
-                }
-        }
-
-        return 0;
-}
-
 static int match_prepare_for_sleep(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
         Manager *m = ASSERT_PTR(userdata);
+        Link *link;
         int b, r;
 
         assert(message);
@@ -96,9 +81,15 @@ static int match_prepare_for_sleep(sd_bus_message *message, void *userdata, sd_b
         if (b)
                 return 0;
 
-        log_debug("Coming back from suspend, resetting all connections...");
+        log_debug("Coming back from suspend, reconfiguring all connections...");
 
-        (void) manager_reset_all(m);
+        HASHMAP_FOREACH(link, m->links_by_index) {
+                r = link_reconfigure(link, /* force = */ true);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
+                        link_enter_failed(link);
+                }
+        }
 
         return 0;
 }

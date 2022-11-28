@@ -5,12 +5,13 @@
 #
 # Julien Humbert <julroy67@gmail.com>, 2020, 2021.
 # Arnaud T. <listes.00@gmail.com>, 2021.
+# blutch112 <vincent.lefebvre59@gmail.com>, 2022.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2021-01-14 06:37+0000\n"
-"Last-Translator: Julien Humbert <julroy67@gmail.com>\n"
+"POT-Creation-Date: 2022-10-20 10:35+0200\n"
+"PO-Revision-Date: 2022-11-07 08:19+0000\n"
+"Last-Translator: blutch112 <vincent.lefebvre59@gmail.com>\n"
 "Language-Team: French <https://translate.fedoraproject.org/projects/systemd/"
 "master/fr/>\n"
 "Language: fr\n"
@@ -18,7 +19,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 4.4.1\n"
+"X-Generator: Weblate 4.14.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -164,6 +165,23 @@ msgstr "Obtenir l’UUID du produit"
 #: src/hostname/org.freedesktop.hostname1.policy:52
 msgid "Authentication is required to get product UUID."
 msgstr "Authentification requise pour obtenir l’UUID du produit."
+
+#: src/hostname/org.freedesktop.hostname1.policy:61
+msgid "Get hardware serial number"
+msgstr "Obtenir le numéro de série du matériel"
+
+#: src/hostname/org.freedesktop.hostname1.policy:62
+msgid "Authentication is required to get hardware serial number."
+msgstr ""
+"L'authentification est requise pour obtenir le numéro de série du matériel."
+
+#: src/hostname/org.freedesktop.hostname1.policy:71
+msgid "Get system description"
+msgstr "Obtenir la description du système"
+
+#: src/hostname/org.freedesktop.hostname1.policy:72
+msgid "Authentication is required to get system description."
+msgstr "L'authentification est requise pour obtenir la description du système."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
@@ -955,7 +973,7 @@ msgstr "Authentification requise pour recharger « $(unit) »."
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Authentification requise pour redémarrer « $(unit) »."
 
-#: src/core/dbus-unit.c:535
+#: src/core/dbus-unit.c:546
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
@@ -963,17 +981,17 @@ msgstr ""
 "Authentification requise pour envoyer un signal UNIX aux processus de "
 "« $(unit) »."
 
-#: src/core/dbus-unit.c:566
+#: src/core/dbus-unit.c:576
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Authentification requise pour réinitialiser l’état d’« échec » de "
 "« $(unit) »."
 
-#: src/core/dbus-unit.c:599
+#: src/core/dbus-unit.c:608
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Authentification requise pour définir des propriétés de « $(unit) »."
 
-#: src/core/dbus-unit.c:708
+#: src/core/dbus-unit.c:714
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
@@ -981,7 +999,7 @@ msgstr ""
 "Authentification requise pour supprimer les fichiers et les dossiers "
 "associés à « $(unit) »."
 
-#: src/core/dbus-unit.c:757
+#: src/core/dbus-unit.c:762
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

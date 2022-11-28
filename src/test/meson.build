@@ -41,6 +41,8 @@ test_dlopen_c = files('test-dlopen.c')
 ############################################################
 
 tests += [
+        [files('test-argv-util.c')],
+
         [files('test-device-nodes.c')],
 
         [files('test-ether-addr-util.c')],
@@ -205,13 +207,19 @@ tests += [
 
         [files('test-ratelimit.c')],
 
-        [files('test-util.c')],
+        [files('test-raw-clone.c')],
+
+        [files('test-limits-util.c')],
+
+        [files('test-logarithm.c')],
 
         [files('test-macro.c')],
 
         [files('test-math-util.c'),
          [],
          [libm]],
+
+        [files('test-memory-util.c')],
 
         [files('test-mkdir.c')],
 
@@ -549,6 +557,8 @@ tests += [
 
         [files('test-strv.c')],
 
+        [files('test-nulstr-util.c')],
+
         [files('test-path-util.c')],
 
         [files('test-rm-rf.c')],
@@ -622,7 +632,8 @@ tests += [
 
         [files('test-journal-importer.c')],
 
-        [files('test-utmp.c')],
+        [files('test-utmp.c'),
+         [], [], [], 'ENABLE_UTMP'],
 
         [files('test-udev.c'),
          [libudevd_core,

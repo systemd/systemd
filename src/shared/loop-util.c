@@ -77,7 +77,7 @@ static int open_lock_fd(int primary_fd, int operation) {
         assert(primary_fd >= 0);
         assert(IN_SET(operation & ~LOCK_NB, LOCK_SH, LOCK_EX));
 
-        lock_fd = fd_reopen(primary_fd, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        lock_fd = fd_reopen(primary_fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (lock_fd < 0)
                 return lock_fd;
 

@@ -10,7 +10,7 @@
 #include "bus-get-properties.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
-#include "def.h"
+#include "constants.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "float.h"
@@ -32,7 +32,6 @@
 #include "strv.h"
 #include "syslog-util.h"
 #include "user-util.h"
-#include "util.h"
 #include "web-util.h"
 
 typedef struct Transfer Transfer;

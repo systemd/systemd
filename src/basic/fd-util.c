@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/btrfs.h>
 #if WANT_LINUX_FS_H
 #include <linux/fs.h>
 #endif
@@ -30,7 +29,6 @@
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "tmpfile-util.h"
-#include "util.h"
 
 /* The maximum number of iterations in the loop to close descriptors in the fallback case
  * when /proc/self/fd/ is inaccessible. */
@@ -175,12 +173,35 @@ int fd_cloexec(int fd, bool cloexec) {
         return RET_NERRNO(fcntl(fd, F_SETFD, nflags));
 }
 
+int fd_cloexec_many(const int fds[], size_t n_fds, bool cloexec) {
+        int ret = 0, r;
+
+        assert(n_fds == 0 || fds);
+
+        for (size_t i = 0; i < n_fds; i++) {
+                if (fds[i] < 0) /* Skip gracefully over already invalidated fds */
+                        continue;
+
+                r = fd_cloexec(fds[i], cloexec);
+                if (r < 0 && ret >= 0) /* Continue going, but return first error */
+                        ret = r;
+                else
+                        ret = 1; /* report if we did anything */
+        }
+
+        return ret;
+}
+
 _pure_ static bool fd_in_set(int fd, const int fdset[], size_t n_fdset) {
         assert(n_fdset == 0 || fdset);
 
-        for (size_t i = 0; i < n_fdset; i++)
+        for (size_t i = 0; i < n_fdset; i++) {
+                if (fdset[i] < 0)
+                        continue;
+
                 if (fdset[i] == fd)
                         return true;
+        }
 
         return false;
 }
@@ -252,6 +273,10 @@ static int close_all_fds_special_case(const int except[], size_t n_except) {
 
         if (!have_close_range)
                 return 0;
+
+        if (n_except == 1 && except[0] < 0) /* Minor optimization: if we only got one fd, and it's invalid,
+                                             * we got none */
+                n_except = 0;
 
         switch (n_except) {
 
@@ -777,20 +802,6 @@ int read_nr_open(void) {
 
         /* If we fail, fall back to the hard-coded kernel limit of 1024 * 1024. */
         return 1024 * 1024;
-}
-
-/* This is here because it's fd-related and is called from sd-journal code. Other btrfs-related utilities are
- * in src/shared, but libsystemd must not link to libsystemd-shared, see docs/ARCHITECTURE.md. */
-int btrfs_defrag_fd(int fd) {
-        int r;
-
-        assert(fd >= 0);
-
-        r = fd_verify_regular(fd);
-        if (r < 0)
-                return r;
-
-        return RET_NERRNO(ioctl(fd, BTRFS_IOC_DEFRAG, NULL));
 }
 
 int fd_get_diskseq(int fd, uint64_t *ret) {

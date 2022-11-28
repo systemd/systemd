@@ -22,6 +22,7 @@
 #include "dbus-unit.h"
 #include "dbus.h"
 #include "dropin.h"
+#include "env-util.h"
 #include "escape.h"
 #include "execute.h"
 #include "fd-util.h"
@@ -127,7 +128,7 @@ Unit* unit_new(Manager *m, size_t size) {
         u->last_section_private = -1;
 
         u->start_ratelimit = (RateLimit) { m->default_start_limit_interval, m->default_start_limit_burst };
-        u->auto_start_stop_ratelimit = (RateLimit) { 10 * USEC_PER_SEC, 16 };
+        u->auto_start_stop_ratelimit = (const RateLimit) { 10 * USEC_PER_SEC, 16 };
 
         return u;
 }
@@ -4143,34 +4144,36 @@ int unit_patch_contexts(Unit *u) {
                     cc->device_policy == CGROUP_DEVICE_POLICY_AUTO)
                         cc->device_policy = CGROUP_DEVICE_POLICY_CLOSED;
 
-                if ((ec->root_image || ec->mount_images) &&
-                    (cc->device_policy != CGROUP_DEVICE_POLICY_AUTO || cc->device_allow)) {
+                /* Only add these if needed, as they imply that everything else is blocked. */
+                if (cc->device_policy != CGROUP_DEVICE_POLICY_AUTO || cc->device_allow) {
+                        if (ec->root_image || ec->mount_images) {
 
-                        /* When RootImage= or MountImages= is specified, the following devices are touched. */
-                        FOREACH_STRING(p, "/dev/loop-control", "/dev/mapper/control") {
-                                r = cgroup_add_device_allow(cc, p, "rw");
+                                /* When RootImage= or MountImages= is specified, the following devices are touched. */
+                                FOREACH_STRING(p, "/dev/loop-control", "/dev/mapper/control") {
+                                        r = cgroup_add_device_allow(cc, p, "rw");
+                                        if (r < 0)
+                                                return r;
+                                }
+                                FOREACH_STRING(p, "block-loop", "block-blkext", "block-device-mapper") {
+                                        r = cgroup_add_device_allow(cc, p, "rwm");
+                                        if (r < 0)
+                                                return r;
+                                }
+
+                                /* Make sure "block-loop" can be resolved, i.e. make sure "loop" shows up in /proc/devices.
+                                * Same for mapper and verity. */
+                                FOREACH_STRING(p, "modprobe@loop.service", "modprobe@dm_mod.service", "modprobe@dm_verity.service") {
+                                        r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, p, true, UNIT_DEPENDENCY_FILE);
+                                        if (r < 0)
+                                                return r;
+                                }
+                        }
+
+                        if (ec->protect_clock) {
+                                r = cgroup_add_device_allow(cc, "char-rtc", "r");
                                 if (r < 0)
                                         return r;
                         }
-                        FOREACH_STRING(p, "block-loop", "block-blkext", "block-device-mapper") {
-                                r = cgroup_add_device_allow(cc, p, "rwm");
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        /* Make sure "block-loop" can be resolved, i.e. make sure "loop" shows up in /proc/devices.
-                         * Same for mapper and verity. */
-                        FOREACH_STRING(p, "modprobe@loop.service", "modprobe@dm_mod.service", "modprobe@dm_verity.service") {
-                                r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, p, true, UNIT_DEPENDENCY_FILE);
-                                if (r < 0)
-                                        return r;
-                        }
-                }
-
-                if (ec->protect_clock) {
-                        r = cgroup_add_device_allow(cc, "char-rtc", "r");
-                        if (r < 0)
-                                return r;
                 }
         }
 
@@ -4779,9 +4782,26 @@ int unit_setup_dynamic_creds(Unit *u) {
 }
 
 bool unit_type_supported(UnitType t) {
+        static int8_t cache[_UNIT_TYPE_MAX] = {}; /* -1: disabled, 1: enabled: 0: don't know */
+        int r;
+
         if (_unlikely_(t < 0))
                 return false;
         if (_unlikely_(t >= _UNIT_TYPE_MAX))
+                return false;
+
+        if (cache[t] == 0) {
+                char *e;
+
+                e = strjoina("SYSTEMD_SUPPORT_", unit_type_to_string(t));
+
+                r = getenv_bool(ascii_strupper(e));
+                if (r < 0 && r != -ENXIO)
+                        log_debug_errno(r, "Failed to parse $%s, ignoring: %m", e);
+
+                cache[t] = r == 0 ? -1 : 1;
+        }
+        if (cache[t] < 0)
                 return false;
 
         if (!unit_vtable[t]->supported)

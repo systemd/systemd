@@ -19,12 +19,13 @@
 
 #include "acl-util.h"
 #include "alloc-util.h"
+#include "build.h"
 #include "bus-error.h"
 #include "bus-util.h"
 #include "catalog.h"
 #include "chase-symlinks.h"
 #include "chattr-util.h"
-#include "def.h"
+#include "constants.h"
 #include "dissect-image.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -1511,7 +1512,6 @@ static int get_possible_units(
                 Set **units) {
 
         _cleanup_set_free_free_ Set *found = NULL;
-        const char *field;
         int r;
 
         found = set_new(&string_hash_ops);

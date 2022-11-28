@@ -694,31 +694,31 @@ static int method_start_unit_generic(sd_bus_message *message, Manager *m, JobTyp
 }
 
 static int method_start_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_start_unit_generic(message, userdata, JOB_START, false, error);
+        return method_start_unit_generic(message, userdata, JOB_START, /* reload_if_possible = */ false, error);
 }
 
 static int method_stop_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_start_unit_generic(message, userdata, JOB_STOP, false, error);
+        return method_start_unit_generic(message, userdata, JOB_STOP, /* reload_if_possible = */ false, error);
 }
 
 static int method_reload_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_start_unit_generic(message, userdata, JOB_RELOAD, false, error);
+        return method_start_unit_generic(message, userdata, JOB_RELOAD, /* reload_if_possible = */ false, error);
 }
 
 static int method_restart_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_start_unit_generic(message, userdata, JOB_RESTART, false, error);
+        return method_start_unit_generic(message, userdata, JOB_RESTART, /* reload_if_possible = */ false, error);
 }
 
 static int method_try_restart_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_start_unit_generic(message, userdata, JOB_TRY_RESTART, false, error);
+        return method_start_unit_generic(message, userdata, JOB_TRY_RESTART, /* reload_if_possible = */ false, error);
 }
 
 static int method_reload_or_restart_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_start_unit_generic(message, userdata, JOB_RESTART, true, error);
+        return method_start_unit_generic(message, userdata, JOB_RESTART, /* reload_if_possible = */ true, error);
 }
 
 static int method_reload_or_try_restart_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_start_unit_generic(message, userdata, JOB_TRY_RESTART, true, error);
+        return method_start_unit_generic(message, userdata, JOB_TRY_RESTART, /* reload_if_possible = */ true, error);
 }
 
 typedef enum GenericUnitOperationFlags {
@@ -786,7 +786,7 @@ static int method_start_unit_replace(sd_bus_message *message, void *userdata, sd
         if (!u->job || u->job->type != JOB_START)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_JOB, "No job queued for unit %s", old_name);
 
-        return method_start_unit_generic(message, m, JOB_START, false, error);
+        return method_start_unit_generic(message, m, JOB_START, /* reload_if_possible = */ false, error);
 }
 
 static int method_kill_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2133,8 +2133,6 @@ static int send_unit_files_changed(sd_bus *bus, void *userdata) {
 /* Create an error reply, using the error information from changes[]
  * if possible, and fall back to generating an error from error code c.
  * The error message only describes the first error.
- *
- * Coordinate with install_changes_dump() in install.c.
  */
 static int install_error(
                 sd_bus_error *error,
@@ -2146,8 +2144,9 @@ static int install_error(
 
         for (size_t i = 0; i < n_changes; i++)
 
-                switch (changes[i].type) {
+                /* When making changes here, make sure to also change install_changes_dump() in install.c. */
 
+                switch (changes[i].type) {
                 case 0 ... _INSTALL_CHANGE_TYPE_MAX: /* not errors */
                         break;
 
@@ -2172,6 +2171,21 @@ static int install_error(
                                               "Unit %s is transient or generated.", changes[i].path);
                         goto found;
 
+                case -ETXTBSY:
+                        r = sd_bus_error_setf(error, BUS_ERROR_UNIT_BAD_PATH,
+                                              "File %s is under the systemd unit hierarchy already.", changes[i].path);
+                        goto found;
+
+                case -EBADSLT:
+                        r = sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
+                                              "Invalid specifier in %s.", changes[i].path);
+                        goto found;
+
+                case -EIDRM:
+                        r = sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
+                                              "Destination unit %s is a non-template unit.", changes[i].path);
+                        goto found;
+
                 case -EUCLEAN:
                         r = sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
                                               "\"%s\" is not a valid unit name.",
@@ -2184,9 +2198,24 @@ static int install_error(
                                               changes[i].path);
                         goto found;
 
+                case -EXDEV:
+                        if (changes[i].source)
+                                r = sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
+                                                      "Cannot alias %s as %s.",
+                                                      changes[i].source, changes[i].path);
+                        else
+                                r = sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
+                                                      "Invalid unit reference %s.", changes[i].path);
+                        goto found;
+
                 case -ENOENT:
                         r = sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT,
                                               "Unit file %s does not exist.", changes[i].path);
+                        goto found;
+
+                case -EUNATCH:
+                        r = sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
+                                              "Cannot resolve specifiers in %s.", changes[i].path);
                         goto found;
 
                 default:
@@ -2321,19 +2350,19 @@ static int method_enable_unit_files_generic(
 }
 
 static int method_enable_unit_files_with_flags(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_enable, true, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_enable, /* carries_install_info = */ true, error);
 }
 
 static int method_enable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_enable, true, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_enable, /* carries_install_info = */ true, error);
 }
 
 static int method_reenable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_reenable, true, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_reenable, /* carries_install_info = */ true, error);
 }
 
 static int method_link_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_link, false, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_link, /* carries_install_info = */ false, error);
 }
 
 static int unit_file_preset_without_mode(LookupScope scope, UnitFileFlags flags, const char *root_dir, char **files, InstallChange **changes, size_t *n_changes) {
@@ -2341,11 +2370,11 @@ static int unit_file_preset_without_mode(LookupScope scope, UnitFileFlags flags,
 }
 
 static int method_preset_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_preset_without_mode, true, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_preset_without_mode, /* carries_install_info = */ true, error);
 }
 
 static int method_mask_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_mask, false, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_mask, /* carries_install_info = */ false, error);
 }
 
 static int method_preset_unit_files_with_mode(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2618,21 +2647,27 @@ static int method_get_unit_file_links(sd_bus_message *message, void *userdata, s
                 (runtime ? UNIT_FILE_RUNTIME : 0);
 
         r = unit_file_disable(LOOKUP_SCOPE_SYSTEM, flags, NULL, p, &changes, &n_changes);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get file links for %s: %m", name);
+        if (r < 0) {
+                log_error_errno(r, "Failed to get file links for %s: %m", name);
+                goto finish;
+        }
 
         for (i = 0; i < n_changes; i++)
                 if (changes[i].type == INSTALL_CHANGE_UNLINK) {
                         r = sd_bus_message_append(reply, "s", changes[i].path);
                         if (r < 0)
-                                return r;
+                                goto finish;
                 }
 
         r = sd_bus_message_close_container(reply);
         if (r < 0)
-                return r;
+                goto finish;
 
-        return sd_bus_send(NULL, reply, NULL);
+        r = sd_bus_send(NULL, reply, NULL);
+
+finish:
+        install_changes_free(changes, n_changes);
+        return r;
 }
 
 static int method_get_job_waiting(sd_bus_message *message, void *userdata, sd_bus_error *error) {

@@ -87,7 +87,7 @@ def test_content(line, expected, *, user, extra={}, subpath='/arg', path_cb=None
 
 def test_valid_specifiers(*, user):
     test_content('f {} - - - - two words', 'two words', user=user)
-    if id128:
+    if id128 and os.path.isfile('/etc/machine-id'):
         try:
             test_content('f {} - - - - %m', '{}'.format(id128.get_machine().hex), user=user)
         except AssertionError as e:

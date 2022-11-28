@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-01-08 17:48+0100\n"
+"POT-Creation-Date: 2022-10-20 10:35+0200\n"
 "PO-Revision-Date: 2021-01-12 17:36+0000\n"
 "Last-Translator: Vlad <milovlad@outlook.com>\n"
 "Language-Team: Romanian <https://translate.fedoraproject.org/projects/"
@@ -173,6 +173,25 @@ msgid "Authentication is required to get product UUID."
 msgstr ""
 "Autentificarea este necesară pentru a obține identificatorul unic universal "
 "(UUID) al produsului."
+
+#: src/hostname/org.freedesktop.hostname1.policy:61
+msgid "Get hardware serial number"
+msgstr ""
+
+#: src/hostname/org.freedesktop.hostname1.policy:62
+#, fuzzy
+msgid "Authentication is required to get hardware serial number."
+msgstr "Autentificarea este necesară pentru a seta ora sistemului."
+
+#: src/hostname/org.freedesktop.hostname1.policy:71
+#, fuzzy
+msgid "Get system description"
+msgstr "Setează fusul orar al sistemului"
+
+#: src/hostname/org.freedesktop.hostname1.policy:72
+#, fuzzy
+msgid "Authentication is required to get system description."
+msgstr "Autentificarea este necesară pentru a seta fusul orar al sistemului."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
@@ -963,7 +982,7 @@ msgstr "Autentificarea este necesară pentru a reîncărca „$(unit)”."
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Autentificarea este necesară pentru a reporni „$(unit)”."
 
-#: src/core/dbus-unit.c:535
+#: src/core/dbus-unit.c:546
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
@@ -971,17 +990,17 @@ msgstr ""
 "Autentificarea este necesară pentru a trimite un semnal UNIX către procesele "
 "unui „$(unit)”."
 
-#: src/core/dbus-unit.c:566
+#: src/core/dbus-unit.c:576
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Autentificarea este necesară pentru a reseta starea „eșuată” a „$(unit)”."
 
-#: src/core/dbus-unit.c:599
+#: src/core/dbus-unit.c:608
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 "Autentificarea este necesară pentru a seta proprietățile lui „$(unit)”."
 
-#: src/core/dbus-unit.c:708
+#: src/core/dbus-unit.c:714
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
@@ -989,7 +1008,7 @@ msgstr ""
 "Autentificarea este necesară pentru a șterge fișierele și directoarele "
 "asociate lui „$(unit)”."
 
-#: src/core/dbus-unit.c:757
+#: src/core/dbus-unit.c:762
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

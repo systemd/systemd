@@ -9,10 +9,37 @@ on:
     branches:
       - main
       - v[0-9]+-stable
+    paths:
+      - '**'
+      - '!README*'
+      - '!LICENSE*'
+      - '!LICENSES/**'
+      - '!TODO'
+      - '!docs/**'
+      - '!man/**'
+      - '!catalog/**'
+      - '!shell-completion/**'
+      - '!po/**'
+      - '!.**'
+      - '.github/**'
+
   pull_request:
     branches:
       - main
       - v[0-9]+-stable
+    paths:
+      - '**'
+      - '!README*'
+      - '!LICENSE*'
+      - '!LICENSES/**'
+      - '!TODO'
+      - '!docs/**'
+      - '!man/**'
+      - '!catalog/**'
+      - '!shell-completion/**'
+      - '!po/**'
+      - '!.**'
+      - '.github/**'
 
 permissions:
   contents: read
@@ -52,7 +79,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
-    - uses: systemd/mkosi@792cbc60eb2dc4a58d66bb3c212bf92f8d50f6ea
+    - uses: systemd/mkosi@c9772ec920f1cd03181ba14e6fe2c3d35ccb4f92
 
     - name: Install
       run: sudo apt-get update && sudo apt-get install --no-install-recommends python3-pexpect python3-jinja2
@@ -72,19 +99,19 @@ jobs:
         EOF
 
     - name: Build ${{ matrix.distro }}
-      run: sudo python3 -m mkosi build
+      run: sudo mkosi build
 
     - name: Show ${{ matrix.distro }} image summary
-      run: sudo python3 -m mkosi summary
+      run: sudo mkosi summary
 
     - name: Boot ${{ matrix.distro }} systemd-nspawn
-      run: sudo python3 -m mkosi boot ${{ env.KERNEL_CMDLINE }}
+      run: sudo mkosi boot ${{ env.KERNEL_CMDLINE }}
 
     - name: Check ${{ matrix.distro }} systemd-nspawn
-      run: sudo python3 -m mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
+      run: sudo mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
 
     - name: Boot ${{ matrix.distro }} QEMU
-      run: sudo timeout -k 30 10m python3 -m mkosi qemu
+      run: sudo timeout -k 30 10m mkosi qemu
 
     - name: Check ${{ matrix.distro }} QEMU
-      run: sudo python3 -m mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
+      run: sudo mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"

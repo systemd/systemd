@@ -14,8 +14,8 @@
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
+#include "constants.h"
 #include "daemon-util.h"
-#include "def.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "initreq.h"
@@ -24,6 +24,7 @@
 #include "main-func.h"
 #include "memory-util.h"
 #include "process-util.h"
+#include "reboot-util.h"
 #include "special.h"
 
 #define SERVER_FD_MAX 16

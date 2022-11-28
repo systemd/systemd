@@ -1865,7 +1865,6 @@ static int type_bitmap_to_json(Bitmap *b, JsonVariant **ret) {
         unsigned t;
         int r;
 
-        assert(b);
         assert(ret);
 
         BITMAP_FOREACH(t, b) {

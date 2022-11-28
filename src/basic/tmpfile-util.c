@@ -19,29 +19,15 @@
 #include "tmpfile-util.h"
 #include "umask-util.h"
 
-int fopen_temporary(const char *path, FILE **ret_f, char **ret_temp_path) {
+static int fopen_temporary_internal(int dir_fd, const char *path, FILE **ret_file) {
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *t = NULL;
         _cleanup_close_ int fd = -1;
         int r;
 
-        if (path) {
-                r = tempfn_xxxxxx(path, NULL, &t);
-                if (r < 0)
-                        return r;
-        } else {
-                const char *d;
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(path);
 
-                r = tmp_dir(&d);
-                if (r < 0)
-                        return r;
-
-                t = path_join(d, "XXXXXX");
-                if (!t)
-                        return -ENOMEM;
-        }
-
-        fd = mkostemp_safe(t);
+        fd = openat(dir_fd, path, O_CLOEXEC|O_NOCTTY|O_RDWR|O_CREAT|O_EXCL, 0600);
         if (fd < 0)
                 return -errno;
 
@@ -50,15 +36,59 @@ int fopen_temporary(const char *path, FILE **ret_f, char **ret_temp_path) {
 
         r = take_fdopen_unlocked(&fd, "w", &f);
         if (r < 0) {
-                (void) unlink(t);
+                (void) unlinkat(dir_fd, path, 0);
                 return r;
         }
 
-        if (ret_f)
-                *ret_f = TAKE_PTR(f);
+        if (ret_file)
+                *ret_file = TAKE_PTR(f);
 
-        if (ret_temp_path)
-                *ret_temp_path = TAKE_PTR(t);
+        return 0;
+}
+
+int fopen_temporary_at(int dir_fd, const char *path, FILE **ret_file, char **ret_path) {
+        _cleanup_free_ char *t = NULL;
+        int r;
+
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(path);
+
+        r = tempfn_random(path, NULL, &t);
+        if (r < 0)
+                return r;
+
+        r = fopen_temporary_internal(dir_fd, t, ret_file);
+        if (r < 0)
+                return r;
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(t);
+
+        return 0;
+}
+
+int fopen_temporary_child_at(int dir_fd, const char *path, FILE **ret_file, char **ret_path) {
+        _cleanup_free_ char *t = NULL;
+        int r;
+
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+
+        if (!path) {
+                r = tmp_dir(&path);
+                if (r < 0)
+                        return r;
+        }
+
+        r = tempfn_random_child(path, NULL, &t);
+        if (r < 0)
+                return r;
+
+        r = fopen_temporary_internal(dir_fd, t, ret_file);
+        if (r < 0)
+                return r;
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(t);
 
         return 0;
 }
@@ -357,4 +387,24 @@ int mkdtemp_malloc(const char *template, char **ret) {
 
         *ret = TAKE_PTR(p);
         return 0;
+}
+
+int mkdtemp_open(const char *template, int flags, char **ret) {
+        _cleanup_free_ char *p = NULL;
+        int fd, r;
+
+        r = mkdtemp_malloc(template, &p);
+        if (r < 0)
+                return r;
+
+        fd = RET_NERRNO(open(p, O_DIRECTORY|O_CLOEXEC|flags));
+        if (fd < 0) {
+                (void) rmdir(p);
+                return fd;
+        }
+
+        if (ret)
+                *ret = TAKE_PTR(p);
+
+        return fd;
 }

@@ -483,6 +483,18 @@ static int trim_edit_markers(const char *path) {
                 strshorten(contents_start, contents_end - contents_start);
 
         contents_start = strstrip(contents_start);
+        if (*contents_start && !endswith(contents_start, "\n")) {
+                char *tmp = contents_start;
+                if (MALLOC_SIZEOF_SAFE(contents) - (contents_start - contents) - strlen(contents_start) < 2) {
+                        if ((tmp = realloc(contents, size + 1))) {
+                                contents_start = tmp + (contents_start - contents);
+                                contents = tmp;
+                        }
+                }
+
+                if (tmp)
+                        strcat(contents_start, "\n");
+        }
 
         /* Write new contents if the trimming actually changed anything */
         if (strlen(contents) != size) {

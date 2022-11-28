@@ -1,6 +1,43 @@
 systemd System and Service Manager
 
-CHANGES WITH 252 in spe:
+CHANGES WITH 253 in spe:
+
+        Changes in sd-boot, bootctl, and the Boot Loader Specification:
+
+	* systemd-boot now passes its random seed directly to the kernel's RNG
+	  via the LINUX_EFI_RANDOM_SEED_TABLE_GUID configuration table, which
+	  means the RNG gets seeded very early in boot before userspace has
+	  started.
+
+	* systemd-boot will pass a random seed when secure boot is enabled if
+	  it can additionally get a random seed from EFI itself, via EFI's RNG
+	  protocol or a prior seed in LINUX_EFI_RANDOM_SEED_TABLE_GUID from a
+	  preceding bootloader.
+
+	* The random seed stored in ESP is now refreshed whenever
+	  systemd-random-seed.service is run.
+
+	* systemd-boot handles various seed inputs using a domain- and
+	  field-separated hashing scheme.
+
+	* systemd-boot's 'random-seed-mode' option has been removed. A system
+	  token is now always required to be present for random seeds to be
+	  used.
+
+	* systemd-stub now processes random seeds in the same way as
+	  systemd-boot, in case a unified kernel image is being used from a
+	  different bootloader than systemd-boot.
+
+	* bootctl will now generate a system token on all EFI systems, even
+	  virtualized ones, and is activated in the case that the system token
+	  is missing from either sd-boot and sd-stub booted systems.
+
+        Changes in systemctl:
+
+    * systemctl reboot has dropped support for accepting a positional argument
+      as the argument to reboot(2) syscall. Please use --reboot-argument instead.
+
+CHANGES WITH 252 🎃:
 
         Announcements of Future Feature Removals:
 
@@ -229,8 +266,14 @@ CHANGES WITH 252 in spe:
         * The sd-boot stub exports a StubFeatures flag, which is used by
           bootctl to show features supported by the stub that was used to boot.
 
-        * sd-boot will now try to detect and warn about overlapping PE sections
-          in the UKI.
+        * The PE section offsets that are used by tools that assemble unified
+          kernel images have historically been hard-coded. This may lead to
+          overlapping PE sections which may break on boot. The UKI will now try
+          to detect and warn about this.
+
+          Any tools that assemble UKIs must update to calculate these offsets
+          dynamically. Future sd-stub versions may use offsets that will not
+          work with the currently used set of hard-coded offsets!
 
         * sd-stub now accepts (and passes to the initrd and then to the full
           OS) new PE sections '.pcrsig' and '.pcrkey' that can be used to embed
@@ -268,6 +311,8 @@ CHANGES WITH 252 in spe:
           reference (file descriptor) open on TUN/TAP interfaces, which is
           useful to avoid link flaps while the underlying service providing the
           interface is being serviced.
+
+        * RouteTable= now also accepts route table names.
 
         Changes in systemd-nspawn:
 
@@ -489,6 +534,8 @@ CHANGES WITH 252 in spe:
         * systemd-udev will now create infiniband/by-path and
           infiniband/by-ibdev links for Infiniband verbs devices.
 
+        * systemd-udev-trigger.service will now also prioritize input devices.
+
         * ConditionACPower= and systemd-ac-power will now assume the system is
           running on AC power if no battery can be found.
 
@@ -523,6 +570,12 @@ CHANGES WITH 252 in spe:
         * When using gcrypt, all systemd tools and services will now configure
           it to prefer the OS random number generator if present.
 
+        * All example code shipped with documentation has been relicensed from CC0
+          to MIT-0.
+
+        * Unit tests will no longer fail when running on a system without
+          /etc/machine-id.
+
         Experimental features:
 
         * BPF programs can now be compiled with bpf-gcc (requires libbpf >= 1.0
@@ -539,79 +592,56 @@ CHANGES WITH 252 in spe:
           systemd. This may be useful when developing or testing systemd in
           tandem with the kernel.
 
-        Contributions from: 김인수, Adam Williamson, adrian5, Akihiko Odaki,
-        Alban Bedel, Albert Mikaelyan, Aleksey Vasenev, Alexander Graf,
-        Alexander Shopov, Alexander Wilson, Alper Nebi Yasak, Andre Kalb,
+        Contributions from: 김인수, Adam Williamson, adrian5, Aidan Dang,
+        Akihiko Odaki, Alban Bedel, Albert Mikaelyan, Aleksey Vasenev,
+        Alexander Graf, Alexander Shopov, Alexander Wilson,
+        Alper Nebi Yasak, anarcat, Anders Jonsson, Andre Kalb,
         Andrew Stone, Andrey Albershteyn, Anita Zhang, Ansgar Burchardt,
         Antonio Alvarez Feijoo, Arnaud Ferraris, Aryan singh, asavah,
         Avamander, Avram Lubkin, Balázs Meskó, Bastien Nocera,
-        Benjamin Franzke, BerndAdameit, bin456789, Chih-Hsuan Yen,
-        Christian Brauner, Christian Göttsche, Christian Hesse, Clyde Byrd III,
-        codefiles, Colin Walters, Cristian Rodríguez, Daan De Meyer,
-        Daniel Braunwarth, Dan Streetman, Darsey Litzenberger, David Edmundson,
-        David Jaša, David Rheinsberg, David Tardon, dependabot[bot],
-        Devendra Tewari, Dominique Martinet, drosdeck, Edson Juliano Drosdeck,
-        Eduard Tolosa, eggfly, Einsler Lee, Elias Probst, Eli Schwartz,
-        Evgeny Vereshchagin, exploide, Fei Li, Foster Snowhill, Franck Bui,
-        Frank Dana, Frantisek Sumsal, Gio, Goffredo Baroncelli, gtwang01,
-        Guillaume W. Bres, H A, Hans de Goede, Heinrich Schuchardt,
-        Hugo Carvalho, i-do-cpp, igo95862, j00512545, Jacek Migacz,
-        Jade Bilkey, James Hilliard, Jan B, Janis Goldschmidt, Jan Janssen,
-        Jan Luebbe, Jan Macku, Jason A. Donenfeld, Javkhlanbayar Khongorzul,
-        Jeremy Soller, JeroenHD, jiangchuangang, João Loureiro,
-        Joaquín Ignacio Aramendía, Johannes Schauer Marin Rodrigues,
-        Jonas Kümmerlin, Jonas Witschel, Jonathan Lebon, Joost Heitbrink,
-        Jörg Thalheim, josh-gordon-fb, Kai Lueke, lastkrick,
-        Lennart Poettering, licunlong, Li kunyu, LockBlock-dev, Loïc Collignon,
-        Luca Boccassi, Luca BRUNO, Ludwig Nussel, Łukasz Stelmach, Maccraft123,
-        Marc Kleine-Budde, Marius Vollmer, Martin Wilck, matoro,
-        Matthias Lisin, Max Gautier, Maxim Mikityanskiy, Michael Biebl,
-        Michal Koutný, Michal Sekletár, Michal Stanke, Mike Gilbert,
-        Mitchell Freiderich, msizanoen1, Nick Rosbrook, nl6720, Oleg Solovyov,
-
-        Contributions from: 김인수, Adam Williamson, adrian5, Aidan Dang,
-        Akihiko Odaki, Alban Bedel, Albert Mikaelyan, Aleksey Vasenev,
-        Alexander Graf, Alexander Shopov, Alexander Wilson, Alper Nebi Yasak,
-        anarcat, Andre Kalb, Andrew Stone, Andrey Albershteyn, Anita Zhang,
-        Ansgar Burchardt, Antonio Alvarez Feijoo, Arnaud Ferraris, Aryan singh,
-        asavah, Avamander, Avram Lubkin, Balázs Meskó, Bastien Nocera,
-        Benjamin Franzke, BerndAdameit, bin456789, Celeste Liu, Chih-Hsuan Yen,
-        Christian Brauner, Christian Göttsche, Christian Hesse, Clyde Byrd III,
-        codefiles, Colin Walters, Cristian Rodríguez, Daan De Meyer,
-        Daniel Braunwarth, Dan Streetman, Darsey Litzenberger, David Edmundson,
+        Benjamin Franzke, BerndAdameit, bin456789, Celeste Liu,
+        Chih-Hsuan Yen, Christian Brauner, Christian Göttsche,
+        Christian Hesse, Clyde Byrd III, codefiles, Colin Walters,
+        Cristian Rodríguez, Daan De Meyer, Daniel Braunwarth,
+        Daniel Rusek, Dan Streetman, Darsey Litzenberger, David Edmundson,
         David Jaša, David Rheinsberg, David Seifert, David Tardon,
         dependabot[bot], Devendra Tewari, Dominique Martinet, drosdeck,
         Edson Juliano Drosdeck, Eduard Tolosa, eggfly, Einsler Lee,
         Elias Probst, Eli Schwartz, Evgeny Vereshchagin, exploide, Fei Li,
         Foster Snowhill, Franck Bui, Frank Dana, Frantisek Sumsal,
-        Gerd Hoffmann, Gio, Goffredo Baroncelli, gtwang01, Guillaume W. Bres,
-        H A, Hans de Goede, Heinrich Schuchardt, Hugo Carvalho, i-do-cpp,
-        igo95862, j00512545, Jacek Migacz, Jade Bilkey, James Hilliard, Jan B,
-        Janis Goldschmidt, Jan Janssen, Jan Luebbe, Jan Macku,
-        Jason A. Donenfeld, Javkhlanbayar Khongorzul, Jeremy Soller, JeroenHD,
-        jiangchuangang, João Loureiro, Joaquín Ignacio Aramendía,
-        Johannes Schauer Marin Rodrigues, Jonas Kümmerlin, Jonas Witschel,
-        Jonathan Lebon, Joost Heitbrink, Jörg Thalheim, josh-gordon-fb,
-        Kai Lueke, lastkrick, Lennart Poettering, licunlong, Li kunyu,
+        Gerd Hoffmann, Gio, Goffredo Baroncelli, gtwang01,
+        Guillaume W. Bres, H A, Hans de Goede, Heinrich Schuchardt,
+        Hugo Carvalho, i-do-cpp, igo95862, j00512545, Jacek Migacz,
+        Jade Bilkey, James Hilliard, Jan B, Janis Goldschmidt,
+        Jan Janssen, Jan Kuparinen, Jan Luebbe, Jan Macku,
+        Jason A. Donenfeld, Javkhlanbayar Khongorzul, Jeremy Soller,
+        JeroenHD, jiangchuangang, João Loureiro,
+        Joaquín Ignacio Aramendía, Jochen Sprickerhof,
+        Johannes Schauer Marin Rodrigues, Jonas Kümmerlin,
+        Jonas Witschel, Jonathan Kang, Jonathan Lebon, Joost Heitbrink,
+        Jörg Thalheim, josh-gordon-fb, Joyce, Kai Lueke, lastkrick,
+        Lennart Poettering, Leon M. George, licunlong, Li kunyu,
         LockBlock-dev, Loïc Collignon, Lubomir Rintel, Luca Boccassi,
         Luca BRUNO, Ludwig Nussel, Łukasz Stelmach, Maccraft123,
         Marc Kleine-Budde, Marius Vollmer, Martin Wilck, matoro,
         Matthias Lisin, Max Gautier, Maxim Mikityanskiy, Michael Biebl,
         Michal Koutný, Michal Sekletár, Michal Stanke, Mike Gilbert,
-        Mitchell Freiderich, msizanoen1, Nick Rosbrook, nl6720, Oleg Solovyov,
-        Pablo Ceballos, Pavel Zhukov, Phaedrus Leeds, Philipp Gortan,
-        Piotr Drąg, Pyfisch, Quentin Deslandes, Rahil Bhimjiani,
-        Rene Hollander, Richard Huang, Richard Phibel, Rudi Heitbaum,
-        Sam James, Sarah Brofeldt, Sean Anderson, Sebastian Scheibner,
-        Shreenidhi Shedi, Sonali Srivastava, Steve Ramage, Suraj Krishnan,
-        Swapnil Devesh, Ted X. Toth, Thomas Blume, Thomas Haller, Thomas Hebb,
-        Tomáš Hnyk, Tomasz Paweł Gajc, Topi Miettinen, Ulrich Ölmann, undef,
-        Uriel Corfa, Victor Westerhuis, Vincent Dagonneau,
-        Vishal Chillara Srinivas, Vito Caputo, Wenchao Hao, William Roberts,
-        williamsumendap, wineway, Yu Watanabe, Zbigniew Jędrzejewski-Szmek,
-        Zhaofeng Li, наб
+        Mitchell Freiderich, msizanoen1, Nick Rosbrook, nl6720, Oğuz Ersen,
+        Oleg Solovyov, Olga Smirnova, Pablo Ceballos, Pavel Zhukov,
+        Phaedrus Leeds, Philipp Gortan, Piotr Drąg, Pyfisch,
+        Quentin Deslandes, Rahil Bhimjiani, Rene Hollander, Richard Huang,
+        Richard Phibel, Rudi Heitbaum, Sam James, Sarah Brofeldt,
+        Sean Anderson, Sebastian Scheibner, Shreenidhi Shedi,
+        Sonali Srivastava, Steve Ramage, Suraj Krishnan, Swapnil Devesh,
+        Takashi Sakamoto, Ted X. Toth, Temuri Doghonadze, Thomas Blume,
+        Thomas Haller, Thomas Hebb, Tomáš Hnyk, Tomasz Paweł Gajc,
+        Topi Miettinen, Ulrich Ölmann, undef, Uriel Corfa,
+        Victor Westerhuis, Vincent Dagonneau, Vishal Chillara Srinivas,
+        Vito Caputo, Weblate, Wenchao Hao, William Roberts, williamsumendap,
+        wineway, xiaoyang, Yuri Chornoivan, Yu Watanabe,
+        Zbigniew Jędrzejewski-Szmek, Zhaofeng Li, наб
 
-        – Under the Sea, 2022-10-07
+        – The Great Beyond, 2022-10-31 👻
 
 CHANGES WITH 251:
 

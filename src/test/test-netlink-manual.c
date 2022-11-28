@@ -11,7 +11,6 @@
 #include "macro.h"
 #include "module-util.h"
 #include "tests.h"
-#include "util.h"
 
 static int load_module(const char *mod_name) {
         _cleanup_(kmod_unrefp) struct kmod_ctx *ctx = NULL;

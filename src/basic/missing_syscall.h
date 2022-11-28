@@ -363,6 +363,20 @@ static inline int missing_rt_sigqueueinfo(pid_t tgid, int sig, siginfo_t *info) 
 
 /* ======================================================================= */
 
+#if !HAVE_RT_TGSIGQUEUEINFO
+static inline int missing_rt_tgsigqueueinfo(pid_t tgid, pid_t tid, int sig, siginfo_t *info) {
+#  if defined __NR_rt_tgsigqueueinfo && __NR_rt_tgsigqueueinfo >= 0
+        return syscall(__NR_rt_tgsigqueueinfo, tgid, tid, sig, info);
+#  else
+#    error "__NR_rt_tgsigqueueinfo not defined"
+#  endif
+}
+
+#  define rt_tgsigqueueinfo missing_rt_tgsigqueueinfo
+#endif
+
+/* ======================================================================= */
+
 #if !HAVE_EXECVEAT
 static inline int missing_execveat(int dirfd, const char *pathname,
                                    char *const argv[], char *const envp[],
@@ -408,44 +422,6 @@ static inline int missing_close_range(int first_fd, int end_fd, unsigned flags) 
 }
 
 #  define close_range missing_close_range
-#endif
-
-/* ======================================================================= */
-
-#if !HAVE_EPOLL_PWAIT2
-
-/* Defined to be equivalent to the kernel's _NSIG_WORDS, i.e. the size of the array of longs that is
- * encapsulated by sigset_t. */
-#define KERNEL_NSIG_WORDS (64 / (sizeof(long) * 8))
-#define KERNEL_NSIG_BYTES (KERNEL_NSIG_WORDS * sizeof(long))
-
-struct epoll_event;
-
-static inline int missing_epoll_pwait2(
-                int fd,
-                struct epoll_event *events,
-                int maxevents,
-                const struct timespec *timeout,
-                const sigset_t *sigset) {
-
-#  if defined(__NR_epoll_pwait2) && HAVE_LINUX_TIME_TYPES_H
-        if (timeout) {
-                /* Convert from userspace timespec to kernel timespec */
-                struct __kernel_timespec ts = {
-                        .tv_sec = timeout->tv_sec,
-                        .tv_nsec = timeout->tv_nsec,
-                };
-
-                return syscall(__NR_epoll_pwait2, fd, events, maxevents, &ts, sigset, sigset ? KERNEL_NSIG_BYTES : 0);
-        } else
-                return syscall(__NR_epoll_pwait2, fd, events, maxevents, NULL, sigset, sigset ? KERNEL_NSIG_BYTES : 0);
-#  else
-        errno = ENOSYS;
-        return -1;
-#  endif
-}
-
-#  define epoll_pwait2 missing_epoll_pwait2
 #endif
 
 /* ======================================================================= */
@@ -589,6 +565,46 @@ static inline int missing_move_mount(
 }
 
 #  define move_mount missing_move_mount
+#endif
+
+/* ======================================================================= */
+
+#if !HAVE_FSOPEN
+
+#ifndef FSOPEN_CLOEXEC
+#define FSOPEN_CLOEXEC 0x00000001
+#endif
+
+static inline int missing_fsopen(const char *fsname, unsigned flags) {
+#  if defined __NR_fsopen && __NR_fsopen >= 0
+        return syscall(__NR_fsopen, fsname, flags);
+#  else
+        errno = ENOSYS;
+        return -1;
+#  endif
+}
+
+#  define fsopen missing_fsopen
+#endif
+
+/* ======================================================================= */
+
+#if !HAVE_FSCONFIG
+
+#ifndef FSCONFIG_SET_STRING
+#define FSCONFIG_SET_STRING 1 /* Set parameter, supplying a string value */
+#endif
+
+static inline int missing_fsconfig(int fd, unsigned cmd, const char *key, const void *value, int aux) {
+#  if defined __NR_fsconfig && __NR_fsconfig >= 0
+        return syscall(__NR_fsconfig, fd, cmd, key, value, aux);
+#  else
+        errno = ENOSYS;
+        return -1;
+#  endif
+}
+
+#  define fsconfig missing_fsconfig
 #endif
 
 /* ======================================================================= */

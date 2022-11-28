@@ -15,7 +15,6 @@
 #include "parse-util.h"
 #include "string-util.h"
 #include "tests.h"
-#include "util.h"
 
 static void ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
         assert_se(ll);

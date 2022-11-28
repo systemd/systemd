@@ -27,15 +27,14 @@ int fs_type_from_string(const char *name, const statfs_f_type_t **ret) {
         return 0;
 }
 
-int fs_in_group(const struct statfs *s, FilesystemGroups fs_group) {
-        const char *fs;
+bool fs_in_group(const struct statfs *s, FilesystemGroups fs_group) {
         int r;
 
         NULSTR_FOREACH(fs, filesystem_sets[fs_group].value) {
                 const statfs_f_type_t *magic;
 
                 r = fs_type_from_string(fs, &magic);
-                if (r == 0) {
+                if (r >= 0)
                         for (size_t i = 0; i < FILESYSTEM_MAGIC_MAX; i++) {
                                 if (magic[i] == 0)
                                         break;
@@ -43,7 +42,6 @@ int fs_in_group(const struct statfs *s, FilesystemGroups fs_group) {
                                 if (is_fs_type(s, magic[i]))
                                         return true;
                         }
-                }
         }
 
         return false;

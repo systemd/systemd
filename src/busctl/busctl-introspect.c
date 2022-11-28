@@ -6,7 +6,6 @@
 #include "busctl-introspect.h"
 #include "path-util.h"
 #include "string-util.h"
-#include "util.h"
 #include "xml.h"
 
 #define NODE_DEPTH_MAX 16

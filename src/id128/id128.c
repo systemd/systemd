@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 #include "alloc-util.h"
+#include "build.h"
 #include "gpt.h"
 #include "id128-print.h"
 #include "main-func.h"
@@ -11,7 +12,6 @@
 #include "strv.h"
 #include "format-table.h"
 #include "terminal-util.h"
-#include "util.h"
 #include "verbs.h"
 
 static Id128PrettyPrintMode arg_mode = ID128_PRINT_ID128;
@@ -123,10 +123,13 @@ static int verb_show(int argc, char **argv, void *userdata) {
                         if (have_uuid)
                                 id = gpt_partition_type_uuid_to_string(uuid) ?: "XYZ";
                         else {
-                                r = gpt_partition_type_uuid_from_string(*p, &uuid);
+                                GptPartitionType type;
+
+                                r = gpt_partition_type_from_string(*p, &type);
                                 if (r < 0)
                                         return log_error_errno(r, "Unknown identifier \"%s\".", *p);
 
+                                uuid = type.uuid;
                                 id = *p;
                         }
 

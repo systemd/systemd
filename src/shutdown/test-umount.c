@@ -7,7 +7,6 @@
 #include "string-util.h"
 #include "tests.h"
 #include "umount.h"
-#include "util.h"
 
 static void test_mount_points_list_one(const char *fname) {
         _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, mp_list_head);
