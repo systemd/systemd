@@ -517,15 +517,19 @@ int dns_synthesize_answer(
                         if (r < 0)
                                 return log_error_errno(r, "Failed to synthesize local DNS stub RRs: %m");
 
-                } else if ((dns_name_endswith(name, "127.in-addr.arpa") > 0 &&
-                            dns_name_equal(name, "2.0.0.127.in-addr.arpa") == 0 &&
-                            dns_name_equal(name, "53.0.0.127.in-addr.arpa") == 0 &&
-                            dns_name_equal(name, "54.0.0.127.in-addr.arpa") == 0) ||
+                } else if (dns_name_equal(name, "1.0.0.127.in-addr.arpa") > 0 ||
                            dns_name_equal(name, "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0) {
 
                         r = synthesize_localhost_ptr(m, key, &answer);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to synthesize localhost PTR RRs: %m");
+
+                } else if (dns_name_endswith(name, "127.in-addr.arpa") > 0 &&
+                           (dns_name_equal(name, "2.0.0.127.in-addr.arpa") == 0 &&
+                            dns_name_equal(name, "53.0.0.127.in-addr.arpa") == 0 &&
+                            dns_name_equal(name, "54.0.0.127.in-addr.arpa") == 0)) {
+                        nxdomain = true;
+                        continue;
 
                 } else if (dns_name_address(name, &af, &address) > 0) {
                         int v, w, u;
