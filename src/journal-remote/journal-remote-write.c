@@ -23,7 +23,7 @@ static int do_rotate(ManagedJournalFile **f, MMapCache *m, JournalFileFlags file
 
 Writer* writer_new(RemoteServer *server) {
         Writer *w;
-        char *dirname = NULL;
+        _cleanup_free_ char *dirname = NULL;
         int r;
 
         w = new0(Writer, 1);
