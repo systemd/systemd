@@ -309,6 +309,14 @@ DEFINE_PRIVATE_HASH_OPS(
         address_kernel_hash_func,
         address_kernel_compare_func);
 
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+        address_kernel_hash_ops_free,
+        Address,
+        address_kernel_hash_func,
+        address_kernel_compare_func,
+        address_free);
+
+/* The functions below are mainly used by managing Request. */
 static void address_hash_func(const Address *a, struct siphash *state) {
         assert(a);
 
@@ -367,12 +375,37 @@ int address_compare_func(const Address *a1, const Address *a2) {
         return 0;
 }
 
-DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
-        address_hash_ops_free,
-        Address,
-        address_hash_func,
-        address_compare_func,
-        address_free);
+int address_equal(const Address *a1, const Address *a2) {
+        if (a1 == a2)
+                return true;
+
+        if (!a1 || !a2)
+                return false;
+
+        return address_compare_func(a1, a2) == 0;
+}
+
+static int address_equalify(Address *address, const Address *src) {
+        int r;
+
+        assert(address);
+        assert(src);
+
+        if (address_kernel_compare_func(address, src) != 0)
+                return -EINVAL;
+
+        if (address->family == AF_INET) {
+                address->broadcast = src->broadcast;
+                r = free_and_strdup(&address->label, src->label);
+                if (r < 0)
+                        return r;
+        } else {
+                address->prefixlen = src->prefixlen;
+                address->in_addr_peer = src->in_addr_peer;
+        }
+
+        return 0;
+}
 
 int address_dup(const Address *src, Address **ret) {
         _cleanup_(address_freep) Address *dest = NULL;
@@ -451,7 +484,7 @@ static int address_add(Link *link, Address *address) {
         assert(link);
         assert(address);
 
-        r = set_ensure_put(&link->addresses, &address_hash_ops_free, address);
+        r = set_ensure_put(&link->addresses, &address_kernel_hash_ops_free, address);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -542,10 +575,10 @@ int link_get_address(Link *link, int family, const union in_addr_union *address,
          * and does not have peer address. When the prefixlen is zero, then an Address object with an
          * arbitrary prefixlen will be returned. */
 
-        if (prefixlen != 0) {
+        if (family == AF_INET6 || prefixlen != 0) {
                 _cleanup_(address_freep) Address *tmp = NULL;
 
-                /* If prefixlen is set, then we can use address_get(). */
+                /* In this case, we can use address_get(). */
 
                 r = address_new(&tmp);
                 if (r < 0)
@@ -554,20 +587,24 @@ int link_get_address(Link *link, int family, const union in_addr_union *address,
                 tmp->family = family;
                 tmp->in_addr = *address;
                 tmp->prefixlen = prefixlen;
-                address_set_broadcast(tmp, link);
 
-                if (address_get(link, tmp, &a) >= 0) {
-                        if (ret)
-                                *ret = a;
+                r = address_get(link, tmp, &a);
+                if (r < 0)
+                        return r;
 
-                        return 0;
+                if (family == AF_INET6) {
+                        /* IPv6 addresses are managed without peer address and prefix length. Hence, we need
+                         * to check them explicitly. */
+                        if (in_addr_is_set(family, &a->in_addr_peer))
+                                return -ENOENT;
+                        if (prefixlen != 0 && a->prefixlen != prefixlen)
+                                return -ENOENT;
                 }
 
-                if (family == AF_INET6)
-                        return -ENOENT;
+                if (ret)
+                        *ret = a;
 
-                /* IPv4 addresses may have label and/or non-default broadcast address.
-                 * Hence, we need to always fallback below. */
+                return 0;
         }
 
         SET_FOREACH(a, link->addresses) {
@@ -925,7 +962,11 @@ int link_drop_foreign_addresses(Link *link) {
         ORDERED_HASHMAP_FOREACH(address, link->network->addresses_by_section) {
                 Address *existing;
 
-                if (address_get(link, address, &existing) >= 0)
+                /* On update, the kernel ignores the address label and broadcast address. Hence we need to
+                 * distinguish addresses with different labels or broadcast addresses. Thus, we need to check
+                 * the existing address with address_equal(). Otherwise, the label or broadcast address
+                 * change will not be applied when we reconfigure the interface. */
+                if (address_get(link, address, &existing) >= 0 && address_equal(address, existing))
                         address_unmark(existing);
         }
 
@@ -1199,6 +1240,9 @@ int link_request_address(
 
                 existing = TAKE_PTR(tmp);
         } else {
+                r = address_equalify(existing, address);
+                if (r < 0)
+                        return r;
                 existing->source = address->source;
                 existing->provider = address->provider;
                 existing->duplicate_address_detection = address->duplicate_address_detection;
@@ -1468,6 +1512,12 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         case RTM_NEWADDR:
                 if (address) {
                         /* update flags and etc. */
+                        r = address_equalify(address, tmp);
+                        if (r < 0) {
+                                log_link_warning_errno(link, r, "Failed to update properties of address %s, ignoring: %m",
+                                                       IN_ADDR_PREFIX_TO_STRING(address->family, &address->in_addr, address->prefixlen));
+                                return 0;
+                        }
                         address->flags = tmp->flags;
                         address->scope = tmp->scope;
                         address_set_lifetime(m, address, &cinfo);
@@ -2085,9 +2135,8 @@ int network_drop_invalid_addresses(Network *network) {
                         address_free(dup);
                 }
 
-                /* Use address_kernel_hash_ops here. The function address_kernel_compare_func() matches
-                 * how kernel compares addresses, and is more lenient than address_compare_func().
-                 * Hence, the logic of dedup here is stricter than when address_hash_ops is used. */
+                /* Use address_kernel_hash_ops, instead of address_kernel_hash_ops_free. Otherwise, the
+                 * Address objects will be freed. */
                 r = set_ensure_put(&addresses, &address_kernel_hash_ops, address);
                 if (r < 0)
                         return log_oom();
