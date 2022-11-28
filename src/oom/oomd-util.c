@@ -145,7 +145,7 @@ bool oomd_swap_free_below(const OomdSystemContext *ctx, int threshold_permyriad)
 }
 
 int oomd_fetch_cgroup_oom_preference(OomdCGroupContext *ctx, const char *prefix) {
-        uid_t uid, prefix_uid;
+        uid_t uid = UID_INVALID, prefix_uid = UID_INVALID;
         int r;
 
         assert(ctx);
@@ -160,11 +160,13 @@ int oomd_fetch_cgroup_oom_preference(OomdCGroupContext *ctx, const char *prefix)
         if (r < 0)
                 return log_debug_errno(r, "Failed to get owner/group from %s: %m", ctx->path);
 
-        r = cg_get_owner(SYSTEMD_CGROUP_CONTROLLER, prefix, &prefix_uid);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to get owner/group from %s: %m", ctx->path);
+        if (uid != 0) {
+                r = cg_get_owner(SYSTEMD_CGROUP_CONTROLLER, prefix, &prefix_uid);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to get owner/group from %s: %m", ctx->path);
+        }
 
-        if (uid == prefix_uid || uid == 0) {
+        if (uid == 0 || uid == prefix_uid) {
                 /* Ignore most errors when reading the xattr since it is usually unset and cgroup xattrs are only used
                  * as an optional feature of systemd-oomd (and the system might not even support them). */
                 r = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, ctx->path, "user.oomd_avoid");
