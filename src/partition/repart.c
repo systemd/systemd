@@ -143,8 +143,10 @@ static char *arg_tpm2_public_key = NULL;
 static uint32_t arg_tpm2_public_key_pcr_mask = UINT32_MAX;
 static bool arg_split = false;
 static sd_id128_t *arg_filter_partitions = NULL;
-static size_t arg_filter_partitions_size = 0;
+static size_t arg_n_filter_partitions = 0;
 static FilterPartitionsType arg_filter_partitions_type = FILTER_PARTITIONS_NONE;
+static sd_id128_t *arg_skip_partitions = NULL;
+static size_t arg_n_skip_partitions = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -385,17 +387,27 @@ static void partition_foreignize(Partition *p) {
         p->verity = VERITY_OFF;
 }
 
-static bool partition_skip(const Partition *p) {
+static bool partition_exclude(const Partition *p) {
         assert(p);
 
         if (arg_filter_partitions_type == FILTER_PARTITIONS_NONE)
                 return false;
 
-        for (size_t i = 0; i < arg_filter_partitions_size; i++)
+        for (size_t i = 0; i < arg_n_filter_partitions; i++)
                 if (sd_id128_equal(p->type.uuid, arg_filter_partitions[i]))
                         return arg_filter_partitions_type == FILTER_PARTITIONS_EXCLUDE;
 
         return arg_filter_partitions_type == FILTER_PARTITIONS_INCLUDE;
+}
+
+static bool partition_skip(const Partition *p) {
+        assert(p);
+
+        for (size_t i = 0; i < arg_n_skip_partitions; i++)
+                if (sd_id128_equal(p->type.uuid, arg_skip_partitions[i]))
+                        return true;
+
+        return false;
 }
 
 static Partition* partition_unlink_and_free(Context *context, Partition *p) {
@@ -1559,6 +1571,9 @@ static int partition_read_definition(Partition *p, const char *path, const char 
         if (r < 0)
                 return r;
 
+        if (partition_exclude(p))
+                return 0;
+
         if (p->size_min != UINT64_MAX && p->size_max != UINT64_MAX && p->size_min > p->size_max)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "SizeMinBytes= larger than SizeMaxBytes=, refusing.");
@@ -1657,7 +1672,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
         } else if (streq(p->split_name_format, "-"))
                 p->split_name_format = mfree(p->split_name_format);
 
-        return 0;
+        return 1;
 }
 
 static int find_verity_sibling(Context *context, Partition *p, VerityMode mode, Partition **ret) {
@@ -1732,6 +1747,8 @@ static int context_read_definitions(
                 r = partition_read_definition(p, *f, dirs);
                 if (r < 0)
                         return r;
+                if (r == 0)
+                        continue;
 
                 LIST_INSERT_AFTER(partitions, context->partitions, last, p);
                 last = TAKE_PTR(p);
@@ -1928,16 +1945,17 @@ static int context_load_partition_table(
         assert(context->end == UINT64_MAX);
         assert(context->total == UINT64_MAX);
 
-        c = fdisk_new_context();
-        if (!c)
-                return log_oom();
-
         /* libfdisk doesn't have an API to operate on arbitrary fds, hence reopen the fd going via the
          * /proc/self/fd/ magic path if we have an existing fd. Open the original file otherwise. */
-        if (*backing_fd < 0)
+        if (*backing_fd < 0) {
+                c = fdisk_new_context();
+                if (!c)
+                        return log_oom();
+
                 r = fdisk_assign_device(c, node, arg_dry_run);
-        else
-                r = fdisk_assign_device(c, FORMAT_PROC_FD_PATH(*backing_fd), arg_dry_run);
+        } else
+                r = fdisk_new_context_fd(*backing_fd, arg_dry_run, &c);
+
         if (r == -EINVAL && arg_size_auto) {
                 struct stat st;
 
@@ -5333,8 +5351,11 @@ static int context_minimize(Context *context) {
         return 0;
 }
 
-static int parse_filter_partitions(const char *p) {
+static int parse_partition_types(const char *p, sd_id128_t **partitions, size_t *n_partitions) {
         int r;
+
+        assert(partitions);
+        assert(n_partitions);
 
         for (;;) {
                 _cleanup_free_ char *name = NULL;
@@ -5350,10 +5371,10 @@ static int parse_filter_partitions(const char *p) {
                 if (r < 0)
                         return log_error_errno(r, "'%s' is not a valid partition type identifier or GUID", name);
 
-                if (!GREEDY_REALLOC(arg_filter_partitions, arg_filter_partitions_size + 1))
+                if (!GREEDY_REALLOC(*partitions, *n_partitions + 1))
                         return log_oom();
 
-                arg_filter_partitions[arg_filter_partitions_size++] = type.uuid;
+                (*partitions)[(*n_partitions)++] = type.uuid;
         }
 
         return 0;
@@ -5402,9 +5423,12 @@ static int help(void) {
                "                          Generate JSON output\n"
                "     --split=BOOL         Whether to generate split artifacts\n"
                "     --include-partitions=PARTITION1,PARTITION2,PARTITION3,…\n"
-               "                          Only operate on partitions of the specified types\n"
+               "                          Ignore partitions not of the specified types\n"
                "     --exclude-partitions=PARTITION1,PARTITION2,PARTITION3,…\n"
-               "                          Don't operate on partitions of the specified types\n"
+               "                          Ignore partitions of the specified types\n"
+               "     --skip-partitions=PARTITION1,PARTITION2,PARTITION3,…\n"
+               "                          Take partitions of the specified types into account\n"
+               "                          but don't populate them yet\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -5442,6 +5466,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SPLIT,
                 ARG_INCLUDE_PARTITIONS,
                 ARG_EXCLUDE_PARTITIONS,
+                ARG_SKIP_PARTITIONS,
         };
 
         static const struct option options[] = {
@@ -5471,6 +5496,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "split",                required_argument, NULL, ARG_SPLIT                },
                 { "include-partitions",   required_argument, NULL, ARG_INCLUDE_PARTITIONS   },
                 { "exclude-partitions",   required_argument, NULL, ARG_EXCLUDE_PARTITIONS   },
+                { "skip-partitions",      required_argument, NULL, ARG_SKIP_PARTITIONS      },
                 {}
         };
 
@@ -5730,7 +5756,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Combination of --include-partitions= and --exclude-partitions= is invalid.");
 
-                        r = parse_filter_partitions(optarg);
+                        r = parse_partition_types(optarg, &arg_filter_partitions, &arg_n_filter_partitions);
                         if (r < 0)
                                 return r;
 
@@ -5743,11 +5769,18 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Combination of --include-partitions= and --exclude-partitions= is invalid.");
 
-                        r = parse_filter_partitions(optarg);
+                        r = parse_partition_types(optarg, &arg_filter_partitions, &arg_n_filter_partitions);
                         if (r < 0)
                                 return r;
 
                         arg_filter_partitions_type = FILTER_PARTITIONS_EXCLUDE;
+
+                        break;
+
+                case ARG_SKIP_PARTITIONS:
+                        r = parse_partition_types(optarg, &arg_skip_partitions, &arg_n_skip_partitions);
+                        if (r < 0)
+                                return r;
 
                         break;
 
@@ -6033,11 +6066,7 @@ static int resize_pt(int fd) {
          * possession of the enlarged backing file. For this it suffices to open the device with libfdisk and
          * immediately write it again, with no changes. */
 
-        c = fdisk_new_context();
-        if (!c)
-                return log_oom();
-
-        r = fdisk_assign_device(c, FORMAT_PROC_FD_PATH(fd), 0);
+        r = fdisk_new_context_fd(fd, /* read_only= */ false, &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to open device '%s': %m", FORMAT_PROC_FD_PATH(fd));
 
@@ -6290,11 +6319,6 @@ static int run(int argc, char *argv[]) {
         r = context_read_definitions(context, arg_definitions, arg_root);
         if (r < 0)
                 return r;
-
-        if (context->n_partitions <= 0 && arg_empty == EMPTY_REFUSE) {
-                log_info("Didn't find any partition definition files, nothing to do.");
-                return 0;
-        }
 
         r = find_root(&node, &backing_fd);
         if (r < 0)

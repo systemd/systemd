@@ -125,7 +125,6 @@ shared_sources = files(
         'exit-status.h',
         'extension-release.c',
         'extension-release.h',
-        'fdisk-util.h',
         'fdset.c',
         'fdset.h',
         'fileio-label.c',
@@ -493,3 +492,18 @@ libshared = shared_library(
         dependencies : libshared_deps,
         install : true,
         install_dir : rootpkglibdir)
+
+shared_fdisk_sources = files(
+        'fdisk-util.h',
+        'fdisk-util.c',
+)
+
+if get_option('fdisk') != 'false'
+        libshared_fdisk = static_library(
+                'shared-fdisk',
+                shared_fdisk_sources,
+                include_directories : includes,
+                dependencies : [libfdisk],
+                c_args : ['-fvisibility=default'],
+                build_by_default : false)
+endif

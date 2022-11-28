@@ -2752,7 +2752,8 @@ if conf.get('ENABLE_HOMED') == 1
                 'systemd-homework',
                 systemd_homework_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libshared,
+                             libshared_fdisk],
                 dependencies : [threads,
                                 libblkid,
                                 libcrypt,
@@ -3331,7 +3332,8 @@ if conf.get('ENABLE_SYSUPDATE') == 1
                 'systemd-sysupdate',
                 systemd_sysupdate_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libshared,
+                             libshared_fdisk],
                 dependencies : [threads,
                                 libblkid,
                                 libfdisk,
@@ -3807,7 +3809,8 @@ if conf.get('ENABLE_REPART') == 1
                 'systemd-repart',
                 systemd_repart_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libshared,
+                             libshared_fdisk],
                 dependencies : [threads,
                                 libblkid,
                                 libfdisk,
@@ -3827,7 +3830,8 @@ if conf.get('ENABLE_REPART') == 1
                         link_with : [libshared_static,
                                      libbasic,
                                      libbasic_gcrypt,
-                                     libsystemd_static],
+                                     libsystemd_static,
+                                     libshared_fdisk],
                         dependencies : [threads,
                                         libblkid,
                                         libfdisk,
@@ -4170,19 +4174,19 @@ alias_target('fuzzers', fuzzer_exes)
 
 ############################################################
 
+subdir('docs/sysvinit')
+subdir('docs/var-log')
+subdir('hwdb.d')
+subdir('man')
 subdir('modprobe.d')
+subdir('network')
+subdir('presets')
+subdir('shell-completion/bash')
+subdir('shell-completion/zsh')
 subdir('sysctl.d')
 subdir('sysusers.d')
 subdir('tmpfiles.d')
-subdir('hwdb.d')
 subdir('units')
-subdir('presets')
-subdir('network')
-subdir('man')
-subdir('shell-completion/bash')
-subdir('shell-completion/zsh')
-subdir('docs/sysvinit')
-subdir('docs/var-log')
 
 install_subdir('factory/etc',
                install_dir : factorydir)
