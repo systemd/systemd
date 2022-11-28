@@ -13,6 +13,8 @@ basic_dns_sources = files(
         'resolved-dns-answer.h',
         'resolved-dns-question.c',
         'resolved-dns-question.h',
+        'resolved-mdns-browse-services.c',
+        'resolved-mdns-browse-services.h',
         'resolved-util.c',
         'resolved-util.h',
         'dns-type.c',
