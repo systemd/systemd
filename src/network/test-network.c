@@ -174,16 +174,6 @@ static int test_load_config(Manager *manager) {
         return 0;
 }
 
-static bool address_equal(const Address *a1, const Address *a2) {
-        if (a1 == a2)
-                return true;
-
-        if (!a1 || !a2)
-                return false;
-
-        return address_compare_func(a1, a2) == 0;
-}
-
 static void test_address_equality(void) {
         _cleanup_(address_freep) Address *a1 = NULL, *a2 = NULL;
 
