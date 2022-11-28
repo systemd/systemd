@@ -3974,6 +3974,20 @@ static int outer_child(
         if (r < 0)
                 return log_error_errno(r, "Failed to move root directory: %m");
 
+        if (arg_userns_mode != USER_NAMESPACE_NO) {
+                /* In order to mount procfs in an unprivileged container the kernel requires that a
+                 * fully visible procfs instance is already present in the target mount namespace.
+                 * Mount one here so the inner child can mount its own procfs instance. Later we
+                 * umount the temporary procfs instance created here before we actually exec the
+                 * payload. Since the rootfs is shared the umount will propagate into the container.
+                 * Note, the inner child wouldn't be able to unmount the procfs instance on its own
+                 * since it doesn't own the originating mount namespace. IOW, the outer child needs
+                 * to do this. */
+                r = pin_fully_visible_procfs();
+                if (r < 0)
+                        return r;
+        }
+
         fd = setup_notify_child();
         if (fd < 0)
                 return fd;
@@ -4736,7 +4750,7 @@ static int run_container(
                 master_pty_socket_pair[2] = { -1, -1 },
                 unified_cgroup_hierarchy_socket_pair[2] = { -1, -1};
 
-        _cleanup_close_ int notify_socket = -1;
+        _cleanup_close_ int notify_socket = -1, mntns_fd = -EBADF;
         _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -4931,6 +4945,10 @@ static int run_container(
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading cgroup mode (%zi bytes).%s",
                                                l, l == 0 ? " The child is most likely dead." : "");
         }
+
+        r = namespace_open(*pid, NULL, &mntns_fd, NULL, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to pin outer mount namespace: %m");
 
         /* Wait for the outer child. */
         r = wait_for_terminate_and_check("(sd-namespace)", *pid, WAIT_LOG_ABNORMAL);
@@ -5138,6 +5156,13 @@ static int run_container(
         r = setup_notify_parent(event, notify_socket, PID_TO_PTR(*pid), &notify_event_source);
         if (r < 0)
                 return r;
+
+        if (arg_userns_mode != USER_NAMESPACE_NO) {
+                r = wipe_fully_visible_procfs(mntns_fd);
+                if (r < 0)
+                        return r;
+                mntns_fd = safe_close(mntns_fd);
+        }
 
         /* Let the child know that we are ready and wait that the child is completely ready now. */
         if (!barrier_place_and_sync(&barrier)) /* #5 */
