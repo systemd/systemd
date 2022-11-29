@@ -32,6 +32,10 @@ CHANGES WITH 253 in spe:
 	  virtualized ones, and is activated in the case that the system token
 	  is missing from either sd-boot and sd-stub booted systems.
 
+	* systemd-userdbd and systemd-homed now honour credentials passed
+	  using SO_PASSCRED, and systemd-userdbd acting as multiplexer sends
+	  the credentials of the original connecting client to all services
+
         Changes in systemctl:
 
     * systemctl reboot has dropped support for accepting a positional argument
