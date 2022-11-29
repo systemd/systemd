@@ -17,6 +17,7 @@
 #include "copy.h"
 #include "device-util.h"
 #include "devnum-util.h"
+#include "discover-image.h"
 #include "dissect-image.h"
 #include "env-util.h"
 #include "escape.h"
@@ -56,6 +57,7 @@ static enum {
         ACTION_WITH,
         ACTION_COPY_FROM,
         ACTION_COPY_TO,
+        ACTION_DISCOVER,
 } arg_action = ACTION_DISSECT;
 static const char *arg_image = NULL;
 static const char *arg_path = NULL;
@@ -128,6 +130,7 @@ static int help(void) {
                "     --with               Mount, run command, unmount\n"
                "  -x --copy-from          Copy files from image to host\n"
                "  -a --copy-to            Copy files from host to image\n"
+               "     --discover           Discover DDIs in well known directories\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -199,6 +202,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_RMDIR,
                 ARG_JSON,
                 ARG_MTREE,
+                ARG_DISCOVER,
         };
 
         static const struct option options[] = {
@@ -223,6 +227,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "copy-from",     no_argument,       NULL, 'x'               },
                 { "copy-to",       no_argument,       NULL, 'a'               },
                 { "json",          required_argument, NULL, ARG_JSON          },
+                { "discover",      no_argument,       NULL, ARG_DISCOVER      },
                 {}
         };
 
@@ -400,6 +405,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_DISCOVER:
+                        arg_action = ACTION_DISCOVER;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -488,6 +497,13 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!arg_argv)
                                 return log_oom();
                 }
+
+                break;
+
+        case ACTION_DISCOVER:
+                if (optind != argc)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Expected no argument.");
 
                 break;
 
@@ -1325,6 +1341,54 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
         return rcode;
 }
 
+static int action_discover(void) {
+        _cleanup_(hashmap_freep) Hashmap *images = NULL;
+        _cleanup_(table_unrefp) Table *t = NULL;
+        Image *img;
+        int r;
+
+        images = hashmap_new(&image_hash_ops);
+        if (!images)
+                return log_oom();
+
+        for (ImageClass cl = 0; cl < _IMAGE_CLASS_MAX; cl++) {
+                r = image_discover(cl, NULL, images);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to discover images: %m");
+        }
+
+        if ((arg_json_format_flags & JSON_FORMAT_OFF) && hashmap_isempty(images)) {
+                log_info("No images found.");
+                return 0;
+        }
+
+        t = table_new("name", "type", "class", "ro", "path", "time", "usage");
+        if (!t)
+                return log_oom();
+
+        HASHMAP_FOREACH(img, images) {
+
+                if (!IN_SET(img->type, IMAGE_RAW, IMAGE_BLOCK))
+                        continue;
+
+                r = table_add_many(
+                                t,
+                                TABLE_STRING, img->name,
+                                TABLE_STRING, image_type_to_string(img->type),
+                                TABLE_STRING, image_class_to_string(img->class),
+                                TABLE_BOOLEAN, img->read_only,
+                                TABLE_PATH, img->path,
+                                TABLE_TIMESTAMP, img->mtime != 0 ? img->mtime : img->crtime,
+                                TABLE_SIZE, img->usage);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        (void) table_set_sort(t, (size_t) 0);
+
+        return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
@@ -1338,6 +1402,8 @@ static int run(int argc, char *argv[]) {
 
         if (arg_action == ACTION_UMOUNT)
                 return action_umount(arg_path);
+        if (arg_action == ACTION_DISCOVER)
+                return action_discover();
 
         r = verity_settings_load(
                         &arg_verity_settings,
