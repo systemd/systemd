@@ -130,8 +130,12 @@ struct Varlink {
         JsonVariant *current;
         JsonVariant *reply;
 
-        struct ucred ucred;
-        bool ucred_acquired:1;
+        struct ucred ucred_peer; /* SO_PEERCRED data, i.e. always the connection time identity of the peer at time of connect() */
+        struct ucred ucred_send; /* SCM_CREDENTIALS data to send for impersonation purposes */
+        struct ucred ucred_recv; /* most recently read SCM_CREDENTIALS data received */
+        bool ucred_peer_acquired:1;
+        bool ucred_send_set:1;
+        bool ucred_recv_acquired:1;
 
         bool write_disconnected:1;
         bool read_disconnected:1;
@@ -262,7 +266,9 @@ static int varlink_new(Varlink **ret) {
 
                 .state = _VARLINK_STATE_INVALID,
 
-                .ucred = UCRED_INVALID,
+                .ucred_peer = UCRED_INVALID,
+                .ucred_recv = UCRED_INVALID,
+                .ucred_send = UCRED_INVALID,
 
                 .timestamp = USEC_INFINITY,
                 .timeout = VARLINK_DEFAULT_TIMEOUT_USEC
@@ -439,6 +445,22 @@ disconnect:
         return 1;
 }
 
+static int varlink_acquire_ucred_peer(Varlink *v) {
+        int r;
+
+        assert(v);
+
+        if (v->ucred_peer_acquired)
+                return 0;
+
+        r = getpeercred(v->fd, &v->ucred_peer);
+        if (r < 0)
+                return r;
+
+        v->ucred_peer_acquired = true;
+        return 0;
+}
+
 static int varlink_write(Varlink *v) {
         ssize_t n;
 
@@ -462,7 +484,31 @@ static int varlink_write(Varlink *v) {
          * Use a local variable to help gcc figure out that we set 'n' in all cases. */
         bool prefer_write = v->prefer_read_write;
         if (!prefer_write) {
-                n = send(v->fd, v->output_buffer + v->output_buffer_index, v->output_buffer_size, MSG_DONTWAIT|MSG_NOSIGNAL);
+                struct msghdr msgh;
+                struct iovec iov;
+                CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) cmsg;
+                struct cmsghdr *cmsgp;
+
+                iov = IOVEC_MAKE(v->output_buffer + v->output_buffer_index, v->output_buffer_size);
+                msgh = (struct msghdr) {
+                        .msg_iov = &iov,
+                        .msg_iovlen = 1,
+                };
+
+                if (v->ucred_send_set) {
+                        log_debug("Sending previously passed creds for uid " UID_FMT, v->ucred_send.uid);
+
+                        msgh.msg_control = cmsg.buf;
+                        msgh.msg_controllen = sizeof(cmsg.buf);
+                        cmsgp = CMSG_FIRSTHDR(&msgh);
+                        cmsgp->cmsg_len = CMSG_LEN(sizeof(struct ucred));
+                        cmsgp->cmsg_level = SOL_SOCKET;
+                        cmsgp->cmsg_type = SCM_CREDENTIALS;
+
+                        memcpy(CMSG_DATA(cmsgp), &v->ucred_send, sizeof(struct ucred));
+                }
+
+                n = sendmsg(v->fd, &msgh, MSG_DONTWAIT|MSG_NOSIGNAL);
                 if (n < 0 && errno == ENOTSOCK)
                         prefer_write = v->prefer_read_write = true;
         }
@@ -543,9 +589,31 @@ static int varlink_read(Varlink *v) {
 
         bool prefer_read = v->prefer_read_write;
         if (!prefer_read) {
-                n = recv(v->fd, v->input_buffer + v->input_buffer_index + v->input_buffer_size, rs, MSG_DONTWAIT);
+                struct msghdr msgh;
+                struct iovec iov;
+                CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) cmsg = {};
+                struct ucred *ucred;
+
+                iov = IOVEC_MAKE(v->input_buffer + v->input_buffer_index + v->input_buffer_size, rs);
+                msgh = (struct msghdr) {
+                        .msg_iov = &iov,
+                        .msg_iovlen = 1,
+                        .msg_control = cmsg.buf,
+                        .msg_controllen = sizeof(cmsg.buf),
+                };
+
+                n = recvmsg_safe(v->fd, &msgh, MSG_DONTWAIT);
                 if (n < 0 && errno == ENOTSOCK)
                         prefer_read = v->prefer_read_write = true;
+
+                if (n != -1) {
+                        ucred = CMSG_FIND_DATA(&msgh, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
+                        if (ucred) {
+                                v->ucred_recv = *ucred;
+                                v->ucred_recv_acquired = true;
+                        }
+                        log_debug("Passed creds %s acquired", v->ucred_recv_acquired ? "successfully" : "could not be");
+                }
         }
         if (prefer_read)
                 n = read(v->fd, v->input_buffer + v->input_buffer_index + v->input_buffer_size, rs);
@@ -1187,17 +1255,17 @@ static void varlink_detach_server(Varlink *v) {
                 return;
 
         if (v->server->by_uid &&
-            v->ucred_acquired &&
-            uid_is_valid(v->ucred.uid)) {
+            v->ucred_peer_acquired &&
+            uid_is_valid(v->ucred_peer.uid)) {
                 unsigned c;
 
-                c = PTR_TO_UINT(hashmap_get(v->server->by_uid, UID_TO_PTR(v->ucred.uid)));
+                c = PTR_TO_UINT(hashmap_get(v->server->by_uid, UID_TO_PTR(v->ucred_peer.uid)));
                 assert(c > 0);
 
                 if (c == 1)
-                        (void) hashmap_remove(v->server->by_uid, UID_TO_PTR(v->ucred.uid));
+                        (void) hashmap_remove(v->server->by_uid, UID_TO_PTR(v->ucred_peer.uid));
                 else
-                        (void) hashmap_replace(v->server->by_uid, UID_TO_PTR(v->ucred.uid), UINT_TO_PTR(c - 1));
+                        (void) hashmap_replace(v->server->by_uid, UID_TO_PTR(v->ucred_peer.uid), UINT_TO_PTR(c - 1));
         }
 
         assert(v->server->n_connections > 0);
@@ -1799,19 +1867,36 @@ void* varlink_get_userdata(Varlink *v) {
         return v->userdata;
 }
 
-static int varlink_acquire_ucred(Varlink *v) {
-        int r;
+void varlink_ucred_enable_impersonate(Varlink *v_send, Varlink *v_recv) {
+        if (v_recv->ucred_recv_acquired) {
+                memcpy(&v_send->ucred_send, &v_recv->ucred_recv, sizeof(struct ucred));
+                v_send->ucred_send_set = true;
+                log_debug("Impersonating using SCM_CREDENTIALS");
+                return;
+        }
 
-        assert(v);
+        varlink_acquire_ucred_peer(v_recv);
+        if (v_recv->ucred_peer_acquired) {
+                memcpy(&v_send->ucred_send, &v_recv->ucred_peer, sizeof(struct ucred));
+                v_send->ucred_send_set = true;
+                log_debug("Impersonating using SO_PEERCRED");
+                return;
+        }
 
-        if (v->ucred_acquired)
-                return 0;
+        log_debug("Impersonating not possible, no credentials to use");
+}
 
-        r = getpeercred(v->fd, &v->ucred);
-        if (r < 0)
-                return r;
+int varlink_get_uid(Varlink *v, uid_t *ret) {
+        assert_return(v, -EINVAL);
+        assert_return(ret, -EINVAL);
 
-        v->ucred_acquired = true;
+        if (!v->ucred_recv_acquired)
+                return varlink_get_peer_uid(v, ret);
+
+        if (!uid_is_valid(v->ucred_recv.uid))
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENODATA), "Passed uid is invalid.");
+
+        *ret = v->ucred_recv.uid;
         return 0;
 }
 
@@ -1821,14 +1906,14 @@ int varlink_get_peer_uid(Varlink *v, uid_t *ret) {
         assert_return(v, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        r = varlink_acquire_ucred(v);
+        r = varlink_acquire_ucred_peer(v);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to acquire credentials: %m");
 
-        if (!uid_is_valid(v->ucred.uid))
+        if (!uid_is_valid(v->ucred_peer.uid))
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENODATA), "Peer uid is invalid.");
 
-        *ret = v->ucred.uid;
+        *ret = v->ucred_peer.uid;
         return 0;
 }
 
@@ -1838,14 +1923,14 @@ int varlink_get_peer_pid(Varlink *v, pid_t *ret) {
         assert_return(v, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        r = varlink_acquire_ucred(v);
+        r = varlink_acquire_ucred_peer(v);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to acquire credentials: %m");
 
-        if (!pid_is_valid(v->ucred.pid))
+        if (!pid_is_valid(v->ucred_peer.pid))
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENODATA), "Peer uid is invalid.");
 
-        *ret = v->ucred.pid;
+        *ret = v->ucred_peer.pid;
         return 0;
 }
 
@@ -2174,8 +2259,8 @@ int varlink_server_add_connection(VarlinkServer *server, int fd, Varlink **ret) 
                 v->userdata = server->userdata;
 
         if (ucred_acquired) {
-                v->ucred = ucred;
-                v->ucred_acquired = true;
+                v->ucred_peer = ucred;
+                v->ucred_peer_acquired = true;
         }
 
         _cleanup_free_ char *desc = NULL;
@@ -2233,6 +2318,9 @@ static int connect_callback(sd_event_source *source, int fd, uint32_t revents, v
 
                 return varlink_server_log_errno(ss->server, errno, "Failed to accept incoming socket: %m");
         }
+
+        if (setsockopt_int(cfd, SOL_SOCKET, SO_PASSCRED, true) < 0)
+                return varlink_server_log_errno(ss->server, errno, "Failed to set SO_PASSCRED on incoming socket: %m");
 
         r = varlink_server_add_connection(ss->server, cfd, &v);
         if (r < 0)
