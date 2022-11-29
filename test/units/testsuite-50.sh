@@ -409,6 +409,15 @@ systemd-sysext unmerge
 rmdir /etc/extensions/app-nodistro
 rm /var/lib/extensions/app-nodistro.raw
 
+mkdir -p /run/machines /run/portables /run/extensions
+touch /run/machines/a.raw /run/portables/b.raw /run/extensions/c.raw
+
+systemd-dissect --discover --json=short > /tmp/discover.json
+grep -q -F '{"name":"a","type":"raw","class":"machine","ro":false,"path":"/run/machines/a.raw"' /tmp/discover.json
+grep -q -F '{"name":"b","type":"raw","class":"portable","ro":false,"path":"/run/portables/b.raw"' /tmp/discover.json
+grep -q -F '{"name":"c","type":"raw","class":"extension","ro":false,"path":"/run/extensions/c.raw"' /tmp/discover.json
+rm /tmp/discover.json /run/machines/a.raw /run/portables/b.raw /run/extensions/c.raw
+
 echo OK >/testok
 
 exit 0
