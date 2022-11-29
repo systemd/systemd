@@ -111,16 +111,16 @@ enum {
 };
 
 static const char * const meta_field_names[_META_MAX] = {
-        [META_ARGV_PID]          = "COREDUMP_PID=",
-        [META_ARGV_UID]          = "COREDUMP_UID=",
-        [META_ARGV_GID]          = "COREDUMP_GID=",
-        [META_ARGV_SIGNAL]       = "COREDUMP_SIGNAL=",
-        [META_ARGV_TIMESTAMP]    = "COREDUMP_TIMESTAMP=",
-        [META_ARGV_RLIMIT]       = "COREDUMP_RLIMIT=",
-        [META_ARGV_HOSTNAME]     = "COREDUMP_HOSTNAME=",
-        [META_COMM]              = "COREDUMP_COMM=",
-        [META_EXE]               = "COREDUMP_EXE=",
-        [META_UNIT]              = "COREDUMP_UNIT=",
+        [META_ARGV_PID]       = "COREDUMP_PID=",
+        [META_ARGV_UID]       = "COREDUMP_UID=",
+        [META_ARGV_GID]       = "COREDUMP_GID=",
+        [META_ARGV_SIGNAL]    = "COREDUMP_SIGNAL=",
+        [META_ARGV_TIMESTAMP] = "COREDUMP_TIMESTAMP=",
+        [META_ARGV_RLIMIT]    = "COREDUMP_RLIMIT=",
+        [META_ARGV_HOSTNAME]  = "COREDUMP_HOSTNAME=",
+        [META_COMM]           = "COREDUMP_COMM=",
+        [META_EXE]            = "COREDUMP_EXE=",
+        [META_UNIT]           = "COREDUMP_UNIT=",
 };
 
 typedef struct Context {
@@ -139,9 +139,9 @@ typedef enum CoredumpStorage {
 } CoredumpStorage;
 
 static const char* const coredump_storage_table[_COREDUMP_STORAGE_MAX] = {
-        [COREDUMP_STORAGE_NONE] = "none",
+        [COREDUMP_STORAGE_NONE]     = "none",
         [COREDUMP_STORAGE_EXTERNAL] = "external",
-        [COREDUMP_STORAGE_JOURNAL] = "journal",
+        [COREDUMP_STORAGE_JOURNAL]  = "journal",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(coredump_storage, CoredumpStorage);
@@ -157,13 +157,13 @@ static uint64_t arg_max_use = UINT64_MAX;
 
 static int parse_config(void) {
         static const ConfigTableItem items[] = {
-                { "Coredump", "Storage",          config_parse_coredump_storage,           0, &arg_storage           },
-                { "Coredump", "Compress",         config_parse_bool,                       0, &arg_compress          },
-                { "Coredump", "ProcessSizeMax",   config_parse_iec_uint64,                 0, &arg_process_size_max  },
-                { "Coredump", "ExternalSizeMax",  config_parse_iec_uint64_infinity,        0, &arg_external_size_max },
-                { "Coredump", "JournalSizeMax",   config_parse_iec_size,                   0, &arg_journal_size_max  },
-                { "Coredump", "KeepFree",         config_parse_iec_uint64,                 0, &arg_keep_free         },
-                { "Coredump", "MaxUse",           config_parse_iec_uint64,                 0, &arg_max_use           },
+                { "Coredump", "Storage",          config_parse_coredump_storage,     0, &arg_storage           },
+                { "Coredump", "Compress",         config_parse_bool,                 0, &arg_compress          },
+                { "Coredump", "ProcessSizeMax",   config_parse_iec_uint64,           0, &arg_process_size_max  },
+                { "Coredump", "ExternalSizeMax",  config_parse_iec_uint64_infinity,  0, &arg_external_size_max },
+                { "Coredump", "JournalSizeMax",   config_parse_iec_size,             0, &arg_journal_size_max  },
+                { "Coredump", "KeepFree",         config_parse_iec_uint64,           0, &arg_keep_free         },
+                { "Coredump", "MaxUse",           config_parse_iec_uint64,           0, &arg_max_use           },
                 {}
         };
 
@@ -209,15 +209,15 @@ static int fix_acl(int fd, uid_t uid) {
 static int fix_xattr(int fd, const Context *context) {
 
         static const char * const xattrs[_META_MAX] = {
-                [META_ARGV_PID]          = "user.coredump.pid",
-                [META_ARGV_UID]          = "user.coredump.uid",
-                [META_ARGV_GID]          = "user.coredump.gid",
-                [META_ARGV_SIGNAL]       = "user.coredump.signal",
-                [META_ARGV_TIMESTAMP]    = "user.coredump.timestamp",
-                [META_ARGV_RLIMIT]       = "user.coredump.rlimit",
-                [META_ARGV_HOSTNAME]     = "user.coredump.hostname",
-                [META_COMM]              = "user.coredump.comm",
-                [META_EXE]               = "user.coredump.exe",
+                [META_ARGV_PID]       = "user.coredump.pid",
+                [META_ARGV_UID]       = "user.coredump.uid",
+                [META_ARGV_GID]       = "user.coredump.gid",
+                [META_ARGV_SIGNAL]    = "user.coredump.signal",
+                [META_ARGV_TIMESTAMP] = "user.coredump.timestamp",
+                [META_ARGV_RLIMIT]    = "user.coredump.rlimit",
+                [META_ARGV_HOSTNAME]  = "user.coredump.hostname",
+                [META_COMM]           = "user.coredump.comm",
+                [META_EXE]            = "user.coredump.exe",
         };
 
         int r = 0;
