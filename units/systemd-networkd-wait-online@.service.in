@@ -12,7 +12,7 @@ Description=Wait for Network Interface %i to be Configured
 Documentation=man:systemd-networkd-wait-online.service(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
-Requires=systemd-networkd.service
+BindsTo=systemd-networkd.service
 After=systemd-networkd.service
 Before=network-online.target shutdown.target
 
