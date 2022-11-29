@@ -1833,7 +1833,7 @@ int unit_file_verify_alias(
                                                "Invalid unit name component \"%s\" in alias.", dir);
                 }
 
-                const bool instance_propagation = type == UNIT_NAME_TEMPLATE;
+                const bool instance_propagation = type & UNIT_NAME_TEMPLATE;
 
                 /* That's the name we want to use for verification. */
                 r = unit_symlink_name_compatible(path_alias, info->name, instance_propagation);

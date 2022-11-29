@@ -625,17 +625,17 @@ TEST(unit_name_to_instance) {
         UnitInstanceArg instance;
 
         r = unit_name_to_instance("foo@bar.service", &instance);
-        assert_se(r == UNIT_NAME_INSTANCE);
+        assert_se(r & UNIT_NAME_INSTANCE);
         assert_se(unit_instance_eq(instance, UNIT_ARG_INSTANCE("bar")));
         unit_instance_free(instance);
 
         r = unit_name_to_instance("foo@.service", &instance);
-        assert_se(r == UNIT_NAME_TEMPLATE);
+        assert_se(r & UNIT_NAME_TEMPLATE);
         assert_se(unit_instance_eq(instance, UNIT_ARG_INSTANCE("")));
         unit_instance_free(instance);
 
         r = unit_name_to_instance("fo0-stUff_b@b.service", &instance);
-        assert_se(r == UNIT_NAME_INSTANCE);
+        assert_se(r & UNIT_NAME_INSTANCE);
         assert_se(unit_instance_eq(instance, UNIT_ARG_INSTANCE("b")));
         unit_instance_free(instance);
 

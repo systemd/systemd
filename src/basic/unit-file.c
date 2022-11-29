@@ -55,15 +55,15 @@ int unit_symlink_name_compatible(const char *symlink, const char *target, bool i
         un_type2 = unit_name_classify(target);
 
         /* An instance name points to a target that is just the template name */
-        if (un_type1 == UNIT_NAME_INSTANCE &&
-            un_type2 == UNIT_NAME_TEMPLATE &&
+        if (un_type1 & UNIT_NAME_UINSTANCE &&
+            un_type2 & UNIT_NAME_UTEMPLATE &&
             streq(template, target))
                 return 1;
 
         /* foo@.target.requires/bar@.service: instance will be propagated */
         if (instance_propagation &&
-            un_type1 == UNIT_NAME_TEMPLATE &&
-            un_type2 == UNIT_NAME_TEMPLATE &&
+            un_type1 & UNIT_NAME_UTEMPLATE &&
+            un_type2 & UNIT_NAME_UTEMPLATE &&
             streq(template, target))
                 return 1;
 
@@ -131,12 +131,12 @@ int unit_validate_alias_symlink_or_warn(int log_level, const char *filename, con
                                       filename, dst);
 
         if (!(dst_name_type == src_name_type ||
-              (src_name_type == UNIT_NAME_INSTANCE && dst_name_type == UNIT_NAME_TEMPLATE)))
+              (src_name_type & UNIT_NAME_UINSTANCE && dst_name_type & UNIT_NAME_UTEMPLATE)))
                 return log_full_errno(log_level, SYNTHETIC_ERRNO(EXDEV),
                                       "%s: symlink target name type \"%s\" does not match source, rejecting.",
                                       filename, dst);
 
-        if (dst_name_type == UNIT_NAME_INSTANCE) {
+        if (dst_name_type & UNIT_NAME_UINSTANCE) {
                 assert(!unit_instance_is_null(src_instance));
                 assert(!unit_instance_is_null(dst_instance));
                 if (!unit_instance_eq(src_instance, dst_instance))
@@ -605,7 +605,7 @@ int unit_file_build_name_map(
                         UnitNameFlags t = unit_name_to_instance(src, &inst);
                         if (t < 0)
                                 return log_error_errno(t, "Failed to extract instance part from %s: %m", src);
-                        if (t == UNIT_NAME_INSTANCE) {
+                        if (t & UNIT_NAME_INSTANCE) {
                                 r = unit_name_replace_instance(dst, inst, &dst_name);
                                 if (r < 0) {
                                         /* This might happen e.g. if the combined length is too large.
@@ -671,7 +671,7 @@ static int add_names(
 
         /* The unit has its own name if it's not a template. If we're looking at a fragment, the fragment
          * name (possibly with instance inserted), is also always one of the unit names. */
-        if (name_type != UNIT_NAME_TEMPLATE) {
+        if (name_type & ~UNIT_NAME_TEMPLATE) {
                 r = add_name(unit_name, names, name);
                 if (r < 0)
                         return r;
@@ -683,7 +683,7 @@ static int add_names(
          * set of names for any of the aliases. */
         aliases = hashmap_get(unit_name_map, name);
         STRV_FOREACH(alias, aliases) {
-                if (name_type == UNIT_NAME_INSTANCE && unit_name_is_valid(*alias, UNIT_NAME_TEMPLATE)) {
+                if (name_type & UNIT_NAME_INSTANCE && unit_name_is_valid(*alias, UNIT_NAME_TEMPLATE)) {
                         _cleanup_free_ char *inst = NULL;
                         const char *inst_fragment = NULL;
 
@@ -762,7 +762,7 @@ int unit_file_find_fragment(
         if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))
                 return log_debug_errno(r, "Cannot load unit %s: %m", unit_name);
 
-        if (!fragment && name_type == UNIT_NAME_INSTANCE) {
+        if (!fragment && name_type & UNIT_NAME_INSTANCE) {
                 /* Look for a fragment under the template name */
 
                 r = unit_name_template(unit_name, &template);

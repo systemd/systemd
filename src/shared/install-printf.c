@@ -64,7 +64,7 @@ static int specifier_instance(char specifier, const void *data, const char *root
         if (r < 0)
                 return r;
         /* XXX No generations in [Install] section */
-        if (r & ~(UNIT_NAME_UTEMPLATE|UNIT_NAME_UINSTANCE)) {
+        if (r & (UNIT_NAME_RTEMPLATE|UNIT_NAME_GENERATION)) {
                 unit_instance_free(instance);
                 return -EINVAL;
         }
