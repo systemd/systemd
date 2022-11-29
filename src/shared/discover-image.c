@@ -123,6 +123,7 @@ static char *image_roothash_path(Image *image) {
 
 static int image_new(
                 ImageType t,
+                ImageClass c,
                 const char *pretty,
                 const char *path,
                 const char *filename,
@@ -146,6 +147,7 @@ static int image_new(
         *i = (Image) {
                 .n_ref = 1,
                 .type = t,
+                .class = c,
                 .read_only = read_only,
                 .crtime = crtime,
                 .mtime = mtime,
@@ -203,6 +205,7 @@ static int extract_pretty(const char *path, const char *suffix, char **ret) {
 }
 
 static int image_make(
+                ImageClass c,
                 const char *pretty,
                 int dfd,
                 const char *path,
@@ -278,6 +281,7 @@ static int image_make(
                                         return r;
 
                                 r = image_new(IMAGE_SUBVOLUME,
+                                              c,
                                               pretty,
                                               path,
                                               filename,
@@ -314,6 +318,7 @@ static int image_make(
 
                 /* It's just a normal directory. */
                 r = image_new(IMAGE_DIRECTORY,
+                              c,
                               pretty,
                               path,
                               filename,
@@ -345,6 +350,7 @@ static int image_make(
                 }
 
                 r = image_new(IMAGE_RAW,
+                              c,
                               pretty,
                               path,
                               filename,
@@ -405,6 +411,7 @@ static int image_make(
                 }
 
                 r = image_new(IMAGE_BLOCK,
+                              c,
                               pretty,
                               path,
                               filename,
@@ -475,13 +482,13 @@ int image_find(ImageClass class,
                         if (!S_ISREG(st.st_mode))
                                 continue;
 
-                        r = image_make(name, dirfd(d), resolved, raw, &st, ret);
+                        r = image_make(class, name, dirfd(d), resolved, raw, &st, ret);
 
                 } else {
                         if (!S_ISDIR(st.st_mode) && !S_ISBLK(st.st_mode))
                                 continue;
 
-                        r = image_make(name, dirfd(d), resolved, name, &st, ret);
+                        r = image_make(class, name, dirfd(d), resolved, name, &st, ret);
                 }
                 if (IN_SET(r, -ENOENT, -EMEDIUMTYPE))
                         continue;
@@ -495,7 +502,7 @@ int image_find(ImageClass class,
         }
 
         if (class == IMAGE_MACHINE && streq(name, ".host")) {
-                r = image_make(".host", AT_FDCWD, NULL, empty_to_root(root), NULL, ret);
+                r = image_make(class, ".host", AT_FDCWD, NULL, empty_to_root(root), NULL, ret);
                 if (r < 0)
                         return r;
 
@@ -515,9 +522,9 @@ int image_from_path(const char *path, Image **ret) {
          * overridden by another, different image earlier in the search path */
 
         if (path_equal(path, "/"))
-                return image_make(".host", AT_FDCWD, NULL, "/", NULL, ret);
+                return image_make(IMAGE_MACHINE, ".host", AT_FDCWD, NULL, "/", NULL, ret);
 
-        return image_make(NULL, AT_FDCWD, NULL, path, NULL, ret);
+        return image_make(_IMAGE_CLASS_INVALID, NULL, AT_FDCWD, NULL, path, NULL, ret);
 }
 
 int image_find_harder(ImageClass class, const char *name_or_path, const char *root, Image **ret) {
@@ -591,7 +598,7 @@ int image_discover(
                         if (hashmap_contains(h, pretty))
                                 continue;
 
-                        r = image_make(pretty, dirfd(d), resolved, de->d_name, &st, &image);
+                        r = image_make(class, pretty, dirfd(d), resolved, de->d_name, &st, &image);
                         if (IN_SET(r, -ENOENT, -EMEDIUMTYPE))
                                 continue;
                         if (r < 0)
@@ -610,7 +617,7 @@ int image_discover(
         if (class == IMAGE_MACHINE && !hashmap_contains(h, ".host")) {
                 _cleanup_(image_unrefp) Image *image = NULL;
 
-                r = image_make(".host", AT_FDCWD, NULL, empty_to_root("/"), NULL, &image);
+                r = image_make(IMAGE_MACHINE, ".host", AT_FDCWD, NULL, empty_to_root("/"), NULL, &image);
                 if (r < 0)
                         return r;
 

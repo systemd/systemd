@@ -34,6 +34,7 @@ typedef struct Image {
         unsigned n_ref;
 
         ImageType type;
+        ImageClass class;
         char *name;
         char *path;
         bool read_only;
