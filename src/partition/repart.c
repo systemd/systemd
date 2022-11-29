@@ -2093,7 +2093,7 @@ static int context_load_partition_table(
                 Partition *last = NULL;
                 struct fdisk_partition *p;
                 struct fdisk_parttype *pt;
-                const char *pts, *ids, *label;
+                const char *pts, *label;
                 uint64_t sz, start;
                 bool found = false;
                 sd_id128_t ptid, id;
@@ -2123,13 +2123,9 @@ static int context_load_partition_table(
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse partition type UUID %s: %m", pts);
 
-                ids = fdisk_partition_get_uuid(p);
-                if (!ids)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Found a partition without a UUID.");
-
-                r = sd_id128_from_string(ids, &id);
+                r = fdisk_partition_get_uuid_as_id128(p, &id);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse partition UUID %s: %m", ids);
+                        return log_error_errno(r, "Failed to query partition UUID: %m");
 
                 label = fdisk_partition_get_name(p);
                 if (!isempty(label)) {
