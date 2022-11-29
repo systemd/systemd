@@ -4,6 +4,7 @@
 #include "sd-event.h"
 
 #include "hashmap.h"
+#include "journal-vacuum.h"
 #include "journal-remote-parse.h"
 #include "journal-remote-write.h"
 
@@ -40,6 +41,7 @@ struct RemoteServer {
         JournalWriteSplitMode split_mode;
         JournalFileFlags file_flags;
         bool check_trust;
+        JournalMetrics metrics;
 };
 extern RemoteServer *journal_remote_server_global;
 

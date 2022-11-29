@@ -84,6 +84,16 @@
         <listitem><para>SSL CA certificate.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>MaxUse=</varname></term>
+        <term><varname>KeepFree=</varname></term>
+        <term><varname>MaxFileSize=</varname></term>
+        <term><varname>MaxFiles=</varname></term>
+
+        <listitem><para>Enforce size limits on the journal files.
+        For more details see the documentation in journald.</para></listitem>
+      </varlistentry>
+
     </variablelist>
 
   </refsect1>
