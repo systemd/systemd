@@ -1191,6 +1191,12 @@ static int manager_listen_notify(Manager *m) {
         if (r < 0)
                 return r;
 
+        /* Set SO_PASSCRED on the listening socket as well. It only needs to be set after accept(), but setting
+         * it early here can prevent race conditions in some cases */
+        int oc = 1;
+        if (setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &oc, sizeof(oc)) < 0)
+                return log_error_errno(errno, "Failed to set SO_PASSCRED: %m");
+
         r = sd_event_add_io(m->event, &m->notify_socket_event_source, fd, EPOLLIN, on_notify_socket, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event source for notify socket: %m");
