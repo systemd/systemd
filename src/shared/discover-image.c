@@ -1303,3 +1303,11 @@ static const char* const image_type_table[_IMAGE_TYPE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(image_type, ImageType);
+
+static const char* const image_class_table[_IMAGE_CLASS_MAX] = {
+        [IMAGE_MACHINE] = "machine",
+        [IMAGE_PORTABLE] = "portable",
+        [IMAGE_EXTENSION] = "extension",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(image_class, ImageClass);
