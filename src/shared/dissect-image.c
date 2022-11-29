@@ -648,18 +648,11 @@ static int dissect_image(
 
                         label = blkid_partition_get_name(pp); /* libblkid returns NULL here if empty */
 
-                        if (type.designator == PARTITION_HOME) {
-
-                                check_partition_flags(node, pflags,
-                                                      SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY | SD_GPT_FLAG_GROWFS);
-
-                                if (pflags & SD_GPT_FLAG_NO_AUTO)
-                                        continue;
-
-                                rw = !(pflags & SD_GPT_FLAG_READ_ONLY);
-                                growfs = FLAGS_SET(pflags, SD_GPT_FLAG_GROWFS);
-
-                        } else if (type.designator == PARTITION_SRV) {
+                        if (IN_SET(type.designator,
+                                   PARTITION_HOME,
+                                   PARTITION_SRV,
+                                   PARTITION_XBOOTLDR,
+                                   PARTITION_TMP)) {
 
                                 check_partition_flags(node, pflags,
                                                       SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY | SD_GPT_FLAG_GROWFS);
@@ -681,17 +674,6 @@ static int dissect_image(
                                         continue;
 
                                 fstype = "vfat";
-
-                        } else if (type.designator == PARTITION_XBOOTLDR) {
-
-                                check_partition_flags(node, pflags,
-                                                      SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY | SD_GPT_FLAG_GROWFS);
-
-                                if (pflags & SD_GPT_FLAG_NO_AUTO)
-                                        continue;
-
-                                rw = !(pflags & SD_GPT_FLAG_READ_ONLY);
-                                growfs = FLAGS_SET(pflags, SD_GPT_FLAG_GROWFS);
 
                         } else if (type.designator == PARTITION_ROOT) {
 
@@ -833,17 +815,6 @@ static int dissect_image(
                                         if (!generic_node)
                                                 return -ENOMEM;
                                 }
-
-                        } else if (type.designator == PARTITION_TMP) {
-
-                                check_partition_flags(node, pflags,
-                                                      SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY | SD_GPT_FLAG_GROWFS);
-
-                                if (pflags & SD_GPT_FLAG_NO_AUTO)
-                                        continue;
-
-                                rw = !(pflags & SD_GPT_FLAG_READ_ONLY);
-                                growfs = FLAGS_SET(pflags, SD_GPT_FLAG_GROWFS);
 
                         } else if (type.designator == PARTITION_VAR) {
 
