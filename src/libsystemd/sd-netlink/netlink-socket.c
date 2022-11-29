@@ -180,11 +180,12 @@ int socket_write_message(sd_netlink *nl, sd_netlink_message *m) {
         return k;
 }
 
-static int socket_recv_message(int fd, struct iovec *iov, uint32_t *ret_mcast_group, bool peek) {
+static int socket_recv_message(int fd, void *buf, size_t buf_size, uint32_t *ret_mcast_group, bool peek) {
+        struct iovec iov = IOVEC_MAKE(buf, buf_size);
         union sockaddr_union sender;
         CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct nl_pktinfo))) control;
         struct msghdr msg = {
-                .msg_iov = iov,
+                .msg_iov = &iov,
                 .msg_iovlen = 1,
                 .msg_name = &sender,
                 .msg_namelen = sizeof(sender),
@@ -194,14 +195,17 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *ret_mcast_gr
         ssize_t n;
 
         assert(fd >= 0);
-        assert(iov);
+        assert(peek || (buf && buf_size > 0));
 
         n = recvmsg_safe(fd, &msg, MSG_TRUNC | (peek ? MSG_PEEK : 0));
         if (n < 0) {
                 if (n == -ENOBUFS)
                         return log_debug_errno(n, "sd-netlink: kernel receive buffer overrun");
-                if (ERRNO_IS_TRANSIENT(n))
+                if (ERRNO_IS_TRANSIENT(n)) {
+                        if (ret_mcast_group)
+                                *ret_mcast_group = 0;
                         return 0;
+                }
                 return (int) n;
         }
 
@@ -216,8 +220,13 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *ret_mcast_gr
                                 return (int) n;
                 }
 
+                if (ret_mcast_group)
+                        *ret_mcast_group = 0;
                 return 0;
         }
+
+        if (!peek && (size_t) n > buf_size) /* message did not fit in read buffer */
+                return -EIO;
 
         if (ret_mcast_group) {
                 struct nl_pktinfo *pi;
@@ -232,151 +241,221 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *ret_mcast_gr
         return (int) n;
 }
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        netlink_message_hash_ops,
+        void, trivial_hash_func, trivial_compare_func,
+        sd_netlink_message, sd_netlink_message_unref);
+
+static int netlink_queue_received_message(sd_netlink *nl, sd_netlink_message *m) {
+        uint32_t serial;
+        int r;
+
+        assert(nl);
+        assert(m);
+
+        if (ordered_set_size(nl->rqueue) >= NETLINK_RQUEUE_MAX)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS),
+                                       "sd-netlink: exhausted the read queue size (%d)", NETLINK_RQUEUE_MAX);
+
+        r = ordered_set_ensure_put(&nl->rqueue, &netlink_message_hash_ops, m);
+        if (r < 0)
+                return r;
+
+        sd_netlink_message_ref(m);
+
+        if (sd_netlink_message_is_broadcast(m))
+                return 0;
+
+        serial = message_get_serial(m);
+        if (serial == 0)
+                return 0;
+
+        if (sd_netlink_message_get_errno(m) < 0) {
+                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *old = NULL;
+
+                old = hashmap_remove(nl->rqueue_by_serial, UINT32_TO_PTR(serial));
+                if (old)
+                        log_debug("sd-netlink: received error message with serial %"PRIu32", but another message with "
+                                  "the same serial is already stored in the read queue, replacing.", serial);
+        }
+
+        r = hashmap_ensure_put(&nl->rqueue_by_serial, &netlink_message_hash_ops, UINT32_TO_PTR(serial), m);
+        if (r == -EEXIST) {
+                if (!sd_netlink_message_is_error(m))
+                        log_debug("sd-netlink: received message with serial %"PRIu32", but another message with "
+                                  "the same serial is already stored in the read queue, ignoring.", serial);
+                return 0;
+        }
+        if (r < 0) {
+                sd_netlink_message_unref(ordered_set_remove(nl->rqueue, m));
+                return r;
+        }
+
+        sd_netlink_message_ref(m);
+        return 0;
+}
+
+static int netlink_queue_partially_received_message(sd_netlink *nl, sd_netlink_message *m) {
+        uint32_t serial;
+        int r;
+
+        assert(nl);
+        assert(m);
+        assert(m->hdr->nlmsg_flags & NLM_F_MULTI);
+
+        if (hashmap_size(nl->rqueue_partial_by_serial) >= NETLINK_RQUEUE_MAX)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS),
+                                       "sd-netlink: exhausted the partial read queue size (%d)", NETLINK_RQUEUE_MAX);
+
+        serial = message_get_serial(m);
+        r = hashmap_ensure_put(&nl->rqueue_partial_by_serial, &netlink_message_hash_ops, UINT32_TO_PTR(serial), m);
+        if (r < 0)
+                return r;
+
+        sd_netlink_message_ref(m);
+        return 0;
+}
+
+static int parse_message_one(sd_netlink *nl, uint32_t group, const struct nlmsghdr *hdr, sd_netlink_message **ret) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        size_t size;
+        int r;
+
+        assert(nl);
+        assert(hdr);
+        assert(ret);
+
+        /* not broadcast and not for us */
+        if (group == 0 && hdr->nlmsg_pid != nl->sockaddr.nl.nl_pid)
+                goto finalize;
+
+        /* silently drop noop messages */
+        if (hdr->nlmsg_type == NLMSG_NOOP)
+                goto finalize;
+
+        /* check that we support this message type */
+        r = netlink_get_policy_set_and_header_size(nl, hdr->nlmsg_type, NULL, &size);
+        if (r == -EOPNOTSUPP) {
+                log_debug("sd-netlink: ignored message with unknown type: %i", hdr->nlmsg_type);
+                goto finalize;
+        }
+        if (r < 0)
+                return r;
+
+        /* check that the size matches the message type */
+        if (hdr->nlmsg_len < NLMSG_LENGTH(size)) {
+                log_debug("sd-netlink: message is shorter than expected, dropping.");
+                goto finalize;
+        }
+
+        r = message_new_empty(nl, &m);
+        if (r < 0)
+                return r;
+
+        m->multicast_group = group;
+        m->hdr = memdup(hdr, hdr->nlmsg_len);
+        if (!m->hdr)
+                return -ENOMEM;
+
+        /* seal and parse the top-level message */
+        r = sd_netlink_message_rewind(m, nl);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(m);
+        return 1;
+
+finalize:
+        *ret = NULL;
+        return 0;
+}
+
 /* On success, the number of bytes received is returned and *ret points to the received message
  * which has a valid header and the correct size.
  * If nothing useful was received 0 is returned.
  * On failure, a negative error code is returned.
  */
 int socket_read_message(sd_netlink *nl) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *first = NULL;
-        bool multi_part = false, done = false;
-        size_t len, allocated;
-        struct iovec iov = {};
-        uint32_t group = 0;
-        unsigned i = 0;
+        bool done = false;
+        uint32_t group;
+        size_t len;
         int r;
 
         assert(nl);
-        assert(nl->rbuffer);
 
         /* read nothing, just get the pending message size */
-        r = socket_recv_message(nl->fd, &iov, NULL, true);
+        r = socket_recv_message(nl->fd, NULL, 0, NULL, true);
         if (r <= 0)
                 return r;
-        else
-                len = (size_t) r;
+        len = (size_t) r;
 
         /* make room for the pending message */
         if (!greedy_realloc((void**) &nl->rbuffer, len, sizeof(uint8_t)))
                 return -ENOMEM;
 
-        allocated = MALLOC_SIZEOF_SAFE(nl->rbuffer);
-        iov = IOVEC_MAKE(nl->rbuffer, allocated);
-
         /* read the pending message */
-        r = socket_recv_message(nl->fd, &iov, &group, false);
+        r = socket_recv_message(nl->fd, nl->rbuffer, MALLOC_SIZEOF_SAFE(nl->rbuffer), &group, false);
         if (r <= 0)
                 return r;
-        else
-                len = (size_t) r;
+        len = (size_t) r;
 
-        if (len > allocated)
-                /* message did not fit in read buffer */
-                return -EIO;
-
-        if (NLMSG_OK(nl->rbuffer, len) && nl->rbuffer->nlmsg_flags & NLM_F_MULTI) {
-                multi_part = true;
-
-                for (i = 0; i < nl->rqueue_partial_size; i++)
-                        if (message_get_serial(nl->rqueue_partial[i]) ==
-                            nl->rbuffer->nlmsg_seq) {
-                                first = nl->rqueue_partial[i];
-                                break;
-                        }
-        }
-
-        for (struct nlmsghdr *new_msg = nl->rbuffer; NLMSG_OK(new_msg, len) && !done; new_msg = NLMSG_NEXT(new_msg, len)) {
-                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-                size_t size;
-
-                if (group == 0 && new_msg->nlmsg_pid != nl->sockaddr.nl.nl_pid)
-                        /* not broadcast and not for us */
-                        continue;
-
-                if (new_msg->nlmsg_type == NLMSG_NOOP)
-                        /* silently drop noop messages */
-                        continue;
-
-                if (new_msg->nlmsg_type == NLMSG_DONE) {
-                        /* finished reading multi-part message */
-                        done = true;
-
-                        /* if first is not defined, put NLMSG_DONE into the receive queue. */
-                        if (first)
-                                continue;
-                }
-
-                /* check that we support this message type */
-                r = netlink_get_policy_set_and_header_size(nl, new_msg->nlmsg_type, NULL, &size);
-                if (r < 0) {
-                        if (r == -EOPNOTSUPP)
-                                log_debug("sd-netlink: ignored message with unknown type: %i",
-                                          new_msg->nlmsg_type);
-
-                        continue;
-                }
-
-                /* check that the size matches the message type */
-                if (new_msg->nlmsg_len < NLMSG_LENGTH(size)) {
-                        log_debug("sd-netlink: message is shorter than expected, dropping");
-                        continue;
-                }
-
-                r = message_new_empty(nl, &m);
-                if (r < 0)
-                        return r;
-
-                m->multicast_group = group;
-                m->hdr = memdup(new_msg, new_msg->nlmsg_len);
-                if (!m->hdr)
-                        return -ENOMEM;
-
-                /* seal and parse the top-level message */
-                r = sd_netlink_message_rewind(m, nl);
-                if (r < 0)
-                        return r;
-
-                /* push the message onto the multi-part message stack */
-                if (first)
-                        m->next = first;
-                first = TAKE_PTR(m);
-        }
-
-        if (len > 0)
-                log_debug("sd-netlink: discarding %zu bytes of incoming message", len);
-
-        if (!first)
+        if (!NLMSG_OK(nl->rbuffer, len)) {
+                log_debug("sd-netlink: received invalid message, discarding %zu bytes of incoming message", len);
                 return 0;
+        }
 
-        if (!multi_part || done) {
-                /* we got a complete message, push it on the read queue */
-                r = netlink_rqueue_make_room(nl);
+        for (struct nlmsghdr *hdr = nl->rbuffer; NLMSG_OK(hdr, len); hdr = NLMSG_NEXT(hdr, len)) {
+                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+
+                r = parse_message_one(nl, group, hdr, &m);
                 if (r < 0)
                         return r;
+                if (r == 0)
+                        continue;
 
-                nl->rqueue[nl->rqueue_size++] = TAKE_PTR(first);
+                if (hdr->nlmsg_flags & NLM_F_MULTI) {
+                        if (hdr->nlmsg_type == NLMSG_DONE) {
+                                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *existing = NULL;
 
-                if (multi_part && (i < nl->rqueue_partial_size)) {
-                        /* remove the message form the partial read queue */
-                        memmove(nl->rqueue_partial + i, nl->rqueue_partial + i + 1,
-                                sizeof(sd_netlink_message*) * (nl->rqueue_partial_size - i - 1));
-                        nl->rqueue_partial_size--;
-                }
+                                /* finished reading multi-part message */
+                                existing = hashmap_remove(nl->rqueue_partial_by_serial, UINT32_TO_PTR(hdr->nlmsg_seq));
 
-                return 1;
-        } else {
-                /* we only got a partial multi-part message, push it on the
-                   partial read queue */
-                if (i < nl->rqueue_partial_size)
-                        nl->rqueue_partial[i] = TAKE_PTR(first);
-                else {
-                        r = netlink_rqueue_partial_make_room(nl);
+                                /* if we receive only NLMSG_DONE, put it into the receive queue. */
+                                r = netlink_queue_received_message(nl, existing ?: m);
+                                if (r < 0)
+                                        return r;
+
+                                done = true;
+                        } else {
+                                sd_netlink_message *existing;
+
+                                existing = hashmap_get(nl->rqueue_partial_by_serial, UINT32_TO_PTR(hdr->nlmsg_seq));
+                                if (existing) {
+                                        /* This is the continuation of the previously read messages.
+                                         * Let's append this message at the end. */
+                                        while (existing->next)
+                                                existing = existing->next;
+                                        existing->next = TAKE_PTR(m);
+                                } else {
+                                        /* This is the first message. Put it into the queue for partially
+                                         * received messages. */
+                                        r = netlink_queue_partially_received_message(nl, m);
+                                        if (r < 0)
+                                                return r;
+                                }
+                        }
+
+                } else {
+                        r = netlink_queue_received_message(nl, m);
                         if (r < 0)
                                 return r;
 
-                        nl->rqueue_partial[nl->rqueue_partial_size++] = TAKE_PTR(first);
+                        done = true;
                 }
-
-                return 0;
         }
+
+        if (len > 0)
+                log_debug("sd-netlink: discarding trailing %zu bytes of incoming message", len);
+
+        return done;
 }
