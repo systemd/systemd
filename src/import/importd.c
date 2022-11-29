@@ -94,6 +94,9 @@ struct Manager {
         int notify_fd;
 
         sd_event_source *notify_event_source;
+
+	bool setup_subvol;
+	bool setup_quota;
 };
 
 #define TRANSFERS_MAX 64
@@ -661,6 +664,9 @@ static int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
+	m->setup_subvol = true;
+	m->setup_quota = true;
+
         *ret = TAKE_PTR(m);
 
         return 0;
@@ -719,7 +725,7 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "Local name %s is invalid", local);
 
-        r = setup_machine_directory(error);
+        r = setup_machine_directory(error, m->setup_subvol, m->setup_quota);
         if (r < 0)
                 return r;
 
@@ -788,7 +794,7 @@ static int method_import_fs(sd_bus_message *msg, void *userdata, sd_bus_error *e
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "Local name %s is invalid", local);
 
-        r = setup_machine_directory(error);
+        r = setup_machine_directory(error, m->setup_subvol, m->setup_quota);
         if (r < 0)
                 return r;
 
@@ -939,7 +945,7 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "Unknown verification mode %s", verify);
 
-        r = setup_machine_directory(error);
+        r = setup_machine_directory(error, m->setup_subvol, m->setup_quota);
         if (r < 0)
                 return r;
 
@@ -1351,6 +1357,26 @@ static int manager_run(Manager *m) {
                         m);
 }
 
+static void parse_env(Manager *m) {
+	int r;
+
+	/* Same as src/import/{import,pull}.c:
+	 * Let's make these relatively low-level settings also controllable via env vars. User can then set
+	 * them for systemd-importd.service if they like to tweak behaviour */
+
+	r = getenv_bool("SYSTEMD_IMPORT_BTRFS_SUBVOL");
+	if (r >= 0)
+		m->setup_subvol = (r > 0);
+	else if (r != -ENXIO)
+		log_warning_errno(r, "Failed to parse $SYSTEMD_IMPORT_BTRFS_SUBVOL: %m");
+
+	r = getenv_bool("SYSTEMD_IMPORT_BTRFS_QUOTA");
+	if (r >= 0)
+		m->setup_quota = (r > 0);
+	else if (r != -ENXIO)
+		log_warning_errno(r, "Failed to parse $SYSTEMD_IMPORT_BTRFS_QUOTA: %m");
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
         int r;
@@ -1372,6 +1398,8 @@ static int run(int argc, char *argv[]) {
         r = manager_new(&m);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate manager object: %m");
+
+	parse_env(m);
 
         r = manager_add_bus_objects(m);
         if (r < 0)
