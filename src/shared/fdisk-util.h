@@ -17,5 +17,6 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct fdisk_table*, fdisk_unref_table, NULL);
 int fdisk_new_context_fd(int fd, bool read_only, struct fdisk_context **ret);
 
 int fdisk_partition_get_uuid_as_id128(struct fdisk_partition *p, sd_id128_t *ret);
+int fdisk_partition_get_type_as_id128(struct fdisk_partition *p, sd_id128_t *ret);
 
 #endif

@@ -39,4 +39,22 @@ int fdisk_partition_get_uuid_as_id128(struct fdisk_partition *p, sd_id128_t *ret
         return sd_id128_from_string(ids, ret);
 }
 
+int fdisk_partition_get_type_as_id128(struct fdisk_partition *p, sd_id128_t *ret) {
+        struct fdisk_parttype *pt;
+        const char *pts;
+
+        assert(p);
+        assert(ret);
+
+        pt = fdisk_partition_get_type(p);
+        if (!pt)
+                return -ENXIO;
+
+        pts = fdisk_parttype_get_string(pt);
+        if (!pts)
+                return -ENXIO;
+
+        return sd_id128_from_string(pts, ret);
+}
+
 #endif
