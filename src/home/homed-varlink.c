@@ -25,7 +25,7 @@ static bool client_is_trusted(Varlink *link, Home *h) {
         assert(link);
         assert(h);
 
-        r = varlink_get_peer_uid(link, &peer_uid);
+        r = varlink_get_uid(link, &peer_uid);
         if (r < 0) {
                 log_debug_errno(r, "Unable to query peer UID, ignoring: %m");
                 return false;
