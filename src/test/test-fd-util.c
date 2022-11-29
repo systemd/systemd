@@ -483,6 +483,53 @@ TEST(fd_reopen) {
         fd1 = -1;
 }
 
+TEST(fd_reopen_condition) {
+        _cleanup_close_ int fd1 = -1, fd3 = -1;
+        int fd2, fl;
+
+        /* Open without O_PATH */
+        fd1 = open("/usr/", O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        assert_se(fd1 >= 0);
+
+        fl = fcntl(fd1, F_GETFL);
+        assert_se(FLAGS_SET(fl, O_DIRECTORY));
+        assert_se(!FLAGS_SET(fl, O_PATH));
+
+        fd2 = fd_reopen_condition(fd1, O_DIRECTORY, O_DIRECTORY|O_PATH, &fd3);
+        assert_se(fd2 == fd1);
+        assert_se(fd3 < 0);
+
+        /* Switch on O_PATH */
+        fd2 = fd_reopen_condition(fd1, O_DIRECTORY|O_PATH, O_DIRECTORY|O_PATH, &fd3);
+        assert_se(fd2 != fd1);
+        assert_se(fd3 == fd2);
+
+        fl = fcntl(fd2, F_GETFL);
+        assert_se(FLAGS_SET(fl, O_DIRECTORY));
+        assert_se(FLAGS_SET(fl, O_PATH));
+
+        close_and_replace(fd1, fd3);
+
+        fd2 = fd_reopen_condition(fd1, O_DIRECTORY|O_PATH, O_DIRECTORY|O_PATH, &fd3);
+        assert_se(fd2 == fd1);
+        assert_se(fd3 < 0);
+
+        /* Switch off O_PATH again */
+        fd2 = fd_reopen_condition(fd1, O_DIRECTORY, O_DIRECTORY|O_PATH, &fd3);
+        assert_se(fd2 != fd1);
+        assert_se(fd3 == fd2);
+
+        fl = fcntl(fd2, F_GETFL);
+        assert_se(FLAGS_SET(fl, O_DIRECTORY));
+        assert_se(!FLAGS_SET(fl, O_PATH));
+
+        close_and_replace(fd1, fd3);
+
+        fd2 = fd_reopen_condition(fd1, O_DIRECTORY, O_DIRECTORY|O_PATH, &fd3);
+        assert_se(fd2 == fd1);
+        assert_se(fd3 < 0);
+}
+
 TEST(take_fd) {
         _cleanup_close_ int fd1 = -1, fd2 = -1;
         int array[2] = { -1, -1 }, i = 0;

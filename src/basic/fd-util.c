@@ -780,6 +780,37 @@ int fd_reopen(int fd, int flags) {
         return new_fd;
 }
 
+int fd_reopen_condition(
+                int fd,
+                int flags,
+                int mask,
+                int *ret_new_fd) {
+
+        int r, new_fd;
+
+        assert(fd >= 0);
+
+        /* Invokes fd_reopen(fd, flags), but only if the existing F_GETFL flags don't match the specified
+         * flags (masked by the specified mask). This is useful for converting O_PATH fds into real fds if
+         * needed, but only then. */
+
+        r = fcntl(fd, F_GETFL);
+        if (r < 0)
+                return -errno;
+
+        if ((r & mask) == (flags & mask)) {
+                *ret_new_fd = -1;
+                return fd;
+        }
+
+        new_fd = fd_reopen(fd, flags);
+        if (new_fd < 0)
+                return new_fd;
+
+        *ret_new_fd = new_fd;
+        return new_fd;
+}
+
 int read_nr_open(void) {
         _cleanup_free_ char *nr_open = NULL;
         int r;
