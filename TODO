@@ -125,6 +125,11 @@ Deprecations and removals:
 
 Features:
 
+* pam_systemd_home: add module parameter to control whether to only accept
+  only password or only pcks11/fido2 auth, and then use this to hook nicely
+  into two of the three PAM stacks gdm provides.
+  See discussion at https://github.com/authselect/authselect/pull/311
+
 * sd-boot: make boot loader spec type #1 accept http urls in "linux"
   lines. THen, do the uefi http dance to download kernels and boot them. This
   is then useful for network boot, by embdedding a cpio with type #1 snippets
