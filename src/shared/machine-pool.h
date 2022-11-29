@@ -5,4 +5,4 @@
 
 #include "sd-bus.h"
 
-int setup_machine_directory(sd_bus_error *error);
+int setup_machine_directory(sd_bus_error *error, bool use_btrfs_subvol, bool use_btrfs_quota);

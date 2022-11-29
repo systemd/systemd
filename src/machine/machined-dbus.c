@@ -863,7 +863,7 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
                 return 1; /* Will call us back */
 
         /* Set up the machine directory if necessary */
-        r = setup_machine_directory(error);
+        r = setup_machine_directory(error, /* use_btrfs_subvol= */ true, /* use_btrfs_quota= */ true);
         if (r < 0)
                 return r;
 
