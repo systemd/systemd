@@ -106,9 +106,8 @@ int read_partition_info(
                 PartitionInfo *ret) {
 
         _cleanup_free_ char *label_copy = NULL, *device = NULL;
-        const char *pts, *label;
+        const char *label;
         struct fdisk_partition *p;
-        struct fdisk_parttype *pt;
         uint64_t start, size, flags;
         sd_id128_t ptid, id;
         GptPartitionType type;
@@ -147,17 +146,9 @@ int read_partition_info(
         if (!label)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Found a partition without a label.");
 
-        pt = fdisk_partition_get_type(p);
-        if (!pt)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to acquire type of partition: %m");
-
-        pts = fdisk_parttype_get_string(pt);
-        if (!pts)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to acquire type of partition as string: %m");
-
-        r = sd_id128_from_string(pts, &ptid);
+        r = fdisk_partition_get_type_as_id128(p, &ptid);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse partition type UUID %s: %m", pts);
+                return log_error_errno(r, "Failed to read partition type UUID: %m");
 
         r = fdisk_partition_get_uuid_as_id128(p, &id);
         if (r < 0)
