@@ -107,19 +107,11 @@ int btrfs_subvol_make_fd(int fd, const char *subvolume) {
         if (r < 0)
                 return r;
 
-        r = fcntl(fd, F_GETFL);
-        if (r < 0)
-                return -errno;
-        if (FLAGS_SET(r, O_PATH)) {
-                /* An O_PATH fd was specified, let's convert here to a proper one, as btrfs ioctl's can't deal with
-                 * O_PATH. */
-
-                real_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
-                if (real_fd < 0)
-                        return real_fd;
-
-                fd = real_fd;
-        }
+        /* If an O_PATH fd was specified, let's convert here to a proper one, as btrfs ioctl's can't deal
+         * with O_PATH. */
+        fd = fd_reopen_condition(fd, O_RDONLY|O_CLOEXEC|O_DIRECTORY, O_PATH|O_DIRECTORY, &real_fd);
+        if (fd < 0)
+                return fd;
 
         strncpy(args.name, subvolume, sizeof(args.name)-1);
 
