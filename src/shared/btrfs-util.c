@@ -247,11 +247,16 @@ int btrfs_clone_range(int infd, uint64_t in_offset, int outfd, uint64_t out_offs
 
 int btrfs_get_block_device_fd(int fd, dev_t *dev) {
         struct btrfs_ioctl_fs_info_args fsi = {};
+        _cleanup_close_ int regfd = -1;
         uint64_t id;
         int r;
 
         assert(fd >= 0);
         assert(dev);
+
+        fd = fd_reopen_condition(fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, O_PATH, &regfd);
+        if (fd < 0)
+                return fd;
 
         r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
         if (r < 0)
