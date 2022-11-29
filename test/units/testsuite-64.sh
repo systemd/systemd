@@ -243,6 +243,7 @@ EOF
     echo "${FUNCNAME[0]}: test failover"
     local device expected link mpoint part
     local -a devices
+    mkdir -p /mnt
     mpoint="$(mktemp -d /mnt/mpathXXX)"
     wwid="deaddeadbeef0000"
     path="/dev/disk/by-id/wwn-0x$wwid"
