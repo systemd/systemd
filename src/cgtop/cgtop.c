@@ -56,10 +56,11 @@ typedef struct Group {
         uint64_t io_input_bps, io_output_bps;
 } Group;
 
+/* Counted objects, enum order matters */
 typedef enum PidsCount {
-        COUNT_USERSPACE_PROCESSES,
+        COUNT_USERSPACE_PROCESSES,      /* least */
         COUNT_ALL_PROCESSES,
-        COUNT_PIDS,
+        COUNT_PIDS,                     /* most, requires pids controller */
 } PidsCount;
 
 static unsigned arg_depth = 3;
@@ -932,6 +933,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine supported controllers: %m");
 
+        /* honor user selection unless pids controller is unavailable */
         possible_count = (mask & CGROUP_MASK_PIDS) ? COUNT_PIDS : COUNT_ALL_PROCESSES;
         arg_count = MIN(possible_count, arg_count);
 
