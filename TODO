@@ -203,9 +203,6 @@ Features:
   xattr set, check bpf table to find dirs with hashes for other prior DDIs and
   try to use inode from there.
 
-* dissect too: add --with switch that will invoke a command with the image
-  mounted, and as current working directory. Terminate once done.
-
 * extend the verity signature partition to permit multiple signatures for the
   same root hash, so that people can sign a single image with multiple keys.
 
@@ -888,8 +885,6 @@ Features:
 * add linker script that implicitly adds symbol for build ID and new coredump
   json package metadata, and use that when logging
 
-* systemd-dissect: show GPT disk UUID in output
-
 * Enable RestrictFileSystems= for all our long-running services (similar:
   RestrictNetworkInterfaces=)
 
@@ -1210,11 +1205,6 @@ Features:
 
 * systemd-path: add ESP and XBOOTLDR path. Add "private" runtime/state/cache dir enum,
   mapping to $RUNTIME_DIRECTORY, $STATE_DIRECTORY and such
-
-* All tools that support --root= should also learn --image= so that they can
-  operate on disk images directly. Specifically: systemctl, coredumpctl.
-  (Already done: bootctl, systemd-nspawn, systemd-firstboot,
-  systemd-repart, systemd-tmpfiles, systemd-sysusers, journalctl)
 
 * seccomp: by default mask x32 ABI system wide on x86-64. it's on its way out
 
