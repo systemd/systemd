@@ -231,12 +231,17 @@ TEST(unit_name_mangle) {
         test_unit_name_mangle_one(false, "/dev/sda", "dev-sda.device", 1);
         test_unit_name_mangle_one(false, "üxknürz.service", "\\xc3\\xbcxkn\\xc3\\xbcrz.service", 1);
         test_unit_name_mangle_one(false, "foobar-meh...waldi.service", "foobar-meh...waldi.service", 0);
-        test_unit_name_mangle_one(false, "_____####----.....service", "_____\\x23\\x23\\x23\\x23----.....service", 1);
-        test_unit_name_mangle_one(false, "_____##@;;;,,,##----.....service", "_____\\x23\\x23@\\x3b\\x3b\\x3b\\x2c\\x2c\\x2c\\x23\\x23----.....service", 1);
+        test_unit_name_mangle_one(false, "_____%%%%----.....service", "_____\\x25\\x25\\x25\\x25----.....service", 1);
+        test_unit_name_mangle_one(false, "_____%%@;;;,,,%%----.....service",  "_____\\x25\\x25@\\x3b\\x3b\\x3b\\x2c\\x2c\\x2c\\x25\\x25----.....service", 1);
+        // XXX may be valid one time
+        // test_unit_name_mangle_one(false, "_____%%@#;;;,,,%%----.....service", "_____\\x25\\x25@#\\x3b\\x3b\\x3b\\x2c\\x2c\\x2c\\x25\\x25----.....service", 1);
+
         test_unit_name_mangle_one(false, "xxx@@@@/////\\\\\\\\\\yyy.service", "xxx@@@@-----\\\\\\\\\\yyy.service", 1);
         test_unit_name_mangle_one(false, "", NULL, -EINVAL);
 
         test_unit_name_mangle_one(true, "foo.service", "foo.service", 0);
+        test_unit_name_mangle_one(true, "foo@.service", "foo@.service", 0);
+        test_unit_name_mangle_one(true, "foo#.service", "foo#.service", 0);
         test_unit_name_mangle_one(true, "foo", "foo.service", 1);
         test_unit_name_mangle_one(true, "foo*", "foo*", 0);
         test_unit_name_mangle_one(true, "ü*", "\\xc3\\xbc*", 1);
