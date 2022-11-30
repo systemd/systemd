@@ -375,7 +375,9 @@ static int portable_extract_by_path(
                                 DISSECT_IMAGE_REQUIRE_ROOT |
                                 DISSECT_IMAGE_DISCARD_ON_LOOP |
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |
-                                DISSECT_IMAGE_USR_NO_ROOT,
+                                DISSECT_IMAGE_USR_NO_ROOT |
+                                DISSECT_IMAGE_ADD_PARTITION_DEVICES |
+                                DISSECT_IMAGE_PIN_PARTITION_DEVICES,
                                 &m);
                 if (r == -ENOPKG)
                         sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Couldn't identify a suitable partition table or file system in '%s'.", path);

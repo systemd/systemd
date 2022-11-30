@@ -71,7 +71,7 @@ static void* thread_func(void *ptr) {
 
                 log_notice("Acquired loop device %s, will mount on %s", loop->node, mounted);
 
-                r = dissect_loop_device(loop, NULL, NULL, DISSECT_IMAGE_READ_ONLY, &dissected);
+                r = dissect_loop_device(loop, NULL, NULL, DISSECT_IMAGE_READ_ONLY|DISSECT_IMAGE_ADD_PARTITION_DEVICES|DISSECT_IMAGE_PIN_PARTITION_DEVICES, &dissected);
                 if (r < 0)
                         log_error_errno(r, "Failed dissect loopback device %s: %m", loop->node);
                 assert_se(r >= 0);
@@ -220,7 +220,7 @@ static int run(int argc, char *argv[]) {
         assert_se(loop_device_make(fd, O_RDWR, 0, UINT64_MAX, 0, LO_FLAGS_PARTSCAN, LOCK_EX, &loop) >= 0);
 
 #if HAVE_BLKID
-        assert_se(dissect_loop_device(loop, NULL, NULL, 0, &dissected) >= 0);
+        assert_se(dissect_loop_device(loop, NULL, NULL, DISSECT_IMAGE_ADD_PARTITION_DEVICES|DISSECT_IMAGE_PIN_PARTITION_DEVICES, &dissected) >= 0);
         verify_dissected_image(dissected);
 
         FOREACH_STRING(fs, "vfat", "ext4") {
@@ -246,7 +246,7 @@ static int run(int argc, char *argv[]) {
         assert_se(make_filesystem(dissected->partitions[PARTITION_HOME].node, "ext4", "home", NULL, id, true) >= 0);
 
         dissected = dissected_image_unref(dissected);
-        assert_se(dissect_loop_device(loop, NULL, NULL, 0, &dissected) >= 0);
+        assert_se(dissect_loop_device(loop, NULL, NULL, DISSECT_IMAGE_ADD_PARTITION_DEVICES|DISSECT_IMAGE_PIN_PARTITION_DEVICES, &dissected) >= 0);
         verify_dissected_image(dissected);
 
         assert_se(mkdtemp_malloc(NULL, &mounted) >= 0);

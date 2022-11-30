@@ -5656,7 +5656,9 @@ static int run(int argc, char *argv[]) {
                         DISSECT_IMAGE_GENERIC_ROOT |
                         DISSECT_IMAGE_REQUIRE_ROOT |
                         DISSECT_IMAGE_RELAX_VAR_CHECK |
-                        DISSECT_IMAGE_USR_NO_ROOT;
+                        DISSECT_IMAGE_USR_NO_ROOT |
+                        DISSECT_IMAGE_ADD_PARTITION_DEVICES |
+                        DISSECT_IMAGE_PIN_PARTITION_DEVICES;
                 assert(arg_image);
                 assert(!arg_template);
 
