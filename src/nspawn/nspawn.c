@@ -3626,7 +3626,6 @@ static int outer_child(
                 bool secondary,
                 int fd_outer_socket,
                 int fd_inner_socket,
-                int unified_cgroup_hierarchy_socket,
                 FDSet *fds,
                 int netns_fd) {
 
@@ -3854,14 +3853,12 @@ static int outer_child(
                 if (r < 0)
                         return r;
 
-                l = send(unified_cgroup_hierarchy_socket, &arg_unified_cgroup_hierarchy, sizeof(arg_unified_cgroup_hierarchy), MSG_NOSIGNAL);
+                l = send(fd_outer_socket, &arg_unified_cgroup_hierarchy, sizeof(arg_unified_cgroup_hierarchy), MSG_NOSIGNAL);
                 if (l < 0)
                         return log_error_errno(errno, "Failed to send cgroup mode: %m");
                 if (l != sizeof(arg_unified_cgroup_hierarchy))
                         return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                                "Short write while sending cgroup mode.");
-
-                unified_cgroup_hierarchy_socket = safe_close(unified_cgroup_hierarchy_socket);
         }
 
         r = recursive_chown(directory, arg_uid_shift, arg_uid_range);
@@ -4748,8 +4745,7 @@ static int run_container(
         _cleanup_close_ int etc_passwd_lock = -1;
         _cleanup_close_pair_ int
                 fd_inner_socket_pair[2] = { -EBADF, -EBADF },
-                fd_outer_socket_pair[2] = { -EBADF, -EBADF },
-                unified_cgroup_hierarchy_socket_pair[2] = { -1, -1};
+                fd_outer_socket_pair[2] = { -EBADF, -EBADF };
 
         _cleanup_close_ int notify_socket = -1, mntns_fd = -EBADF, fd_kmsg_fifo = -EBADF;
         _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
@@ -4792,10 +4788,6 @@ static int run_container(
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, fd_outer_socket_pair) < 0)
                 return log_error_errno(errno, "Failed to create outer socket pair: %m");
 
-        if (arg_unified_cgroup_hierarchy == CGROUP_UNIFIED_UNKNOWN)
-                if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, unified_cgroup_hierarchy_socket_pair) < 0)
-                        return log_error_errno(errno, "Failed to create unified cgroup socket pair: %m");
-
         /* Child can be killed before execv(), so handle SIGCHLD in order to interrupt
          * parent's blocking calls and give it a chance to call wait() and terminate. */
         r = sigprocmask(SIG_UNBLOCK, &mask_chld, NULL);
@@ -4833,7 +4825,6 @@ static int run_container(
 
                 fd_inner_socket_pair[0] = safe_close(fd_inner_socket_pair[0]);
                 fd_outer_socket_pair[0] = safe_close(fd_outer_socket_pair[0]);
-                unified_cgroup_hierarchy_socket_pair[0] = safe_close(unified_cgroup_hierarchy_socket_pair[0]);
 
                 (void) reset_all_signal_handlers();
                 (void) reset_signal_mask();
@@ -4844,7 +4835,6 @@ static int run_container(
                                 secondary,
                                 fd_outer_socket_pair[1],
                                 fd_inner_socket_pair[1],
-                                unified_cgroup_hierarchy_socket_pair[1],
                                 fds,
                                 child_netns_fd);
                 if (r < 0)
@@ -4859,7 +4849,6 @@ static int run_container(
 
         fd_inner_socket_pair[1] = safe_close(fd_inner_socket_pair[1]);
         fd_outer_socket_pair[1] = safe_close(fd_outer_socket_pair[1]);
-        unified_cgroup_hierarchy_socket_pair[1] = safe_close(unified_cgroup_hierarchy_socket_pair[1]);
 
         if (arg_userns_mode != USER_NAMESPACE_NO) {
                 mntns_fd = receive_one_fd(fd_outer_socket_pair[0], 0);
@@ -4912,7 +4901,7 @@ static int run_container(
 
         if (arg_unified_cgroup_hierarchy == CGROUP_UNIFIED_UNKNOWN) {
                 /* The child let us know the support cgroup mode it might have read from the image. */
-                l = recv(unified_cgroup_hierarchy_socket_pair[0], &arg_unified_cgroup_hierarchy, sizeof(arg_unified_cgroup_hierarchy), 0);
+                l = recv(fd_outer_socket_pair[0], &arg_unified_cgroup_hierarchy, sizeof(arg_unified_cgroup_hierarchy), 0);
                 if (l < 0)
                         return log_error_errno(errno, "Failed to read cgroup mode: %m");
                 if (l != sizeof(arg_unified_cgroup_hierarchy))
