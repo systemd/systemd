@@ -90,6 +90,10 @@ static const char *const partition_mountpoint_table[_PARTITION_DESIGNATOR_MAX] =
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(partition_mountpoint, PartitionDesignator);
 
+const char *partition_mountpoint_nulstr(PartitionDesignator p) {
+        return partition_mountpoint_to_string(p);
+}
+
 #define _GPT_ARCH_SEXTET(arch, name)                                   \
         { SD_GPT_ROOT_##arch,              "root-" name,               ARCHITECTURE_##arch, .designator = PARTITION_ROOT            },  \
         { SD_GPT_ROOT_##arch##_VERITY,     "root-" name "-verity",     ARCHITECTURE_##arch, .designator = PARTITION_ROOT_VERITY     },  \
@@ -236,10 +240,6 @@ GptPartitionType gpt_partition_type_from_uuid(sd_id128_t id) {
                 .arch = _ARCHITECTURE_INVALID,
                 .designator = _PARTITION_DESIGNATOR_INVALID,
         };
-}
-
-const char *gpt_partition_type_mountpoint_nulstr(GptPartitionType type) {
-        return partition_mountpoint_to_string(type.designator);
 }
 
 bool gpt_partition_type_knows_read_only(GptPartitionType type) {
