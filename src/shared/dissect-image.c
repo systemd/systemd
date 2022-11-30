@@ -934,6 +934,7 @@ static int dissect_image(
                                         .mount_node_fd = TAKE_FD(mount_node_fd),
                                         .offset = (uint64_t) start * 512,
                                         .size = (uint64_t) size * 512,
+                                        .gpt_flags = pflags,
                                 };
                         }
 
