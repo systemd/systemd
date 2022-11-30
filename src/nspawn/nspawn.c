@@ -3631,7 +3631,7 @@ static int outer_child(
                 bool secondary,
                 int pid_socket,
                 int uuid_socket,
-                int notify_socket,
+                int fd_socket,
                 int kmsg_socket,
                 int rtnl_socket,
                 int uid_shift_socket,
@@ -3659,7 +3659,7 @@ static int outer_child(
         assert(directory);
         assert(pid_socket >= 0);
         assert(uuid_socket >= 0);
-        assert(notify_socket >= 0);
+        assert(fd_socket >= 0);
         assert(master_pty_socket >= 0);
         assert(kmsg_socket >= 0);
 
@@ -3711,7 +3711,7 @@ static int outer_child(
                 if (r < 0)
                         return log_error_errno(r, "Failed to pin outer mount namespace: %m");
 
-                l = send_one_fd(notify_socket, mntns_fd, 0);
+                l = send_one_fd(fd_socket, mntns_fd, 0);
                 if (l < 0)
                         return log_error_errno(l, "Failed to send outer mount namespace fd: %m");
                 mntns_fd = safe_close(mntns_fd);
@@ -4026,7 +4026,7 @@ static int outer_child(
         if (pid == 0) {
                 pid_socket = safe_close(pid_socket);
                 uuid_socket = safe_close(uuid_socket);
-                notify_socket = safe_close(notify_socket);
+                fd_socket = safe_close(fd_socket);
                 uid_shift_socket = safe_close(uid_shift_socket);
 
                 /* The inner child has all namespaces that are requested, so that we all are owned by the
@@ -4059,13 +4059,13 @@ static int outer_child(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Short write while sending machine ID.");
 
-        l = send_one_fd(notify_socket, fd, 0);
+        l = send_one_fd(fd_socket, fd, 0);
         if (l < 0)
                 return log_error_errno(l, "Failed to send notify fd: %m");
 
         pid_socket = safe_close(pid_socket);
         uuid_socket = safe_close(uuid_socket);
-        notify_socket = safe_close(notify_socket);
+        fd_socket = safe_close(fd_socket);
         master_pty_socket = safe_close(master_pty_socket);
         kmsg_socket = safe_close(kmsg_socket);
         rtnl_socket = safe_close(rtnl_socket);
