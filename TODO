@@ -2232,6 +2232,8 @@ Features:
     such container images are entirely stand-alone and can be updated as one.
   - The subreaper logic we currently have seems overly complex. We should
     investigate whether creating the inner child with CLONE_PARENT isn't better.
+  - Reduce the number of sockets that are currently in use and just rely on one
+    or two sockets.
 
 * machined: add API to acquire UID range. add API to mount/dissect loopback
   file. Both protected by PK. Then make nspawn use these APIs to run
