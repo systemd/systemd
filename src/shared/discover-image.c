@@ -1201,7 +1201,9 @@ int image_read_metadata(Image *i) {
                                 DISSECT_IMAGE_REQUIRE_ROOT |
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |
                                 DISSECT_IMAGE_READ_ONLY |
-                                DISSECT_IMAGE_USR_NO_ROOT,
+                                DISSECT_IMAGE_USR_NO_ROOT |
+                                DISSECT_IMAGE_ADD_PARTITION_DEVICES |
+                                DISSECT_IMAGE_PIN_PARTITION_DEVICES,
                                 &m);
                 if (r < 0)
                         return r;

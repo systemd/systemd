@@ -67,7 +67,9 @@ static DissectImageFlags arg_flags =
         DISSECT_IMAGE_RELAX_VAR_CHECK |
         DISSECT_IMAGE_FSCK |
         DISSECT_IMAGE_USR_NO_ROOT |
-        DISSECT_IMAGE_GROWFS;
+        DISSECT_IMAGE_GROWFS |
+        DISSECT_IMAGE_PIN_PARTITION_DEVICES |
+        DISSECT_IMAGE_ADD_PARTITION_DEVICES;
 static VeritySettings arg_verity_settings = VERITY_SETTINGS_DEFAULT;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
