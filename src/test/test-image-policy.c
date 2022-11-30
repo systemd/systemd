@@ -80,6 +80,7 @@ TEST_RET(test_image_policy_to_string) {
         test_policy(&image_policy_container, "container");
         test_policy(&image_policy_host, "host");
         test_policy(&image_policy_service, "service");
+        test_policy(NULL, "null");
 
         test_policy_string("");
         test_policy_string("-");
@@ -89,6 +90,7 @@ TEST_RET(test_image_policy_to_string) {
         test_policy_string("swap=open:root=signed");
         test_policy_string("swap=open:root=signed+read-only-on+growfs-off:=absent");
         test_policy_string("=-");
+        test_policy_string("=");
 
         test_policy_equiv("", image_policy_equiv_ignore);
         test_policy_equiv("-", image_policy_equiv_ignore);
@@ -108,7 +110,6 @@ TEST_RET(test_image_policy_to_string) {
         assert_se(image_policy_from_string(":", NULL) == -EINVAL);
         assert_se(image_policy_from_string("a=", NULL) == -ENXIO);
         assert_se(image_policy_from_string("=a", NULL) == -EBADRQC);
-        assert_se(image_policy_from_string("=", NULL) == -EINVAL);
         assert_se(image_policy_from_string("==", NULL) == -EBADRQC);
         assert_se(image_policy_from_string("root=verity:root=encrypted", NULL) == -ENOTUNIQ);
         assert_se(image_policy_from_string("root=grbl", NULL) == -EBADRQC);
