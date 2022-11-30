@@ -3632,7 +3632,6 @@ static int outer_child(
                 int fd_socket,
                 int kmsg_socket,
                 int rtnl_socket,
-                int uid_shift_socket,
                 int master_pty_socket,
                 int unified_cgroup_hierarchy_socket,
                 FDSet *fds,
@@ -3713,7 +3712,7 @@ static int outer_child(
                 mntns_fd = safe_close(mntns_fd);
 
                 /* Let the parent know which UID shift we read from the image */
-                l = send(uid_shift_socket, &arg_uid_shift, sizeof(arg_uid_shift), MSG_NOSIGNAL);
+                l = send(fd_socket, &arg_uid_shift, sizeof(arg_uid_shift), MSG_NOSIGNAL);
                 if (l < 0)
                         return log_error_errno(errno, "Failed to send UID shift: %m");
                 if (l != sizeof(arg_uid_shift))
@@ -3725,7 +3724,7 @@ static int outer_child(
                          * UID shift we just read from the image is available. If yes, it will send the UID
                          * shift back to us, if not it will pick a different one, and send it back to us. */
 
-                        l = recv(uid_shift_socket, &arg_uid_shift, sizeof(arg_uid_shift), 0);
+                        l = recv(fd_socket, &arg_uid_shift, sizeof(arg_uid_shift), 0);
                         if (l < 0)
                                 return log_error_errno(errno, "Failed to recv UID shift: %m");
                         if (l != sizeof(arg_uid_shift))
@@ -3790,7 +3789,7 @@ static int outer_child(
                                 (uid_t) bind_user_context->data[i].host_group->gid,
                         };
 
-                        l = send(uid_shift_socket, map, sizeof(map), MSG_NOSIGNAL);
+                        l = send(fd_socket, map, sizeof(map), MSG_NOSIGNAL);
                         if (l < 0)
                                 return log_error_errno(errno, "Failed to send user UID map: %m");
                         if (l != sizeof(map))
@@ -4021,7 +4020,6 @@ static int outer_child(
                 return log_error_errno(errno, "Failed to fork inner child: %m");
         if (pid == 0) {
                 fd_socket = safe_close(fd_socket);
-                uid_shift_socket = safe_close(uid_shift_socket);
 
                 /* The inner child has all namespaces that are requested, so that we all are owned by the
                  * user if user namespaces are turned on. */
@@ -4762,7 +4760,6 @@ static int run_container(
                 kmsg_socket_pair[2] = { -1, -1 },
                 rtnl_socket_pair[2] = { -1, -1 },
                 fd_socket_pair[2] = { -EBADF, -EBADF },
-                uid_shift_socket_pair[2] = { -1, -1 },
                 master_pty_socket_pair[2] = { -1, -1 },
                 unified_cgroup_hierarchy_socket_pair[2] = { -1, -1};
 
@@ -4813,10 +4810,6 @@ static int run_container(
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, master_pty_socket_pair) < 0)
                 return log_error_errno(errno, "Failed to create console socket pair: %m");
 
-        if (arg_userns_mode != USER_NAMESPACE_NO)
-                if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, uid_shift_socket_pair) < 0)
-                        return log_error_errno(errno, "Failed to create uid shift socket pair: %m");
-
         if (arg_unified_cgroup_hierarchy == CGROUP_UNIFIED_UNKNOWN)
                 if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, unified_cgroup_hierarchy_socket_pair) < 0)
                         return log_error_errno(errno, "Failed to create unified cgroup socket pair: %m");
@@ -4860,7 +4853,6 @@ static int run_container(
                 rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
                 fd_socket_pair[0] = safe_close(fd_socket_pair[0]);
                 master_pty_socket_pair[0] = safe_close(master_pty_socket_pair[0]);
-                uid_shift_socket_pair[0] = safe_close(uid_shift_socket_pair[0]);
                 unified_cgroup_hierarchy_socket_pair[0] = safe_close(unified_cgroup_hierarchy_socket_pair[0]);
 
                 (void) reset_all_signal_handlers();
@@ -4873,7 +4865,6 @@ static int run_container(
                                 fd_socket_pair[1],
                                 kmsg_socket_pair[1],
                                 rtnl_socket_pair[1],
-                                uid_shift_socket_pair[1],
                                 master_pty_socket_pair[1],
                                 unified_cgroup_hierarchy_socket_pair[1],
                                 fds,
@@ -4892,7 +4883,6 @@ static int run_container(
         rtnl_socket_pair[1] = safe_close(rtnl_socket_pair[1]);
         fd_socket_pair[1] = safe_close(fd_socket_pair[1]);
         master_pty_socket_pair[1] = safe_close(master_pty_socket_pair[1]);
-        uid_shift_socket_pair[1] = safe_close(uid_shift_socket_pair[1]);
         unified_cgroup_hierarchy_socket_pair[1] = safe_close(unified_cgroup_hierarchy_socket_pair[1]);
 
         if (arg_userns_mode != USER_NAMESPACE_NO) {
@@ -4901,7 +4891,7 @@ static int run_container(
                         return log_error_errno(mntns_fd, "Failed to receive mount namespace fd from outer child: %m");
 
                 /* The child just let us know the UID shift it might have read from the image. */
-                l = recv(uid_shift_socket_pair[0], &arg_uid_shift, sizeof arg_uid_shift, 0);
+                l = recv(fd_socket_pair[0], &arg_uid_shift, sizeof arg_uid_shift, 0);
                 if (l < 0)
                         return log_error_errno(errno, "Failed to read UID shift: %m");
                 if (l != sizeof arg_uid_shift)
@@ -4916,7 +4906,7 @@ static int run_container(
                         if (r < 0)
                                 return log_error_errno(r, "Failed to pick suitable UID/GID range: %m");
 
-                        l = send(uid_shift_socket_pair[0], &arg_uid_shift, sizeof arg_uid_shift, MSG_NOSIGNAL);
+                        l = send(fd_socket_pair[0], &arg_uid_shift, sizeof arg_uid_shift, MSG_NOSIGNAL);
                         if (l < 0)
                                 return log_error_errno(errno, "Failed to send UID shift: %m");
                         if (l != sizeof arg_uid_shift)
@@ -4933,7 +4923,7 @@ static int run_container(
                                 return log_oom();
 
                         for (size_t i = 0; i < n_bind_user_uid; i++) {
-                                l = recv(uid_shift_socket_pair[0], bind_user_uid + i*4, sizeof(uid_t)*4, 0);
+                                l = recv(fd_socket_pair[0], bind_user_uid + i*4, sizeof(uid_t)*4, 0);
                                 if (l < 0)
                                         return log_error_errno(errno, "Failed to read user UID map pair: %m");
                                 if (l != sizeof(uid_t)*4)
