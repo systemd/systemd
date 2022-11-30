@@ -3629,7 +3629,6 @@ static int outer_child(
                 const char *directory,
                 DissectedImage *dissected_image,
                 bool secondary,
-                int pid_socket,
                 int uuid_socket,
                 int fd_socket,
                 int kmsg_socket,
@@ -3657,7 +3656,6 @@ static int outer_child(
 
         assert(barrier);
         assert(directory);
-        assert(pid_socket >= 0);
         assert(uuid_socket >= 0);
         assert(fd_socket >= 0);
         assert(master_pty_socket >= 0);
@@ -4024,7 +4022,6 @@ static int outer_child(
         if (pid < 0)
                 return log_error_errno(errno, "Failed to fork inner child: %m");
         if (pid == 0) {
-                pid_socket = safe_close(pid_socket);
                 uuid_socket = safe_close(uuid_socket);
                 fd_socket = safe_close(fd_socket);
                 uid_shift_socket = safe_close(uid_shift_socket);
@@ -4045,7 +4042,7 @@ static int outer_child(
                 _exit(EXIT_SUCCESS);
         }
 
-        l = send(pid_socket, &pid, sizeof(pid), MSG_NOSIGNAL);
+        l = send(fd_socket, &pid, sizeof(pid), MSG_NOSIGNAL);
         if (l < 0)
                 return log_error_errno(errno, "Failed to send PID: %m");
         if (l != sizeof(pid))
@@ -4063,7 +4060,6 @@ static int outer_child(
         if (l < 0)
                 return log_error_errno(l, "Failed to send notify fd: %m");
 
-        pid_socket = safe_close(pid_socket);
         uuid_socket = safe_close(uuid_socket);
         fd_socket = safe_close(fd_socket);
         master_pty_socket = safe_close(master_pty_socket);
@@ -4769,7 +4765,6 @@ static int run_container(
         _cleanup_close_pair_ int
                 kmsg_socket_pair[2] = { -1, -1 },
                 rtnl_socket_pair[2] = { -1, -1 },
-                pid_socket_pair[2] = { -1, -1 },
                 uuid_socket_pair[2] = { -1, -1 },
                 fd_socket_pair[2] = { -EBADF, -EBADF },
                 uid_shift_socket_pair[2] = { -1, -1 },
@@ -4816,9 +4811,6 @@ static int run_container(
 
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, rtnl_socket_pair) < 0)
                 return log_error_errno(errno, "Failed to create rtnl socket pair: %m");
-
-        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pid_socket_pair) < 0)
-                return log_error_errno(errno, "Failed to create pid socket pair: %m");
 
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, uuid_socket_pair) < 0)
                 return log_error_errno(errno, "Failed to create id socket pair: %m");
@@ -4874,7 +4866,6 @@ static int run_container(
 
                 kmsg_socket_pair[0] = safe_close(kmsg_socket_pair[0]);
                 rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
-                pid_socket_pair[0] = safe_close(pid_socket_pair[0]);
                 uuid_socket_pair[0] = safe_close(uuid_socket_pair[0]);
                 fd_socket_pair[0] = safe_close(fd_socket_pair[0]);
                 master_pty_socket_pair[0] = safe_close(master_pty_socket_pair[0]);
@@ -4888,7 +4879,6 @@ static int run_container(
                                 arg_directory,
                                 dissected_image,
                                 secondary,
-                                pid_socket_pair[1],
                                 uuid_socket_pair[1],
                                 fd_socket_pair[1],
                                 kmsg_socket_pair[1],
@@ -4910,7 +4900,6 @@ static int run_container(
 
         kmsg_socket_pair[1] = safe_close(kmsg_socket_pair[1]);
         rtnl_socket_pair[1] = safe_close(rtnl_socket_pair[1]);
-        pid_socket_pair[1] = safe_close(pid_socket_pair[1]);
         uuid_socket_pair[1] = safe_close(uuid_socket_pair[1]);
         fd_socket_pair[1] = safe_close(fd_socket_pair[1]);
         master_pty_socket_pair[1] = safe_close(master_pty_socket_pair[1]);
@@ -4984,7 +4973,7 @@ static int run_container(
                 return -EIO;
 
         /* And now retrieve the PID of the inner child. */
-        l = recv(pid_socket_pair[0], pid, sizeof *pid, 0);
+        l = recv(fd_socket_pair[0], pid, sizeof *pid, 0);
         if (l < 0)
                 return log_error_errno(errno, "Failed to read inner child PID: %m");
         if (l != sizeof *pid)
