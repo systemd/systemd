@@ -33,6 +33,8 @@ bool partition_designator_is_versioned(PartitionDesignator d);
 PartitionDesignator partition_verity_of(PartitionDesignator p);
 PartitionDesignator partition_verity_sig_of(PartitionDesignator p);
 
+const char *partition_mountpoint_nulstr(PartitionDesignator p);
+
 const char* partition_designator_to_string(PartitionDesignator d) _const_;
 PartitionDesignator partition_designator_from_string(const char *name) _pure_;
 
@@ -60,7 +62,9 @@ int gpt_partition_label_valid(const char *s);
 GptPartitionType gpt_partition_type_from_uuid(sd_id128_t id);
 int gpt_partition_type_from_string(const char *s, GptPartitionType *ret);
 
-const char *gpt_partition_type_mountpoint_nulstr(GptPartitionType type);
+static inline const char *gpt_partition_type_mountpoint_nulstr(GptPartitionType type) {
+        return partition_mountpoint_nulstr(type.designator);
+}
 
 bool gpt_partition_type_knows_read_only(GptPartitionType type);
 bool gpt_partition_type_knows_growfs(GptPartitionType type);

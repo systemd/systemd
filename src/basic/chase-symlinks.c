@@ -466,8 +466,10 @@ int chase_symlinks(
                         return -errno;
 
                 flags |= CHASE_AT_RESOLVE_IN_ROOT;
-        } else
+        } else {
+                path = absolute;
                 fd = AT_FDCWD;
+        }
 
         r = chase_symlinks_at(fd, path, flags & ~CHASE_PREFIX_ROOT, ret_path ? &p : NULL, ret_fd ? &pfd : NULL);
         if (r < 0)
@@ -511,6 +513,44 @@ int chase_symlinks_and_open(
         }
 
         r = chase_symlinks(path, root, chase_flags, ret_path ? &p : NULL, &path_fd);
+        if (r < 0)
+                return r;
+        assert(path_fd >= 0);
+
+        r = fd_reopen(path_fd, open_flags);
+        if (r < 0)
+                return r;
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(p);
+
+        return r;
+}
+
+int chase_symlinks_at_and_open(
+                int dir_fd,
+                const char *path,
+                ChaseSymlinksFlags chase_flags,
+                int open_flags,
+                char **ret_path) {
+
+        _cleanup_close_ int path_fd = -1;
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        if (chase_flags & (CHASE_NONEXISTENT|CHASE_STEP))
+                return -EINVAL;
+
+        if (!ret_path && (chase_flags & (CHASE_AT_RESOLVE_IN_ROOT|CHASE_NO_AUTOFS|CHASE_SAFE)) == 0) {
+                /* Shortcut this call if none of the special features of this call are requested */
+                r = openat(dir_fd, path, open_flags | (FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? O_NOFOLLOW : 0));
+                if (r < 0)
+                        return -errno;
+
+                return r;
+        }
+
+        r = chase_symlinks_at(dir_fd, path, chase_flags, ret_path ? &p : NULL, &path_fd);
         if (r < 0)
                 return r;
         assert(path_fd >= 0);
