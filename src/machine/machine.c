@@ -33,8 +33,10 @@
 #include "unit-name.h"
 #include "user-util.h"
 
+DEFINE_TRIVIAL_CLEANUP_FUNC(Machine*, machine_free);
+
 Machine* machine_new(Manager *manager, MachineClass class, const char *name) {
-        Machine *m;
+        _cleanup_(machine_freep) Machine *m = NULL;
 
         assert(manager);
         assert(class < _MACHINE_CLASS_MAX);
@@ -50,27 +52,22 @@ Machine* machine_new(Manager *manager, MachineClass class, const char *name) {
 
         m->name = strdup(name);
         if (!m->name)
-                goto fail;
+                return NULL;
 
         if (class != MACHINE_HOST) {
                 m->state_file = path_join("/run/systemd/machines", m->name);
                 if (!m->state_file)
-                        goto fail;
+                        return NULL;
         }
 
         m->class = class;
 
         if (hashmap_put(manager->machines, m->name, m) < 0)
-                goto fail;
+                return NULL;
 
         m->manager = manager;
 
-        return m;
-
-fail:
-        free(m->state_file);
-        free(m->name);
-        return mfree(m);
+        return TAKE_PTR(m);
 }
 
 Machine* machine_free(Machine *m) {
