@@ -76,6 +76,7 @@ static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static bool arg_rmdir = false;
 static char **arg_argv = NULL;
+static ImagePolicy* arg_image_policy = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_verity_settings, verity_settings_done);
 STATIC_DESTRUCTOR_REGISTER(arg_argv, strv_freep);
@@ -113,6 +114,8 @@ static int help(void) {
                "                          'base64:'\n"
                "     --verity-data=PATH   Specify data file with hash tree for verity if it is\n"
                "                          not embedded in IMAGE\n"
+               "     --image-policy=POLICY\n"
+               "                          Specify image dissection policy\n"
                "     --json=pretty|short|off\n"
                "                          Generate JSON output\n"
                "\n%3$sCommands:%4$s\n"
@@ -199,6 +202,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_RMDIR,
                 ARG_JSON,
                 ARG_MTREE,
+                ARG_IMAGE_POLICY,
         };
 
         static const struct option options[] = {
@@ -223,6 +227,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "copy-from",     no_argument,       NULL, 'x'               },
                 { "copy-to",       no_argument,       NULL, 'a'               },
                 { "json",          required_argument, NULL, ARG_JSON          },
+                { "image-policy",  required_argument, NULL, ARG_IMAGE_POLICY  },
                 {}
         };
 
@@ -399,6 +404,18 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         break;
+
+                case ARG_IMAGE_POLICY: {
+                        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
+
+                        r = image_policy_from_string(optarg, &p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse image policy: %s", optarg);
+
+                        image_policy_free(arg_image_policy);
+                        arg_image_policy = TAKE_PTR(p);
+                        break;
+                }
 
                 case '?':
                         return -EINVAL;
@@ -1356,7 +1373,8 @@ static int run(int argc, char *argv[]) {
         r = dissect_loop_device_and_warn(
                         d,
                         &arg_verity_settings,
-                        NULL,
+                        /* mount_options= */ NULL,
+                        arg_image_policy,
                         arg_flags,
                         &m);
         if (r < 0)
