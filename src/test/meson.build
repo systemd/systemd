@@ -678,6 +678,8 @@ tests += [
 
         [files('test-percent-util.c')],
 
+        [files('test-image-policy.c')],
+
         [files('test-sd-hwdb.c')],
 
         [files('test-sd-path.c')],
