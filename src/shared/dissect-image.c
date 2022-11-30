@@ -199,7 +199,93 @@ not_found:
 }
 
 #if HAVE_BLKID
-static int dissected_image_probe_filesystems(DissectedImage *m, int fd) {
+static int image_policy_may_use(
+                const ImagePolicy *policy,
+                PartitionDesignator designator) {
+
+        PartitionPolicyFlags f;
+
+        /* For each partition we find in the partition table do a first check if it may exist at all given
+         * the policy, or if it shall be ignored. */
+
+        f = image_policy_get_exhaustively(policy, designator);
+        if (f < 0)
+                return f;
+
+        if ((f & _PARTITION_POLICY_USE_MASK) == PARTITION_POLICY_ABSENT) /* only flag set in policy is "absent"? then this partition may not exist at all */
+                return log_debug_errno(SYNTHETIC_ERRNO(ERFKILL), "Partition of designator '%s' exists, but not allowed by policy, refusing.", partition_designator_to_string(designator));
+        if ((f & _PARTITION_POLICY_USE_MASK & ~PARTITION_POLICY_ABSENT) == PARTITION_POLICY_UNUSED) { /* only "unused" or "unused" + "absent" are set? then don't use it */
+                log_debug("Partition of designator '%s' exists, and policy dictates to ignore it, doing so.", partition_designator_to_string(designator));
+                return false; /* ignore! */
+        }
+
+        return true; /* use! */
+}
+
+static int image_policy_check_protection(
+                const ImagePolicy *policy,
+                PartitionDesignator designator,
+                PartitionPolicyFlags found_flags) {
+
+        PartitionPolicyFlags policy_flags;
+
+        /* Checks if the flags in the policy for the designated partition overlap the flags of what we found */
+
+        if (found_flags < 0)
+                return found_flags;
+
+        policy_flags = image_policy_get_exhaustively(policy, designator);
+        if (policy_flags < 0)
+                return policy_flags;
+
+        if ((found_flags & policy_flags) == 0) {
+                _cleanup_free_ char *found_flags_string = NULL, *policy_flags_string = NULL;
+
+                (void) partition_policy_flags_to_string(found_flags, /* simplify= */ true, &found_flags_string);
+                (void) partition_policy_flags_to_string(policy_flags, /* simplify= */ true, &policy_flags_string);
+
+                return log_debug_errno(SYNTHETIC_ERRNO(ERFKILL), "Partition %s discovered with policy '%s' but '%s' was required, refusing.",
+                                       partition_designator_to_string(designator),
+                                       strna(found_flags_string), strna(policy_flags_string));
+        }
+
+        return 0;
+}
+
+static int image_policy_check_partition_flags(
+                const ImagePolicy *policy,
+                PartitionDesignator designator,
+                uint64_t gpt_flags) {
+
+        PartitionPolicyFlags policy_flags;
+        bool b;
+
+        /* Checks if the partition flags in the policy match reality */
+
+        policy_flags = image_policy_get_exhaustively(policy, designator);
+        if (policy_flags < 0)
+                return policy_flags;
+
+        b = FLAGS_SET(gpt_flags, SD_GPT_FLAG_READ_ONLY);
+        if ((policy_flags & _PARTITION_POLICY_READ_ONLY_MASK) == (b ? PARTITION_POLICY_READ_ONLY_OFF : PARTITION_POLICY_READ_ONLY_ON))
+                return log_debug_errno(SYNTHETIC_ERRNO(ERFKILL), "Partition %s has 'read-only' flag incorrectly set (must be %s, is %s), refusing.",
+                                       partition_designator_to_string(designator),
+                                       one_zero(!b), one_zero(b));
+
+        b = FLAGS_SET(gpt_flags, SD_GPT_FLAG_GROWFS);
+        if ((policy_flags & _PARTITION_POLICY_GROWFS_MASK) == (b ? PARTITION_POLICY_GROWFS_OFF : PARTITION_POLICY_GROWFS_ON))
+                return log_debug_errno(SYNTHETIC_ERRNO(ERFKILL), "Partition %s has 'growfs' flag incorrectly set (must be %s, is %s), refusing.",
+                                       partition_designator_to_string(designator),
+                                       one_zero(!b), one_zero(b));
+
+        return 0;
+}
+
+static int dissected_image_probe_filesystems(
+                DissectedImage *m,
+                int fd,
+                const ImagePolicy *policy) {
+
         int r;
 
         assert(m);
@@ -208,6 +294,7 @@ static int dissected_image_probe_filesystems(DissectedImage *m, int fd) {
 
         for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
                 DissectedPartition *p = m->partitions + i;
+                PartitionPolicyFlags found_flags;
 
                 if (!p->found)
                         continue;
@@ -231,6 +318,16 @@ static int dissected_image_probe_filesystems(DissectedImage *m, int fd) {
 
                 if (!p->rw)
                         p->growfs = false;
+
+                /* We might have learnt more about the device now (i.e. whether it is encrypted or not),
+                 * hence we need to validate this against policy again. */
+                found_flags = m->encrypted ?
+                        PARTITION_POLICY_ENCRYPTED :
+                        PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED;
+
+                r = image_policy_check_protection(policy, i, found_flags);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -261,9 +358,7 @@ static void check_partition_flags(
                 log_debug("Unexpected partition flag %llu set on %s!", bit, node);
         }
 }
-#endif
 
-#if HAVE_BLKID
 static int dissected_image_new(const char *path, DissectedImage **ret) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_free_ char *name = NULL;
@@ -512,16 +607,40 @@ static int dissect_image(
                         const char *fstype = NULL, *options = NULL, *suuid = NULL;
                         _cleanup_close_ int mount_node_fd = -EBADF;
                         sd_id128_t uuid = SD_ID128_NULL;
+                        PartitionPolicyFlags found_flags;
+                        bool encrypted;
+
+                        /* OK, we have found a file system, that's our root partition then. */
+
+                        r = image_policy_may_use(policy, PARTITION_ROOT);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) /* policy says ignore this, so we ignore it */
+                                return -ENOPKG;
+
+                        (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
+                        (void) blkid_probe_lookup_value(b, "UUID", &suuid, NULL);
+
+                        encrypted = streq_ptr(fstype, "crypto_LUKS");
+
+                        if (verity_settings_data_covers(verity, PARTITION_ROOT))
+                                found_flags = verity->root_hash_sig ? PARTITION_POLICY_SIGNED : PARTITION_POLICY_VERITY;
+                        else
+                                found_flags = encrypted ? PARTITION_POLICY_ENCRYPTED : PARTITION_POLICY_UNPROTECTED;
+
+                        r = image_policy_check_protection(policy, PARTITION_ROOT, found_flags);
+                        if (r < 0)
+                                return r;
+
+                        r = image_policy_check_partition_flags(policy, PARTITION_ROOT, 0); /* we have no gpt partition flags, hence check against all bits off */
+                        if (r < 0)
+                                return r;
 
                         if (FLAGS_SET(flags, DISSECT_IMAGE_PIN_PARTITION_DEVICES)) {
                                 mount_node_fd = open_partition(devname, /* is_partition = */ false, m->loop);
                                 if (mount_node_fd < 0)
                                         return mount_node_fd;
                         }
-
-                        /* OK, we have found a file system, that's our root partition then. */
-                        (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
-                        (void) blkid_probe_lookup_value(b, "UUID", &suuid, NULL);
 
                         if (fstype) {
                                 t = strdup(fstype);
@@ -543,7 +662,7 @@ static int dissect_image(
                                 return -ENOMEM;
 
                         m->single_file_system = true;
-                        m->encrypted = streq_ptr(fstype, "crypto_LUKS");
+                        m->encrypted = encrypted;
 
                         m->has_verity = verity && verity->data_path;
                         m->verity_ready = verity_settings_data_covers(verity, PARTITION_ROOT);
@@ -908,6 +1027,18 @@ static int dissect_image(
                                 _cleanup_close_ int mount_node_fd = -EBADF;
                                 const char *options = NULL;
 
+                                r = image_policy_may_use(policy, type.designator);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0) {
+                                        /* Policy says: ignore; Remember this fact, so that we later can distinguish between "found but ignored" and "not found at all" */
+
+                                        if (!m->partitions[type.designator].found)
+                                                m->partitions[type.designator].ignored = true;
+
+                                        continue;
+                                }
+
                                 if (m->partitions[type.designator].found) {
                                         /* For most partition types the first one we see wins. Except for the
                                          * rootfs and /usr, where we do a version compare of the label, and
@@ -996,6 +1127,16 @@ static int dissect_image(
                                 sd_id128_t id = SD_ID128_NULL;
                                 const char *options = NULL;
 
+                                r = image_policy_may_use(policy, PARTITION_XBOOTLDR);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0) { /* policy says: ignore */
+                                        if (!m->partitions[PARTITION_XBOOTLDR].found)
+                                                m->partitions[PARTITION_XBOOTLDR].ignored = true;
+
+                                        continue;
+                                }
+
                                 /* First one wins */
                                 if (m->partitions[PARTITION_XBOOTLDR].found)
                                         continue;
@@ -1076,37 +1217,45 @@ static int dissect_image(
 
                 /* If we didn't find a generic node, then we can't fix this up either */
                 if (generic_node) {
-                        _cleanup_close_ int mount_node_fd = -EBADF;
-                        _cleanup_free_ char *o = NULL;
-                        const char *options;
+                        r = image_policy_may_use(policy, PARTITION_ROOT);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                /* Policy says: ignore; remember that we did */
+                                m->partitions[PARTITION_ROOT].ignored = true;
+                        else {
+                                _cleanup_close_ int mount_node_fd = -EBADF;
+                                _cleanup_free_ char *o = NULL;
+                                const char *options;
 
-                        if (FLAGS_SET(flags, DISSECT_IMAGE_PIN_PARTITION_DEVICES)) {
-                                mount_node_fd = open_partition(generic_node, /* is_partition = */ true, m->loop);
-                                if (mount_node_fd < 0)
-                                        return mount_node_fd;
+                                if (FLAGS_SET(flags, DISSECT_IMAGE_PIN_PARTITION_DEVICES)) {
+                                        mount_node_fd = open_partition(generic_node, /* is_partition = */ true, m->loop);
+                                        if (mount_node_fd < 0)
+                                                return mount_node_fd;
+                                }
+
+                                options = mount_options_from_designator(mount_options, PARTITION_ROOT);
+                                if (options) {
+                                        o = strdup(options);
+                                        if (!o)
+                                                return -ENOMEM;
+                                }
+
+                                assert(generic_nr >= 0);
+                                m->partitions[PARTITION_ROOT] = (DissectedPartition) {
+                                        .found = true,
+                                        .rw = generic_rw,
+                                        .growfs = generic_growfs,
+                                        .partno = generic_nr,
+                                        .architecture = _ARCHITECTURE_INVALID,
+                                        .node = TAKE_PTR(generic_node),
+                                        .uuid = generic_uuid,
+                                        .mount_options = TAKE_PTR(o),
+                                        .mount_node_fd = TAKE_FD(mount_node_fd),
+                                        .offset = UINT64_MAX,
+                                        .size = UINT64_MAX,
+                                };
                         }
-
-                        options = mount_options_from_designator(mount_options, PARTITION_ROOT);
-                        if (options) {
-                                o = strdup(options);
-                                if (!o)
-                                        return -ENOMEM;
-                        }
-
-                        assert(generic_nr >= 0);
-                        m->partitions[PARTITION_ROOT] = (DissectedPartition) {
-                                .found = true,
-                                .rw = generic_rw,
-                                .growfs = generic_growfs,
-                                .partno = generic_nr,
-                                .architecture = _ARCHITECTURE_INVALID,
-                                .node = TAKE_PTR(generic_node),
-                                .uuid = generic_uuid,
-                                .mount_options = TAKE_PTR(o),
-                                .mount_node_fd = TAKE_FD(mount_node_fd),
-                                .offset = UINT64_MAX,
-                                .size = UINT64_MAX,
-                        };
                 }
         }
 
@@ -1168,7 +1317,35 @@ static int dissect_image(
                 }
         }
 
-        r = dissected_image_probe_filesystems(m, fd);
+        /* After we discovered all partitions let's see if the verity requirements match the policy. (Note:
+         * we don't check encryption requirements here, because we haven't probed the file system yet, hence
+         * don't know if this is encrypted or not) */
+        for (PartitionDesignator di = 0; di < _PARTITION_DESIGNATOR_MAX; di++) {
+                PartitionDesignator vi, si;
+                PartitionPolicyFlags found_flags;
+
+                vi = partition_verity_of(di);
+                si = partition_verity_sig_of(di);
+
+                /* Determine the verity protection level for this partition. */
+                found_flags = m->partitions[di].found ?
+                        (vi >= 0 && m->partitions[vi].found ?
+                         (si >= 0 && m->partitions[si].found ? PARTITION_POLICY_SIGNED : PARTITION_POLICY_VERITY) :
+                         PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED) :
+                        (m->partitions[di].ignored ? PARTITION_POLICY_UNUSED : PARTITION_POLICY_ABSENT);
+
+                r = image_policy_check_protection(policy, di, found_flags);
+                if (r < 0)
+                        return r;
+
+                if (m->partitions[di].found) {
+                        r = image_policy_check_partition_flags(policy, di, m->partitions[di].gpt_flags);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        r = dissected_image_probe_filesystems(m, fd, policy);
         if (r < 0)
                 return r;
 
