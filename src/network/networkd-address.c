@@ -462,13 +462,8 @@ static int address_add(Link *link, Address *address) {
 }
 
 static int address_update(Address *address) {
-        Link *link;
+        Link *link = ASSERT_PTR(ASSERT_PTR(address)->link);
         int r;
-
-        assert(address);
-        assert(address->link);
-
-        link = address->link;
 
         if (address_is_ready(address) &&
             address->family == AF_INET6 &&
@@ -485,7 +480,7 @@ static int address_update(Address *address) {
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 0;
 
-        r = address_set_masquerade(address, true);
+        r = address_set_masquerade(address, /* add = */ true);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not enable IP masquerading: %m");
 
@@ -497,21 +492,16 @@ static int address_update(Address *address) {
                         return r;
         }
 
-        link_update_operstate(link, true);
+        link_update_operstate(link, /* also_update_master = */ true);
         link_check_ready(link);
         return 0;
 }
 
 static int address_drop(Address *address) {
-        Link *link;
+        Link *link = ASSERT_PTR(ASSERT_PTR(address)->link);
         int r;
 
-        assert(address);
-        assert(address->link);
-
-        link = address->link;
-
-        r = address_set_masquerade(address, false);
+        r = address_set_masquerade(address, /* add = */ false);
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to disable IP masquerading, ignoring: %m");
 
