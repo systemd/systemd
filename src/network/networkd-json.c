@@ -464,6 +464,7 @@ static int network_build_json(Network *network, JsonVariant **ret) {
 
         return json_build(ret, JSON_BUILD_OBJECT(
                                 JSON_BUILD_PAIR_STRING("NetworkFile", network->filename),
+                                JSON_BUILD_PAIR_STRV("NetworkFileDropins", network->dropins),
                                 JSON_BUILD_PAIR_BOOLEAN("RequiredForOnline", network->required_for_online),
                                 JSON_BUILD_PAIR("RequiredOperationalStateForOnline",
                                                 JSON_BUILD_ARRAY(JSON_BUILD_STRING(link_operstate_to_string(network->required_operstate_for_online.min)),
@@ -475,7 +476,9 @@ static int network_build_json(Network *network, JsonVariant **ret) {
 }
 
 static int device_build_json(sd_device *device, JsonVariant **ret) {
-        const char *link = NULL, *path = NULL, *vendor = NULL, *model = NULL;
+        _cleanup_strv_free_ char **link_dropins = NULL;
+        const char *link = NULL, *path = NULL, *vendor = NULL, *model = NULL, *joined;
+        int r;
 
         assert(ret);
 
@@ -485,6 +488,13 @@ static int device_build_json(sd_device *device, JsonVariant **ret) {
         }
 
         (void) sd_device_get_property_value(device, "ID_NET_LINK_FILE", &link);
+
+        if (sd_device_get_property_value(device, "ID_NET_LINK_FILE_DROPINS", &joined) >= 0) {
+                 r = strv_split_full(&link_dropins, joined, ":", EXTRACT_CUNESCAPE);
+                 if (r < 0)
+                        return r;
+        }
+
         (void) sd_device_get_property_value(device, "ID_PATH", &path);
 
         if (sd_device_get_property_value(device, "ID_VENDOR_FROM_DATABASE", &vendor) < 0)
@@ -495,6 +505,7 @@ static int device_build_json(sd_device *device, JsonVariant **ret) {
 
         return json_build(ret, JSON_BUILD_OBJECT(
                                 JSON_BUILD_PAIR_STRING_NON_EMPTY("LinkFile", link),
+                                JSON_BUILD_PAIR_STRV_NON_EMPTY("LinkFileDropins", link_dropins),
                                 JSON_BUILD_PAIR_STRING_NON_EMPTY("Path", path),
                                 JSON_BUILD_PAIR_STRING_NON_EMPTY("Vendor", vendor),
                                 JSON_BUILD_PAIR_STRING_NON_EMPTY("Model", model)));

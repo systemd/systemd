@@ -992,6 +992,9 @@ DNS=127.0.0.1
         self.assertIn('nameserver 192.168.42.1\n', contents)
         self.assertIn('nameserver 127.0.0.1\n', contents)
 
+        out = subprocess.check_output(['networkctl', 'status', 'dummy0'])
+        self.assertIn(b'test.network.d/dns.conf', out)
+
     def test_dhcp_timezone(self):
         '''networkd sets time zone from DHCP'''
 
