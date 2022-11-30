@@ -3844,6 +3844,7 @@ if conf.get('ENABLE_REPART') == 1
                         install_rpath : rootpkglibdir,
                         install : true,
                         install_dir : rootbindir)
+                public_programs += exe
         endif
 endif
 
