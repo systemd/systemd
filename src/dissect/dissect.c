@@ -1194,6 +1194,19 @@ static int action_umount(const char *path) {
                 return log_error_errno(r, "Failed to determine whether '%s' is a mount point: %m", canonical);
 
         r = block_device_new_from_fd(fd, BLOCK_DEVICE_LOOKUP_WHOLE_DISK | BLOCK_DEVICE_LOOKUP_BACKING, &dev);
+        if (r < 0) {
+                _cleanup_close_ int usr_fd = -1;
+
+                /* The command `systemd-dissect --mount` expects that the image at least has the root or /usr
+                 * partition. If it does not have the root partition, then we mount the /usr partition on a
+                 * tmpfs. Hence, let's try to find the backing block device through the /usr partition. */
+
+                usr_fd = openat(fd, "usr", O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW);
+                if (usr_fd < 0)
+                        return log_error_errno(errno, "Failed to open '%s/usr': %m", canonical);
+
+                r = block_device_new_from_fd(usr_fd, BLOCK_DEVICE_LOOKUP_WHOLE_DISK | BLOCK_DEVICE_LOOKUP_BACKING, &dev);
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to find backing block device for '%s': %m", canonical);
 
