@@ -2234,6 +2234,7 @@ Features:
     investigate whether creating the inner child with CLONE_PARENT isn't better.
   - Reduce the number of sockets that are currently in use and just rely on one
     or two sockets.
+  - Support running nspawn as an unprivileged user.
 
 * machined: add API to acquire UID range. add API to mount/dissect loopback
   file. Both protected by PK. Then make nspawn use these APIs to run
