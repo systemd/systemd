@@ -1133,7 +1133,7 @@ int image_set_limit(Image *i, uint64_t referenced_max) {
         return btrfs_subvol_set_subtree_quota_limit(i->path, 0, referenced_max);
 }
 
-int image_read_metadata(Image *i) {
+int image_read_metadata(Image *i, const ImagePolicy *image_policy) {
         _cleanup_(release_lock_file) LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
         int r;
 
@@ -1214,7 +1214,9 @@ int image_read_metadata(Image *i) {
 
                 r = dissect_loop_device(
                                 d,
-                                NULL, NULL,
+                                /* verity= */ NULL,
+                                /* mount_options= */ NULL,
+                                image_policy,
                                 DISSECT_IMAGE_GENERIC_ROOT |
                                 DISSECT_IMAGE_REQUIRE_ROOT |
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |

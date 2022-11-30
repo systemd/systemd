@@ -543,6 +543,7 @@ static int dissect_image(
                 const char *devname,
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
+                const ImagePolicy *policy,
                 DissectImageFlags flags) {
 
         sd_id128_t root_uuid = SD_ID128_NULL, root_verity_uuid = SD_ID128_NULL;
@@ -1331,6 +1332,7 @@ int dissect_image_file(
                 const char *path,
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
+                const ImagePolicy *image_policy,
                 DissectImageFlags flags,
                 DissectedImage **ret) {
 
@@ -1358,7 +1360,7 @@ int dissect_image_file(
         if (r < 0)
                 return r;
 
-        r = dissect_image(m, fd, path, verity, mount_options, flags);
+        r = dissect_image(m, fd, path, verity, mount_options, image_policy, flags);
         if (r < 0)
                 return r;
 
@@ -3250,6 +3252,7 @@ int dissect_loop_device(
                 LoopDevice *loop,
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
+                const ImagePolicy *image_policy,
                 DissectImageFlags flags,
                 DissectedImage **ret) {
 
@@ -3267,7 +3270,7 @@ int dissect_loop_device(
         m->loop = loop_device_ref(loop);
         m->sector_size = m->loop->sector_size;
 
-        r = dissect_image(m, loop->fd, loop->node, verity, mount_options, flags);
+        r = dissect_image(m, loop->fd, loop->node, verity, mount_options, image_policy, flags);
         if (r < 0)
                 return r;
 
@@ -3282,6 +3285,7 @@ int dissect_loop_device_and_warn(
                 LoopDevice *loop,
                 const VeritySettings *verity,
                 const MountOptions *mount_options,
+                const ImagePolicy *image_policy,
                 DissectImageFlags flags,
                 DissectedImage **ret) {
 
@@ -3293,7 +3297,7 @@ int dissect_loop_device_and_warn(
 
         name = ASSERT_PTR(loop->backing_file ?: loop->node);
 
-        r = dissect_loop_device(loop, verity, mount_options, flags, ret);
+        r = dissect_loop_device(loop, verity, mount_options, image_policy, flags, ret);
         switch (r) {
 
         case -EOPNOTSUPP:
@@ -3407,6 +3411,7 @@ const char* mount_options_from_designator(const MountOptions *options, Partition
 
 int mount_image_privately_interactively(
                 const char *image,
+                const ImagePolicy *image_policy,
                 DissectImageFlags flags,
                 char **ret_directory,
                 int *ret_dir_fd,
@@ -3449,7 +3454,13 @@ int mount_image_privately_interactively(
         if (r < 0)
                 return log_error_errno(r, "Failed to set up loopback device for %s: %m", image);
 
-        r = dissect_loop_device_and_warn(d, &verity, NULL, flags, &dissected_image);
+        r = dissect_loop_device_and_warn(
+                        d,
+                        &verity,
+                        /* mount_options= */ NULL,
+                        image_policy,
+                        flags,
+                        &dissected_image);
         if (r < 0)
                 return r;
 
@@ -3513,6 +3524,7 @@ int verity_dissect_and_mount(
                 const char *src,
                 const char *dest,
                 const MountOptions *options,
+                const ImagePolicy *image_policy,
                 const char *required_host_os_release_id,
                 const char *required_host_os_release_version_id,
                 const char *required_host_os_release_sysext_level,
@@ -3556,6 +3568,7 @@ int verity_dissect_and_mount(
                         loop_device,
                         &verity,
                         options,
+                        image_policy,
                         dissect_image_flags,
                         &dissected_image);
         /* No partition table? Might be a single-filesystem image, try again */
@@ -3564,6 +3577,7 @@ int verity_dissect_and_mount(
                                 loop_device,
                                 &verity,
                                 options,
+                                image_policy,
                                 dissect_image_flags | DISSECT_IMAGE_NO_PARTITION_TABLE,
                                 &dissected_image);
         if (r < 0)

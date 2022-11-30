@@ -234,6 +234,7 @@ static char **arg_bind_user = NULL;
 static bool arg_suppress_sync = false;
 static char *arg_settings_filename = NULL;
 static Architecture arg_architecture = _ARCHITECTURE_INVALID;
+static ImagePolicy *arg_image_policy = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_template, freep);
@@ -268,6 +269,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_cpu_set, cpu_set_reset);
 STATIC_DESTRUCTOR_REGISTER(arg_sysctl, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_user, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_settings_filename, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 static int handle_arg_console(const char *arg) {
         if (streq(arg, "help")) {
@@ -330,6 +332,7 @@ static int help(void) {
                "                            remove it after exit\n"
                "  -i --image=PATH           Root file system disk image (or device node) for\n"
                "                            the container\n"
+               "     --image-policy=POLICY  Specify disk image dissection policy\n"
                "     --oci-bundle=PATH      OCI bundle directory\n"
                "     --read-only            Mount the root directory read-only\n"
                "     --volatile[=MODE]      Run the system in volatile mode\n"
@@ -732,6 +735,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LOAD_CREDENTIAL,
                 ARG_BIND_USER,
                 ARG_SUPPRESS_SYNC,
+                ARG_IMAGE_POLICY,
         };
 
         static const struct option options[] = {
@@ -805,6 +809,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "load-credential",        required_argument, NULL, ARG_LOAD_CREDENTIAL        },
                 { "bind-user",              required_argument, NULL, ARG_BIND_USER              },
                 { "suppress-sync",          required_argument, NULL, ARG_SUPPRESS_SYNC          },
+                { "image-policy",           required_argument, NULL, ARG_IMAGE_POLICY           },
                 {}
         };
 
@@ -1695,6 +1700,18 @@ static int parse_argv(int argc, char *argv[]) {
 
                         arg_settings_mask |= SETTING_SUPPRESS_SYNC;
                         break;
+
+                case ARG_IMAGE_POLICY: {
+                        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
+
+                        r = image_policy_from_string(optarg, &p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse image policy: %s", optarg);
+
+                        image_policy_free(arg_image_policy);
+                        arg_image_policy = TAKE_PTR(p);
+                        break;
+                }
 
                 case '?':
                         return -EINVAL;
@@ -5755,7 +5772,8 @@ static int run(int argc, char *argv[]) {
                 r = dissect_loop_device_and_warn(
                                 loop,
                                 &arg_verity_settings,
-                                NULL,
+                                /* mount_options=*/ NULL,
+                                arg_image_policy ?: &image_policy_container,
                                 dissect_image_flags,
                                 &dissected_image);
                 if (r == -ENOPKG) {
