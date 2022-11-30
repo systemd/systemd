@@ -5800,7 +5800,7 @@ static int run(int argc, char *argv[]) {
                 arg_quiet = true;
 
         if (!arg_quiet)
-                log_info("Spawning container %s on %s.\nPress ^] three times within 1s to kill container.",
+                log_info("Spawning container %s on %s.\nPress Ctrl-] three times within 1s to kill container.",
                          arg_machine, arg_image ?: arg_directory);
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGWINCH, SIGTERM, SIGINT, -1) >= 0);
