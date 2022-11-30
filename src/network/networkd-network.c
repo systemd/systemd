@@ -552,7 +552,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         CONFIG_PARSE_WARN,
                         network,
                         &network->stats_by_path,
-                        NULL);
+                        &network->dropins);
         if (r < 0)
                 return r; /* config_parse_many() logs internally. */
 
@@ -670,6 +670,7 @@ static Network *network_free(Network *network) {
         free(network->name);
         free(network->filename);
         free(network->description);
+        strv_free(network->dropins);
         hashmap_free(network->stats_by_path);
 
         /* conditions */
