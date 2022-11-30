@@ -33,6 +33,7 @@
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
+#include "nulstr-util.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -1174,9 +1175,8 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
 
 static int action_umount(const char *path) {
         _cleanup_close_ int fd = -1;
-        _cleanup_free_ char *canonical = NULL, *devname = NULL;
+        _cleanup_free_ char *canonical = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-        dev_t devno;
         int r;
 
         fd = chase_symlinks_and_open(path, NULL, 0, O_DIRECTORY, &canonical);
@@ -1185,24 +1185,55 @@ static int action_umount(const char *path) {
         if (fd < 0)
                 return log_error_errno(fd, "Failed to resolve path '%s': %m", path);
 
-        r = fd_is_mount_point(fd, NULL, 0);
-        if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "'%s' is not a mount point", canonical);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine whether '%s' is a mount point: %m", canonical);
+        for (PartitionDesignator designator = 0; designator < _PARTITION_DESIGNATOR_MAX; designator++) {
+                NULSTR_FOREACH(m, partition_mountpoint_nulstr(designator)) {
+                        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                        _cleanup_free_ char *mcanonical = NULL;
+                        _cleanup_close_ int mfd = -1;
 
-        r = fd_get_whole_disk(fd, /*backing=*/ true, &devno);
-        if (r < 0)
-                return log_error_errno(r, "Failed to find backing block device for '%s': %m", canonical);
+                        mfd = chase_symlinks_at_and_open(fd, m, CHASE_AT_RESOLVE_IN_ROOT, O_DIRECTORY, &mcanonical);
+                        if (IN_SET(mfd, -ENOTDIR, -ENOENT)) {
+                                log_debug("'%s%s' is not a directory, ignoring", canonical, m);
+                                continue;
+                        }
+                        if (mfd < 0)
+                                return log_error_errno(mfd, "Failed to resolve path '%s%s': %m", canonical, m);
 
-        r = devname_from_devnum(S_IFBLK, devno, &devname);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get devname of block device " DEVNUM_FORMAT_STR ": %m",
-                                       DEVNUM_FORMAT_VAL(devno));
+                        r = fd_is_mount_point(mfd, NULL, 0);
+                        if (r == 0) {
+                                log_debug("'%s%s' is not a mountpoint, ignoring", canonical, mcanonical);
+                                continue;
+                        }
+                        if (r < 0)
+                                return log_error_errno(r,
+                                                       "Failed to determine whether '%s%s' is a mount point: %m",
+                                                       canonical, canonical);
 
-        r = loop_device_open_from_path(devname, 0, LOCK_EX, &d);
-        if (r < 0)
-                return log_error_errno(r, "Failed to open loop device '%s': %m", devname);
+                        r = block_device_new_from_fd(mfd,
+                                                     BLOCK_DEVICE_LOOKUP_WHOLE_DISK|BLOCK_DEVICE_LOOKUP_BACKING,
+                                                     &dev);
+                        if (r < 0) {
+                                log_debug_errno(r,
+                                                "Failed to find backing block device for '%s%s': %m",
+                                                canonical, mcanonical);
+                                continue;
+                        }
+
+                        r = loop_device_open(dev, 0, LOCK_EX, &d);
+                        if (r < 0)
+                                return log_device_error_errno(dev, r, "Failed to open loopback block device: %m");
+
+                        break;
+                }
+
+                if (d)
+                        break;
+        }
+
+        if (!d)
+                return log_error_errno(SYNTHETIC_ERRNO(ENODEV),
+                                       "Failed to find backing block device for '%s'",
+                                       canonical);
 
         /* We've locked the loop device, now we're ready to unmount. To allow the unmount to succeed, we have
          * to close the O_PATH fd we opened earlier. */
