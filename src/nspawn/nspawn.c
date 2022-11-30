@@ -3211,7 +3211,6 @@ static int inner_child(
                 const char *directory,
                 bool secondary,
                 int fd_inner_socket,
-                int master_pty_socket,
                 FDSet *fds,
                 char **os_release_pairs) {
 
@@ -3361,10 +3360,9 @@ static int inner_child(
                 if (r < 0)
                         return log_error_errno(r, "Failed to set up /dev/console: %m");
 
-                r = send_one_fd(master_pty_socket, master, 0);
+                r = send_one_fd(fd_inner_socket, master, 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send master fd: %m");
-                master_pty_socket = safe_close(master_pty_socket);
 
                 r = setup_stdio_as_dev_console();
                 if (r < 0)
@@ -3628,7 +3626,6 @@ static int outer_child(
                 bool secondary,
                 int fd_outer_socket,
                 int fd_inner_socket,
-                int master_pty_socket,
                 int unified_cgroup_hierarchy_socket,
                 FDSet *fds,
                 int netns_fd) {
@@ -3651,7 +3648,6 @@ static int outer_child(
         assert(barrier);
         assert(directory);
         assert(fd_outer_socket >= 0);
-        assert(master_pty_socket >= 0);
         assert(fd_inner_socket >= 0);
 
         log_debug("Outer child is initializing.");
@@ -4026,7 +4022,7 @@ static int outer_child(
                                 return log_error_errno(r, "Failed to join network namespace: %m");
                 }
 
-                r = inner_child(barrier, directory, secondary, fd_inner_socket, master_pty_socket, fds, os_release_pairs);
+                r = inner_child(barrier, directory, secondary, fd_inner_socket, fds, os_release_pairs);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
@@ -4052,7 +4048,6 @@ static int outer_child(
                 return log_error_errno(l, "Failed to send notify fd: %m");
 
         fd_outer_socket = safe_close(fd_outer_socket);
-        master_pty_socket = safe_close(master_pty_socket);
         fd_inner_socket = safe_close(fd_inner_socket);
         netns_fd = safe_close(netns_fd);
 
@@ -4754,7 +4749,6 @@ static int run_container(
         _cleanup_close_pair_ int
                 fd_inner_socket_pair[2] = { -EBADF, -EBADF },
                 fd_outer_socket_pair[2] = { -EBADF, -EBADF },
-                master_pty_socket_pair[2] = { -1, -1 },
                 unified_cgroup_hierarchy_socket_pair[2] = { -1, -1};
 
         _cleanup_close_ int notify_socket = -1, mntns_fd = -EBADF, fd_kmsg_fifo = -EBADF;
@@ -4798,9 +4792,6 @@ static int run_container(
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, fd_outer_socket_pair) < 0)
                 return log_error_errno(errno, "Failed to create outer socket pair: %m");
 
-        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, master_pty_socket_pair) < 0)
-                return log_error_errno(errno, "Failed to create console socket pair: %m");
-
         if (arg_unified_cgroup_hierarchy == CGROUP_UNIFIED_UNKNOWN)
                 if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, unified_cgroup_hierarchy_socket_pair) < 0)
                         return log_error_errno(errno, "Failed to create unified cgroup socket pair: %m");
@@ -4842,7 +4833,6 @@ static int run_container(
 
                 fd_inner_socket_pair[0] = safe_close(fd_inner_socket_pair[0]);
                 fd_outer_socket_pair[0] = safe_close(fd_outer_socket_pair[0]);
-                master_pty_socket_pair[0] = safe_close(master_pty_socket_pair[0]);
                 unified_cgroup_hierarchy_socket_pair[0] = safe_close(unified_cgroup_hierarchy_socket_pair[0]);
 
                 (void) reset_all_signal_handlers();
@@ -4854,7 +4844,6 @@ static int run_container(
                                 secondary,
                                 fd_outer_socket_pair[1],
                                 fd_inner_socket_pair[1],
-                                master_pty_socket_pair[1],
                                 unified_cgroup_hierarchy_socket_pair[1],
                                 fds,
                                 child_netns_fd);
@@ -4870,7 +4859,6 @@ static int run_container(
 
         fd_inner_socket_pair[1] = safe_close(fd_inner_socket_pair[1]);
         fd_outer_socket_pair[1] = safe_close(fd_outer_socket_pair[1]);
-        master_pty_socket_pair[1] = safe_close(master_pty_socket_pair[1]);
         unified_cgroup_hierarchy_socket_pair[1] = safe_close(unified_cgroup_hierarchy_socket_pair[1]);
 
         if (arg_userns_mode != USER_NAMESPACE_NO) {
@@ -5195,7 +5183,7 @@ static int run_container(
                 PTYForwardFlags flags = 0;
 
                 /* Retrieve the master pty allocated by inner child */
-                fd = receive_one_fd(master_pty_socket_pair[0], 0);
+                fd = receive_one_fd(fd_inner_socket_pair[0], 0);
                 if (fd < 0)
                         return log_error_errno(fd, "Failed to receive master pty from the inner child: %m");
 
