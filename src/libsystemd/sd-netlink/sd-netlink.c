@@ -187,7 +187,8 @@ static int dispatch_rqueue(sd_netlink *nl, sd_netlink_message **ret) {
 
         /* Dispatch a queued message */
         m = ordered_set_steal_first(nl->rqueue);
-        sd_netlink_message_unref(hashmap_remove_value(nl->rqueue_by_serial, UINT32_TO_PTR(message_get_serial(m)), m));
+        if (m)
+                sd_netlink_message_unref(hashmap_remove_value(nl->rqueue_by_serial, UINT32_TO_PTR(message_get_serial(m)), m));
         *ret = m;
         return !!m;
 }
