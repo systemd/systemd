@@ -1191,6 +1191,25 @@ static int action_umount(const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether '%s' is a mount point: %m", canonical);
 
+        r = fd_is_temporary_fs(fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether '%s' is a temporary filesystem: %m", canonical);
+        if (r > 0) {
+                _cleanup_free_ char *usr_path = NULL;
+                _cleanup_close_ int usr_fd = -1;
+
+                usr_fd = openat(fd, "usr", O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW);
+                if (usr_fd < 0)
+                        return log_error_errno(errno, "Failed to open '%s/usr': %m", canonical);
+
+                usr_path = path_join(canonical, "usr");
+                if (!usr_path)
+                        return log_oom();
+
+                free_and_replace(canonical, usr_path);
+                close_and_replace(fd, usr_fd);
+        }
+
         r = fd_get_whole_disk(fd, /*backing=*/ true, &devno);
         if (r < 0)
                 return log_error_errno(r, "Failed to find backing block device for '%s': %m", canonical);
