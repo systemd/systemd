@@ -191,7 +191,7 @@ PartitionPolicyFlags partition_policy_flags_from_string(const char *s) {
 
         assert(s);
 
-        if (streq(s, "-"))
+        if (streq(s, "-") || isempty(s))
                 return 0;
 
         for (;;) {
@@ -296,6 +296,8 @@ int image_policy_from_string(const char *s, ImagePolicy **ret) {
                         return r;
                 if (r == 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Expected designator name, followed by '=' got instead: %s", e);
+                if (!f) /* no separator? */
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Missing '=' in policy expression: %s", e);
 
                 ds = strstrip(d);
                 if (isempty(ds)) {
