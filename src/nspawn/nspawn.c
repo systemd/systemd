@@ -2497,13 +2497,13 @@ static int setup_credentials(const char *root) {
         return mount_nofollow_verbose(LOG_ERR, NULL, q, NULL, MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, "mode=0500");
 }
 
-static int setup_kmsg(int kmsg_socket) {
+static int setup_kmsg(int fd_inner_socket) {
         _cleanup_(unlink_and_freep) char *from = NULL;
         _cleanup_free_ char *fifo = NULL;
         _cleanup_close_ int fd = -1;
         int r;
 
-        assert(kmsg_socket >= 0);
+        assert(fd_inner_socket >= 0);
 
         BLOCK_WITH_UMASK(0000);
 
@@ -2530,7 +2530,7 @@ static int setup_kmsg(int kmsg_socket) {
                 return log_error_errno(errno, "Failed to open fifo: %m");
 
         /* Store away the fd in the socket, so that it stays open as long as we run the child */
-        r = send_one_fd(kmsg_socket, fd, 0);
+        r = send_one_fd(fd_inner_socket, fd, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to send FIFO fd: %m");
 
@@ -3210,7 +3210,7 @@ static int inner_child(
                 Barrier *barrier,
                 const char *directory,
                 bool secondary,
-                int kmsg_socket,
+                int fd_inner_socket,
                 int rtnl_socket,
                 int master_pty_socket,
                 FDSet *fds,
@@ -3250,7 +3250,7 @@ static int inner_child(
 
         assert(barrier);
         assert(directory);
-        assert(kmsg_socket >= 0);
+        assert(fd_inner_socket >= 0);
 
         log_debug("Inner child is initializing.");
 
@@ -3322,10 +3322,9 @@ static int inner_child(
         if (r < 0)
                 return r;
 
-        r = setup_kmsg(kmsg_socket);
+        r = setup_kmsg(fd_inner_socket);
         if (r < 0)
                 return r;
-        kmsg_socket = safe_close(kmsg_socket);
 
         r = mount_custom(
                         "/",
@@ -3630,7 +3629,7 @@ static int outer_child(
                 DissectedImage *dissected_image,
                 bool secondary,
                 int fd_outer_socket,
-                int kmsg_socket,
+                int fd_inner_socket,
                 int rtnl_socket,
                 int master_pty_socket,
                 int unified_cgroup_hierarchy_socket,
@@ -3656,7 +3655,7 @@ static int outer_child(
         assert(directory);
         assert(fd_outer_socket >= 0);
         assert(master_pty_socket >= 0);
-        assert(kmsg_socket >= 0);
+        assert(fd_inner_socket >= 0);
 
         log_debug("Outer child is initializing.");
 
@@ -4030,7 +4029,7 @@ static int outer_child(
                                 return log_error_errno(r, "Failed to join network namespace: %m");
                 }
 
-                r = inner_child(barrier, directory, secondary, kmsg_socket, rtnl_socket, master_pty_socket, fds, os_release_pairs);
+                r = inner_child(barrier, directory, secondary, fd_inner_socket, rtnl_socket, master_pty_socket, fds, os_release_pairs);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
@@ -4057,7 +4056,7 @@ static int outer_child(
 
         fd_outer_socket = safe_close(fd_outer_socket);
         master_pty_socket = safe_close(master_pty_socket);
-        kmsg_socket = safe_close(kmsg_socket);
+        fd_inner_socket = safe_close(fd_inner_socket);
         rtnl_socket = safe_close(rtnl_socket);
         netns_fd = safe_close(netns_fd);
 
@@ -4757,13 +4756,13 @@ static int run_container(
         _cleanup_(release_lock_file) LockFile uid_shift_lock = LOCK_FILE_INIT;
         _cleanup_close_ int etc_passwd_lock = -1;
         _cleanup_close_pair_ int
-                kmsg_socket_pair[2] = { -1, -1 },
+                fd_inner_socket_pair[2] = { -EBADF, -EBADF },
                 rtnl_socket_pair[2] = { -1, -1 },
                 fd_outer_socket_pair[2] = { -EBADF, -EBADF },
                 master_pty_socket_pair[2] = { -1, -1 },
                 unified_cgroup_hierarchy_socket_pair[2] = { -1, -1};
 
-        _cleanup_close_ int notify_socket = -1, mntns_fd = -EBADF;
+        _cleanup_close_ int notify_socket = -1, mntns_fd = -EBADF, fd_kmsg_fifo = -EBADF;
         _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -4798,11 +4797,11 @@ static int run_container(
         if (r < 0)
                 return log_error_errno(r, "Cannot initialize IPC barrier: %m");
 
-        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, kmsg_socket_pair) < 0)
-                return log_error_errno(errno, "Failed to create kmsg socket pair: %m");
-
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, rtnl_socket_pair) < 0)
                 return log_error_errno(errno, "Failed to create rtnl socket pair: %m");
+
+        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, fd_inner_socket_pair) < 0)
+                return log_error_errno(errno, "Failed to create inner socket pair: %m");
 
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, fd_outer_socket_pair) < 0)
                 return log_error_errno(errno, "Failed to create outer socket pair: %m");
@@ -4849,7 +4848,7 @@ static int run_container(
                 /* The outer child only has a file system namespace. */
                 barrier_set_role(&barrier, BARRIER_CHILD);
 
-                kmsg_socket_pair[0] = safe_close(kmsg_socket_pair[0]);
+                fd_inner_socket_pair[0] = safe_close(fd_inner_socket_pair[0]);
                 rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
                 fd_outer_socket_pair[0] = safe_close(fd_outer_socket_pair[0]);
                 master_pty_socket_pair[0] = safe_close(master_pty_socket_pair[0]);
@@ -4863,7 +4862,7 @@ static int run_container(
                                 dissected_image,
                                 secondary,
                                 fd_outer_socket_pair[1],
-                                kmsg_socket_pair[1],
+                                fd_inner_socket_pair[1],
                                 rtnl_socket_pair[1],
                                 master_pty_socket_pair[1],
                                 unified_cgroup_hierarchy_socket_pair[1],
@@ -4879,7 +4878,7 @@ static int run_container(
 
         fdset_close(fds);
 
-        kmsg_socket_pair[1] = safe_close(kmsg_socket_pair[1]);
+        fd_inner_socket_pair[1] = safe_close(fd_inner_socket_pair[1]);
         rtnl_socket_pair[1] = safe_close(rtnl_socket_pair[1]);
         fd_outer_socket_pair[1] = safe_close(fd_outer_socket_pair[1]);
         master_pty_socket_pair[1] = safe_close(master_pty_socket_pair[1]);
@@ -5199,6 +5198,11 @@ static int run_container(
 
         rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
 
+        /* Retrieve the kmsg fifo allocated by inner child */
+        fd_kmsg_fifo = receive_one_fd(fd_inner_socket_pair[0], 0);
+        if (fd_kmsg_fifo < 0)
+                return log_error_errno(fd_kmsg_fifo, "Failed to receive kmsg fifo from inner child: %m");
+
         if (arg_console_mode != CONSOLE_PIPE) {
                 _cleanup_close_ int fd = -1;
                 PTYForwardFlags flags = 0;
@@ -5235,6 +5239,8 @@ static int run_container(
                 *master = TAKE_FD(fd);
         }
 
+        fd_inner_socket_pair[0] = safe_close(fd_inner_socket_pair[0]);
+
         r = sd_event_loop(event);
         if (r < 0)
                 return log_error_errno(r, "Failed to run event loop: %m");
@@ -5255,6 +5261,8 @@ static int run_container(
 
         /* Normally redundant, but better safe than sorry */
         (void) kill(*pid, SIGKILL);
+
+        fd_kmsg_fifo = safe_close(fd_kmsg_fifo);
 
         if (arg_private_network) {
                 /* Move network interfaces back to the parent network namespace. We use `safe_fork`
