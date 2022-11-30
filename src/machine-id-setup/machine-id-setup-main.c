@@ -22,9 +22,11 @@ static char *arg_root = NULL;
 static char *arg_image = NULL;
 static bool arg_commit = false;
 static bool arg_print = false;
+static ImagePolicy *arg_image_policy = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -36,12 +38,13 @@ static int help(void) {
 
         printf("%s [OPTIONS...]\n"
                "\n%sInitialize /etc/machine-id from a random source.%s\n\n"
-               "  -h --help             Show this help\n"
-               "     --version          Show package version\n"
-               "     --root=PATH        Operate relative to root path\n"
-               "     --image=PATH       Operate relative to image file\n"
-               "     --commit           Commit transient ID\n"
-               "     --print            Print used machine ID\n"
+               "  -h --help                 Show this help\n"
+               "     --version              Show package version\n"
+               "     --root=PATH            Operate on an alternate filesystem root\n"
+               "     --image=PATH           Operate on disk image as filesystem root\n"
+               "     --image-policy=POLICY  Specify disk image dissection policy\n"
+               "     --commit               Commit transient ID\n"
+               "     --print                Print used machine ID\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -59,15 +62,17 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_IMAGE,
                 ARG_COMMIT,
                 ARG_PRINT,
+                ARG_IMAGE_POLICY,
         };
 
         static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "root",      required_argument, NULL, ARG_ROOT      },
-                { "image",     required_argument, NULL, ARG_IMAGE     },
-                { "commit",    no_argument,       NULL, ARG_COMMIT    },
-                { "print",     no_argument,       NULL, ARG_PRINT     },
+                { "help",         no_argument,       NULL, 'h'              },
+                { "version",      no_argument,       NULL, ARG_VERSION      },
+                { "root",         required_argument, NULL, ARG_ROOT         },
+                { "image",        required_argument, NULL, ARG_IMAGE        },
+                { "commit",       no_argument,       NULL, ARG_COMMIT       },
+                { "print",        no_argument,       NULL, ARG_PRINT        },
+                { "image-policy", required_argument, NULL, ARG_IMAGE_POLICY },
                 {}
         };
 
@@ -106,6 +111,17 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_print = true;
                         break;
 
+                case ARG_IMAGE_POLICY: {
+                        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
+
+                        r = image_policy_from_string(optarg, &p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse image policy: %s", optarg);
+
+                        image_policy_free(arg_image_policy);
+                        arg_image_policy = TAKE_PTR(p);
+                        break;
+                }
                 case '?':
                         return -EINVAL;
 
@@ -141,6 +157,7 @@ static int run(int argc, char *argv[]) {
 
                 r = mount_image_privately_interactively(
                                 arg_image,
+                                arg_image_policy,
                                 DISSECT_IMAGE_REQUIRE_ROOT |
                                 DISSECT_IMAGE_VALIDATE_OS |
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |

@@ -23,6 +23,7 @@
 #include "fstab-util.h"
 #include "generator.h"
 #include "gpt.h"
+#include "image-policy.h"
 #include "initrd-util.h"
 #include "mkdir.h"
 #include "mountpoint-util.h"
@@ -43,6 +44,9 @@ static bool arg_root_enabled = true;
 static char *arg_root_fstype = NULL;
 static char *arg_root_options = NULL;
 static int arg_root_rw = -1;
+static ImagePolicy *arg_image_policy = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 STATIC_DESTRUCTOR_REGISTER(arg_root_fstype, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_options, freep);
@@ -744,7 +748,9 @@ static int enumerate_partitions(dev_t devnum) {
 
         r = dissect_loop_device(
                         loop,
-                        NULL, NULL,
+                        /* verity= */ NULL,
+                        /* mount_options= */ NULL,
+                        arg_image_policy ?: &image_policy_host,
                         DISSECT_IMAGE_GPT_ONLY|
                         DISSECT_IMAGE_USR_NO_ROOT|
                         DISSECT_IMAGE_DISKSEQ_DEVNODE,
@@ -882,6 +888,20 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 arg_root_rw = true;
         else if (proc_cmdline_key_streq(key, "ro") && !value)
                 arg_root_rw = false;
+        else if (proc_cmdline_key_streq(key, "systemd.image_policy")) {
+                _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = image_policy_from_string(value, &p);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse image policy: %s", value);
+
+                image_policy_free(arg_image_policy);
+                arg_image_policy = TAKE_PTR(p);
+                return 0;
+        }
 
         return 0;
 }

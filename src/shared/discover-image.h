@@ -7,6 +7,7 @@
 #include "sd-id128.h"
 
 #include "hashmap.h"
+#include "image-policy.h"
 #include "lock-util.h"
 #include "macro.h"
 #include "path-util.h"
@@ -85,7 +86,7 @@ int image_name_lock(const char *name, int operation, LockFile *ret);
 
 int image_set_limit(Image *i, uint64_t referenced_max);
 
-int image_read_metadata(Image *i);
+int image_read_metadata(Image *i, const ImagePolicy *image_policy);
 
 bool image_in_search_path(ImageClass class, const char *root, const char *image);
 
