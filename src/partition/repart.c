@@ -3682,10 +3682,14 @@ static int do_copy_files(
                 gid_t override_gid,
                 const Set *denylist) {
 
+        CopyFlags flags = COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS;
         int r;
 
         assert(p);
         assert(root);
+
+        if (streq(p->format, "vfat"))
+                flags |= COPY_SYMLINKS_GRACEFUL;
 
         STRV_FOREACH_PAIR(source, target, p->copy_files) {
                 _cleanup_close_ int sfd = -1, pfd = -1, tfd = -1;
@@ -3731,14 +3735,14 @@ static int do_copy_files(
                                                 sfd, ".",
                                                 pfd, fn,
                                                 override_uid, override_gid,
-                                                COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS,
+                                                flags,
                                                 denylist);
                         } else
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 tfd, ".",
                                                 override_uid, override_gid,
-                                                COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS,
+                                                flags,
                                                 denylist);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s%s' to '%s%s': %m",
