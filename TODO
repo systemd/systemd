@@ -2230,6 +2230,8 @@ Features:
     port 53 to resolved stub 127.0.0.54
   - maybe optionally insert .nspawn file as GPT partition into images, so that
     such container images are entirely stand-alone and can be updated as one.
+  - The subreaper logic we currently have seems overly complex. We should
+    investigate whether creating the inner child with CLONE_PARENT isn't better.
 
 * machined: add API to acquire UID range. add API to mount/dissect loopback
   file. Both protected by PK. Then make nspawn use these APIs to run
