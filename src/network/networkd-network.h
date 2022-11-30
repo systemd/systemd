@@ -65,6 +65,7 @@ struct Network {
 
         char *name;
         char *filename;
+        char **dropins;
         Hashmap *stats_by_path;
         char *description;
 

@@ -47,6 +47,7 @@ static LinkConfig* link_config_free(LinkConfig *config) {
                 return NULL;
 
         free(config->filename);
+        strv_free(config->dropins);
 
         net_match_clear(&config->match);
         condition_free_list(config->conditions);
@@ -264,7 +265,7 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                         "SR-IOV\0",
                         config_item_perf_lookup, link_config_gperf_lookup,
                         CONFIG_PARSE_WARN, config, &stats_by_path,
-                        NULL);
+                        &config->dropins);
         if (r < 0)
                 return r; /* config_parse_many() logs internally. */
 
