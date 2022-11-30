@@ -409,12 +409,6 @@ Features:
   ID from it securely. This would then allow us to bind secrets a specific
   system securely.
 
-* nspawn: maybe allow TPM passthrough, backed by swtpm, and measure --image=
-  hash into its PCR 11, so that nspawn instances can be TPM enabled, and
-  partake in measurements/remote attestation and such. swtpm would run outside
-  of control of container, and ideally would itself bind its encryption keys to
-  host TPM.
-
 * tree-wide: convert as much as possible over to use sd_event_set_signal_exit(), instead
   of manually hooking into SIGINT/SIGTERM
 
@@ -827,11 +821,6 @@ Features:
   multiple versions are around of the same resource, show which ones. (in other
   words: show partition labels).
 
-* systemd-nspawn: make boot assessment do something sensible in a
-  container. i.e send an sd_notify() from payload to container manager once
-  boot-up is completed successfully, and use that in nspawn for dealing with
-  boot counting, implemented in the partition table labels and directory names.
-
 * maybe add a generator that reads /proc/cmdline, looks for
   systemd.pull-raw-portable=, systemd-pull-raw-sysext= and similar switches
   that take an URL as parameter. It then generates service units for
@@ -896,9 +885,6 @@ Features:
 
 * cryptsetup/homed: implement TOTP authentication backed by TPM2 and its
   internal clock.
-
-* nspawn: optionally set up nftables/iptables routes that forward UDP/TCP
-  traffic on port 53 to resolved stub 127.0.0.54
 
 * man: rework os-release(5), and clearly separate our extension-release.d/ and
   initrd-release parts, i.e. list explicitly which fields are about what.
@@ -1002,10 +988,6 @@ Features:
   "systemd.gpt_auto_policy=r+v+h" to require encryption for root and var but not
   for /home/, and similar. Similar add --image-dissect-policy= to tools that
   take --image= that take the same short string.
-
-* nspawn: maybe optionally insert .nspawn file as GPT partition into images, so
-  that such container images are entirely stand-alone and can be updated as
-  one.
 
 * we probably should extend the root verity hash of the root fs into some PCR
   on boot. (i.e. maybe add a veritytab option tpm2-measure=12 or so to measure
@@ -2220,35 +2202,40 @@ Features:
     PID 1...
   - optionally automatically add FORWARD rules to iptables whenever nspawn is
     running, remove them when shut down.
-
-* nspawn: add support for sysext extensions, too. i.e. a new --extension=
-  switch that takes one or more arguments, and applies the extensions already
-  during startup.
-
-* when main nspawn supervisor process gets suspended due to SIGSTOP/SIGTTOU or
-  so, freeze the payload too.
+  - add support for sysext extensions, too. i.e. a new --extension= switch that
+    takes one or more arguments, and applies the extensions already during
+    startup.
+  - when main nspawn supervisor process gets suspended due to SIGSTOP/SIGTTOU
+    or so, freeze the payload too.
+  - support time namespaces
+  - on cgroupsv1 issue cgroup empty handler process based on host events, so
+    that we make cgroup agent logic safe
+  - add API to invoke binary in container, then use that as fallback in
+    "machinectl shell"
+  - make nspawn suitable for shell pipelines: instead of triggering a hangup
+    when input is finished, send ^D, which synthesizes an EOF. Then wait for
+    hangup or ^D before passing on the EOF.
+  - greater control over selinux label?
+  - support that /proc, /sys/, /dev are pre-mounted
+  - maybe allow TPM passthrough, backed by swtpm, and measure --image= hash
+    into its PCR 11, so that nspawn instances can be TPM enabled, and partake
+    in measurements/remote attestation and such. swtpm would run outside of
+    control of container, and ideally would itself bind its encryption keys to
+    host TPM.
+  - make boot assessment do something sensible in a container. i.e send an
+    sd_notify() from payload to container manager once boot-up is completed
+    successfully, and use that in nspawn for dealing with boot counting,
+    implemented in the partition table labels and directory names.
+  - optionally set up nftables/iptables routes that forward UDP/TCP traffic on
+    port 53 to resolved stub 127.0.0.54
+  - maybe optionally insert .nspawn file as GPT partition into images, so that
+    such container images are entirely stand-alone and can be updated as one.
 
 * machined: add API to acquire UID range. add API to mount/dissect loopback
   file. Both protected by PK. Then make nspawn use these APIs to run
   unprivileged containers. i.e. push the truly privileged bits into machined,
   so that the client side can remain entirely unprivileged, with SUID or
   anything like that.
-
-* nspawn: support time namespaces
-
-* nspawn: on cgroupsv1 issue cgroup empty handler process based on host events,
-  so that we make cgroup agent logic safe
-
-* nspawn/machined: add API to invoke binary in container, then use that as
-  fallback in "machinectl shell"
-
-* nspawn: make nspawn suitable for shell pipelines: instead of triggering a
-  hangup when input is finished, send ^D, which synthesizes an EOF. Then wait
-  for hangup or ^D before passing on the EOF.
-
-* nspawn: greater control over selinux label?
-
-* nspawn: support that /proc, /sys/, /dev are pre-mounted
 
 * machined:
   - add an API so that libvirt-lxc can inform us about network interfaces being
