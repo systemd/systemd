@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
-#
+# pylint: disable=line-too-long,invalid-name,missing-module-docstring,missing-function-docstring,too-many-statements,broad-except
 
 import argparse
 import logging
@@ -54,12 +54,12 @@ def run(args):
         console.sendcontrol('a')
         console.send('0')
         logger.info("verify broadcast message")
-        console.expect('Broadcast message from root@H on %s' % pty, 2)
-        console.expect('The system will reboot at %s' % date, 2)
+        console.expect(f'Broadcast message from root@H on {pty}', 2)
+        console.expect(f'The system will reboot at {date}', 2)
 
         logger.info("check show output")
         console.sendline('shutdown --show')
-        console.expect("Reboot scheduled for %s, use 'shutdown -c' to cancel" % date, 2)
+        console.expect(f"Reboot scheduled for {date}, use 'shutdown -c' to cancel", 2)
 
         logger.info("cancel shutdown")
         console.sendline('shutdown -c')
