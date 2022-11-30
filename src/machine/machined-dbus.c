@@ -1492,15 +1492,16 @@ int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine) {
 
 int manager_add_machine(Manager *m, const char *name, Machine **_machine) {
         Machine *machine;
+        int r;
 
         assert(m);
         assert(name);
 
         machine = hashmap_get(m->machines, name);
         if (!machine) {
-                machine = machine_new(m, _MACHINE_CLASS_INVALID, name);
-                if (!machine)
-                        return -ENOMEM;
+                r = machine_new(m, _MACHINE_CLASS_INVALID, name, &machine);
+                if (r < 0)
+                        return r;
         }
 
         if (_machine)
