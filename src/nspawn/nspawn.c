@@ -3211,7 +3211,6 @@ static int inner_child(
                 const char *directory,
                 bool secondary,
                 int fd_inner_socket,
-                int rtnl_socket,
                 int master_pty_socket,
                 FDSet *fds,
                 char **os_release_pairs) {
@@ -3344,10 +3343,9 @@ static int inner_child(
                 (void) loopback_setup();
 
         if (arg_expose_ports) {
-                r = expose_port_send_rtnl(rtnl_socket);
+                r = expose_port_send_rtnl(fd_inner_socket);
                 if (r < 0)
                         return r;
-                rtnl_socket = safe_close(rtnl_socket);
         }
 
         if (arg_console_mode != CONSOLE_PIPE) {
@@ -3630,7 +3628,6 @@ static int outer_child(
                 bool secondary,
                 int fd_outer_socket,
                 int fd_inner_socket,
-                int rtnl_socket,
                 int master_pty_socket,
                 int unified_cgroup_hierarchy_socket,
                 FDSet *fds,
@@ -4029,7 +4026,7 @@ static int outer_child(
                                 return log_error_errno(r, "Failed to join network namespace: %m");
                 }
 
-                r = inner_child(barrier, directory, secondary, fd_inner_socket, rtnl_socket, master_pty_socket, fds, os_release_pairs);
+                r = inner_child(barrier, directory, secondary, fd_inner_socket, master_pty_socket, fds, os_release_pairs);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
@@ -4057,7 +4054,6 @@ static int outer_child(
         fd_outer_socket = safe_close(fd_outer_socket);
         master_pty_socket = safe_close(master_pty_socket);
         fd_inner_socket = safe_close(fd_inner_socket);
-        rtnl_socket = safe_close(rtnl_socket);
         netns_fd = safe_close(netns_fd);
 
         return 0;
@@ -4757,7 +4753,6 @@ static int run_container(
         _cleanup_close_ int etc_passwd_lock = -1;
         _cleanup_close_pair_ int
                 fd_inner_socket_pair[2] = { -EBADF, -EBADF },
-                rtnl_socket_pair[2] = { -1, -1 },
                 fd_outer_socket_pair[2] = { -EBADF, -EBADF },
                 master_pty_socket_pair[2] = { -1, -1 },
                 unified_cgroup_hierarchy_socket_pair[2] = { -1, -1};
@@ -4796,9 +4791,6 @@ static int run_container(
         r = barrier_create(&barrier);
         if (r < 0)
                 return log_error_errno(r, "Cannot initialize IPC barrier: %m");
-
-        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, rtnl_socket_pair) < 0)
-                return log_error_errno(errno, "Failed to create rtnl socket pair: %m");
 
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, fd_inner_socket_pair) < 0)
                 return log_error_errno(errno, "Failed to create inner socket pair: %m");
@@ -4849,7 +4841,6 @@ static int run_container(
                 barrier_set_role(&barrier, BARRIER_CHILD);
 
                 fd_inner_socket_pair[0] = safe_close(fd_inner_socket_pair[0]);
-                rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
                 fd_outer_socket_pair[0] = safe_close(fd_outer_socket_pair[0]);
                 master_pty_socket_pair[0] = safe_close(master_pty_socket_pair[0]);
                 unified_cgroup_hierarchy_socket_pair[0] = safe_close(unified_cgroup_hierarchy_socket_pair[0]);
@@ -4863,7 +4854,6 @@ static int run_container(
                                 secondary,
                                 fd_outer_socket_pair[1],
                                 fd_inner_socket_pair[1],
-                                rtnl_socket_pair[1],
                                 master_pty_socket_pair[1],
                                 unified_cgroup_hierarchy_socket_pair[1],
                                 fds,
@@ -4879,7 +4869,6 @@ static int run_container(
         fdset_close(fds);
 
         fd_inner_socket_pair[1] = safe_close(fd_inner_socket_pair[1]);
-        rtnl_socket_pair[1] = safe_close(rtnl_socket_pair[1]);
         fd_outer_socket_pair[1] = safe_close(fd_outer_socket_pair[1]);
         master_pty_socket_pair[1] = safe_close(master_pty_socket_pair[1]);
         unified_cgroup_hierarchy_socket_pair[1] = safe_close(unified_cgroup_hierarchy_socket_pair[1]);
@@ -5187,21 +5176,19 @@ static int run_container(
         /* Exit when the child exits */
         (void) sd_event_add_signal(event, NULL, SIGCHLD, on_sigchld, PID_TO_PTR(*pid));
 
+        /* Retrieve the kmsg fifo allocated by inner child */
+        fd_kmsg_fifo = receive_one_fd(fd_inner_socket_pair[0], 0);
+        if (fd_kmsg_fifo < 0)
+                return log_error_errno(fd_kmsg_fifo, "Failed to receive kmsg fifo from inner child: %m");
+
         if (arg_expose_ports) {
-                r = expose_port_watch_rtnl(event, rtnl_socket_pair[0], on_address_change, expose_args, &rtnl);
+                r = expose_port_watch_rtnl(event, fd_inner_socket_pair[0], on_address_change, expose_args, &rtnl);
                 if (r < 0)
                         return r;
 
                 (void) expose_port_execute(rtnl, &expose_args->fw_ctx, arg_expose_ports, AF_INET, &expose_args->address4);
                 (void) expose_port_execute(rtnl, &expose_args->fw_ctx, arg_expose_ports, AF_INET6, &expose_args->address6);
         }
-
-        rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
-
-        /* Retrieve the kmsg fifo allocated by inner child */
-        fd_kmsg_fifo = receive_one_fd(fd_inner_socket_pair[0], 0);
-        if (fd_kmsg_fifo < 0)
-                return log_error_errno(fd_kmsg_fifo, "Failed to receive kmsg fifo from inner child: %m");
 
         if (arg_console_mode != CONSOLE_PIPE) {
                 _cleanup_close_ int fd = -1;
