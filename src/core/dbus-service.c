@@ -197,15 +197,23 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
 
         propagate_directory = strjoina("/run/systemd/propagate/", u->id);
         if (is_image)
-                r = mount_image_in_namespace(unit_pid,
-                                             propagate_directory,
-                                             "/run/systemd/incoming/",
-                                             src, dest, read_only, make_file_or_directory, options);
+                r = mount_image_in_namespace(
+                                unit_pid,
+                                propagate_directory,
+                                "/run/systemd/incoming/",
+                                src, dest,
+                                read_only,
+                                make_file_or_directory,
+                                options,
+                                c->mount_image_policy ?: &image_policy_service);
         else
-                r = bind_mount_in_namespace(unit_pid,
-                                            propagate_directory,
-                                            "/run/systemd/incoming/",
-                                            src, dest, read_only, make_file_or_directory);
+                r = bind_mount_in_namespace(
+                                unit_pid,
+                                propagate_directory,
+                                "/run/systemd/incoming/",
+                                src, dest,
+                                read_only,
+                                make_file_or_directory);
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to mount %s on %s in unit's namespace: %m", src, dest);
 

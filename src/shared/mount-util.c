@@ -805,6 +805,7 @@ static int mount_in_namespace(
                 bool read_only,
                 bool make_file_or_directory,
                 const MountOptions *options,
+                const ImagePolicy *image_policy,
                 bool is_image) {
 
         _cleanup_close_pair_ int errno_pipe_fd[2] = PIPE_EBADF;
@@ -892,7 +893,7 @@ static int mount_in_namespace(
         mount_tmp_created = true;
 
         if (is_image)
-                r = verity_dissect_and_mount(chased_src_fd, chased_src_path, mount_tmp, options, NULL, NULL, NULL, NULL);
+                r = verity_dissect_and_mount(chased_src_fd, chased_src_path, mount_tmp, options, image_policy, NULL, NULL, NULL, NULL);
         else
                 r = mount_follow_verbose(LOG_DEBUG, FORMAT_PROC_FD_PATH(chased_src_fd), mount_tmp, NULL, MS_BIND, NULL);
         if (r < 0)
@@ -1042,7 +1043,7 @@ int bind_mount_in_namespace(
                 bool read_only,
                 bool make_file_or_directory) {
 
-        return mount_in_namespace(target, propagate_path, incoming_path, src, dest, read_only, make_file_or_directory, NULL, false);
+        return mount_in_namespace(target, propagate_path, incoming_path, src, dest, read_only, make_file_or_directory, /* options= */ NULL, /* image_policy= */ NULL, /* is_image= */ false);
 }
 
 int mount_image_in_namespace(
@@ -1053,9 +1054,10 @@ int mount_image_in_namespace(
                 const char *dest,
                 bool read_only,
                 bool make_file_or_directory,
-                const MountOptions *options) {
+                const MountOptions *options,
+                const ImagePolicy *image_policy) {
 
-        return mount_in_namespace(target, propagate_path, incoming_path, src, dest, read_only, make_file_or_directory, options, true);
+        return mount_in_namespace(target, propagate_path, incoming_path, src, dest, read_only, make_file_or_directory, options, image_policy, /* is_image=*/ true);
 }
 
 int make_mount_point(const char *path) {

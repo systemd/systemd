@@ -64,9 +64,11 @@ static const char* arg_output = NULL;
 static bool arg_reverse = false;
 static bool arg_quiet = false;
 static bool arg_all = false;
+static ImagePolicy *arg_image_policy = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_debugger_args, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 static int add_match(sd_journal *j, const char *match) {
         _cleanup_free_ char *p = NULL;
@@ -198,6 +200,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "     --all                     Look at all journal files instead of local ones\n"
                "     --root=PATH               Operate on an alternate filesystem root\n"
                "     --image=PATH              Operate on disk image as filesystem root\n"
+               "     --image-policy=POLICY     Specify disk image dissection policy\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -220,29 +223,31 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ROOT,
                 ARG_IMAGE,
                 ARG_ALL,
+                ARG_IMAGE_POLICY,
         };
 
         int c, r;
 
         static const struct option options[] = {
-                { "help",               no_argument,       NULL, 'h'           },
-                { "version" ,           no_argument,       NULL, ARG_VERSION   },
-                { "no-pager",           no_argument,       NULL, ARG_NO_PAGER  },
-                { "no-legend",          no_argument,       NULL, ARG_NO_LEGEND },
-                { "debugger",           required_argument, NULL, ARG_DEBUGGER  },
-                { "debugger-arguments", required_argument, NULL, 'A'           },
-                { "output",             required_argument, NULL, 'o'           },
-                { "field",              required_argument, NULL, 'F'           },
-                { "file",               required_argument, NULL, ARG_FILE      },
-                { "directory",          required_argument, NULL, 'D'           },
-                { "reverse",            no_argument,       NULL, 'r'           },
-                { "since",              required_argument, NULL, 'S'           },
-                { "until",              required_argument, NULL, 'U'           },
-                { "quiet",              no_argument,       NULL, 'q'           },
-                { "json",               required_argument, NULL, ARG_JSON      },
-                { "root",               required_argument, NULL, ARG_ROOT      },
-                { "image",              required_argument, NULL, ARG_IMAGE     },
-                { "all",                no_argument,       NULL, ARG_ALL       },
+                { "help",               no_argument,       NULL, 'h'              },
+                { "version" ,           no_argument,       NULL, ARG_VERSION      },
+                { "no-pager",           no_argument,       NULL, ARG_NO_PAGER     },
+                { "no-legend",          no_argument,       NULL, ARG_NO_LEGEND    },
+                { "debugger",           required_argument, NULL, ARG_DEBUGGER     },
+                { "debugger-arguments", required_argument, NULL, 'A'              },
+                { "output",             required_argument, NULL, 'o'              },
+                { "field",              required_argument, NULL, 'F'              },
+                { "file",               required_argument, NULL, ARG_FILE         },
+                { "directory",          required_argument, NULL, 'D'              },
+                { "reverse",            no_argument,       NULL, 'r'              },
+                { "since",              required_argument, NULL, 'S'              },
+                { "until",              required_argument, NULL, 'U'              },
+                { "quiet",              no_argument,       NULL, 'q'              },
+                { "json",               required_argument, NULL, ARG_JSON         },
+                { "root",               required_argument, NULL, ARG_ROOT         },
+                { "image",              required_argument, NULL, ARG_IMAGE        },
+                { "all",                no_argument,       NULL, ARG_ALL          },
+                { "image-policy",       required_argument, NULL, ARG_IMAGE_POLICY },
                 {}
         };
 
@@ -362,6 +367,18 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_ALL:
                         arg_all = true;
                         break;
+
+                case ARG_IMAGE_POLICY: {
+                        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
+
+                        r = image_policy_from_string(optarg, &p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse image policy: %s", optarg);
+
+                        image_policy_free(arg_image_policy);
+                        arg_image_policy = TAKE_PTR(p);
+                        break;
+                }
 
                 case '?':
                         return -EINVAL;
@@ -1361,6 +1378,7 @@ static int run(int argc, char *argv[]) {
 
                 r = mount_image_privately_interactively(
                                 arg_image,
+                                arg_image_policy,
                                 DISSECT_IMAGE_GENERIC_ROOT |
                                 DISSECT_IMAGE_REQUIRE_ROOT |
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |
