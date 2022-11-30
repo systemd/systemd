@@ -489,8 +489,12 @@ static int fd_copy_symlink(
         r = symlinkat(target, dt, to);
         if (copy_flags & COPY_MAC_CREATE)
                 mac_selinux_create_file_clear();
-        if (r < 0)
+        if (r < 0) {
+                if (FLAGS_SET(copy_flags, COPY_SYMLINKS_GRACEFUL) && (ERRNO_IS_PRIVILEGE(r) || ERRNO_IS_NOT_SUPPORTED(r)))
+                        return 0;
+
                 return -errno;
+        }
 
         if (fchownat(dt, to,
                      uid_is_valid(override_uid) ? override_uid : st->st_uid,
