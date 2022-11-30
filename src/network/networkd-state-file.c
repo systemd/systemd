@@ -515,7 +515,7 @@ int link_save(Link *link) {
 
         if (link->network) {
                 const char *online_state;
-                bool space;
+                bool space = false;
 
                 online_state = link_online_state_to_string(link->online_state);
                 if (online_state)
@@ -537,6 +537,11 @@ int link_save(Link *link) {
                         activation_policy_to_string(link->network->activation_policy));
 
                 fprintf(f, "NETWORK_FILE=%s\n", link->network->filename);
+
+                fputs("NETWORK_FILE_DROPINS=", f);
+                STRV_FOREACH(d, link->network->dropins)
+                        fputs_with_space(f, *d, NULL, &space);
+                fputc('\n', f);
 
                 /************************************************************/
 

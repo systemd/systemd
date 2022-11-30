@@ -44,6 +44,7 @@ typedef struct Link {
 
 struct LinkConfig {
         char *filename;
+        char **dropins;
 
         NetMatch match;
         LIST_HEAD(Condition, conditions);

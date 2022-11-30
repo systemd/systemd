@@ -1542,7 +1542,8 @@ static int link_status_one(
                 sd_hwdb *hwdb,
                 const LinkInfo *info) {
 
-        _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **sip = NULL, **search_domains = NULL, **route_domains = NULL;
+        _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **sip = NULL, **search_domains = NULL,
+                **route_domains = NULL, **link_dropins = NULL, **network_dropins = NULL;
         _cleanup_free_ char *t = NULL, *network = NULL, *iaid = NULL, *duid = NULL,
                 *setup_state = NULL, *operational_state = NULL, *online_state = NULL, *activation_policy = NULL;
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL,
@@ -1571,12 +1572,22 @@ static int link_status_one(
         (void) sd_network_link_get_ntp(info->ifindex, &ntp);
         (void) sd_network_link_get_sip(info->ifindex, &sip);
         (void) sd_network_link_get_network_file(info->ifindex, &network);
+        (void) sd_network_link_get_network_file_dropins(info->ifindex, &network_dropins);
         (void) sd_network_link_get_carrier_bound_to(info->ifindex, &carrier_bound_to);
         (void) sd_network_link_get_carrier_bound_by(info->ifindex, &carrier_bound_by);
         (void) sd_network_link_get_activation_policy(info->ifindex, &activation_policy);
 
         if (info->sd_device) {
+                const char *joined;
+
                 (void) sd_device_get_property_value(info->sd_device, "ID_NET_LINK_FILE", &link);
+
+                if (sd_device_get_property_value(info->sd_device, "ID_NET_LINK_FILE_DROPINS", &joined) >= 0) {
+                        link_dropins = strv_split(joined, NULL);
+                        if (!link_dropins)
+                                return log_oom();
+                }
+
                 (void) sd_device_get_property_value(info->sd_device, "ID_NET_DRIVER", &driver);
                 (void) sd_device_get_property_value(info->sd_device, "ID_PATH", &path);
 
@@ -1633,8 +1644,14 @@ static int link_status_one(
                            TABLE_SET_ALIGN_PERCENT, 100,
                            TABLE_STRING, strna(link),
                            TABLE_EMPTY,
+                           TABLE_STRING, "Link File Dropins:",
+                           TABLE_STRV, link_dropins ?: STRV_MAKE("n/a"),
+                           TABLE_EMPTY,
                            TABLE_STRING, "Network File:",
                            TABLE_STRING, strna(network),
+                           TABLE_EMPTY,
+                           TABLE_STRING, "Network File Dropins:",
+                           TABLE_STRV, network_dropins ?: STRV_MAKE("n/a"),
                            TABLE_EMPTY,
                            TABLE_STRING, "State:");
         if (r < 0)
