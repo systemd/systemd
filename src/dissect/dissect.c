@@ -1174,9 +1174,9 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
 
 static int action_umount(const char *path) {
         _cleanup_close_ int fd = -1;
-        _cleanup_free_ char *canonical = NULL, *devname = NULL;
+        _cleanup_free_ char *canonical = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-        dev_t devno;
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         int r;
 
         fd = chase_symlinks_and_open(path, NULL, 0, O_DIRECTORY, &canonical);
@@ -1191,18 +1191,32 @@ static int action_umount(const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether '%s' is a mount point: %m", canonical);
 
-        r = fd_get_whole_disk(fd, /*backing=*/ true, &devno);
+        r = fd_is_temporary_fs(fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether '%s' is a temporary filesystem: %m", canonical);
+        if (r > 0) {
+                _cleanup_free_ char *usr_path = NULL;
+                _cleanup_close_ int usr_fd = -1;
+
+                usr_fd = openat(fd, "usr", O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW);
+                if (usr_fd < 0)
+                        return log_error_errno(errno, "Failed to open '%s/usr': %m", canonical);
+
+                usr_path = path_join(canonical, "usr");
+                if (!usr_path)
+                        return log_oom();
+
+                free_and_replace(canonical, usr_path);
+                close_and_replace(fd, usr_fd);
+        }
+
+        r = block_device_new_from_fd(fd, BLOCK_DEVICE_LOOKUP_WHOLE_DISK | BLOCK_DEVICE_LOOKUP_BACKING, &dev);
         if (r < 0)
                 return log_error_errno(r, "Failed to find backing block device for '%s': %m", canonical);
 
-        r = devname_from_devnum(S_IFBLK, devno, &devname);
+        r = loop_device_open(dev, 0, LOCK_EX, &d);
         if (r < 0)
-                return log_error_errno(r, "Failed to get devname of block device " DEVNUM_FORMAT_STR ": %m",
-                                       DEVNUM_FORMAT_VAL(devno));
-
-        r = loop_device_open_from_path(devname, 0, LOCK_EX, &d);
-        if (r < 0)
-                return log_error_errno(r, "Failed to open loop device '%s': %m", devname);
+                return log_device_error_errno(dev, r, "Failed to open loopback block device: %m");
 
         /* We've locked the loop device, now we're ready to unmount. To allow the unmount to succeed, we have
          * to close the O_PATH fd we opened earlier. */
