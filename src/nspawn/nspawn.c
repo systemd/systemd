@@ -3629,7 +3629,7 @@ static int outer_child(
                 const char *directory,
                 DissectedImage *dissected_image,
                 bool secondary,
-                int fd_socket,
+                int fd_outer_socket,
                 int kmsg_socket,
                 int rtnl_socket,
                 int master_pty_socket,
@@ -3654,7 +3654,7 @@ static int outer_child(
 
         assert(barrier);
         assert(directory);
-        assert(fd_socket >= 0);
+        assert(fd_outer_socket >= 0);
         assert(master_pty_socket >= 0);
         assert(kmsg_socket >= 0);
 
@@ -3706,13 +3706,13 @@ static int outer_child(
                 if (r < 0)
                         return log_error_errno(r, "Failed to pin outer mount namespace: %m");
 
-                l = send_one_fd(fd_socket, mntns_fd, 0);
+                l = send_one_fd(fd_outer_socket, mntns_fd, 0);
                 if (l < 0)
                         return log_error_errno(l, "Failed to send outer mount namespace fd: %m");
                 mntns_fd = safe_close(mntns_fd);
 
                 /* Let the parent know which UID shift we read from the image */
-                l = send(fd_socket, &arg_uid_shift, sizeof(arg_uid_shift), MSG_NOSIGNAL);
+                l = send(fd_outer_socket, &arg_uid_shift, sizeof(arg_uid_shift), MSG_NOSIGNAL);
                 if (l < 0)
                         return log_error_errno(errno, "Failed to send UID shift: %m");
                 if (l != sizeof(arg_uid_shift))
@@ -3724,7 +3724,7 @@ static int outer_child(
                          * UID shift we just read from the image is available. If yes, it will send the UID
                          * shift back to us, if not it will pick a different one, and send it back to us. */
 
-                        l = recv(fd_socket, &arg_uid_shift, sizeof(arg_uid_shift), 0);
+                        l = recv(fd_outer_socket, &arg_uid_shift, sizeof(arg_uid_shift), 0);
                         if (l < 0)
                                 return log_error_errno(errno, "Failed to recv UID shift: %m");
                         if (l != sizeof(arg_uid_shift))
@@ -3789,7 +3789,7 @@ static int outer_child(
                                 (uid_t) bind_user_context->data[i].host_group->gid,
                         };
 
-                        l = send(fd_socket, map, sizeof(map), MSG_NOSIGNAL);
+                        l = send(fd_outer_socket, map, sizeof(map), MSG_NOSIGNAL);
                         if (l < 0)
                                 return log_error_errno(errno, "Failed to send user UID map: %m");
                         if (l != sizeof(map))
@@ -4019,7 +4019,7 @@ static int outer_child(
         if (pid < 0)
                 return log_error_errno(errno, "Failed to fork inner child: %m");
         if (pid == 0) {
-                fd_socket = safe_close(fd_socket);
+                fd_outer_socket = safe_close(fd_outer_socket);
 
                 /* The inner child has all namespaces that are requested, so that we all are owned by the
                  * user if user namespaces are turned on. */
@@ -4037,25 +4037,25 @@ static int outer_child(
                 _exit(EXIT_SUCCESS);
         }
 
-        l = send(fd_socket, &pid, sizeof(pid), MSG_NOSIGNAL);
+        l = send(fd_outer_socket, &pid, sizeof(pid), MSG_NOSIGNAL);
         if (l < 0)
                 return log_error_errno(errno, "Failed to send PID: %m");
         if (l != sizeof(pid))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Short write while sending PID.");
 
-        l = send(fd_socket, &arg_uuid, sizeof(arg_uuid), MSG_NOSIGNAL);
+        l = send(fd_outer_socket, &arg_uuid, sizeof(arg_uuid), MSG_NOSIGNAL);
         if (l < 0)
                 return log_error_errno(errno, "Failed to send machine ID: %m");
         if (l != sizeof(arg_uuid))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Short write while sending machine ID.");
 
-        l = send_one_fd(fd_socket, fd, 0);
+        l = send_one_fd(fd_outer_socket, fd, 0);
         if (l < 0)
                 return log_error_errno(l, "Failed to send notify fd: %m");
 
-        fd_socket = safe_close(fd_socket);
+        fd_outer_socket = safe_close(fd_outer_socket);
         master_pty_socket = safe_close(master_pty_socket);
         kmsg_socket = safe_close(kmsg_socket);
         rtnl_socket = safe_close(rtnl_socket);
@@ -4759,7 +4759,7 @@ static int run_container(
         _cleanup_close_pair_ int
                 kmsg_socket_pair[2] = { -1, -1 },
                 rtnl_socket_pair[2] = { -1, -1 },
-                fd_socket_pair[2] = { -EBADF, -EBADF },
+                fd_outer_socket_pair[2] = { -EBADF, -EBADF },
                 master_pty_socket_pair[2] = { -1, -1 },
                 unified_cgroup_hierarchy_socket_pair[2] = { -1, -1};
 
@@ -4804,8 +4804,8 @@ static int run_container(
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, rtnl_socket_pair) < 0)
                 return log_error_errno(errno, "Failed to create rtnl socket pair: %m");
 
-        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, fd_socket_pair) < 0)
-                return log_error_errno(errno, "Failed to create notify socket pair: %m");
+        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, fd_outer_socket_pair) < 0)
+                return log_error_errno(errno, "Failed to create outer socket pair: %m");
 
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, master_pty_socket_pair) < 0)
                 return log_error_errno(errno, "Failed to create console socket pair: %m");
@@ -4851,7 +4851,7 @@ static int run_container(
 
                 kmsg_socket_pair[0] = safe_close(kmsg_socket_pair[0]);
                 rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
-                fd_socket_pair[0] = safe_close(fd_socket_pair[0]);
+                fd_outer_socket_pair[0] = safe_close(fd_outer_socket_pair[0]);
                 master_pty_socket_pair[0] = safe_close(master_pty_socket_pair[0]);
                 unified_cgroup_hierarchy_socket_pair[0] = safe_close(unified_cgroup_hierarchy_socket_pair[0]);
 
@@ -4862,7 +4862,7 @@ static int run_container(
                                 arg_directory,
                                 dissected_image,
                                 secondary,
-                                fd_socket_pair[1],
+                                fd_outer_socket_pair[1],
                                 kmsg_socket_pair[1],
                                 rtnl_socket_pair[1],
                                 master_pty_socket_pair[1],
@@ -4881,17 +4881,17 @@ static int run_container(
 
         kmsg_socket_pair[1] = safe_close(kmsg_socket_pair[1]);
         rtnl_socket_pair[1] = safe_close(rtnl_socket_pair[1]);
-        fd_socket_pair[1] = safe_close(fd_socket_pair[1]);
+        fd_outer_socket_pair[1] = safe_close(fd_outer_socket_pair[1]);
         master_pty_socket_pair[1] = safe_close(master_pty_socket_pair[1]);
         unified_cgroup_hierarchy_socket_pair[1] = safe_close(unified_cgroup_hierarchy_socket_pair[1]);
 
         if (arg_userns_mode != USER_NAMESPACE_NO) {
-                mntns_fd = receive_one_fd(fd_socket_pair[0], 0);
+                mntns_fd = receive_one_fd(fd_outer_socket_pair[0], 0);
                 if (mntns_fd < 0)
                         return log_error_errno(mntns_fd, "Failed to receive mount namespace fd from outer child: %m");
 
                 /* The child just let us know the UID shift it might have read from the image. */
-                l = recv(fd_socket_pair[0], &arg_uid_shift, sizeof arg_uid_shift, 0);
+                l = recv(fd_outer_socket_pair[0], &arg_uid_shift, sizeof arg_uid_shift, 0);
                 if (l < 0)
                         return log_error_errno(errno, "Failed to read UID shift: %m");
                 if (l != sizeof arg_uid_shift)
@@ -4906,7 +4906,7 @@ static int run_container(
                         if (r < 0)
                                 return log_error_errno(r, "Failed to pick suitable UID/GID range: %m");
 
-                        l = send(fd_socket_pair[0], &arg_uid_shift, sizeof arg_uid_shift, MSG_NOSIGNAL);
+                        l = send(fd_outer_socket_pair[0], &arg_uid_shift, sizeof arg_uid_shift, MSG_NOSIGNAL);
                         if (l < 0)
                                 return log_error_errno(errno, "Failed to send UID shift: %m");
                         if (l != sizeof arg_uid_shift)
@@ -4923,7 +4923,7 @@ static int run_container(
                                 return log_oom();
 
                         for (size_t i = 0; i < n_bind_user_uid; i++) {
-                                l = recv(fd_socket_pair[0], bind_user_uid + i*4, sizeof(uid_t)*4, 0);
+                                l = recv(fd_outer_socket_pair[0], bind_user_uid + i*4, sizeof(uid_t)*4, 0);
                                 if (l < 0)
                                         return log_error_errno(errno, "Failed to read user UID map pair: %m");
                                 if (l != sizeof(uid_t)*4)
@@ -4952,21 +4952,21 @@ static int run_container(
                 return -EIO;
 
         /* And now retrieve the PID of the inner child. */
-        l = recv(fd_socket_pair[0], pid, sizeof *pid, 0);
+        l = recv(fd_outer_socket_pair[0], pid, sizeof *pid, 0);
         if (l < 0)
                 return log_error_errno(errno, "Failed to read inner child PID: %m");
         if (l != sizeof *pid)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading inner child PID.");
 
         /* We also retrieve container UUID in case it was generated by outer child */
-        l = recv(fd_socket_pair[0], &arg_uuid, sizeof arg_uuid, 0);
+        l = recv(fd_outer_socket_pair[0], &arg_uuid, sizeof arg_uuid, 0);
         if (l < 0)
                 return log_error_errno(errno, "Failed to read container machine ID: %m");
         if (l != sizeof(arg_uuid))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading container machined ID.");
 
         /* We also retrieve the socket used for notifications generated by outer child */
-        notify_socket = receive_one_fd(fd_socket_pair[0], 0);
+        notify_socket = receive_one_fd(fd_outer_socket_pair[0], 0);
         if (notify_socket < 0)
                 return log_error_errno(notify_socket,
                                        "Failed to receive notification socket from the outer child: %m");
