@@ -166,6 +166,14 @@ int dissected_image_relinquish(DissectedImage *m);
 int verity_settings_load(VeritySettings *verity, const char *image, const char *root_hash_path, const char *root_hash_sig_path);
 void verity_settings_done(VeritySettings *verity);
 
+static inline bool verity_settings_data_covers(const VeritySettings *verity, PartitionDesignator d) {
+        /* Returns true if the verity settings contain sufficient information to cover the specified partition */
+        return verity &&
+                ((d >= 0 && verity->designator == d) || (d == PARTITION_ROOT && verity->designator < 0)) &&
+                verity->root_hash &&
+                verity->data_path;
+}
+
 int dissected_image_load_verity_sig_partition(DissectedImage *m, int fd, VeritySettings *verity);
 
 bool dissected_image_verity_candidate(const DissectedImage *image, PartitionDesignator d);

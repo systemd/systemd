@@ -513,13 +513,10 @@ static int dissect_image(
                         m->encrypted = streq_ptr(fstype, "crypto_LUKS");
 
                         m->has_verity = verity && verity->data_path;
-                        m->verity_ready = m->has_verity &&
-                                verity->root_hash &&
-                                (verity->designator < 0 || verity->designator == PARTITION_ROOT);
+                        m->verity_ready = verity_settings_data_covers(verity, PARTITION_ROOT);
 
                         m->has_verity_sig = false; /* signature not embedded, must be specified */
-                        m->verity_sig_ready = m->verity_ready &&
-                                verity->root_hash_sig;
+                        m->verity_sig_ready = m->verity_ready && verity->root_hash_sig;
 
                         m->image_uuid = uuid;
 
