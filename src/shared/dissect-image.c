@@ -458,7 +458,7 @@ static int dissect_image(
                         _cleanup_close_ int mount_node_fd = -1;
                         sd_id128_t uuid = SD_ID128_NULL;
 
-                        if (FLAGS_SET(flags, DISSECT_IMAGE_OPEN_PARTITION_DEVICES)) {
+                        if (FLAGS_SET(flags, DISSECT_IMAGE_PIN_PARTITION_DEVICES)) {
                                 mount_node_fd = open_partition(devname, /* is_partition = */ false, m->loop);
                                 if (mount_node_fd < 0)
                                         return mount_node_fd;
@@ -539,7 +539,7 @@ static int dissect_image(
         if (verity && verity->data_path)
                 return -EBADR;
 
-        if (FLAGS_SET(flags, DISSECT_IMAGE_MANAGE_PARTITION_DEVICES)) {
+        if (FLAGS_SET(flags, DISSECT_IMAGE_ADD_PARTITION_DEVICES)) {
                 /* Safety check: refuse block devices that carry a partition table but for which the kernel doesn't
                  * do partition scanning. */
                 r = blockdev_partscan_enabled(fd);
@@ -615,7 +615,7 @@ static int dissect_image(
                  * Kernel returns EBUSY if there's already a partition by that number or an overlapping
                  * partition already existent. */
 
-                if (FLAGS_SET(flags, DISSECT_IMAGE_MANAGE_PARTITION_DEVICES)) {
+                if (FLAGS_SET(flags, DISSECT_IMAGE_ADD_PARTITION_DEVICES)) {
                         r = block_device_add_partition(fd, node, nr, (uint64_t) start * 512, (uint64_t) size * 512);
                         if (r < 0) {
                                 if (r != -EBUSY)
@@ -870,7 +870,7 @@ static int dissect_image(
                                         dissected_partition_done(m->partitions + type.designator);
                                 }
 
-                                if (FLAGS_SET(flags, DISSECT_IMAGE_OPEN_PARTITION_DEVICES) &&
+                                if (FLAGS_SET(flags, DISSECT_IMAGE_PIN_PARTITION_DEVICES) &&
                                     type.designator != PARTITION_SWAP) {
                                         mount_node_fd = open_partition(node, /* is_partition = */ true, m->loop);
                                         if (mount_node_fd < 0)
@@ -945,7 +945,7 @@ static int dissect_image(
                                 if (m->partitions[PARTITION_XBOOTLDR].found)
                                         continue;
 
-                                if (FLAGS_SET(flags, DISSECT_IMAGE_OPEN_PARTITION_DEVICES)) {
+                                if (FLAGS_SET(flags, DISSECT_IMAGE_PIN_PARTITION_DEVICES)) {
                                         mount_node_fd = open_partition(node, /* is_partition = */ true, m->loop);
                                         if (mount_node_fd < 0)
                                                 return mount_node_fd;
@@ -1025,7 +1025,7 @@ static int dissect_image(
                         _cleanup_free_ char *o = NULL;
                         const char *options;
 
-                        if (FLAGS_SET(flags, DISSECT_IMAGE_OPEN_PARTITION_DEVICES)) {
+                        if (FLAGS_SET(flags, DISSECT_IMAGE_PIN_PARTITION_DEVICES)) {
                                 mount_node_fd = open_partition(generic_node, /* is_partition = */ true, m->loop);
                                 if (mount_node_fd < 0)
                                         return mount_node_fd;
@@ -1130,7 +1130,6 @@ int dissect_image_file(
         int r;
 
         assert(path);
-        assert((flags & DISSECT_IMAGE_BLOCK_DEVICE) == 0);
         assert(ret);
 
         fd = open(path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
@@ -2945,7 +2944,7 @@ int dissect_loop_device(
 
         m->loop = loop_device_ref(loop);
 
-        r = dissect_image(m, loop->fd, loop->node, verity, mount_options, flags | DISSECT_IMAGE_BLOCK_DEVICE);
+        r = dissect_image(m, loop->fd, loop->node, verity, mount_options, flags);
         if (r < 0)
                 return r;
 
@@ -3108,6 +3107,10 @@ int mount_image_privately_interactively(
         assert(ret_directory);
         assert(ret_loop_device);
 
+        /* We intend to mount this right-away, hence add the partitions if needed and pin them*/
+        flags |= DISSECT_IMAGE_ADD_PARTITION_DEVICES |
+                DISSECT_IMAGE_PIN_PARTITION_DEVICES;
+
         r = verity_settings_load(&verity, image, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to load root hash data: %m");
@@ -3202,7 +3205,9 @@ int verity_dissect_and_mount(
                 return log_debug_errno(r, "Failed to load root hash: %m");
 
         dissect_image_flags = (verity.data_path ? DISSECT_IMAGE_NO_PARTITION_TABLE : 0) |
-                (relax_extension_release_check ? DISSECT_IMAGE_RELAX_SYSEXT_CHECK : 0);
+                (relax_extension_release_check ? DISSECT_IMAGE_RELAX_SYSEXT_CHECK : 0) |
+                DISSECT_IMAGE_ADD_PARTITION_DEVICES |
+                DISSECT_IMAGE_PIN_PARTITION_DEVICES;
 
         /* Note that we don't use loop_device_make here, as the FD is most likely O_PATH which would not be
          * accepted by LOOP_CONFIGURE, so just let loop_device_make_by_path reopen it as a regular FD. */

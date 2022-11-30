@@ -2051,7 +2051,9 @@ int setup_namespace(
                 DISSECT_IMAGE_RELAX_VAR_CHECK |
                 DISSECT_IMAGE_FSCK |
                 DISSECT_IMAGE_USR_NO_ROOT |
-                DISSECT_IMAGE_GROWFS;
+                DISSECT_IMAGE_GROWFS |
+                DISSECT_IMAGE_ADD_PARTITION_DEVICES |
+                DISSECT_IMAGE_PIN_PARTITION_DEVICES;
         size_t n_mounts;
         int r;
 
