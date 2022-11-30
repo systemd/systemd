@@ -12,21 +12,22 @@
 #include "set.h"
 
 typedef enum CopyFlags {
-        COPY_REFLINK     = 1 << 0,  /* Try to reflink */
-        COPY_MERGE       = 1 << 1,  /* Merge existing trees with our new one to copy */
-        COPY_REPLACE     = 1 << 2,  /* Replace an existing file if there's one */
-        COPY_SAME_MOUNT  = 1 << 3,  /* Don't descend recursively into other file systems, across mount point boundaries */
-        COPY_MERGE_EMPTY = 1 << 4,  /* Merge an existing, empty directory with our new tree to copy */
-        COPY_CRTIME      = 1 << 5,  /* Generate a user.crtime_usec xattr off the source crtime if there is one, on copying */
-        COPY_SIGINT      = 1 << 6,  /* Check for SIGINT regularly and return EINTR if seen (caller needs to block SIGINT) */
-        COPY_SIGTERM     = 1 << 7,  /* ditto, but for SIGTERM */
-        COPY_MAC_CREATE  = 1 << 8,  /* Create files with the correct MAC label (currently SELinux only) */
-        COPY_HARDLINKS   = 1 << 9,  /* Try to reproduce hard links */
-        COPY_FSYNC       = 1 << 10, /* fsync() after we are done */
-        COPY_FSYNC_FULL  = 1 << 11, /* fsync_full() after we are done */
-        COPY_SYNCFS      = 1 << 12, /* syncfs() the *top-level* dir after we are done */
-        COPY_ALL_XATTRS  = 1 << 13, /* Preserve all xattrs when copying, not just those in the user namespace */
-        COPY_HOLES       = 1 << 14, /* Copy holes */
+        COPY_REFLINK       = 1 << 0,  /* Try to reflink */
+        COPY_MERGE         = 1 << 1,  /* Merge existing trees with our new one to copy */
+        COPY_REPLACE       = 1 << 2,  /* Replace an existing file if there's one */
+        COPY_SAME_MOUNT    = 1 << 3,  /* Don't descend recursively into other file systems, across mount point boundaries */
+        COPY_MERGE_EMPTY   = 1 << 4,  /* Merge an existing, empty directory with our new tree to copy */
+        COPY_CRTIME        = 1 << 5,  /* Generate a user.crtime_usec xattr off the source crtime if there is one, on copying */
+        COPY_SIGINT        = 1 << 6,  /* Check for SIGINT regularly and return EINTR if seen (caller needs to block SIGINT) */
+        COPY_SIGTERM       = 1 << 7,  /* ditto, but for SIGTERM */
+        COPY_MAC_CREATE    = 1 << 8,  /* Create files with the correct MAC label (currently SELinux only) */
+        COPY_HARDLINKS     = 1 << 9,  /* Try to reproduce hard links */
+        COPY_FSYNC         = 1 << 10, /* fsync() after we are done */
+        COPY_FSYNC_FULL    = 1 << 11, /* fsync_full() after we are done */
+        COPY_SYNCFS        = 1 << 12, /* syncfs() the *top-level* dir after we are done */
+        COPY_ALL_XATTRS    = 1 << 13, /* Preserve all xattrs when copying, not just those in the user namespace */
+        COPY_HOLES         = 1 << 14, /* Copy holes */
+        COPY_GRACEFUL_WARN = 1 << 15, /* Skip copying file types that aren't supported by the target filesystem */
 } CopyFlags;
 
 typedef int (*copy_progress_bytes_t)(uint64_t n_bytes, void *userdata);
