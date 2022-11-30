@@ -504,13 +504,11 @@ static int address_update(Address *address) {
 
 static int address_drop(Address *address) {
         Link *link;
-        bool ready;
         int r;
 
         assert(address);
         assert(address->link);
 
-        ready = address_is_ready(address);
         link = address->link;
 
         r = address_set_masquerade(address, false);
@@ -522,11 +520,8 @@ static int address_drop(Address *address) {
         if (address->state == 0)
                 address_free(address);
 
-        link_update_operstate(link, true);
-
-        if (link && !ready)
-                link_check_ready(link);
-
+        link_update_operstate(link, /* also_update_master = */ true);
+        link_check_ready(link);
         return 0;
 }
 
