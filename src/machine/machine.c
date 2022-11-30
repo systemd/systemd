@@ -35,12 +35,14 @@
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Machine*, machine_free);
 
-Machine* machine_new(Manager *manager, MachineClass class, const char *name) {
+int machine_new(Manager *manager, MachineClass class, const char *name, Machine **ret) {
         _cleanup_(machine_freep) Machine *m = NULL;
+        int r;
 
         assert(manager);
         assert(class < _MACHINE_CLASS_MAX);
         assert(name);
+        assert(ret);
 
         /* Passing class == _MACHINE_CLASS_INVALID here is fine. It
          * means as much as "we don't know yet", and that we'll figure
@@ -48,26 +50,28 @@ Machine* machine_new(Manager *manager, MachineClass class, const char *name) {
 
         m = new0(Machine, 1);
         if (!m)
-                return NULL;
+                return -ENOMEM;
 
         m->name = strdup(name);
         if (!m->name)
-                return NULL;
+                return -ENOMEM;
 
         if (class != MACHINE_HOST) {
                 m->state_file = path_join("/run/systemd/machines", m->name);
                 if (!m->state_file)
-                        return NULL;
+                        return -ENOMEM;
         }
 
         m->class = class;
 
-        if (hashmap_put(manager->machines, m->name, m) < 0)
-                return NULL;
+        r = hashmap_put(manager->machines, m->name, m);
+        if (r < 0)
+                return r;
 
         m->manager = manager;
 
-        return TAKE_PTR(m);
+        *ret = TAKE_PTR(m);
+        return 0;
 }
 
 Machine* machine_free(Machine *m) {

@@ -117,9 +117,9 @@ static int manager_add_host_machine(Manager *m) {
         if (!unit)
                 return log_oom();
 
-        t = machine_new(m, MACHINE_HOST, ".host");
-        if (!t)
-                return log_oom();
+        r = machine_new(m, MACHINE_HOST, ".host", &t);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create machine: %m");
 
         t->leader = 1;
         t->id = mid;
