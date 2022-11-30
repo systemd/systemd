@@ -74,9 +74,15 @@
 /* how many times to wait for the device nodes to appear */
 #define N_DEVICE_NODE_LIST_ATTEMPTS 10
 
-int probe_filesystem_full(int fd, const char *path, char **ret_fstype) {
+int probe_filesystem_full(
+                int fd,
+                const char *path,
+                uint64_t offset,
+                uint64_t size,
+                char **ret_fstype) {
+
         /* Try to find device content type and return it in *ret_fstype. If nothing is found,
-         * 0/NULL will be returned. -EUCLEAN will be returned for ambiguous results, and an
+         * 0/NULL will be returned. -EUCLEAN will be returned for ambiguous results, and a
          * different error otherwise. */
 
 #if HAVE_BLKID
@@ -105,12 +111,19 @@ int probe_filesystem_full(int fd, const char *path, char **ret_fstype) {
                 path = path_by_fd;
         }
 
+        if (size == 0) /* empty size? nothing found! */
+                goto not_found;
+
         b = blkid_new_probe();
         if (!b)
                 return -ENOMEM;
 
         errno = 0;
-        r = blkid_probe_set_device(b, fd, 0, 0);
+        r = blkid_probe_set_device(
+                        b,
+                        fd,
+                        offset,
+                        size == UINT64_MAX ? 0 : size); /* when blkid sees size=0 it understands "everything". We prefer using UINT64_MAX for that */
         if (r != 0)
                 return errno_or_else(ENOMEM);
 
@@ -154,7 +167,7 @@ not_found:
 }
 
 #if HAVE_BLKID
-static int dissected_image_probe_filesystem(DissectedImage *m) {
+static int dissected_image_probe_filesystems(DissectedImage *m, int fd) {
         int r;
 
         assert(m);
@@ -167,9 +180,14 @@ static int dissected_image_probe_filesystem(DissectedImage *m) {
                 if (!p->found)
                         continue;
 
-                if (!p->fstype && p->mount_node_fd >= 0 && !p->decrypted_node) {
-                        r = probe_filesystem_full(p->mount_node_fd, p->node, &p->fstype);
-                        if (r < 0 && r != -EUCLEAN)
+                if (!p->fstype) {
+                        /* If we have an fd referring to the partition block device, use that. Otherwise go
+                         * via the whole block device or backing regular file, and read via offset. */
+                        if (p->mount_node_fd >= 0)
+                                r = probe_filesystem_full(p->mount_node_fd, p->node, 0, UINT64_MAX, &p->fstype);
+                        else
+                                r = probe_filesystem_full(fd, p->node, p->offset, p->size, &p->fstype);
+                        if (r < 0)
                                 return r;
                 }
 
@@ -1116,6 +1134,10 @@ static int dissect_image(
                         m->partitions[verity->designator == PARTITION_USR ? PARTITION_USR : PARTITION_ROOT].rw = false;
                 }
         }
+
+        r = dissected_image_probe_filesystems(m, fd);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -2240,7 +2262,7 @@ int dissected_image_decrypt(
                 }
 
                 if (!p->decrypted_fstype && p->mount_node_fd >= 0 && p->decrypted_node) {
-                        r = probe_filesystem_full(p->mount_node_fd, p->decrypted_node, &p->decrypted_fstype);
+                        r = probe_filesystem_full(p->mount_node_fd, p->decrypted_node, 0, UINT64_MAX, &p->decrypted_fstype);
                         if (r < 0 && r != -EUCLEAN)
                                 return r;
                 }
@@ -2949,10 +2971,6 @@ int dissect_loop_device(
         m->loop = loop_device_ref(loop);
 
         r = dissect_image(m, loop->fd, loop->node, verity, mount_options, flags);
-        if (r < 0)
-                return r;
-
-        r = dissected_image_probe_filesystem(m);
         if (r < 0)
                 return r;
 
