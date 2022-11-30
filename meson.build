@@ -3859,6 +3859,22 @@ executable(
         install : true,
         install_dir : rootlibexecdir)
 
+if have_standalone_binaries
+        executable(
+                'systemd-shutdown.standalone',
+                systemd_shutdown_sources,
+                include_directories : includes,
+                c_args : '-DSTANDALONE',
+                link_with : [libshared_static,
+                             libbasic,
+                             libsystemd_static],
+                dependencies : [libmount,
+                                versiondep],
+                install_rpath : rootpkglibdir,
+                install : true,
+                install_dir : rootlibexecdir)
+endif
+
 executable(
         'systemd-update-done',
         'src/update-done/update-done.c',
