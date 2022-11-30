@@ -164,7 +164,9 @@ static int do_mcopy(const char *node, const char *root) {
                 return log_error_errno(r, "Failed to read '%s' contents: %m", root);
 
         for (size_t i = 0; i < de->n_entries; i++) {
-                char *p = path_join(root, de->entries[i]->d_name);
+                _cleanup_free_ char *p = NULL;
+
+                p = path_join(root, de->entries[i]->d_name);
                 if (!p)
                         return log_oom();
 
