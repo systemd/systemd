@@ -32,6 +32,8 @@ bool partition_designator_is_versioned(PartitionDesignator d);
 
 PartitionDesignator partition_verity_of(PartitionDesignator p);
 PartitionDesignator partition_verity_sig_of(PartitionDesignator p);
+PartitionDesignator partition_verity_to_data(PartitionDesignator d);
+PartitionDesignator partition_verity_sig_to_data(PartitionDesignator d);
 
 const char* partition_designator_to_string(PartitionDesignator d) _const_;
 PartitionDesignator partition_designator_from_string(const char *name) _pure_;
