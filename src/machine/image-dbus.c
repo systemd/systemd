@@ -313,7 +313,7 @@ int bus_image_method_get_hostname(
         int r;
 
         if (!image->metadata_valid) {
-                r = image_read_metadata(image);
+                r = image_read_metadata(image, &image_policy_container);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to read image metadata: %m");
         }
@@ -331,7 +331,7 @@ int bus_image_method_get_machine_id(
         int r;
 
         if (!image->metadata_valid) {
-                r = image_read_metadata(image);
+                r = image_read_metadata(image, &image_policy_container);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to read image metadata: %m");
         }
@@ -359,7 +359,7 @@ int bus_image_method_get_machine_info(
         int r;
 
         if (!image->metadata_valid) {
-                r = image_read_metadata(image);
+                r = image_read_metadata(image, &image_policy_container);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to read image metadata: %m");
         }
@@ -376,7 +376,7 @@ int bus_image_method_get_os_release(
         int r;
 
         if (!image->metadata_valid) {
-                r = image_read_metadata(image);
+                r = image_read_metadata(image, &image_policy_container);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to read image metadata: %m");
         }
