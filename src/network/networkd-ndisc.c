@@ -168,6 +168,7 @@ static void ndisc_set_route_priority(Link *link, Route *route) {
 static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_freep) Route *route = in;
         struct in6_addr router;
+        bool is_new;
         int r;
 
         assert(route);
@@ -186,11 +187,16 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
         if (!route->protocol_set)
                 route->protocol = RTPROT_RA;
 
-        if (route_get(NULL, link, route, NULL) < 0)
+        is_new = route_get(NULL, link, route, NULL) < 0;
+
+        r = link_request_route(link, TAKE_PTR(route), true, &link->ndisc_messages,
+                               ndisc_route_handler, NULL);
+        if (r < 0)
+                return r;
+        if (r > 0 && is_new)
                 link->ndisc_configured = false;
 
-        return link_request_route(link, TAKE_PTR(route), true, &link->ndisc_messages,
-                                  ndisc_route_handler, NULL);
+        return 0;
 }
 
 static int ndisc_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Address *address) {
@@ -212,6 +218,7 @@ static int ndisc_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
 static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
         _cleanup_(address_freep) Address *address = in;
         struct in6_addr router;
+        bool is_new;
         int r;
 
         assert(address);
@@ -229,11 +236,16 @@ static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
-        if (address_get(link, address, NULL) < 0)
+        is_new = address_get(link, address, NULL) < 0;
+
+        r = link_request_address(link, TAKE_PTR(address), true, &link->ndisc_messages,
+                                 ndisc_address_handler, NULL);
+        if (r < 0)
+                return r;
+        if (r > 0 && is_new)
                 link->ndisc_configured = false;
 
-        return link_request_address(link, TAKE_PTR(address), true, &link->ndisc_messages,
-                                    ndisc_address_handler, NULL);
+        return 0;
 }
 
 static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
