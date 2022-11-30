@@ -511,10 +511,7 @@ int btrfs_subvol_get_info_fd(int fd, uint64_t subvol_id, BtrfsSubvolInfo *ret) {
         }
 
 finish:
-        if (!found)
-                return -ENODATA;
-
-        return 0;
+        return found ? 0 : -ENODATA;
 }
 
 int btrfs_qgroup_get_quota_fd(int fd, uint64_t qgroupid, BtrfsQuotaInfo *ret) {
