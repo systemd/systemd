@@ -19,6 +19,7 @@ typedef struct VeritySettings VeritySettings;
 
 struct DissectedPartition {
         bool found:1;
+        bool ignored:1;
         bool rw:1;
         bool growfs:1;
         int partno;                 /* -1 if there was no partition and the images contains a file system directly */
