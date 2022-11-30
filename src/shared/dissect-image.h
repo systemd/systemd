@@ -33,6 +33,7 @@ struct DissectedPartition {
         int mount_node_fd;
         uint64_t size;
         uint64_t offset;
+        uint64_t gpt_flags;
 };
 
 #define DISSECTED_PARTITION_NULL                                        \
