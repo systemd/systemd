@@ -47,6 +47,7 @@ char *arg_root = NULL;
 char *arg_image = NULL;
 InstallSource arg_install_source = ARG_INSTALL_SOURCE_AUTO;
 char *arg_efi_boot_option_description = NULL;
+ImagePolicy *arg_image_policy = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -55,6 +56,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_entry_token, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_efi_boot_option_description, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 int acquire_esp(
                 bool unprivileged_mode,
@@ -157,6 +159,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --boot-path=PATH  Path to the $BOOT partition\n"
                "     --root=PATH       Operate on an alternate filesystem root\n"
                "     --image=PATH      Operate on disk image as filesystem root\n"
+               "     --image-policy=POLICY\n"
+               "                       Specify disk image dissection policy\n"
                "     --install-source=auto|image|host\n"
                "                       Where to pick files when using --root=/--image=\n"
                "  -p --print-esp-path  Print path to the EFI System Partition\n"
@@ -203,6 +207,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_JSON,
                 ARG_ARCH_ALL,
                 ARG_EFI_BOOT_OPTION_DESCRIPTION,
+                ARG_IMAGE_POLICY,
         };
 
         static const struct option options[] = {
@@ -227,6 +232,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "json",                        required_argument, NULL, ARG_JSON                        },
                 { "all-architectures",           no_argument,       NULL, ARG_ARCH_ALL                    },
                 { "efi-boot-option-description", required_argument, NULL, ARG_EFI_BOOT_OPTION_DESCRIPTION },
+                { "image-policy",                required_argument, NULL, ARG_IMAGE_POLICY                },
                 {}
         };
 
@@ -376,6 +382,18 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_IMAGE_POLICY: {
+                        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
+
+                        r = image_policy_from_string(optarg, &p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse image policy: %s", optarg);
+
+                        image_policy_free(arg_image_policy);
+                        arg_image_policy = TAKE_PTR(p);
+                        break;
+                }
+
                 case '?':
                         return -EINVAL;
 
@@ -442,6 +460,7 @@ static int run(int argc, char *argv[]) {
 
                 r = mount_image_privately_interactively(
                                 arg_image,
+                                arg_image_policy,
                                 DISSECT_IMAGE_GENERIC_ROOT |
                                 DISSECT_IMAGE_RELAX_VAR_CHECK,
                                 &unlink_dir,
