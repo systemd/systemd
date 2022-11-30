@@ -107,19 +107,11 @@ int btrfs_subvol_make_fd(int fd, const char *subvolume) {
         if (r < 0)
                 return r;
 
-        r = fcntl(fd, F_GETFL);
-        if (r < 0)
-                return -errno;
-        if (FLAGS_SET(r, O_PATH)) {
-                /* An O_PATH fd was specified, let's convert here to a proper one, as btrfs ioctl's can't deal with
-                 * O_PATH. */
-
-                real_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
-                if (real_fd < 0)
-                        return real_fd;
-
-                fd = real_fd;
-        }
+        /* If an O_PATH fd was specified, let's convert here to a proper one, as btrfs ioctl's can't deal
+         * with O_PATH. */
+        fd = fd_reopen_condition(fd, O_RDONLY|O_CLOEXEC|O_DIRECTORY, O_PATH|O_DIRECTORY, &real_fd);
+        if (fd < 0)
+                return fd;
 
         strncpy(args.name, subvolume, sizeof(args.name)-1);
 
@@ -255,11 +247,16 @@ int btrfs_clone_range(int infd, uint64_t in_offset, int outfd, uint64_t out_offs
 
 int btrfs_get_block_device_fd(int fd, dev_t *dev) {
         struct btrfs_ioctl_fs_info_args fsi = {};
+        _cleanup_close_ int regfd = -1;
         uint64_t id;
         int r;
 
         assert(fd >= 0);
         assert(dev);
+
+        fd = fd_reopen_condition(fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, O_PATH, &regfd);
+        if (fd < 0)
+                return fd;
 
         r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
         if (r < 0)
@@ -1768,6 +1765,7 @@ int btrfs_qgroup_find_parents(int fd, uint64_t qgroupid, uint64_t **ret) {
 
 int btrfs_subvol_auto_qgroup_fd(int fd, uint64_t subvol_id, bool insert_intermediary_qgroup) {
         _cleanup_free_ uint64_t *qgroups = NULL;
+        _cleanup_close_ int real_fd = -1;
         uint64_t parent_subvol;
         bool changed = false;
         int n = 0, r;
@@ -1810,6 +1808,11 @@ int btrfs_subvol_auto_qgroup_fd(int fd, uint64_t subvol_id, bool insert_intermed
          * insert_intermediary_qgroup is true, it will also get a
          * qgroup that then includes all its own child subvolumes.
          */
+
+        /* Turn this into a proper fd, if it is currently O_PATH */
+        fd = fd_reopen_condition(fd, O_RDONLY|O_CLOEXEC, O_PATH, &real_fd);
+        if (fd < 0)
+                return fd;
 
         if (subvol_id == 0) {
                 r = btrfs_is_subvol_fd(fd);
