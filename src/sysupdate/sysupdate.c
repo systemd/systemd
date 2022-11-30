@@ -46,11 +46,13 @@ static char *arg_image = NULL;
 static bool arg_reboot = false;
 static char *arg_component = NULL;
 static int arg_verify = -1;
+static ImagePolicy *arg_image_policy = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_component, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 typedef struct Context {
         Transfer **transfers;
@@ -872,6 +874,7 @@ static int process_image(
 
         r = mount_image_privately_interactively(
                         arg_image,
+                        arg_image_policy,
                         (ro ? DISSECT_IMAGE_READ_ONLY : 0) |
                         DISSECT_IMAGE_FSCK |
                         DISSECT_IMAGE_MKDIR |
@@ -1204,8 +1207,9 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "\n%3$sOptions:%4$s\n"
                "  -C --component=NAME     Select component to update\n"
                "     --definitions=DIR    Find transfer definitions in specified directory\n"
-               "     --root=PATH          Operate relative to root path\n"
-               "     --image=PATH         Operate relative to image file\n"
+               "     --root=PATH          Operate on an alternate filesystem root\n"
+               "     --image=PATH         Operate on disk image as filesystem root\n"
+               "     --image-policy=POLICY  Specify disk image dissection policy\n"
                "  -m --instances-max=INT  How many instances to maintain\n"
                "     --sync=BOOL          Controls whether to sync data to disk\n"
                "     --verify=BOOL        Force signature verification on or off\n"
@@ -1237,6 +1241,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_IMAGE,
                 ARG_REBOOT,
                 ARG_VERIFY,
+                ARG_IMAGE_POLICY,
         };
 
         static const struct option options[] = {
@@ -1253,6 +1258,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "reboot",            no_argument,       NULL, ARG_REBOOT            },
                 { "component",         required_argument, NULL, 'C'                   },
                 { "verify",            required_argument, NULL, ARG_VERIFY            },
+                { "image-policy",      required_argument, NULL, ARG_IMAGE_POLICY      },
                 {}
         };
 
@@ -1350,6 +1356,17 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_IMAGE_POLICY: {
+                        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
+
+                        r = image_policy_from_string(optarg, &p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse image policy: %s", optarg);
+
+                        image_policy_free(arg_image_policy);
+                        arg_image_policy = TAKE_PTR(p);
+                        break;
+                }
                 case '?':
                         return -EINVAL;
 
