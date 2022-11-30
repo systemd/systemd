@@ -6,12 +6,14 @@
 #include "link-config.h"
 #include "log.h"
 #include "string-util.h"
+#include "strv.h"
 #include "udev-builtin.h"
 
 static LinkConfigContext *ctx = NULL;
 
 static int builtin_net_setup_link(sd_device *dev, sd_netlink **rtnl, int argc, char **argv, bool test) {
         _cleanup_(link_freep) Link *link = NULL;
+        _cleanup_free_ char *joined = NULL;
         int r;
 
         if (argc > 1)
@@ -47,6 +49,12 @@ static int builtin_net_setup_link(sd_device *dev, sd_netlink **rtnl, int argc, c
         udev_builtin_add_property(dev, test, "ID_NET_LINK_FILE", link->config->filename);
         if (link->new_name)
                 udev_builtin_add_property(dev, test, "ID_NET_NAME", link->new_name);
+
+        joined = strv_join(link->config->dropins, NULL);
+        if (!joined)
+                return log_oom();
+
+        udev_builtin_add_property(dev, test, "ID_NET_LINK_FILE_DROPINS", joined);
 
         return 0;
 }
