@@ -1,10 +1,11 @@
 #!/usr/bin/python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
-#
+# pylint: disable=line-too-long,invalid-name,missing-module-docstring,missing-function-docstring,too-many-statements,broad-except
 
 import argparse
 import logging
 import sys
+import time
 
 import pexpect
 
@@ -53,12 +54,12 @@ def run(args):
         console.sendcontrol('a')
         console.send('0')
         logger.info("verify broadcast message")
-        console.expect('Broadcast message from root@H on %s' % pty, 2)
-        console.expect('The system will reboot at %s' % date, 2)
+        console.expect(f'Broadcast message from root@H on {pty}', 2)
+        console.expect(f'The system will reboot at {date}', 2)
 
         logger.info("check show output")
         console.sendline('shutdown --show')
-        console.expect("Reboot scheduled for %s, use 'shutdown -c' to cancel" % date, 2)
+        console.expect(f"Reboot scheduled for {date}, use 'shutdown -c' to cancel", 2)
 
         logger.info("cancel shutdown")
         console.sendline('shutdown -c')
@@ -90,7 +91,23 @@ def run(args):
     except Exception as e:
         logger.error(e)
         logger.info("killing child pid %d", console.pid)
-        console.terminate(force=True)
+        # We can't use console.terminate(force=True) right away, since
+        # the internal delay between sending a signal and checking the process
+        # is just 0.1s [0], which means we'd get SIGKILLed pretty quickly.
+        # Let's send SIGHUP/SIGINT first, wait a bit, and then follow-up with
+        # SIGHUP/SIGINT/SIGKILL if the process is still alive.
+        # [0] https://github.com/pexpect/pexpect/blob/acb017a97332c19a9295660fe87316926a8adc55/pexpect/spawnbase.py#L71
+        console.terminate()
+        for _ in range(10):
+            if not console.isalive():
+                break
+
+            time.sleep(1)
+        else:
+            # We haven't exited the loop early, so check if the process is
+            # still alive - if so, force-kill it.
+            if console.isalive():
+                console.terminate(force=True)
 
     return ret
 
