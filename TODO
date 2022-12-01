@@ -125,6 +125,9 @@ Deprecations and removals:
 
 Features:
 
+* systemd-dissect: maybe add "--attach" and "--detach" verbs which
+  synchronously attach a DDI to a loopback device but not actually mount them.
+
 * gpt-auto-generator: generate device names via /dev/disk/by-diskseq/ to pin
   the medium
 
