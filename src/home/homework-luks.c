@@ -141,7 +141,7 @@ static int probe_file_system_by_fd(
         errno = 0;
         r = blkid_probe_set_device(b, fd, 0, 0);
         if (r != 0)
-                return errno > 0 ? -errno : -ENOMEM;
+                return errno_or_else(ENOMEM);
 
         (void) blkid_probe_enable_superblocks(b, 1);
         (void) blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE|BLKID_SUBLKS_UUID);
@@ -656,7 +656,7 @@ static int luks_validate(
         errno = 0;
         r = blkid_probe_set_device(b, fd, 0, 0);
         if (r != 0)
-                return errno > 0 ? -errno : -ENOMEM;
+                return errno_or_else(ENOMEM);
 
         (void) blkid_probe_enable_superblocks(b, 1);
         (void) blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
@@ -687,12 +687,12 @@ static int luks_validate(
         errno = 0;
         pl = blkid_probe_get_partitions(b);
         if (!pl)
-                return errno > 0 ? -errno : -ENOMEM;
+                return errno_or_else(ENOMEM);
 
         errno = 0;
         n = blkid_partlist_numof_partitions(pl);
         if (n < 0)
-                return errno > 0 ? -errno : -EIO;
+                return errno_or_else(EIO);
 
         for (int i = 0; i < n; i++) {
                 sd_id128_t id = SD_ID128_NULL;
@@ -701,7 +701,7 @@ static int luks_validate(
                 errno = 0;
                 pp = blkid_partlist_get_partition(pl, i);
                 if (!pp)
-                        return errno > 0 ? -errno : -EIO;
+                        return errno_or_else(EIO);
 
                 if (sd_id128_string_equal(blkid_partition_get_type_string(pp), SD_GPT_USER_HOME) <= 0)
                         continue;
