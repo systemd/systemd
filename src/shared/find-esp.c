@@ -571,12 +571,14 @@ static int verify_xbootldr_blkid(
 
         errno = 0;
         r = blkid_do_safeprobe(b);
-        if (r == -2)
+        if (r == _BLKID_SAFEPROBE_AMBIGUOUS)
                 return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "%s: File system is ambiguous.", node);
-        else if (r == 1)
+        if (r == _BLKID_SAFEPROBE_NOT_FOUND)
                 return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "%s: File system does not contain a label.", node);
-        else if (r != 0)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "%s: Failed to probe file system: %m", node);
+        if (r == _BLKID_SAFEPROBE_ERROR)
+                return log_error_errno(errno_or_else(EIO), "%s: Failed to probe file system: %m", node);
+
+        assert(r == _BLKID_SAFEPROBE_FOUND);
 
         r = blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &type, NULL);
         if (r != 0)

@@ -119,13 +119,15 @@ int probe_filesystem_full(int fd, const char *path, char **ret_fstype) {
 
         errno = 0;
         r = blkid_do_safeprobe(b);
-        if (r == 1)
+        if (r == _BLKID_SAFEPROBE_NOT_FOUND)
                 goto not_found;
-        if (r == -2)
+        if (r == _BLKID_SAFEPROBE_AMBIGUOUS)
                 return log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN),
                                        "Results ambiguous for partition %s", path);
-        if (r != 0)
+        if (r == _BLKID_SAFEPROBE_ERROR)
                 return log_debug_errno(errno_or_else(EIO), "Failed to probe partition %s: %m", path);
+
+        assert(r == _BLKID_SAFEPROBE_FOUND);
 
         (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
 
@@ -439,10 +441,12 @@ static int dissect_image(
 
         errno = 0;
         r = blkid_do_safeprobe(b);
-        if (IN_SET(r, -2, 1))
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOPKG), "Failed to identify any partition table.");
-        if (r != 0)
+        if (r == _BLKID_SAFEPROBE_ERROR)
                 return errno_or_else(EIO);
+        if (IN_SET(r, _BLKID_SAFEPROBE_AMBIGUOUS, _BLKID_SAFEPROBE_NOT_FOUND))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOPKG), "Failed to identify any partition table.");
+
+        assert(r == _BLKID_SAFEPROBE_FOUND);
 
         if ((!(flags & DISSECT_IMAGE_GPT_ONLY) &&
             (flags & DISSECT_IMAGE_GENERIC_ROOT)) ||

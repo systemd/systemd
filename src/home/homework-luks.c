@@ -148,10 +148,12 @@ static int probe_file_system_by_fd(
 
         errno = 0;
         r = blkid_do_safeprobe(b);
-        if (IN_SET(r, -2, 1)) /* nothing found or ambiguous result */
+        if (r == _BLKID_SAFEPROBE_ERROR)
+                return errno_or_else(EIO);
+        if (IN_SET(r, _BLKID_SAFEPROBE_AMBIGUOUS, _BLKID_SAFEPROBE_NOT_FOUND))
                 return -ENOPKG;
-        if (r != 0)
-                return errno > 0 ? -errno : -EIO;
+
+        assert(r == _BLKID_SAFEPROBE_FOUND);
 
         (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
         if (!fstype)
@@ -665,10 +667,12 @@ static int luks_validate(
 
         errno = 0;
         r = blkid_do_safeprobe(b);
-        if (IN_SET(r, -2, 1)) /* nothing found or ambiguous result */
+        if (r == _BLKID_SAFEPROBE_ERROR)
+                return errno_or_else(EIO);
+        if (IN_SET(r, _BLKID_SAFEPROBE_AMBIGUOUS, _BLKID_SAFEPROBE_NOT_FOUND))
                 return -ENOPKG;
-        if (r != 0)
-                return errno > 0 ? -errno : -EIO;
+
+        assert(r == _BLKID_SAFEPROBE_FOUND);
 
         (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
         if (streq_ptr(fstype, "crypto_LUKS")) {

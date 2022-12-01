@@ -4840,12 +4840,14 @@ static int resolve_copy_blocks_auto_candidate(
 
         errno = 0;
         r = blkid_do_safeprobe(b);
-        if (IN_SET(r, -2, 1)) { /* nothing found or ambiguous result */
+        if (r == _BLKID_SAFEPROBE_ERROR)
+                return log_error_errno(errno_or_else(EIO), "Unable to probe for partition table of '%s': %m", p);
+        if (IN_SET(r, _BLKID_SAFEPROBE_AMBIGUOUS, _BLKID_SAFEPROBE_NOT_FOUND)) {
                 log_debug("Didn't find partition table on block device '%s'.", p);
                 return false;
         }
-        if (r != 0)
-                return log_error_errno(errno_or_else(EIO), "Unable to probe for partition table of '%s': %m", p);
+
+        assert(r == _BLKID_SAFEPROBE_FOUND);
 
         (void) blkid_probe_lookup_value(b, "PTTYPE", &pttype, NULL);
         if (!streq_ptr(pttype, "gpt")) {
@@ -4857,7 +4859,6 @@ static int resolve_copy_blocks_auto_candidate(
         pl = blkid_probe_get_partitions(b);
         if (!pl)
                 return log_error_errno(errno_or_else(EIO), "Unable read partition table of '%s': %m", p);
-        errno = 0;
 
         pp = blkid_partlist_devno_to_partition(pl, partition_devno);
         if (!pp) {
