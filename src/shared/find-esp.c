@@ -564,7 +564,7 @@ static int verify_xbootldr_blkid(
         errno = 0;
         b = blkid_new_probe_from_filename(node);
         if (!b)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(ENOMEM), "%s: Failed to create blkid probe: %m", node);
+                return log_error_errno(errno_or_else(ENOMEM), "%s: Failed to create blkid probe: %m", node);
 
         blkid_probe_enable_partitions(b, 1);
         blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
@@ -588,7 +588,7 @@ static int verify_xbootldr_blkid(
                 errno = 0;
                 r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
                 if (r != 0)
-                        return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "%s: Failed to probe PART_ENTRY_TYPE: %m", node);
+                        return log_error_errno(errno_or_else(EIO), "%s: Failed to probe PART_ENTRY_TYPE: %m", node);
                 if (sd_id128_string_equal(v, SD_GPT_XBOOTLDR) <= 0)
                         return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                               searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
@@ -597,7 +597,7 @@ static int verify_xbootldr_blkid(
                 errno = 0;
                 r = blkid_probe_lookup_value(b, "PART_ENTRY_UUID", &v, NULL);
                 if (r != 0)
-                        return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "%s: Failed to probe PART_ENTRY_UUID: %m", node);
+                        return log_error_errno(errno_or_else(EIO), "%s: Failed to probe PART_ENTRY_UUID: %m", node);
                 r = sd_id128_from_string(v, &uuid);
                 if (r < 0)
                         return log_error_errno(r, "%s: Partition has invalid UUID PART_ENTRY_TYPE=%s: %m", node, v);
@@ -607,7 +607,7 @@ static int verify_xbootldr_blkid(
                 errno = 0;
                 r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
                 if (r != 0)
-                        return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "%s: Failed to probe PART_ENTRY_TYPE: %m", node);
+                        return log_error_errno(errno_or_else(EIO), "%s: Failed to probe PART_ENTRY_TYPE: %m", node);
                 if (!streq(v, "0xea"))
                         return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                               searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
