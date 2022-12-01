@@ -162,6 +162,12 @@
       <arg choice="plain">fdstore</arg>
       <arg choice="opt" rep="repeat"><replaceable>UNIT</replaceable></arg>
     </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">image-policy</arg>
+      <arg choice="plain" rep="repeat"><replaceable>POLICY</replaceable></arg>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
@@ -840,6 +846,39 @@ stored sock 0:8   4213190 -      socket:[4213190] ro
       "DEVNO".</para>
     </refsect2>
 
+    <refsect2>
+      <title><command>systemd-analyze image-policy <optional><replaceable>POLICY</replaceable>…</optional></command></title>
+
+      <para>This command analyzes the specified image policy string, as per
+      <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
+      policy is normalized and simplified. For each currently defined partition identifier (as per the <ulink
+      url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable
+      Partitions Specification</ulink> the effect of the image policy string is shown in tabular form.</para>
+
+      <example>
+        <title>Example Output</title>
+
+        <programlisting>$ systemd-analyze image-policy swap=encrypted:usr=read-only-on+verity:root=encrypted
+Analyzing policy: root=encrypted:usr=verity+read-only-on:swap=encrypted
+       Long form: root=encrypted:usr=verity+read-only-on:swap=encrypted:=unused+absent
+
+PARTITION       MODE        READ-ONLY GROWFS
+root            encrypted   -         -
+usr             verity      yes       -
+home            ignore      -         -
+srv             ignore      -         -
+esp             ignore      -         -
+xbootldr        ignore      -         -
+swap            encrypted   -         -
+root-verity     ignore      -         -
+usr-verity      unprotected yes       -
+root-verity-sig ignore      -         -
+usr-verity-sig  ignore      -         -
+tmp             ignore      -         -
+var             ignore      -         -
+default         ignore      -         -</programlisting>
+      </example>
+    </refsect2>
   </refsect1>
 
   <refsect1>
@@ -966,6 +1005,8 @@ stored sock 0:8   4213190 -      socket:[4213190] ro
         <listitem><para>With <command>cat-files</command> and <command>verify</command>,
         operate on files inside the specified image path <replaceable>PATH</replaceable>.</para></listitem>
       </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="image-policy-open" />
 
       <varlistentry>
         <term><option>--offline=<replaceable>BOOL</replaceable></option></term>

@@ -2276,6 +2276,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         switch of the same name.</para></listitem>
       </varlistentry>
 
+      <xi:include href="standard-options.xml" xpointer="image-policy-open" />
+
       <varlistentry>
         <term><option>--runtime</option></term>
 

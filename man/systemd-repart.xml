@@ -269,6 +269,8 @@
         <option>--root=</option>, see above.</para></listitem>
       </varlistentry>
 
+      <xi:include href="standard-options.xml" xpointer="image-policy-open" />
+
       <varlistentry>
         <term><option>--seed=</option></term>
 

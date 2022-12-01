@@ -419,6 +419,7 @@
         <command>cfdisk /dev/loop/by-ref/quux</command>.</para></listitem>
       </varlistentry>
 
+      <xi:include href="standard-options.xml" xpointer="image-policy-open" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
       <xi:include href="standard-options.xml" xpointer="json" />

@@ -268,6 +268,8 @@
         switch of the same name.</para></listitem>
       </varlistentry>
 
+      <xi:include href="standard-options.xml" xpointer="image-policy-open" />
+
       <varlistentry>
         <term><option>-q</option></term>
         <term><option>--quiet</option></term>
