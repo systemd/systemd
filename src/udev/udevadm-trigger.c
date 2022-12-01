@@ -7,6 +7,7 @@
 #include "sd-event.h"
 
 #include "device-enumerator-private.h"
+#include "device-monitor-private.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "fd-util.h"
@@ -489,6 +490,8 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 r = sd_device_monitor_new(&m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create device monitor object: %m");
+
+                device_monitor_enable_log_context(m);
 
                 r = sd_device_monitor_attach_event(m, event);
                 if (r < 0)

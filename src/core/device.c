@@ -9,6 +9,7 @@
 #include "bus-error.h"
 #include "dbus-device.h"
 #include "dbus-unit.h"
+#include "device-monitor-private.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "device.h"
@@ -991,6 +992,8 @@ static void device_enumerate(Manager *m) {
                         log_error_errno(r, "Failed to allocate device monitor: %m");
                         goto fail;
                 }
+
+                device_monitor_enable_log_context(m->device_monitor);
 
                 /* This will fail if we are unprivileged, but that
                  * should not matter much, as user instances won't run

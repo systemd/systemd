@@ -16,6 +16,7 @@
 #include "cryptsetup-pkcs11.h"
 #include "cryptsetup-tpm2.h"
 #include "cryptsetup-util.h"
+#include "device-monitor-private.h"
 #include "device-util.h"
 #include "efi-api.h"
 #include "env-util.h"
@@ -870,6 +871,8 @@ static int make_security_device_monitor(
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate device monitor: %m");
 
+        device_monitor_enable_log_context(monitor);
+
         (void) sd_device_monitor_set_description(monitor, "security-device");
 
         r = sd_device_monitor_filter_add_match_tag(monitor, "security-device");
@@ -1370,6 +1373,8 @@ static int make_tpm2_device_monitor(
         r = sd_device_monitor_new(&monitor);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate device monitor: %m");
+
+        device_monitor_enable_log_context(monitor);
 
         (void) sd_device_monitor_set_description(monitor, "tpmrm");
 

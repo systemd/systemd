@@ -20,6 +20,7 @@
 #include "conf-parser.h"
 #include "constants.h"
 #include "daemon-util.h"
+#include "device-monitor-private.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "dns-domain.h"
@@ -208,6 +209,8 @@ static int manager_connect_udev(Manager *m) {
         r = sd_device_monitor_new(&m->device_monitor);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize device monitor: %m");
+
+        device_monitor_enable_log_context(m->device_monitor);
 
         r = sd_device_monitor_set_receive_buffer_size(m->device_monitor, RCVBUF_SIZE);
         if (r < 0)

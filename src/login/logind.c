@@ -17,6 +17,7 @@
 #include "cgroup-util.h"
 #include "constants.h"
 #include "daemon-util.h"
+#include "device-monitor-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
@@ -800,6 +801,8 @@ static int manager_connect_udev(Manager *m) {
         if (r < 0)
                 return r;
 
+        device_monitor_enable_log_context(m->device_seat_monitor);
+
         r = sd_device_monitor_filter_add_match_tag(m->device_seat_monitor, "master-of-seat");
         if (r < 0)
                 return r;
@@ -817,6 +820,8 @@ static int manager_connect_udev(Manager *m) {
         r = sd_device_monitor_new(&m->device_monitor);
         if (r < 0)
                 return r;
+
+        device_monitor_enable_log_context(m->device_monitor);
 
         r = sd_device_monitor_filter_add_match_subsystem_devtype(m->device_monitor, "input", NULL);
         if (r < 0)
@@ -846,6 +851,8 @@ static int manager_connect_udev(Manager *m) {
                 if (r < 0)
                         return r;
 
+                device_monitor_enable_log_context(m->device_button_monitor);
+
                 r = sd_device_monitor_filter_add_match_tag(m->device_button_monitor, "power-switch");
                 if (r < 0)
                         return r;
@@ -871,6 +878,8 @@ static int manager_connect_udev(Manager *m) {
                 r = sd_device_monitor_new(&m->device_vcsa_monitor);
                 if (r < 0)
                         return r;
+
+                device_monitor_enable_log_context(m->device_vcsa_monitor);
 
                 r = sd_device_monitor_filter_add_match_subsystem_devtype(m->device_vcsa_monitor, "vc", NULL);
                 if (r < 0)
