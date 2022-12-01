@@ -62,6 +62,8 @@ struct sd_device_monitor {
         char *description;
         sd_device_monitor_handler_t callback;
         void *userdata;
+
+        bool enable_log_context;
 };
 
 #define UDEV_MONITOR_MAGIC                0xfeedcafe
@@ -242,10 +244,14 @@ _public_ int sd_device_monitor_stop(sd_device_monitor *m) {
 
 static int device_monitor_event_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _unused_ _cleanup_(log_context_freep) LogContext *c = NULL;
         sd_device_monitor *m = ASSERT_PTR(userdata);
 
         if (device_monitor_receive_device(m, &device) <= 0)
                 return 0;
+
+        if (m->enable_log_context)
+                c = log_context_consume(device_make_log_fields(device));
 
         if (m->callback)
                 return m->callback(m, device, m->userdata);
@@ -612,6 +618,11 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
                 *ret = TAKE_PTR(device);
 
         return r;
+}
+
+void device_monitor_enable_log_context(sd_device_monitor *m) {
+        assert(m);
+        m->enable_log_context = true;
 }
 
 static uint32_t string_hash32(const char *str) {

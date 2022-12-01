@@ -19,6 +19,7 @@
 #include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "chattr-util.h"
+#include "device-monitor-private.h"
 #include "device-util.h"
 #include "devnum-util.h"
 #include "dm-util.h"
@@ -3766,6 +3767,8 @@ int wait_for_block_device_gone(HomeSetup *setup, usec_t timeout_usec) {
         r = sd_device_monitor_new(&m);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate device monitor: %m");
+
+        device_monitor_enable_log_context(m);
 
         r = sd_device_monitor_filter_add_match_subsystem_devtype(m, "block", "disk");
         if (r < 0)

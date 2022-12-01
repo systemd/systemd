@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "device-nodes.h"
+#include "device-monitor-private.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "env-file.h"
@@ -224,6 +225,8 @@ static int device_wait_for_initialization_internal(
         r = sd_device_monitor_new(&monitor);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire monitor: %m");
+
+        device_monitor_enable_log_context(monitor);
 
         if (device && !subsystem) {
                 r = sd_device_get_subsystem(device, &subsystem);

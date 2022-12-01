@@ -677,6 +677,7 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
         }
 
         (void) sd_bus_set_description(bus, "private-bus-connection");
+        bus_enable_log_context(bus);
 
         r = sd_bus_set_fd(bus, nfd, nfd);
         if (r < 0) {
@@ -821,6 +822,8 @@ int bus_init_api(Manager *m) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to connect to API bus: %m");
 
+                bus_enable_log_context(bus);
+
                 r = sd_bus_attach_event(bus, m->event, SD_EVENT_PRIORITY_NORMAL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to attach API bus to event loop: %m");
@@ -877,6 +880,8 @@ int bus_init_system(Manager *m) {
                 r = sd_bus_open_system_with_description(&bus, "bus-system");
                 if (r < 0)
                         return log_error_errno(r, "Failed to connect to system bus: %m");
+
+                bus_enable_log_context(bus);
 
                 r = sd_bus_attach_event(bus, m->event, SD_EVENT_PRIORITY_NORMAL);
                 if (r < 0)

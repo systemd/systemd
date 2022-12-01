@@ -15,10 +15,12 @@
 #include "btrfs-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
+#include "bus-internal.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
 #include "clean-ipc.h"
 #include "conf-files.h"
+#include "device-monitor-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
@@ -948,6 +950,8 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
+        bus_enable_log_context(m->bus);
+
         r = bus_add_implementation(m->bus, &manager_object, m);
         if (r < 0)
                 return r;
@@ -1309,6 +1313,8 @@ static int manager_watch_devices(Manager *m) {
         r = sd_device_monitor_new(&m->device_monitor);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate device monitor: %m");
+
+        device_monitor_enable_log_context(m->device_monitor);
 
         r = sd_device_monitor_filter_add_match_subsystem_devtype(m->device_monitor, "block", NULL);
         if (r < 0)
