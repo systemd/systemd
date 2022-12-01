@@ -237,6 +237,13 @@ evdev:name:Synaptics TM2382-001:dmi:*svnDellInc.:pnInspiron3537:*
  EVDEV_ABS_35=::24
  EVDEV_ABS_36=::34
 
+# Dell Inspiron N4010
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:bvn*:bvr*:bd*:svnDellInc.:pnInspironN4010:*
+ EVDEV_ABS_00=1188:5797:49
+ EVDEV_ABS_01=893:4894:80
+ EVDEV_ABS_35=1188:5797:49
+ EVDEV_ABS_36=893:4894:80
+
 # Dell Inspiron N5040
 evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:bvn*:bvr*:bd*:svnDellInc.:pnInspironN5040:*
  EVDEV_ABS_00=25:2000:22
