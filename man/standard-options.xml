@@ -86,4 +86,15 @@
       numerical signal numbers and the program will exit immediately.</para>
     </listitem>
   </varlistentry>
+
+  <varlistentry id='image-policy-open'>
+    <term><option>--image-policy=<replaceable>policy</replaceable></option></term>
+
+    <listitem><para>Takes an image policy string as argument, as per
+    <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
+    policy is enforced when operating on the disk image specified via <option>--image=</option>, see
+    above. If not specified defaults to the <literal>*</literal> policy, i.e. all recognized file systems
+    in the image are used.</para></listitem>
+  </varlistentry>
+
 </variablelist>
