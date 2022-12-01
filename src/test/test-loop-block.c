@@ -4,6 +4,8 @@
 #include <linux/loop.h>
 #include <pthread.h>
 #include <sys/file.h>
+#include <sys/ioctl.h>
+#include <sys/mount.h>
 
 #include "alloc-util.h"
 #include "capability-util.h"
@@ -255,6 +257,13 @@ static int run(int argc, char *argv[]) {
         assert_se(make_filesystem(dissected->partitions[PARTITION_HOME].node, "ext4", "home", NULL, id, true) >= 0);
 
         dissected = dissected_image_unref(dissected);
+
+        /* We created the file systems now via the per-partition block devices. But the dissection code might
+         * probe them via the whole block device. These block devices have separate buffer caches though,
+         * hence what was written via the partition device might not appear on the whole block device
+         * yet. Let's hence explicitly flush the whole block device, so that the read-back definitely
+         * works. */
+        assert_se(ioctl(loop->fd, BLKFLSBUF, 0) >= 0);
 
         /* Try to read once, without pinning or adding partitions, i.e. by only accessing the whole block
          * device. */
