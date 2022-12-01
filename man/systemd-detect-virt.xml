@@ -62,7 +62,7 @@
         </thead>
         <tbody>
           <row>
-            <entry valign="top" morerows="15">VM</entry>
+            <entry valign="top" morerows="16">VM</entry>
             <entry><varname>qemu</varname></entry>
             <entry>QEMU software virtualization, without KVM</entry>
           </row>
@@ -140,6 +140,11 @@
           <row>
             <entry><varname>apple</varname></entry>
             <entry><ulink url="https://developer.apple.com/documentation/virtualization">Apple Virtualization.framework</ulink></entry>
+          </row>
+
+          <row>
+            <entry><varname>sre</varname></entry>
+            <entry><ulink url="https://www.lockheedmartin.com/en-us/products/Hardened-Security-for-Intel-Processors.html">LMHS SRE hypervisor</ulink></entry>
           </row>
 
           <row>

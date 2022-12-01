@@ -50,6 +50,8 @@ static Virtualization detect_vm_cpuid(void) {
                 { "QNXQVMBSQG",   VIRTUALIZATION_QNX       },
                 /* https://projectacrn.org */
                 { "ACRNACRNACRN", VIRTUALIZATION_ACRN      },
+                /* https://www.lockheedmartin.com/en-us/products/Hardened-Security-for-Intel-Processors.html */
+                { "SRESRESRESRE", VIRTUALIZATION_SRE       },
         };
 
         uint32_t eax, ebx, ecx, edx;
@@ -1036,6 +1038,7 @@ static const char *const virtualization_table[_VIRTUALIZATION_MAX] = {
         [VIRTUALIZATION_ACRN]            = "acrn",
         [VIRTUALIZATION_POWERVM]         = "powervm",
         [VIRTUALIZATION_APPLE]           = "apple",
+        [VIRTUALIZATION_SRE]             = "sre",
         [VIRTUALIZATION_VM_OTHER]        = "vm-other",
 
         [VIRTUALIZATION_SYSTEMD_NSPAWN]  = "systemd-nspawn",
