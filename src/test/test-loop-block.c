@@ -255,6 +255,14 @@ static int run(int argc, char *argv[]) {
         assert_se(make_filesystem(dissected->partitions[PARTITION_HOME].node, "ext4", "home", NULL, id, true) >= 0);
 
         dissected = dissected_image_unref(dissected);
+
+        /* Try to read once, without pinning or adding partitions, i.e. by only accessing the whole block
+         * device. */
+        assert_se(dissect_loop_device(loop, NULL, NULL, 0, &dissected) >= 0);
+        verify_dissected_image_harder(dissected);
+        dissected = dissected_image_unref(dissected);
+
+        /* Now go via the loopback device after all, but this time add/pin, because now we want to mount it. */
         assert_se(dissect_loop_device(loop, NULL, NULL, DISSECT_IMAGE_ADD_PARTITION_DEVICES|DISSECT_IMAGE_PIN_PARTITION_DEVICES, &dissected) >= 0);
         verify_dissected_image_harder(dissected);
 
