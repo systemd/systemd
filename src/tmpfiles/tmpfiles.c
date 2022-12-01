@@ -139,6 +139,7 @@ typedef struct Item {
 #if HAVE_ACL
         acl_t acl_access;
         acl_t acl_default;
+        bool acl_cond_exec;
 #endif
         uid_t uid;
         gid_t gid;
@@ -1115,7 +1116,7 @@ static int parse_acls_from_arg(Item *item) {
         /* If append_or_force (= modify) is set, we will not modify the acl
          * afterwards, so the mask can be added now if necessary. */
 
-        r = parse_acl(item->argument, &item->acl_access, &item->acl_default, !item->append_or_force);
+        r = parse_acl(item->argument, &item->acl_access, &item->acl_default, &item->acl_cond_exec, !item->append_or_force);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse ACL \"%s\": %m. Ignoring", item->argument);
 #else
@@ -1126,46 +1127,104 @@ static int parse_acls_from_arg(Item *item) {
 }
 
 #if HAVE_ACL
+static int set_acl_cond_exec(const char *path, acl_type_t type, acl_t *acl) {
+        _cleanup_(acl_freep) acl_t old;
+        acl_entry_t entry;
+        acl_permset_t permset;
+        bool acl_cond_exec_needed = false;
+        int r;
+
+        old = acl_get_file(path, type);
+        if (!old)
+                return -errno;
+
+        for (r = acl_get_entry(old, ACL_FIRST_ENTRY, &entry);
+             r > 0;
+             r = acl_get_entry(old, ACL_NEXT_ENTRY, &entry)) {
+
+                if (acl_get_permset(entry, &permset) < 0)
+                        return -errno;
+
+                r = acl_get_perm(permset, ACL_EXECUTE);
+                if (r > 0) {
+                        acl_cond_exec_needed = true;
+                        break;
+                }
+
+                if (r < 0)
+                        return -errno;
+        }
+        if (r < 0)
+                return -errno;
+
+        if (!acl_cond_exec_needed) {
+                for (r = acl_get_entry(*acl, ACL_FIRST_ENTRY, &entry);
+                     r > 0;
+                     r = acl_get_entry(*acl, ACL_NEXT_ENTRY, &entry)) {
+
+                        if (acl_get_permset(entry, &permset) < 0)
+                                return -errno;
+
+                        if (acl_delete_perm(permset, ACL_EXECUTE) < 0)
+                                return -errno;
+                }
+                if (r < 0)
+                        return -errno;
+        }
+
+        return 0;
+}
+
 static int path_set_acl(
                 const char *path,
                 const char *pretty,
                 acl_type_t type,
                 acl_t acl,
+                bool acl_cond_exec,
                 bool modify) {
 
         _cleanup_(acl_free_charpp) char *t = NULL;
-        _cleanup_(acl_freep) acl_t dup = NULL;
+        _cleanup_(acl_freep) acl_t new = NULL;
         int r;
 
         /* Returns 0 for success, positive error if already warned,
          * negative error otherwise. */
 
         if (modify) {
-                r = acls_for_file(path, type, acl, &dup);
+                r = acls_for_file(path, type, acl, &new);
                 if (r < 0)
                         return r;
 
-                r = calc_acl_mask_if_needed(&dup);
+                r = calc_acl_mask_if_needed(&new);
                 if (r < 0)
                         return r;
         } else {
-                dup = acl_dup(acl);
-                if (!dup)
+                new = acl_dup(acl);
+                if (!new)
                         return -errno;
 
                 /* the mask was already added earlier if needed */
         }
 
-        r = add_base_acls_if_needed(&dup, path);
+        if (acl_cond_exec) {
+                r = set_acl_cond_exec(path, type, &new);
+                if (r >= 0)
+                        r = calc_acl_mask_if_needed(&new);
+
+                if (r < 0)
+                        return r;
+        }
+
+        r = add_base_acls_if_needed(&new, path);
         if (r < 0)
                 return r;
 
-        t = acl_to_any_text(dup, NULL, ',', TEXT_ABBREVIATE);
+        t = acl_to_any_text(new, NULL, ',', TEXT_ABBREVIATE);
         log_debug("Setting %s ACL %s on %s.",
                   type == ACL_TYPE_ACCESS ? "access" : "default",
                   strna(t), pretty);
 
-        r = acl_set_file(path, type, dup);
+        r = acl_set_file(path, type, new);
         if (r < 0) {
                 if (ERRNO_IS_NOT_SUPPORTED(errno))
                         /* No error if filesystem doesn't support ACLs. Return negative. */
@@ -1213,11 +1272,13 @@ static int fd_set_acls(
         }
 
         if (item->acl_access)
-                r = path_set_acl(FORMAT_PROC_FD_PATH(fd), path, ACL_TYPE_ACCESS, item->acl_access, item->append_or_force);
+                r = path_set_acl(FORMAT_PROC_FD_PATH(fd), path, ACL_TYPE_ACCESS, item->acl_access,
+                                 item->acl_cond_exec && S_ISREG(st->st_mode), item->append_or_force);
 
         /* set only default acls to folders */
         if (r == 0 && item->acl_default && S_ISDIR(st->st_mode))
-                r = path_set_acl(FORMAT_PROC_FD_PATH(fd), path, ACL_TYPE_DEFAULT, item->acl_default, item->append_or_force);
+                r = path_set_acl(FORMAT_PROC_FD_PATH(fd), path, ACL_TYPE_DEFAULT, item->acl_default,
+                                 /* acl_cond_exec = */ false, item->append_or_force);
 
         if (ERRNO_IS_NOT_SUPPORTED(r)) {
                 log_debug_errno(r, "ACLs not supported by file system at %s", path);

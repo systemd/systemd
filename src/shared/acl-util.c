@@ -208,7 +208,7 @@ int acl_search_groups(const char *path, char ***ret_groups) {
         return ret;
 }
 
-int parse_acl(const char *text, acl_t *acl_access, acl_t *acl_default, bool want_mask) {
+int parse_acl(const char *text, acl_t *acl_access, acl_t *acl_default, bool *acl_cond_exec, bool want_mask) {
         _cleanup_free_ char **a = NULL, **d = NULL; /* strings are not freed */
         _cleanup_strv_free_ char **split = NULL;
         int r = -EINVAL;
@@ -220,6 +220,13 @@ int parse_acl(const char *text, acl_t *acl_access, acl_t *acl_default, bool want
 
         STRV_FOREACH(entry, split) {
                 char *p;
+
+                p = endswith(*entry, "X");
+                if (p) {
+                        *acl_cond_exec = true;
+                        string_replace_char(*entry, 'X', 'x');
+                } else
+                        *acl_cond_exec = false;
 
                 p = STARTSWITH_SET(*entry, "default:", "d:");
                 if (p)
