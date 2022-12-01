@@ -44,6 +44,15 @@ static void verify_dissected_image(DissectedImage *dissected) {
         assert_se(dissected->partitions[PARTITION_HOME].node);
 }
 
+static void verify_dissected_image_harder(DissectedImage *dissected) {
+        verify_dissected_image(dissected);
+
+        assert_se(streq(dissected->partitions[PARTITION_ESP].fstype, "vfat"));
+        assert_se(streq(dissected->partitions[PARTITION_XBOOTLDR].fstype, "vfat"));
+        assert_se(streq(dissected->partitions[PARTITION_ROOT].fstype, "ext4"));
+        assert_se(streq(dissected->partitions[PARTITION_HOME].fstype, "ext4"));
+}
+
 static void* thread_func(void *ptr) {
         int fd = PTR_TO_FD(ptr);
         int r;
@@ -247,7 +256,7 @@ static int run(int argc, char *argv[]) {
 
         dissected = dissected_image_unref(dissected);
         assert_se(dissect_loop_device(loop, NULL, NULL, DISSECT_IMAGE_ADD_PARTITION_DEVICES|DISSECT_IMAGE_PIN_PARTITION_DEVICES, &dissected) >= 0);
-        verify_dissected_image(dissected);
+        verify_dissected_image_harder(dissected);
 
         assert_se(mkdtemp_malloc(NULL, &mounted) >= 0);
 
