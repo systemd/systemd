@@ -619,7 +619,7 @@ static int dhcp6_lease_parse_message(
                                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
                                                               "Received information refresh time option with an invalid length (%zu).", optlen);
 
-                        irt = unaligned_read_be32((be32_t *) optval) * USEC_PER_SEC;
+                        irt = unaligned_read_be32(optval) * USEC_PER_SEC;
                         break;
                 }
         }
