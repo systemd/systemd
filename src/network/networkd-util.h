@@ -91,6 +91,7 @@ int network_config_state_to_string_alloc(NetworkConfigState s, char **ret);
                                     0);                                 \
         }                                                               \
         static inline bool name##_is_requesting(type *t) {              \
+                assert(t);                                              \
                 return FLAGS_SET(t->state, NETWORK_CONFIG_STATE_REQUESTING); \
         }                                                               \
         static inline void name##_enter_configuring(type *t) {          \
