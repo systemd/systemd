@@ -182,6 +182,8 @@
         switch of the same name.</para></listitem>
       </varlistentry>
 
+      <xi:include href="standard-options.xml" xpointer="image-policy-open" />
+
       <varlistentry>
         <term><option>--namespace=<replaceable>NAMESPACE</replaceable></option></term>
 
