@@ -4,6 +4,8 @@
 #include <linux/loop.h>
 #include <pthread.h>
 #include <sys/file.h>
+#include <sys/ioctl.h>
+#include <sys/mount.h>
 
 #include "alloc-util.h"
 #include "capability-util.h"
@@ -42,6 +44,15 @@ static void verify_dissected_image(DissectedImage *dissected) {
         assert_se(dissected->partitions[PARTITION_ROOT].node);
         assert_se(dissected->partitions[PARTITION_HOME].found);
         assert_se(dissected->partitions[PARTITION_HOME].node);
+}
+
+static void verify_dissected_image_harder(DissectedImage *dissected) {
+        verify_dissected_image(dissected);
+
+        assert_se(streq(dissected->partitions[PARTITION_ESP].fstype, "vfat"));
+        assert_se(streq(dissected->partitions[PARTITION_XBOOTLDR].fstype, "vfat"));
+        assert_se(streq(dissected->partitions[PARTITION_ROOT].fstype, "ext4"));
+        assert_se(streq(dissected->partitions[PARTITION_HOME].fstype, "ext4"));
 }
 
 static void* thread_func(void *ptr) {
@@ -246,8 +257,23 @@ static int run(int argc, char *argv[]) {
         assert_se(make_filesystem(dissected->partitions[PARTITION_HOME].node, "ext4", "home", NULL, id, true) >= 0);
 
         dissected = dissected_image_unref(dissected);
+
+        /* We created the file systems now via the per-partition block devices. But the dissection code might
+         * probe them via the whole block device. These block devices have separate buffer caches though,
+         * hence what was written via the partition device might not appear on the whole block device
+         * yet. Let's hence explicitly flush the whole block device, so that the read-back definitely
+         * works. */
+        assert_se(ioctl(loop->fd, BLKFLSBUF, 0) >= 0);
+
+        /* Try to read once, without pinning or adding partitions, i.e. by only accessing the whole block
+         * device. */
+        assert_se(dissect_loop_device(loop, NULL, NULL, 0, &dissected) >= 0);
+        verify_dissected_image_harder(dissected);
+        dissected = dissected_image_unref(dissected);
+
+        /* Now go via the loopback device after all, but this time add/pin, because now we want to mount it. */
         assert_se(dissect_loop_device(loop, NULL, NULL, DISSECT_IMAGE_ADD_PARTITION_DEVICES|DISSECT_IMAGE_PIN_PARTITION_DEVICES, &dissected) >= 0);
-        verify_dissected_image(dissected);
+        verify_dissected_image_harder(dissected);
 
         assert_se(mkdtemp_malloc(NULL, &mounted) >= 0);
 
