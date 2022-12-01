@@ -261,6 +261,30 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RootImagePolicy=</varname></term>
+        <term><varname>MountImagePolicy=</varname></term>
+        <term><varname>ExtensionImagePolicy=</varname></term>
+
+        <listitem><para>Takes an image policy string as per
+        <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        to use when mounting the disk images (DDI) specified in <varname>RootImage=</varname>,
+        <varname>MountImage=</varname>, <varname>ExtensionImage=</varname>, respectively. If not specified
+        the following policy string is the default for <varname>RootImagePolicy=</varname> and <varname>MountImagePolicy</varname>:</para>
+
+        <programlisting>root=verity+signed+encrypted+unprotected+absent: \
+        usr=verity+signed+encrypted+unprotected+absent: \
+        home=encrypted+unprotected+absent: \
+        srv=encrypted+unprotected+absent: \
+        tmp=encrypted+unprotected+absent: \
+        var=encrypted+unprotected+absent</programlisting>
+
+        <para>The default policy for <varname>ExtensionImagePolicy=</varname> is:</para>
+
+        <programlisting>root=verity+signed+encrypted+unprotected+absent: \
+        usr=verity+signed+encrypted+unprotected+absent</programlisting></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MountAPIVFS=</varname></term>
 
         <listitem><para>Takes a boolean argument. If on, a private mount namespace for the unit's processes is created
