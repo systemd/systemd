@@ -131,7 +131,7 @@ uint8_t *sha256_finish_ctx(struct sha256_ctx *ctx, uint8_t resbuf[static SHA256_
                 if (UNALIGNED_P(resbuf))
                         memcpy(resbuf + i * sizeof(uint32_t), (uint32_t[]) { SWAP(ctx->H[i]) }, sizeof(uint32_t));
                 else
-                        ((uint32_t *) resbuf)[i] = SWAP(ctx->H[i]);
+                        ((uint32_t *) (void *) resbuf)[i] = SWAP(ctx->H[i]);
 
         return resbuf;
 }
