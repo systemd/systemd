@@ -200,6 +200,8 @@
         <para>Implies <option>-E</option>.</para></listitem>
       </varlistentry>
 
+      <xi:include href="standard-options.xml" xpointer="image-policy-open" />
+
       <varlistentry>
         <term><option>--replace=<replaceable>PATH</replaceable></option></term>
         <listitem><para>When this option is given, one or more positional arguments
