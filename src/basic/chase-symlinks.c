@@ -466,8 +466,10 @@ int chase_symlinks(
                         return -errno;
 
                 flags |= CHASE_AT_RESOLVE_IN_ROOT;
-        } else
+        } else {
+                path = absolute;
                 fd = AT_FDCWD;
+        }
 
         r = chase_symlinks_at(fd, path, flags & ~CHASE_PREFIX_ROOT, ret_path ? &p : NULL, ret_fd ? &pfd : NULL);
         if (r < 0)
