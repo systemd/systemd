@@ -684,7 +684,11 @@ static int dissect_image(
          * Returns -ENOPKG if no suitable partition table or file system could be found.
          * Returns -EADDRNOTAVAIL if a root hash was specified but no matching root/verity partitions found.
          * Returns -ENXIO if we couldn't find any partition suitable as root or /usr partition
-         * Returns -ENOTUNIQ if we only found multiple generic partitions and thus don't know what to do with that */
+         * Returns -ENOTUNIQ if we only found multiple generic partitions and thus don't know what to do with that
+         * Returns -ERFKILL if image doesn't match image policy
+         * Returns -EBADR if verity data was provided externally for an image that has a GPT partition table (i.e. is not just a naked fs)
+         * Returns -EPROTONOSUPPORT if DISSECT_IMAGE_ADD_PARTITION_DEVICES is set but the block device does not have partition logic enabled
+         * Returns -ENOMSG if we didn't find a single usable partition (and DISSECT_IMAGE_REFUSE_EMPTY is set) */
 
         uint64_t diskseq = m->loop ? m->loop->diskseq : 0;
 
