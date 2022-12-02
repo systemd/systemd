@@ -1408,7 +1408,6 @@ int dissect_image_file(
         int r;
 
         assert(path);
-        assert(ret);
 
         fd = open(path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
@@ -1426,7 +1425,8 @@ int dissect_image_file(
         if (r < 0)
                 return r;
 
-        *ret = TAKE_PTR(m);
+        if (ret)
+                *ret = TAKE_PTR(m);
         return 0;
 #else
         return -EOPNOTSUPP;
@@ -3283,7 +3283,6 @@ int dissect_loop_device(
         int r;
 
         assert(loop);
-        assert(ret);
 
         r = dissected_image_new(loop->backing_file ?: loop->node, &m);
         if (r < 0)
@@ -3295,7 +3294,9 @@ int dissect_loop_device(
         if (r < 0)
                 return r;
 
-        *ret = TAKE_PTR(m);
+        if (ret)
+                *ret = TAKE_PTR(m);
+
         return 0;
 #else
         return -EOPNOTSUPP;
