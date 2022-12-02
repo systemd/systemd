@@ -284,38 +284,10 @@ if [ -d mkosi.kernel/ ]; then
         export KBUILD_BUILD_TIMESTAMP="Fri Jun  5 15:58:00 CEST 2015"
         export KBUILD_BUILD_HOST="mkosi"
 
-        make O="$BUILDDIR/mkosi.kernel" defconfig
-
-        scripts/config \
-                --file "$BUILDDIR/mkosi.kernel/.config" \
-                --enable BPF_SYSCALL \
-                --enable BPF_JIT \
-                --enable BPF_JIT_ALWAYS_ON \
-                --enable BPF_JIT_DEFAULT_ON \
-                --enable BPF_UNPRIV_DEFAULT_OFF \
-                --enable USERMODE_DRIVER \
-                --enable BPF_PRELOAD \
-                --enable BPF_PRELOAD_UMD \
-                --enable BPF_LSM \
-                --enable DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT \
-                --enable DEBUG_INFO_BTF \
-                --enable BTRFS_FS \
-                --enable BTRFS_FS_POSIX_ACL \
-                --enable PSI \
-                --enable CGROUPS \
-                --enable CGROUP_BPF \
-                --enable MEMCG \
-                --enable MEMCG_SWAP \
-                --enable MEMCG_KMEM \
-                --enable IMA_ARCH_POLICY \
-                --enable DM_VERITY_VERIFY_ROOTHASH_SIG \
-                --enable DM_VERITY_VERIFY_ROOTHASH_SIG_SECONDARY_KEYRING \
-                --enable INTEGRITY_MACHINE_KEYRING \
-                --enable NETFILTER_ADVANCED \
-                --enable NF_CONNTRACK_MARK
-
-        # Make sure all unset options are set to their default value.
-        make O="$BUILDDIR/mkosi.kernel" olddefconfig
+        scripts/kconfig/merge_config.sh -O "$BUILDDIR/mkosi.kernel" \
+                ../mkosi.kernel.config \
+                tools/testing/selftests/bpf/config.x86_64 \
+                tools/testing/selftests/bpf/config
 
         make O="$BUILDDIR/mkosi.kernel" -j "$(nproc)"
 
