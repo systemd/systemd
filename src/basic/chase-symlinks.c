@@ -561,7 +561,7 @@ int chase_symlinks_and_opendir(
         if (!d) {
                 /* Hmm, we have the fd already but we got ENOENT, most likely /proc is not mounted.
                  * Let's try opendir() again on the full path. */
-                if (errno == ENOENT) {
+                if (errno == ENOENT && empty_or_root(root)) {
                         d = opendir(p);
                         if (!d)
                                 return -errno;
