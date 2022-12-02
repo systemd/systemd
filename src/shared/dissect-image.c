@@ -1564,6 +1564,66 @@ int dissect_image_file(
 #endif
 }
 
+static int dissect_log_error(int r, const char *name, const VeritySettings *verity) {
+        assert(name);
+
+        switch (r) {
+
+        case 0 ... INT_MAX: /* success! */
+                return r;
+
+        case -EOPNOTSUPP:
+                return log_error_errno(r, "Dissecting images is not supported, compiled without blkid support.");
+
+        case -ENOPKG:
+                return log_error_errno(r, "%s: Couldn't identify a suitable partition table or file system.", name);
+
+        case -ENOMEDIUM:
+                return log_error_errno(r, "%s: The image does not pass os-release/extension-release validation.", name);
+
+        case -EADDRNOTAVAIL:
+                return log_error_errno(r, "%s: No root partition for specified root hash found.", name);
+
+        case -ENOTUNIQ:
+                return log_error_errno(r, "%s: Multiple suitable root partitions found in image.", name);
+
+        case -ENXIO:
+                return log_error_errno(r, "%s: No suitable root partition found in image.", name);
+
+        case -EPROTONOSUPPORT:
+                return log_error_errno(r, "Device '%s' is a loopback block device with partition scanning turned off, please turn it on.", name);
+
+        case -ENOTBLK:
+                return log_error_errno(r, "%s: Image is not a block device.", name);
+
+        case -EBADR:
+                return log_error_errno(r,
+                                       "Combining partitioned images (such as '%s') with external Verity data (such as '%s') not supported. "
+                                       "(Consider setting $SYSTEMD_DISSECT_VERITY_SIDECAR=0 to disable automatic discovery of external Verity data.)",
+                                       name, strna(verity ? verity->data_path : NULL));
+
+        case -ERFKILL:
+                return log_error_errno(r, "%s: image does not match image policy.", name);
+
+        default:
+                return log_error_errno(r, "Failed to dissect image '%s': %m", name);
+        }
+}
+
+int dissect_image_file_and_warn(
+                const char *path,
+                const VeritySettings *verity,
+                const MountOptions *mount_options,
+                const ImagePolicy *image_policy,
+                DissectImageFlags flags,
+                DissectedImage **ret) {
+
+        return dissect_log_error(
+                        dissect_image_file(path, verity, mount_options, image_policy, flags, ret),
+                        path,
+                        verity);
+}
+
 DissectedImage* dissected_image_unref(DissectedImage *m) {
         if (!m)
                 return NULL;
@@ -3482,53 +3542,13 @@ int dissect_loop_device_and_warn(
                 DissectImageFlags flags,
                 DissectedImage **ret) {
 
-        const char *name;
-        int r;
-
         assert(loop);
-        assert(loop->fd >= 0);
 
-        name = ASSERT_PTR(loop->backing_file ?: loop->node);
+        return dissect_log_error(
+                        dissect_loop_device(loop, verity, mount_options, image_policy, flags, ret),
+                        loop->backing_file ?: loop->node,
+                        verity);
 
-        r = dissect_loop_device(loop, verity, mount_options, image_policy, flags, ret);
-        switch (r) {
-
-        case -EOPNOTSUPP:
-                return log_error_errno(r, "Dissecting images is not supported, compiled without blkid support.");
-
-        case -ENOPKG:
-                return log_error_errno(r, "%s: Couldn't identify a suitable partition table or file system.", name);
-
-        case -ENOMEDIUM:
-                return log_error_errno(r, "%s: The image does not pass validation.", name);
-
-        case -EADDRNOTAVAIL:
-                return log_error_errno(r, "%s: No root partition for specified root hash found.", name);
-
-        case -ENOTUNIQ:
-                return log_error_errno(r, "%s: Multiple suitable root partitions found in image.", name);
-
-        case -ENXIO:
-                return log_error_errno(r, "%s: No suitable root partition found in image.", name);
-
-        case -EPROTONOSUPPORT:
-                return log_error_errno(r, "Device '%s' is loopback block device with partition scanning turned off, please turn it on.", name);
-
-        case -ENOTBLK:
-                return log_error_errno(r, "%s: Image is not a block device.", name);
-
-        case -EBADR:
-                return log_error_errno(r,
-                                       "Combining partitioned images (such as '%s') with external Verity data (such as '%s') not supported. "
-                                       "(Consider setting $SYSTEMD_DISSECT_VERITY_SIDECAR=0 to disable automatic discovery of external Verity data.)",
-                                       name, strna(verity ? verity->data_path : NULL));
-
-        default:
-                if (r < 0)
-                        return log_error_errno(r, "Failed to dissect image '%s': %m", name);
-
-                return r;
-        }
 }
 
 bool dissected_image_verity_candidate(const DissectedImage *image, PartitionDesignator partition_designator) {
