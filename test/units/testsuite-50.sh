@@ -231,6 +231,22 @@ fi
 systemd-dissect --root-hash "${roothash}" "${image}.gpt" | grep -q -F "MARKER=1"
 systemd-dissect --root-hash "${roothash}" "${image}.gpt" | grep -q -F -f <(sed 's/"//g' "$os_release")
 
+systemd-dissect --validate "${image}.gpt"
+systemd-dissect --validate "${image}.gpt" --image-policy='*'
+(! systemd-dissect --validate "${image}.gpt" --image-policy='~')
+(! systemd-dissect --validate "${image}.gpt" --image-policy='-')
+(! systemd-dissect --validate "${image}.gpt" --image-policy=root=absent)
+(! systemd-dissect --validate "${image}.gpt" --image-policy=swap=unprotected+encrypted+verity)
+systemd-dissect --validate "${image}.gpt" --image-policy=root=unprotected
+systemd-dissect --validate "${image}.gpt" --image-policy=root=verity
+systemd-dissect --validate "${image}.gpt" --image-policy=root=verity:root-verity-sig=unused+absent
+systemd-dissect --validate "${image}.gpt" --image-policy=root=verity:swap=absent
+systemd-dissect --validate "${image}.gpt" --image-policy=root=verity:swap=absent+unprotected
+(! systemd-dissect --validate "${image}.gpt" --image-policy=root=verity:root-verity=unused+absent)
+systemd-dissect --validate "${image}.gpt" --image-policy=root=signed
+(! systemd-dissect --validate "${image}.gpt" --image-policy=root=signed:root-verity-sig=unused+absent)
+(! systemd-dissect --validate "${image}.gpt" --image-policy=root=signed:root-verity=unused+absent)
+
 systemd-dissect --root-hash "${roothash}" --mount "${image}.gpt" "${image_dir}/mount"
 grep -q -F -f "$os_release" "${image_dir}/mount/usr/lib/os-release"
 grep -q -F -f "$os_release" "${image_dir}/mount/etc/os-release"
