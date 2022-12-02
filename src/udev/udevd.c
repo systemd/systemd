@@ -212,6 +212,7 @@ static void manager_clear_for_worker(Manager *manager) {
         event_queue_cleanup(manager, EVENT_UNDEF);
 
         manager->monitor = sd_device_monitor_unref(manager->monitor);
+        manager->legacy_ctrl_fd = safe_close(manager->legacy_ctrl_fd);
         manager->varlink_server = varlink_server_unref(manager->varlink_server);
 
         manager->worker_watch[READ_END] = safe_close(manager->worker_watch[READ_END]);
@@ -305,6 +306,7 @@ void manager_exit(Manager *manager) {
                   "STATUS=Starting shutdown...");
 
         /* close sources of new events and discard buffered events */
+        manager->legacy_ctrl_fd = safe_close(manager->legacy_ctrl_fd);
         manager->varlink_server = varlink_server_unref(manager->varlink_server);
 
         manager->inotify_event = sd_event_source_disable_unref(manager->inotify_event);
@@ -1687,6 +1689,26 @@ static int create_subcgroup(char **ret) {
         return 0;
 }
 
+static int create_legacy_ctrl_socket(Manager *m) {
+        union sockaddr_union sa;
+        socklen_t salen;
+
+        sa.un = (struct sockaddr_un) {
+            .sun_family = AF_UNIX,
+            .sun_path = "/run/udev/control",
+        };
+        salen = SOCKADDR_UN_LEN(sa.un);
+
+        m->legacy_ctrl_fd = socket(AF_UNIX, SOCK_SEQPACKET|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
+        if (m->legacy_ctrl_fd < 0)
+                return -errno;
+
+        if (bind(m->legacy_ctrl_fd, &sa.sa, salen) < 0)
+                return log_error_errno(errno, "Failed to bind udev control socket: %m");
+
+        return 0;
+}
+
 static int manager_new(Manager **ret, int fd_varlink, int fd_uevent) {
         _cleanup_(manager_freep) Manager *manager = NULL;
         _cleanup_free_ char *cgroup = NULL;
@@ -1713,6 +1735,11 @@ static int manager_new(Manager **ret, int fd_varlink, int fd_uevent) {
         r = device_monitor_new_full(&manager->monitor, MONITOR_GROUP_KERNEL, fd_uevent);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize device monitor: %m");
+
+        // Create legacy control socket so stuff that tests its presence continues to work
+        r = create_legacy_ctrl_socket(manager);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to create socket: %m");
 
         /* Bump receiver buffer, but only if we are not called via socket activation, as in that
          * case systemd sets the receive buffer size for us, and the value in the .socket unit

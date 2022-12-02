@@ -25,6 +25,7 @@ typedef struct Manager {
         sd_netlink *rtnl;
 
         sd_device_monitor *monitor;
+        int legacy_ctrl_fd; /* the old /run/udev/control socket */
         VarlinkServer *varlink_server;
         int worker_watch[2];
 
