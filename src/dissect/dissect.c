@@ -56,6 +56,7 @@ static enum {
         ACTION_WITH,
         ACTION_COPY_FROM,
         ACTION_COPY_TO,
+        ACTION_VALIDATE,
 } arg_action = ACTION_DISSECT;
 static const char *arg_image = NULL;
 static const char *arg_path = NULL;
@@ -131,6 +132,7 @@ static int help(void) {
                "     --with               Mount, run command, unmount\n"
                "  -x --copy-from          Copy files from image to host\n"
                "  -a --copy-to            Copy files from host to image\n"
+               "     --validate           Validate image and image policy\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -203,6 +205,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_JSON,
                 ARG_MTREE,
                 ARG_IMAGE_POLICY,
+                ARG_VALIDATE,
         };
 
         static const struct option options[] = {
@@ -228,6 +231,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "copy-to",       no_argument,       NULL, 'a'               },
                 { "json",          required_argument, NULL, ARG_JSON          },
                 { "image-policy",  required_argument, NULL, ARG_IMAGE_POLICY  },
+                { "validate",      no_argument,       NULL, 'v'               },
                 {}
         };
 
@@ -241,7 +245,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        while ((c = getopt_long(argc, argv, "hmurMUlxa", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hmurMUlxav", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -417,6 +421,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case 'v':
+                        arg_action = ACTION_VALIDATE;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -506,6 +514,16 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
                 }
 
+                break;
+
+        case ACTION_VALIDATE:
+                if (optind + 1 != argc)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Expected an image file path as only argument.");
+
+                arg_image = argv[optind];
+                arg_flags |= DISSECT_IMAGE_READ_ONLY;
+                arg_flags &= ~(DISSECT_IMAGE_PIN_PARTITION_DEVICES|DISSECT_IMAGE_ADD_PARTITION_DEVICES);
                 break;
 
         default:
@@ -1334,6 +1352,31 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
         return rcode;
 }
 
+static int action_validate(void) {
+        int r;
+
+        r = dissect_image_file_and_warn(
+                        arg_image,
+                        &arg_verity_settings,
+                        NULL,
+                        arg_image_policy,
+                        arg_flags,
+                        NULL);
+        if (r < 0)
+                return r;
+
+        if (isatty(STDOUT_FILENO) && emoji_enabled())
+                printf("%s ", special_glyph(SPECIAL_GLYPH_SPARKLES));
+
+        printf("%sOK%s", ansi_highlight_green(), ansi_normal());
+
+        if (isatty(STDOUT_FILENO) && emoji_enabled())
+                printf(" %s", special_glyph(SPECIAL_GLYPH_SPARKLES));
+
+        putc('\n', stdout);
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
@@ -1360,6 +1403,9 @@ static int run(int argc, char *argv[]) {
                                                                 * hence if there's external Verity data
                                                                 * available we turn off partition table
                                                                 * support */
+
+        if (arg_action == ACTION_VALIDATE)
+                return action_validate();
 
         r = loop_device_make_by_path(
                         arg_image,
