@@ -79,6 +79,7 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_ADD_PARTITION_DEVICES    = 1 << 20, /* Create partition devices via BLKPG_ADD_PARTITION */
         DISSECT_IMAGE_PIN_PARTITION_DEVICES    = 1 << 21, /* Open dissected partitions and decrypted partitions and pin them by fd */
         DISSECT_IMAGE_RELAX_SYSEXT_CHECK       = 1 << 22, /* Don't insist that the extension-release file name matches the image name */
+        DISSECT_IMAGE_ALLOW_EMPTY              = 1 << 23, /* Succeed dissection if we didn't find a single usable partition */
 } DissectImageFlags;
 
 struct DissectedImage {
