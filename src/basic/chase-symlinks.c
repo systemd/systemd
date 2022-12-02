@@ -552,22 +552,14 @@ int chase_symlinks_and_opendir(
                 return 0;
         }
 
-        r = chase_symlinks(path, root, chase_flags, &p, &path_fd);
+        r = chase_symlinks(path, root, chase_flags, ret_path ? &p : NULL, &path_fd);
         if (r < 0)
                 return r;
         assert(path_fd >= 0);
 
         d = opendir(FORMAT_PROC_FD_PATH(path_fd));
-        if (!d) {
-                /* Hmm, we have the fd already but we got ENOENT, most likely /proc is not mounted.
-                 * Let's try opendir() again on the full path. */
-                if (errno == ENOENT) {
-                        d = opendir(p);
-                        if (!d)
-                                return -errno;
-                } else
-                        return -errno;
-        }
+        if (!d)
+                return -errno;
 
         if (ret_path)
                 *ret_path = TAKE_PTR(p);
