@@ -1330,6 +1330,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
         int r;
 
+        log_show_color(true);
         log_parse_environment();
         log_open();
 
