@@ -1249,7 +1249,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_uid_range = UINT32_C(0x10000);
 
                         } else if (streq(optarg, "identity")) {
-                                /* identitiy: User namespaces on, UID range is map the 0…0xFFFF range to
+                                /* identity: User namespaces on, UID range is map the 0…0xFFFF range to
                                  * itself, i.e. we don't actually map anything, but do take benefit of
                                  * isolation of capability sets. */
                                 arg_userns_mode = USER_NAMESPACE_FIXED;
@@ -3727,7 +3727,7 @@ static int outer_child(
                  * place, so that we can make changes to its mount structure (for example, to implement
                  * --volatile=) without this interfering with our ability to access files such as
                  * /etc/localtime to copy into the container. Note that we use a fixed place for this
-                 * (instead of a temporary directory, since we are living in our own mount namspace here
+                 * (instead of a temporary directory, since we are living in our own mount namespace here
                  * already, and thus don't need to be afraid of colliding with anyone else's mounts). */
                 (void) mkdir_p("/run/systemd/nspawn-root", 0755);
 

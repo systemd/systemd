@@ -473,7 +473,7 @@ Features:
 * Add support for extra verity configuration options to systemd-repart (FEC,
   hash type, etc)
 
-* chase_symlinks(): take inspiraton from path_extract_filename() and return
+* chase_symlinks(): take inspiration from path_extract_filename() and return
   O_DIRECTORY if input path contains trailing slash.
 
 * chase_symlinks(): refuse resolution if trailing slash is specified on input,

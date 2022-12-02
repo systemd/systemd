@@ -1268,7 +1268,7 @@ static void boot_entry_file_list(
         int status = chase_symlinks_and_access(p, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, F_OK, NULL, NULL);
 
         /* Note that this shows two '/' between the root and the file. This is intentional to highlight (in
-         * the abscence of color support) to the user that the boot loader is only interested in the second
+         * the absence of color support) to the user that the boot loader is only interested in the second
          * part of the file. */
         printf("%13s%s %s%s/%s", strempty(field), field ? ":" : " ", ansi_grey(), root, ansi_normal());
 

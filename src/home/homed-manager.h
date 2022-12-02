@@ -59,7 +59,7 @@ struct Manager {
         char *userdb_service;
 
         EVP_PKEY *private_key; /* actually a pair of private and public key */
-        Hashmap *public_keys; /* key name [char*] → publick key [EVP_PKEY*] */
+        Hashmap *public_keys; /* key name [char*] → public key [EVP_PKEY*] */
 
         RebalanceState rebalance_state;
         usec_t rebalance_interval_usec;

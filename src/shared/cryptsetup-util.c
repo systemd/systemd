@@ -208,7 +208,7 @@ int dlopen_cryptsetup(void) {
         /* libcryptsetup added crypt_reencrypt() in 2.2.0, and marked it obsolete in 2.4.0, replacing it with
          * crypt_reencrypt_run(), which takes one extra argument but is otherwise identical. The old call is
          * still available though, and given we want to support 2.2.0 for a while longer, we'll stick to the
-         * old symbol. Howerver, the old symbols now has a GCC deprecation decorator, hence let's turn off
+         * old symbol. However, the old symbols now has a GCC deprecation decorator, hence let's turn off
          * warnings about this for now. */
 
         DISABLE_WARNING_DEPRECATED_DECLARATIONS;
