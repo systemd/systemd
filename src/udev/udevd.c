@@ -1426,7 +1426,7 @@ static int listen_fds(int *ret_ctrl, int *ret_netlink) {
                 return n;
 
         for (fd = SD_LISTEN_FDS_START; fd < n + SD_LISTEN_FDS_START; fd++) {
-                if (sd_is_socket(fd, AF_UNIX, SOCK_SEQPACKET, -1) > 0) {
+                if (sd_is_socket_unix(fd, SOCK_STREAM, 0, UDEV_VARLINK_ADDRESS, 0) > 0) {
                         if (ctrl_fd >= 0)
                                 return -EINVAL;
                         ctrl_fd = fd;
@@ -1706,7 +1706,7 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent) {
                 .cgroup = TAKE_PTR(cgroup),
         };
 
-        r = udev_open_varlink(manager, -1);
+        r = udev_open_varlink(manager, fd_ctrl);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize varlink server: %m");
 
