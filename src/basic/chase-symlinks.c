@@ -559,7 +559,7 @@ int chase_symlinks_and_opendir(
                 return r;
         assert(path_fd >= 0);
 
-        d = opendir(FORMAT_PROC_FD_PATH(path_fd));
+        d = xopendirat(path_fd, ".", O_NOFOLLOW);
         if (!d)
                 return -errno;
 
