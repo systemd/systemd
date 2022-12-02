@@ -32,7 +32,7 @@
 #include "strv.h"
 #include "user-util.h"
 
-static int locale_update_system_manager(sd_bus *bus, char **l_set, char **l_unset) {
+static int locale_update_system_manager(sd_bus *bus) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -43,15 +43,7 @@ static int locale_update_system_manager(sd_bus *bus, char **l_set, char **l_unse
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        "UnsetAndSetEnvironment");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_append_strv(m, l_unset);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_append_strv(m, l_set);
+                        "Reload");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -393,7 +385,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
                 return sd_bus_error_set_errnof(error, r, "Failed to set locale: %m");
         }
 
-        (void) locale_update_system_manager(sd_bus_message_get_bus(m), l_set, l_unset);
+        (void) locale_update_system_manager(sd_bus_message_get_bus(m));
 
         if (!strv_isempty(l_set)) {
                 _cleanup_free_ char *line = NULL;
