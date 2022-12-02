@@ -19,6 +19,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_close_ int orig_stdout_fd = -1;
         int r;
 
+        if (size > 4*1024*1024)
+                return 0; /* See the comment below about the limit for strv_length(). */
+
         /* We don't want to fill the logs with messages about parse errors.
          * Disable most logging if not running standalone */
         if (!getenv("SYSTEMD_LOG_LEVEL"))
