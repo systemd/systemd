@@ -3,7 +3,6 @@
 #include "sd-netlink.h"
 
 #include "fd-util.h"
-#include "format-util.h"
 #include "io-util.h"
 #include "memory-util.h"
 #include "netlink-internal.h"
@@ -15,7 +14,6 @@
 int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         _cleanup_strv_free_ char **alternative_names = NULL;
-        char old_name[IF_NAMESIZE] = {};
         int r;
 
         assert(rtnl);
@@ -35,10 +33,6 @@ int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
                 if (r < 0)
                         return log_debug_errno(r, "Failed to remove '%s' from alternative names on network interface %i: %m",
                                                name, ifindex);
-
-                r = format_ifname(ifindex, old_name);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to get current name of network interface %i: %m", ifindex);
         }
 
         r = sd_rtnl_message_new_link(*rtnl, &message, RTM_SETLINK, ifindex);
@@ -52,13 +46,6 @@ int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
         r = sd_netlink_call(*rtnl, message, 0, NULL);
         if (r < 0)
                 return r;
-
-        if (!isempty(old_name)) {
-                r = rtnl_set_link_alternative_names(rtnl, ifindex, STRV_MAKE(old_name));
-                if (r < 0)
-                        log_debug_errno(r, "Failed to set '%s' as an alternative name on network interface %i, ignoring: %m",
-                                        old_name, ifindex);
-        }
 
         return 0;
 }
