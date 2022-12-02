@@ -1710,6 +1710,11 @@ int tpm2_unseal(const char *device,
                         hmac_session, /* use HMAC session to enable parameter encryption */
                         ESYS_TR_NONE,
                         &unsealed);
+        if (rc == TPM2_RC_PCR_CHANGED) {
+                r = log_warning_errno(SYNTHETIC_ERRNO(ERESTART),
+                                      "Any PCR value changed after the TPM2 policy session was created.");
+                goto finish;
+        }
         if (rc != TSS2_RC_SUCCESS) {
                 r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                     "Failed to unseal HMAC key in TPM: %s", sym_Tss2_RC_Decode(rc));
