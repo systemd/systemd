@@ -501,7 +501,8 @@ static int parse_argv(int argc, char *argv[]) {
                 if (r < 0)
                         return r;
 
-                arg_flags |= DISSECT_IMAGE_READ_ONLY;
+                /* when dumping image info be even more liberal than otherwise, do not even require a single valid partition */
+                arg_flags |= DISSECT_IMAGE_READ_ONLY|DISSECT_IMAGE_ALLOW_EMPTY;
                 break;
 
         case ACTION_MOUNT:
