@@ -116,6 +116,7 @@ TimestampStyle arg_timestamp_style = TIMESTAMP_PRETTY;
 bool arg_read_only = false;
 bool arg_mkdir = false;
 bool arg_marked = false;
+ImagePolicy *arg_image_policy = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_types, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_states, strv_freep);
@@ -129,6 +130,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_reboot_argument, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_host, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_boot_loader_entry, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_clean_what, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 static int systemctl_help(void) {
         _cleanup_free_ char *link = NULL;
@@ -295,7 +297,9 @@ static int systemctl_help(void) {
                "     --root=PATH         Edit/enable/disable/mask unit files in the specified\n"
                "                         root directory\n"
                "     --image=PATH        Edit/enable/disable/mask unit files in the specified\n"
-               "                         image\n"
+               "                         disk image\n"
+               "     --image-policy=POLICY\n"
+               "                         Specify disk image dissection policy\n"
                "  -n --lines=INTEGER     Number of journal entries to show\n"
                "  -o --output=STRING     Change journal output mode (short, short-precise,\n"
                "                             short-iso, short-iso-precise, short-full,\n"
@@ -433,6 +437,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_READ_ONLY,
                 ARG_MKDIR,
                 ARG_MARKED,
+                ARG_IMAGE_POLICY,
         };
 
         static const struct option options[] = {
@@ -494,6 +499,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "read-only",           no_argument,       NULL, ARG_READ_ONLY           },
                 { "mkdir",               no_argument,       NULL, ARG_MKDIR               },
                 { "marked",              no_argument,       NULL, ARG_MARKED              },
+                { "image-policy",        required_argument, NULL, ARG_IMAGE_POLICY        },
                 {}
         };
 
@@ -926,6 +932,17 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_marked = true;
                         break;
 
+                case ARG_IMAGE_POLICY: {
+                        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
+
+                        r = image_policy_from_string(optarg, &p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse image policy: %s", optarg);
+
+                        image_policy_free(arg_image_policy);
+                        arg_image_policy = TAKE_PTR(p);
+                        break;
+                }
                 case '.':
                         /* Output an error mimicking getopt, and print a hint afterwards */
                         log_error("%s: invalid option -- '.'", program_invocation_name);
@@ -1162,6 +1179,7 @@ static int run(int argc, char *argv[]) {
 
                 r = mount_image_privately_interactively(
                                 arg_image,
+                                arg_image_policy,
                                 DISSECT_IMAGE_GENERIC_ROOT |
                                 DISSECT_IMAGE_REQUIRE_ROOT |
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |
