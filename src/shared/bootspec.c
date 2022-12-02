@@ -980,6 +980,8 @@ static int boot_config_find(const BootConfig *config, const char *id) {
         if (id[0] == '@') {
                 if (!strcaseeq(id, "@saved"))
                         return -1;
+                if (!config->entry_selected)
+                        return -1;
                 id = config->entry_selected;
         }
 
