@@ -1439,6 +1439,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_free_ char *friendly = NULL;
         int keyslot = arg_key_slot, r;
+        unsigned restart_count = 0;
         size_t decrypted_key_size;
 
         assert(cd);
@@ -1472,6 +1473,11 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         &decrypted_key, &decrypted_key_size);
                         if (r >= 0)
                                 break;
+                        if (r == -ERESTART && restart_count < TPM2_PCRS_MAX) {
+                                restart_count++;
+                                log_debug_errno(r, "Attempt to acquire the TPM2 key again.");
+                                continue;
+                        }
                         if (IN_SET(r, -EACCES, -ENOLCK))
                                 return log_error_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 PIN unlock failed, falling back to traditional unlocking.");
                         if (ERRNO_IS_NOT_SUPPORTED(r)) /* TPM2 support not compiled in? */
@@ -1561,6 +1567,11 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 arg_headless,
                                                 arg_ask_password_flags,
                                                 &decrypted_key, &decrypted_key_size);
+                                if (r == -ERESTART && restart_count < TPM2_PCRS_MAX) {
+                                        restart_count++;
+                                        log_debug_errno(r, "Attempt to acquire the TPM2 key again.");
+                                        continue;
+                                }
                                 if (IN_SET(r, -EACCES, -ENOLCK))
                                         return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 PIN unlock failed, falling back to traditional unlocking.");
                                 if (r != -EPERM)

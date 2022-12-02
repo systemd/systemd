@@ -96,24 +96,32 @@ _public_ int cryptsetup_token_open_pin(
         if (params.search_pcr_mask != UINT32_MAX && hash_pcr_mask != params.search_pcr_mask)
                 return crypt_log_debug_errno(cd, ENXIO, "PCR mask doesn't match expectation (%" PRIu32 " vs. %" PRIu32 ")", hash_pcr_mask, params.search_pcr_mask);
 
-        r = acquire_luks2_key(
-                        params.device,
-                        hash_pcr_mask,
-                        pcr_bank,
-                        pubkey, pubkey_size,
-                        pubkey_pcr_mask,
-                        params.signature_path,
-                        pin_string,
-                        primary_alg,
-                        blob,
-                        blob_size,
-                        policy_hash,
-                        policy_hash_size,
-                        flags,
-                        &decrypted_key,
-                        &decrypted_key_size);
-        if (r < 0)
-                return log_debug_open_error(cd, r);
+        for (unsigned i = TPM2_PCRS_MAX;; i--) {
+                r = acquire_luks2_key(
+                                params.device,
+                                hash_pcr_mask,
+                                pcr_bank,
+                                pubkey, pubkey_size,
+                                pubkey_pcr_mask,
+                                params.signature_path,
+                                pin_string,
+                                primary_alg,
+                                blob,
+                                blob_size,
+                                policy_hash,
+                                policy_hash_size,
+                                flags,
+                                &decrypted_key,
+                                &decrypted_key_size);
+                if (r >= 0)
+                        break;
+                if (r == -ERESTART && i > 0) {
+                        crypt_log_debug(cd, "Attempt to acquire the TPM2 key again.");
+                        continue;
+                }
+                if (r < 0)
+                        return log_debug_open_error(cd, r);
+        }
 
         /* Before using this key as passphrase we base64 encode it, for compat with homed */
         r = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
