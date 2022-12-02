@@ -22,6 +22,7 @@
 #include "rlimit-util.h"
 #include "sigbus.h"
 #include "signal-util.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "systemctl-add-dependency.h"
 #include "systemctl-cancel-job.h"
@@ -1156,6 +1157,13 @@ static int run(int argc, char *argv[]) {
         r = systemctl_dispatch_parse_argv(argc, argv);
         if (r <= 0)
                 goto finish;
+
+        if (proc_mounted() == 0)
+                log_warning("%s%s/proc/ is not mounted. This is not a supported mode of operation. Please fix\n"
+                            "your invocation environment to mount /proc/ and /sys/ properly. Proceeding anyway.\n"
+                            "Your mileage may vary.",
+                            emoji_enabled() ? special_glyph(SPECIAL_GLYPH_WARNING_SIGN) : "",
+                            emoji_enabled() ? " " : "");
 
         if (arg_action != ACTION_SYSTEMCTL && running_in_chroot() > 0) {
                 if (!arg_quiet)
