@@ -147,6 +147,7 @@ static inline int probe_filesystem(const char *path, char **ret_fstype) {
 }
 
 int dissect_image_file(const char *path, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, DissectImageFlags flags, DissectedImage **ret);
+int dissect_image_file_and_warn(const char *path, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, DissectImageFlags flags, DissectedImage **ret);
 int dissect_loop_device(LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, DissectImageFlags flags, DissectedImage **ret);
 int dissect_loop_device_and_warn(LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, DissectImageFlags flags, DissectedImage **ret);
 
