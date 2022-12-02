@@ -502,6 +502,14 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
                         r = link_down_now(link);
                         if (r < 0)
                                 return r;
+
+                        /* If the kind of the link is "bond", we need
+                         * set the slave link down as well. */
+                        if (streq_ptr(link->kind, "bond")) {
+                                r = link_down_slave_links(link);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
                 break;
 
@@ -1225,6 +1233,22 @@ int link_down_now(Link *link) {
         link_ref(link);
         return 0;
 }
+
+int link_down_slave_links(Link *link) {
+        Link *slave;
+        int r;
+
+        assert(link);
+
+        SET_FOREACH(slave, link->slaves) {
+                r = link_down_now(slave);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 
 static int link_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
