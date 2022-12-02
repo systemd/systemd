@@ -1485,12 +1485,16 @@ static int dissect_image(
                 }
         }
 
+        bool any = false;
+
         /* After we discovered all partitions let's see if the verity requirements match the policy. (Note:
          * we don't check encryption requirements here, because we haven't probed the file system yet, hence
          * don't know if this is encrypted or not) */
         for (PartitionDesignator di = 0; di < _PARTITION_DESIGNATOR_MAX; di++) {
                 PartitionDesignator vi, si;
                 PartitionPolicyFlags found_flags;
+
+                any = any || m->partitions[di].found;
 
                 vi = partition_verity_of(di);
                 si = partition_verity_sig_of(di);
@@ -1512,6 +1516,9 @@ static int dissect_image(
                                 return r;
                 }
         }
+
+        if (!any && !FLAGS_SET(flags, DISSECT_IMAGE_ALLOW_EMPTY))
+                return -ENOMSG;
 
         r = dissected_image_probe_filesystems(m, fd, policy);
         if (r < 0)
@@ -1604,6 +1611,9 @@ static int dissect_log_error(int r, const char *name, const VeritySettings *veri
 
         case -ERFKILL:
                 return log_error_errno(r, "%s: image does not match image policy.", name);
+
+        case -ENOMSG:
+                return log_error_errno(r, "%s: no suitable partitions found.", name);
 
         default:
                 return log_error_errno(r, "Failed to dissect image '%s': %m", name);
