@@ -2335,7 +2335,7 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>Takes a boolean. Specifies whether to add an address from the delegated prefixes which
           are received from the WAN interface by the DHCPv6 Prefix Delegation. When true (on LAN
-          interfce), the EUI-64 algorithm will be used by default to form an interface identifier from
+          interface), the EUI-64 algorithm will be used by default to form an interface identifier from
           the delegated prefixes. See also <varname>Token=</varname> setting below. Defaults to yes.
           </para>
         </listitem>
