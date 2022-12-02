@@ -281,6 +281,20 @@
         on.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--validate</option></term>
+
+        <listitem><para>Validates the partition arrangement of a disk image (DDI), and ensures it matches the
+        image policy specified via <option>--image-policy=</option>, if one is specified. This parses the
+        partition table and probes the file systems in the image, but does not attempt to mount them (nor to
+        set up disk encryption/authentication via LUKS/Verity). It does this taking the configured image
+        dissection policy into account. Since this operation does not mount file systems, this command –
+        unlike all other commands implemented by this tool – requires no privileges other than the ability to
+        access the specified file. Prints "OK" and returns zero if the image appears to be in order and
+        matches the specified image dissection policy. Otherwise prints an error message and returns
+        non-zero.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
