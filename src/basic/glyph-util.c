@@ -71,6 +71,7 @@ const char *special_glyph(SpecialGlyph code) {
                         [SPECIAL_GLYPH_RECYCLING]               = "~",
                         [SPECIAL_GLYPH_DOWNLOAD]                = "\\",
                         [SPECIAL_GLYPH_SPARKLES]                = "*",
+                        [SPECIAL_GLYPH_WARNING_SIGN]            = "!",
                 },
 
                 /* UTF-8 */
@@ -124,10 +125,11 @@ const char *special_glyph(SpecialGlyph code) {
                         /* This emoji is a single character cell glyph in Unicode, and two in ASCII */
                         [SPECIAL_GLYPH_TOUCH]                   = u8"👆",       /* actually called: BACKHAND INDEX POINTING UP */
 
-                        /* These three emojis are single character cell glyphs in Unicode and also in ASCII. */
+                        /* These four emojis are single character cell glyphs in Unicode and also in ASCII. */
                         [SPECIAL_GLYPH_RECYCLING]               = u8"♻️",        /* actually called: UNIVERSAL RECYCLNG SYMBOL */
                         [SPECIAL_GLYPH_DOWNLOAD]                = u8"⤵️",        /* actually called: RIGHT ARROW CURVING DOWN */
                         [SPECIAL_GLYPH_SPARKLES]                = u8"✨",
+                        [SPECIAL_GLYPH_WARNING_SIGN]            = u8"⚠️",
                 },
         };
 
