@@ -22,7 +22,7 @@ static int check_btrfs(void) {
         return F_TYPE_EQUAL(sfs.f_type, BTRFS_SUPER_MAGIC);
 }
 
-int setup_machine_directory(sd_bus_error *error) {
+int setup_machine_directory(sd_bus_error *error, bool use_btrfs_subvol, bool use_btrfs_quota) {
         int r;
 
         r = check_btrfs();
@@ -31,7 +31,13 @@ int setup_machine_directory(sd_bus_error *error) {
         if (r == 0)
                 return 0;
 
+        if (!use_btrfs_subvol)
+                return 0;
+
         (void) btrfs_subvol_make_label("/var/lib/machines");
+
+        if (!use_btrfs_quota)
+                return 0;
 
         r = btrfs_quota_enable("/var/lib/machines", true);
         if (r < 0)
@@ -41,5 +47,5 @@ int setup_machine_directory(sd_bus_error *error) {
         if (r < 0)
                 log_warning_errno(r, "Failed to set up default quota hierarchy for /var/lib/machines, ignoring: %m");
 
-        return 1;
+        return 0;
 }
