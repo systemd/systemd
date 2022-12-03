@@ -93,6 +93,7 @@ _homectl() {
                         --luks-volume-key-size
                         --luks-pbkdf-type
                         --luks-pbkdf-hash-algorithm
+                        --luks-pbkdf-force-iterations
                         --luks-pbkdf-time-cost
                         --luks-pbkdf-memory-cost
                         --luks-pbkdf-parallel-threads
