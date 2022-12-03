@@ -1670,12 +1670,16 @@ static struct crypt_pbkdf_type* build_good_pbkdf(struct crypt_pbkdf_type *buffer
         assert(buffer);
         assert(hr);
 
+        bool benchmark = user_record_luks_pbkdf_force_iterations(hr) == UINT64_MAX;
+
         *buffer = (struct crypt_pbkdf_type) {
                 .hash = user_record_luks_pbkdf_hash_algorithm(hr),
                 .type = user_record_luks_pbkdf_type(hr),
-                .time_ms = user_record_luks_pbkdf_time_cost_usec(hr) / USEC_PER_MSEC,
+                .time_ms = benchmark ? user_record_luks_pbkdf_time_cost_usec(hr) / USEC_PER_MSEC : 0,
+                .iterations = benchmark ? 0 : user_record_luks_pbkdf_force_iterations(hr),
                 .max_memory_kb = user_record_luks_pbkdf_memory_cost(hr) / 1024,
                 .parallel_threads = user_record_luks_pbkdf_parallel_threads(hr),
+                .flags = benchmark ? 0 : CRYPT_PBKDF_NO_BENCHMARK,
         };
 
         return buffer;

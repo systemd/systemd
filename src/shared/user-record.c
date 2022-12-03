@@ -55,6 +55,7 @@ UserRecord* user_record_new(void) {
                 .luks_discard = -1,
                 .luks_offline_discard = -1,
                 .luks_volume_key_size = UINT64_MAX,
+                .luks_pbkdf_force_iterations = UINT64_MAX,
                 .luks_pbkdf_time_cost_usec = UINT64_MAX,
                 .luks_pbkdf_memory_cost = UINT64_MAX,
                 .luks_pbkdf_parallel_threads = UINT64_MAX,
@@ -1213,6 +1214,7 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
                 { "luksVolumeKeySize",          JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, luks_volume_key_size),          0         },
                 { "luksPbkdfHashAlgorithm",     JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, luks_pbkdf_hash_algorithm),     JSON_SAFE },
                 { "luksPbkdfType",              JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, luks_pbkdf_type),               JSON_SAFE },
+                { "luksPbkdfForceIterations",   JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, luks_pbkdf_force_iterations),   0         },
                 { "luksPbkdfTimeCostUSec",      JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, luks_pbkdf_time_cost_usec),     0         },
                 { "luksPbkdfMemoryCost",        JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, luks_pbkdf_memory_cost),        0         },
                 { "luksPbkdfParallelThreads",   JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, luks_pbkdf_parallel_threads),   0         },
@@ -1566,6 +1568,7 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
                 { "luksVolumeKeySize",          JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, luks_volume_key_size),          0         },
                 { "luksPbkdfHashAlgorithm",     JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, luks_pbkdf_hash_algorithm),     JSON_SAFE },
                 { "luksPbkdfType",              JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, luks_pbkdf_type),               JSON_SAFE },
+                { "luksPbkdfForceIterations",   JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, luks_pbkdf_force_iterations),   0         },
                 { "luksPbkdfTimeCostUSec",      JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, luks_pbkdf_time_cost_usec),     0         },
                 { "luksPbkdfMemoryCost",        JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, luks_pbkdf_memory_cost),        0         },
                 { "luksPbkdfParallelThreads",   JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,                 offsetof(UserRecord, luks_pbkdf_parallel_threads),   0         },
@@ -1840,6 +1843,17 @@ const char* user_record_luks_pbkdf_type(UserRecord *h) {
         assert(h);
 
         return h->luks_pbkdf_type ?: "argon2id";
+}
+
+uint64_t user_record_luks_pbkdf_force_iterations(UserRecord *h) {
+        assert(h);
+
+        /* propagate default "benchmark" mode as itself */
+        if (h->luks_pbkdf_force_iterations == UINT64_MAX)
+                return UINT64_MAX;
+
+        /* clamp everything else to actually accepted number of iterations of libcryptsetup */
+        return CLAMP(h->luks_pbkdf_force_iterations, 1U, UINT32_MAX);
 }
 
 uint64_t user_record_luks_pbkdf_time_cost_usec(UserRecord *h) {
