@@ -963,6 +963,10 @@ Features:
   records would be stripped of all meta info, except the basic UID/name
   info. Then use this in portabled environments that do not use PrivateUsers=1.
 
+* portabled: when extracting unit files and copying to system.attached, if a
+  .p7s is available in the image, use it to protect the system.attached copy
+  with fs-verity, so that it cannot be tampered with
+
 * logind introduce two types of sessions: "heavy" and "light". The former would
   be our current sessions. But the latter would be a new type of session that
   is mostly the same but does not pull in user@.service or wait for it. Then,
