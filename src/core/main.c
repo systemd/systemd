@@ -1184,9 +1184,10 @@ static void bump_file_max_and_nr_open(void) {
 #if BUMP_PROC_SYS_FS_FILE_MAX
         /* The maximum the kernel allows for this since 5.2 is LONG_MAX, use that. (Previously things were
          * different, but the operation would fail silently.) */
-        r = sysctl_writef("fs/file-max", "%li\n", LONG_MAX);
+        r = sysctl_writef("fs/file-max", "%li", LONG_MAX);
         if (r < 0)
-                log_full_errno(IN_SET(r, -EROFS, -EPERM, -EACCES) ? LOG_DEBUG : LOG_WARNING, r, "Failed to bump fs.file-max, ignoring: %m");
+                log_full_errno(IN_SET(r, -EROFS, -EPERM, -EACCES) ? LOG_DEBUG : LOG_WARNING,
+                               r, "Failed to bump fs.file-max, ignoring: %m");
 #endif
 
 #if BUMP_PROC_SYS_FS_NR_OPEN
@@ -1218,7 +1219,7 @@ static void bump_file_max_and_nr_open(void) {
                         break;
                 }
 
-                r = sysctl_writef("fs/nr_open", "%i\n", v);
+                r = sysctl_writef("fs/nr_open", "%i", v);
                 if (r == -EINVAL) {
                         log_debug("Couldn't write fs.nr_open as %i, halving it.", v);
                         v /= 2;
