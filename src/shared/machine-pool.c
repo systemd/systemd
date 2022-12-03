@@ -41,5 +41,5 @@ int setup_machine_directory(sd_bus_error *error) {
         if (r < 0)
                 log_warning_errno(r, "Failed to set up default quota hierarchy for /var/lib/machines, ignoring: %m");
 
-        return 1;
+        return 0;
 }
