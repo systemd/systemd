@@ -771,6 +771,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             account.
             </para>
 
+            <para>When using this operation on units without install information, a warning about it is shown.
+            <option>--no-warn</option> can be used to suppress the warning.</para>
+
             <para>Enabling units should not be confused with starting (activating) units, as done by the
             <command>start</command> command. Enabling and starting units is orthogonal: units may be enabled without
             being started and started without being enabled. Enabling simply hooks the unit into various suggested
@@ -814,8 +817,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             executed. This output may be suppressed by passing <option>--quiet</option>.
             </para>
 
-            <para>This command honors <option>--system</option>, <option>--user</option>, <option>--runtime</option>
-            and <option>--global</option> in a similar way as <command>enable</command>.</para>
+            <para>This command honors <option>--system</option>, <option>--user</option>, <option>--runtime</option>,
+            <option>--global</option> and <option>--no-warn</option> in a similar way as <command>enable</command>.</para>
           </listitem>
         </varlistentry>
 
@@ -1994,6 +1997,17 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           suppress output of commands for which the printed output is
           the only result (like <command>show</command>). Errors are
           always printed.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-warn</option></term>
+
+        <listitem>
+          <para>Don't generate the warning shown by default when using
+          <command>enable</command> or <command>disable</command> on units
+          without install information (i.e. don't have or have an empty
+          [Install] section).</para>
         </listitem>
       </varlistentry>
 

@@ -19,21 +19,21 @@ case "$command" in
 
     remove-system-units)
         if [ -d /run/systemd/system ]; then
-            systemctl --no-reload disable --now "$@"
+            systemctl --no-reload disable --now --no-warn "$@"
         else
-            systemctl --no-reload disable "$@"
+            systemctl --no-reload disable --no-warn "$@"
         fi
         ;;
 
     remove-user-units)
-        systemctl --global disable "$@"
+        systemctl --global disable --no-warn "$@"
 
         [ -d /run/systemd/system ] || exit 0
 
         users=$(systemctl list-units 'user@*' --legend=no | sed -n -r 's/.*user@([0-9]+).service.*/\1/p')
         for user in $users; do
             SYSTEMD_BUS_TIMEOUT={{UPDATE_HELPER_USER_TIMEOUT}} \
-                    systemctl --user -M "$user@" disable --now "$@" &
+                    systemctl --user -M "$user@" disable --now --no-warn "$@" &
         done
         wait
         ;;

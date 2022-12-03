@@ -2790,24 +2790,37 @@ static int do_unit_file_disable(
 
         _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
         _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
+        InstallInfo *info;
+        bool has_install_info = false;
         int r;
 
         STRV_FOREACH(name, names) {
                 if (!unit_name_is_valid(*name, UNIT_NAME_ANY))
                         return install_changes_add(changes, n_changes, -EUCLEAN, *name, NULL);
 
-                r = install_info_add(&ctx, *name, NULL, lp->root_dir, /* auxiliary= */ false, NULL);
+                r = install_info_add(&ctx, *name, NULL, lp->root_dir, /* auxiliary= */ false, &info);
+                if (r >= 0)
+                        r = install_info_traverse(&ctx, lp, info, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, NULL);
+
                 if (r < 0)
-                        return r;
+                        return install_changes_add(changes, n_changes, r, *name, NULL);
+
+                /* If we enable multiple units, some with install info and others without,
+                 * the "empty [Install] section" warning is not shown. Let's make the behavior
+                 * of disable align with that. */
+                has_install_info = has_install_info || install_info_has_rules(info) || install_info_has_also(info);
         }
 
         r = install_context_mark_for_removal(&ctx, lp, &remove_symlinks_to, config_path, changes, n_changes);
+        if (r >= 0)
+                r = remove_marked_symlinks(remove_symlinks_to, config_path, lp, flags & UNIT_FILE_DRY_RUN, changes, n_changes);
+
         if (r < 0)
                 return r;
 
-        return remove_marked_symlinks(remove_symlinks_to, config_path, lp, flags & UNIT_FILE_DRY_RUN, changes, n_changes);
+        /* The warning is shown only if it's a no-op */
+        return install_changes_have_modification(*changes, *n_changes) || has_install_info;
 }
-
 
 int unit_file_disable(
                 LookupScope scope,
