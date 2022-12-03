@@ -314,6 +314,8 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                         printf("  PBKDF Type: %s\n", hr->luks_pbkdf_type);
                 if (hr->luks_pbkdf_hash_algorithm)
                         printf("  PBKDF Hash: %s\n", hr->luks_pbkdf_hash_algorithm);
+                if (hr->luks_pbkdf_force_iterations != UINT64_MAX)
+                        printf(" PBKDF Iters: %" PRIu64 "\n", hr->luks_pbkdf_force_iterations);
                 if (hr->luks_pbkdf_time_cost_usec != UINT64_MAX)
                         printf("  PBKDF Time: %s\n", FORMAT_TIMESPAN(hr->luks_pbkdf_time_cost_usec, 0));
                 if (hr->luks_pbkdf_memory_cost != UINT64_MAX)
