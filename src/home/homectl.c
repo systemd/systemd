@@ -2392,6 +2392,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_IO_WEIGHT,
                 ARG_LUKS_PBKDF_TYPE,
                 ARG_LUKS_PBKDF_HASH_ALGORITHM,
+                ARG_LUKS_PBKDF_FORCE_ITERATIONS,
                 ARG_LUKS_PBKDF_TIME_COST,
                 ARG_LUKS_PBKDF_MEMORY_COST,
                 ARG_LUKS_PBKDF_PARALLEL_THREADS,
@@ -2473,6 +2474,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "luks-volume-key-size",        required_argument, NULL, ARG_LUKS_VOLUME_KEY_SIZE        },
                 { "luks-pbkdf-type",             required_argument, NULL, ARG_LUKS_PBKDF_TYPE             },
                 { "luks-pbkdf-hash-algorithm",   required_argument, NULL, ARG_LUKS_PBKDF_HASH_ALGORITHM   },
+                { "luks-pbkdf-force-iterations", required_argument, NULL, ARG_LUKS_PBKDF_FORCE_ITERATIONS },
                 { "luks-pbkdf-time-cost",        required_argument, NULL, ARG_LUKS_PBKDF_TIME_COST        },
                 { "luks-pbkdf-memory-cost",      required_argument, NULL, ARG_LUKS_PBKDF_MEMORY_COST      },
                 { "luks-pbkdf-parallel-threads", required_argument, NULL, ARG_LUKS_PBKDF_PARALLEL_THREADS },
@@ -3093,10 +3095,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_LUKS_VOLUME_KEY_SIZE:
+                case ARG_LUKS_PBKDF_FORCE_ITERATIONS:
                 case ARG_LUKS_PBKDF_PARALLEL_THREADS:
                 case ARG_RATE_LIMIT_BURST: {
                         const char *field =
                                        c == ARG_LUKS_VOLUME_KEY_SIZE ? "luksVolumeKeySize" :
+                                c == ARG_LUKS_PBKDF_FORCE_ITERATIONS ? "luksPbkdfForceIterations" :
                                 c == ARG_LUKS_PBKDF_PARALLEL_THREADS ? "luksPbkdfParallelThreads" :
                                            c == ARG_RATE_LIMIT_BURST ? "rateLimitBurst" : NULL;
                         unsigned n;
