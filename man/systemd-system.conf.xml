@@ -540,6 +540,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>DefaultMountRateLimitBurst=</varname></term>
+
+        <listitem><para>Configures the default rate limit burst (per second) set by mount units when parsing
+        <filename>/proc/self/mountinfo</filename>, takes a positive integer value, defaults to
+        <literal>5</literal>. On a system with few resources but many mounts the rate limit may be hit,
+        which will cause the processing of mount units to stall. The burst limit may be adjusted when the
+        default is not appropriate for a given system.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DefaultSmackProcessLabel=</varname></term>
 
         <listitem><para>Takes a <option>SMACK64</option> security label as the argument. The process executed
