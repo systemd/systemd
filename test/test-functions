@@ -1344,7 +1344,7 @@ create_empty_image() {
     fi
 
     # Partition sizes are in MiBs
-    local root_size=500
+    local root_size=1000
     local data_size=50
     if ! get_bool "$NO_BUILD"; then
         if meson configure "${BUILD_DIR:?}" | grep 'static-lib\|standalone-binaries' | awk '{ print $2 }' | grep -q 'true'; then

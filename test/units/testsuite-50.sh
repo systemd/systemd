@@ -21,6 +21,14 @@ cleanup() {(
 
 udevadm control --log-level=debug
 
+mkdir -p /run/systemd/system.conf.d/
+cat >/run/systemd/system.conf.d/00-mount-rate-limit.conf <<EOF
+[Manager]
+DefaultMountRateLimitBurst=6
+EOF
+systemctl daemon-reload
+test "$(busctl --json=short get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager DefaultMountRateLimitBurst)" = '{"type":"u","data":6}'
+
 cd /tmp
 
 image_dir="$(mktemp -d -t -p /tmp tmp.XXXXXX)"
