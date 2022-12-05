@@ -259,6 +259,7 @@ struct Manager {
         /* Data specific to the mount subsystem */
         struct libmnt_monitor *mount_monitor;
         sd_event_source *mount_event_source;
+        unsigned default_mount_rate_limit_burst;
 
         /* Data specific to the swap filesystem */
         FILE *proc_swaps;

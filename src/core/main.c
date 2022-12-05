@@ -103,6 +103,10 @@
 
 #define DEFAULT_TASKS_MAX ((TasksMax) { 15U, 100U }) /* 15% */
 
+/* Burst rate limit for parsing /proc/self/mountinfo in mount units.
+ * Let users override the default (5 in 1s), as it stalls the boot sequence on busy systems. */
+#define DEFAULT_MOUNT_RATE_LIMIT_BURST 5
+
 static enum {
         ACTION_RUN,
         ACTION_HELP,
@@ -173,6 +177,7 @@ static size_t arg_random_seed_size;
 static int arg_default_oom_score_adjust;
 static bool arg_default_oom_score_adjust_set;
 static char *arg_default_smack_process_label;
+static unsigned arg_mount_rate_limit_burst;
 
 /* A copy of the original environment block */
 static char **saved_env = NULL;
@@ -741,6 +746,7 @@ static void set_manager_defaults(Manager *m) {
         m->default_oom_policy = arg_default_oom_policy;
         m->default_oom_score_adjust_set = arg_default_oom_score_adjust_set;
         m->default_oom_score_adjust = arg_default_oom_score_adjust;
+        m->default_mount_rate_limit_burst = arg_mount_rate_limit_burst;
 
         (void) manager_set_default_smack_process_label(m, arg_default_smack_process_label);
 
@@ -2384,6 +2390,8 @@ static void setenv_manager_environment(void) {
 }
 
 static void reset_arguments(void) {
+        int r;
+
         /* Frees/resets arg_* variables, with a few exceptions commented below. */
 
         arg_default_unit = mfree(arg_default_unit);
@@ -2448,6 +2456,14 @@ static void reset_arguments(void) {
         arg_random_seed = mfree(arg_random_seed);
         arg_random_seed_size = 0;
         arg_clock_usec = 0;
+
+        arg_mount_rate_limit_burst = DEFAULT_MOUNT_RATE_LIMIT_BURST;
+        const char *e = secure_getenv("SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST");
+        if (e) {
+                r = safe_atou(e, &arg_mount_rate_limit_burst);
+                if (r < 0)
+                        log_debug("Invalid value in $SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST, ignoring: %s", e);
+        }
 
         arg_default_oom_score_adjust_set = false;
         arg_default_smack_process_label = mfree(arg_default_smack_process_label);
