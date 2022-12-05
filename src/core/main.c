@@ -103,6 +103,10 @@
 
 #define DEFAULT_TASKS_MAX ((TasksMax) { 15U, 100U }) /* 15% */
 
+/* Burst rate limit for parsing /proc/self/mountinfo in mount units.
+ * Let users override the default (5 in 1s), as it stalls the boot sequence on busy systems. */
+#define DEFAULT_MOUNT_RATE_LIMIT_BURST 5
+
 static enum {
         ACTION_RUN,
         ACTION_HELP,
@@ -173,6 +177,7 @@ static size_t arg_random_seed_size;
 static int arg_default_oom_score_adjust;
 static bool arg_default_oom_score_adjust_set;
 static char *arg_default_smack_process_label;
+static unsigned arg_mount_rate_limit_burst;
 
 /* A copy of the original environment block */
 static char **saved_env = NULL;
@@ -662,6 +667,7 @@ static int parse_config_file(void) {
                 { "Manager", "CtrlAltDelBurstAction",        config_parse_emergency_action,      0,                        &arg_cad_burst_action             },
                 { "Manager", "DefaultOOMPolicy",             config_parse_oom_policy,            0,                        &arg_default_oom_policy           },
                 { "Manager", "DefaultOOMScoreAdjust",        config_parse_oom_score_adjust,      0,                        NULL                              },
+                { "Manager", "DefaultMountRateLimitBurst",   config_parse_unsigned,              0,                        &arg_mount_rate_limit_burst       },
 #if ENABLE_SMACK
                 { "Manager", "DefaultSmackProcessLabel",     config_parse_string,                0,                        &arg_default_smack_process_label  },
 #else
@@ -741,6 +747,7 @@ static void set_manager_defaults(Manager *m) {
         m->default_oom_policy = arg_default_oom_policy;
         m->default_oom_score_adjust_set = arg_default_oom_score_adjust_set;
         m->default_oom_score_adjust = arg_default_oom_score_adjust;
+        m->default_mount_rate_limit_burst = arg_mount_rate_limit_burst;
 
         (void) manager_set_default_smack_process_label(m, arg_default_smack_process_label);
 
@@ -2448,6 +2455,7 @@ static void reset_arguments(void) {
         arg_random_seed = mfree(arg_random_seed);
         arg_random_seed_size = 0;
         arg_clock_usec = 0;
+        arg_mount_rate_limit_burst = DEFAULT_MOUNT_RATE_LIMIT_BURST;
 
         arg_default_oom_score_adjust_set = false;
         arg_default_smack_process_label = mfree(arg_default_smack_process_label);
