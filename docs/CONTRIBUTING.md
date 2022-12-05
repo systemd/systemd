@@ -22,7 +22,7 @@ Following these guidelines makes it easier for us to process your issue, and ens
 ### Older downstream versions
 For older versions that are still supported by your distribution please use respective downstream tracker:
 * **Fedora** - [bugzilla](https://bugzilla.redhat.com/enter_bug.cgi?product=Fedora&component=systemd)
-* **RHEL/CentOS** - [bugzilla](https://bugzilla.redhat.com/) or [systemd-rhel github](https://github.com/systemd-rhel/)
+* **RHEL/CentOS** - [bugzilla](https://bugzilla.redhat.com/) or [systemd-rhel GitHub](https://github.com/redhat-plumbers)
 * **Debian** - [bugs.debian.org](https://bugs.debian.org/cgi-bin/pkgreport.cgi?pkg=systemd)
 
 ## Security vulnerability reports
