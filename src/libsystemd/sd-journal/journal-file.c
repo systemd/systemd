@@ -3583,22 +3583,24 @@ static int journal_file_warn_btrfs(JournalFile *f) {
 
         r = fd_is_fs_type(f->fd, BTRFS_SUPER_MAGIC);
         if (r < 0)
-                return log_warning_errno(r, "Failed to determine if journal is on btrfs: %m");
+                return log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT, "Failed to determine if journal is on btrfs: %m");
         if (!r)
                 return 0;
 
         r = read_attr_fd(f->fd, &attrs);
         if (r < 0)
-                return log_warning_errno(r, "Failed to read file attributes: %m");
+                return log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT, "Failed to read file attributes: %m");
 
         if (attrs & FS_NOCOW_FL) {
                 log_debug("Detected btrfs file system with copy-on-write disabled, all is good.");
                 return 0;
         }
 
-        log_notice("Creating journal file %s on a btrfs file system, and copy-on-write is enabled. "
-                   "This is likely to slow down journal access substantially, please consider turning "
-                   "off the copy-on-write file attribute on the journal directory, using chattr +C.", f->path);
+        log_ratelimit_notice(JOURNAL_LOG_RATELIMIT,
+                             "Creating journal file %s on a btrfs file system, and copy-on-write is enabled. "
+                             "This is likely to slow down journal access substantially, please consider turning "
+                             "off the copy-on-write file attribute on the journal directory, using chattr +C.",
+                             f->path);
 
         return 1;
 }
@@ -4169,7 +4171,8 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int log
         /* If we gained new header fields we gained new features,
          * hence suggest a rotation */
         if (le64toh(f->header->header_size) < sizeof(Header)) {
-                log_full(log_level, "%s uses an outdated header, suggesting rotation.", f->path);
+                log_ratelimit_full(log_level, JOURNAL_LOG_RATELIMIT,
+                                   "%s uses an outdated header, suggesting rotation.", f->path);
                 return true;
         }
 
