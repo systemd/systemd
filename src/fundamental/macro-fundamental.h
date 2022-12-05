@@ -354,6 +354,16 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
                 ((l) + (ali) - 1) & ~((ali) - 1),                      \
                 VOID_0)
 
+/* Similar to ((t *) (void *) (p)) to cast a pointer. The macro asserts that the pointer has a suitable
+ * alignment for type "t". This exists for places where otherwise "-Wcast-align=strict" would issue a
+ * warning or if you want to assert that the cast gives a pointer of suitable alignment. */
+#define CAST_ALIGN_PTR(t, p)                                    \
+        ({                                                      \
+                const void *_p = (p);                           \
+                assert(((uintptr_t) _p) % __alignof__(t) == 0); \
+                (t *) _p;                                       \
+        })
+
 #define UPDATE_FLAG(orig, flag, b)                      \
         ((b) ? ((orig) | (flag)) : ((orig) & ~(flag)))
 #define SET_FLAG(v, flag, b) \
