@@ -12,6 +12,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "io-util.h"
+#include "journal-internal.h"
 #include "journal-util.h"
 #include "journald-context.h"
 #include "parse-util.h"
@@ -771,7 +772,7 @@ void client_context_acquire_default(Server *s) {
 
                 r = client_context_acquire(s, ucred.pid, &ucred, NULL, 0, NULL, &s->my_context);
                 if (r < 0)
-                        log_ratelimit_warning_errno(r, JOURNALD_LOG_RATELIMIT,
+                        log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
                                                     "Failed to acquire our own context, ignoring: %m");
         }
 
@@ -781,7 +782,7 @@ void client_context_acquire_default(Server *s) {
 
                 r = client_context_acquire(s, 1, NULL, NULL, 0, NULL, &s->pid1_context);
                 if (r < 0)
-                        log_ratelimit_warning_errno(r, JOURNALD_LOG_RATELIMIT,
+                        log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
                                                     "Failed to acquire PID1's context, ignoring: %m");
 
         }
