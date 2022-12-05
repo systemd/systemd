@@ -158,6 +158,7 @@ BASICTOOLS=(
     cat
     chmod
     chown
+    chroot
     cmp
     cryptsetup
     cut
