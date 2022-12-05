@@ -3881,6 +3881,7 @@ class NetworkdBondTests(unittest.TestCase, Utilities):
         output = check_output('ip -d link show bond199')
         print(output)
         self.assertRegex(output, 'primary dummy98')
+        self.assertIn('link/ether 00:11:22:33:44:55', output)
 
     def test_bond_operstate(self):
         copy_network_unit('25-bond.netdev', '11-dummy.netdev', '12-dummy.netdev',

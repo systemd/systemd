@@ -4,3 +4,6 @@ Name=bond199
 
 [Network]
 IPv6AcceptRA=no
+
+[Link]
+MACAddress=00:11:22:33:44:55
