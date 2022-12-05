@@ -8,6 +8,7 @@
 #include "fd-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
+#include "journal-internal.h"
 #include "journald-audit.h"
 #include "missing_audit.h"
 #include "string-util.h"
@@ -441,7 +442,7 @@ void server_process_audit_message(
         }
 
         if (!NLMSG_OK(nl, buffer_size)) {
-                log_ratelimit_error(JOURNALD_LOG_RATELIMIT, "Audit netlink message truncated.");
+                log_ratelimit_error(JOURNAL_LOG_RATELIMIT, "Audit netlink message truncated.");
                 return;
         }
 
