@@ -23,6 +23,7 @@
 #include "journal-authenticate.h"
 #include "journal-def.h"
 #include "journal-file.h"
+#include "journal-internal.h"
 #include "lookup3.h"
 #include "memory-util.h"
 #include "path-util.h"
@@ -4161,10 +4162,6 @@ int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot_id, u
         return 1;
 }
 
-/* Ideally this would be a function parameter but initializers for static fields have to be compile
- * time constants so we hardcode the interval instead. */
-#define LOG_RATELIMIT ((const RateLimit) { .interval = 60 * USEC_PER_SEC, .burst = 3 })
-
 bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int log_level) {
         assert(f);
         assert(f->header);
@@ -4183,7 +4180,7 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int log
         if (JOURNAL_HEADER_CONTAINS(f->header, n_data))
                 if (le64toh(f->header->n_data) * 4ULL > (le64toh(f->header->data_hash_table_size) / sizeof(HashItem)) * 3ULL) {
                         log_ratelimit_full(
-                                log_level, LOG_RATELIMIT,
+                                log_level, JOURNAL_LOG_RATELIMIT,
                                 "Data hash table of %s has a fill level at %.1f (%"PRIu64" of %"PRIu64" items, %llu file size, %"PRIu64" bytes per hash table item), suggesting rotation.",
                                 f->path,
                                 100.0 * (double) le64toh(f->header->n_data) / ((double) (le64toh(f->header->data_hash_table_size) / sizeof(HashItem))),
@@ -4197,7 +4194,7 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int log
         if (JOURNAL_HEADER_CONTAINS(f->header, n_fields))
                 if (le64toh(f->header->n_fields) * 4ULL > (le64toh(f->header->field_hash_table_size) / sizeof(HashItem)) * 3ULL) {
                         log_ratelimit_full(
-                                log_level, LOG_RATELIMIT,
+                                log_level, JOURNAL_LOG_RATELIMIT,
                                 "Field hash table of %s has a fill level at %.1f (%"PRIu64" of %"PRIu64" items), suggesting rotation.",
                                 f->path,
                                 100.0 * (double) le64toh(f->header->n_fields) / ((double) (le64toh(f->header->field_hash_table_size) / sizeof(HashItem))),
@@ -4211,7 +4208,7 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int log
         if (JOURNAL_HEADER_CONTAINS(f->header, data_hash_chain_depth) &&
             le64toh(f->header->data_hash_chain_depth) > HASH_CHAIN_DEPTH_MAX) {
                 log_ratelimit_full(
-                        log_level, LOG_RATELIMIT,
+                        log_level, JOURNAL_LOG_RATELIMIT,
                         "Data hash table of %s has deepest hash chain of length %" PRIu64 ", suggesting rotation.",
                         f->path, le64toh(f->header->data_hash_chain_depth));
                 return true;
@@ -4220,7 +4217,7 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int log
         if (JOURNAL_HEADER_CONTAINS(f->header, field_hash_chain_depth) &&
             le64toh(f->header->field_hash_chain_depth) > HASH_CHAIN_DEPTH_MAX) {
                 log_ratelimit_full(
-                        log_level, LOG_RATELIMIT,
+                        log_level, JOURNAL_LOG_RATELIMIT,
                         "Field hash table of %s has deepest hash chain of length at %" PRIu64 ", suggesting rotation.",
                         f->path, le64toh(f->header->field_hash_chain_depth));
                 return true;
@@ -4232,7 +4229,7 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int log
             le64toh(f->header->n_data) > 0 &&
             le64toh(f->header->n_fields) == 0) {
                 log_ratelimit_full(
-                        log_level, LOG_RATELIMIT,
+                        log_level, JOURNAL_LOG_RATELIMIT,
                         "Data objects of %s are not indexed by field objects, suggesting rotation.",
                         f->path);
                 return true;
@@ -4246,7 +4243,7 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int log
 
                 if (h > 0 && t > h + max_file_usec) {
                         log_ratelimit_full(
-                                log_level, LOG_RATELIMIT,
+                                log_level, JOURNAL_LOG_RATELIMIT,
                                 "Oldest entry in %s is older than the configured file retention duration (%s), suggesting rotation.",
                                 f->path, FORMAT_TIMESPAN(max_file_usec, USEC_PER_SEC));
                         return true;

@@ -20,8 +20,6 @@ typedef struct Server Server;
 #include "time-util.h"
 #include "varlink.h"
 
-#define JOURNALD_LOG_RATELIMIT ((const RateLimit) { .interval = 60 * USEC_PER_SEC, .burst = 3 })
-
 typedef enum Storage {
         STORAGE_AUTO,
         STORAGE_VOLATILE,
