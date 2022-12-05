@@ -801,6 +801,10 @@ static bool shall_try_append_again(JournalFile *f, int r) {
                 log_debug("%s: Allocation limit reached, rotating.", f->path);
                 return true;
 
+        case -EROFS: /* Read-only file system */
+                log_ratelimit_warning(JOURNALD_LOG_RATELIMIT, "%s: Read-only file system, rotating.", f->path);
+                return true;
+
         case -EIO:             /* I/O error of some kind (mmap) */
                 log_ratelimit_warning(JOURNALD_LOG_RATELIMIT, "%s: IO error, rotating.", f->path);
                 return true;
