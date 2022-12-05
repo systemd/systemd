@@ -27,7 +27,7 @@
 static const char *arg_test_dir = NULL;
 
 TEST(chase_symlinks) {
-        _cleanup_free_ char *result = NULL;
+        _cleanup_free_ char *result = NULL, *pwd = NULL;
         _cleanup_close_ int pfd = -1;
         char *temp;
         const char *top, *p, *pslash, *q, *qslash;
@@ -244,6 +244,30 @@ TEST(chase_symlinks) {
         assert_se(r == 0);
         assert_se(path_equal(result, p));
         result = mfree(result);
+
+        /* Relative paths */
+
+        assert_se(safe_getcwd(&pwd) >= 0);
+
+        assert_se(chdir(temp) >= 0);
+
+        p = "this/is/a/relative/path";
+        r = chase_symlinks(p, NULL, CHASE_NONEXISTENT, &result, NULL);
+        assert_se(r == 0);
+
+        p = strjoina(temp, "/", p);
+        assert_se(path_equal(result, p));
+        result = mfree(result);
+
+        p = "this/is/a/relative/path";
+        r = chase_symlinks(p, temp, CHASE_NONEXISTENT, &result, NULL);
+        assert_se(r == 0);
+
+        p = strjoina(temp, "/", p);
+        assert_se(path_equal(result, p));
+        result = mfree(result);
+
+        assert_se(chdir(pwd) >= 0);
 
         /* Path which doesn't exist, but contains weird stuff */
 
