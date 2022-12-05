@@ -114,6 +114,7 @@
 
 /* The notify socket inside the container it can use to talk to nspawn using the sd_notify(3) protocol */
 #define NSPAWN_NOTIFY_SOCKET_PATH "/run/host/notify"
+#define NSPAWN_MOUNT_TUNNEL "/run/host/incoming"
 
 #define EXIT_FORCE_RESTART 133
 
@@ -2776,7 +2777,7 @@ static int reset_audit_loginuid(void) {
         return 0;
 }
 
-static int setup_propagate(const char *root) {
+static int mount_tunnel_dig(const char *root) {
         const char *p, *q;
         int r;
 
@@ -2789,11 +2790,11 @@ static int setup_propagate(const char *root) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create /run/host: %m");
 
-        r = userns_mkdir(root, "/run/host/incoming", 0600, 0, 0);
+        r = userns_mkdir(root, NSPAWN_MOUNT_TUNNEL, 0600, 0, 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to create /run/host/incoming: %m");
+                return log_error_errno(r, "Failed to create "NSPAWN_MOUNT_TUNNEL": %m");
 
-        q = prefix_roota(root, "/run/host/incoming");
+        q = prefix_roota(root, NSPAWN_MOUNT_TUNNEL);
         r = mount_nofollow_verbose(LOG_ERR, p, q, NULL, MS_BIND, NULL);
         if (r < 0)
                 return r;
@@ -2802,8 +2803,17 @@ static int setup_propagate(const char *root) {
         if (r < 0)
                 return r;
 
-        /* machined will MS_MOVE into that directory, and that's only supported for non-shared mounts. */
-        return mount_nofollow_verbose(LOG_ERR, NULL, q, NULL, MS_SLAVE, NULL);
+        return 0;
+}
+
+static int mount_tunnel_open(void) {
+        int r;
+
+        r = mount_follow_verbose(LOG_ERR, NULL, NSPAWN_MOUNT_TUNNEL, NULL, MS_SLAVE, NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 static int setup_machine_id(const char *directory) {
@@ -3906,7 +3916,7 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        r = setup_propagate(directory);
+        r = mount_tunnel_dig(directory);
         if (r < 0)
                 return r;
 
@@ -3982,6 +3992,13 @@ static int outer_child(
         r = mount_switch_root(directory, MOUNT_ATTR_PROPAGATION_SHARED);
         if (r < 0)
                 return log_error_errno(r, "Failed to move root directory: %m");
+
+        /* We finished setting up the rootfs which is a shared mount. The mount tunnel needs to be a
+         * dependent mount otherwise we can't MS_MOVE mounts that were propagated from the host into
+         * the container. */
+        r = mount_tunnel_open();
+        if (r < 0)
+                return r;
 
         if (arg_userns_mode != USER_NAMESPACE_NO) {
                 /* In order to mount procfs and sysfs in an unprivileged container the kernel
