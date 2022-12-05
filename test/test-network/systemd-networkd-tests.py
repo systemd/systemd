@@ -3882,6 +3882,15 @@ class NetworkdBondTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'primary dummy98')
 
+    def test_bond_mac_config(self):
+        copy_network_unit('23-primary-slave.network', '23-bond199.network', '25-bond-active-backup-slave.netdev', '12-dummy.netdev')
+        start_networkd()
+        self.wait_online(['dummy98:enslaved', 'bond199:degraded'])
+
+        output = check_output('ip -d link show bond199')
+        print(output)
+        self.assertRegex(output, 'link/ether 00:11:22:33:44:55')
+
     def test_bond_operstate(self):
         copy_network_unit('25-bond.netdev', '11-dummy.netdev', '12-dummy.netdev',
                           '25-bond99.network', '25-bond-slave.network')
