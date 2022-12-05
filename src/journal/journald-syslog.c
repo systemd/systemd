@@ -10,6 +10,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "io-util.h"
+#include "journal-internal.h"
 #include "journald-console.h"
 #include "journald-kmsg.h"
 #include "journald-server.h"
@@ -334,7 +335,7 @@ void server_process_syslog_message(
         if (ucred && pid_is_valid(ucred->pid)) {
                 r = client_context_get(s, ucred->pid, ucred, label, label_len, NULL, &context);
                 if (r < 0)
-                        log_ratelimit_warning_errno(r, JOURNALD_LOG_RATELIMIT,
+                        log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
                                                     "Failed to retrieve credentials for PID " PID_FMT ", ignoring: %m",
                                                     ucred->pid);
         }
