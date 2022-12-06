@@ -806,7 +806,7 @@ static bool shall_try_append_again(JournalFile *f, int r) {
                  * rotated. If the FS is read-only, rotation will fail and s->system_journal will be set to
                  * NULL. After that, when find_journal will try to open the journal since s->system_journal
                  * will be NULL, it will open the runtime journal. */
-                log_ratelimit_warning(JOURNALD_LOG_RATELIMIT, "%s: Read-only file system, rotating.", f->path);
+                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Read-only file system, rotating.", f->path);
                 return true;
 
         case -EIO:             /* I/O error of some kind (mmap) */
