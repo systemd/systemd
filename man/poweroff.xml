@@ -3,31 +3,27 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="halt"
+<refentry id="poweroff"
     xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
-    <title>halt</title>
+    <title>poweroff</title>
     <productname>systemd</productname>
   </refentryinfo>
 
   <refmeta>
-    <refentrytitle>halt</refentrytitle>
+    <refentrytitle>poweroff</refentrytitle>
     <manvolnum>8</manvolnum>
   </refmeta>
 
   <refnamediv>
-    <refname>halt</refname>
     <refname>poweroff</refname>
     <refname>reboot</refname>
-    <refpurpose>Halt, power-off or reboot the machine</refpurpose>
+    <refname>halt</refname>
+    <refpurpose>Power off, reboot, or halt the machine</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
-    <cmdsynopsis>
-      <command>halt</command>
-      <arg choice="opt" rep="repeat">OPTIONS</arg>
-    </cmdsynopsis>
     <cmdsynopsis>
       <command>poweroff</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
@@ -36,13 +32,17 @@
       <command>reboot</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
     </cmdsynopsis>
+    <cmdsynopsis>
+      <command>halt</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
-    <para><command>halt</command>, <command>poweroff</command>, <command>reboot</command> may be used to
-    halt, power-off, or reboot the machine. All three commands take the same options.</para>
+    <para><command>poweroff</command>, <command>reboot</command>, and <command>halt</command> may be used to
+    power off, reboot, or halt the machine. All three commands take the same options.</para>
 
   </refsect1>
 
@@ -69,7 +69,7 @@
         <term><option>-p</option></term>
         <term><option>--poweroff</option></term>
 
-        <listitem><para>Power-off the machine, when either <command>halt</command>
+        <listitem><para>Power off the machine, when either <command>halt</command>
         or <command>poweroff</command> is invoked. This option is ignored when
         <command>reboot</command> is invoked.</para></listitem>
       </varlistentry>
@@ -86,10 +86,11 @@
         <term><option>--force</option></term>
 
         <listitem>
-          <para>Force immediate halt, power-off, reboot. If specified, the command does not contact the init
-          system. In most cases, filesystems are not properly unmounted before shutdown. For example, the
-          command <command>reboot -f</command> is mostly equivalent to <command>systemctl reboot -ff</command>,
-          instead of <command>systemctl reboot -f</command>.</para>
+          <para>Force immediate power-off, halt, or reboot. If specified, the command does not contact the
+          init system. In most cases, filesystems are not properly unmounted before shutdown. For example,
+          the command <command>reboot -f</command> is mostly equivalent to
+          <command>systemctl reboot -ff</command>, instead of <command>systemctl reboot -f</command>.
+          </para>
         </listitem>
       </varlistentry>
 
@@ -97,31 +98,29 @@
         <term><option>-w</option></term>
         <term><option>--wtmp-only</option></term>
 
-        <listitem><para>Only write wtmp shutdown entry, do not
-        actually halt, power-off, reboot.</para></listitem>
+        <listitem><para>Only write wtmp shutdown entry, do not actually power off, reboot, or halt.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>-d</option></term>
         <term><option>--no-wtmp</option></term>
 
-        <listitem><para>Do not write wtmp shutdown
-        entry.</para></listitem>
+        <listitem><para>Do not write wtmp shutdown entry.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>-n</option></term>
         <term><option>--no-sync</option></term>
 
-        <listitem><para>Don't sync hard disks/storage media before
-        halt, power-off, reboot.</para></listitem>
+        <listitem><para>Don't sync hard disks/storage media before power-off, reboot, or halt.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--no-wall</option></term>
 
-        <listitem><para>Do not send wall message before halt,
-        power-off, reboot.</para></listitem>
+        <listitem><para>Do not send wall message before power-off, reboot, or halt.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -129,16 +128,15 @@
   <refsect1>
     <title>Exit status</title>
 
-    <para>On success, 0 is returned, a non-zero failure code
-    otherwise.</para>
+    <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
   </refsect1>
 
   <refsect1>
     <title>Notes</title>
 
     <para>These commands are implemented in a way that preserves basic compatibility with the original SysV
-    commands.  <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    verbs <command>halt</command>, <command>poweroff</command>, <command>reboot</command> provide the same
+    commands. <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    verbs <command>poweroff</command>, <command>reboot</command>, <command>halt</command> provide the same
     functionality with some additional features.</para>
 
     <para>Note that on many SysV systems <command>halt</command> used to be synonymous to

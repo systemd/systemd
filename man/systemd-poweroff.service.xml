@@ -3,21 +3,21 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-halt.service">
+<refentry id="systemd-poweroff.service">
 
   <refentryinfo>
-    <title>systemd-halt.service</title>
+    <title>systemd-poweroff.service</title>
     <productname>systemd</productname>
   </refentryinfo>
 
   <refmeta>
-    <refentrytitle>systemd-halt.service</refentrytitle>
+    <refentrytitle>systemd-poweroff.service</refentrytitle>
     <manvolnum>8</manvolnum>
   </refmeta>
 
   <refnamediv>
-    <refname>systemd-halt.service</refname>
     <refname>systemd-poweroff.service</refname>
+    <refname>systemd-halt.service</refname>
     <refname>systemd-reboot.service</refname>
     <refname>systemd-kexec.service</refname>
     <refname>systemd-shutdown</refname>
@@ -25,8 +25,8 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>systemd-halt.service</filename></para>
     <para><filename>systemd-poweroff.service</filename></para>
+    <para><filename>systemd-halt.service</filename></para>
     <para><filename>systemd-reboot.service</filename></para>
     <para><filename>systemd-kexec.service</filename></para>
     <para><filename>/usr/lib/systemd/systemd-shutdown</filename></para>
@@ -36,11 +36,11 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-halt.service</filename> is a system
-    service that is pulled in by <filename>halt.target</filename> and
-    is responsible for the actual system halt. Similarly,
-    <filename>systemd-poweroff.service</filename> is pulled in by
-    <filename>poweroff.target</filename>,
+    <para><filename>systemd-poweroff.service</filename> is a system
+    service that is pulled in by <filename>poweroff.target</filename> and
+    is responsible for the actual system power-off operation. Similarly,
+    <filename>systemd-halt.service</filename> is pulled in by
+    <filename>halt.target</filename>,
     <filename>systemd-reboot.service</filename> by
     <filename>reboot.target</filename> and
     <filename>systemd-kexec.service</filename> by
@@ -62,19 +62,19 @@
     cannot be re-mounted read-only.</para>
 
     <para>Immediately before executing the actual system
-    halt/poweroff/reboot/kexec <filename>systemd-shutdown</filename>
+    power-off/halt/reboot/kexec <filename>systemd-shutdown</filename>
     will run all executables in
     <filename>/usr/lib/systemd/system-shutdown/</filename> and pass
-    one arguments to them: either <literal>halt</literal>,
-    <literal>poweroff</literal>, <literal>reboot</literal> or
+    one arguments to them: either <literal>poweroff</literal>,
+    <literal>halt</literal>, <literal>reboot</literal>, or
     <literal>kexec</literal>, depending on the chosen action. All
     executables in this directory are executed in parallel, and
     execution of the action is not continued before all executables
     finished.</para>
 
-    <para>Note that <filename>systemd-halt.service</filename> (and the related units) should never be
+    <para>Note that <filename>systemd-poweroff.service</filename> (and the related units) should never be
     executed directly. Instead, trigger system shutdown with a command such as <literal>systemctl
-    halt</literal>.</para>
+    poweroff</literal>.</para>
   </refsect1>
 
   <refsect1>
