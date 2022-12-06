@@ -38,9 +38,13 @@ static inline ssize_t base64mem(const void *p, size_t l, char **ret) {
         return base64mem_full(p, l, SIZE_MAX, ret);
 }
 
-int base64_append(char **prefix, int plen,
-                  const void *p, size_t l,
-                  int margin, int width);
+ssize_t base64_append(
+                char **prefix,
+                size_t plen,
+                const void *p,
+                size_t l,
+                size_t margin,
+                size_t width);
 int unbase64mem_full(const char *p, size_t l, bool secure, void **mem, size_t *len);
 static inline int unbase64mem(const char *p, size_t l, void **mem, size_t *len) {
         return unbase64mem_full(p, l, false, mem, len);
