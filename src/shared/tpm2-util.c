@@ -778,11 +778,40 @@ static void hash_pin(const char *pin, size_t len, TPM2B_AUTH *auth) {
         sha256_finish_ctx(&hash, auth->buffer);
 }
 
+static int tpm2_set_auth(struct tpm2_context *c, struct tpm2_handle handle, const char *pin) {
+        TPM2B_AUTH auth = {};
+        TSS2_RC rc;
+
+        assert(c);
+
+        if (!pin)
+                return 0;
+
+        CLEANUP_ERASE(auth);
+
+        /*
+         * if a pin is set for the seal object, use it to bind the session
+         * key to that object. This prevents active bus interposers from
+         * faking a TPM and seeing the unsealed value. An active interposer
+         * could fake a TPM, satisfying the encrypted session, and just
+         * forward everything to the *real* TPM.
+         */
+        hash_pin(pin, strlen(pin), &auth);
+
+        rc = sym_Esys_TR_SetAuth(c->esys_context, handle.handle, &auth);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(
+                                       SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to load PIN in TPM: %s",
+                                       sym_Tss2_RC_Decode(rc));
+
+        return 0;
+}
+
 static int tpm2_make_encryption_session(
                 struct tpm2_context *c,
                 struct tpm2_handle primary,
                 struct tpm2_handle bind_key,
-                const char *pin,
                 struct tpm2_handle *ret_session) {
 
         static const TPMT_SYM_DEF symmetric = {
@@ -797,28 +826,6 @@ static int tpm2_make_encryption_session(
 
         assert(c);
         assert(ret_session);
-
-        /*
-         * if a pin is set for the seal object, use it to bind the session
-         * key to that object. This prevents active bus interposers from
-         * faking a TPM and seeing the unsealed value. An active interposer
-         * could fake a TPM, satisfying the encrypted session, and just
-         * forward everything to the *real* TPM.
-         */
-        if (pin) {
-                TPM2B_AUTH auth = {};
-
-                CLEANUP_ERASE(auth);
-
-                hash_pin(pin, strlen(pin), &auth);
-
-                rc = sym_Esys_TR_SetAuth(c->esys_context, bind_key.handle, &auth);
-                if (rc != TSS2_RC_SUCCESS)
-                        return log_error_errno(
-                                               SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Failed to load PIN in TPM: %s",
-                                               sym_Tss2_RC_Decode(rc));
-        }
 
         log_debug("Starting HMAC encryption session.");
 
@@ -1426,7 +1433,7 @@ int tpm2_seal(const char *device,
                 return r;
 
         /* we cannot use the bind key before its created */
-        r = tpm2_make_encryption_session(c, primary, HANDLE_NONE, NULL, &session);
+        r = tpm2_make_encryption_session(c, primary, HANDLE_NONE, &session);
         if (r < 0)
                 return r;
 
@@ -1662,7 +1669,13 @@ int tpm2_unseal(const char *device,
                                         sym_Tss2_RC_Decode(rc));
         }
 
-        r = tpm2_make_encryption_session(c, primary, hmac_key, pin, &hmac_session);
+        if (pin) {
+                r = tpm2_set_auth(c, hmac_key, pin);
+                if (r < 0)
+                        return r;
+        }
+
+        r = tpm2_make_encryption_session(c, primary, hmac_key, &hmac_session);
         if (r < 0)
                 return r;
 
