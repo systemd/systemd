@@ -6,7 +6,7 @@
 #include "util.h"
 
 bool secure_boot_enabled(void) {
-        bool secure;
+        bool secure = false;  /* avoid false maybe-uninitialized warning */
         EFI_STATUS err;
 
         err = efivar_get_boolean_u8(EFI_GLOBAL_GUID, L"SecureBoot", &secure);
