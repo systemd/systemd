@@ -164,7 +164,7 @@ static int determine_banks(struct tpm2_context *c, unsigned target_pcr_nr) {
         if (!strv_isempty(arg_banks)) /* Explicitly configured? Then use that */
                 return 0;
 
-        r = tpm2_get_good_pcr_banks_strv(c->esys_context, UINT32_C(1) << target_pcr_nr, &l);
+        r = tpm2_get_good_pcr_banks_strv(c, UINT32_C(1) << target_pcr_nr, &l);
         if (r < 0)
                 return r;
 
@@ -362,7 +362,7 @@ static int run(int argc, char *argv[]) {
 
         log_debug("Measuring '%s' into PCR index %u, banks %s.", word, target_pcr_nr, joined);
 
-        r = tpm2_extend_bytes(c->esys_context, arg_banks, target_pcr_nr, word, length, NULL, 0);
+        r = tpm2_extend_bytes(c, arg_banks, target_pcr_nr, word, length, NULL, 0);
         if (r < 0)
                 return r;
 
