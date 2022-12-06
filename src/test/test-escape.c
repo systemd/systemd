@@ -219,4 +219,20 @@ TEST(quote_command_line) {
                                     "true \"\\$dollar\"");
 }
 
+static void test_octescape_one(const char *s, const char *expected) {
+        _cleanup_free_ char *ret;
+
+        assert_se(ret = octescape(s, strlen_ptr(s)));
+        log_debug("octescape(\"%s\") → \"%s\" (expected: \"%s\")", strnull(s), ret, expected);
+        assert_se(streq(ret, expected));
+}
+
+TEST(octescape) {
+        test_octescape_one(NULL, "");
+        test_octescape_one("", "");
+        test_octescape_one("foo", "foo");
+        test_octescape_one("\"\\\"", "\\042\\134\\042");
+        test_octescape_one("\123\213\222", "\123\\213\\222");
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
