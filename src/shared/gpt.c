@@ -58,6 +58,33 @@ PartitionDesignator partition_verity_sig_of(PartitionDesignator p) {
         }
 }
 
+PartitionDesignator partition_verity_to_data(PartitionDesignator d) {
+        switch (d) {
+
+        case PARTITION_ROOT_VERITY:
+                return PARTITION_ROOT;
+
+        case PARTITION_USR_VERITY:
+                return PARTITION_USR;
+
+        default:
+                return _PARTITION_DESIGNATOR_INVALID;
+        }
+}
+
+PartitionDesignator partition_verity_sig_to_data(PartitionDesignator d) {
+        switch (d) {
+
+        case PARTITION_ROOT_VERITY_SIG:
+                return PARTITION_ROOT;
+
+        case PARTITION_USR_VERITY_SIG:
+                return PARTITION_USR;
+
+        default:
+                return _PARTITION_DESIGNATOR_INVALID;
+        }
+}
 
 static const char *const partition_designator_table[_PARTITION_DESIGNATOR_MAX] = {
         [PARTITION_ROOT]                      = "root",

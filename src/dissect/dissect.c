@@ -56,6 +56,7 @@ static enum {
         ACTION_WITH,
         ACTION_COPY_FROM,
         ACTION_COPY_TO,
+        ACTION_VALIDATE,
 } arg_action = ACTION_DISSECT;
 static const char *arg_image = NULL;
 static const char *arg_path = NULL;
@@ -76,6 +77,7 @@ static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static bool arg_rmdir = false;
 static char **arg_argv = NULL;
+static ImagePolicy* arg_image_policy = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_verity_settings, verity_settings_done);
 STATIC_DESTRUCTOR_REGISTER(arg_argv, strv_freep);
@@ -113,6 +115,8 @@ static int help(void) {
                "                          'base64:'\n"
                "     --verity-data=PATH   Specify data file with hash tree for verity if it is\n"
                "                          not embedded in IMAGE\n"
+               "     --image-policy=POLICY\n"
+               "                          Specify image dissection policy\n"
                "     --json=pretty|short|off\n"
                "                          Generate JSON output\n"
                "\n%3$sCommands:%4$s\n"
@@ -128,6 +132,7 @@ static int help(void) {
                "     --with               Mount, run command, unmount\n"
                "  -x --copy-from          Copy files from image to host\n"
                "  -a --copy-to            Copy files from host to image\n"
+               "     --validate           Validate image and image policy\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -199,6 +204,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_RMDIR,
                 ARG_JSON,
                 ARG_MTREE,
+                ARG_IMAGE_POLICY,
+                ARG_VALIDATE,
         };
 
         static const struct option options[] = {
@@ -223,6 +230,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "copy-from",     no_argument,       NULL, 'x'               },
                 { "copy-to",       no_argument,       NULL, 'a'               },
                 { "json",          required_argument, NULL, ARG_JSON          },
+                { "image-policy",  required_argument, NULL, ARG_IMAGE_POLICY  },
+                { "validate",      no_argument,       NULL, 'v'               },
                 {}
         };
 
@@ -236,7 +245,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        while ((c = getopt_long(argc, argv, "hmurMUlxa", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hmurMUlxav", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -400,6 +409,22 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_IMAGE_POLICY: {
+                        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
+
+                        r = image_policy_from_string(optarg, &p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse image policy: %s", optarg);
+
+                        image_policy_free(arg_image_policy);
+                        arg_image_policy = TAKE_PTR(p);
+                        break;
+                }
+
+                case 'v':
+                        arg_action = ACTION_VALIDATE;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -416,7 +441,8 @@ static int parse_argv(int argc, char *argv[]) {
                                                "Expected an image file path as only argument.");
 
                 arg_image = argv[optind];
-                arg_flags |= DISSECT_IMAGE_READ_ONLY;
+                /* when dumping image info be even more liberal than otherwise, do not even require a single valid partition */
+                arg_flags |= DISSECT_IMAGE_READ_ONLY|DISSECT_IMAGE_ALLOW_EMPTY;
                 break;
 
         case ACTION_MOUNT:
@@ -489,6 +515,16 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
                 }
 
+                break;
+
+        case ACTION_VALIDATE:
+                if (optind + 1 != argc)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Expected an image file path as only argument.");
+
+                arg_image = argv[optind];
+                arg_flags |= DISSECT_IMAGE_READ_ONLY;
+                arg_flags &= ~(DISSECT_IMAGE_PIN_PARTITION_DEVICES|DISSECT_IMAGE_ADD_PARTITION_DEVICES);
                 break;
 
         default:
@@ -1325,6 +1361,31 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
         return rcode;
 }
 
+static int action_validate(void) {
+        int r;
+
+        r = dissect_image_file_and_warn(
+                        arg_image,
+                        &arg_verity_settings,
+                        NULL,
+                        arg_image_policy,
+                        arg_flags,
+                        NULL);
+        if (r < 0)
+                return r;
+
+        if (isatty(STDOUT_FILENO) && emoji_enabled())
+                printf("%s ", special_glyph(SPECIAL_GLYPH_SPARKLES));
+
+        printf("%sOK%s", ansi_highlight_green(), ansi_normal());
+
+        if (isatty(STDOUT_FILENO) && emoji_enabled())
+                printf(" %s", special_glyph(SPECIAL_GLYPH_SPARKLES));
+
+        putc('\n', stdout);
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
@@ -1351,6 +1412,9 @@ static int run(int argc, char *argv[]) {
                                                                 * available we turn off partition table
                                                                 * support */
 
+        if (arg_action == ACTION_VALIDATE)
+                return action_validate();
+
         r = loop_device_make_by_path(
                         arg_image,
                         FLAGS_SET(arg_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : O_RDWR,
@@ -1363,7 +1427,8 @@ static int run(int argc, char *argv[]) {
         r = dissect_loop_device_and_warn(
                         d,
                         &arg_verity_settings,
-                        NULL,
+                        /* mount_options= */ NULL,
+                        arg_image_policy,
                         arg_flags,
                         &m);
         if (r < 0)

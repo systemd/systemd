@@ -103,6 +103,7 @@ int setup_namespace(
                 const char *root_directory,
                 const char *root_image,
                 const MountOptions *root_image_options,
+                const ImagePolicy *image_policy,
                 const NamespaceInfo *ns_info,
                 char **read_write_paths,
                 char **read_only_paths,
