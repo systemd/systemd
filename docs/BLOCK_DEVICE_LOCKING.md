@@ -98,3 +98,122 @@ Summarizing: it is recommended to take `LOCK_EX` BSD file locks when
 manipulating block devices in all tools that change file system block devices
 (`mkfs`, `fsck`, …) or partition tables (`fdisk`, `parted`, …), right after
 opening the node.
+
+# Example of Locking The Whole Disk
+
+The following is a sample to leverage `libsystemd` infrastructure to get the whole disk of a block device and take the BSD lock on it.
+
+## Compile and Execute
+**Note that this example requires `libsystemd` version 251 or newer.**
+
+Place the code in a source file, e.g. `take_BSD_lock.c` and run the following commands:
+```
+$ gcc -o take_BSD_lock -lsystemd take_BSD_lock.c
+
+$ ./take_BSD_lock /dev/sda1
+Successfully taken the BSD lock: /dev/sda
+
+$ flock -x /dev/sda ./take_BSD_lock /dev/sda1
+Failed to take the BSD lock: /dev/sda
+Error: Resource temporarily unavailable
+```
+
+## Code
+```
+/* SPDX-License-Identifier: MIT-0 */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/file.h>
+#include <systemd/sd-device.h>
+#include <unistd.h>
+
+/**
+ * lock_whole_disk_from_devname
+ * @devname: devname of a block device, e.g., /dev/sda or /dev/sda1
+ * @open_mode: the mode to open the device, e.g., O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY
+ * @lock_mode: the mode to take flock, e.g., LOCK_EX|LOCK_NB
+ *
+ * given the devname of a block device, take the BSD lock of the whole disk
+ *
+ * Returns: negative errno value on error, or non-negative fd if the lock was taken successfully.
+ **/
+int lock_whole_disk_from_devname(const char *devname, int open_mode, int lock_mode) {
+    __attribute__((cleanup(sd_device_unrefp))) sd_device *dev;
+    sd_device *whole_dev;
+    const char *whole_disk_devname, *subsystem, *devtype;
+    int r, fd = -1;
+
+    // create a sd_device instance from devname
+    r = sd_device_new_from_devname(&dev, devname);
+    if (r < 0)
+        return r;
+
+    // if the subsystem of dev is block, but its devtype is not disk, find its parent
+    r = sd_device_get_subsystem(dev, &subsystem);
+    if (r < 0)
+        return r;
+    if (strcmp(subsystem, "block") != 0) {
+        r = -EINVAL;
+        return r;
+    }
+
+    r = sd_device_get_devtype(dev, &devtype);
+    if (r < 0)
+        return r;
+    if (strcmp(devtype, "disk") == 0)
+        whole_dev = dev;
+    else {
+        r = sd_device_get_parent_with_subsystem_devtype(dev, "block", "disk", &whole_dev);
+        if (r < 0)
+            return r;
+    }
+
+    // open the whole disk device node
+    fd = sd_device_open(whole_dev, open_mode);
+    if (fd < 0) {
+        return fd;
+    }
+
+    // get the whole disk devname
+    r = sd_device_get_devname(whole_dev, &whole_disk_devname);
+    if (r < 0) {
+        close(fd);
+        return r;
+    }
+
+    // take the BSD lock of the whole disk device node
+    if (flock(fd, lock_mode) < 0) {
+        r = -errno;
+        close(fd);
+        fprintf(stderr, "Failed to take the BSD lock: %s\n", whole_disk_devname);
+        return r;
+    }
+
+    printf("Successfully taken the BSD lock: %s\n", whole_disk_devname);
+    return fd;
+}
+
+int main(int argc, char **argv) {
+    int fd = -1;
+
+    if (argc != 2) {
+        fprintf(stderr, "Invalid number of parameters.\n");
+        return EXIT_FAILURE;
+    }
+
+    // try to take exclusive and nonblocking BSD lock
+    fd = lock_whole_disk_from_devname(argv[1], O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, LOCK_EX|LOCK_NB);
+
+    if (fd < 0) {
+        fprintf(stderr, "Error: %m\n", -fd);
+        return EXIT_FAILURE;
+    }
+
+    /* Now you can safely manipulate the block device. */
+
+    close(fd);
+    return EXIT_SUCCESS;
+}
+```
