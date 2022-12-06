@@ -180,14 +180,8 @@ int get_oom_score_adjust(int *ret);
 
 assert_cc(TASKS_MAX <= (unsigned long) PID_T_MAX);
 
-/* Like TAKE_PTR() but for child PIDs, resetting them to 0 */
-#define TAKE_PID(pid)                           \
-        ({                                      \
-                pid_t *_ppid_ = &(pid);         \
-                pid_t _pid_ = *_ppid_;          \
-                *_ppid_ = 0;                    \
-                _pid_;                          \
-        })
+/* Like TAKE_PTR() but for pid_t, resetting them to 0 */
+#define TAKE_PID(pid) TAKE_GENERIC(pid, pid_t, 0)
 
 int pidfd_get_pid(int fd, pid_t *ret);
 int pidfd_verify_pid(int pidfd, pid_t pid);
