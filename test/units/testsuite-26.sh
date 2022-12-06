@@ -3,10 +3,18 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/assert.sh
+. "$(dirname "$0")"/assert.sh
+
+: >/failed
+
 at_exit() {
     if [[ -v UNIT_NAME && -e "/usr/lib/systemd/system/$UNIT_NAME" ]]; then
         rm -fv "/usr/lib/systemd/system/$UNIT_NAME"
     fi
+
+    rm -f /etc/init.d/issue-24990
+    return 0
 }
 
 trap at_exit EXIT
@@ -284,6 +292,110 @@ systemctl unset-environment IMPORT_THIS IMPORT_THIS_TOO
 (! systemctl show-environment | grep "^IMPORT_THIS=")
 (! systemctl show-environment | grep "^IMPORT_THIS_TOO=")
 
-echo OK >/testok
+# test for sysv-generator (issue #24990)
+if [[ -x /usr/lib/systemd/system-generators/systemd-sysv-generator ]]; then
 
-exit 0
+    # invalid dependency
+    cat >/etc/init.d/issue-24990 <<\EOF
+#!/bin/bash
+
+### BEGIN INIT INFO
+# Provides:test1 test2
+# Required-Start:test1 $remote_fs $network
+# Required-Stop:test1 $remote_fs $network
+# Description:Test
+# Short-Description: Test
+### END INIT INFO
+
+case "$1" in
+    start)
+        echo "Starting issue-24990.service"
+        sleep 1000 &
+        ;;
+    stop)
+        echo "Stopping issue-24990.service"
+        sleep 10 &
+        ;;
+    *)
+        echo "Usage: service test {start|stop|restart|status}"
+        ;;
+esac
+EOF
+
+    chmod +x /etc/init.d/issue-24990
+    systemctl daemon-reload
+    [[ -L /run/systemd/generator.late/test1.service ]]
+    [[ -L /run/systemd/generator.late/test2.service ]]
+    assert_eq "$(readlink -f /run/systemd/generator.late/test1.service)" "/run/systemd/generator.late/issue-24990.service"
+    assert_eq "$(readlink -f /run/systemd/generator.late/test2.service)" "/run/systemd/generator.late/issue-24990.service"
+    output=$(systemctl cat issue-24990)
+    assert_in "SourcePath=/etc/init.d/issue-24990" "$output"
+    assert_in "Description=LSB: Test" "$output"
+    assert_in "After=test1.service" "$output"
+    assert_in "After=remote-fs.target" "$output"
+    assert_in "After=network-online.target" "$output"
+    assert_in "Wants=network-online.target" "$output"
+    assert_in "ExecStart=/etc/init.d/issue-24990 start" "$output"
+    assert_in "ExecStop=/etc/init.d/issue-24990 stop" "$output"
+    systemctl status issue-24990 || :
+    systemctl show issue-24990
+    assert_not_in "issue-24990.service" "$(systemctl show --property=After --value)"
+    assert_not_in "issue-24990.service" "$(systemctl show --property=Before --value)"
+
+    if ! systemctl is-active network-online.target; then
+        systemctl start network-online.target
+    fi
+
+    systemctl restart issue-24990
+    systemctl stop issue-24990
+
+    # valid dependency
+    cat >/etc/init.d/issue-24990 <<\EOF
+#!/bin/bash
+
+### BEGIN INIT INFO
+# Provides:test1 test2
+# Required-Start:$remote_fs
+# Required-Stop:$remote_fs
+# Description:Test
+# Short-Description: Test
+### END INIT INFO
+
+case "$1" in
+    start)
+        echo "Starting issue-24990.service"
+        sleep 1000 &
+        ;;
+    stop)
+        echo "Stopping issue-24990.service"
+        sleep 10 &
+        ;;
+    *)
+        echo "Usage: service test {start|stop|restart|status}"
+        ;;
+esac
+EOF
+
+    chmod +x /etc/init.d/issue-24990
+    systemctl daemon-reload
+    [[ -L /run/systemd/generator.late/test1.service ]]
+    [[ -L /run/systemd/generator.late/test2.service ]]
+    assert_eq "$(readlink -f /run/systemd/generator.late/test1.service)" "/run/systemd/generator.late/issue-24990.service"
+    assert_eq "$(readlink -f /run/systemd/generator.late/test2.service)" "/run/systemd/generator.late/issue-24990.service"
+    output=$(systemctl cat issue-24990)
+    assert_in "SourcePath=/etc/init.d/issue-24990" "$output"
+    assert_in "Description=LSB: Test" "$output"
+    assert_in "After=remote-fs.target" "$output"
+    assert_in "ExecStart=/etc/init.d/issue-24990 start" "$output"
+    assert_in "ExecStop=/etc/init.d/issue-24990 stop" "$output"
+    systemctl status issue-24990 || :
+    systemctl show issue-24990
+    assert_not_in "issue-24990.service" "$(systemctl show --property=After --value)"
+    assert_not_in "issue-24990.service" "$(systemctl show --property=Before --value)"
+
+    systemctl restart issue-24990
+    systemctl stop issue-24990
+fi
+
+touch /testok
+rm /failed
