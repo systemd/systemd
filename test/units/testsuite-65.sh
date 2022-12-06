@@ -816,6 +816,18 @@ name=$(echo "$output" | awk '{ print $4 }')
 check deny yes /run/systemd/transient/"$name"
 check deny no "$name"
 
+# Let's also test the "image-policy" verb
+
+systemd-analyze image-policy '*' 2>&1 | grep -q -F "Long form: =verity+signed+encrypted+unprotected+unused+absent"
+systemd-analyze image-policy '-' 2>&1 | grep -q -F "Long form: =unused+absent"
+systemd-analyze image-policy 'home=encrypted:usr=verity' 2>&1 | grep -q -F "Long form: usr=verity:home=encrypted:=unused+absent"
+systemd-analyze image-policy 'home=encrypted:usr=verity' 2>&1 | grep -q -e '^home \+encrypted \+'
+systemd-analyze image-policy 'home=encrypted:usr=verity' 2>&1 | grep -q -e '^usr \+verity \+'
+systemd-analyze image-policy 'home=encrypted:usr=verity' 2>&1 | grep -q -e '^root \+ignore \+'
+systemd-analyze image-policy 'home=encrypted:usr=verity' 2>&1 | grep -q -e '^usr-verity \+unprotected \+'
+
+(! systemd-analyze image-policy 'doedel' )
+
 systemd-analyze log-level info
 
 echo OK >/testok
