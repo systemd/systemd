@@ -67,7 +67,7 @@ Tpm2Context *tpm2_context_unref(Tpm2Context *context);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Tpm2Context*, tpm2_context_unref);
 #define _cleanup_tpm2_context_ _cleanup_(tpm2_context_unrefp)
 
-ESYS_TR tpm2_flush_context_verbose(ESYS_CONTEXT *c, ESYS_TR handle);
+ESYS_TR tpm2_flush_context_verbose(Tpm2Context *c, ESYS_TR handle);
 
 void tpm2_pcr_mask_to_selection(uint32_t mask, uint16_t bank, TPML_PCR_SELECTION *ret);
 
@@ -76,10 +76,10 @@ static inline void Esys_Freep(void *p) {
                 sym_Esys_Free(*(void**) p);
 }
 
-int tpm2_get_good_pcr_banks(ESYS_CONTEXT *c, uint32_t pcr_mask, TPMI_ALG_HASH **ret_banks);
-int tpm2_get_good_pcr_banks_strv(ESYS_CONTEXT *c, uint32_t pcr_mask, char ***ret);
+int tpm2_get_good_pcr_banks(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HASH **ret_banks);
+int tpm2_get_good_pcr_banks_strv(Tpm2Context *c, uint32_t pcr_mask, char ***ret);
 
-int tpm2_extend_bytes(ESYS_CONTEXT *c, char **banks, unsigned pcr_index, const void *data, size_t data_size, const void *secret, size_t secret_size);
+int tpm2_extend_bytes(Tpm2Context *c, char **banks, unsigned pcr_index, const void *data, size_t data_size, const void *secret, size_t secret_size);
 
 #else /* HAVE_TPM2 */
 
