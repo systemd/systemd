@@ -2504,10 +2504,13 @@ int server_init(Server *s, const char *namespace) {
 
         /* Unless we got *some* sockets and not audit, open audit socket */
         if (s->audit_fd >= 0 || no_sockets) {
+                log_info("Collecting audit messages is enabled.");
+
                 r = server_open_audit(s);
                 if (r < 0)
                         return r;
-        }
+        } else
+                log_info("Collecting audit messages is disabled.");
 
         r = server_open_varlink(s, varlink_socket, varlink_fd);
         if (r < 0)

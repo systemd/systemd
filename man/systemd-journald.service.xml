@@ -332,7 +332,9 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
         <listitem><para>Sockets and other file node paths that <command>systemd-journald</command> will
         listen on and are visible in the file system. In addition to these,
         <command>systemd-journald</command> can listen for audit events using <citerefentry
-        project='man-pages'><refentrytitle>netlink</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para></listitem>
+        project='man-pages'><refentrytitle>netlink</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+        depending on whether <literal>systemd-journald-audit.socket</literal> is enabled or
+        not.</para></listitem>
       </varlistentry>
     </variablelist>
 
