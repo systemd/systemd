@@ -178,6 +178,7 @@ TEST(protect_kernel_logs) {
                 r = setup_namespace(NULL,
                                     NULL,
                                     NULL,
+                                    NULL,
                                     &ns_info,
                                     NULL,
                                     NULL,

@@ -3645,36 +3645,41 @@ static int apply_mount_namespace(
                         goto finalize;
                 }
 
-        r = setup_namespace(root_dir, root_image, context->root_image_options,
-                            &ns_info, context->read_write_paths,
-                            needs_sandboxing ? context->read_only_paths : NULL,
-                            needs_sandboxing ? context->inaccessible_paths : NULL,
-                            needs_sandboxing ? context->exec_paths : NULL,
-                            needs_sandboxing ? context->no_exec_paths : NULL,
-                            empty_directories,
-                            symlinks,
-                            bind_mounts,
-                            n_bind_mounts,
-                            context->temporary_filesystems,
-                            context->n_temporary_filesystems,
-                            context->mount_images,
-                            context->n_mount_images,
-                            tmp_dir,
-                            var_tmp_dir,
-                            creds_path,
-                            context->log_namespace,
-                            context->mount_flags,
-                            context->root_hash, context->root_hash_size, context->root_hash_path,
-                            context->root_hash_sig, context->root_hash_sig_size, context->root_hash_sig_path,
-                            context->root_verity,
-                            context->extension_images,
-                            context->n_extension_images,
-                            context->extension_directories,
-                            propagate_dir,
-                            incoming_dir,
-                            extension_dir,
-                            root_dir || root_image ? params->notify_socket : NULL,
-                            error_path);
+        r = setup_namespace(
+                        root_dir,
+                        root_image,
+                        context->root_image_options,
+                        context->image_policy ?: &image_policy_service,
+                        &ns_info,
+                        context->read_write_paths,
+                        needs_sandboxing ? context->read_only_paths : NULL,
+                        needs_sandboxing ? context->inaccessible_paths : NULL,
+                        needs_sandboxing ? context->exec_paths : NULL,
+                        needs_sandboxing ? context->no_exec_paths : NULL,
+                        empty_directories,
+                        symlinks,
+                        bind_mounts,
+                        n_bind_mounts,
+                        context->temporary_filesystems,
+                        context->n_temporary_filesystems,
+                        context->mount_images,
+                        context->n_mount_images,
+                        tmp_dir,
+                        var_tmp_dir,
+                        creds_path,
+                        context->log_namespace,
+                        context->mount_flags,
+                        context->root_hash, context->root_hash_size, context->root_hash_path,
+                        context->root_hash_sig, context->root_hash_sig_size, context->root_hash_sig_path,
+                        context->root_verity,
+                        context->extension_images,
+                        context->n_extension_images,
+                        context->extension_directories,
+                        propagate_dir,
+                        incoming_dir,
+                        extension_dir,
+                        root_dir || root_image ? params->notify_socket : NULL,
+                        error_path);
 
         /* If we couldn't set up the namespace this is probably due to a missing capability. setup_namespace() reports
          * that with a special, recognizable error ENOANO. In this case, silently proceed, but only if exclusively
@@ -5419,6 +5424,8 @@ void exec_context_done(ExecContext *c) {
 
         c->load_credentials = hashmap_free(c->load_credentials);
         c->set_credentials = hashmap_free(c->set_credentials);
+
+        c->image_policy = image_policy_free(c->image_policy);
 }
 
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_prefix) {
