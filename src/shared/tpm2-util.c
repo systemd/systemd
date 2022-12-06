@@ -751,6 +751,7 @@ static int tpm2_make_encryption_session(
                 const char *pin,
                 ESYS_TR *ret_session) {
 
+        void local_flush_context(ESYS_TR *handle) { tpm2_flush_context_verbose(c, *handle); }
         static const TPMT_SYM_DEF symmetric = {
                 .algorithm = TPM2_ALG_AES,
                 .keyBits.aes = 128,
@@ -758,7 +759,7 @@ static int tpm2_make_encryption_session(
         };
         const TPMA_SESSION sessionAttributes = TPMA_SESSION_DECRYPT | TPMA_SESSION_ENCRYPT |
                         TPMA_SESSION_CONTINUESESSION;
-        ESYS_TR session = ESYS_TR_NONE;
+        _cleanup_(local_flush_context) ESYS_TR session = ESYS_TR_NONE;
         TSS2_RC rc;
 
         assert(c);
@@ -816,12 +817,9 @@ static int tpm2_make_encryption_session(
                                 "Failed to configure TPM session: %s",
                                 sym_Tss2_RC_Decode(rc));
 
-        if (ret_session) {
-                *ret_session = session;
-                session = ESYS_TR_NONE;
-        }
+        if (ret_session)
+                *ret_session = TAKE_ESYS_TR(session);
 
-        session = tpm2_flush_context_verbose(c, session);
         return 0;
 }
 
@@ -1023,13 +1021,14 @@ static int tpm2_make_policy_session(
                 TPM2B_DIGEST **ret_policy_digest,
                 TPMI_ALG_HASH *ret_pcr_bank) {
 
+        void local_flush_context(ESYS_TR *handle) { tpm2_flush_context_verbose(c, *handle); }
         static const TPMT_SYM_DEF symmetric = {
                 .algorithm = TPM2_ALG_AES,
                 .keyBits.aes = 128,
                 .mode.aes = TPM2_ALG_CFB,
         };
         _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
-        ESYS_TR session = ESYS_TR_NONE, pubkey_handle = ESYS_TR_NONE;
+        _cleanup_(local_flush_context) ESYS_TR session = ESYS_TR_NONE, pubkey_handle = ESYS_TR_NONE;
         TSS2_RC rc;
         int r;
 
@@ -1108,7 +1107,7 @@ static int tpm2_make_policy_session(
                 TPM2B_PUBLIC pubkey_tpm2;
                 r = openssl_pubkey_to_tpm2_pubkey(pk, &pubkey_tpm2);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 rc = sym_Esys_LoadExternal(
                                 c,
@@ -1125,11 +1124,9 @@ static int tpm2_make_policy_session(
                                 TPM2_RH_OWNER,
 #endif
                                 &pubkey_handle);
-                if (rc != TSS2_RC_SUCCESS) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                            "Failed to load public key into TPM: %s", sym_Tss2_RC_Decode(rc));
-                        goto finish;
-                }
+                if (rc != TSS2_RC_SUCCESS)
+                        return  log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                                "Failed to load public key into TPM: %s", sym_Tss2_RC_Decode(rc));
 
                 /* Acquire the "name" of what we just loaded */
                 _cleanup_(Esys_Freep) TPM2B_NAME *pubkey_name = NULL;
@@ -1137,11 +1134,9 @@ static int tpm2_make_policy_session(
                                 c,
                                 pubkey_handle,
                                 &pubkey_name);
-                if (rc != TSS2_RC_SUCCESS) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                            "Failed to get name of public key from TPM: %s", sym_Tss2_RC_Decode(rc));
-                        goto finish;
-                }
+                if (rc != TSS2_RC_SUCCESS)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to get name of public key from TPM: %s", sym_Tss2_RC_Decode(rc));
 
                 /* Put together the PCR policy we want to use */
                 TPML_PCR_SELECTION pcr_selection;
@@ -1154,11 +1149,9 @@ static int tpm2_make_policy_session(
                                 ESYS_TR_NONE,
                                 NULL,
                                 &pcr_selection);
-                if (rc != TSS2_RC_SUCCESS) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                            "Failed to add PCR policy to TPM: %s", sym_Tss2_RC_Decode(rc));
-                        goto finish;
-                }
+                if (rc != TSS2_RC_SUCCESS)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to add PCR policy to TPM: %s", sym_Tss2_RC_Decode(rc));
 
                 /* Get the policy hash of the PCR policy */
                 _cleanup_(Esys_Freep) TPM2B_DIGEST *approved_policy = NULL;
@@ -1169,11 +1162,9 @@ static int tpm2_make_policy_session(
                                 ESYS_TR_NONE,
                                 ESYS_TR_NONE,
                                 &approved_policy);
-                if (rc != TSS2_RC_SUCCESS) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                            "Failed to get policy digest from TPM: %s", sym_Tss2_RC_Decode(rc));
-                        goto finish;
-                }
+                if (rc != TSS2_RC_SUCCESS)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to get policy digest from TPM: %s", sym_Tss2_RC_Decode(rc));
 
                 /* When we are unlocking and have a signature, let's pass it to the TPM */
                 _cleanup_(Esys_Freep) TPMT_TK_VERIFIED *check_ticket_buffer = NULL;
@@ -1192,7 +1183,7 @@ static int tpm2_make_policy_session(
                                         &signature_raw,
                                         &signature_size);
                         if (r < 0)
-                                goto finish;
+                                return r;
 
                         /* TPM2_VerifySignature() will only verify the RSA part of the RSA+SHA256 signature,
                          * hence we need to do the SHA256 part ourselves, first */
@@ -1209,10 +1200,8 @@ static int tpm2_make_policy_session(
                                         .sig.size = signature_size,
                                 },
                         };
-                        if (signature_size > sizeof(policy_signature.signature.rsassa.sig.buffer)) {
-                                r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Signature larger than buffer.");
-                                goto finish;
-                        }
+                        if (signature_size > sizeof(policy_signature.signature.rsassa.sig.buffer))
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Signature larger than buffer.");
                         memcpy(policy_signature.signature.rsassa.sig.buffer, signature_raw, signature_size);
 
                         rc = sym_Esys_VerifySignature(
@@ -1224,11 +1213,9 @@ static int tpm2_make_policy_session(
                                         &signature_hash,
                                         &policy_signature,
                                         &check_ticket_buffer);
-                        if (rc != TSS2_RC_SUCCESS) {
-                                r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                                    "Failed to validate signature in TPM: %s", sym_Tss2_RC_Decode(rc));
-                                goto finish;
-                        }
+                        if (rc != TSS2_RC_SUCCESS)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                                        "Failed to validate signature in TPM: %s", sym_Tss2_RC_Decode(rc));
 
                         check_ticket = check_ticket_buffer;
                 } else {
@@ -1251,11 +1238,9 @@ static int tpm2_make_policy_session(
                                 /* policyRef= */ &(const TPM2B_NONCE) {},
                                 pubkey_name,
                                 check_ticket);
-                if (rc != TSS2_RC_SUCCESS) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                            "Failed to push Authorize policy into TPM: %s", sym_Tss2_RC_Decode(rc));
-                        goto finish;
-                }
+                if (rc != TSS2_RC_SUCCESS)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to push Authorize policy into TPM: %s", sym_Tss2_RC_Decode(rc));
 #else
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
 #endif
@@ -1274,11 +1259,9 @@ static int tpm2_make_policy_session(
                                 ESYS_TR_NONE,
                                 NULL,
                                 &pcr_selection);
-                if (rc != TSS2_RC_SUCCESS) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                            "Failed to add PCR policy to TPM: %s", sym_Tss2_RC_Decode(rc));
-                        goto finish;
-                }
+                if (rc != TSS2_RC_SUCCESS)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to add PCR policy to TPM: %s", sym_Tss2_RC_Decode(rc));
         }
 
         if (use_pin) {
@@ -1290,12 +1273,10 @@ static int tpm2_make_policy_session(
                                 ESYS_TR_NONE,
                                 ESYS_TR_NONE,
                                 ESYS_TR_NONE);
-                if (rc != TSS2_RC_SUCCESS) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                            "Failed to add authValue policy to TPM: %s",
-                                            sym_Tss2_RC_Decode(rc));
-                        goto finish;
-                }
+                if (rc != TSS2_RC_SUCCESS)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to add authValue policy to TPM: %s",
+                                               sym_Tss2_RC_Decode(rc));
         }
 
         if (DEBUG_LOGGING || ret_policy_digest) {
@@ -1309,29 +1290,23 @@ static int tpm2_make_policy_session(
                                 ESYS_TR_NONE,
                                 &policy_digest);
 
-                if (rc != TSS2_RC_SUCCESS) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                            "Failed to get policy digest from TPM: %s", sym_Tss2_RC_Decode(rc));
-                        goto finish;
-                }
+                if (rc != TSS2_RC_SUCCESS)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to get policy digest from TPM: %s", sym_Tss2_RC_Decode(rc));
 
                 if (DEBUG_LOGGING) {
                         _cleanup_free_ char *h = NULL;
 
                         h = hexmem(policy_digest->buffer, policy_digest->size);
-                        if (!h) {
-                                r = log_oom();
-                                goto finish;
-                        }
+                        if (!h)
+                                return log_oom();
 
                         log_debug("Session policy digest: %s", h);
                 }
         }
 
-        if (ret_session) {
-                *ret_session = session;
-                session = ESYS_TR_NONE;
-        }
+        if (ret_session)
+                *ret_session = TAKE_ESYS_TR(session);
 
         if (ret_policy_digest)
                 *ret_policy_digest = TAKE_PTR(policy_digest);
@@ -1339,12 +1314,7 @@ static int tpm2_make_policy_session(
         if (ret_pcr_bank)
                 *ret_pcr_bank = pcr_bank;
 
-        r = 0;
-
-finish:
-        session = tpm2_flush_context_verbose(c, session);
-        pubkey_handle = tpm2_flush_context_verbose(c, pubkey_handle);
-        return r;
+        return 0;
 }
 
 int tpm2_seal(const char *device,
@@ -1363,6 +1333,7 @@ int tpm2_seal(const char *device,
               uint16_t *ret_primary_alg) {
 
         _cleanup_(tpm2_context_destroy) struct tpm2_context c = {};
+        void local_flush_context(ESYS_TR *handle) { tpm2_flush_context_verbose(c.esys_context, *handle); }
         _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
         _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
         _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
@@ -1370,7 +1341,7 @@ int tpm2_seal(const char *device,
         _cleanup_(erase_and_freep) TPM2B_SENSITIVE_CREATE *hmac_sensitive = NULL;
         _cleanup_(erase_and_freep) void *secret = NULL;
         _cleanup_free_ void *blob = NULL, *hash = NULL;
-        ESYS_TR primary = ESYS_TR_NONE, session = ESYS_TR_NONE;
+        _cleanup_(local_flush_context) ESYS_TR primary = ESYS_TR_NONE, session = ESYS_TR_NONE;
         TPMI_ALG_PUBLIC primary_alg;
         TPM2B_PUBLIC hmac_template;
         TPMI_ALG_HASH pcr_bank;
@@ -1421,7 +1392,7 @@ int tpm2_seal(const char *device,
         /* we cannot use the bind key before its created */
         r = tpm2_make_encryption_session(c.esys_context, primary, ESYS_TR_NONE, NULL, &session);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = tpm2_make_policy_session(
                         c.esys_context,
@@ -1438,7 +1409,7 @@ int tpm2_seal(const char *device,
                         &policy_digest,
                         &pcr_bank);
         if (r < 0)
-                goto finish;
+                return r;
 
         /* We use a keyed hash object (i.e. HMAC) to store the secret key we want to use for unlocking the
          * LUKS2 volume with. We don't ever use for HMAC/keyed hash operations however, we just use it
@@ -1456,10 +1427,8 @@ int tpm2_seal(const char *device,
         };
 
         hmac_sensitive = malloc(sizeof(TPM2B_SENSITIVE_CREATE));
-        if (!hmac_sensitive) {
-                r = log_oom();
-                goto finish;
-        }
+        if (!hmac_sensitive)
+                return log_oom();
 
         *hmac_sensitive = (TPM2B_SENSITIVE_CREATE) {
                 .size = sizeof(hmac_sensitive->sensitive),
@@ -1475,10 +1444,8 @@ int tpm2_seal(const char *device,
         log_debug("Generating secret key data.");
 
         r = crypto_random_bytes(hmac_sensitive->sensitive.data.buffer, hmac_sensitive->sensitive.data.size);
-        if (r < 0) {
-                log_error_errno(r, "Failed to generate secret key: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate secret key: %m");
 
         log_debug("Creating HMAC key.");
 
@@ -1497,18 +1464,14 @@ int tpm2_seal(const char *device,
                         NULL,
                         NULL,
                         NULL);
-        if (rc != TSS2_RC_SUCCESS) {
-                r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                    "Failed to generate HMAC key in TPM: %s", sym_Tss2_RC_Decode(rc));
-                goto finish;
-        }
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to generate HMAC key in TPM: %s", sym_Tss2_RC_Decode(rc));
 
         secret = memdup(hmac_sensitive->sensitive.data.buffer, hmac_sensitive->sensitive.data.size);
         explicit_bzero_safe(hmac_sensitive->sensitive.data.buffer, hmac_sensitive->sensitive.data.size);
-        if (!secret) {
-                r = log_oom();
-                goto finish;
-        }
+        if (!secret)
+                return log_oom();
 
         log_debug("Marshalling private and public part of HMAC key.");
 
@@ -1518,10 +1481,8 @@ int tpm2_seal(const char *device,
                 size_t offset = 0;
 
                 buf = malloc(k);
-                if (!buf) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (!buf)
+                        return log_oom();
 
                 rc = sym_Tss2_MU_TPM2B_PRIVATE_Marshal(private, buf, k, &offset);
                 if (rc == TSS2_RC_SUCCESS) {
@@ -1532,16 +1493,12 @@ int tpm2_seal(const char *device,
                                 break;
                         }
                 }
-                if (rc != TSS2_MU_RC_INSUFFICIENT_BUFFER) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                            "Failed to marshal private/public key: %s", sym_Tss2_RC_Decode(rc));
-                        goto finish;
-                }
+                if (rc != TSS2_MU_RC_INSUFFICIENT_BUFFER)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to marshal private/public key: %s", sym_Tss2_RC_Decode(rc));
 
-                if (k > SIZE_MAX / 2) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (k > SIZE_MAX / 2)
+                        return log_oom();
 
                 k *= 2;
         }
@@ -1562,13 +1519,7 @@ int tpm2_seal(const char *device,
         *ret_pcr_bank = pcr_bank;
         *ret_primary_alg = primary_alg;
 
-        r = 0;
-
-finish:
-        explicit_bzero_safe(&hmac_sensitive, sizeof(hmac_sensitive));
-        primary = tpm2_flush_context_verbose(c.esys_context, primary);
-        session = tpm2_flush_context_verbose(c.esys_context, session);
-        return r;
+        return 0;
 }
 
 #define RETRY_UNSEAL_MAX 30u
@@ -1590,8 +1541,9 @@ int tpm2_unseal(const char *device,
                 size_t *ret_secret_size) {
 
         _cleanup_(tpm2_context_destroy) struct tpm2_context c = {};
-        ESYS_TR primary = ESYS_TR_NONE, session = ESYS_TR_NONE, hmac_session = ESYS_TR_NONE,
-                hmac_key = ESYS_TR_NONE;
+        void local_flush_context(ESYS_TR *handle) { tpm2_flush_context_verbose(c.esys_context, *handle); }
+        _cleanup_(local_flush_context) ESYS_TR primary = ESYS_TR_NONE, session = ESYS_TR_NONE,
+                hmac_session = ESYS_TR_NONE, hmac_key = ESYS_TR_NONE;
         _cleanup_(Esys_Freep) TPM2B_SENSITIVE_DATA* unsealed = NULL;
         _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
         _cleanup_(erase_and_freep) char *secret = NULL;
@@ -1669,20 +1621,19 @@ int tpm2_unseal(const char *device,
                 /* If we're in dictionary attack lockout mode, we should see a lockout error here, which we
                  * need to translate for the caller. */
                 if (rc == TPM2_RC_LOCKOUT)
-                        r = log_error_errno(
+                        return log_error_errno(
                                         SYNTHETIC_ERRNO(ENOLCK),
                                         "TPM2 device is in dictionary attack lockout mode.");
                 else
-                        r = log_error_errno(
+                        return log_error_errno(
                                         SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                         "Failed to load HMAC key in TPM: %s",
                                         sym_Tss2_RC_Decode(rc));
-                goto finish;
         }
 
         r = tpm2_make_encryption_session(c.esys_context, primary, hmac_key, pin, &hmac_session);
         if (r < 0)
-                goto finish;
+                return r;
 
         for (unsigned i = RETRY_UNSEAL_MAX;; i--) {
                 r = tpm2_make_policy_session(
@@ -1700,7 +1651,7 @@ int tpm2_unseal(const char *device,
                                 &policy_digest,
                                 /* ret_pcr_bank= */ NULL);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 /* If we know the policy hash to expect, and it doesn't match, we can shortcut things here, and not
                  * wait until the TPM2 tells us to go away. */
@@ -1724,21 +1675,17 @@ int tpm2_unseal(const char *device,
                         session = tpm2_flush_context_verbose(c.esys_context, session);
                         continue;
                 }
-                if (rc != TSS2_RC_SUCCESS) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                if (rc != TSS2_RC_SUCCESS)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                             "Failed to unseal HMAC key in TPM: %s", sym_Tss2_RC_Decode(rc));
-                        goto finish;
-                }
 
                 break;
         }
 
         secret = memdup(unsealed->buffer, unsealed->size);
         explicit_bzero_safe(unsealed->buffer, unsealed->size);
-        if (!secret) {
-                r = log_oom();
-                goto finish;
-        }
+        if (!secret)
+                return log_oom();
 
         if (DEBUG_LOGGING)
                 log_debug("Completed TPM2 key unsealing in %s.", FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - start, 1));
@@ -1746,13 +1693,7 @@ int tpm2_unseal(const char *device,
         *ret_secret = TAKE_PTR(secret);
         *ret_secret_size = unsealed->size;
 
-        r = 0;
-
-finish:
-        primary = tpm2_flush_context_verbose(c.esys_context, primary);
-        session = tpm2_flush_context_verbose(c.esys_context, session);
-        hmac_key = tpm2_flush_context_verbose(c.esys_context, hmac_key);
-        return r;
+        return 0;
 }
 
 #endif
