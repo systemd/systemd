@@ -892,7 +892,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                                 goto finish;
                         }
 
-                        session_handle = tpm2_flush_context_verbose(c->esys_context, session_handle);
+                        session_handle = tpm2_flush_context_verbose(c, session_handle);
 
                         _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX* mdctx = NULL;
                         mdctx = EVP_MD_CTX_new();
@@ -983,7 +983,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         r = 0;
 
 finish:
-        session_handle = tpm2_flush_context_verbose(c->esys_context, session_handle);
+        session_handle = tpm2_flush_context_verbose(c, session_handle);
         return r;
 }
 
