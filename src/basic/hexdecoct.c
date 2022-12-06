@@ -606,7 +606,7 @@ ssize_t base64mem_full(
         if (!r)
                 return -ENOMEM;
 
-        for (x = p; x < (const uint8_t*) p + (l / 3) * 3; x += 3) {
+        for (x = p; x && x < (const uint8_t*) p + (l / 3) * 3; x += 3) {
                 /* x[0] == XXXXXXXX; x[1] == YYYYYYYY; x[2] == ZZZZZZZZ */
                 maybe_line_break(&z, r, line_break);
                 *(z++) = base64char(x[0] >> 2);                    /* 00XXXXXX */
