@@ -72,10 +72,9 @@
     execution of the action is not continued before all executables
     finished.</para>
 
-    <para>Note that <filename>systemd-halt.service</filename> (and the
-    related units) should never be executed directly. Instead, trigger
-    system shutdown with a command such as <literal>systemctl
-    halt</literal> or suchlike.</para>
+    <para>Note that <filename>systemd-halt.service</filename> (and the related units) should never be
+    executed directly. Instead, trigger system shutdown with a command such as <literal>systemctl
+    halt</literal>.</para>
   </refsect1>
 
   <refsect1>
