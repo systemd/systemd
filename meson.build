@@ -2408,10 +2408,6 @@ if conf.get('ENABLE_ENVIRONMENT_D') == 1
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : userenvgeneratordir)
-
-        meson.add_install_script(meson_make_symlink,
-                                 sysconfdir / 'environment',
-                                 environmentdir / '99-environment.conf')
 endif
 
 if conf.get('ENABLE_HIBERNATE') == 1
