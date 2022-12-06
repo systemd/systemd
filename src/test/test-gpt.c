@@ -46,4 +46,22 @@ TEST(gpt_types_against_architectures) {
                         }
 }
 
+TEST(verity_mappings) {
+        for (PartitionDesignator p = 0; p < _PARTITION_DESIGNATOR_MAX; p++) {
+                PartitionDesignator q;
+
+                q = partition_verity_of(p);
+                assert_se(q < 0 || partition_verity_to_data(q) == p);
+
+                q = partition_verity_sig_of(p);
+                assert_se(q < 0 || partition_verity_sig_to_data(q) == p);
+
+                q = partition_verity_to_data(p);
+                assert_se(q < 0 || partition_verity_of(q) == p);
+
+                q = partition_verity_sig_to_data(p);
+                assert_se(q < 0 || partition_verity_sig_of(q) == p);
+        }
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
