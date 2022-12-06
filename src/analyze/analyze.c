@@ -39,6 +39,7 @@
 #include "analyze-unit-files.h"
 #include "analyze-unit-paths.h"
 #include "analyze-verify.h"
+#include "analyze-image-policy.h"
 #include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -640,6 +641,7 @@ static int run(int argc, char *argv[]) {
                 { "inspect-elf",       2,        VERB_ANY, 0,            verb_elf_inspection    },
                 { "malloc",            VERB_ANY, VERB_ANY, 0,            verb_malloc            },
                 { "fdstore",           2,        VERB_ANY, 0,            verb_fdstore           },
+                { "image-policy",      2,        2,        0,            verb_image_policy      },
                 {}
         };
 
