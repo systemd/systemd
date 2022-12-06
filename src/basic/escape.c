@@ -445,31 +445,30 @@ char* escape_non_printable_full(const char *str, size_t console_width, XEscapeFl
 }
 
 char* octescape(const char *s, size_t len) {
-        char *r, *t;
-        const char *f;
+        char *buf, *t;
 
-        /* Escapes all chars in bad, in addition to \ and " chars,
-         * in \nnn style escaping. */
+        /* Escapes all chars in bad, in addition to \ and " chars, in \nnn style escaping. */
 
-        r = new(char, len * 4 + 1);
-        if (!r)
+        assert(s || len == 0);
+
+        t = buf = new(char, len * 4 + 1);
+        if (!buf)
                 return NULL;
 
-        for (f = s, t = r; f < s + len; f++) {
+        for (size_t i = 0; i < len; i++) {
+                uint8_t u = (uint8_t) s[i];
 
-                if (*f < ' ' || *f >= 127 || IN_SET(*f, '\\', '"')) {
+                if (u < ' ' || u >= 127 || IN_SET(u, '\\', '"')) {
                         *(t++) = '\\';
-                        *(t++) = '0' + (*f >> 6);
-                        *(t++) = '0' + ((*f >> 3) & 8);
-                        *(t++) = '0' + (*f & 8);
+                        *(t++) = '0' + (u >> 6);
+                        *(t++) = '0' + ((u >> 3) & 7);
+                        *(t++) = '0' + (u & 7);
                 } else
-                        *(t++) = *f;
+                        *(t++) = u;
         }
 
         *t = 0;
-
-        return r;
-
+        return buf;
 }
 
 static char* strcpy_backslash_escaped(char *t, const char *s, const char *bad) {
