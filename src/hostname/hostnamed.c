@@ -246,6 +246,10 @@ static int get_firmware_version(char **ret) {
          return get_hardware_firmware_data("bios_version", ret);
 }
 
+static int get_firmware_vendor(char **ret) {
+         return get_hardware_firmware_data("bios_vendor", ret);
+}
+
 static const char* valid_chassis(const char *chassis) {
         assert(chassis);
 
@@ -626,6 +630,22 @@ static int property_get_firmware_version(
         (void) get_firmware_version(&firmware_version);
 
         return sd_bus_message_append(reply, "s", firmware_version);
+}
+
+static int property_get_firmware_vendor(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        _cleanup_free_ char *firmware_vendor = NULL;
+
+        (void) get_firmware_vendor(&firmware_vendor);
+
+        return sd_bus_message_append(reply, "s", firmware_vendor);
 }
 
 static int property_get_hostname(
@@ -1149,7 +1169,8 @@ static int method_get_hardware_serial(sd_bus_message *m, void *userdata, sd_bus_
 
 static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *hn = NULL, *dhn = NULL, *in = NULL, *text = NULL,
-                *chassis = NULL, *vendor = NULL, *model = NULL, *serial = NULL, *firmware_version = NULL;
+                *chassis = NULL, *vendor = NULL, *model = NULL, *serial = NULL, *firmware_version = NULL,
+                *firmware_vendor = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         sd_id128_t product_uuid = SD_ID128_NULL;
@@ -1213,6 +1234,7 @@ static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *erro
                 (void) get_hardware_serial(&serial);
         }
         (void) get_firmware_version(&firmware_version);
+        (void) get_firmware_vendor(&firmware_vendor);
 
         r = json_build(&v, JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR("Hostname", JSON_BUILD_STRING(hn)),
@@ -1234,6 +1256,7 @@ static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *erro
                                        JSON_BUILD_PAIR("HardwareModel", JSON_BUILD_STRING(model ?: c->data[PROP_HARDWARE_MODEL])),
                                        JSON_BUILD_PAIR("HardwareSerial", JSON_BUILD_STRING(serial)),
                                        JSON_BUILD_PAIR("FirmwareVersion", JSON_BUILD_STRING(firmware_version)),
+                                       JSON_BUILD_PAIR("FirmwareVendor", JSON_BUILD_STRING(firmware_vendor)),
                                        JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(product_uuid), "ProductUUID", JSON_BUILD_ID128(product_uuid)),
                                        JSON_BUILD_PAIR_CONDITION(sd_id128_is_null(product_uuid), "ProductUUID", JSON_BUILD_NULL)));
 
@@ -1275,6 +1298,7 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_PROPERTY("HardwareVendor", "s", property_get_hardware_vendor, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("HardwareModel", "s", property_get_hardware_model, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("FirmwareVersion", "s", property_get_firmware_version, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("FirmwareVendor", "s", property_get_firmware_vendor, 0, SD_BUS_VTABLE_PROPERTY_CONST),
 
         SD_BUS_METHOD_WITH_ARGS("SetHostname",
                                 SD_BUS_ARGS("s", hostname, "b", interactive),
