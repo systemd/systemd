@@ -848,7 +848,7 @@ static int measure_volume_key(
 
         _cleanup_strv_free_ char **l = NULL;
         if (strv_isempty(arg_tpm2_measure_banks)) {
-                r = tpm2_get_good_pcr_banks_strv(c->esys_context, UINT32_C(1) << arg_tpm2_measure_pcr, &l);
+                r = tpm2_get_good_pcr_banks_strv(c, UINT32_C(1) << arg_tpm2_measure_pcr, &l);
                 if (r < 0)
                         return r;
         }
@@ -871,7 +871,7 @@ static int measure_volume_key(
         if (!s)
                 return log_oom();
 
-        r = tpm2_extend_bytes(c->esys_context, l ?: arg_tpm2_measure_banks, arg_tpm2_measure_pcr, s, SIZE_MAX, volume_key, volume_key_size);
+        r = tpm2_extend_bytes(c, l ?: arg_tpm2_measure_banks, arg_tpm2_measure_pcr, s, SIZE_MAX, volume_key, volume_key_size);
         if (r < 0)
                 return r;
 
