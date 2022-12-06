@@ -468,7 +468,7 @@ EFI_STATUS pack_cpio(
 
         for (UINTN i = 0; i < n_items; i++) {
                 _cleanup_free_ char *content = NULL;
-                UINTN contentsize;
+                UINTN contentsize = 0;  /* avoid false maybe-uninitialized warning */
 
                 err = file_read(extra_dir, items[i], 0, 0, &content, &contentsize);
                 if (err != EFI_SUCCESS) {
