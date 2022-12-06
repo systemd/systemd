@@ -38,7 +38,10 @@ RestrictRealtime=yes
 RestrictSUIDSGID=yes
 RuntimeDirectory=systemd/journal
 RuntimeDirectoryPreserve=yes
-Sockets=systemd-journald.socket systemd-journald-dev-log.socket systemd-journald-audit.socket
+# Audit socket is not listed here because this unit can be turned off. However
+# the link between the socket and the service units is still created thanks to
+# the 'Service=' setting specified in the socket unit.
+Sockets=systemd-journald.socket systemd-journald-dev-log.socket
 StandardOutput=null
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
