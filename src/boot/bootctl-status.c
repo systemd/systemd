@@ -80,6 +80,8 @@ static int status_entries(
         if (!sd_id128_is_null(dollar_boot_partition_uuid))
                 printf(" (/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR ")",
                        SD_ID128_FORMAT_VAL(dollar_boot_partition_uuid));
+        if (settle_entry_token() >= 0)
+                printf("\n        token: %s", arg_entry_token);
         printf("\n\n");
 
         if (config->default_entry < 0)
