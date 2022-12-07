@@ -30,6 +30,7 @@
 
 #include "macro-fundamental.h"
 #include "sha256.h"
+#include "unaligned-fundamental.h"
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 # define SWAP(n)                                                        \
@@ -128,11 +129,7 @@ uint8_t *sha256_finish_ctx(struct sha256_ctx *ctx, uint8_t resbuf[static SHA256_
 
         /* Put result from CTX in first 32 bytes following RESBUF.  */
         for (size_t i = 0; i < 8; ++i)
-                if (UNALIGNED_P(resbuf))
-                        memcpy(resbuf + i * sizeof(uint32_t), (uint32_t[]) { SWAP(ctx->H[i]) }, sizeof(uint32_t));
-                else
-                        ((uint32_t *) resbuf)[i] = SWAP(ctx->H[i]);
-
+                unaligned_write_ne32(resbuf + i * sizeof(uint32_t), SWAP(ctx->H[i]));
         return resbuf;
 }
 
