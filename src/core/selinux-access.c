@@ -229,15 +229,19 @@ int mac_selinux_access_check_internal(
         } else {
                 /* If no unit context is known, use our own */
                 if (getcon_raw(&fcon) < 0) {
-                        r = -errno;
-
-                        log_warning_errno(r, "SELinux getcon_raw() failed%s (perm=%s): %m",
+                        log_warning_errno(errno, "SELinux getcon_raw() failed%s (perm=%s): %m",
                                           enforce ? "" : ", ignoring",
                                           permission);
                         if (!enforce)
                                 return 0;
 
                         return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get current context: %m");
+                }
+                if (!fcon) {
+                        if (!enforce)
+                                return 0;
+
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "We appear not to have any SELinux context: %m");
                 }
 
                 acon = fcon;
