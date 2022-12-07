@@ -189,8 +189,6 @@ static void strip_localhost(EtcHosts *hosts) {
                 },
         };
 
-        EtcHostsItemByAddress *item;
-
         assert(hosts);
 
         /* Removes the 'localhost' entry from what we loaded. But only if the mapping is exclusively between
@@ -201,7 +199,8 @@ static void strip_localhost(EtcHosts *hosts) {
          * mappings.  */
 
         for (size_t j = 0; j < ELEMENTSOF(local_in_addrs); j++) {
-                bool all_localhost, in_order;
+                bool all_localhost, all_local_address;
+                EtcHostsItemByAddress *item;
 
                 item = hashmap_get(hosts->by_address, local_in_addrs + j);
                 if (!item)
@@ -220,10 +219,9 @@ static void strip_localhost(EtcHosts *hosts) {
 
                 /* Now check if the names listed for this address actually all point back just to this
                  * address (or the other loopback address). If not, let's stay away from this too. */
-                in_order = true;
+                all_local_address = true;
                 STRV_FOREACH(i, item->names) {
                         EtcHostsItemByName *n;
-                        bool all_local_address;
 
                         n = hashmap_get(hosts->by_name, *i);
                         if (!n) /* No reverse entry? Then almost certainly the entry already got deleted from
@@ -231,20 +229,17 @@ static void strip_localhost(EtcHosts *hosts) {
                                 break;
 
                         /* Now check if the addresses of this item are all localhost addresses */
-                        all_local_address = true;
                         for (size_t m = 0; m < n->n_addresses; m++)
                                 if (!in_addr_is_localhost(n->addresses[m]->family, &n->addresses[m]->address)) {
                                         all_local_address = false;
                                         break;
                                 }
 
-                        if (!all_local_address) {
-                                in_order = false;
+                        if (!all_local_address)
                                 break;
-                        }
                 }
 
-                if (!in_order)
+                if (!all_local_address)
                         continue;
 
                 STRV_FOREACH(i, item->names)
