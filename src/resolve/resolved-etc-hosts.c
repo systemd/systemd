@@ -341,88 +341,94 @@ static int manager_etc_hosts_read(Manager *m) {
         return 1;
 }
 
-int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer) {
-        bool found_a = false, found_aaaa = false;
-        struct in_addr_data k = {};
-        EtcHostsItemByName *bn;
-        DnsResourceKey *t;
-        const char *name;
-        unsigned i;
+static int etc_hosts_lookup_by_address(
+                EtcHosts *hosts,
+                DnsQuestion *q,
+                const char *name,
+                const struct in_addr_data *address,
+                DnsAnswer **answer) {
+
+        DnsResourceKey *t, *found_ptr = NULL;
+        EtcHostsItemByAddress *item;
         int r;
 
-        assert(m);
+        assert(hosts);
         assert(q);
+        assert(name);
+        assert(address);
         assert(answer);
 
-        if (!m->read_etc_hosts)
+        item = hashmap_get(hosts->by_address, address);
+        if (!item)
                 return 0;
 
-        (void) manager_etc_hosts_read(m);
+        /* We have an address in /etc/hosts that matches the queried name. Let's return successful. Actual data
+         * we'll only return if the request was for PTR. */
 
-        name = dns_question_first_name(q);
-        if (!name)
-                return 0;
+        DNS_QUESTION_FOREACH(t, q) {
+                if (!IN_SET(t->type, DNS_TYPE_PTR, DNS_TYPE_ANY))
+                        continue;
+                if (!IN_SET(t->class, DNS_CLASS_IN, DNS_CLASS_ANY))
+                        continue;
 
-        r = dns_name_address(name, &k.family, &k.address);
-        if (r > 0) {
-                EtcHostsItemByAddress *item;
-                DnsResourceKey *found_ptr = NULL;
-
-                item = hashmap_get(m->etc_hosts.by_address, &k);
-                if (!item)
-                        return 0;
-
-                /* We have an address in /etc/hosts that matches the queried name. Let's return successful. Actual data
-                 * we'll only return if the request was for PTR. */
-
-                DNS_QUESTION_FOREACH(t, q) {
-                        if (!IN_SET(t->type, DNS_TYPE_PTR, DNS_TYPE_ANY))
-                                continue;
-                        if (!IN_SET(t->class, DNS_CLASS_IN, DNS_CLASS_ANY))
-                                continue;
-
-                        r = dns_name_equal(dns_resource_key_name(t), name);
-                        if (r < 0)
-                                return r;
-                        if (r > 0) {
-                                found_ptr = t;
-                                break;
-                        }
+                r = dns_name_equal(dns_resource_key_name(t), name);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        found_ptr = t;
+                        break;
                 }
-
-                if (found_ptr) {
-                        r = dns_answer_reserve(answer, item->n_names);
-                        if (r < 0)
-                                return r;
-
-                        STRV_FOREACH(n, item->names) {
-                                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-
-                                rr = dns_resource_record_new(found_ptr);
-                                if (!rr)
-                                        return -ENOMEM;
-
-                                rr->ptr.name = strdup(*n);
-                                if (!rr->ptr.name)
-                                        return -ENOMEM;
-
-                                r = dns_answer_add(*answer, rr, 0, DNS_ANSWER_AUTHENTICATED, NULL);
-                                if (r < 0)
-                                        return r;
-                        }
-                }
-
-                return 1;
         }
 
-        bn = hashmap_get(m->etc_hosts.by_name, name);
-        if (bn) {
-                r = dns_answer_reserve(answer, bn->n_addresses);
+        if (found_ptr) {
+                r = dns_answer_reserve(answer, item->n_names);
+                if (r < 0)
+                        return r;
+
+                STRV_FOREACH(n, item->names) {
+                        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+                        rr = dns_resource_record_new(found_ptr);
+                        if (!rr)
+                                return -ENOMEM;
+
+                        rr->ptr.name = strdup(*n);
+                        if (!rr->ptr.name)
+                                return -ENOMEM;
+
+                        r = dns_answer_add(*answer, rr, 0, DNS_ANSWER_AUTHENTICATED, NULL);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 1;
+}
+
+static int etc_hosts_lookup_by_name(
+                EtcHosts *hosts,
+                DnsQuestion *q,
+                const char *name,
+                DnsAnswer **answer) {
+
+        bool found_a = false, found_aaaa = false;
+        EtcHostsItemByName *item;
+        DnsResourceKey *t;
+        int r;
+
+        assert(hosts);
+        assert(q);
+        assert(name);
+        assert(answer);
+
+        item = hashmap_get(hosts->by_name, name);
+        if (item) {
+                r = dns_answer_reserve(answer, item->n_addresses);
                 if (r < 0)
                         return r;
         } else {
                 /* Check if name was listed with no address. If yes, continue to return an answer. */
-                if (!set_contains(m->etc_hosts.no_address, name))
+                if (!set_contains(hosts->no_address, name))
                         return 0;
         }
 
@@ -447,14 +453,14 @@ int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer) {
                         break;
         }
 
-        for (i = 0; bn && i < bn->n_addresses; i++) {
+        for (unsigned i = 0; item && i < item->n_addresses; i++) {
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 
-                if ((!found_a && bn->addresses[i]->family == AF_INET) ||
-                    (!found_aaaa && bn->addresses[i]->family == AF_INET6))
+                if ((!found_a && item->addresses[i]->family == AF_INET) ||
+                    (!found_aaaa && item->addresses[i]->family == AF_INET6))
                         continue;
 
-                r = dns_resource_record_new_address(&rr, bn->addresses[i]->family, &bn->addresses[i]->address, bn->name);
+                r = dns_resource_record_new_address(&rr, item->addresses[i]->family, &item->addresses[i]->address, item->name);
                 if (r < 0)
                         return r;
 
@@ -464,4 +470,27 @@ int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer) {
         }
 
         return found_a || found_aaaa;
+}
+
+int manager_etc_hosts_lookup(Manager *m, DnsQuestion *q, DnsAnswer **answer) {
+        struct in_addr_data k;
+        const char *name;
+
+        assert(m);
+        assert(q);
+        assert(answer);
+
+        if (!m->read_etc_hosts)
+                return 0;
+
+        (void) manager_etc_hosts_read(m);
+
+        name = dns_question_first_name(q);
+        if (!name)
+                return 0;
+
+        if (dns_name_address(name, &k.family, &k.address) > 0)
+                return etc_hosts_lookup_by_address(&m->etc_hosts, q, name, &k, answer);
+
+        return etc_hosts_lookup_by_name(&m->etc_hosts, q, name, answer);
 }
