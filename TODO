@@ -100,6 +100,9 @@ Deprecations and removals:
   4.3 new baseline). Then drop support for "!!" modifier for ExecStart= which
   is only supported for such old kernels.
 
+* drop support for kernels lacking memfd_create() (i.e. make 3.17 new
+  baseline), then drop all pipe() based fallbacks.
+
 * drop support for getrandom()-less kernels. (GRND_INSECURE means once kernel
   5.6 becomes our baseline). See
   https://github.com/systemd/systemd/pull/24101#issuecomment-1193966468 for
