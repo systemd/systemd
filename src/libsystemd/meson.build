@@ -276,6 +276,8 @@ tests += [
 
         [files('sd-netlink/test-netlink.c')],
 
+        [files('sd-netlink/test-netlink-util.c')],
+
         [files('sd-resolve/test-resolve.c'),
          [],
          [threads],
