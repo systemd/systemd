@@ -18,15 +18,21 @@
 /* Recheck /etc/hosts at most once every 2s */
 #define ETC_HOSTS_RECHECK_USEC (2*USEC_PER_SEC)
 
-static void etc_hosts_item_by_address_free(EtcHostsItemByAddress *item) {
+static EtcHostsItemByAddress *etc_hosts_item_by_address_free(EtcHostsItemByAddress *item) {
+        if (!item)
+                return NULL;
+
         strv_free(item->names);
-        free(item);
+        return mfree(item);
 }
 
-static void etc_hosts_item_by_name_free(EtcHostsItemByName *item) {
+static EtcHostsItemByName *etc_hosts_item_by_name_free(EtcHostsItemByName *item) {
+        if (!item)
+                return NULL;
+
         free(item->name);
         free(item->addresses);
-        free(item);
+        return mfree(item);
 }
 
 void etc_hosts_clear(EtcHosts *hosts) {
@@ -239,13 +245,8 @@ static void strip_localhost(EtcHosts *hosts) {
                 if (!in_order)
                         continue;
 
-                STRV_FOREACH(i, item->names) {
-                        EtcHostsItemByName *n;
-
-                        n = hashmap_remove(hosts->by_name, *i);
-                        if (n)
-                                etc_hosts_item_by_name_free(n);
-                }
+                STRV_FOREACH(i, item->names)
+                        etc_hosts_item_by_name_free(hashmap_remove(hosts->by_name, *i));
 
                 assert_se(hashmap_remove(hosts->by_address, local_in_addrs + j) == item);
                 etc_hosts_item_by_address_free(item);
