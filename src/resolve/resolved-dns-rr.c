@@ -1889,6 +1889,36 @@ static int type_bitmap_to_json(Bitmap *b, JsonVariant **ret) {
         return 0;
 }
 
+static int txt_to_json(DnsTxtItem *items, JsonVariant **ret) {
+        JsonVariant **elements = NULL;
+        size_t n = 0;
+        int r;
+
+        assert(ret);
+
+        LIST_FOREACH(items, i, items) {
+                if (!GREEDY_REALLOC(elements, n + 1)) {
+                        r = -ENOMEM;
+                        goto finalize;
+                }
+
+                r = json_variant_new_octescape(elements + n, i->data, i->length);
+                if (r < 0)
+                        goto finalize;
+
+                n++;
+        }
+
+        r = json_variant_new_array(ret, elements, n);
+
+finalize:
+        for (size_t i = 0; i < n; i++)
+                json_variant_unref(elements[i]);
+
+        free(elements);
+        return r;
+}
+
 int dns_resource_record_to_json(DnsResourceRecord *rr, JsonVariant **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *k = NULL;
         int r;
@@ -1931,23 +1961,9 @@ int dns_resource_record_to_json(DnsResourceRecord *rr, JsonVariant **ret) {
         case DNS_TYPE_TXT: {
                 _cleanup_(json_variant_unrefp) JsonVariant *l = NULL;
 
-                LIST_FOREACH(items, i, rr->txt.items) {
-                        _cleanup_(json_variant_unrefp) JsonVariant *b = NULL;
-
-                        r = json_variant_new_octescape(&b, i->data, i->length);
-                        if (r < 0)
-                                return r;
-
-                        r = json_variant_append_array(&l, b);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (!l) {
-                        r = json_variant_new_array(&l, NULL, 0);
-                        if (r < 0)
-                                return r;
-                }
+                r = txt_to_json(rr->txt.items, &l);
+                if (r < 0)
+                        return r;
 
                 return json_build(ret,
                                   JSON_BUILD_OBJECT(
