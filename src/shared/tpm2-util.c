@@ -45,6 +45,7 @@ TSS2_RC (*sym_Esys_PolicyGetDigest)(ESYS_CONTEXT *esysContext, ESYS_TR policySes
 TSS2_RC (*sym_Esys_PolicyPCR)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_DIGEST *pcrDigest, const TPML_PCR_SELECTION *pcrs) = NULL;
 TSS2_RC (*sym_Esys_StartAuthSession)(ESYS_CONTEXT *esysContext, ESYS_TR tpmKey, ESYS_TR bind, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_NONCE *nonceCaller, TPM2_SE sessionType, const TPMT_SYM_DEF *symmetric, TPMI_ALG_HASH authHash, ESYS_TR *sessionHandle) = NULL;
 TSS2_RC (*sym_Esys_Startup)(ESYS_CONTEXT *esysContext, TPM2_SU startupType) = NULL;
+TSS2_RC (*sym_Esys_TRSess_GetAttributes)(ESYS_CONTEXT *esysContext, ESYS_TR session, TPMA_SESSION *flags);
 TSS2_RC (*sym_Esys_TRSess_SetAttributes)(ESYS_CONTEXT *esysContext, ESYS_TR session, TPMA_SESSION flags, TPMA_SESSION mask);
 TSS2_RC (*sym_Esys_TR_GetName)(ESYS_CONTEXT *esysContext, ESYS_TR handle, TPM2B_NAME **name);
 TSS2_RC (*sym_Esys_TR_SetAuth)(ESYS_CONTEXT *esysContext, ESYS_TR handle, TPM2B_AUTH const *authValue) = NULL;
@@ -81,6 +82,7 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Esys_PolicyPCR),
                         DLSYM_ARG(Esys_StartAuthSession),
                         DLSYM_ARG(Esys_Startup),
+                        DLSYM_ARG(Esys_TRSess_GetAttributes),
                         DLSYM_ARG(Esys_TRSess_SetAttributes),
                         DLSYM_ARG(Esys_TR_GetName),
                         DLSYM_ARG(Esys_TR_SetAuth),
@@ -802,6 +804,19 @@ static int tpm2_set_auth(struct tpm2_context *c, struct tpm2_handle handle, cons
                                        sym_Tss2_RC_Decode(rc));
 
         return 0;
+}
+
+static bool tpm2_is_encryption_session(struct tpm2_context *c, struct tpm2_handle session) {
+        TPMA_SESSION flags = 0;
+        TSS2_RC rc;
+
+        assert(c);
+
+        rc = sym_Esys_TRSess_GetAttributes(c->esys_context, session.handle, &flags);
+        if (rc != TSS2_RC_SUCCESS)
+                return false;
+
+        return flags & TPMA_SESSION_DECRYPT && flags & TPMA_SESSION_ENCRYPT;
 }
 
 static int tpm2_make_encryption_session(
