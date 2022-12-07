@@ -4167,7 +4167,7 @@ int compare_job_priority(const void *a, const void *b) {
 int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
         _cleanup_free_ char *path = NULL;
         FreezerState target, kernel = _FREEZER_STATE_INVALID;
-        int r;
+        int r, ret = 1;
 
         assert(u);
         assert(IN_SET(action, FREEZER_FREEZE, FREEZER_THAW));
@@ -4200,7 +4200,10 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
 
         if (target == kernel) {
                 u->freezer_state = target;
-                return 0;
+                if (action == FREEZER_FREEZE)
+                        return 0;
+                else
+                        ret = 0;
         }
 
         r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "cgroup.freeze", &path);
@@ -4218,7 +4221,7 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
         if (r < 0)
                 return r;
 
-        return 1;
+        return ret;
 }
 
 int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name) {
