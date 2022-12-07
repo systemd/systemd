@@ -279,8 +279,7 @@ static int systemctl_help(void) {
                "                             kexec, suspend, hibernate, suspend-then-hibernate,\n"
                "                             hybrid-sleep, default, rescue, emergency, and exit.\n"
                "  -q --quiet             Suppress output\n"
-               "     --no-warn           Don't generate warning when trying to enable/disable\n"
-               "                         units without install information\n"
+               "     --no-warn           Suppress several warnings shown by default\n"
                "     --wait              For (re)start, wait until service stopped again\n"
                "                         For is-system-running, wait until startup is completed\n"
                "     --no-block          Do not wait until operation finished\n"
@@ -1158,7 +1157,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        if (proc_mounted() == 0)
+        if (!arg_no_warn && proc_mounted() == 0)
                 log_warning("%s%s/proc/ is not mounted. This is not a supported mode of operation. Please fix\n"
                             "your invocation environment to mount /proc/ and /sys/ properly. Proceeding anyway.\n"
                             "Your mileage may vary.",
