@@ -2629,11 +2629,10 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
 
 static int method_get_unit_file_links(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        Manager *m = ASSERT_PTR(userdata);
         InstallChange *changes = NULL;
         size_t n_changes = 0, i;
-        UnitFileFlags flags;
         const char *name;
-        char **p;
         int runtime, r;
 
         r = sd_bus_message_read(message, "sb", &name, &runtime);
@@ -2648,11 +2647,9 @@ static int method_get_unit_file_links(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        p = STRV_MAKE(name);
-        flags = UNIT_FILE_DRY_RUN |
-                (runtime ? UNIT_FILE_RUNTIME : 0);
-
-        r = unit_file_disable(LOOKUP_SCOPE_SYSTEM, flags, NULL, p, &changes, &n_changes);
+        r = unit_file_disable(m->unit_file_scope,
+                              UNIT_FILE_DRY_RUN | (runtime ? UNIT_FILE_RUNTIME : 0),
+                              NULL, STRV_MAKE(name), &changes, &n_changes);
         if (r < 0) {
                 log_error_errno(r, "Failed to get file links for %s: %m", name);
                 goto finish;
