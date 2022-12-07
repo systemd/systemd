@@ -5,12 +5,12 @@
 #include "resolved-dns-question.h"
 #include "resolved-dns-answer.h"
 
-typedef struct EtcHostsItem {
+typedef struct EtcHostsItemByAddress {
         struct in_addr_data address;
 
         char **names;
         size_t n_names;
-} EtcHostsItem;
+} EtcHostsItemByAddress;
 
 typedef struct EtcHostsItemByName {
         char *name;

@@ -18,7 +18,7 @@
 /* Recheck /etc/hosts at most once every 2s */
 #define ETC_HOSTS_RECHECK_USEC (2*USEC_PER_SEC)
 
-static void etc_hosts_item_free(EtcHostsItem *item) {
+static void etc_hosts_item_by_address_free(EtcHostsItemByAddress *item) {
         strv_free(item->names);
         free(item);
 }
@@ -32,7 +32,7 @@ static void etc_hosts_item_by_name_free(EtcHostsItemByName *item) {
 void etc_hosts_clear(EtcHosts *hosts) {
         assert(hosts);
 
-        hosts->by_address = hashmap_free_with_destructor(hosts->by_address, etc_hosts_item_free);
+        hosts->by_address = hashmap_free_with_destructor(hosts->by_address, etc_hosts_item_by_address_free);
         hosts->by_name = hashmap_free_with_destructor(hosts->by_name, etc_hosts_item_by_name_free);
         hosts->no_address = set_free_free(hosts->no_address);
 }
@@ -46,7 +46,7 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
         _cleanup_free_ char *address_str = NULL;
         struct in_addr_data address = {};
         bool found = false;
-        EtcHostsItem *item;
+        EtcHostsItemByAddress *item;
         int r;
 
         assert(hosts);
@@ -81,11 +81,11 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                         if (r < 0)
                                 return log_oom();
 
-                        item = new(EtcHostsItem, 1);
+                        item = new(EtcHostsItemByAddress, 1);
                         if (!item)
                                 return log_oom();
 
-                        *item = (EtcHostsItem) {
+                        *item = (EtcHostsItemByAddress) {
                                 .address = address,
                         };
 
@@ -181,7 +181,7 @@ static void strip_localhost(EtcHosts *hosts) {
                 },
         };
 
-        EtcHostsItem *item;
+        EtcHostsItemByAddress *item;
 
         assert(hosts);
 
@@ -248,7 +248,7 @@ static void strip_localhost(EtcHosts *hosts) {
                 }
 
                 assert_se(hashmap_remove(hosts->by_address, local_in_addrs + j) == item);
-                etc_hosts_item_free(item);
+                etc_hosts_item_by_address_free(item);
         }
 }
 
@@ -367,7 +367,7 @@ int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer) {
 
         r = dns_name_address(name, &k.family, &k.address);
         if (r > 0) {
-                EtcHostsItem *item;
+                EtcHostsItemByAddress *item;
                 DnsResourceKey *found_ptr = NULL;
 
                 item = hashmap_get(m->etc_hosts.by_address, &k);
