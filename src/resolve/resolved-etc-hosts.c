@@ -26,6 +26,8 @@ static EtcHostsItemByAddress *etc_hosts_item_by_address_free(EtcHostsItemByAddre
         return mfree(item);
 }
 
+DEFINE_TRIVIAL_CLEANUP_FUNC(EtcHostsItemByAddress*, etc_hosts_item_by_address_free);
+
 static EtcHostsItemByName *etc_hosts_item_by_name_free(EtcHostsItemByName *item) {
         if (!item)
                 return NULL;
@@ -34,6 +36,8 @@ static EtcHostsItemByName *etc_hosts_item_by_name_free(EtcHostsItemByName *item)
         free(item->addresses);
         return mfree(item);
 }
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(EtcHostsItemByName*, etc_hosts_item_by_name_free);
 
 void etc_hosts_clear(EtcHosts *hosts) {
         assert(hosts);
@@ -83,23 +87,21 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
 
                 item = hashmap_get(hosts->by_address, &address);
                 if (!item) {
-                        r = hashmap_ensure_allocated(&hosts->by_address, &in_addr_data_hash_ops);
-                        if (r < 0)
+                        _cleanup_(etc_hosts_item_by_address_freep) EtcHostsItemByAddress *new_item = NULL;
+
+                        new_item = new(EtcHostsItemByAddress, 1);
+                        if (!new_item)
                                 return log_oom();
 
-                        item = new(EtcHostsItemByAddress, 1);
-                        if (!item)
-                                return log_oom();
-
-                        *item = (EtcHostsItemByAddress) {
+                        *new_item = (EtcHostsItemByAddress) {
                                 .address = address,
                         };
 
-                        r = hashmap_put(hosts->by_address, &item->address, item);
-                        if (r < 0) {
-                                free(item);
+                        r = hashmap_ensure_put(&hosts->by_address, &in_addr_data_hash_ops, &new_item->address, new_item);
+                        if (r < 0)
                                 return log_oom();
-                        }
+
+                        item = TAKE_PTR(new_item);
                 }
         }
 
@@ -141,21 +143,21 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
 
                 bn = hashmap_get(hosts->by_name, name);
                 if (!bn) {
-                        r = hashmap_ensure_allocated(&hosts->by_name, &dns_name_hash_ops);
+                        _cleanup_(etc_hosts_item_by_name_freep) EtcHostsItemByName *new_item = NULL;
+
+                        new_item = new(EtcHostsItemByName, 1);
+                        if (!new_item)
+                                return log_oom();
+
+                        *new_item = (EtcHostsItemByName) {
+                                .name = TAKE_PTR(name),
+                        };
+
+                        r = hashmap_ensure_put(&hosts->by_name, &dns_name_hash_ops, new_item->name, new_item);
                         if (r < 0)
                                 return log_oom();
 
-                        bn = new0(EtcHostsItemByName, 1);
-                        if (!bn)
-                                return log_oom();
-
-                        r = hashmap_put(hosts->by_name, name, bn);
-                        if (r < 0) {
-                                free(bn);
-                                return log_oom();
-                        }
-
-                        bn->name = TAKE_PTR(name);
+                        bn = TAKE_PTR(new_item);
                 }
 
                 if (!GREEDY_REALLOC(bn->addresses, bn->n_addresses + 1))
