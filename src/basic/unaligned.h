@@ -4,6 +4,8 @@
 #include <endian.h>
 #include <stdint.h>
 
+#include "unaligned-fundamental.h"
+
 /* BE */
 
 static inline uint16_t unaligned_read_be16(const void *_u) {
@@ -79,21 +81,3 @@ static inline void unaligned_write_le64(void *_u, uint64_t a) {
 
         u->x = le64toh(a);
 }
-
-#if __BYTE_ORDER == __BIG_ENDIAN
-#define unaligned_read_ne16 unaligned_read_be16
-#define unaligned_read_ne32 unaligned_read_be32
-#define unaligned_read_ne64 unaligned_read_be64
-
-#define unaligned_write_ne16 unaligned_write_be16
-#define unaligned_write_ne32 unaligned_write_be32
-#define unaligned_write_ne64 unaligned_write_be64
-#else
-#define unaligned_read_ne16 unaligned_read_le16
-#define unaligned_read_ne32 unaligned_read_le32
-#define unaligned_read_ne64 unaligned_read_le64
-
-#define unaligned_write_ne16 unaligned_write_le16
-#define unaligned_write_ne32 unaligned_write_le32
-#define unaligned_write_ne64 unaligned_write_le64
-#endif
