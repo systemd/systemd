@@ -23,7 +23,7 @@ TEST(parse_etc_hosts_system) {
                 return;
         }
 
-        _cleanup_(etc_hosts_free) EtcHosts hosts = {};
+        _cleanup_(etc_hosts_clear) EtcHosts hosts = {};
         assert_se(etc_hosts_parse(&hosts, f) == 0);
 }
 
@@ -67,7 +67,7 @@ TEST(parse_etc_hosts) {
         assert_se(fflush_and_check(f) >= 0);
         rewind(f);
 
-        _cleanup_(etc_hosts_free) EtcHosts hosts = {};
+        _cleanup_(etc_hosts_clear) EtcHosts hosts = {};
         assert_se(etc_hosts_parse(&hosts, f) == 0);
 
         EtcHostsItemByName *bn;
@@ -124,7 +124,7 @@ TEST(parse_etc_hosts) {
 }
 
 static void test_parse_file_one(const char *fname) {
-        _cleanup_(etc_hosts_free) EtcHosts hosts = {};
+        _cleanup_(etc_hosts_clear) EtcHosts hosts = {};
         _cleanup_fclose_ FILE *f;
 
         log_info("/* %s(\"%s\") */", __func__, fname);

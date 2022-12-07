@@ -29,14 +29,16 @@ static void etc_hosts_item_by_name_free(EtcHostsItemByName *item) {
         free(item);
 }
 
-void etc_hosts_free(EtcHosts *hosts) {
+void etc_hosts_clear(EtcHosts *hosts) {
+        assert(hosts);
+
         hosts->by_address = hashmap_free_with_destructor(hosts->by_address, etc_hosts_item_free);
         hosts->by_name = hashmap_free_with_destructor(hosts->by_name, etc_hosts_item_by_name_free);
         hosts->no_address = set_free_free(hosts->no_address);
 }
 
 void manager_etc_hosts_flush(Manager *m) {
-        etc_hosts_free(&m->etc_hosts);
+        etc_hosts_clear(&m->etc_hosts);
         m->etc_hosts_stat = (struct stat) {};
 }
 
@@ -251,7 +253,7 @@ static void strip_localhost(EtcHosts *hosts) {
 }
 
 int etc_hosts_parse(EtcHosts *hosts, FILE *f) {
-        _cleanup_(etc_hosts_free) EtcHosts t = {};
+        _cleanup_(etc_hosts_clear) EtcHosts t = {};
         unsigned nr = 0;
         int r;
 
@@ -282,7 +284,7 @@ int etc_hosts_parse(EtcHosts *hosts, FILE *f) {
 
         strip_localhost(&t);
 
-        etc_hosts_free(hosts);
+        etc_hosts_clear(hosts);
         *hosts = t;
         t = (EtcHosts) {}; /* prevent cleanup */
         return 0;
