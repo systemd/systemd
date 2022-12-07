@@ -4198,7 +4198,7 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
         if (r < 0)
                 log_unit_debug_errno(u, r, "Failed to obtain cgroup freezer state: %m");
 
-        if (target == kernel) {
+        if (target == kernel && action == FREEZER_FREEZE) {
                 u->freezer_state = target;
                 return 0;
         }
