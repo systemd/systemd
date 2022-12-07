@@ -242,7 +242,7 @@ int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run) {
                 if (r < 0)
                         return r;
 
-                log_debug("oomd dry-run: Would have tried to kill %s with recurse=%s", cg_path, true_false(recurse));
+                log_info("oomd dry-run: Would have tried to kill %s with recurse=%s", cg_path, true_false(recurse));
                 return 0;
         }
 
