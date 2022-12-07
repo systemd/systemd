@@ -3,7 +3,8 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-oomd.service" conditional='ENABLE_OOMD'>
+<refentry id="systemd-oomd.service" conditional='ENABLE_OOMD'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-oomd.service</title>
@@ -99,6 +100,22 @@
     <filename>system.slice</filename>), a higher limit like the default of 60% may be acceptable, as those
     processes can usually ride out slowdowns caused by lack of memory without serious consequences. However,
     something like <filename>user@$UID.service</filename> may prefer a much lower value like 40%.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--dry-run</option></term>
+
+        <listitem><para>Do a dry run of <command>systemd-oomd</command>: when a kill is triggered, print it
+        to the log instead of killing the cgroup.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <xi:include href="standard-options.xml" xpointer="help" />
+    <xi:include href="standard-options.xml" xpointer="version" />
   </refsect1>
 
   <refsect1>
