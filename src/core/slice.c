@@ -381,6 +381,9 @@ static int slice_freezer_action(Unit *s, FreezerAction action) {
         }
 
         UNIT_FOREACH_DEPENDENCY(member, s, UNIT_ATOM_SLICE_OF) {
+                if (!member->cgroup_realized)
+                        continue;
+
                 if (action == FREEZER_FREEZE)
                         r = UNIT_VTABLE(member)->freeze(member);
                 else
