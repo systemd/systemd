@@ -22,7 +22,7 @@ static EtcHostsItemByAddress *etc_hosts_item_by_address_free(EtcHostsItemByAddre
         if (!item)
                 return NULL;
 
-        strv_free(item->names);
+        set_free(item->names);
         return mfree(item);
 }
 
@@ -41,7 +41,7 @@ static EtcHostsItemByName *etc_hosts_item_by_name_free(EtcHostsItemByName *item)
                 return NULL;
 
         free(item->name);
-        free(item->addresses);
+        set_free(item->addresses);
         return mfree(item);
 }
 
@@ -153,20 +153,21 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                         continue;
                 }
 
-                r = strv_extend_with_size(&item->names, &item->n_names, name);
-                if (r < 0)
-                        return log_oom();
-
                 bn = hashmap_get(hosts->by_name, name);
                 if (!bn) {
                         _cleanup_(etc_hosts_item_by_name_freep) EtcHostsItemByName *new_item = NULL;
+                        _cleanup_free_ char *name_copy = NULL;
+
+                        name_copy = strdup(name);
+                        if (!name_copy)
+                                return log_oom();
 
                         new_item = new(EtcHostsItemByName, 1);
                         if (!new_item)
                                 return log_oom();
 
                         *new_item = (EtcHostsItemByName) {
-                                .name = TAKE_PTR(name),
+                                .name = TAKE_PTR(name_copy),
                         };
 
                         r = hashmap_ensure_put(&hosts->by_name, &by_name_hash_ops, new_item->name, new_item);
@@ -176,10 +177,21 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                         bn = TAKE_PTR(new_item);
                 }
 
-                if (!GREEDY_REALLOC(bn->addresses, bn->n_addresses + 1))
-                        return log_oom();
+                if (!set_contains(bn->addresses, &address)) {
+                        _cleanup_free_ struct in_addr_data *address_copy = NULL;
 
-                bn->addresses[bn->n_addresses++] = &item->address;
+                        address_copy = newdup(struct in_addr_data, &address, 1);
+                        if (!address_copy)
+                                return log_oom();
+
+                        r = set_ensure_consume(&bn->addresses, &in_addr_data_hash_ops_free, TAKE_PTR(address_copy));
+                        if (r < 0)
+                                return log_oom();
+                }
+
+                r = set_ensure_consume(&item->names, &dns_name_hash_ops_free, TAKE_PTR(name));
+                if (r < 0)
+                        return log_oom();
         }
 
         if (!found)
@@ -217,6 +229,7 @@ static void strip_localhost(EtcHosts *hosts) {
         for (size_t j = 0; j < ELEMENTSOF(local_in_addrs); j++) {
                 bool all_localhost, all_local_address;
                 EtcHostsItemByAddress *item;
+                const char *name;
 
                 item = hashmap_get(hosts->by_address, local_in_addrs + j);
                 if (!item)
@@ -224,8 +237,8 @@ static void strip_localhost(EtcHosts *hosts) {
 
                 /* Check whether all hostnames the loopback address points to are localhost ones */
                 all_localhost = true;
-                STRV_FOREACH(i, item->names)
-                        if (!is_localhost(*i)) {
+                SET_FOREACH(name, item->names)
+                        if (!is_localhost(name)) {
                                 all_localhost = false;
                                 break;
                         }
@@ -236,17 +249,18 @@ static void strip_localhost(EtcHosts *hosts) {
                 /* Now check if the names listed for this address actually all point back just to this
                  * address (or the other loopback address). If not, let's stay away from this too. */
                 all_local_address = true;
-                STRV_FOREACH(i, item->names) {
+                SET_FOREACH(name, item->names) {
                         EtcHostsItemByName *n;
+                        struct in_addr_data *a;
 
-                        n = hashmap_get(hosts->by_name, *i);
+                        n = hashmap_get(hosts->by_name, name);
                         if (!n) /* No reverse entry? Then almost certainly the entry already got deleted from
                                  * the previous iteration of this loop, i.e. via the other protocol */
                                 break;
 
                         /* Now check if the addresses of this item are all localhost addresses */
-                        for (size_t m = 0; m < n->n_addresses; m++)
-                                if (!in_addr_is_localhost(n->addresses[m]->family, &n->addresses[m]->address)) {
+                        SET_FOREACH(a, n->addresses)
+                                if (!in_addr_is_localhost(a->family, &a->address)) {
                                         all_local_address = false;
                                         break;
                                 }
@@ -258,8 +272,8 @@ static void strip_localhost(EtcHosts *hosts) {
                 if (!all_local_address)
                         continue;
 
-                STRV_FOREACH(i, item->names)
-                        etc_hosts_item_by_name_free(hashmap_remove(hosts->by_name, *i));
+                SET_FOREACH(name, item->names)
+                        etc_hosts_item_by_name_free(hashmap_remove(hosts->by_name, name));
 
                 assert_se(hashmap_remove(hosts->by_address, local_in_addrs + j) == item);
                 etc_hosts_item_by_address_free(item);
@@ -397,18 +411,20 @@ static int etc_hosts_lookup_by_address(
         }
 
         if (found_ptr) {
-                r = dns_answer_reserve(answer, item->n_names);
+                const char *n;
+
+                r = dns_answer_reserve(answer, set_size(item->names));
                 if (r < 0)
                         return r;
 
-                STRV_FOREACH(n, item->names) {
+                SET_FOREACH(n, item->names) {
                         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 
                         rr = dns_resource_record_new(found_ptr);
                         if (!rr)
                                 return -ENOMEM;
 
-                        rr->ptr.name = strdup(*n);
+                        rr->ptr.name = strdup(n);
                         if (!rr->ptr.name)
                                 return -ENOMEM;
 
@@ -428,6 +444,7 @@ static int etc_hosts_lookup_by_name(
                 DnsAnswer **answer) {
 
         bool found_a = false, found_aaaa = false;
+        const struct in_addr_data *a;
         EtcHostsItemByName *item;
         DnsResourceKey *t;
         int r;
@@ -439,7 +456,7 @@ static int etc_hosts_lookup_by_name(
 
         item = hashmap_get(hosts->by_name, name);
         if (item) {
-                r = dns_answer_reserve(answer, item->n_addresses);
+                r = dns_answer_reserve(answer, set_size(item->addresses));
                 if (r < 0)
                         return r;
         } else {
@@ -469,14 +486,14 @@ static int etc_hosts_lookup_by_name(
                         break;
         }
 
-        for (unsigned i = 0; item && i < item->n_addresses; i++) {
+        SET_FOREACH(a, item->addresses) {
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 
-                if ((!found_a && item->addresses[i]->family == AF_INET) ||
-                    (!found_aaaa && item->addresses[i]->family == AF_INET6))
+                if ((!found_a && a->family == AF_INET) ||
+                    (!found_aaaa && a->family == AF_INET6))
                         continue;
 
-                r = dns_resource_record_new_address(&rr, item->addresses[i]->family, &item->addresses[i]->address, item->name);
+                r = dns_resource_record_new_address(&rr, a->family, &a->address, item->name);
                 if (r < 0)
                         return r;
 
