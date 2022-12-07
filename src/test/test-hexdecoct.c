@@ -73,6 +73,25 @@ TEST(undecchar) {
         assert_se(undecchar('9') == 9);
 }
 
+static void test_hexmem_one(const char *in, const char *expected) {
+        _cleanup_free_ char *result = NULL;
+        _cleanup_free_ void *mem = NULL;
+        size_t len;
+
+        assert_se(result = hexmem(in, strlen_ptr(in)));
+        log_debug("hexmem(\"%s\") → \"%s\" (expected: \"%s\")", strnull(in), result, expected);
+        assert_se(streq(result, expected));
+
+        assert_se(unhexmem(result, SIZE_MAX, &mem, &len) >= 0);
+        assert_se(memcmp_safe(mem, in, len) == 0);
+}
+
+TEST(hexmem) {
+        test_hexmem_one(NULL, "");
+        test_hexmem_one("", "");
+        test_hexmem_one("foo", "666f6f");
+}
+
 static void test_unhexmem_one(const char *s, size_t l, int retval) {
         _cleanup_free_ char *hex = NULL;
         _cleanup_free_ void *mem = NULL;

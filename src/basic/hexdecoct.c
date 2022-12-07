@@ -59,11 +59,13 @@ char *hexmem(const void *p, size_t l) {
         const uint8_t *x;
         char *r, *z;
 
+        assert(p || l == 0);
+
         z = r = new(char, l * 2 + 1);
         if (!r)
                 return NULL;
 
-        for (x = p; x < (const uint8_t*) p + l; x++) {
+        for (x = p; x && x < (const uint8_t*) p + l; x++) {
                 *(z++) = hexchar(*x >> 4);
                 *(z++) = hexchar(*x & 15);
         }
