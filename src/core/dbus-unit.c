@@ -782,14 +782,15 @@ static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userda
         if (r == 0)
                 reply_no_delay = true;
 
-        assert(!u->pending_freezer_message);
+        if (u->pending_freezer_message) {
+                bus_unit_send_pending_freezer_message(u, true);
+                assert(!u->pending_freezer_message);
+        }
 
-        r = sd_bus_message_new_method_return(message, &u->pending_freezer_message);
-        if (r < 0)
-                return r;
+        u->pending_freezer_message = sd_bus_message_ref(message);
 
         if (reply_no_delay) {
-                r = bus_unit_send_pending_freezer_message(u);
+                r = bus_unit_send_pending_freezer_message(u, false);
                 if (r < 0)
                         return r;
         }
@@ -1661,7 +1662,8 @@ void bus_unit_send_pending_change_signal(Unit *u, bool including_new) {
         bus_unit_send_change_signal(u);
 }
 
-int bus_unit_send_pending_freezer_message(Unit *u) {
+int bus_unit_send_pending_freezer_message(Unit *u, bool cancelled) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
 
         assert(u);
@@ -1669,7 +1671,18 @@ int bus_unit_send_pending_freezer_message(Unit *u) {
         if (!u->pending_freezer_message)
                 return 0;
 
-        r = sd_bus_send(NULL, u->pending_freezer_message, NULL);
+        if (cancelled)
+                r = sd_bus_message_new_method_error(
+                                u->pending_freezer_message,
+                                &reply,
+                                &SD_BUS_ERROR_MAKE_CONST(
+                                                BUS_ERROR_FREEZE_CANCELLED, "Freeze operation aborted"));
+        else
+                r = sd_bus_message_new_method_return(u->pending_freezer_message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_send(NULL, reply, NULL);
         if (r < 0)
                 log_warning_errno(r, "Failed to send queued message, ignoring: %m");
 
