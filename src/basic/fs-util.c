@@ -197,16 +197,18 @@ int readlink_and_make_absolute(const char *p, char **r) {
 int chmod_and_chown_at(int dir_fd, const char *path, mode_t mode, uid_t uid, gid_t gid) {
         _cleanup_close_ int fd = -1;
 
-        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(dir_fd >= 0 || (dir_fd == AT_FDCWD && path));
 
         if (path) {
                 /* Let's acquire an O_PATH fd, as precaution to change mode/owner on the same file */
                 fd = openat(dir_fd, path, O_PATH|O_CLOEXEC|O_NOFOLLOW);
                 if (fd < 0)
                         return -errno;
+
+                dir_fd = fd;
         }
 
-        return fchmod_and_chown(path ? fd : dir_fd, mode, uid, gid);
+        return fchmod_and_chown(dir_fd, mode, uid, gid);
 }
 
 int fchmod_and_chown_with_fallback(int fd, const char *path, mode_t mode, uid_t uid, gid_t gid) {
