@@ -4178,6 +4178,16 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
         if (!u->cgroup_realized)
                 return -EBUSY;
 
+        if (action == FREEZER_THAW) {
+                Unit *slice = UNIT_GET_SLICE(u);
+
+                if (slice && !unit_has_name(slice, SPECIAL_ROOT_SLICE)) {
+                        r = unit_cgroup_freezer_action(slice, FREEZER_THAW);
+                        if (r < 0)
+                                return log_unit_error_errno(u, r, "Failed to thaw slice %s of unit: %m", slice->id);
+                }
+        }
+
         target = action == FREEZER_FREEZE ? FREEZER_FROZEN : FREEZER_RUNNING;
 
         r = unit_freezer_state_kernel(u, &kernel);

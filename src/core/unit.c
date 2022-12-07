@@ -5862,7 +5862,8 @@ static int unit_freezer_action(Unit *u, FreezerAction action) {
         if (s != UNIT_ACTIVE)
                 return -EHOSTDOWN;
 
-        if (IN_SET(u->freezer_state, FREEZER_FREEZING, FREEZER_THAWING))
+        if ((IN_SET(u->freezer_state, FREEZER_FREEZING, FREEZER_THAWING) && action == FREEZER_FREEZE) ||
+            (u->freezer_state == FREEZER_THAWING && action == FREEZER_THAW))
                 return -EALREADY;
 
         r = method(u);
