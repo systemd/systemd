@@ -115,8 +115,6 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                 if (r == 0)
                         break;
 
-                found = true;
-
                 r = dns_name_is_valid_ldh(name);
                 if (r <= 0) {
                         if (r < 0)
@@ -126,13 +124,15 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                         continue;
                 }
 
+                found = true;
+
                 if (!item) {
                         /* Optimize the case where we don't need to store any addresses, by storing
                          * only the name in a dedicated Set instead of the hashmap */
 
                         r = set_ensure_consume(&hosts->no_address, &dns_name_hash_ops, TAKE_PTR(name));
                         if (r < 0)
-                                return r;
+                                return log_oom();
 
                         continue;
                 }
@@ -167,7 +167,7 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
         }
 
         if (!found)
-                log_warning("/etc/hosts:%u: line is missing any hostnames", nr);
+                log_warning("/etc/hosts:%u: line is missing any valid hostnames", nr);
 
         return 0;
 }
