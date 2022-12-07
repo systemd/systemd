@@ -49,14 +49,6 @@
 # define SWAP64(n) (n)
 #endif
 
-/* The condition below is from glibc's string/string-inline.c.
- * See definition of _STRING_INLINE_unaligned. */
-#if !defined(__mc68020__) && !defined(__s390__) && !defined(__i386__)
-#  define UNALIGNED_P(p) (((uintptr_t) p) % __alignof__(uint32_t) != 0)
-#else
-#  define UNALIGNED_P(p) false
-#endif
-
 /* This array contains the bytes used to pad the buffer to the next
    64-byte boundary.  (FIPS 180-2:5.1.1)  */
 static const uint8_t fillbuf[64] = {
@@ -162,18 +154,17 @@ void sha256_process_bytes(const void *buffer, size_t len, struct sha256_ctx *ctx
 
         /* Process available complete blocks.  */
         if (len >= 64) {
-                if (UNALIGNED_P(buffer))
+                if (IS_ALIGNED32(buffer)) {
+                        sha256_process_block(buffer, len & ~63, ctx);
+                        buffer = (const char *) buffer + (len & ~63);
+                        len &= 63;
+                } else
                         while (len > 64) {
                                 memcpy(ctx->buffer, buffer, 64);
                                 sha256_process_block(ctx->buffer, 64, ctx);
                                 buffer = (const char *) buffer + 64;
                                 len -= 64;
                         }
-                else {
-                        sha256_process_block(buffer, len & ~63, ctx);
-                        buffer = (const char *) buffer + (len & ~63);
-                        len &= 63;
-                }
         }
 
         /* Move remaining bytes into internal buffer.  */
