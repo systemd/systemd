@@ -1249,6 +1249,10 @@ int unit_merge_by_name(Unit *u, const char *name) {
         assert(name);
 
         if (unit_name_is_valid(name, UNIT_NAME_TEMPLATE)) {
+                /* foo#.service names of foo.service is only for fragment loading, not a true name */
+                if (unit_name_is_valid(u->id, UNIT_NAME_PLAIN) && unit_name_is_valid(name, UNIT_NAME_RTEMPLATE))
+                        return 0;
+
                 if (unit_instance_is_null(u->instance))
                         return -EINVAL;
 

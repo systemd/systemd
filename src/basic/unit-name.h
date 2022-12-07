@@ -66,6 +66,7 @@ int unit_name_path_unescape(const char *f, char **ret);
 int unit_name_replace_instance(const char *f, UnitInstanceArg i, char **ret);
 
 int unit_name_template(const char *f, char **ret);
+int unit_name_make_rtemplate(const char *f, char **ret);
 
 int unit_name_hash_long(const char *name, char **ret);
 bool unit_name_is_hashed(const char *name);

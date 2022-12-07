@@ -571,6 +571,27 @@ int unit_name_template(const char *f, char **ret) {
         return 0;
 }
 
+int unit_name_make_rtemplate(const char *f, char **ret) {
+        char *s, *e;
+
+        assert(f);
+        assert(ret);
+
+        if (!unit_name_is_valid(f, UNIT_NAME_PLAIN))
+                return -EINVAL;
+
+        assert_se(e = strrchr(f, '.'));
+
+        s = new(char, strlen(f) + 2);
+        if (!s)
+                return -ENOMEM;
+
+        memcpy(s, f, e - f);
+        stpcpy(stpcpy(s + (e - f), "#"), e);
+        *ret = s;
+        return 0;
+}
+
 bool unit_name_is_hashed(const char *name) {
         char *s;
 

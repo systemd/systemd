@@ -673,6 +673,20 @@ TEST(unit_name_template) {
         test_u_n_t_one("foo.mount", NULL, -EINVAL);
 }
 
+static void test_u_n_m_rt_one(const char *name, const char *expected, int ret) {
+        _cleanup_free_ char *f = NULL;
+
+        assert_se(unit_name_make_rtemplate(name, &f) == ret);
+        printf("got: %s, expected: %s\n", strna(f), strna(expected));
+        assert_se(streq_ptr(f, expected));
+}
+
+TEST(unit_name_make_rtemplate) {
+        test_u_n_m_rt_one("foo.service", "foo#.service", 0);
+        test_u_n_m_rt_one("foo@.service", NULL, -EINVAL);
+        test_u_n_m_rt_one("foo#.service", NULL, -EINVAL);
+}
+
 static void test_unit_name_path_unescape_one(const char *name, const char *path, int ret) {
         _cleanup_free_ char *p = NULL;
 
