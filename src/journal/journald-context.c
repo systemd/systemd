@@ -259,7 +259,7 @@ static int client_context_read_label(
 
                 /* If we got no SELinux label passed in, let's try to acquire one */
 
-                if (getpidcon(c->pid, &con) >= 0) {
+                if (getpidcon(c->pid, &con) >= 0 && con) {
                         free_and_replace(c->label, con);
                         c->label_size = strlen(c->label);
                 }
