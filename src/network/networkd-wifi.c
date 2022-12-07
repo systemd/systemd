@@ -12,7 +12,7 @@
 #include "string-util.h"
 #include "wifi-util.h"
 
-static int link_get_wlan_interface(Link *link) {
+int link_get_wlan_interface(Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         int r;
 
@@ -290,6 +290,38 @@ int manager_genl_process_nl80211_mlme(sd_netlink *genl, sd_netlink_message *mess
                 link->bssid = ETHER_ADDR_NULL;
                 free_and_replace(link->previous_ssid, link->ssid);
                 break;
+
+        case NL80211_CMD_START_AP: {
+                log_link_debug(link, "nl80211: received %s(%u) message.",
+                               strna(nl80211_cmd_to_string(cmd)), cmd);
+
+                /* No need to reconfigure during enumeration */
+                if (manager->enumerating)
+                        break;
+
+                /* If there is no carrier, let the link get configured on
+                 * carrier gain instead */
+                if (!link_has_carrier(link))
+                        break;
+
+                /* AP start event may indicate different properties (e.g. SSID)  */
+                r = link_get_wlan_interface(link);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to update wireless LAN interface: %m");
+                        link_enter_failed(link);
+                        return 0;
+                }
+
+                /* If necessary, reconfigure based on those new properties */
+                r = link_reconfigure_impl(link, /* force = */ false);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
+                        link_enter_failed(link);
+                        return 0;
+                }
+
+                break;
+        }
 
         default:
                 log_link_debug(link, "nl80211: received %s(%u) message.",

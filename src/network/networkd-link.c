@@ -58,6 +58,7 @@
 #include "networkd-sriov.h"
 #include "networkd-state-file.h"
 #include "networkd-sysctl.h"
+#include "networkd-wifi.h"
 #include "set.h"
 #include "socket-util.h"
 #include "stdio-util.h"
@@ -1497,6 +1498,15 @@ static int link_carrier_gained(Link *link) {
          * setting force_reconfigure = false. Note, both ssid and previous_ssid are NULL in that case. */
         force_reconfigure = link->previous_ssid && !streq_ptr(link->previous_ssid, link->ssid);
         link->previous_ssid = mfree(link->previous_ssid);
+
+        /* AP and P2P-GO interfaces may have a new SSID - update the link properties in case a new .network
+         * profile wants to match on it with SSID= in its [Match] section.
+         */
+        if (IN_SET(link->wlan_iftype, NL80211_IFTYPE_AP, NL80211_IFTYPE_P2P_GO)) {
+                r = link_get_wlan_interface(link);
+                if (r < 0)
+                        return r;
+        }
 
         /* At this stage, both wlan and link information should be up-to-date. Hence, it is not necessary to
          * call RTM_GETLINK, NL80211_CMD_GET_INTERFACE, or NL80211_CMD_GET_STATION commands, and simply call
