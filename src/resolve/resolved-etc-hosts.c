@@ -28,6 +28,14 @@ static EtcHostsItemByAddress *etc_hosts_item_by_address_free(EtcHostsItemByAddre
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(EtcHostsItemByAddress*, etc_hosts_item_by_address_free);
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        by_address_hash_ops,
+        struct in_addr_data,
+        in_addr_data_hash_func,
+        in_addr_data_compare_func,
+        EtcHostsItemByAddress,
+        etc_hosts_item_by_address_free);
+
 static EtcHostsItemByName *etc_hosts_item_by_name_free(EtcHostsItemByName *item) {
         if (!item)
                 return NULL;
@@ -39,11 +47,19 @@ static EtcHostsItemByName *etc_hosts_item_by_name_free(EtcHostsItemByName *item)
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(EtcHostsItemByName*, etc_hosts_item_by_name_free);
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        by_name_hash_ops,
+        char,
+        dns_name_hash_func,
+        dns_name_compare_func,
+        EtcHostsItemByName,
+        etc_hosts_item_by_name_free);
+
 void etc_hosts_clear(EtcHosts *hosts) {
         assert(hosts);
 
-        hosts->by_address = hashmap_free_with_destructor(hosts->by_address, etc_hosts_item_by_address_free);
-        hosts->by_name = hashmap_free_with_destructor(hosts->by_name, etc_hosts_item_by_name_free);
+        hosts->by_address = hashmap_free(hosts->by_address);
+        hosts->by_name = hashmap_free(hosts->by_name);
         hosts->no_address = set_free(hosts->no_address);
 }
 
@@ -97,7 +113,7 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                                 .address = address,
                         };
 
-                        r = hashmap_ensure_put(&hosts->by_address, &in_addr_data_hash_ops, &new_item->address, new_item);
+                        r = hashmap_ensure_put(&hosts->by_address, &by_address_hash_ops, &new_item->address, new_item);
                         if (r < 0)
                                 return log_oom();
 
@@ -153,7 +169,7 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                                 .name = TAKE_PTR(name),
                         };
 
-                        r = hashmap_ensure_put(&hosts->by_name, &dns_name_hash_ops, new_item->name, new_item);
+                        r = hashmap_ensure_put(&hosts->by_name, &by_name_hash_ops, new_item->name, new_item);
                         if (r < 0)
                                 return log_oom();
 
