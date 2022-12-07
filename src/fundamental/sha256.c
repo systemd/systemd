@@ -30,6 +30,7 @@
 
 #include "macro-fundamental.h"
 #include "sha256.h"
+#include "unaligned-fundamental.h"
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 # define SWAP(n)                                                        \
@@ -46,14 +47,6 @@
 #else
 # define SWAP(n) (n)
 # define SWAP64(n) (n)
-#endif
-
-/* The condition below is from glibc's string/string-inline.c.
- * See definition of _STRING_INLINE_unaligned. */
-#if !defined(__mc68020__) && !defined(__s390__) && !defined(__i386__)
-#  define UNALIGNED_P(p) (((uintptr_t) p) % __alignof__(uint32_t) != 0)
-#else
-#  define UNALIGNED_P(p) false
 #endif
 
 /* This array contains the bytes used to pad the buffer to the next
@@ -128,11 +121,7 @@ uint8_t *sha256_finish_ctx(struct sha256_ctx *ctx, uint8_t resbuf[static SHA256_
 
         /* Put result from CTX in first 32 bytes following RESBUF.  */
         for (size_t i = 0; i < 8; ++i)
-                if (UNALIGNED_P(resbuf))
-                        memcpy(resbuf + i * sizeof(uint32_t), (uint32_t[]) { SWAP(ctx->H[i]) }, sizeof(uint32_t));
-                else
-                        ((uint32_t *) resbuf)[i] = SWAP(ctx->H[i]);
-
+                unaligned_write_ne32(resbuf + i * sizeof(uint32_t), SWAP(ctx->H[i]));
         return resbuf;
 }
 
@@ -165,18 +154,17 @@ void sha256_process_bytes(const void *buffer, size_t len, struct sha256_ctx *ctx
 
         /* Process available complete blocks.  */
         if (len >= 64) {
-                if (UNALIGNED_P(buffer))
+                if (ALIGNED32_P(buffer)) {
+                        sha256_process_block(buffer, len & ~63, ctx);
+                        buffer = (const char *) buffer + (len & ~63);
+                        len &= 63;
+                } else
                         while (len > 64) {
                                 memcpy(ctx->buffer, buffer, 64);
                                 sha256_process_block(ctx->buffer, 64, ctx);
                                 buffer = (const char *) buffer + 64;
                                 len -= 64;
                         }
-                else {
-                        sha256_process_block(buffer, len & ~63, ctx);
-                        buffer = (const char *) buffer + (len & ~63);
-                        len &= 63;
-                }
         }
 
         /* Move remaining bytes into internal buffer.  */
