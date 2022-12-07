@@ -59,11 +59,13 @@ char *hexmem(const void *p, size_t l) {
         const uint8_t *x;
         char *r, *z;
 
+        assert(p || l == 0);
+
         z = r = new(char, l * 2 + 1);
         if (!r)
                 return NULL;
 
-        for (x = p; x < (const uint8_t*) p + l; x++) {
+        for (x = p; x && x < (const uint8_t*) p + l; x++) {
                 *(z++) = hexchar(*x >> 4);
                 *(z++) = hexchar(*x & 15);
         }
@@ -118,7 +120,7 @@ int unhexmem_full(const char *p, size_t l, bool secure, void **ret, size_t *ret_
         assert(p || l == 0);
 
         if (l == SIZE_MAX)
-                l = strlen(p);
+                l = strlen_ptr(p);
 
         /* Note that the calculation of memory size is an upper boundary, as we ignore whitespace while decoding */
         buf_size = (l + 1) / 2 + 1;
