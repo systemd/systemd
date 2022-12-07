@@ -374,7 +374,7 @@ static int freeze_thaw_user_slice(const char **method) {
 }
 
 static int execute_s2h(const SleepConfig *sleep_config) {
-        _unused_ _cleanup_(freeze_thaw_user_slice) const char *auto_method_thaw = NULL;
+        _unused_ _cleanup_(freeze_thaw_user_slice) const char *auto_method_thaw = "ThawUnit";
         int r, k;
 
         assert(sleep_config);
@@ -382,8 +382,6 @@ static int execute_s2h(const SleepConfig *sleep_config) {
         r = freeze_thaw_user_slice(&(const char*) { "FreezeUnit" });
         if (r < 0)
                 log_debug_errno(r, "Failed to freeze unit user.slice, ignoring: %m");
-        else
-                auto_method_thaw = "ThawUnit"; /* from now on we want automatic thawing */;
 
         r = check_wakeup_type();
         if (r < 0)

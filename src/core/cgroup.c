@@ -4167,6 +4167,7 @@ int compare_job_priority(const void *a, const void *b) {
 int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
         _cleanup_free_ char *path = NULL;
         FreezerState target, kernel = _FREEZER_STATE_INVALID;
+        Unit *slice = UNIT_GET_SLICE(u);
         int r;
 
         assert(u);
@@ -4177,6 +4178,12 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
 
         if (!u->cgroup_realized)
                 return -EBUSY;
+
+        if (action == FREEZER_THAW && slice) {
+                r = unit_cgroup_freezer_action(slice, FREEZER_THAW);
+                if (r < 0)
+                        return log_unit_error_errno(u, r, "Failed to thaw slice for unit: %m");
+        }
 
         target = action == FREEZER_FREEZE ? FREEZER_FROZEN : FREEZER_RUNNING;
 
