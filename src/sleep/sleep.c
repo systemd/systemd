@@ -353,37 +353,10 @@ static int custom_timer_suspend(const SleepConfig *sleep_config) {
         return 1;
 }
 
-/* Freeze when invoked and thaw on cleanup */
-static int freeze_thaw_user_slice(const char **method) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        int r;
-
-        if (!method || !*method)
-                return 0;
-
-        r = bus_connect_system_systemd(&bus);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to open connection to systemd: %m");
-
-        r = bus_call_method(bus, bus_systemd_mgr, *method, &error, NULL, "s", SPECIAL_USER_SLICE);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to execute operation: %s", bus_error_message(&error, r));
-
-        return 1;
-}
-
 static int execute_s2h(const SleepConfig *sleep_config) {
-        _unused_ _cleanup_(freeze_thaw_user_slice) const char *auto_method_thaw = NULL;
         int r, k;
 
         assert(sleep_config);
-
-        r = freeze_thaw_user_slice(&(const char*) { "FreezeUnit" });
-        if (r < 0)
-                log_debug_errno(r, "Failed to freeze unit user.slice, ignoring: %m");
-        else
-                auto_method_thaw = "ThawUnit"; /* from now on we want automatic thawing */;
 
         r = check_wakeup_type();
         if (r < 0)
