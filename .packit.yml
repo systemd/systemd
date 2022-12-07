@@ -32,6 +32,8 @@ actions:
     # [0] https://github.com/mesonbuild/meson/issues/7360
     # [1] https://github.com/systemd/systemd/pull/18908#issuecomment-792250110
     - 'sed -i "/^CONFIGURE_OPTS=(/a--werror" .packit_rpm/systemd.spec'
+    # Ignore unpackages standalone binaries
+    - "sed -i 's/assert False,.*/pass/' .packit_rpm/split-files.py"
 
 jobs:
 - job: copr_build
