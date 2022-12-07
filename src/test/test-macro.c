@@ -531,4 +531,32 @@ TEST(ISPOWEROF2) {
         assert_se(!ISPOWEROF2(u));
 }
 
+TEST(ALIGNED) {
+        uint64_t u64;
+        uint32_t u32;
+        uint16_t u16;
+
+        assert_se(ALIGNED16_P(&u16));
+        assert_se(ALIGNED32_P(&u32));
+        assert_se(ALIGNED64_P(&u64));
+
+#ifdef __x86_64__
+        /* Conditionalized on x86-64, since there we know for sure that all three types are aligned to
+         * their size. Too lazy to figure it out for other archs */
+        void *p = UINT_TO_PTR(1); /* definitely not aligned */
+        assert_se(!ALIGNED16_P(p));
+        assert_se(!ALIGNED32_P(p));
+        assert_se(!ALIGNED64_P(p));
+
+        assert_se(ALIGNED16_P(ALIGN2_PTR(p)));
+        assert_se(ALIGNED32_P(ALIGN4_PTR(p)));
+        assert_se(ALIGNED64_P(ALIGN8_PTR(p)));
+
+        p = UINT_TO_PTR(-1); /* also definitely not aligned */
+        assert_se(!ALIGNED16_P(p));
+        assert_se(!ALIGNED32_P(p));
+        assert_se(!ALIGNED64_P(p));
+#endif
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
