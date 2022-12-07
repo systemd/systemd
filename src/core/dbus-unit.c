@@ -782,7 +782,9 @@ static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userda
         if (r == 0)
                 reply_no_delay = true;
 
-        assert(!u->pending_freezer_message);
+        if (u->pending_freezer_message) {
+                u->pending_freezer_message = sd_bus_message_unref(u->pending_freezer_message);
+        }
 
         r = sd_bus_message_new_method_return(message, &u->pending_freezer_message);
         if (r < 0)
