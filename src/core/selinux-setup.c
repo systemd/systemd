@@ -30,30 +30,28 @@ int mac_selinux_setup(bool *loaded_policy) {
         usec_t before_load, after_load;
         char *con;
         int r;
-        bool initialized = false;
+        bool initialized;
 
         assert(loaded_policy);
 
         /* Turn off all of SELinux' own logging, we want to do that */
-        selinux_set_callback(SELINUX_CB_LOG, (union selinux_callback) { .func_log = null_log });
+        selinux_set_callback(SELINUX_CB_LOG, (const union selinux_callback) { .func_log = null_log });
 
-        /* Don't load policy in the initrd if we don't appear to have
-         * it.  For the real root, we check below if we've already
-         * loaded policy, and return gracefully.
-         */
+        /* Don't load policy in the initrd if we don't appear to have it.  For the real root, we check below
+         * if we've already loaded policy, and return gracefully. */
         if (in_initrd() && access(selinux_path(), F_OK) < 0)
                 return 0;
 
         /* Already initialized by somebody else? */
         r = getcon_raw(&con);
-        /* getcon_raw can return 0, and still give us a NULL pointer if
-         * /proc/self/attr/current is empty. SELinux guarantees this won't
-         * happen, but that file isn't specific to SELinux, and may be provided
-         * by some other arbitrary LSM with different semantics. */
+        /* getcon_raw can return 0, and still give us a NULL pointer if /proc/self/attr/current is
+         * empty. SELinux guarantees this won't happen, but that file isn't specific to SELinux, and may be
+         * provided by some other arbitrary LSM with different semantics. */
         if (r == 0 && con) {
                 initialized = !streq(con, "kernel");
                 freecon(con);
-        }
+        } else
+                initialized = false;
 
         /* Make sure we have no fds open while loading the policy and
          * transitioning */
