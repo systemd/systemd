@@ -11,9 +11,18 @@ systemd_id128=${2:-systemd-id128}
 unset root
 cleanup() {
     [ -n "$root" ] && rm -rf "$root"
+    [ -n "$chroot" ] && { umount "$chroot"; rmdir "$chroot"; }
+    return
 }
 trap cleanup exit
 root=$(mktemp -d --tmpdir systemctl-test.XXXXXX)
+chroot=$(mktemp -d --tmpdir systemctl-test.XXXXXX)
+
+mount --bind / "$chroot" || {
+    echo "No root privileges, skipping chroot sets."
+    rmdir "$chroot"
+    unset chroot
+}
 
 islink() {
     test -h "$1" || return 1
@@ -40,6 +49,24 @@ test -h "$root/etc/systemd/system/default.target.wants/test1.service"
 test -h "$root/etc/systemd/system/special.target.requires/test1.service"
 
 "$systemctl" --root="$root" disable test1.service
+test ! -h "$root/etc/systemd/system/default.target.wants/test1.service"
+test ! -h "$root/etc/systemd/system/special.target.requires/test1.service"
+
+: '------basic enablement-(presets)----------------------------'
+mkdir -p "$root/etc/systemd/system-preset"
+echo 'enable test1.service' >"$root/etc/systemd/system-preset/00.preset"
+
+"$systemctl" --root="$root" preset test1.service
+test -h "$root/etc/systemd/system/default.target.wants/test1.service"
+test -h "$root/etc/systemd/system/special.target.requires/test1.service"
+
+"$systemctl" --root="$root" preset test1.service
+test -h "$root/etc/systemd/system/default.target.wants/test1.service"
+test -h "$root/etc/systemd/system/special.target.requires/test1.service"
+
+echo 'disable test1.service' >"$root/etc/systemd/system-preset/00.preset"
+
+"$systemctl" --root="$root" preset test1.service
 test ! -h "$root/etc/systemd/system/default.target.wants/test1.service"
 test ! -h "$root/etc/systemd/system/special.target.requires/test1.service"
 
@@ -77,6 +104,17 @@ test -h "$root/etc/systemd/system/special.target.requires/test1.service"
 test ! -e "$root/etc/systemd/system/default.target.wants/test1.service"
 test ! -e "$root/etc/systemd/system/special.target.requires/test1.service"
 
+: '------suffix guessing-(presets)-----------------------------'
+echo 'enable test1.service' >"$root/etc/systemd/system-preset/00.preset"
+
+"$systemctl" --root="$root" preset test1
+test -h "$root/etc/systemd/system/default.target.wants/test1.service"
+test -h "$root/etc/systemd/system/special.target.requires/test1.service"
+
+"$systemctl" --root="$root" disable test1
+test ! -e "$root/etc/systemd/system/default.target.wants/test1.service"
+test ! -e "$root/etc/systemd/system/special.target.requires/test1.service"
+
 : '-------aliases----------------------------------------------'
 cat >>"$root/etc/systemd/system/test1.service" <<EOF
 Alias=test1-goodalias.service
@@ -106,6 +144,36 @@ test -h "$root/etc/systemd/system/test1-goodalias.service"
 test ! -e "$root/etc/systemd/system/test1@badalias.service"
 test ! -e "$root/etc/systemd/system/test1-badalias.target"
 test ! -e "$root/etc/systemd/system/test1-badalias.socket"
+
+"$systemctl" --root="$root" disable test1
+test ! -e "$root/etc/systemd/system/default.target.wants/test1.service"
+test ! -e "$root/etc/systemd/system/special.target.requires/test1.service"
+test ! -e "$root/etc/systemd/system/test1-goodalias.service"
+
+: '-------aliases (presets)------------------------------------'
+
+( ! "$systemctl" --root="$root" preset test1)
+test -h "$root/etc/systemd/system/default.target.wants/test1.service"
+test -h "$root/etc/systemd/system/special.target.requires/test1.service"
+test ! -e "$root/etc/systemd/system/test1-goodalias.service"
+test -h "$root/etc/systemd/system/test1-goodalias.service"
+test ! -e "$root/etc/systemd/system/test1@badalias.service"
+test ! -e "$root/etc/systemd/system/test1-badalias.target"
+test ! -e "$root/etc/systemd/system/test1-badalias.socket"
+test -h "$root/etc/systemd/system/test1-goodalias2.service"
+
+# Those are aliases, so preset should be a noop
+"$systemctl" --root="$root" preset test1-goodalias.service
+"$systemctl" --root="$root" preset test1-goodalias2.service
+
+test -h "$root/etc/systemd/system/default.target.wants/test1.service"
+test -h "$root/etc/systemd/system/special.target.requires/test1.service"
+test ! -e "$root/etc/systemd/system/test1-goodalias.service"
+test -h "$root/etc/systemd/system/test1-goodalias.service"
+test ! -e "$root/etc/systemd/system/test1@badalias.service"
+test ! -e "$root/etc/systemd/system/test1-badalias.target"
+test ! -e "$root/etc/systemd/system/test1-badalias.socket"
+test -h "$root/etc/systemd/system/test1-goodalias2.service"
 
 "$systemctl" --root="$root" disable test1
 test ! -e "$root/etc/systemd/system/default.target.wants/test1.service"
@@ -320,6 +388,29 @@ test ! -h "$root/etc/systemd/system/services.target.wants/templ1@one.service"
 islink "$root/etc/systemd/system/services.target.wants/templ1@two.service" "/etc/systemd/system/templ1@.service"
 
 "$systemctl" --root="$root" disable 'templ1@two.service'
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@one.service"
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@two.service"
+
+: '-------template enablement (presets)------------------------'
+echo 'enable templ1@.service' >"$root/etc/systemd/system/01.preset"
+
+# No instance here — this can't succeed.
+"$systemctl" --root="$root" preset 'templ1@.service'
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@one.service"
+
+"$systemctl" --root="$root" preset 'templ1@one.service'
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@one.service" "/etc/systemd/system/templ1@.service"
+
+echo 'enable templ1@.service one two' >"$root/etc/systemd/system/01.preset"
+"$systemctl" --root="$root" preset 'templ1@.service'
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@one.service" "/etc/systemd/system/templ1@.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@two.service" "/etc/systemd/system/templ1@.service"
+
+"$systemctl" --root="$root" disable 'templ1@.service'
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@one.service"
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@two.service"
@@ -684,6 +775,9 @@ test ! -h "$root/etc/systemd/system/target@some-some-link7.target.wants/some-som
 test ! -h "$root/etc/systemd/system/another-target@.target.wants/some-some-link7.socket"
 test ! -h "$root/etc/systemd/system/target2@some-some-link7.target.requires/some-some-link7.socket"
 test ! -h "$root/etc/systemd/system/another-target2@.target.requires/some-some-link7.socket"
+
+
+
 
 # TODO: repeat the tests above for presets
 
