@@ -4175,8 +4175,22 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
         if (!cg_freezer_supported())
                 return 0;
 
+        /* Ignore all requests to freeze or thaw init.scope or -.slice */
+        if (unit_has_name(u, SPECIAL_ROOT_SLICE) || unit_has_name(u, SPECIAL_INIT_SCOPE))
+                return 0;
+
         if (!u->cgroup_realized)
                 return -EBUSY;
+
+        if (action == FREEZER_THAW) {
+                Unit *slice = UNIT_GET_SLICE(u);
+
+                if (slice) {
+                        r = unit_cgroup_freezer_action(slice, FREEZER_THAW);
+                        if (r < 0)
+                                return log_unit_error_errno(u, r, "Failed to thaw slice %s of unit: %m", slice->id);
+                }
+        }
 
         target = action == FREEZER_FREEZE ? FREEZER_FROZEN : FREEZER_RUNNING;
 
