@@ -204,9 +204,17 @@ int chmod_and_chown_at(int dir_fd, const char *path, mode_t mode, uid_t uid, gid
                 fd = openat(dir_fd, path, O_PATH|O_CLOEXEC|O_NOFOLLOW);
                 if (fd < 0)
                         return -errno;
+                dir_fd = fd;
+
+        } else if (dir_fd == AT_FDCWD) {
+                /* Let's acquire an O_PATH fd of the current directory */
+                fd = openat(dir_fd, ".", O_PATH|O_CLOEXEC|O_NOFOLLOW|O_DIRECTORY);
+                if (fd < 0)
+                        return -errno;
+                dir_fd = fd;
         }
 
-        return fchmod_and_chown(path ? fd : dir_fd, mode, uid, gid);
+        return fchmod_and_chown(dir_fd, mode, uid, gid);
 }
 
 int fchmod_and_chown_with_fallback(int fd, const char *path, mode_t mode, uid_t uid, gid_t gid) {
