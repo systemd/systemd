@@ -366,6 +366,8 @@ static int freeze_thaw_user_slice(const char **method) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to open connection to systemd: %m");
 
+        sd_bus_set_method_call_timeout(bus, USEC_PER_SEC);
+
         r = bus_call_method(bus, bus_systemd_mgr, *method, &error, NULL, "s", SPECIAL_USER_SLICE);
         if (r < 0)
                 return log_debug_errno(r, "Failed to execute operation: %s", bus_error_message(&error, r));
