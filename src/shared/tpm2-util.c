@@ -50,6 +50,7 @@ TSS2_RC (*sym_Esys_PolicyPCR)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, 
 TSS2_RC (*sym_Esys_ReadPublic)(ESYS_CONTEXT *esysContext, ESYS_TR objectHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPM2B_PUBLIC **outPublic, TPM2B_NAME **name, TPM2B_NAME **qualifiedName);
 TSS2_RC (*sym_Esys_StartAuthSession)(ESYS_CONTEXT *esysContext, ESYS_TR tpmKey, ESYS_TR bind, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_NONCE *nonceCaller, TPM2_SE sessionType, const TPMT_SYM_DEF *symmetric, TPMI_ALG_HASH authHash, ESYS_TR *sessionHandle) = NULL;
 TSS2_RC (*sym_Esys_Startup)(ESYS_CONTEXT *esysContext, TPM2_SU startupType) = NULL;
+TSS2_RC (*sym_Esys_TRSess_GetAttributes)(ESYS_CONTEXT *esysContext, ESYS_TR session, TPMA_SESSION *flags);
 TSS2_RC (*sym_Esys_TRSess_SetAttributes)(ESYS_CONTEXT *esysContext, ESYS_TR session, TPMA_SESSION flags, TPMA_SESSION mask);
 TSS2_RC (*sym_Esys_TR_GetName)(ESYS_CONTEXT *esysContext, ESYS_TR handle, TPM2B_NAME **name);
 TSS2_RC (*sym_Esys_TR_Deserialize)(ESYS_CONTEXT *esys_context, uint8_t const *buffer, size_t buffer_size, ESYS_TR *esys_handle);
@@ -91,6 +92,7 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Esys_ReadPublic),
                         DLSYM_ARG(Esys_StartAuthSession),
                         DLSYM_ARG(Esys_Startup),
+                        DLSYM_ARG(Esys_TRSess_GetAttributes),
                         DLSYM_ARG(Esys_TRSess_SetAttributes),
                         DLSYM_ARG(Esys_TR_FromTPMPublic),
                         DLSYM_ARG(Esys_TR_GetName),
@@ -1558,6 +1560,20 @@ static void hash_pin(const char *pin, size_t len, TPM2B_AUTH *auth) {
         sha256_init_ctx(&hash);
         sha256_process_bytes(pin, len, &hash);
         sha256_finish_ctx(&hash, auth->buffer);
+}
+
+static bool tpm2_is_encryption_session(Tpm2Context *c, const Tpm2Handle *session) {
+        TPMA_SESSION flags = 0;
+        TSS2_RC rc;
+
+        assert(c);
+        assert(session);
+
+        rc = sym_Esys_TRSess_GetAttributes(c->esys_context, session->esys_handle, &flags);
+        if (rc != TSS2_RC_SUCCESS)
+                return false;
+
+        return flags & TPMA_SESSION_DECRYPT && flags & TPMA_SESSION_ENCRYPT;
 }
 
 static int tpm2_make_encryption_session(
