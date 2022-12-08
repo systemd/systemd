@@ -64,10 +64,12 @@ TSS2_RC (*sym_Esys_VerifySignature)(ESYS_CONTEXT *esysContext, ESYS_TR keyHandle
 
 const char* (*sym_Tss2_RC_Decode)(TSS2_RC rc) = NULL;
 
+TSS2_RC (*sym_Tss2_MU_TPM2_CC_Marshal)(TPM2_CC src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
 TSS2_RC (*sym_Tss2_MU_TPM2B_PRIVATE_Marshal)(TPM2B_PRIVATE const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
 TSS2_RC (*sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PRIVATE  *dest) = NULL;
 TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Marshal)(TPM2B_PUBLIC const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
 TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PUBLIC *dest) = NULL;
+TSS2_RC (*sym_Tss2_MU_TPML_PCR_SELECTION_Marshal)(TPML_PCR_SELECTION const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
 TSS2_RC (*sym_Tss2_MU_TPMT_HA_Marshal)(TPMT_HA const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
 TSS2_RC (*sym_Tss2_MU_TPMT_PUBLIC_Marshal)(TPMT_PUBLIC const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
 
@@ -116,10 +118,12 @@ int dlopen_tpm2(void) {
 
         return dlopen_many_sym_or_warn(
                         &libtss2_mu_dl, "libtss2-mu.so.0", LOG_DEBUG,
+                        DLSYM_ARG(Tss2_MU_TPM2_CC_Marshal),
                         DLSYM_ARG(Tss2_MU_TPM2B_PRIVATE_Marshal),
                         DLSYM_ARG(Tss2_MU_TPM2B_PRIVATE_Unmarshal),
                         DLSYM_ARG(Tss2_MU_TPM2B_PUBLIC_Marshal),
                         DLSYM_ARG(Tss2_MU_TPM2B_PUBLIC_Unmarshal),
+                        DLSYM_ARG(Tss2_MU_TPML_PCR_SELECTION_Marshal),
                         DLSYM_ARG(Tss2_MU_TPMT_HA_Marshal),
                         DLSYM_ARG(Tss2_MU_TPMT_PUBLIC_Marshal));
 }
@@ -1918,6 +1922,83 @@ static int tpm2_get_name(
         return 0;
 }
 
+/* Extend 'digest' with the PolicyPCR calculated hash. */
+int tpm2_calculate_policy_pcr(
+                const TPML_PCR_SELECTION *pcr_selection,
+                const TPM2B_DIGEST *pcr_values[],
+                size_t pcr_values_count,
+                TPM2B_DIGEST *digest) {
+
+        static const TPM2_CC command = TPM2_CC_PolicyPCR;
+        TSS2_RC rc;
+        int r;
+
+        assert(pcr_selection);
+        assert(pcr_values || pcr_values_count == 0);
+        assert(digest);
+        assert(digest->size == SHA256_DIGEST_SIZE);
+
+        TPM2B_DIGEST hash;
+        r = tpm2_digest_init_digests(TPM2_ALG_SHA256, &hash, pcr_values, pcr_values_count);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ uint8_t *buf = NULL;
+        size_t size = 0, maxsize = sizeof(command) + sizeof(*pcr_selection);
+
+        buf = malloc0(maxsize);
+        if (!buf)
+                return log_oom();
+
+        rc = sym_Tss2_MU_TPM2_CC_Marshal(command, buf, maxsize, &size);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to marshal PolicyPCR command: %s", sym_Tss2_RC_Decode(rc));
+
+        rc = sym_Tss2_MU_TPML_PCR_SELECTION_Marshal(pcr_selection, buf, maxsize, &size);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to marshal PCR selection: %s", sym_Tss2_RC_Decode(rc));
+
+        const uint8_t *data[] = { buf, hash.buffer, };
+        size_t len[] = { size, hash.size, };
+        r = tpm2_digest_extend_buffers(TPM2_ALG_SHA256, digest, data, len, ELEMENTSOF(data));
+        if (r < 0)
+                return r;
+
+        tpm2_log_debug_digest(digest, "PolicyPCR calculated digest");
+
+        return 0;
+}
+
+static int tpm2_policy_pcr(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                const TPML_PCR_SELECTION *pcr_selection,
+                TPM2B_DIGEST **ret_policy_digest) {
+
+        TSS2_RC rc;
+
+        assert(c);
+        assert(pcr_selection);
+
+        log_debug("Adding PCR hash policy.");
+
+        rc = sym_Esys_PolicyPCR(
+                        c->esys_context,
+                        session->esys_handle,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        NULL,
+                        pcr_selection);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to add PCR policy to TPM: %s", sym_Tss2_RC_Decode(rc));
+
+        return tpm2_get_policy_digest(c, session, ret_policy_digest);
+}
+
 static int tpm2_build_sealing_policy(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
@@ -1993,21 +2074,8 @@ static int tpm2_build_sealing_policy(
                 /* Put together the PCR policy we want to use */
                 TPML_PCR_SELECTION pcr_selection;
                 tpm2_tpml_pcr_selection_from_mask(pubkey_pcr_mask, (TPMI_ALG_HASH)pcr_bank, &pcr_selection);
-                rc = sym_Esys_PolicyPCR(
-                                c->esys_context,
-                                session->esys_handle,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                NULL,
-                                &pcr_selection);
-                if (rc != TSS2_RC_SUCCESS)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Failed to add PCR policy to TPM: %s", sym_Tss2_RC_Decode(rc));
-
-                /* Get the policy hash of the PCR policy */
                 _cleanup_(Esys_Freep) TPM2B_DIGEST *approved_policy = NULL;
-                r = tpm2_get_policy_digest(c, session, &approved_policy);
+                r = tpm2_policy_pcr(c, session, &pcr_selection, &approved_policy);
                 if (r < 0)
                         return r;
 
@@ -2087,21 +2155,11 @@ static int tpm2_build_sealing_policy(
         }
 
         if (hash_pcr_mask != 0) {
-                log_debug("Configuring hash-based PCR policy.");
-
                 TPML_PCR_SELECTION pcr_selection;
                 tpm2_tpml_pcr_selection_from_mask(hash_pcr_mask, (TPMI_ALG_HASH)pcr_bank, &pcr_selection);
-                rc = sym_Esys_PolicyPCR(
-                                c->esys_context,
-                                session->esys_handle,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                NULL,
-                                &pcr_selection);
-                if (rc != TSS2_RC_SUCCESS)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Failed to add PCR policy to TPM: %s", sym_Tss2_RC_Decode(rc));
+                r = tpm2_policy_pcr(c, session, &pcr_selection, NULL);
+                if (r < 0)
+                        return r;
         }
 
         if (use_pin) {
