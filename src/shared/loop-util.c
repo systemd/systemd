@@ -17,6 +17,7 @@
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
+#include "data-fd-util.h"
 #include "device-util.h"
 #include "devnum-util.h"
 #include "env-util.h"
@@ -638,6 +639,47 @@ int loop_device_make_by_path(
                   direct != (direct_flags != 0) ? " (O_DIRECT was requested but not supported)" : "");
 
         return loop_device_make_internal(path, fd, open_flags, 0, 0, 0, loop_flags, lock_op, ret);
+}
+
+int loop_device_make_by_path_memory(
+                const char *path,
+                int open_flags,
+                uint32_t loop_flags,
+                int lock_op,
+                LoopDevice **ret) {
+
+        _cleanup_close_ int fd = -EBADF, mfd = -EBADF;
+        _cleanup_free_ char *fn = NULL;
+        struct stat st;
+        int r;
+
+        assert(path);
+        assert(IN_SET(open_flags, O_RDWR, O_RDONLY));
+        assert(ret);
+
+        loop_flags &= ~LO_FLAGS_DIRECT_IO; /* memfds don't support O_DIRECT, hence LO_FLAGS_DIRECT_IO can't be used either */
+
+        fd = open(path, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_RDONLY);
+        if (fd < 0)
+                return -errno;
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if (!S_ISREG(st.st_mode) && !S_ISBLK(st.st_mode))
+                return -EBADF;
+
+        r = path_extract_filename(path, &fn);
+        if (r < 0)
+                return r;
+
+        mfd = memfd_clone_fd(fd, fn, open_flags|O_CLOEXEC);
+        if (mfd < 0)
+                return mfd;
+
+        fd = safe_close(fd); /* Let's close the original early */
+
+        return loop_device_make_internal(NULL, mfd, open_flags, 0, 0, 0, loop_flags, lock_op, ret);
 }
 
 static LoopDevice* loop_device_free(LoopDevice *d) {
