@@ -207,6 +207,7 @@ REQUIREMENTS:
         docbook-xsl (optional, required for documentation)
         xsltproc    (optional, required for documentation)
         python-jinja2
+        python-pefile
         python-lxml (optional, required to build the indices)
         python >= 3.5
         meson >= 0.53.2

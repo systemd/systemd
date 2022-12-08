@@ -53,6 +53,7 @@ PACKAGES=(
     python3-evdev
     python3-jinja2
     python3-lxml
+    python3-pefile
     python3-pip
     python3-pyparsing
     python3-setuptools

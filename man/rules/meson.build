@@ -1191,6 +1191,7 @@ manpages = [
   ''],
  ['udev_new', '3', ['udev_ref', 'udev_unref'], ''],
  ['udevadm', '8', [], ''],
+ ['ukify', '1', [], 'HAVE_GNU_EFI'],
  ['user@.service',
   '5',
   ['systemd-user-runtime-dir', 'user-runtime-dir@.service'],
