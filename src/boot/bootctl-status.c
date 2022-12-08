@@ -20,6 +20,7 @@
 #include "pretty-print.h"
 #include "terminal-util.h"
 #include "tpm2-util.h"
+#include "recurse-dir.h"
 
 static int boot_config_load_and_select(
                 BootConfig *config,
@@ -503,6 +504,140 @@ int verb_status(int argc, char *argv[], void *userdata) {
         return r;
 }
 
+static int ref_file(Hashmap *known_files, const char *fn, const char *root)
+{
+        const char *p;
+        int r, n;
+
+        assert(known_files);
+        if (!fn)
+                return -EINVAL;
+
+        p = prefix_roota(root, fn);
+
+        n = PTR_TO_INT(hashmap_get(known_files, p)) + 1;
+        if (n == 1)
+                r = hashmap_put(known_files, strdup(p), INT_TO_PTR(n));
+        else
+                r = hashmap_update(known_files, p, INT_TO_PTR(n));
+
+        if (r < 0)
+                return log_error_errno(r, "Failed to add %s to hashmap: %m", p);
+
+        return n;
+}
+
+static int deref_file(Hashmap *known_files, const char *fn, const char *root)
+{
+        const char *p;
+        int n;
+
+        assert(known_files);
+        if (!fn)
+                return -EINVAL;
+
+        p = prefix_roota(root, fn);
+
+        n = PTR_TO_INT(hashmap_get(known_files, p)) - 1;
+        if (n > 0) {
+                int r = hashmap_update(known_files, p, INT_TO_PTR(n));
+                if (r < 0)
+                        return log_error_errno(r, "failed to update %s", p);
+
+        } else if (n == 0)
+                hashmap_remove(known_files, p);
+
+        return n;
+}
+
+static int deref_unlink_file(Hashmap *known_files, const char *fn, const char *root)
+{
+        char *path = NULL;
+        int r;
+        r = deref_file(known_files, fn, root);
+        if (r == 0) {
+                r = chase_symlinks_and_access(fn, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, F_OK, &path, NULL);
+                if (r < 0)
+                        return r;
+                if (unlink(path) < 0)
+                        return log_error_errno(errno, "failed to remove \"%s\": %m", path);
+                log_info("Removed %s", path);
+        }
+        return r;
+}
+
+static int count_known_files(const BootConfig *config, Hashmap **known_files)
+{
+        assert(config);
+        assert(known_files);
+
+        *known_files = hashmap_new(&string_hash_ops);
+        if (!*known_files)
+                return log_oom();
+
+        for (size_t i = 0; i < config->n_entries; i++) {
+                const BootEntry *e = config->entries + i;
+                ref_file(*known_files, e->kernel, e->root);
+                STRV_FOREACH(s, e->initrd)
+                        ref_file(*known_files, *s, e->root);
+                ref_file(*known_files, e->device_tree, e->root);
+                STRV_FOREACH(s, e->device_tree_overlay)
+                        ref_file(*known_files, *s, e->root);
+        }
+
+        return 0;
+}
+
+static int purge_entry(const BootConfig *config, const char *fn)
+{
+        _cleanup_(hashmap_free_free_keyp) Hashmap *known_files = NULL;
+        _cleanup_free_ char *d = NULL;
+        const BootEntry *e = NULL;
+        int r;
+
+        r = count_known_files(config, &known_files);
+        if (r < 0)
+                return log_error_errno(r, "failed to count files");
+
+        for (size_t i = 0; i < config->n_entries; i++) {
+                if (fnmatch(fn, config->entries[i].id, FNM_CASEFOLD))
+                        continue;
+
+                e = &config->entries[i];
+                if (i == (size_t) config->default_entry)
+                        log_warning("%s is the default boot entry", fn);
+                if (i == (size_t) config->selected_entry)
+                        log_warning("%s is the selected boot entry", fn);
+                break;
+        }
+
+        if (!e)
+                return log_error_errno(-ENOENT, "config %s not found", fn);
+
+        // only process entries that boot something
+        if (!e->kernel)
+                return 0;
+
+        deref_unlink_file(known_files, e->kernel, e->root);
+        STRV_FOREACH(s, e->initrd)
+                deref_unlink_file(known_files, *s, e->root);
+        deref_unlink_file(known_files, e->device_tree, e->root);
+        STRV_FOREACH(s, e->device_tree_overlay)
+                deref_unlink_file(known_files, *s, e->root);
+
+        path_extract_directory(e->kernel, &d);
+        if (dir_is_empty(d, /* ignore_hidden_or_backup= */ false))
+                rmdir(d);
+
+        r = unlink(e->path);
+        if (r < 0)
+                return log_error_errno(errno, "failed to remove \"%s\": %m", e->path);
+
+        log_info("Removed %s", e->path);
+
+        return 0;
+}
+
 int verb_list(int argc, char *argv[], void *userdata) {
         _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
         dev_t esp_devid = 0, xbootldr_devid = 0;
@@ -534,6 +669,13 @@ int verb_list(int argc, char *argv[], void *userdata) {
                 return 0;
         }
 
-        pager_open(arg_pager_flags);
-        return show_boot_entries(&config, arg_json_format_flags);
+        if (streq(argv[0], "list")) {
+                pager_open(arg_pager_flags);
+                return show_boot_entries(&config, arg_json_format_flags);
+        } else
+                return purge_entry(&config, argv[1]);
+}
+
+int verb_purge_entry(int argc, char *argv[], void *userdata) {
+        return verb_list(argc, argv, userdata);
 }
