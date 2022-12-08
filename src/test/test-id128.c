@@ -145,6 +145,31 @@ TEST(id128) {
         assert_se(id128_read_fd(fd, ID128_FORMAT_UUID, &id2) >= 0);
         assert_se(sd_id128_equal(id, id2));
 
+        /* Fifth, tests for "uninitialized" */
+        assert_se(lseek(fd, 0, SEEK_SET) == 0);
+        assert_se(ftruncate(fd, 0) >= 0);
+        assert_se(write(fd, "uninitialized", STRLEN("uninitialized")) == STRLEN("uninitialized"));
+        assert_se(lseek(fd, 0, SEEK_SET) == 0);
+        assert_se(id128_read_fd(fd, ID128_FORMAT_ANY, NULL) == -ENOPKG);
+
+        assert_se(lseek(fd, 0, SEEK_SET) == 0);
+        assert_se(ftruncate(fd, 0) >= 0);
+        assert_se(write(fd, "uninitialized\n", STRLEN("uninitialized\n")) == STRLEN("uninitialized\n"));
+        assert_se(lseek(fd, 0, SEEK_SET) == 0);
+        assert_se(id128_read_fd(fd, ID128_FORMAT_ANY, NULL) == -ENOPKG);
+
+        assert_se(lseek(fd, 0, SEEK_SET) == 0);
+        assert_se(ftruncate(fd, 0) >= 0);
+        assert_se(write(fd, "uninitialized\nfoo", STRLEN("uninitialized\nfoo")) == STRLEN("uninitialized\nfoo"));
+        assert_se(lseek(fd, 0, SEEK_SET) == 0);
+        assert_se(id128_read_fd(fd, ID128_FORMAT_ANY, NULL) == -EINVAL);
+
+        assert_se(lseek(fd, 0, SEEK_SET) == 0);
+        assert_se(ftruncate(fd, 0) >= 0);
+        assert_se(write(fd, "uninit", STRLEN("uninit")) == STRLEN("uninit"));
+        assert_se(lseek(fd, 0, SEEK_SET) == 0);
+        assert_se(id128_read_fd(fd, ID128_FORMAT_ANY, NULL) == -EINVAL);
+
         if (sd_booted() > 0 && access("/etc/machine-id", F_OK) >= 0) {
                 assert_se(sd_id128_get_machine_app_specific(SD_ID128_MAKE(f0,3d,aa,eb,1c,33,4b,43,a7,32,17,29,44,bf,77,2e), &id) >= 0);
                 assert_se(sd_id128_get_machine_app_specific(SD_ID128_MAKE(f0,3d,aa,eb,1c,33,4b,43,a7,32,17,29,44,bf,77,2e), &id2) >= 0);
