@@ -144,6 +144,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  set-timeout SECONDS Set the menu timeout\n"
                "  set-timeout-oneshot SECONDS\n"
                "                      Set the menu timeout for the next boot only\n"
+               "  purge-entry ID      Remove specified entry and files referenced by it\n"
                "\n%3$ssystemd-boot Commands:%4$s\n"
                "  install             Install systemd-boot to the ESP and EFI variables\n"
                "  update              Update systemd-boot in the ESP and EFI variables\n"
@@ -407,6 +408,7 @@ static int bootctl_main(int argc, char *argv[]) {
                 { "remove",              VERB_ANY, 1,        0,            verb_remove              },
                 { "is-installed",        VERB_ANY, 1,        0,            verb_is_installed        },
                 { "list",                VERB_ANY, 1,        0,            verb_list                },
+                { "purge-entry",         2,        2,        0,            verb_purge_entry         },
                 { "set-default",         2,        2,        0,            verb_set_efivar          },
                 { "set-oneshot",         2,        2,        0,            verb_set_efivar          },
                 { "set-timeout",         2,        2,        0,            verb_set_efivar          },
