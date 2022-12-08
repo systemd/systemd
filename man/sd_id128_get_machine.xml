@@ -130,18 +130,28 @@
           <term><constant>-ENOENT</constant></term>
 
           <listitem><para>Returned by <function>sd_id128_get_machine()</function>,
-          <function>sd_id128_get_machine_app_specific()</function>, and
-          <function>sd_id128_get_boot_app_specific()</function> when <filename>/etc/machine-id</filename> is
-          missing.</para></listitem>
+          <function>sd_id128_get_machine_app_specific()</function>,
+          <function>sd_id128_get_boot()</function>, and <function>sd_id128_get_boot_app_specific()</function>
+          when <filename>/etc/machine-id</filename> is missing.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOMEDIUM</constant></term>
 
           <listitem><para>Returned by <function>sd_id128_get_machine()</function>,
-          <function>sd_id128_get_machine_app_specific()</function>, and
-          <function>sd_id128_get_boot_app_specific()</function> when <filename>/etc/machine-id</filename> is
-          empty or all zeros.</para></listitem>
+          <function>sd_id128_get_machine_app_specific()</function>,
+          <function>sd_id128_get_boot()</function>, and <function>sd_id128_get_boot_app_specific()</function>
+          when <filename>/etc/machine-id</filename> is empty or all zeros.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOPKG</constant></term>
+
+          <listitem><para>Returned by <function>sd_id128_get_machine()</function>,
+          <function>sd_id128_get_machine_app_specific()</function>,
+          <function>sd_id128_get_boot()</function>, and <function>sd_id128_get_boot_app_specific()</function>
+          when the content of <filename>/etc/machine-id</filename> is <literal>uninitialized</literal>.
+          </para></listitem>
         </varlistentry>
 
         <varlistentry>

@@ -164,7 +164,7 @@ static int run(int argc, char *argv[]) {
                         return r;
 
                 etc_machine_id = prefix_roota(arg_root, "/etc/machine-id");
-                r = id128_read(etc_machine_id, ID128_PLAIN, &id);
+                r = id128_read(etc_machine_id, ID128_FORMAT_PLAIN, &id);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read machine ID back: %m");
         } else {
