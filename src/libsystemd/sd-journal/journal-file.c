@@ -384,7 +384,7 @@ static int journal_file_refresh_header(JournalFile *f) {
         assert(f->header);
 
         r = sd_id128_get_machine(&f->header->machine_id);
-        if (IN_SET(r, -ENOENT, -ENOMEDIUM))
+        if (IN_SET(r, -ENOENT, -ENOMEDIUM, -ENOPKG))
                 /* We don't have a machine-id, let's continue without */
                 zero(f->header->machine_id);
         else if (r < 0)

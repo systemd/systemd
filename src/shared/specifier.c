@@ -195,7 +195,7 @@ int specifier_machine_id(char specifier, const void *data, const char *root, con
                         /* Translate error for missing os-release file to EUNATCH. */
                         return fd == -ENOENT ? -EUNATCH : fd;
 
-                r = id128_read_fd(fd, ID128_PLAIN, &id);
+                r = id128_read_fd(fd, ID128_FORMAT_PLAIN, &id);
         } else
                 r = sd_id128_get_machine(&id);
         if (r < 0)

@@ -325,7 +325,7 @@ TEST(chase_symlinks) {
                 assert_se(fd >= 0);
                 safe_close(pfd);
 
-                assert_se(id128_read_fd(fd, ID128_PLAIN, &a) >= 0);
+                assert_se(id128_read_fd(fd, ID128_FORMAT_PLAIN, &a) >= 0);
                 assert_se(sd_id128_get_machine(&b) >= 0);
                 assert_se(sd_id128_equal(a, b));
         }

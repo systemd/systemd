@@ -250,7 +250,7 @@ TEST(condition_test_host) {
         int r;
 
         r = sd_id128_get_machine(&id);
-        if (IN_SET(r, -ENOENT, -ENOMEDIUM))
+        if (IN_SET(r, -ENOENT, -ENOMEDIUM, -ENOPKG))
                 return (void) log_tests_skipped("/etc/machine-id missing");
         assert_se(r >= 0);
 

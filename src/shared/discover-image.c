@@ -1158,7 +1158,7 @@ int image_read_metadata(Image *i) {
                         if (fd < 0)
                                 log_debug_errno(errno, "Failed to open %s: %m", path);
                         else {
-                                r = id128_read_fd(fd, ID128_PLAIN, &machine_id);
+                                r = id128_read_fd(fd, ID128_FORMAT_PLAIN, &machine_id);
                                 if (r < 0)
                                         log_debug_errno(r, "Image %s contains invalid machine ID.", i->name);
                         }

@@ -179,7 +179,7 @@ static int load_etc_machine_id(void) {
         int r;
 
         r = sd_id128_get_machine(&arg_machine_id);
-        if (IN_SET(r, -ENOENT, -ENOMEDIUM)) /* Not set or empty */
+        if (IN_SET(r, -ENOENT, -ENOMEDIUM, -ENOPKG)) /* Not set or empty */
                 return 0;
         if (r < 0)
                 return log_error_errno(r, "Failed to get machine-id: %m");

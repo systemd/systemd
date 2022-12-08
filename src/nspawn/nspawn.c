@@ -2196,7 +2196,7 @@ static int setup_boot_id(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to generate random boot id: %m");
 
-        r = id128_write(path, ID128_UUID, rnd, false);
+        r = id128_write(path, ID128_FORMAT_UUID, rnd, false);
         if (r < 0)
                 return log_error_errno(r, "Failed to write boot id: %m");
 
@@ -2830,9 +2830,9 @@ static int setup_machine_id(const char *directory) {
 
         etc_machine_id = prefix_roota(directory, "/etc/machine-id");
 
-        r = id128_read(etc_machine_id, ID128_PLAIN_OR_UNINIT, &id);
+        r = id128_read(etc_machine_id, ID128_FORMAT_PLAIN, &id);
         if (r < 0) {
-                if (!IN_SET(r, -ENOENT, -ENOMEDIUM)) /* If the file is missing or empty, we don't mind */
+                if (!IN_SET(r, -ENOENT, -ENOMEDIUM, -ENOPKG)) /* If the file is missing, empty, or uninitialized, we don't mind */
                         return log_error_errno(r, "Failed to read machine ID from container image: %m");
 
                 if (sd_id128_is_null(arg_uuid)) {
