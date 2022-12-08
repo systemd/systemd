@@ -59,11 +59,13 @@ char *hexmem(const void *p, size_t l) {
         const uint8_t *x;
         char *r, *z;
 
+        assert(p || l == 0);
+
         z = r = new(char, l * 2 + 1);
         if (!r)
                 return NULL;
 
-        for (x = p; x < (const uint8_t*) p + l; x++) {
+        for (x = p; x && x < (const uint8_t*) p + l; x++) {
                 *(z++) = hexchar(*x >> 4);
                 *(z++) = hexchar(*x & 15);
         }
@@ -606,7 +608,7 @@ ssize_t base64mem_full(
         if (!r)
                 return -ENOMEM;
 
-        for (x = p; x < (const uint8_t*) p + (l / 3) * 3; x += 3) {
+        for (x = p; x && x < (const uint8_t*) p + (l / 3) * 3; x += 3) {
                 /* x[0] == XXXXXXXX; x[1] == YYYYYYYY; x[2] == ZZZZZZZZ */
                 maybe_line_break(&z, r, line_break);
                 *(z++) = base64char(x[0] >> 2);                    /* 00XXXXXX */
@@ -649,58 +651,74 @@ ssize_t base64mem_full(
         return z - r;
 }
 
-static int base64_append_width(
-                char **prefix, int plen,
-                char sep, int indent,
-                const void *p, size_t l,
-                int width) {
+static ssize_t base64_append_width(
+                char **prefix,
+                size_t plen,
+                char sep,
+                size_t indent,
+                const void *p,
+                size_t l,
+                size_t width) {
 
         _cleanup_free_ char *x = NULL;
         char *t, *s;
-        ssize_t len, avail, line, lines;
+        size_t lines;
+        ssize_t len;
+
+        assert(prefix);
+        assert(*prefix || plen == 0);
+        assert(p || l == 0);
 
         len = base64mem(p, l, &x);
-        if (len <= 0)
+        if (len < 0)
                 return len;
+        if (len == 0)
+                return plen;
 
         lines = DIV_ROUND_UP(len, width);
 
-        if ((size_t) plen >= SSIZE_MAX - 1 - 1 ||
+        if (plen >= SSIZE_MAX - 1 - 1 ||
             lines > (SSIZE_MAX - plen - 1 - 1) / (indent + width + 1))
                 return -ENOMEM;
 
-        t = realloc(*prefix, (ssize_t) plen + 1 + 1 + (indent + width + 1) * lines);
+        t = realloc(*prefix, plen + 1 + 1 + (indent + width + 1) * lines);
         if (!t)
                 return -ENOMEM;
 
-        t[plen] = sep;
+        s = t + plen;
+        for (size_t line = 0; line < lines; line++) {
+                size_t act = MIN(width, (size_t) len);
 
-        for (line = 0, s = t + plen + 1, avail = len; line < lines; line++) {
-                int act = MIN(width, avail);
+                if (line > 0)
+                        sep = '\n';
 
-                if (line > 0 || sep == '\n') {
-                        memset(s, ' ', indent);
-                        s += indent;
+                if (s > t) {
+                        *s++ = sep;
+                        if (sep == '\n')
+                                s = mempset(s, ' ', indent);
                 }
 
                 s = mempcpy(s, x + width * line, act);
-                *(s++) = line < lines - 1 ? '\n' : '\0';
-                avail -= act;
+                len -= act;
         }
-        assert(avail == 0);
+        assert(len == 0);
 
+        *s = '\0';
         *prefix = t;
-        return 0;
+        return s - t;
 }
 
-int base64_append(
-                char **prefix, int plen,
-                const void *p, size_t l,
-                int indent, int width) {
+ssize_t base64_append(
+                char **prefix,
+                size_t plen,
+                const void *p,
+                size_t l,
+                size_t indent,
+                size_t width) {
 
         if (plen > width / 2 || plen + indent > width)
                 /* leave indent on the left, keep last column free */
-                return base64_append_width(prefix, plen, '\n', indent, p, l, width - indent - 1);
+                return base64_append_width(prefix, plen, '\n', indent, p, l, width - indent);
         else
                 /* leave plen on the left, keep last column free */
                 return base64_append_width(prefix, plen, ' ', plen + 1, p, l, width - plen - 1);
