@@ -421,7 +421,7 @@
       <varlistentry>
         <term><varname>DefaultRouteOnDevice=</varname></term>
         <listitem>
-          <para>Takes a boolean. If set to true, sets up the default route bound to the interface.
+          <para>Takes a boolean. If set to true, sets up the IPv4 default route bound to the interface.
           Defaults to false. This is useful when creating routes on point-to-point interfaces. This is
           equivalent to e.g. the following,
           <programlisting>ip route add default dev veth99</programlisting>
@@ -433,6 +433,11 @@ Gateway=0.0.0.0</programlisting></para>
           following instead:
           <programlisting>[Route]
 Gateway=0.0.0.0
+Table=1234</programlisting></para>
+          <para>If you'd like to create an IPv6 default route bound to the interface, please use the
+          following:
+          <programlisting>[Route]
+Gateway=::
 Table=1234</programlisting></para>
         </listitem>
       </varlistentry>
