@@ -1474,8 +1474,14 @@ static int tpm2_make_encryption_session(
         return 0;
 }
 
+static int openssl_pubkey_to_tpm2_pubkey(
+                const void *pubkey,
+                size_t pubkey_size,
+                TPM2B_PUBLIC *output,
+                void **ret_fp,
+                size_t *ret_fp_size) {
+
 #if HAVE_OPENSSL
-static int openssl_pubkey_to_tpm2_pubkey(EVP_PKEY *input, TPM2B_PUBLIC *output) {
 #if OPENSSL_VERSION_MAJOR >= 3
         _cleanup_(BN_freep) BIGNUM *n = NULL, *e = NULL;
 #else
@@ -1484,10 +1490,21 @@ static int openssl_pubkey_to_tpm2_pubkey(EVP_PKEY *input, TPM2B_PUBLIC *output) 
 #endif
         int n_bytes, e_bytes;
 
-        assert(input);
+        assert(pubkey);
+        assert(pubkey_size > 0);
         assert(output);
 
         /* Converts an OpenSSL public key to a structure that the TPM chip can process. */
+
+        _cleanup_fclose_ FILE *f = NULL;
+        f = fmemopen((void*) pubkey, pubkey_size, "r");
+        if (!f)
+                return log_oom();
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *input = NULL;
+        input = PEM_read_PUBKEY(f, NULL, NULL, NULL);
+        if (!input)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse PEM public key.");
 
         if (EVP_PKEY_base_id(input) != EVP_PKEY_RSA)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Provided public key is not an RSA key.");
@@ -1555,22 +1572,39 @@ static int openssl_pubkey_to_tpm2_pubkey(EVP_PKEY *input, TPM2B_PUBLIC *output) 
         if (BN_bn2bin(e, (unsigned char*) &output->publicArea.parameters.rsaDetail.exponent) <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to convert RSA exponent.");
 
+        if (ret_fp) {
+                _cleanup_free_ void *fp = NULL;
+                size_t fp_size;
+                int r;
+
+                assert(ret_fp_size);
+
+                r = pubkey_fingerprint(input, EVP_sha256(), &fp, &fp_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to calculate public key fingerprint: %m");
+
+                *ret_fp = TAKE_PTR(fp);
+                *ret_fp_size = fp_size;
+        }
+
         return 0;
+#else /* HAVE_OPENSSL */
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
+#endif
 }
 
 static int find_signature(
                 JsonVariant *v,
-                uint16_t pcr_bank,
-                uint32_t pcr_mask,
-                EVP_PKEY *pk,
+                const TPML_PCR_SELECTION *pcr_selection,
+                const void *fp,
+                size_t fp_size,
                 const void *policy,
                 size_t policy_size,
                 void *ret_signature,
                 size_t *ret_signature_size) {
 
-        _cleanup_free_ void *fp = NULL;
+#if HAVE_OPENSSL
         JsonVariant *b, *i;
-        size_t fp_size;
         const char *k;
         int r;
 
@@ -1579,6 +1613,12 @@ static int find_signature(
 
         if (!json_variant_is_object(v))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Signature is not a JSON object.");
+
+        uint16_t pcr_bank = pcr_selection->pcrSelections[0].hash;
+        uint32_t pcr_mask;
+        r = tpm2_tpml_pcr_selection_to_mask(pcr_selection, pcr_bank, &pcr_mask);
+        if (r < 0)
+                return r;
 
         k = tpm2_hash_alg_to_string(pcr_bank);
         if (!k)
@@ -1623,12 +1663,6 @@ static int find_signature(
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode fingerprint in JSON data: %m");
 
-                if (!fp) {
-                        r = pubkey_fingerprint(pk, EVP_sha256(), &fp, &fp_size);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to calculate public key fingerprint: %m");
-                }
-
                 if (memcmp_nn(fp, fp_size, fpj_data, fpj_size) != 0)
                         continue; /* Not for this public key */
 
@@ -1653,8 +1687,10 @@ static int find_signature(
         }
 
         return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "Couldn't find signature for this PCR bank, PCR index and public key.");
-}
+#else /* HAVE_OPENSSL */
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
 #endif
+}
 
 static int tpm2_make_policy_session(
                 Tpm2Context *c,
@@ -1716,21 +1752,6 @@ static int tpm2_make_policy_session(
                 }
         }
 
-#if HAVE_OPENSSL
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pk = NULL;
-        if (pubkey_size > 0) {
-                /* If a pubkey is specified, load it to validate it, even if the PCR mask for this is
-                 * actually zero, and we are thus not going to use it. */
-                _cleanup_fclose_ FILE *f = fmemopen((void*) pubkey, pubkey_size, "r");
-                if (!f)
-                        return log_oom();
-
-                pk = PEM_read_PUBKEY(f, NULL, NULL, NULL);
-                if (!pk)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse PEM public key.");
-        }
-#endif
-
         _cleanup_tpm2_handle_ Tpm2Handle *session = NULL;
         r = tpm2_handle_new(c, &session);
         if (r < 0)
@@ -1753,12 +1774,13 @@ static int tpm2_make_policy_session(
                                        "Failed to open session in TPM: %s", sym_Tss2_RC_Decode(rc));
 
         if (pubkey_pcr_mask != 0) {
-#if HAVE_OPENSSL
                 log_debug("Configuring public key based PCR policy.");
 
-                /* First: load public key into the TPM */
+                /* Convert the PEM key to TPM2 format */
+                _cleanup_free_ void *fp = NULL;
+                size_t fp_size;
                 TPM2B_PUBLIC pubkey_tpm2;
-                r = openssl_pubkey_to_tpm2_pubkey(pk, &pubkey_tpm2);
+                r = openssl_pubkey_to_tpm2_pubkey(pubkey, pubkey_size, &pubkey_tpm2, &fp, &fp_size);
                 if (r < 0)
                         return r;
 
@@ -1826,9 +1848,8 @@ static int tpm2_make_policy_session(
 
                         r = find_signature(
                                         signature_json,
-                                        pcr_bank,
-                                        pubkey_pcr_mask,
-                                        pk,
+                                        &pcr_selection,
+                                        fp, fp_size,
                                         approved_policy->buffer,
                                         approved_policy->size,
                                         &signature_raw,
@@ -1892,9 +1913,6 @@ static int tpm2_make_policy_session(
                 if (rc != TSS2_RC_SUCCESS)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "Failed to push Authorize policy into TPM: %s", sym_Tss2_RC_Decode(rc));
-#else
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
-#endif
         }
 
         if (hash_pcr_mask != 0) {
