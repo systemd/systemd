@@ -13,50 +13,35 @@
 #include "sync-util.h"
 
 bool id128_is_valid(const char *s) {
-        size_t i, l;
+        size_t l;
 
         assert(s);
 
         l = strlen(s);
-        if (l == 32) {
 
+        if (l == SD_ID128_STRING_MAX - 1)
                 /* Plain formatted 128bit hex string */
+                return in_charset(s, HEXDIGITS);
 
-                for (i = 0; i < l; i++) {
-                        char c = s[i];
-
-                        if (!ascii_isdigit(c) &&
-                            !(c >= 'a' && c <= 'f') &&
-                            !(c >= 'A' && c <= 'F'))
-                                return false;
-                }
-
-        } else if (l == 36) {
-
+        if (l == SD_ID128_UUID_STRING_MAX - 1) {
                 /* Formatted UUID */
-
-                for (i = 0; i < l; i++) {
+                for (size_t i = 0; i < l; i++) {
                         char c = s[i];
 
                         if (IN_SET(i, 8, 13, 18, 23)) {
                                 if (c != '-')
                                         return false;
-                        } else {
-                                if (!ascii_isdigit(c) &&
-                                    !(c >= 'a' && c <= 'f') &&
-                                    !(c >= 'A' && c <= 'F'))
-                                        return false;
-                        }
+                        } else if (!ascii_ishex(c))
+                                return false;
                 }
+                return true;
+        }
 
-        } else
-                return false;
-
-        return true;
+        return false;
 }
 
 int id128_read_fd(int fd, Id128Format f, sd_id128_t *ret) {
-        char buffer[36 + 2];
+        char buffer[SD_ID128_UUID_STRING_MAX + 1]; /* +1 is for trailing newline */
         ssize_t l;
 
         assert(fd >= 0);
@@ -80,28 +65,28 @@ int id128_read_fd(int fd, Id128Format f, sd_id128_t *ret) {
                 /* Treat an "uninitialized" id file like an empty one */
                 return f == ID128_PLAIN_OR_UNINIT && strneq(buffer, "uninitialized\n", l) ? -ENOMEDIUM : -EINVAL;
 
-        case 33: /* plain UUID with trailing newline */
-                if (buffer[32] != '\n')
+        case SD_ID128_STRING_MAX: /* plain UUID with trailing newline */
+                if (buffer[SD_ID128_STRING_MAX-1] != '\n')
                         return -EINVAL;
 
                 _fallthrough_;
-        case 32: /* plain UUID without trailing newline */
+        case SD_ID128_STRING_MAX-1: /* plain UUID without trailing newline */
                 if (f == ID128_UUID)
                         return -EINVAL;
 
-                buffer[32] = 0;
+                buffer[SD_ID128_STRING_MAX-1] = 0;
                 break;
 
-        case 37: /* RFC UUID with trailing newline */
-                if (buffer[36] != '\n')
+        case SD_ID128_UUID_STRING_MAX: /* RFC UUID with trailing newline */
+                if (buffer[SD_ID128_UUID_STRING_MAX-1] != '\n')
                         return -EINVAL;
 
                 _fallthrough_;
-        case 36: /* RFC UUID without trailing newline */
+        case SD_ID128_UUID_STRING_MAX-1: /* RFC UUID without trailing newline */
                 if (IN_SET(f, ID128_PLAIN, ID128_PLAIN_OR_UNINIT))
                         return -EINVAL;
 
-                buffer[36] = 0;
+                buffer[SD_ID128_UUID_STRING_MAX-1] = 0;
                 break;
 
         default:
@@ -122,7 +107,7 @@ int id128_read(const char *p, Id128Format f, sd_id128_t *ret) {
 }
 
 int id128_write_fd(int fd, Id128Format f, sd_id128_t id, bool do_sync) {
-        char buffer[36 + 2];
+        char buffer[SD_ID128_UUID_STRING_MAX + 1]; /* +1 is for trailing newline */
         size_t sz;
         int r;
 
@@ -131,14 +116,13 @@ int id128_write_fd(int fd, Id128Format f, sd_id128_t id, bool do_sync) {
 
         if (f != ID128_UUID) {
                 assert_se(sd_id128_to_string(id, buffer));
-                buffer[SD_ID128_STRING_MAX - 1] = '\n';
                 sz = SD_ID128_STRING_MAX;
         } else {
                 assert_se(sd_id128_to_uuid_string(id, buffer));
-                buffer[SD_ID128_UUID_STRING_MAX - 1] = '\n';
                 sz = SD_ID128_UUID_STRING_MAX;
         }
 
+        buffer[sz - 1] = '\n';
         r = loop_write(fd, buffer, sz, false);
         if (r < 0)
                 return r;
