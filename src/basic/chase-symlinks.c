@@ -710,7 +710,7 @@ int chase_symlinks_and_unlink(
         if (r < 0)
                 return r;
 
-        fd = chase_symlinks_and_open(dir, root, chase_flags, O_DIRECTORY|O_CLOEXEC, ret_path ? &p : NULL);
+        fd = chase_symlinks_and_open(dir, root, chase_flags, O_PATH|O_DIRECTORY|O_CLOEXEC, ret_path ? &p : NULL);
         if (fd < 0)
                 return fd;
 
