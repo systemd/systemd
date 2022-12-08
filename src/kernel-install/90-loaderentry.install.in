@@ -32,7 +32,16 @@ MACHINE_ID="$KERNEL_INSTALL_MACHINE_ID"
 ENTRY_TOKEN="$KERNEL_INSTALL_ENTRY_TOKEN"
 BOOT_ROOT="$KERNEL_INSTALL_BOOT_ROOT"
 
-BOOT_MNT="$(stat -c %m "$BOOT_ROOT")"
+# XXX: kernel-install has no way of passing a root dir but bootctl does. We
+# need that for the test suite. So use an externally provided $BOOT_MNT as
+# trigger when calling bootctl.
+if [ -n "$BOOT_MNT" ]; then
+    BOOTCTL_ROOT="--root=$BOOT_MNT"
+    SYSTEMD_ESP_PATH="/"
+    export SYSTEMD_ESP_PATH
+else
+    BOOT_MNT="$(stat -c %m "$BOOT_ROOT")"
+fi
 if [ "$BOOT_MNT" = '/' ]; then
     ENTRY_DIR="$ENTRY_DIR_ABS"
 else
@@ -41,11 +50,8 @@ fi
 
 case "$COMMAND" in
     remove)
-        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-            echo "Removing $BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION*.conf"
-        exec rm -f \
-            "$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION.conf" \
-            "$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION+"*".conf"
+        bootctl ${BOOTCTL_ROOT:+"$BOOTCTL_ROOT"} purge-entry "${LOADER_ENTRY##*/}"
+        exit 0
         ;;
     add)
         ;;
