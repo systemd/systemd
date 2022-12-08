@@ -239,7 +239,7 @@ typedef struct Unit {
         FILE *transient_file;
 
         /* Freezer state */
-        sd_bus_message *pending_freezer_message;
+        sd_bus_message *pending_freezer_invocation;
         FreezerState freezer_state;
 
         /* Job timeout and action to take */

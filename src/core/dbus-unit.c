@@ -782,12 +782,12 @@ static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userda
         if (r == 0)
                 reply_no_delay = true;
 
-        if (u->pending_freezer_message) {
+        if (u->pending_freezer_invocation) {
                 bus_unit_send_pending_freezer_message(u, true);
-                assert(!u->pending_freezer_message);
+                assert(!u->pending_freezer_invocation);
         }
 
-        u->pending_freezer_message = sd_bus_message_ref(message);
+        u->pending_freezer_invocation = sd_bus_message_ref(message);
 
         if (reply_no_delay) {
                 r = bus_unit_send_pending_freezer_message(u, false);
@@ -1668,17 +1668,17 @@ int bus_unit_send_pending_freezer_message(Unit *u, bool cancelled) {
 
         assert(u);
 
-        if (!u->pending_freezer_message)
+        if (!u->pending_freezer_invocation)
                 return 0;
 
         if (cancelled)
                 r = sd_bus_message_new_method_error(
-                                u->pending_freezer_message,
+                                u->pending_freezer_invocation,
                                 &reply,
                                 &SD_BUS_ERROR_MAKE_CONST(
                                                 BUS_ERROR_FREEZE_CANCELLED, "Freeze operation aborted"));
         else
-                r = sd_bus_message_new_method_return(u->pending_freezer_message, &reply);
+                r = sd_bus_message_new_method_return(u->pending_freezer_invocation, &reply);
         if (r < 0)
                 return r;
 
@@ -1686,7 +1686,7 @@ int bus_unit_send_pending_freezer_message(Unit *u, bool cancelled) {
         if (r < 0)
                 log_warning_errno(r, "Failed to send queued message, ignoring: %m");
 
-        u->pending_freezer_message = sd_bus_message_unref(u->pending_freezer_message);
+        u->pending_freezer_invocation = sd_bus_message_unref(u->pending_freezer_invocation);
 
         return 0;
 }
