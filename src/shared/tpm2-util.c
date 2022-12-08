@@ -54,10 +54,12 @@ TSS2_RC (*sym_Esys_VerifySignature)(ESYS_CONTEXT *esysContext, ESYS_TR keyHandle
 
 const char* (*sym_Tss2_RC_Decode)(TSS2_RC rc) = NULL;
 
+TSS2_RC (*sym_Tss2_MU_TPM2_CC_Marshal)(TPM2_CC src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
 TSS2_RC (*sym_Tss2_MU_TPM2B_PRIVATE_Marshal)(TPM2B_PRIVATE const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
 TSS2_RC (*sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PRIVATE  *dest) = NULL;
 TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Marshal)(TPM2B_PUBLIC const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
 TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PUBLIC *dest) = NULL;
+TSS2_RC (*sym_Tss2_MU_TPML_PCR_SELECTION_Marshal)(TPML_PCR_SELECTION const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
 TSS2_RC (*sym_Tss2_MU_TPMT_HA_Marshal)(TPMT_HA const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
 TSS2_RC (*sym_Tss2_MU_TPMT_PUBLIC_Marshal)(TPMT_PUBLIC const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
 
@@ -101,17 +103,21 @@ int dlopen_tpm2(void) {
 
         return dlopen_many_sym_or_warn(
                         &libtss2_mu_dl, "libtss2-mu.so.0", LOG_DEBUG,
+                        DLSYM_ARG(Tss2_MU_TPM2_CC_Marshal),
                         DLSYM_ARG(Tss2_MU_TPM2B_PRIVATE_Marshal),
                         DLSYM_ARG(Tss2_MU_TPM2B_PRIVATE_Unmarshal),
                         DLSYM_ARG(Tss2_MU_TPM2B_PUBLIC_Marshal),
                         DLSYM_ARG(Tss2_MU_TPM2B_PUBLIC_Unmarshal),
+                        DLSYM_ARG(Tss2_MU_TPML_PCR_SELECTION_Marshal),
                         DLSYM_ARG(Tss2_MU_TPMT_HA_Marshal),
                         DLSYM_ARG(Tss2_MU_TPMT_PUBLIC_Marshal));
 }
 
 #define _MARSHAL(src) _Generic((src),                                   \
+                TPM2_CC: sym_Tss2_MU_TPM2_CC_Marshal,                   \
                 const TPM2B_PRIVATE*: sym_Tss2_MU_TPM2B_PRIVATE_Marshal, TPM2B_PRIVATE*: sym_Tss2_MU_TPM2B_PRIVATE_Marshal, \
                 const TPM2B_PUBLIC*: sym_Tss2_MU_TPM2B_PUBLIC_Marshal, TPM2B_PUBLIC*: sym_Tss2_MU_TPM2B_PUBLIC_Marshal, \
+                const TPML_PCR_SELECTION*: sym_Tss2_MU_TPML_PCR_SELECTION_Marshal, TPML_PCR_SELECTION*: sym_Tss2_MU_TPML_PCR_SELECTION_Marshal, \
                 const TPMT_HA*: sym_Tss2_MU_TPMT_HA_Marshal, TPMT_HA*: sym_Tss2_MU_TPMT_HA_Marshal, \
                 const TPMT_PUBLIC*: sym_Tss2_MU_TPMT_PUBLIC_Marshal, TPMT_PUBLIC*: sym_Tss2_MU_TPMT_PUBLIC_Marshal)
 
@@ -1541,6 +1547,69 @@ static int tpm2_make_policy_session(
         return 0;
 }
 
+static int tpm2_calculate_policy_pcr(
+                const TPML_PCR_SELECTION *pcr_selection,
+                const TPM2B_DIGEST *pcr_values,
+                size_t pcr_values_size,
+                TPM2B_DIGEST *digest) {
+
+        static const TPM2_CC command = TPM2_CC_PolicyPCR;
+        TPM2B_DIGEST hash = {};
+        int r;
+
+        assert(pcr_selection);
+        assert(pcr_values);
+        assert(digest);
+
+        tpm2_digest_init_digests(&hash, pcr_values, pcr_values_size);
+
+        size_t offset = 0, max_size = sizeof(command) + sizeof(*pcr_selection);
+        uint8_t buf[max_size];
+        r = tpm2_marshal("PolicyPCR command", command, buf, max_size, &offset);
+        if (r < 0)
+                return r;
+
+        r = tpm2_marshal("PolicyPCR pcr selection", pcr_selection, buf, max_size, &offset);
+        if (r < 0)
+                return r;
+
+        const uint8_t *data[] = { buf, hash.buffer, };
+        size_t len[] = { offset, hash.size, };
+        tpm2_digest_extend_array(digest, data, len, 2);
+
+        tpm2_log_debug_digest(digest, "PolicyPCR calculated digest");
+
+        return 0;
+}
+
+static int tpm2_policy_pcr(
+                struct tpm2_context *c,
+                struct tpm2_handle session,
+                const TPML_PCR_SELECTION *pcr_selection,
+                TPM2B_DIGEST **ret_policy_digest) {
+
+        TSS2_RC rc;
+
+        assert(c);
+        assert(pcr_selection);
+
+        log_debug("Adding PCR hash policy.");
+
+        rc = sym_Esys_PolicyPCR(
+                        c->esys_context,
+                        session.handle,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        NULL,
+                        pcr_selection);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to add PCR policy to TPM: %s", sym_Tss2_RC_Decode(rc));
+
+        return tpm2_get_policy_digest(c, session, ret_policy_digest);
+}
+
 static int tpm2_build_policy(
                 struct tpm2_context *c,
                 struct tpm2_handle session,
@@ -1723,20 +1792,14 @@ static int tpm2_build_policy(
         }
 
         if (hash_pcr_mask != 0) {
-                log_debug("Configuring hash-based PCR policy.");
-
                 TPML_PCR_SELECTION pcr_selection = tpm2_tpml_pcr_selection_from_mask(hash_pcr_mask, pcr_bank);
-                rc = sym_Esys_PolicyPCR(
-                                c->esys_context,
-                                session.handle,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                NULL,
-                                &pcr_selection);
-                if (rc != TSS2_RC_SUCCESS)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Failed to add PCR policy to TPM: %s", sym_Tss2_RC_Decode(rc));
+                r = tpm2_policy_pcr(
+                                c,
+                                session,
+                                &pcr_selection,
+                                /* ret_policy_digest= */ NULL);
+                if (r < 0)
+                        return r;
         }
 
         if (use_pin) {
