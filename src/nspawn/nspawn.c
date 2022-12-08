@@ -2196,7 +2196,7 @@ static int setup_boot_id(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to generate random boot id: %m");
 
-        r = id128_write(path, ID128_FORMAT_UUID, rnd, false);
+        r = id128_write(path, ID128_FORMAT_UUID, rnd);
         if (r < 0)
                 return log_error_errno(r, "Failed to write boot id: %m");
 
