@@ -20,6 +20,7 @@
 #include "pretty-print.h"
 #include "terminal-util.h"
 #include "tpm2-util.h"
+#include "recurse-dir.h"
 
 static int boot_config_load_and_select(
                 BootConfig *config,
@@ -503,6 +504,224 @@ int verb_status(int argc, char *argv[], void *userdata) {
         return r;
 }
 
+static int ref_file(Hashmap *known_files, const char *fn, int increment) {
+        char *k = NULL;
+        int n;
+
+        assert(known_files);
+
+        /* just gracefully ignore this. This way the caller doesn't
+           have to verify whether the bootloader entry is relevant */
+        if (!fn)
+                return 0;
+
+        n = PTR_TO_INT(hashmap_get2(known_files, fn, (void**)&k));
+        n += increment;
+        if (increment >= 0 && !k) {
+                int r = hashmap_put(known_files, strdup(fn), INT_TO_PTR(n));
+                if (r < 0)
+                        return r;
+        } else if (increment < 0 && n <= 0) {
+                (void) hashmap_remove(known_files, fn);
+                free(k);
+        } else {
+                int r = hashmap_update(known_files, fn, INT_TO_PTR(n));
+                if (r < 0)
+                        return r;
+        }
+
+        return n >= 0 ? n : 0;
+}
+
+static void deref_unlink_file(Hashmap *known_files, const char *fn, const char *root)
+{
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        /* just gracefully ignore this. This way the caller doesn't
+           have to verify whether the bootloader entry is relevant */
+        if (!fn || !root)
+                return;
+
+        r = ref_file(known_files, fn, -1);
+        if (r == 0) {
+                if (arg_dry)
+                        r = chase_symlinks_and_access(fn, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, F_OK, &path, NULL);
+                else
+                        r = chase_symlinks_and_unlink(fn, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, 0, &path);
+                if (r < 0) {
+                        log_error_errno(errno, "Failed to remove \"%s\": %m", path);
+                        return;
+                }
+                log_info("%s %s", arg_dry?"Would remove":"Removed", path);
+        }
+}
+
+static int count_known_files(const BootConfig *config, const char* root, Hashmap **ret_known_files) {
+        _cleanup_(hashmap_free_free_keyp) Hashmap *known_files = NULL;
+        int r = 0;
+        assert(config);
+        assert(ret_known_files);
+
+        known_files = hashmap_new(&path_hash_ops);
+        if (!known_files)
+                return log_oom();
+
+        for (size_t i = 0; i < config->n_entries; i++) {
+                const BootEntry *e = config->entries + i;
+
+                if (!e->root || strcmp(e->root, root))
+                        continue;
+
+                r = ref_file(known_files, e->kernel, 1);
+                if (r < 0)
+                        return r;
+                STRV_FOREACH(s, e->initrd) {
+                        r = ref_file(known_files, *s, 1);
+                        if (r < 0)
+                                return r;
+                }
+                r = ref_file(known_files, e->device_tree, 1);
+                if (r < 0)
+                        return r;
+                STRV_FOREACH(s, e->device_tree_overlay) {
+                        r = ref_file(known_files, *s, 1);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        *ret_known_files = TAKE_PTR(known_files);
+
+        return 0;
+}
+
+static int unlink_entry(const BootConfig *config, const char *root, const char *fn) {
+        _cleanup_(hashmap_free_free_keyp) Hashmap *known_files = NULL;
+        const BootEntry *e = NULL;
+        int r;
+
+        r = count_known_files(config, root, &known_files);
+        if (r < 0)
+                return log_error_errno(r, "Failed to count files in %s: %m", root);
+
+        for (size_t i = 0; i < config->n_entries; i++) {
+                const BootEntry *ei = &config->entries[i];
+
+                if (!ei->root || strcmp(ei->root, root))
+                        continue;
+                if (fnmatch(fn, ei->id, FNM_CASEFOLD))
+                        continue;
+
+                e = ei;
+                if (i == (size_t) config->default_entry)
+                        log_warning("%s is the default boot entry", fn);
+                if (i == (size_t) config->selected_entry)
+                        log_warning("%s is the selected boot entry", fn);
+                break;
+        }
+
+        if (!e)
+                return -ENOENT;
+
+        if (e->kernel) {
+                _cleanup_free_ char *d = NULL;
+
+                deref_unlink_file(known_files, e->kernel, e->root);
+                STRV_FOREACH(s, e->initrd)
+                        deref_unlink_file(known_files, *s, e->root);
+                deref_unlink_file(known_files, e->device_tree, e->root);
+                STRV_FOREACH(s, e->device_tree_overlay)
+                        deref_unlink_file(known_files, *s, e->root);
+
+                if (path_extract_directory(e->kernel, &d) == 0)
+                        (void) rmdir(d);
+        }
+
+        if (!arg_dry) {
+                r = unlink(e->path);
+                if (r < 0)
+                        return log_error_errno(errno, "failed to remove \"%s\": %m", e->path);
+        }
+
+        log_info("%s %s", arg_dry?"Would remove":"Removed", e->path);
+
+        return 0;
+}
+
+struct list_remove_orphaned_file_data  {
+        const char *root;
+        Hashmap *known_files;
+};
+
+static int list_remove_orphaned_file(
+                RecurseDirEvent event,
+                const char *path,
+                int dir_fd,
+                int inode_fd,
+                const struct dirent *de,
+                const struct statx *sx,
+                void *userdata) {
+        struct list_remove_orphaned_file_data *data = userdata;
+        int r;
+
+        assert(path);
+        assert(data);
+        assert(data->known_files);
+        assert(data->root);
+
+        /* shouldn't happen */
+        if (!startswith(path, data->root))
+                return RECURSE_DIR_LEAVE_DIRECTORY;
+
+        if (event == RECURSE_DIR_ENTRY) {
+                if (hashmap_get(data->known_files, path+strlen(data->root)) == NULL) {
+                        r = arg_dry?0:unlinkat(dir_fd, de->d_name, 0);
+                        if (r < 0)
+                                log_warning_errno(errno, "Failed to remove \"%s\": %m, ignoring", path);
+                        else
+                                log_info("%s %s", arg_dry?"Would remove":"Removed", path);
+                }
+        }
+
+        return RECURSE_DIR_CONTINUE;
+}
+
+static int cleanup_orphaned_files(
+                const BootConfig *config,
+                const char *root) {
+        _cleanup_(hashmap_free_free_keyp) Hashmap *known_files = NULL;
+        _cleanup_free_ char *full = NULL;
+        _cleanup_close_ int dir_fd = -1;
+        int r = -1;
+
+        assert(config);
+        assert(root);
+
+        r = settle_entry_token();
+        if (r < 0)
+                return r;
+
+        r = count_known_files(config, root, &known_files);
+        if (r < 0)
+                return log_error_errno(r, "Failed to count files");
+
+        dir_fd = chase_symlinks_and_open(arg_entry_token, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS,
+                        O_DIRECTORY|O_CLOEXEC, &full);
+        if (dir_fd == -ENOENT)
+                return 0;
+        if (dir_fd < 0)
+                return log_error_errno(dir_fd, "Failed to open '%s/%s': %m", root, arg_entry_token);
+
+        struct list_remove_orphaned_file_data data = {
+                .root = root,
+                .known_files = known_files,
+        };
+        r = recurse_dir(dir_fd, full, 0, UINT_MAX, RECURSE_DIR_SORT, list_remove_orphaned_file, &data);
+
+        return r;
+}
+
 int verb_list(int argc, char *argv[], void *userdata) {
         _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
         dev_t esp_devid = 0, xbootldr_devid = 0;
@@ -534,6 +753,23 @@ int verb_list(int argc, char *argv[], void *userdata) {
                 return 0;
         }
 
-        pager_open(arg_pager_flags);
-        return show_boot_entries(&config, arg_json_format_flags);
+        if (streq(argv[0], "list")) {
+                pager_open(arg_pager_flags);
+                return show_boot_entries(&config, arg_json_format_flags);
+        } else if (streq(argv[0], "cleanup")) {
+                if (arg_xbootldr_path && xbootldr_devid != esp_devid)
+                        cleanup_orphaned_files(&config, arg_xbootldr_path);
+                return cleanup_orphaned_files(&config, arg_esp_path);
+        } else {
+                if (arg_xbootldr_path && xbootldr_devid != esp_devid) {
+                        r = unlink_entry(&config, arg_xbootldr_path, argv[1]);
+                        if (r == 0 || r != -ENOENT)
+                                return r;
+                }
+                return unlink_entry(&config, arg_esp_path, argv[1]);
+        }
+}
+
+int verb_unlink(int argc, char *argv[], void *userdata) {
+        return verb_list(argc, argv, userdata);
 }
