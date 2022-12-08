@@ -4,6 +4,9 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#if HAVE_LINUX_MEMFD_H
+#include <linux/memfd.h>
+#endif
 
 #include "alloc-util.h"
 #include "copy.h"
@@ -12,6 +15,8 @@
 #include "fs-util.h"
 #include "io-util.h"
 #include "memfd-util.h"
+#include "missing_mman.h"
+#include "missing_syscall.h"
 #include "tmpfile-util.h"
 
 /* When the data is smaller or equal to 64K, try to place the copy in a memfd/pipe */
@@ -342,4 +347,51 @@ finish:
          * file again */
 
         return fd_reopen(tmp_fd, O_RDONLY|O_CLOEXEC);
+}
+
+int memfd_clone_fd(int fd, const char *name, int mode) {
+        _cleanup_close_ int mfd = -EBADF;
+        bool ro;
+        int r;
+
+        /* Creates a clone of a regular file in a memfd. Unlike copy_data_fd() this returns strictly a memfd
+         * (and if it can't it will fail). Thus the resulting fd is seekable, and definitely reports as
+         * S_ISREG. */
+
+        assert(fd >= 0);
+        assert(name);
+        assert(IN_SET(mode & O_ACCMODE, O_RDONLY, O_RDWR));
+        assert((mode & ~(O_RDONLY|O_RDWR|O_CLOEXEC)) == 0);
+
+        ro = (mode & O_ACCMODE) == O_RDONLY;
+
+        mfd = memfd_create(name,
+                           ((FLAGS_SET(mode, O_CLOEXEC) || ro) ? MFD_CLOEXEC : 0) |
+                           (ro ? MFD_ALLOW_SEALING : 0));
+        if (mfd < 0)
+                return -errno;
+
+        r = copy_bytes(fd, mfd, UINT64_MAX, COPY_REFLINK);
+        if (r < 0)
+                return r;
+
+        if (ro) {
+                _cleanup_close_ int rfd = -1;
+
+                r = memfd_set_sealed(mfd);
+                if (r < 0)
+                        return r;
+
+                rfd = fd_reopen(mfd, mode);
+                if (rfd < 0)
+                        return rfd;
+
+                return TAKE_FD(rfd);
+        }
+
+        off_t f = lseek(mfd, 0, SEEK_SET);
+        if (f < 0)
+                return -errno;
+
+        return TAKE_FD(mfd);
 }

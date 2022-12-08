@@ -5,3 +5,4 @@
 
 int acquire_data_fd(const void *data, size_t size, unsigned flags);
 int copy_data_fd(int fd);
+int memfd_clone_fd(int fd, const char *name, int mode);
