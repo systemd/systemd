@@ -321,6 +321,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--in-memory</option></term>
+
+        <listitem><para>If specified an in-memory copy of the specified disk image is used. This may be used
+        to operate with write-access on a (possibly read-only) image, without actually modifying the original
+        file. This may also be used in order to operate on a disk image without keeping the originating file
+        system busy, in order to allow it to be unmounted.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--root-hash=</option></term>
         <term><option>--root-hash-sig=</option></term>
         <term><option>--verity-data=</option></term>
