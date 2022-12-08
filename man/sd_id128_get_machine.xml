@@ -145,6 +145,14 @@
         </varlistentry>
 
         <varlistentry>
+          <term><constant>-ENOPKG</constant></term>
+
+          <listitem><para>Returned by <function>sd_id128_get_machine()</function> and
+          <function>sd_id128_get_machine_app_specific()</function> when the content of
+          <filename>/etc/machine-id</filename> is <literal>uninitialized</literal>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><constant>-ENXIO</constant></term>
 
           <listitem><para>Returned by <function>sd_id128_get_invocation()</function> if no invocation ID is
