@@ -86,7 +86,7 @@ TEST(id128) {
 
         /* First, write as UUID */
         assert_se(sd_id128_randomize(&id) >= 0);
-        assert_se(id128_write_fd(fd, ID128_FORMAT_UUID, id, false) >= 0);
+        assert_se(id128_write_fd(fd, ID128_FORMAT_UUID, id) >= 0);
 
         assert_se(lseek(fd, 0, SEEK_SET) == 0);
         assert_se(id128_read_fd(fd, ID128_FORMAT_PLAIN, &id2) == -EINVAL);
@@ -104,7 +104,7 @@ TEST(id128) {
         assert_se(ftruncate(fd, 0) >= 0);
 
         assert_se(sd_id128_randomize(&id) >= 0);
-        assert_se(id128_write_fd(fd, ID128_FORMAT_PLAIN, id, false) >= 0);
+        assert_se(id128_write_fd(fd, ID128_FORMAT_PLAIN, id) >= 0);
 
         assert_se(lseek(fd, 0, SEEK_SET) == 0);
         assert_se(id128_read_fd(fd, ID128_FORMAT_UUID, &id2) == -EINVAL);

@@ -151,7 +151,7 @@ int machine_id_setup(const char *root, bool force_transient, sd_id128_t machine_
                         if (r < 0)
                                 return log_error_errno(r, "Failed to sync %s: %m", etc_machine_id);
                 } else {
-                        r = id128_write_fd(fd, ID128_FORMAT_PLAIN, machine_id, true);
+                        r = id128_write_fd(fd, ID128_FORMAT_PLAIN | ID128_SYNC_ON_WRITE, machine_id);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to write %s: %m", etc_machine_id);
                         else
@@ -167,7 +167,7 @@ int machine_id_setup(const char *root, bool force_transient, sd_id128_t machine_
         run_machine_id = prefix_roota(root, "/run/machine-id");
 
         RUN_WITH_UMASK(0022)
-                r = id128_write(run_machine_id, ID128_FORMAT_PLAIN, machine_id, false);
+                r = id128_write(run_machine_id, ID128_FORMAT_PLAIN, machine_id);
         if (r < 0) {
                 (void) unlink(run_machine_id);
                 return log_error_errno(r, "Cannot write %s: %m", run_machine_id);
@@ -260,7 +260,7 @@ int machine_id_commit(const char *root) {
                 return r;
 
         /* Update a persistent version of etc_machine_id */
-        r = id128_write(etc_machine_id, ID128_FORMAT_PLAIN, id, true);
+        r = id128_write(etc_machine_id, ID128_FORMAT_PLAIN | ID128_SYNC_ON_WRITE, id);
         if (r < 0)
                 return log_error_errno(r, "Cannot write %s. This is mandatory to get a persistent machine ID: %m", etc_machine_id);
 
