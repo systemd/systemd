@@ -40,17 +40,21 @@ bool id128_is_valid(const char *s) {
         return false;
 }
 
-int id128_read_fd(int fd, Id128Format f, sd_id128_t *ret) {
+int id128_read_fd(int fd, Id128FormatFlag f, sd_id128_t *ret) {
         char buffer[SD_ID128_UUID_STRING_MAX + 1]; /* +1 is for trailing newline */
         ssize_t l;
 
         assert(fd >= 0);
-        assert(f < _ID128_FORMAT_MAX);
 
         /* Reads an 128bit ID from a file, which may either be in plain format (32 hex digits), or in UUID format, both
          * optionally followed by a newline and nothing else. ID files should really be newline terminated, but if they
          * aren't that's OK too, following the rule of "Be conservative in what you send, be liberal in what you
-         * accept". */
+         * accept".
+         *
+         * This returns the following:
+         *     -ENOMEDIUM: an empty string,
+         *     -ENOPKG:    "uninitialized" or "uninitialized\n",
+         *     -EINVAL:    other invalid strings. */
 
         l = loop_read(fd, buffer, sizeof(buffer), false); /* we expect a short read of either 32/33 or 36/37 chars */
         if (l < 0)
@@ -60,10 +64,9 @@ int id128_read_fd(int fd, Id128Format f, sd_id128_t *ret) {
 
         switch (l) {
 
-        case 13:
-        case 14:
-                /* Treat an "uninitialized" id file like an empty one */
-                return f == ID128_PLAIN_OR_UNINIT && strneq(buffer, "uninitialized\n", l) ? -ENOMEDIUM : -EINVAL;
+        case STRLEN("uninitialized"):
+        case STRLEN("uninitialized\n"):
+                return strneq(buffer, "uninitialized\n", l) ? -ENOPKG : -EINVAL;
 
         case SD_ID128_STRING_MAX: /* plain UUID with trailing newline */
                 if (buffer[SD_ID128_STRING_MAX-1] != '\n')
@@ -71,7 +74,7 @@ int id128_read_fd(int fd, Id128Format f, sd_id128_t *ret) {
 
                 _fallthrough_;
         case SD_ID128_STRING_MAX-1: /* plain UUID without trailing newline */
-                if (f == ID128_UUID)
+                if (!FLAGS_SET(f, ID128_FORMAT_PLAIN))
                         return -EINVAL;
 
                 buffer[SD_ID128_STRING_MAX-1] = 0;
@@ -83,7 +86,7 @@ int id128_read_fd(int fd, Id128Format f, sd_id128_t *ret) {
 
                 _fallthrough_;
         case SD_ID128_UUID_STRING_MAX-1: /* RFC UUID without trailing newline */
-                if (IN_SET(f, ID128_PLAIN, ID128_PLAIN_OR_UNINIT))
+                if (!FLAGS_SET(f, ID128_FORMAT_UUID))
                         return -EINVAL;
 
                 buffer[SD_ID128_UUID_STRING_MAX-1] = 0;
@@ -96,7 +99,7 @@ int id128_read_fd(int fd, Id128Format f, sd_id128_t *ret) {
         return sd_id128_from_string(buffer, ret);
 }
 
-int id128_read(const char *p, Id128Format f, sd_id128_t *ret) {
+int id128_read(const char *p, Id128FormatFlag f, sd_id128_t *ret) {
         _cleanup_close_ int fd = -1;
 
         fd = open(p, O_RDONLY|O_CLOEXEC|O_NOCTTY);
@@ -106,15 +109,15 @@ int id128_read(const char *p, Id128Format f, sd_id128_t *ret) {
         return id128_read_fd(fd, f, ret);
 }
 
-int id128_write_fd(int fd, Id128Format f, sd_id128_t id, bool do_sync) {
+int id128_write_fd(int fd, Id128FormatFlag f, sd_id128_t id, bool do_sync) {
         char buffer[SD_ID128_UUID_STRING_MAX + 1]; /* +1 is for trailing newline */
         size_t sz;
         int r;
 
         assert(fd >= 0);
-        assert(f < _ID128_FORMAT_MAX);
+        assert(IN_SET((f & ID128_FORMAT_ANY), ID128_FORMAT_PLAIN, ID128_FORMAT_UUID));
 
-        if (f != ID128_UUID) {
+        if (FLAGS_SET(f, ID128_FORMAT_PLAIN)) {
                 assert_se(sd_id128_to_string(id, buffer));
                 sz = SD_ID128_STRING_MAX;
         } else {
@@ -136,7 +139,7 @@ int id128_write_fd(int fd, Id128Format f, sd_id128_t id, bool do_sync) {
         return 0;
 }
 
-int id128_write(const char *p, Id128Format f, sd_id128_t id, bool do_sync) {
+int id128_write(const char *p, Id128FormatFlag f, sd_id128_t id, bool do_sync) {
         _cleanup_close_ int fd = -1;
 
         fd = open(p, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_TRUNC, 0444);
@@ -178,9 +181,9 @@ int id128_get_product(sd_id128_t *ret) {
         /* Reads the systems product UUID from DMI or devicetree (where it is located on POWER). This is
          * particularly relevant in VM environments, where VM managers typically place a VM uuid there. */
 
-        r = id128_read("/sys/class/dmi/id/product_uuid", ID128_UUID, &uuid);
+        r = id128_read("/sys/class/dmi/id/product_uuid", ID128_FORMAT_UUID, &uuid);
         if (r == -ENOENT)
-                r = id128_read("/proc/device-tree/vm,uuid", ID128_UUID, &uuid);
+                r = id128_read("/proc/device-tree/vm,uuid", ID128_FORMAT_UUID, &uuid);
         if (r < 0)
                 return r;
 

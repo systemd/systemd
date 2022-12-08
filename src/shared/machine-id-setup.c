@@ -37,7 +37,7 @@ static int generate_machine_id(const char *root, sd_id128_t *ret) {
         dbus_machine_id = prefix_roota(root, "/var/lib/dbus/machine-id");
         fd = open(dbus_machine_id, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
         if (fd >= 0) {
-                if (id128_read_fd(fd, ID128_PLAIN, ret) >= 0) {
+                if (id128_read_fd(fd, ID128_FORMAT_PLAIN, ret) >= 0) {
                         log_info("Initializing machine ID from D-Bus machine ID.");
                         return 0;
                 }
@@ -122,7 +122,7 @@ int machine_id_setup(const char *root, bool force_transient, sd_id128_t machine_
         if (sd_id128_is_null(machine_id)) {
 
                 /* Try to read any existing machine ID */
-                if (id128_read_fd(fd, ID128_PLAIN, ret) >= 0)
+                if (id128_read_fd(fd, ID128_FORMAT_PLAIN, ret) >= 0)
                         return 0;
 
                 /* Hmm, so, the id currently stored is not useful, then let's generate one */
@@ -151,7 +151,7 @@ int machine_id_setup(const char *root, bool force_transient, sd_id128_t machine_
                         if (r < 0)
                                 return log_error_errno(r, "Failed to sync %s: %m", etc_machine_id);
                 } else {
-                        r = id128_write_fd(fd, ID128_PLAIN, machine_id, true);
+                        r = id128_write_fd(fd, ID128_FORMAT_PLAIN, machine_id, true);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to write %s: %m", etc_machine_id);
                         else
@@ -167,7 +167,7 @@ int machine_id_setup(const char *root, bool force_transient, sd_id128_t machine_
         run_machine_id = prefix_roota(root, "/run/machine-id");
 
         RUN_WITH_UMASK(0022)
-                r = id128_write(run_machine_id, ID128_PLAIN, machine_id, false);
+                r = id128_write(run_machine_id, ID128_FORMAT_PLAIN, machine_id, false);
         if (r < 0) {
                 (void) unlink(run_machine_id);
                 return log_error_errno(r, "Cannot write %s: %m", run_machine_id);
@@ -239,7 +239,7 @@ int machine_id_commit(const char *root) {
                                        "%s is not on a temporary file system.",
                                        etc_machine_id);
 
-        r = id128_read_fd(fd, ID128_PLAIN, &id);
+        r = id128_read_fd(fd, ID128_FORMAT_PLAIN, &id);
         if (r < 0)
                 return log_error_errno(r, "We didn't find a valid machine ID in %s: %m", etc_machine_id);
 
@@ -260,7 +260,7 @@ int machine_id_commit(const char *root) {
                 return r;
 
         /* Update a persistent version of etc_machine_id */
-        r = id128_write(etc_machine_id, ID128_PLAIN, id, true);
+        r = id128_write(etc_machine_id, ID128_FORMAT_PLAIN, id, true);
         if (r < 0)
                 return log_error_errno(r, "Cannot write %s. This is mandatory to get a persistent machine ID: %m", etc_machine_id);
 
