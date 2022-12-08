@@ -327,13 +327,22 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
         return ((l + ali - 1) & ~(ali - 1));
 }
 
+#define ALIGN2(l) ALIGN_TO(l, 2)
 #define ALIGN4(l) ALIGN_TO(l, 4)
 #define ALIGN8(l) ALIGN_TO(l, 8)
+#define ALIGN2_PTR(l) ((void*) ALIGN_TO((uintptr_t) l, 2))
+#define ALIGN4_PTR(l) ((void*) ALIGN_TO((uintptr_t) l, 4))
+#define ALIGN8_PTR(l) ((void*) ALIGN_TO((uintptr_t) l, 8))
 #ifndef SD_BOOT
 /* libefi also provides ALIGN, and we do not use them in sd-boot explicitly. */
 #define ALIGN(l)  ALIGN_TO(l, sizeof(void*))
 #define ALIGN_PTR(p) ((void*) ALIGN((uintptr_t) (p)))
 #endif
+
+/* Checks if the specified pointer is aligned as appropriate for the specific type */
+#define ISALIGNED16(p) (((uintptr_t) p) % __alignof__(uint16_t) == 0)
+#define ISALIGNED32(p) (((uintptr_t) p) % __alignof__(uint32_t) == 0)
+#define ISALIGNED64(p) (((uintptr_t) p) % __alignof__(uint64_t) == 0)
 
 /* Same as ALIGN_TO but callable in constant contexts. */
 #define CONST_ALIGN_TO(l, ali)                                         \
