@@ -237,6 +237,12 @@ grep -q -F -f "$os_release" "${image_dir}/mount/etc/os-release"
 grep -q -F "MARKER=1" "${image_dir}/mount/usr/lib/os-release"
 systemd-dissect --umount "${image_dir}/mount"
 
+systemd-dissect --root-hash "${roothash}" --mount "${image}.gpt" --in-memory "${image_dir}/mount"
+grep -q -F -f "$os_release" "${image_dir}/mount/usr/lib/os-release"
+grep -q -F -f "$os_release" "${image_dir}/mount/etc/os-release"
+grep -q -F "MARKER=1" "${image_dir}/mount/usr/lib/os-release"
+systemd-dissect --umount "${image_dir}/mount"
+
 # add explicit -p MountAPIVFS=yes once to test the parser
 systemd-run -P -p RootImage="${image}.gpt" -p RootHash="${roothash}" -p MountAPIVFS=yes cat /usr/lib/os-release | grep -q -F "MARKER=1"
 
