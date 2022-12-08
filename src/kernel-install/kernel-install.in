@@ -365,11 +365,6 @@ case "$COMMAND" in
             [ $err -eq $skip_remaining ] && break
             [ $err -ne 0 ] && exit $err
         done
-
-        if [ "$MAKE_ENTRY_DIR_ABS" -eq 0 ]; then
-            log_verbose "Removing $ENTRY_DIR_ABS/"
-            rm -rf "$ENTRY_DIR_ABS"
-        fi
         ;;
 
     inspect)
