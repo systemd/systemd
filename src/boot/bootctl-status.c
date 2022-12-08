@@ -639,6 +639,65 @@ static int purge_entry(const BootConfig *config, const char *fn)
         return 0;
 }
 
+static int list_remove_orphaned_file(
+                RecurseDirEvent event,
+                const char *path,
+                int dir_fd,
+                int inode_fd,
+                const struct dirent *de,
+                const struct statx *sx,
+                void *userdata) {
+
+        Hashmap* known_files = userdata;
+
+        assert(path);
+        assert(known_files);
+
+        if (event == RECURSE_DIR_ENTRY) {
+                if (hashmap_get(known_files, path) == NULL) {
+                        log_info("removing orphaned file %s\n", path);
+                        int r = unlink(path);
+                        if (r < 0)
+                                log_error_errno(r, "failed to remove \"%s\": %m", path);
+                        else
+                                log_info("Removed %s", path);
+                }
+        }
+
+        return RECURSE_DIR_CONTINUE;
+}
+
+static int cleanup_orphaned_files(
+                const BootConfig *config,
+                const char *root) {
+        _cleanup_(hashmap_free_free_keyp) Hashmap *known_files = NULL;
+        _cleanup_free_ char *full = NULL;
+        _cleanup_close_ int dir_fd = -1;
+        int r = -1;
+
+        assert(config);
+        assert(root);
+
+        r = settle_entry_token();
+        if (r < 0)
+                return r;
+
+        r = count_known_files(config, &known_files);
+        if (r < 0)
+                return log_error_errno(r, "failed to count files");
+
+        dir_fd = chase_symlinks_and_open(arg_entry_token, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS,
+                        O_DIRECTORY|O_CLOEXEC, &full);
+        if (dir_fd == -ENOENT)
+                return 0;
+        if (dir_fd < 0)
+                return log_error_errno(dir_fd, "Failed to open '%s/%s': %m", root, arg_entry_token);
+
+        r = recurse_dir(dir_fd, full, 0, UINT_MAX, RECURSE_DIR_SORT, list_remove_orphaned_file, known_files);
+
+        return r;
+}
+
 int verb_list(int argc, char *argv[], void *userdata) {
         _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
         dev_t esp_devid = 0, xbootldr_devid = 0;
@@ -673,6 +732,10 @@ int verb_list(int argc, char *argv[], void *userdata) {
         if (streq(argv[0], "list")) {
                 pager_open(arg_pager_flags);
                 return show_boot_entries(&config, arg_json_format_flags);
+        } else if (streq(argv[0], "cleanup")) {
+                if (arg_xbootldr_path && xbootldr_devid != esp_devid)
+                        cleanup_orphaned_files(&config, arg_xbootldr_path);
+                return cleanup_orphaned_files(&config, arg_esp_path);
         } else
                 return purge_entry(&config, argv[1]);
 }
