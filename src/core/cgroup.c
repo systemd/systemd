@@ -4167,7 +4167,7 @@ int compare_job_priority(const void *a, const void *b) {
 int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
         _cleanup_free_ char *path = NULL;
         FreezerState target, kernel = _FREEZER_STATE_INVALID;
-        int r;
+        int r, ret;
 
         assert(u);
         assert(IN_SET(action, FREEZER_FREEZE, FREEZER_THAW));
@@ -4175,8 +4175,22 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
         if (!cg_freezer_supported())
                 return 0;
 
+        /* Ignore all requests to thaw init.scope or -.slice and reject all requests to freeze them */
+        if (unit_has_name(u, SPECIAL_ROOT_SLICE) || unit_has_name(u, SPECIAL_INIT_SCOPE))
+                return action == FREEZER_FREEZE ? -EPERM : 0;
+
         if (!u->cgroup_realized)
                 return -EBUSY;
+
+        if (action == FREEZER_THAW) {
+                Unit *slice = UNIT_GET_SLICE(u);
+
+                if (slice) {
+                        r = unit_cgroup_freezer_action(slice, FREEZER_THAW);
+                        if (r < 0)
+                                return log_unit_error_errno(u, r, "Failed to thaw slice %s of unit: %m", slice->id);
+                }
+        }
 
         target = action == FREEZER_FREEZE ? FREEZER_FROZEN : FREEZER_RUNNING;
 
@@ -4186,8 +4200,11 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
 
         if (target == kernel) {
                 u->freezer_state = target;
-                return 0;
-        }
+                if (action == FREEZER_FREEZE)
+                        return 0;
+                ret = 0;
+        } else
+                ret = 1;
 
         r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "cgroup.freeze", &path);
         if (r < 0)
@@ -4195,16 +4212,18 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
 
         log_unit_debug(u, "%s unit.", action == FREEZER_FREEZE ? "Freezing" : "Thawing");
 
-        if (action == FREEZER_FREEZE)
-                u->freezer_state = FREEZER_FREEZING;
-        else
-                u->freezer_state = FREEZER_THAWING;
+        if (target != kernel) {
+                if (action == FREEZER_FREEZE)
+                        u->freezer_state = FREEZER_FREEZING;
+                else
+                        u->freezer_state = FREEZER_THAWING;
+        }
 
         r = write_string_file(path, one_zero(action == FREEZER_FREEZE), WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return r;
 
-        return 1;
+        return ret;
 }
 
 int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name) {
