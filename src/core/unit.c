@@ -687,7 +687,7 @@ Unit* unit_free(Unit *u) {
         u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
         u->bus_track = sd_bus_track_unref(u->bus_track);
         u->deserialized_refs = strv_free(u->deserialized_refs);
-        u->pending_freezer_message = sd_bus_message_unref(u->pending_freezer_message);
+        u->pending_freezer_invocation = sd_bus_message_unref(u->pending_freezer_invocation);
 
         unit_free_requires_mounts_for(u);
 
@@ -5829,7 +5829,7 @@ void unit_frozen(Unit *u) {
 
         u->freezer_state = FREEZER_FROZEN;
 
-        bus_unit_send_pending_freezer_message(u);
+        bus_unit_send_pending_freezer_message(u, false);
 }
 
 void unit_thawed(Unit *u) {
@@ -5837,7 +5837,7 @@ void unit_thawed(Unit *u) {
 
         u->freezer_state = FREEZER_RUNNING;
 
-        bus_unit_send_pending_freezer_message(u);
+        bus_unit_send_pending_freezer_message(u, false);
 }
 
 static int unit_freezer_action(Unit *u, FreezerAction action) {
@@ -5862,7 +5862,8 @@ static int unit_freezer_action(Unit *u, FreezerAction action) {
         if (s != UNIT_ACTIVE)
                 return -EHOSTDOWN;
 
-        if (IN_SET(u->freezer_state, FREEZER_FREEZING, FREEZER_THAWING))
+        if ((IN_SET(u->freezer_state, FREEZER_FREEZING, FREEZER_THAWING) && action == FREEZER_FREEZE) ||
+            (u->freezer_state == FREEZER_THAWING && action == FREEZER_THAW))
                 return -EALREADY;
 
         r = method(u);
