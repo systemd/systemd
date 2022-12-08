@@ -77,6 +77,7 @@ static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static bool arg_rmdir = false;
+static bool arg_in_memory = false;
 static char **arg_argv = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_verity_settings, verity_settings_done);
@@ -108,6 +109,7 @@ static int help(void) {
                "     --mkdir              Make mount directory before mounting, if missing\n"
                "     --rmdir              Remove mount directory after unmounting\n"
                "     --discard=MODE       Choose 'discard' mode (disabled, loop, all, crypto)\n"
+               "     --in-memory          Copy image into memory\n"
                "     --root-hash=HASH     Specify root hash for verity\n"
                "     --root-hash-sig=SIG  Specify pkcs7 signature of root hash for verity\n"
                "                          as a DER encoded PKCS7, either as a path to a file\n"
@@ -200,6 +202,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERITY_DATA,
                 ARG_MKDIR,
                 ARG_RMDIR,
+                ARG_IN_MEMORY,
                 ARG_JSON,
                 ARG_MTREE,
                 ARG_DISCOVER,
@@ -222,6 +225,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "verity-data",   required_argument, NULL, ARG_VERITY_DATA   },
                 { "mkdir",         no_argument,       NULL, ARG_MKDIR         },
                 { "rmdir",         no_argument,       NULL, ARG_RMDIR         },
+                { "in-memory",     no_argument,       NULL, ARG_IN_MEMORY     },
                 { "list",          no_argument,       NULL, 'l'               },
                 { "mtree",         no_argument,       NULL, ARG_MTREE         },
                 { "copy-from",     no_argument,       NULL, 'x'               },
@@ -339,6 +343,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
                 }
+
+                case ARG_IN_MEMORY:
+                        arg_in_memory = true;
+                        break;
 
                 case ARG_ROOT_HASH: {
                         _cleanup_free_ void *p = NULL;
@@ -1392,7 +1400,8 @@ static int action_discover(void) {
 static int run(int argc, char *argv[]) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-        int r;
+        uint32_t loop_flags;
+        int open_flags, r;
 
         log_setup();
 
@@ -1417,12 +1426,13 @@ static int run(int argc, char *argv[]) {
                                                                 * available we turn off partition table
                                                                 * support */
 
-        r = loop_device_make_by_path(
-                        arg_image,
-                        FLAGS_SET(arg_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : O_RDWR,
-                        FLAGS_SET(arg_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
-                        LOCK_SH,
-                        &d);
+        open_flags = FLAGS_SET(arg_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : O_RDWR;
+        loop_flags = FLAGS_SET(arg_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN;
+
+        if (arg_in_memory)
+                r = loop_device_make_by_path_memory(arg_image, open_flags, loop_flags, LOCK_SH, &d);
+        else
+                r = loop_device_make_by_path(arg_image, open_flags, loop_flags, LOCK_SH, &d);
         if (r < 0)
                 return log_error_errno(r, "Failed to set up loopback device for %s: %m", arg_image);
 
