@@ -527,7 +527,18 @@ int dns_name_compare_func(const char *a, const char *b) {
         }
 }
 
-DEFINE_HASH_OPS(dns_name_hash_ops, char, dns_name_hash_func, dns_name_compare_func);
+DEFINE_HASH_OPS(
+        dns_name_hash_ops,
+        char,
+        dns_name_hash_func,
+        dns_name_compare_func);
+
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+        dns_name_hash_ops_free,
+        char,
+        dns_name_hash_func,
+        dns_name_compare_func,
+        free);
 
 int dns_name_equal(const char *x, const char *y) {
         int r, q;

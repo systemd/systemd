@@ -67,6 +67,7 @@ static inline bool dns_name_is_empty(const char *s) {
 void dns_name_hash_func(const char *s, struct siphash *state);
 int dns_name_compare_func(const char *a, const char *b);
 extern const struct hash_ops dns_name_hash_ops;
+extern const struct hash_ops dns_name_hash_ops_free;
 
 int dns_name_between(const char *a, const char *b, const char *c);
 int dns_name_equal(const char *x, const char *y);
