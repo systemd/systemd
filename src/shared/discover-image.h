@@ -34,6 +34,7 @@ typedef struct Image {
         unsigned n_ref;
 
         ImageType type;
+        ImageClass class;
         char *name;
         char *path;
         bool read_only;
@@ -75,6 +76,9 @@ int image_read_only(Image *i, bool b);
 
 const char* image_type_to_string(ImageType t) _const_;
 ImageType image_type_from_string(const char *s) _pure_;
+
+const char* image_class_to_string(ImageClass cl) _const_;
+ImageClass image_class_from_string(const char *s) _pure_;
 
 int image_path_lock(const char *path, int operation, LockFile *global, LockFile *local);
 int image_name_lock(const char *name, int operation, LockFile *ret);
