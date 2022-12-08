@@ -23,17 +23,15 @@ TEST(parse_etc_hosts_system) {
                 return;
         }
 
-        _cleanup_(etc_hosts_free) EtcHosts hosts = {};
+        _cleanup_(etc_hosts_clear) EtcHosts hosts = {};
         assert_se(etc_hosts_parse(&hosts, f) == 0);
 }
 
-#define address_equal_4(_addr, _address)                                \
-        ((_addr)->family == AF_INET &&                                  \
-         !memcmp(&(_addr)->address.in, &(struct in_addr) { .s_addr = (_address) }, 4))
+#define has_4(_set, _address_str)                                       \
+        set_contains(_set, &(struct in_addr_data) { .family = AF_INET, .address.in = { .s_addr = inet_addr(_address_str) } })
 
-#define address_equal_6(_addr, ...)                                     \
-        ((_addr)->family == AF_INET6 &&                                 \
-         !memcmp(&(_addr)->address.in6, &(struct in6_addr) { .s6_addr = __VA_ARGS__}, 16) )
+#define has_6(_set, ...)                                           \
+        set_contains(_set, &(struct in_addr_data) { .family = AF_INET6, .address.in6 = { .s6_addr = __VA_ARGS__ } })
 
 TEST(parse_etc_hosts) {
         _cleanup_(unlink_tempfilep) char
@@ -67,38 +65,34 @@ TEST(parse_etc_hosts) {
         assert_se(fflush_and_check(f) >= 0);
         rewind(f);
 
-        _cleanup_(etc_hosts_free) EtcHosts hosts = {};
+        _cleanup_(etc_hosts_clear) EtcHosts hosts = {};
         assert_se(etc_hosts_parse(&hosts, f) == 0);
 
         EtcHostsItemByName *bn;
         assert_se(bn = hashmap_get(hosts.by_name, "some.where"));
-        assert_se(bn->n_addresses == 3);
-        assert_se(MALLOC_ELEMENTSOF(bn->addresses) >= 3);
-        assert_se(address_equal_4(bn->addresses[0], inet_addr("1.2.3.4")));
-        assert_se(address_equal_4(bn->addresses[1], inet_addr("1.2.3.5")));
-        assert_se(address_equal_6(bn->addresses[2], {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5}));
+        assert_se(set_size(bn->addresses) == 3);
+        assert_se(has_4(bn->addresses, "1.2.3.4"));
+        assert_se(has_4(bn->addresses, "1.2.3.5"));
+        assert_se(has_6(bn->addresses, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5}));
 
         assert_se(bn = hashmap_get(hosts.by_name, "dash"));
-        assert_se(bn->n_addresses == 1);
-        assert_se(MALLOC_ELEMENTSOF(bn->addresses) >= 1);
-        assert_se(address_equal_4(bn->addresses[0], inet_addr("1.2.3.6")));
+        assert_se(set_size(bn->addresses) == 1);
+        assert_se(has_4(bn->addresses, "1.2.3.6"));
 
         assert_se(bn = hashmap_get(hosts.by_name, "dash-dash.where-dash"));
-        assert_se(bn->n_addresses == 1);
-        assert_se(MALLOC_ELEMENTSOF(bn->addresses) >= 1);
-        assert_se(address_equal_4(bn->addresses[0], inet_addr("1.2.3.6")));
+        assert_se(set_size(bn->addresses) == 1);
+        assert_se(has_4(bn->addresses, "1.2.3.6"));
 
         /* See https://tools.ietf.org/html/rfc1035#section-2.3.1 */
         FOREACH_STRING(s, "bad-dash-", "-bad-dash", "-bad-dash.bad-")
                 assert_se(!hashmap_get(hosts.by_name, s));
 
         assert_se(bn = hashmap_get(hosts.by_name, "before.comment"));
-        assert_se(bn->n_addresses == 4);
-        assert_se(MALLOC_ELEMENTSOF(bn->addresses) >= 4);
-        assert_se(address_equal_4(bn->addresses[0], inet_addr("1.2.3.9")));
-        assert_se(address_equal_4(bn->addresses[1], inet_addr("1.2.3.10")));
-        assert_se(address_equal_4(bn->addresses[2], inet_addr("1.2.3.11")));
-        assert_se(address_equal_4(bn->addresses[3], inet_addr("1.2.3.12")));
+        assert_se(set_size(bn->addresses) == 4);
+        assert_se(has_4(bn->addresses, "1.2.3.9"));
+        assert_se(has_4(bn->addresses, "1.2.3.10"));
+        assert_se(has_4(bn->addresses, "1.2.3.11"));
+        assert_se(has_4(bn->addresses, "1.2.3.12"));
 
         assert_se(!hashmap_get(hosts.by_name, "within.comment"));
         assert_se(!hashmap_get(hosts.by_name, "within.comment2"));
@@ -113,9 +107,8 @@ TEST(parse_etc_hosts) {
         assert_se(!set_contains(hosts.no_address, "multi.colon"));
 
         assert_se(bn = hashmap_get(hosts.by_name, "some.other"));
-        assert_se(bn->n_addresses == 1);
-        assert_se(MALLOC_ELEMENTSOF(bn->addresses) >= 1);
-        assert_se(address_equal_6(bn->addresses[0], {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5}));
+        assert_se(set_size(bn->addresses) == 1);
+        assert_se(has_6(bn->addresses, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5}));
 
         assert_se( set_contains(hosts.no_address, "some.where"));
         assert_se( set_contains(hosts.no_address, "some.other"));
@@ -124,7 +117,7 @@ TEST(parse_etc_hosts) {
 }
 
 static void test_parse_file_one(const char *fname) {
-        _cleanup_(etc_hosts_free) EtcHosts hosts = {};
+        _cleanup_(etc_hosts_clear) EtcHosts hosts = {};
         _cleanup_fclose_ FILE *f;
 
         log_info("/* %s(\"%s\") */", __func__, fname);
