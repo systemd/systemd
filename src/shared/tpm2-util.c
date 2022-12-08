@@ -461,6 +461,52 @@ static unsigned find_nth_bit(uint32_t mask, unsigned n) {
         return UINT_MAX;
 }
 
+#define tpm2_log_debug_digest(digest, fmt, ...)                         \
+        ({                                                              \
+                if (DEBUG_LOGGING) {                                    \
+                        _cleanup_free_ char *_h_ = hexmem((digest)->buffer, (digest)->size); \
+                                                                        \
+                        if (_h_)                                        \
+                                log_debug(fmt ": %s", ##__VA_ARGS__, _h_); \
+                }                                                       \
+        })
+
+static int tpm2_get_policy_digest(
+                struct tpm2_context *c,
+                struct tpm2_handle session,
+                TPM2B_DIGEST **ret_policy_digest) {
+
+        _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
+        TSS2_RC rc;
+
+        assert(c);
+
+        if (DEBUG_LOGGING || ret_policy_digest) {
+                log_debug("Acquiring policy digest.");
+
+                rc = sym_Esys_PolicyGetDigest(
+                                c->esys_context,
+                                session.handle,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE,
+                                &policy_digest);
+                if (rc != TSS2_RC_SUCCESS)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to get policy digest from TPM: %s", sym_Tss2_RC_Decode(rc));
+
+                tpm2_log_debug_digest(policy_digest, "Session policy digest");
+        }
+
+        if (ret_policy_digest) {
+                /* Free any previous digest before assignment */
+                Esys_Freep(ret_policy_digest);
+                *ret_policy_digest = TAKE_PTR(policy_digest);
+        }
+
+        return 0;
+}
+
 static int tpm2_pcr_mask_good(
                 struct tpm2_context *c,
                 TPMI_ALG_HASH bank,
@@ -494,16 +540,11 @@ static int tpm2_pcr_mask_good(
 
         /* If at least one of the selected PCR values is something other than all 0x00 or all 0xFF we are happy. */
         for (unsigned i = 0; i < pcr_values->count; i++) {
-                if (DEBUG_LOGGING) {
-                        _cleanup_free_ char *h = NULL;
-                        unsigned j;
+                unsigned j = find_nth_bit(mask, i);
 
-                        h = hexmem(pcr_values->digests[i].buffer, pcr_values->digests[i].size);
-                        j = find_nth_bit(mask, i);
-                        assert(j != UINT_MAX);
+                assert(j != UINT_MAX);
 
-                        log_debug("PCR %u value: %s", j, strna(h));
-                }
+                tpm2_log_debug_digest(&pcr_values->digests[i], "PCR %u value", j);
 
                 if (!memeqbyte(0x00, pcr_values->digests[i].buffer, pcr_values->digests[i].size) &&
                     !memeqbyte(0xFF, pcr_values->digests[i].buffer, pcr_values->digests[i].size))
@@ -1274,37 +1315,12 @@ static int tpm2_make_policy_session(
                                                sym_Tss2_RC_Decode(rc));
         }
 
-        if (DEBUG_LOGGING || ret_policy_digest) {
-                log_debug("Acquiring policy digest.");
-
-                rc = sym_Esys_PolicyGetDigest(
-                                c->esys_context,
-                                session.handle,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                &policy_digest);
-
-                if (rc != TSS2_RC_SUCCESS)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Failed to get policy digest from TPM: %s", sym_Tss2_RC_Decode(rc));
-
-                if (DEBUG_LOGGING) {
-                        _cleanup_free_ char *h = NULL;
-
-                        h = hexmem(policy_digest->buffer, policy_digest->size);
-                        if (!h)
-                                return log_oom();
-
-                        log_debug("Session policy digest: %s", h);
-                }
-        }
+        r = tpm2_get_policy_digest(c, session, ret_policy_digest);
+        if (r < 0)
+                return r;
 
         if (ret_session)
                 *ret_session = TAKE_HANDLE(session);
-
-        if (ret_policy_digest)
-                *ret_policy_digest = TAKE_PTR(policy_digest);
 
         if (ret_pcr_bank)
                 *ret_pcr_bank = pcr_bank;
