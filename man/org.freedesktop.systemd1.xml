@@ -2348,15 +2348,16 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <para><varname>ActiveState</varname> contains a state value that reflects whether the unit is currently
       active or not. The following states are currently defined: <literal>active</literal>,
       <literal>reloading</literal>, <literal>inactive</literal>, <literal>failed</literal>,
-      <literal>activating</literal>, and <literal>deactivating</literal>. <literal>active</literal> indicates
-      that unit is active (obviously...). <literal>reloading</literal> indicates that the unit is active and
-      currently reloading its configuration. <literal>inactive</literal> indicates that it is inactive and
-      the previous run was successful or no previous run has taken place yet. <literal>failed</literal>
-      indicates that it is inactive and the previous run was not successful (more information about the
-      reason for this is available on the unit type specific interfaces, for example for services in the
-      <varname>Result</varname> property, see below). <literal>activating</literal> indicates that the unit
-      has previously been inactive but is currently in the process of entering an active state. Conversely
-      <literal>deactivating</literal> indicates that the unit is currently in the process of
+      <literal>activating</literal>, <literal>deactivating</literal> and <literal>not-found</literal>.
+      <literal>active</literal> indicates that unit is active (obviously...). <literal>reloading</literal>
+      indicates that the unit is active and currently reloading its configuration. <literal>inactive</literal>
+      indicates that it is inactive and the previous run was successful or no previous run has taken place yet.
+      <literal>failed</literal> indicates that it is inactive and the previous run was not successful
+      (more information about the reason for this is available on the unit type specific interfaces, for example
+      for services in the <varname>Result</varname> property, see below). <literal>activating</literal>
+      indicates that the unit has previously been inactive but is currently in the process of entering an
+      active state. <literal>not-found</literal> indicates that the corresponding unit file could not be found.
+      Conversely <literal>deactivating</literal> indicates that the unit is currently in the process of
       deactivation.</para>
 
       <para><varname>SubState</varname> encodes states of the same state machine that
@@ -2375,17 +2376,19 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <varname>FragmentPath</varname>. It currently knows the following states: <literal>enabled</literal>,
       <literal>enabled-runtime</literal>, <literal>linked</literal>, <literal>linked-runtime</literal>,
       <literal>masked</literal>, <literal>masked-runtime</literal>, <literal>static</literal>,
-      <literal>disabled</literal>, and <literal>invalid</literal>. <literal>enabled</literal> indicates that a
-      unit file is permanently enabled. <literal>enable-runtime</literal> indicates the unit file is only
-      temporarily enabled and will no longer be enabled after a reboot (that means, it is enabled via
-      <filename>/run/</filename> symlinks, rather than <filename>/etc/</filename>). <literal>linked</literal>
-      indicates that a unit is linked into <filename>/etc/</filename> permanently. <literal>linked-runtime</literal>
-      indicates that a unit is linked into <filename>/run/</filename> temporarily (until the next
-      reboot). <literal>masked</literal> indicates that the unit file is masked permanently.
+      <literal>disabled</literal>, <literal>invalid</literal> and <literal>not-found</literal>.
+      <literal>enabled</literal> indicates that a unit file is permanently enabled.
+      <literal>enable-runtime</literal> indicates the unit file is only temporarily enabled and will no longer
+      be enabled after a reboot (that means, it is enabled via <filename>/run/</filename> symlinks, rather than
+      <filename>/etc/</filename>). <literal>linked</literal> indicates that a unit is linked into
+      <filename>/etc/</filename> permanently. <literal>linked-runtime</literal> indicates that a unit is
+      linked into <filename>/run/</filename> temporarily (until the next reboot).
+      <literal>masked</literal> indicates that the unit file is masked permanently.
       <literal>masked-runtime</literal> indicates that it is masked in <filename>/run/</filename> temporarily
       (until the next reboot). <literal>static</literal> indicates that the unit is statically enabled, i.e.
-      always enabled and doesn't need to be enabled explicitly. <literal>invalid</literal> indicates that it
-      could not be determined whether the unit file is enabled.</para>
+      always enabled and doesn't need to be enabled explicitly. <literal>invalid</literal> indicates that
+      it could not be determined whether the unit file is enabled. <literal>not-found</literal> indicates that
+      the corresponding unit file could not be found.</para>
 
       <para><varname>InactiveExitTimestamp</varname>, <varname>InactiveExitTimestampMonotonic</varname>,
       <varname>ActiveEnterTimestamp</varname>, <varname>ActiveEnterTimestampMonotonic</varname>,

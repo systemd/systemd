@@ -852,6 +852,9 @@ UnitActiveState unit_active_state(Unit *u) {
         if (u->load_state == UNIT_MERGED)
                 return unit_active_state(unit_follow_merge(u));
 
+        if (u->load_state == UNIT_NOT_FOUND)
+                return UNIT_INACTIVE_NOT_FOUND;
+
         /* After a reload it might happen that a unit is not correctly
          * loaded but still has a process around. That's why we won't
          * shortcut failed loading to UNIT_INACTIVE_FAILED. */
@@ -3985,7 +3988,9 @@ UnitFileState unit_get_unit_file_state(Unit *u) {
                                 NULL,
                                 u->id,
                                 &u->unit_file_state);
-                if (r < 0)
+                if (r == -ENOENT)
+                        u->unit_file_state = UNIT_FILE_NOT_FOUND;
+                else if (r < 0)
                         u->unit_file_state = UNIT_FILE_BAD;
         }
 

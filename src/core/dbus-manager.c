@@ -2088,7 +2088,7 @@ static int method_get_unit_file_state(sd_bus_message *message, void *userdata, s
                 return r;
 
         r = unit_file_get_state(m->unit_file_scope, NULL, name, &state);
-        if (r < 0)
+        if (r < 0 && r != -ENOENT)
                 return r;
 
         return sd_bus_reply_method_return(message, "s", unit_file_state_to_string(state));

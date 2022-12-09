@@ -45,11 +45,11 @@ static inline bool UNIT_IS_ACTIVE_OR_ACTIVATING(UnitActiveState t) {
 }
 
 static inline bool UNIT_IS_INACTIVE_OR_DEACTIVATING(UnitActiveState t) {
-        return IN_SET(t, UNIT_INACTIVE, UNIT_FAILED, UNIT_DEACTIVATING);
+        return IN_SET(t, UNIT_INACTIVE, UNIT_FAILED, UNIT_DEACTIVATING, UNIT_INACTIVE_NOT_FOUND);
 }
 
 static inline bool UNIT_IS_INACTIVE_OR_FAILED(UnitActiveState t) {
-        return IN_SET(t, UNIT_INACTIVE, UNIT_FAILED);
+        return IN_SET(t, UNIT_INACTIVE, UNIT_FAILED, UNIT_INACTIVE_NOT_FOUND);
 }
 
 static inline bool UNIT_IS_LOAD_COMPLETE(UnitLoadState t) {

@@ -59,6 +59,7 @@ static int show_installation_targets(sd_bus *bus, const char *name) {
 int verb_is_enabled(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **names = NULL;
         bool enabled;
+        bool not_found = true;
         int r;
 
         r = mangle_names("to check", strv_skip(argv, 1), &names);
@@ -76,8 +77,11 @@ int verb_is_enabled(int argc, char *argv[], void *userdata) {
                         UnitFileState state;
 
                         r = unit_file_get_state(arg_scope, arg_root, *name, &state);
-                        if (r < 0)
+                        if (r < 0 && r != -ENOENT)
                                 return log_error_errno(r, "Failed to get unit file state for %s: %m", *name);
+
+                        if (r != -ENOENT)
+                                not_found = false;
 
                         if (IN_SET(state,
                                    UNIT_FILE_ENABLED,
@@ -119,6 +123,9 @@ int verb_is_enabled(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
+                        if (!streq(s, "not-found"))
+                                not_found = false;
+
                         if (STR_IN_SET(s, "enabled", "enabled-runtime", "static", "alias", "indirect", "generated"))
                                 enabled = true;
 
@@ -132,6 +139,9 @@ int verb_is_enabled(int argc, char *argv[], void *userdata) {
                         }
                 }
         }
+
+        if (not_found)
+                return EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN;
 
         return enabled ? EXIT_SUCCESS : EXIT_FAILURE;
 }
