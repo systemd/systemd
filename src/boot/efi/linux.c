@@ -120,17 +120,17 @@ EFI_STATUS linux_exec(
                                 initrd_length);
 #endif
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, u"Bad kernel image: %r", err);
+                return log_error_status(err, "Bad kernel image: %m");
 
         _cleanup_(unload_imagep) EFI_HANDLE kernel_image = NULL;
         err = load_image(parent, linux_buffer, linux_length, &kernel_image);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, u"Error loading kernel image: %r", err);
+                return log_error_status(err, "Error loading kernel image: %m");
 
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         err = BS->HandleProtocol(kernel_image, &LoadedImageProtocol, (void **) &loaded_image);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, u"Error getting kernel loaded image protocol: %r", err);
+                return log_error_status(err, "Error getting kernel loaded image protocol: %m");
 
         if (cmdline) {
                 loaded_image->LoadOptions = (void *) cmdline;
@@ -140,8 +140,9 @@ EFI_STATUS linux_exec(
         _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
         err = initrd_register(initrd_buffer, initrd_length, &initrd_handle);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, u"Error registering initrd: %r", err);
+                return log_error_status(err, "Error registering initrd: %m");
 
+        log_wait();
         err = BS->StartImage(kernel_image, NULL, NULL);
 
         /* Try calling the kernel compat entry point if one exists. */
@@ -151,5 +152,5 @@ EFI_STATUS linux_exec(
                 err = compat_entry(kernel_image, ST);
         }
 
-        return log_error_status_stall(err, u"Error starting kernel image: %r", err);
+        return log_error_status(err, "Error starting kernel image: %m");
 }
