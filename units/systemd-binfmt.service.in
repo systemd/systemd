@@ -19,6 +19,7 @@ After=proc-sys-fs-binfmt_misc.mount
 After=local-fs.target
 Before=sysinit.target shutdown.target
 ConditionPathIsReadWrite=/proc/sys/
+ConditionVirtualization=!lxc
 ConditionDirectoryNotEmpty=|/lib/binfmt.d
 ConditionDirectoryNotEmpty=|/usr/lib/binfmt.d
 ConditionDirectoryNotEmpty=|/usr/local/lib/binfmt.d
