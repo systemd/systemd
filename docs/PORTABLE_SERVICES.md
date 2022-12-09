@@ -223,8 +223,8 @@ images minimal.
 
 If the image is writable, and some of the files or directories that are
 overmounted from the host do not exist yet they will be automatically created.
-On read-only, immutable images (e.g. squashfs images) all files and directories
-to over-mount must exist already.
+On read-only, immutable images (e.g. `erofs` or `squashfs` images) all files
+and directories to over-mount must exist already.
 
 Note that as no new image format or metadata is defined, it's very
 straightforward to define images than can be made use of in a number of

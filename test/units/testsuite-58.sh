@@ -901,7 +901,7 @@ test_minimize() {
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
 
-    for format in ext4 vfat; do
+    for format in ext4 vfat erofs; do
         if ! command -v "mkfs.$format" >/dev/null; then
             continue
         fi
