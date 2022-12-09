@@ -701,6 +701,17 @@ TEST(calculate_policy_auth_value) {
         DIGEST_CHECK(d, "759ebd5ed65100e0b4aa2d04b4b789c2672d92ecc9cdda4b5fa16a303132e008");
 }
 
+TEST(calculate_policy_authorize) {
+        TPM2B_PUBLIC public = { .size = sizeof(TEST_TPMT_PUBLIC), .publicArea = TEST_TPMT_PUBLIC, };
+        TPM2B_DIGEST d;
+
+        DIGEST_INIT_SHA256(d, SHA256_T0);
+        assert_se(tpm2_calculate_policy_authorize(&public, NULL, &d) == 0);
+        DIGEST_CHECK(d, "95213a3784eaab04f427bc7e8851c2f1df0903be8e42428ec25dcefd907baff1");
+        assert_se(tpm2_calculate_policy_authorize(&public, NULL, &d) == 0);
+        DIGEST_CHECK(d, "95213a3784eaab04f427bc7e8851c2f1df0903be8e42428ec25dcefd907baff1");
+}
+
 TEST(calculate_policy_pcr) {
         TPML_PCR_SELECTION pcr_selection;
         TPM2B_DIGEST pcr_values[16];
