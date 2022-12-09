@@ -97,13 +97,14 @@ static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(unit_load_state, UnitLoadState);
 
 static const char* const unit_active_state_table[_UNIT_ACTIVE_STATE_MAX] = {
-        [UNIT_ACTIVE]       = "active",
-        [UNIT_RELOADING]    = "reloading",
-        [UNIT_INACTIVE]     = "inactive",
-        [UNIT_FAILED]       = "failed",
-        [UNIT_ACTIVATING]   = "activating",
-        [UNIT_DEACTIVATING] = "deactivating",
-        [UNIT_MAINTENANCE]  = "maintenance",
+        [UNIT_ACTIVE]             = "active",
+        [UNIT_RELOADING]          = "reloading",
+        [UNIT_INACTIVE]           = "inactive",
+        [UNIT_FAILED]             = "failed",
+        [UNIT_ACTIVATING]         = "activating",
+        [UNIT_DEACTIVATING]       = "deactivating",
+        [UNIT_MAINTENANCE]        = "maintenance",
+        [UNIT_INACTIVE_NOT_FOUND] = "not-found",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_active_state, UnitActiveState);

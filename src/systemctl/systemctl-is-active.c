@@ -14,6 +14,7 @@ static int check_unit_generic(int code, const UnitActiveState good_states[], int
         UnitActiveState active_state;
         sd_bus *bus;
         int r;
+        bool unit_not_found = true;
         bool found = false;
 
         r = acquire_bus(BUS_MANAGER, &bus);
@@ -32,10 +33,16 @@ static int check_unit_generic(int code, const UnitActiveState good_states[], int
                 if (!arg_quiet)
                         puts(unit_active_state_to_string(active_state));
 
+                if (active_state != UNIT_INACTIVE_NOT_FOUND)
+                        unit_not_found = false;
+
                 for (int i = 0; i < nb_states; ++i)
                         if (good_states[i] == active_state)
                                 found = true;
         }
+
+        if (unit_not_found)
+                return EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN;
 
         /* use the given return code for the case that we won't find
          * any unit which matches the list */

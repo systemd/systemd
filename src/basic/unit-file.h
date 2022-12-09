@@ -24,6 +24,7 @@ enum UnitFileState {
         UNIT_FILE_GENERATED,
         UNIT_FILE_TRANSIENT,
         UNIT_FILE_BAD,
+        UNIT_FILE_NOT_FOUND,
         _UNIT_FILE_STATE_MAX,
         _UNIT_FILE_STATE_INVALID = -EINVAL,
 };

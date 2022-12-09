@@ -3030,6 +3030,9 @@ int unit_file_lookup_state(
 
         r = install_info_discover(&ctx, lp, name, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS,
                                   &info, NULL, NULL);
+        if (r == -ENOENT && ret)
+                *ret = UNIT_FILE_NOT_FOUND;
+
         if (r < 0)
                 return log_debug_errno(r, "Failed to discover unit %s: %m", name);
 
@@ -3699,6 +3702,7 @@ static const char* const unit_file_state_table[_UNIT_FILE_STATE_MAX] = {
         [UNIT_FILE_GENERATED]       = "generated",
         [UNIT_FILE_TRANSIENT]       = "transient",
         [UNIT_FILE_BAD]             = "bad",
+        [UNIT_FILE_NOT_FOUND]       = "not-found",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_file_state, UnitFileState);
