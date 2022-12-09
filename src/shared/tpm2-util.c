@@ -2077,6 +2077,203 @@ static int tpm2_policy_pcr(
         return tpm2_get_policy_digest(c, session, ret_policy_digest);
 }
 
+/* Extend 'digest' with the PolicyAuthorize calculated hash. */
+int tpm2_calculate_policy_authorize(
+                const TPM2B_PUBLIC *public,
+                const TPM2B_DIGEST *policy_ref,
+                TPM2B_DIGEST *digest) {
+
+        TPM2_CC command = TPM2_CC_PolicyAuthorize;
+        TSS2_RC rc;
+        int r;
+
+        assert(public);
+        assert(digest);
+        assert(digest->size == SHA256_DIGEST_SIZE);
+
+        r = dlopen_tpm2();
+        if (r < 0)
+                return log_error_errno(r, "TPM2 support not installed: %m");
+
+        uint8_t buf[sizeof(command)];
+        size_t offset = 0;
+
+        rc = sym_Tss2_MU_TPM2_CC_Marshal(command, buf, sizeof(buf), &offset);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to marshal PolicyAuthorize command: %s", sym_Tss2_RC_Decode(rc));
+
+        if (offset != sizeof(command))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Offset 0x%zx wrong after marshalling PolicyAuthorize command", offset);
+
+        TPM2B_NAME name = {};
+        r = tpm2_calculate_name(&public->publicArea, &name);
+        if (r < 0)
+                return r;
+
+        /* PolicyAuthorize does not use the previous hash value; we must zero and then extend it. */
+        zero(digest->buffer);
+
+        struct iovec data[] = {
+                IOVEC_MAKE(buf, offset),
+                IOVEC_MAKE(name.name, name.size),
+        };
+        r = tpm2_digest_many(TPM2_ALG_SHA256, digest, data, ELEMENTSOF(data), /* extend= */ true);
+        if (r < 0)
+                return r;
+
+        /* PolicyAuthorize requires hashing twice; this is either an extension or rehashing. */
+        if (policy_ref)
+                r = tpm2_digest_many_digests(TPM2_ALG_SHA256, digest, policy_ref, 1, /* extend= */ true);
+        else
+                r = tpm2_digest_rehash(TPM2_ALG_SHA256, digest);
+        if (r < 0)
+                return r;
+
+        tpm2_log_debug_digest(digest, "PolicyAuthorize calculated digest");
+
+        return 0;
+}
+
+static int tpm2_policy_authorize(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                TPML_PCR_SELECTION *pcr_selection,
+                const TPM2B_PUBLIC *public,
+                const void *fp,
+                size_t fp_size,
+                JsonVariant *signature_json,
+                TPM2B_DIGEST **ret_policy_digest) {
+
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+        assert(session);
+        assert(pcr_selection);
+        assert(public);
+        assert(fp && fp_size > 0);
+
+        log_debug("Adding PCR signature policy.");
+
+        _cleanup_tpm2_handle_ Tpm2Handle *pubkey_handle = NULL;
+        r = tpm2_handle_new(c, &pubkey_handle);
+        if (r < 0)
+                return r;
+
+        /* Load the key into the TPM */
+        rc = sym_Esys_LoadExternal(
+                        c->esys_context,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        NULL,
+                        public,
+#if HAVE_TSS2_ESYS3
+                        /* tpm2-tss >= 3.0.0 requires a ESYS_TR_RH_* constant specifying the requested
+                         * hierarchy, older versions need TPM2_RH_* instead. */
+                        ESYS_TR_RH_OWNER,
+#else
+                        TPM2_RH_OWNER,
+#endif
+                        &pubkey_handle->esys_handle);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                    "Failed to load public key into TPM: %s", sym_Tss2_RC_Decode(rc));
+
+        /* Acquire the "name" of what we just loaded */
+        _cleanup_(Esys_Freep) TPM2B_NAME *pubkey_name = NULL;
+        r = tpm2_get_name(c, pubkey_handle, &pubkey_name);
+        if (r < 0)
+                return r;
+
+        /* If we have a signature, proceed with verifying the PCR digest */
+        const TPMT_TK_VERIFIED *check_ticket;
+        _cleanup_(Esys_Freep) TPMT_TK_VERIFIED *check_ticket_buffer = NULL;
+        _cleanup_(Esys_Freep) TPM2B_DIGEST *approved_policy = NULL;
+        if (signature_json) {
+                r = tpm2_policy_pcr(
+                                c,
+                                session,
+                                pcr_selection,
+                                &approved_policy);
+                if (r < 0)
+                        return r;
+
+                _cleanup_free_ void *signature_raw = NULL;
+                size_t signature_size;
+
+                r = find_signature(
+                                signature_json,
+                                pcr_selection,
+                                fp, fp_size,
+                                approved_policy->buffer,
+                                approved_policy->size,
+                                &signature_raw,
+                                &signature_size);
+                if (r < 0)
+                        return r;
+
+                /* TPM2_VerifySignature() will only verify the RSA part of the RSA+SHA256 signature,
+                 * hence we need to do the SHA256 part ourselves, first */
+                TPM2B_DIGEST signature_hash = *approved_policy;
+                r = tpm2_digest_rehash(TPM2_ALG_SHA256, &signature_hash);
+                if (r < 0)
+                        return r;
+
+                TPMT_SIGNATURE policy_signature = {
+                        .sigAlg = TPM2_ALG_RSASSA,
+                        .signature.rsassa = {
+                                .hash = TPM2_ALG_SHA256,
+                                .sig.size = signature_size,
+                        },
+                };
+                if (signature_size > sizeof(policy_signature.signature.rsassa.sig.buffer))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Signature larger than buffer.");
+                memcpy(policy_signature.signature.rsassa.sig.buffer, signature_raw, signature_size);
+
+                rc = sym_Esys_VerifySignature(
+                                c->esys_context,
+                                pubkey_handle->esys_handle,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE,
+                                &signature_hash,
+                                &policy_signature,
+                                &check_ticket_buffer);
+                if (rc != TSS2_RC_SUCCESS)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to validate signature in TPM: %s", sym_Tss2_RC_Decode(rc));
+
+                check_ticket = check_ticket_buffer;
+        } else {
+                /* When enrolling, we pass a NULL ticket */
+                static const TPMT_TK_VERIFIED check_ticket_null = {
+                        .tag = TPM2_ST_VERIFIED,
+                        .hierarchy = TPM2_RH_OWNER,
+                };
+
+                check_ticket = &check_ticket_null;
+        }
+
+        rc = sym_Esys_PolicyAuthorize(
+                        c->esys_context,
+                        session->esys_handle,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        approved_policy,
+                        /* policyRef= */ &(const TPM2B_NONCE) {},
+                        pubkey_name,
+                        check_ticket);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to push Authorize policy into TPM: %s", sym_Tss2_RC_Decode(rc));
+
+        return tpm2_get_policy_digest(c, session, ret_policy_digest);
+}
+
 static int tpm2_build_sealing_policy(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
