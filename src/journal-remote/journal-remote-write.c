@@ -3,9 +3,9 @@
 #include <libgen.h>
 
 #include "alloc-util.h"
-#include "stat-util.h"
-#include "path-util.h"
 #include "journal-remote.h"
+#include "path-util.h"
+#include "stat-util.h"
 
 static int do_rotate(ManagedJournalFile **f, MMapCache *m, JournalFileFlags file_flags) {
         int r;
