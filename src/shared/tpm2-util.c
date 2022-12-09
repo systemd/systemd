@@ -1814,6 +1814,51 @@ static int tpm2_policy_authorize(
         return tpm2_get_policy_digest(c, session, ret_policy_digest);
 }
 
+static int tpm2_calculate_policy_auth_value(TPM2B_DIGEST *digest) {
+        static const TPM2_CC command = TPM2_CC_PolicyAuthValue;
+        int r;
+
+        assert(digest);
+
+        uint8_t buf[sizeof(command)];
+        size_t offset = 0;
+        r = tpm2_marshal("PolicyAuthValue command", command, buf, sizeof(command), &offset);
+        if (r < 0)
+                return r;
+
+        tpm2_digest_extend(digest, buf, offset);
+
+        tpm2_log_debug_digest(digest, "PolicyAuthValue calculated digest");
+
+        return 0;
+}
+
+static int tpm2_policy_auth_value(
+                ESYS_CONTEXT *c,
+                ESYS_TR session,
+                TPM2B_DIGEST **ret_policy_digest) {
+
+        TSS2_RC rc;
+
+        assert(c);
+        assert(session != ESYS_TR_NONE);
+
+        log_debug("Adding authValue policy.");
+
+        rc = sym_Esys_PolicyAuthValue(
+                        c,
+                        session,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to add authValue policy to TPM: %s",
+                                       sym_Tss2_RC_Decode(rc));
+
+        return tpm2_get_policy_digest(c, session, ret_policy_digest);
+}
+
 static int tpm2_build_policy(
                 ESYS_CONTEXT *c,
                 ESYS_TR session,
@@ -1881,18 +1926,12 @@ static int tpm2_build_policy(
         }
 
         if (use_pin) {
-                log_debug("Configuring PIN policy.");
-
-                rc = sym_Esys_PolicyAuthValue(
+                r = tpm2_policy_auth_value(
                                 c,
                                 session,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE);
-                if (rc != TSS2_RC_SUCCESS)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Failed to add authValue policy to TPM: %s",
-                                               sym_Tss2_RC_Decode(rc));
+                                /* ret_policy_digest= */ NULL);
+                if (r < 0)
+                        return r;
         }
 
         r = tpm2_get_policy_digest(c, session, ret_policy_digest);
