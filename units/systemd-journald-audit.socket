@@ -20,3 +20,7 @@ Service=systemd-journald.service
 ReceiveBuffer=128M
 ListenNetlink=audit 1
 PassCredentials=yes
+
+[Install]
+WantedBy=sockets.target
+WantedBy=systemd-journald.service
