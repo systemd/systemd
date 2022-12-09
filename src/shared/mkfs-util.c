@@ -335,6 +335,14 @@ int make_filesystem(
                         return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "mksquashfs binary not available.");
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine whether mksquashfs binary exists: %m");
+
+        } else if (streq(fstype, "erofs")) {
+                r = find_executable("mkfs.erofs", &mkfs);
+                if (r == -ENOENT)
+                        return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "mkfs.erofs binary not available.");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine whether mkfs.erofs binary exists: %m");
+
         } else if (fstype_is_ro(fstype)) {
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                        "Don't know how to create read-only file system '%s', refusing.",
@@ -501,6 +509,12 @@ int make_filesystem(
                                 root, node,
                                 "-quiet",
                                 "-noappend");
+
+        else if (streq(fstype, "erofs"))
+
+                argv = strv_new(mkfs,
+                                "-U", vol_id,
+                                node, root);
         else
                 /* Generic fallback for all other file systems */
                 argv = strv_new(mkfs, node);
@@ -539,6 +553,9 @@ int make_filesystem(
         if (STR_IN_SET(fstype, "ext2", "ext3", "ext4", "btrfs", "f2fs", "xfs", "vfat", "swap"))
                 log_info("%s successfully formatted as %s (label \"%s\", uuid %s)",
                          node, fstype, label, vol_id);
+        else if (streq(fstype, "erofs"))
+                log_info("%s successfully formatted as %s (uuid %s, no label)",
+                         node, fstype, vol_id);
         else
                 log_info("%s successfully formatted as %s (no label or uuid specified)",
                          node, fstype);
