@@ -8,9 +8,6 @@
 #include "log.h"
 #include "string-util-fundamental.h"
 
-#define UINTN_MAX (~(UINTN)0)
-#define INTN_MAX ((INTN)(UINTN_MAX>>1))
-
 static inline void free(void *p) {
         if (!p)
                 return;
@@ -85,15 +82,15 @@ static inline Pages xmalloc_pages(
 EFI_STATUS parse_boolean(const char *v, bool *b);
 
 EFI_STATUS efivar_set(const EFI_GUID *vendor, const char16_t *name, const char16_t *value, uint32_t flags);
-EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const char16_t *name, const void *buf, UINTN size, uint32_t flags);
-EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const char16_t *name, UINTN i, uint32_t flags);
+EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const char16_t *name, const void *buf, size_t size, uint32_t flags);
+EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const char16_t *name, size_t i, uint32_t flags);
 EFI_STATUS efivar_set_uint32_le(const EFI_GUID *vendor, const char16_t *NAME, uint32_t value, uint32_t flags);
 EFI_STATUS efivar_set_uint64_le(const EFI_GUID *vendor, const char16_t *name, uint64_t value, uint32_t flags);
 void efivar_set_time_usec(const EFI_GUID *vendor, const char16_t *name, uint64_t usec);
 
 EFI_STATUS efivar_get(const EFI_GUID *vendor, const char16_t *name, char16_t **ret);
-EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, char **ret, UINTN *ret_size);
-EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const char16_t *name, UINTN *ret);
+EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, char **ret, size_t *ret_size);
+EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const char16_t *name, size_t *ret);
 EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const char16_t *name, uint32_t *ret);
 EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const char16_t *name, uint64_t *ret);
 EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const char16_t *name, bool *ret);
@@ -102,7 +99,7 @@ void convert_efi_path(char16_t *path);
 char16_t *xstr8_to_path(const char *stra);
 void mangle_stub_cmdline(char16_t *cmdline);
 
-EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, UINTN off, UINTN size, char **content, UINTN *content_size);
+EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, size_t off, size_t size, char **content, size_t *content_size);
 
 static inline void file_closep(EFI_FILE **handle) {
         if (!*handle)
@@ -134,15 +131,15 @@ static inline void unload_imagep(EFI_HANDLE *image) {
 #define LOADER_GUID \
         { 0x4a67b082, 0x0a4c, 0x41cf, { 0xb6, 0xc7, 0x44, 0x0b, 0x29, 0xbb, 0x8c, 0x4f } }
 
-void print_at(UINTN x, UINTN y, UINTN attr, const char16_t *str);
-void clear_screen(UINTN attr);
+void print_at(size_t x, size_t y, size_t attr, const char16_t *str);
+void clear_screen(size_t attr);
 
 typedef int (*compare_pointer_func_t)(const void *a, const void *b);
-void sort_pointer_array(void **array, UINTN n_members, compare_pointer_func_t compare);
+void sort_pointer_array(void **array, size_t n_members, compare_pointer_func_t compare);
 
-EFI_STATUS get_file_info_harder(EFI_FILE *handle, EFI_FILE_INFO **ret, UINTN *ret_size);
+EFI_STATUS get_file_info_harder(EFI_FILE *handle, EFI_FILE_INFO **ret, size_t *ret_size);
 
-EFI_STATUS readdir_harder(EFI_FILE *handle, EFI_FILE_INFO **buffer, UINTN *buffer_size);
+EFI_STATUS readdir_harder(EFI_FILE *handle, EFI_FILE_INFO **buffer, size_t *buffer_size);
 
 bool is_ascii(const char16_t *f);
 

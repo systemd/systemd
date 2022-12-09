@@ -15,13 +15,13 @@ static EFI_STATUS tpm1_measure_to_pcr_and_event_log(
                 const EFI_TCG *tcg,
                 uint32_t pcrindex,
                 EFI_PHYSICAL_ADDRESS buffer,
-                UINTN buffer_size,
+                size_t buffer_size,
                 const char16_t *description) {
 
         _cleanup_free_ TCG_PCR_EVENT *tcg_event = NULL;
         EFI_PHYSICAL_ADDRESS event_log_last;
         uint32_t event_number = 1;
-        UINTN desc_len;
+        size_t desc_len;
 
         assert(tcg);
         assert(description);
@@ -53,7 +53,7 @@ static EFI_STATUS tpm2_measure_to_pcr_and_event_log(
                 const char16_t *description) {
 
         _cleanup_free_ EFI_TCG2_EVENT *tcg_event = NULL;
-        UINTN desc_len;
+        size_t desc_len;
 
         assert(tcg);
         assert(description);
@@ -142,7 +142,7 @@ bool tpm_present(void) {
         return tcg2_interface_check() || tcg1_interface_check();
 }
 
-EFI_STATUS tpm_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, UINTN buffer_size, const char16_t *description, bool *ret_measured) {
+EFI_STATUS tpm_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t buffer_size, const char16_t *description, bool *ret_measured) {
         EFI_TCG2 *tpm2;
         EFI_STATUS err;
 
@@ -183,7 +183,7 @@ EFI_STATUS tpm_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, UINTN b
         return err;
 }
 
-EFI_STATUS tpm_log_event_ascii(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, UINTN buffer_size, const char *description, bool *ret_measured) {
+EFI_STATUS tpm_log_event_ascii(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t buffer_size, const char *description, bool *ret_measured) {
         _cleanup_free_ char16_t *c = NULL;
 
         if (description)

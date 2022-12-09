@@ -132,7 +132,7 @@ static inline bool verify_pe(const PeFileHeader *pe, bool allow_compatibility) {
                IN_SET(pe->OptionalHeader.Magic, OPTHDR32_MAGIC, OPTHDR64_MAGIC);
 }
 
-static inline UINTN section_table_offset(const DosFileHeader *dos, const PeFileHeader *pe) {
+static inline size_t section_table_offset(const DosFileHeader *dos, const PeFileHeader *pe) {
         assert(dos);
         assert(pe);
         return dos->ExeHeader + offsetof(PeFileHeader, OptionalHeader) + pe->FileHeader.SizeOfOptionalHeader;
@@ -140,10 +140,10 @@ static inline UINTN section_table_offset(const DosFileHeader *dos, const PeFileH
 
 static void locate_sections(
                 const PeSectionHeader section_table[],
-                UINTN n_table,
+                size_t n_table,
                 const char * const sections[],
-                UINTN *offsets,
-                UINTN *sizes,
+                size_t *offsets,
+                size_t *sizes,
                 bool in_memory) {
 
         assert(section_table);
@@ -153,7 +153,7 @@ static void locate_sections(
 
         size_t prev_section_addr = 0;
 
-        for (UINTN i = 0; i < n_table; i++) {
+        for (size_t i = 0; i < n_table; i++) {
                 const PeSectionHeader *sect = section_table + i;
 
                 if (in_memory) {
@@ -162,7 +162,7 @@ static void locate_sections(
                         prev_section_addr = sect->VirtualAddress + sect->VirtualSize;
                 }
 
-                for (UINTN j = 0; sections[j]; j++) {
+                for (size_t j = 0; sections[j]; j++) {
                         if (memcmp(sect->Name, sections[j], strlen8(sections[j])) != 0)
                                 continue;
 
@@ -173,7 +173,7 @@ static void locate_sections(
 }
 
 static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const PeFileHeader *pe) {
-        UINTN addr = 0, size = 0;
+        size_t addr = 0, size = 0;
         static const char *sections[] = { ".compat", NULL };
 
         /* The kernel may provide alternative PE entry points for different PE architectures. This allows
@@ -245,10 +245,10 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address) {
         return EFI_SUCCESS;
 }
 
-EFI_STATUS pe_memory_locate_sections(const void *base, const char * const sections[], UINTN *addrs, UINTN *sizes) {
+EFI_STATUS pe_memory_locate_sections(const void *base, const char * const sections[], size_t *addrs, size_t *sizes) {
         const DosFileHeader *dos;
         const PeFileHeader *pe;
-        UINTN offset;
+        size_t offset;
 
         assert(base);
         assert(sections);
@@ -278,13 +278,13 @@ EFI_STATUS pe_file_locate_sections(
                 EFI_FILE *dir,
                 const char16_t *path,
                 const char * const sections[],
-                UINTN *offsets,
-                UINTN *sizes) {
+                size_t *offsets,
+                size_t *sizes) {
         _cleanup_free_ PeSectionHeader *section_table = NULL;
         _cleanup_(file_closep) EFI_FILE *handle = NULL;
         DosFileHeader dos;
         PeFileHeader pe;
-        UINTN len, section_table_len;
+        size_t len, section_table_len;
         EFI_STATUS err;
 
         assert(dir);
