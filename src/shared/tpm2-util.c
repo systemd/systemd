@@ -1850,8 +1850,6 @@ static int tpm2_build_policy(
                 TPMI_ALG_HASH *ret_pcr_bank) {
 
         _cleanup_(tpm2_handle_releasep) struct tpm2_handle pubkey_handle = tpm2_handle_init(c);
-        _cleanup_free_ void *fp = NULL;
-        size_t fp_size;
         TSS2_RC rc;
         int r;
 
@@ -1880,141 +1878,16 @@ static int tpm2_build_policy(
         }
 
         if (pubkey_pcr_mask != 0) {
-                log_debug("Configuring public key based PCR policy.");
-
-                /* Convert the PEM key to TPM2 format */
-                TPM2B_PUBLIC pubkey_tpm2;
-                r = openssl_pubkey_to_tpm2_pubkey(pubkey, pubkey_size, &pubkey_tpm2, &fp, &fp_size);
-                if (r < 0)
-                        return r;
-
-                /* Load public key into the TPM */
-                rc = sym_Esys_LoadExternal(
-                                c->esys_context,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                NULL,
-                                &pubkey_tpm2,
-#if HAVE_TSS2_ESYS3
-                                /* tpm2-tss >= 3.0.0 requires a ESYS_TR_RH_* constant specifying the requested
-                                 * hierarchy, older versions need TPM2_RH_* instead. */
-                                ESYS_TR_RH_OWNER,
-#else
-                                TPM2_RH_OWNER,
-#endif
-                                &pubkey_handle.handle);
-                if (rc != TSS2_RC_SUCCESS)
-                        return  log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                                "Failed to load public key into TPM: %s", sym_Tss2_RC_Decode(rc));
-
-                /* Acquire the "name" of what we just loaded */
-                _cleanup_(Esys_Freep) TPM2B_NAME *pubkey_name = NULL;
-                r = tpm2_get_key_name(c, pubkey_handle, &pubkey_name);
-                if (r < 0)
-                        return r;
-
-                /* Put together the PCR policy we want to use */
                 TPML_PCR_SELECTION pcr_selection = tpm2_tpml_pcr_selection_from_mask(pubkey_pcr_mask, pcr_bank);
-                rc = sym_Esys_PolicyPCR(
-                                c->esys_context,
-                                session.handle,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                NULL,
-                                &pcr_selection);
-                if (rc != TSS2_RC_SUCCESS)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Failed to add PCR policy to TPM: %s", sym_Tss2_RC_Decode(rc));
-
-                /* Get the policy hash of the PCR policy */
-                _cleanup_(Esys_Freep) TPM2B_DIGEST *approved_policy = NULL;
-                rc = sym_Esys_PolicyGetDigest(
-                                c->esys_context,
-                                session.handle,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                &approved_policy);
-                if (rc != TSS2_RC_SUCCESS)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Failed to get policy digest from TPM: %s", sym_Tss2_RC_Decode(rc));
-
-                /* When we are unlocking and have a signature, let's pass it to the TPM */
-                _cleanup_(Esys_Freep) TPMT_TK_VERIFIED *check_ticket_buffer = NULL;
-                const TPMT_TK_VERIFIED *check_ticket;
-                if (signature_json) {
-                        _cleanup_free_ void *signature_raw = NULL;
-                        size_t signature_size;
-
-                        r = find_signature(
-                                        signature_json,
-                                        &pcr_selection,
-                                        fp, fp_size,
-                                        approved_policy->buffer,
-                                        approved_policy->size,
-                                        &signature_raw,
-                                        &signature_size);
-                        if (r < 0)
-                                return r;
-
-                        /* TPM2_VerifySignature() will only verify the RSA part of the RSA+SHA256 signature,
-                         * hence we need to do the SHA256 part ourselves, first */
-                        TPM2B_DIGEST signature_hash = {
-                                .size = SHA256_DIGEST_SIZE,
-                        };
-                        assert(sizeof(signature_hash.buffer) >= SHA256_DIGEST_SIZE);
-                        sha256_direct(approved_policy->buffer, approved_policy->size, signature_hash.buffer);
-
-                        TPMT_SIGNATURE policy_signature = {
-                                .sigAlg = TPM2_ALG_RSASSA,
-                                .signature.rsassa = {
-                                        .hash = TPM2_ALG_SHA256,
-                                        .sig.size = signature_size,
-                                },
-                        };
-                        if (signature_size > sizeof(policy_signature.signature.rsassa.sig.buffer))
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Signature larger than buffer.");
-                        memcpy(policy_signature.signature.rsassa.sig.buffer, signature_raw, signature_size);
-
-                        rc = sym_Esys_VerifySignature(
-                                        c->esys_context,
-                                        pubkey_handle.handle,
-                                        ESYS_TR_NONE,
-                                        ESYS_TR_NONE,
-                                        ESYS_TR_NONE,
-                                        &signature_hash,
-                                        &policy_signature,
-                                        &check_ticket_buffer);
-                        if (rc != TSS2_RC_SUCCESS)
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                                        "Failed to validate signature in TPM: %s", sym_Tss2_RC_Decode(rc));
-
-                        check_ticket = check_ticket_buffer;
-                } else {
-                        /* When enrolling, we pass a NULL ticket */
-                        static const TPMT_TK_VERIFIED check_ticket_null = {
-                                .tag = TPM2_ST_VERIFIED,
-                                .hierarchy = TPM2_RH_OWNER,
-                        };
-
-                        check_ticket = &check_ticket_null;
-                }
-
-                rc = sym_Esys_PolicyAuthorize(
-                                c->esys_context,
-                                session.handle,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                approved_policy,
-                                /* policyRef= */ &(const TPM2B_NONCE) {},
-                                pubkey_name,
-                                check_ticket);
-                if (rc != TSS2_RC_SUCCESS)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Failed to push Authorize policy into TPM: %s", sym_Tss2_RC_Decode(rc));
+                r = tpm2_policy_authorize(
+                                c,
+                                session,
+                                &pcr_selection,
+                                pubkey, pubkey_size,
+                                signature_json,
+                                /* ret_policy_digest= */ NULL);
+                if (r < 0)
+                        return r;
         }
 
         if (hash_pcr_mask != 0) {
