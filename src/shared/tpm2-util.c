@@ -2200,6 +2200,57 @@ static int tpm2_policy_authorize(
         return tpm2_get_policy_digest(c, session, ret_policy_digest);
 }
 
+/* Extend 'digest' with the PolicyAuthValue calculated hash. */
+int tpm2_calculate_policy_auth_value(TPM2B_DIGEST *digest) {
+        static const TPM2_CC command = TPM2_CC_PolicyAuthValue;
+        TSS2_RC rc;
+        int r;
+
+        assert(digest);
+        assert(digest->size == SHA256_DIGEST_SIZE);
+
+        uint8_t buf[sizeof(command)];
+        size_t offset = 0;
+
+        rc = sym_Tss2_MU_TPM2_CC_Marshal(command, buf, sizeof(command), &offset);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to marshal PolicyAuthValue command: %s", sym_Tss2_RC_Decode(rc));
+
+        r = tpm2_digest_extend_buffer(TPM2_ALG_SHA256, digest, buf, offset);
+        if (r < 0)
+                return r;
+
+        tpm2_log_debug_digest(digest, "PolicyAuthValue calculated digest");
+
+        return 0;
+}
+
+static int tpm2_policy_auth_value(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                TPM2B_DIGEST **ret_policy_digest) {
+
+        TSS2_RC rc;
+
+        assert(c);
+
+        log_debug("Adding authValue policy.");
+
+        rc = sym_Esys_PolicyAuthValue(
+                        c->esys_context,
+                        session->esys_handle,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to add authValue policy to TPM: %s",
+                                       sym_Tss2_RC_Decode(rc));
+
+        return tpm2_get_policy_digest(c, session, ret_policy_digest);
+}
+
 static int tpm2_build_sealing_policy(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
@@ -2212,7 +2263,6 @@ static int tpm2_build_sealing_policy(
                 bool use_pin,
                 TPM2B_DIGEST **ret_policy_digest) {
 
-        TSS2_RC rc;
         int r;
 
         assert(c);
@@ -2247,18 +2297,9 @@ static int tpm2_build_sealing_policy(
         }
 
         if (use_pin) {
-                log_debug("Configuring PIN policy.");
-
-                rc = sym_Esys_PolicyAuthValue(
-                                c->esys_context,
-                                session->esys_handle,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE);
-                if (rc != TSS2_RC_SUCCESS)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Failed to add authValue policy to TPM: %s",
-                                               sym_Tss2_RC_Decode(rc));
+                r = tpm2_policy_auth_value(c, session, NULL);
+                if (r < 0)
+                        return r;
         }
 
         r = tpm2_get_policy_digest(c, session, ret_policy_digest);
