@@ -12,7 +12,7 @@
 struct initrd_loader {
         EFI_LOAD_FILE_PROTOCOL load_file;
         const void *address;
-        UINTN length;
+        size_t length;
 };
 
 /* static structure for LINUX_INITRD_MEDIA device path
@@ -41,7 +41,7 @@ static EFIAPI EFI_STATUS initrd_load_file(
                 EFI_LOAD_FILE_PROTOCOL *this,
                 EFI_DEVICE_PATH *file_path,
                 BOOLEAN boot_policy,
-                UINTN *buffer_size,
+                size_t *buffer_size,
                 void *buffer) {
 
         struct initrd_loader *loader;
@@ -68,7 +68,7 @@ static EFIAPI EFI_STATUS initrd_load_file(
 
 EFI_STATUS initrd_register(
                 const void *initrd_address,
-                UINTN initrd_length,
+                size_t initrd_length,
                 EFI_HANDLE *ret_initrd_handle) {
 
         EFI_STATUS err;

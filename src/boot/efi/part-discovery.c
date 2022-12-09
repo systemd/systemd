@@ -74,7 +74,7 @@ static bool verify_gpt(union GptHeaderBuffer *gpt_header_buffer, EFI_LBA lba_exp
                 return false;
 
         /* overflow check */
-        if (h->SizeOfPartitionEntry > UINTN_MAX / h->NumberOfPartitionEntries)
+        if (h->SizeOfPartitionEntry > SIZE_MAX / h->NumberOfPartitionEntries)
                 return false;
 
         return true;
@@ -91,7 +91,7 @@ static EFI_STATUS try_gpt(
         union GptHeaderBuffer gpt;
         EFI_STATUS err;
         uint32_t crc32;
-        UINTN size;
+        size_t size;
 
         assert(block_io);
         assert(ret_hd);
@@ -113,7 +113,7 @@ static EFI_STATUS try_gpt(
                 return EFI_NOT_FOUND;
 
         /* Now load the GPT entry table */
-        size = ALIGN_TO((UINTN) gpt.gpt_header.SizeOfPartitionEntry * (UINTN) gpt.gpt_header.NumberOfPartitionEntries, 512);
+        size = ALIGN_TO((size_t) gpt.gpt_header.SizeOfPartitionEntry * (size_t) gpt.gpt_header.NumberOfPartitionEntries, 512);
         entries = xmalloc(size);
 
         err = block_io->ReadBlocks(
@@ -130,7 +130,7 @@ static EFI_STATUS try_gpt(
                 return EFI_CRC_ERROR;
 
         /* Now we can finally look for xbootloader partitions. */
-        for (UINTN i = 0; i < gpt.gpt_header.NumberOfPartitionEntries; i++) {
+        for (size_t i = 0; i < gpt.gpt_header.NumberOfPartitionEntries; i++) {
                 EFI_PARTITION_ENTRY *entry =
                                 (EFI_PARTITION_ENTRY *) ((uint8_t *) entries + gpt.gpt_header.SizeOfPartitionEntry * i);
 
@@ -220,7 +220,7 @@ static EFI_STATUS find_device(const EFI_GUID *type, EFI_HANDLE *device, EFI_DEVI
 
         /* Try several copies of the GPT header, in case one is corrupted */
         EFI_LBA backup_lba = 0;
-        for (UINTN nr = 0; nr < 3; nr++) {
+        for (size_t nr = 0; nr < 3; nr++) {
                 EFI_LBA lba;
 
                 /* Read the first copy at LBA 1 and then try the backup GPT header pointed

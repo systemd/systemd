@@ -8,8 +8,8 @@
 
 #define FDT_V1_SIZE (7*4)
 
-static EFI_STATUS devicetree_allocate(struct devicetree_state *state, UINTN size) {
-        UINTN pages = DIV_ROUND_UP(size, EFI_PAGE_SIZE);
+static EFI_STATUS devicetree_allocate(struct devicetree_state *state, size_t size) {
+        size_t pages = DIV_ROUND_UP(size, EFI_PAGE_SIZE);
         EFI_STATUS err;
 
         assert(state);
@@ -22,14 +22,14 @@ static EFI_STATUS devicetree_allocate(struct devicetree_state *state, UINTN size
         return err;
 }
 
-static UINTN devicetree_allocated(const struct devicetree_state *state) {
+static size_t devicetree_allocated(const struct devicetree_state *state) {
         assert(state);
         return state->pages * EFI_PAGE_SIZE;
 }
 
-static EFI_STATUS devicetree_fixup(struct devicetree_state *state, UINTN len) {
+static EFI_STATUS devicetree_fixup(struct devicetree_state *state, size_t len) {
         EFI_DT_FIXUP_PROTOCOL *fixup;
-        UINTN size;
+        size_t size;
         EFI_STATUS err;
 
         assert(state);
@@ -43,7 +43,7 @@ static EFI_STATUS devicetree_fixup(struct devicetree_state *state, UINTN len) {
                            EFI_DT_APPLY_FIXUPS | EFI_DT_RESERVE_MEMORY);
         if (err == EFI_BUFFER_TOO_SMALL) {
                 EFI_PHYSICAL_ADDRESS oldaddr = state->addr;
-                UINTN oldpages = state->pages;
+                size_t oldpages = state->pages;
                 void *oldptr = PHYSICAL_ADDRESS_TO_POINTER(state->addr);
 
                 err = devicetree_allocate(state, size);
@@ -66,7 +66,7 @@ static EFI_STATUS devicetree_fixup(struct devicetree_state *state, UINTN len) {
 EFI_STATUS devicetree_install(struct devicetree_state *state, EFI_FILE *root_dir, char16_t *name) {
         _cleanup_(file_closep) EFI_FILE *handle = NULL;
         _cleanup_free_ EFI_FILE_INFO *info = NULL;
-        UINTN len;
+        size_t len;
         EFI_STATUS err;
 
         assert(state);
@@ -106,8 +106,8 @@ EFI_STATUS devicetree_install(struct devicetree_state *state, EFI_FILE *root_dir
                         MAKE_GUID_PTR(EFI_DTB_TABLE), PHYSICAL_ADDRESS_TO_POINTER(state->addr));
 }
 
-EFI_STATUS devicetree_install_from_memory(struct devicetree_state *state,
-                const void *dtb_buffer, UINTN dtb_length) {
+EFI_STATUS devicetree_install_from_memory(
+                struct devicetree_state *state, const void *dtb_buffer, size_t dtb_length) {
 
         EFI_STATUS err;
 

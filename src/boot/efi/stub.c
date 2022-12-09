@@ -21,11 +21,11 @@
 _used_ _section_(".sdmagic") static const char magic[] = "#### LoaderInfo: systemd-stub " GIT_VERSION " ####";
 
 static EFI_STATUS combine_initrd(
-                EFI_PHYSICAL_ADDRESS initrd_base, UINTN initrd_size,
+                EFI_PHYSICAL_ADDRESS initrd_base, size_t initrd_size,
                 const void * const extra_initrds[], const size_t extra_initrd_sizes[], size_t n_extra_initrds,
-                Pages *ret_initr_pages, UINTN *ret_initrd_size) {
+                Pages *ret_initr_pages, size_t *ret_initrd_size) {
 
-        UINTN n;
+        size_t n;
 
         assert(ret_initr_pages);
         assert(ret_initrd_size);
@@ -38,7 +38,7 @@ static EFI_STATUS combine_initrd(
                 if (!extra_initrds[i])
                         continue;
 
-                if (n > UINTN_MAX - extra_initrd_sizes[i])
+                if (n > SIZE_MAX - extra_initrd_sizes[i])
                         return EFI_OUT_OF_RESOURCES;
 
                 n += extra_initrd_sizes[i];
@@ -51,7 +51,7 @@ static EFI_STATUS combine_initrd(
                         UINT32_MAX /* Below 4G boundary. */);
         uint8_t *p = PHYSICAL_ADDRESS_TO_POINTER(pages.addr);
         if (initrd_base != 0) {
-                UINTN pad;
+                size_t pad;
 
                 /* Order matters, the real initrd must come first, since it might include microcode updates
                  * which the kernel only looks for in the first cpio archive */

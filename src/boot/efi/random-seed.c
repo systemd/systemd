@@ -30,7 +30,7 @@ struct linux_efi_random_seed {
 /* Some basic domain separation in case somebody uses this data elsewhere */
 #define HASH_LABEL "systemd-boot random seed label v1"
 
-static EFI_STATUS acquire_rng(void *ret, UINTN size) {
+static EFI_STATUS acquire_rng(void *ret, size_t size) {
         EFI_RNG_PROTOCOL *rng;
         EFI_STATUS err;
 
@@ -50,10 +50,10 @@ static EFI_STATUS acquire_rng(void *ret, UINTN size) {
         return EFI_SUCCESS;
 }
 
-static EFI_STATUS acquire_system_token(void **ret, UINTN *ret_size) {
+static EFI_STATUS acquire_system_token(void **ret, size_t *ret_size) {
         _cleanup_free_ char *data = NULL;
         EFI_STATUS err;
-        UINTN size;
+        size_t size;
 
         assert(ret);
         assert(ret_size);
@@ -110,7 +110,7 @@ static void validate_sha256(void) {
                     0xaf, 0xac, 0x45, 0x03, 0x7a, 0xfe, 0xe9, 0xd1 }},
         };
 
-        for (UINTN i = 0; i < ELEMENTSOF(array); i++)
+        for (size_t i = 0; i < ELEMENTSOF(array); i++)
                 assert(memcmp(SHA256_DIRECT(array[i].string, strlen8(array[i].string)), array[i].hash, HASH_VALUE_SIZE) == 0);
 #endif
 }

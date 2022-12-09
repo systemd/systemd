@@ -77,7 +77,7 @@ EFI_STATUS load_drivers(
 
         _cleanup_(file_closep) EFI_FILE *drivers_dir = NULL;
         _cleanup_free_ EFI_FILE_INFO *dirent = NULL;
-        UINTN dirent_size = 0, n_succeeded = 0;
+        size_t dirent_size = 0, n_succeeded = 0;
         EFI_STATUS err;
 
         err = open_directory(

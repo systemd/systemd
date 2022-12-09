@@ -40,7 +40,7 @@ static inline void event_closep(EFI_EVENT *event) {
 EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
         static EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *conInEx = NULL, *extraInEx = NULL;
         static bool checked = false;
-        UINTN index;
+        size_t index;
         EFI_STATUS err;
         _cleanup_(event_closep) EFI_EVENT timer = NULL;
 
@@ -78,7 +78,7 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
                 conInEx ? conInEx->WaitForKeyEx : ST->ConIn->WaitForKey,
                 extraInEx ? extraInEx->WaitForKeyEx : NULL,
         };
-        UINTN n_events = extraInEx ? 3 : 2;
+        size_t n_events = extraInEx ? 3 : 2;
 
         /* Watchdog rearming loop in case the user never provides us with input or some
          * broken firmware never returns from WaitForEvent. */
@@ -172,7 +172,7 @@ static EFI_STATUS change_mode(int64_t mode) {
         EFI_STATUS err;
         int32_t old_mode;
 
-        /* SetMode expects a UINTN, so make sure these values are sane. */
+        /* SetMode expects a size_t, so make sure these values are sane. */
         mode = CLAMP(mode, CONSOLE_MODE_RANGE_MIN, CONSOLE_MODE_RANGE_MAX);
         old_mode = MAX(CONSOLE_MODE_RANGE_MIN, ST->ConOut->Mode->Mode);
 
@@ -223,7 +223,7 @@ static int64_t get_auto_mode(void) {
                  * then assume the text is readable and keep the text mode. */
                 else {
                         uint64_t text_area;
-                        UINTN x_max, y_max;
+                        size_t x_max, y_max;
                         uint64_t screen_area = (uint64_t)screen_width * (uint64_t)screen_height;
 
                         console_query_mode(&x_max, &y_max);
@@ -289,7 +289,7 @@ EFI_STATUS console_set_mode(int64_t mode) {
         }
 }
 
-EFI_STATUS console_query_mode(UINTN *x_max, UINTN *y_max) {
+EFI_STATUS console_query_mode(size_t *x_max, size_t *y_max) {
         EFI_STATUS err;
 
         assert(x_max);

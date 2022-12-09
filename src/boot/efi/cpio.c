@@ -11,7 +11,7 @@ static char *write_cpio_word(char *p, uint32_t v) {
 
         /* Writes a CPIO header 8 character hex value */
 
-        for (UINTN i = 0; i < 8; i++)
+        for (size_t i = 0; i < 8; i++)
                 p[7-i] = hex[(v >> (4 * i)) & 0xF];
 
         return p + 8;
@@ -52,14 +52,14 @@ static char *pad4(char *p, const char *start) {
 static EFI_STATUS pack_cpio_one(
                 const char16_t *fname,
                 const void *contents,
-                UINTN contents_size,
+                size_t contents_size,
                 const char *target_dir_prefix,
                 uint32_t access_mode,
                 uint32_t *inode_counter,
                 void **cpio_buffer,
-                UINTN *cpio_buffer_size) {
+                size_t *cpio_buffer_size) {
 
-        UINTN l, target_dir_prefix_size, fname_size, q;
+        size_t l, target_dir_prefix_size, fname_size, q;
         char *a;
 
         assert(fname);
@@ -82,12 +82,12 @@ static EFI_STATUS pack_cpio_one(
         l = 6 + 13*8 + 1 + 1; /* Fixed CPIO header size, slash separator, and NUL byte after the file name*/
 
         target_dir_prefix_size = strlen8(target_dir_prefix);
-        if (l > UINTN_MAX - target_dir_prefix_size)
+        if (l > SIZE_MAX - target_dir_prefix_size)
                 return EFI_OUT_OF_RESOURCES;
         l += target_dir_prefix_size;
 
         fname_size = strlen16(fname);
-        if (l > UINTN_MAX - fname_size)
+        if (l > SIZE_MAX - fname_size)
                 return EFI_OUT_OF_RESOURCES;
         l += fname_size; /* append space for file name */
 
@@ -97,19 +97,19 @@ static EFI_STATUS pack_cpio_one(
 
         /* Align the whole header to 4 byte size */
         l = ALIGN4(l);
-        if (l == UINTN_MAX) /* overflow check */
+        if (l == SIZE_MAX) /* overflow check */
                 return EFI_OUT_OF_RESOURCES;
 
         /* Align the contents to 4 byte size */
         q = ALIGN4(contents_size);
-        if (q == UINTN_MAX) /* overflow check */
+        if (q == SIZE_MAX) /* overflow check */
                 return EFI_OUT_OF_RESOURCES;
 
-        if (l > UINTN_MAX - q) /* overflow check */
+        if (l > SIZE_MAX - q) /* overflow check */
                 return EFI_OUT_OF_RESOURCES;
         l += q; /* Add contents to header */
 
-        if (*cpio_buffer_size > UINTN_MAX - l) /* overflow check */
+        if (*cpio_buffer_size > SIZE_MAX - l) /* overflow check */
                 return EFI_OUT_OF_RESOURCES;
         a = xrealloc(*cpio_buffer, *cpio_buffer_size, *cpio_buffer_size + l);
 
@@ -161,9 +161,9 @@ static EFI_STATUS pack_cpio_dir(
                 uint32_t access_mode,
                 uint32_t *inode_counter,
                 void **cpio_buffer,
-                UINTN *cpio_buffer_size) {
+                size_t *cpio_buffer_size) {
 
-        UINTN l, path_size;
+        size_t l, path_size;
         char *a;
 
         assert(path);
@@ -180,16 +180,16 @@ static EFI_STATUS pack_cpio_dir(
         l = 6 + 13*8 + 1; /* Fixed CPIO header size, and NUL byte after the file name*/
 
         path_size = strlen8(path);
-        if (l > UINTN_MAX - path_size)
+        if (l > SIZE_MAX - path_size)
                 return EFI_OUT_OF_RESOURCES;
         l += path_size;
 
         /* Align the whole header to 4 byte size */
         l = ALIGN4(l);
-        if (l == UINTN_MAX) /* overflow check */
+        if (l == SIZE_MAX) /* overflow check */
                 return EFI_OUT_OF_RESOURCES;
 
-        if (*cpio_buffer_size > UINTN_MAX - l) /* overflow check */
+        if (*cpio_buffer_size > SIZE_MAX - l) /* overflow check */
                 return EFI_OUT_OF_RESOURCES;
 
         *cpio_buffer = a = xrealloc(*cpio_buffer, *cpio_buffer_size, *cpio_buffer_size + l);
@@ -227,7 +227,7 @@ static EFI_STATUS pack_cpio_prefix(
                 uint32_t dir_mode,
                 uint32_t *inode_counter,
                 void **cpio_buffer,
-                UINTN *cpio_buffer_size) {
+                size_t *cpio_buffer_size) {
 
         EFI_STATUS err;
 
@@ -267,7 +267,7 @@ static EFI_STATUS pack_cpio_prefix(
 
 static EFI_STATUS pack_cpio_trailer(
                 void **cpio_buffer,
-                UINTN *cpio_buffer_size) {
+                size_t *cpio_buffer_size) {
 
         static const char trailer[] =
                 "070701"
@@ -331,11 +331,11 @@ EFI_STATUS pack_cpio(
                 uint32_t tpm_pcr,
                 const char16_t *tpm_description,
                 void **ret_buffer,
-                UINTN *ret_buffer_size,
+                size_t *ret_buffer_size,
                 bool *ret_measured) {
 
         _cleanup_(file_closep) EFI_FILE *root = NULL, *extra_dir = NULL;
-        UINTN dirent_size = 0, buffer_size = 0, n_items = 0, n_allocated = 0;
+        size_t dirent_size = 0, buffer_size = 0, n_items = 0, n_allocated = 0;
         _cleanup_free_ char16_t *rel_dropin_dir = NULL;
         _cleanup_free_ EFI_FILE_INFO *dirent = NULL;
         _cleanup_(strv_freep) char16_t **items = NULL;
@@ -392,13 +392,11 @@ EFI_STATUS pack_cpio(
                 d = xstrdup16(dirent->FileName);
 
                 if (n_items+2 > n_allocated) {
-                        UINTN m;
-
                         /* We allocate 16 entries at a time, as a matter of optimization */
-                        if (n_items > (UINTN_MAX / sizeof(uint16_t)) - 16) /* Overflow check, just in case */
+                        if (n_items > (SIZE_MAX / sizeof(uint16_t)) - 16) /* Overflow check, just in case */
                                 return log_oom();
 
-                        m = n_items + 16;
+                        size_t m = n_items + 16;
                         items = xrealloc(items, n_allocated * sizeof(uint16_t *), m * sizeof(uint16_t *));
                         n_allocated = m;
                 }
@@ -421,9 +419,9 @@ EFI_STATUS pack_cpio(
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Failed to pack cpio prefix: %m");
 
-        for (UINTN i = 0; i < n_items; i++) {
+        for (size_t i = 0; i < n_items; i++) {
                 _cleanup_free_ char *content = NULL;
-                UINTN contentsize = 0;  /* avoid false maybe-uninitialized warning */
+                size_t contentsize = 0;  /* avoid false maybe-uninitialized warning */
 
                 err = file_read(extra_dir, items[i], 0, 0, &content, &contentsize);
                 if (err != EFI_SUCCESS) {
@@ -480,12 +478,12 @@ EFI_STATUS pack_cpio_literal(
                 uint32_t tpm_pcr,
                 const char16_t *tpm_description,
                 void **ret_buffer,
-                UINTN *ret_buffer_size,
+                size_t *ret_buffer_size,
                 bool *ret_measured) {
 
         uint32_t inode = 1; /* inode counter, so that each item gets a new inode */
         _cleanup_free_ void *buffer = NULL;
-        UINTN buffer_size = 0;
+        size_t buffer_size = 0;
         EFI_STATUS err;
 
         assert(data || data_size == 0);
