@@ -175,15 +175,17 @@ int flush_accept(int fd);
 #define CMSG_FOREACH(cmsg, mh)                                          \
         for ((cmsg) = CMSG_FIRSTHDR(mh); (cmsg); (cmsg) = CMSG_NXTHDR((mh), (cmsg)))
 
+#define CMSG_TYPED_DATA(cmsg, type)                                     \
+        ({                                                              \
+                struct cmsghdr *_cmsg = cmsg;                           \
+                _cmsg ? CAST_ALIGN_PTR(type, CMSG_DATA(_cmsg)) : (type*) NULL; \
+        })
+
 struct cmsghdr* cmsg_find(struct msghdr *mh, int level, int type, socklen_t length);
 
 /* Type-safe, dereferencing version of cmsg_find() */
-#define CMSG_FIND_DATA(mh, level, type, ctype) \
-        ({                                                            \
-                struct cmsghdr *_found;                               \
-                _found = cmsg_find(mh, level, type, CMSG_LEN(sizeof(ctype))); \
-                (ctype*) (_found ? CMSG_DATA(_found) : NULL);         \
-        })
+#define CMSG_FIND_DATA(mh, level, type, ctype)                          \
+        CMSG_TYPED_DATA(cmsg_find(mh, level, type, CMSG_LEN(sizeof(ctype))), ctype)
 
 /* Resolves to a type that can carry cmsghdr structures. Make sure things are properly aligned, i.e. the type
  * itself is placed properly in memory and the size is also aligned to what's appropriate for "cmsghdr"
