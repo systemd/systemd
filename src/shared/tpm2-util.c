@@ -1410,7 +1410,7 @@ int tpm2_seal(const char *device,
                         .nameAlg = TPM2_ALG_SHA256,
                         .objectAttributes = TPMA_OBJECT_FIXEDTPM | TPMA_OBJECT_FIXEDPARENT,
                         .parameters.keyedHashDetail.scheme.scheme = TPM2_ALG_NULL,
-                        .unique.keyedHash.size = 32,
+                        .unique.keyedHash.size = SHA256_DIGEST_SIZE,
                         .authPolicy = *policy_digest,
                 },
         };
