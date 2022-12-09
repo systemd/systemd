@@ -855,7 +855,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                         assert(sizeof(intermediate_digest.buffer) >= SHA256_DIGEST_SIZE);
                         sha256_direct(p->value, p->value_size, intermediate_digest.buffer);
 
-                        int tpmalg = tpm2_pcr_bank_from_string(EVP_MD_name(p->md));
+                        int tpmalg = tpm2_hash_alg_from_string(EVP_MD_name(p->md));
                         if (tpmalg < 0) {
                                 log_error_errno(tpmalg, "Unsupported PCR bank");
                                 goto finish;

@@ -990,9 +990,9 @@ int decrypt_credential_and_warn(
 
                 if (!TPM2_PCR_MASK_VALID(t->pcr_mask))
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "TPM2 PCR mask out of range.");
-                if (!tpm2_pcr_bank_to_string(le16toh(t->pcr_bank)))
+                if (!tpm2_hash_alg_to_string(le16toh(t->pcr_bank)))
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "TPM2 PCR bank invalid or not supported");
-                if (!tpm2_primary_alg_to_string(le16toh(t->primary_alg)))
+                if (!tpm2_asym_alg_to_string(le16toh(t->primary_alg)))
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "TPM2 primary key algorithm invalid or not supported.");
                 if (le32toh(t->blob_size) > CREDENTIAL_FIELD_SIZE_MAX)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Unexpected TPM2 blob size.");
