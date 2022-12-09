@@ -700,6 +700,18 @@ TEST(calculate_policy_auth_value) {
         assert_se(digest_check(&d, "759ebd5ed65100e0b4aa2d04b4b789c2672d92ecc9cdda4b5fa16a303132e008"));
 }
 
+TEST(calculate_policy_authorize) {
+        TPM2B_PUBLIC public;
+        TPM2B_DIGEST d;
+
+        tpm2b_public_init(&public);
+        digest_init_sha256(&d, "0000000000000000000000000000000000000000000000000000000000000000");
+        assert_se(tpm2_calculate_policy_authorize(&public, NULL, &d) == 0);
+        assert_se(digest_check(&d, "95213a3784eaab04f427bc7e8851c2f1df0903be8e42428ec25dcefd907baff1"));
+        assert_se(tpm2_calculate_policy_authorize(&public, NULL, &d) == 0);
+        assert_se(digest_check(&d, "95213a3784eaab04f427bc7e8851c2f1df0903be8e42428ec25dcefd907baff1"));
+}
+
 TEST(calculate_policy_pcr) {
         TPML_PCR_SELECTION pcr_selection;
         TPM2B_DIGEST pcr_values[16];
