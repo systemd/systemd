@@ -110,7 +110,7 @@ typedef struct _EFI_DT_FIXUP_PROTOCOL EFI_DT_FIXUP_PROTOCOL;
 typedef EFI_STATUS (EFIAPI *EFI_DT_FIXUP) (
         IN EFI_DT_FIXUP_PROTOCOL *This,
         IN VOID                  *Fdt,
-        IN OUT UINTN             *BufferSize,
+        IN OUT size_t             *BufferSize,
         IN UINT32                Flags);
 
 struct _EFI_DT_FIXUP_PROTOCOL {
@@ -332,7 +332,7 @@ typedef EFI_STATUS (EFIAPI *EFI_SECURITY2_FILE_AUTHENTICATION)(
                 const EFI_SECURITY2_ARCH_PROTOCOL *This,
                 const EFI_DEVICE_PATH *DevicePath,
                 void *FileBuffer,
-                UINTN FileSize,
+                size_t FileSize,
                 BOOLEAN BootPolicy);
 
 struct EFI_SECURITY2_ARCH_PROTOCOL {
@@ -392,7 +392,7 @@ typedef struct _EFI_CONSOLE_CONTROL_PROTOCOL {
 
 typedef struct {
         CHAR16 **Argv;
-        UINTN Argc;
+        size_t Argc;
         void *StdIn;
         void *StdOut;
         void *StdErr;
