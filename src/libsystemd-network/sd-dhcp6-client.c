@@ -1293,7 +1293,7 @@ static int client_receive_message(
                 if (cmsg->cmsg_level == SOL_SOCKET &&
                     cmsg->cmsg_type == SO_TIMESTAMP &&
                     cmsg->cmsg_len == CMSG_LEN(sizeof(struct timeval)))
-                        triple_timestamp_from_realtime(&t, timeval_load((struct timeval*) CMSG_DATA(cmsg)));
+                        triple_timestamp_from_realtime(&t, timeval_load(CMSG_TYPED_DATA(cmsg, struct timeval)));
         }
 
         if (client->transaction_id != (message->transaction_id & htobe32(0x00ffffff)))
