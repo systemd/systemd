@@ -194,7 +194,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
         err = root_dir->Open(
                         root_dir,
                         &handle,
-                        (char16_t *) L"\\loader\\random-seed",
+                        (char16_t *) u"\\loader\\random-seed",
                         EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE,
                         0);
         if (err != EFI_SUCCESS) {

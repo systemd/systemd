@@ -82,7 +82,7 @@ EFI_STATUS load_drivers(
 
         err = open_directory(
                         root_dir,
-                        L"\\EFI\\systemd\\drivers",
+                        u"\\EFI\\systemd\\drivers",
                         &drivers_dir);
         if (err == EFI_NOT_FOUND)
                 return EFI_SUCCESS;
@@ -100,7 +100,7 @@ EFI_STATUS load_drivers(
                         continue;
                 if (FLAGS_SET(dirent->Attribute, EFI_FILE_DIRECTORY))
                         continue;
-                if (!endswith_no_case(dirent->FileName, EFI_MACHINE_TYPE_NAME L".efi"))
+                if (!endswith_no_case(dirent->FileName, EFI_MACHINE_TYPE_NAME u".efi"))
                         continue;
 
                 err = load_one_driver(parent_image, loaded_image, dirent->FileName);
