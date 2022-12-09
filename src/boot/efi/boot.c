@@ -428,7 +428,7 @@ static bool unicode_supported(void) {
         if (cache < 0)
                 /* Basic unicode box drawing support is mandated by the spec, but it does
                  * not hurt to make sure it works. */
-                cache = ST->ConOut->TestString(ST->ConOut, (char16_t *) L"─") == EFI_SUCCESS;
+                cache = ST->ConOut->TestString(ST->ConOut, (char16_t *) u"─") == EFI_SUCCESS;
 
         return cache;
 }
@@ -747,7 +747,7 @@ static bool menu_run(
                                         print_at(x_start,
                                                  y_start + i - idx_first,
                                                  i == idx_highlight ? COLOR_HIGHLIGHT : COLOR_ENTRY,
-                                                 unicode_supported() ? L" ►" : L"=>");
+                                                 unicode_supported() ? u" ►" : u"=>");
                         }
                         refresh = false;
                 } else if (highlight) {
@@ -757,12 +757,12 @@ static bool menu_run(
                                 print_at(x_start,
                                          y_start + idx_highlight_prev - idx_first,
                                          COLOR_ENTRY,
-                                         unicode_supported() ? L" ►" : L"=>");
+                                         unicode_supported() ? u" ►" : u"=>");
                         if (idx_highlight == config->idx_default_efivar)
                                 print_at(x_start,
                                          y_start + idx_highlight - idx_first,
                                          COLOR_HIGHLIGHT,
-                                         unicode_supported() ? L" ►" : L"=>");
+                                         unicode_supported() ? u" ►" : u"=>");
                         highlight = false;
                 }
 
@@ -1528,7 +1528,7 @@ static void config_entry_add_type1(
 
         config_add_entry(config, entry);
 
-        config_entry_parse_tries(entry, path, file, L".conf");
+        config_entry_parse_tries(entry, path, file, u".conf");
         TAKE_PTR(entry);
 }
 
@@ -1580,7 +1580,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .timeout_sec_efivar = TIMEOUT_UNSET,
         };
 
-        err = file_read(root_dir, L"\\loader\\loader.conf", 0, 0, &content, NULL);
+        err = file_read(root_dir, u"\\loader\\loader.conf", 0, 0, &content, NULL);
         if (err == EFI_SUCCESS)
                 config_defaults_load_from_file(config, content);
 
@@ -1615,8 +1615,8 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
         strtolower16(config->entry_oneshot);
         strtolower16(config->entry_saved);
 
-        config->use_saved_entry = streq16(config->entry_default_config, L"@saved");
-        config->use_saved_entry_efivar = streq16(config->entry_default_efivar, L"@saved");
+        config->use_saved_entry = streq16(config->entry_default_config, u"@saved");
+        config->use_saved_entry_efivar = streq16(config->entry_default_efivar, u"@saved");
         if (config->use_saved_entry || config->use_saved_entry_efivar)
                 (void) efivar_get(MAKE_GUID_PTR(LOADER), u"LoaderEntryLastBooted", &config->entry_saved);
 }
@@ -1638,7 +1638,7 @@ static void config_load_entries(
 
         /* Adds Boot Loader Type #1 entries (i.e. /loader/entries/….conf) */
 
-        err = open_directory(root_dir, L"\\loader\\entries", &entries_dir);
+        err = open_directory(root_dir, u"\\loader\\entries", &entries_dir);
         if (err != EFI_SUCCESS)
                 return;
 
@@ -1654,14 +1654,14 @@ static void config_load_entries(
                 if (FLAGS_SET(f->Attribute, EFI_FILE_DIRECTORY))
                         continue;
 
-                if (!endswith_no_case(f->FileName, L".conf"))
+                if (!endswith_no_case(f->FileName, u".conf"))
                         continue;
-                if (startswith(f->FileName, L"auto-"))
+                if (startswith(f->FileName, u"auto-"))
                         continue;
 
                 err = file_read(entries_dir, f->FileName, 0, 0, &content, NULL);
                 if (err == EFI_SUCCESS)
-                        config_entry_add_type1(config, device, root_dir, L"\\loader\\entries", f->FileName, content, loaded_image_path);
+                        config_entry_add_type1(config, device, root_dir, u"\\loader\\entries", f->FileName, content, loaded_image_path);
         }
 }
 
@@ -1896,7 +1896,7 @@ static ConfigEntry *config_entry_add_loader_auto(
                 return NULL;
 
         if (!loader) {
-                loader = L"\\EFI\\BOOT\\BOOT" EFI_MACHINE_TYPE_NAME ".efi";
+                loader = u"\\EFI\\BOOT\\BOOT" EFI_MACHINE_TYPE_NAME ".efi";
 
                 /* We are trying to add the default EFI loader here,
                  * but we do not want to do that if that would be us.
@@ -1905,7 +1905,7 @@ static ConfigEntry *config_entry_add_loader_auto(
                  * chainload GRUBX64.EFI in that case, which might be us.*/
                 if (strcaseeq16(loader, loaded_image_path) ||
                     is_sd_boot(root_dir, loader) ||
-                    is_sd_boot(root_dir, L"\\EFI\\BOOT\\GRUB" EFI_MACHINE_TYPE_NAME L".EFI"))
+                    is_sd_boot(root_dir, u"\\EFI\\BOOT\\GRUB" EFI_MACHINE_TYPE_NAME u".EFI"))
                         return NULL;
         }
 
@@ -1957,10 +1957,10 @@ static void config_entry_add_osx(Config *config) {
                                 handles[i],
                                 root,
                                 NULL,
-                                L"auto-osx",
+                                u"auto-osx",
                                 'a',
-                                L"macOS",
-                                L"\\System\\Library\\CoreServices\\boot.efi"))
+                                u"macOS",
+                                u"\\System\\Library\\CoreServices\\boot.efi"))
                         break;
         }
 }
@@ -2029,7 +2029,7 @@ static EFI_STATUS boot_windows_bitlocker(void) {
                 if (buf_size < offset + sizeof(char16_t))
                         continue;
 
-                if (streq16((char16_t *) (buf + offset), L"Windows Boot Manager")) {
+                if (streq16((char16_t *) (buf + offset), u"Windows Boot Manager")) {
                         err = efivar_set_raw(
                                 MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE),
                                 u"BootNext",
@@ -2061,13 +2061,13 @@ static void config_entry_add_windows(Config *config, EFI_HANDLE *device, EFI_FIL
                 return;
 
         /* Try to find a better title. */
-        err = file_read(root_dir, L"\\EFI\\Microsoft\\Boot\\BCD", 0, 100*1024, &bcd, &len);
+        err = file_read(root_dir, u"\\EFI\\Microsoft\\Boot\\BCD", 0, 100*1024, &bcd, &len);
         if (err == EFI_SUCCESS)
                 title = get_bcd_title((uint8_t *) bcd, len);
 
         ConfigEntry *e = config_entry_add_loader_auto(config, device, root_dir, NULL,
-                                                      L"auto-windows", 'w', title ?: L"Windows Boot Manager",
-                                                      L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
+                                                      u"auto-windows", 'w', title ?: u"Windows Boot Manager",
+                                                      u"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
 
         if (config->reboot_for_bitlocker)
                 e->call = boot_windows_bitlocker;
@@ -2090,7 +2090,7 @@ static void config_entry_add_unified(
         assert(device);
         assert(root_dir);
 
-        err = open_directory(root_dir, L"\\EFI\\Linux", &linux_dir);
+        err = open_directory(root_dir, u"\\EFI\\Linux", &linux_dir);
         if (err != EFI_SUCCESS)
                 return;
 
@@ -2122,9 +2122,9 @@ static void config_entry_add_unified(
                         continue;
                 if (FLAGS_SET(f->Attribute, EFI_FILE_DIRECTORY))
                         continue;
-                if (!endswith_no_case(f->FileName, L".efi"))
+                if (!endswith_no_case(f->FileName, u".efi"))
                         continue;
-                if (startswith(f->FileName, L"auto-"))
+                if (startswith(f->FileName, u"auto-"))
                         continue;
 
                 /* look for .osrel and .cmdline sections in the .efi binary */
@@ -2217,7 +2217,7 @@ static void config_entry_add_unified(
 
                 strtolower16(entry->id);
                 config_add_entry(config, entry);
-                config_entry_parse_tries(entry, L"\\EFI\\Linux", f->FileName, L".efi");
+                config_entry_parse_tries(entry, u"\\EFI\\Linux", f->FileName, u".efi");
 
                 if (szs[SECTION_CMDLINE] == 0)
                         continue;
@@ -2591,9 +2591,9 @@ static void config_load_all_entries(
         config_entry_add_osx(config);
         config_entry_add_windows(config, loaded_image->DeviceHandle, root_dir);
         config_entry_add_loader_auto(config, loaded_image->DeviceHandle, root_dir, NULL,
-                                     L"auto-efi-shell", 's', L"EFI Shell", L"\\shell" EFI_MACHINE_TYPE_NAME ".efi");
+                                     u"auto-efi-shell", 's', u"EFI Shell", u"\\shell" EFI_MACHINE_TYPE_NAME ".efi");
         config_entry_add_loader_auto(config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
-                                     L"auto-efi-default", '\0', L"EFI Default Loader", NULL);
+                                     u"auto-efi-default", '\0', u"EFI Default Loader", NULL);
 
         if (config->auto_firmware && FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI)) {
                 ConfigEntry *entry = xnew(ConfigEntry, 1);
