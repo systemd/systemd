@@ -2724,7 +2724,7 @@ int tpm2_make_luks2_json(
                                        JSON_BUILD_PAIR("tpm2-blob", JSON_BUILD_BASE64(blob, blob_size)),
                                        JSON_BUILD_PAIR("tpm2-pcrs", JSON_BUILD_VARIANT(hmj)),
                                        JSON_BUILD_PAIR_CONDITION(!!tpm2_pcr_bank_to_string(pcr_bank), "tpm2-pcr-bank", JSON_BUILD_STRING(tpm2_pcr_bank_to_string(pcr_bank))),
-                                       JSON_BUILD_PAIR_CONDITION(!!tpm2_primary_alg_to_string(primary_alg), "tpm2-primary-alg", JSON_BUILD_STRING(tpm2_primary_alg_to_string(primary_alg))),
+                                       JSON_BUILD_PAIR_CONDITION(!!tpm2_alg_to_string(primary_alg), "tpm2-primary-alg", JSON_BUILD_STRING(tpm2_alg_to_string(primary_alg))),
                                        JSON_BUILD_PAIR("tpm2-policy-hash", JSON_BUILD_HEX(policy_hash, policy_hash_size)),
                                        JSON_BUILD_PAIR("tpm2-pin", JSON_BUILD_BOOLEAN(flags & TPM2_FLAGS_USE_PIN)),
                                        JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey_pcrs", JSON_BUILD_VARIANT(pkmj)),
@@ -2811,7 +2811,7 @@ int tpm2_parse_luks2_json(
                 if (!json_variant_is_string(w))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 primary key algorithm is not a string.");
 
-                r = tpm2_primary_alg_from_string(json_variant_string(w));
+                r = tpm2_alg_from_string(json_variant_string(w));
                 if (r < 0)
                         return log_debug_errno(r, "TPM2 primary key algorithm invalid or not supported: %s", json_variant_string(w));
 
@@ -2920,7 +2920,7 @@ int tpm2_pcr_bank_from_string(const char *bank) {
         return -EINVAL;
 }
 
-const char *tpm2_primary_alg_to_string(uint16_t alg) {
+const char *tpm2_alg_to_string(uint16_t alg) {
         if (alg == TPM2_ALG_ECC)
                 return "ecc";
         if (alg == TPM2_ALG_RSA)
@@ -2928,7 +2928,7 @@ const char *tpm2_primary_alg_to_string(uint16_t alg) {
         return NULL;
 }
 
-int tpm2_primary_alg_from_string(const char *alg) {
+int tpm2_alg_from_string(const char *alg) {
         if (strcaseeq_ptr(alg, "ecc"))
                 return TPM2_ALG_ECC;
         if (strcaseeq_ptr(alg, "rsa"))
