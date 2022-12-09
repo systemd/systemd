@@ -691,6 +691,16 @@ TEST(calculate_name) {
         assert_se(streq(expect, h));
 }
 
+TEST(calculate_policy_auth_value) {
+        TPM2B_DIGEST d;
+
+        DIGEST_INIT_SHA256(d, SHA256_T0);
+        assert_se(tpm2_calculate_policy_auth_value(&d) == 0);
+        DIGEST_CHECK(d, "8fcd2169ab92694e0c633f1ab772842b8241bbc20288981fc7ac1eddc1fddb0e");
+        assert_se(tpm2_calculate_policy_auth_value(&d) == 0);
+        DIGEST_CHECK(d, "759ebd5ed65100e0b4aa2d04b4b789c2672d92ecc9cdda4b5fa16a303132e008");
+}
+
 TEST(calculate_policy_pcr) {
         TPML_PCR_SELECTION pcr_selection;
         TPM2B_DIGEST pcr_values[16];
