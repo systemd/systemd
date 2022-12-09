@@ -5,15 +5,17 @@
 name: "Pull Request Labeler"
 
 on:
-- pull_request_target
-- issue_comment
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: read
 
 jobs:
   triage:
-    if: github.event.repository.name != 'systemd-security'
+    if: github.repository == 'systemd/systemd'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -26,25 +28,42 @@ jobs:
         sync-labels: "" # This is a workaround for issue 18671
 
     - uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0
-      if: github.event_name == 'pull_request_target'
+      if: github.event_name == 'pull_request_target' && !github.event.pull_request.draft
       with:
         script: |
-          await github.rest.issues.addLabels({
+          response = await github.rest.issues.listLabelsOnIssue({
             issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
-            labels: ["please-review"]
-          })
+          });
+
+          good_to_merge = [
+            "good-to-merge/waiting-for-ci 👍",
+            "good-to-merge/after-next-release",
+            "good-to-merge/with-minor-suggestions",
+            "good-to-merge/waiting-for-reporter-feedback 👍",
+          ];
+
+          if (response.data.every(l => !good_to_merge.includes(l.name))) {
+            await github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ["please-review"]
+            });
+          }
+
           for (const label of ["reviewed/needs-rework 🔨",
                                "ci-fails/needs-rework 🔥",
-                               "ci-failure-appears-unrelated"]) {
+                               "ci-failure-appears-unrelated",
+                               "needs-rebase"]) {
             try {
               await github.rest.issues.removeLabel({
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 name: label,
-              })
+              });
             } catch (err) {
               if (err.status != 404) {
                 throw err;
@@ -56,7 +75,7 @@ jobs:
       if: github.event_name == 'issue_comment' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/please-review')
       with:
         script: |
-          github.rest.issues.addLabels({
+          await github.rest.issues.addLabels({
             issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
