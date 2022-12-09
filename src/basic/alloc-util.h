@@ -4,6 +4,7 @@
 #include <alloca.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <malloc.h>
 #include <string.h>
 
 #include "macro.h"
@@ -184,17 +185,22 @@ void* greedy_realloc0(void **p, size_t need, size_t size);
 #  define msan_unpoison(r, s)
 #endif
 
-/* This returns the number of usable bytes in a malloc()ed region as per malloc_usable_size(), in a way that
- * is compatible with _FORTIFY_SOURCES. If _FORTIFY_SOURCES is used many memory operations will take the
- * object size as returned by __builtin_object_size() into account. Hence, let's return the smaller size of
- * malloc_usable_size() and __builtin_object_size() here, so that we definitely operate in safe territory by
- * both the compiler's and libc's standards. Note that __builtin_object_size() evaluates to SIZE_MAX if the
- * size cannot be determined, hence the MIN() expression should be safe with dynamically sized memory,
- * too. Moreover, when NULL is passed malloc_usable_size() is documented to return zero, and
- * __builtin_object_size() returns SIZE_MAX too, hence we also return a sensible value of 0 in this corner
- * case. */
-#define MALLOC_SIZEOF_SAFE(x) \
-        MIN(malloc_usable_size(x), __builtin_object_size(x, 0))
+void *expand_to_usable(void *p, size_t newsize) _alloc_ (2);
+
+/* This returns the number of usable bytes in a malloc()ed region as per malloc_usable_size(), which may
+ * return a value larger than the size that was actually allocated. Access to that additional memory is
+ * safe but discouraged because it violates the C standard; a compiler cannot see that this as valid. To help
+ * the compiler out, the MALLOC_SIZEOF_SAFE macro 'allocates' the usable size using a dummy allocator
+ * function expand_to_usable. */
+#define MALLOC_SIZEOF_SAFE(x)                                           \
+        ({                                                              \
+                size_t full_size = malloc_usable_size((x));             \
+                void *newx _unused_;                                    \
+                __builtin_choose_expr(__builtin_constant_p((x)),        \
+                                      newx, (x))                        \
+                        = expand_to_usable((x), full_size);             \
+                full_size;                                              \
+        })
 
 /* Inspired by ELEMENTSOF() but operates on malloc()'ed memory areas: typesafely returns the number of items
  * that fit into the specified memory block */
