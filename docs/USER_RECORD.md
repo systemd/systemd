@@ -478,6 +478,9 @@ directory.
 `luksExtraMountOptions` → A string with additional mount options to append to
 the default mount options for the file system in the LUKS volume.
 
+`luksExtraMkfsOptions` → A string to pass as extra arguments to `mkfs` for creating
+the filesystem within the LUKS storage mechanism.
+
 `luksCipher` → A string, indicating the cipher to use for the LUKS storage mechanism.
 
 `luksCipherMode` → A string, selecting the cipher mode to use for the LUKS storage mechanism.
@@ -738,8 +741,8 @@ that may be used in this section are identical to the equally named ones in the
 `mountNoDevices`, `mountNoSuid`, `mountNoExecute`, `cifsDomain`,
 `cifsUserName`, `cifsService`, `cifsExtraMountOptions`, `imagePath`, `uid`,
 `gid`, `memberOf`, `fileSystemType`, `partitionUuid`, `luksUuid`,
-`fileSystemUuid`, `luksDiscard`, `luksOfflineDiscard`, `luksCipher`,
-`luksCipherMode`, `luksVolumeKeySize`, `luksPbkdfHashAlgorithm`,
+`fileSystemUuid`, `luksDiscard`, `luksOfflineDiscard`, `luksExtraMountOptions`, `luksExtraMkfsOptions`,
+`luksCipher`, `luksCipherMode`, `luksVolumeKeySize`, `luksPbkdfHashAlgorithm`,
 `luksPbkdfType`, `luksPbkdfForceIterations`, `luksPbkdfTimeCostUSec`, `luksPbkdfMemoryCost`,
 `luksPbkdfParallelThreads`, `luksSectorSize`, `autoResizeMode`, `rebalanceWeight`,
 `rateLimitIntervalUSec`, `rateLimitBurst`, `enforcePasswordPolicy`,
