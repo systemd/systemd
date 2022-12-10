@@ -480,6 +480,11 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   options. There's one variable for each of the supported file systems for the
   LUKS home directory backend.
 
+* `$SYSTEMD_HOME_MKFS_OPTIONS_BTRFS`, `$SYSTEMD_HOME_MKFS_OPTIONS_EXT4`,
+  `$SYSTEMD_HOME_MKFS_OPTIONS_XFS` – configure additional arguments to use for
+  `mkfs` when formatting LUKS home directories. There's one variable for each
+  of the supported file systems for the LUKS home directory backend.
+
 `kernel-install`:
 
 * `$KERNEL_INSTALL_BYPASS` – If set to "1", execution of kernel-install is skipped
