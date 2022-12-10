@@ -190,6 +190,18 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static int binfmt_mounted_warn(void) {
+        int r;
+
+        r = binfmt_mounted();
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if /proc/sys/fs/binfmt_misc is mounted: %m");
+        if (r == 0)
+                log_debug("/proc/sys/fs/binfmt_misc is not mounted in read-write mode, skipping.");
+
+        return r;
+}
+
 static int run(int argc, char *argv[]) {
         int r, k;
 
@@ -206,13 +218,17 @@ static int run(int argc, char *argv[]) {
         if (arg_unregister)
                 return disable_binfmt();
 
-        if (argc > optind)
+        if (argc > optind) {
+                r = binfmt_mounted_warn();
+                if (r <= 0)
+                        return r;
+
                 for (int i = optind; i < argc; i++) {
                         k = apply_file(argv[i], false);
                         if (k < 0 && r >= 0)
                                 r = k;
                 }
-        else {
+        } else {
                 _cleanup_strv_free_ char **files = NULL;
 
                 r = conf_files_list_strv(&files, ".conf", NULL, 0, (const char**) CONF_PATHS_STRV("binfmt.d"));
@@ -224,6 +240,10 @@ static int run(int argc, char *argv[]) {
 
                         return cat_files(NULL, files, 0);
                 }
+
+                r = binfmt_mounted_warn();
+                if (r <= 0)
+                        return r;
 
                 /* Flush out all rules */
                 r = write_string_file("/proc/sys/fs/binfmt_misc/status", "-1", WRITE_STRING_FILE_DISABLE_BUFFER);
