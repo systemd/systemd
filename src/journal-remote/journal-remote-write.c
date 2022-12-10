@@ -29,7 +29,7 @@ Writer* writer_new(RemoteServer *server) {
         if (!w)
                 return NULL;
 
-        memcpy(&w->metrics, &server->metrics, sizeof(w->metrics));
+        w->metrics = server->metrics;
 
         w->mmap = mmap_cache_new();
         if (!w->mmap)
