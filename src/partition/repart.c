@@ -4037,7 +4037,7 @@ static int context_mkfs(Context *context) {
                 }
 
                 r = make_filesystem(partition_target_path(t), p->format, strempty(p->new_label), root,
-                                    p->fs_uuid, arg_discard);
+                                    p->fs_uuid, arg_discard, NULL);
                 if (r < 0)
                         return r;
 
@@ -5349,7 +5349,7 @@ static int context_minimize(Context *context) {
                                 return r;
                 }
 
-                r = make_filesystem(d ? d->node : temp, p->format, strempty(p->new_label), root, fs_uuid, arg_discard);
+                r = make_filesystem(d ? d->node : temp, p->format, strempty(p->new_label), root, fs_uuid, arg_discard, NULL);
                 if (r < 0)
                         return r;
 
@@ -5402,7 +5402,7 @@ static int context_minimize(Context *context) {
                 if (r < 0 && r != -ENOENT && !ERRNO_IS_PRIVILEGE(r))
                         return log_error_errno(r, "Failed to make loopback device of %s: %m", temp);
 
-                r = make_filesystem(d ? d->node : temp, p->format, strempty(p->new_label), root, p->fs_uuid, arg_discard);
+                r = make_filesystem(d ? d->node : temp, p->format, strempty(p->new_label), root, p->fs_uuid, arg_discard, NULL);
                 if (r < 0)
                         return r;
 
