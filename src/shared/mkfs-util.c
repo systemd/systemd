@@ -302,7 +302,8 @@ int make_filesystem(
                 const char *label,
                 const char *root,
                 sd_id128_t uuid,
-                bool discard) {
+                bool discard,
+                char * const *extra_mkfs_args) {
 
         _cleanup_free_ char *mkfs = NULL, *mangled_label = NULL;
         _cleanup_strv_free_ char **argv = NULL;
@@ -521,6 +522,12 @@ int make_filesystem(
 
         if (!argv)
                 return log_oom();
+
+        if (extra_mkfs_args) {
+                r = strv_extend_strv(&argv, extra_mkfs_args, false);
+                if (r < 0)
+                        return log_oom();
+        }
 
         if (root && stat(root, &st) < 0)
                 return log_error_errno(errno, "Failed to stat %s: %m", root);
