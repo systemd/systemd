@@ -37,7 +37,8 @@ jobs:
           })
           for (const label of ["reviewed/needs-rework 🔨",
                                "ci-fails/needs-rework 🔥",
-                               "ci-failure-appears-unrelated"]) {
+                               "ci-failure-appears-unrelated",
+                               "needs-rebase"]) {
             try {
               await github.rest.issues.removeLabel({
                 issue_number: context.issue.number,
