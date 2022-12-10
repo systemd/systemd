@@ -230,6 +230,7 @@ int enable_sysv_units(const char *verb, char **args) {
                         } else {
                                 if (!arg_quiet)
                                         puts("disabled");
+                                r = ESRCH; /* This is not an error, but to indicate the 'disabled' state. */
                         }
 
                 } else if (j != EXIT_SUCCESS)
