@@ -25,7 +25,11 @@ static int binfmt_mounted(void) {
         if (r <= 0)
                 return r;
 
-        return true;
+        r = fd_is_read_only_fs(fd);
+        if (r < 0)
+                return r;
+
+        return r == 0;
 }
 
 int disable_binfmt(void) {
