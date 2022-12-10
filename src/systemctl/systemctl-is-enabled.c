@@ -117,23 +117,18 @@ int verb_is_enabled(int argc, char *argv[], void *userdata) {
 
                 STRV_FOREACH(name, names) {
                         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                        _cleanup_free_ char *load_state = NULL;
                         const char *s;
 
-                        r = unit_load_state(bus, *name, &load_state);
-                        if (r < 0)
-                                return r;
+                        r = bus_call_method(bus, bus_systemd_mgr, "GetUnitFileState", &error, &reply, "s", *name);
+                        if (r < 0 && r != -ENOENT)
+                                return log_error_errno(r, "Failed to get unit file state for %s: %s", *name, bus_error_message(&error, r));
 
-                        if (streq(load_state, "not-found")) {
+                        if (r == -ENOENT) {
                                 if (!arg_quiet)
-                                        puts(load_state);
+                                        puts("not-found");
                                 continue;
                         } else
                                 not_found = false;
-
-                        r = bus_call_method(bus, bus_systemd_mgr, "GetUnitFileState", &error, &reply, "s", *name);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to get unit file state for %s: %s", *name, bus_error_message(&error, r));
 
                         r = sd_bus_message_read(reply, "s", &s);
                         if (r < 0)
