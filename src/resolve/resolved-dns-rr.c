@@ -1814,6 +1814,8 @@ DnsTxtItem *dns_txt_item_copy(DnsTxtItem *first) {
 int dns_txt_item_new_empty(DnsTxtItem **ret) {
         DnsTxtItem *i;
 
+        assert(ret);
+
         /* RFC 6763, section 6.1 suggests to treat
          * empty TXT RRs as equivalent to a TXT record
          * with a single empty string. */
@@ -1823,7 +1825,6 @@ int dns_txt_item_new_empty(DnsTxtItem **ret) {
                 return -ENOMEM;
 
         *ret = i;
-
         return 0;
 }
 
