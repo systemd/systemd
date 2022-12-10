@@ -23,7 +23,6 @@ static int do_rotate(ManagedJournalFile **f, MMapCache *m, JournalFileFlags file
 
 Writer* writer_new(RemoteServer *server) {
         Writer *w;
-        _cleanup_free_ char *dirname = NULL;
         int r;
 
         w = new0(Writer, 1);
@@ -39,15 +38,16 @@ Writer* writer_new(RemoteServer *server) {
         w->n_ref = 1;
         w->server = server;
 
-        if (is_dir(server->output, /* follow = */ true) > 0)
-                w->output = server->output;
-        else {
-                r = path_extract_directory(server->output, &dirname);
+        if (is_dir(server->output, /* follow = */ true) > 0) {
+                w->output = strdup(server->output);
+                if (!w->output)
+                        return NULL;
+        } else {
+                r = path_extract_directory(server->output, &w->output);
                 if (r < 0) {
                         log_error_errno(r, "Failed to find directory of file %s", server->output);
                         return NULL;
                 }
-                w->output = dirname;
         }
 
         return w;
