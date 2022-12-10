@@ -163,24 +163,35 @@ int null_or_empty_fd(int fd) {
         return null_or_empty(&st);
 }
 
-int path_is_read_only_fs(const char *path) {
+static int fd_is_read_only_fs(int fd) {
         struct statvfs st;
 
-        assert(path);
+        assert(fd >= 0);
 
-        if (statvfs(path, &st) < 0)
+        if (fstatvfs(fd, &st) < 0)
                 return -errno;
 
         if (st.f_flag & ST_RDONLY)
                 return true;
 
-        /* On NFS, statvfs() might not reflect whether we can actually
-         * write to the remote share. Let's try again with
-         * access(W_OK) which is more reliable, at least sometimes. */
-        if (access(path, W_OK) < 0 && errno == EROFS)
+        /* On NFS, fstatvfs() might not reflect whether we can actually write to the remote share. Let's try
+         * again with access(W_OK) which is more reliable, at least sometimes. */
+        if (access_fd(fd, W_OK) == -EROFS)
                 return true;
 
         return false;
+}
+
+int path_is_read_only_fs(const char *path) {
+        _cleanup_close_ int fd = -EBADFD;
+
+        assert(path);
+
+        fd = open(path, O_CLOEXEC | O_PATH);
+        if (fd < 0)
+                return -errno;
+
+        return fd_is_read_only_fs(fd);
 }
 
 int files_same(const char *filea, const char *fileb, int flags) {
