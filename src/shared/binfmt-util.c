@@ -11,7 +11,7 @@
 #include "missing_magic.h"
 #include "stat-util.h"
 
-static int binfmt_mounted(void) {
+int binfmt_mounted(void) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
