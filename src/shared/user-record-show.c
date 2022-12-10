@@ -302,6 +302,8 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
 
                 if (hr->luks_extra_mount_options)
                         printf("LUKS MntOpts: %s\n", hr->luks_extra_mount_options);
+                if (hr->luks_extra_mkfs_options)
+                        printf("LUKS MkfsOpt: %s\n", hr->luks_extra_mkfs_options);
 
                 if (hr->luks_cipher)
                         printf(" LUKS Cipher: %s\n", hr->luks_cipher);

@@ -2419,6 +2419,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_AND_CHANGE_PASSWORD,
                 ARG_DROP_CACHES,
                 ARG_LUKS_EXTRA_MOUNT_OPTIONS,
+                ARG_LUKS_EXTRA_MKFS_OPTIONS,
                 ARG_AUTO_RESIZE_MODE,
                 ARG_REBALANCE_WEIGHT,
                 ARG_FIDO2_CRED_ALG,
@@ -2510,6 +2511,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "and-change-password",         required_argument, NULL, ARG_AND_CHANGE_PASSWORD         },
                 { "drop-caches",                 required_argument, NULL, ARG_DROP_CACHES                 },
                 { "luks-extra-mount-options",    required_argument, NULL, ARG_LUKS_EXTRA_MOUNT_OPTIONS    },
+                { "luks-extra-mkfs-options",     required_argument, NULL, ARG_LUKS_EXTRA_MKFS_OPTIONS     },
                 { "auto-resize-mode",            required_argument, NULL, ARG_AUTO_RESIZE_MODE            },
                 { "rebalance-weight",            required_argument, NULL, ARG_REBALANCE_WEIGHT            },
                 {}
@@ -2630,7 +2632,8 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_CIFS_USER_NAME:
                 case ARG_CIFS_DOMAIN:
                 case ARG_CIFS_EXTRA_MOUNT_OPTIONS:
-                case ARG_LUKS_EXTRA_MOUNT_OPTIONS: {
+                case ARG_LUKS_EXTRA_MOUNT_OPTIONS:
+                case ARG_LUKS_EXTRA_MKFS_OPTIONS: {
 
                         const char *field =
                                            c == ARG_EMAIL_ADDRESS ? "emailAddress" :
@@ -2640,6 +2643,7 @@ static int parse_argv(int argc, char *argv[]) {
                                              c == ARG_CIFS_DOMAIN ? "cifsDomain" :
                                 c == ARG_CIFS_EXTRA_MOUNT_OPTIONS ? "cifsExtraMountOptions" :
                                 c == ARG_LUKS_EXTRA_MOUNT_OPTIONS ? "luksExtraMountOptions" :
+                                 c == ARG_LUKS_EXTRA_MKFS_OPTIONS ? "luksExtraMkfsOptions" :
                                                                     NULL;
 
                         assert(field);
