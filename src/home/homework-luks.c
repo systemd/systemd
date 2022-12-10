@@ -2110,6 +2110,25 @@ static int home_truncate(
         return !trunc; /* Return == 0 if we managed to truncate, > 0 if we managed to allocate */
 }
 
+static int mkfs_options_for_fstype(const char *fstype, char ***ret) {
+        _cleanup_(strv_freep) char **l = NULL;
+        const char *e;
+        char *n;
+
+        assert(fstype);
+
+        n = strjoina("SYSTEMD_HOME_MKFS_OPTIONS_", fstype);
+        e = getenv(ascii_strupper(n));
+        if (e) {
+                l = strv_split(e, NULL);
+                if (!l)
+                        return -ENOMEM;
+        }
+
+        *ret = TAKE_PTR(l);
+        return 0;
+}
+
 int home_create_luks(
                 UserRecord *h,
                 HomeSetup *setup,
@@ -2126,6 +2145,7 @@ int home_create_luks(
         const char *fstype, *ip;
         struct statfs sfs;
         int r;
+        _cleanup_strv_free_ char **extra_mkfs_options = NULL;
 
         assert(h);
         assert(h->storage < 0 || h->storage == USER_LUKS);
@@ -2333,7 +2353,10 @@ int home_create_luks(
 
         log_info("Setting up LUKS device %s completed.", setup->dm_node);
 
-        r = make_filesystem(setup->dm_node, fstype, user_record_user_name_and_realm(h), NULL, fs_uuid, user_record_luks_discard(h));
+        r = mkfs_options_for_fstype(fstype, &extra_mkfs_options);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine mkfs command line options for '%s': %m", fstype);
+        r = make_filesystem(setup->dm_node, fstype, user_record_user_name_and_realm(h), NULL, fs_uuid, user_record_luks_discard(h), extra_mkfs_options);
         if (r < 0)
                 return r;
 
