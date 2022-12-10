@@ -14,6 +14,7 @@ static int check_unit_generic(int code, const UnitActiveState good_states[], int
         UnitActiveState active_state;
         sd_bus *bus;
         int r;
+        bool unit_not_found = true;
         bool found = false;
 
         r = acquire_bus(BUS_MANAGER, &bus);
@@ -25,6 +26,12 @@ static int check_unit_generic(int code, const UnitActiveState good_states[], int
                 return log_error_errno(r, "Failed to expand names: %m");
 
         STRV_FOREACH(name, names) {
+                _cleanup_free_ char *load_state = NULL;
+
+                r = unit_load_state(bus, *name, &load_state);
+                if (r < 0)
+                        return r;
+
                 r = get_state_one_unit(bus, *name, &active_state);
                 if (r < 0)
                         return r;
@@ -32,10 +39,18 @@ static int check_unit_generic(int code, const UnitActiveState good_states[], int
                 if (!arg_quiet)
                         puts(unit_active_state_to_string(active_state));
 
+                if (!streq(load_state, "not-found"))
+                        unit_not_found = false;
+                else
+                        continue;
+
                 for (int i = 0; i < nb_states; ++i)
                         if (good_states[i] == active_state)
                                 found = true;
         }
+
+        if (unit_not_found)
+                return EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN;
 
         /* use the given return code for the case that we won't find
          * any unit which matches the list */
