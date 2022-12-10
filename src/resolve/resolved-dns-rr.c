@@ -1801,10 +1801,8 @@ DnsTxtItem *dns_txt_item_copy(DnsTxtItem *first) {
                 DnsTxtItem *j;
 
                 j = memdup(i, offsetof(DnsTxtItem, data) + i->length + 1);
-                if (!j) {
-                        dns_txt_item_free_all(copy);
-                        return NULL;
-                }
+                if (!j)
+                        return dns_txt_item_free_all(copy);
 
                 LIST_INSERT_AFTER(items, copy, end, j);
                 end = j;
