@@ -36,6 +36,7 @@ static inline int null_or_empty_path(const char *fn) {
         return null_or_empty_path_with_root(fn, NULL);
 }
 
+int fd_is_read_only_fs(int fd);
 int path_is_read_only_fs(const char *path);
 
 int files_same(const char *filea, const char *fileb, int flags);

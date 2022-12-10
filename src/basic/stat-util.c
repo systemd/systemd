@@ -163,6 +163,24 @@ int null_or_empty_fd(int fd) {
         return null_or_empty(&st);
 }
 
+int fd_is_read_only_fs(int fd) {
+        struct statvfs st;
+
+        assert(fd >= 0);
+
+        if (fstatvfs(fd, &st) < 0)
+                return -errno;
+
+        if (st.f_flag & ST_RDONLY)
+                return true;
+
+        /* See comments in path_is_read_only_fs(). */
+        if (faccessat(fd, ".", W_OK, 0) < 0 && errno == EROFS)
+                return true;
+
+        return false;
+}
+
 int path_is_read_only_fs(const char *path) {
         struct statvfs st;
 
