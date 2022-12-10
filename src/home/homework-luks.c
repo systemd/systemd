@@ -2126,6 +2126,7 @@ int home_create_luks(
         const char *fstype, *ip;
         struct statfs sfs;
         int r;
+        const char *extra_mkfs_options;
 
         assert(h);
         assert(h->storage < 0 || h->storage == USER_LUKS);
@@ -2333,7 +2334,8 @@ int home_create_luks(
 
         log_info("Setting up LUKS device %s completed.", setup->dm_node);
 
-        r = make_filesystem(setup->dm_node, fstype, user_record_user_name_and_realm(h), NULL, fs_uuid, user_record_luks_discard(h));
+        extra_mkfs_options = getenv(ascii_strupper(strjoina("SYSTEMD_HOME_MKFS_OPTIONS_", fstype)));
+        r = make_filesystem(setup->dm_node, fstype, user_record_user_name_and_realm(h), NULL, fs_uuid, user_record_luks_discard(h), extra_mkfs_options);
         if (r < 0)
                 return r;
 
