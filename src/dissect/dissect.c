@@ -17,6 +17,7 @@
 #include "copy.h"
 #include "device-util.h"
 #include "devnum-util.h"
+#include "discover-image.h"
 #include "dissect-image.h"
 #include "env-util.h"
 #include "escape.h"
@@ -56,6 +57,7 @@ static enum {
         ACTION_WITH,
         ACTION_COPY_FROM,
         ACTION_COPY_TO,
+        ACTION_DISCOVER,
 } arg_action = ACTION_DISSECT;
 static const char *arg_image = NULL;
 static const char *arg_path = NULL;
@@ -67,12 +69,15 @@ static DissectImageFlags arg_flags =
         DISSECT_IMAGE_RELAX_VAR_CHECK |
         DISSECT_IMAGE_FSCK |
         DISSECT_IMAGE_USR_NO_ROOT |
-        DISSECT_IMAGE_GROWFS;
+        DISSECT_IMAGE_GROWFS |
+        DISSECT_IMAGE_PIN_PARTITION_DEVICES |
+        DISSECT_IMAGE_ADD_PARTITION_DEVICES;
 static VeritySettings arg_verity_settings = VERITY_SETTINGS_DEFAULT;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static bool arg_rmdir = false;
+static bool arg_in_memory = false;
 static char **arg_argv = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_verity_settings, verity_settings_done);
@@ -104,6 +109,7 @@ static int help(void) {
                "     --mkdir              Make mount directory before mounting, if missing\n"
                "     --rmdir              Remove mount directory after unmounting\n"
                "     --discard=MODE       Choose 'discard' mode (disabled, loop, all, crypto)\n"
+               "     --in-memory          Copy image into memory\n"
                "     --root-hash=HASH     Specify root hash for verity\n"
                "     --root-hash-sig=SIG  Specify pkcs7 signature of root hash for verity\n"
                "                          as a DER encoded PKCS7, either as a path to a file\n"
@@ -126,6 +132,7 @@ static int help(void) {
                "     --with               Mount, run command, unmount\n"
                "  -x --copy-from          Copy files from image to host\n"
                "  -a --copy-to            Copy files from host to image\n"
+               "     --discover           Discover DDIs in well known directories\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -195,8 +202,10 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERITY_DATA,
                 ARG_MKDIR,
                 ARG_RMDIR,
+                ARG_IN_MEMORY,
                 ARG_JSON,
                 ARG_MTREE,
+                ARG_DISCOVER,
         };
 
         static const struct option options[] = {
@@ -216,11 +225,13 @@ static int parse_argv(int argc, char *argv[]) {
                 { "verity-data",   required_argument, NULL, ARG_VERITY_DATA   },
                 { "mkdir",         no_argument,       NULL, ARG_MKDIR         },
                 { "rmdir",         no_argument,       NULL, ARG_RMDIR         },
+                { "in-memory",     no_argument,       NULL, ARG_IN_MEMORY     },
                 { "list",          no_argument,       NULL, 'l'               },
                 { "mtree",         no_argument,       NULL, ARG_MTREE         },
                 { "copy-from",     no_argument,       NULL, 'x'               },
                 { "copy-to",       no_argument,       NULL, 'a'               },
                 { "json",          required_argument, NULL, ARG_JSON          },
+                { "discover",      no_argument,       NULL, ARG_DISCOVER      },
                 {}
         };
 
@@ -333,6 +344,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_IN_MEMORY:
+                        arg_in_memory = true;
+                        break;
+
                 case ARG_ROOT_HASH: {
                         _cleanup_free_ void *p = NULL;
                         size_t l;
@@ -396,6 +411,10 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r <= 0)
                                 return r;
 
+                        break;
+
+                case ARG_DISCOVER:
+                        arg_action = ACTION_DISCOVER;
                         break;
 
                 case '?':
@@ -486,6 +505,13 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!arg_argv)
                                 return log_oom();
                 }
+
+                break;
+
+        case ACTION_DISCOVER:
+                if (optind != argc)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Expected no argument.");
 
                 break;
 
@@ -1174,9 +1200,9 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
 
 static int action_umount(const char *path) {
         _cleanup_close_ int fd = -1;
-        _cleanup_free_ char *canonical = NULL, *devname = NULL;
+        _cleanup_free_ char *canonical = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-        dev_t devno;
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         int r;
 
         fd = chase_symlinks_and_open(path, NULL, 0, O_DIRECTORY, &canonical);
@@ -1191,18 +1217,26 @@ static int action_umount(const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether '%s' is a mount point: %m", canonical);
 
-        r = fd_get_whole_disk(fd, /*backing=*/ true, &devno);
+        r = block_device_new_from_fd(fd, BLOCK_DEVICE_LOOKUP_WHOLE_DISK | BLOCK_DEVICE_LOOKUP_BACKING, &dev);
+        if (r < 0) {
+                _cleanup_close_ int usr_fd = -1;
+
+                /* The command `systemd-dissect --mount` expects that the image at least has the root or /usr
+                 * partition. If it does not have the root partition, then we mount the /usr partition on a
+                 * tmpfs. Hence, let's try to find the backing block device through the /usr partition. */
+
+                usr_fd = openat(fd, "usr", O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW);
+                if (usr_fd < 0)
+                        return log_error_errno(errno, "Failed to open '%s/usr': %m", canonical);
+
+                r = block_device_new_from_fd(usr_fd, BLOCK_DEVICE_LOOKUP_WHOLE_DISK | BLOCK_DEVICE_LOOKUP_BACKING, &dev);
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to find backing block device for '%s': %m", canonical);
 
-        r = devname_from_devnum(S_IFBLK, devno, &devname);
+        r = loop_device_open(dev, 0, LOCK_EX, &d);
         if (r < 0)
-                return log_error_errno(r, "Failed to get devname of block device " DEVNUM_FORMAT_STR ": %m",
-                                       DEVNUM_FORMAT_VAL(devno));
-
-        r = loop_device_open_from_path(devname, 0, LOCK_EX, &d);
-        if (r < 0)
-                return log_error_errno(r, "Failed to open loop device '%s': %m", devname);
+                return log_device_error_errno(dev, r, "Failed to open loopback block device: %m");
 
         /* We've locked the loop device, now we're ready to unmount. To allow the unmount to succeed, we have
          * to close the O_PATH fd we opened earlier. */
@@ -1315,13 +1349,61 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
         return rcode;
 }
 
+static int action_discover(void) {
+        _cleanup_(hashmap_freep) Hashmap *images = NULL;
+        _cleanup_(table_unrefp) Table *t = NULL;
+        Image *img;
+        int r;
+
+        images = hashmap_new(&image_hash_ops);
+        if (!images)
+                return log_oom();
+
+        for (ImageClass cl = 0; cl < _IMAGE_CLASS_MAX; cl++) {
+                r = image_discover(cl, NULL, images);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to discover images: %m");
+        }
+
+        if ((arg_json_format_flags & JSON_FORMAT_OFF) && hashmap_isempty(images)) {
+                log_info("No images found.");
+                return 0;
+        }
+
+        t = table_new("name", "type", "class", "ro", "path", "time", "usage");
+        if (!t)
+                return log_oom();
+
+        HASHMAP_FOREACH(img, images) {
+
+                if (!IN_SET(img->type, IMAGE_RAW, IMAGE_BLOCK))
+                        continue;
+
+                r = table_add_many(
+                                t,
+                                TABLE_STRING, img->name,
+                                TABLE_STRING, image_type_to_string(img->type),
+                                TABLE_STRING, image_class_to_string(img->class),
+                                TABLE_BOOLEAN, img->read_only,
+                                TABLE_PATH, img->path,
+                                TABLE_TIMESTAMP, img->mtime != 0 ? img->mtime : img->crtime,
+                                TABLE_SIZE, img->usage);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        (void) table_set_sort(t, (size_t) 0);
+
+        return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-        int r;
+        uint32_t loop_flags;
+        int open_flags, r;
 
-        log_parse_environment();
-        log_open();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -1329,6 +1411,8 @@ static int run(int argc, char *argv[]) {
 
         if (arg_action == ACTION_UMOUNT)
                 return action_umount(arg_path);
+        if (arg_action == ACTION_DISCOVER)
+                return action_discover();
 
         r = verity_settings_load(
                         &arg_verity_settings,
@@ -1342,12 +1426,13 @@ static int run(int argc, char *argv[]) {
                                                                 * available we turn off partition table
                                                                 * support */
 
-        r = loop_device_make_by_path(
-                        arg_image,
-                        FLAGS_SET(arg_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : O_RDWR,
-                        FLAGS_SET(arg_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
-                        LOCK_SH,
-                        &d);
+        open_flags = FLAGS_SET(arg_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : O_RDWR;
+        loop_flags = FLAGS_SET(arg_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN;
+
+        if (arg_in_memory)
+                r = loop_device_make_by_path_memory(arg_image, open_flags, loop_flags, LOCK_SH, &d);
+        else
+                r = loop_device_make_by_path(arg_image, open_flags, loop_flags, LOCK_SH, &d);
         if (r < 0)
                 return log_error_errno(r, "Failed to set up loopback device for %s: %m", arg_image);
 

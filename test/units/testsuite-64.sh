@@ -192,7 +192,7 @@ testcase_nvme_subsystem() {
 testcase_virtio_scsi_identically_named_partitions() {
     local num
 
-    if [[ -n "${ASAN_OPTIONS:-}" ]] || [[ "$(systemd-detect-virt -v)" == "qemu" ]]; then
+    if [[ -v ASAN_OPTIONS || "$(systemd-detect-virt -v)" == "qemu" ]]; then
         num=$((4 * 4))
     else
         num=$((16 * 8))
@@ -243,6 +243,7 @@ EOF
     echo "${FUNCNAME[0]}: test failover"
     local device expected link mpoint part
     local -a devices
+    mkdir -p /mnt
     mpoint="$(mktemp -d /mnt/mpathXXX)"
     wwid="deaddeadbeef0000"
     path="/dev/disk/by-id/wwn-0x$wwid"
@@ -305,7 +306,7 @@ testcase_simultaneous_events() {
     local -a devices symlinks
     local -A running
 
-    if [[ -n "${ASAN_OPTIONS:-}" ]] || [[ "$(systemd-detect-virt -v)" == "qemu" ]]; then
+    if [[ -v ASAN_OPTIONS || "$(systemd-detect-virt -v)" == "qemu" ]]; then
         num_part=2
         iterations=10
         timeout=240
@@ -400,7 +401,7 @@ testcase_lvm_basic() {
         /dev/disk/by-id/ata-foobar_deadbeeflvm{0..3}
     )
 
-    if [[ -n "${ASAN_OPTIONS:-}" ]] || [[ "$(systemd-detect-virt -v)" == "qemu" ]]; then
+    if [[ -v ASAN_OPTIONS || "$(systemd-detect-virt -v)" == "qemu" ]]; then
         timeout=180
     else
         timeout=30
@@ -453,7 +454,7 @@ testcase_lvm_basic() {
     helper_check_device_units
 
     # Same as above, but now with more "stress"
-    if [[ -n "${ASAN_OPTIONS:-}" ]] || [[ "$(systemd-detect-virt -v)" == "qemu" ]]; then
+    if [[ -v ASAN_OPTIONS || "$(systemd-detect-virt -v)" == "qemu" ]]; then
         iterations=10
     else
         iterations=50
@@ -478,7 +479,7 @@ testcase_lvm_basic() {
     helper_check_device_units
 
     # Create & remove LVs in a loop, i.e. with more "stress"
-    if [[ -n "${ASAN_OPTIONS:-}" ]]; then
+    if [[ -v ASAN_OPTIONS ]]; then
         iterations=8
         partitions=16
     elif [[ "$(systemd-detect-virt -v)" == "qemu" ]]; then

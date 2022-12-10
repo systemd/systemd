@@ -43,23 +43,7 @@ static int fd_get_devnum(int fd, BlockDeviceLookupFlag flags, dev_t *ret) {
                 /* If major(st.st_dev) is zero, this might mean we are backed by btrfs, which needs special
                  * handing, to get the backing device node. */
 
-                r = fcntl(fd, F_GETFL);
-                if (r < 0)
-                        return -errno;
-
-                if (FLAGS_SET(r, O_PATH)) {
-                        _cleanup_close_ int regfd = -1;
-
-                        /* The fstat() above we can execute on an O_PATH fd. But the btrfs ioctl we cannot.
-                         * Hence acquire a "real" fd first, without the O_PATH flag. */
-
-                        regfd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-                        if (regfd < 0)
-                                return regfd;
-
-                        r = btrfs_get_block_device_fd(regfd, &devnum);
-                } else
-                        r = btrfs_get_block_device_fd(fd, &devnum);
+                r = btrfs_get_block_device_fd(fd, &devnum);
                 if (r == -ENOTTY) /* not btrfs */
                         return -ENOTBLK;
                 if (r < 0)
@@ -288,21 +272,7 @@ int get_block_device_fd(int fd, dev_t *ret) {
                 return 1;
         }
 
-        r = fcntl(fd, F_GETFL);
-        if (r < 0)
-                return -errno;
-        if (FLAGS_SET(r, O_PATH) && (S_ISREG(st.st_mode) || S_ISDIR(st.st_mode))) {
-                _cleanup_close_ int real_fd = -1;
-
-                /* The fstat() above we can execute on an O_PATH fd. But the btrfs ioctl we cannot. Hence
-                 * acquire a "real" fd first, without the O_PATH flag. */
-
-                real_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC);
-                if (real_fd < 0)
-                        return real_fd;
-                r = btrfs_get_block_device_fd(real_fd, ret);
-        } else
-                r = btrfs_get_block_device_fd(fd, ret);
+        r = btrfs_get_block_device_fd(fd, ret);
         if (r > 0)
                 return 1;
         if (r != -ENOTTY) /* not btrfs */

@@ -100,6 +100,9 @@ Deprecations and removals:
   4.3 new baseline). Then drop support for "!!" modifier for ExecStart= which
   is only supported for such old kernels.
 
+* drop support for kernels lacking memfd_create() (i.e. make 3.17 new
+  baseline), then drop all pipe() based fallbacks.
+
 * drop support for getrandom()-less kernels. (GRND_INSECURE means once kernel
   5.6 becomes our baseline). See
   https://github.com/systemd/systemd/pull/24101#issuecomment-1193966468 for
@@ -124,6 +127,17 @@ Deprecations and removals:
   x86 and v6.2 for arm.
 
 Features:
+
+* systemd-dissect: maybe add "--attach" and "--detach" verbs which
+  synchronously attach a DDI to a loopback device but not actually mount them.
+
+* gpt-auto-generator: generate device names via /dev/disk/by-diskseq/ to pin
+  the medium
+
+* pam_systemd_home: add module parameter to control whether to only accept
+  only password or only pcks11/fido2 auth, and then use this to hook nicely
+  into two of the three PAM stacks gdm provides.
+  See discussion at https://github.com/authselect/authselect/pull/311
 
 * sd-boot: make boot loader spec type #1 accept http urls in "linux"
   lines. THen, do the uefi http dance to download kernels and boot them. This
@@ -197,9 +211,6 @@ Features:
   linked into by their SHA256 sum. Then, whenever an inode is opened with the
   xattr set, check bpf table to find dirs with hashes for other prior DDIs and
   try to use inode from there.
-
-* dissect too: add --with switch that will invoke a command with the image
-  mounted, and as current working directory. Terminate once done.
 
 * extend the verity signature partition to permit multiple signatures for the
   same root hash, so that people can sign a single image with multiple keys.
@@ -404,12 +415,6 @@ Features:
   ID from it securely. This would then allow us to bind secrets a specific
   system securely.
 
-* nspawn: maybe allow TPM passthrough, backed by swtpm, and measure --image=
-  hash into its PCR 11, so that nspawn instances can be TPM enabled, and
-  partake in measurements/remote attestation and such. swtpm would run outside
-  of control of container, and ideally would itself bind its encryption keys to
-  host TPM.
-
 * tree-wide: convert as much as possible over to use sd_event_set_signal_exit(), instead
   of manually hooking into SIGINT/SIGTERM
 
@@ -471,7 +476,7 @@ Features:
 * Add support for extra verity configuration options to systemd-repart (FEC,
   hash type, etc)
 
-* chase_symlinks(): take inspiraton from path_extract_filename() and return
+* chase_symlinks(): take inspiration from path_extract_filename() and return
   O_DIRECTORY if input path contains trailing slash.
 
 * chase_symlinks(): refuse resolution if trailing slash is specified on input,
@@ -822,11 +827,6 @@ Features:
   multiple versions are around of the same resource, show which ones. (in other
   words: show partition labels).
 
-* systemd-nspawn: make boot assessment do something sensible in a
-  container. i.e send an sd_notify() from payload to container manager once
-  boot-up is completed successfully, and use that in nspawn for dealing with
-  boot counting, implemented in the partition table labels and directory names.
-
 * maybe add a generator that reads /proc/cmdline, looks for
   systemd.pull-raw-portable=, systemd-pull-raw-sysext= and similar switches
   that take an URL as parameter. It then generates service units for
@@ -883,8 +883,6 @@ Features:
 * add linker script that implicitly adds symbol for build ID and new coredump
   json package metadata, and use that when logging
 
-* systemd-dissect: show GPT disk UUID in output
-
 * Enable RestrictFileSystems= for all our long-running services (similar:
   RestrictNetworkInterfaces=)
 
@@ -893,9 +891,6 @@ Features:
 
 * cryptsetup/homed: implement TOTP authentication backed by TPM2 and its
   internal clock.
-
-* nspawn: optionally set up nftables/iptables routes that forward UDP/TCP
-  traffic on port 53 to resolved stub 127.0.0.54
 
 * man: rework os-release(5), and clearly separate our extension-release.d/ and
   initrd-release parts, i.e. list explicitly which fields are about what.
@@ -971,6 +966,10 @@ Features:
   records would be stripped of all meta info, except the basic UID/name
   info. Then use this in portabled environments that do not use PrivateUsers=1.
 
+* portabled: when extracting unit files and copying to system.attached, if a
+  .p7s is available in the image, use it to protect the system.attached copy
+  with fs-verity, so that it cannot be tampered with
+
 * logind introduce two types of sessions: "heavy" and "light". The former would
   be our current sessions. But the latter would be a new type of session that
   is mostly the same but does not pull in user@.service or wait for it. Then,
@@ -999,10 +998,6 @@ Features:
   "systemd.gpt_auto_policy=r+v+h" to require encryption for root and var but not
   for /home/, and similar. Similar add --image-dissect-policy= to tools that
   take --image= that take the same short string.
-
-* nspawn: maybe optionally insert .nspawn file as GPT partition into images, so
-  that such container images are entirely stand-alone and can be updated as
-  one.
 
 * we probably should extend the root verity hash of the root fs into some PCR
   on boot. (i.e. maybe add a veritytab option tpm2-measure=12 or so to measure
@@ -1205,11 +1200,6 @@ Features:
 
 * systemd-path: add ESP and XBOOTLDR path. Add "private" runtime/state/cache dir enum,
   mapping to $RUNTIME_DIRECTORY, $STATE_DIRECTORY and such
-
-* All tools that support --root= should also learn --image= so that they can
-  operate on disk images directly. Specifically: systemctl, coredumpctl.
-  (Already done: bootctl, systemd-nspawn, systemd-firstboot,
-  systemd-repart, systemd-tmpfiles, systemd-sysusers, journalctl)
 
 * seccomp: by default mask x32 ABI system wide on x86-64. it's on its way out
 
@@ -2222,35 +2212,45 @@ Features:
     PID 1...
   - optionally automatically add FORWARD rules to iptables whenever nspawn is
     running, remove them when shut down.
-
-* nspawn: add support for sysext extensions, too. i.e. a new --extension=
-  switch that takes one or more arguments, and applies the extensions already
-  during startup.
-
-* when main nspawn supervisor process gets suspended due to SIGSTOP/SIGTTOU or
-  so, freeze the payload too.
+  - add support for sysext extensions, too. i.e. a new --extension= switch that
+    takes one or more arguments, and applies the extensions already during
+    startup.
+  - when main nspawn supervisor process gets suspended due to SIGSTOP/SIGTTOU
+    or so, freeze the payload too.
+  - support time namespaces
+  - on cgroupsv1 issue cgroup empty handler process based on host events, so
+    that we make cgroup agent logic safe
+  - add API to invoke binary in container, then use that as fallback in
+    "machinectl shell"
+  - make nspawn suitable for shell pipelines: instead of triggering a hangup
+    when input is finished, send ^D, which synthesizes an EOF. Then wait for
+    hangup or ^D before passing on the EOF.
+  - greater control over selinux label?
+  - support that /proc, /sys/, /dev are pre-mounted
+  - maybe allow TPM passthrough, backed by swtpm, and measure --image= hash
+    into its PCR 11, so that nspawn instances can be TPM enabled, and partake
+    in measurements/remote attestation and such. swtpm would run outside of
+    control of container, and ideally would itself bind its encryption keys to
+    host TPM.
+  - make boot assessment do something sensible in a container. i.e send an
+    sd_notify() from payload to container manager once boot-up is completed
+    successfully, and use that in nspawn for dealing with boot counting,
+    implemented in the partition table labels and directory names.
+  - optionally set up nftables/iptables routes that forward UDP/TCP traffic on
+    port 53 to resolved stub 127.0.0.54
+  - maybe optionally insert .nspawn file as GPT partition into images, so that
+    such container images are entirely stand-alone and can be updated as one.
+  - The subreaper logic we currently have seems overly complex. We should
+    investigate whether creating the inner child with CLONE_PARENT isn't better.
+  - Reduce the number of sockets that are currently in use and just rely on one
+    or two sockets.
+  - Support running nspawn as an unprivileged user.
 
 * machined: add API to acquire UID range. add API to mount/dissect loopback
   file. Both protected by PK. Then make nspawn use these APIs to run
   unprivileged containers. i.e. push the truly privileged bits into machined,
   so that the client side can remain entirely unprivileged, with SUID or
   anything like that.
-
-* nspawn: support time namespaces
-
-* nspawn: on cgroupsv1 issue cgroup empty handler process based on host events,
-  so that we make cgroup agent logic safe
-
-* nspawn/machined: add API to invoke binary in container, then use that as
-  fallback in "machinectl shell"
-
-* nspawn: make nspawn suitable for shell pipelines: instead of triggering a
-  hangup when input is finished, send ^D, which synthesizes an EOF. Then wait
-  for hangup or ^D before passing on the EOF.
-
-* nspawn: greater control over selinux label?
-
-* nspawn: support that /proc, /sys/, /dev are pre-mounted
 
 * machined:
   - add an API so that libvirt-lxc can inform us about network interfaces being

@@ -1101,10 +1101,10 @@ DeviceAllow=/dev/loop-control
           only respect these extended attributes if the unit's cgroup is owned by root.</para>
 
           <para>When calculating candidates to relieve memory pressure, <command>systemd-oomd</command>
-          will only respect these extended attributes if the unit's cgroup owner, and the
-          owner of the monitored ancestor cgroup are the same. For example, if <command>systemd-oomd</command>
-          is calculating candidates for <filename>-.slice</filename>, then extended attributes set
-          on descendants of <filename>/user.slice/user-1000.slice/user@1000.service/</filename>
+          will only respect these extended attributes if the unit's cgroup is owned by root, or if the
+          unit's cgroup owner, and the owner of the monitored ancestor cgroup are the same. For example,
+          if <command>systemd-oomd</command> is calculating candidates for <filename>-.slice</filename>,
+          then extended attributes set on descendants of <filename>/user.slice/user-1000.slice/user@1000.service/</filename>
           will be ignored because the descendants are owned by UID 1000, and <filename>-.slice</filename>
           is owned by UID 0. But, if calculating candidates for
           <filename>/user.slice/user-1000.slice/user@1000.service/</filename>, then extended attributes set

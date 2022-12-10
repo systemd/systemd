@@ -1285,6 +1285,7 @@
           <literal>bhyve</literal>,
           <literal>qnx</literal>,
           <literal>apple</literal>,
+          <literal>sre</literal>,
           <literal>openvz</literal>,
           <literal>lxc</literal>,
           <literal>lxc-libvirt</literal>,

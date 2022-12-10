@@ -141,17 +141,19 @@ static int probe_file_system_by_fd(
         errno = 0;
         r = blkid_probe_set_device(b, fd, 0, 0);
         if (r != 0)
-                return errno > 0 ? -errno : -ENOMEM;
+                return errno_or_else(ENOMEM);
 
         (void) blkid_probe_enable_superblocks(b, 1);
         (void) blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE|BLKID_SUBLKS_UUID);
 
         errno = 0;
         r = blkid_do_safeprobe(b);
-        if (IN_SET(r, -2, 1)) /* nothing found or ambiguous result */
+        if (r == _BLKID_SAFEPROBE_ERROR)
+                return errno_or_else(EIO);
+        if (IN_SET(r, _BLKID_SAFEPROBE_AMBIGUOUS, _BLKID_SAFEPROBE_NOT_FOUND))
                 return -ENOPKG;
-        if (r != 0)
-                return errno > 0 ? -errno : -EIO;
+
+        assert(r == _BLKID_SAFEPROBE_FOUND);
 
         (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
         if (!fstype)
@@ -656,7 +658,7 @@ static int luks_validate(
         errno = 0;
         r = blkid_probe_set_device(b, fd, 0, 0);
         if (r != 0)
-                return errno > 0 ? -errno : -ENOMEM;
+                return errno_or_else(ENOMEM);
 
         (void) blkid_probe_enable_superblocks(b, 1);
         (void) blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
@@ -665,10 +667,12 @@ static int luks_validate(
 
         errno = 0;
         r = blkid_do_safeprobe(b);
-        if (IN_SET(r, -2, 1)) /* nothing found or ambiguous result */
+        if (r == _BLKID_SAFEPROBE_ERROR)
+                return errno_or_else(EIO);
+        if (IN_SET(r, _BLKID_SAFEPROBE_AMBIGUOUS, _BLKID_SAFEPROBE_NOT_FOUND))
                 return -ENOPKG;
-        if (r != 0)
-                return errno > 0 ? -errno : -EIO;
+
+        assert(r == _BLKID_SAFEPROBE_FOUND);
 
         (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
         if (streq_ptr(fstype, "crypto_LUKS")) {
@@ -687,22 +691,21 @@ static int luks_validate(
         errno = 0;
         pl = blkid_probe_get_partitions(b);
         if (!pl)
-                return errno > 0 ? -errno : -ENOMEM;
+                return errno_or_else(ENOMEM);
 
         errno = 0;
         n = blkid_partlist_numof_partitions(pl);
         if (n < 0)
-                return errno > 0 ? -errno : -EIO;
+                return errno_or_else(EIO);
 
         for (int i = 0; i < n; i++) {
-                blkid_partition pp;
                 sd_id128_t id = SD_ID128_NULL;
-                const char *sid;
+                blkid_partition pp;
 
                 errno = 0;
                 pp = blkid_partlist_get_partition(pl, i);
                 if (!pp)
-                        return errno > 0 ? -errno : -EIO;
+                        return errno_or_else(EIO);
 
                 if (sd_id128_string_equal(blkid_partition_get_type_string(pp), SD_GPT_USER_HOME) <= 0)
                         continue;
@@ -710,15 +713,12 @@ static int luks_validate(
                 if (!streq_ptr(blkid_partition_get_name(pp), label))
                         continue;
 
-                sid = blkid_partition_get_uuid(pp);
-                if (sid) {
-                        r = sd_id128_from_string(sid, &id);
-                        if (r < 0)
-                                log_debug_errno(r, "Couldn't parse partition UUID %s, weird: %m", sid);
 
-                        if (!sd_id128_is_null(partition_uuid) && !sd_id128_equal(id, partition_uuid))
-                                continue;
-                }
+                r = blkid_partition_get_uuid_id128(pp, &id);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read partition UUID, ignoring: %m");
+                else if (!sd_id128_is_null(partition_uuid) && !sd_id128_equal(id, partition_uuid))
+                        continue;
 
                 if (found)
                         return -ENOPKG;
@@ -1670,12 +1670,16 @@ static struct crypt_pbkdf_type* build_good_pbkdf(struct crypt_pbkdf_type *buffer
         assert(buffer);
         assert(hr);
 
+        bool benchmark = user_record_luks_pbkdf_force_iterations(hr) == UINT64_MAX;
+
         *buffer = (struct crypt_pbkdf_type) {
                 .hash = user_record_luks_pbkdf_hash_algorithm(hr),
                 .type = user_record_luks_pbkdf_type(hr),
-                .time_ms = user_record_luks_pbkdf_time_cost_usec(hr) / USEC_PER_MSEC,
+                .time_ms = benchmark ? user_record_luks_pbkdf_time_cost_usec(hr) / USEC_PER_MSEC : 0,
+                .iterations = benchmark ? 0 : user_record_luks_pbkdf_force_iterations(hr),
                 .max_memory_kb = user_record_luks_pbkdf_memory_cost(hr) / 1024,
                 .parallel_threads = user_record_luks_pbkdf_parallel_threads(hr),
+                .flags = benchmark ? 0 : CRYPT_PBKDF_NO_BENCHMARK,
         };
 
         return buffer;

@@ -22,6 +22,7 @@
 #include "rlimit-util.h"
 #include "sigbus.h"
 #include "signal-util.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "systemctl-add-dependency.h"
 #include "systemctl-cancel-job.h"
@@ -84,6 +85,7 @@ bool arg_show_types = false;
 int arg_check_inhibitors = -1;
 bool arg_dry_run = false;
 bool arg_quiet = false;
+bool arg_no_warn = false;
 bool arg_full = false;
 bool arg_recursive = false;
 bool arg_with_dependencies = false;
@@ -277,6 +279,8 @@ static int systemctl_help(void) {
                "                             kexec, suspend, hibernate, suspend-then-hibernate,\n"
                "                             hybrid-sleep, default, rescue, emergency, and exit.\n"
                "  -q --quiet             Suppress output\n"
+               "     --no-warn           Don't generate warning when trying to enable/disable\n"
+               "                         units without install information\n"
                "     --wait              For (re)start, wait until service stopped again\n"
                "                         For is-system-running, wait until startup is completed\n"
                "     --no-block          Do not wait until operation finished\n"
@@ -433,6 +437,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_READ_ONLY,
                 ARG_MKDIR,
                 ARG_MARKED,
+                ARG_NO_WARN,
         };
 
         static const struct option options[] = {
@@ -465,6 +470,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "no-wall",             no_argument,       NULL, ARG_NO_WALL             },
                 { "dry-run",             no_argument,       NULL, ARG_DRY_RUN             },
                 { "quiet",               no_argument,       NULL, 'q'                     },
+                { "no-warn",             no_argument,       NULL, ARG_NO_WARN             },
                 { "root",                required_argument, NULL, ARG_ROOT                },
                 { "image",               required_argument, NULL, ARG_IMAGE               },
                 { "force",               no_argument,       NULL, 'f'                     },
@@ -926,6 +932,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_marked = true;
                         break;
 
+                case ARG_NO_WARN:
+                        arg_no_warn = true;
+                        break;
+
                 case '.':
                         /* Output an error mimicking getopt, and print a hint afterwards */
                         log_error("%s: invalid option -- '.'", program_invocation_name);
@@ -1147,6 +1157,13 @@ static int run(int argc, char *argv[]) {
         r = systemctl_dispatch_parse_argv(argc, argv);
         if (r <= 0)
                 goto finish;
+
+        if (proc_mounted() == 0)
+                log_warning("%s%s/proc/ is not mounted. This is not a supported mode of operation. Please fix\n"
+                            "your invocation environment to mount /proc/ and /sys/ properly. Proceeding anyway.\n"
+                            "Your mileage may vary.",
+                            emoji_enabled() ? special_glyph(SPECIAL_GLYPH_WARNING_SIGN) : "",
+                            emoji_enabled() ? " " : "");
 
         if (arg_action != ACTION_SYSTEMCTL && running_in_chroot() > 0) {
                 if (!arg_quiet)

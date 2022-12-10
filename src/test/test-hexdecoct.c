@@ -73,6 +73,25 @@ TEST(undecchar) {
         assert_se(undecchar('9') == 9);
 }
 
+static void test_hexmem_one(const char *in, const char *expected) {
+        _cleanup_free_ char *result = NULL;
+        _cleanup_free_ void *mem = NULL;
+        size_t len;
+
+        assert_se(result = hexmem(in, strlen_ptr(in)));
+        log_debug("hexmem(\"%s\") → \"%s\" (expected: \"%s\")", strnull(in), result, expected);
+        assert_se(streq(result, expected));
+
+        assert_se(unhexmem(result, SIZE_MAX, &mem, &len) >= 0);
+        assert_se(memcmp_safe(mem, in, len) == 0);
+}
+
+TEST(hexmem) {
+        test_hexmem_one(NULL, "");
+        test_hexmem_one("", "");
+        test_hexmem_one("foo", "666f6f");
+}
+
 static void test_unhexmem_one(const char *s, size_t l, int retval) {
         _cleanup_free_ char *hex = NULL;
         _cleanup_free_ void *mem = NULL;
@@ -306,6 +325,120 @@ TEST(base64mem_linebreak) {
                 for (size_t j = 0; j < (size_t) l; j++)
                         assert_se((encoded[j] == '\n') == (j % (m + 1) == m));
         }
+}
+
+static void test_base64_append_one(char **buf, size_t *len, const char *in, const char *expected) {
+        ssize_t new_len;
+
+        new_len = base64_append(buf, *len, in, strlen_ptr(in), 8, 12);
+        assert_se(new_len >= 0);
+        log_debug("base64_append_one(\"%s\")\nresult:\n%s\nexpected:\n%s", in, strnull(*buf), strnull(expected));
+        assert_se((size_t) new_len == strlen_ptr(*buf));
+        assert_se(streq_ptr(*buf, expected));
+        *len = new_len;
+}
+
+TEST(base64_append) {
+        _cleanup_free_ char *buf = NULL;
+        size_t len = 0;
+
+        test_base64_append_one(&buf, &len, "", NULL);
+        test_base64_append_one(&buf, &len, "f",
+                               "Zg==");
+        test_base64_append_one(&buf, &len, "fo",
+                               "Zg== Zm8=");
+        test_base64_append_one(&buf, &len, "foo",
+                               "Zg== Zm8=\n"
+                               "        Zm9v");
+        test_base64_append_one(&buf, &len, "foob",
+                               "Zg== Zm8=\n"
+                               "        Zm9v\n"
+                               "        Zm9v\n"
+                               "        Yg==");
+        test_base64_append_one(&buf, &len, "fooba",
+                               "Zg== Zm8=\n"
+                               "        Zm9v\n"
+                               "        Zm9v\n"
+                               "        Yg==\n"
+                               "        Zm9v\n"
+                               "        YmE=");
+        test_base64_append_one(&buf, &len, "foobar",
+                               "Zg== Zm8=\n"
+                               "        Zm9v\n"
+                               "        Zm9v\n"
+                               "        Yg==\n"
+                               "        Zm9v\n"
+                               "        YmE=\n"
+                               "        Zm9v\n"
+                               "        YmFy");
+
+        assert_se(free_and_strdup(&buf, "hogehogehogehoge") >= 0);
+        len = strlen(buf);
+
+        test_base64_append_one(&buf, &len, "",
+                               "hogehogehogehoge");
+        test_base64_append_one(&buf, &len, "f",
+                               "hogehogehogehoge\n"
+                               "        Zg==");
+        test_base64_append_one(&buf, &len, "fo",
+                               "hogehogehogehoge\n"
+                               "        Zg==\n"
+                               "        Zm8=");
+        test_base64_append_one(&buf, &len, "foo",
+                               "hogehogehogehoge\n"
+                               "        Zg==\n"
+                               "        Zm8=\n"
+                               "        Zm9v");
+        test_base64_append_one(&buf, &len, "foob",
+                               "hogehogehogehoge\n"
+                               "        Zg==\n"
+                               "        Zm8=\n"
+                               "        Zm9v\n"
+                               "        Zm9v\n"
+                               "        Yg==");
+        test_base64_append_one(&buf, &len, "fooba",
+                               "hogehogehogehoge\n"
+                               "        Zg==\n"
+                               "        Zm8=\n"
+                               "        Zm9v\n"
+                               "        Zm9v\n"
+                               "        Yg==\n"
+                               "        Zm9v\n"
+                               "        YmE=");
+        test_base64_append_one(&buf, &len, "foobar",
+                               "hogehogehogehoge\n"
+                               "        Zg==\n"
+                               "        Zm8=\n"
+                               "        Zm9v\n"
+                               "        Zm9v\n"
+                               "        Yg==\n"
+                               "        Zm9v\n"
+                               "        YmE=\n"
+                               "        Zm9v\n"
+                               "        YmFy");
+
+        assert_se(free_and_strdup(&buf, "hogehogehogehoge") >= 0);
+        len = strlen(buf);
+
+        test_base64_append_one(&buf, &len, "foobarfoobarfoobarfoobar",
+                               "hogehogehogehoge\n"
+                               "        Zm9v\n"
+                               "        YmFy\n"
+                               "        Zm9v\n"
+                               "        YmFy\n"
+                               "        Zm9v\n"
+                               "        YmFy\n"
+                               "        Zm9v\n"
+                               "        YmFy");
+
+        assert_se(free_and_strdup(&buf, "aaa") >= 0);
+        len = strlen(buf);
+
+        test_base64_append_one(&buf, &len, "foobarfoobarfoobarfoobar",
+                               "aaa Zm9vYmFy\n"
+                               "    Zm9vYmFy\n"
+                               "    Zm9vYmFy\n"
+                               "    Zm9vYmFy");
 }
 
 static void test_unbase64mem_one(const char *input, const char *output, int ret) {

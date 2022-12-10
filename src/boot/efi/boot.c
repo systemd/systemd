@@ -1204,7 +1204,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                                 continue;
                         }
                         free(config->entry_default_config);
-                        config->entry_default_config = xstra_to_str(value);
+                        config->entry_default_config = xstr8_to_16(value);
                         continue;
                 }
 
@@ -1418,32 +1418,32 @@ static void config_entry_add_type1(
         while ((line = line_get_key_value(content, " \t", &pos, &key, &value))) {
                 if (streq8(key, "title")) {
                         free(entry->title);
-                        entry->title = xstra_to_str(value);
+                        entry->title = xstr8_to_16(value);
                         continue;
                 }
 
                 if (streq8(key, "sort-key")) {
                         free(entry->sort_key);
-                        entry->sort_key = xstra_to_str(value);
+                        entry->sort_key = xstr8_to_16(value);
                         continue;
                 }
 
                 if (streq8(key, "version")) {
                         free(entry->version);
-                        entry->version = xstra_to_str(value);
+                        entry->version = xstr8_to_16(value);
                         continue;
                 }
 
                 if (streq8(key, "machine-id")) {
                         free(entry->machine_id);
-                        entry->machine_id = xstra_to_str(value);
+                        entry->machine_id = xstr8_to_16(value);
                         continue;
                 }
 
                 if (streq8(key, "linux")) {
                         free(entry->loader);
                         entry->type = LOADER_LINUX;
-                        entry->loader = xstra_to_path(value);
+                        entry->loader = xstr8_to_path(value);
                         entry->key = 'l';
                         continue;
                 }
@@ -1451,7 +1451,7 @@ static void config_entry_add_type1(
                 if (streq8(key, "efi")) {
                         entry->type = LOADER_EFI;
                         free(entry->loader);
-                        entry->loader = xstra_to_path(value);
+                        entry->loader = xstr8_to_path(value);
 
                         /* do not add an entry for ourselves */
                         if (strcaseeq16(entry->loader, loaded_image_path)) {
@@ -1472,7 +1472,7 @@ static void config_entry_add_type1(
 
                 if (streq8(key, "devicetree")) {
                         free(entry->devicetree);
-                        entry->devicetree = xstra_to_path(value);
+                        entry->devicetree = xstr8_to_path(value);
                         continue;
                 }
 
@@ -1481,7 +1481,7 @@ static void config_entry_add_type1(
                                 entry->initrd,
                                 n_initrd == 0 ? 0 : (n_initrd + 1) * sizeof(uint16_t *),
                                 (n_initrd + 2) * sizeof(uint16_t *));
-                        entry->initrd[n_initrd++] = xstra_to_path(value);
+                        entry->initrd[n_initrd++] = xstr8_to_path(value);
                         entry->initrd[n_initrd] = NULL;
                         continue;
                 }
@@ -1489,7 +1489,7 @@ static void config_entry_add_type1(
                 if (streq8(key, "options")) {
                         _cleanup_free_ char16_t *new = NULL;
 
-                        new = xstra_to_str(value);
+                        new = xstr8_to_16(value);
                         if (entry->options) {
                                 char16_t *s = xpool_print(L"%s %s", entry->options, new);
                                 free(entry->options);
@@ -1550,7 +1550,7 @@ static EFI_STATUS efivar_get_timeout(const char16_t *var, uint32_t *ret_value) {
 
 static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
         _cleanup_free_ char *content = NULL;
-        UINTN value;
+        UINTN value = 0;  /* avoid false maybe-uninitialized warning */
         EFI_STATUS err;
 
         assert(root_dir);
@@ -2134,49 +2134,49 @@ static void config_entry_add_unified(
                 while ((line = line_get_key_value(content, "=", &pos, &key, &value))) {
                         if (streq8(key, "PRETTY_NAME")) {
                                 free(os_pretty_name);
-                                os_pretty_name = xstra_to_str(value);
+                                os_pretty_name = xstr8_to_16(value);
                                 continue;
                         }
 
                         if (streq8(key, "IMAGE_ID")) {
                                 free(os_image_id);
-                                os_image_id = xstra_to_str(value);
+                                os_image_id = xstr8_to_16(value);
                                 continue;
                         }
 
                         if (streq8(key, "NAME")) {
                                 free(os_name);
-                                os_name = xstra_to_str(value);
+                                os_name = xstr8_to_16(value);
                                 continue;
                         }
 
                         if (streq8(key, "ID")) {
                                 free(os_id);
-                                os_id = xstra_to_str(value);
+                                os_id = xstr8_to_16(value);
                                 continue;
                         }
 
                         if (streq8(key, "IMAGE_VERSION")) {
                                 free(os_image_version);
-                                os_image_version = xstra_to_str(value);
+                                os_image_version = xstr8_to_16(value);
                                 continue;
                         }
 
                         if (streq8(key, "VERSION")) {
                                 free(os_version);
-                                os_version = xstra_to_str(value);
+                                os_version = xstr8_to_16(value);
                                 continue;
                         }
 
                         if (streq8(key, "VERSION_ID")) {
                                 free(os_version_id);
-                                os_version_id = xstra_to_str(value);
+                                os_version_id = xstr8_to_16(value);
                                 continue;
                         }
 
                         if (streq8(key, "BUILD_ID")) {
                                 free(os_build_id);
-                                os_build_id = xstra_to_str(value);
+                                os_build_id = xstr8_to_16(value);
                                 continue;
                         }
                 }
@@ -2219,13 +2219,11 @@ static void config_entry_add_unified(
                 content = mfree(content);
 
                 /* read the embedded cmdline file */
-                err = file_read(linux_dir, f->FileName, offs[SECTION_CMDLINE], szs[SECTION_CMDLINE], &content, NULL);
+                size_t cmdline_len;
+                err = file_read(linux_dir, f->FileName, offs[SECTION_CMDLINE], szs[SECTION_CMDLINE], &content, &cmdline_len);
                 if (err == EFI_SUCCESS) {
-                        /* chomp the newline */
-                        if (content[szs[SECTION_CMDLINE] - 1] == '\n')
-                                content[szs[SECTION_CMDLINE] - 1] = '\0';
-
-                        entry->options = xstra_to_str(content);
+                        entry->options = xstrn8_to_16(content, cmdline_len);
+                        mangle_stub_cmdline(entry->options);
                 }
         }
 }
@@ -2235,7 +2233,7 @@ static void config_load_xbootldr(
                 EFI_HANDLE *device) {
 
         _cleanup_(file_closep) EFI_FILE *root_dir = NULL;
-        EFI_HANDLE new_device;
+        EFI_HANDLE new_device = NULL;  /* avoid false maybe-uninitialized warning */
         EFI_STATUS err;
 
         assert(config);
@@ -2639,12 +2637,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         debug_hook(L"systemd-boot");
         /* Uncomment the next line if you need to wait for debugger. */
         // debug_break();
-
-        /* The firmware may skip initializing some devices for the sake of a faster boot. This is especially
-         * true for fastboot enabled firmwares. But this means that things we use like input devices or the
-         * xbootldr partition may not be available yet. Reconnect all drivers should hopefully make the
-         * firmware initialize everything we need. */
-        (void) reconnect_all_drivers();
 
         err = BS->OpenProtocol(image,
                         &LoadedImageProtocol,

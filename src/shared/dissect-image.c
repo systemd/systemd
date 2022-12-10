@@ -74,9 +74,15 @@
 /* how many times to wait for the device nodes to appear */
 #define N_DEVICE_NODE_LIST_ATTEMPTS 10
 
-int probe_filesystem_full(int fd, const char *path, char **ret_fstype) {
+int probe_filesystem_full(
+                int fd,
+                const char *path,
+                uint64_t offset,
+                uint64_t size,
+                char **ret_fstype) {
+
         /* Try to find device content type and return it in *ret_fstype. If nothing is found,
-         * 0/NULL will be returned. -EUCLEAN will be returned for ambiguous results, and an
+         * 0/NULL will be returned. -EUCLEAN will be returned for ambiguous results, and a
          * different error otherwise. */
 
 #if HAVE_BLKID
@@ -105,12 +111,19 @@ int probe_filesystem_full(int fd, const char *path, char **ret_fstype) {
                 path = path_by_fd;
         }
 
+        if (size == 0) /* empty size? nothing found! */
+                goto not_found;
+
         b = blkid_new_probe();
         if (!b)
                 return -ENOMEM;
 
         errno = 0;
-        r = blkid_probe_set_device(b, fd, 0, 0);
+        r = blkid_probe_set_device(
+                        b,
+                        fd,
+                        offset,
+                        size == UINT64_MAX ? 0 : size); /* when blkid sees size=0 it understands "everything". We prefer using UINT64_MAX for that */
         if (r != 0)
                 return errno_or_else(ENOMEM);
 
@@ -119,13 +132,15 @@ int probe_filesystem_full(int fd, const char *path, char **ret_fstype) {
 
         errno = 0;
         r = blkid_do_safeprobe(b);
-        if (r == 1)
+        if (r == _BLKID_SAFEPROBE_NOT_FOUND)
                 goto not_found;
-        if (r == -2)
+        if (r == _BLKID_SAFEPROBE_AMBIGUOUS)
                 return log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN),
                                        "Results ambiguous for partition %s", path);
-        if (r != 0)
+        if (r == _BLKID_SAFEPROBE_ERROR)
                 return log_debug_errno(errno_or_else(EIO), "Failed to probe partition %s: %m", path);
+
+        assert(r == _BLKID_SAFEPROBE_FOUND);
 
         (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
 
@@ -152,7 +167,7 @@ not_found:
 }
 
 #if HAVE_BLKID
-static int dissected_image_probe_filesystem(DissectedImage *m) {
+static int dissected_image_probe_filesystems(DissectedImage *m, int fd) {
         int r;
 
         assert(m);
@@ -165,9 +180,14 @@ static int dissected_image_probe_filesystem(DissectedImage *m) {
                 if (!p->found)
                         continue;
 
-                if (!p->fstype && p->mount_node_fd >= 0 && !p->decrypted_node) {
-                        r = probe_filesystem_full(p->mount_node_fd, p->node, &p->fstype);
-                        if (r < 0 && r != -EUCLEAN)
+                if (!p->fstype) {
+                        /* If we have an fd referring to the partition block device, use that. Otherwise go
+                         * via the whole block device or backing regular file, and read via offset. */
+                        if (p->mount_node_fd >= 0)
+                                r = probe_filesystem_full(p->mount_node_fd, p->node, 0, UINT64_MAX, &p->fstype);
+                        else
+                                r = probe_filesystem_full(fd, p->node, p->offset, p->size, &p->fstype);
+                        if (r < 0)
                                 return r;
                 }
 
@@ -439,10 +459,12 @@ static int dissect_image(
 
         errno = 0;
         r = blkid_do_safeprobe(b);
-        if (IN_SET(r, -2, 1))
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOPKG), "Failed to identify any partition table.");
-        if (r != 0)
+        if (r == _BLKID_SAFEPROBE_ERROR)
                 return errno_or_else(EIO);
+        if (IN_SET(r, _BLKID_SAFEPROBE_AMBIGUOUS, _BLKID_SAFEPROBE_NOT_FOUND))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOPKG), "Failed to identify any partition table.");
+
+        assert(r == _BLKID_SAFEPROBE_FOUND);
 
         if ((!(flags & DISSECT_IMAGE_GPT_ONLY) &&
             (flags & DISSECT_IMAGE_GENERIC_ROOT)) ||
@@ -458,7 +480,7 @@ static int dissect_image(
                         _cleanup_close_ int mount_node_fd = -1;
                         sd_id128_t uuid = SD_ID128_NULL;
 
-                        if (FLAGS_SET(flags, DISSECT_IMAGE_OPEN_PARTITION_DEVICES)) {
+                        if (FLAGS_SET(flags, DISSECT_IMAGE_PIN_PARTITION_DEVICES)) {
                                 mount_node_fd = open_partition(devname, /* is_partition = */ false, m->loop);
                                 if (mount_node_fd < 0)
                                         return mount_node_fd;
@@ -491,13 +513,10 @@ static int dissect_image(
                         m->encrypted = streq_ptr(fstype, "crypto_LUKS");
 
                         m->has_verity = verity && verity->data_path;
-                        m->verity_ready = m->has_verity &&
-                                verity->root_hash &&
-                                (verity->designator < 0 || verity->designator == PARTITION_ROOT);
+                        m->verity_ready = verity_settings_data_covers(verity, PARTITION_ROOT);
 
                         m->has_verity_sig = false; /* signature not embedded, must be specified */
-                        m->verity_sig_ready = m->verity_ready &&
-                                verity->root_hash_sig;
+                        m->verity_sig_ready = m->verity_ready && verity->root_hash_sig;
 
                         m->image_uuid = uuid;
 
@@ -539,7 +558,7 @@ static int dissect_image(
         if (verity && verity->data_path)
                 return -EBADR;
 
-        if (FLAGS_SET(flags, DISSECT_IMAGE_MANAGE_PARTITION_DEVICES)) {
+        if (FLAGS_SET(flags, DISSECT_IMAGE_ADD_PARTITION_DEVICES)) {
                 /* Safety check: refuse block devices that carry a partition table but for which the kernel doesn't
                  * do partition scanning. */
                 r = blockdev_partscan_enabled(fd);
@@ -615,7 +634,7 @@ static int dissect_image(
                  * Kernel returns EBUSY if there's already a partition by that number or an overlapping
                  * partition already existent. */
 
-                if (FLAGS_SET(flags, DISSECT_IMAGE_MANAGE_PARTITION_DEVICES)) {
+                if (FLAGS_SET(flags, DISSECT_IMAGE_ADD_PARTITION_DEVICES)) {
                         r = block_device_add_partition(fd, node, nr, (uint64_t) start * 512, (uint64_t) size * 512);
                         if (r < 0) {
                                 if (r != -EBUSY)
@@ -627,39 +646,32 @@ static int dissect_image(
                 }
 
                 if (is_gpt) {
-                        const char *stype, *sid, *fstype = NULL, *label;
+                        const char *fstype = NULL, *label;
                         sd_id128_t type_id, id;
                         GptPartitionType type;
                         bool rw = true, growfs = false;
 
-                        sid = blkid_partition_get_uuid(pp);
-                        if (!sid)
+                        r = blkid_partition_get_uuid_id128(pp, &id);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to read partition UUID, ignoring: %m");
                                 continue;
-                        if (sd_id128_from_string(sid, &id) < 0)
-                                continue;
+                        }
 
-                        stype = blkid_partition_get_type_string(pp);
-                        if (!stype)
+                        r = blkid_partition_get_type_id128(pp, &type_id);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to read partition type UUID, ignoring: %m");
                                 continue;
-                        if (sd_id128_from_string(stype, &type_id) < 0)
-                                continue;
+                        }
 
                         type = gpt_partition_type_from_uuid(type_id);
 
                         label = blkid_partition_get_name(pp); /* libblkid returns NULL here if empty */
 
-                        if (type.designator == PARTITION_HOME) {
-
-                                check_partition_flags(node, pflags,
-                                                      SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY | SD_GPT_FLAG_GROWFS);
-
-                                if (pflags & SD_GPT_FLAG_NO_AUTO)
-                                        continue;
-
-                                rw = !(pflags & SD_GPT_FLAG_READ_ONLY);
-                                growfs = FLAGS_SET(pflags, SD_GPT_FLAG_GROWFS);
-
-                        } else if (type.designator == PARTITION_SRV) {
+                        if (IN_SET(type.designator,
+                                   PARTITION_HOME,
+                                   PARTITION_SRV,
+                                   PARTITION_XBOOTLDR,
+                                   PARTITION_TMP)) {
 
                                 check_partition_flags(node, pflags,
                                                       SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY | SD_GPT_FLAG_GROWFS);
@@ -681,17 +693,6 @@ static int dissect_image(
                                         continue;
 
                                 fstype = "vfat";
-
-                        } else if (type.designator == PARTITION_XBOOTLDR) {
-
-                                check_partition_flags(node, pflags,
-                                                      SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY | SD_GPT_FLAG_GROWFS);
-
-                                if (pflags & SD_GPT_FLAG_NO_AUTO)
-                                        continue;
-
-                                rw = !(pflags & SD_GPT_FLAG_READ_ONLY);
-                                growfs = FLAGS_SET(pflags, SD_GPT_FLAG_GROWFS);
 
                         } else if (type.designator == PARTITION_ROOT) {
 
@@ -811,6 +812,8 @@ static int dissect_image(
                                 if (pflags & SD_GPT_FLAG_NO_AUTO)
                                         continue;
 
+                                fstype = "swap";
+
                         /* We don't have a designator for SD_GPT_LINUX_GENERIC so check the UUID instead. */
                         } else if (sd_id128_equal(type.uuid, SD_GPT_LINUX_GENERIC)) {
 
@@ -831,17 +834,6 @@ static int dissect_image(
                                         if (!generic_node)
                                                 return -ENOMEM;
                                 }
-
-                        } else if (type.designator == PARTITION_TMP) {
-
-                                check_partition_flags(node, pflags,
-                                                      SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY | SD_GPT_FLAG_GROWFS);
-
-                                if (pflags & SD_GPT_FLAG_NO_AUTO)
-                                        continue;
-
-                                rw = !(pflags & SD_GPT_FLAG_READ_ONLY);
-                                growfs = FLAGS_SET(pflags, SD_GPT_FLAG_GROWFS);
 
                         } else if (type.designator == PARTITION_VAR) {
 
@@ -867,7 +859,9 @@ static int dissect_image(
                                                 return r;
 
                                         if (!sd_id128_equal(var_uuid, id)) {
-                                                log_debug("Found a /var/ partition, but its UUID didn't match our expectations, ignoring.");
+                                                log_debug("Found a /var/ partition, but its UUID didn't match our expectations "
+                                                          "(found: " SD_ID128_UUID_FORMAT_STR ", expected: " SD_ID128_UUID_FORMAT_STR "), ignoring.",
+                                                          SD_ID128_FORMAT_VAL(id), SD_ID128_FORMAT_VAL(var_uuid));
                                                 continue;
                                         }
                                 }
@@ -897,7 +891,7 @@ static int dissect_image(
                                         dissected_partition_done(m->partitions + type.designator);
                                 }
 
-                                if (FLAGS_SET(flags, DISSECT_IMAGE_OPEN_PARTITION_DEVICES) &&
+                                if (FLAGS_SET(flags, DISSECT_IMAGE_PIN_PARTITION_DEVICES) &&
                                     type.designator != PARTITION_SWAP) {
                                         mount_node_fd = open_partition(node, /* is_partition = */ true, m->loop);
                                         if (mount_node_fd < 0)
@@ -937,6 +931,7 @@ static int dissect_image(
                                         .mount_node_fd = TAKE_FD(mount_node_fd),
                                         .offset = (uint64_t) start * 512,
                                         .size = (uint64_t) size * 512,
+                                        .gpt_flags = pflags,
                                 };
                         }
 
@@ -966,21 +961,19 @@ static int dissect_image(
                                 _cleanup_close_ int mount_node_fd = -1;
                                 _cleanup_free_ char *o = NULL;
                                 sd_id128_t id = SD_ID128_NULL;
-                                const char *sid, *options = NULL;
+                                const char *options = NULL;
 
                                 /* First one wins */
                                 if (m->partitions[PARTITION_XBOOTLDR].found)
                                         continue;
 
-                                if (FLAGS_SET(flags, DISSECT_IMAGE_OPEN_PARTITION_DEVICES)) {
+                                if (FLAGS_SET(flags, DISSECT_IMAGE_PIN_PARTITION_DEVICES)) {
                                         mount_node_fd = open_partition(node, /* is_partition = */ true, m->loop);
                                         if (mount_node_fd < 0)
                                                 return mount_node_fd;
                                 }
 
-                                sid = blkid_partition_get_uuid(pp);
-                                if (sid)
-                                        (void) sd_id128_from_string(sid, &id);
+                                (void) blkid_partition_get_uuid_id128(pp, &id);
 
                                 options = mount_options_from_designator(mount_options, PARTITION_XBOOTLDR);
                                 if (options) {
@@ -1054,7 +1047,7 @@ static int dissect_image(
                         _cleanup_free_ char *o = NULL;
                         const char *options;
 
-                        if (FLAGS_SET(flags, DISSECT_IMAGE_OPEN_PARTITION_DEVICES)) {
+                        if (FLAGS_SET(flags, DISSECT_IMAGE_PIN_PARTITION_DEVICES)) {
                                 mount_node_fd = open_partition(generic_node, /* is_partition = */ true, m->loop);
                                 if (mount_node_fd < 0)
                                         return mount_node_fd;
@@ -1142,6 +1135,10 @@ static int dissect_image(
                 }
         }
 
+        r = dissected_image_probe_filesystems(m, fd);
+        if (r < 0)
+                return r;
+
         return 0;
 }
 #endif
@@ -1159,7 +1156,6 @@ int dissect_image_file(
         int r;
 
         assert(path);
-        assert((flags & DISSECT_IMAGE_BLOCK_DEVICE) == 0);
         assert(ret);
 
         fd = open(path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
@@ -2266,7 +2262,7 @@ int dissected_image_decrypt(
                 }
 
                 if (!p->decrypted_fstype && p->mount_node_fd >= 0 && p->decrypted_node) {
-                        r = probe_filesystem_full(p->mount_node_fd, p->decrypted_node, &p->decrypted_fstype);
+                        r = probe_filesystem_full(p->mount_node_fd, p->decrypted_node, 0, UINT64_MAX, &p->decrypted_fstype);
                         if (r < 0 && r != -EUCLEAN)
                                 return r;
                 }
@@ -2974,11 +2970,7 @@ int dissect_loop_device(
 
         m->loop = loop_device_ref(loop);
 
-        r = dissect_image(m, loop->fd, loop->node, verity, mount_options, flags | DISSECT_IMAGE_BLOCK_DEVICE);
-        if (r < 0)
-                return r;
-
-        r = dissected_image_probe_filesystem(m);
+        r = dissect_image(m, loop->fd, loop->node, verity, mount_options, flags);
         if (r < 0)
                 return r;
 
@@ -3137,6 +3129,10 @@ int mount_image_privately_interactively(
         assert(ret_directory);
         assert(ret_loop_device);
 
+        /* We intend to mount this right-away, hence add the partitions if needed and pin them*/
+        flags |= DISSECT_IMAGE_ADD_PARTITION_DEVICES |
+                DISSECT_IMAGE_PIN_PARTITION_DEVICES;
+
         r = verity_settings_load(&verity, image, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to load root hash data: %m");
@@ -3231,7 +3227,9 @@ int verity_dissect_and_mount(
                 return log_debug_errno(r, "Failed to load root hash: %m");
 
         dissect_image_flags = (verity.data_path ? DISSECT_IMAGE_NO_PARTITION_TABLE : 0) |
-                (relax_extension_release_check ? DISSECT_IMAGE_RELAX_SYSEXT_CHECK : 0);
+                (relax_extension_release_check ? DISSECT_IMAGE_RELAX_SYSEXT_CHECK : 0) |
+                DISSECT_IMAGE_ADD_PARTITION_DEVICES |
+                DISSECT_IMAGE_PIN_PARTITION_DEVICES;
 
         /* Note that we don't use loop_device_make here, as the FD is most likely O_PATH which would not be
          * accepted by LOOP_CONFIGURE, so just let loop_device_make_by_path reopen it as a regular FD. */

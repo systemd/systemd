@@ -980,6 +980,8 @@ static int boot_config_find(const BootConfig *config, const char *id) {
         if (id[0] == '@') {
                 if (!strcaseeq(id, "@saved"))
                         return -1;
+                if (!config->entry_selected)
+                        return -1;
                 id = config->entry_selected;
         }
 
@@ -1268,7 +1270,7 @@ static void boot_entry_file_list(
         int status = chase_symlinks_and_access(p, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, F_OK, NULL, NULL);
 
         /* Note that this shows two '/' between the root and the file. This is intentional to highlight (in
-         * the abscence of color support) to the user that the boot loader is only interested in the second
+         * the absence of color support) to the user that the boot loader is only interested in the second
          * part of the file. */
         printf("%13s%s %s%s/%s", strempty(field), field ? ":" : " ", ansi_grey(), root, ansi_normal());
 
@@ -1402,6 +1404,8 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
         assert(config);
 
         if (!FLAGS_SET(json_format, JSON_FORMAT_OFF)) {
+                _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+
                 for (size_t i = 0; i < config->n_entries; i++) {
                         _cleanup_free_ char *opts = NULL;
                         const BootEntry *e = config->entries + i;
@@ -1441,8 +1445,12 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                         if (r < 0)
                                 return log_oom();
 
-                        json_variant_dump(v, json_format, stdout, NULL);
+                        r = json_variant_append_array(&array, v);
+                        if (r < 0)
+                                return log_oom();
                 }
+
+                json_variant_dump(array, json_format | JSON_FORMAT_EMPTY_ARRAY, NULL, NULL);
 
         } else {
                 for (size_t n = 0; n < config->n_entries; n++) {

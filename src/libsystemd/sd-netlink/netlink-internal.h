@@ -7,6 +7,7 @@
 
 #include "list.h"
 #include "netlink-types.h"
+#include "ordered-set.h"
 #include "prioq.h"
 #include "time-util.h"
 
@@ -72,11 +73,9 @@ struct sd_netlink {
         Hashmap *broadcast_group_refs;
         bool broadcast_group_dont_leave:1; /* until we can rely on 4.2 */
 
-        sd_netlink_message **rqueue;
-        unsigned rqueue_size;
-
-        sd_netlink_message **rqueue_partial;
-        unsigned rqueue_partial_size;
+        OrderedSet *rqueue;
+        Hashmap *rqueue_by_serial;
+        Hashmap *rqueue_partial_by_serial;
 
         struct nlmsghdr *rbuffer;
 
@@ -148,8 +147,6 @@ void message_seal(sd_netlink_message *m);
 
 int netlink_open_family(sd_netlink **ret, int family);
 bool netlink_pid_changed(sd_netlink *nl);
-int netlink_rqueue_make_room(sd_netlink *nl);
-int netlink_rqueue_partial_make_room(sd_netlink *nl);
 
 int socket_bind(sd_netlink *nl);
 int socket_broadcast_group_ref(sd_netlink *nl, unsigned group);

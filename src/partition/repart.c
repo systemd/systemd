@@ -158,9 +158,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_filter_partitions, freep);
 
-typedef struct Partition Partition;
 typedef struct FreeArea FreeArea;
-typedef struct Context Context;
 
 typedef enum EncryptMode {
         ENCRYPT_OFF,
@@ -180,7 +178,7 @@ typedef enum VerityMode {
         _VERITY_MODE_INVALID = -EINVAL,
 } VerityMode;
 
-struct Partition {
+typedef struct Partition {
         char *definition_path;
         char **drop_in_files;
 
@@ -211,6 +209,7 @@ struct Partition {
         FreeArea *allocated_to_area;
 
         char *copy_blocks_path;
+        bool copy_blocks_path_is_our_file;
         bool copy_blocks_auto;
         const char *copy_blocks_root;
         int copy_blocks_fd;
@@ -233,12 +232,12 @@ struct Partition {
         size_t roothash_size;
 
         char *split_name_format;
-        char *split_name_resolved;
+        char *split_path;
 
-        Partition *siblings[_VERITY_MODE_MAX];
+        struct Partition *siblings[_VERITY_MODE_MAX];
 
-        LIST_FIELDS(Partition, partitions);
-};
+        LIST_FIELDS(struct Partition, partitions);
+} Partition;
 
 #define PARTITION_IS_FOREIGN(p) (!(p)->definition_path)
 #define PARTITION_EXISTS(p) (!!(p)->current_partition)
@@ -249,7 +248,7 @@ struct FreeArea {
         uint64_t allocated;
 };
 
-struct Context {
+typedef struct Context {
         LIST_HEAD(Partition, partitions);
         size_t n_partitions;
 
@@ -263,7 +262,13 @@ struct Context {
         uint64_t grain_size;
 
         sd_id128_t seed;
-};
+
+        char *node;
+        bool node_is_our_file;
+        int backing_fd;
+
+        bool from_scratch;
+} Context;
 
 static const char *encrypt_mode_table[_ENCRYPT_MODE_MAX] = {
         [ENCRYPT_OFF] = "off",
@@ -340,7 +345,10 @@ static Partition* partition_free(Partition *p) {
         if (p->new_partition)
                 fdisk_unref_partition(p->new_partition);
 
-        free(p->copy_blocks_path);
+        if (p->copy_blocks_path_is_our_file)
+                unlink_and_free(p->copy_blocks_path);
+        else
+                free(p->copy_blocks_path);
         safe_close(p->copy_blocks_fd);
 
         free(p->format);
@@ -351,7 +359,7 @@ static Partition* partition_free(Partition *p) {
         free(p->roothash);
 
         free(p->split_name_format);
-        free(p->split_name_resolved);
+        unlink_and_free(p->split_path);
 
         return mfree(p);
 }
@@ -463,6 +471,12 @@ static Context *context_free(Context *context) {
 
         if (context->fdisk_context)
                 fdisk_unref_context(context->fdisk_context);
+
+        safe_close(context->backing_fd);
+        if (context->node_is_our_file)
+                unlink_and_free(context->node);
+        else
+                free(context->node);
 
         return mfree(context);
 }
@@ -1920,11 +1934,7 @@ static int derive_uuid(sd_id128_t base, const char *token, sd_id128_t *ret) {
         return 0;
 }
 
-static int context_load_partition_table(
-                Context *context,
-                const char *node,
-                int *backing_fd) {
-
+static int context_load_partition_table(Context *context) {
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *t = NULL;
         uint64_t left_boundary = UINT64_MAX, first_lba, last_lba, nsectors;
@@ -1937,8 +1947,6 @@ static int context_load_partition_table(
         int r;
 
         assert(context);
-        assert(node);
-        assert(backing_fd);
         assert(!context->fdisk_context);
         assert(!context->free_areas);
         assert(context->start == UINT64_MAX);
@@ -1947,14 +1955,14 @@ static int context_load_partition_table(
 
         /* libfdisk doesn't have an API to operate on arbitrary fds, hence reopen the fd going via the
          * /proc/self/fd/ magic path if we have an existing fd. Open the original file otherwise. */
-        if (*backing_fd < 0) {
+        if (context->backing_fd < 0) {
                 c = fdisk_new_context();
                 if (!c)
                         return log_oom();
 
-                r = fdisk_assign_device(c, node, arg_dry_run);
+                r = fdisk_assign_device(c, context->node, arg_dry_run);
         } else
-                r = fdisk_new_context_fd(*backing_fd, arg_dry_run, &c);
+                r = fdisk_new_context_fd(context->backing_fd, arg_dry_run, &c);
 
         if (r == -EINVAL && arg_size_auto) {
                 struct stat st;
@@ -1962,12 +1970,12 @@ static int context_load_partition_table(
                 /* libfdisk returns EINVAL if opening a file of size zero. Let's check for that, and accept
                  * it if automatic sizing is requested. */
 
-                if (*backing_fd < 0)
-                        r = stat(node, &st);
+                if (context->backing_fd < 0)
+                        r = stat(context->node, &st);
                 else
-                        r = fstat(*backing_fd, &st);
+                        r = fstat(context->backing_fd, &st);
                 if (r < 0)
-                        return log_error_errno(errno, "Failed to stat block device '%s': %m", node);
+                        return log_error_errno(errno, "Failed to stat block device '%s': %m", context->node);
 
                 if (S_ISREG(st.st_mode) && st.st_size == 0) {
                         /* User the fallback values if we have no better idea */
@@ -1979,16 +1987,16 @@ static int context_load_partition_table(
                 r = -EINVAL;
         }
         if (r < 0)
-                return log_error_errno(r, "Failed to open device '%s': %m", node);
+                return log_error_errno(r, "Failed to open device '%s': %m", context->node);
 
-        if (*backing_fd < 0) {
+        if (context->backing_fd < 0) {
                 /* If we have no fd referencing the device yet, make a copy of the fd now, so that we have one */
-                *backing_fd = fd_reopen(fdisk_get_devfd(c), O_RDONLY|O_CLOEXEC);
-                if (*backing_fd < 0)
-                        return log_error_errno(*backing_fd, "Failed to duplicate fdisk fd: %m");
+                context->backing_fd = fd_reopen(fdisk_get_devfd(c), O_RDONLY|O_CLOEXEC);
+                if (context->backing_fd < 0)
+                        return log_error_errno(context->backing_fd, "Failed to duplicate fdisk fd: %m");
 
                 /* Tell udev not to interfere while we are processing the device */
-                if (flock(*backing_fd, arg_dry_run ? LOCK_SH : LOCK_EX) < 0)
+                if (flock(context->backing_fd, arg_dry_run ? LOCK_SH : LOCK_EX) < 0)
                         return log_error_errno(errno, "Failed to lock block device: %m");
         }
 
@@ -2014,7 +2022,7 @@ static int context_load_partition_table(
         case EMPTY_REFUSE:
                 /* Refuse empty disks, insist on an existing GPT partition table */
                 if (!fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
-                        return log_notice_errno(SYNTHETIC_ERRNO(EHWPOISON), "Disk %s has no GPT disk label, not repartitioning.", node);
+                        return log_notice_errno(SYNTHETIC_ERRNO(EHWPOISON), "Disk %s has no GPT disk label, not repartitioning.", context->node);
 
                 break;
 
@@ -2022,9 +2030,9 @@ static int context_load_partition_table(
                 /* Require an empty disk, refuse any existing partition table */
                 r = fdisk_has_label(c);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to determine whether disk %s has a disk label: %m", node);
+                        return log_error_errno(r, "Failed to determine whether disk %s has a disk label: %m", context->node);
                 if (r > 0)
-                        return log_notice_errno(SYNTHETIC_ERRNO(EHWPOISON), "Disk %s already has a disk label, refusing.", node);
+                        return log_notice_errno(SYNTHETIC_ERRNO(EHWPOISON), "Disk %s already has a disk label, refusing.", context->node);
 
                 from_scratch = true;
                 break;
@@ -2033,10 +2041,10 @@ static int context_load_partition_table(
                 /* Allow both an empty disk and an existing partition table, but only GPT */
                 r = fdisk_has_label(c);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to determine whether disk %s has a disk label: %m", node);
+                        return log_error_errno(r, "Failed to determine whether disk %s has a disk label: %m", context->node);
                 if (r > 0) {
                         if (!fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
-                                return log_notice_errno(SYNTHETIC_ERRNO(EHWPOISON), "Disk %s has non-GPT disk label, not repartitioning.", node);
+                                return log_notice_errno(SYNTHETIC_ERRNO(EHWPOISON), "Disk %s has non-GPT disk label, not repartitioning.", context->node);
                 } else
                         from_scratch = true;
 
@@ -2092,8 +2100,7 @@ static int context_load_partition_table(
                 _cleanup_free_ char *label_copy = NULL;
                 Partition *last = NULL;
                 struct fdisk_partition *p;
-                struct fdisk_parttype *pt;
-                const char *pts, *ids, *label;
+                const char *label;
                 uint64_t sz, start;
                 bool found = false;
                 sd_id128_t ptid, id;
@@ -2111,25 +2118,13 @@ static int context_load_partition_table(
                     fdisk_partition_has_partno(p) <= 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Found a partition without a position, size or number.");
 
-                pt = fdisk_partition_get_type(p);
-                if (!pt)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to acquire type of partition: %m");
-
-                pts = fdisk_parttype_get_string(pt);
-                if (!pts)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to acquire type of partition as string: %m");
-
-                r = sd_id128_from_string(pts, &ptid);
+                r = fdisk_partition_get_type_as_id128(p, &ptid);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse partition type UUID %s: %m", pts);
+                        return log_error_errno(r, "Failed to query partition type UUID: %m");
 
-                ids = fdisk_partition_get_uuid(p);
-                if (!ids)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Found a partition without a UUID.");
-
-                r = sd_id128_from_string(ids, &id);
+                r = fdisk_partition_get_uuid_as_id128(p, &id);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse partition UUID %s: %m", ids);
+                        return log_error_errno(r, "Failed to query partition UUID: %m");
 
                 label = fdisk_partition_get_name(p);
                 if (!isempty(label)) {
@@ -2355,30 +2350,47 @@ static const char *partition_label(const Partition *p) {
         return gpt_partition_type_uuid_to_string(p->type.uuid);
 }
 
-static int context_dump_partitions(Context *context, const char *node) {
+static int context_dump_partitions(Context *context) {
         _cleanup_(table_unrefp) Table *t = NULL;
         uint64_t sum_padding = 0, sum_size = 0;
         int r;
-        const size_t roothash_col = 13, dropin_files_col = 14;
-        bool has_roothash = false, has_dropin_files = false;
+        const size_t roothash_col = 13, dropin_files_col = 14, split_path_col = 15;
+        bool has_roothash = false, has_dropin_files = false, has_split_path = false;
 
         if ((arg_json_format_flags & JSON_FORMAT_OFF) && context->n_partitions == 0) {
                 log_info("Empty partition table.");
                 return 0;
         }
 
-        t = table_new("type", "label", "uuid", "file", "node", "offset", "old size", "raw size", "size", "old padding", "raw padding", "padding", "activity", "roothash", "drop-in files");
+        t = table_new("type",
+                      "label",
+                      "uuid",
+                      "file",
+                      "node",
+                      "offset",
+                      "old size",
+                      "raw size",
+                      "size",
+                      "old padding",
+                      "raw padding",
+                      "padding",
+                      "activity",
+                      "roothash",
+                      "drop-in files",
+                      "split path");
         if (!t)
                 return log_oom();
 
         if (!DEBUG_LOGGING) {
                 if (arg_json_format_flags & JSON_FORMAT_OFF)
                         (void) table_set_display(t, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4,
-                                                    (size_t) 8, (size_t) 11, roothash_col, dropin_files_col);
+                                                    (size_t) 8, (size_t) 11, roothash_col, dropin_files_col,
+                                                    split_path_col);
                 else
                         (void) table_set_display(t, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4,
                                                     (size_t) 5, (size_t) 6, (size_t) 7, (size_t) 9, (size_t) 10,
-                                                    (size_t) 12, roothash_col, dropin_files_col);
+                                                    (size_t) 12, roothash_col, dropin_files_col,
+                                                    split_path_col);
         }
 
         (void) table_set_align_percent(t, table_get_cell(t, 0, 5), 100);
@@ -2403,7 +2415,7 @@ static int context_dump_partitions(Context *context, const char *node) {
                         activity = "resize";
 
                 label = partition_label(p);
-                partname = p->partno != UINT64_MAX ? fdisk_partname(node, p->partno+1) : NULL;
+                partname = p->partno != UINT64_MAX ? fdisk_partname(context->node, p->partno+1) : NULL;
 
                 r = format_size_change(p->current_size, p->new_size, &size_change);
                 if (r < 0)
@@ -2440,12 +2452,14 @@ static int context_dump_partitions(Context *context, const char *node) {
                                 TABLE_STRING, padding_change, TABLE_SET_COLOR, !p->partitions_next && sum_padding > 0 ? ansi_underline() : NULL,
                                 TABLE_STRING, activity ?: "unchanged",
                                 TABLE_STRING, rh,
-                                TABLE_STRV, p->drop_in_files);
+                                TABLE_STRV, p->drop_in_files,
+                                TABLE_STRING, empty_to_null(p->split_path) ?: "-");
                 if (r < 0)
                         return table_log_add_error(r);
 
                 has_roothash = has_roothash || !isempty(rh);
                 has_dropin_files = has_dropin_files || !strv_isempty(p->drop_in_files);
+                has_split_path = has_split_path || !isempty(p->split_path);
         }
 
         if ((arg_json_format_flags & JSON_FORMAT_OFF) && (sum_padding > 0 || sum_size > 0)) {
@@ -2470,6 +2484,7 @@ static int context_dump_partitions(Context *context, const char *node) {
                                 TABLE_STRING, b,
                                 TABLE_EMPTY,
                                 TABLE_EMPTY,
+                                TABLE_EMPTY,
                                 TABLE_EMPTY);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -2483,6 +2498,12 @@ static int context_dump_partitions(Context *context, const char *node) {
 
         if (!has_dropin_files) {
                 r = table_hide_column_from_display(t, dropin_files_col);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set columns to display: %m");
+        }
+
+        if (!has_split_path) {
+                r = table_hide_column_from_display(t, split_path_col);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set columns to display: %m");
         }
@@ -2572,7 +2593,7 @@ done:
         return 0;
 }
 
-static int context_dump_partition_bar(Context *context, const char *node) {
+static int context_dump_partition_bar(Context *context) {
         _cleanup_free_ Partition **bar = NULL;
         _cleanup_free_ size_t *start_array = NULL;
         Partition *last = NULL;
@@ -2648,7 +2669,7 @@ static int context_dump_partition_bar(Context *context, const char *node) {
                         } else if (i == context->n_partitions - j) {
                                 _cleanup_free_ char *hint = NULL;
 
-                                (void) partition_hint(p, node, &hint);
+                                (void) partition_hint(p, context->node, &hint);
 
                                 if (streq_ptr(line[start_array[j-1]], special_glyph(SPECIAL_GLYPH_TREE_VERTICAL)))
                                         d = strjoin(special_glyph(SPECIAL_GLYPH_TREE_BRANCH), " ", strna(hint));
@@ -2693,11 +2714,10 @@ static bool context_has_roothash(Context *context) {
         return false;
 }
 
-static int context_dump(Context *context, const char *node, bool late) {
+static int context_dump(Context *context, bool late) {
         int r;
 
         assert(context);
-        assert(node);
 
         if (arg_pretty == 0 && FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
                 return 0;
@@ -2712,7 +2732,7 @@ static int context_dump(Context *context, const char *node, bool late) {
         if (late && FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF) && !context_has_roothash(context))
                 return 0;
 
-        r = context_dump_partitions(context, node);
+        r = context_dump_partitions(context);
         if (r < 0)
                 return r;
 
@@ -2721,7 +2741,7 @@ static int context_dump(Context *context, const char *node, bool late) {
         if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF) && !late) {
                 putc('\n', stdout);
 
-                r = context_dump_partition_bar(context, node);
+                r = context_dump_partition_bar(context);
                 if (r < 0)
                         return r;
 
@@ -2964,7 +2984,7 @@ static int context_discard_gap_after(Context *context, Partition *p) {
         return 0;
 }
 
-static int context_wipe_and_discard(Context *context, bool from_scratch) {
+static int context_wipe_and_discard(Context *context) {
         int r;
 
         assert(context);
@@ -2985,7 +3005,7 @@ static int context_wipe_and_discard(Context *context, bool from_scratch) {
                 if (r < 0)
                         return r;
 
-                if (!from_scratch) {
+                if (!context->from_scratch) {
                         r = context_discard_partition(context, p);
                         if (r < 0)
                                 return r;
@@ -2996,7 +3016,7 @@ static int context_wipe_and_discard(Context *context, bool from_scratch) {
                 }
         }
 
-        if (!from_scratch) {
+        if (!context->from_scratch) {
                 r = context_discard_gap_after(context, NULL);
                 if (r < 0)
                         return r;
@@ -3037,6 +3057,36 @@ static PartitionTarget *partition_target_free(PartitionTarget *t) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(PartitionTarget*, partition_target_free);
 
+static int prepare_temporary_file(PartitionTarget *t, uint64_t size) {
+        _cleanup_(unlink_and_freep) char *temp = NULL;
+        _cleanup_close_ int fd = -1;
+        const char *vt;
+        int r;
+
+        assert(t);
+
+        r = var_tmp_dir(&vt);
+        if (r < 0)
+                return log_error_errno(r, "Could not determine temporary directory: %m");
+
+        temp = path_join(vt, "repart-XXXXXX");
+        if (!temp)
+                return log_oom();
+
+        fd = mkostemp_safe(temp);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to create temporary file: %m");
+
+        if (ftruncate(fd, size) < 0)
+                return log_error_errno(errno, "Failed to truncate temporary file to %s: %m",
+                                        FORMAT_BYTES(size));
+
+        t->fd = TAKE_FD(fd);
+        t->path = TAKE_PTR(temp);
+
+        return 0;
+}
+
 static int partition_target_prepare(
                 Context *context,
                 Partition *p,
@@ -3045,25 +3095,14 @@ static int partition_target_prepare(
                 PartitionTarget **ret) {
 
         _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
-        struct stat st;
-        int whole_fd;
-        int r;
+        _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+        int whole_fd, r;
 
         assert(context);
         assert(p);
         assert(ret);
 
         assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
-
-        if (fstat(whole_fd, &st) < 0)
-                return -errno;
-
-        /* If we're operating on a block device, we definitely need privileges to access block devices so we
-         * can just use loop devices as our target. Otherwise, we're operating on a regular file, in that
-         * case, let's write to regular files and copy those into the final image so we can run without root
-         * privileges. On filesystems with reflinking support, we can take advantage of this and just reflink
-         * the result into the image.
-         */
 
         t = new(PartitionTarget, 1);
         if (!t)
@@ -3073,46 +3112,37 @@ static int partition_target_prepare(
                 .whole_fd = -1,
         };
 
-        if (S_ISBLK(st.st_mode) || (p->format && !mkfs_supports_root_option(p->format))) {
-                _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-
-                /* Loopback block devices are not only useful to turn regular files into block devices, but
-                 * also to cut out sections of block devices into new block devices. */
-
-                r = loop_device_make(whole_fd, O_RDWR, p->offset, size, 0, 0, LOCK_EX, &d);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
-
-                t->loop = TAKE_PTR(d);
-        } else if (need_path) {
-                _cleanup_(unlink_and_freep) char *temp = NULL;
-                _cleanup_close_ int fd = -1;
-                const char *vt;
-
-                r = var_tmp_dir(&vt);
-                if (r < 0)
-                        return log_error_errno(r, "Could not determine temporary directory: %m");
-
-                temp = path_join(vt, "repart-XXXXXX");
-                if (!temp)
-                        return log_oom();
-
-                fd = mkostemp_safe(temp);
-                if (fd < 0)
-                        return log_error_errno(fd, "Failed to create temporary file: %m");
-
-                if (ftruncate(fd, size) < 0)
-                        return log_error_errno(errno, "Failed to truncate temporary file to %s: %m",
-                                               FORMAT_BYTES(size));
-
-                t->fd = TAKE_FD(fd);
-                t->path = TAKE_PTR(temp);
-        } else {
+        if (!need_path) {
                 if (lseek(whole_fd, p->offset, SEEK_SET) == (off_t) -1)
                         return log_error_errno(errno, "Failed to seek to partition offset: %m");
 
                 t->whole_fd = whole_fd;
+                *ret = TAKE_PTR(t);
+                return 0;
         }
+
+        /* Loopback block devices are not only useful to turn regular files into block devices, but
+         * also to cut out sections of block devices into new block devices. */
+
+        r = loop_device_make(whole_fd, O_RDWR, p->offset, size, 0, 0, LOCK_EX, &d);
+        if (r < 0 && r != -ENOENT && !ERRNO_IS_PRIVILEGE(r))
+                return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
+        if (r >= 0) {
+                t->loop = TAKE_PTR(d);
+                *ret = TAKE_PTR(t);
+                return 0;
+        }
+
+        /* If we can't allocate a loop device, let's write to a regular file that we copy into the final
+         * image so we can run in containers and without needing root privileges. On filesystems with
+         * reflinking support, we can take advantage of this and just reflink the result into the image.
+         */
+
+        log_debug_errno(r, "No access to loop devices, falling back to a regular file");
+
+        r = prepare_temporary_file(t, size);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PTR(t);
 
@@ -3678,7 +3708,12 @@ static int context_copy_blocks(Context *context) {
         return 0;
 }
 
-static int do_copy_files(Partition *p, const char *root, const Set *denylist) {
+static int do_copy_files(
+                Partition *p,
+                const char *root,
+                uid_t override_uid,
+                gid_t override_gid,
+                const Set *denylist) {
 
         int r;
 
@@ -3721,18 +3756,22 @@ static int do_copy_files(Partition *p, const char *root, const Set *denylist) {
                                 if (pfd < 0)
                                         return log_error_errno(pfd, "Failed to open parent directory of target: %m");
 
+                                /* Make sure everything is owned by the user running repart so that
+                                 * make_filesystem() can map the user running repart to "root" in a user
+                                 * namespace to have the files owned by root in the final image. */
+
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 pfd, fn,
-                                                getuid(), getgid(),
-                                                COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS,
+                                                override_uid, override_gid,
+                                                COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS|COPY_GRACEFUL_WARN,
                                                 denylist);
                         } else
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 tfd, ".",
-                                                getuid(), getgid(),
-                                                COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS,
+                                                override_uid, override_gid,
+                                                COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS|COPY_GRACEFUL_WARN,
                                                 denylist);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s%s' to '%s%s': %m",
@@ -3769,6 +3808,9 @@ static int do_copy_files(Partition *p, const char *root, const Set *denylist) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", *source, strempty(arg_root), *target);
 
+                        if (fchown(tfd, override_uid, override_gid) < 0)
+                                return log_error_errno(r, "Failed to change ownership of %s", *target);
+
                         (void) copy_xattr(sfd, tfd, COPY_ALL_XATTRS);
                         (void) copy_access(sfd, tfd);
                         (void) copy_times(sfd, tfd, 0);
@@ -3778,7 +3820,7 @@ static int do_copy_files(Partition *p, const char *root, const Set *denylist) {
         return 0;
 }
 
-static int do_make_directories(Partition *p, const char *root) {
+static int do_make_directories(Partition *p, uid_t override_uid, gid_t override_gid, const char *root) {
         int r;
 
         assert(p);
@@ -3786,12 +3828,17 @@ static int do_make_directories(Partition *p, const char *root) {
 
         STRV_FOREACH(d, p->make_directories) {
 
-                r = mkdir_p_root(root, *d, getuid(), getgid(), 0755);
+                r = mkdir_p_root(root, *d, override_uid, override_gid, 0755);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create directory '%s' in file system: %m", *d);
         }
 
         return 0;
+}
+
+static bool partition_needs_populate(Partition *p) {
+        assert(p);
+        return !strv_isempty(p->copy_files) || !strv_isempty(p->make_directories);
 }
 
 static int partition_populate_directory(Partition *p, const Set *denylist, char **ret) {
@@ -3801,11 +3848,6 @@ static int partition_populate_directory(Partition *p, const Set *denylist, char 
 
         assert(ret);
 
-        if (strv_isempty(p->copy_files) && strv_isempty(p->make_directories)) {
-                *ret = NULL;
-                return 0;
-        }
-
         rfd = mkdtemp_open("/var/tmp/repart-XXXXXX", 0, &root);
         if (rfd < 0)
                 return log_error_errno(rfd, "Failed to create temporary directory: %m");
@@ -3813,15 +3855,11 @@ static int partition_populate_directory(Partition *p, const Set *denylist, char 
         if (fchmod(rfd, 0755) < 0)
                 return log_error_errno(errno, "Failed to change mode of temporary directory: %m");
 
-        /* Make sure everything is owned by the user running repart so that make_filesystem() can map the
-         * user running repart to "root" in a user namespace to have the files owned by root in the final
-         * image. */
-
-        r = do_copy_files(p, root, denylist);
+        r = do_copy_files(p, root, getuid(), getgid(), denylist);
         if (r < 0)
                 return r;
 
-        r = do_make_directories(p, root);
+        r = do_make_directories(p, getuid(), getgid(), root);
         if (r < 0)
                 return r;
 
@@ -3830,26 +3868,10 @@ static int partition_populate_directory(Partition *p, const Set *denylist, char 
 }
 
 static int partition_populate_filesystem(Partition *p, const char *node, const Set *denylist) {
-        _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-        struct stat st;
         int r;
 
         assert(p);
         assert(node);
-
-        if (strv_isempty(p->copy_files) && strv_isempty(p->make_directories))
-                return 0;
-
-        if (stat(node, &st) < 0)
-                return log_error_errno(errno, "Failed to stat %s: %m", node);
-
-        if (!S_ISBLK(st.st_mode)) {
-                r = loop_device_make_by_path(node, O_RDWR, 0, LOCK_EX, &d);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to make loopback device of %s: %m", node);
-
-                node = d->node;
-        }
 
         log_info("Populating %s filesystem with files.", p->format);
 
@@ -3873,10 +3895,10 @@ static int partition_populate_filesystem(Partition *p, const char *node, const S
                 if (mount_nofollow_verbose(LOG_ERR, node, fs, p->format, MS_NOATIME|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL) < 0)
                         _exit(EXIT_FAILURE);
 
-                if (do_copy_files(p, fs, denylist) < 0)
+                if (do_copy_files(p, fs, 0, 0, denylist) < 0)
                         _exit(EXIT_FAILURE);
 
-                if (do_make_directories(p, fs) < 0)
+                if (do_make_directories(p, 0, 0, fs) < 0)
                         _exit(EXIT_FAILURE);
 
                 r = syncfs_path(AT_FDCWD, fs);
@@ -3979,11 +4001,16 @@ static int context_mkfs(Context *context) {
 
                 log_info("Formatting future partition %" PRIu64 ".", p->partno);
 
-                /* We prefer (or are required in the case of read-only filesystems) to populate filesystems
-                 * directly via the corresponding mkfs binary if it supports a --rootdir (or equivalent)
-                 * option. To do that, we need to setup the final directory tree beforehand. */
+                /* If we're not writing to a loop device or if we're populating a read-only filesystem, we
+                 * have to populate using the filesystem's mkfs's --root (or equivalent) option. To do that,
+                 * we need to set up the final directory tree beforehand. */
 
-                if (mkfs_supports_root_option(p->format)) {
+                if (partition_needs_populate(p) && (!t->loop || fstype_is_ro(p->format))) {
+                        if (!mkfs_supports_root_option(p->format))
+                                return log_error_errno(SYNTHETIC_ERRNO(ENODEV),
+                                                        "Loop device access is required to populate %s filesystems.",
+                                                        p->format);
+
                         r = partition_populate_directory(p, denylist, &root);
                         if (r < 0)
                                 return r;
@@ -3996,9 +4023,11 @@ static int context_mkfs(Context *context) {
 
                 log_info("Successfully formatted future partition %" PRIu64 ".", p->partno);
 
-                /* Now, we can populate all the other filesystems that we couldn't populate earlier. */
-                if (!mkfs_supports_root_option(p->format)) {
-                        r = partition_populate_filesystem(p, partition_target_path(t), denylist);
+                /* If we're writing to a loop device, we can now mount the empty filesystem and populate it. */
+                if (partition_needs_populate(p) && !root) {
+                        assert(t->loop);
+
+                        r = partition_populate_filesystem(p, t->loop->node, denylist);
                         if (r < 0)
                                 return r;
                 }
@@ -4460,7 +4489,7 @@ static int context_mangle_partitions(Context *context) {
         return 0;
 }
 
-static int split_name_printf(Partition *p) {
+static int split_name_printf(Partition *p, char **ret) {
         assert(p);
 
         const Specifier table[] = {
@@ -4473,45 +4502,7 @@ static int split_name_printf(Partition *p) {
                 {}
         };
 
-        return specifier_printf(p->split_name_format, NAME_MAX, table, arg_root, p, &p->split_name_resolved);
-}
-
-static int split_name_resolve(Context *context) {
-        int r;
-
-        LIST_FOREACH(partitions, p, context->partitions) {
-                if (p->dropped)
-                        continue;
-
-                if (!p->split_name_format)
-                        continue;
-
-                r = split_name_printf(p);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to resolve specifiers in %s: %m", p->split_name_format);
-        }
-
-        LIST_FOREACH(partitions, p, context->partitions) {
-                if (!p->split_name_resolved)
-                        continue;
-
-                LIST_FOREACH(partitions, q, context->partitions) {
-                        if (p == q)
-                                continue;
-
-                        if (!q->split_name_resolved)
-                                continue;
-
-                        if (!streq(p->split_name_resolved, q->split_name_resolved))
-                                continue;
-
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ),
-                                               "%s and %s have the same resolved split name \"%s\", refusing",
-                                               p->definition_path, q->definition_path, p->split_name_resolved);
-                }
-        }
-
-        return 0;
+        return specifier_printf(p->split_name_format, NAME_MAX, table, arg_root, p, ret);
 }
 
 static int split_node(const char *node, char **ret_base, char **ret_ext) {
@@ -4525,9 +4516,9 @@ static int split_node(const char *node, char **ret_base, char **ret_ext) {
 
         r = path_extract_filename(node, &base);
         if (r == O_DIRECTORY || r == -EADDRNOTAVAIL)
-                return log_error_errno(r, "Device node %s cannot be a directory", arg_node);
+                return log_error_errno(r, "Device node %s cannot be a directory", node);
         if (r < 0)
-                return log_error_errno(r, "Failed to extract filename from %s: %m", arg_node);
+                return log_error_errno(r, "Failed to extract filename from %s: %m", node);
 
         e = endswith(base, ".raw");
         if (e) {
@@ -4544,16 +4535,71 @@ static int split_node(const char *node, char **ret_base, char **ret_ext) {
         return 0;
 }
 
+static int split_name_resolve(Context *context) {
+        _cleanup_free_ char *parent = NULL, *base = NULL, *ext = NULL;
+        int r;
+
+        assert(context);
+
+        r = path_extract_directory(context->node, &parent);
+        if (r < 0 && r != -EDESTADDRREQ)
+                return log_error_errno(r, "Failed to extract directory from %s: %m", context->node);
+
+        r = split_node(context->node, &base, &ext);
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_free_ char *resolved = NULL;
+
+                if (p->dropped)
+                        continue;
+
+                if (!p->split_name_format)
+                        continue;
+
+                r = split_name_printf(p, &resolved);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve specifiers in %s: %m", p->split_name_format);
+
+                if (parent)
+                        p->split_path = strjoin(parent, "/", base, ".", resolved, ext);
+                else
+                        p->split_path = strjoin(base, ".", resolved, ext);
+                if (!p->split_path)
+                        return log_oom();
+        }
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                if (!p->split_path)
+                        continue;
+
+                LIST_FOREACH(partitions, q, context->partitions) {
+                        if (p == q)
+                                continue;
+
+                        if (!q->split_path)
+                                continue;
+
+                        if (!streq(p->split_path, q->split_path))
+                                continue;
+
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ),
+                                               "%s and %s have the same resolved split name \"%s\", refusing",
+                                               p->definition_path, q->definition_path, p->split_path);
+                }
+        }
+
+        return 0;
+}
+
 static int context_split(Context *context) {
-        _cleanup_free_ char *base = NULL, *ext = NULL;
-        _cleanup_close_ int dir_fd = -1;
         int fd = -1, r;
 
         if (!arg_split)
                 return 0;
 
         assert(context);
-        assert(arg_node);
 
         /* We can't do resolution earlier because the partition UUIDs for verity partitions are only filled
          * in after they've been generated. */
@@ -4562,36 +4608,21 @@ static int context_split(Context *context) {
         if (r < 0)
                 return r;
 
-        r = split_node(arg_node, &base, &ext);
-        if (r < 0)
-                return r;
-
-        dir_fd = r = open_parent(arg_node, O_PATH|O_CLOEXEC, 0);
-        if (r == -EDESTADDRREQ)
-                dir_fd = AT_FDCWD;
-        else if (r < 0)
-                return log_error_errno(r, "Failed to open parent directory of %s: %m", arg_node);
-
         LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_free_ char *fname = NULL;
                 _cleanup_close_ int fdt = -1;
 
                 if (p->dropped)
                         continue;
 
-                if (!p->split_name_resolved)
+                if (!p->split_path)
                         continue;
 
                 if (partition_skip(p))
                         continue;
 
-                fname = strjoin(base, ".", p->split_name_resolved, ext);
-                if (!fname)
-                        return log_oom();
-
-                fdt = openat(dir_fd, fname, O_WRONLY|O_NOCTTY|O_CLOEXEC|O_NOFOLLOW|O_CREAT|O_EXCL, 0666);
+                fdt = open(p->split_path, O_WRONLY|O_NOCTTY|O_CLOEXEC|O_NOFOLLOW|O_CREAT|O_EXCL, 0666);
                 if (fdt < 0)
-                        return log_error_errno(errno, "Failed to open %s: %m", fname);
+                        return log_error_errno(fdt, "Failed to open split partition file %s: %m", p->split_path);
 
                 if (fd < 0)
                         assert_se((fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
@@ -4601,23 +4632,19 @@ static int context_split(Context *context) {
 
                 r = copy_bytes(fd, fdt, p->new_size, COPY_REFLINK|COPY_HOLES);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to copy to split partition %s: %m", fname);
+                        return log_error_errno(r, "Failed to copy to split partition %s: %m", p->split_path);
         }
 
         return 0;
 }
 
-static int context_write_partition_table(
-                Context *context,
-                const char *node,
-                bool from_scratch) {
-
+static int context_write_partition_table(Context *context) {
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *original_table = NULL;
         int capable, r;
 
         assert(context);
 
-        if (!from_scratch && !context_changed(context)) {
+        if (!context->from_scratch && !context_changed(context)) {
                 log_info("No changes.");
                 return 0;
         }
@@ -4629,7 +4656,7 @@ static int context_write_partition_table(
 
         log_info("Applying changes.");
 
-        if (from_scratch) {
+        if (context->from_scratch) {
                 r = context_wipe_range(context, 0, context->total);
                 if (r < 0)
                         return r;
@@ -4653,7 +4680,7 @@ static int context_write_partition_table(
 
         /* Wipe fs signatures and discard sectors where the new partitions are going to be placed and in the
          * gaps between partitions, just to be sure. */
-        r = context_wipe_and_discard(context, from_scratch);
+        r = context_wipe_and_discard(context);
         if (r < 0)
                 return r;
 
@@ -4683,7 +4710,7 @@ static int context_write_partition_table(
         else if (capable > 0) {
                 log_info("Telling kernel to reread partition table.");
 
-                if (from_scratch)
+                if (context->from_scratch)
                         r = fdisk_reread_partition_table(context->fdisk_context);
                 else
                         r = fdisk_reread_changes(context->fdisk_context, original_table);
@@ -4731,7 +4758,7 @@ static int context_read_seed(Context *context, const char *root) {
         return 0;
 }
 
-static int context_factory_reset(Context *context, bool from_scratch) {
+static int context_factory_reset(Context *context) {
         size_t n = 0;
         int r;
 
@@ -4740,7 +4767,7 @@ static int context_factory_reset(Context *context, bool from_scratch) {
         if (arg_factory_reset <= 0)
                 return 0;
 
-        if (from_scratch) /* Nothing to reset if we start from scratch */
+        if (context->from_scratch) /* Nothing to reset if we start from scratch */
                 return 0;
 
         if (arg_dry_run) {
@@ -4844,12 +4871,14 @@ static int resolve_copy_blocks_auto_candidate(
 
         errno = 0;
         r = blkid_do_safeprobe(b);
-        if (IN_SET(r, -2, 1)) { /* nothing found or ambiguous result */
+        if (r == _BLKID_SAFEPROBE_ERROR)
+                return log_error_errno(errno_or_else(EIO), "Unable to probe for partition table of '%s': %m", p);
+        if (IN_SET(r, _BLKID_SAFEPROBE_AMBIGUOUS, _BLKID_SAFEPROBE_NOT_FOUND)) {
                 log_debug("Didn't find partition table on block device '%s'.", p);
                 return false;
         }
-        if (r != 0)
-                return log_error_errno(errno_or_else(EIO), "Unable to probe for partition table of '%s': %m", p);
+
+        assert(r == _BLKID_SAFEPROBE_FOUND);
 
         (void) blkid_probe_lookup_value(b, "PTTYPE", &pttype, NULL);
         if (!streq_ptr(pttype, "gpt")) {
@@ -4861,7 +4890,6 @@ static int resolve_copy_blocks_auto_candidate(
         pl = blkid_probe_get_partitions(b);
         if (!pl)
                 return log_error_errno(errno_or_else(EIO), "Unable read partition table of '%s': %m", p);
-        errno = 0;
 
         pp = blkid_partlist_devno_to_partition(pl, partition_devno);
         if (!pp) {
@@ -4890,21 +4918,18 @@ static int resolve_copy_blocks_auto_candidate(
                 return false;
         }
 
-        t = blkid_partition_get_uuid(pp);
-        if (isempty(t)) {
-                log_debug("Partition %u:%u has no UUID.",
-                          major(partition_devno), minor(partition_devno));
+        r = blkid_partition_get_uuid_id128(pp, &u);
+        if (r == -ENXIO) {
+                log_debug_errno(r, "Partition " DEVNUM_FORMAT_STR " has no UUID.", DEVNUM_FORMAT_VAL(partition_devno));
                 return false;
         }
-
-        r = sd_id128_from_string(t, &u);
         if (r < 0) {
-                log_debug_errno(r, "Failed to parse partition UUID \"%s\": %m", t);
+                log_debug_errno(r, "Failed to read partition UUID of " DEVNUM_FORMAT_STR ": %m", DEVNUM_FORMAT_VAL(partition_devno));
                 return false;
         }
 
-        log_debug("Automatically found partition %u:%u of right type " SD_ID128_FORMAT_STR ".",
-                  major(partition_devno), minor(partition_devno),
+        log_debug("Automatically found partition " DEVNUM_FORMAT_STR " of right type " SD_ID128_FORMAT_STR ".",
+                  DEVNUM_FORMAT_VAL(partition_devno),
                   SD_ID128_FORMAT_VAL(pt_parsed));
 
         if (ret_uuid)
@@ -5243,6 +5268,7 @@ static int context_minimize(Context *context) {
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
                 _cleanup_(unlink_and_freep) char *temp = NULL;
+                _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
                 _cleanup_close_ int fd = -1;
                 sd_id128_t fs_uuid;
                 uint64_t fsz;
@@ -5259,6 +5285,9 @@ static int context_minimize(Context *context) {
                 if (!p->minimize)
                         continue;
 
+                if (!partition_needs_populate(p))
+                        continue;
+
                 assert(!p->copy_blocks_path);
 
                 r = tempfn_random_child(vt, "repart", &temp);
@@ -5273,10 +5302,14 @@ static int context_minimize(Context *context) {
                                 return log_error_errno(errno, "Failed to open temporary file %s: %m", temp);
 
                         /* This may seem huge but it will be created sparse so it doesn't take up any space
-                        * on disk until written to. */
+                         * on disk until written to. */
                         if (ftruncate(fd, 1024ULL * 1024ULL * 1024ULL * 1024ULL) < 0)
                                 return log_error_errno(errno, "Failed to truncate temporary file to %s: %m",
                                                        FORMAT_BYTES(1024ULL * 1024ULL * 1024ULL * 1024ULL));
+
+                        r = loop_device_make(fd, O_RDWR, 0, UINT64_MAX, 0, 0, LOCK_EX, &d);
+                        if (r < 0 && r != -ENOENT && !ERRNO_IS_PRIVILEGE(r))
+                                return log_error_errno(r, "Failed to make loopback device of %s: %m", temp);
 
                         /* We're going to populate this filesystem twice so use a random UUID the first time
                          * to avoid UUID conflicts. */
@@ -5285,13 +5318,18 @@ static int context_minimize(Context *context) {
                                 return r;
                 }
 
-                if (mkfs_supports_root_option(p->format)) {
+                if (!d || fstype_is_ro(p->format)) {
+                        if (!mkfs_supports_root_option(p->format))
+                                return log_error_errno(SYNTHETIC_ERRNO(ENODEV),
+                                                       "Loop device access is required to populate %s filesystems",
+                                                       p->format);
+
                         r = partition_populate_directory(p, denylist, &root);
                         if (r < 0)
                                 return r;
                 }
 
-                r = make_filesystem(temp, p->format, strempty(p->new_label), root, fs_uuid, arg_discard);
+                r = make_filesystem(d ? d->node : temp, p->format, strempty(p->new_label), root, fs_uuid, arg_discard);
                 if (r < 0)
                         return r;
 
@@ -5299,11 +5337,14 @@ static int context_minimize(Context *context) {
                  * loopback file for us. */
                 if (fstype_is_ro(p->format)) {
                         p->copy_blocks_path = TAKE_PTR(temp);
+                        p->copy_blocks_path_is_our_file = true;
                         continue;
                 }
 
-                if (!mkfs_supports_root_option(p->format)) {
-                        r = partition_populate_filesystem(p, temp, denylist);
+                if (!root) {
+                        assert(d);
+
+                        r = partition_populate_filesystem(p, d->node, denylist);
                         if (r < 0)
                                 return r;
                 }
@@ -5328,6 +5369,8 @@ static int context_minimize(Context *context) {
                 if (minimal_size_by_fs_name(p->format) != UINT64_MAX)
                         fsz = MAX(minimal_size_by_fs_name(p->format), fsz);
 
+                d = loop_device_unref(d);
+
                 /* Erase the previous filesystem first. */
                 if (ftruncate(fd, 0))
                         return log_error_errno(errno, "Failed to erase temporary file: %m");
@@ -5335,17 +5378,24 @@ static int context_minimize(Context *context) {
                 if (ftruncate(fd, fsz))
                         return log_error_errno(errno, "Failed to truncate temporary file to %s: %m", FORMAT_BYTES(fsz));
 
-                r = make_filesystem(temp, p->format, strempty(p->new_label), root, p->fs_uuid, arg_discard);
+                r = loop_device_make(fd, O_RDWR, 0, UINT64_MAX, 0, 0, LOCK_EX, &d);
+                if (r < 0 && r != -ENOENT && !ERRNO_IS_PRIVILEGE(r))
+                        return log_error_errno(r, "Failed to make loopback device of %s: %m", temp);
+
+                r = make_filesystem(d ? d->node : temp, p->format, strempty(p->new_label), root, p->fs_uuid, arg_discard);
                 if (r < 0)
                         return r;
 
-                if (!mkfs_supports_root_option(p->format)) {
-                        r = partition_populate_filesystem(p, temp, denylist);
+                if (!root) {
+                        assert(d);
+
+                        r = partition_populate_filesystem(p, d->node, denylist);
                         if (r < 0)
                                 return r;
                 }
 
                 p->copy_blocks_path = TAKE_PTR(temp);
+                p->copy_blocks_path_is_our_file = true;
         }
 
         return 0;
@@ -5985,12 +6035,11 @@ static int acquire_root_devno(
         return 0;
 }
 
-static int find_root(char **ret, int *ret_fd) {
+static int find_root(Context *context) {
         _cleanup_free_ char *device = NULL;
         int r;
 
-        assert(ret);
-        assert(ret_fd);
+        assert(context);
 
         if (arg_node) {
                 if (arg_empty == EMPTY_CREATE) {
@@ -6005,14 +6054,15 @@ static int find_root(char **ret, int *ret_fd) {
                         if (fd < 0)
                                 return log_error_errno(errno, "Failed to create '%s': %m", arg_node);
 
-                        *ret = TAKE_PTR(s);
-                        *ret_fd = TAKE_FD(fd);
+                        context->node = TAKE_PTR(s);
+                        context->node_is_our_file = true;
+                        context->backing_fd = TAKE_FD(fd);
                         return 0;
                 }
 
                 /* Note that we don't specify a root argument here: if the user explicitly configured a node
                  * we'll take it relative to the host, not the image */
-                r = acquire_root_devno(arg_node, NULL, O_RDONLY|O_CLOEXEC, ret, ret_fd);
+                r = acquire_root_devno(arg_node, NULL, O_RDONLY|O_CLOEXEC, &context->node, &context->backing_fd);
                 if (r == -EUCLEAN)
                         return btrfs_log_dev_root(LOG_ERR, r, arg_node);
                 if (r < 0)
@@ -6034,7 +6084,8 @@ static int find_root(char **ret, int *ret_fd) {
 
                 FOREACH_STRING(p, "/", "/usr") {
 
-                        r = acquire_root_devno(p, arg_root, O_RDONLY|O_DIRECTORY|O_CLOEXEC, ret, ret_fd);
+                        r = acquire_root_devno(p, arg_root, O_RDONLY|O_DIRECTORY|O_CLOEXEC, &context->node,
+                                               &context->backing_fd);
                         if (r < 0) {
                                 if (r == -EUCLEAN)
                                         return btrfs_log_dev_root(LOG_ERR, r, p);
@@ -6046,7 +6097,7 @@ static int find_root(char **ret, int *ret_fd) {
         } else if (r < 0)
                 return log_error_errno(r, "Failed to read symlink /run/systemd/volatile-root: %m");
         else {
-                r = acquire_root_devno(device, NULL, O_RDONLY|O_CLOEXEC, ret, ret_fd);
+                r = acquire_root_devno(device, NULL, O_RDONLY|O_CLOEXEC, &context->node, &context->backing_fd);
                 if (r == -EUCLEAN)
                         return btrfs_log_dev_root(LOG_ERR, r, device);
                 if (r < 0)
@@ -6252,9 +6303,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_(context_freep) Context* context = NULL;
-        _cleanup_free_ char *node = NULL;
-        _cleanup_close_ int backing_fd = -1;
-        bool from_scratch, node_is_our_loop = false;
+        bool node_is_our_loop = false;
         int r;
 
         log_show_color(true);
@@ -6320,27 +6369,27 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = find_root(&node, &backing_fd);
+        r = find_root(context);
         if (r < 0)
                 return r;
 
         if (arg_size != UINT64_MAX) {
                 r = resize_backing_fd(
-                                node,
-                                &backing_fd,
+                                context->node,
+                                &context->backing_fd,
                                 node_is_our_loop ? arg_image : NULL,
                                 node_is_our_loop ? loop_device : NULL);
                 if (r < 0)
                         return r;
         }
 
-        r = context_load_partition_table(context, node, &backing_fd);
+        r = context_load_partition_table(context);
         if (r == -EHWPOISON)
                 return 77; /* Special return value which means "Not GPT, so not doing anything". This isn't
                             * really an error when called at boot. */
         if (r < 0)
                 return r;
-        from_scratch = r > 0; /* Starting from scratch */
+        context->from_scratch = r > 0; /* Starting from scratch */
 
         if (arg_can_factory_reset) {
                 r = context_can_factory_reset(context);
@@ -6352,7 +6401,7 @@ static int run(int argc, char *argv[]) {
                 return 0;
         }
 
-        r = context_factory_reset(context, from_scratch);
+        r = context_factory_reset(context);
         if (r < 0)
                 return r;
         if (r > 0) {
@@ -6363,15 +6412,10 @@ static int run(int argc, char *argv[]) {
 
                 /* Reload the reduced partition table */
                 context_unload_partition_table(context);
-                r = context_load_partition_table(context, node, &backing_fd);
+                r = context_load_partition_table(context);
                 if (r < 0)
                         return r;
         }
-
-#if 0
-        (void) context_dump_partitions(context, node);
-        putchar('\n');
-#endif
 
         r = context_read_seed(context, arg_root);
         if (r < 0)
@@ -6405,14 +6449,14 @@ static int run(int argc, char *argv[]) {
 
                 assert(arg_size != UINT64_MAX);
                 r = resize_backing_fd(
-                                node,
-                                &backing_fd,
+                                context->node,
+                                &context->backing_fd,
                                 node_is_our_loop ? arg_image : NULL,
                                 node_is_our_loop ? loop_device : NULL);
                 if (r < 0)
                         return r;
 
-                r = context_load_partition_table(context, node, &backing_fd);
+                r = context_load_partition_table(context);
                 if (r < 0)
                         return r;
         }
@@ -6441,9 +6485,9 @@ static int run(int argc, char *argv[]) {
         /* Now calculate where each new partition gets placed */
         context_place_partitions(context);
 
-        (void) context_dump(context, node, /*late=*/ false);
+        (void) context_dump(context, /*late=*/ false);
 
-        r = context_write_partition_table(context, node, from_scratch);
+        r = context_write_partition_table(context);
         if (r < 0)
                 return r;
 
@@ -6451,7 +6495,12 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        (void) context_dump(context, node, /*late=*/ true);
+        (void) context_dump(context, /*late=*/ true);
+
+        context->node = mfree(context->node);
+
+        LIST_FOREACH(partitions, p, context->partitions)
+                p->split_path = mfree(p->split_path);
 
         return 0;
 }

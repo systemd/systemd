@@ -91,7 +91,7 @@ EFI_STATUS efivar_set_uint64_le(const EFI_GUID *vendor, const char16_t *name, ui
         return efivar_set_raw(vendor, name, buf, sizeof(buf), flags);
 }
 
-EFI_STATUS efivar_get(const EFI_GUID *vendor, const char16_t *name, char16_t **value) {
+EFI_STATUS efivar_get(const EFI_GUID *vendor, const char16_t *name, char16_t **ret) {
         _cleanup_free_ char16_t *buf = NULL;
         EFI_STATUS err;
         char16_t *val;
@@ -108,12 +108,12 @@ EFI_STATUS efivar_get(const EFI_GUID *vendor, const char16_t *name, char16_t **v
         if ((size % sizeof(char16_t)) != 0)
                 return EFI_INVALID_PARAMETER;
 
-        if (!value)
+        if (!ret)
                 return EFI_SUCCESS;
 
         /* Return buffer directly if it happens to be NUL terminated already */
         if (size >= sizeof(char16_t) && buf[size / sizeof(char16_t) - 1] == 0) {
-                *value = TAKE_PTR(buf);
+                *ret = TAKE_PTR(buf);
                 return EFI_SUCCESS;
         }
 
@@ -123,18 +123,17 @@ EFI_STATUS efivar_get(const EFI_GUID *vendor, const char16_t *name, char16_t **v
         memcpy(val, buf, size);
         val[size / sizeof(char16_t) - 1] = 0; /* NUL terminate */
 
-        *value = val;
+        *ret = val;
         return EFI_SUCCESS;
 }
 
-EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const char16_t *name, UINTN *i) {
+EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const char16_t *name, UINTN *ret) {
         _cleanup_free_ char16_t *val = NULL;
         EFI_STATUS err;
         uint64_t u;
 
         assert(vendor);
         assert(name);
-        assert(i);
 
         err = efivar_get(vendor, name, &val);
         if (err != EFI_SUCCESS)
@@ -143,7 +142,8 @@ EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const char16_t *name, 
         if (!parse_number16(val, &u, NULL) || u > UINTN_MAX)
                 return EFI_INVALID_PARAMETER;
 
-        *i = u;
+        if (ret)
+                *ret = u;
         return EFI_SUCCESS;
 }
 
@@ -156,15 +156,17 @@ EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const char16_t *name, ui
         assert(name);
 
         err = efivar_get_raw(vendor, name, &buf, &size);
-        if (err == EFI_SUCCESS && ret) {
-                if (size != sizeof(uint32_t))
-                        return EFI_BUFFER_TOO_SMALL;
+        if (err != EFI_SUCCESS)
+                return err;
 
+        if (size != sizeof(uint32_t))
+                return EFI_BUFFER_TOO_SMALL;
+
+        if (ret)
                 *ret = (uint32_t) buf[0] << 0U | (uint32_t) buf[1] << 8U | (uint32_t) buf[2] << 16U |
                         (uint32_t) buf[3] << 24U;
-        }
 
-        return err;
+        return EFI_SUCCESS;
 }
 
 EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const char16_t *name, uint64_t *ret) {
@@ -176,19 +178,21 @@ EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const char16_t *name, ui
         assert(name);
 
         err = efivar_get_raw(vendor, name, &buf, &size);
-        if (err == EFI_SUCCESS && ret) {
-                if (size != sizeof(uint64_t))
-                        return EFI_BUFFER_TOO_SMALL;
+        if (err != EFI_SUCCESS)
+                return err;
 
+        if (size != sizeof(uint64_t))
+                return EFI_BUFFER_TOO_SMALL;
+
+        if (ret)
                 *ret = (uint64_t) buf[0] << 0U | (uint64_t) buf[1] << 8U | (uint64_t) buf[2] << 16U |
                         (uint64_t) buf[3] << 24U | (uint64_t) buf[4] << 32U | (uint64_t) buf[5] << 40U |
                         (uint64_t) buf[6] << 48U | (uint64_t) buf[7] << 56U;
-        }
 
-        return err;
+        return EFI_SUCCESS;
 }
 
-EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, char **buffer, UINTN *size) {
+EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, char **ret, UINTN *ret_size) {
         _cleanup_free_ char *buf = NULL;
         UINTN l;
         EFI_STATUS err;
@@ -200,16 +204,15 @@ EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, char **b
         buf = xmalloc(l);
 
         err = RT->GetVariable((char16_t *) name, (EFI_GUID *) vendor, NULL, &l, buf);
-        if (err == EFI_SUCCESS) {
+        if (err != EFI_SUCCESS)
+                return err;
 
-                if (buffer)
-                        *buffer = TAKE_PTR(buf);
+        if (ret)
+                *ret = TAKE_PTR(buf);
+        if (ret_size)
+                *ret_size = l;
 
-                if (size)
-                        *size = l;
-        }
-
-        return err;
+        return EFI_SUCCESS;
 }
 
 EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const char16_t *name, bool *ret) {
@@ -219,13 +222,15 @@ EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const char16_t *name, b
 
         assert(vendor);
         assert(name);
-        assert(ret);
 
         err = efivar_get_raw(vendor, name, &b, &size);
-        if (err == EFI_SUCCESS)
+        if (err != EFI_SUCCESS)
+                return err;
+
+        if (ret)
                 *ret = *b > 0;
 
-        return err;
+        return EFI_SUCCESS;
 }
 
 void efivar_set_time_usec(const EFI_GUID *vendor, const char16_t *name, uint64_t usec) {
@@ -244,127 +249,36 @@ void efivar_set_time_usec(const EFI_GUID *vendor, const char16_t *name, uint64_t
         efivar_set(vendor, name, str, 0);
 }
 
-static int utf8_to_16(const char *stra, char16_t *c) {
-        char16_t unichar;
-        UINTN len;
+void convert_efi_path(char16_t *path) {
+        assert(path);
 
-        assert(stra);
-        assert(c);
+        for (size_t i = 0, fixed = 0;; i++) {
+                /* Fix device path node separator. */
+                path[fixed] = (path[i] == '/') ? '\\' : path[i];
 
-        if (!(stra[0] & 0x80))
-                len = 1;
-        else if ((stra[0] & 0xe0) == 0xc0)
-                len = 2;
-        else if ((stra[0] & 0xf0) == 0xe0)
-                len = 3;
-        else if ((stra[0] & 0xf8) == 0xf0)
-                len = 4;
-        else if ((stra[0] & 0xfc) == 0xf8)
-                len = 5;
-        else if ((stra[0] & 0xfe) == 0xfc)
-                len = 6;
-        else
-                return -1;
+                /* Double '\' is not allowed in EFI file paths. */
+                if (fixed > 0 && path[fixed - 1] == '\\' && path[fixed] == '\\')
+                        continue;
 
-        switch (len) {
-        case 1:
-                unichar = stra[0];
-                break;
-        case 2:
-                unichar = stra[0] & 0x1f;
-                break;
-        case 3:
-                unichar = stra[0] & 0x0f;
-                break;
-        case 4:
-                unichar = stra[0] & 0x07;
-                break;
-        case 5:
-                unichar = stra[0] & 0x03;
-                break;
-        case 6:
-                unichar = stra[0] & 0x01;
-                break;
+                if (path[i] == '\0')
+                        break;
+
+                fixed++;
         }
-
-        for (UINTN i = 1; i < len; i++) {
-                if ((stra[i] & 0xc0) != 0x80)
-                        return -1;
-                unichar <<= 6;
-                unichar |= stra[i] & 0x3f;
-        }
-
-        *c = unichar;
-        return len;
 }
 
-char16_t *xstra_to_str(const char *stra) {
-        UINTN strlen;
-        UINTN len;
-        UINTN i;
-        char16_t *str;
-
-        assert(stra);
-
-        len = strlen8(stra);
-        str = xnew(char16_t, len + 1);
-
-        strlen = 0;
-        i = 0;
-        while (i < len) {
-                int utf8len;
-
-                utf8len = utf8_to_16(stra + i, str + strlen);
-                if (utf8len <= 0) {
-                        /* invalid utf8 sequence, skip the garbage */
-                        i++;
-                        continue;
-                }
-
-                strlen++;
-                i += utf8len;
-        }
-        str[strlen] = '\0';
-        return str;
+char16_t *xstr8_to_path(const char *str8) {
+        assert(str8);
+        char16_t *path = xstr8_to_16(str8);
+        convert_efi_path(path);
+        return path;
 }
 
-char16_t *xstra_to_path(const char *stra) {
-        char16_t *str;
-        UINTN strlen;
-        UINTN len;
-        UINTN i;
-
-        assert(stra);
-
-        len = strlen8(stra);
-        str = xnew(char16_t, len + 2);
-
-        str[0] = '\\';
-        strlen = 1;
-        i = 0;
-        while (i < len) {
-                int utf8len;
-
-                utf8len = utf8_to_16(stra + i, str + strlen);
-                if (utf8len <= 0) {
-                        /* invalid utf8 sequence, skip the garbage */
-                        i++;
-                        continue;
-                }
-
-                if (str[strlen] == '/')
-                        str[strlen] = '\\';
-                if (str[strlen] == '\\' && str[strlen-1] == '\\') {
-                        /* skip double slashes */
-                        i += utf8len;
-                        continue;
-                }
-
-                strlen++;
-                i += utf8len;
-        }
-        str[strlen] = '\0';
-        return str;
+void mangle_stub_cmdline(char16_t *cmdline) {
+        for (; *cmdline != '\0'; cmdline++)
+                /* Convert ASCII control characters to spaces. */
+                if (*cmdline <= 0x1F)
+                        *cmdline = ' ';
 }
 
 EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, UINTN off, UINTN size, char **ret, UINTN *ret_size) {

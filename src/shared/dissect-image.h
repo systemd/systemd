@@ -33,6 +33,7 @@ struct DissectedPartition {
         int mount_node_fd;
         uint64_t size;
         uint64_t offset;
+        uint64_t gpt_flags;
 };
 
 #define DISSECTED_PARTITION_NULL                                        \
@@ -74,10 +75,8 @@ typedef enum DissectImageFlags {
                                                  DISSECT_IMAGE_MOUNT_READ_ONLY,
         DISSECT_IMAGE_GROWFS                   = 1 << 18, /* Grow file systems in partitions marked for that to the size of the partitions after mount */
         DISSECT_IMAGE_MOUNT_IDMAPPED           = 1 << 19, /* Mount mounts with kernel 5.12-style userns ID mapping, if file system type doesn't support uid=/gid= */
-        DISSECT_IMAGE_MANAGE_PARTITION_DEVICES = 1 << 20, /* Manage partition devices, e.g. probe each partition in more detail */
-        DISSECT_IMAGE_OPEN_PARTITION_DEVICES   = 1 << 21, /* Open dissected partitions and decrypted partitions */
-        DISSECT_IMAGE_BLOCK_DEVICE             = DISSECT_IMAGE_MANAGE_PARTITION_DEVICES |
-                                                 DISSECT_IMAGE_OPEN_PARTITION_DEVICES,
+        DISSECT_IMAGE_ADD_PARTITION_DEVICES    = 1 << 20, /* Create partition devices via BLKPG_ADD_PARTITION */
+        DISSECT_IMAGE_PIN_PARTITION_DEVICES    = 1 << 21, /* Open dissected partitions and decrypted partitions and pin them by fd */
         DISSECT_IMAGE_RELAX_SYSEXT_CHECK       = 1 << 22, /* Don't insist that the extension-release file name matches the image name */
 } DissectImageFlags;
 
@@ -135,9 +134,9 @@ MountOptions* mount_options_free_all(MountOptions *options);
 DEFINE_TRIVIAL_CLEANUP_FUNC(MountOptions*, mount_options_free_all);
 const char* mount_options_from_designator(const MountOptions *options, PartitionDesignator designator);
 
-int probe_filesystem_full(int fd, const char *path, char **ret_fstype);
+int probe_filesystem_full(int fd, const char *path, uint64_t offset, uint64_t size, char **ret_fstype);
 static inline int probe_filesystem(const char *path, char **ret_fstype) {
-        return probe_filesystem_full(-1, path, ret_fstype);
+        return probe_filesystem_full(-1, path, 0, UINT64_MAX, ret_fstype);
 }
 int dissect_image_file(
                 const char *path,
@@ -166,6 +165,14 @@ int dissected_image_relinquish(DissectedImage *m);
 
 int verity_settings_load(VeritySettings *verity, const char *image, const char *root_hash_path, const char *root_hash_sig_path);
 void verity_settings_done(VeritySettings *verity);
+
+static inline bool verity_settings_data_covers(const VeritySettings *verity, PartitionDesignator d) {
+        /* Returns true if the verity settings contain sufficient information to cover the specified partition */
+        return verity &&
+                ((d >= 0 && verity->designator == d) || (d == PARTITION_ROOT && verity->designator < 0)) &&
+                verity->root_hash &&
+                verity->data_path;
+}
 
 int dissected_image_load_verity_sig_partition(DissectedImage *m, int fd, VeritySettings *verity);
 

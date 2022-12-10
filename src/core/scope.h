@@ -38,6 +38,8 @@ struct Scope {
 
         char *user;
         char *group;
+
+        OOMPolicy oom_policy;
 };
 
 extern const UnitVTable scope_vtable;

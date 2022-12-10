@@ -327,13 +327,22 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
         return ((l + ali - 1) & ~(ali - 1));
 }
 
+#define ALIGN2(l) ALIGN_TO(l, 2)
 #define ALIGN4(l) ALIGN_TO(l, 4)
 #define ALIGN8(l) ALIGN_TO(l, 8)
+#define ALIGN2_PTR(p) ((void*) ALIGN2((uintptr_t) p))
+#define ALIGN4_PTR(p) ((void*) ALIGN4((uintptr_t) p))
+#define ALIGN8_PTR(p) ((void*) ALIGN8((uintptr_t) p))
 #ifndef SD_BOOT
 /* libefi also provides ALIGN, and we do not use them in sd-boot explicitly. */
 #define ALIGN(l)  ALIGN_TO(l, sizeof(void*))
 #define ALIGN_PTR(p) ((void*) ALIGN((uintptr_t) (p)))
 #endif
+
+/* Checks if the specified pointer is aligned as appropriate for the specific type */
+#define IS_ALIGNED16(p) (((uintptr_t) p) % __alignof__(uint16_t) == 0)
+#define IS_ALIGNED32(p) (((uintptr_t) p) % __alignof__(uint32_t) == 0)
+#define IS_ALIGNED64(p) (((uintptr_t) p) % __alignof__(uint64_t) == 0)
 
 /* Same as ALIGN_TO but callable in constant contexts. */
 #define CONST_ALIGN_TO(l, ali)                                         \
@@ -344,6 +353,16 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
                 (l <= SIZE_MAX - (ali - 1)),      /* overflow? */      \
                 ((l) + (ali) - 1) & ~((ali) - 1),                      \
                 VOID_0)
+
+/* Similar to ((t *) (void *) (p)) to cast a pointer. The macro asserts that the pointer has a suitable
+ * alignment for type "t". This exists for places where otherwise "-Wcast-align=strict" would issue a
+ * warning or if you want to assert that the cast gives a pointer of suitable alignment. */
+#define CAST_ALIGN_PTR(t, p)                                    \
+        ({                                                      \
+                const void *_p = (p);                           \
+                assert(((uintptr_t) _p) % __alignof__(t) == 0); \
+                (t *) _p;                                       \
+        })
 
 #define UPDATE_FLAG(orig, flag, b)                      \
         ((b) ? ((orig) | (flag)) : ((orig) & ~(flag)))

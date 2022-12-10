@@ -373,8 +373,9 @@ static void get_hash_key(uint8_t hash_key[HASH_KEY_SIZE], bool reuse_is_ok) {
 }
 
 static struct hashmap_base_entry* bucket_at(HashmapBase *h, unsigned idx) {
-        return (struct hashmap_base_entry*)
-                ((uint8_t*) storage_ptr(h) + idx * hashmap_type_info[h->type].entry_size);
+        return CAST_ALIGN_PTR(
+                        struct hashmap_base_entry,
+                        (uint8_t *) storage_ptr(h) + idx * hashmap_type_info[h->type].entry_size);
 }
 
 static struct plain_hashmap_entry* plain_bucket_at(Hashmap *h, unsigned idx) {

@@ -366,6 +366,9 @@ static int freeze_thaw_user_slice(const char **method) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to open connection to systemd: %m");
 
+        /* Wait for 1.5 seconds at maximum for freeze operation */
+        (void) sd_bus_set_method_call_timeout(bus, 1500 * USEC_PER_MSEC);
+
         r = bus_call_method(bus, bus_systemd_mgr, *method, &error, NULL, "s", SPECIAL_USER_SLICE);
         if (r < 0)
                 return log_debug_errno(r, "Failed to execute operation: %s", bus_error_message(&error, r));
@@ -374,7 +377,7 @@ static int freeze_thaw_user_slice(const char **method) {
 }
 
 static int execute_s2h(const SleepConfig *sleep_config) {
-        _unused_ _cleanup_(freeze_thaw_user_slice) const char *auto_method_thaw = NULL;
+        _unused_ _cleanup_(freeze_thaw_user_slice) const char *auto_method_thaw = "ThawUnit";
         int r, k;
 
         assert(sleep_config);
@@ -382,8 +385,6 @@ static int execute_s2h(const SleepConfig *sleep_config) {
         r = freeze_thaw_user_slice(&(const char*) { "FreezeUnit" });
         if (r < 0)
                 log_debug_errno(r, "Failed to freeze unit user.slice, ignoring: %m");
-        else
-                auto_method_thaw = "ThawUnit"; /* from now on we want automatic thawing */;
 
         r = check_wakeup_type();
         if (r < 0)

@@ -118,6 +118,7 @@ int manager_rtnl_process_address(sd_netlink *nl, sd_netlink_message *message, Ma
 int network_drop_invalid_addresses(Network *network);
 
 int address_compare_func(const Address *a1, const Address *a2);
+int address_equal(const Address *a1, const Address *a2);
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Address, address);
 

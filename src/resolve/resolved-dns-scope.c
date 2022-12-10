@@ -690,7 +690,7 @@ DnsScopeMatch dns_scope_good_domain(
                 }
 
                 /* If there's a true search domain defined for this scope, and the query is single-label,
-                 * then let's resolve things here, prefereably. Note that LLMNR considers itself
+                 * then let's resolve things here, preferably. Note that LLMNR considers itself
                  * authoritative for single-label names too, at the same preference, see below. */
                 if (has_search_domains && dns_name_is_single_label(domain))
                         return DNS_SCOPE_YES_BASE + 1;

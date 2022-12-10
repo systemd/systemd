@@ -501,7 +501,8 @@ void cmsg_close_all(struct msghdr *mh) {
 
         CMSG_FOREACH(cmsg, mh)
                 if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS)
-                        close_many((int*) CMSG_DATA(cmsg), (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int));
+                        close_many(CMSG_TYPED_DATA(cmsg, int),
+                                   (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int));
 }
 
 bool fdname_is_valid(const char *s) {
@@ -777,6 +778,37 @@ int fd_reopen(int fd, int flags) {
                                                   * error */
         }
 
+        return new_fd;
+}
+
+int fd_reopen_condition(
+                int fd,
+                int flags,
+                int mask,
+                int *ret_new_fd) {
+
+        int r, new_fd;
+
+        assert(fd >= 0);
+
+        /* Invokes fd_reopen(fd, flags), but only if the existing F_GETFL flags don't match the specified
+         * flags (masked by the specified mask). This is useful for converting O_PATH fds into real fds if
+         * needed, but only then. */
+
+        r = fcntl(fd, F_GETFL);
+        if (r < 0)
+                return -errno;
+
+        if ((r & mask) == (flags & mask)) {
+                *ret_new_fd = -1;
+                return fd;
+        }
+
+        new_fd = fd_reopen(fd, flags);
+        if (new_fd < 0)
+                return new_fd;
+
+        *ret_new_fd = new_fd;
         return new_fd;
 }
 

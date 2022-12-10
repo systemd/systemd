@@ -510,6 +510,10 @@ conf.set('SIZEOF_TIME_T', cc.sizeof('time_t', prefix : '#include <sys/time.h>'))
 conf.set('SIZEOF_RLIM_T', cc.sizeof('rlim_t', prefix : '#include <sys/resource.h>'))
 conf.set('SIZEOF_TIMEX_MEMBER', cc.sizeof('typeof(((struct timex *)0)->freq)', prefix : '#include <sys/timex.h>'))
 
+long_max = cc.compute_int('LONG_MAX', prefix : '#include <limits.h>')
+assert(long_max > 100000)
+conf.set_quoted('LONG_MAX_STR', '@0@'.format(long_max))
+
 decl_headers = '''
 #include <uchar.h>
 #include <sys/mount.h>
@@ -710,6 +714,17 @@ endif
 python = find_program('python3')
 if run_command(python, '-c', 'import jinja2', check : false).returncode() != 0
         error('python3 jinja2 missing')
+endif
+
+python_310 = run_command(python, '-c',
+                         'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)',
+                         check : false).returncode() == 0
+if get_option('ukify') == 'auto'
+    want_ukify = python_310
+elif get_option('ukify') == 'true' and not python310
+    error('ukify requires Python >= 3.10')
+else
+    want_ukify = get_option('ukify') == 'true'
 endif
 
 ############################################################
@@ -2187,6 +2202,7 @@ subdir('src/test')
 subdir('src/fuzz')
 subdir('rules.d')
 subdir('test')
+subdir('src/ukify/test')  # needs to be last for test_env variable
 
 ############################################################
 
@@ -2583,7 +2599,7 @@ if conf.get('HAVE_BLKID') == 1 and conf.get('HAVE_GNU_EFI') == 1
                 boot_link_with = [libsystemd_static, libshared_static]
         endif
 
-        public_programs += executable(
+        exe = executable(
                 'bootctl',
                 'src/boot/bootctl.c',
                 include_directories : includes,
@@ -2592,6 +2608,14 @@ if conf.get('HAVE_BLKID') == 1 and conf.get('HAVE_GNU_EFI') == 1
                                 versiondep],
                 install_rpath : rootpkglibdir,
                 install : true)
+        public_programs += exe
+
+        if want_tests != 'false'
+                test('test-bootctl-json',
+                     test_bootctl_json_sh,
+                     args : exe.full_path(),
+                     depends : exe)
+        endif
 
         public_programs += executable(
                 'systemd-bless-boot',
@@ -3840,6 +3864,7 @@ if conf.get('ENABLE_REPART') == 1
                         install_rpath : rootpkglibdir,
                         install : true,
                         install_dir : rootbindir)
+                public_programs += exe
         endif
 endif
 
@@ -3853,6 +3878,22 @@ executable(
         install_rpath : rootpkglibdir,
         install : true,
         install_dir : rootlibexecdir)
+
+if have_standalone_binaries
+        executable(
+                'systemd-shutdown.standalone',
+                systemd_shutdown_sources,
+                include_directories : includes,
+                c_args : '-DSTANDALONE',
+                link_with : [libshared_static,
+                             libbasic,
+                             libsystemd_static],
+                dependencies : [libmount,
+                                versiondep],
+                install_rpath : rootpkglibdir,
+                install : true,
+                install_dir : rootlibexecdir)
+endif
 
 executable(
         'systemd-update-done',
@@ -3985,6 +4026,18 @@ if want_tests != 'false' and want_kernel_install
         test('test-kernel-install',
              test_kernel_install_sh,
              args : [exe.full_path(), loaderentry_install])
+endif
+
+if want_ukify
+   exe = custom_target(
+        'ukify',
+        input : 'src/ukify/ukify.py',
+        output : 'ukify',
+        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
+        install : true,
+        install_mode : 'rwxr-xr-x',
+        install_dir : rootlibexecdir)
+   public_programs += exe
 endif
 
 ############################################################

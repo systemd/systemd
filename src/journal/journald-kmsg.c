@@ -16,6 +16,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "io-util.h"
+#include "journal-internal.h"
 #include "journald-kmsg.h"
 #include "journald-server.h"
 #include "journald-syslog.h"
@@ -329,7 +330,7 @@ static int server_read_dev_kmsg(Server *s) {
                 if (ERRNO_IS_TRANSIENT(errno) || errno == EPIPE)
                         return 0;
 
-                return log_ratelimit_error_errno(errno, JOURNALD_LOG_RATELIMIT, "Failed to read from /dev/kmsg: %m");
+                return log_ratelimit_error_errno(errno, JOURNAL_LOG_RATELIMIT, "Failed to read from /dev/kmsg: %m");
         }
 
         dev_kmsg_record(s, buffer, l);
@@ -368,7 +369,7 @@ static int dispatch_dev_kmsg(sd_event_source *es, int fd, uint32_t revents, void
         assert(fd == s->dev_kmsg_fd);
 
         if (revents & EPOLLERR)
-                log_ratelimit_warning(JOURNALD_LOG_RATELIMIT,
+                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT,
                                       "/dev/kmsg buffer overrun, some messages lost.");
 
         if (!(revents & EPOLLIN))
