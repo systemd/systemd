@@ -8,6 +8,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "missing_magic.h"
 #include "stat-util.h"
 
@@ -25,7 +26,7 @@ static int binfmt_mounted(void) {
         if (r <= 0)
                 return r;
 
-        return true;
+        return access_fd(fd, W_OK) >= 0;
 }
 
 int disable_binfmt(void) {
@@ -41,7 +42,7 @@ int disable_binfmt(void) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to determine whether binfmt_misc is mounted: %m");
         if (r == 0) {
-                log_debug("binfmt_misc is not mounted, not detaching entries.");
+                log_debug("binfmt_misc is not mounted in read-write mode, not detaching entries.");
                 return 0;
         }
 
