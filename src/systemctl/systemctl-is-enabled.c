@@ -59,6 +59,7 @@ static int show_installation_targets(sd_bus *bus, const char *name) {
 int verb_is_enabled(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **names = NULL;
         bool enabled;
+        bool not_found = true;
         int r;
 
         r = mangle_names("to check", strv_skip(argv, 1), &names);
@@ -69,15 +70,25 @@ int verb_is_enabled(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        enabled = r > 0;
+        if (r > 0) {
+                not_found = false; /* We've found some existing SysV units. */
+                enabled = r == 1;
+        }
 
         if (install_client_side()) {
                 STRV_FOREACH(name, names) {
                         UnitFileState state;
 
                         r = unit_file_get_state(arg_scope, arg_root, *name, &state);
-                        if (r < 0)
+                        if (r < 0 && r != -ENOENT)
                                 return log_error_errno(r, "Failed to get unit file state for %s: %m", *name);
+
+                        if (r == -ENOENT) {
+                                if (!arg_quiet)
+                                        puts("not-found");
+                                continue;
+                        } else
+                                not_found = false;
 
                         if (IN_SET(state,
                                    UNIT_FILE_ENABLED,
@@ -112,8 +123,17 @@ int verb_is_enabled(int argc, char *argv[], void *userdata) {
                         const char *s;
 
                         r = bus_call_method(bus, bus_systemd_mgr, "GetUnitFileState", &error, &reply, "s", *name);
-                        if (r < 0)
+                        if (r < 0 && r != -ENOENT)
                                 return log_error_errno(r, "Failed to get unit file state for %s: %s", *name, bus_error_message(&error, r));
+
+                        if (r == -ENOENT) {
+                                sd_bus_error_free(&error);
+
+                                if (!arg_quiet)
+                                        puts("not-found");
+                                continue;
+                        } else
+                                not_found = false;
 
                         r = sd_bus_message_read(reply, "s", &s);
                         if (r < 0)
@@ -133,5 +153,5 @@ int verb_is_enabled(int argc, char *argv[], void *userdata) {
                 }
         }
 
-        return enabled ? EXIT_SUCCESS : EXIT_FAILURE;
+        return enabled ? EXIT_SUCCESS : not_found ? EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN : EXIT_FAILURE;
 }
