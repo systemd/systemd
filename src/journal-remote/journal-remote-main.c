@@ -53,10 +53,10 @@ static bool arg_trust_all = false;
 static bool arg_trust_all = true;
 #endif
 
-static uint64_t arg_max_use = 0;
-static uint64_t arg_max_size = 0;
-static uint64_t arg_n_max_files = 0;
-static uint64_t arg_keep_free = 0;
+static uint64_t arg_max_use = UINT64_MAX;
+static uint64_t arg_max_size = UINT64_MAX;
+static uint64_t arg_n_max_files = UINT64_MAX;
+static uint64_t arg_keep_free = UINT64_MAX;
 
 STATIC_DESTRUCTOR_REGISTER(arg_gnutls_log, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
@@ -1146,14 +1146,11 @@ static int run(int argc, char **argv) {
         }
 
         memset(&s.metrics, 0xFF, sizeof(s.metrics));
-        if (arg_max_use)
-                s.metrics.max_use = arg_max_use;
-        if (arg_max_size)
-                s.metrics.max_size = arg_max_size;
-        if (arg_keep_free)
-                s.metrics.max_size = arg_keep_free;
-        if (arg_n_max_files)
-                s.metrics.n_max_files = arg_n_max_files;
+        journal_reset_metrics(&s.metrics);
+        s.metrics.max_use = arg_max_use;
+        s.metrics.max_size = arg_max_size;
+        s.metrics.max_size = arg_keep_free;
+        s.metrics.n_max_files = arg_n_max_files;
 
         r = create_remoteserver(&s, key, cert, trust);
         if (r < 0)
