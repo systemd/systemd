@@ -824,7 +824,8 @@ static int sysroot_is_nfsroot(void) {
 static int add_sysroot_mount(void) {
         _cleanup_free_ char *what = NULL;
         const char *opts, *fstype;
-        bool default_rw;
+        bool default_rw, makefs;
+        MountPointFlags flags;
         int r;
 
         if (isempty(arg_root_what)) {
@@ -899,6 +900,9 @@ static int add_sysroot_mount(void) {
                         return r;
         }
 
+        makefs = fstab_test_option(opts, "x-systemd.makefs\0");
+        flags = makefs * MOUNT_MAKEFS;
+
         return add_mount("/proc/cmdline",
                          arg_dest,
                          what,
@@ -907,13 +911,15 @@ static int add_sysroot_mount(void) {
                          fstype,
                          opts,
                          is_device_path(what) ? 1 : 0, /* passno */
-                         0,                            /* makefs off, growfs off, noauto off, nofail off, automount off */
+                         flags,                        /* makefs, growfs off, noauto off, nofail off, automount off */
                          SPECIAL_INITRD_ROOT_FS_TARGET);
 }
 
 static int add_sysroot_usr_mount(void) {
         _cleanup_free_ char *what = NULL;
         const char *opts;
+        bool makefs;
+        MountPointFlags flags;
         int r;
 
         /* Returns 0 if we didn't do anything, > 0 if we either generated a unit for the /usr/ mount, or we
@@ -979,6 +985,9 @@ static int add_sysroot_usr_mount(void) {
 
         log_debug("Found entry what=%s where=/sysusr/usr type=%s opts=%s", what, strna(arg_usr_fstype), strempty(opts));
 
+        makefs = fstab_test_option(opts, "x-systemd.makefs\0");
+        flags = makefs * MOUNT_MAKEFS;
+
         r = add_mount("/proc/cmdline",
                       arg_dest,
                       what,
@@ -987,7 +996,7 @@ static int add_sysroot_usr_mount(void) {
                       arg_usr_fstype,
                       opts,
                       is_device_path(what) ? 1 : 0, /* passno */
-                      0,
+                      flags,
                       SPECIAL_INITRD_USR_FS_TARGET);
         if (r < 0)
                 return r;
