@@ -70,6 +70,8 @@ static Writer* writer_free(Writer *w) {
         if (w->mmap)
                 mmap_cache_unref(w->mmap);
 
+        free(w->output);
+
         return mfree(w);
 }
 
