@@ -461,6 +461,9 @@ struct Manager {
         struct restrict_fs_bpf *restrict_fs;
 
         char *default_smack_process_label;
+
+        /* Allow users to configure a rate limit for Reload() operations */
+        RateLimit reload_ratelimit;
 };
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
