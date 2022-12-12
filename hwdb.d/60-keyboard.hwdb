@@ -28,12 +28,6 @@
 #    <vendor> and <product> are the firmware-provided strings
 #    exported by the kernel DMI modalias, see /sys/class/dmi/id/modalias
 #
-#  - Input driver device name and DMI data match:
-#      evdev:name:<input device name>:dmi:bvn*:bvr*:bd*:svn<vendor>:pn*
-#    <input device name> is the name device specified by the
-#    driver, <vendor> is the firmware-provided string exported
-#    by the kernel DMI modalias, see /sys/class/dmi/id/modalias
-#
 #  - Extended input driver device name, properties and DMI data match:
 #      evdev:name:<input device name>:phys:<phys>:ev:<ev>:dmi:bvn*:bvr*:bd*:svn<vendor>:pn*
 #    <input device name> is the name device specified by the
@@ -42,6 +36,12 @@
 #    /sys/class/input/input?/capabilities/ev" and <vendor> is the
 #    firmware-provided string exported by the kernel DMI modalias,
 #    see /sys/class/dmi/id/modalias
+#
+#  - Input driver device name and DMI data match:
+#      evdev:name:<input device name>:dmi:bvn*:bvr*:bd*:svn<vendor>:pn*
+#    <input device name> is the name device specified by the
+#    driver, <vendor> is the firmware-provided string exported
+#    by the kernel DMI modalias, see /sys/class/dmi/id/modalias
 
 # ######################### KEY MAPPING ######################################
 #
@@ -2021,7 +2021,7 @@ evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:bd*:svnPositivoBahia-VAIO:
 # Positivo
 ###########################################################
 # Positivo DUO (k116)
-evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:svnPositivoTecnologiaSA:pn*:pvr*:rvnPositivoTecnologiaSA:rnK116* 
+evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:svnPositivoTecnologiaSA:pn*:pvr*:rvnPositivoTecnologiaSA:rnK116*
  KEYBOARD_KEY_76=f21                                    # Fn+F1 toggle touchpad
 
 # Positivo Motion (N14DP6, N14DP7, N14DP7-V2, N14DP9, N14JP6, N14KP6)
