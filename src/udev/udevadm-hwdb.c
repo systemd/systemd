@@ -87,6 +87,8 @@ int hwdb_main(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Either --update or --test must be used.");
 
+        log_notice("udevadm hwdb is deprecated. Use systemd-hwdb instead.");
+
         if (arg_update) {
                 r = hwdb_update(arg_root, arg_hwdb_bin_dir, arg_strict, true);
                 if (r < 0)
