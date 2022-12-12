@@ -2874,17 +2874,7 @@ int tpm2_seal(const char *device,
               void **ret_srk_buf,
               size_t *ret_srk_buf_size) {
 
-        _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
-        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
-        _cleanup_(Esys_Freep) uint8_t *srk_buf = NULL;
-        static const TPML_PCR_SELECTION creation_pcr = {};
-        _cleanup_(erase_and_freep) void *secret = NULL;
-        _cleanup_free_ void *hash = NULL;
-        TPM2B_SENSITIVE_CREATE hmac_sensitive;
-        TPM2B_PUBLIC hmac_template;
-        usec_t start;
         TSS2_RC rc;
-        size_t srk_buf_size;
         int r;
 
         assert(pubkey || pubkey_size == 0);
@@ -2916,9 +2906,7 @@ int tpm2_seal(const char *device,
          * is stored in the LUKS2 JSON only in encrypted form with the "primary" key of the TPM2 chip, thus
          * binding the unlocking to the TPM2 chip. */
 
-        start = now(CLOCK_MONOTONIC);
-
-        CLEANUP_ERASE(hmac_sensitive);
+        usec_t start = now(CLOCK_MONOTONIC);
 
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         r = tpm2_context_new(device, &c);
@@ -2971,7 +2959,7 @@ int tpm2_seal(const char *device,
         /* We use a keyed hash object (i.e. HMAC) to store the secret key we want to use for unlocking the
          * LUKS2 volume with. We don't ever use for HMAC/keyed hash operations however, we just use it
          * because it's a key type that is universally supported and suitable for symmetric binary blobs. */
-        hmac_template = (TPM2B_PUBLIC) {
+        TPM2B_PUBLIC hmac_template = {
                 .size = sizeof(TPMT_PUBLIC),
                 .publicArea = {
                         .type = TPM2_ALG_KEYEDHASH,
@@ -2983,10 +2971,13 @@ int tpm2_seal(const char *device,
                 },
         };
 
-        hmac_sensitive = (TPM2B_SENSITIVE_CREATE) {
+        TPM2B_SENSITIVE_CREATE hmac_sensitive = {
                 .size = sizeof(hmac_sensitive.sensitive),
                 .sensitive.data.size = 32,
         };
+
+        CLEANUP_ERASE(hmac_sensitive);
+
         if (pin) {
                 r = tpm2_digest_buffer(TPM2_ALG_SHA256, &hmac_sensitive.sensitive.userAuth, pin, strlen(pin), /* extend= */ false);
                 if (r < 0)
@@ -3016,6 +3007,9 @@ int tpm2_seal(const char *device,
 
         log_debug("Creating HMAC key.");
 
+        static const TPML_PCR_SELECTION creation_pcr = {};
+        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
+        _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
         rc = sym_Esys_Create(
                         c->esys_context,
                         primary_handle->esys_handle,
@@ -3035,6 +3029,7 @@ int tpm2_seal(const char *device,
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to generate HMAC key in TPM: %s", sym_Tss2_RC_Decode(rc));
 
+        _cleanup_(erase_and_freep) void *secret = NULL;
         secret = memdup(hmac_sensitive.sensitive.data.buffer, hmac_sensitive.sensitive.data.size);
         if (!secret)
                 return log_oom();
@@ -3058,6 +3053,7 @@ int tpm2_seal(const char *device,
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to marshal public key: %s", sym_Tss2_RC_Decode(rc));
 
+        _cleanup_free_ void *hash = NULL;
         hash = memdup(policy_digest.buffer, policy_digest.size);
         if (!hash)
                 return log_oom();
@@ -3066,6 +3062,8 @@ int tpm2_seal(const char *device,
          * the raw TPM handle as well as the object name. The object name is used to verify that
          * the key we use later is the key we expect to establish the session with.
          */
+        _cleanup_(Esys_Freep) uint8_t *srk_buf = NULL;
+        size_t srk_buf_size = 0;
         if (ret_srk_buf) {
                 log_debug("Serializing SRK ESYS_TR reference");
                 rc = sym_Esys_TR_Serialize(c->esys_context, primary_handle->esys_handle, &srk_buf, &srk_buf_size);
