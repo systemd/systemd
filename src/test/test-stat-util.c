@@ -115,10 +115,24 @@ TEST(path_is_read_only_fs) {
 
                 log_info_errno(r, "path_is_read_only_fs(\"%s\"): %d, %s",
                                s, r, r < 0 ? errno_to_name(r) : yes_no(r));
+
+                if (r >= 0) {
+                        _cleanup_close_ int fd = -EBADF;
+
+                        fd = RET_NERRNO(open(s, O_CLOEXEC | O_DIRECTORY | O_PATH));
+                        assert_se(fd_is_read_only_fs(fd) == r);
+                }
         }
 
-        if (path_is_mount_point("/sys", NULL, AT_SYMLINK_FOLLOW) > 0)
-                assert_se(IN_SET(path_is_read_only_fs("/sys"), 0, 1));
+        if (path_is_mount_point("/sys", NULL, AT_SYMLINK_FOLLOW) > 0) {
+                _cleanup_close_ int fd = -EBADF;
+
+                r = path_is_read_only_fs("/sys");
+                assert_se(IN_SET(r, 0, 1));
+
+                fd = RET_NERRNO(open("/sys", O_CLOEXEC | O_DIRECTORY | O_PATH));
+                assert_se(fd_is_read_only_fs(fd) == r);
+        }
 
         assert_se(path_is_read_only_fs("/proc") == 0);
         assert_se(path_is_read_only_fs("/i-dont-exist") == -ENOENT);
