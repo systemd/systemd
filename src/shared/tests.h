@@ -33,6 +33,7 @@ int log_tests_skipped_errno(int r, const char *message);
 int write_tmpfile(char *pattern, const char *contents);
 
 bool have_namespaces(void);
+int machine_id_initialized(void);
 
 /* We use the small but non-trivial limit here */
 #define CAN_MEMLOCK_SIZE (512 * 1024U)
