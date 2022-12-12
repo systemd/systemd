@@ -28,12 +28,6 @@
 #    <vendor> and <product> are the firmware-provided strings
 #    exported by the kernel DMI modalias, see /sys/class/dmi/id/modalias
 #
-#  - Input driver device name and DMI data match:
-#      evdev:name:<input device name>:dmi:bvn*:bvr*:bd*:svn<vendor>:pn*
-#    <input device name> is the name device specified by the
-#    driver, <vendor> is the firmware-provided string exported
-#    by the kernel DMI modalias, see /sys/class/dmi/id/modalias
-#
 #  - Extended input driver device name, properties and DMI data match:
 #      evdev:name:<input device name>:phys:<phys>:ev:<ev>:dmi:bvn*:bvr*:bd*:svn<vendor>:pn*
 #    <input device name> is the name device specified by the
@@ -42,6 +36,12 @@
 #    /sys/class/input/input?/capabilities/ev" and <vendor> is the
 #    firmware-provided string exported by the kernel DMI modalias,
 #    see /sys/class/dmi/id/modalias
+#
+#  - Input driver device name and DMI data match:
+#      evdev:name:<input device name>:dmi:bvn*:bvr*:bd*:svn<vendor>:pn*
+#    <input device name> is the name device specified by the
+#    driver, <vendor> is the firmware-provided string exported
+#    by the kernel DMI modalias, see /sys/class/dmi/id/modalias
 
 # ######################### KEY MAPPING ######################################
 #
