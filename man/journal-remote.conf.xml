@@ -92,13 +92,14 @@
 
         <listitem><para>These are analogous to <varname>SystemMaxUse=</varname>,
         <varname>SystemKeepFree=</varname>, <varname>SystemMaxFileSize=</varname>
-        and <varname>SystemMaxFiles=</varname> in journald.conf.</para>
+	and <varname>SystemMaxFiles=</varname> in
+	<citerefentry><refentrytitle>journald.conf.</refentrytitle></citerefentry></para>
 
         <para><varname>MaxUse=</varname> controls how much disk space
-        the systemd-journal-remote may use up at most.
+	the <command>systemd-journal-remote</command> may use up at most.
         <varname>KeepFree=</varname> controls how much disk
-        space systemd-journal-remote shall leave free for other uses.
-        <command>systemd-journaldremote</command> will respect both limits
+	space <command>systemd-journal-remote</command> shall leave free for other uses.
+        <command>systemd-journal-remote</command> will respect both limits
         and use the smaller of the two values.</para>
 
         <para><varname>MaxFiles=</varname> controls how many
@@ -117,10 +118,10 @@
   <refsect1>
       <title>See Also</title>
       <para>
-        <citerefentry><refentrytitle>systemd-journal-remote.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-journal-remote.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
       </para>
   </refsect1>
 
