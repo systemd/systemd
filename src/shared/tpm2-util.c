@@ -1489,6 +1489,75 @@ static int tpm2_get_policy_digest(
         return 0;
 }
 
+static int tpm2_create(
+                Tpm2Context *c,
+                const Tpm2Handle *parent,
+                const Tpm2Handle *session,
+                const TPMT_PUBLIC *template,
+                const TPMS_SENSITIVE_CREATE *sensitive,
+                TPM2B_PUBLIC **ret_public,
+                TPM2B_PRIVATE **ret_private) {
+
+        usec_t ts;
+        TSS2_RC rc;
+
+        assert(c);
+        assert(template);
+
+        log_debug("Creating object on TPM.");
+
+        ts = now(CLOCK_MONOTONIC);
+
+        TPM2B_PUBLIC tpm2b_public = {
+                .size = sizeof(*template) - sizeof(template->unique),
+                .publicArea = *template,
+        };
+
+        /* Zero the unique area. */
+        zero(tpm2b_public.publicArea.unique);
+
+        TPM2B_SENSITIVE_CREATE tpm2b_sensitive;
+        if (sensitive)
+                tpm2b_sensitive = (TPM2B_SENSITIVE_CREATE) {
+                        .size = sizeof(*sensitive),
+                        .sensitive = *sensitive,
+                };
+        else
+                tpm2b_sensitive = (TPM2B_SENSITIVE_CREATE) {};
+
+        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
+        _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
+        rc = sym_Esys_Create(
+                        c->esys_context,
+                        parent ? parent->esys_handle : ESYS_TR_RH_OWNER,
+                        session ? session->esys_handle : ESYS_TR_PASSWORD,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        &tpm2b_sensitive,
+                        &tpm2b_public,
+                        /* outsideInfo= */ NULL,
+                        &(TPML_PCR_SELECTION) {},
+                        &private,
+                        &public,
+                        /* creationData= */ NULL,
+                        /* creationHash= */ NULL,
+                        /* creationTicket= */ NULL);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to generate object in TPM: %s",
+                                       sym_Tss2_RC_Decode(rc));
+
+        log_debug("Successfully created object on TPM in %s.",
+                  FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - ts, USEC_PER_MSEC));
+
+        if (ret_public)
+                *ret_public = TAKE_PTR(public);
+        if (ret_private)
+                *ret_private = TAKE_PTR(private);
+
+        return 0;
+}
+
 static int tpm2_load(
                 Tpm2Context *c,
                 const Tpm2Handle *parent,
@@ -2959,38 +3028,34 @@ int tpm2_seal(const char *device,
         /* We use a keyed hash object (i.e. HMAC) to store the secret key we want to use for unlocking the
          * LUKS2 volume with. We don't ever use for HMAC/keyed hash operations however, we just use it
          * because it's a key type that is universally supported and suitable for symmetric binary blobs. */
-        TPM2B_PUBLIC hmac_template = {
-                .size = sizeof(TPMT_PUBLIC),
-                .publicArea = {
-                        .type = TPM2_ALG_KEYEDHASH,
-                        .nameAlg = TPM2_ALG_SHA256,
-                        .objectAttributes = TPMA_OBJECT_FIXEDTPM | TPMA_OBJECT_FIXEDPARENT,
-                        .parameters.keyedHashDetail.scheme.scheme = TPM2_ALG_NULL,
-                        .unique.keyedHash.size = SHA256_DIGEST_SIZE,
-                        .authPolicy = policy_digest,
-                },
+        TPMT_PUBLIC hmac_template = {
+                .type = TPM2_ALG_KEYEDHASH,
+                .nameAlg = TPM2_ALG_SHA256,
+                .objectAttributes = TPMA_OBJECT_FIXEDTPM | TPMA_OBJECT_FIXEDPARENT,
+                .parameters.keyedHashDetail.scheme.scheme = TPM2_ALG_NULL,
+                .unique.keyedHash.size = SHA256_DIGEST_SIZE,
+                .authPolicy = policy_digest,
         };
 
-        TPM2B_SENSITIVE_CREATE hmac_sensitive = {
-                .size = sizeof(hmac_sensitive.sensitive),
-                .sensitive.data.size = hmac_template.publicArea.unique.keyedHash.size,
+        TPMS_SENSITIVE_CREATE hmac_sensitive = {
+                .data.size = hmac_template.unique.keyedHash.size,
         };
 
         CLEANUP_ERASE(hmac_sensitive);
 
         if (pin) {
-                r = tpm2_digest_buffer(TPM2_ALG_SHA256, &hmac_sensitive.sensitive.userAuth, pin, strlen(pin), /* extend= */ false);
+                r = tpm2_digest_buffer(TPM2_ALG_SHA256, &hmac_sensitive.userAuth, pin, strlen(pin), /* extend= */ false);
                 if (r < 0)
                         return r;
         }
 
-        assert(sizeof(hmac_sensitive.sensitive.data.buffer) >= hmac_sensitive.sensitive.data.size);
+        assert(sizeof(hmac_sensitive.data.buffer) >= hmac_sensitive.data.size);
 
         (void) tpm2_credit_random(c);
 
         log_debug("Generating secret key data.");
 
-        r = crypto_random_bytes(hmac_sensitive.sensitive.data.buffer, hmac_sensitive.sensitive.data.size);
+        r = crypto_random_bytes(hmac_sensitive.data.buffer, hmac_sensitive.data.size);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate secret key: %m");
 
@@ -3005,32 +3070,14 @@ int tpm2_seal(const char *device,
         if (r < 0)
                 return r;
 
-        log_debug("Creating HMAC key.");
-
-        static const TPML_PCR_SELECTION creation_pcr = {};
         _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
         _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
-        rc = sym_Esys_Create(
-                        c->esys_context,
-                        primary_handle->esys_handle,
-                        encryption_session->esys_handle, /* use HMAC session to enable parameter encryption */
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        &hmac_sensitive,
-                        &hmac_template,
-                        NULL,
-                        &creation_pcr,
-                        &private,
-                        &public,
-                        NULL,
-                        NULL,
-                        NULL);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to generate HMAC key in TPM: %s", sym_Tss2_RC_Decode(rc));
+        r = tpm2_create(c, primary_handle, encryption_session, &hmac_template, &hmac_sensitive, &public, &private);
+        if (r < 0)
+                return r;
 
         _cleanup_(erase_and_freep) void *secret = NULL;
-        secret = memdup(hmac_sensitive.sensitive.data.buffer, hmac_sensitive.sensitive.data.size);
+        secret = memdup(hmac_sensitive.data.buffer, hmac_sensitive.data.size);
         if (!secret)
                 return log_oom();
 
@@ -3090,7 +3137,7 @@ int tpm2_seal(const char *device,
         }
 
         *ret_secret = TAKE_PTR(secret);
-        *ret_secret_size = hmac_sensitive.sensitive.data.size;
+        *ret_secret_size = hmac_sensitive.data.size;
         *ret_blob = TAKE_PTR(blob);
         *ret_blob_size = blob_size;
         *ret_pcr_hash = TAKE_PTR(hash);
