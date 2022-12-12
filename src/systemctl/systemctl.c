@@ -1158,7 +1158,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        if (proc_mounted() == 0)
+        if (!arg_no_warn && proc_mounted() == 0)
                 log_warning("%s%s/proc/ is not mounted. This is not a supported mode of operation. Please fix\n"
                             "your invocation environment to mount /proc/ and /sys/ properly. Proceeding anyway.\n"
                             "Your mileage may vary.",
