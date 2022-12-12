@@ -1,11 +1,34 @@
 # This file is part of systemd.
 #
+# ########################### MATCHING #######################################
+#
 # The lookup keys are composed in:
 #   60-evdev.rules
 #
-# Match string formats:
-# evdev:<modalias>
-# evdev:name:<device name>:dmi:<dmi string>
+# Supported hardware matches are:
+#  - Generic input devices match:
+#      evdev:input:bZZZZvYYYYpXXXXeWWWW-VVVV
+#    This matches on the kernel modalias of the input-device, mainly:
+#    ZZZZ is the bus-id (see /usr/include/linux/input.h BUS_*), YYYY, XXXX and
+#    WWWW are the 4-digit hex uppercase vendor, product and version ID and VVVV
+#    is a variable-length input-modalias describing the device capabilities.
+#    The vendor, product and version ID for a device node "eventX" is listed
+#    in /sys/class/input/eventX/device/id.
+#
+#  - Input driver device name and DMI data match:
+#      evdev:name:<input device name>:dmi:bvn*:bvr*:bd*:svn<vendor>:pn*
+#    <input device name> is the name device specified by the
+#    driver, <vendor> is the firmware-provided string exported
+#    by the kernel DMI modalias, see /sys/class/dmi/id/modalias.
+#
+#  - Extended input driver device name, properties and DMI data match:
+#      evdev:name:<input device name>:phys:<phys>:ev:<ev>:dmi:bvn*:bvr*:bd*:svn<vendor>:pn*
+#    <input device name> is the name device specified by the
+#    driver, <phys> is the physical-device-path, "cat
+#    /sys/class/input/input?/phys", <ev> is the event bitmask, "cat
+#    /sys/class/input/input?/capabilities/ev" and <vendor> is the
+#    firmware-provided string exported by the kernel DMI modalias,
+#    see /sys/class/dmi/id/modalias.
 #
 # To add local entries, create a new file
 #   /etc/udev/hwdb.d/61-evdev-local.hwdb
