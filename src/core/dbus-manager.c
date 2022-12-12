@@ -1451,6 +1451,30 @@ int verify_run_space_and_log(const char *message) {
         return 0;
 }
 
+static void log_reload_caller(sd_bus_message *message, Manager *manager) {
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        Unit *caller;
+        pid_t pid;
+        int r;
+
+        assert(message);
+        assert(manager);
+
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+        if (r < 0)
+                return;
+
+        r = sd_bus_creds_get_pid(creds, &pid);
+        if (r < 0)
+                return;
+
+        caller = manager_get_unit_by_pid(manager, pid);
+        if (!caller)
+                log_info("Reloading requested by process '"PID_FMT"'...", pid);
+        else
+                log_info("Reloading requested by unit '%s'...", caller->id);
+}
+
 static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = ASSERT_PTR(userdata);
         int r;
@@ -1480,6 +1504,9 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
         r = sd_bus_message_new_method_return(message, &m->pending_reload_message);
         if (r < 0)
                 return r;
+
+        /* Write a log message noting the unit or process who requested the Reload() */
+        log_reload_caller(message, m);
 
         m->objective = MANAGER_RELOAD;
 
