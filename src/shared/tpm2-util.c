@@ -824,6 +824,67 @@ static int tpm2_get_policy_digest(
         return 0;
 }
 
+static int tpm2_create(
+                Tpm2Context *c,
+                const Tpm2Handle *parent,
+                const Tpm2Handle *session,
+                const TPMT_PUBLIC *template,
+                const TPM2B_SENSITIVE_CREATE *sensitive,
+                TPM2B_PUBLIC **ret_public,
+                TPM2B_PRIVATE **ret_private) {
+
+        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
+        _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
+        static const TPM2B_SENSITIVE_CREATE sensitive_null = {};
+        usec_t ts;
+        TSS2_RC rc;
+
+        assert(c);
+        assert(template);
+
+        log_debug("Creating object on TPM.");
+
+        ts = now(CLOCK_MONOTONIC);
+
+        TPM2B_PUBLIC public_template = {
+                .size = sizeof(*template),
+                .publicArea = *template,
+        };
+
+        /* Zero the unique area. */
+        zero(public_template.publicArea.unique);
+        public_template.size -= sizeof(public_template.publicArea.unique);
+
+        rc = sym_Esys_Create(
+                        c->esys_context,
+                        parent ? parent->esys_handle : ESYS_TR_RH_OWNER,
+                        session ? session->esys_handle : ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        sensitive ?: &sensitive_null,
+                        &public_template,
+                        &(TPML_PCR_SELECTION){},
+                        &private,
+                        &public,
+                        /* creationData= */ NULL,
+                        /* creationHash= */ NULL,
+                        /* creationTicket= */ NULL);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to generate object in TPM: %s",
+                                       sym_Tss2_RC_Decode(rc));
+
+        log_debug("Successfully created object on TPM in %s.",
+                  FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - ts, USEC_PER_MSEC));
+
+        if (ret_public)
+                *ret_public = TAKE_PTR(public);
+        if (ret_private)
+                *ret_private = TAKE_PTR(private);
+
+        return 0;
+}
+
 static int tpm2_pcr_read(
                 Tpm2Context *c,
                 const TPML_PCR_SELECTION *pcr_selection,
