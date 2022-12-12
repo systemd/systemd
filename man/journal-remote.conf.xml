@@ -93,7 +93,7 @@
         <listitem><para>These are analogous to <varname>SystemMaxUse=</varname>,
         <varname>SystemKeepFree=</varname>, <varname>SystemMaxFileSize=</varname>
         and <varname>SystemMaxFiles=</varname> in
-        <citerefentry><refentrytitle>journald.conf.</refentrytitle><manvolnum>5</manvolnum></citerefentry></para>
+        <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
         <para><varname>MaxUse=</varname> controls how much disk space
         the <command>systemd-journal-remote</command> may use up at most.
