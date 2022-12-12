@@ -12,11 +12,17 @@
 #include "tmpfile-util.h"
 #include "utf8.h"
 
+typedef int (*push_env_func_t)(
+                const char *filename,
+                unsigned line,
+                const char *key,
+                char *value,
+                void *userdata);
+
 static int parse_env_file_internal(
                 FILE *f,
                 const char *fname,
-                int (*push) (const char *filename, unsigned line,
-                             const char *key, char *value, void *userdata),
+                push_env_func_t push,
                 void *userdata) {
 
         size_t n_key = 0, n_value = 0, last_value_whitespace = SIZE_MAX, last_key_whitespace = SIZE_MAX;
@@ -36,6 +42,9 @@ static int parse_env_file_internal(
                 COMMENT,
                 COMMENT_ESCAPE
         } state = PRE_KEY;
+
+        assert(f || fname);
+        assert(push);
 
         if (f)
                 r = read_full_stream(f, &contents, NULL);
@@ -274,6 +283,8 @@ static int check_utf8ness_and_warn(
                 const char *filename, unsigned line,
                 const char *key, char *value) {
 
+        assert(key);
+
         if (!utf8_is_valid(key)) {
                 _cleanup_free_ char *p = NULL;
 
@@ -303,6 +314,8 @@ static int parse_env_file_push(
         const char *k;
         va_list aq, *ap = userdata;
         int r;
+
+        assert(key);
 
         r = check_utf8ness_and_warn(filename, line, key, value);
         if (r < 0)
@@ -338,6 +351,8 @@ int parse_env_filev(
         int r;
         va_list aq;
 
+        assert(f || fname);
+
         va_copy(aq, ap);
         r = parse_env_file_internal(f, fname, parse_env_file_push, &aq);
         va_end(aq);
@@ -352,6 +367,8 @@ int parse_env_file_sentinel(
         va_list ap;
         int r;
 
+        assert(f || fname);
+
         va_start(ap, fname);
         r = parse_env_filev(f, fname, ap);
         va_end(ap);
@@ -363,9 +380,12 @@ static int load_env_file_push(
                 const char *filename, unsigned line,
                 const char *key, char *value,
                 void *userdata) {
+
         char ***m = userdata;
         char *p;
         int r;
+
+        assert(key);
 
         r = check_utf8ness_and_warn(filename, line, key, value);
         if (r < 0)
@@ -383,15 +403,18 @@ static int load_env_file_push(
         return 0;
 }
 
-int load_env_file(FILE *f, const char *fname, char ***rl) {
+int load_env_file(FILE *f, const char *fname, char ***ret) {
         _cleanup_strv_free_ char **m = NULL;
         int r;
+
+        assert(f || fname);
+        assert(ret);
 
         r = parse_env_file_internal(f, fname, load_env_file_push, &m);
         if (r < 0)
                 return r;
 
-        *rl = TAKE_PTR(m);
+        *ret = TAKE_PTR(m);
         return 0;
 }
 
@@ -402,6 +425,8 @@ static int load_env_file_push_pairs(
 
         char ***m = ASSERT_PTR(userdata);
         int r;
+
+        assert(key);
 
         r = check_utf8ness_and_warn(filename, line, key, value);
         if (r < 0)
@@ -426,15 +451,17 @@ static int load_env_file_push_pairs(
                 return strv_extend(m, "");
 }
 
-int load_env_file_pairs(FILE *f, const char *fname, char ***rl) {
+int load_env_file_pairs(FILE *f, const char *fname, char ***ret) {
         _cleanup_strv_free_ char **m = NULL;
         int r;
+
+        assert(f || fname);
 
         r = parse_env_file_internal(f, fname, load_env_file_push_pairs, &m);
         if (r < 0)
                 return r;
 
-        *rl = TAKE_PTR(m);
+        *ret = TAKE_PTR(m);
         return 0;
 }
 
@@ -445,6 +472,8 @@ static int merge_env_file_push(
 
         char ***env = ASSERT_PTR(userdata);
         char *expanded_value;
+
+        assert(key);
 
         if (!value) {
                 log_error("%s:%u: invalid syntax (around \"%s\"), ignoring.", strna(filename), line, key);
@@ -476,6 +505,9 @@ int merge_env_file(
                 FILE *f,
                 const char *fname) {
 
+        assert(env);
+        assert(f || fname);
+
         /* NOTE: this function supports braceful and braceless variable expansions,
          * plus "extended" substitutions, unlike other exported parsing functions.
          */
@@ -485,6 +517,9 @@ int merge_env_file(
 
 static void write_env_var(FILE *f, const char *v) {
         const char *p;
+
+        assert(f);
+        assert(v);
 
         p = strchr(v, '=');
         if (!p) {
