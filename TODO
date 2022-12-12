@@ -128,6 +128,18 @@ Deprecations and removals:
 
 Features:
 
+* in journald, write out a recognizable log record whenever the system clock is
+  changed ("stepped"), and in timesyncd whenever we acquire an NTP fix
+  ("slewing"). Then, in journalctl for each boot time we come across, find
+  these records, and use the structured info they include to display
+  "corrected" wallclock time, as calculted from the monotonic timestamp in the
+  log record, adjusted by the delta declared in the structured log record.
+
+* in journald: whenever we start a new journal file because the boot ID
+  changed, let's generate a recognizable log record containing info about old
+  and new new ID. Then, when displaying log stream in journalctl look for these
+  records, to be able to order them.
+
 * timesyncd: when saving/restoring clock try to take boot time into account.
   Specifically, along with the saved clock, store the current boot ID. When
   starting, check if the boot id matches. If so, don't do anything (we are on
@@ -139,8 +151,8 @@ Features:
   system actually reset.
 
 * systemd-stub: maybe store a "boot counter" in the ESP, and pass it down to
-  userspace to allow ordering boots. The counter would be monotonically
-  increased on every boot.
+  userspace to allow ordering boots (for example in journalctl). The counter
+  would be monotonically increased on every boot.
 
 * systemd-sysext: for sysext DDIs picked up via EFI stub, set much stricter
   image policy by default
