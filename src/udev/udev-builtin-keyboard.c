@@ -247,5 +247,5 @@ static int builtin_keyboard(sd_device *dev, sd_netlink **rtnl, int argc, char *a
 const UdevBuiltin udev_builtin_keyboard = {
         .name = "keyboard",
         .cmd = builtin_keyboard,
-        .help = "Keyboard scan code to key mapping",
+        .help = "Keyboard scancode mapping and touchpad/pointingstick characteristics",
 };
