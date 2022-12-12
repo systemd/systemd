@@ -297,7 +297,6 @@ int dns_label_escape_new(const char *p, size_t l, char **ret) {
 int dns_label_apply_idna(const char *encoded, size_t encoded_size, char *decoded, size_t decoded_max) {
         _cleanup_free_ uint32_t *input = NULL;
         size_t input_size, l;
-        const char *p;
         bool contains_8bit = false;
         char buffer[DNS_LABEL_MAX+1];
         int r;
@@ -314,7 +313,7 @@ int dns_label_apply_idna(const char *encoded, size_t encoded_size, char *decoded
         if (encoded_size <= 0)
                 return -EINVAL;
 
-        for (p = encoded; p < encoded + encoded_size; p++)
+        for (const char *p = encoded; p < encoded + encoded_size; p++)
                 if ((uint8_t) *p > 127)
                         contains_8bit = true;
 
@@ -756,9 +755,8 @@ int dns_name_address(const char *p, int *ret_family, union in_addr_union *ret_ad
                 return r;
         if (r > 0) {
                 uint8_t a[4];
-                unsigned i;
 
-                for (i = 0; i < ELEMENTSOF(a); i++) {
+                for (size_t i = 0; i < ELEMENTSOF(a); i++) {
                         char label[DNS_LABEL_MAX+1];
 
                         r = dns_label_unescape(&p, label, sizeof label, 0);
@@ -792,9 +790,8 @@ int dns_name_address(const char *p, int *ret_family, union in_addr_union *ret_ad
                 return r;
         if (r > 0) {
                 struct in6_addr a;
-                unsigned i;
 
-                for (i = 0; i < ELEMENTSOF(a.s6_addr); i++) {
+                for (size_t i = 0; i < ELEMENTSOF(a.s6_addr); i++) {
                         char label[DNS_LABEL_MAX+1];
                         int x, y;
 
@@ -906,8 +903,6 @@ int dns_name_to_wire_format(const char *domain, uint8_t *buffer, size_t len, boo
 }
 
 static bool srv_type_label_is_valid(const char *label, size_t n) {
-        size_t k;
-
         assert(label);
 
         if (n < 2) /* Label needs to be at least 2 chars long */
@@ -921,12 +916,11 @@ static bool srv_type_label_is_valid(const char *label, size_t n) {
                 return false;
 
         /* Third and further chars must be alphanumeric or a hyphen */
-        for (k = 2; k < n; k++) {
+        for (size_t k = 2; k < n; k++)
                 if (!ascii_isalpha(label[k]) &&
                     !ascii_isdigit(label[k]) &&
                     label[k] != '-')
                         return false;
-        }
 
         return true;
 }
@@ -1122,14 +1116,12 @@ finish:
 }
 
 static int dns_name_build_suffix_table(const char *name, const char *table[]) {
-        const char *p;
+        const char *p = ASSERT_PTR(name);
         unsigned n = 0;
         int r;
 
-        assert(name);
         assert(table);
 
-        p = name;
         for (;;) {
                 if (n > DNS_N_LABELS_MAX)
                         return -EINVAL;
