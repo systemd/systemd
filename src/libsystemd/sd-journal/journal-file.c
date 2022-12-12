@@ -502,11 +502,10 @@ static int journal_file_verify_header(JournalFile *f) {
                 int r;
 
                 r = sd_id128_get_machine(&machine_id);
-                if (r < 0)
-                        return r;
-
-                if (!sd_id128_equal(machine_id, f->header->machine_id))
+                if (r >= 0 && !sd_id128_equal(machine_id, f->header->machine_id))
                         return -EHOSTDOWN;
+                else if (r < 0 && !IN_SET(r, -ENOENT, -ENOMEDIUM, -ENOPKG))
+                        return r;
 
                 state = f->header->state;
 
