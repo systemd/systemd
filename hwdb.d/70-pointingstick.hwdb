@@ -1,8 +1,8 @@
 # This file is part of systemd.
 #
 # Pointingstick const-accel configuration, to make different brand / model
-# laptop pointingsticks have the same speed / feel, and per model adjustment
-# of the IBM TrackPoint driver's sensitivity setting
+# laptop pointingsticks have the same speed / feel, and per model adjustment of
+# the IBM TrackPoint and Dell DualPoint Stick driver's sensitivity setting.
 #
 # ########################### MATCHING #######################################
 #
@@ -90,6 +90,7 @@
 # Generic
 ##########################################
 evdev:name:*[tT]rack[pP]oint*:*
+evdev:name:*[dD]ual[pP]oint [sS]tick*:*
  ID_INPUT_POINTINGSTICK=1
 
 #########################################
