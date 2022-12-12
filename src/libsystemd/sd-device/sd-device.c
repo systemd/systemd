@@ -2332,9 +2332,14 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
                                        sysattr, value, ret_value ? "" : ", ignoring");
                 if (ret_value)
                         return r;
-        } else if (ret_value)
-                *ret_value = TAKE_PTR(value);
 
+                return 0;
+        }
+
+        if (ret_value)
+                *ret_value = value;
+
+        TAKE_PTR(value);
         return 0;
 }
 
