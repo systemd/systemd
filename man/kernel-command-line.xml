@@ -72,6 +72,8 @@
         <term><varname>systemd.machine_id=</varname></term>
         <term><varname>systemd.set_credential=</varname></term>
         <term><varname>systemd.import_credentials=</varname></term>
+        <term><varname>systemd.reload_limit_interval_sec=</varname></term>
+        <term><varname>systemd.reload_limit_burst=</varname></term>
         <listitem>
           <para>Parameters understood by the system and service
           manager to control system behavior. For details, see

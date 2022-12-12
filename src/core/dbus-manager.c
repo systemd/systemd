@@ -1495,6 +1495,12 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
+        /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
+        if (!ratelimit_below(&m->reload_ratelimit))
+                return sd_bus_error_setf(error,
+                                         SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                         "Reload() request rejected due to too frequent reloading.");
+
         /* Instead of sending the reply back right away, we just
          * remember that we need to and then send it after the reload
          * is finished. That way the caller knows when the reload
