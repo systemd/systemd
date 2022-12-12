@@ -88,6 +88,7 @@
 # Generic
 ##########################################
 evdev:name:*[tT]rack[pP]oint*:dmi:bvn*
+evdev:name:*[dD]ual[pP]oint [sS]tick*:dmi:bvn*
  ID_INPUT_POINTINGSTICK=1
 
 #########################################
