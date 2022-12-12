@@ -110,6 +110,10 @@ static inline bool ascii_isdigit(sd_char a) {
         return a >= '0' && a <= '9';
 }
 
+static inline bool ascii_ishex(sd_char a) {
+        return ascii_isdigit(a) || (a >= 'a' && a <= 'f') || (a >= 'A' && a <= 'F');
+}
+
 static inline bool ascii_isalpha(sd_char a) {
         /* A pure ASCII, locale independent version of isalpha() */
         return (a >= 'a' && a <= 'z') || (a >= 'A' && a <= 'Z');
