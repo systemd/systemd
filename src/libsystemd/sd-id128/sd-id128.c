@@ -15,6 +15,7 @@
 #include "macro.h"
 #include "missing_syscall.h"
 #include "random-util.h"
+#include "stat-util.h"
 #include "user-util.h"
 
 _public_ char *sd_id128_to_string(sd_id128_t id, char s[_SD_ARRAY_STATIC SD_ID128_STRING_MAX]) {
@@ -146,6 +147,8 @@ _public_ int sd_id128_get_boot(sd_id128_t *ret) {
 
         if (sd_id128_is_null(saved_boot_id)) {
                 r = id128_read("/proc/sys/kernel/random/boot_id", ID128_FORMAT_UUID, &saved_boot_id);
+                if (r == -ENOENT && proc_mounted() == 0)
+                        return -ENOSYS;
                 if (r < 0)
                         return r;
 
