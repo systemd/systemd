@@ -1768,36 +1768,30 @@ int dns_resource_record_get_cname_target(DnsResourceKey *key, DnsResourceRecord 
         return 0;
 }
 
-DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *i) {
-        DnsTxtItem *n;
+DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *first) {
+        LIST_FOREACH(items, i, first)
+                free(i);
 
-        if (!i)
-                return NULL;
-
-        n = i->items_next;
-
-        free(i);
-        return dns_txt_item_free_all(n);
+        return NULL;
 }
 
 bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b) {
+        DnsTxtItem *bb = b;
 
         if (a == b)
                 return true;
 
-        if (!a != !b)
-                return false;
+        LIST_FOREACH(items, aa, a) {
+                if (!bb)
+                        return false;
 
-        if (!a)
-                return true;
+                if (memcmp_nn(aa->data, aa->length, bb->data, bb->length) != 0)
+                        return false;
 
-        if (a->length != b->length)
-                return false;
+                bb = bb->items_next;
+        }
 
-        if (memcmp(a->data, b->data, a->length) != 0)
-                return false;
-
-        return dns_txt_item_equal(a->items_next, b->items_next);
+        return !bb;
 }
 
 DnsTxtItem *dns_txt_item_copy(DnsTxtItem *first) {
@@ -1807,10 +1801,8 @@ DnsTxtItem *dns_txt_item_copy(DnsTxtItem *first) {
                 DnsTxtItem *j;
 
                 j = memdup(i, offsetof(DnsTxtItem, data) + i->length + 1);
-                if (!j) {
-                        dns_txt_item_free_all(copy);
-                        return NULL;
-                }
+                if (!j)
+                        return dns_txt_item_free_all(copy);
 
                 LIST_INSERT_AFTER(items, copy, end, j);
                 end = j;
@@ -1822,6 +1814,8 @@ DnsTxtItem *dns_txt_item_copy(DnsTxtItem *first) {
 int dns_txt_item_new_empty(DnsTxtItem **ret) {
         DnsTxtItem *i;
 
+        assert(ret);
+
         /* RFC 6763, section 6.1 suggests to treat
          * empty TXT RRs as equivalent to a TXT record
          * with a single empty string. */
@@ -1831,7 +1825,6 @@ int dns_txt_item_new_empty(DnsTxtItem **ret) {
                 return -ENOMEM;
 
         *ret = i;
-
         return 0;
 }
 
