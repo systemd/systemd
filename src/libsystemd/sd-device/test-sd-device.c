@@ -180,15 +180,16 @@ static void test_sd_device_one(sd_device *d) {
         } else
                 assert_se(r == -ENOENT);
 
-        r = sd_device_get_sysattr_value(d, "name_assign_type", &val);
-        assert_se(r >= 0 || ERRNO_IS_PRIVILEGE(r) || IN_SET(r, -ENOENT, -EINVAL));
-
-        if (r > 0) {
+        r = sd_device_get_sysattr_value(d, "nsid", NULL);
+        if (r >= 0) {
                 unsigned x;
 
-                assert_se(device_get_sysattr_unsigned(d, "name_assign_type", NULL) >= 0);
-                assert_se(device_get_sysattr_unsigned(d, "name_assign_type", &x) >= 0);
-        }
+                assert_se(device_get_sysattr_unsigned(d, "nsid", NULL) >= 0);
+                r = device_get_sysattr_unsigned(d, "nsid", &x);
+                assert_se(r >= 0);
+                assert_se((x > 0) == (r > 0));
+        } else
+                assert_se(ERRNO_IS_PRIVILEGE(r) || IN_SET(r, -ENOENT, -EINVAL));
 }
 
 TEST(sd_device_enumerator_devices) {
