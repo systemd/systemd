@@ -38,7 +38,7 @@ TEST(id128) {
         assert_se(!sd_id128_in_set(id, ID128_WALDI));
         assert_se(!sd_id128_in_set(id, ID128_WALDI, ID128_WALDI));
 
-        if (sd_booted() > 0 && access("/etc/machine-id", F_OK) >= 0) {
+        if (sd_booted() > 0 && sd_id128_get_machine(NULL) >= 0) {
                 assert_se(sd_id128_get_machine(&id) == 0);
                 printf("machine: %s\n", sd_id128_to_string(id, t));
 
@@ -170,7 +170,7 @@ TEST(id128) {
         assert_se(lseek(fd, 0, SEEK_SET) == 0);
         assert_se(id128_read_fd(fd, ID128_FORMAT_ANY, NULL) == -EUCLEAN);
 
-        if (sd_booted() > 0 && access("/etc/machine-id", F_OK) >= 0) {
+        if (sd_booted() > 0 && sd_id128_get_machine(NULL) >= 0) {
                 assert_se(sd_id128_get_machine_app_specific(SD_ID128_MAKE(f0,3d,aa,eb,1c,33,4b,43,a7,32,17,29,44,bf,77,2e), &id) >= 0);
                 assert_se(sd_id128_get_machine_app_specific(SD_ID128_MAKE(f0,3d,aa,eb,1c,33,4b,43,a7,32,17,29,44,bf,77,2e), &id2) >= 0);
                 assert_se(sd_id128_equal(id, id2));
@@ -195,8 +195,8 @@ TEST(benchmark_sd_id128_get_machine_app_specific) {
         unsigned iterations = slow_tests_enabled() ? 1000000 : 1000;
         usec_t t, q;
 
-        if (access("/etc/machine-id", F_OK) < 0 && errno == ENOENT)
-                return (void) log_tests_skipped("/etc/machine-id does not exist");
+        if (sd_id128_get_machine(NULL) < 0)
+                return (void) log_tests_skipped("/etc/machine-id is not initialized");
 
         log_info("/* %s (%u iterations) */", __func__, iterations);
 
