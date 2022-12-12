@@ -84,6 +84,33 @@
         <listitem><para>SSL CA certificate.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>MaxUse=</varname></term>
+        <term><varname>KeepFree=</varname></term>
+        <term><varname>MaxFileSize=</varname></term>
+        <term><varname>MaxFiles=</varname></term>
+
+        <listitem><para>These are analogous to <varname>SystemMaxUse=</varname>,
+        <varname>SystemKeepFree=</varname>, <varname>SystemMaxFileSize=</varname>
+        and <varname>SystemMaxFiles=</varname> in
+        <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <para><varname>MaxUse=</varname> controls how much disk space
+        the <command>systemd-journal-remote</command> may use up at most.
+        <varname>KeepFree=</varname> controls how much disk
+        space <command>systemd-journal-remote</command> shall leave free for other uses.
+        <command>systemd-journal-remote</command> will respect both limits
+        and use the smaller of the two values.</para>
+
+        <para><varname>MaxFiles=</varname> controls how many
+        individual journal files to keep at most. Note that only
+        archived files are deleted to reduce the number of files until
+        this limit is reached; active files will stay around. This
+        means that, in effect, there might still be more journal files
+        around in total than this limit after a vacuuming operation is
+        complete.</para></listitem>
+      </varlistentry>
+
     </variablelist>
 
   </refsect1>
@@ -91,8 +118,9 @@
   <refsect1>
       <title>See Also</title>
       <para>
-        <citerefentry><refentrytitle>systemd-journal-remote.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-journal-remote.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       </para>
   </refsect1>
