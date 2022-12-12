@@ -711,6 +711,17 @@ evdev:input:b0003v6161p4D15*
  EVDEV_ABS_00=::152
  EVDEV_ABS_01=::244
 
+#########################################
+# Packard Bell
+#########################################
+
+# EASYNOTE_TS11HR-200GE
+evdev:name:ETPS/2 Elantech Touchpad:dmi:bvnPackardBell:bvr*:br*:svnPackardBell:pnEasyNoteTS11HR:*
+ EVDEV_ABS_00=0:2472:31
+ EVDEV_ABS_01=-524:528:31
+ EVDEV_ABS_35=0:2472:31
+ EVDEV_ABS_36=-524:528:31
+
 ###########################################################
 # Pine64
 ###########################################################
