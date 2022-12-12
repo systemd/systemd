@@ -3,23 +3,28 @@
 ACTION=="remove", GOTO="evdev_end"
 KERNEL!="event*", GOTO="evdev_end"
 
-# skip later rules when we find something for this input device
-IMPORT{builtin}="hwdb --subsystem=input --lookup-prefix=evdev:", \
-  IMPORT{builtin}="keyboard", GOTO="evdev_end"
+# Execute the match patterns below, from least-to-most specific.
+
+# Device matching the modalias string (bustype, vendor, product, version, other properties)
+IMPORT{builtin}="hwdb --subsystem=input --lookup-prefix=evdev:",
+  ENV{.HAVE_HWDB_PROPERTIES}="1"
 
 # AT keyboard matching by the machine's DMI data
 DRIVERS=="atkbd", \
   IMPORT{builtin}="hwdb 'evdev:atkbd:$attr{[dmi/id]modalias}'", \
-  IMPORT{builtin}="keyboard", GOTO="evdev_end"
+  ENV{.HAVE_HWDB_PROPERTIES}="1"
 
-# device matching the input device name + properties + the machine's DMI data
-KERNELS=="input*", \
-  IMPORT{builtin}="hwdb 'evdev:name:$attr{name}:phys:$attr{phys}:ev:$attr{capabilities/ev}:$attr{[dmi/id]modalias}'", \
-  IMPORT{builtin}="keyboard", GOTO="evdev_end"
-
-# device matching the input device name and the machine's DMI data
+# Device matching the input device name and the machine's DMI data
 KERNELS=="input*", \
   IMPORT{builtin}="hwdb 'evdev:name:$attr{name}:$attr{[dmi/id]modalias}'", \
-  IMPORT{builtin}="keyboard", GOTO="evdev_end"
+  ENV{.HAVE_HWDB_PROPERTIES}="1"
+
+# Device matching the input device name + properties + the machine's DMI data
+KERNELS=="input*", \
+  IMPORT{builtin}="hwdb 'evdev:name:$attr{name}:phys:$attr{phys}:ev:$attr{capabilities/ev}:$attr{[dmi/id]modalias}'", \
+  ENV{.HAVE_HWDB_PROPERTIES}="1"
+
+ENV{.HAVE_HWDB_PROPERTIES}=="1", \
+  IMPORT{builtin}="keyboard"
 
 LABEL="evdev_end"
