@@ -79,6 +79,14 @@ systemctl list-jobs --before
 systemctl list-jobs --after --before
 systemctl list-jobs "*"
 
+# is-* verbs
+# Should return 4 for a missing unit file
+systemctl is-active not-found.service || [[ "$?" = 4 ]]
+systemctl is-failed not-found.service || [[ "$?" = 4 ]]
+systemctl is-enabled not-found.service || [[ "$?" = 4 ]]
+# return 3 when the unit exists but inactive
+systemctl is-active "$UNIT_NAME" || [[ "$?" = 3 ]]
+
 # Basic service management
 systemctl start --show-transaction "$UNIT_NAME"
 systemctl status -n 5 "$UNIT_NAME"
