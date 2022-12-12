@@ -2021,7 +2021,7 @@ evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:bd*:svnPositivoBahia-VAIO:
 # Positivo
 ###########################################################
 # Positivo DUO (k116)
-evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:svnPositivoTecnologiaSA:pn*:pvr*:rvnPositivoTecnologiaSA:rnK116* 
+evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:svnPositivoTecnologiaSA:pn*:pvr*:rvnPositivoTecnologiaSA:rnK116*
  KEYBOARD_KEY_76=f21                                    # Fn+F1 toggle touchpad
 
 # Positivo Motion (N14DP6, N14DP7, N14DP7-V2, N14DP9, N14JP6, N14KP6)
