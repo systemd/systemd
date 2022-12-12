@@ -33,6 +33,7 @@ static void *libtss2_rc_dl = NULL;
 static void *libtss2_mu_dl = NULL;
 
 static TSS2_RC (*sym_Esys_Create)(ESYS_CONTEXT *esysContext, ESYS_TR parentHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE_CREATE *inSensitive, const TPM2B_PUBLIC *inPublic, const TPM2B_DATA *outsideInfo, const TPML_PCR_SELECTION *creationPCR, TPM2B_PRIVATE **outPrivate, TPM2B_PUBLIC **outPublic, TPM2B_CREATION_DATA **creationData, TPM2B_DIGEST **creationHash, TPMT_TK_CREATION **creationTicket) = NULL;
+static TSS2_RC (*sym_Esys_CreateLoaded)(ESYS_CONTEXT *esysContext, ESYS_TR parentHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE_CREATE *inSensitive, const TPM2B_TEMPLATE *inPublic, ESYS_TR *objectHandle, TPM2B_PRIVATE **outPrivate, TPM2B_PUBLIC **outPublic) = NULL;
 static TSS2_RC (*sym_Esys_CreatePrimary)(ESYS_CONTEXT *esysContext, ESYS_TR primaryHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE_CREATE *inSensitive, const TPM2B_PUBLIC *inPublic, const TPM2B_DATA *outsideInfo, const TPML_PCR_SELECTION *creationPCR, ESYS_TR *objectHandle, TPM2B_PUBLIC **outPublic, TPM2B_CREATION_DATA **creationData, TPM2B_DIGEST **creationHash, TPMT_TK_CREATION **creationTicket) = NULL;
 static TSS2_RC (*sym_Esys_EvictControl)(ESYS_CONTEXT *esysContext, ESYS_TR auth, ESYS_TR objectHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPMI_DH_PERSISTENT persistentHandle, ESYS_TR *newObjectHandle) = NULL;
 static void (*sym_Esys_Finalize)(ESYS_CONTEXT **context) = NULL;
@@ -81,6 +82,7 @@ int dlopen_tpm2(void) {
         r = dlopen_many_sym_or_warn(
                         &libtss2_esys_dl, "libtss2-esys.so.0", LOG_DEBUG,
                         DLSYM_ARG(Esys_Create),
+                        DLSYM_ARG(Esys_CreateLoaded),
                         DLSYM_ARG(Esys_CreatePrimary),
                         DLSYM_ARG(Esys_EvictControl),
                         DLSYM_ARG(Esys_Finalize),
@@ -1617,6 +1619,123 @@ static int tpm2_load_external(
                                        "Failed to load public key into TPM: %s", sym_Tss2_RC_Decode(rc));
 
         *ret_handle = TAKE_PTR(handle);
+
+        return 0;
+}
+
+static int _tpm2_create_loaded(
+                Tpm2Context *c,
+                const Tpm2Handle *parent,
+                const Tpm2Handle *session,
+                const TPMT_PUBLIC *template,
+                const TPMS_SENSITIVE_CREATE *sensitive,
+                TPM2B_PUBLIC **ret_public,
+                TPM2B_PRIVATE **ret_private,
+                Tpm2Handle **ret_handle) {
+
+        usec_t ts;
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+        assert(template);
+
+        log_debug("Creating loaded object on TPM.");
+
+        ts = now(CLOCK_MONOTONIC);
+
+        /* Copy the input template and zero the unique area. */
+        TPMT_PUBLIC template_copy = *template;
+        zero(template_copy.unique);
+
+        TPM2B_TEMPLATE tpm2b_template;
+        size_t size = 0;
+        rc = sym_Tss2_MU_TPMT_PUBLIC_Marshal(
+                        &template_copy,
+                        tpm2b_template.buffer,
+                        sizeof(tpm2b_template.buffer),
+                        &size);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to marshal public key template: %s", sym_Tss2_RC_Decode(rc));
+        tpm2b_template.size = size;
+
+        TPM2B_SENSITIVE_CREATE tpm2b_sensitive = {};
+        if (sensitive)
+                tpm2b_sensitive = (TPM2B_SENSITIVE_CREATE){
+                        .sensitive = *sensitive,
+                        .size = sizeof(*sensitive),
+                };
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        r = tpm2_handle_new(c, &handle);
+        if (r < 0)
+                return r;
+
+        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
+        _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
+        rc = sym_Esys_CreateLoaded(
+                        c->esys_context,
+                        parent ? parent->esys_handle : ESYS_TR_RH_OWNER,
+                        session ? session->esys_handle : ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        &tpm2b_sensitive,
+                        &tpm2b_template,
+                        &handle->esys_handle,
+                        &private,
+                        &public);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to generate loaded object in TPM: %s",
+                                       sym_Tss2_RC_Decode(rc));
+
+        log_debug("Successfully created loaded object on TPM in %s.",
+                  FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - ts, USEC_PER_MSEC));
+
+        if (ret_public)
+                *ret_public = TAKE_PTR(public);
+        if (ret_private)
+                *ret_private = TAKE_PTR(private);
+        if (ret_handle)
+                *ret_handle = TAKE_PTR(handle);
+
+        return 0;
+}
+
+static int tpm2_create_loaded(
+                Tpm2Context *c,
+                const Tpm2Handle *parent,
+                const Tpm2Handle *session,
+                const TPMT_PUBLIC *template,
+                const TPMS_SENSITIVE_CREATE *sensitive,
+                TPM2B_PUBLIC **ret_public,
+                TPM2B_PRIVATE **ret_private,
+                Tpm2Handle **ret_handle) {
+
+        int r;
+
+        if (tpm2_supports_command(c, TPM2_CC_CreateLoaded))
+                return _tpm2_create_loaded(c, parent, session, template, sensitive, ret_public, ret_private, ret_handle);
+
+        /* Unfortunately, this TPM doesn't support CreateLoaded. */
+        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
+        _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
+        r = tpm2_create(c, parent, session, template, sensitive, &public, &private);
+        if (r < 0)
+                return r;
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        r = tpm2_load(c, parent, session, public, private, &handle);
+        if (r < 0)
+                return r;
+
+        if (ret_public)
+                *ret_public = TAKE_PTR(public);
+        if (ret_private)
+                *ret_private = TAKE_PTR(private);
+        if (ret_handle)
+                *ret_handle = TAKE_PTR(handle);
 
         return 0;
 }
