@@ -108,7 +108,7 @@
         this limit is reached; active files will stay around. This
         means that, in effect, there might still be more journal files
         around in total than this limit after a vacuuming operation is
-        complete. This setting defaults to 100.</para></listitem>
+        complete.</para></listitem>
       </varlistentry>
 
     </variablelist>
