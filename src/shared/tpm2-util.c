@@ -885,6 +885,38 @@ static int tpm2_create(
         return 0;
 }
 
+static int tpm2_create_key(
+                Tpm2Context *c,
+                TPMI_ALG_PUBLIC alg,
+                TPMA_OBJECT attributes,
+                TPM2B_DIGEST *policy,
+                TPM2B_PUBLIC **ret_public,
+                TPM2B_PRIVATE **ret_private) {
+
+        /* If not specified, try to create ECC first, then fallback to RSA. ECC is significantly faster. */
+        static const TPMT_PUBLIC *templates[] = {
+                &TPM2_LEGACY_TPMT_ECC,
+                &TPM2_LEGACY_TPMT_RSA,
+        };
+        for (size_t i = 0; i < ELEMENTSOF(templates); i++) {
+                TPMT_PUBLIC template = *templates[i];
+
+                if (alg != 0 && alg != template.type)
+                        continue;
+
+                if (attributes)
+                        template.objectAttributes = attributes;
+                if (policy)
+                        template.authPolicy = *policy;
+
+                r = tpm2_create(c, parent, session, &template, NULL, ret_public, ret_private);
+                if (r == 0)
+                        return 0;
+        }
+
+        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to generate any type key in TPM.");
+}
+
 static int tpm2_pcr_read(
                 Tpm2Context *c,
                 const TPML_PCR_SELECTION *pcr_selection,
