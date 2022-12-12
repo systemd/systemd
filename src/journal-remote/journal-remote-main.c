@@ -1145,7 +1145,6 @@ static int run(int argc, char **argv) {
                 s.check_trust = !arg_trust_all;
         }
 
-        memset(&s.metrics, 0xFF, sizeof(s.metrics));
         journal_reset_metrics(&s.metrics);
         s.metrics.max_use = arg_max_use;
         s.metrics.max_size = arg_max_size;
