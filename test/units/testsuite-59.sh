@@ -85,6 +85,25 @@ wait_on_state_or_fail "testservice-abort-restart-59.service" "failed" "30"
 
 systemd-analyze log-level info
 
+# Test that rate-limiting daemon-reload works
+mkdir -p /run/systemd/system.conf.d/
+cat >/run/systemd/system.conf.d/50-test-59-reload.conf <<EOF
+[Manager]
+ReloadLimitIntervalSec=9
+ReloadLimitBurst=3
+EOF
+
+# Pick up the new config
+systemctl daemon-reload
+
+# The timeout will hit (and the test will fail) if the reloads are not rate-limited
+timeout 15 bash -c 'while systemctl daemon-reload --no-block; do true; done'
+
+# Rate limit should reset after 9s
+sleep 10
+
+systemctl daemon-reload
+
 echo OK >/testok
 
 exit 0
