@@ -1497,6 +1497,14 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
         /* Write a log message noting the unit or process who requested the Reload() */
         log_reload_caller(message, m);
 
+        /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
+        if (!ratelimit_below(&m->reload_ratelimit)) {
+                log_warning("Reloading request rejected due to rate limit.");
+                return sd_bus_error_setf(error,
+                                         SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                         "Reload() request rejected due to rate limit.");
+        }
+
         /* Instead of sending the reply back right away, we just
          * remember that we need to and then send it after the reload
          * is finished. That way the caller knows when the reload
