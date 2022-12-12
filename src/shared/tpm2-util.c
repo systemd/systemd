@@ -488,101 +488,6 @@ static const TPMT_PUBLIC TPM2_LEGACY_TPMT_RSA = {
         },
 };
 
-static int tpm2_make_primary(
-                Tpm2Context *c,
-                Tpm2Handle **ret_primary,
-                TPMI_ALG_PUBLIC alg,
-                TPMI_ALG_PUBLIC *ret_alg) {
-
-        static const TPM2B_SENSITIVE_CREATE primary_sensitive = {};
-        static const TPML_PCR_SELECTION creation_pcr = {};
-        TPM2B_PUBLIC primary_template = { .size = sizeof(TPMT_PUBLIC), };
-        TSS2_RC rc;
-        usec_t ts;
-        int r;
-
-        log_debug("Creating primary key on TPM.");
-
-        /* So apparently not all TPM2 devices support ECC. ECC is generally preferably, because it's so much
-         * faster, noticeably so (~10s vs. ~240ms on my system). Hence, unless explicitly configured let's
-         * try to use ECC first, and if that does not work, let's fall back to RSA. */
-
-        ts = now(CLOCK_MONOTONIC);
-
-        _cleanup_tpm2_handle_ Tpm2Handle *primary = NULL;
-        r = tpm2_handle_new(c, &primary);
-        if (r < 0)
-                return r;
-
-        if (IN_SET(alg, 0, TPM2_ALG_ECC)) {
-                primary_template.publicArea = TPM2_LEGACY_TPMT_ECC;
-                rc = sym_Esys_CreatePrimary(
-                                c->esys_context,
-                                ESYS_TR_RH_OWNER,
-                                ESYS_TR_PASSWORD,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                &primary_sensitive,
-                                &primary_template,
-                                NULL,
-                                &creation_pcr,
-                                &primary->esys_handle,
-                                NULL,
-                                NULL,
-                                NULL,
-                                NULL);
-
-                if (rc != TSS2_RC_SUCCESS) {
-                        if (alg != 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                                       "Failed to generate ECC primary key in TPM: %s", sym_Tss2_RC_Decode(rc));
-
-                        log_debug("Failed to generate ECC primary key in TPM, trying RSA: %s", sym_Tss2_RC_Decode(rc));
-                } else {
-                        log_debug("Successfully created ECC primary key on TPM.");
-                        alg = TPM2_ALG_ECC;
-                }
-        }
-
-        if (IN_SET(alg, 0, TPM2_ALG_RSA)) {
-                primary_template.publicArea = TPM2_LEGACY_TPMT_RSA;
-                rc = sym_Esys_CreatePrimary(
-                                c->esys_context,
-                                ESYS_TR_RH_OWNER,
-                                ESYS_TR_PASSWORD,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                &primary_sensitive,
-                                &primary_template,
-                                NULL,
-                                &creation_pcr,
-                                &primary->esys_handle,
-                                NULL,
-                                NULL,
-                                NULL,
-                                NULL);
-                if (rc != TSS2_RC_SUCCESS)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Failed to generate RSA primary key in TPM: %s", sym_Tss2_RC_Decode(rc));
-                else if (alg == 0) {
-                        log_notice("TPM2 chip apparently does not support ECC primary keys, falling back to RSA. "
-                                   "This likely means TPM2 operations will be relatively slow, please be patient.");
-                        alg = TPM2_ALG_RSA;
-                }
-
-                log_debug("Successfully created RSA primary key on TPM.");
-        }
-
-        log_debug("Generating primary key on TPM2 took %s.", FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - ts, USEC_PER_MSEC));
-
-        if (ret_primary)
-                *ret_primary = TAKE_PTR(primary);
-        if (ret_alg)
-                *ret_alg = alg;
-
-        return 0;
-}
-
 /* Utility functions for TPMS_PCR_SELECTION. */
 
 static uint32_t tpm2_tpms_pcr_selection_to_mask(const TPMS_PCR_SELECTION *s) {
@@ -2280,7 +2185,7 @@ int tpm2_seal(const char *device,
 
         _cleanup_tpm2_handle_ Tpm2Handle *primary = NULL;
         TPMI_ALG_PUBLIC primary_alg;
-        r = tpm2_make_primary(c, &primary, 0, &primary_alg);
+        r = tpm2_create_primary(c, 0, NULL, NULL, &primary, &primary_alg);
         if (r < 0)
                 return r;
 
@@ -2414,7 +2319,7 @@ int tpm2_unseal(const char *device,
                 return r;
 
         _cleanup_tpm2_handle_ Tpm2Handle *primary = NULL;
-        r = tpm2_make_primary(c, &primary, primary_alg, NULL);
+        r = tpm2_create_primary(c, primary_alg, NULL, NULL, &primary, NULL);
         if (r < 0)
                 return r;
 
