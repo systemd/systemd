@@ -394,6 +394,100 @@ static int tpm2_credit_random(Tpm2Context *c) {
         return 0;
 }
 
+/* These values are recommended by the "TCG TPM v2.0 Provisioning Guidance" document in section 7.5.1
+ * "Storage Primary Key (SRK) Templates", referencing "TCG EK Credential Profile for TPM Family 2.0".  The EK
+ * Credential Profile version 2.0 provides only a single template each for RSA and ECC, while later EK
+ * Credential Profile versions provide more templates, and keep the original templates as "L-1" (for RSA) and
+ * "L-2" (for ECC).
+ *
+ * The SRK handle is defined in the Provisioning Guidance document in the table "Reserved Handles for TPM
+ * Provisioning Fundamental Elements". */
+#define TPM2_SRK_HANDLE 0x81000001
+
+#define TPM2_SRK_ATTRIBUTES                           \
+        (                                             \
+                TPMA_OBJECT_DECRYPT |                 \
+                TPMA_OBJECT_FIXEDPARENT |             \
+                TPMA_OBJECT_FIXEDTPM |                \
+                TPMA_OBJECT_NODA |                    \
+                TPMA_OBJECT_RESTRICTED |              \
+                TPMA_OBJECT_SENSITIVEDATAORIGIN |     \
+                TPMA_OBJECT_USERWITHAUTH              \
+        )
+
+#define TPM2_SRK_SYMMETRIC_AES                  \
+        {                                       \
+                .algorithm = TPM2_ALG_AES,      \
+                .keyBits.aes = 128,             \
+                .mode.aes = TPM2_ALG_CFB,       \
+        }
+
+static const TPMT_PUBLIC TPM2_SRK_TPMT_ECC = {
+        .type = TPM2_ALG_ECC,
+        .nameAlg = TPM2_ALG_SHA256,
+        .objectAttributes = TPM2_SRK_ATTRIBUTES,
+        .parameters.eccDetail = {
+                .symmetric = TPM2_SRK_SYMMETRIC_AES,
+                .scheme.scheme = TPM2_ALG_NULL,
+                .curveID = TPM2_ECC_NIST_P256,
+                .kdf.scheme = TPM2_ALG_NULL,
+        },
+};
+
+static const TPMT_PUBLIC TPM2_SRK_TPMT_RSA = {
+        .type = TPM2_ALG_RSA,
+        .nameAlg = TPM2_ALG_SHA256,
+        .objectAttributes = TPM2_SRK_ATTRIBUTES,
+        .parameters.rsaDetail = {
+                .symmetric = TPM2_SRK_SYMMETRIC_AES,
+                .scheme.scheme = TPM2_ALG_NULL,
+                .keyBits = 2048,
+        },
+};
+
+/* The legacy templates below should only be used for recreating primary keys without a saved template.
+ * The values should not be changed at all. */
+
+#define TPM2_LEGACY_ATTRIBUTES                        \
+        (                                             \
+                TPMA_OBJECT_DECRYPT |                 \
+                TPMA_OBJECT_FIXEDPARENT |             \
+                TPMA_OBJECT_FIXEDTPM |                \
+                TPMA_OBJECT_RESTRICTED |              \
+                TPMA_OBJECT_SENSITIVEDATAORIGIN |     \
+                TPMA_OBJECT_USERWITHAUTH              \
+        )
+
+#define TPM2_LEGACY_SYMMETRIC_AES               \
+        {                                       \
+                .algorithm = TPM2_ALG_AES,      \
+                .keyBits.aes = 128,             \
+                .mode.aes = TPM2_ALG_CFB,       \
+        }
+
+static const TPMT_PUBLIC TPM2_LEGACY_TPMT_ECC = {
+        .type = TPM2_ALG_ECC,
+        .nameAlg = TPM2_ALG_SHA256,
+        .objectAttributes = TPM2_LEGACY_ATTRIBUTES,
+        .parameters.eccDetail = {
+                .symmetric = TPM2_LEGACY_SYMMETRIC_AES,
+                .scheme.scheme = TPM2_ALG_NULL,
+                .curveID = TPM2_ECC_NIST_P256,
+                .kdf.scheme = TPM2_ALG_NULL,
+        },
+};
+
+static const TPMT_PUBLIC TPM2_LEGACY_TPMT_RSA = {
+        .type = TPM2_ALG_RSA,
+        .nameAlg = TPM2_ALG_SHA256,
+        .objectAttributes = TPM2_LEGACY_ATTRIBUTES,
+        .parameters.rsaDetail = {
+                .symmetric = TPM2_LEGACY_SYMMETRIC_AES,
+                .scheme.scheme = TPM2_ALG_NULL,
+                .keyBits = 2048,
+        },
+};
+
 static int tpm2_make_primary(
                 Tpm2Context *c,
                 Tpm2Handle **ret_primary,
@@ -401,43 +495,8 @@ static int tpm2_make_primary(
                 TPMI_ALG_PUBLIC *ret_alg) {
 
         static const TPM2B_SENSITIVE_CREATE primary_sensitive = {};
-        static const TPM2B_PUBLIC primary_template_ecc = {
-                .size = sizeof(TPMT_PUBLIC),
-                .publicArea = {
-                        .type = TPM2_ALG_ECC,
-                        .nameAlg = TPM2_ALG_SHA256,
-                        .objectAttributes = TPMA_OBJECT_RESTRICTED|TPMA_OBJECT_DECRYPT|TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT|TPMA_OBJECT_SENSITIVEDATAORIGIN|TPMA_OBJECT_USERWITHAUTH,
-                        .parameters.eccDetail = {
-                                .symmetric = {
-                                        .algorithm = TPM2_ALG_AES,
-                                        .keyBits.aes = 128,
-                                        .mode.aes = TPM2_ALG_CFB,
-                                },
-                                .scheme.scheme = TPM2_ALG_NULL,
-                                .curveID = TPM2_ECC_NIST_P256,
-                                .kdf.scheme = TPM2_ALG_NULL,
-                        },
-                },
-        };
-        static const TPM2B_PUBLIC primary_template_rsa = {
-                .size = sizeof(TPMT_PUBLIC),
-                .publicArea = {
-                        .type = TPM2_ALG_RSA,
-                        .nameAlg = TPM2_ALG_SHA256,
-                        .objectAttributes = TPMA_OBJECT_RESTRICTED|TPMA_OBJECT_DECRYPT|TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT|TPMA_OBJECT_SENSITIVEDATAORIGIN|TPMA_OBJECT_USERWITHAUTH,
-                        .parameters.rsaDetail = {
-                                .symmetric = {
-                                        .algorithm = TPM2_ALG_AES,
-                                        .keyBits.aes = 128,
-                                        .mode.aes = TPM2_ALG_CFB,
-                                },
-                                .scheme.scheme = TPM2_ALG_NULL,
-                                .keyBits = 2048,
-                        },
-                },
-        };
-
         static const TPML_PCR_SELECTION creation_pcr = {};
+        TPM2B_PUBLIC primary_template = { .size = sizeof(TPMT_PUBLIC), };
         TSS2_RC rc;
         usec_t ts;
         int r;
@@ -456,6 +515,7 @@ static int tpm2_make_primary(
                 return r;
 
         if (IN_SET(alg, 0, TPM2_ALG_ECC)) {
+                primary_template.publicArea = TPM2_LEGACY_TPMT_ECC;
                 rc = sym_Esys_CreatePrimary(
                                 c->esys_context,
                                 ESYS_TR_RH_OWNER,
@@ -463,7 +523,7 @@ static int tpm2_make_primary(
                                 ESYS_TR_NONE,
                                 ESYS_TR_NONE,
                                 &primary_sensitive,
-                                &primary_template_ecc,
+                                &primary_template,
                                 NULL,
                                 &creation_pcr,
                                 &primary->esys_handle,
@@ -485,6 +545,7 @@ static int tpm2_make_primary(
         }
 
         if (IN_SET(alg, 0, TPM2_ALG_RSA)) {
+                primary_template.publicArea = TPM2_LEGACY_TPMT_RSA;
                 rc = sym_Esys_CreatePrimary(
                                 c->esys_context,
                                 ESYS_TR_RH_OWNER,
@@ -492,7 +553,7 @@ static int tpm2_make_primary(
                                 ESYS_TR_NONE,
                                 ESYS_TR_NONE,
                                 &primary_sensitive,
-                                &primary_template_rsa,
+                                &primary_template,
                                 NULL,
                                 &creation_pcr,
                                 &primary->esys_handle,
@@ -1240,11 +1301,7 @@ static int tpm2_make_encryption_session(
                 const Tpm2Handle *bind_key,
                 Tpm2Handle **ret_session) {
 
-        static const TPMT_SYM_DEF symmetric = {
-                .algorithm = TPM2_ALG_AES,
-                .keyBits.aes = 128,
-                .mode.aes = TPM2_ALG_CFB,
-        };
+        static const TPMT_SYM_DEF symmetric = TPM2_SRK_SYMMETRIC_AES;
         const TPMA_SESSION sessionAttributes = TPMA_SESSION_DECRYPT | TPMA_SESSION_ENCRYPT |
                         TPMA_SESSION_CONTINUESESSION;
         TSS2_RC rc;
@@ -1301,11 +1358,7 @@ static int tpm2_make_policy_session(
                 bool trial,
                 Tpm2Handle **ret_session) {
 
-        static const TPMT_SYM_DEF symmetric = {
-                .algorithm = TPM2_ALG_AES,
-                .keyBits.aes = 128,
-                .mode.aes = TPM2_ALG_CFB,
-        };
+        static const TPMT_SYM_DEF symmetric = TPM2_SRK_SYMMETRIC_AES;
         TPM2_SE session_type = trial ? TPM2_SE_TRIAL : TPM2_SE_POLICY;
         TSS2_RC rc;
         int r;
