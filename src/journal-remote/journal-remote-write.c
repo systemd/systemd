@@ -45,7 +45,7 @@ Writer* writer_new(RemoteServer *server) {
         } else {
                 r = path_extract_directory(server->output, &w->output);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to find directory of file %s", server->output);
+                        log_error_errno(r, "Failed to find directory of file \"%s\": %m", server->output);
                         return NULL;
                 }
         }
