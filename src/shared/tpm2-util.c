@@ -28,6 +28,7 @@ static void *libtss2_rc_dl = NULL;
 static void *libtss2_mu_dl = NULL;
 
 TSS2_RC (*sym_Esys_Create)(ESYS_CONTEXT *esysContext, ESYS_TR parentHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE_CREATE *inSensitive, const TPM2B_PUBLIC *inPublic, const TPM2B_DATA *outsideInfo, const TPML_PCR_SELECTION *creationPCR, TPM2B_PRIVATE **outPrivate, TPM2B_PUBLIC **outPublic, TPM2B_CREATION_DATA **creationData, TPM2B_DIGEST **creationHash, TPMT_TK_CREATION **creationTicket) = NULL;
+TSS2_RC (*sym_Esys_CreateLoaded)(ESYS_CONTEXT *esysContext, ESYS_TR parentHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE_CREATE *inSensitive, const TPM2B_TEMPLATE *inPublic, ESYS_TR *objectHandle, TPM2B_PRIVATE **outPrivate, TPM2B_PUBLIC **outPublic) = NULL;
 TSS2_RC (*sym_Esys_CreatePrimary)(ESYS_CONTEXT *esysContext, ESYS_TR primaryHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE_CREATE *inSensitive, const TPM2B_PUBLIC *inPublic, const TPM2B_DATA *outsideInfo, const TPML_PCR_SELECTION *creationPCR, ESYS_TR *objectHandle, TPM2B_PUBLIC **outPublic, TPM2B_CREATION_DATA **creationData, TPM2B_DIGEST **creationHash, TPMT_TK_CREATION **creationTicket) = NULL;
 void (*sym_Esys_Finalize)(ESYS_CONTEXT **context) = NULL;
 TSS2_RC (*sym_Esys_FlushContext)(ESYS_CONTEXT *esysContext, ESYS_TR flushHandle) = NULL;
@@ -69,6 +70,7 @@ int dlopen_tpm2(void) {
         r = dlopen_many_sym_or_warn(
                         &libtss2_esys_dl, "libtss2-esys.so.0", LOG_DEBUG,
                         DLSYM_ARG(Esys_Create),
+                        DLSYM_ARG(Esys_CreateLoaded),
                         DLSYM_ARG(Esys_CreatePrimary),
                         DLSYM_ARG(Esys_Finalize),
                         DLSYM_ARG(Esys_FlushContext),
@@ -374,126 +376,194 @@ static int tpm2_credit_random(ESYS_CONTEXT *c) {
         return 0;
 }
 
-static int tpm2_make_primary(
+/* These template values are recommended by the "TCG TPM v2.0 Provisioning Guidance" document in section
+ * 7.5.1 "Storage Primary Key (SRK) Templates", which reference the "TCG EK Credential Profile for TPM Family
+ * 2.0" document.  Note that the EK Credential Profile version 2.0 provides only one RSA template and one ECC
+ * template, in section 2.1.5 "Default EK Public Area Template", while EK Credential Profile version 2.4
+ * provides many templates in Appendix B "Default EK Templates (algorithm-specific)".
+ *
+ * The templates below are based on the EK Credential Profile version 2.0 templates. */
+#define SRK_ATTRIBUTES (TPMA_OBJECT_RESTRICTED|TPMA_OBJECT_DECRYPT|TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT|TPMA_OBJECT_SENSITIVEDATAORIGIN|TPMA_OBJECT_USERWITHAUTH)
+#define SYMMETRIC_AES                           \
+        {                                       \
+                .algorithm = TPM2_ALG_AES,      \
+                .keyBits.aes = 128,             \
+                .mode.aes = TPM2_ALG_CFB,       \
+        }
+static const TPMT_PUBLIC SRK_template_ecc = {
+        .type = TPM2_ALG_ECC,
+        .nameAlg = TPM2_ALG_SHA256,
+        .objectAttributes = SRK_ATTRIBUTES,
+        .parameters.eccDetail = {
+                .symmetric = SYMMETRIC_AES,
+                .scheme.scheme = TPM2_ALG_NULL,
+                .curveID = TPM2_ECC_NIST_P256,
+                .kdf.scheme = TPM2_ALG_NULL,
+        },
+};
+static const TPMT_PUBLIC SRK_template_rsa = {
+        .type = TPM2_ALG_RSA,
+        .nameAlg = TPM2_ALG_SHA256,
+        .objectAttributes = SRK_ATTRIBUTES,
+        .parameters.rsaDetail = {
+                .symmetric = SYMMETRIC_AES,
+                .scheme.scheme = TPM2_ALG_NULL,
+                .keyBits = 2048,
+        },
+};
+
+static int tpm2_create_key_from_template(
                 ESYS_CONTEXT *c,
-                ESYS_TR *ret_primary,
+                ESYS_TR parent,
+                ESYS_TR session,
+                const TPMT_PUBLIC *public_template,
+                const TPM2B_SENSITIVE_CREATE *sensitive,
+                TPM2B_PUBLIC **ret_public,
+                TPM2B_PRIVATE **ret_private,
+                ESYS_TR *ret_handle) {
+
+        void local_flush_context(ESYS_TR *handle) { tpm2_flush_context_verbose(c, *handle); }
+        _cleanup_(local_flush_context) ESYS_TR handle = ESYS_TR_NONE;
+        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
+        _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
+        static const TPM2B_SENSITIVE_CREATE sensitive_null = {};
+        const char *primary_str = parent == ESYS_TR_RH_OWNER ? "primary " : "";
+        usec_t ts;
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+        assert(public_template);
+
+        log_debug("Creating key on TPM.");
+
+        ts = now(CLOCK_MONOTONIC);
+
+        /* Need to zero the unique section of template. */
+        TPMT_PUBLIC template = *public_template;
+        zero(template.unique);
+
+        TPM2B_TEMPLATE tpm2b_template = {};
+        r = tpm2_marshal("public key template", &template, tpm2b_template.buffer,
+                         sizeof(tpm2b_template.buffer), &tpm2b_template.size);
+        if (r < 0)
+                return r;
+
+        rc = sym_Esys_CreateLoaded(
+                        c,
+                        parent,
+                        session,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        sensitive ?: &sensitive_null,
+                        &tpm2b_template,
+                        &handle,
+                        &private,
+                        &public);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to generate %s %skey in TPM: %s",
+                                       strna(tpm2_alg_to_string(public_template->type)), primary_str, sym_Tss2_RC_Decode(rc));
+
+        log_debug("Successfully created %s %skey on TPM in %s.",
+                  strna(tpm2_alg_to_string(public_template->type)), primary_str, FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - ts, USEC_PER_MSEC));
+
+        if (ret_public)
+                *ret_public = TAKE_PTR(public);
+        if (ret_private)
+                *ret_private = TAKE_PTR(private);
+        if (ret_handle)
+                *ret_handle = TAKE_ESYS_TR(handle);
+
+        return 0;
+}
+
+static int tpm2_create_key(
+                ESYS_CONTEXT *c,
+                ESYS_TR parent,
+                ESYS_TR session,
                 TPMI_ALG_PUBLIC alg,
+                TPMA_OBJECT attributes,
+                const TPM2B_DIGEST *policy,
+                TPM2B_PUBLIC **ret_public,
+                TPM2B_PRIVATE **ret_private,
+                ESYS_TR *ret_handle,
                 TPMI_ALG_PUBLIC *ret_alg) {
 
-        static const TPM2B_SENSITIVE_CREATE primary_sensitive = {};
-        static const TPM2B_PUBLIC primary_template_ecc = {
-                .size = sizeof(TPMT_PUBLIC),
-                .publicArea = {
-                        .type = TPM2_ALG_ECC,
-                        .nameAlg = TPM2_ALG_SHA256,
-                        .objectAttributes = TPMA_OBJECT_RESTRICTED|TPMA_OBJECT_DECRYPT|TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT|TPMA_OBJECT_SENSITIVEDATAORIGIN|TPMA_OBJECT_USERWITHAUTH,
-                        .parameters.eccDetail = {
-                                .symmetric = {
-                                        .algorithm = TPM2_ALG_AES,
-                                        .keyBits.aes = 128,
-                                        .mode.aes = TPM2_ALG_CFB,
-                                },
-                                .scheme.scheme = TPM2_ALG_NULL,
-                                .curveID = TPM2_ECC_NIST_P256,
-                                .kdf.scheme = TPM2_ALG_NULL,
-                        },
-                },
-        };
-        static const TPM2B_PUBLIC primary_template_rsa = {
-                .size = sizeof(TPMT_PUBLIC),
-                .publicArea = {
-                        .type = TPM2_ALG_RSA,
-                        .nameAlg = TPM2_ALG_SHA256,
-                        .objectAttributes = TPMA_OBJECT_RESTRICTED|TPMA_OBJECT_DECRYPT|TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT|TPMA_OBJECT_SENSITIVEDATAORIGIN|TPMA_OBJECT_USERWITHAUTH,
-                        .parameters.rsaDetail = {
-                                .symmetric = {
-                                        .algorithm = TPM2_ALG_AES,
-                                        .keyBits.aes = 128,
-                                        .mode.aes = TPM2_ALG_CFB,
-                                },
-                                .scheme.scheme = TPM2_ALG_NULL,
-                                .keyBits = 2048,
-                        },
-                },
-        };
-
-        static const TPML_PCR_SELECTION creation_pcr = {};
-        ESYS_TR primary = ESYS_TR_NONE;
-        TSS2_RC rc;
-        usec_t ts;
-
-        log_debug("Creating primary key on TPM.");
+        int r;
 
         /* So apparently not all TPM2 devices support ECC. ECC is generally preferably, because it's so much
          * faster, noticeably so (~10s vs. ~240ms on my system). Hence, unless explicitly configured let's
          * try to use ECC first, and if that does not work, let's fall back to RSA. */
+        const TPMT_PUBLIC *templates[] = { &SRK_template_ecc, &SRK_template_rsa };
+        for (unsigned i = 0; i < ELEMENTSOF(templates); i++) {
+                TPMT_PUBLIC template = *templates[i];
 
-        ts = now(CLOCK_MONOTONIC);
+                if (alg != 0 && alg != template.type)
+                        continue;
 
-        if (IN_SET(alg, 0, TPM2_ALG_ECC)) {
-                rc = sym_Esys_CreatePrimary(
+                if (attributes)
+                        template.objectAttributes = attributes;
+                if (policy)
+                        template.authPolicy = *policy;
+
+                r = tpm2_create_key_from_template(
                                 c,
-                                ESYS_TR_RH_OWNER,
-                                ESYS_TR_PASSWORD,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                &primary_sensitive,
-                                &primary_template_ecc,
-                                NULL,
-                                &creation_pcr,
-                                &primary,
-                                NULL,
-                                NULL,
-                                NULL,
-                                NULL);
-
-                if (rc != TSS2_RC_SUCCESS) {
-                        if (alg != 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                                       "Failed to generate ECC primary key in TPM: %s", sym_Tss2_RC_Decode(rc));
-
-                        log_debug("Failed to generate ECC primary key in TPM, trying RSA: %s", sym_Tss2_RC_Decode(rc));
-                } else {
-                        log_debug("Successfully created ECC primary key on TPM.");
-                        alg = TPM2_ALG_ECC;
+                                parent,
+                                session,
+                                &template,
+                                /* sensitive= */ NULL,
+                                ret_public,
+                                ret_private,
+                                ret_handle);
+                if (r == 0) {
+                        if (ret_alg)
+                                *ret_alg = template.type;
+                        return 0;
                 }
         }
 
-        if (IN_SET(alg, 0, TPM2_ALG_RSA)) {
-                rc = sym_Esys_CreatePrimary(
-                                c,
-                                ESYS_TR_RH_OWNER,
-                                ESYS_TR_PASSWORD,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                &primary_sensitive,
-                                &primary_template_rsa,
-                                NULL,
-                                &creation_pcr,
-                                &primary,
-                                NULL,
-                                NULL,
-                                NULL,
-                                NULL);
-                if (rc != TSS2_RC_SUCCESS)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Failed to generate RSA primary key in TPM: %s", sym_Tss2_RC_Decode(rc));
-                else if (alg == 0) {
-                        log_notice("TPM2 chip apparently does not support ECC primary keys, falling back to RSA. "
-                                   "This likely means TPM2 operations will be relatively slow, please be patient.");
-                        alg = TPM2_ALG_RSA;
-                }
+        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to generate any type key in TPM.");
+}
 
-                log_debug("Successfully created RSA primary key on TPM.");
-        }
+static int tpm2_create_primary_from_template(
+                struct tpm2_context *c,
+                const TPMT_PUBLIC *public_template,
+                const TPM2B_SENSITIVE_CREATE *sensitive,
+                TPM2B_PUBLIC **ret_public,
+                TPM2B_PRIVATE **ret_private,
+                ESYS_TR *ret_handle) {
 
-        log_debug("Generating primary key on TPM2 took %s.", FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - ts, USEC_PER_MSEC));
+        return tpm2_create_key_from_template(
+                        c,
+                        ESYS_TR_RH_OWNER,
+                        ESYS_TR_PASSWORD,
+                        public_template,
+                        sensitive,
+                        ret_public,
+                        ret_private,
+                        ret_handle);
+}
 
-        *ret_primary = primary;
-        if (ret_alg)
-                *ret_alg = alg;
+static int tpm2_create_primary(
+                ESYS_CONTEXT *c,
+                TPMI_ALG_PUBLIC alg,
+                TPM2B_PUBLIC **ret_public,
+                TPM2B_PRIVATE **ret_private,
+                ESYS_TR *ret_handle,
+                TPMI_ALG_PUBLIC *ret_alg) {
 
-        return 0;
+        return tpm2_create_key(
+                        c,
+                        ESYS_TR_RH_OWNER,
+                        ESYS_TR_PASSWORD,
+                        alg,
+                        SRK_ATTRIBUTES,
+                        /* policy= */ NULL,
+                        ret_public,
+                        ret_private,
+                        ret_handle,
+                        ret_alg);
 }
 
 /* Utility functions for TPMS_PCR_SELECTION. */
@@ -1189,11 +1259,7 @@ static int tpm2_make_encryption_session(
                 ESYS_TR *ret_session) {
 
         void local_flush_context(ESYS_TR *handle) { tpm2_flush_context_verbose(c, *handle); }
-        static const TPMT_SYM_DEF symmetric = {
-                .algorithm = TPM2_ALG_AES,
-                .keyBits.aes = 128,
-                .mode.aes = TPM2_ALG_CFB,
-        };
+        TPMT_SYM_DEF symmetric = SYMMETRIC_AES;
         const TPMA_SESSION sessionAttributes = TPMA_SESSION_DECRYPT | TPMA_SESSION_ENCRYPT |
                         TPMA_SESSION_CONTINUESESSION;
         _cleanup_(local_flush_context) ESYS_TR session = ESYS_TR_NONE;
@@ -1522,13 +1588,9 @@ static int tpm2_make_policy_session(
                 bool trial,
                 ESYS_TR *ret_session) {
 
-        static const TPMT_SYM_DEF symmetric = {
-                .algorithm = TPM2_ALG_AES,
-                .keyBits.aes = 128,
-                .mode.aes = TPM2_ALG_CFB,
-        };
         TPM2_SE session_type = trial ? TPM2_SE_TRIAL : TPM2_SE_POLICY;
         ESYS_TR session = ESYS_TR_NONE;
+        TPMT_SYM_DEF symmetric = SYMMETRIC_AES;
         TSS2_RC rc;
 
         assert(c);
@@ -1945,7 +2007,13 @@ int tpm2_seal(const char *device,
                 }
         }
 
-        r = tpm2_make_primary(c.esys_context, &primary, 0, &primary_alg);
+        r = tpm2_create_primary(
+                        c.esys_context,
+                        /* alg= */ 0,
+                        /* ret_public= */ NULL,
+                        /* ret_private= */ NULL,
+                        &primary,
+                        &primary_alg);
         if (r < 0)
                 return r;
 
@@ -2165,7 +2233,13 @@ int tpm2_unseal(const char *device,
         if (r < 0)
                 return r;
 
-        r = tpm2_make_primary(c.esys_context, &primary, primary_alg, NULL);
+        r = tpm2_create_primary(
+                        c.esys_context,
+                        primary_alg,
+                        /* ret_public= */ NULL,
+                        /* ret_private= */ NULL,
+                        &primary,
+                        /* ret_alg= */ NULL);
         if (r < 0)
                 return r;
 
