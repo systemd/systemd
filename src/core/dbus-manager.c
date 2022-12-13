@@ -1451,6 +1451,27 @@ int verify_run_space_and_log(const char *message) {
         return 0;
 }
 
+static void log_reload_caller(sd_bus_message *message, Manager *manager) {
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        Unit *caller;
+        pid_t pid;
+
+        assert(message);
+        assert(manager);
+
+        if (sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds) < 0)
+                return;
+
+        if (sd_bus_creds_get_pid(creds, &pid) < 0)
+                return;
+
+        caller = manager_get_unit_by_pid(manager, pid);
+        if (!caller)
+                log_info("Reloading requested by process '"PID_FMT"'...", pid);
+        else
+                log_info("Reloading requested by unit '%s'...", caller->id);
+}
+
 static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = ASSERT_PTR(userdata);
         int r;
@@ -1471,6 +1492,12 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
+        /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
+        if (!ratelimit_below(&m->reload_ratelimit))
+                return sd_bus_error_setf(error,
+                                         SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                         "Reload() request rejected due to too frequent reloading.");
+
         /* Instead of sending the reply back right away, we just
          * remember that we need to and then send it after the reload
          * is finished. That way the caller knows when the reload
@@ -1480,6 +1507,9 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
         r = sd_bus_message_new_method_return(message, &m->pending_reload_message);
         if (r < 0)
                 return r;
+
+        /* Write a log message noting the unit or process who requested the Reload() */
+        log_reload_caller(message, m);
 
         m->objective = MANAGER_RELOAD;
 
