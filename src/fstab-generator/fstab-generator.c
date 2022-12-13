@@ -671,12 +671,12 @@ static int parse_fstab(bool initrd) {
 
                 if (path_is_read_only_fs("/sys") > 0) {
                         if (streq(what, "sysfs")) {
-                                log_info("Running in a container, ignoring fstab entry for %s.", what);
+                                log_info("/sys/ is read-only (running in a container?), ignoring fstab entry for %s.", me->mnt_dir);
                                 continue;
                         }
 
                         if (is_device_path(what)) {
-                                log_info("Running in a container, ignoring fstab device entry for %s.", what);
+                                log_info("/sys/ is read-only (running in a container?), ignoring fstab device entry for %s.", what);
                                 continue;
                         }
                 }
