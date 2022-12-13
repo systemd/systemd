@@ -208,8 +208,10 @@ int locale_context_save(LocaleContext *c, char ***ret_set, char ***ret_unset) {
         if (r < 0)
                 return r;
 
-        if (stat("/etc/locale.conf", &st) >= 0)
-                c->mtime = timespec_load(&st.st_mtim);
+        if (stat("/etc/locale.conf", &st) < 0)
+                return -errno;
+
+        c->mtime = timespec_load(&st.st_mtim);
 
         if (ret_set)
                 *ret_set = TAKE_PTR(set);
