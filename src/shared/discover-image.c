@@ -27,6 +27,7 @@
 #include "hashmap.h"
 #include "hostname-setup.h"
 #include "id128-util.h"
+#include "initrd-util.h"
 #include "lockfile-util.h"
 #include "log.h"
 #include "loop-util.h"
@@ -64,6 +65,20 @@ static const char* const image_search_path[_IMAGE_CLASS_MAX] = {
                             "/usr/local/lib/extensions\0"
                             "/usr/lib/extensions\0",
 };
+
+/* Inside the initrd, use a slightly different set of search path (i.e. include .extra/sysext in extension
+ * search dir) */
+static const char* const image_search_path_initrd[_IMAGE_CLASS_MAX] = {
+        [IMAGE_MACHINE]   = image_search_path[IMAGE_MACHINE],
+        [IMAGE_PORTABLE]  = image_search_path[IMAGE_PORTABLE],
+        [IMAGE_EXTENSION] = "/etc/extensions\0"             /* only place symlinks here */
+                            "/run/extensions\0"             /* and here too */
+                            "/var/lib/extensions\0"         /* the main place for images */
+                            "/usr/local/lib/extensions\0"
+                            "/usr/lib/extensions\0"
+                            "/.extra/sysext\0"              /* put sysext picked up by systemd-stub last, since not trusted */
+};
+
 
 static Image *image_free(Image *i) {
         assert(i);
@@ -431,6 +446,13 @@ static int image_make(
         return -EMEDIUMTYPE;
 }
 
+static const char *pick_image_search_path(ImageClass class) {
+        if (class < 0 || class >= _IMAGE_CLASS_MAX)
+                return NULL;
+
+        return in_initrd() ? image_search_path_initrd[class] : image_search_path[class];
+}
+
 int image_find(ImageClass class,
                const char *name,
                const char *root,
@@ -446,7 +468,7 @@ int image_find(ImageClass class,
         if (!image_name_is_valid(name))
                 return -ENOENT;
 
-        NULSTR_FOREACH(path, image_search_path[class]) {
+        NULSTR_FOREACH(path, pick_image_search_path(class)) {
                 _cleanup_free_ char *resolved = NULL;
                 _cleanup_closedir_ DIR *d = NULL;
                 struct stat st;
@@ -545,7 +567,7 @@ int image_discover(
         assert(class < _IMAGE_CLASS_MAX);
         assert(h);
 
-        NULSTR_FOREACH(path, image_search_path[class]) {
+        NULSTR_FOREACH(path, pick_image_search_path(class)) {
                 _cleanup_free_ char *resolved = NULL;
                 _cleanup_closedir_ DIR *d = NULL;
 
@@ -1273,7 +1295,7 @@ bool image_in_search_path(
 
         assert(image);
 
-        NULSTR_FOREACH(path, image_search_path[class]) {
+        NULSTR_FOREACH(path, pick_image_search_path(class)) {
                 const char *p, *q;
                 size_t k;
 
