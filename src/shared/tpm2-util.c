@@ -30,6 +30,7 @@ static void *libtss2_mu_dl = NULL;
 
 TSS2_RC (*sym_Esys_Create)(ESYS_CONTEXT *esysContext, ESYS_TR parentHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE_CREATE *inSensitive, const TPM2B_PUBLIC *inPublic, const TPM2B_DATA *outsideInfo, const TPML_PCR_SELECTION *creationPCR, TPM2B_PRIVATE **outPrivate, TPM2B_PUBLIC **outPublic, TPM2B_CREATION_DATA **creationData, TPM2B_DIGEST **creationHash, TPMT_TK_CREATION **creationTicket) = NULL;
 TSS2_RC (*sym_Esys_CreatePrimary)(ESYS_CONTEXT *esysContext, ESYS_TR primaryHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE_CREATE *inSensitive, const TPM2B_PUBLIC *inPublic, const TPM2B_DATA *outsideInfo, const TPML_PCR_SELECTION *creationPCR, ESYS_TR *objectHandle, TPM2B_PUBLIC **outPublic, TPM2B_CREATION_DATA **creationData, TPM2B_DIGEST **creationHash, TPMT_TK_CREATION **creationTicket) = NULL;
+TSS2_RC (*sym_Esys_Duplicate)(ESYS_CONTEXT *esysContext, ESYS_TR objectHandle, ESYS_TR newParentHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_DATA *encryptionKeyIn, const TPMT_SYM_DEF_OBJECT *symmetricAlg, TPM2B_DATA **encryptionKeyOut, TPM2B_PRIVATE **duplicate, TPM2B_ENCRYPTED_SECRET **outSymSeed) = NULL;
 void (*sym_Esys_Finalize)(ESYS_CONTEXT **context) = NULL;
 TSS2_RC (*sym_Esys_FlushContext)(ESYS_CONTEXT *esysContext, ESYS_TR flushHandle) = NULL;
 void (*sym_Esys_Free)(void *ptr) = NULL;
@@ -72,6 +73,7 @@ int dlopen_tpm2(void) {
                         &libtss2_esys_dl, "libtss2-esys.so.0", LOG_DEBUG,
                         DLSYM_ARG(Esys_Create),
                         DLSYM_ARG(Esys_CreatePrimary),
+                        DLSYM_ARG(Esys_Duplicate),
                         DLSYM_ARG(Esys_Finalize),
                         DLSYM_ARG(Esys_FlushContext),
                         DLSYM_ARG(Esys_Free),
@@ -906,6 +908,48 @@ static int tpm2_load_external_key(
                                        "Failed to load public key into TPM: %s", sym_Tss2_RC_Decode(rc));
 
         *ret_handle = TAKE_PTR(handle);
+
+        return 0;
+}
+
+static int tpm2_duplicate_key(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                const Tpm2Handle *key,
+                const Tpm2Handle *new_parent,
+                TPM2B_PRIVATE **ret_dup,
+                TPM2B_ENCRYPTED_SECRET **ret_seed) {
+
+        _cleanup_(Esys_Freep) TPM2B_PRIVATE *dup = NULL;
+        _cleanup_(Esys_Freep) TPM2B_ENCRYPTED_SECRET *seed = NULL;
+        TSS2_RC rc;
+
+        assert(c);
+        assert(key);
+        assert(new_parent);
+        assert(ret_dup);
+        assert(ret_seed);
+
+        log_debug("Duplicating key to external TPM.");
+
+        rc = sym_Esys_Duplicate(
+                        c->esys_context,
+                        key->esys_handle,
+                        new_parent->esys_handle,
+                        session ? session->esys_handle : ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        NULL,
+                        &TPM2_SYMMETRIC_NULL,
+                        NULL,
+                        &dup,
+                        &seed);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to duplicate key: %s", sym_Tss2_RC_Decode(rc));
+
+        *ret_dup = TAKE_PTR(dup);
+        *ret_seed = TAKE_PTR(seed);
 
         return 0;
 }
