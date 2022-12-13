@@ -62,55 +62,55 @@ typedef struct MountPoint {
 #endif
 
 static const MountPoint mount_table[] = {
-        { "proc",        "/proc",                     "proc",       NULL,                                      MS_NOSUID|MS_NOEXEC|MS_NODEV,
+        { "proc",        "/proc",                     "proc",       NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
           NULL,          MNT_FATAL|MNT_IN_CONTAINER|MNT_FOLLOW_SYMLINK },
-        { "sysfs",       "/sys",                      "sysfs",      NULL,                                      MS_NOSUID|MS_NOEXEC|MS_NODEV,
+        { "sysfs",       "/sys",                      "sysfs",      NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
           NULL,          MNT_FATAL|MNT_IN_CONTAINER },
-        { "devtmpfs",    "/dev",                      "devtmpfs",   "mode=755" TMPFS_LIMITS_DEV,               MS_NOSUID|MS_STRICTATIME,
+        { "devtmpfs",    "/dev",                      "devtmpfs",   "mode=0755" TMPFS_LIMITS_DEV,               MS_NOSUID|MS_STRICTATIME,
           NULL,          MNT_FATAL|MNT_IN_CONTAINER },
-        { "securityfs",  "/sys/kernel/security",      "securityfs", NULL,                                      MS_NOSUID|MS_NOEXEC|MS_NODEV,
+        { "securityfs",  "/sys/kernel/security",      "securityfs", NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
           NULL,          MNT_NONE                   },
 #if ENABLE_SMACK
-        { "smackfs",     "/sys/fs/smackfs",           "smackfs",    "smackfsdef=*",                            MS_NOSUID|MS_NOEXEC|MS_NODEV,
+        { "smackfs",     "/sys/fs/smackfs",           "smackfs",    "smackfsdef=*",                             MS_NOSUID|MS_NOEXEC|MS_NODEV,
           mac_smack_use, MNT_FATAL                  },
-        { "tmpfs",       "/dev/shm",                  "tmpfs",      "mode=1777,smackfsroot=*",                 MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+        { "tmpfs",       "/dev/shm",                  "tmpfs",      "mode=01777,smackfsroot=*",                 MS_NOSUID|MS_NODEV|MS_STRICTATIME,
           mac_smack_use, MNT_FATAL                  },
 #endif
-        { "tmpfs",       "/dev/shm",                  "tmpfs",      "mode=1777",                               MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+        { "tmpfs",       "/dev/shm",                  "tmpfs",      "mode=01777",                               MS_NOSUID|MS_NODEV|MS_STRICTATIME,
           NULL,          MNT_FATAL|MNT_IN_CONTAINER },
-        { "devpts",      "/dev/pts",                  "devpts",     "mode=620,gid=" STRINGIFY(TTY_GID),        MS_NOSUID|MS_NOEXEC,
+        { "devpts",      "/dev/pts",                  "devpts",     "mode=0620,gid=" STRINGIFY(TTY_GID),        MS_NOSUID|MS_NOEXEC,
           NULL,          MNT_IN_CONTAINER           },
 #if ENABLE_SMACK
-        { "tmpfs",       "/run",                      "tmpfs",      "mode=755,smackfsroot=*" TMPFS_LIMITS_RUN, MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+        { "tmpfs",       "/run",                      "tmpfs",      "mode=0755,smackfsroot=*" TMPFS_LIMITS_RUN, MS_NOSUID|MS_NODEV|MS_STRICTATIME,
           mac_smack_use, MNT_FATAL                  },
 #endif
-        { "tmpfs",       "/run",                      "tmpfs",      "mode=755" TMPFS_LIMITS_RUN,               MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+        { "tmpfs",       "/run",                      "tmpfs",      "mode=0755" TMPFS_LIMITS_RUN,               MS_NOSUID|MS_NODEV|MS_STRICTATIME,
           NULL,          MNT_FATAL|MNT_IN_CONTAINER },
-        { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    "nsdelegate,memory_recursiveprot",         MS_NOSUID|MS_NOEXEC|MS_NODEV,
+        { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    "nsdelegate,memory_recursiveprot",          MS_NOSUID|MS_NOEXEC|MS_NODEV,
           cg_is_unified_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
-        { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    "nsdelegate",                              MS_NOSUID|MS_NOEXEC|MS_NODEV,
+        { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    "nsdelegate",                               MS_NOSUID|MS_NOEXEC|MS_NODEV,
           cg_is_unified_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
-        { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    NULL,                                      MS_NOSUID|MS_NOEXEC|MS_NODEV,
+        { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
           cg_is_unified_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
-        { "tmpfs",       "/sys/fs/cgroup",            "tmpfs",      "mode=755" TMPFS_LIMITS_SYS_FS_CGROUP,     MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
+        { "tmpfs",       "/sys/fs/cgroup",            "tmpfs",      "mode=0755" TMPFS_LIMITS_SYS_FS_CGROUP,     MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
           cg_is_legacy_wanted, MNT_FATAL|MNT_IN_CONTAINER },
-        { "cgroup2",     "/sys/fs/cgroup/unified",    "cgroup2",    "nsdelegate",                              MS_NOSUID|MS_NOEXEC|MS_NODEV,
+        { "cgroup2",     "/sys/fs/cgroup/unified",    "cgroup2",    "nsdelegate",                               MS_NOSUID|MS_NOEXEC|MS_NODEV,
           cg_is_hybrid_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
-        { "cgroup2",     "/sys/fs/cgroup/unified",    "cgroup2",    NULL,                                      MS_NOSUID|MS_NOEXEC|MS_NODEV,
+        { "cgroup2",     "/sys/fs/cgroup/unified",    "cgroup2",    NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
           cg_is_hybrid_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
-        { "cgroup",      "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd,xattr",                 MS_NOSUID|MS_NOEXEC|MS_NODEV,
+        { "cgroup",      "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd,xattr",                  MS_NOSUID|MS_NOEXEC|MS_NODEV,
           cg_is_legacy_wanted, MNT_IN_CONTAINER     },
-        { "cgroup",      "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd",                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
+        { "cgroup",      "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd",                        MS_NOSUID|MS_NOEXEC|MS_NODEV,
           cg_is_legacy_wanted, MNT_FATAL|MNT_IN_CONTAINER },
 #if ENABLE_PSTORE
-        { "pstore",      "/sys/fs/pstore",            "pstore",     NULL,                                      MS_NOSUID|MS_NOEXEC|MS_NODEV,
+        { "pstore",      "/sys/fs/pstore",            "pstore",     NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
           NULL,          MNT_NONE                   },
 #endif
 #if ENABLE_EFI
-        { "efivarfs",    "/sys/firmware/efi/efivars", "efivarfs",   NULL,                                      MS_NOSUID|MS_NOEXEC|MS_NODEV,
+        { "efivarfs",    "/sys/firmware/efi/efivars", "efivarfs",   NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
           is_efi_boot,   MNT_NONE                   },
 #endif
-        { "bpf",         "/sys/fs/bpf",               "bpf",        "mode=700",                                MS_NOSUID|MS_NOEXEC|MS_NODEV,
+        { "bpf",         "/sys/fs/bpf",               "bpf",        "mode=0700",                                MS_NOSUID|MS_NOEXEC|MS_NODEV,
           NULL,          MNT_NONE,                  },
 };
 
@@ -356,7 +356,9 @@ int mount_cgroup_controllers(void) {
         }
 
         /* Now that we mounted everything, let's make the tmpfs the cgroup file systems are mounted into read-only. */
-        (void) mount_nofollow("tmpfs", "/sys/fs/cgroup", "tmpfs", MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME|MS_RDONLY, "mode=755" TMPFS_LIMITS_SYS_FS_CGROUP);
+        (void) mount_nofollow("tmpfs", "/sys/fs/cgroup", "tmpfs",
+                              MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME|MS_RDONLY,
+                              "mode=0755" TMPFS_LIMITS_SYS_FS_CGROUP);
 
         return 0;
 }

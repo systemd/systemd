@@ -2444,7 +2444,7 @@ sub udev_setup {
         rmdir($udev_tmpfs);
         mkdir($udev_tmpfs) || die "unable to create udev_tmpfs: $udev_tmpfs\n";
 
-        if (system("mount", "-o", "rw,mode=755,nosuid,noexec", "-t", "tmpfs", "tmpfs", $udev_tmpfs)) {
+        if (system("mount", "-o", "rw,mode=0755,nosuid,noexec", "-t", "tmpfs", "tmpfs", $udev_tmpfs)) {
                 warn "unable to mount tmpfs";
                 return 0;
         }
