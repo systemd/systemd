@@ -1113,8 +1113,8 @@ static int mount_procfs(const MountEntry *m, const NamespaceInfo *ns_info) {
                  * added in the same commit: if it's supported it is thus also per-instance. */
 
                 const char *hpv = ns_info->protect_proc == PROTECT_PROC_DEFAULT ?
-                                "off" :
-                                protect_proc_to_string(ns_info->protect_proc);
+                                  "off" :
+                                  protect_proc_to_string(ns_info->protect_proc);
 
                 /* hidepid= support was added in 5.8, so we can use fsconfig()/fsopen() (which were added in
                  * 5.2) to check if hidepid= is supported. This avoids a noisy dmesg log by the kernel when
@@ -1256,8 +1256,8 @@ static int mount_image(const MountEntry *m, const char *root_directory) {
         }
 
         r = verity_dissect_and_mount(
-                                /* src_fd= */ -1, mount_entry_source(m), mount_entry_path(m), m->image_options,
-                                host_os_release_id, host_os_release_version_id, host_os_release_sysext_level, NULL);
+                        /* src_fd= */ -1, mount_entry_source(m), mount_entry_path(m), m->image_options,
+                        host_os_release_id, host_os_release_version_id, host_os_release_sysext_level, NULL);
         if (r == -ENOENT && m->ignore)
                 return 0;
         if (r == -ESTALE && host_os_release_id)
@@ -1704,7 +1704,7 @@ static size_t namespace_calculate_mounts(
                 n_bind_mounts +
                 n_mount_images +
                 (n_extension_images > 0 || n_extension_directories > 0 ? /* Mount each image and directory plus an overlay per hierarchy */
-                        n_hierarchies + n_extension_images + n_extension_directories: 0) +
+                 n_hierarchies + n_extension_images + n_extension_directories: 0) +
                 n_temporary_filesystems +
                 ns_info->private_dev +
                 (ns_info->protect_kernel_tunables ?
@@ -2780,7 +2780,7 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, ch
 
                 WITH_UMASK(0000)
                         if (mkdir(y, 0777 | S_ISVTX) < 0)
-                                    return -errno;
+                                return -errno;
 
                 r = label_fix_full(AT_FDCWD, y, prefix, 0);
                 if (r < 0)
