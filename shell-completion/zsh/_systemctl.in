@@ -480,6 +480,7 @@ _arguments -s \
     '--show-types[When showing sockets, show socket type]' \
     '--check-inhibitors[Specify if inhibitors should be checked]:mode:_systemctl_check_inhibitors' \
     {-q,--quiet}'[Suppress output]' \
+    '--no-warn[Suppress several warnings shown by default]' \
     '--no-block[Do not wait until operation finished]' \
     '--legend=no[Do not print a legend, i.e. the column headers and the footer with hints]' \
     '--no-pager[Do not pipe output into a pager]' \
