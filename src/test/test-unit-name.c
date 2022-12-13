@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "sd-id128.h"
+
 #include "alloc-util.h"
 #include "all-units.h"
 #include "glob-util.h"
@@ -261,7 +263,7 @@ TEST_RET(unit_printf, .sd_booted = true) {
         assert_se(short_hostname);
         assert_se(specifier_pretty_hostname('q', NULL, NULL, NULL, &pretty_hostname) == 0);
         assert_se(pretty_hostname);
-        if (access("/etc/machine-id", F_OK) >= 0) {
+        if (sd_id128_get_machine(NULL) >= 0) {
                 assert_se(specifier_machine_id('m', NULL, NULL, NULL, &machine_id) >= 0);
                 assert_se(machine_id);
         }
