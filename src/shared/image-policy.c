@@ -631,6 +631,16 @@ const ImagePolicy image_policy_sysext = {
         .default_flags = PARTITION_POLICY_IGNORE,
 };
 
+const ImagePolicy image_policy_sysext_strict = {
+        /* For system extensions, requiring signing */
+        .n_policies = 2,
+        .policies = {
+                { PARTITION_ROOT,     PARTITION_POLICY_SIGNED|PARTITION_POLICY_ABSENT },
+                { PARTITION_USR,      PARTITION_POLICY_SIGNED|PARTITION_POLICY_ABSENT },
+        },
+        .default_flags = PARTITION_POLICY_IGNORE,
+};
+
 const ImagePolicy image_policy_container = {
         /* For systemd-nspawn containers we use all partitions, with the exception of swap */
         .n_policies = 8,
