@@ -42,6 +42,21 @@
 #    /sys/class/input/input?/capabilities/ev" and <vendor> is the
 #    firmware-provided string exported by the kernel DMI modalias,
 #    see /sys/class/dmi/id/modalias
+#
+# To add local entries, create a new file
+#   /etc/udev/hwdb.d/61-keyboard-local.hwdb
+# and add your rules there. To load the new rules execute (as root):
+#   systemd-hwdb update
+#   udevadm trigger /dev/input/eventXX
+# where /dev/input/eventXX is the keyboard in question. If in doubt, simply use
+# /dev/input/event* to reload all input rules.
+#
+# If your changes are generally applicable, preferably send them as a pull
+# request to
+#   https://github.com/systemd/systemd
+# or create a bug report on https://github.com/systemd/systemd/issues and
+# include your new rules, a description of the device, and the output of
+#   udevadm info /dev/input/eventXX.
 
 # ######################### KEY MAPPING ######################################
 #
@@ -75,22 +90,6 @@
 #   XKB_FIXED_MODEL=xkbmodel
 # Examples of such devices: Chromebooks where the top row is used for both
 # media and F1-F10 keys.
-
-# To update this file, create a new file
-#   /etc/udev/hwdb.d/70-keyboard.hwdb
-# and add your rules there. To load the new rules execute (as root):
-#   systemd-hwdb update
-#   udevadm trigger /dev/input/eventXX
-# where /dev/input/eventXX is the keyboard in question. If in
-# doubt, simply reload all input rules
-#   udevadm trigger --verbose --sysname-match="event*"
-#
-# If your changes are generally applicable, preferably send them as a pull
-# request to
-#   https://github.com/systemd/systemd
-# or create a bug report on https://github.com/systemd/systemd/issues and
-# include your new rules, a description of the device, and the output of
-#   udevadm info /dev/input/eventXX.
 
 ##########################################
 # Acer
@@ -2021,7 +2020,7 @@ evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:bd*:svnPositivoBahia-VAIO:
 # Positivo
 ###########################################################
 # Positivo DUO (k116)
-evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:svnPositivoTecnologiaSA:pn*:pvr*:rvnPositivoTecnologiaSA:rnK116* 
+evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:svnPositivoTecnologiaSA:pn*:pvr*:rvnPositivoTecnologiaSA:rnK116*
  KEYBOARD_KEY_76=f21                                    # Fn+F1 toggle touchpad
 
 # Positivo Motion (N14DP6, N14DP7, N14DP7-V2, N14DP9, N14JP6, N14KP6)
