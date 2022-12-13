@@ -20,6 +20,7 @@
 #include "mkdir-label.h"
 #include "nulstr-util.h"
 #include "process-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
@@ -92,8 +93,8 @@ int locale_read_data(Context *c, sd_bus_message *m) {
 }
 
 int vconsole_read_data(Context *c, sd_bus_message *m) {
+        _cleanup_close_ int fd = -EBADFD;
         struct stat st;
-        usec_t t;
 
         /* Do not try to re-read the file within single bus operation. */
         if (m) {
@@ -104,33 +105,35 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
                 c->vc_cache = sd_bus_message_ref(m);
         }
 
-        if (stat("/etc/vconsole.conf", &st) < 0) {
-                if (errno != ENOENT)
-                        return -errno;
-
-                c->vc_mtime = USEC_INFINITY;
+        fd = RET_NERRNO(open("/etc/vconsole.conf", O_CLOEXEC | O_PATH));
+        if (fd == -ENOENT) {
+                c->vc_stat = (struct stat) {};
                 context_free_vconsole(c);
                 return 0;
         }
+        if (fd < 0)
+                return fd;
 
-        /* If mtime is not changed, then we do not need to re-read */
-        t = timespec_load(&st.st_mtim);
-        if (c->vc_mtime != USEC_INFINITY && t == c->vc_mtime)
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        /* If the file is not changed, then we do not need to re-read */
+        if (stat_inode_unmodified(&c->vc_stat, &st))
                 return 0;
 
-        c->vc_mtime = t;
+        c->vc_stat = st;
         context_free_vconsole(c);
 
-        return parse_env_file(NULL, "/etc/vconsole.conf",
-                              "KEYMAP",        &c->vc_keymap,
-                              "KEYMAP_TOGGLE", &c->vc_keymap_toggle);
+        return parse_env_file_fd(fd, "/etc/vconsole.conf",
+                                 "KEYMAP",        &c->vc_keymap,
+                                 "KEYMAP_TOGGLE", &c->vc_keymap_toggle);
 }
 
 int x11_read_data(Context *c, sd_bus_message *m) {
+        _cleanup_close_ int fd = -EBADFD, fd_ro = -EBADFD;
         _cleanup_fclose_ FILE *f = NULL;
         bool in_section = false;
         struct stat st;
-        usec_t t;
         int r;
 
         /* Do not try to re-read the file within single bus operation. */
@@ -142,26 +145,34 @@ int x11_read_data(Context *c, sd_bus_message *m) {
                 c->x11_cache = sd_bus_message_ref(m);
         }
 
-        if (stat("/etc/X11/xorg.conf.d/00-keyboard.conf", &st) < 0) {
-                if (errno != ENOENT)
-                        return -errno;
-
-                c->x11_mtime = USEC_INFINITY;
+        fd = RET_NERRNO(open("/etc/X11/xorg.conf.d/00-keyboard.conf", O_CLOEXEC | O_PATH));
+        if (fd == -ENOENT) {
+                c->x11_stat = (struct stat) {};
                 context_free_x11(c);
                 return 0;
         }
+        if (fd < 0)
+                return fd;
 
-        /* If mtime is not changed, then we do not need to re-read */
-        t = timespec_load(&st.st_mtim);
-        if (c->x11_mtime != USEC_INFINITY && t == c->x11_mtime)
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        /* If the file is not changed, then we do not need to re-read */
+        if (stat_inode_unmodified(&c->x11_stat, &st))
                 return 0;
 
-        c->x11_mtime = t;
+        c->x11_stat = st;
         context_free_x11(c);
 
-        f = fopen("/etc/X11/xorg.conf.d/00-keyboard.conf", "re");
+        fd_ro = fd_reopen(fd, O_CLOEXEC | O_RDONLY);
+        if (fd_ro < 0)
+                return fd_ro;
+
+        f = fdopen(fd_ro, "re");
         if (!f)
                 return -errno;
+
+        TAKE_FD(fd_ro);
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
@@ -219,7 +230,6 @@ int x11_read_data(Context *c, sd_bus_message *m) {
 
 int vconsole_write_data(Context *c) {
         _cleanup_strv_free_ char **l = NULL;
-        struct stat st;
         int r;
 
         r = load_env_file(NULL, "/etc/vconsole.conf", &l);
@@ -238,7 +248,7 @@ int vconsole_write_data(Context *c) {
                 if (unlink("/etc/vconsole.conf") < 0)
                         return errno == ENOENT ? 0 : -errno;
 
-                c->vc_mtime = USEC_INFINITY;
+                c->vc_stat = (struct stat) {};
                 return 0;
         }
 
@@ -246,16 +256,15 @@ int vconsole_write_data(Context *c) {
         if (r < 0)
                 return r;
 
-        if (stat("/etc/vconsole.conf", &st) >= 0)
-                c->vc_mtime = timespec_load(&st.st_mtim);
+        if (stat("/etc/vconsole.conf", &c->vc_stat) < 0)
+                return -errno;
 
         return 0;
 }
 
 int x11_write_data(Context *c) {
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *temp_path = NULL;
-        struct stat st;
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
         int r;
 
         if (isempty(c->x11_layout) &&
@@ -266,7 +275,7 @@ int x11_write_data(Context *c) {
                 if (unlink("/etc/X11/xorg.conf.d/00-keyboard.conf") < 0)
                         return errno == ENOENT ? 0 : -errno;
 
-                c->vc_mtime = USEC_INFINITY;
+                c->x11_stat = (struct stat) {};
                 return 0;
         }
 
@@ -300,23 +309,15 @@ int x11_write_data(Context *c) {
 
         r = fflush_sync_and_check(f);
         if (r < 0)
-                goto fail;
+                return r;
 
-        if (rename(temp_path, "/etc/X11/xorg.conf.d/00-keyboard.conf") < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (rename(temp_path, "/etc/X11/xorg.conf.d/00-keyboard.conf") < 0)
+                return -errno;
 
-        if (stat("/etc/X11/xorg.conf.d/00-keyboard.conf", &st) >= 0)
-                c->x11_mtime = timespec_load(&st.st_mtim);
+        if (stat("/etc/X11/xorg.conf.d/00-keyboard.conf", &c->x11_stat) < 0)
+                return -errno;
 
         return 0;
-
-fail:
-        if (temp_path)
-                (void) unlink(temp_path);
-
-        return r;
 }
 
 static int read_next_mapping(const char* filename,
