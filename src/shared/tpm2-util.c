@@ -30,6 +30,7 @@ static void *libtss2_mu_dl = NULL;
 TSS2_RC (*sym_Esys_Create)(ESYS_CONTEXT *esysContext, ESYS_TR parentHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE_CREATE *inSensitive, const TPM2B_PUBLIC *inPublic, const TPM2B_DATA *outsideInfo, const TPML_PCR_SELECTION *creationPCR, TPM2B_PRIVATE **outPrivate, TPM2B_PUBLIC **outPublic, TPM2B_CREATION_DATA **creationData, TPM2B_DIGEST **creationHash, TPMT_TK_CREATION **creationTicket) = NULL;
 TSS2_RC (*sym_Esys_CreateLoaded)(ESYS_CONTEXT *esysContext, ESYS_TR parentHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE_CREATE *inSensitive, const TPM2B_TEMPLATE *inPublic, ESYS_TR *objectHandle, TPM2B_PRIVATE **outPrivate, TPM2B_PUBLIC **outPublic) = NULL;
 TSS2_RC (*sym_Esys_CreatePrimary)(ESYS_CONTEXT *esysContext, ESYS_TR primaryHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE_CREATE *inSensitive, const TPM2B_PUBLIC *inPublic, const TPM2B_DATA *outsideInfo, const TPML_PCR_SELECTION *creationPCR, ESYS_TR *objectHandle, TPM2B_PUBLIC **outPublic, TPM2B_CREATION_DATA **creationData, TPM2B_DIGEST **creationHash, TPMT_TK_CREATION **creationTicket) = NULL;
+TSS2_RC (*sym_Esys_Duplicate)(ESYS_CONTEXT *esysContext, ESYS_TR objectHandle, ESYS_TR newParentHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_DATA *encryptionKeyIn, const TPMT_SYM_DEF_OBJECT *symmetricAlg, TPM2B_DATA **encryptionKeyOut, TPM2B_PRIVATE **duplicate, TPM2B_ENCRYPTED_SECRET **outSymSeed) = NULL;
 void (*sym_Esys_Finalize)(ESYS_CONTEXT **context) = NULL;
 TSS2_RC (*sym_Esys_FlushContext)(ESYS_CONTEXT *esysContext, ESYS_TR flushHandle) = NULL;
 void (*sym_Esys_Free)(void *ptr) = NULL;
@@ -73,6 +74,7 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Esys_Create),
                         DLSYM_ARG(Esys_CreateLoaded),
                         DLSYM_ARG(Esys_CreatePrimary),
+                        DLSYM_ARG(Esys_Duplicate),
                         DLSYM_ARG(Esys_Finalize),
                         DLSYM_ARG(Esys_FlushContext),
                         DLSYM_ARG(Esys_Free),
@@ -380,6 +382,7 @@ static int tpm2_credit_random(struct tpm2_context *c) {
                 .keyBits.aes = 128,             \
                 .mode.aes = TPM2_ALG_CFB,       \
         }
+#define SYMMETRIC_NULL { .algorithm = TPM2_ALG_NULL, }
 static const TPMT_PUBLIC SRK_template_ecc = {
         .type = TPM2_ALG_ECC,
         .nameAlg = TPM2_ALG_SHA256,
@@ -2037,6 +2040,46 @@ static int tpm2_policy_duplication_select(
                                        sym_Tss2_RC_Decode(rc));
 
         return tpm2_get_policy_digest(c, session, ret_policy_digest);
+}
+
+static int tpm2_duplicate_key(
+                struct tpm2_context *c,
+                struct tpm2_handle session,
+                struct tpm2_handle key,
+                struct tpm2_handle new_parent,
+                TPM2B_PRIVATE **ret_dup,
+                TPM2B_ENCRYPTED_SECRET **ret_seed) {
+
+        _cleanup_(Esys_Freep) TPM2B_PRIVATE *dup = NULL;
+        _cleanup_(Esys_Freep) TPM2B_ENCRYPTED_SECRET *seed = NULL;
+        static const TPMT_SYM_DEF_OBJECT symmetric_null = SYMMETRIC_NULL;
+        TSS2_RC rc;
+
+        assert(ret_dup);
+        assert(ret_seed);
+
+        log_debug("Duplicating key to external TPM.");
+
+        rc = sym_Esys_Duplicate(
+                        c->esys_context,
+                        key.handle,
+                        new_parent.handle,
+                        session.handle,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        NULL,
+                        &symmetric_null,
+                        NULL,
+                        &dup,
+                        &seed);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to duplicate key: %s", sym_Tss2_RC_Decode(rc));
+
+        *ret_dup = TAKE_PTR(dup);
+        *ret_seed = TAKE_PTR(seed);
+
+        return 0;
 }
 
 int tpm2_seal(const char *device,
