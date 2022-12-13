@@ -15,6 +15,7 @@ ConditionCapability=CAP_SYS_ADMIN
 ConditionDirectoryNotEmpty=|/etc/extensions
 ConditionDirectoryNotEmpty=|/run/extensions
 ConditionDirectoryNotEmpty=|/var/lib/extensions
+ConditionDirectoryNotEmpty=|/.extra/sysext
 
 DefaultDependencies=no
 After=local-fs.target
