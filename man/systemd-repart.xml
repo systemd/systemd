@@ -377,7 +377,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--skip-partitions=</option><arg rep="repeat">PARTITION</arg></term>
+        <term><option>--defer-partitions=</option><arg rep="repeat">PARTITION</arg></term>
 
         <listitem><para>This option specifies which partition types <command>systemd-repart</command> should
         skip. All partitions that are skipped using this option are still taken into account when calculating

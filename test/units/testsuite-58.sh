@@ -161,7 +161,7 @@ $imgs/zzz2 : start=     1777624, size=      131072, type=0657FD6D-A4AB-43C4-84E5
                                   --dry-run=no \
                                   --seed="$seed" \
                                   --empty=force \
-                                  --skip-partitions=home,root \
+                                  --defer-partitions=home,root \
                                   "$imgs/zzz"
 
     output=$(sfdisk -d "$imgs/zzz" | grep -v -e 'sector-size' -e '^$')

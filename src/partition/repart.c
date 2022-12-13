@@ -145,8 +145,8 @@ static bool arg_split = false;
 static sd_id128_t *arg_filter_partitions = NULL;
 static size_t arg_n_filter_partitions = 0;
 static FilterPartitionsType arg_filter_partitions_type = FILTER_PARTITIONS_NONE;
-static sd_id128_t *arg_skip_partitions = NULL;
-static size_t arg_n_skip_partitions = 0;
+static sd_id128_t *arg_defer_partitions = NULL;
+static size_t arg_n_defer_partitions = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -408,11 +408,11 @@ static bool partition_exclude(const Partition *p) {
         return arg_filter_partitions_type == FILTER_PARTITIONS_INCLUDE;
 }
 
-static bool partition_skip(const Partition *p) {
+static bool partition_defer(const Partition *p) {
         assert(p);
 
-        for (size_t i = 0; i < arg_n_skip_partitions; i++)
-                if (sd_id128_equal(p->type.uuid, arg_skip_partitions[i]))
+        for (size_t i = 0; i < arg_n_defer_partitions; i++)
+                if (sd_id128_equal(p->type.uuid, arg_defer_partitions[i]))
                         return true;
 
         return false;
@@ -2998,7 +2998,7 @@ static int context_wipe_and_discard(Context *context) {
                 if (!p->allocated_to_area)
                         continue;
 
-                if (partition_skip(p))
+                if (partition_defer(p))
                         continue;
 
                 r = context_wipe_partition(context, p);
@@ -3453,7 +3453,7 @@ static int partition_format_verity_hash(
         if (p->verity != VERITY_HASH)
                 return 0;
 
-        if (partition_skip(p))
+        if (partition_defer(p))
                 return 0;
 
         assert_se(dp = p->siblings[VERITY_DATA]);
@@ -3585,7 +3585,7 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
         if (PARTITION_EXISTS(p))
                 return 0;
 
-        if (partition_skip(p))
+        if (partition_defer(p))
                 return 0;
 
         assert_se(hp = p->siblings[VERITY_HASH]);
@@ -3659,7 +3659,7 @@ static int context_copy_blocks(Context *context) {
                 if (PARTITION_EXISTS(p)) /* Never copy over existing partitions */
                         continue;
 
-                if (partition_skip(p))
+                if (partition_defer(p))
                         continue;
 
                 assert(p->new_size != UINT64_MAX);
@@ -3983,7 +3983,7 @@ static int context_mkfs(Context *context) {
                 if (p->copy_blocks_fd >= 0)
                         continue;
 
-                if (partition_skip(p))
+                if (partition_defer(p))
                         continue;
 
                 assert(p->offset != UINT64_MAX);
@@ -4368,7 +4368,7 @@ static int context_mangle_partitions(Context *context) {
                 if (p->dropped)
                         continue;
 
-                if (partition_skip(p))
+                if (partition_defer(p))
                         continue;
 
                 assert(p->new_size != UINT64_MAX);
@@ -4617,7 +4617,7 @@ static int context_split(Context *context) {
                 if (!p->split_path)
                         continue;
 
-                if (partition_skip(p))
+                if (partition_defer(p))
                         continue;
 
                 fdt = open(p->split_path, O_WRONLY|O_NOCTTY|O_CLOEXEC|O_NOFOLLOW|O_CREAT|O_EXCL, 0666);
@@ -5476,7 +5476,7 @@ static int help(void) {
                "                          Ignore partitions not of the specified types\n"
                "     --exclude-partitions=PARTITION1,PARTITION2,PARTITION3,…\n"
                "                          Ignore partitions of the specified types\n"
-               "     --skip-partitions=PARTITION1,PARTITION2,PARTITION3,…\n"
+               "     --defer-partitions=PARTITION1,PARTITION2,PARTITION3,…\n"
                "                          Take partitions of the specified types into account\n"
                "                          but don't populate them yet\n"
                "\nSee the %s for details.\n",
@@ -5516,7 +5516,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SPLIT,
                 ARG_INCLUDE_PARTITIONS,
                 ARG_EXCLUDE_PARTITIONS,
-                ARG_SKIP_PARTITIONS,
+                ARG_DEFER_PARTITIONS,
         };
 
         static const struct option options[] = {
@@ -5546,7 +5546,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "split",                required_argument, NULL, ARG_SPLIT                },
                 { "include-partitions",   required_argument, NULL, ARG_INCLUDE_PARTITIONS   },
                 { "exclude-partitions",   required_argument, NULL, ARG_EXCLUDE_PARTITIONS   },
-                { "skip-partitions",      required_argument, NULL, ARG_SKIP_PARTITIONS      },
+                { "defer-partitions",     required_argument, NULL, ARG_DEFER_PARTITIONS     },
                 {}
         };
 
@@ -5827,8 +5827,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_SKIP_PARTITIONS:
-                        r = parse_partition_types(optarg, &arg_skip_partitions, &arg_n_skip_partitions);
+                case ARG_DEFER_PARTITIONS:
+                        r = parse_partition_types(optarg, &arg_defer_partitions, &arg_n_defer_partitions);
                         if (r < 0)
                                 return r;
 
