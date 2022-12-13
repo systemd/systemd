@@ -687,7 +687,7 @@ static int create_socket(char **ret) {
                 return r;
         sa_len = r;
 
-        RUN_WITH_UMASK(0177)
+        WITH_UMASK(0177)
                 if (bind(fd, &sa.sa, sa_len) < 0)
                         return -errno;
 

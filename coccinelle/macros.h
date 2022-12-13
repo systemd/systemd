@@ -43,7 +43,7 @@
 
 // src/basic/umask-util.h
 #define _cleanup_umask_
-#define RUN_WITH_UMASK(mask)                                            \
+#define WITH_UMASK(mask)                                            \
         for (_cleanup_umask_ mode_t _saved_umask_ = umask(mask) | S_IFMT; \
              FLAGS_SET(_saved_umask_, S_IFMT);                          \
              _saved_umask_ &= 0777)

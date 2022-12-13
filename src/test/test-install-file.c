@@ -17,7 +17,7 @@ TEST(install_file) {
         assert_se(a = path_join(p, "foo"));
         assert_se(b = path_join(p, "bar"));
 
-        RUN_WITH_UMASK(0077)
+        WITH_UMASK(0077)
                 assert_se(write_string_file(a, "wups", WRITE_STRING_FILE_CREATE) >= 0);
 
         assert_se(lstat(a, &stat1) >= 0);

@@ -89,7 +89,7 @@ int machine_id_setup(const char *root, bool force_transient, sd_id128_t machine_
 
         etc_machine_id = prefix_roota(root, "/etc/machine-id");
 
-        RUN_WITH_UMASK(0000) {
+        WITH_UMASK(0000) {
                 /* We create this 0444, to indicate that this isn't really
                  * something you should ever modify. Of course, since the file
                  * will be owned by root it doesn't matter much, but maybe
@@ -166,7 +166,7 @@ int machine_id_setup(const char *root, bool force_transient, sd_id128_t machine_
 
         run_machine_id = prefix_roota(root, "/run/machine-id");
 
-        RUN_WITH_UMASK(0022)
+        WITH_UMASK(0022)
                 r = id128_write(run_machine_id, ID128_FORMAT_PLAIN, machine_id);
         if (r < 0) {
                 (void) unlink(run_machine_id);

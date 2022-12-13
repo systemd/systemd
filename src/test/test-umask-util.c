@@ -12,7 +12,7 @@ int main(int argc, char *argv[]) {
         u = umask(0111);
 
         n = 0;
-        RUN_WITH_UMASK(0123) {
+        WITH_UMASK(0123) {
                 assert_se(umask(000) == 0123);
                 n++;
         }
@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
         assert_se(n == 1);
         assert_se(umask(u) == 0111);
 
-        RUN_WITH_UMASK(0135) {
+        WITH_UMASK(0135) {
                 assert_se(umask(000) == 0135);
                 n++;
         }
@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
         assert_se(n == 2);
         assert_se(umask(0111) == u);
 
-        RUN_WITH_UMASK(0315) {
+        WITH_UMASK(0315) {
                 assert_se(umask(000) == 0315);
                 n++;
                 break;

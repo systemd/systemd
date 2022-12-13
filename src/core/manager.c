@@ -1103,7 +1103,7 @@ static int manager_setup_cgroups_agent(Manager *m) {
                 (void) sockaddr_un_unlink(&sa.un);
 
                 /* Only allow root to connect to this socket */
-                RUN_WITH_UMASK(0077)
+                WITH_UMASK(0077)
                         r = bind(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
                 if (r < 0)
                         return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
@@ -3674,7 +3674,7 @@ static int manager_run_environment_generators(Manager *m) {
         if (!generator_path_any((const char* const*) paths))
                 return 0;
 
-        RUN_WITH_UMASK(0022)
+        WITH_UMASK(0022)
                 r = execute_directories((const char* const*) paths, DEFAULT_TIMEOUT_USEC, gather_environment,
                                         args, NULL, m->transient_environment,
                                         EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS | EXEC_DIR_SET_SYSTEMD_EXEC_PID);
@@ -3776,7 +3776,7 @@ static int manager_run_generators(Manager *m) {
                 goto finish;
         }
 
-        RUN_WITH_UMASK(0022)
+        WITH_UMASK(0022)
                 (void) execute_directories(
                                 (const char* const*) paths,
                                 DEFAULT_TIMEOUT_USEC,
