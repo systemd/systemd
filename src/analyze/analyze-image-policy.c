@@ -90,6 +90,8 @@ int verb_image_policy(int argc, char *argv[], void *userdata) {
                  * introspect our own defaults without guaranteeing API safety. */
                 if (streq(argv[i], "@sysext"))
                         p = &image_policy_sysext;
+                else if (streq(argv[i], "@sysext-strict"))
+                        p = &image_policy_sysext_strict;
                 else if (streq(argv[i], "@container"))
                         p = &image_policy_container;
                 else if (streq(argv[i], "@service"))
