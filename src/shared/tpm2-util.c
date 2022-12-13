@@ -600,6 +600,41 @@ static int tpm2_load_key(
         return 0;
 }
 
+static int tpm2_load_external_key(
+                ESYS_CONTEXT *c,
+                ESYS_TR encryption_session,
+                const TPM2B_PUBLIC *public,
+                const TPM2B_SENSITIVE *private,
+                ESYS_TR *ret_handle) {
+
+        TSS2_RC rc;
+
+        assert(ret_handle);
+
+        log_debug("Loading external key into TPM.");
+
+        rc = sym_Esys_LoadExternal(
+                        c,
+                        encryption_session,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        private,
+                        public,
+#if HAVE_TSS2_ESYS3
+                        /* tpm2-tss >= 3.0.0 requires a ESYS_TR_RH_* constant specifying the requested
+                         * hierarchy, older versions need TPM2_RH_* instead. */
+                        ESYS_TR_RH_OWNER,
+#else
+                        TPM2_RH_OWNER,
+#endif
+                        ret_handle);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to load public key into TPM: %s", sym_Tss2_RC_Decode(rc));
+
+        return 0;
+}
+
 /* Utility functions for TPMS_PCR_SELECTION. */
 
 static uint32_t tpm2_tpms_pcr_selection_to_mask(const TPMS_PCR_SELECTION *s) {
@@ -1797,25 +1832,10 @@ static int tpm2_policy_authorize(
         if (r < 0)
                 return r;
 
-        /* Load the key into the TPM */
-        rc = sym_Esys_LoadExternal(
-                        c,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        NULL,
-                        &pubkey_tpm2,
-#if HAVE_TSS2_ESYS3
-                        /* tpm2-tss >= 3.0.0 requires a ESYS_TR_RH_* constant specifying the requested
-                         * hierarchy, older versions need TPM2_RH_* instead. */
-                        ESYS_TR_RH_OWNER,
-#else
-                        TPM2_RH_OWNER,
-#endif
-                        &pubkey_handle);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                    "Failed to load public key into TPM: %s", sym_Tss2_RC_Decode(rc));
+        /* No need for an encryption session when loading only a public key. */
+        r = tpm2_load_external_key(c, ESYS_TR_NONE, &pubkey_tpm2, NULL, &pubkey_handle);
+        if (r < 0)
+                return r;
 
         /* Acquire the "name" of what we just loaded */
         _cleanup_(Esys_Freep) TPM2B_NAME *pubkey_name = NULL;
