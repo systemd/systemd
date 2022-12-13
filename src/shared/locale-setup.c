@@ -135,13 +135,10 @@ int locale_context_load(LocaleContext *c, LocaleLoadFlag flag) {
         r = locale_context_load_env(c, flag);
 
 finalize:
-        if (r < 0)
-                return r;
-
-        if (r == 0) {
-                /* Nothing loaded. */
+        if (r <= 0) {
+                /* Nothing loaded, or error. */
                 locale_context_clear(c);
-                return 0;
+                return r;
         }
 
         if (FLAGS_SET(flag, LOCALE_LOAD_SIMPLIFY))
