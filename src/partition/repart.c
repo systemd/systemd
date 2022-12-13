@@ -178,6 +178,14 @@ typedef enum VerityMode {
         _VERITY_MODE_INVALID = -EINVAL,
 } VerityMode;
 
+typedef enum MinimizeMode {
+        MINIMIZE_OFF,
+        MINIMIZE_BEST,
+        MINIMIZE_GUESS,
+        _MINIMIZE_MODE_MAX,
+        _MINIMIZE_MODE_INVALID = -EINVAL,
+} MinimizeMode;
+
 typedef struct Partition {
         char *definition_path;
         char **drop_in_files;
@@ -221,7 +229,7 @@ typedef struct Partition {
         EncryptMode encrypt;
         VerityMode verity;
         char *verity_match_key;
-        bool minimize;
+        MinimizeMode minimize;
 
         uint64_t gpt_flags;
         int no_auto;
@@ -284,8 +292,15 @@ static const char *verity_mode_table[_VERITY_MODE_MAX] = {
         [VERITY_SIG]  = "signature",
 };
 
+static const char *minimize_mode_table[_MINIMIZE_MODE_MAX] = {
+        [MINIMIZE_OFF]   = "off",
+        [MINIMIZE_BEST]  = "best",
+        [MINIMIZE_GUESS] = "guess",
+};
+
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(encrypt_mode, EncryptMode, ENCRYPT_KEY_FILE);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(verity_mode, VerityMode);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(minimize_mode, MinimizeMode, MINIMIZE_BEST);
 
 static uint64_t round_down_size(uint64_t v, uint64_t p) {
         return (v / p) * p;
@@ -1532,6 +1547,7 @@ static int config_parse_uuid(
 }
 
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_verity, verity_mode, VerityMode, VERITY_OFF, "Invalid verity mode");
+static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_minimize, minimize_mode, MinimizeMode, MINIMIZE_OFF, "Invalid minimize mode");
 
 static int partition_read_definition(Partition *p, const char *path, const char *const *conf_file_dirs) {
 
@@ -1559,7 +1575,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "NoAuto",          config_parse_tristate,    0, &p->no_auto           },
                 { "Partition", "GrowFileSystem",  config_parse_tristate,    0, &p->growfs            },
                 { "Partition", "SplitName",       config_parse_string,      0, &p->split_name_format },
-                { "Partition", "Minimize",        config_parse_bool,        0, &p->minimize          },
+                { "Partition", "Minimize",        config_parse_minimize,    0, &p->minimize          },
                 {}
         };
         int r;
@@ -1616,9 +1632,13 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                         return log_oom();
         }
 
-        if (p->minimize && !p->format)
+        if (p->minimize != MINIMIZE_OFF && !p->format)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Minimize= can only be enabled if Format= is set");
+
+        if (p->minimize == MINIMIZE_BEST && !fstype_is_ro(p->format))
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "Minimize=best can only be used with read-only filesystems");
 
         if ((!strv_isempty(p->copy_files) || !strv_isempty(p->make_directories)) && !mkfs_supports_root_option(p->format) && geteuid() != 0)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EPERM),
@@ -5282,7 +5302,7 @@ static int context_minimize(Context *context) {
                 if (!p->format)
                         continue;
 
-                if (!p->minimize)
+                if (p->minimize == MINIMIZE_OFF)
                         continue;
 
                 if (!partition_needs_populate(p))
