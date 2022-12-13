@@ -2708,7 +2708,7 @@ static int make_tmp_prefix(const char *prefix) {
         if (errno != ENOENT)
                 return -errno;
 
-        RUN_WITH_UMASK(000)
+        WITH_UMASK(000)
                 r = mkdir_parents(prefix, 0755);
         if (r < 0)
                 return r;
@@ -2765,7 +2765,7 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, ch
         if (r < 0)
                 return r;
 
-        RUN_WITH_UMASK(0077)
+        WITH_UMASK(0077)
                 if (!mkdtemp(x)) {
                         if (errno == EROFS || ERRNO_IS_DISK_SPACE(errno))
                                 rw = false;
@@ -2778,7 +2778,7 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, ch
                 if (!y)
                         return -ENOMEM;
 
-                RUN_WITH_UMASK(0000)
+                WITH_UMASK(0000)
                         if (mkdir(y, 0777 | S_ISVTX) < 0)
                                     return -errno;
 
@@ -2792,7 +2792,7 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, ch
                 /* Trouble: we failed to create the directory. Instead of failing, let's simulate /tmp being
                  * read-only. This way the service will get the EROFS result as if it was writing to the real
                  * file system. */
-                RUN_WITH_UMASK(0000)
+                WITH_UMASK(0000)
                         r = mkdir_p(RUN_SYSTEMD_EMPTY, 0500);
                 if (r < 0)
                         return r;

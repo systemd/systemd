@@ -130,7 +130,7 @@ int home_create_directory_or_subvolume(UserRecord *h, HomeSetup *setup, UserReco
         switch (user_record_storage(h)) {
 
         case USER_SUBVOLUME:
-                RUN_WITH_UMASK(0077)
+                WITH_UMASK(0077)
                         r = btrfs_subvol_make(d);
 
                 if (r >= 0) {
