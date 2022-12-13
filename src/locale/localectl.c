@@ -61,7 +61,7 @@ static int print_status_info(StatusInfo *i) {
         assert(i);
 
         if (arg_transport == BUS_TRANSPORT_LOCAL) {
-                _cleanup_(locale_context_clear) LocaleContext c = { .mtime = USEC_INFINITY };
+                _cleanup_(locale_context_clear) LocaleContext c = {};
 
                 r = locale_context_load(&c, LOCALE_LOAD_PROC_CMDLINE);
                 if (r < 0)
