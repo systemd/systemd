@@ -556,6 +556,7 @@ Path.TriggerLimitBurst,                  config_parse_unsigned,                 
 Scope.RuntimeMaxSec,                     config_parse_sec,                            0,                                  offsetof(Scope, runtime_max_usec)
 Scope.RuntimeRandomizedExtraSec,         config_parse_sec,                            0,                                  offsetof(Scope, runtime_rand_extra_usec)
 Scope.TimeoutStopSec,                    config_parse_sec,                            0,                                  offsetof(Scope, timeout_stop_usec)
+Scope.OOMPolicy,                         config_parse_oom_policy,                     0,                                  offsetof(Scope, oom_policy)
 {# The [Install] section is ignored here #}
 Install.Alias,                           NULL,                                        0,                                  0
 Install.WantedBy,                        NULL,                                        0,                                  0

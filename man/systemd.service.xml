@@ -1120,7 +1120,7 @@
         above.</para></listitem>
       </varlistentry>
 
-      <varlistentry>
+      <varlistentry id='oom-policy'>
         <term><varname>OOMPolicy=</varname></term>
 
         <listitem><para>Configure the out-of-memory (OOM) killing policy for the kernel and the userspace OOM
@@ -1133,18 +1133,17 @@
         terminate services earlier, before the kernel would have to act.</para>
 
         <para>This setting takes one of <constant>continue</constant>, <constant>stop</constant> or
-        <constant>kill</constant>. If set to <constant>continue</constant> and a process of the service is
-        killed by the OOM killer, this is logged but the service continues running. If set to
-        <constant>stop</constant> the event is logged but the service is terminated cleanly by the service
-        manager. If set to <constant>kill</constant> and one of the service's processes is killed by the OOM
-        killer the kernel is instructed to kill all remaining processes of the service too, by setting the
+        <constant>kill</constant>. If set to <constant>continue</constant> and a process in the unit is
+        killed by the OOM killer, this is logged but the unit continues running. If set to
+        <constant>stop</constant> the event is logged but the unit is terminated cleanly by the service
+        manager. If set to <constant>kill</constant> and one of the unit's processes is killed by the OOM
+        killer the kernel is instructed to kill all remaining processes of the unit too, by setting the
         <filename>memory.oom.group</filename> attribute to <constant>1</constant>; also see <ulink
-        url="https://docs.kernel.org/admin-guide/cgroup-v2.html">kernel documentation</ulink>.
-        </para>
+        url="https://docs.kernel.org/admin-guide/cgroup-v2.html">kernel documentation</ulink>.</para>
 
         <para>Defaults to the setting <varname>DefaultOOMPolicy=</varname> in
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        is set to, except for services where <varname>Delegate=</varname> is turned on, where it defaults to
+        is set to, except for units where <varname>Delegate=</varname> is turned on, where it defaults to
         <constant>continue</constant>.</para>
 
         <para>Use the <varname>OOMScoreAdjust=</varname> setting to configure whether processes of the unit
@@ -1154,10 +1153,9 @@
         details.</para>
 
         <para>This setting also applies to <command>systemd-oomd</command>. Similarly to the kernel OOM
-        kills, this setting determines the state of the service after <command>systemd-oomd</command> kills a
-        cgroup associated with the service.</para></listitem>
+        kills, this setting determines the state of the unit after <command>systemd-oomd</command> kills a
+        cgroup associated with it.</para></listitem>
       </varlistentry>
-
     </variablelist>
 
     <para id='shared-unit-options'>Check
