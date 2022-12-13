@@ -1367,9 +1367,9 @@ int tpm2_seal(const char *device,
         _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
         _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
         static const TPML_PCR_SELECTION creation_pcr = {};
+        _cleanup_(erase_and_freep) TPM2B_SENSITIVE_CREATE *hmac_sensitive = NULL;
         _cleanup_(erase_and_freep) void *secret = NULL;
         _cleanup_free_ void *blob = NULL, *hash = NULL;
-        TPM2B_SENSITIVE_CREATE hmac_sensitive;
         ESYS_TR primary = ESYS_TR_NONE, session = ESYS_TR_NONE;
         TPMI_ALG_PUBLIC primary_alg;
         TPM2B_PUBLIC hmac_template;
@@ -1455,20 +1455,26 @@ int tpm2_seal(const char *device,
                 },
         };
 
-        hmac_sensitive = (TPM2B_SENSITIVE_CREATE) {
-                .size = sizeof(hmac_sensitive.sensitive),
+        hmac_sensitive = malloc(sizeof(TPM2B_SENSITIVE_CREATE));
+        if (!hmac_sensitive) {
+                r = log_oom();
+                goto finish;
+        }
+
+        *hmac_sensitive = (TPM2B_SENSITIVE_CREATE) {
+                .size = sizeof(hmac_sensitive->sensitive),
                 .sensitive.data.size = 32,
         };
         if (pin)
-                hash_pin(pin, strlen(pin), &hmac_sensitive.sensitive.userAuth);
+                hash_pin(pin, strlen(pin), &hmac_sensitive->sensitive.userAuth);
 
-        assert(sizeof(hmac_sensitive.sensitive.data.buffer) >= hmac_sensitive.sensitive.data.size);
+        assert(sizeof(hmac_sensitive->sensitive.data.buffer) >= hmac_sensitive->sensitive.data.size);
 
         (void) tpm2_credit_random(c.esys_context);
 
         log_debug("Generating secret key data.");
 
-        r = crypto_random_bytes(hmac_sensitive.sensitive.data.buffer, hmac_sensitive.sensitive.data.size);
+        r = crypto_random_bytes(hmac_sensitive->sensitive.data.buffer, hmac_sensitive->sensitive.data.size);
         if (r < 0) {
                 log_error_errno(r, "Failed to generate secret key: %m");
                 goto finish;
@@ -1482,7 +1488,7 @@ int tpm2_seal(const char *device,
                         session, /* use HMAC session to enable parameter encryption */
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
-                        &hmac_sensitive,
+                        hmac_sensitive,
                         &hmac_template,
                         NULL,
                         &creation_pcr,
@@ -1497,8 +1503,8 @@ int tpm2_seal(const char *device,
                 goto finish;
         }
 
-        secret = memdup(hmac_sensitive.sensitive.data.buffer, hmac_sensitive.sensitive.data.size);
-        explicit_bzero_safe(hmac_sensitive.sensitive.data.buffer, hmac_sensitive.sensitive.data.size);
+        secret = memdup(hmac_sensitive->sensitive.data.buffer, hmac_sensitive->sensitive.data.size);
+        explicit_bzero_safe(hmac_sensitive->sensitive.data.buffer, hmac_sensitive->sensitive.data.size);
         if (!secret) {
                 r = log_oom();
                 goto finish;
@@ -1548,7 +1554,7 @@ int tpm2_seal(const char *device,
                 log_debug("Completed TPM2 key sealing in %s.", FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - start, 1));
 
         *ret_secret = TAKE_PTR(secret);
-        *ret_secret_size = hmac_sensitive.sensitive.data.size;
+        *ret_secret_size = hmac_sensitive->sensitive.data.size;
         *ret_blob = TAKE_PTR(blob);
         *ret_blob_size = blob_size;
         *ret_pcr_hash = TAKE_PTR(hash);
