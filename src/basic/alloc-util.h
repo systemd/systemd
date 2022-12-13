@@ -2,6 +2,7 @@
 #pragma once
 
 #include <alloca.h>
+#include <malloc.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
@@ -184,17 +185,34 @@ void* greedy_realloc0(void **p, size_t need, size_t size);
 #  define msan_unpoison(r, s)
 #endif
 
-/* This returns the number of usable bytes in a malloc()ed region as per malloc_usable_size(), in a way that
- * is compatible with _FORTIFY_SOURCES. If _FORTIFY_SOURCES is used many memory operations will take the
- * object size as returned by __builtin_object_size() into account. Hence, let's return the smaller size of
- * malloc_usable_size() and __builtin_object_size() here, so that we definitely operate in safe territory by
- * both the compiler's and libc's standards. Note that __builtin_object_size() evaluates to SIZE_MAX if the
- * size cannot be determined, hence the MIN() expression should be safe with dynamically sized memory,
- * too. Moreover, when NULL is passed malloc_usable_size() is documented to return zero, and
- * __builtin_object_size() returns SIZE_MAX too, hence we also return a sensible value of 0 in this corner
- * case. */
+/* Dummy allocator to tell the compiler that the new size of p is newsize. The implementation returns the
+ * pointer as is; the only reason for its existence is as a conduit for the _alloc_ attribute. This cannot be
+ * a static inline because gcc then loses the attributes on the function.
+ * See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=96503 */
+void *expand_to_usable(void *p, size_t newsize) _alloc_(2) _returns_nonnull_;
+
+static inline size_t malloc_sizeof_safe(void **xp) {
+        if (_unlikely_(!xp || !*xp))
+                return 0;
+
+        size_t sz = malloc_usable_size(*xp);
+        *xp = expand_to_usable(*xp, sz);
+        /* GCC doesn't see the _returns_nonnull_ when built with ubsan, so yet another hint to make it doubly
+         * clear that expand_to_usable won't return NULL.
+         * See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=79265 */
+        if (!*xp)
+                assert_not_reached();
+        return sz;
+}
+
+/* This returns the number of usable bytes in a malloc()ed region as per malloc_usable_size(), which may
+ * return a value larger than the size that was actually allocated. Access to that additional memory is
+ * discouraged because it violates the C standard; a compiler cannot see that this as valid. To help the
+ * compiler out, the MALLOC_SIZEOF_SAFE macro 'allocates' the usable size using a dummy allocator function
+ * expand_to_usable. There is a possibility of malloc_usable_size() returning different values during the
+ * lifetime of an object, which may cause problems, but the glibc allocator does not do that at the moment. */
 #define MALLOC_SIZEOF_SAFE(x) \
-        MIN(malloc_usable_size(x), __builtin_object_size(x, 0))
+        malloc_sizeof_safe((void**) &__builtin_choose_expr(__builtin_constant_p(x), (void*) { NULL }, (x)))
 
 /* Inspired by ELEMENTSOF() but operates on malloc()'ed memory areas: typesafely returns the number of items
  * that fit into the specified memory block */
