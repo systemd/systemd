@@ -18,7 +18,6 @@ Packages=
         fuse
         glib2
         glibc-minimal-langpack
-        glibc.i686
         gnutls
         iproute
         iproute-tc
@@ -46,9 +45,7 @@ BuildPackages=
         bpftool
         docbook-xsl
         dwarves
-        glibc-devel.i686
         glibc-static
-        glibc-static.i686
         gnu-efi-devel
         libcap-static
         pam-devel
