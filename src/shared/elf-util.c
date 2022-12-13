@@ -15,6 +15,7 @@
 #include "dlfcn-util.h"
 #include "elf-util.h"
 #include "errno-util.h"
+#include "escape.h"
 #include "fileio.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -396,8 +397,10 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
                         }
 
                         r = json_parse(payload, 0, &v, NULL, NULL);
-                        if (r < 0)
-                                return log_error_errno(r, "json_parse on %s failed: %m", payload);
+                        if (r < 0) {
+                                _cleanup_free_ char *esc = cescape(payload);
+                                return log_error_errno(r, "json_parse on \"%s\" failed: %m", strnull(esc));
+                        }
 
                         /* If we have a build-id, merge it in the same JSON object so that it appears all
                          * nicely together in the logs/metadata. */
