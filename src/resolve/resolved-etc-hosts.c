@@ -44,7 +44,7 @@ void etc_hosts_clear(EtcHosts *hosts) {
 
         hosts->by_address = hashmap_free_with_destructor(hosts->by_address, etc_hosts_item_by_address_free);
         hosts->by_name = hashmap_free_with_destructor(hosts->by_name, etc_hosts_item_by_name_free);
-        hosts->no_address = set_free_free(hosts->no_address);
+        hosts->no_address = set_free(hosts->no_address);
 }
 
 void manager_etc_hosts_flush(Manager *m) {
@@ -130,7 +130,7 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                         /* Optimize the case where we don't need to store any addresses, by storing
                          * only the name in a dedicated Set instead of the hashmap */
 
-                        r = set_ensure_consume(&hosts->no_address, &dns_name_hash_ops, TAKE_PTR(name));
+                        r = set_ensure_consume(&hosts->no_address, &dns_name_hash_ops_free, TAKE_PTR(name));
                         if (r < 0)
                                 return log_oom();
 
