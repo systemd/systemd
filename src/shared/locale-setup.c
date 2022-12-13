@@ -6,14 +6,17 @@
 #include "env-file-label.h"
 #include "env-file.h"
 #include "env-util.h"
+#include "errno-util.h"
+#include "fd-util.h"
 #include "locale-setup.h"
 #include "proc-cmdline.h"
+#include "stat-util.h"
 #include "strv.h"
 
 void locale_context_clear(LocaleContext *c) {
         assert(c);
 
-        c->mtime = USEC_INFINITY;
+        c->st = (struct stat) {};
 
         for (LocaleVariable i = 0; i < _VARIABLE_LC_MAX; i++)
                 c->locale[i] = mfree(c->locale[i]);
@@ -52,8 +55,8 @@ static int locale_context_load_proc(LocaleContext *c, LocaleLoadFlag flag) {
 }
 
 static int locale_context_load_conf(LocaleContext *c, LocaleLoadFlag flag) {
+        _cleanup_close_ int fd = -EBADFD;
         struct stat st;
-        usec_t t;
         int r;
 
         assert(c);
@@ -61,36 +64,37 @@ static int locale_context_load_conf(LocaleContext *c, LocaleLoadFlag flag) {
         if (!FLAGS_SET(flag, LOCALE_LOAD_LOCALE_CONF))
                 return 0;
 
-        r = stat("/etc/locale.conf", &st);
-        if (r < 0) {
-                if (errno == ENOENT)
-                        return 0;
-                return log_debug_errno(errno, "Failed to stat /etc/locale.conf: %m");
-        }
+        fd = RET_NERRNO(open("/etc/locale.conf", O_CLOEXEC | O_PATH));
+        if (fd == -ENOENT)
+                return 0;
+        if (fd < 0)
+                return log_debug_errno(errno, "Failed to open /etc/locale.conf: %m");
 
-        /* If mtime is not changed, then we do not need to re-read the file. */
-        t = timespec_load(&st.st_mtim);
-        if (c->mtime != USEC_INFINITY && t == c->mtime)
+        if (fstat(fd, &st) < 0)
+                return log_debug_errno(errno, "Failed to stat /etc/locale.conf: %m");
+
+        /* If the file is not changed, then we do not need to re-read the file. */
+        if (stat_inode_unmodified(&c->st, &st))
                 return 0;
 
+        c->st = st;
         locale_context_clear(c);
-        c->mtime = t;
 
-        r = parse_env_file(NULL, "/etc/locale.conf",
-                           "LANG",              &c->locale[VARIABLE_LANG],
-                           "LANGUAGE",          &c->locale[VARIABLE_LANGUAGE],
-                           "LC_CTYPE",          &c->locale[VARIABLE_LC_CTYPE],
-                           "LC_NUMERIC",        &c->locale[VARIABLE_LC_NUMERIC],
-                           "LC_TIME",           &c->locale[VARIABLE_LC_TIME],
-                           "LC_COLLATE",        &c->locale[VARIABLE_LC_COLLATE],
-                           "LC_MONETARY",       &c->locale[VARIABLE_LC_MONETARY],
-                           "LC_MESSAGES",       &c->locale[VARIABLE_LC_MESSAGES],
-                           "LC_PAPER",          &c->locale[VARIABLE_LC_PAPER],
-                           "LC_NAME",           &c->locale[VARIABLE_LC_NAME],
-                           "LC_ADDRESS",        &c->locale[VARIABLE_LC_ADDRESS],
-                           "LC_TELEPHONE",      &c->locale[VARIABLE_LC_TELEPHONE],
-                           "LC_MEASUREMENT",    &c->locale[VARIABLE_LC_MEASUREMENT],
-                           "LC_IDENTIFICATION", &c->locale[VARIABLE_LC_IDENTIFICATION]);
+        r = parse_env_file_fd(fd, "/etc/locale.conf",
+                              "LANG",              &c->locale[VARIABLE_LANG],
+                              "LANGUAGE",          &c->locale[VARIABLE_LANGUAGE],
+                              "LC_CTYPE",          &c->locale[VARIABLE_LC_CTYPE],
+                              "LC_NUMERIC",        &c->locale[VARIABLE_LC_NUMERIC],
+                              "LC_TIME",           &c->locale[VARIABLE_LC_TIME],
+                              "LC_COLLATE",        &c->locale[VARIABLE_LC_COLLATE],
+                              "LC_MONETARY",       &c->locale[VARIABLE_LC_MONETARY],
+                              "LC_MESSAGES",       &c->locale[VARIABLE_LC_MESSAGES],
+                              "LC_PAPER",          &c->locale[VARIABLE_LC_PAPER],
+                              "LC_NAME",           &c->locale[VARIABLE_LC_NAME],
+                              "LC_ADDRESS",        &c->locale[VARIABLE_LC_ADDRESS],
+                              "LC_TELEPHONE",      &c->locale[VARIABLE_LC_TELEPHONE],
+                              "LC_MEASUREMENT",    &c->locale[VARIABLE_LC_MEASUREMENT],
+                              "LC_IDENTIFICATION", &c->locale[VARIABLE_LC_IDENTIFICATION]);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read /etc/locale.conf: %m");
 
@@ -181,7 +185,6 @@ int locale_context_build_env(const LocaleContext *c, char ***ret_set, char ***re
 
 int locale_context_save(LocaleContext *c, char ***ret_set, char ***ret_unset) {
         _cleanup_strv_free_ char **set = NULL, **unset = NULL;
-        struct stat st;
         int r;
 
         assert(c);
@@ -196,7 +199,8 @@ int locale_context_save(LocaleContext *c, char ***ret_set, char ***ret_unset) {
                 if (unlink("/etc/locale.conf") < 0)
                         return errno == ENOENT ? 0 : -errno;
 
-                c->mtime = USEC_INFINITY;
+                c->st = (struct stat) {};
+
                 if (ret_set)
                         *ret_set = NULL;
                 if (ret_unset)
@@ -208,10 +212,8 @@ int locale_context_save(LocaleContext *c, char ***ret_set, char ***ret_unset) {
         if (r < 0)
                 return r;
 
-        if (stat("/etc/locale.conf", &st) < 0)
+        if (stat("/etc/locale.conf", &c->st) < 0)
                 return -errno;
-
-        c->mtime = timespec_load(&st.st_mtim);
 
         if (ret_set)
                 *ret_set = TAKE_PTR(set);
@@ -254,7 +256,7 @@ bool locale_context_equal(const LocaleContext *c, char *l[_VARIABLE_LC_MAX]) {
 }
 
 int locale_setup(char ***environment) {
-        _cleanup_(locale_context_clear) LocaleContext c = { .mtime = USEC_INFINITY };
+        _cleanup_(locale_context_clear) LocaleContext c = {};
         _cleanup_strv_free_ char **add = NULL;
         int r;
 
