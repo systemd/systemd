@@ -37,14 +37,14 @@ TEST(mount_option_mangle) {
         assert_se(f == (MS_RDONLY|MS_NOSUID|MS_NODEV|MS_NOEXEC));
         assert_se(opts == NULL);
 
-        assert_se(mount_option_mangle("ro,nosuid,nodev,noexec,mode=755", 0, &f, &opts) == 0);
+        assert_se(mount_option_mangle("ro,nosuid,nodev,noexec,mode=0755", 0, &f, &opts) == 0);
         assert_se(f == (MS_RDONLY|MS_NOSUID|MS_NODEV|MS_NOEXEC));
-        assert_se(streq(opts, "mode=755"));
+        assert_se(streq(opts, "mode=0755"));
         opts = mfree(opts);
 
-        assert_se(mount_option_mangle("rw,nosuid,foo,hogehoge,nodev,mode=755", 0, &f, &opts) == 0);
+        assert_se(mount_option_mangle("rw,nosuid,foo,hogehoge,nodev,mode=0755", 0, &f, &opts) == 0);
         assert_se(f == (MS_NOSUID|MS_NODEV));
-        assert_se(streq(opts, "foo,hogehoge,mode=755"));
+        assert_se(streq(opts, "foo,hogehoge,mode=0755"));
         opts = mfree(opts);
 
         assert_se(mount_option_mangle("rw,nosuid,nodev,noexec,relatime,net_cls,net_prio", MS_RDONLY, &f, &opts) == 0);
@@ -52,19 +52,19 @@ TEST(mount_option_mangle) {
         assert_se(streq(opts, "net_cls,net_prio"));
         opts = mfree(opts);
 
-        assert_se(mount_option_mangle("rw,nosuid,nodev,relatime,size=1630748k,mode=700,uid=1000,gid=1000", MS_RDONLY, &f, &opts) == 0);
+        assert_se(mount_option_mangle("rw,nosuid,nodev,relatime,size=1630748k,mode=0700,uid=1000,gid=1000", MS_RDONLY, &f, &opts) == 0);
         assert_se(f == (MS_NOSUID|MS_NODEV|MS_RELATIME));
-        assert_se(streq(opts, "size=1630748k,mode=700,uid=1000,gid=1000"));
+        assert_se(streq(opts, "size=1630748k,mode=0700,uid=1000,gid=1000"));
         opts = mfree(opts);
 
-        assert_se(mount_option_mangle("size=1630748k,rw,gid=1000,,,nodev,relatime,,mode=700,nosuid,uid=1000", MS_RDONLY, &f, &opts) == 0);
+        assert_se(mount_option_mangle("size=1630748k,rw,gid=1000,,,nodev,relatime,,mode=0700,nosuid,uid=1000", MS_RDONLY, &f, &opts) == 0);
         assert_se(f == (MS_NOSUID|MS_NODEV|MS_RELATIME));
-        assert_se(streq(opts, "size=1630748k,gid=1000,mode=700,uid=1000"));
+        assert_se(streq(opts, "size=1630748k,gid=1000,mode=0700,uid=1000"));
         opts = mfree(opts);
 
-        assert_se(mount_option_mangle("rw,exec,size=8143984k,nr_inodes=2035996,mode=755", MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, &f, &opts) == 0);
+        assert_se(mount_option_mangle("rw,exec,size=8143984k,nr_inodes=2035996,mode=0755", MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, &f, &opts) == 0);
         assert_se(f == (MS_NOSUID|MS_NODEV));
-        assert_se(streq(opts, "size=8143984k,nr_inodes=2035996,mode=755"));
+        assert_se(streq(opts, "size=8143984k,nr_inodes=2035996,mode=0755"));
         opts = mfree(opts);
 
         assert_se(mount_option_mangle("rw,relatime,fmask=0022,,,dmask=0022", MS_RDONLY, &f, &opts) == 0);
@@ -74,9 +74,9 @@ TEST(mount_option_mangle) {
 
         assert_se(mount_option_mangle("rw,relatime,fmask=0022,dmask=0022,\"hogehoge", MS_RDONLY, &f, &opts) < 0);
 
-        assert_se(mount_option_mangle("mode=1777,size=10%,nr_inodes=400k,uid=496107520,gid=496107520,context=\"system_u:object_r:svirt_sandbox_file_t:s0:c0,c1\"", 0, &f, &opts) == 0);
+        assert_se(mount_option_mangle("mode=01777,size=10%,nr_inodes=400k,uid=496107520,gid=496107520,context=\"system_u:object_r:svirt_sandbox_file_t:s0:c0,c1\"", 0, &f, &opts) == 0);
         assert_se(f == 0);
-        assert_se(streq(opts, "mode=1777,size=10%,nr_inodes=400k,uid=496107520,gid=496107520,context=\"system_u:object_r:svirt_sandbox_file_t:s0:c0,c1\""));
+        assert_se(streq(opts, "mode=01777,size=10%,nr_inodes=400k,uid=496107520,gid=496107520,context=\"system_u:object_r:svirt_sandbox_file_t:s0:c0,c1\""));
         opts = mfree(opts);
 }
 
