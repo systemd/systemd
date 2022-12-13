@@ -576,19 +576,19 @@ int mount_all(const char *dest,
                   MOUNT_IN_USERNS|MOUNT_MKDIR },
 
                 /* Then we list outer child mounts (i.e. mounts applied *before* entering user namespacing) */
-                { "tmpfs",                  "/tmp",                         "tmpfs", "mode=1777" NESTED_TMPFS_LIMITS,  MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+                { "tmpfs",                  "/tmp",                         "tmpfs", "mode=01777" NESTED_TMPFS_LIMITS, MS_NOSUID|MS_NODEV|MS_STRICTATIME,
                   MOUNT_FATAL|MOUNT_APPLY_TMPFS_TMP|MOUNT_MKDIR },
-                { "tmpfs",                  "/sys",                         "tmpfs", "mode=555" TMPFS_LIMITS_SYS,      MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                { "tmpfs",                  "/sys",                         "tmpfs", "mode=0555" TMPFS_LIMITS_SYS,     MS_NOSUID|MS_NOEXEC|MS_NODEV,
                   MOUNT_FATAL|MOUNT_APPLY_APIVFS_NETNS|MOUNT_MKDIR },
                 { "sysfs",                  "/sys",                         "sysfs", NULL,                             SYS_DEFAULT_MOUNT_FLAGS,
                   MOUNT_FATAL|MOUNT_APPLY_APIVFS_RO|MOUNT_MKDIR },    /* skipped if above was mounted */
                 { "sysfs",                  "/sys",                         "sysfs", NULL,                             MS_NOSUID|MS_NOEXEC|MS_NODEV,
                   MOUNT_FATAL|MOUNT_MKDIR },                          /* skipped if above was mounted */
-                { "tmpfs",                  "/dev",                         "tmpfs", "mode=755" TMPFS_LIMITS_PRIVATE_DEV, MS_NOSUID|MS_STRICTATIME,
+                { "tmpfs",                  "/dev",                         "tmpfs", "mode=0755" TMPFS_LIMITS_PRIVATE_DEV, MS_NOSUID|MS_STRICTATIME,
                   MOUNT_FATAL|MOUNT_MKDIR },
-                { "tmpfs",                  "/dev/shm",                     "tmpfs", "mode=1777" NESTED_TMPFS_LIMITS,  MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+                { "tmpfs",                  "/dev/shm",                     "tmpfs", "mode=01777" NESTED_TMPFS_LIMITS, MS_NOSUID|MS_NODEV|MS_STRICTATIME,
                   MOUNT_FATAL|MOUNT_MKDIR },
-                { "tmpfs",                  "/run",                         "tmpfs", "mode=755" TMPFS_LIMITS_RUN,      MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+                { "tmpfs",                  "/run",                         "tmpfs", "mode=0755" TMPFS_LIMITS_RUN,     MS_NOSUID|MS_NODEV|MS_STRICTATIME,
                   MOUNT_FATAL|MOUNT_MKDIR },
                 { "/run/host",              "/run/host",                    NULL,    NULL,                             MS_BIND,
                   MOUNT_FATAL|MOUNT_MKDIR|MOUNT_PREFIX_ROOT }, /* Prepare this so that we can make it read-only when we are done */
@@ -1043,7 +1043,7 @@ static int setup_volatile_state(const char *directory, uid_t uid_shift, const ch
         if (r < 0 && errno != EEXIST)
                 return log_error_errno(errno, "Failed to create %s: %m", directory);
 
-        options = "mode=755" TMPFS_LIMITS_VOLATILE_STATE;
+        options = "mode=0755" TMPFS_LIMITS_VOLATILE_STATE;
         r = tmpfs_patch_options(options, uid_shift == 0 ? UID_INVALID : uid_shift, selinux_apifs_context, &buf);
         if (r < 0)
                 return log_oom();
@@ -1087,7 +1087,7 @@ static int setup_volatile_yes(const char *directory, uid_t uid_shift, const char
         if (!mkdtemp(template))
                 return log_error_errno(errno, "Failed to create temporary directory: %m");
 
-        options = "mode=755" TMPFS_LIMITS_ROOTFS;
+        options = "mode=0755" TMPFS_LIMITS_ROOTFS;
         r = tmpfs_patch_options(options, uid_shift == 0 ? UID_INVALID : uid_shift, selinux_apifs_context, &buf);
         if (r < 0)
                 goto fail;
@@ -1154,7 +1154,7 @@ static int setup_volatile_overlay(const char *directory, uid_t uid_shift, const 
         if (!mkdtemp(template))
                 return log_error_errno(errno, "Failed to create temporary directory: %m");
 
-        options = "mode=755" TMPFS_LIMITS_ROOTFS;
+        options = "mode=0755" TMPFS_LIMITS_ROOTFS;
         r = tmpfs_patch_options(options, uid_shift == 0 ? UID_INVALID : uid_shift, selinux_apifs_context, &buf);
         if (r < 0)
                 goto finish;
