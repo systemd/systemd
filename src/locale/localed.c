@@ -762,8 +762,6 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
 static int run(int argc, char *argv[]) {
         _cleanup_(context_clear) Context context = {
                 .locale_context.mtime = USEC_INFINITY,
-                .vc_mtime = USEC_INFINITY,
-                .x11_mtime = USEC_INFINITY,
         };
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;

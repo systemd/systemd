@@ -1,25 +1,26 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <sys/stat.h>
+
 #include "sd-bus.h"
 
 #include "hashmap.h"
 #include "locale-setup.h"
-#include "time-util.h"
 
 typedef struct Context {
         sd_bus_message *locale_cache;
         LocaleContext locale_context;
 
         sd_bus_message *x11_cache;
-        usec_t x11_mtime;
+        struct stat x11_stat;
         char *x11_layout;
         char *x11_model;
         char *x11_variant;
         char *x11_options;
 
         sd_bus_message *vc_cache;
-        usec_t vc_mtime;
+        struct stat vc_stat;
         char *vc_keymap;
         char *vc_keymap_toggle;
 
