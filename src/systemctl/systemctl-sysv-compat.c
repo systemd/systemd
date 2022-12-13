@@ -113,6 +113,7 @@ int enable_sysv_units(const char *verb, char **args) {
 #if HAVE_SYSV_COMPAT
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         unsigned f = 0;
+        SysVUnitEnableState enable_state = SYSV_UNIT_NOT_FOUND;
 
         /* Processes all SysV units, and reshuffles the array so that afterwards only the native units remain */
 
@@ -226,10 +227,12 @@ int enable_sysv_units(const char *verb, char **args) {
                         if (j == EXIT_SUCCESS) {
                                 if (!arg_quiet)
                                         puts("enabled");
-                                r = 1;
+                                enable_state = SYSV_UNIT_ENABLED;
                         } else {
                                 if (!arg_quiet)
                                         puts("disabled");
+                                if (enable_state != SYSV_UNIT_ENABLED)
+                                        enable_state = SYSV_UNIT_DISABLED;
                         }
 
                 } else if (j != EXIT_SUCCESS)
@@ -245,6 +248,8 @@ int enable_sysv_units(const char *verb, char **args) {
                 strv_remove(args + f, name);
         }
 
+        if (streq(verb, "is-enabled"))
+                return enable_state;
 #endif
         return r;
 }

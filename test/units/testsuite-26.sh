@@ -9,6 +9,9 @@ at_exit() {
     fi
 }
 
+# shellcheck source=test/units/assert.sh
+. "$(dirname "$0")"/assert.sh
+
 trap at_exit EXIT
 
 # Create a simple unit file for testing
@@ -78,6 +81,16 @@ systemctl list-jobs --after
 systemctl list-jobs --before
 systemctl list-jobs --after --before
 systemctl list-jobs "*"
+
+# is-* verbs
+# Should return 4 for a missing unit file
+assert_rc 4 systemctl --quiet is-active not-found.service
+assert_rc 4 systemctl --quiet is-failed not-found.service
+assert_rc 4 systemctl --quiet is-enabled not-found.service
+# is-active: return 3 when the unit exists but inactive
+assert_rc 3 systemctl --quiet is-active "$UNIT_NAME"
+# is-enabled: return 1 when the unit exists but disabled
+assert_rc 1 systemctl --quiet is-enabled "$UNIT_NAME"
 
 # Basic service management
 systemctl start --show-transaction "$UNIT_NAME"
