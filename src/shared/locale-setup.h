@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <sys/stat.h>
+
 #include "locale-util.h"
-#include "time-util.h"
 
 typedef struct LocaleContext {
-        usec_t mtime;
+        struct stat st;
         char *locale[_VARIABLE_LC_MAX];
 } LocaleContext;
 
