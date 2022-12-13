@@ -410,6 +410,24 @@ static int strverscmp_improvedp(char *const* a, char *const* b) {
         return strverscmp_improved(*a, *b);
 }
 
+static const ImagePolicy *pick_image_policy(const Image *img) {
+        assert(img);
+        assert(img->path);
+
+        /* Explicitly specified policy always wins */
+        if (arg_image_policy)
+                return arg_image_policy;
+
+        /* If located in /.extra/sysext/ in the initrd, then it was placed there by systemd-stub, and was
+         * picked up from an untrusted ESP. Thus, require a stricter policy by default for them. (For the
+         * other directories we assume the appropriate level of trust was already established already.  */
+
+        if (in_initrd() && path_startswith(img->path, "/.extra/sysext/"))
+                return &image_policy_sysext_strict;
+
+        return &image_policy_sysext;
+}
+
 static int merge_subprocess(Hashmap *images, const char *workspace) {
         _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL, *host_os_release_sysext_level = NULL,
                 *buf = NULL;
@@ -526,7 +544,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                                         d,
                                         &verity_settings,
                                         /* mount_options= */ NULL,
-                                        arg_image_policy ?: &image_policy_sysext,
+                                        pick_image_policy(img),
                                         flags,
                                         &m);
                         if (r < 0)
