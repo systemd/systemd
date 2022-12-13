@@ -590,11 +590,16 @@
       <varlistentry>
         <term><varname>Minimize=</varname></term>
 
-        <listitem><para>Takes a boolean. Disabled by default. If enabled, the partition is created at least
-        as big as required for the minimal file system of the type specified by <varname>Format=</varname>,
-        taking into account the sources configured with  <varname>CopyFiles=</varname>. Note that unless the
-        filesystem is a read-only filesystem, <command>systemd-repart</command> will have to populate the
-        filesystem twice, so enabling this option might slow down repart when populating large partitions.
+        <listitem><para>Takes one of <literal>off</literal>, <literal>best</literal>, and
+        <literal>guess</literal> (alternatively, also accepts a boolean value, which is mapped to
+        <literal>off</literal> when false, and <literal>best</literal> when true). Defaults to
+        <literal>off</literal>. If set to <literal>best</literal>, the partition will have the minimal size
+        required to store the sources configured with <varname>CopyFiles=</varname>. <literal>best</literal>
+        is currently only supported for read-only filesystems. If set to <literal>guess</literal>, the
+        partition is created at least as big as required to store the sources configured with
+        <varname>CopyFiles=</varname>. Note that unless the filesystem is a read-only filesystem,
+        <command>systemd-repart</command> will have to populate the filesystem twice to guess the minimal
+        required size, so enabling this option might slow down repart when populating large partitions.
         </para></listitem>
       </varlistentry>
     </variablelist>
