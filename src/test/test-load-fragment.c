@@ -518,7 +518,7 @@ TEST(install_printf, .sd_booted = true) {
 
         _cleanup_free_ char *mid = NULL, *bid = NULL, *host = NULL, *gid = NULL, *group = NULL, *uid = NULL, *user = NULL;
 
-        if (access("/etc/machine-id", F_OK) >= 0)
+        if (machine_id_initialized() > 0)
                 assert_se(specifier_machine_id('m', NULL, NULL, NULL, &mid) >= 0 && mid);
         if (sd_booted() > 0)
                 assert_se(specifier_boot_id('b', NULL, NULL, NULL, &bid) >= 0 && bid);
