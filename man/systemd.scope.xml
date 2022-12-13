@@ -105,6 +105,8 @@
     of scope units are the following:</para>
 
     <variablelist class='unit-directives'>
+      <xi:include href="systemd.service.xml" xpointer="oom-policy" />
+
       <varlistentry>
         <term><varname>RuntimeMaxSec=</varname></term>
 
