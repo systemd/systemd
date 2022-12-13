@@ -1451,6 +1451,29 @@ int verify_run_space_and_log(const char *message) {
         return 0;
 }
 
+static void log_reload_caller(sd_bus_message *message, Manager *manager) {
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        const char *comm = NULL;
+        Unit *caller;
+        pid_t pid;
+
+        assert(message);
+        assert(manager);
+
+        if (sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID|SD_BUS_CREDS_AUGMENT|SD_BUS_CREDS_COMM, &creds) < 0)
+                return;
+
+        /* We need at least the PID, otherwise there's nothing to log, the rest is optional */
+        if (sd_bus_creds_get_pid(creds, &pid) < 0)
+                return;
+
+        (void) sd_bus_creds_get_comm(creds, &comm);
+        caller = manager_get_unit_by_pid(manager, pid);
+
+        log_info("Reloading requested from client PID " PID_FMT " ('%s') (from unit '%s')...",
+                 pid, strna(comm), strna(caller ? caller->id : NULL));
+}
+
 static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = ASSERT_PTR(userdata);
         int r;
@@ -1470,6 +1493,17 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
                 return r;
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        /* Write a log message noting the unit or process who requested the Reload() */
+        log_reload_caller(message, m);
+
+        /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
+        if (!ratelimit_below(&m->reload_ratelimit)) {
+                log_warning("Reloading request rejected due to rate limit.");
+                return sd_bus_error_setf(error,
+                                         SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                         "Reload() request rejected due to rate limit.");
+        }
 
         /* Instead of sending the reply back right away, we just
          * remember that we need to and then send it after the reload
