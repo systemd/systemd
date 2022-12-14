@@ -58,6 +58,8 @@ TSS2_RC (*sym_Tss2_MU_TPM2B_PRIVATE_Marshal)(TPM2B_PRIVATE const *src, uint8_t b
 TSS2_RC (*sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PRIVATE  *dest) = NULL;
 TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Marshal)(TPM2B_PUBLIC const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
 TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PUBLIC *dest) = NULL;
+TSS2_RC (*sym_Tss2_MU_TPMT_HA_Marshal)(TPMT_HA const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
+TSS2_RC (*sym_Tss2_MU_TPMT_PUBLIC_Marshal)(TPMT_PUBLIC const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
 
 int dlopen_tpm2(void) {
         int r;
@@ -102,12 +104,16 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Tss2_MU_TPM2B_PRIVATE_Marshal),
                         DLSYM_ARG(Tss2_MU_TPM2B_PRIVATE_Unmarshal),
                         DLSYM_ARG(Tss2_MU_TPM2B_PUBLIC_Marshal),
-                        DLSYM_ARG(Tss2_MU_TPM2B_PUBLIC_Unmarshal));
+                        DLSYM_ARG(Tss2_MU_TPM2B_PUBLIC_Unmarshal),
+                        DLSYM_ARG(Tss2_MU_TPMT_HA_Marshal),
+                        DLSYM_ARG(Tss2_MU_TPMT_PUBLIC_Marshal));
 }
 
 #define _MARSHAL(src) _Generic((src),                                   \
                 const TPM2B_PRIVATE*: sym_Tss2_MU_TPM2B_PRIVATE_Marshal, TPM2B_PRIVATE*: sym_Tss2_MU_TPM2B_PRIVATE_Marshal, \
-                const TPM2B_PUBLIC*: sym_Tss2_MU_TPM2B_PUBLIC_Marshal, TPM2B_PUBLIC*: sym_Tss2_MU_TPM2B_PUBLIC_Marshal)
+                const TPM2B_PUBLIC*: sym_Tss2_MU_TPM2B_PUBLIC_Marshal, TPM2B_PUBLIC*: sym_Tss2_MU_TPM2B_PUBLIC_Marshal, \
+                const TPMT_HA*: sym_Tss2_MU_TPMT_HA_Marshal, TPMT_HA*: sym_Tss2_MU_TPMT_HA_Marshal, \
+                const TPMT_PUBLIC*: sym_Tss2_MU_TPMT_PUBLIC_Marshal, TPMT_PUBLIC*: sym_Tss2_MU_TPMT_PUBLIC_Marshal)
 
 #define _UNMARSHAL(dst) _Generic((dst),                                 \
                 TPM2B_PRIVATE*: sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal,    \
@@ -692,15 +698,18 @@ static char *tpm2_tpml_pcr_selection_to_string(const TPML_PCR_SELECTION *l) {
                         tpm2_log_debug_digest(_digest_, "PCR 0x%02x %u", _hash_, _pcr_); \
         })
 
-#define tpm2_log_debug_digest(digest, fmt, ...)                         \
+#define tpm2_log_debug_hex(buf, size, fmt, ...)                         \
         ({                                                              \
                 if (DEBUG_LOGGING) {                                    \
-                        _cleanup_free_ char *_h_ = hexmem((digest)->buffer, (digest)->size); \
+                        _cleanup_free_ char *_h_ = hexmem((buf), (size)); \
                                                                         \
                         if (_h_)                                        \
                                 log_debug(fmt ": %s", ##__VA_ARGS__, _h_); \
                 }                                                       \
         })
+
+#define tpm2_log_debug_digest(digest, ...) tpm2_log_debug_hex((digest)->buffer, (digest)->size, __VA_ARGS__)
+#define tpm2_log_debug_name(name, ...) tpm2_log_debug_hex((name)->name, (name)->size, __VA_ARGS__)
 
 static int tpm2_get_policy_digest(
                 ESYS_CONTEXT *c,
@@ -1223,6 +1232,70 @@ static int tpm2_make_encryption_session(
         return 0;
 }
 
+static int tpm2_calculate_key_name(const TPM2B_PUBLIC *public, TPM2B_NAME **ret_name) {
+        int r;
+
+        assert(public);
+        assert(ret_name);
+
+        if (public->publicArea.nameAlg != TPM2_ALG_SHA256)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Unsupported nameAlg for public key: 0x%x",
+                                       public->publicArea.nameAlg);
+
+        size_t max_size = sizeof(public->publicArea), offset = 0;
+        uint8_t buf[max_size];
+        r = tpm2_marshal("public key", &public->publicArea, buf, max_size, &offset);
+        if (r < 0)
+                return r;
+
+        TPM2B_DIGEST name_digest = {};
+        tpm2_digest_init(&name_digest, buf, offset);
+
+        TPMT_HA ha = { .hashAlg = TPM2_ALG_SHA256, };
+        assert(name_digest.size <= sizeof(ha.digest.sha256));
+        memcpy(ha.digest.sha256, name_digest.buffer, name_digest.size);
+
+        _cleanup_free_ TPM2B_NAME *name = NULL;
+        name = malloc0(sizeof(*name));
+        if (!name)
+                return log_oom();
+
+        r = tpm2_marshal("name digest", &ha, name->name, sizeof(name->name), &name->size);
+        if (r < 0)
+                return r;
+
+        tpm2_log_debug_name(name, "Calculated key name");
+
+        *ret_name = TAKE_PTR(name);
+
+        return 0;
+}
+
+static int tpm2_get_key_name(
+                ESYS_CONTEXT *c,
+                ESYS_TR handle,
+                TPM2B_NAME **ret_name) {
+
+        _cleanup_(Esys_Freep) TPM2B_NAME *name = NULL;
+        TSS2_RC rc;
+
+        assert(c);
+        assert(handle != ESYS_TR_NONE);
+        assert(ret_name);
+
+        rc = sym_Esys_TR_GetName(c, handle, &name);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to get name of public key from TPM: %s", sym_Tss2_RC_Decode(rc));
+
+        tpm2_log_debug_name(name, "Key name");
+
+        *ret_name = TAKE_PTR(name);
+
+        return 0;
+}
+
 static int openssl_pubkey_to_tpm2_pubkey(
                 const void *pubkey,
                 size_t pubkey_size,
@@ -1558,13 +1631,9 @@ static int tpm2_build_policy(
 
                 /* Acquire the "name" of what we just loaded */
                 _cleanup_(Esys_Freep) TPM2B_NAME *pubkey_name = NULL;
-                rc = sym_Esys_TR_GetName(
-                                c,
-                                pubkey_handle,
-                                &pubkey_name);
-                if (rc != TSS2_RC_SUCCESS)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Failed to get name of public key from TPM: %s", sym_Tss2_RC_Decode(rc));
+                r = tpm2_get_key_name(c, pubkey_handle, &pubkey_name);
+                if (r < 0)
+                        return r;
 
                 /* Put together the PCR policy we want to use */
                 TPML_PCR_SELECTION pcr_selection = tpm2_tpml_pcr_selection_from_mask(pubkey_pcr_mask, pcr_bank);
