@@ -2216,6 +2216,40 @@ static int tpm2_import_key(
         return 0;
 }
 
+int tpm2_calculate_sealing_policy(
+                const TPML_PCR_SELECTION *hash_pcr_selection,
+                const TPM2B_DIGEST *hash_pcr_values,
+                size_t hash_pcr_values_size,
+                const void *pubkey,
+                size_t pubkey_size,
+                const char *pin,
+                TPM2B_DIGEST *digest) {
+
+        int r;
+
+        assert(digest);
+
+        if (pubkey) {
+                r = tpm2_calculate_policy_authorize(pubkey, pubkey_size, NULL, digest);
+                if (r < 0)
+                        return r;
+        }
+
+        if (hash_pcr_selection && !tpm2_tpml_pcr_selection_empty(hash_pcr_selection)) {
+                r = tpm2_calculate_policy_pcr(hash_pcr_selection, hash_pcr_values, hash_pcr_values_size, digest);
+                if (r < 0)
+                        return r;
+        }
+
+        if (pin) {
+                r = tpm2_calculate_policy_auth_value(digest);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int tpm2_seal(const char *device,
               uint32_t hash_pcr_mask,
               const void *pubkey,
@@ -2240,11 +2274,14 @@ int tpm2_seal(const char *device,
         _cleanup_(erase_and_freep) void *secret = NULL;
         _cleanup_free_ void *hash = NULL;
         _cleanup_(tpm2_handle_releasep) struct tpm2_handle primary = tpm2_handle_init(c),
-                encryption_session = tpm2_handle_init(c), policy_session = tpm2_handle_init(c);
+                encryption_session = tpm2_handle_init(c);
+        _cleanup_free_ TPM2B_DIGEST *hash_pcr_values = NULL;
         TPM2B_DIGEST policy_digest = { .size = SHA256_DIGEST_SIZE, .buffer = {}, };
+        TPML_PCR_SELECTION hash_pcr_selection = {};
         TPMI_ALG_PUBLIC primary_alg;
         TPM2B_PUBLIC hmac_template;
         TPMI_ALG_HASH pcr_bank = UINT16_MAX;
+        size_t hash_pcr_values_size = 0;
         usec_t start;
         TSS2_RC rc;
         int r;
@@ -2317,52 +2354,31 @@ int tpm2_seal(const char *device,
         if (r < 0)
                 return r;
 
-        r = tpm2_make_policy_session(
-                        c,
-                        primary,
-                        encryption_session,
-                        /* trial= */ true,
-                        &policy_session);
-        if (r < 0)
-                return r;
-
-        if (pubkey_pcr_mask) {
-                r = tpm2_calculate_policy_authorize(pubkey, pubkey_size, NULL, &policy_digest);
-                if (r < 0)
-                        return r;
-        }
-
         if (hash_pcr_mask) {
-                TPML_PCR_SELECTION pcr_selection = tpm2_tpml_pcr_selection_from_mask(hash_pcr_mask, pcr_bank);
+                hash_pcr_selection = tpm2_tpml_pcr_selection_from_mask(hash_pcr_mask, pcr_bank);
 
                 /* For now, we just read the current values from the system; we need to be able to specify
                  * expected values, eventually. */
-                _cleanup_free_ TPM2B_DIGEST *pcr_values = NULL;
-                size_t pcr_values_size;
-
                 r = tpm2_pcr_read(
                                 c,
-                                pcr_selection,
-                                &pcr_selection,
-                                &pcr_values,
-                                &pcr_values_size);
-                if (r < 0)
-                        return r;
-
-                r = tpm2_calculate_policy_pcr(
-                                &pcr_selection,
-                                pcr_values,
-                                pcr_values_size,
-                                &policy_digest);
+                                &hash_pcr_selection,
+                                &hash_pcr_selection,
+                                &hash_pcr_values,
+                                &hash_pcr_values_size);
                 if (r < 0)
                         return r;
         }
 
-        if (pin) {
-                r = tpm2_calculate_policy_auth_value(&policy_digest);
-                if (r < 0)
-                        return r;
-        }
+        r = tpm2_calculate_sealing_policy(
+                        &hash_pcr_selection,
+                        hash_pcr_values,
+                        hash_pcr_values_size,
+                        pubkey,
+                        pubkey_size,
+                        pin,
+                        &policy_digest);
+        if (r < 0)
+                return r;
 
         /* We use a keyed hash object (i.e. HMAC) to store the secret key we want to use for unlocking the
          * LUKS2 volume with. We don't ever use for HMAC/keyed hash operations however, we just use it
