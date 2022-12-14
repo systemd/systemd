@@ -1,8 +1,10 @@
 # This file is part of systemd.
 #
 # Pointingstick const-accel configuration, to make different brand / model
-# laptop pointingsticks have the same speed / feel, and per model adjustment
-# of the IBM TrackPoint driver's sensitivity setting
+# laptop pointingsticks have the same speed / feel, and per model adjustment of
+# the IBM TrackPoint and Dell DualPoint Stick driver's sensitivity setting.
+#
+# ########################### MATCHING #######################################
 #
 # The lookup keys are composed in:
 #   60-evdev.rules
@@ -13,7 +15,7 @@
 #    This matches on the kernel modalias of the input-device, mainly:
 #    ZZZZ is the bus-id (see /usr/include/linux/input.h BUS_*), YYYY, XXXX and
 #    WWW are the 4-digit hex uppercase vendor, product and version ID and VVVV
-#    is an arbitrary length input-modalias describing the device capabilities.
+#    is a variable-length input-modalias describing the device capabilities.
 #    The vendor, product and version ID for a device node "eventX" is listed
 #    in /sys/class/input/eventX/device/id.
 #
@@ -21,15 +23,24 @@
 #      evdev:name:<input device name>:dmi:bvn*:bvr*:bd*:svn<vendor>:pn*:*
 #    <input device name> is the name device specified by the driver,
 #    <vendor> is the firmware-provided string from the kernel DMI modalias,
-#    see /sys/class/dmi/id/modalias
+#    see /sys/class/dmi/id/modalias.
+#
+#  - Extended input driver device name, properties and DMI data match:
+#      evdev:name:<input device name>:phys:<phys>:ev:<ev>:dmi:bvn*:bvr*:bd*:svn<vendor>:pn*
+#    <input device name> is the name device specified by the
+#    driver, <phys> is the physical-device-path, "cat
+#    /sys/class/input/input?/phys", <ev> is the event bitmask, "cat
+#    /sys/class/input/input?/capabilities/ev" and <vendor> is the
+#    firmware-provided string exported by the kernel DMI modalias,
+#    see /sys/class/dmi/id/modalias.
 #
 # To add local entries, create a new file
 #   /etc/udev/hwdb.d/71-pointingstick-local.hwdb
 # and add your rules there. To load the new rules execute (as root):
 #   systemd-hwdb update
 #   udevadm trigger /dev/input/eventXX
-# where /dev/input/eventXX is the pointingstick in question. If in
-# doubt, simply use /dev/input/event* to reload all input rules.
+# where /dev/input/eventXX is the pointingstick in question. If in doubt, simply
+# use /dev/input/event* to reload all input rules.
 #
 # If your changes are generally applicable, preferably send them as a pull
 # request to
@@ -79,6 +90,7 @@
 # Generic
 ##########################################
 evdev:name:*[tT]rack[pP]oint*:*
+evdev:name:*[dD]ual[pP]oint [sS]tick*:*
  ID_INPUT_POINTINGSTICK=1
 
 #########################################
