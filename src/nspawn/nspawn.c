@@ -2497,13 +2497,13 @@ static int setup_credentials(const char *root) {
         return mount_nofollow_verbose(LOG_ERR, NULL, q, NULL, MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, "mode=0500");
 }
 
-static int setup_kmsg(int kmsg_socket) {
+static int setup_kmsg(int fd_inner_socket) {
         _cleanup_(unlink_and_freep) char *from = NULL;
         _cleanup_free_ char *fifo = NULL;
         _cleanup_close_ int fd = -1;
         int r;
 
-        assert(kmsg_socket >= 0);
+        assert(fd_inner_socket >= 0);
 
         BLOCK_WITH_UMASK(0000);
 
@@ -2530,7 +2530,7 @@ static int setup_kmsg(int kmsg_socket) {
                 return log_error_errno(errno, "Failed to open fifo: %m");
 
         /* Store away the fd in the socket, so that it stays open as long as we run the child */
-        r = send_one_fd(kmsg_socket, fd, 0);
+        r = send_one_fd(fd_inner_socket, fd, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to send FIFO fd: %m");
 
@@ -3210,9 +3210,7 @@ static int inner_child(
                 Barrier *barrier,
                 const char *directory,
                 bool secondary,
-                int kmsg_socket,
-                int rtnl_socket,
-                int master_pty_socket,
+                int fd_inner_socket,
                 FDSet *fds,
                 char **os_release_pairs) {
 
@@ -3250,7 +3248,7 @@ static int inner_child(
 
         assert(barrier);
         assert(directory);
-        assert(kmsg_socket >= 0);
+        assert(fd_inner_socket >= 0);
 
         log_debug("Inner child is initializing.");
 
@@ -3322,10 +3320,9 @@ static int inner_child(
         if (r < 0)
                 return r;
 
-        r = setup_kmsg(kmsg_socket);
+        r = setup_kmsg(fd_inner_socket);
         if (r < 0)
                 return r;
-        kmsg_socket = safe_close(kmsg_socket);
 
         r = mount_custom(
                         "/",
@@ -3345,10 +3342,9 @@ static int inner_child(
                 (void) loopback_setup();
 
         if (arg_expose_ports) {
-                r = expose_port_send_rtnl(rtnl_socket);
+                r = expose_port_send_rtnl(fd_inner_socket);
                 if (r < 0)
                         return r;
-                rtnl_socket = safe_close(rtnl_socket);
         }
 
         if (arg_console_mode != CONSOLE_PIPE) {
@@ -3364,10 +3360,9 @@ static int inner_child(
                 if (r < 0)
                         return log_error_errno(r, "Failed to set up /dev/console: %m");
 
-                r = send_one_fd(master_pty_socket, master, 0);
+                r = send_one_fd(fd_inner_socket, master, 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send master fd: %m");
-                master_pty_socket = safe_close(master_pty_socket);
 
                 r = setup_stdio_as_dev_console();
                 if (r < 0)
@@ -3629,14 +3624,8 @@ static int outer_child(
                 const char *directory,
                 DissectedImage *dissected_image,
                 bool secondary,
-                int pid_socket,
-                int uuid_socket,
-                int notify_socket,
-                int kmsg_socket,
-                int rtnl_socket,
-                int uid_shift_socket,
-                int master_pty_socket,
-                int unified_cgroup_hierarchy_socket,
+                int fd_outer_socket,
+                int fd_inner_socket,
                 FDSet *fds,
                 int netns_fd) {
 
@@ -3657,11 +3646,8 @@ static int outer_child(
 
         assert(barrier);
         assert(directory);
-        assert(pid_socket >= 0);
-        assert(uuid_socket >= 0);
-        assert(notify_socket >= 0);
-        assert(master_pty_socket >= 0);
-        assert(kmsg_socket >= 0);
+        assert(fd_outer_socket >= 0);
+        assert(fd_inner_socket >= 0);
 
         log_debug("Outer child is initializing.");
 
@@ -3711,13 +3697,13 @@ static int outer_child(
                 if (r < 0)
                         return log_error_errno(r, "Failed to pin outer mount namespace: %m");
 
-                l = send_one_fd(notify_socket, mntns_fd, 0);
+                l = send_one_fd(fd_outer_socket, mntns_fd, 0);
                 if (l < 0)
                         return log_error_errno(l, "Failed to send outer mount namespace fd: %m");
                 mntns_fd = safe_close(mntns_fd);
 
                 /* Let the parent know which UID shift we read from the image */
-                l = send(uid_shift_socket, &arg_uid_shift, sizeof(arg_uid_shift), MSG_NOSIGNAL);
+                l = send(fd_outer_socket, &arg_uid_shift, sizeof(arg_uid_shift), MSG_NOSIGNAL);
                 if (l < 0)
                         return log_error_errno(errno, "Failed to send UID shift: %m");
                 if (l != sizeof(arg_uid_shift))
@@ -3729,7 +3715,7 @@ static int outer_child(
                          * UID shift we just read from the image is available. If yes, it will send the UID
                          * shift back to us, if not it will pick a different one, and send it back to us. */
 
-                        l = recv(uid_shift_socket, &arg_uid_shift, sizeof(arg_uid_shift), 0);
+                        l = recv(fd_outer_socket, &arg_uid_shift, sizeof(arg_uid_shift), 0);
                         if (l < 0)
                                 return log_error_errno(errno, "Failed to recv UID shift: %m");
                         if (l != sizeof(arg_uid_shift))
@@ -3794,7 +3780,7 @@ static int outer_child(
                                 (uid_t) bind_user_context->data[i].host_group->gid,
                         };
 
-                        l = send(uid_shift_socket, map, sizeof(map), MSG_NOSIGNAL);
+                        l = send(fd_outer_socket, map, sizeof(map), MSG_NOSIGNAL);
                         if (l < 0)
                                 return log_error_errno(errno, "Failed to send user UID map: %m");
                         if (l != sizeof(map))
@@ -3867,14 +3853,12 @@ static int outer_child(
                 if (r < 0)
                         return r;
 
-                l = send(unified_cgroup_hierarchy_socket, &arg_unified_cgroup_hierarchy, sizeof(arg_unified_cgroup_hierarchy), MSG_NOSIGNAL);
+                l = send(fd_outer_socket, &arg_unified_cgroup_hierarchy, sizeof(arg_unified_cgroup_hierarchy), MSG_NOSIGNAL);
                 if (l < 0)
                         return log_error_errno(errno, "Failed to send cgroup mode: %m");
                 if (l != sizeof(arg_unified_cgroup_hierarchy))
                         return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                                "Short write while sending cgroup mode.");
-
-                unified_cgroup_hierarchy_socket = safe_close(unified_cgroup_hierarchy_socket);
         }
 
         r = recursive_chown(directory, arg_uid_shift, arg_uid_range);
@@ -4024,10 +4008,7 @@ static int outer_child(
         if (pid < 0)
                 return log_error_errno(errno, "Failed to fork inner child: %m");
         if (pid == 0) {
-                pid_socket = safe_close(pid_socket);
-                uuid_socket = safe_close(uuid_socket);
-                notify_socket = safe_close(notify_socket);
-                uid_shift_socket = safe_close(uid_shift_socket);
+                fd_outer_socket = safe_close(fd_outer_socket);
 
                 /* The inner child has all namespaces that are requested, so that we all are owned by the
                  * user if user namespaces are turned on. */
@@ -4038,37 +4019,33 @@ static int outer_child(
                                 return log_error_errno(r, "Failed to join network namespace: %m");
                 }
 
-                r = inner_child(barrier, directory, secondary, kmsg_socket, rtnl_socket, master_pty_socket, fds, os_release_pairs);
+                r = inner_child(barrier, directory, secondary, fd_inner_socket, fds, os_release_pairs);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
                 _exit(EXIT_SUCCESS);
         }
 
-        l = send(pid_socket, &pid, sizeof(pid), MSG_NOSIGNAL);
+        l = send(fd_outer_socket, &pid, sizeof(pid), MSG_NOSIGNAL);
         if (l < 0)
                 return log_error_errno(errno, "Failed to send PID: %m");
         if (l != sizeof(pid))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Short write while sending PID.");
 
-        l = send(uuid_socket, &arg_uuid, sizeof(arg_uuid), MSG_NOSIGNAL);
+        l = send(fd_outer_socket, &arg_uuid, sizeof(arg_uuid), MSG_NOSIGNAL);
         if (l < 0)
                 return log_error_errno(errno, "Failed to send machine ID: %m");
         if (l != sizeof(arg_uuid))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Short write while sending machine ID.");
 
-        l = send_one_fd(notify_socket, fd, 0);
+        l = send_one_fd(fd_outer_socket, fd, 0);
         if (l < 0)
                 return log_error_errno(l, "Failed to send notify fd: %m");
 
-        pid_socket = safe_close(pid_socket);
-        uuid_socket = safe_close(uuid_socket);
-        notify_socket = safe_close(notify_socket);
-        master_pty_socket = safe_close(master_pty_socket);
-        kmsg_socket = safe_close(kmsg_socket);
-        rtnl_socket = safe_close(rtnl_socket);
+        fd_outer_socket = safe_close(fd_outer_socket);
+        fd_inner_socket = safe_close(fd_inner_socket);
         netns_fd = safe_close(netns_fd);
 
         return 0;
@@ -4767,16 +4744,10 @@ static int run_container(
         _cleanup_(release_lock_file) LockFile uid_shift_lock = LOCK_FILE_INIT;
         _cleanup_close_ int etc_passwd_lock = -1;
         _cleanup_close_pair_ int
-                kmsg_socket_pair[2] = { -1, -1 },
-                rtnl_socket_pair[2] = { -1, -1 },
-                pid_socket_pair[2] = { -1, -1 },
-                uuid_socket_pair[2] = { -1, -1 },
-                fd_socket_pair[2] = { -EBADF, -EBADF },
-                uid_shift_socket_pair[2] = { -1, -1 },
-                master_pty_socket_pair[2] = { -1, -1 },
-                unified_cgroup_hierarchy_socket_pair[2] = { -1, -1};
+                fd_inner_socket_pair[2] = { -EBADF, -EBADF },
+                fd_outer_socket_pair[2] = { -EBADF, -EBADF };
 
-        _cleanup_close_ int notify_socket = -1, mntns_fd = -EBADF;
+        _cleanup_close_ int notify_socket = -1, mntns_fd = -EBADF, fd_kmsg_fifo = -EBADF;
         _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -4811,31 +4782,11 @@ static int run_container(
         if (r < 0)
                 return log_error_errno(r, "Cannot initialize IPC barrier: %m");
 
-        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, kmsg_socket_pair) < 0)
-                return log_error_errno(errno, "Failed to create kmsg socket pair: %m");
+        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, fd_inner_socket_pair) < 0)
+                return log_error_errno(errno, "Failed to create inner socket pair: %m");
 
-        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, rtnl_socket_pair) < 0)
-                return log_error_errno(errno, "Failed to create rtnl socket pair: %m");
-
-        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pid_socket_pair) < 0)
-                return log_error_errno(errno, "Failed to create pid socket pair: %m");
-
-        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, uuid_socket_pair) < 0)
-                return log_error_errno(errno, "Failed to create id socket pair: %m");
-
-        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, fd_socket_pair) < 0)
-                return log_error_errno(errno, "Failed to create notify socket pair: %m");
-
-        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, master_pty_socket_pair) < 0)
-                return log_error_errno(errno, "Failed to create console socket pair: %m");
-
-        if (arg_userns_mode != USER_NAMESPACE_NO)
-                if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, uid_shift_socket_pair) < 0)
-                        return log_error_errno(errno, "Failed to create uid shift socket pair: %m");
-
-        if (arg_unified_cgroup_hierarchy == CGROUP_UNIFIED_UNKNOWN)
-                if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, unified_cgroup_hierarchy_socket_pair) < 0)
-                        return log_error_errno(errno, "Failed to create unified cgroup socket pair: %m");
+        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, fd_outer_socket_pair) < 0)
+                return log_error_errno(errno, "Failed to create outer socket pair: %m");
 
         /* Child can be killed before execv(), so handle SIGCHLD in order to interrupt
          * parent's blocking calls and give it a chance to call wait() and terminate. */
@@ -4872,14 +4823,8 @@ static int run_container(
                 /* The outer child only has a file system namespace. */
                 barrier_set_role(&barrier, BARRIER_CHILD);
 
-                kmsg_socket_pair[0] = safe_close(kmsg_socket_pair[0]);
-                rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
-                pid_socket_pair[0] = safe_close(pid_socket_pair[0]);
-                uuid_socket_pair[0] = safe_close(uuid_socket_pair[0]);
-                fd_socket_pair[0] = safe_close(fd_socket_pair[0]);
-                master_pty_socket_pair[0] = safe_close(master_pty_socket_pair[0]);
-                uid_shift_socket_pair[0] = safe_close(uid_shift_socket_pair[0]);
-                unified_cgroup_hierarchy_socket_pair[0] = safe_close(unified_cgroup_hierarchy_socket_pair[0]);
+                fd_inner_socket_pair[0] = safe_close(fd_inner_socket_pair[0]);
+                fd_outer_socket_pair[0] = safe_close(fd_outer_socket_pair[0]);
 
                 (void) reset_all_signal_handlers();
                 (void) reset_signal_mask();
@@ -4888,14 +4833,8 @@ static int run_container(
                                 arg_directory,
                                 dissected_image,
                                 secondary,
-                                pid_socket_pair[1],
-                                uuid_socket_pair[1],
-                                fd_socket_pair[1],
-                                kmsg_socket_pair[1],
-                                rtnl_socket_pair[1],
-                                uid_shift_socket_pair[1],
-                                master_pty_socket_pair[1],
-                                unified_cgroup_hierarchy_socket_pair[1],
+                                fd_outer_socket_pair[1],
+                                fd_inner_socket_pair[1],
                                 fds,
                                 child_netns_fd);
                 if (r < 0)
@@ -4908,22 +4847,16 @@ static int run_container(
 
         fdset_close(fds);
 
-        kmsg_socket_pair[1] = safe_close(kmsg_socket_pair[1]);
-        rtnl_socket_pair[1] = safe_close(rtnl_socket_pair[1]);
-        pid_socket_pair[1] = safe_close(pid_socket_pair[1]);
-        uuid_socket_pair[1] = safe_close(uuid_socket_pair[1]);
-        fd_socket_pair[1] = safe_close(fd_socket_pair[1]);
-        master_pty_socket_pair[1] = safe_close(master_pty_socket_pair[1]);
-        uid_shift_socket_pair[1] = safe_close(uid_shift_socket_pair[1]);
-        unified_cgroup_hierarchy_socket_pair[1] = safe_close(unified_cgroup_hierarchy_socket_pair[1]);
+        fd_inner_socket_pair[1] = safe_close(fd_inner_socket_pair[1]);
+        fd_outer_socket_pair[1] = safe_close(fd_outer_socket_pair[1]);
 
         if (arg_userns_mode != USER_NAMESPACE_NO) {
-                mntns_fd = receive_one_fd(fd_socket_pair[0], 0);
+                mntns_fd = receive_one_fd(fd_outer_socket_pair[0], 0);
                 if (mntns_fd < 0)
                         return log_error_errno(mntns_fd, "Failed to receive mount namespace fd from outer child: %m");
 
                 /* The child just let us know the UID shift it might have read from the image. */
-                l = recv(uid_shift_socket_pair[0], &arg_uid_shift, sizeof arg_uid_shift, 0);
+                l = recv(fd_outer_socket_pair[0], &arg_uid_shift, sizeof arg_uid_shift, 0);
                 if (l < 0)
                         return log_error_errno(errno, "Failed to read UID shift: %m");
                 if (l != sizeof arg_uid_shift)
@@ -4938,7 +4871,7 @@ static int run_container(
                         if (r < 0)
                                 return log_error_errno(r, "Failed to pick suitable UID/GID range: %m");
 
-                        l = send(uid_shift_socket_pair[0], &arg_uid_shift, sizeof arg_uid_shift, MSG_NOSIGNAL);
+                        l = send(fd_outer_socket_pair[0], &arg_uid_shift, sizeof arg_uid_shift, MSG_NOSIGNAL);
                         if (l < 0)
                                 return log_error_errno(errno, "Failed to send UID shift: %m");
                         if (l != sizeof arg_uid_shift)
@@ -4955,7 +4888,7 @@ static int run_container(
                                 return log_oom();
 
                         for (size_t i = 0; i < n_bind_user_uid; i++) {
-                                l = recv(uid_shift_socket_pair[0], bind_user_uid + i*4, sizeof(uid_t)*4, 0);
+                                l = recv(fd_outer_socket_pair[0], bind_user_uid + i*4, sizeof(uid_t)*4, 0);
                                 if (l < 0)
                                         return log_error_errno(errno, "Failed to read user UID map pair: %m");
                                 if (l != sizeof(uid_t)*4)
@@ -4968,7 +4901,7 @@ static int run_container(
 
         if (arg_unified_cgroup_hierarchy == CGROUP_UNIFIED_UNKNOWN) {
                 /* The child let us know the support cgroup mode it might have read from the image. */
-                l = recv(unified_cgroup_hierarchy_socket_pair[0], &arg_unified_cgroup_hierarchy, sizeof(arg_unified_cgroup_hierarchy), 0);
+                l = recv(fd_outer_socket_pair[0], &arg_unified_cgroup_hierarchy, sizeof(arg_unified_cgroup_hierarchy), 0);
                 if (l < 0)
                         return log_error_errno(errno, "Failed to read cgroup mode: %m");
                 if (l != sizeof(arg_unified_cgroup_hierarchy))
@@ -4984,21 +4917,21 @@ static int run_container(
                 return -EIO;
 
         /* And now retrieve the PID of the inner child. */
-        l = recv(pid_socket_pair[0], pid, sizeof *pid, 0);
+        l = recv(fd_outer_socket_pair[0], pid, sizeof *pid, 0);
         if (l < 0)
                 return log_error_errno(errno, "Failed to read inner child PID: %m");
         if (l != sizeof *pid)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading inner child PID.");
 
         /* We also retrieve container UUID in case it was generated by outer child */
-        l = recv(uuid_socket_pair[0], &arg_uuid, sizeof arg_uuid, 0);
+        l = recv(fd_outer_socket_pair[0], &arg_uuid, sizeof arg_uuid, 0);
         if (l < 0)
                 return log_error_errno(errno, "Failed to read container machine ID: %m");
         if (l != sizeof(arg_uuid))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading container machined ID.");
 
         /* We also retrieve the socket used for notifications generated by outer child */
-        notify_socket = receive_one_fd(fd_socket_pair[0], 0);
+        notify_socket = receive_one_fd(fd_outer_socket_pair[0], 0);
         if (notify_socket < 0)
                 return log_error_errno(notify_socket,
                                        "Failed to receive notification socket from the outer child: %m");
@@ -5220,8 +5153,13 @@ static int run_container(
         /* Exit when the child exits */
         (void) sd_event_add_signal(event, NULL, SIGCHLD, on_sigchld, PID_TO_PTR(*pid));
 
+        /* Retrieve the kmsg fifo allocated by inner child */
+        fd_kmsg_fifo = receive_one_fd(fd_inner_socket_pair[0], 0);
+        if (fd_kmsg_fifo < 0)
+                return log_error_errno(fd_kmsg_fifo, "Failed to receive kmsg fifo from inner child: %m");
+
         if (arg_expose_ports) {
-                r = expose_port_watch_rtnl(event, rtnl_socket_pair[0], on_address_change, expose_args, &rtnl);
+                r = expose_port_watch_rtnl(event, fd_inner_socket_pair[0], on_address_change, expose_args, &rtnl);
                 if (r < 0)
                         return r;
 
@@ -5229,14 +5167,12 @@ static int run_container(
                 (void) expose_port_execute(rtnl, &expose_args->fw_ctx, arg_expose_ports, AF_INET6, &expose_args->address6);
         }
 
-        rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
-
         if (arg_console_mode != CONSOLE_PIPE) {
                 _cleanup_close_ int fd = -1;
                 PTYForwardFlags flags = 0;
 
                 /* Retrieve the master pty allocated by inner child */
-                fd = receive_one_fd(master_pty_socket_pair[0], 0);
+                fd = receive_one_fd(fd_inner_socket_pair[0], 0);
                 if (fd < 0)
                         return log_error_errno(fd, "Failed to receive master pty from the inner child: %m");
 
@@ -5267,6 +5203,8 @@ static int run_container(
                 *master = TAKE_FD(fd);
         }
 
+        fd_inner_socket_pair[0] = safe_close(fd_inner_socket_pair[0]);
+
         r = sd_event_loop(event);
         if (r < 0)
                 return log_error_errno(r, "Failed to run event loop: %m");
@@ -5287,6 +5225,8 @@ static int run_container(
 
         /* Normally redundant, but better safe than sorry */
         (void) kill(*pid, SIGKILL);
+
+        fd_kmsg_fifo = safe_close(fd_kmsg_fifo);
 
         if (arg_private_network) {
                 /* Move network interfaces back to the parent network namespace. We use `safe_fork`
