@@ -139,7 +139,8 @@
 
           <listitem><para>Returned by <function>sd_id128_get_machine()</function> and
           <function>sd_id128_get_machine_app_specific()</function> when <filename>/etc/machine-id</filename>
-          is empty or all zeros.</para></listitem>
+          is empty or all zeros. Also returned by <function>sd_id128_get_invocation()</function> when the
+          invocation ID is all zeros.</para></listitem>
         </varlistentry>
 
         <varlistentry>

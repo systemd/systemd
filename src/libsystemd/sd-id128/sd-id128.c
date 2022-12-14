@@ -284,6 +284,9 @@ _public_ int sd_id128_get_invocation(sd_id128_t *ret) {
                         r = get_invocation_from_keyring(&saved_invocation_id);
                 if (r < 0)
                         return r;
+
+                if (sd_id128_is_null(saved_invocation_id))
+                        return -ENOMEDIUM;
         }
 
         if (ret)
