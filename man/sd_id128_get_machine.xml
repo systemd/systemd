@@ -166,7 +166,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><constant>-EIO</constant></term>
+          <term><constant>-EUCLEAN</constant></term>
 
           <listitem><para>Returned by any of the functions described here when the configured value has
           invalid format.</para></listitem>
