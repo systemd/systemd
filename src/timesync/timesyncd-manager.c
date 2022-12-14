@@ -808,11 +808,6 @@ int manager_connect(Manager *m) {
         if (m->current_server_address && m->current_server_address->addresses_next)
                 manager_set_server_address(m, m->current_server_address->addresses_next);
         else {
-                static const struct addrinfo hints = {
-                        .ai_flags = AI_NUMERICSERV|AI_ADDRCONFIG,
-                        .ai_socktype = SOCK_DGRAM,
-                };
-
                 /* Hmm, we are through all addresses, let's look for the next host instead */
                 if (m->current_server_name && m->current_server_name->names_next)
                         manager_set_server_name(m, m->current_server_name->names_next);
@@ -879,6 +874,12 @@ int manager_connect(Manager *m) {
                 server_name_flush_addresses(m->current_server_name);
 
                 log_debug("Resolving %s...", m->current_server_name->string);
+
+                struct addrinfo hints = {
+                        .ai_flags = AI_NUMERICSERV|AI_ADDRCONFIG,
+                        .ai_socktype = SOCK_DGRAM,
+                        .ai_family = socket_ipv6_is_supported() ? AF_UNSPEC : AF_INET,
+                };
 
                 r = resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->string, "123", &hints, manager_resolve_handler, NULL, m);
                 if (r < 0)
