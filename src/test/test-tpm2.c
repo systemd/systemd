@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "hexdecoct.h"
 #include "tpm2-util.h"
 #include "tests.h"
 
@@ -545,6 +546,111 @@ TEST(tpm2_get_primary_template) {
                 const TPM2B_PUBLIC *got = tpm2_get_primary_template((Tpm2SRKTemplateFlags)i);
                 assert_se(memcmp(&templ[i], got, sizeof(*got)) == 0);
         }
+}
+
+#define SHA256_T0 "0000000000000000000000000000000000000000000000000000000000000000"
+#define SHA256_T1 "17b7703d9d00776310ba032e88c1a8c2a9c630ebdd799db622f6631530789175"
+#define SHA256_T2 "12998c017066eb0d2a70b94e6ed3192985855ce390f321bbdb832022888bd251"
+#define SHA256_T3 "c3a65887fedd3fb4f5d0047e906dff830bcbd1293160909eb4b05f485e7387ad"
+#define SHA256_T4 "6491fb4bc08fc0b2ef47fc63db57e249917885e69d8c0d99667df83a59107a33"
+
+static bool digest_check(const TPM2B_DIGEST *digest, const char *expect) {
+        _cleanup_free_ char *h = NULL;
+
+        assert_se(digest);
+        assert_se(expect);
+
+        h = hexmem(digest->buffer, digest->size);
+        assert_se(h != NULL);
+
+        return streq(expect, h);
+}
+
+static void digest_init_sha256(TPM2B_DIGEST *digest, const char *hash) {
+        _cleanup_free_ void *h = NULL;
+        size_t s = 0;
+
+        assert_se(strlen(hash) == SHA256_DIGEST_SIZE * 2);
+        assert_se(strlen(hash) <= sizeof(digest->buffer) * 2);
+
+        assert_se(unhexmem(hash, strlen(hash), &h, &s) == 0);
+        assert_se(s == SHA256_DIGEST_SIZE);
+
+        memcpy_safe(digest->buffer, h, s);
+        digest->size = s;
+
+        assert_se(digest_check(digest, hash));
+}
+
+TEST(digest_many) {
+        TPM2B_DIGEST d, d0, d1, d2, d3, d4;
+
+        digest_init_sha256(&d0, SHA256_T0);
+        digest_init_sha256(&d1, SHA256_T1);
+        digest_init_sha256(&d2, SHA256_T2);
+        digest_init_sha256(&d3, SHA256_T3);
+        digest_init_sha256(&d4, SHA256_T4);
+
+        /* tpm2_digest_init, tpm2_digest_rehash */
+        d = (TPM2B_DIGEST){ .size = 1, .buffer = { 2, }, };
+        assert_se(tpm2_digest_init(TPM2_ALG_SHA256, &d) == 0);
+        assert_se(digest_check(&d, SHA256_T0));
+        assert_se(tpm2_digest_rehash(TPM2_ALG_SHA256, &d) == 0);
+        assert_se(digest_check(&d, "66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925"));
+
+        d = d1;
+        assert_se(tpm2_digest_rehash(TPM2_ALG_SHA256, &d) == 0);
+        assert_se(digest_check(&d, "ab55014b5ace12ba70c3acc887db571585a83539aad3633d252a710f268f405c"));
+        assert_se(tpm2_digest_init(TPM2_ALG_SHA256, &d) == 0);
+        assert_se(digest_check(&d, SHA256_T0));
+
+        /* tpm2_digest_many_digests */
+        assert_se(tpm2_digest_many_digests(TPM2_ALG_SHA256, &d, &d2, 1, false) == 0);
+        assert_se(digest_check(&d, "56571a1be3fbeab18d215f549095915a004b5788ca0d535be668559129a76f25"));
+        assert_se(tpm2_digest_many_digests(TPM2_ALG_SHA256, &d, &d2, 1, true) == 0);
+        assert_se(digest_check(&d, "99dedaee8f4d8d10a8be184399fde8740d5e17ff783ee5c288a4486e4ce3a1fe"));
+
+        const TPM2B_DIGEST da1[] = { d2, d3, };
+        assert_se(tpm2_digest_many_digests(TPM2_ALG_SHA256, &d, da1, ELEMENTSOF(da1), false) == 0);
+        assert_se(digest_check(&d, "525aa13ef9a61827778ec3acf16fbb23b65ae8770b8fb2684d3a33f9457dd6d8"));
+        assert_se(tpm2_digest_many_digests(TPM2_ALG_SHA256, &d, da1, ELEMENTSOF(da1), true) == 0);
+        assert_se(digest_check(&d, "399ca2aa98963d1bd81a2b58a7e5cda24bba1be88fb4da9aa73d97706846566b"));
+
+        const TPM2B_DIGEST da2[] = { d3, d2, d0 };
+        assert_se(tpm2_digest_many_digests(TPM2_ALG_SHA256, &d, da2, ELEMENTSOF(da2), false) == 0);
+        assert_se(digest_check(&d, "b26fd22db74d4cd896bff01c61aa498a575e4a553a7fb5a322a5fee36954313e"));
+        assert_se(tpm2_digest_many_digests(TPM2_ALG_SHA256, &d, da2, ELEMENTSOF(da2), true) == 0);
+        assert_se(digest_check(&d, "091e79a5b09d4048df49a680f966f3ff67910afe185c3baf9704c9ca45bcf259"));
+
+        const TPM2B_DIGEST da3[] = { d4, d4, d4, d4, d3, d4, d4, d4, d4, };
+        assert_se(tpm2_digest_many_digests(TPM2_ALG_SHA256, &d, da3, ELEMENTSOF(da3), false) == 0);
+        assert_se(digest_check(&d, "8eca947641b6002df79dfb571a7f78b7d0a61370a366f722386dfbe444d18830"));
+        assert_se(tpm2_digest_many_digests(TPM2_ALG_SHA256, &d, da3, ELEMENTSOF(da3), true) == 0);
+        assert_se(digest_check(&d, "f9ba17bc0bbe8794e9bcbf112e4d59a11eb68fffbcd5516a746e4857829dff04"));
+
+        /* tpm2_digest_buffer */
+        const uint8_t b1[] = { 1, 2, 3, 4, };
+        assert_se(tpm2_digest_buffer(TPM2_ALG_SHA256, &d, b1, ELEMENTSOF(b1), false) == 0);
+        assert_se(digest_check(&d, "9f64a747e1b97f131fabb6b447296c9b6f0201e79fb3c5356e6c77e89b6a806a"));
+        assert_se(tpm2_digest_buffer(TPM2_ALG_SHA256, &d, b1, ELEMENTSOF(b1), true) == 0);
+        assert_se(digest_check(&d, "ff3bd307b287e9b29bb572f6ccfd19deb0106d0c4c3c5cfe8a1d03a396092ed4"));
+
+        const void *b2 = d2.buffer;
+        assert_se(tpm2_digest_buffer(TPM2_ALG_SHA256, &d, b2, d2.size, false) == 0);
+        assert_se(digest_check(&d, "56571a1be3fbeab18d215f549095915a004b5788ca0d535be668559129a76f25"));
+        assert_se(tpm2_digest_buffer(TPM2_ALG_SHA256, &d, b2, d2.size, true) == 0);
+        assert_se(digest_check(&d, "99dedaee8f4d8d10a8be184399fde8740d5e17ff783ee5c288a4486e4ce3a1fe"));
+
+        /* tpm2_digest_many */
+        const struct iovec iov1[] = {
+                IOVEC_MAKE((void*) b1, ELEMENTSOF(b1)),
+                IOVEC_MAKE(d2.buffer, d2.size),
+                IOVEC_MAKE(d3.buffer, d3.size),
+        };
+        assert_se(tpm2_digest_many(TPM2_ALG_SHA256, &d, iov1, ELEMENTSOF(iov1), false) == 0);
+        assert_se(digest_check(&d, "cd7bde4a047af976b6f1b282309976229be59f96a78aa186de32a1aee488ab09"));
+        assert_se(tpm2_digest_many(TPM2_ALG_SHA256, &d, iov1, ELEMENTSOF(iov1), true) == 0);
+        assert_se(digest_check(&d, "02ecb0628264235111e0053e271092981c8b15d59cd46617836bee3149a4ecb0"));
 }
 
 #endif /* HAVE_TPM2 */
