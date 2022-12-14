@@ -72,6 +72,25 @@ extern TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal)(uint8_t const buffer[], siz
 
 int dlopen_tpm2(void);
 
+int tpm2_digest_hash_buffers(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest, const uint8_t *data[], const size_t len[], size_t count, bool extend);
+#define tpm2_digest_extend_buffers(alg, digest, data, len, count) tpm2_digest_hash_buffers(alg, digest, data, len, count, true)
+#define tpm2_digest_init_buffers(alg, digest, data, len, count) tpm2_digest_hash_buffers(alg, digest, data, len, count, false)
+static inline int tpm2_digest_hash_buffer(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest, const uint8_t *data, size_t len, bool extend) {
+        return tpm2_digest_hash_buffers(alg, digest, &data, &len, 1, extend);
+}
+#define tpm2_digest_extend_buffer(alg, digest, data, len) tpm2_digest_hash_buffer(alg, digest, data, len, true)
+#define tpm2_digest_init_buffer(alg, digest, data, len) tpm2_digest_hash_buffer(alg, digest, data, len, false)
+int tpm2_digest_hash_digests(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest, const TPM2B_DIGEST *srcdigests[], size_t count, bool extend);
+#define tpm2_digest_extend_digests(alg, digest, srcdigests, count) tpm2_digest_hash_digests(alg, digest, srcdigests, count, true)
+#define tpm2_digest_init_digests(alg, digest, srcdigests, count) tpm2_digest_hash_digests(alg, digest, srcdigests, count, false)
+static inline int tpm2_digest_hash_digest(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest, const TPM2B_DIGEST *srcdigest, bool extend) {
+        return tpm2_digest_hash_digests(alg, digest, &srcdigest, 1, extend);
+}
+#define tpm2_digest_extend_digest(alg, digest, srcdigest) tpm2_digest_hash_digest(alg, digest, srcdigest, true)
+#define tpm2_digest_init_digest(alg, digest, srcdigest) tpm2_digest_hash_digest(alg, digest, srcdigest, false)
+#define tpm2_digest_rehash(alg, digest) tpm2_digest_hash_buffers(alg, digest, NULL, NULL, 0, true)
+#define tpm2_digest_init(alg, digest) tpm2_digest_hash_buffers(alg, digest, NULL, NULL, 0, false)
+
 int tpm2_seal(const char *device, uint32_t hash_pcr_mask, const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, const char *pin, void **ret_secret, size_t *ret_secret_size, void **ret_blob, size_t *ret_blob_size, void **ret_pcr_hash, size_t *ret_pcr_hash_size, uint16_t *ret_pcr_bank, uint16_t *ret_primary_alg, void **ret_srk_buf, size_t *ret_srk_buf_size);
 int tpm2_unseal(const char *device, uint32_t hash_pcr_mask, uint16_t pcr_bank, const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, JsonVariant *signature, const char *pin, uint16_t primary_alg, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, const void *srk_buf, size_t srk_buf_size, void **ret_secret, size_t *ret_secret_size);
 
