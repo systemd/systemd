@@ -948,19 +948,77 @@ int tpm2_get_good_pcr_banks(
         return 0;
 }
 
-static void hash_pin(const char *pin, size_t len, TPM2B_AUTH *auth) {
-        struct sha256_ctx hash;
+/* Currently, we hardcode our hash alg as sha256. */
+static void tpm2_digest_hash_array(
+                TPM2B_DIGEST *digest,
+                const uint8_t *data[],
+                size_t len[],
+                size_t count,
+                bool init,
+                bool extend) {
 
-        assert(auth);
-        assert(pin);
-        auth->size = SHA256_DIGEST_SIZE;
+        struct sha256_ctx ctx;
 
-        sha256_init_ctx(&hash);
-        sha256_process_bytes(pin, len, &hash);
-        sha256_finish_ctx(&hash, auth->buffer);
+        assert(digest);
+        assert(init || digest->size == SHA256_DIGEST_SIZE);
+        assert(data != NULL || count == 0);
+        assert(len != NULL || count == 0);
 
-        explicit_bzero_safe(&hash, sizeof(hash));
+        if (init) {
+                zero(*digest);
+                digest->size = SHA256_DIGEST_SIZE;
+        }
+
+        sha256_init_ctx(&ctx);
+        if (extend)
+                sha256_process_bytes(digest->buffer, digest->size, &ctx);
+        for (unsigned i = 0; i < count; i++)
+                sha256_process_bytes(data[i], len[i], &ctx);
+        sha256_finish_ctx(&ctx, digest->buffer);
+
+        explicit_bzero_safe(&ctx, sizeof(ctx));
 }
+
+#define tpm2_digest_init_array(digest, data, len, count) tpm2_digest_hash_array(digest, data, len, count, true, false)
+#define tpm2_digest_extend_array(digest, data, len, count) tpm2_digest_hash_array(digest, data, len, count, false, true)
+
+static inline void tpm2_digest_init(TPM2B_DIGEST *digest, const uint8_t *data, size_t len) {
+        tpm2_digest_init_array(digest, &data, &len, 1);
+}
+
+static inline void tpm2_digest_extend(TPM2B_DIGEST *digest, const uint8_t *data, size_t len) {
+        tpm2_digest_extend_array(digest, &data, &len, 1);
+}
+
+static inline void tpm2_digest_rehash(TPM2B_DIGEST *digest) {
+        /* This simply rehashes the existing hash. */
+        tpm2_digest_hash_array(digest, NULL, NULL, 0, false, true);
+}
+
+static void tpm2_digest_hash_digests(
+                TPM2B_DIGEST *digest,
+                const TPM2B_DIGEST *digests,
+                size_t count,
+                bool init,
+                bool extend) {
+
+        const uint8_t **data;
+        size_t *len;
+
+        data = newa(typeof(*data), count);
+        len = newa(typeof(*len), count);
+
+        /* The digests we are consuming aren't required to be sha256. */
+        for (unsigned i = 0; i < count; i++) {
+                data[i] = digests[i].buffer;
+                len[i] = digests[i].size;
+        }
+
+        tpm2_digest_hash_array(digest, data, len, count, init, extend);
+}
+
+#define tpm2_digest_init_digests(digest, digests, count) tpm2_digest_hash_digests(digest, digests, count, true, false)
+#define tpm2_digest_extend_digests(digest, digests, count) tpm2_digest_hash_digests(digest, digests, count, false, true)
 
 static int tpm2_set_auth(struct tpm2_context *c, struct tpm2_handle handle, const char *pin) {
         TPM2B_AUTH auth = {};
@@ -978,7 +1036,7 @@ static int tpm2_set_auth(struct tpm2_context *c, struct tpm2_handle handle, cons
          * could fake a TPM, satisfying the encrypted session, and just
          * forward everything to the *real* TPM.
          */
-        hash_pin(pin, strlen(pin), &auth);
+        tpm2_digest_init((TPM2B_DIGEST*) &auth, (uint8_t*) pin, strlen(pin));
 
         rc = sym_Esys_TR_SetAuth(c->esys_context, handle.handle, &auth);
         /* ESAPI knows about it, so clear it from our memory */
@@ -1671,7 +1729,7 @@ int tpm2_seal(const char *device,
                 .sensitive.data.size = 32,
         };
         if (pin)
-                hash_pin(pin, strlen(pin), &hmac_sensitive->sensitive.userAuth);
+                tpm2_digest_init((TPM2B_DIGEST*) &hmac_sensitive->sensitive.userAuth, (uint8_t*) pin, strlen(pin));
 
         assert(sizeof(hmac_sensitive->sensitive.data.buffer) >= hmac_sensitive->sensitive.data.size);
 
