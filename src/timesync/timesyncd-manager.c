@@ -756,6 +756,11 @@ static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct ad
                         continue;
                 }
 
+                if (ai->ai_addr->sa_family == AF_INET6 && !socket_ipv6_is_enabled()) {
+                        log_debug("Ignoring IPv6 address for %s.", m->current_server_name->string);
+                        continue;
+                }
+
                 r = server_address_new(m->current_server_name, &a, (const union sockaddr_union*) ai->ai_addr, ai->ai_addrlen);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add server address: %m");
