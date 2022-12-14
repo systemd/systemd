@@ -131,7 +131,7 @@ DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, cg_blkio_weight_parse);
 DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, cg_cpu_shares_parse);
 DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, cg_weight_parse);
 DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, cg_cpu_weight_parse);
-DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, unsigned long, mount_propagation_flags_from_string);
+DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, unsigned long, mount_propagation_flag_from_string);
 DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, safe_atou64);
 DEFINE_BUS_APPEND_PARSE_PTR("u", uint32_t, mode_t, parse_mode);
 DEFINE_BUS_APPEND_PARSE_PTR("u", uint32_t, unsigned, safe_atou);
@@ -1035,7 +1035,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 return bus_append_safe_atou(m, field, eq);
 
         if (streq(field, "MountFlags"))
-                return bus_append_mount_propagation_flags_from_string(m, field, eq);
+                return bus_append_mount_propagation_flag_from_string(m, field, eq);
 
         if (STR_IN_SET(field, "Environment",
                               "UnsetEnvironment",

@@ -136,7 +136,7 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                 } else if (streq(name, "MountFlags")) {
                         const char *result;
 
-                        result = mount_propagation_flags_to_string(u);
+                        result = mount_propagation_flag_to_string(u);
                         if (!result)
                                 return -EINVAL;
 

@@ -568,7 +568,7 @@ int mount_nofollow(
         return mount_fd(source, fd, filesystemtype, mountflags, data);
 }
 
-const char *mount_propagation_flags_to_string(unsigned long flags) {
+const char *mount_propagation_flag_to_string(unsigned long flags) {
 
         switch (flags & (MS_SHARED|MS_SLAVE|MS_PRIVATE)) {
         case 0:
@@ -584,7 +584,7 @@ const char *mount_propagation_flags_to_string(unsigned long flags) {
         return NULL;
 }
 
-int mount_propagation_flags_from_string(const char *name, unsigned long *ret) {
+int mount_propagation_flag_from_string(const char *name, unsigned long *ret) {
 
         if (isempty(name))
                 *ret = 0;

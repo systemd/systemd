@@ -17,19 +17,19 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 
-static void test_mount_propagation_flags_one(const char *name, int ret, unsigned long expected) {
+static void test_mount_propagation_flag_one(const char *name, int ret, unsigned long expected) {
         unsigned long flags;
 
         log_info("/* %s(%s) */", __func__, strnull(name));
 
-        assert_se(mount_propagation_flags_from_string(name, &flags) == ret);
+        assert_se(mount_propagation_flag_from_string(name, &flags) == ret);
 
         if (ret >= 0) {
                 const char *c;
 
                 assert_se(flags == expected);
 
-                c = mount_propagation_flags_to_string(flags);
+                c = mount_propagation_flag_to_string(flags);
                 if (isempty(name))
                         assert_se(isempty(c));
                 else
@@ -37,14 +37,14 @@ static void test_mount_propagation_flags_one(const char *name, int ret, unsigned
         }
 }
 
-TEST(mount_propagation_flags) {
-        test_mount_propagation_flags_one("shared", 0, MS_SHARED);
-        test_mount_propagation_flags_one("slave", 0, MS_SLAVE);
-        test_mount_propagation_flags_one("private", 0, MS_PRIVATE);
-        test_mount_propagation_flags_one(NULL, 0, 0);
-        test_mount_propagation_flags_one("", 0, 0);
-        test_mount_propagation_flags_one("xxxx", -EINVAL, 0);
-        test_mount_propagation_flags_one(" ", -EINVAL, 0);
+TEST(mount_propagation_flag) {
+        test_mount_propagation_flag_one("shared", 0, MS_SHARED);
+        test_mount_propagation_flag_one("slave", 0, MS_SLAVE);
+        test_mount_propagation_flag_one("private", 0, MS_PRIVATE);
+        test_mount_propagation_flag_one(NULL, 0, 0);
+        test_mount_propagation_flag_one("", 0, 0);
+        test_mount_propagation_flag_one("xxxx", -EINVAL, 0);
+        test_mount_propagation_flag_one(" ", -EINVAL, 0);
 }
 
 TEST(mnt_id) {
