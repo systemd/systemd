@@ -3,6 +3,7 @@
 
 #include <fcntl.h>
 #include <stdbool.h>
+#include <sys/mount.h>
 #include <sys/types.h>
 
 int name_to_handle_at_loop(int fd, const char *path, struct file_handle **ret_handle, int *ret_mnt_id, int flags);
@@ -24,3 +25,7 @@ int dev_is_devtmpfs(void);
 
 const char *mount_propagation_flag_to_string(unsigned long flags);
 int mount_propagation_flag_from_string(const char *name, unsigned long *ret);
+
+static inline bool mount_propagation_flag_is_valid(unsigned long flag) {
+        return IN_SET(flag, 0, MS_SHARED, MS_PRIVATE, MS_SLAVE);
+}
