@@ -178,7 +178,7 @@ int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
                         continue;
                 }
 
-                RUN_WITH_UMASK(0000)
+                WITH_UMASK(0000)
                         r = mkdirat(fd, table[i].dir, table[i].mode);
                 if (r < 0) {
                         log_full_errno(IN_SET(errno, EEXIST, EROFS) || table[i].ignore_failure ? LOG_DEBUG : LOG_ERR, errno,

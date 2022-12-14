@@ -42,7 +42,7 @@ int update_reboot_parameter_and_warn(const char *parameter, bool keep) {
                 return 0;
         }
 
-        RUN_WITH_UMASK(0022) {
+        WITH_UMASK(0022) {
                 r = write_string_file("/run/systemd/reboot-param", parameter,
                                       WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
                 if (r < 0)
