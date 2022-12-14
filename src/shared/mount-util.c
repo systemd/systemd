@@ -454,7 +454,7 @@ unsigned int mount_attr_propagation_type_to_flag(MountAttrPropagationType t) {
         }
 }
 
-static inline int mount_switch_root_pivot(const char *path, int fd_newroot) {
+static int mount_switch_root_pivot(const char *path, int fd_newroot) {
         _cleanup_close_ int fd_oldroot = -EBADF;
 
         fd_oldroot = open("/", O_PATH|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
@@ -484,7 +484,7 @@ static inline int mount_switch_root_pivot(const char *path, int fd_newroot) {
         return 0;
 }
 
-static inline int mount_switch_root_move(const char *path) {
+static int mount_switch_root_move(const char *path) {
         if (mount(path, "/", NULL, MS_MOVE, NULL) < 0)
                 return log_debug_errno(errno, "Failed to move new rootfs '%s': %m", path);
 
