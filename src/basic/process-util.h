@@ -147,11 +147,12 @@ typedef enum ForkFlags {
         FORK_WAIT               = 1 <<  7, /* Wait until child exited */
         FORK_NEW_MOUNTNS        = 1 <<  8, /* Run child in its own mount namespace */
         FORK_MOUNTNS_SLAVE      = 1 <<  9, /* Make child's mount namespace MS_SLAVE */
-        FORK_RLIMIT_NOFILE_SAFE = 1 << 10, /* Set RLIMIT_NOFILE soft limit to 1K for select() compat */
-        FORK_STDOUT_TO_STDERR   = 1 << 11, /* Make stdout a copy of stderr */
-        FORK_FLUSH_STDIO        = 1 << 12, /* fflush() stdout (and stderr) before forking */
-        FORK_NEW_USERNS         = 1 << 13, /* Run child in its own user namespace */
-        FORK_CLOEXEC_OFF        = 1 << 14, /* In the child: turn off O_CLOEXEC on all fds in except_fds[] */
+        FORK_PRIVATE_TMP        = 1 << 10, /* Mount new /tmp/ in the child */
+        FORK_RLIMIT_NOFILE_SAFE = 1 << 11, /* Set RLIMIT_NOFILE soft limit to 1K for select() compat */
+        FORK_STDOUT_TO_STDERR   = 1 << 12, /* Make stdout a copy of stderr */
+        FORK_FLUSH_STDIO        = 1 << 13, /* fflush() stdout (and stderr) before forking */
+        FORK_NEW_USERNS         = 1 << 14, /* Run child in its own user namespace */
+        FORK_CLOEXEC_OFF        = 1 << 15, /* In the child: turn off O_CLOEXEC on all fds in except_fds[] */
 } ForkFlags;
 
 int safe_fork_full(const char *name, const int except_fds[], size_t n_except_fds, ForkFlags flags, pid_t *ret_pid);

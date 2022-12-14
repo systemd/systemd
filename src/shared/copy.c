@@ -1357,7 +1357,7 @@ int copy_file_full(
         if (r < 0)
                 return r;
 
-        RUN_WITH_UMASK(0000) {
+        WITH_UMASK(0000) {
                 if (copy_flags & COPY_MAC_CREATE) {
                         r = mac_selinux_create_file_prepare(to, S_IFREG);
                         if (r < 0)
