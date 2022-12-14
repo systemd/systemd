@@ -827,7 +827,7 @@ static void swap_enter_activating(Swap *s) {
                 }
         }
 
-        r = exec_command_set(s->control_command, "/sbin/swapon", NULL);
+        r = exec_command_set(s->control_command, "/sbin/swapon", "--fixpgsz", NULL);
         if (r < 0)
                 goto fail;
 
