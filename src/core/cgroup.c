@@ -781,6 +781,55 @@ void cgroup_oomd_xattr_apply(Unit *u, const char *cgroup_path) {
                 unit_remove_xattr_graceful(u, cgroup_path, "user.oomd_omit");
 }
 
+int cgroup_log_xattr_apply(Unit *u, const char *cgroup_path) {
+        ExecContext *c;
+        size_t len;
+        size_t allowed_patterns_len = 0;
+        size_t denied_patterns_len = 0;
+        _cleanup_free_ char *patterns = NULL;
+        _cleanup_free_ char *allowed_patterns = NULL;
+        _cleanup_free_ char *denied_patterns = NULL;
+        int r;
+
+        assert(u);
+
+        c = unit_get_exec_context(u);
+        if (!c)
+                /* Some unit types have a cgroup context but no exec context, so we do not log
+                 * any error here to avoid confusion. */
+                return 0;
+
+        if (set_isempty(c->log_filter_allowed_patterns) && set_isempty(c->log_filter_denied_patterns)) {
+                unit_remove_xattr_graceful(u, cgroup_path, "user.journald_log_filter_patterns");
+                return 0;
+        }
+
+        r = set_make_nulstr(c->log_filter_allowed_patterns, &allowed_patterns, &allowed_patterns_len);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to make nulstr from set: %m");
+
+        r = set_make_nulstr(c->log_filter_denied_patterns, &denied_patterns, &denied_patterns_len);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to make nulstr from set: %m");
+
+        /* Use nul character separated strings without trailing nul */
+        allowed_patterns_len = LESS_BY(allowed_patterns_len, 1u);
+        denied_patterns_len = LESS_BY(denied_patterns_len, 1u);
+
+        len = allowed_patterns_len + 1 + denied_patterns_len;
+        patterns = new(char, len);
+        if (!patterns)
+                return log_oom_debug();
+
+        memcpy_safe(patterns, allowed_patterns, allowed_patterns_len);
+        memcpy_safe(&patterns[allowed_patterns_len], "\xff", 1);
+        memcpy_safe(&patterns[allowed_patterns_len + 1], denied_patterns, denied_patterns_len);
+
+        unit_set_xattr_graceful(u, cgroup_path, "user.journald_log_filter_patterns", patterns, len);
+
+        return 0;
+}
+
 static void cgroup_xattr_apply(Unit *u) {
         bool b;
 
@@ -788,6 +837,7 @@ static void cgroup_xattr_apply(Unit *u) {
 
         /* The 'user.*' xattrs can be set from a user manager. */
         cgroup_oomd_xattr_apply(u, u->cgroup_path);
+        cgroup_log_xattr_apply(u, u->cgroup_path);
 
         if (!MANAGER_IS_SYSTEM(u->manager))
                 return;
