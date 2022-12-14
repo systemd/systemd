@@ -598,3 +598,7 @@ int mount_propagation_flag_from_string(const char *name, unsigned long *ret) {
                 return -EINVAL;
         return 0;
 }
+
+bool mount_propagation_flag_is_valid(unsigned long flag) {
+        return IN_SET(flag, 0, MS_SHARED, MS_PRIVATE, MS_SLAVE);
+}
