@@ -747,3 +747,11 @@ bool in_hypervisor(void) {
         return !!(ecx & 0x80000000U);
 }
 #endif
+
+void *find_configuration_table(const EFI_GUID *guid) {
+        for (UINTN i = 0; i < ST->NumberOfTableEntries; i++)
+                if (efi_guid_equal(&ST->ConfigurationTable[i].VendorGuid, guid))
+                        return ST->ConfigurationTable[i].VendorTable;
+
+        return NULL;
+}
