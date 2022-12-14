@@ -260,6 +260,7 @@ static int get_invocation_from_keyring(sd_id128_t *ret) {
 
 static int get_invocation_from_environment(sd_id128_t *ret) {
         const char *e;
+        int r;
 
         assert(ret);
 
@@ -267,7 +268,8 @@ static int get_invocation_from_environment(sd_id128_t *ret) {
         if (!e)
                 return -ENXIO;
 
-        return sd_id128_from_string(e, ret);
+        r = sd_id128_from_string(e, ret);
+        return r == -EINVAL ? -EIO : r;
 }
 
 _public_ int sd_id128_get_invocation(sd_id128_t *ret) {
