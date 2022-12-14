@@ -260,11 +260,47 @@ static int stack_directory_update(sd_device *dev, int fd, bool add) {
         return 1; /* Updated. */
 }
 
-static int stack_directory_open(const char *dirname) {
+static int stack_directory_get_name(const char *slink, char **ret) {
+        _cleanup_free_ char *s = NULL, *dirname = NULL;
+        char name_enc[NAME_MAX+1];
+        const char *name;
+
+        assert(slink);
+        assert(ret);
+
+        s = strdup(slink);
+        if (!s)
+                return -ENOMEM;
+
+        path_simplify(s);
+
+        if (!path_is_normalized(s))
+                return -EINVAL;
+
+        name = path_startswith(s, "/dev");
+        if (empty_or_root(name))
+                return -EINVAL;
+
+        udev_node_escape_path(name, name_enc, sizeof(name_enc));
+
+        dirname = path_join("/run/udev/links", name_enc);
+        if (!dirname)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(dirname);
+        return 0;
+}
+
+static int stack_directory_open(const char *slink) {
+        _cleanup_free_ char *dirname = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        assert(dirname);
+        assert(slink);
+
+        r = stack_directory_get_name(slink, &dirname);
+        if (r < 0)
+                return r;
 
         r = mkdir_parents(dirname, 0755);
         if (r < 0)
@@ -332,37 +368,6 @@ toolong:
 
         dest[size - 1] = '\0';
         return size - 1;
-}
-
-static int stack_directory_get_name(const char *slink, char **ret) {
-        _cleanup_free_ char *s = NULL, *dirname = NULL;
-        char name_enc[NAME_MAX+1];
-        const char *name;
-
-        assert(slink);
-        assert(ret);
-
-        s = strdup(slink);
-        if (!s)
-                return -ENOMEM;
-
-        path_simplify(s);
-
-        if (!path_is_normalized(s))
-                return -EINVAL;
-
-        name = path_startswith(s, "/dev");
-        if (empty_or_root(name))
-                return -EINVAL;
-
-        udev_node_escape_path(name, name_enc, sizeof(name_enc));
-
-        dirname = path_join("/run/udev/links", name_enc);
-        if (!dirname)
-                return -ENOMEM;
-
-        *ret = TAKE_PTR(dirname);
-        return 0;
 }
 
 static int link_get_current_priority(const char *slink, int *ret) {
@@ -434,24 +439,19 @@ static int link_remove_by_fd(int dirfd, sd_device *dev, const char *slink) {
 
 static int link_update(sd_device *dev, const char *slink, bool add) {
         _cleanup_close_ int dirfd = -EBADF, lockfd = -EBADF;
-        _cleanup_free_ char *dirname = NULL;
         int r;
 
-        r = stack_directory_get_name(slink, &dirname);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to build stack directory name for '%s': %m", slink);
-
-        dirfd = stack_directory_open(dirname);
+        dirfd = stack_directory_open(slink);
         if (dirfd < 0)
-                return log_device_debug_errno(dev, dirfd, "Failed to open stack directory '%s': %m", dirname);
+                return log_device_debug_errno(dev, dirfd, "Failed to open stack directory for '%s': %m", slink);
 
         lockfd = stack_directory_lock(dirfd);
         if (lockfd < 0)
-                return log_device_debug_errno(dev, lockfd, "Failed to lock stack directory '%s': %m", dirname);
+                return log_device_debug_errno(dev, lockfd, "Failed to lock stack directory for '%s': %m", slink);
 
         r = stack_directory_update(dev, dirfd, add);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to update stack directory '%s': %m", dirname);
+                return log_device_debug_errno(dev, r, "Failed to update stack directory for '%s': %m", slink);
 
         if (add)
                 return link_add_by_fd(dirfd, dev, slink);
