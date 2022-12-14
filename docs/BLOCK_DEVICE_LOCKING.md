@@ -118,7 +118,7 @@ Failed to take a BSD lock on /dev/sda: Resource temporarily unavailable
 ```
 
 ## Code
-```
+```c
 /* SPDX-License-Identifier: MIT-0 */
 
 #include <stdio.h>
