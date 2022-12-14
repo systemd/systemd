@@ -36,6 +36,7 @@
 #include "memory-util.h"
 #include "missing_sched.h"
 #include "missing_syscall.h"
+#include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
@@ -1252,11 +1253,22 @@ int safe_fork_full(
         }
 
         if (FLAGS_SET(flags, FORK_NEW_MOUNTNS | FORK_MOUNTNS_SLAVE)) {
-
                 /* Optionally, make sure we never propagate mounts to the host. */
-
                 if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0) {
                         log_full_errno(prio, errno, "Failed to remount root directory as MS_SLAVE: %m");
+                        _exit(EXIT_FAILURE);
+                }
+        }
+
+        if (FLAGS_SET(flags, FORK_PRIVATE_TMP)) {
+                assert(FLAGS_SET(flags, FORK_NEW_MOUNTNS));
+
+                /* Optionally, overmount new tmpfs instance on /tmp/. */
+                r = mount_nofollow("tmpfs", "/tmp", "tmpfs",
+                                   MS_NOSUID|MS_NODEV,
+                                   "mode=01777" TMPFS_LIMITS_RUN);
+                if (r < 0) {
+                        log_full_errno(prio, r, "Failed to overmount /tmp/: %m");
                         _exit(EXIT_FAILURE);
                 }
         }
