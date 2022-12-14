@@ -828,7 +828,7 @@ static int copy_file_with_version_check(const char *from, const char *to, bool f
         if (r < 0)
                 return log_oom();
 
-        RUN_WITH_UMASK(0000) {
+        WITH_UMASK(0000) {
                 fd_to = open(t, O_WRONLY|O_CREAT|O_CLOEXEC|O_EXCL|O_NOFOLLOW, 0644);
                 if (fd_to < 0)
                         return log_error_errno(errno, "Failed to open \"%s\" for writing: %m", t);
@@ -2073,7 +2073,7 @@ static int install_random_seed(const char *esp) {
         /* Let's write this variable with an umask in effect, so that unprivileged users can't see the token
          * and possibly get identification information or too much insight into the kernel's entropy pool
          * state. */
-        RUN_WITH_UMASK(0077) {
+        WITH_UMASK(0077) {
                 r = efi_set_variable(EFI_LOADER_VARIABLE(LoaderSystemToken), buffer, sizeof(buffer));
                 if (r < 0) {
                         if (!arg_graceful)
@@ -2147,7 +2147,7 @@ static int verb_install(int argc, char *argv[], void *userdata) {
 
         const char *arch = arg_arch_all ? "" : get_efi_arch();
 
-        RUN_WITH_UMASK(0002) {
+        WITH_UMASK(0002) {
                 if (install) {
                         /* Don't create any of these directories when we are just updating. When we update
                          * we'll drop-in our files (unless there are newer ones already), but we won't create
