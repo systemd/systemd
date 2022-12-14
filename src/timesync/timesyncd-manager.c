@@ -754,7 +754,7 @@ static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct ad
                 assert(ai->ai_addrlen >= offsetof(struct sockaddr, sa_data));
 
                 if (!IN_SET(ai->ai_addr->sa_family, AF_INET, AF_INET6)) {
-                        log_warning("Unsuitable address protocol for %s", m->current_server_name->string);
+                        log_debug("Ignoring unsuitable address protocol for %s.", m->current_server_name->string);
                         continue;
                 }
 
