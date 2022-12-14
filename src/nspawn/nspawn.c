@@ -3973,7 +3973,7 @@ static int outer_child(
          * directory mount to root later on.
          * https://github.com/systemd/systemd/issues/3847#issuecomment-562735251
          */
-        r = mount_switch_root(directory, MOUNT_ATTR_PROPAGATION_SHARED);
+        r = mount_switch_root(directory, MS_SHARED);
         if (r < 0)
                 return log_error_errno(r, "Failed to move root directory: %m");
 
