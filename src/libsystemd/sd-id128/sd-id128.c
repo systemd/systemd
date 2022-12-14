@@ -206,22 +206,22 @@ static int get_invocation_from_keyring(sd_id128_t *ret) {
         /* Chop off the final description string */
         d = strrchr(description, ';');
         if (!d)
-                return -EIO;
+                return -EUCLEAN;
         *d = 0;
 
         /* Look for the permissions */
         p = strrchr(description, ';');
         if (!p)
-                return -EIO;
+                return -EUCLEAN;
 
         errno = 0;
         perms = strtoul(p + 1, &e, 16);
         if (errno > 0)
                 return -errno;
         if (e == p + 1) /* Read at least one character */
-                return -EIO;
+                return -EUCLEAN;
         if (e != d) /* Must reached the end */
-                return -EIO;
+                return -EUCLEAN;
 
         if ((perms & ~MAX_PERMS) != 0)
                 return -EPERM;
@@ -231,7 +231,7 @@ static int get_invocation_from_keyring(sd_id128_t *ret) {
         /* Look for the group ID */
         g = strrchr(description, ';');
         if (!g)
-                return -EIO;
+                return -EUCLEAN;
         r = parse_gid(g + 1, &gid);
         if (r < 0)
                 return r;
@@ -242,7 +242,7 @@ static int get_invocation_from_keyring(sd_id128_t *ret) {
         /* Look for the user ID */
         u = strrchr(description, ';');
         if (!u)
-                return -EIO;
+                return -EUCLEAN;
         r = parse_uid(u + 1, &uid);
         if (r < 0)
                 return r;
@@ -253,13 +253,14 @@ static int get_invocation_from_keyring(sd_id128_t *ret) {
         if (c < 0)
                 return -errno;
         if (c != sizeof(sd_id128_t))
-                return -EIO;
+                return -EUCLEAN;
 
         return 0;
 }
 
 static int get_invocation_from_environment(sd_id128_t *ret) {
         const char *e;
+        int r;
 
         assert(ret);
 
@@ -267,7 +268,8 @@ static int get_invocation_from_environment(sd_id128_t *ret) {
         if (!e)
                 return -ENXIO;
 
-        return sd_id128_from_string(e, ret);
+        r = sd_id128_from_string(e, ret);
+        return r == -EINVAL ? -EUCLEAN : r;
 }
 
 _public_ int sd_id128_get_invocation(sd_id128_t *ret) {
