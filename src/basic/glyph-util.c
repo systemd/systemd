@@ -9,15 +9,15 @@ bool emoji_enabled(void) {
         static int cached_emoji_enabled = -1;
 
         if (cached_emoji_enabled < 0) {
-                int val;
+                int val = getenv_bool("SYSTEMD_EMOJI");
+                if (val >= 0)
+                        return (cached_emoji_enabled = val);
 
-                val = getenv_bool("SYSTEMD_EMOJI");
-                if (val < 0)
-                        cached_emoji_enabled =
-                                is_locale_utf8() &&
-                                !STRPTR_IN_SET(getenv("TERM"), "dumb", "linux");
-                else
-                        cached_emoji_enabled = val;
+                const char *term = getenv("TERM");
+                if (!term || STR_IN_SET(term, "dumb", "linux"))
+                        return (cached_emoji_enabled = false);
+
+                cached_emoji_enabled = is_locale_utf8();
         }
 
         return cached_emoji_enabled;
