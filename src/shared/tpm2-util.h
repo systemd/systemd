@@ -72,6 +72,15 @@ extern TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal)(uint8_t const buffer[], siz
 
 int dlopen_tpm2(void);
 
+int tpm2_digest_init(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest);
+void tpm2_digest_hash_buffers(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest, const uint8_t *data[], size_t len[], size_t count, bool extend);
+static inline void tpm2_digest_hash_buffer(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest, const uint8_t *data, size_t len, bool extend) {
+        tpm2_digest_hash_buffers(alg, digest, &data, &len, 1, extend);
+}
+void tpm2_digest_hash_digests(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest, const TPM2B_DIGEST *digests, size_t count, bool extend);
+#define tpm2_digest_hash_digest(alg, digest, srcdigest, extend) tpm2_digest_hash_digests(alg, digest, srcdigest, 1, extend)
+#define tpm2_digest_rehash(alg, digest) tpm2_digest_hash_digests(alg, digest, NULL, 0, true)
+
 int tpm2_seal(const char *device, uint32_t hash_pcr_mask, const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, const char *pin, void **ret_secret, size_t *ret_secret_size, void **ret_blob, size_t *ret_blob_size, void **ret_pcr_hash, size_t *ret_pcr_hash_size, uint16_t *ret_pcr_bank, uint16_t *ret_primary_alg, void **ret_srk_buf, size_t *ret_srk_buf_size);
 int tpm2_unseal(const char *device, uint32_t hash_pcr_mask, uint16_t pcr_bank, const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, JsonVariant *signature, const char *pin, uint16_t primary_alg, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, const void *srk_buf, size_t srk_buf_size, void **ret_secret, size_t *ret_secret_size);
 
