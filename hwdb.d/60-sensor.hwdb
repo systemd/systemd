@@ -284,6 +284,13 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:svnConnect:pnTablet9:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
+# CSL Computer
+#########################################
+# CSL Panther Tab HD
+sensor:modalias:acpi:KIOX000A*:dmi:*:svnCSL*Computer*:pnCSL*Panther*Tab*HD:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+
+#########################################
 # Cube
 #########################################
 
