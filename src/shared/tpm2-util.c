@@ -1380,21 +1380,6 @@ int tpm2_get_good_pcr_banks_strv(
 #endif
 }
 
-static void hash_pin(const char *pin, size_t len, TPM2B_AUTH *auth) {
-        struct sha256_ctx hash;
-
-        assert(auth);
-        assert(pin);
-
-        auth->size = SHA256_DIGEST_SIZE;
-
-        CLEANUP_ERASE(hash);
-
-        sha256_init_ctx(&hash);
-        sha256_process_bytes(pin, len, &hash);
-        sha256_finish_ctx(&hash, auth->buffer);
-}
-
 /* Hash data into the digest.
  *
  * If 'extend' is true, the hashing operation starts with the existing digest hash (and the digest is
@@ -1520,7 +1505,9 @@ static int tpm2_make_encryption_session(
 
                 CLEANUP_ERASE(auth);
 
-                hash_pin(pin, strlen(pin), &auth);
+                r = tpm2_digest_buffer(TPM2_ALG_SHA256, &auth, pin, strlen(pin), false);
+                if (r < 0)
+                        return r;
 
                 rc = sym_Esys_TR_SetAuth(c->esys_context, bind_key->esys_handle, &auth);
                 if (rc != TSS2_RC_SUCCESS)
@@ -2195,8 +2182,11 @@ int tpm2_seal(const char *device,
                 .size = sizeof(hmac_sensitive.sensitive),
                 .sensitive.data.size = 32,
         };
-        if (pin)
-                hash_pin(pin, strlen(pin), &hmac_sensitive.sensitive.userAuth);
+        if (pin) {
+                r = tpm2_digest_buffer(TPM2_ALG_SHA256, &hmac_sensitive.sensitive.userAuth, pin, strlen(pin), false);
+                if (r < 0)
+                        return r;
+        }
 
         assert(sizeof(hmac_sensitive.sensitive.data.buffer) >= hmac_sensitive.sensitive.data.size);
 
