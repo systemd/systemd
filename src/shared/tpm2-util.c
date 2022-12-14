@@ -1380,20 +1380,85 @@ int tpm2_get_good_pcr_banks_strv(
 #endif
 }
 
-static void hash_pin(const char *pin, size_t len, TPM2B_AUTH *auth) {
-        struct sha256_ctx hash;
+/* Currently, we hardcode our hash alg as sha256. */
+static const TPM2B_DIGEST TPM2_DIGEST_ZERO = { .size = SHA256_DIGEST_SIZE, };
 
-        assert(auth);
-        assert(pin);
+static void tpm2_digest_hash_array(
+                TPM2B_DIGEST *digest,
+                const uint8_t *data[],
+                size_t len[],
+                size_t count,
+                bool init,
+                bool extend) {
 
-        auth->size = SHA256_DIGEST_SIZE;
+        struct sha256_ctx ctx;
 
-        CLEANUP_ERASE(hash);
+        assert(digest);
+        assert(init || digest->size == SHA256_DIGEST_SIZE);
+        assert(sizeof(digest->buffer) >= SHA256_DIGEST_SIZE);
+        assert(data != NULL || count == 0);
+        assert(len != NULL || count == 0);
 
-        sha256_init_ctx(&hash);
-        sha256_process_bytes(pin, len, &hash);
-        sha256_finish_ctx(&hash, auth->buffer);
+        CLEANUP_ERASE(ctx);
+
+        if (init)
+                *digest = TPM2_DIGEST_ZERO;
+
+        sha256_init_ctx(&ctx);
+        if (extend)
+                sha256_process_bytes(digest->buffer, digest->size, &ctx);
+        for (unsigned i = 0; i < count; i++)
+                sha256_process_bytes(data[i], len[i], &ctx);
+        sha256_finish_ctx(&ctx, digest->buffer);
 }
+
+#define tpm2_digest_init_array(digest, data, len, count) tpm2_digest_hash_array(digest, data, len, count, true, false)
+#define tpm2_digest_extend_array(digest, data, len, count) tpm2_digest_hash_array(digest, data, len, count, false, true)
+
+static inline void tpm2_digest_init(TPM2B_DIGEST *digest, const uint8_t *data, size_t len) {
+        tpm2_digest_init_array(digest, &data, &len, 1);
+}
+
+static inline void tpm2_digest_extend(TPM2B_DIGEST *digest, const uint8_t *data, size_t len) {
+        tpm2_digest_extend_array(digest, &data, &len, 1);
+}
+
+static inline void tpm2_digest_rehash(TPM2B_DIGEST *digest) {
+        /* This simply rehashes the existing hash. */
+        tpm2_digest_hash_array(digest, NULL, NULL, 0, false, true);
+}
+
+static void tpm2_digest_hash_digests(
+                TPM2B_DIGEST *digest,
+                const TPM2B_DIGEST *digests,
+                size_t count,
+                bool init,
+                bool extend) {
+
+        const uint8_t **data;
+        size_t *len;
+
+        data = newa(typeof(*data), count);
+        len = newa(typeof(*len), count);
+
+        /* The digests we are consuming aren't required to be sha256. */
+        for (unsigned i = 0; i < count; i++) {
+                data[i] = digests[i].buffer;
+                len[i] = digests[i].size;
+        }
+
+        tpm2_digest_hash_array(digest, data, len, count, init, extend);
+}
+
+#define tpm2_digest_init_digests(digest, digests, count) tpm2_digest_hash_digests(digest, digests, count, true, false)
+#define tpm2_digest_extend_digests(digest, digests, count) tpm2_digest_hash_digests(digest, digests, count, false, true)
+
+/* TPM2B_AUTH is just a typedef of TPM2B_DIGEST; let's assert that to be sure. */
+#define tpm2_auth_init(auth, data, len)                                 \
+        ({                                                              \
+                assert(__builtin_types_compatible_p(TPM2B_DIGEST, typeof(auth))); \
+                tpm2_digest_init((TPM2B_DIGEST*)(auth), data, len);     \
+        })
 
 static bool tpm2_is_encryption_session(Tpm2Context *c, const Tpm2Handle *session) {
         TPMA_SESSION flags = 0;
@@ -1441,7 +1506,7 @@ static int tpm2_make_encryption_session(
 
                 CLEANUP_ERASE(auth);
 
-                hash_pin(pin, strlen(pin), &auth);
+                tpm2_auth_init(&auth, (uint8_t*) pin, strlen(pin));
 
                 rc = sym_Esys_TR_SetAuth(c->esys_context, bind_key->esys_handle, &auth);
                 if (rc != TSS2_RC_SUCCESS)
@@ -1879,11 +1944,8 @@ static int tpm2_build_sealing_policy(
 
                         /* TPM2_VerifySignature() will only verify the RSA part of the RSA+SHA256 signature,
                          * hence we need to do the SHA256 part ourselves, first */
-                        TPM2B_DIGEST signature_hash = {
-                                .size = SHA256_DIGEST_SIZE,
-                        };
-                        assert(sizeof(signature_hash.buffer) >= SHA256_DIGEST_SIZE);
-                        sha256_direct(approved_policy->buffer, approved_policy->size, signature_hash.buffer);
+                        TPM2B_DIGEST signature_hash = *approved_policy;
+                        tpm2_digest_rehash(&signature_hash);
 
                         TPMT_SIGNATURE policy_signature = {
                                 .sigAlg = TPM2_ALG_RSASSA,
@@ -2118,7 +2180,7 @@ int tpm2_seal(const char *device,
                 .sensitive.data.size = 32,
         };
         if (pin)
-                hash_pin(pin, strlen(pin), &hmac_sensitive.sensitive.userAuth);
+                tpm2_auth_init(&hmac_sensitive.sensitive.userAuth, (uint8_t*) pin, strlen(pin));
 
         assert(sizeof(hmac_sensitive.sensitive.data.buffer) >= hmac_sensitive.sensitive.data.size);
 
