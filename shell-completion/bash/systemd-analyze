@@ -62,7 +62,7 @@ _systemd_analyze() {
     )
 
     local -A VERBS=(
-        [STANDALONE]='time blame plot unit-paths exit-status calendar timestamp timespan'
+        [STANDALONE]='time blame unit-paths exit-status calendar timestamp timespan'
         [CRITICAL_CHAIN]='critical-chain'
         [DOT]='dot'
         [DUMP]='dump'
@@ -72,6 +72,7 @@ _systemd_analyze() {
         [SECURITY]='security'
         [CONDITION]='condition'
         [INSPECT_ELF]='inspect-elf'
+        [PLOT]='plot'
     )
 
     local CONFIGS='systemd/bootchart.conf systemd/coredump.conf systemd/journald.conf
@@ -194,6 +195,11 @@ _systemd_analyze() {
         else
             comps=$( compgen -A file -- "$cur" )
             compopt -o filenames
+        fi
+
+    elif __contains_word "$verb" ${VERBS[PLOT]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --system --user --global --no-pager --json=off --json=pretty --json=short --table --no-legend'
         fi
     fi
 
