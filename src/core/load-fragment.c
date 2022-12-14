@@ -945,7 +945,7 @@ int config_parse_exec(
                                    ignore ? ", ignoring" : "", rvalue);
                         return ignore ? 0 : -ENOEXEC;
                 }
-                if (!string_is_safe(path)) {
+                if (string_has_cc(path, NULL)) {
                         log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, 0,
                                    "Executable name contains special characters%s: %s",
                                    ignore ? ", ignoring" : "", path);
