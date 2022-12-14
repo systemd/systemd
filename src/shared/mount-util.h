@@ -23,7 +23,6 @@ typedef enum MountAttrPropagationType {
 
 const char* mount_attr_propagation_type_to_string(MountAttrPropagationType t) _const_;
 MountAttrPropagationType mount_attr_propagation_type_from_string(const char *s) _pure_;
-unsigned int mount_attr_propagation_type_to_flag(MountAttrPropagationType t);
 
 int repeat_unmount(const char *path, int flags);
 int umount_recursive(const char *target, int flags);

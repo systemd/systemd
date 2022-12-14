@@ -439,7 +439,7 @@ static const char *const mount_attr_propagation_type_table[_MOUNT_ATTR_PROPAGATI
 
 DEFINE_STRING_TABLE_LOOKUP(mount_attr_propagation_type, MountAttrPropagationType);
 
-unsigned int mount_attr_propagation_type_to_flag(MountAttrPropagationType t) {
+static unsigned long mount_attr_propagation_type_to_flag(MountAttrPropagationType t) {
         switch (t) {
         case MOUNT_ATTR_PROPAGATION_INHERIT:
                 return 0;
@@ -498,9 +498,9 @@ static int mount_switch_root_move(const char *path) {
 }
 
 int mount_switch_root(const char *path, MountAttrPropagationType type) {
-        int r;
         _cleanup_close_ int fd_newroot = -EBADF;
-        unsigned int flags;
+        unsigned long flags;
+        int r;
 
         assert(path);
 
