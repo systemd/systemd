@@ -486,7 +486,7 @@ static int etc_hosts_lookup_by_name(
                         break;
         }
 
-        SET_FOREACH(a, item->addresses) {
+        SET_FOREACH(a, item ? item->addresses : NULL) {
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 
                 if ((!found_a && a->family == AF_INET) ||
