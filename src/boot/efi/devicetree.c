@@ -8,13 +8,6 @@
 
 #define FDT_V1_SIZE (7*4)
 
-static void *get_dtb_table(void) {
-        for (UINTN i = 0; i < ST->NumberOfTableEntries; i++)
-                if (efi_guid_equal(&ST->ConfigurationTable[i].VendorGuid, &EfiDtbTableGuid))
-                        return ST->ConfigurationTable[i].VendorTable;
-        return NULL;
-}
-
 static EFI_STATUS devicetree_allocate(struct devicetree_state *state, UINTN size) {
         UINTN pages = DIV_ROUND_UP(size, EFI_PAGE_SIZE);
         EFI_STATUS err;
@@ -81,7 +74,7 @@ EFI_STATUS devicetree_install(struct devicetree_state *state, EFI_FILE *root_dir
         assert(root_dir);
         assert(name);
 
-        state->orig = get_dtb_table();
+        state->orig = find_configuration_table(&EfiDtbTableGuid);
         if (!state->orig)
                 return EFI_UNSUPPORTED;
 
@@ -121,7 +114,7 @@ EFI_STATUS devicetree_install_from_memory(struct devicetree_state *state,
         assert(state);
         assert(dtb_buffer && dtb_length > 0);
 
-        state->orig = get_dtb_table();
+        state->orig = find_configuration_table(&EfiDtbTableGuid);
         if (!state->orig)
                 return EFI_UNSUPPORTED;
 
