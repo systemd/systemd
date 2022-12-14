@@ -524,6 +524,52 @@ int dev_is_devtmpfs(void) {
         return false;
 }
 
+int mount_fd(const char *source,
+             int target_fd,
+             const char *filesystemtype,
+             unsigned long mountflags,
+             const void *data) {
+
+        if (mount(source, FORMAT_PROC_FD_PATH(target_fd), filesystemtype, mountflags, data) < 0) {
+                if (errno != ENOENT)
+                        return -errno;
+
+                /* ENOENT can mean two things: either that the source is missing, or that /proc/ isn't
+                 * mounted. Check for the latter to generate better error messages. */
+                if (proc_mounted() == 0)
+                        return -ENOSYS;
+
+                return -ENOENT;
+        }
+
+        return 0;
+}
+
+int mount_nofollow(
+                const char *source,
+                const char *target,
+                const char *filesystemtype,
+                unsigned long mountflags,
+                const void *data) {
+
+        _cleanup_close_ int fd = -1;
+
+        /* In almost all cases we want to manipulate the mount table without following symlinks, hence
+         * mount_nofollow() is usually the way to go. The only exceptions are environments where /proc/ is
+         * not available yet, since we need /proc/self/fd/ for this logic to work. i.e. during the early
+         * initialization of namespacing/container stuff where /proc is not yet mounted (and maybe even the
+         * fs to mount) we can only use traditional mount() directly.
+         *
+         * Note that this disables following only for the final component of the target, i.e symlinks within
+         * the path of the target are honoured, as are symlinks in the source path everywhere. */
+
+        fd = open(target, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+        if (fd < 0)
+                return -errno;
+
+        return mount_fd(source, fd, filesystemtype, mountflags, data);
+}
+
 const char *mount_propagation_flags_to_string(unsigned long flags) {
 
         switch (flags & (MS_SHARED|MS_SLAVE|MS_PRIVATE)) {
