@@ -98,7 +98,6 @@ TEST(config_parse_exec) {
         int r;
 
         ExecCommand *c = NULL, *c1;
-        const char *ccc;
         _cleanup_(manager_freep) Manager *m = NULL;
         _cleanup_(unit_freep) Unit *u = NULL;
 
@@ -351,8 +350,7 @@ TEST(config_parse_exec) {
         check_execcommand(c1,
                           "/PATH WITH SPACES/daemon", NULL, "-1 -2", NULL, false);
 
-        for (ccc = "abfnrtv\\\'\"x"; *ccc; ccc++) {
-                /* \\x is an incomplete hexadecimal sequence, invalid because of the slash */
+        for (const char *ccc = "abfnrtv"; *ccc; ccc++) {
                 char path[] = "/path\\X";
                 path[sizeof(path) - 2] = *ccc;
 
@@ -363,6 +361,33 @@ TEST(config_parse_exec) {
                 assert_se(r == -ENOEXEC);
                 assert_se(c1->command_next == NULL);
         }
+
+        log_info("/* incomplete command sequence in the command */");
+        r = config_parse_exec(NULL, "fake", 5, "section", 1,
+                              "LValue", 0,
+                              "grep\\x",          /* \x is an incomplete hexadecimal sequence */
+                              &c, u);
+        assert_se(r >= 0);
+        c1 = c1->command_next;
+        check_execcommand(c1, "grep\\x", NULL, NULL, NULL, false);
+
+        log_info("/* single quote in the command */");
+        r = config_parse_exec(NULL, "fake", 5, "section", 1,
+                              "LValue", 0,
+                              "\"grep's\"",
+                              &c, u);
+        assert_se(r >= 0);
+        c1 = c1->command_next;
+        check_execcommand(c1, "grep's", NULL, NULL, NULL, false);
+
+        log_info("/* double quotes in the command */");
+        r = config_parse_exec(NULL, "fake", 5, "section", 1,
+                              "LValue", 0,
+                              "'grep \"special\"'",
+                              &c, u);
+        assert_se(r >= 0);
+        c1 = c1->command_next;
+        check_execcommand(c1, "grep \"special\"", NULL, NULL, NULL, false);
 
         log_info("/* valid character: \\s */");
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
@@ -382,12 +407,12 @@ TEST(config_parse_exec) {
         check_execcommand(c1, "/bin/grep", NULL, "\\w+\\K", NULL, false);
 
         log_info("/* trailing backslash: \\ */");
-        /* backslash is invalid */
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "/path\\",
                               &c, u);
-        assert_se(r == -ENOEXEC);
-        assert_se(c1->command_next == NULL);
+        assert_se(r >= 0);
+        c1 = c1->command_next;
+        check_execcommand(c1, "/path\\", NULL, NULL, NULL, false);
 
         log_info("/* missing ending ' */");
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
