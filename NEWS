@@ -183,7 +183,7 @@ CHANGES WITH 253 in spe:
         Changes in the documentation:
 
         * Specifications that are not closely tied to systemd have moved to
-          https://uapi-group.org/specifications/: the Boot Loader Spefication
+          https://uapi-group.org/specifications/: the Boot Loader Specification
           and the Discoverable Partitions Specification.
 
 
