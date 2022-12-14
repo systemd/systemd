@@ -1395,6 +1395,83 @@ static void hash_pin(const char *pin, size_t len, TPM2B_AUTH *auth) {
         sha256_finish_ctx(&hash, auth->buffer);
 }
 
+/* Hash data into the digest.
+ *
+ * If 'extend' is true, the hashing operation starts with the existing digest hash (and the digest is
+ * required to have a hash and its size must be correct). If 'extend' is false, the digest size is
+ * initialized to the correct size for 'alg' and the hashing operation does not include any existing digest
+ * hash. If 'extend' is false and no data is provided, the digest is initialized to a zero digest.
+ *
+ * On success, the digest hash will be updated with the hashing operation result and the digest size will be
+ * correct for 'alg'.
+ *
+ * This currently only provides SHA256, so 'alg' must be TPM2_ALG_SHA256. */
+int tpm2_digest_many(
+                TPMI_ALG_HASH alg,
+                TPM2B_DIGEST *digest,
+                const struct iovec data[],
+                size_t n_data,
+                bool extend) {
+
+        struct sha256_ctx ctx;
+
+        assert(digest);
+        assert(data || n_data == 0);
+
+        if (alg != TPM2_ALG_SHA256)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Hash algorithm not supported: 0x%x", alg);
+
+        if (extend && digest->size != SHA256_DIGEST_SIZE)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Digest size 0x%x, require 0x%x",
+                                       digest->size, (unsigned)SHA256_DIGEST_SIZE);
+
+        /* Since we're hardcoding SHA256 (for now), we can check this at compile time. */
+        assert_cc(sizeof(digest->buffer) >= SHA256_DIGEST_SIZE);
+
+        CLEANUP_ERASE(ctx);
+
+        sha256_init_ctx(&ctx);
+
+        if (extend)
+                sha256_process_bytes(digest->buffer, digest->size, &ctx);
+        else {
+                *digest = (TPM2B_DIGEST){ .size = SHA256_DIGEST_SIZE, };
+                if (n_data == 0) /* If not extending and no data, return zero hash */
+                        return 0;
+        }
+
+        for (size_t i = 0; i < n_data; i++)
+                sha256_process_bytes(data[i].iov_base, data[i].iov_len, &ctx);
+
+        sha256_finish_ctx(&ctx, digest->buffer);
+
+        return 0;
+}
+
+/* Same as tpm2_digest_many() but data is contained in TPM2B_DIGEST[]. The digests may be any size digests. */
+int tpm2_digest_many_digests(
+                TPMI_ALG_HASH alg,
+                TPM2B_DIGEST *digest,
+                const TPM2B_DIGEST data[],
+                size_t n_data,
+                bool extend) {
+
+        _cleanup_free_ struct iovec *iovecs = NULL;
+
+        assert(data || n_data == 0);
+
+        iovecs = new(struct iovec, n_data);
+        if (!iovecs)
+                return log_oom();
+
+        for (size_t i = 0; i < n_data; i++)
+                iovecs[i] = IOVEC_MAKE((void*) data[i].buffer, data[i].size);
+
+        return tpm2_digest_many(alg, digest, iovecs, n_data, extend);
+}
+
 static bool tpm2_is_encryption_session(Tpm2Context *c, const Tpm2Handle *session) {
         TPMA_SESSION flags = 0;
         TSS2_RC rc;
@@ -1879,11 +1956,10 @@ static int tpm2_build_sealing_policy(
 
                         /* TPM2_VerifySignature() will only verify the RSA part of the RSA+SHA256 signature,
                          * hence we need to do the SHA256 part ourselves, first */
-                        TPM2B_DIGEST signature_hash = {
-                                .size = SHA256_DIGEST_SIZE,
-                        };
-                        assert(sizeof(signature_hash.buffer) >= SHA256_DIGEST_SIZE);
-                        sha256_direct(approved_policy->buffer, approved_policy->size, signature_hash.buffer);
+                        TPM2B_DIGEST signature_hash = *approved_policy;
+                        r = tpm2_digest_rehash(TPM2_ALG_SHA256, &signature_hash);
+                        if (r < 0)
+                                return r;
 
                         TPMT_SIGNATURE policy_signature = {
                                 .sigAlg = TPM2_ALG_RSASSA,
