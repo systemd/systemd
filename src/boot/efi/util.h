@@ -246,3 +246,5 @@ static inline bool in_hypervisor(void) {
 static inline bool efi_guid_equal(const EFI_GUID *a, const EFI_GUID *b) {
         return memcmp(a, b, sizeof(EFI_GUID)) == 0;
 }
+
+void *find_configuration_table(const EFI_GUID *guid);
