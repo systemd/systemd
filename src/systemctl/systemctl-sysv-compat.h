@@ -30,6 +30,12 @@ enum {
         EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN   = 4,
 };
 
+typedef enum SysVUnitEnableState {
+        SYSV_UNIT_NOT_FOUND = 0,
+        SYSV_UNIT_DISABLED,
+        SYSV_UNIT_ENABLED,
+} SysVUnitEnableState;
+
 int enable_sysv_units(const char *verb, char **args);
 
 int action_to_runlevel(void) _pure_;
