@@ -173,6 +173,8 @@ static size_t arg_random_seed_size;
 static int arg_default_oom_score_adjust;
 static bool arg_default_oom_score_adjust_set;
 static char *arg_default_smack_process_label;
+static usec_t arg_reload_limit_interval_sec;
+static unsigned arg_reload_limit_burst;
 
 /* A copy of the original environment block */
 static char **saved_env = NULL;
@@ -483,6 +485,28 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 arg_random_seed = sz > 0 ? p : mfree(p);
                 arg_random_seed_size = sz;
 
+        } else if (proc_cmdline_key_streq(key, "systemd.reload_limit_interval_sec")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = parse_sec(value, &arg_reload_limit_interval_sec);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to parse systemd.reload_limit_interval_sec= argument '%s', ignoring: %m", value);
+                        return 0;
+                }
+
+        } else if (proc_cmdline_key_streq(key, "systemd.reload_limit_burst")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = safe_atou(value, &arg_reload_limit_burst);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to parse systemd.reload_limit_burst= argument '%s', ignoring: %m", value);
+                        return 0;
+                }
+
         } else if (streq(key, "quiet") && !value) {
 
                 if (arg_show_status == _SHOW_STATUS_INVALID)
@@ -662,6 +686,8 @@ static int parse_config_file(void) {
                 { "Manager", "CtrlAltDelBurstAction",        config_parse_emergency_action,      0,                        &arg_cad_burst_action             },
                 { "Manager", "DefaultOOMPolicy",             config_parse_oom_policy,            0,                        &arg_default_oom_policy           },
                 { "Manager", "DefaultOOMScoreAdjust",        config_parse_oom_score_adjust,      0,                        NULL                              },
+                { "Manager", "ReloadLimitIntervalSec",       config_parse_sec,                   0,                        &arg_reload_limit_interval_sec    },
+                { "Manager", "ReloadLimitBurst",             config_parse_unsigned,              0,                        &arg_reload_limit_burst           },
 #if ENABLE_SMACK
                 { "Manager", "DefaultSmackProcessLabel",     config_parse_string,                0,                        &arg_default_smack_process_label  },
 #else
@@ -762,6 +788,10 @@ static void set_manager_settings(Manager *m) {
         m->confirm_spawn = arg_confirm_spawn;
         m->service_watchdogs = arg_service_watchdogs;
         m->cad_burst_action = arg_cad_burst_action;
+        /* Note that we don't do structured initialization here, otherwise it will reset the rate limit
+         * counter on every daemon-reload. */
+        m->reload_ratelimit.interval = arg_reload_limit_interval_sec;
+        m->reload_ratelimit.burst = arg_reload_limit_burst;
 
         manager_set_watchdog(m, WATCHDOG_RUNTIME, arg_runtime_watchdog);
         manager_set_watchdog(m, WATCHDOG_REBOOT, arg_reboot_watchdog);
@@ -2451,6 +2481,9 @@ static void reset_arguments(void) {
 
         arg_default_oom_score_adjust_set = false;
         arg_default_smack_process_label = mfree(arg_default_smack_process_label);
+
+        arg_reload_limit_interval_sec = 0;
+        arg_reload_limit_burst = 0;
 }
 
 static void determine_default_oom_score_adjust(void) {

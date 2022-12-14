@@ -550,6 +550,16 @@
         <para>If the value is <literal>/</literal>, only labels specified with <varname>SmackProcessLabel=</varname>
         are assigned and the compile-time default is ignored.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>ReloadLimitIntervalSec=</varname></term>
+        <term><varname>ReloadLimitBurst=</varname></term>
+
+        <listitem><para>Rate limiting for daemon-reload requests. Default to unset, and any number of daemon-reload
+        operations can be requested at any time. <varname>ReloadLimitIntervalSec=</varname> takes a value in seconds
+        to configure the rate limit window, and <varname>ReloadLimitBurst=</varname> takes a positive integer to
+        configure the maximum allowed number of reloads within the configured time window.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

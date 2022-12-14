@@ -75,3 +75,5 @@
 #DefaultLimitRTTIME=
 #DefaultOOMPolicy=stop
 #DefaultSmackProcessLabel=
+#ReloadLimitIntervalSec=
+#ReloadLimitBurst=
