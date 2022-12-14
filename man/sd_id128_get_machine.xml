@@ -94,10 +94,20 @@
     has properties similar to the machine ID during that time.</para>
 
     <para><function>sd_id128_get_invocation()</function> returns the invocation ID of the currently executed
-    service. In its current implementation, this reads and parses the <varname>$INVOCATION_ID</varname> environment
-    variable that the service manager sets when activating a service, see
-    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details. The
-    ID is cached internally. In future a different mechanism to determine the invocation ID may be added.</para>
+    service. In its current implementation, this tries to read and parse the following:
+    <itemizedlist>
+      <listitem>
+        <para>The <varname>$INVOCATION_ID</varname> environment variable that the service manager sets when
+        activating a service.</para>
+      </listitem>
+      <listitem>
+        <para>An entry in the kernel keyring that the system service manager sets when activating a service.
+        </para>
+      </listitem>
+    </itemizedlist>
+    See <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for details. The ID is cached internally. In future a different mechanism to determine the invocation ID
+    may be added.</para>
 
     <para>Note that <function>sd_id128_get_machine_app_specific()</function>,
     <function>sd_id128_get_boot()</function>, <function>sd_id128_get_boot_app_specific()</function>, and
