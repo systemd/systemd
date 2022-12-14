@@ -23,6 +23,8 @@ systemd_analyze_sources = files(
         'analyze-exit-status.h',
         'analyze-filesystems.c',
         'analyze-filesystems.h',
+        'analyze-image-policy.c',
+        'analyze-image-policy.h',
         'analyze-inspect-elf.c',
         'analyze-inspect-elf.h',
         'analyze-log-control.c',
