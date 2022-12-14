@@ -274,8 +274,8 @@ Timestamp units-load-finish: Thu 2019-03-14 23:28:07 CET
     <refsect2>
       <title><command>systemd-analyze plot</command></title>
 
-      <para>This command prints an SVG graphic detailing which system services have been started at what
-      time, highlighting the time they spent on initialization.</para>
+      <para>This command prints either an SVG graphic, detailing which system services have been started at what
+      time, highlighting the time they spent on initialization, or the raw time data in JSON or table format.</para>
 
       <example>
         <title><command>Plot a bootchart</command></title>
@@ -1211,7 +1211,17 @@ $ systemd-analyze verify /tmp/source:alias.service
         corresponds to a higher security threat. The JSON version of the table is printed to standard
         output. The <replaceable>MODE</replaceable> passed to the option can be one of three:
         <option>off</option> which is the default, <option>pretty</option> and <option>short</option>
-        which respectively output a prettified or shorted JSON version of the security table.</para></listitem>
+        which respectively output a prettified or shorted JSON version of the security table.
+
+        With the <command>plot</command> command, genereate a JSON formatted output of the raw time data.
+        The format is a JSON array with objects containing the following fields: <varname>name</varname>
+        which is the unit name, <varname>activated</varname> which is the time after startup the
+        service was activated, <varname>activating</varname> which is how long after startup the service
+        was initially started, <varname>time</varname> which is how long the service took to activate
+        from when it was initially started, <varname>deactivated</varname> which is the time after startup
+        that the service was deactivated, <varname>deactivating</varname> whcih is the time after startup
+        that the service was initially told to deactivate.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1240,6 +1250,21 @@ $ systemd-analyze verify /tmp/source:alias.service
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. All
         units files present in the directory containing the specified unit will be used in preference to the
         other paths.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--table</option></term>
+
+        <listitem><para>When used with the <command>plot</command> command, the raw time data is output in a table.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-legend</option></term>
+
+        <listitem><para>When used with the <command>plot</command> command in combination with either
+        <option>--table</option> or <option>--json=</option>, no legends or hints are included in the output.
+        </para></listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="host" />
