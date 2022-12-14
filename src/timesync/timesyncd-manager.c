@@ -119,8 +119,10 @@ static int manager_send_request(Manager *m) {
         m->event_timeout = sd_event_source_unref(m->event_timeout);
 
         r = manager_listen_setup(m);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to set up connection socket: %m");
+        if (r < 0) {
+                log_warning_errno(r, "Failed to set up connection socket: %m");
+                return manager_connect(m);
+        }
 
         /*
          * Set transmit timestamp, remember it; the server will send that back
