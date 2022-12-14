@@ -647,6 +647,49 @@ TEST(digest_many) {
         assert_se(digest_check(&d, "02ecb0628264235111e0053e271092981c8b15d59cd46617836bee3149a4ecb0"));
 }
 
+static void tpm2b_public_init(TPM2B_PUBLIC *public) {
+        TPMT_PUBLIC tpmt = {
+                .type = TPM2_ALG_RSA,
+                .nameAlg = TPM2_ALG_SHA256,
+                .objectAttributes = TPMA_OBJECT_RESTRICTED|TPMA_OBJECT_DECRYPT|TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT|TPMA_OBJECT_SENSITIVEDATAORIGIN|TPMA_OBJECT_USERWITHAUTH,
+                .parameters.rsaDetail = {
+                        .symmetric = {
+                                .algorithm = TPM2_ALG_AES,
+                                .keyBits.aes = 128,
+                                .mode.aes = TPM2_ALG_CFB,
+                        },
+                        .scheme.scheme = TPM2_ALG_NULL,
+                        .keyBits = 2048,
+                },
+        };
+
+        const char *key = "9ec7341c52093ac40a1965a5df10432513c539adcf905e30577ab6ebc88ffe53cd08cef12ed9bec6125432f4fada3629b8b96d31b8f507aa35029188fe396da823fcb236027f7fbb01b0da3d87be7f999390449ced604bdf7e26c48657cc0671000f1147da195c3861c96642e54427cb7a11572e07567ec3fd6316978abc4bd92b27bb0a0e4958e599804eeb41d682b3b7fc1f960209f80a4fb8a1b64abfd96bf5d554e73cdd6ad1c8becb4fcf5e8f0c3e621d210e5e2f308f6520ad9a966779231b99f06c5989e5a23a9415c8808ab89ce81117632e2f8461cd4428bded40979236aeadafe8de3f51660a45e1dbc87694e6a36360201cca3ff9e7263e712727";
+        _cleanup_free_ void *mem = NULL;
+        size_t len = 0;
+        assert_se(unhexmem(key, strlen(key), &mem, &len) == 0);
+        assert_se(len <= sizeof(tpmt.unique.rsa.buffer));
+        memcpy_safe(tpmt.unique.rsa.buffer, mem, len);
+        tpmt.unique.rsa.size = len;
+
+        public->publicArea = tpmt;
+}
+
+TEST(calculate_name) {
+        TPM2B_PUBLIC public;
+        TPM2B_NAME name;
+
+        tpm2b_public_init(&public);
+        assert_se(tpm2_calculate_name(&public.publicArea, &name) == 0);
+        assert_se(name.size == SHA256_DIGEST_SIZE + 2);
+
+        const char *expect = "000be78f74a470dd92e979ca067cdb2293a35f075e8560b436bd2ccea5da21486a07";
+        _cleanup_free_ char *h = hexmem(name.name, name.size);
+        assert_se(h);
+
+        assert_se(strlen(expect) == strlen(h));
+        assert_se(streq(expect, h));
+}
+
 #endif /* HAVE_TPM2 */
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
