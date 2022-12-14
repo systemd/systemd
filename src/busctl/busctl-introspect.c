@@ -676,7 +676,7 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
 }
 
 int parse_xml_introspect(const char *prefix, const char *xml, const XMLIntrospectOps *ops, void *userdata) {
-        Context context = {
+        _cleanup_(context_reset_interface) Context context = {
                 .ops = ops,
                 .userdata = userdata,
                 .current = xml,
@@ -692,36 +692,24 @@ int parse_xml_introspect(const char *prefix, const char *xml, const XMLIntrospec
                 _cleanup_free_ char *name = NULL;
 
                 r = xml_tokenize(&context.current, &name, &context.xml_state, NULL);
-                if (r < 0) {
-                        log_error("XML parse error");
-                        goto finish;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "XML parse error");
 
-                if (r == XML_END) {
-                        r = 0;
+                if (r == XML_END)
                         break;
-                }
 
                 if (r == XML_TAG_OPEN) {
 
                         if (streq(name, "node")) {
                                 r = parse_xml_node(&context, prefix, 0);
                                 if (r < 0)
-                                        goto finish;
-                        } else {
-                                log_error("Unexpected tag '%s' in introspection data.", name);
-                                r = -EBADMSG;
-                                goto finish;
-                        }
-                } else if (r != XML_TEXT || !in_charset(name, WHITESPACE)) {
-                        log_error("Unexpected token.");
-                        r = -EBADMSG;
-                        goto finish;
-                }
+                                        return r;
+                        } else
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                       "Unexpected tag '%s' in introspection data.", name);
+                } else if (r != XML_TEXT || !in_charset(name, WHITESPACE))
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Unexpected token.");
         }
 
-finish:
-        context_reset_interface(&context);
-
-        return r;
+        return 0;
 }

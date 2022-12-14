@@ -254,7 +254,7 @@ int vconsole_write_data(Context *c) {
 
 int x11_write_data(Context *c) {
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
         struct stat st;
         int r;
 
@@ -300,23 +300,15 @@ int x11_write_data(Context *c) {
 
         r = fflush_sync_and_check(f);
         if (r < 0)
-                goto fail;
+                return r;
 
-        if (rename(temp_path, "/etc/X11/xorg.conf.d/00-keyboard.conf") < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (rename(temp_path, "/etc/X11/xorg.conf.d/00-keyboard.conf") < 0)
+                return -errno;
 
         if (stat("/etc/X11/xorg.conf.d/00-keyboard.conf", &st) >= 0)
                 c->x11_mtime = timespec_load(&st.st_mtim);
 
         return 0;
-
-fail:
-        if (temp_path)
-                (void) unlink(temp_path);
-
-        return r;
 }
 
 static int read_next_mapping(const char* filename,
