@@ -11,19 +11,6 @@
 #include "errno-util.h"
 #include "macro.h"
 
-typedef enum MountAttrPropagationType {
-        MOUNT_ATTR_PROPAGATION_INHERIT,   /* no special MS_* propagation flags */
-        MOUNT_ATTR_PROPAGATION_PRIVATE,   /* MS_PRIVATE */
-        MOUNT_ATTR_PROPAGATION_DEPENDENT, /* MS_SLAVE */
-        MOUNT_ATTR_PROPAGATION_SHARED,    /* MS_SHARE */
-
-        _MOUNT_ATTR_PROPAGATION_TYPE_MAX,
-        _MOUNT_ATTR_PROPAGATION_TYPE_INVALID = -EINVAL,
-} MountAttrPropagationType;
-
-const char* mount_attr_propagation_type_to_string(MountAttrPropagationType t) _const_;
-MountAttrPropagationType mount_attr_propagation_type_from_string(const char *s) _pure_;
-
 int repeat_unmount(const char *path, int flags);
 int umount_recursive(const char *target, int flags);
 
@@ -34,7 +21,7 @@ static inline int bind_remount_recursive(const char *prefix, unsigned long new_f
 
 int bind_remount_one_with_mountinfo(const char *path, unsigned long new_flags, unsigned long flags_mask, FILE *proc_self_mountinfo);
 
-int mount_switch_root(const char *path, MountAttrPropagationType type);
+int mount_switch_root(const char *path, unsigned long mount_propagation_flag);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(FILE*, endmntent, NULL);
 #define _cleanup_endmntent_ _cleanup_(endmntentp)
