@@ -3,6 +3,7 @@
 #include <getopt.h>
 #include <locale.h>
 #include <net/if.h>
+#include <unistd.h>
 
 #include "sd-bus.h"
 #include "sd-netlink.h"
@@ -2777,6 +2778,8 @@ static int verb_monitor(int argc, char *argv[], void *userdata) {
         r = varlink_observe(vl, "io.systemd.Resolve.Monitor.SubscribeQueryResults", NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to issue SubscribeQueryResults() varlink call: %m");
+
+        usleep(2 * USEC_PER_SEC);
 
         r = sd_event_loop(event);
         if (r < 0)

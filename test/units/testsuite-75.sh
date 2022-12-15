@@ -16,17 +16,17 @@ run() {
     "$@" |& tee "$RUN_OUT"
 }
 
-monitor_check_rr() {
+monitor_check_rr() (
+    set +x
+    set +o pipefail
     local match="${1:?}"
 
     # Wait until the first mention of the specified log message is
     # displayed. We turn off pipefail for this, since we don't care about the
     # lhs of this pipe expression, we only care about the rhs' result to be
     # clean
-    set +o pipefail
     journalctl -u resmontest.service -f --full | grep -m1 "$match"
-    set -o pipefail
-}
+)
 
 # Test for resolvectl, resolvconf
 systemctl unmask systemd-resolved.service
@@ -211,12 +211,7 @@ resolvectl status
 resolvectl log-level debug
 
 # Start monitoring queries
-systemd-run -u resmontest.service -p Type=notify resolvectl monitor
-# Wait for the monitoring service to become active
-for _ in {0..9}; do
-    [[ "$(systemctl show -P ActiveState resmontest.service)" == "active" ]] && break
-    sleep .5
-done
+SYSTEMD_LOG_LEVEL=debug systemd-run -u resmontest.service -p Type=notify resolvectl monitor
 
 # We need to manually propagate the DS records of onlinesign.test. to the parent
 # zone, since they're generated online
