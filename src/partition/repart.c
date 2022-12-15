@@ -194,7 +194,7 @@ typedef struct Partition {
         sd_id128_t current_uuid, new_uuid;
         bool new_uuid_is_set;
         char *current_label, *new_label;
-        sd_id128_t fs_uuid;
+        sd_id128_t fs_uuid, luks_uuid;
 
         bool dropped;
         bool factory_reset;
@@ -3236,7 +3236,6 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
         _cleanup_free_ char *hp = NULL;
         const char *passphrase = NULL;
         size_t passphrase_size = 0;
-        sd_id128_t uuid;
         const char *vt;
         int r;
 
@@ -3247,10 +3246,6 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
         r = dlopen_cryptsetup();
         if (r < 0)
                 return log_error_errno(r, "libcryptsetup not found, cannot encrypt: %m");
-
-        r = derive_uuid(p->new_uuid, "luks-uuid", &uuid);
-        if (r < 0)
-                return r;
 
         log_info("Encrypting future partition %" PRIu64 "...", p->partno);
 
@@ -3292,7 +3287,7 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
                          CRYPT_LUKS2,
                          "aes",
                          "xts-plain64",
-                         SD_ID128_TO_UUID_STRING(uuid),
+                         SD_ID128_TO_UUID_STRING(p->luks_uuid),
                          NULL,
                          VOLUME_KEY_SIZE,
                          &luks_params);
@@ -4271,6 +4266,8 @@ static int context_acquire_partition_uuids_and_labels(Context *context) {
         assert(context);
 
         LIST_FOREACH(partitions, p, context->partitions) {
+                sd_id128_t uuid;
+
                 /* Never touch foreign partitions */
                 if (PARTITION_IS_FOREIGN(p)) {
                         p->new_uuid = p->current_uuid;
@@ -4285,21 +4282,37 @@ static int context_acquire_partition_uuids_and_labels(Context *context) {
                 }
 
                 if (!sd_id128_is_null(p->current_uuid))
-                        p->new_uuid = p->current_uuid; /* Never change initialized UUIDs */
-                else if (!p->new_uuid_is_set && !IN_SET(p->verity, VERITY_DATA, VERITY_HASH)) {
+                        p->new_uuid = uuid = p->current_uuid; /* Never change initialized UUIDs */
+                else if (p->new_uuid_is_set)
+                        uuid = p->new_uuid;
+                else {
                         /* Not explicitly set by user! */
-                        r = partition_acquire_uuid(context, p, &p->new_uuid);
+                        r = partition_acquire_uuid(context, p, &uuid);
                         if (r < 0)
                                 return r;
 
-                        p->new_uuid_is_set = true;
+                        /* The final verity hash/data UUIDs can only be determined after formatting the
+                         * verity hash partition. However, we still want to use the generated partition UUID
+                         * to derive other UUIDs to keep things unique and reproducible, so we always
+                         * generate a UUID if none is set, but we only use it as the actual partition UUID if
+                         * verity is not configured. */
+                        if (!IN_SET(p->verity, VERITY_DATA, VERITY_HASH)) {
+                                p->new_uuid = uuid;
+                                p->new_uuid_is_set = true;
+                        }
                 }
 
                 /* Calculate the UUID for the file system as HMAC-SHA256 of the string "file-system-uuid",
                  * keyed off the partition UUID. */
-                r = derive_uuid(p->new_uuid, "file-system-uuid", &p->fs_uuid);
+                r = derive_uuid(uuid, "file-system-uuid", &p->fs_uuid);
                 if (r < 0)
                         return r;
+
+                if (p->encrypt != ENCRYPT_OFF) {
+                        r = derive_uuid(uuid, "luks-uuid", &p->luks_uuid);
+                        if (r < 0)
+                                return r;
+                }
 
                 if (!isempty(p->current_label)) {
                         /* never change initialized labels */
