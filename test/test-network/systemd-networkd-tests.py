@@ -933,6 +933,17 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'dummy98', env=env)
         self.assertRegex(output, 'hogehogehogehogehogehoge')
 
+    @expectedFailureIfAlternativeNameIsNotAvailable()
+    def test_rename_to_altname(self):
+        copy_network_unit('26-netdev-link-local-addressing-yes.network',
+                          '12-dummy.netdev', '12-dummy-rename-to-altname.link')
+        start_networkd()
+        self.wait_online(['dummyalt:degraded'])
+
+        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'dummyalt', env=env)
+        self.assertIn('hogehogehogehogehogehoge', output)
+        self.assertNotIn('dummy98', output)
+
     def test_reconfigure(self):
         copy_network_unit('25-address-static.network', '12-dummy.netdev')
         start_networkd()

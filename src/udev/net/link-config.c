@@ -841,8 +841,6 @@ static int link_apply_alternative_names(Link *link, sd_netlink **rtnl) {
                         }
                 }
 
-        if (link->new_name)
-                strv_remove(altnames, link->new_name);
         strv_remove(altnames, link->ifname);
 
         r = rtnl_get_link_alternative_names(rtnl, link->ifindex, &current_altnames);
