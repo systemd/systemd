@@ -131,6 +131,14 @@
         all suitable TPM2 devices currently discovered.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--graceful</option></term>
+
+        <listitem><para>If no TPM2 firmware, kernel subsystem, kernel driver or device support is found, exit
+        with exit status 0 (i.e. indicate success). If this is not specified any attempt to measure without a
+        TPM2 device will cause the invocation to fail.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
 
