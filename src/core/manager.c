@@ -6,6 +6,7 @@
 #include <sys/epoll.h>
 #include <sys/inotify.h>
 #include <sys/ioctl.h>
+#include <sys/mount.h>
 #include <sys/reboot.h>
 #include <sys/timerfd.h>
 #include <sys/utsname.h>
@@ -62,6 +63,7 @@
 #include "manager-serialize.h"
 #include "memory-util.h"
 #include "mkdir-label.h"
+#include "mount-util.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-lookup.h"
@@ -1103,7 +1105,7 @@ static int manager_setup_cgroups_agent(Manager *m) {
                 (void) sockaddr_un_unlink(&sa.un);
 
                 /* Only allow root to connect to this socket */
-                RUN_WITH_UMASK(0077)
+                WITH_UMASK(0077)
                         r = bind(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
                 if (r < 0)
                         return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
@@ -3674,7 +3676,7 @@ static int manager_run_environment_generators(Manager *m) {
         if (!generator_path_any((const char* const*) paths))
                 return 0;
 
-        RUN_WITH_UMASK(0022)
+        WITH_UMASK(0022)
                 r = execute_directories((const char* const*) paths, DEFAULT_TIMEOUT_USEC, gather_environment,
                                         args, NULL, m->transient_environment,
                                         EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS | EXEC_DIR_SET_SYSTEMD_EXEC_PID);
@@ -3740,8 +3742,45 @@ static int build_generator_environment(Manager *m, char ***ret) {
         return 0;
 }
 
+static int manager_execute_generators(Manager *m, char **paths, bool remount_ro) {
+        _cleanup_strv_free_ char **ge = NULL;
+        const char *argv[] = {
+                NULL, /* Leave this empty, execute_directory() will fill something in */
+                m->lookup_paths.generator,
+                m->lookup_paths.generator_early,
+                m->lookup_paths.generator_late,
+                NULL,
+        };
+        int r;
+
+        r = build_generator_environment(m, &ge);
+        if (r < 0)
+                return log_error_errno(r, "Failed to build generator environment: %m");
+
+        if (remount_ro) {
+                /* Remount most of the filesystem tree read-only. We leave /sys/ as-is, because our code
+                 * checks whether it is read-only to detect containerized execution environments. We leave
+                 * /run/ as-is too, because that's where our output goes. We also leave /proc/ and /dev/shm/
+                 * because they're API, and /tmp/ that safe_fork() mounted for us.
+                 */
+                r = bind_remount_recursive("/", MS_RDONLY, MS_RDONLY,
+                                           STRV_MAKE("/sys", "/run", "/proc", "/dev/shm", "/tmp"));
+                if (r < 0)
+                        log_warning_errno(r, "Read-only bind remount failed, ignoring: %m");
+        }
+
+        BLOCK_WITH_UMASK(0022);
+        return execute_directories(
+                        (const char* const*) paths,
+                        DEFAULT_TIMEOUT_USEC,
+                        /* callbacks= */ NULL, /* callback_args= */ NULL,
+                        (char**) argv,
+                        ge,
+                        EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS | EXEC_DIR_SET_SYSTEMD_EXEC_PID);
+}
+
 static int manager_run_generators(Manager *m) {
-        _cleanup_strv_free_ char **paths = NULL, **ge = NULL;
+        _cleanup_strv_free_ char **paths = NULL;
         int r;
 
         assert(m);
@@ -3762,30 +3801,22 @@ static int manager_run_generators(Manager *m) {
                 goto finish;
         }
 
-        const char *argv[] = {
-                NULL, /* Leave this empty, execute_directory() will fill something in */
-                m->lookup_paths.generator,
-                m->lookup_paths.generator_early,
-                m->lookup_paths.generator_late,
-                NULL,
-        };
-
-        r = build_generator_environment(m, &ge);
-        if (r < 0) {
-                log_error_errno(r, "Failed to build generator environment: %m");
+        /* If we are the system manager, we fork and invoke the generators in a sanitized mount namespace. If
+         * we are the user manager, let's just execute the generators directly. We might not have the
+         * necessary privileges, and the system manager has already mounted /tmp/ and everything else for us.
+         */
+        if (MANAGER_IS_USER(m)) {
+                r = manager_execute_generators(m, paths, /* remount_ro= */ false);
                 goto finish;
         }
 
-        RUN_WITH_UMASK(0022)
-                (void) execute_directories(
-                                (const char* const*) paths,
-                                DEFAULT_TIMEOUT_USEC,
-                                /* callbacks= */ NULL, /* callback_args= */ NULL,
-                                (char**) argv,
-                                ge,
-                                EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS | EXEC_DIR_SET_SYSTEMD_EXEC_PID);
-
-        r = 0;
+        r = safe_fork("(sd-gens)",
+                      FORK_RESET_SIGNALS | FORK_LOG | FORK_WAIT | FORK_NEW_MOUNTNS | FORK_MOUNTNS_SLAVE | FORK_PRIVATE_TMP,
+                      NULL);
+        if (r == 0) {
+                r = manager_execute_generators(m, paths, /* remount_ro= */ true);
+                _exit(r >= 0 ? EXIT_SUCCESS : EXIT_FAILURE);
+        }
 
 finish:
         lookup_paths_trim_generator(&m->lookup_paths);

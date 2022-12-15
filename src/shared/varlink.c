@@ -2326,7 +2326,7 @@ int varlink_server_listen_address(VarlinkServer *s, const char *address, mode_t 
 
         (void) sockaddr_un_unlink(&sockaddr.un);
 
-        RUN_WITH_UMASK(~m & 0777) {
+        WITH_UMASK(~m & 0777) {
                 r = mac_selinux_bind(fd, &sockaddr.sa, sockaddr_len);
                 if (r < 0)
                         return r;

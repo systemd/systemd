@@ -42,52 +42,6 @@
 #include "tmpfile-util.h"
 #include "user-util.h"
 
-int mount_fd(const char *source,
-             int target_fd,
-             const char *filesystemtype,
-             unsigned long mountflags,
-             const void *data) {
-
-        if (mount(source, FORMAT_PROC_FD_PATH(target_fd), filesystemtype, mountflags, data) < 0) {
-                if (errno != ENOENT)
-                        return -errno;
-
-                /* ENOENT can mean two things: either that the source is missing, or that /proc/ isn't
-                 * mounted. Check for the latter to generate better error messages. */
-                if (proc_mounted() == 0)
-                        return -ENOSYS;
-
-                return -ENOENT;
-        }
-
-        return 0;
-}
-
-int mount_nofollow(
-                const char *source,
-                const char *target,
-                const char *filesystemtype,
-                unsigned long mountflags,
-                const void *data) {
-
-        _cleanup_close_ int fd = -1;
-
-        /* In almost all cases we want to manipulate the mount table without following symlinks, hence
-         * mount_nofollow() is usually the way to go. The only exceptions are environments where /proc/ is
-         * not available yet, since we need /proc/self/fd/ for this logic to work. i.e. during the early
-         * initialization of namespacing/container stuff where /proc is not yet mounted (and maybe even the
-         * fs to mount) we can only use traditional mount() directly.
-         *
-         * Note that this disables following only for the final component of the target, i.e symlinks within
-         * the path of the target are honoured, as are symlinks in the source path everywhere. */
-
-        fd = open(target, O_PATH|O_CLOEXEC|O_NOFOLLOW);
-        if (fd < 0)
-                return -errno;
-
-        return mount_fd(source, fd, filesystemtype, mountflags, data);
-}
-
 int umount_recursive(const char *prefix, int flags) {
         int n = 0, r;
         bool again;
@@ -809,9 +763,9 @@ int mount_option_mangle(
         /* This extracts mount flags from the mount options, and stores
          * non-mount-flag options to '*ret_remaining_options'.
          * E.g.,
-         * "rw,nosuid,nodev,relatime,size=1630748k,mode=700,uid=1000,gid=1000"
+         * "rw,nosuid,nodev,relatime,size=1630748k,mode=0700,uid=1000,gid=1000"
          * is split to MS_NOSUID|MS_NODEV|MS_RELATIME and
-         * "size=1630748k,mode=700,uid=1000,gid=1000".
+         * "size=1630748k,mode=0700,uid=1000,gid=1000".
          * See more examples in test-mount-util.c.
          *
          * If 'options' does not contain any non-mount-flag options,

@@ -1499,7 +1499,7 @@ static int create_file(Item *i, const char *path) {
         if (dir_fd < 0)
                 return dir_fd;
 
-        RUN_WITH_UMASK(0000) {
+        WITH_UMASK(0000) {
                 mac_selinux_create_file_prepare(path, S_IFREG);
                 fd = RET_NERRNO(openat(dir_fd, bn, O_CREAT|O_EXCL|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode));
                 mac_selinux_create_file_clear();
@@ -1572,7 +1572,7 @@ static int truncate_file(Item *i, const char *path) {
         if (fd == -ENOENT) {
                 creation = CREATION_NORMAL; /* Didn't work without O_CREATE, try again with */
 
-                RUN_WITH_UMASK(0000) {
+                WITH_UMASK(0000) {
                         mac_selinux_create_file_prepare(path, S_IFREG);
                         fd = RET_NERRNO(openat(dir_fd, bn, O_CREAT|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode));
                         mac_selinux_create_file_clear();
@@ -1716,14 +1716,14 @@ static int create_directory_or_subvolume(
 
                         subvol = false;
                 else {
-                        RUN_WITH_UMASK((~mode) & 0777)
+                        WITH_UMASK((~mode) & 0777)
                                 r = btrfs_subvol_make_fd(pfd, bn);
                 }
         } else
                 r = 0;
 
         if (!subvol || ERRNO_IS_NOT_SUPPORTED(r))
-                RUN_WITH_UMASK(0000)
+                WITH_UMASK(0000)
                         r = mkdirat_label(pfd, bn, mode);
 
         creation = r >= 0 ? CREATION_NORMAL : CREATION_EXISTING;
@@ -1869,7 +1869,7 @@ static int create_device(Item *i, mode_t file_type) {
         if (dfd < 0)
                 return dfd;
 
-        RUN_WITH_UMASK(0000) {
+        WITH_UMASK(0000) {
                 mac_selinux_create_file_prepare(i->path, file_type);
                 r = RET_NERRNO(mknodat(dfd, bn, i->mode | file_type, i->major_minor));
                 mac_selinux_create_file_clear();
@@ -1900,7 +1900,7 @@ static int create_device(Item *i, mode_t file_type) {
                 if (i->append_or_force) {
                         fd = safe_close(fd);
 
-                        RUN_WITH_UMASK(0000) {
+                        WITH_UMASK(0000) {
                                 mac_selinux_create_file_prepare(i->path, file_type);
                                 r = mknodat_atomic(dfd, bn, i->mode | file_type, i->major_minor);
                                 mac_selinux_create_file_clear();
@@ -1971,7 +1971,7 @@ static int create_fifo(Item *i) {
         if (pfd < 0)
                 return pfd;
 
-        RUN_WITH_UMASK(0000) {
+        WITH_UMASK(0000) {
                 mac_selinux_create_file_prepare(i->path, S_IFIFO);
                 r = RET_NERRNO(mkfifoat(pfd, bn, i->mode));
                 mac_selinux_create_file_clear();
@@ -1996,7 +1996,7 @@ static int create_fifo(Item *i) {
                 if (i->append_or_force) {
                         fd = safe_close(fd);
 
-                        RUN_WITH_UMASK(0000) {
+                        WITH_UMASK(0000) {
                                 mac_selinux_create_file_prepare(i->path, S_IFIFO);
                                 r = mkfifoat_atomic(pfd, bn, i->mode);
                                 mac_selinux_create_file_clear();
@@ -2378,7 +2378,7 @@ static int mkdir_parents_rm_if_wrong_type(mode_t child_mode, const char *path) {
                 if (r == -ENOENT)
                         r = rm_if_wrong_type_safe(S_IFDIR, parent_fd, &parent_st, t, AT_SYMLINK_NOFOLLOW);
                 if (r == -ENOENT) {
-                        RUN_WITH_UMASK(0000)
+                        WITH_UMASK(0000)
                                 r = mkdirat_label(parent_fd, t, 0755);
                         if (r < 0) {
                                 _cleanup_free_ char *parent_name = NULL;
@@ -2416,7 +2416,7 @@ static int mkdir_parents_item(Item *i, mode_t child_mode) {
                 if (r < 0 && r != -ENOENT)
                         return r;
         } else
-                RUN_WITH_UMASK(0000)
+                WITH_UMASK(0000)
                         (void) mkdir_parents_label(i->path, 0755);
 
         return 0;
