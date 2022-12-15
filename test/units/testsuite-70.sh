@@ -150,6 +150,23 @@ if [ -e /usr/lib/systemd/systemd-measure ] && \
     SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 /usr/lib/systemd/systemd-cryptsetup attach test-volume2 $img - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig3",headless=1
     /usr/lib/systemd/systemd-cryptsetup detach test-volume2
 
+    # Test --append mode and de-duplication. With the same parameters signing should not add a new entry
+    /usr/lib/systemd/systemd-measure sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --append="/tmp/pcrsign.sig3" > "/tmp/pcrsign.sig4"
+    cmp "/tmp/pcrsign.sig3" "/tmp/pcrsign.sig4"
+
+    # Sign one more phase, this should
+    /usr/lib/systemd/systemd-measure sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=quux:waldo --append="/tmp/pcrsign.sig4" > "/tmp/pcrsign.sig5"
+    ( ! cmp "/tmp/pcrsign.sig4" "/tmp/pcrsign.sig5" )
+
+    # Should still be good to unlock, given the old entry still exists
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 /usr/lib/systemd/systemd-cryptsetup attach test-volume2 $img - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig5",headless=1
+    /usr/lib/systemd/systemd-cryptsetup detach test-volume2
+
+    # Adding both signatures once more shoud not change anything, due to the deduplication
+    /usr/lib/systemd/systemd-measure sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --append="/tmp/pcrsign.sig5" > "/tmp/pcrsign.sig6"
+    /usr/lib/systemd/systemd-measure sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=quux:waldo --append="/tmp/pcrsign.sig6" > "/tmp/pcrsign.sig7"
+    cmp "/tmp/pcrsign.sig5" "/tmp/pcrsign.sig7"
+
     rm $img
 else
     echo "/usr/lib/systemd/systemd-measure or PCR sysfs files not found, skipping signed PCR policy test case"
