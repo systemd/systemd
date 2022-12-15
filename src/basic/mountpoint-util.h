@@ -55,5 +55,6 @@ int dev_is_devtmpfs(void);
 int mount_fd(const char *source, int target_fd, const char *filesystemtype, unsigned long mountflags, const void *data);
 int mount_nofollow(const char *source, const char *target, const char *filesystemtype, unsigned long mountflags, const void *data);
 
-const char *mount_propagation_flags_to_string(unsigned long flags);
-int mount_propagation_flags_from_string(const char *name, unsigned long *ret);
+const char *mount_propagation_flag_to_string(unsigned long flags);
+int mount_propagation_flag_from_string(const char *name, unsigned long *ret);
+bool mount_propagation_flag_is_valid(unsigned long flag);
