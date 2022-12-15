@@ -5,9 +5,29 @@
 #include <sys/vfs.h>
 
 #include "binfmt-util.h"
+#include "errno-util.h"
+#include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "missing_magic.h"
 #include "stat-util.h"
+
+int binfmt_mounted(void) {
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        fd = RET_NERRNO(open("/proc/sys/fs/binfmt_misc", O_CLOEXEC | O_DIRECTORY | O_PATH));
+        if (fd == -ENOENT)
+                return false;
+        if (fd < 0)
+                return fd;
+
+        r = fd_is_fs_type(fd, BINFMTFS_MAGIC);
+        if (r <= 0)
+                return r;
+
+        return access_fd(fd, W_OK) >= 0;
+}
 
 int disable_binfmt(void) {
         int r;
@@ -18,13 +38,13 @@ int disable_binfmt(void) {
          * We are a bit careful here, since binfmt_misc might still be an autofs which we don't want to
          * trigger. */
 
-        r = path_is_fs_type("/proc/sys/fs/binfmt_misc", BINFMTFS_MAGIC);
-        if (r == 0 || r == -ENOENT) {
-                log_debug("binfmt_misc is not mounted, not detaching entries.");
-                return 0;
-        }
+        r = binfmt_mounted();
         if (r < 0)
                 return log_warning_errno(r, "Failed to determine whether binfmt_misc is mounted: %m");
+        if (r == 0) {
+                log_debug("binfmt_misc is not mounted in read-write mode, not detaching entries.");
+                return 0;
+        }
 
         r = write_string_file("/proc/sys/fs/binfmt_misc/status", "-1", WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
