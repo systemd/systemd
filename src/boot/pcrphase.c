@@ -14,6 +14,7 @@
 #include "tpm-pcr.h"
 #include "tpm2-util.h"
 
+static bool arg_graceful = false;
 static char *arg_tpm2_device = NULL;
 static char **arg_banks = NULL;
 
@@ -35,6 +36,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --version           Print version\n"
                "     --bank=DIGEST       Select TPM bank (SHA1, SHA256)\n"
                "     --tpm2-device=PATH  Use specified TPM2 device\n"
+               "     --graceful          Exit gracefully if no TPM2 device is found\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -51,6 +53,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_BANK,
                 ARG_TPM2_DEVICE,
+                ARG_GRACEFUL,
         };
 
         static const struct option options[] = {
@@ -58,6 +61,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",     no_argument,       NULL, ARG_VERSION     },
                 { "bank",        required_argument, NULL, ARG_BANK        },
                 { "tpm2-device", required_argument, NULL, ARG_TPM2_DEVICE },
+                { "graceful",    no_argument,       NULL, ARG_GRACEFUL    },
                 {}
         };
 
@@ -104,6 +108,10 @@ static int parse_argv(int argc, char *argv[]) {
                         free_and_replace(arg_tpm2_device, device);
                         break;
                 }
+
+                case ARG_GRACEFUL:
+                        arg_graceful = true;
+                        break;
 
                 case '?':
                         return -EINVAL;
@@ -173,6 +181,11 @@ static int run(int argc, char *argv[]) {
          * disallow an empty word to avoid ambiguities. */
         if (isempty(word))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "String to measure cannot be empty, refusing.");
+
+        if (arg_graceful && tpm2_support() != TPM2_SUPPORT_FULL) {
+                log_notice("No complete TPM2 support detected, exiting gracefully.");
+                return EXIT_SUCCESS;
+        }
 
         length = strlen(word);
 
