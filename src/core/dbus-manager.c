@@ -1451,7 +1451,7 @@ int verify_run_space_and_log(const char *message) {
         return 0;
 }
 
-static void log_reload_caller(sd_bus_message *message, Manager *manager) {
+static void log_caller(sd_bus_message *message, Manager *manager, const char *method) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         const char *comm = NULL;
         Unit *caller;
@@ -1459,6 +1459,7 @@ static void log_reload_caller(sd_bus_message *message, Manager *manager) {
 
         assert(message);
         assert(manager);
+        assert(method);
 
         if (sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID|SD_BUS_CREDS_AUGMENT|SD_BUS_CREDS_COMM, &creds) < 0)
                 return;
@@ -1470,8 +1471,8 @@ static void log_reload_caller(sd_bus_message *message, Manager *manager) {
         (void) sd_bus_creds_get_comm(creds, &comm);
         caller = manager_get_unit_by_pid(manager, pid);
 
-        log_info("Reloading requested from client PID " PID_FMT " ('%s') (from unit '%s')...",
-                 pid, strna(comm), strna(caller ? caller->id : NULL));
+        log_info("%s requested from client PID " PID_FMT " ('%s') (from unit '%s')...",
+                 method, pid, strna(comm), strna(caller ? caller->id : NULL));
 }
 
 static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1495,7 +1496,7 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         /* Write a log message noting the unit or process who requested the Reload() */
-        log_reload_caller(message, m);
+        log_caller(message, m, "Reloading");
 
         /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
         if (!ratelimit_below(&m->reload_ratelimit)) {
@@ -1539,6 +1540,9 @@ static int method_reexecute(sd_bus_message *message, void *userdata, sd_bus_erro
                 return r;
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        /* Write a log message noting the unit or process who requested the Reexecute() */
+        log_caller(message, m, "Reexecuting");
 
         /* We don't send a reply back here, the client should
          * just wait for us disconnecting. */
