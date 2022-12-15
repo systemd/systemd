@@ -1919,6 +1919,40 @@ static int tpm2_policy_auth_value(
         return tpm2_get_policy_digest(c, session, ret_policy_digest);
 }
 
+static int tpm2_calculate_sealing_policy(
+                const TPML_PCR_SELECTION *hash_pcr_selection,
+                const TPM2B_DIGEST *hash_pcr_values,
+                size_t hash_pcr_values_size,
+                const void *pubkey,
+                size_t pubkey_size,
+                const char *pin,
+                TPM2B_DIGEST *digest) {
+
+        int r;
+
+        assert(digest);
+
+        if (pubkey) {
+                r = tpm2_calculate_policy_authorize(pubkey, pubkey_size, NULL, digest);
+                if (r < 0)
+                        return r;
+        }
+
+        if (hash_pcr_selection && !tpm2_tpml_pcr_selection_empty(hash_pcr_selection)) {
+                r = tpm2_calculate_policy_pcr(hash_pcr_selection, hash_pcr_values, hash_pcr_values_size, digest);
+                if (r < 0)
+                        return r;
+        }
+
+        if (pin) {
+                r = tpm2_calculate_policy_auth_value(digest);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int tpm2_build_sealing_policy(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
@@ -1986,14 +2020,12 @@ int tpm2_seal(const char *device,
               uint16_t *ret_pcr_bank,
               uint16_t *ret_primary_alg) {
 
-        _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
         _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
         _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
         static const TPML_PCR_SELECTION creation_pcr = {};
         _cleanup_(erase_and_freep) void *secret = NULL;
         _cleanup_free_ void *hash = NULL;
         TPM2B_SENSITIVE_CREATE hmac_sensitive;
-        TPMI_ALG_PUBLIC primary_alg;
         TPM2B_PUBLIC hmac_template;
         usec_t start;
         TSS2_RC rc;
@@ -2044,36 +2076,26 @@ int tpm2_seal(const char *device,
                         return r;
         }
 
-        _cleanup_tpm2_handle_ Tpm2Handle *primary = NULL;
-        r = tpm2_make_primary(c, &primary, 0, &primary_alg);
-        if (r < 0)
-                return r;
+        TPML_PCR_SELECTION hash_pcr_selection = {};
+        _cleanup_free_ TPM2B_DIGEST *hash_pcr_values = NULL;
+        size_t hash_pcr_values_size = 0;
+        if (hash_pcr_mask) {
+                /* For now, we just read the current values from the system; we need to be able to specify
+                 * expected values, eventually. */
+                hash_pcr_selection = tpm2_tpml_pcr_selection_from_mask(hash_pcr_mask, pcr_bank);
+                r = tpm2_pcr_read(c, &hash_pcr_selection, &hash_pcr_selection, &hash_pcr_values, &hash_pcr_values_size);
+                if (r < 0)
+                        return r;
+        }
 
-        /* we cannot use the bind key before its created */
-        _cleanup_tpm2_handle_ Tpm2Handle *encryption_session = NULL;
-        r = tpm2_make_encryption_session(c, primary, &TPM2_HANDLE_NONE, &encryption_session);
-        if (r < 0)
-                return r;
-
-        _cleanup_tpm2_handle_ Tpm2Handle *policy_session = NULL;
-        r = tpm2_make_policy_session(
-                        c,
-                        primary,
-                        encryption_session,
-                        /* trial= */ true,
-                        &policy_session);
-        if (r < 0)
-                return r;
-
-        r = tpm2_build_sealing_policy(
-                        c,
-                        policy_session,
-                        hash_pcr_mask,
-                        pcr_bank,
-                        pubkey, pubkey_size,
-                        pubkey_pcr_mask,
-                        /* signature_json= */ NULL,
-                        !!pin,
+        TPM2B_DIGEST policy_digest = TPM2_DIGEST_ZERO;
+        r = tpm2_calculate_sealing_policy(
+                        &hash_pcr_selection,
+                        hash_pcr_values,
+                        hash_pcr_values_size,
+                        pubkey,
+                        pubkey_size,
+                        pin,
                         &policy_digest);
         if (r < 0)
                 return r;
@@ -2089,7 +2111,7 @@ int tpm2_seal(const char *device,
                         .objectAttributes = TPMA_OBJECT_FIXEDTPM | TPMA_OBJECT_FIXEDPARENT,
                         .parameters.keyedHashDetail.scheme.scheme = TPM2_ALG_NULL,
                         .unique.keyedHash.size = SHA256_DIGEST_SIZE,
-                        .authPolicy = *policy_digest,
+                        .authPolicy = policy_digest,
                 },
         };
 
@@ -2109,6 +2131,17 @@ int tpm2_seal(const char *device,
         r = crypto_random_bytes(hmac_sensitive.sensitive.data.buffer, hmac_sensitive.sensitive.data.size);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate secret key: %m");
+
+        _cleanup_tpm2_handle_ Tpm2Handle *primary = NULL;
+        TPMI_ALG_PUBLIC primary_alg;
+        r = tpm2_make_primary(c, &primary, 0, &primary_alg);
+        if (r < 0)
+                return r;
+
+        _cleanup_tpm2_handle_ Tpm2Handle *encryption_session = NULL;
+        r = tpm2_make_encryption_session(c, primary, &TPM2_HANDLE_NONE, &encryption_session);
+        if (r < 0)
+                return r;
 
         log_debug("Creating HMAC key.");
 
@@ -2150,7 +2183,7 @@ int tpm2_seal(const char *device,
         if (r < 0)
                 return r;
 
-        hash = memdup(policy_digest->buffer, policy_digest->size);
+        hash = memdup(policy_digest.buffer, policy_digest.size);
         if (!hash)
                 return log_oom();
 
@@ -2162,7 +2195,7 @@ int tpm2_seal(const char *device,
         *ret_blob = TAKE_PTR(blob);
         *ret_blob_size = blob_size;
         *ret_pcr_hash = TAKE_PTR(hash);
-        *ret_pcr_hash_size = policy_digest->size;
+        *ret_pcr_hash_size = policy_digest.size;
         *ret_pcr_bank = pcr_bank;
         *ret_primary_alg = primary_alg;
 
