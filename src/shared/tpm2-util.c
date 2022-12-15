@@ -2082,6 +2082,99 @@ static int tpm2_duplicate_key(
         return 0;
 }
 
+static int tpm2_create_and_duplicate_key(
+                struct tpm2_context *c,
+                struct tpm2_handle parent,
+                struct tpm2_handle new_parent,
+                struct tpm2_handle encryption_session,
+                TPMI_ALG_PUBLIC alg,
+                TPM2B_PUBLIC **ret_key_public,
+                TPM2B_PRIVATE **ret_key_private,
+                struct tpm2_handle *ret_key_handle,
+                TPM2B_PRIVATE **ret_dup_private,
+                TPM2B_ENCRYPTED_SECRET **ret_dup_seed,
+                TPMI_ALG_PUBLIC *ret_alg) {
+
+        _cleanup_(tpm2_handle_releasep) struct tpm2_handle key_handle = tpm2_handle_init(c),
+                duplication_session = tpm2_handle_init(c);
+        _cleanup_(Esys_Freep) TPM2B_NAME *new_parent_name = NULL, *key_name = NULL;
+        _cleanup_(Esys_Freep) TPM2B_PRIVATE *key_private = NULL, *dup_private = NULL;
+        _cleanup_(Esys_Freep) TPM2B_PUBLIC *key_public = NULL;
+        _cleanup_(Esys_Freep) TPM2B_ENCRYPTED_SECRET *dup_seed = NULL;
+        TPM2B_DIGEST duplication_policy = { .size = SHA256_DIGEST_SIZE, .buffer = {}, };
+        int r;
+
+        r = tpm2_get_key_name(c, new_parent, &new_parent_name);
+        if (r < 0)
+                return r;
+
+        r = tpm2_calculate_policy_duplication_select(NULL, new_parent_name, TPM2_NO, &duplication_policy);
+        if (r < 0)
+                return r;
+
+        r = tpm2_create_key(
+                        c,
+                        parent,
+                        encryption_session,
+                        alg,
+                        TPMA_OBJECT_RESTRICTED|TPMA_OBJECT_DECRYPT|TPMA_OBJECT_SENSITIVEDATAORIGIN|TPMA_OBJECT_ADMINWITHPOLICY|TPMA_OBJECT_USERWITHAUTH,
+                        &duplication_policy,
+                        &key_public,
+                        &key_private,
+                        &key_handle,
+                        &alg);
+        if (r < 0)
+                return r;
+
+        r = tpm2_get_key_name(c, key_handle, &key_name);
+        if (r < 0)
+                return r;
+
+        r = tpm2_make_policy_session(
+                        c,
+                        parent,
+                        encryption_session,
+                        /* trial= */ false,
+                        &duplication_session);
+        if (r < 0)
+                return r;
+
+        r = tpm2_policy_duplication_select(
+                        c,
+                        duplication_session,
+                        key_name,
+                        new_parent_name,
+                        TPM2_NO,
+                        NULL);
+        if (r < 0)
+                return r;
+
+        r = tpm2_duplicate_key(
+                        c,
+                        duplication_session,
+                        key_handle,
+                        new_parent,
+                        &dup_private,
+                        &dup_seed);
+        if (r < 0)
+                return r;
+
+        if (ret_key_public)
+                *ret_key_public = TAKE_PTR(key_public);
+        if (ret_key_private)
+                *ret_key_private = TAKE_PTR(key_private);
+        if (ret_key_handle)
+                *ret_key_handle = TAKE_HANDLE(key_handle);
+        if (ret_dup_private)
+                *ret_dup_private = TAKE_PTR(dup_private);
+        if (ret_dup_seed)
+                *ret_dup_seed = TAKE_PTR(dup_seed);
+        if (ret_alg)
+                *ret_alg = alg;
+
+        return 0;
+}
+
 int tpm2_seal(const char *device,
               uint32_t hash_pcr_mask,
               const void *pubkey,
