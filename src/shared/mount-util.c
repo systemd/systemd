@@ -430,31 +430,7 @@ int bind_remount_one_with_mountinfo(
         return 0;
 }
 
-static const char *const mount_attr_propagation_type_table[_MOUNT_ATTR_PROPAGATION_TYPE_MAX] = {
-        [MOUNT_ATTR_PROPAGATION_INHERIT]   = "inherited",
-        [MOUNT_ATTR_PROPAGATION_PRIVATE]   = "private",
-        [MOUNT_ATTR_PROPAGATION_DEPENDENT] = "dependent",
-        [MOUNT_ATTR_PROPAGATION_SHARED]    = "shared",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(mount_attr_propagation_type, MountAttrPropagationType);
-
-unsigned int mount_attr_propagation_type_to_flag(MountAttrPropagationType t) {
-        switch (t) {
-        case MOUNT_ATTR_PROPAGATION_INHERIT:
-                return 0;
-        case MOUNT_ATTR_PROPAGATION_PRIVATE:
-                return MS_PRIVATE;
-        case MOUNT_ATTR_PROPAGATION_DEPENDENT:
-                return MS_SLAVE;
-        case MOUNT_ATTR_PROPAGATION_SHARED:
-                return MS_SHARED;
-        default:
-                assert_not_reached();
-        }
-}
-
-static inline int mount_switch_root_pivot(const char *path, int fd_newroot) {
+static int mount_switch_root_pivot(const char *path, int fd_newroot) {
         _cleanup_close_ int fd_oldroot = -EBADF;
 
         fd_oldroot = open("/", O_PATH|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
@@ -484,7 +460,7 @@ static inline int mount_switch_root_pivot(const char *path, int fd_newroot) {
         return 0;
 }
 
-static inline int mount_switch_root_move(const char *path) {
+static int mount_switch_root_move(const char *path) {
         if (mount(path, "/", NULL, MS_MOVE, NULL) < 0)
                 return log_debug_errno(errno, "Failed to move new rootfs '%s': %m", path);
 
@@ -497,12 +473,12 @@ static inline int mount_switch_root_move(const char *path) {
         return 0;
 }
 
-int mount_switch_root(const char *path, MountAttrPropagationType type) {
-        int r;
+int mount_switch_root(const char *path, unsigned long mount_propagation_flag) {
         _cleanup_close_ int fd_newroot = -EBADF;
-        unsigned int flags;
+        int r;
 
         assert(path);
+        assert(mount_propagation_flag_is_valid(mount_propagation_flag));
 
         fd_newroot = open(path, O_PATH|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
         if (fd_newroot < 0)
@@ -522,11 +498,13 @@ int mount_switch_root(const char *path, MountAttrPropagationType type) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to switch to new rootfs '%s': %m", path);
 
-        /* Finally, let's establish the requested propagation type. */
-        flags = mount_attr_propagation_type_to_flag(type);
-        if ((flags != 0) && mount(NULL, ".", NULL, flags|MS_REC, 0) < 0)
+        /* Finally, let's establish the requested propagation flags. */
+        if (mount_propagation_flag == 0)
+                return 0;
+
+        if (mount(NULL, ".", NULL, mount_propagation_flag | MS_REC, 0) < 0)
                 return log_debug_errno(errno, "Failed to turn new rootfs '%s' into %s mount: %m",
-                                       mount_attr_propagation_type_to_string(type), path);
+                                       mount_propagation_flag_to_string(mount_propagation_flag), path);
 
         return 0;
 }
