@@ -4,8 +4,8 @@
 # Docs: https://packit.dev/docs/
 
 specfile_path: .packit_rpm/systemd.spec
-synced_files:
-  - .packit.yaml
+files_to_sync:
+  - .packit.yml
   - src: .packit_rpm/systemd.spec
     dest: systemd.spec
 upstream_package_name: systemd
@@ -38,10 +38,9 @@ actions:
 jobs:
 - job: copr_build
   trigger: pull_request
-  metadata:
-    targets:
-    - fedora-rawhide-aarch64
-    - fedora-rawhide-i386
-    - fedora-rawhide-ppc64le
-    - fedora-rawhide-s390x
-    - fedora-rawhide-x86_64
+  targets:
+  - fedora-rawhide-aarch64
+  - fedora-rawhide-i386
+  - fedora-rawhide-ppc64le
+  - fedora-rawhide-s390x
+  - fedora-rawhide-x86_64
