@@ -211,7 +211,7 @@ resolvectl status
 resolvectl log-level debug
 
 # Start monitoring queries
-systemd-run -u resmontest.service -p Type=notify resolvectl monitor
+SYSTEMD_LOG_LEVEL=debug systemd-run -u resmontest.service -p Type=notify resolvectl monitor
 
 # We need to manually propagate the DS records of onlinesign.test. to the parent
 # zone, since they're generated online
