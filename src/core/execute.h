@@ -24,6 +24,7 @@ typedef struct Manager Manager;
 #include "nsflags.h"
 #include "numa-util.h"
 #include "path-util.h"
+#include "set.h"
 #include "time-util.h"
 
 #define EXEC_STDIN_DATA_MAX (64U*1024U*1024U)
@@ -286,6 +287,8 @@ struct ExecContext {
 
         struct iovec* log_extra_fields;
         size_t n_log_extra_fields;
+        Set *log_filter_allowed_patterns;
+        Set *log_filter_denied_patterns;
 
         usec_t log_ratelimit_interval_usec;
         unsigned log_ratelimit_burst;
