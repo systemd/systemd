@@ -158,6 +158,8 @@ shared_sources = files(
         'idn-util.h',
         'ima-util.c',
         'ima-util.h',
+        'image-policy.c',
+        'image-policy.h',
         'import-util.c',
         'import-util.h',
         'in-addr-prefix-util.c',

@@ -17,6 +17,7 @@ ConditionDirectoryNotEmpty=|/run/extensions
 ConditionDirectoryNotEmpty=|/var/lib/extensions
 ConditionDirectoryNotEmpty=|/usr/local/lib/extensions
 ConditionDirectoryNotEmpty=|/usr/lib/extensions
+ConditionDirectoryNotEmpty=|/.extra/sysext
 
 DefaultDependencies=no
 After=local-fs.target

@@ -1234,7 +1234,10 @@ static int mount_mqueuefs(const MountEntry *m) {
         return 0;
 }
 
-static int mount_image(const MountEntry *m, const char *root_directory) {
+static int mount_image(
+                const MountEntry *m,
+                const char *root_directory,
+                const ImagePolicy *image_policy) {
 
         _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL,
                             *host_os_release_sysext_level = NULL;
@@ -1256,8 +1259,15 @@ static int mount_image(const MountEntry *m, const char *root_directory) {
         }
 
         r = verity_dissect_and_mount(
-                        /* src_fd= */ -1, mount_entry_source(m), mount_entry_path(m), m->image_options,
-                        host_os_release_id, host_os_release_version_id, host_os_release_sysext_level, NULL);
+                        /* src_fd= */ -1,
+                        mount_entry_source(m),
+                        mount_entry_path(m),
+                        m->image_options,
+                        image_policy,
+                        host_os_release_id,
+                        host_os_release_version_id,
+                        host_os_release_sysext_level,
+                        NULL);
         if (r == -ENOENT && m->ignore)
                 return 0;
         if (r == -ESTALE && host_os_release_id)
@@ -1330,6 +1340,8 @@ static int follow_symlink(
 static int apply_one_mount(
                 const char *root_directory,
                 MountEntry *m,
+                const ImagePolicy *mount_image_policy,
+                const ImagePolicy *extension_image_policy,
                 const NamespaceInfo *ns_info) {
 
         _cleanup_free_ char *inaccessible = NULL;
@@ -1496,10 +1508,10 @@ static int apply_one_mount(
                 return mount_mqueuefs(m);
 
         case MOUNT_IMAGES:
-                return mount_image(m, NULL);
+                return mount_image(m, NULL, mount_image_policy);
 
         case EXTENSION_IMAGES:
-                return mount_image(m, root_directory);
+                return mount_image(m, root_directory, extension_image_policy);
 
         case OVERLAY_MOUNT:
                 return mount_overlay(m);
@@ -1768,6 +1780,8 @@ static int create_symlinks_from_tuples(const char *root, char **strv_symlinks) {
 
 static int apply_mounts(
                 const char *root,
+                const ImagePolicy *mount_image_policy,
+                const ImagePolicy *extension_image_policy,
                 const NamespaceInfo *ns_info,
                 MountEntry *mounts,
                 size_t *n_mounts,
@@ -1822,7 +1836,7 @@ static int apply_mounts(
                                 break;
                         }
 
-                        r = apply_one_mount(root, m, ns_info);
+                        r = apply_one_mount(root, m, mount_image_policy, extension_image_policy, ns_info);
                         if (r < 0) {
                                 if (error_path && mount_entry_path(m))
                                         *error_path = strdup(mount_entry_path(m));
@@ -2001,7 +2015,8 @@ static int verity_settings_prepare(
 int setup_namespace(
                 const char* root_directory,
                 const char* root_image,
-                const MountOptions *root_image_options,
+                const MountOptions *root_image_mount_options,
+                const ImagePolicy *root_image_policy,
                 const NamespaceInfo *ns_info,
                 char** read_write_paths,
                 char** read_only_paths,
@@ -2016,6 +2031,7 @@ int setup_namespace(
                 size_t n_temporary_filesystems,
                 const MountImage *mount_images,
                 size_t n_mount_images,
+                const ImagePolicy *mount_image_policy,
                 const char* tmp_dir,
                 const char* var_tmp_dir,
                 const char *creds_path,
@@ -2030,6 +2046,7 @@ int setup_namespace(
                 const char *verity_data_path,
                 const MountImage *extension_images,
                 size_t n_extension_images,
+                const ImagePolicy *extension_image_policy,
                 char **extension_directories,
                 const char *propagate_dir,
                 const char *incoming_dir,
@@ -2102,7 +2119,8 @@ int setup_namespace(
                 r = dissect_loop_device(
                                 loop_device,
                                 &verity,
-                                root_image_options,
+                                root_image_mount_options,
+                                root_image_policy,
                                 dissect_image_flags,
                                 &dissected_image);
                 if (r < 0)
@@ -2483,7 +2501,7 @@ int setup_namespace(
                 (void) base_filesystem_create(root, UID_INVALID, GID_INVALID);
 
         /* Now make the magic happen */
-        r = apply_mounts(root, ns_info, mounts, &n_mounts, exec_dir_symlinks, error_path);
+        r = apply_mounts(root, mount_image_policy, extension_image_policy, ns_info, mounts, &n_mounts, exec_dir_symlinks, error_path);
         if (r < 0)
                 goto finish;
 
