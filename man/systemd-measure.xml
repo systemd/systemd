@@ -274,6 +274,64 @@
      <command>systemd-cryptsetup</command> will look for anyway, and thus these paths do not actually need to
      be specified.</para>
     </example>
+
+    <example>
+      <title>Introduce a second public key, signing the same kernel PCR measurements, but only for the initrd boot phase</title>
+
+      <para>This example extends the previous one, but we now introduce a second signing key that is only
+      used to sign PCR policies restricted to the initrd boot phase. This can be used to lock down root
+      volumes in a way that they can only be unlocked before the transition to the host system. Thus we have
+      two classes of secrets or credentials: one that can be unlocked during the entire runtime, and the
+      other that can only be used in the initrd.</para>
+
+      <programlisting># openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out tpm2-pcr-private.pem
+# openssl rsa -pubout -in tpm2-pcr-private.pem -out tpm2-pcr-public.pem
+# systemd-measure sign \
+     --linux=vmlinux \
+     --osrel=os-release.txt \
+     --cmdline=cmdline.txt \
+     --initrd=initrd.cpio \
+     --splash=splash.bmp \
+     --dtb=devicetree.dtb \
+     --pcrpkey=tpm2-pcr-public.pem \
+     --bank=sha1 \
+     --bank=sha256 \
+     --private-key=tpm2-pcr-private.pem \
+     --public-key=tpm2-pcr-public.pem >tpm2-pcr-signature.json.tmp
+# openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out tpm2-pcr-initrd-private.pem
+# openssl rsa -pubout -in tpm2-pcr-initrd-private.pem -out tpm2-pcr-initrd-public.pem
+# systemd-measure sign \
+     --linux=vmlinux \
+     --osrel=os-release.txt \
+     --cmdline=cmdline.txt \
+     --initrd=initrd.cpio \
+     --splash=splash.bmp \
+     --dtb=devicetree.dtb \
+     --pcrpkey=tpm2-pcr-public.pem \
+     --bank=sha1 \
+     --bank=sha256 \
+     --private-key=tpm2-pcr-initrd-private.pem \
+     --public-key=tpm2-pcr-initrd-public.pem \
+     --phase=enter-initrd \
+     --append=tpm2-pcr-signature.json.tmp >tpm2-pcr-signature.json
+# objcopy \
+    --add-section .linux=vmlinux --change-section-vma .linux=0x2000000 \
+    --add-section .osrel=os-release.txt --change-section-vma .osrel=0x20000 \
+    --add-section .cmdline=cmdline.txt --change-section-vma .cmdline=0x30000 \
+    --add-section .initrd=initrd.cpio --change-section-vma .initrd=0x3000000 \
+    --add-section .splash=splash.bmp --change-section-vma .splash=0x100000 \
+    --add-section .dtb=devicetree.dtb --change-section-vma .dtb=0x40000 \
+    --add-section .pcrsig=tpm2-pcr-signature.json --change-section-vma .pcrsig=0x80000 \
+    --add-section .pcrpkey=tpm2-pcr-public.pem --change-section-vma .pcrpkey=0x90000 \
+    /usr/lib/systemd/boot/efi/linuxx64.efi.stub \
+    foo.efi</programlisting>
+    </example>
+
+    <para>Note that in this example the <literal>.pcrpkey</literal> PE section contains the key covering all
+    boot phases. The <literal>.pcrpkey</literal> is used in the default policies of
+    <command>systemd-cryptenroll</command> and <command>systemd-creds</command>. To use the stricter
+    <filename>tpm-pcr-initrd-public.pem</filename>-bound policy, specify <option>--tpm2-public-key=</option>
+    on the command line of those tools.</para>
   </refsect1>
 
   <refsect1>
