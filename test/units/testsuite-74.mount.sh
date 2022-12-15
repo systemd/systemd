@@ -3,6 +3,9 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/assert.sh
+. "$(dirname "$0")"/assert.sh
+
 # We're going to play around with block/loop devices, so bail out early
 # if we're running in nspawn
 if systemd-detect-virt --container >/dev/null; then
@@ -115,8 +118,11 @@ timeout 10s bash -c "while systemctl status '$(systemd-escape --path "$WORK_DIR/
 
 # Mount a disk image
 systemd-mount --discover "$WORK_DIR/simple.img"
-systemd-mount --list --full
+# We can access files in the image even if the loopback block device is not initialized by udevd.
 test -e /run/media/system/simple.img/foo.bar
+# systemd-mount --list and systemd-umount require the loopback block device is initialized by udevd.
+udevadm settle --timeout 30
+assert_in "/dev/loop.* ext4 sd-mount-test" "$(systemd-mount --list --full)"
 systemd-umount "$WORK_DIR/simple.img"
 
 # --owner + vfat
