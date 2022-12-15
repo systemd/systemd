@@ -212,11 +212,6 @@ resolvectl log-level debug
 
 # Start monitoring queries
 systemd-run -u resmontest.service -p Type=notify resolvectl monitor
-# Wait for the monitoring service to become active
-for _ in {0..9}; do
-    [[ "$(systemctl show -P ActiveState resmontest.service)" == "active" ]] && break
-    sleep .5
-done
 
 # We need to manually propagate the DS records of onlinesign.test. to the parent
 # zone, since they're generated online
