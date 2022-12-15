@@ -911,7 +911,7 @@ test_minimize() {
 Type=root-${architecture}
 Format=${format}
 CopyFiles=${defs}
-Minimize=yes
+Minimize=guess
 EOF
     done
 
@@ -921,7 +921,7 @@ EOF
 Type=root-${architecture}
 Format=squashfs
 CopyFiles=${defs}
-Minimize=yes
+Minimize=best
 EOF
     fi
 
