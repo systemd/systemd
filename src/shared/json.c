@@ -2093,7 +2093,6 @@ int json_variant_append_array(JsonVariant **v, JsonVariant *element) {
         assert(v);
         assert(element);
 
-
         if (!*v || json_variant_is_null(*v))
                 blank = true;
         else if (json_variant_is_array(*v))
@@ -2149,6 +2148,27 @@ int json_variant_append_array(JsonVariant **v, JsonVariant *element) {
         JSON_VARIANT_REPLACE(*v, TAKE_PTR(nv));
 
         return 0;
+}
+
+JsonVariant *json_variant_find(JsonVariant *haystack, JsonVariant *needle) {
+        JsonVariant *i;
+
+        /* Find a json object in an array. Returns NULL if not found, or if the array is not actually an array. */
+
+        JSON_VARIANT_ARRAY_FOREACH(i, haystack)
+                if (json_variant_equal(i, needle))
+                        return i;
+
+        return NULL;
+}
+
+int json_variant_append_array_nodup(JsonVariant **v, JsonVariant *element) {
+        assert(v);
+
+        if (json_variant_find(*v, element))
+                return 0;
+
+        return json_variant_append_array(v, element);
 }
 
 int json_variant_strv(JsonVariant *v, char ***ret) {
