@@ -85,6 +85,7 @@ static int create_disk(
                 "DefaultDependencies=no\n"
                 "IgnoreOnIsolate=true\n"
                 "After=integritysetup-pre.target systemd-udevd-kernel.socket\n"
+                "After=modprobe@dm_integrity.service\n"
                 "Before=blockdev@dev-mapper-%%i.target\n"
                 "Wants=blockdev@dev-mapper-%%i.target\n"
                 "Conflicts=umount.target\n"
