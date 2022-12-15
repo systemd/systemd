@@ -379,11 +379,11 @@
       <varlistentry>
         <term><option>--defer-partitions=</option><arg rep="repeat">PARTITION</arg></term>
 
-        <listitem><para>This option specifies which partition types <command>systemd-repart</command> should
-        skip. All partitions that are skipped using this option are still taken into account when calculating
-        the sizes and offsets of other partitions, but aren't actually written to the disk image. The net
-        effect of this option is that if you run <command>systemd-repart</command> again without these
-        options, the missing partitions will be added as if they had not been skipped the first time
+        <listitem><para>This option specifies for which partition types <command>systemd-repart</command>
+        should defer. All partitions that are deferred using this option are still taken into account when
+        calculating the sizes and offsets of other partitions, but aren't actually written to the disk image.
+        The net effect of this option is that if you run <command>systemd-repart</command> again without
+        these options, the missing partitions will be added as if they had not been deferred the first time
         <command>systemd-repart</command> was executed.</para></listitem>
       </varlistentry>
 
