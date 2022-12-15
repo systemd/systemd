@@ -1837,90 +1837,6 @@ static int tpm2_policy_auth_value(
         return tpm2_get_policy_digest(c, session, ret_policy_digest);
 }
 
-static int tpm2_build_policy(
-                struct tpm2_context *c,
-                struct tpm2_handle session,
-                uint32_t hash_pcr_mask,
-                uint16_t pcr_bank, /* If UINT16_MAX, pick best bank automatically, otherwise specify bank explicitly. */
-                const void *pubkey,
-                size_t pubkey_size,
-                uint32_t pubkey_pcr_mask,
-                JsonVariant *signature_json,
-                bool use_pin,
-                TPM2B_DIGEST **ret_policy_digest,
-                TPMI_ALG_HASH *ret_pcr_bank) {
-
-        _cleanup_(tpm2_handle_releasep) struct tpm2_handle pubkey_handle = tpm2_handle_init(c);
-        TSS2_RC rc;
-        int r;
-
-        assert(c);
-        assert(pubkey || pubkey_size == 0);
-        assert(pubkey_pcr_mask == 0 || pubkey_size > 0);
-
-        log_debug("Building policy.");
-
-        if ((hash_pcr_mask | pubkey_pcr_mask) != 0) {
-                /* We are told to configure a PCR policy of some form, let's determine/validate the PCR bank to use. */
-
-                if (pcr_bank != UINT16_MAX) {
-                        r = tpm2_pcr_mask_good(c, pcr_bank, hash_pcr_mask|pubkey_pcr_mask);
-                        if (r < 0)
-                                return r;
-                        if (r == 0)
-                                log_warning("Selected TPM2 PCRs are not initialized on this system, most likely due to a firmware issue. PCR policy is effectively not enforced. Proceeding anyway.");
-                } else {
-                        /* No bank configured, pick automatically. Some TPM2 devices only can do SHA1. If we
-                         * detect that use that, but preferably use SHA256 */
-                        r = tpm2_get_best_pcr_bank(c, hash_pcr_mask|pubkey_pcr_mask, &pcr_bank);
-                        if (r < 0)
-                                return r;
-                }
-        }
-
-        if (pubkey_pcr_mask != 0) {
-                TPML_PCR_SELECTION pcr_selection = tpm2_tpml_pcr_selection_from_mask(pubkey_pcr_mask, pcr_bank);
-                r = tpm2_policy_authorize(
-                                c,
-                                session,
-                                &pcr_selection,
-                                pubkey, pubkey_size,
-                                signature_json,
-                                /* ret_policy_digest= */ NULL);
-                if (r < 0)
-                        return r;
-        }
-
-        if (hash_pcr_mask != 0) {
-                TPML_PCR_SELECTION pcr_selection = tpm2_tpml_pcr_selection_from_mask(hash_pcr_mask, pcr_bank);
-                r = tpm2_policy_pcr(
-                                c,
-                                session,
-                                &pcr_selection,
-                                /* ret_policy_digest= */ NULL);
-                if (r < 0)
-                        return r;
-        }
-
-        if (use_pin) {
-                r = tpm2_policy_auth_value(
-                                c,
-                                session,
-                                /* ret_policy_digest= */ NULL);
-                if (r < 0)
-                        return r;
-        }
-
-        r = tpm2_get_policy_digest(c, session, ret_policy_digest);
-        if (r < 0)
-                return r;
-
-        if (ret_pcr_bank)
-                *ret_pcr_bank = pcr_bank;
-
-        return 0;
-}
-
 int tpm2_seal(const char *device,
               uint32_t hash_pcr_mask,
               const void *pubkey,
@@ -1938,7 +1854,6 @@ int tpm2_seal(const char *device,
 
         _cleanup_(tpm2_context_destroy) struct tpm2_context context = {};
         struct tpm2_context *c = &context;
-        _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
         _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
         _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
         static const TPML_PCR_SELECTION creation_pcr = {};
@@ -1947,9 +1862,10 @@ int tpm2_seal(const char *device,
         _cleanup_free_ void *hash = NULL;
         _cleanup_(tpm2_handle_releasep) struct tpm2_handle primary = tpm2_handle_init(c),
                 encryption_session = tpm2_handle_init(c), policy_session = tpm2_handle_init(c);
+        TPM2B_DIGEST policy_digest = { .size = SHA256_DIGEST_SIZE, .buffer = {}, };
         TPMI_ALG_PUBLIC primary_alg;
         TPM2B_PUBLIC hmac_template;
-        TPMI_ALG_HASH pcr_bank;
+        TPMI_ALG_HASH pcr_bank = UINT16_MAX;
         usec_t start;
         TSS2_RC rc;
         int r;
@@ -1989,6 +1905,24 @@ int tpm2_seal(const char *device,
         if (r < 0)
                 return r;
 
+        if ((hash_pcr_mask | pubkey_pcr_mask) != 0) {
+                /* We are told to configure a PCR policy of some form, let's determine/validate the PCR bank to use. */
+
+                if (pcr_bank != UINT16_MAX) {
+                        r = tpm2_pcr_mask_good(c, pcr_bank, hash_pcr_mask|pubkey_pcr_mask);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                log_warning("Selected TPM2 PCRs are not initialized on this system, most likely due to a firmware issue. PCR policy is effectively not enforced. Proceeding anyway.");
+                } else {
+                        /* No bank configured, pick automatically. Some TPM2 devices only can do SHA1. If we
+                         * detect that use that, but preferably use SHA256 */
+                        r = tpm2_get_best_pcr_bank(c, hash_pcr_mask|pubkey_pcr_mask, &pcr_bank);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
         r = tpm2_make_primary(c, &primary, 0, &primary_alg);
         if (r < 0)
                 return r;
@@ -2007,19 +1941,43 @@ int tpm2_seal(const char *device,
         if (r < 0)
                 return r;
 
-        r = tpm2_build_policy(
-                        c,
-                        policy_session,
-                        hash_pcr_mask,
-                        /* pcr_bank= */ UINT16_MAX,
-                        pubkey, pubkey_size,
-                        pubkey_pcr_mask,
-                        /* signature_json= */ NULL,
-                        !!pin,
-                        &policy_digest,
-                        &pcr_bank);
-        if (r < 0)
-                return r;
+        if (pubkey_pcr_mask) {
+                r = tpm2_calculate_policy_authorize(pubkey, pubkey_size, NULL, &policy_digest);
+                if (r < 0)
+                        return r;
+        }
+
+        if (hash_pcr_mask) {
+                TPML_PCR_SELECTION pcr_selection = tpm2_tpml_pcr_selection_from_mask(hash_pcr_mask, pcr_bank);
+
+                /* For now, we just read the current values from the system; we need to be able to specify
+                 * expected values, eventually. */
+                _cleanup_free_ TPM2B_DIGEST *pcr_values = NULL;
+                size_t pcr_values_size;
+
+                r = tpm2_pcr_read(
+                                c,
+                                pcr_selection,
+                                &pcr_selection,
+                                &pcr_values,
+                                &pcr_values_size);
+                if (r < 0)
+                        return r;
+
+                r = tpm2_calculate_policy_pcr(
+                                &pcr_selection,
+                                pcr_values,
+                                pcr_values_size,
+                                &policy_digest);
+                if (r < 0)
+                        return r;
+        }
+
+        if (pin) {
+                r = tpm2_calculate_policy_auth_value(&policy_digest);
+                if (r < 0)
+                        return r;
+        }
 
         /* We use a keyed hash object (i.e. HMAC) to store the secret key we want to use for unlocking the
          * LUKS2 volume with. We don't ever use for HMAC/keyed hash operations however, we just use it
@@ -2032,7 +1990,7 @@ int tpm2_seal(const char *device,
                         .objectAttributes = TPMA_OBJECT_FIXEDTPM | TPMA_OBJECT_FIXEDPARENT,
                         .parameters.keyedHashDetail.scheme.scheme = TPM2_ALG_NULL,
                         .unique.keyedHash.size = SHA256_DIGEST_SIZE,
-                        .authPolicy = *policy_digest,
+                        .authPolicy = policy_digest,
                 },
         };
 
@@ -2098,7 +2056,7 @@ int tpm2_seal(const char *device,
         if (r < 0)
                 return r;
 
-        hash = memdup(policy_digest->buffer, policy_digest->size);
+        hash = memdup(policy_digest.buffer, policy_digest.size);
         if (!hash)
                 return log_oom();
 
@@ -2110,7 +2068,7 @@ int tpm2_seal(const char *device,
         *ret_blob = TAKE_PTR(blob);
         *ret_blob_size = blob_size;
         *ret_pcr_hash = TAKE_PTR(hash);
-        *ret_pcr_hash_size = policy_digest->size;
+        *ret_pcr_hash_size = policy_digest.size;
         *ret_pcr_bank = pcr_bank;
         *ret_primary_alg = primary_alg;
 
@@ -2241,19 +2199,38 @@ int tpm2_unseal(const char *device,
                 if (r < 0)
                         return r;
 
-                r = tpm2_build_policy(
-                                c,
-                                policy_session,
-                                hash_pcr_mask,
-                                pcr_bank,
-                                pubkey, pubkey_size,
-                                pubkey_pcr_mask,
-                                signature,
-                                !!pin,
-                                &policy_digest,
-                                /* ret_pcr_bank= */ NULL);
-                if (r < 0)
-                        return r;
+                if (pubkey_pcr_mask) {
+                        TPML_PCR_SELECTION pcr_selection = tpm2_tpml_pcr_selection_from_mask(pubkey_pcr_mask, pcr_bank);
+                        r = tpm2_policy_authorize(
+                                        c,
+                                        policy_session,
+                                        &pcr_selection,
+                                        pubkey, pubkey_size,
+                                        signature,
+                                        &policy_digest);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (hash_pcr_mask) {
+                        TPML_PCR_SELECTION pcr_selection = tpm2_tpml_pcr_selection_from_mask(hash_pcr_mask, pcr_bank);
+                        r = tpm2_policy_pcr(
+                                        c,
+                                        policy_session,
+                                        &pcr_selection,
+                                        &policy_digest);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (pin) {
+                        r = tpm2_policy_auth_value(
+                                        c,
+                                        policy_session,
+                                        &policy_digest);
+                        if (r < 0)
+                                return r;
+                }
 
                 /* If we know the policy hash to expect, and it doesn't match, we can shortcut things here, and not
                  * wait until the TPM2 tells us to go away. */
