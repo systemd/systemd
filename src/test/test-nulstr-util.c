@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "nulstr-util.h"
+#include "set.h"
 #include "strv.h"
 #include "tests.h"
 
@@ -127,6 +128,50 @@ TEST(strv_make_nulstr) {
         test_strv_make_nulstr_one(STRV_MAKE("foo"));
         test_strv_make_nulstr_one(STRV_MAKE("foo", "bar"));
         test_strv_make_nulstr_one(STRV_MAKE("foo", "bar", "quuux"));
+}
+
+TEST(set_make_nulstr) {
+        _cleanup_set_free_free_ Set *set = NULL;
+        size_t len = 0;
+        int r;
+
+        {
+                /* Unallocated and empty set. */
+                char expect[] = { 0x00, 0x00 };
+                _cleanup_free_ char *nulstr = NULL;
+
+                r = set_make_nulstr(set, &nulstr, &len);
+                assert_se(r == 0);
+                assert_se(len == 0);
+                assert_se(memcmp(expect, nulstr, len + 2) == 0);
+        }
+
+        {
+                /* Allocated by empty set. */
+                char expect[] = { 0x00, 0x00 };
+                _cleanup_free_ char *nulstr = NULL;
+
+                set = set_new(NULL);
+                assert_se(set);
+
+                r = set_make_nulstr(set, &nulstr, &len);
+                assert_se(r == 0);
+                assert_se(len == 0);
+                assert_se(memcmp(expect, nulstr, len + 2) == 0);
+        }
+
+        {
+                /* Non-empty set. */
+                char expect[] = { 'a', 'a', 'a', 0x00, 0x00 };
+                _cleanup_free_ char *nulstr = NULL;
+
+                assert_se(set_put_strdup(&set, "aaa") >= 0);
+
+                r = set_make_nulstr(set, &nulstr, &len);
+                assert_se(r == 0);
+                assert_se(len == 4);
+                assert_se(memcmp(expect, nulstr, len + 1) == 0);
+        }
 }
 
 static void test_strv_make_nulstr_binary_one(char **l, const char *b, size_t n) {
