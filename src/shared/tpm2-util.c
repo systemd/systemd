@@ -42,6 +42,7 @@ TSS2_RC (*sym_Esys_PCR_Extend)(ESYS_CONTEXT *esysContext, ESYS_TR pcrHandle, ESY
 TSS2_RC (*sym_Esys_PCR_Read)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1,ESYS_TR shandle2, ESYS_TR shandle3, const TPML_PCR_SELECTION *pcrSelectionIn, UINT32 *pcrUpdateCounter, TPML_PCR_SELECTION **pcrSelectionOut, TPML_DIGEST **pcrValues);
 TSS2_RC (*sym_Esys_PolicyAuthorize)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_DIGEST *approvedPolicy, const TPM2B_NONCE *policyRef, const TPM2B_NAME *keySign, const TPMT_TK_VERIFIED *checkTicket);
 TSS2_RC (*sym_Esys_PolicyAuthValue)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3) = NULL;
+TSS2_RC (*sym_Esys_PolicyDuplicationSelect)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_NAME *objectName, const TPM2B_NAME *newParentName, TPMI_YES_NO includeObject) = NULL;
 TSS2_RC (*sym_Esys_PolicyGetDigest)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPM2B_DIGEST **policyDigest) = NULL;
 TSS2_RC (*sym_Esys_PolicyPCR)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_DIGEST *pcrDigest, const TPML_PCR_SELECTION *pcrs) = NULL;
 TSS2_RC (*sym_Esys_StartAuthSession)(ESYS_CONTEXT *esysContext, ESYS_TR tpmKey, ESYS_TR bind, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_NONCE *nonceCaller, TPM2_SE sessionType, const TPMT_SYM_DEF *symmetric, TPMI_ALG_HASH authHash, ESYS_TR *sessionHandle) = NULL;
@@ -84,6 +85,7 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Esys_PCR_Read),
                         DLSYM_ARG(Esys_PolicyAuthorize),
                         DLSYM_ARG(Esys_PolicyAuthValue),
+                        DLSYM_ARG(Esys_PolicyDuplicationSelect),
                         DLSYM_ARG(Esys_PolicyGetDigest),
                         DLSYM_ARG(Esys_PolicyPCR),
                         DLSYM_ARG(Esys_StartAuthSession),
@@ -1954,6 +1956,84 @@ static int tpm2_policy_auth_value(
         if (rc != TSS2_RC_SUCCESS)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to add authValue policy to TPM: %s",
+                                       sym_Tss2_RC_Decode(rc));
+
+        return tpm2_get_policy_digest(c, session, ret_policy_digest);
+}
+
+static int tpm2_calculate_policy_duplication_select(
+                const TPM2B_NAME *object_name,
+                const TPM2B_NAME *new_parent_name,
+                TPMI_YES_NO include_object,
+                TPM2B_DIGEST *digest) {
+
+        static const TPM2_CC command = TPM2_CC_PolicyDuplicationSelect;
+        const uint8_t *data[4];
+        size_t len[4], count = 0;
+        int r;
+
+        assert(new_parent_name);
+        assert(!include_object || object_name);
+        assert(digest);
+
+        uint8_t buf[sizeof(command)];
+        size_t offset = 0;
+        r = tpm2_marshal("PolicyDuplicationSelect command", command, buf, sizeof(command), &offset);
+        if (r < 0)
+                return r;
+
+        data[count] = buf;
+        len[count] = offset;
+        count++;
+
+        if (include_object) {
+                data[count] = object_name->name;
+                len[count] = object_name->size;
+                count++;
+        }
+
+        data[count] = new_parent_name->name;
+        len[count] = new_parent_name->size;
+        count++;
+
+        data[count] = (uint8_t *) &include_object;
+        len[count] = sizeof(include_object);
+        count++;
+
+        tpm2_digest_extend_array(digest, data, len, count);
+
+        tpm2_log_debug_digest(digest, "PolicyDuplicationSelect calculated digest");
+
+        return 0;
+}
+
+static int tpm2_policy_duplication_select(
+                struct tpm2_context *c,
+                struct tpm2_handle session,
+                TPM2B_NAME *object_name,
+                TPM2B_NAME *new_parent_name,
+                TPMI_YES_NO include_object,
+                TPM2B_DIGEST **ret_policy_digest) {
+
+        TSS2_RC rc;
+
+        assert(c);
+        assert(new_parent_name);
+
+        log_debug("Adding Duplication Select policy.");
+
+        rc = sym_Esys_PolicyDuplicationSelect(
+                        c->esys_context,
+                        session.handle,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        object_name,
+                        new_parent_name,
+                        include_object);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to add duplication select policy to TPM: %s",
                                        sym_Tss2_RC_Decode(rc));
 
         return tpm2_get_policy_digest(c, session, ret_policy_digest);
