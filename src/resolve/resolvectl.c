@@ -2778,6 +2778,8 @@ static int verb_monitor(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to issue SubscribeQueryResults() varlink call: %m");
 
+        usleep(2 * USEC_PER_SEC);
+
         r = sd_event_loop(event);
         if (r < 0)
                 return log_error_errno(r, "Failed to run event loop: %m");
