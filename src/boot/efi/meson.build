@@ -1,5 +1,26 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+# Those tests use native code. We build them independently of the EFI parts to
+# allow testing of portable code and fuzzing on fuzzer platforms.
+
+tests += [
+        [files('test-efi-string.c', 'efi-string.c')],
+
+        [files('test-bcd.c', 'efi-string.c'),
+         [],
+         [libzstd],
+         [],
+         'HAVE_ZSTD'],
+]
+
+fuzzers += [
+        [files('fuzz-bcd.c', 'bcd.c', 'efi-string.c')],
+        [files('fuzz-efi-string.c', 'efi-string.c')],
+        [files('fuzz-efi-printf.c', 'efi-string.c')],
+]
+
+############################################################
+
 conf.set10('ENABLE_EFI', get_option('efi'))
 conf.set10('HAVE_GNU_EFI', false)
 
@@ -405,24 +426,9 @@ if efi_arch[1] in ['ia32', 'x86_64']
         stub_sources += files('linux_x86.c')
 endif
 
-tests += [
-        [files('test-efi-string.c', 'efi-string.c')],
-]
-
 # BCD parser only makes sense on arches that Windows supports.
 if efi_arch[1] in ['ia32', 'x86_64', 'arm', 'aarch64']
         systemd_boot_sources += files('bcd.c')
-        tests += [
-                [files('test-bcd.c', 'efi-string.c'),
-                 [],
-                 [libzstd],
-                 [],
-                 'HAVE_ZSTD'],
-        ]
-        fuzzers += [
-                [files('fuzz-bcd.c', 'bcd.c', 'efi-string.c')],
-                [files('fuzz-efi-string.c', 'efi-string.c')],
-        ]
 endif
 
 systemd_boot_objects = []
