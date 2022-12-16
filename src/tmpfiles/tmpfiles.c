@@ -138,6 +138,7 @@ typedef struct Item {
         char **xattrs;
 #if HAVE_ACL
         acl_t acl_access;
+        acl_t acl_access_exec;
         acl_t acl_default;
 #endif
         uid_t uid;
@@ -1115,7 +1116,8 @@ static int parse_acls_from_arg(Item *item) {
         /* If append_or_force (= modify) is set, we will not modify the acl
          * afterwards, so the mask can be added now if necessary. */
 
-        r = parse_acl(item->argument, &item->acl_access, &item->acl_default, !item->append_or_force);
+        r = parse_acl(item->argument, &item->acl_access, &item->acl_access_exec,
+                      &item->acl_default, !item->append_or_force);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse ACL \"%s\": %m. Ignoring", item->argument);
 #else
@@ -1126,6 +1128,85 @@ static int parse_acls_from_arg(Item *item) {
 }
 
 #if HAVE_ACL
+static int parse_acl_cond_exec(const char *path, acl_t cond_exec, acl_t *ret, const struct stat *st) {
+        _cleanup_(acl_freep) acl_t old = NULL;
+        acl_entry_t entry, ret_entry;
+        acl_permset_t permset;
+        bool has_exec = false;
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        if (S_ISDIR(st->st_mode)) {
+                for (r = acl_get_entry(cond_exec, ACL_FIRST_ENTRY, &entry);
+                     r > 0;
+                     r = acl_get_entry(cond_exec, ACL_NEXT_ENTRY, &entry)) {
+
+                        if (acl_create_entry(ret, &ret_entry) < 0)
+                                return -errno;
+
+                        if (acl_copy_entry(ret_entry, entry) < 0)
+                                return -errno;
+                }
+                if (r < 0)
+                        return -errno;
+
+                goto finish;
+        }
+
+        old = acl_get_file(path, ACL_TYPE_ACCESS);
+        if (!old)
+                return -errno;
+
+        for (r = acl_get_entry(old, ACL_FIRST_ENTRY, &entry);
+             r > 0;
+             r = acl_get_entry(old, ACL_NEXT_ENTRY, &entry)) {
+
+                if (acl_get_permset(entry, &permset) < 0)
+                        return -errno;
+
+                r = acl_get_perm(permset, ACL_EXECUTE);
+                if (r < 0)
+                        return -errno;
+
+                if (r > 0) {
+                        has_exec = true;
+                        break;
+                }
+        }
+        if (r < 0)
+                return -errno;
+
+        for (r = acl_get_entry(cond_exec, ACL_FIRST_ENTRY, &entry);
+             r > 0;
+             r = acl_get_entry(cond_exec, ACL_NEXT_ENTRY, &entry)) {
+
+                if (acl_create_entry(ret, &ret_entry) < 0)
+                        return -errno;
+
+                if (acl_copy_entry(ret_entry, entry) < 0)
+                        return -errno;
+
+                if (!has_exec) {
+                        if (acl_get_permset(ret_entry, &permset) < 0)
+                                return -errno;
+
+                        if (acl_delete_perm(permset, ACL_EXECUTE) < 0)
+                                return -errno;
+                }
+        }
+        if (r < 0)
+                return -errno;
+
+finish:
+        r = calc_acl_mask_if_needed(ret);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int path_set_acl(
                 const char *path,
                 const char *pretty,
@@ -1190,6 +1271,7 @@ static int fd_set_acls(
 
         int r = 0;
 #if HAVE_ACL
+        _cleanup_(acl_freep) acl_t access_exec_parsed = NULL;
         struct stat stbuf;
 
         assert(item);
@@ -1218,6 +1300,18 @@ static int fd_set_acls(
         /* set only default acls to folders */
         if (r == 0 && item->acl_default && S_ISDIR(st->st_mode))
                 r = path_set_acl(FORMAT_PROC_FD_PATH(fd), path, ACL_TYPE_DEFAULT, item->acl_default, item->append_or_force);
+
+        if (r == 0 && item->acl_access_exec) {
+                access_exec_parsed = acl_init(0);
+                if (!access_exec_parsed)
+                        return -errno;
+
+                r = parse_acl_cond_exec(FORMAT_PROC_FD_PATH(fd), item->acl_access_exec, &access_exec_parsed, st);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse conditionalized execute bit for \"%s\": %m", path);
+
+                r = path_set_acl(FORMAT_PROC_FD_PATH(fd), path, ACL_TYPE_ACCESS, access_exec_parsed, item->append_or_force);
+        }
 
         if (ERRNO_IS_NOT_SUPPORTED(r)) {
                 log_debug_errno(r, "ACLs not supported by file system at %s", path);
@@ -2854,6 +2948,9 @@ static void item_free_contents(Item *i) {
 #if HAVE_ACL
         if (i->acl_access)
                 acl_free(i->acl_access);
+
+        if (i->acl_access_exec)
+                acl_free(i->acl_access_exec);
 
         if (i->acl_default)
                 acl_free(i->acl_default);
