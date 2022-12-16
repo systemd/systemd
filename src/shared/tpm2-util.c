@@ -480,6 +480,54 @@ void tpm2_pcr_mask_to_selection(uint32_t mask, uint16_t bank, TPML_PCR_SELECTION
         };
 }
 
+static void tpm2_log_debug_buffer(const void *buffer, size_t size, const char *msg) {
+        if (!DEBUG_LOGGING || !buffer || size == 0)
+                return;
+
+        _cleanup_free_ char *h = hexmem(buffer, size);
+        log_debug("%s: %s", msg ?: "Buffer", strna(h));
+}
+
+static void tpm2_log_debug_digest(const TPM2B_DIGEST *digest, const char *msg) {
+        if (digest)
+                tpm2_log_debug_buffer(digest->buffer, digest->size, msg ?: "Digest");
+}
+
+static int tpm2_get_policy_digest(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                TPM2B_DIGEST **ret_policy_digest) {
+
+        TSS2_RC rc;
+
+        if (!DEBUG_LOGGING && !ret_policy_digest)
+                return 0;
+
+        assert(c);
+        assert(session);
+
+        log_debug("Acquiring policy digest.");
+
+        _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
+        rc = sym_Esys_PolicyGetDigest(
+                        c->esys_context,
+                        session->esys_handle,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        &policy_digest);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to get policy digest from TPM: %s", sym_Tss2_RC_Decode(rc));
+
+        tpm2_log_debug_digest(policy_digest, "Session policy digest");
+
+        if (ret_policy_digest)
+                *ret_policy_digest = TAKE_PTR(policy_digest);
+
+        return 0;
+}
+
 static unsigned find_nth_bit(uint32_t mask, unsigned n) {
         uint32_t bit = 1;
 
@@ -1108,7 +1156,6 @@ static int tpm2_make_policy_session(
                 .keyBits.aes = 128,
                 .mode.aes = TPM2_ALG_CFB,
         };
-        _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
         TSS2_RC rc;
         int r;
 
@@ -1245,16 +1292,9 @@ static int tpm2_make_policy_session(
 
                 /* Get the policy hash of the PCR policy */
                 _cleanup_(Esys_Freep) TPM2B_DIGEST *approved_policy = NULL;
-                rc = sym_Esys_PolicyGetDigest(
-                                c->esys_context,
-                                session->esys_handle,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                &approved_policy);
-                if (rc != TSS2_RC_SUCCESS)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Failed to get policy digest from TPM: %s", sym_Tss2_RC_Decode(rc));
+                r = tpm2_get_policy_digest(c, session, &approved_policy);
+                if (r < 0)
+                        return r;
 
                 /* When we are unlocking and have a signature, let's pass it to the TPM */
                 _cleanup_(Esys_Freep) TPMT_TK_VERIFIED *check_ticket_buffer = NULL;
@@ -1369,37 +1409,12 @@ static int tpm2_make_policy_session(
                                                sym_Tss2_RC_Decode(rc));
         }
 
-        if (DEBUG_LOGGING || ret_policy_digest) {
-                log_debug("Acquiring policy digest.");
-
-                rc = sym_Esys_PolicyGetDigest(
-                                c->esys_context,
-                                session->esys_handle,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                &policy_digest);
-
-                if (rc != TSS2_RC_SUCCESS)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Failed to get policy digest from TPM: %s", sym_Tss2_RC_Decode(rc));
-
-                if (DEBUG_LOGGING) {
-                        _cleanup_free_ char *h = NULL;
-
-                        h = hexmem(policy_digest->buffer, policy_digest->size);
-                        if (!h)
-                                return log_oom();
-
-                        log_debug("Session policy digest: %s", h);
-                }
-        }
+        r = tpm2_get_policy_digest(c, session, ret_policy_digest);
+        if (r < 0)
+                return r;
 
         if (ret_session)
                 *ret_session = TAKE_PTR(session);
-
-        if (ret_policy_digest)
-                *ret_policy_digest = TAKE_PTR(policy_digest);
 
         if (ret_pcr_bank)
                 *ret_pcr_bank = pcr_bank;
@@ -1422,7 +1437,6 @@ int tpm2_seal(const char *device,
               uint16_t *ret_pcr_bank,
               uint16_t *ret_primary_alg) {
 
-        _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
         _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
         _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
         static const TPML_PCR_SELECTION creation_pcr = {};
@@ -1431,7 +1445,6 @@ int tpm2_seal(const char *device,
         TPM2B_SENSITIVE_CREATE hmac_sensitive;
         TPMI_ALG_PUBLIC primary_alg;
         TPM2B_PUBLIC hmac_template;
-        TPMI_ALG_HASH pcr_bank;
         usec_t start;
         TSS2_RC rc;
         int r;
@@ -1485,6 +1498,8 @@ int tpm2_seal(const char *device,
         if (r < 0)
                 return r;
 
+        _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
+        TPMI_ALG_HASH pcr_bank;
         r = tpm2_make_policy_session(
                         c,
                         primary,
@@ -1616,7 +1631,6 @@ int tpm2_unseal(const char *device,
                 size_t *ret_secret_size) {
 
         _cleanup_(Esys_Freep) TPM2B_SENSITIVE_DATA* unsealed = NULL;
-        _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
         _cleanup_(erase_and_freep) char *secret = NULL;
         TPM2B_PRIVATE private = {};
         TPM2B_PUBLIC public = {};
@@ -1716,6 +1730,7 @@ int tpm2_unseal(const char *device,
 
         for (unsigned i = RETRY_UNSEAL_MAX;; i--) {
                 _cleanup_tpm2_handle_ Tpm2Handle *policy_session = NULL;
+                _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
                 r = tpm2_make_policy_session(
                                 c,
                                 primary,
