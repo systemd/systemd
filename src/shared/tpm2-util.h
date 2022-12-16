@@ -82,14 +82,15 @@ static inline void tpm2_handle_releasep(struct tpm2_handle *h) {
 /* Like TAKE_PTR() but for struct tpm2_handle, resetting them to HANDLE_NONE */
 #define TAKE_HANDLE(handle) TAKE_GENERIC(handle, HANDLE_NONE)
 
-void tpm2_pcr_mask_to_selection(uint32_t mask, uint16_t bank, TPML_PCR_SELECTION *ret);
-
 static inline void Esys_Freep(void *p) {
         if (*(void**) p)
                 sym_Esys_Free(*(void**) p);
 }
 
 int tpm2_get_good_pcr_banks(struct tpm2_context *c, uint32_t pcr_mask, TPMI_ALG_HASH **ret_banks);
+
+TPML_PCR_SELECTION tpm2_tpml_pcr_selection_from_mask(uint32_t mask, TPMI_ALG_HASH hash);
+uint32_t tpm2_tpml_pcr_selection_to_mask(const TPML_PCR_SELECTION *l, TPMI_ALG_HASH hash);
 
 int tpm2_list_devices(void);
 int tpm2_find_device_auto(int log_level, char **ret);
