@@ -18,8 +18,9 @@ typedef struct MountPoint {
         char *path;
         char *remount_options;
         unsigned long remount_flags;
-        bool try_remount_ro:1;
-        bool umount_lazily:1;
+        bool try_remount_ro;
+        bool umount_lazily;
+        bool leaf;
         dev_t devnum;
         LIST_FIELDS(struct MountPoint, mount_point);
 } MountPoint;
