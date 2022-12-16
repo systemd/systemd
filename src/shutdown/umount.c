@@ -31,13 +31,16 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "fstab-util.h"
+#include "hexdecoct.h"
 #include "libmount-util.h"
+#include "mkdir.h"
 #include "mount-setup.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "sha256.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -81,6 +84,8 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                 unsigned long remount_flags = 0u;
                 bool try_remount_ro, is_api_vfs;
                 _cleanup_free_ MountPoint *m = NULL;
+                _cleanup_(mnt_free_iterp) struct libmnt_iter *iter_children = NULL;
+                bool leaf;
 
                 r = mnt_table_next_fs(table, iter, &fs);
                 if (r == 1) /* EOF */
@@ -155,6 +160,18 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                 if (!m)
                         return log_oom();
 
+                iter_children = mnt_new_iter(MNT_ITER_FORWARD);
+                if (!iter_children)
+                        return log_oom();
+
+                /* We care only whether it exists, it is unused */
+                _unused_ struct libmnt_fs *child;
+                r = mnt_table_next_child_fs(table, iter_children, fs, &child);
+                if (r < 0) {
+                        return log_error_errno(r, "Failed to get children mounts for %s from %s: %m", path, mountinfo ?: "/proc/self/mountinfo");
+                }
+                bool leaf = r == 1;
+
                 *m = (MountPoint) {
                         .remount_options = remount_options,
                         .remount_flags = remount_flags,
@@ -163,6 +180,7 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                         /* Unmount sysfs/procfs/… lazily, since syncing doesn't matter there, and it's OK if
                          * something keeps an fd open to it. */
                         .umount_lazily = is_api_vfs,
+                        .leaf = leaf,
                 };
 
                 m->path = strdup(path);
@@ -682,6 +700,7 @@ static int umount_with_timeout(MountPoint *m, bool last_try) {
  * this function is invalidated, and should not be reused. */
 static int mount_points_list_umount(MountPoint **head, bool *changed, bool last_try) {
         int n_failed = 0;
+        int r;
 
         assert(head);
         assert(changed);
@@ -716,10 +735,48 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool last_
                         continue;
 
                 /* Trying to umount */
-                if (umount_with_timeout(m, last_try) < 0)
+                r = umount_with_timeout(m, last_try);
+                if (r < 0)
                         n_failed++;
                 else
                         *changed = true;
+
+                /* If a mount is busy, we move it to not keep parent mount points busy.
+                 * If a mount point is not a leaf, moving it would invalidate our mount table.
+                 * More moving will occur in next iteration with a fresh mount table.
+                 *
+                 * umount_with_timeout will return EPROTO even on EBUSY due to forking.
+                 */
+                if (r != -EPROTO || !m->leaf)
+                        continue;
+
+                _cleanup_free_ char *dirname = NULL;
+
+                r = path_extract_directory(m->path, &dirname);
+                if (r < 0) {
+                        n_failed++;
+                        log_full_errno(last_try ? LOG_ERR : LOG_INFO, r, "Cannot find directory for %s: %m", m->path);
+                        continue;
+                }
+
+                if (!path_equal_or_files_same(dirname, "/run/shutdown/mounts", 0)) {
+                        _cleanup_free_ char *newpath = NULL;
+
+                        do {
+                                TAKE_PTR(newpath);
+                                if (asprintf(&newpath, "/run/shutdown/mounts/%u", random_u64()) < 0)
+                                        return log_oom();
+                        } while (path_is_mount_point(newpath, NULL, 0));
+
+                        (void) mkdir_p(newpath, 0700);
+
+                        r = RET_NERRNO(mount(m->path, newpath, NULL, MS_MOVE, NULL));
+                        if (r < 0) {
+                                n_failed++;
+                                log_full_errno(last_try ? LOG_ERR : LOG_INFO, r, "Could not move %s to %s: %m", m->path, newpath);
+                        } else
+                                *changed = true;
+                }
         }
 
         return n_failed;
