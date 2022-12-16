@@ -2611,6 +2611,8 @@ if conf.get('HAVE_BLKID') == 1 and conf.get('HAVE_GNU_EFI') == 1
                  'src/boot/bootctl-random-seed.h',
                  'src/boot/bootctl-reboot-to-firmware.c',
                  'src/boot/bootctl-reboot-to-firmware.h',
+                 'src/boot/bootctl-systemd-efi-options.c',
+                 'src/boot/bootctl-systemd-efi-options.h',
                  'src/boot/bootctl-util.c',
                  'src/boot/bootctl-util.h'],
                 include_directories : includes,
