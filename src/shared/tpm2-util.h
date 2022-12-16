@@ -61,8 +61,6 @@ struct tpm2_context {
 
 ESYS_TR tpm2_flush_context_verbose(ESYS_CONTEXT *c, ESYS_TR handle);
 
-void tpm2_pcr_mask_to_selection(uint32_t mask, uint16_t bank, TPML_PCR_SELECTION *ret);
-
 static inline void Esys_Freep(void *p) {
         if (*(void**) p)
                 sym_Esys_Free(*(void**) p);
@@ -72,6 +70,9 @@ int tpm2_get_good_pcr_banks(ESYS_CONTEXT *c, uint32_t pcr_mask, TPMI_ALG_HASH **
 
 /* Like TAKE_PTR() but for ESYS_TR handles, resetting them to ESYS_TR_NONE */
 #define TAKE_ESYS_TR(handle) TAKE_GENERIC(handle, ESYS_TR_NONE)
+
+TPML_PCR_SELECTION tpm2_tpml_pcr_selection_from_mask(uint32_t mask, TPMI_ALG_HASH hash);
+uint32_t tpm2_tpml_pcr_selection_to_mask(const TPML_PCR_SELECTION *l, TPMI_ALG_HASH hash);
 
 #else
 struct tpm2_context;
