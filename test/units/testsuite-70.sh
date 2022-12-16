@@ -172,6 +172,36 @@ else
     echo "/usr/lib/systemd/systemd-measure or PCR sysfs files not found, skipping signed PCR policy test case"
 fi
 
+if [ -e /usr/lib/systemd/systemd-pcrphase ] && \
+       [ -f /sys/class/tpm/tpm0/pcr-sha256/11 ]; then
+
+    # Let's measure the machine ID
+    tpm2_pcrread sha256:15 -Q -o /tmp/oldpcr15
+    mv /etc/machine-id /etc/machine-id.save
+    echo 994013bf23864ee7992eab39a96dd3bb >/etc/machine-id
+    SYSTEMD_FORCE_MEASURE=1 /usr/lib/systemd/systemd-pcrphase --machine-id
+    mv /etc/machine-id.save /etc/machine-id
+    tpm2_pcrread sha256:15 -Q -o /tmp/newpcr15
+
+    # And check it matches expectations
+    ( cat /tmp/oldpcr15 ;
+      echo -n "machine-id:994013bf23864ee7992eab39a96dd3bb" | openssl dgst -binary -sha256 ) | openssl dgst -binary -sha256 | cmp - /tmp/newpcr15
+
+    rm /tmp/oldpcr15 /tmp/newpcr15
+
+    # And similar for the boot phase measurement into PCR 11
+    tpm2_pcrread sha256:11 -Q -o /tmp/oldpcr11
+    SYSTEMD_FORCE_MEASURE=1 /usr/lib/systemd/systemd-pcrphase foobar
+    tpm2_pcrread sha256:11 -Q -o /tmp/newpcr11
+
+    ( cat /tmp/oldpcr11 ;
+      echo -n "foobar" | openssl dgst -binary -sha256 ) | openssl dgst -binary -sha256 | cmp - /tmp/newpcr11
+
+    rm /tmp/oldpcr11 /tmp/newpcr11
+else
+    echo "/usr/lib/systemd/systemd-pcrphase or PCR sysfs files not found, skipping PCR extension test case"
+fi
+
 echo OK >/testok
 
 exit 0
