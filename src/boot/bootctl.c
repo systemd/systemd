@@ -14,6 +14,7 @@
 
 #include "alloc-util.h"
 #include "blkid-util.h"
+#include "bootctl-reboot-to-firmware.h"
 #include "bootspec.h"
 #include "build.h"
 #include "chase-symlinks.h"
@@ -2497,39 +2498,6 @@ static int verb_systemd_efi_options(int argc, char *argv[], void *userdata) {
         }
 
         return 0;
-}
-
-static int verb_reboot_to_firmware(int argc, char *argv[], void *userdata) {
-        int r;
-
-        if (argc < 2) {
-                r = efi_get_reboot_to_firmware();
-                if (r > 0) {
-                        puts("active");
-                        return EXIT_SUCCESS; /* success */
-                }
-                if (r == 0) {
-                        puts("supported");
-                        return 1; /* recognizable error #1 */
-                }
-                if (r == -EOPNOTSUPP) {
-                        puts("not supported");
-                        return 2; /* recognizable error #2 */
-                }
-
-                log_error_errno(r, "Failed to query reboot-to-firmware state: %m");
-                return 3; /* other kind of error */
-        } else {
-                r = parse_boolean(argv[1]);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse argument: %s", argv[1]);
-
-                r = efi_set_reboot_to_firmware(r);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to set reboot-to-firmware option: %m");
-
-                return 0;
-        }
 }
 
 static int bootctl_main(int argc, char *argv[]) {

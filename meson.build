@@ -2605,7 +2605,9 @@ if conf.get('HAVE_BLKID') == 1 and conf.get('HAVE_GNU_EFI') == 1
 
         exe = executable(
                 'bootctl',
-                'src/boot/bootctl.c',
+                ['src/boot/bootctl.c',
+                 'src/boot/bootctl-reboot-to-firmware.c',
+                 'src/boot/bootctl-reboot-to-firmware.h'],
                 include_directories : includes,
                 link_with : [boot_link_with],
                 dependencies : [libblkid,
