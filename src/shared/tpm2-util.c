@@ -476,6 +476,16 @@ void tpm2_pcr_mask_to_selection(uint32_t mask, uint16_t bank, TPML_PCR_SELECTION
         };
 }
 
+#define tpm2_log_debug_digest(digest, fmt, ...)                         \
+        ({                                                              \
+                if (DEBUG_LOGGING) {                                    \
+                        _cleanup_free_ char *_h_ = hexmem((digest)->buffer, (digest)->size); \
+                                                                        \
+                        if (_h_)                                        \
+                                log_debug(fmt ": %s", ##__VA_ARGS__, _h_); \
+                }                                                       \
+        })
+
 static unsigned find_nth_bit(uint32_t mask, unsigned n) {
         uint32_t bit = 1;
 
