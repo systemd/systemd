@@ -128,6 +128,13 @@ Deprecations and removals:
 
 Features:
 
+* homed: when resizing an fs don't sync identity beforehand there might simply
+  not be enough disk space for that. try to be defensive and sync only after
+  resize.
+
+* homed: if for some reason the partition ended up being much smaller than
+  whole disk, recover from that, and grow it again.
+
 * in journald, write out a recognizable log record whenever the system clock is
   changed ("stepped"), and in timesyncd whenever we acquire an NTP fix
   ("slewing"). Then, in journalctl for each boot time we come across, find
