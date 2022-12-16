@@ -367,6 +367,20 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>x-systemd.pcrfs</option></term>
+
+        <listitem><para>Measures file system identity information (mount point, type, label, UUID, partition
+        label, partition UUID) into PCR 15 after the file system has been mounted. This ensures the
+        <citerefentry><refentrytitle>systemd-pcrfs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        or <filename>systemd-pcrfs-root.service</filename> services are pulled in by the mount unit.</para>
+
+        <para>Note that this option can only be used in <filename>/etc/fstab</filename>, and will be ignored
+        when part of the <varname>Options=</varname> setting in a unit file. It is also implied for the root
+        and <filename>/usr/</filename> partitions dicovered by
+        <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>x-systemd.rw-only</option></term>
 
         <listitem><para>If a mount operation fails to mount the file system
