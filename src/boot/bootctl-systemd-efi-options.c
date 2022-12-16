@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "bootctl-systemd-efi-options.h"
 #include "alloc-util.h"
+#include "bootctl-systemd-efi-options.h"
 #include "efi-loader.h"
 
 int verb_systemd_efi_options(int argc, char *argv[], void *userdata) {
