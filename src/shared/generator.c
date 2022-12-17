@@ -467,6 +467,14 @@ int generator_hook_up_mkfs(
 
         log_debug("Creating %s", unit_file);
 
+        const char *fsck_unit;
+        if (in_initrd() && path_equal(where, "/sysroot"))
+                fsck_unit = SPECIAL_FSCK_ROOT_SERVICE;
+        else if (in_initrd() && path_equal(where, "/sysusr/usr"))
+                fsck_unit = SPECIAL_FSCK_USR_SERVICE;
+        else
+                fsck_unit = "systemd-fsck@%i.service";
+
         escaped = cescape(node);
         if (!escaped)
                 return log_oom();
@@ -492,7 +500,7 @@ int generator_hook_up_mkfs(
                 "After=%%i.device\n"
                 /* fsck might or might not be used, so let's be safe and order
                  * ourselves before both systemd-fsck@.service and the mount unit. */
-                "Before=shutdown.target systemd-fsck@%%i.service %s\n"
+                "Before=shutdown.target %s %s\n"
                 "\n"
                 "[Service]\n"
                 "Type=oneshot\n"
@@ -500,6 +508,7 @@ int generator_hook_up_mkfs(
                 "ExecStart="SYSTEMD_MAKEFS_PATH " %s %s\n"
                 "TimeoutSec=0\n",
                 program_invocation_short_name,
+                fsck_unit,
                 where_unit,
                 type,
                 escaped);
