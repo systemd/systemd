@@ -76,8 +76,6 @@ tests += [
          [],
          core_includes],
 
-        [files('test-dlopen-so.c')],
-
         [files('test-job-type.c'),
          [libcore,
           libshared],
@@ -719,3 +717,15 @@ tests += [
          core_includes,
          'BPF_FRAMEWORK'],
 ]
+
+if conf.get('HAVE_P11KIT') == 1
+        tests += [
+                [files('test-dlopen-so.c'),
+                [],
+                [libp11kit.partial_dependency(includes: true, compile_args: true)]],
+        ]
+else
+        tests += [
+                [files('test-dlopen-so.c')],
+        ]
+endif
