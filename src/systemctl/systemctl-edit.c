@@ -423,6 +423,7 @@ static int find_paths_to_edit(
                 char **names,
                 EditFile **ret_edit_files) {
 
+        _cleanup_free_ char *dropin = NULL;
         _cleanup_(hashmap_freep) Hashmap *cached_name_map = NULL, *cached_id_map = NULL;
         _cleanup_(edit_file_free_all) EditFile *edit_files = NULL;
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
@@ -432,12 +433,24 @@ static int find_paths_to_edit(
         assert(names);
         assert(ret_edit_files);
 
+        if (!arg_edit_filename)
+                dropin = strdup("override.conf");
+        else if (!endswith(arg_edit_filename, ".conf"))
+                dropin = strjoin(arg_edit_filename, ".conf");
+        else
+                dropin = strdup(arg_edit_filename);
+        if (!dropin)
+                return log_oom();
+
+        if (!filename_is_valid(dropin))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid drop-in file name '%s'.", dropin);
+
         r = lookup_paths_init(&lp, arg_scope, 0, arg_root);
         if (r < 0)
                 return r;
 
         STRV_FOREACH(name, names) {
-                _cleanup_free_ char *path = NULL, *tmp_name = NULL;
+                _cleanup_free_ char *path = NULL, *tmp_name = NULL, *suffix = NULL;
                 _cleanup_strv_free_ char **unit_paths = NULL;
 
                 r = unit_find_paths(bus, *name, &lp, false, &cached_name_map, &cached_id_map, &path, &unit_paths);
@@ -464,11 +477,15 @@ static int find_paths_to_edit(
                                 return -ENOENT;
                         }
 
+                        suffix = strjoin(".d/", dropin);
+                        if (!suffix)
+                                return log_oom();
+
                         /* Create a new unit from scratch */
                         r = unit_file_create_new(
                                         &lp,
                                         *name,
-                                        arg_full ? NULL : ".d/override.conf",
+                                        arg_full ? NULL : suffix,
                                         NULL,
                                         edit_files + n_edit_files);
                 } else {
@@ -505,10 +522,14 @@ static int find_paths_to_edit(
                                 if (r < 0)
                                         return log_oom();
 
+                                suffix = strjoin(".d/", dropin);
+                                if (!suffix)
+                                        return log_oom();
+
                                 r = unit_file_create_new(
                                                 &lp,
                                                 unit_name,
-                                                ".d/override.conf",
+                                                suffix,
                                                 unit_paths,
                                                 edit_files + n_edit_files);
                         }
