@@ -15,14 +15,30 @@
 bool pkcs11_uri_valid(const char *uri);
 
 #if HAVE_P11KIT
+
+extern char *(*sym_p11_kit_module_get_name)(CK_FUNCTION_LIST *module);
+extern void (*sym_p11_kit_modules_finalize_and_release)(CK_FUNCTION_LIST **modules);
+extern CK_FUNCTION_LIST **(*sym_p11_kit_modules_load_and_initialize)(int flags);
+extern const char *(*sym_p11_kit_strerror)(CK_RV rv);
+extern int (*sym_p11_kit_uri_format)(P11KitUri *uri, P11KitUriType uri_type, char **string);
+extern void (*sym_p11_kit_uri_free)(P11KitUri *uri);
+extern CK_ATTRIBUTE_PTR (*sym_p11_kit_uri_get_attributes)(P11KitUri *uri, CK_ULONG *n_attrs);
+extern CK_INFO_PTR (*sym_p11_kit_uri_get_module_info)(P11KitUri *uri);
+extern CK_SLOT_INFO_PTR (*sym_p11_kit_uri_get_slot_info)(P11KitUri *uri);
+extern CK_TOKEN_INFO_PTR (*sym_p11_kit_uri_get_token_info)(P11KitUri *uri);
+extern int (*sym_p11_kit_uri_match_token_info)(const P11KitUri *uri, const CK_TOKEN_INFO *token_info);
+extern const char *(*sym_p11_kit_uri_message)(int code);
+extern P11KitUri *(*sym_p11_kit_uri_new)(void);
+extern int (*sym_p11_kit_uri_parse)(const char *string, P11KitUriType uri_type, P11KitUri *uri);
+
 int uri_from_string(const char *p, P11KitUri **ret);
 
 P11KitUri *uri_from_module_info(const CK_INFO *info);
 P11KitUri *uri_from_slot_info(const CK_SLOT_INFO *slot_info);
 P11KitUri *uri_from_token_info(const CK_TOKEN_INFO *token_info);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(P11KitUri*, p11_kit_uri_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(CK_FUNCTION_LIST**, p11_kit_modules_finalize_and_release, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(P11KitUri*, sym_p11_kit_uri_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(CK_FUNCTION_LIST**, sym_p11_kit_modules_finalize_and_release, NULL);
 
 CK_RV pkcs11_get_slot_list_malloc(CK_FUNCTION_LIST *m, CK_SLOT_ID **ret_slotids, CK_ULONG *ret_n_slotids);
 
@@ -71,6 +87,14 @@ int pkcs11_crypt_device_callback(
                 const CK_TOKEN_INFO *token_info,
                 P11KitUri *uri,
                 void *userdata);
+
+int dlopen_p11kit(void);
+
+#else
+
+static inline int dlopen_p11kit(void) {
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "p11kit support is not compiled in.");
+}
 
 #endif
 
