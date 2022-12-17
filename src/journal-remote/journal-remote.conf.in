@@ -18,3 +18,7 @@
 # ServerKeyFile={{CERTIFICATE_ROOT}}/private/journal-remote.pem
 # ServerCertificateFile={{CERTIFICATE_ROOT}}/certs/journal-remote.pem
 # TrustedCertificateFile={{CERTIFICATE_ROOT}}/ca/trusted.pem
+# MaxUse=
+# KeepFree=
+# MaxFileSize=
+# MaxFiles=
