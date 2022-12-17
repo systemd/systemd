@@ -1287,7 +1287,7 @@ install_missing_libraries() {
     local lib path
     # A number of dependencies is now optional via dlopen, so the install
     # script will not pick them up, since it looks at linkage.
-    for lib in libcryptsetup libidn libidn2 pwquality libqrencode tss2-esys tss2-rc tss2-mu tss2-tcti-device libfido2 libbpf libelf libdw xkbcommon; do
+    for lib in libcryptsetup libidn libidn2 pwquality libqrencode tss2-esys tss2-rc tss2-mu tss2-tcti-device libfido2 libbpf libelf libdw xkbcommon p11-kit-1; do
         ddebug "Searching for $lib via pkg-config"
         if pkg-config --exists "$lib"; then
                 path="$(pkg-config --variable=libdir "$lib")"
@@ -1298,6 +1298,10 @@ install_missing_libraries() {
 
                 if ! [[ ${lib} =~ ^lib ]]; then
                         lib="lib${lib}"
+                fi
+                # p11-kit-1's .so doesn't have the API level in the name
+                if [[ ${lib} =~ p11-kit-1$ ]]; then
+                        lib="libp11-kit"
                 fi
                 # Some pkg-config files are broken and give out the wrong paths
                 # (eg: libcryptsetup), so just ignore them
