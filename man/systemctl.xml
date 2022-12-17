@@ -1061,6 +1061,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             temporary files which will be written to the real location if the
             editor exits successfully.</para>
 
+            <para>If <option>--dropin=</option> is specified, the given
+            drop-in file name will be used instead of the default <filename>override.conf</filename>.</para>
+
             <para>If <option>--full</option> is specified, this will copy the
             original units instead of creating drop-in files.</para>
 
@@ -2415,6 +2418,15 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <term><option>--read-only</option></term>
 
         <listitem><para>When used with <command>bind</command>, creates a read-only bind mount.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--dropin=</option></term>
+
+        <listitem>
+          <para>When used with <command>edit</command>, use the given drop-in file name instead of
+          <filename>override.conf</filename>.</para>
+        </listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="host" />
