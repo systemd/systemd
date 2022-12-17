@@ -74,7 +74,6 @@ void pwq_maybe_disable_dictionary(pwquality_settings_t *pwq) {
 }
 
 int pwq_allocate_context(pwquality_settings_t **ret) {
-        _cleanup_(sym_pwquality_free_settingsp) pwquality_settings_t *pwq = NULL;
         char buf[PWQ_MAX_ERROR_MESSAGE_LEN];
         void *auxerror;
         int r;
@@ -84,6 +83,8 @@ int pwq_allocate_context(pwquality_settings_t **ret) {
         r = dlopen_pwquality();
         if (r < 0)
                 return r;
+
+        _cleanup_(sym_pwquality_free_settingsp) pwquality_settings_t *pwq = NULL;
 
         pwq = sym_pwquality_default_settings();
         if (!pwq)
