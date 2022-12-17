@@ -427,10 +427,22 @@ static int find_paths_to_edit(
         _cleanup_(edit_file_free_all) EditFile *edit_files = NULL;
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         size_t n_edit_files = 0;
+        const char *dropin, *suffix;
         int r;
 
         assert(names);
         assert(ret_edit_files);
+
+        if (!arg_edit_filename)
+                dropin = strdupa_safe("override.conf");
+        else if (!endswith(arg_edit_filename, ".conf"))
+                dropin = strjoina(arg_edit_filename, ".conf");
+        else
+                dropin = arg_edit_filename;
+        if (!filename_is_valid(dropin))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid drop-in file name '%s'.", dropin);
+
+        suffix = strjoina(".d/", dropin);
 
         r = lookup_paths_init(&lp, arg_scope, 0, arg_root);
         if (r < 0)
@@ -468,7 +480,7 @@ static int find_paths_to_edit(
                         r = unit_file_create_new(
                                         &lp,
                                         *name,
-                                        arg_full ? NULL : ".d/override.conf",
+                                        arg_full ? NULL : suffix,
                                         NULL,
                                         edit_files + n_edit_files);
                 } else {
@@ -508,7 +520,7 @@ static int find_paths_to_edit(
                                 r = unit_file_create_new(
                                                 &lp,
                                                 unit_name,
-                                                ".d/override.conf",
+                                                suffix,
                                                 unit_paths,
                                                 edit_files + n_edit_files);
                         }
