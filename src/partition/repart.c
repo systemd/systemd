@@ -3230,7 +3230,6 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
                 .luks2 = &luks_params,
                 .flags = CRYPT_REENCRYPT_INITIALIZE_ONLY|CRYPT_REENCRYPT_MOVE_FIRST_SEGMENT,
         };
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
         _cleanup_fclose_ FILE *h = NULL;
         _cleanup_free_ char *hp = NULL;
@@ -3261,6 +3260,8 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
         r = ftruncate(fileno(h), context->sector_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to grow temporary LUKS header file: %m");
+
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
 
         r = sym_crypt_init(&cd, hp);
         if (r < 0)
@@ -3450,7 +3451,6 @@ static int partition_format_verity_hash(
 #if HAVE_LIBCRYPTSETUP
         Partition *dp;
         _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_free_ uint8_t *rh = NULL;
         size_t rhs;
         int r;
@@ -3481,6 +3481,8 @@ static int partition_format_verity_hash(
         r = partition_target_prepare(context, p, p->new_size, /*need_path=*/ true, &t);
         if (r < 0)
                 return r;
+
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
 
         r = sym_crypt_init(&cd, partition_target_path(t));
         if (r < 0)

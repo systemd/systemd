@@ -1735,7 +1735,6 @@ static int decrypt_partition(
                 DecryptedImage *d) {
 
         _cleanup_free_ char *node = NULL, *name = NULL;
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_close_ int fd = -1;
         int r;
 
@@ -1761,6 +1760,8 @@ static int decrypt_partition(
 
         if (!GREEDY_REALLOC0(d->decrypted, d->n_decrypted + 1))
                 return -ENOMEM;
+
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
 
         r = sym_crypt_init(&cd, m->node);
         if (r < 0)
@@ -2023,7 +2024,6 @@ static int verity_partition(
                 DissectImageFlags flags,
                 DecryptedImage *d) {
 
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(dm_deferred_remove_cleanp) char *restore_deferred_remove = NULL;
         _cleanup_free_ char *node = NULL, *name = NULL;
         _cleanup_close_ int mount_node_fd = -1;
@@ -2065,6 +2065,8 @@ static int verity_partition(
                 r = make_dm_name_and_node(m->node, "-verity", &name, &node);
         if (r < 0)
                 return r;
+
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
 
         r = sym_crypt_init(&cd, verity->data_path ?: v->node);
         if (r < 0)
