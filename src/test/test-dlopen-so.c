@@ -11,6 +11,7 @@
 #include "macro.h"
 #include "main-func.h"
 #include "pcre2-util.h"
+#include "pkcs11-util.h"
 #include "pwquality-util.h"
 #include "qrcode-util.h"
 #include "tests.h"
@@ -58,6 +59,10 @@ static int run(int argc, char **argv) {
 
 #if HAVE_PCRE2
         assert_se(dlopen_pcre2() >= 0);
+#endif
+
+#if HAVE_P11KIT
+        assert_se(dlopen_p11kit() >= 0);
 #endif
 
         return 0;

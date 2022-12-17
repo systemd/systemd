@@ -76,7 +76,9 @@ tests += [
          [],
          core_includes],
 
-        [files('test-dlopen-so.c')],
+        [files('test-dlopen-so.c'),
+         [],
+         libp11kit_cflags],
 
         [files('test-job-type.c'),
          [libcore,

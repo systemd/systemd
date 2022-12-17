@@ -3,6 +3,7 @@
 #include <fcntl.h>
 
 #include "ask-password-api.h"
+#include "dlfcn-util.h"
 #include "env-util.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -40,17 +41,59 @@ bool pkcs11_uri_valid(const char *uri) {
 
 #if HAVE_P11KIT
 
+static void *p11kit_dl = NULL;
+
+char *(*sym_p11_kit_module_get_name)(CK_FUNCTION_LIST *module);
+void (*sym_p11_kit_modules_finalize_and_release)(CK_FUNCTION_LIST **modules);
+CK_FUNCTION_LIST **(*sym_p11_kit_modules_load_and_initialize)(int flags);
+const char *(*sym_p11_kit_strerror)(CK_RV rv);
+int (*sym_p11_kit_uri_format)(P11KitUri *uri, P11KitUriType uri_type, char **string);
+void (*sym_p11_kit_uri_free)(P11KitUri *uri);
+CK_ATTRIBUTE_PTR (*sym_p11_kit_uri_get_attributes)(P11KitUri *uri, CK_ULONG *n_attrs);
+CK_INFO_PTR (*sym_p11_kit_uri_get_module_info)(P11KitUri *uri);
+CK_SLOT_INFO_PTR (*sym_p11_kit_uri_get_slot_info)(P11KitUri *uri);
+CK_TOKEN_INFO_PTR (*sym_p11_kit_uri_get_token_info)(P11KitUri *uri);
+int (*sym_p11_kit_uri_match_token_info)(const P11KitUri *uri, const CK_TOKEN_INFO *token_info);
+const char *(*sym_p11_kit_uri_message)(int code);
+P11KitUri *(*sym_p11_kit_uri_new)(void);
+int (*sym_p11_kit_uri_parse)(const char *string, P11KitUriType uri_type, P11KitUri *uri);
+
+int dlopen_p11kit(void) {
+        return dlopen_many_sym_or_warn(
+                        &p11kit_dl,
+                        "libp11-kit.so.0", LOG_DEBUG,
+                        DLSYM_ARG(p11_kit_module_get_name),
+                        DLSYM_ARG(p11_kit_modules_finalize_and_release),
+                        DLSYM_ARG(p11_kit_modules_load_and_initialize),
+                        DLSYM_ARG(p11_kit_strerror),
+                        DLSYM_ARG(p11_kit_uri_format),
+                        DLSYM_ARG(p11_kit_uri_free),
+                        DLSYM_ARG(p11_kit_uri_get_attributes),
+                        DLSYM_ARG(p11_kit_uri_get_module_info),
+                        DLSYM_ARG(p11_kit_uri_get_slot_info),
+                        DLSYM_ARG(p11_kit_uri_get_token_info),
+                        DLSYM_ARG(p11_kit_uri_match_token_info),
+                        DLSYM_ARG(p11_kit_uri_message),
+                        DLSYM_ARG(p11_kit_uri_new),
+                        DLSYM_ARG(p11_kit_uri_parse));
+}
+
 int uri_from_string(const char *p, P11KitUri **ret) {
-        _cleanup_(p11_kit_uri_freep) P11KitUri *uri = NULL;
+        _cleanup_(sym_p11_kit_uri_freep) P11KitUri *uri = NULL;
+        int r;
 
         assert(p);
         assert(ret);
 
-        uri = p11_kit_uri_new();
+        r = dlopen_p11kit();
+        if (r < 0)
+                return r;
+
+        uri = sym_p11_kit_uri_new();
         if (!uri)
                 return -ENOMEM;
 
-        if (p11_kit_uri_parse(p, P11_KIT_URI_FOR_ANY, uri) != P11_KIT_URI_OK)
+        if (sym_p11_kit_uri_parse(p, P11_KIT_URI_FOR_ANY, uri) != P11_KIT_URI_OK)
                 return -EINVAL;
 
         *ret = TAKE_PTR(uri);
@@ -62,11 +105,14 @@ P11KitUri *uri_from_module_info(const CK_INFO *info) {
 
         assert(info);
 
-        uri = p11_kit_uri_new();
+        if (dlopen_p11kit() < 0)
+                return NULL;
+
+        uri = sym_p11_kit_uri_new();
         if (!uri)
                 return NULL;
 
-        *p11_kit_uri_get_module_info(uri) = *info;
+        *sym_p11_kit_uri_get_module_info(uri) = *info;
         return uri;
 }
 
@@ -75,11 +121,14 @@ P11KitUri *uri_from_slot_info(const CK_SLOT_INFO *slot_info) {
 
         assert(slot_info);
 
-        uri = p11_kit_uri_new();
+        if (dlopen_p11kit() < 0)
+                return NULL;
+
+        uri = sym_p11_kit_uri_new();
         if (!uri)
                 return NULL;
 
-        *p11_kit_uri_get_slot_info(uri) = *slot_info;
+        *sym_p11_kit_uri_get_slot_info(uri) = *slot_info;
         return uri;
 }
 
@@ -88,11 +137,14 @@ P11KitUri *uri_from_token_info(const CK_TOKEN_INFO *token_info) {
 
         assert(token_info);
 
-        uri = p11_kit_uri_new();
+        if (dlopen_p11kit() < 0)
+                return NULL;
+
+        uri = sym_p11_kit_uri_new();
         if (!uri)
                 return NULL;
 
-        *p11_kit_uri_get_token_info(uri) = *token_info;
+        *sym_p11_kit_uri_get_token_info(uri) = *token_info;
         return uri;
 }
 
@@ -184,15 +236,20 @@ int pkcs11_token_login_by_pin(
                 size_t pin_size) {
 
         CK_RV rv;
+        int r;
 
         assert(m);
         assert(token_info);
+
+        r = dlopen_p11kit();
+        if (r < 0)
+                return r;
 
         if (FLAGS_SET(token_info->flags, CKF_PROTECTED_AUTHENTICATION_PATH)) {
                 rv = m->C_Login(session, CKU_USER, NULL, 0);
                 if (rv != CKR_OK)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                               "Failed to log into security token '%s': %s", token_label, p11_kit_strerror(rv));
+                                               "Failed to log into security token '%s': %s", token_label, sym_p11_kit_strerror(rv));
 
                 log_info("Successfully logged into security token '%s' via protected authentication path.", token_label);
                 return 0;
@@ -217,7 +274,7 @@ int pkcs11_token_login_by_pin(
                                        "PIN has been locked, please reset PIN of security token '%s'.", token_label);
         if (!IN_SET(rv, CKR_PIN_INCORRECT, CKR_PIN_LEN_RANGE))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to log into security token '%s': %s", token_label, p11_kit_strerror(rv));
+                                       "Failed to log into security token '%s': %s", token_label, sym_p11_kit_strerror(rv));
 
         return log_notice_errno(SYNTHETIC_ERRNO(ENOLCK),
                                 "PIN for token '%s' is incorrect, please try again.",
@@ -238,13 +295,17 @@ int pkcs11_token_login(
                 char **ret_used_pin) {
 
         _cleanup_free_ char *token_uri_string = NULL, *token_uri_escaped = NULL, *id = NULL, *token_label = NULL;
-        _cleanup_(p11_kit_uri_freep) P11KitUri *token_uri = NULL;
+        _cleanup_(sym_p11_kit_uri_freep) P11KitUri *token_uri = NULL;
         CK_TOKEN_INFO updated_token_info;
         int uri_result, r;
         CK_RV rv;
 
         assert(m);
         assert(token_info);
+
+        r = dlopen_p11kit();
+        if (r < 0)
+                return r;
 
         token_label = pkcs11_token_label(token_info);
         if (!token_label)
@@ -254,9 +315,9 @@ int pkcs11_token_login(
         if (!token_uri)
                 return log_oom();
 
-        uri_result = p11_kit_uri_format(token_uri, P11_KIT_URI_FOR_ANY, &token_uri_string);
+        uri_result = sym_p11_kit_uri_format(token_uri, P11_KIT_URI_FOR_ANY, &token_uri_string);
         if (uri_result != P11_KIT_URI_OK)
-                return log_warning_errno(SYNTHETIC_ERRNO(EAGAIN), "Failed to format slot URI: %s", p11_kit_uri_message(uri_result));
+                return log_warning_errno(SYNTHETIC_ERRNO(EAGAIN), "Failed to format slot URI: %s", sym_p11_kit_uri_message(uri_result));
 
         r = pkcs11_token_login_by_pin(m, session, token_info, token_label, /* pin= */ NULL, 0);
         if (r == 0 && ret_used_pin)
@@ -335,7 +396,7 @@ int pkcs11_token_login(
                         if (rv != CKR_OK)
                                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                                        "Failed to acquire updated security token information for slot %lu: %s",
-                                                       slotid, p11_kit_strerror(rv));
+                                                       slotid, sym_p11_kit_strerror(rv));
 
                         token_info = &updated_token_info;
                 }
@@ -356,12 +417,17 @@ int pkcs11_token_find_x509_certificate(
         CK_ATTRIBUTE *attributes = NULL;
         CK_OBJECT_HANDLE objects[2];
         CK_RV rv, rv2;
+        int r;
 
         assert(m);
         assert(search_uri);
         assert(ret_object);
 
-        attributes = p11_kit_uri_get_attributes(search_uri, &n_attributes);
+        r = dlopen_p11kit();
+        if (r < 0)
+                return r;
+
+        attributes = sym_p11_kit_uri_get_attributes(search_uri, &n_attributes);
         for (a = 0; a < n_attributes; a++) {
 
                 /* We use the URI's included match attributes, but make them more strict. This allows users
@@ -434,16 +500,16 @@ int pkcs11_token_find_x509_certificate(
         rv = m->C_FindObjectsInit(session, attributes, n_attributes);
         if (rv != CKR_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to initialize object find call: %s", p11_kit_strerror(rv));
+                                       "Failed to initialize object find call: %s", sym_p11_kit_strerror(rv));
 
         rv = m->C_FindObjects(session, objects, ELEMENTSOF(objects), &n_objects);
         rv2 = m->C_FindObjectsFinal(session);
         if (rv != CKR_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to find objects: %s", p11_kit_strerror(rv));
+                                       "Failed to find objects: %s", sym_p11_kit_strerror(rv));
         if (rv2 != CKR_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to finalize object find call: %s", p11_kit_strerror(rv));
+                                       "Failed to finalize object find call: %s", sym_p11_kit_strerror(rv));
         if (n_objects == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                                        "Failed to find selected X509 certificate on token.");
@@ -471,11 +537,16 @@ int pkcs11_token_read_x509_certificate(
         _cleanup_(X509_freep) X509 *x509 = NULL;
         X509_NAME *name = NULL;
         const unsigned char *p;
+        int r;
+
+        r = dlopen_p11kit();
+        if (r < 0)
+                return r;
 
         rv = m->C_GetAttributeValue(session, object, &attribute, 1);
         if (rv != CKR_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to read X.509 certificate size off token: %s", p11_kit_strerror(rv));
+                                       "Failed to read X.509 certificate size off token: %s", sym_p11_kit_strerror(rv));
 
         buffer = malloc(attribute.ulValueLen);
         if (!buffer)
@@ -486,7 +557,7 @@ int pkcs11_token_read_x509_certificate(
         rv = m->C_GetAttributeValue(session, object, &attribute, 1);
         if (rv != CKR_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to read X.509 certificate data off token: %s", p11_kit_strerror(rv));
+                                       "Failed to read X.509 certificate data off token: %s", sym_p11_kit_strerror(rv));
 
         p = attribute.pValue;
         x509 = d2i_X509(NULL, &p, attribute.ulValueLen);
@@ -520,12 +591,17 @@ int pkcs11_token_find_private_key(
         CK_ATTRIBUTE *attributes = NULL;
         CK_OBJECT_HANDLE objects[2];
         CK_RV rv, rv2;
+        int r;
 
         assert(m);
         assert(search_uri);
         assert(ret_object);
 
-        attributes = p11_kit_uri_get_attributes(search_uri, &n_attributes);
+        r = dlopen_p11kit();
+        if (r < 0)
+                return r;
+
+        attributes = sym_p11_kit_uri_get_attributes(search_uri, &n_attributes);
         for (a = 0; a < n_attributes; a++) {
 
                 /* We use the URI's included match attributes, but make them more strict. This allows users
@@ -624,16 +700,16 @@ int pkcs11_token_find_private_key(
         rv = m->C_FindObjectsInit(session, attributes, n_attributes);
         if (rv != CKR_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to initialize object find call: %s", p11_kit_strerror(rv));
+                                       "Failed to initialize object find call: %s", sym_p11_kit_strerror(rv));
 
         rv = m->C_FindObjects(session, objects, ELEMENTSOF(objects), &n_objects);
         rv2 = m->C_FindObjectsFinal(session);
         if (rv != CKR_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to find objects: %s", p11_kit_strerror(rv));
+                                       "Failed to find objects: %s", sym_p11_kit_strerror(rv));
         if (rv2 != CKR_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to finalize object find call: %s", p11_kit_strerror(rv));
+                                       "Failed to finalize object find call: %s", sym_p11_kit_strerror(rv));
         if (n_objects == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                                        "Failed to find selected private key suitable for decryption on token.");
@@ -660,6 +736,7 @@ int pkcs11_token_decrypt_data(
         _cleanup_(erase_and_freep) CK_BYTE *dbuffer = NULL;
         CK_ULONG dbuffer_size = 0;
         CK_RV rv;
+        int r;
 
         assert(m);
         assert(encrypted_data);
@@ -667,10 +744,14 @@ int pkcs11_token_decrypt_data(
         assert(ret_decrypted_data);
         assert(ret_decrypted_data_size);
 
+        r = dlopen_p11kit();
+        if (r < 0)
+                return r;
+
         rv = m->C_DecryptInit(session, (CK_MECHANISM*) &mechanism, object);
         if (rv != CKR_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to initialize decryption on security token: %s", p11_kit_strerror(rv));
+                                       "Failed to initialize decryption on security token: %s", sym_p11_kit_strerror(rv));
 
         dbuffer_size = encrypted_data_size; /* Start with something reasonable */
         dbuffer = malloc(dbuffer_size);
@@ -689,7 +770,7 @@ int pkcs11_token_decrypt_data(
         }
         if (rv != CKR_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to decrypt key on security token: %s", p11_kit_strerror(rv));
+                                       "Failed to decrypt key on security token: %s", sym_p11_kit_strerror(rv));
 
         log_info("Successfully decrypted key with security token.");
 
@@ -709,6 +790,10 @@ int pkcs11_token_acquire_rng(
 
         assert(m);
 
+        r = dlopen_p11kit();
+        if (r < 0)
+                return r;
+
         /* While we are at it, let's read some RNG data from the PKCS#11 token and pass it to the kernel
          * random pool. This should be cheap if we are talking to the device already. Note that we don't
          * credit any entropy, since we don't know about the quality of the pkcs#11 token's RNG. Why bother
@@ -725,7 +810,7 @@ int pkcs11_token_acquire_rng(
         rv = m->C_GenerateRandom(session, buffer, rps);
         if (rv != CKR_OK)
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Failed to generate RNG data on security token: %s", p11_kit_strerror(rv));
+                                       "Failed to generate RNG data on security token: %s", sym_p11_kit_strerror(rv));
 
         r = random_write_entropy(-1, buffer, rps, false);
         if (r < 0)
@@ -761,7 +846,7 @@ static int token_process(
         rv = m->C_OpenSession(slotid, CKF_SERIAL_SESSION, NULL, NULL, &session);
         if (rv != CKR_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to create session for security token '%s': %s", token_label, p11_kit_strerror(rv));
+                                       "Failed to create session for security token '%s': %s", token_label, sym_p11_kit_strerror(rv));
 
         if (callback)
                 r = callback(m, session, slotid, slot_info, token_info, search_uri, userdata);
@@ -770,7 +855,7 @@ static int token_process(
 
         rv = m->C_CloseSession(session);
         if (rv != CKR_OK)
-                log_warning("Failed to close session on PKCS#11 token, ignoring: %s", p11_kit_strerror(rv));
+                log_warning("Failed to close session on PKCS#11 token, ignoring: %s", sym_p11_kit_strerror(rv));
 
         return r;
 }
@@ -782,21 +867,25 @@ static int slot_process(
                 pkcs11_find_token_callback_t callback,
                 void *userdata) {
 
-        _cleanup_(p11_kit_uri_freep) P11KitUri* slot_uri = NULL, *token_uri = NULL;
+        _cleanup_(sym_p11_kit_uri_freep) P11KitUri* slot_uri = NULL, *token_uri = NULL;
         _cleanup_free_ char *token_uri_string = NULL;
         CK_TOKEN_INFO token_info;
         CK_SLOT_INFO slot_info;
-        int uri_result;
+        int uri_result, r;
         CK_RV rv;
 
         assert(m);
+
+        r = dlopen_p11kit();
+        if (r < 0)
+                return r;
 
         /* We return -EAGAIN for all failures we can attribute to a specific slot in some way, so that the
          * caller might try other slots before giving up. */
 
         rv = m->C_GetSlotInfo(slotid, &slot_info);
         if (rv != CKR_OK) {
-                log_warning("Failed to acquire slot info for slot %lu, ignoring slot: %s", slotid, p11_kit_strerror(rv));
+                log_warning("Failed to acquire slot info for slot %lu, ignoring slot: %s", slotid, sym_p11_kit_strerror(rv));
                 return -EAGAIN;
         }
 
@@ -807,9 +896,9 @@ static int slot_process(
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *slot_uri_string = NULL;
 
-                uri_result = p11_kit_uri_format(slot_uri, P11_KIT_URI_FOR_ANY, &slot_uri_string);
+                uri_result = sym_p11_kit_uri_format(slot_uri, P11_KIT_URI_FOR_ANY, &slot_uri_string);
                 if (uri_result != P11_KIT_URI_OK) {
-                        log_warning("Failed to format slot URI, ignoring slot: %s", p11_kit_uri_message(uri_result));
+                        log_warning("Failed to format slot URI, ignoring slot: %s", sym_p11_kit_uri_message(uri_result));
                         return -EAGAIN;
                 }
 
@@ -821,7 +910,7 @@ static int slot_process(
                 return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
                                        "Token not present in slot, ignoring.");
         } else if (rv != CKR_OK) {
-                log_warning("Failed to acquire token info for slot %lu, ignoring slot: %s", slotid, p11_kit_strerror(rv));
+                log_warning("Failed to acquire token info for slot %lu, ignoring slot: %s", slotid, sym_p11_kit_strerror(rv));
                 return -EAGAIN;
         }
 
@@ -829,13 +918,13 @@ static int slot_process(
         if (!token_uri)
                 return log_oom();
 
-        uri_result = p11_kit_uri_format(token_uri, P11_KIT_URI_FOR_ANY, &token_uri_string);
+        uri_result = sym_p11_kit_uri_format(token_uri, P11_KIT_URI_FOR_ANY, &token_uri_string);
         if (uri_result != P11_KIT_URI_OK) {
-                log_warning("Failed to format slot URI: %s", p11_kit_uri_message(uri_result));
+                log_warning("Failed to format slot URI: %s", sym_p11_kit_uri_message(uri_result));
                 return -EAGAIN;
         }
 
-        if (search_uri && !p11_kit_uri_match_token_info(search_uri, &token_info))
+        if (search_uri && !sym_p11_kit_uri_match_token_info(search_uri, &token_info))
                 return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
                                        "Found non-matching token with URI %s.",
                                        token_uri_string);
@@ -858,8 +947,8 @@ static int module_process(
                 pkcs11_find_token_callback_t callback,
                 void *userdata) {
 
+        _cleanup_(sym_p11_kit_uri_freep) P11KitUri* module_uri = NULL;
         _cleanup_free_ char *name = NULL, *module_uri_string = NULL;
-        _cleanup_(p11_kit_uri_freep) P11KitUri* module_uri = NULL;
         _cleanup_free_ CK_SLOT_ID *slotids = NULL;
         CK_ULONG n_slotids = 0;
         int uri_result;
@@ -870,11 +959,15 @@ static int module_process(
 
         assert(m);
 
+        r = dlopen_p11kit();
+        if (r < 0)
+                return r;
+
         /* We ignore most errors from modules here, in order to skip over faulty modules: one faulty module
          * should not have the effect that we don't try the others anymore. We indicate such per-module
          * failures with -EAGAIN, which let's the caller try the next module. */
 
-        name = p11_kit_module_get_name(m);
+        name = sym_p11_kit_module_get_name(m);
         if (!name)
                 return log_oom();
 
@@ -882,7 +975,7 @@ static int module_process(
 
         rv = m->C_GetInfo(&info);
         if (rv != CKR_OK) {
-                log_warning("Failed to get info on PKCS#11 module, ignoring module: %s", p11_kit_strerror(rv));
+                log_warning("Failed to get info on PKCS#11 module, ignoring module: %s", sym_p11_kit_strerror(rv));
                 return -EAGAIN;
         }
 
@@ -890,9 +983,9 @@ static int module_process(
         if (!module_uri)
                 return log_oom();
 
-        uri_result = p11_kit_uri_format(module_uri, P11_KIT_URI_FOR_ANY, &module_uri_string);
+        uri_result = sym_p11_kit_uri_format(module_uri, P11_KIT_URI_FOR_ANY, &module_uri_string);
         if (uri_result != P11_KIT_URI_OK) {
-                log_warning("Failed to format module URI, ignoring module: %s", p11_kit_uri_message(uri_result));
+                log_warning("Failed to format module URI, ignoring module: %s", sym_p11_kit_uri_message(uri_result));
                 return -EAGAIN;
         }
 
@@ -900,7 +993,7 @@ static int module_process(
 
         rv = pkcs11_get_slot_list_malloc(m, &slotids, &n_slotids);
         if (rv != CKR_OK) {
-                log_warning("Failed to get slot list, ignoring module: %s", p11_kit_strerror(rv));
+                log_warning("Failed to get slot list, ignoring module: %s", sym_p11_kit_strerror(rv));
                 return -EAGAIN;
         }
         if (n_slotids == 0)
@@ -926,9 +1019,13 @@ int pkcs11_find_token(
                 pkcs11_find_token_callback_t callback,
                 void *userdata) {
 
-        _cleanup_(p11_kit_modules_finalize_and_releasep) CK_FUNCTION_LIST **modules = NULL;
-        _cleanup_(p11_kit_uri_freep) P11KitUri *search_uri = NULL;
+        _cleanup_(sym_p11_kit_modules_finalize_and_releasep) CK_FUNCTION_LIST **modules = NULL;
+        _cleanup_(sym_p11_kit_uri_freep) P11KitUri *search_uri = NULL;
         int r;
+
+        r = dlopen_p11kit();
+        if (r < 0)
+                return r;
 
         /* Execute the specified callback for each matching token found. If nothing is found returns
          * -EAGAIN. Logs about all errors, except for EAGAIN, which the caller has to log about. */
@@ -939,7 +1036,7 @@ int pkcs11_find_token(
                         return log_error_errno(r, "Failed to parse PKCS#11 URI '%s': %m", pkcs11_uri);
         }
 
-        modules = p11_kit_modules_load_and_initialize(0);
+        modules = sym_p11_kit_modules_load_and_initialize(0);
         if (!modules)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to initialize pkcs11 modules");
 
@@ -1053,12 +1150,16 @@ static int list_callback(
                 void *userdata) {
 
         _cleanup_free_ char *token_uri_string = NULL, *token_label = NULL, *token_manufacturer_id = NULL, *token_model = NULL;
-        _cleanup_(p11_kit_uri_freep) P11KitUri *token_uri = NULL;
+        _cleanup_(sym_p11_kit_uri_freep) P11KitUri *token_uri = NULL;
         Table *t = userdata;
         int uri_result, r;
 
         assert(slot_info);
         assert(token_info);
+
+        r = dlopen_p11kit();
+        if (r < 0)
+                return r;
 
         /* We only care about hardware devices here with a token inserted. Let's filter everything else
          * out. (Note that the user can explicitly specify non-hardware tokens if they like, but during
@@ -1083,9 +1184,9 @@ static int list_callback(
         if (!token_uri)
                 return log_oom();
 
-        uri_result = p11_kit_uri_format(token_uri, P11_KIT_URI_FOR_ANY, &token_uri_string);
+        uri_result = sym_p11_kit_uri_format(token_uri, P11_KIT_URI_FOR_ANY, &token_uri_string);
         if (uri_result != P11_KIT_URI_OK)
-                return log_warning_errno(SYNTHETIC_ERRNO(EAGAIN), "Failed to format slot URI: %s", p11_kit_uri_message(uri_result));
+                return log_warning_errno(SYNTHETIC_ERRNO(EAGAIN), "Failed to format slot URI: %s", sym_p11_kit_uri_message(uri_result));
 
         r = table_add_many(
                         t,
@@ -1139,12 +1240,16 @@ static int auto_callback(
                 P11KitUri *uri,
                 void *userdata) {
 
-        _cleanup_(p11_kit_uri_freep) P11KitUri *token_uri = NULL;
+        _cleanup_(sym_p11_kit_uri_freep) P11KitUri *token_uri = NULL;
         char **t = userdata;
-        int uri_result;
+        int uri_result, r;
 
         assert(slot_info);
         assert(token_info);
+
+        r = dlopen_p11kit();
+        if (r < 0)
+                return r;
 
         if (!FLAGS_SET(token_info->flags, CKF_HW_SLOT|CKF_TOKEN_PRESENT))
                 return -EAGAIN;
@@ -1157,9 +1262,9 @@ static int auto_callback(
         if (!token_uri)
                 return log_oom();
 
-        uri_result = p11_kit_uri_format(token_uri, P11_KIT_URI_FOR_ANY, t);
+        uri_result = sym_p11_kit_uri_format(token_uri, P11_KIT_URI_FOR_ANY, t);
         if (uri_result != P11_KIT_URI_OK)
-                return log_warning_errno(SYNTHETIC_ERRNO(EAGAIN), "Failed to format slot URI: %s", p11_kit_uri_message(uri_result));
+                return log_warning_errno(SYNTHETIC_ERRNO(EAGAIN), "Failed to format slot URI: %s", sym_p11_kit_uri_message(uri_result));
 
         return 0;
 }
