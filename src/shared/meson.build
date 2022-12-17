@@ -459,7 +459,6 @@ libshared_deps = [threads,
                   liblz4,
                   libmount,
                   libopenssl,
-                  libp11kit,
                   libpam,
                   librt,
                   libseccomp,
@@ -468,6 +467,10 @@ libshared_deps = [threads,
                   libxz,
                   libzstd,
                   versiondep]
+
+if conf.get('HAVE_P11KIT') == 1
+        libshared_deps += libp11kit.partial_dependency(includes: true, compile_args: true)
+endif
 
 libshared_sym_path = '@0@/libshared.sym'.format(meson.current_source_dir())
 
