@@ -85,6 +85,7 @@ shared_sources = files(
         'cpu-set-util.h',
         'creds-util.c',
         'creds-util.h',
+        'cryptsetup-fido2.h',
         'cryptsetup-util.c',
         'cryptsetup-util.h',
         'daemon-util.c',
@@ -403,6 +404,10 @@ endif
 
 if conf.get('ENABLE_NSCD') == 1
         shared_sources += files('nscd-flush.c')
+endif
+
+if conf.get('HAVE_LIBFIDO2') == 1
+        shared_sources += files('cryptsetup-fido2.c')
 endif
 
 generate_ip_protocol_list = find_program('generate-ip-protocol-list.sh')
