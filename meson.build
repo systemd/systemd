@@ -510,7 +510,11 @@ conf.set('SIZEOF_TIME_T', cc.sizeof('time_t', prefix : '#include <sys/time.h>'))
 conf.set('SIZEOF_RLIM_T', cc.sizeof('rlim_t', prefix : '#include <sys/resource.h>'))
 conf.set('SIZEOF_TIMEX_MEMBER', cc.sizeof('typeof(((struct timex *)0)->freq)', prefix : '#include <sys/timex.h>'))
 
-long_max = cc.compute_int('LONG_MAX', prefix : '#include <limits.h>')
+long_max = cc.compute_int(
+        'LONG_MAX',
+        prefix : '#include <limits.h>',
+        guess : 0x7FFFFFFFFFFFFFFF,
+        high : 0x7FFFFFFFFFFFFFFF)
 assert(long_max > 100000)
 conf.set_quoted('LONG_MAX_STR', '@0@'.format(long_max))
 
