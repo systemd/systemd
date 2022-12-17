@@ -8,6 +8,7 @@
 #include <linux/if_macsec.h>
 #include <linux/l2tp.h>
 #include <linux/nl80211.h>
+#include <unistd.h>
 
 #include "sd-netlink.h"
 
@@ -16,6 +17,7 @@
 #include "macro.h"
 #include "netlink-genl.h"
 #include "netlink-internal.h"
+#include "netlink-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -667,6 +669,30 @@ static void test_genl(void) {
         }
 }
 
+static void test_rtnl_set_link_name(sd_netlink *rtnl, int ifindex) {
+        _cleanup_strv_free_ char **alternative_names = NULL;
+        int r;
+
+        log_debug("/* %s */", __func__);
+
+        if (geteuid() != 0)
+                return (void) log_tests_skipped("not root");
+
+        /* Test that the new name (which is currently an alternative name) is
+         * restored as an alternative name on error. Create an error by using
+         * an invalid device name, namely one that exceeds IFNAMSIZ
+         * (alternative names can exceed IFNAMSIZ, but not regular names). */
+        r = rtnl_set_link_alternative_names(&rtnl, ifindex, STRV_MAKE("testlongalternativename"));
+        if (r == -EPERM)
+                return (void) log_tests_skipped("missing required capabilities");
+
+        assert_se(r >= 0);
+        assert_se(rtnl_set_link_name(&rtnl, ifindex, "testlongalternativename") == -EINVAL);
+        assert_se(rtnl_get_link_alternative_names(&rtnl, ifindex, &alternative_names) >= 0);
+        assert_se(strv_contains(alternative_names, "testlongalternativename"));
+        assert_se(rtnl_delete_link_alternative_names(&rtnl, ifindex, STRV_MAKE("testlongalternativename")) >= 0);
+}
+
 int main(void) {
         sd_netlink *rtnl;
         sd_netlink_message *m;
@@ -698,6 +724,7 @@ int main(void) {
         test_pipe(if_loopback);
         test_event_loop(if_loopback);
         test_link_configure(rtnl, if_loopback);
+        test_rtnl_set_link_name(rtnl, if_loopback);
 
         test_get_addresses(rtnl);
         test_message_link_bridge(rtnl);
