@@ -1148,7 +1148,7 @@ static int run(int argc, char **argv) {
         journal_reset_metrics(&s.metrics);
         s.metrics.max_use = arg_max_use;
         s.metrics.max_size = arg_max_size;
-        s.metrics.max_size = arg_keep_free;
+        s.metrics.keep_free = arg_keep_free;
         s.metrics.n_max_files = arg_n_max_files;
 
         r = create_remoteserver(&s, key, cert, trust);
