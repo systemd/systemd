@@ -1,11 +1,54 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "ask-password-api.h"
 #include "cryptenroll-fido2.h"
+#include "cryptsetup-fido2.h"
 #include "hexdecoct.h"
 #include "json.h"
 #include "libfido2-util.h"
 #include "memory-util.h"
 #include "random-util.h"
+
+int prepare_luks_fido2(
+                struct crypt_device *cd,
+                const char *device,
+                void *ret_vk,
+                size_t *ret_vks) {
+        _cleanup_(erase_and_freep) void *decrypted_key = NULL;
+        _cleanup_(erase_and_freep) char *passphrase = NULL;
+        size_t decrypted_key_size;
+        int r;
+
+        r = acquire_fido2_key_auto(
+                        cd,
+                        device,
+                        0, /* no timeout for unlock when enrolling */
+                        false, /* TODO: Do we need a headless mode for cryptenroll? */
+                        &decrypted_key,
+                        &decrypted_key_size,
+                        ASK_PASSWORD_PUSH_CACHE|ASK_PASSWORD_ACCEPT_CACHED);
+        if (r < 0)
+                return r;
+
+        /* Because cryptenroll requires a LUKS header, we can assume that this device is not
+         * a PLAIN device. In this case, we need to base64 encode the secret to use as the passphrase */
+        r = base64mem(decrypted_key, decrypted_key_size, &passphrase);
+        if (r < 0)
+                return log_oom();
+
+        r = crypt_volume_key_get(
+                        cd,
+                        CRYPT_ANY_SLOT,
+                        ret_vk,
+                        ret_vks,
+                        passphrase,
+                        strlen(passphrase));
+        if (r < 0)
+                return log_error_errno(r, "Unlocking via FIDO2 device failed: %m");
+
+        return r;
+}
+
 
 int enroll_fido2(
                 struct crypt_device *cd,
