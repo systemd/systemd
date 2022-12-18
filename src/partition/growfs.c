@@ -36,7 +36,6 @@ static bool arg_dry_run = false;
 #if HAVE_LIBCRYPTSETUP
 static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_devno) {
         _cleanup_free_ char *devpath = NULL, *main_devpath = NULL;
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_close_ int main_devfd = -1;
         uint64_t size;
         int r;
@@ -60,6 +59,8 @@ static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_
         if (r < 0)
                 return log_error_errno(r, "Failed to get devpath of " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(devno));
+
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
 
         r = sym_crypt_init(&cd, devpath);
         if (r < 0)

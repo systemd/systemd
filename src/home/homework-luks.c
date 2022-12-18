@@ -482,7 +482,6 @@ static int acquire_open_luks_device(
                 HomeSetup *setup,
                 bool graceful) {
 
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         int r;
 
         assert(h);
@@ -496,6 +495,8 @@ static int acquire_open_luks_device(
         r = make_dm_names(h, setup);
         if (r < 0)
                 return r;
+
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
 
         r = sym_crypt_init_by_name(&cd, setup->dm_name);
         if ((ERRNO_IS_DEVICE_ABSENT(r) || r == -EINVAL) && graceful)
