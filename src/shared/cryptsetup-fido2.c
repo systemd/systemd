@@ -46,6 +46,8 @@ int acquire_fido2_key(
 
         assert(cid);
         assert(key_file || key_data);
+        /* When reading salt from key_file, volume_name is needed as bindname */
+        assert(volume_name || !key_file);
 
         if (key_data) {
                 salt = key_data;
@@ -129,12 +131,7 @@ int acquire_fido2_key(
 
 int acquire_fido2_key_auto(
                 struct crypt_device *cd,
-                const char *name,
-                const char *friendly_name,
                 const char *fido2_device,
-                const char *key_file,
-                size_t key_file_size,
-                uint64_t key_file_offset,
                 usec_t until,
                 bool headless,
                 void **ret_decrypted_key,
@@ -147,7 +144,6 @@ int acquire_fido2_key_auto(
         Fido2EnrollFlags required = 0;
 
         assert(cd);
-        assert(name);
         assert(ret_decrypted_key);
         assert(ret_decrypted_key_size);
 
@@ -247,12 +243,14 @@ int acquire_fido2_key_auto(
                         required |= FIDO2ENROLL_UV_OMIT; /* compat with 248 */
 
                 ret = acquire_fido2_key(
-                                name,
-                                friendly_name,
+                                /* volume_name= */ NULL, /* not needed as key_file == NULL */
+                                /* friendly_name= */ NULL,
                                 fido2_device,
                                 rp,
                                 cid, cid_size,
-                                key_file, key_file_size, key_file_offset,
+                                /* key_file= */ NULL, /* salt is read from LUKS header instead of key_file */
+                                /* key_file_size= */ 0,
+                                /* key_file_offset= */ 0,
                                 salt, salt_size,
                                 until,
                                 headless,
