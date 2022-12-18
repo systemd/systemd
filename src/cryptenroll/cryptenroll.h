@@ -13,6 +13,14 @@ typedef enum EnrollType {
         _ENROLL_TYPE_INVALID = -EINVAL,
 } EnrollType;
 
+typedef enum UnlockType {
+        UNLOCK_PASSWORD,
+        UNLOCK_KEYFILE,
+        UNLOCK_FIDO2,
+        _UNLOCK_TYPE_MAX,
+        _UNLOCK_TYPE_INVALID = -EINVAL,
+} UnlockType;
+
 typedef enum WipeScope {
         WIPE_EXPLICIT,          /* only wipe the listed slots */
         WIPE_ALL,               /* wipe all slots */

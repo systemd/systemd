@@ -244,8 +244,8 @@ int acquire_fido2_key_auto(
                         required |= FIDO2ENROLL_UV_OMIT; /* compat with 248 */
 
                 ret = acquire_fido2_key(
-                                /* volume_name= */ NULL, /* not needed as key_file == NULL */
-                                /* friendly_name= */ NULL,
+                                name,
+                                friendly_name,
                                 fido2_device,
                                 rp,
                                 cid, cid_size,
