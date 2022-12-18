@@ -1121,7 +1121,6 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                                                 name,
                                                 friendly,
                                                 arg_fido2_device,
-                                                key_file, arg_keyfile_size, arg_keyfile_offset,
                                                 until,
                                                 arg_headless,
                                                 &decrypted_key, &decrypted_key_size,
