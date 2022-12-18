@@ -32,6 +32,8 @@
 
 static EnrollType arg_enroll_type = _ENROLL_TYPE_INVALID;
 static char *arg_unlock_keyfile = NULL;
+static UnlockType arg_unlock_type = UNLOCK_PASSWORD;
+static char *arg_unlock_fido2_device = NULL;
 static char *arg_pkcs11_token_uri = NULL;
 static char *arg_fido2_device = NULL;
 static char *arg_tpm2_device = NULL;
@@ -55,6 +57,7 @@ static int arg_fido2_cred_alg = 0;
 assert_cc(sizeof(arg_wipe_slots_mask) * 8 >= _ENROLL_TYPE_MAX);
 
 STATIC_DESTRUCTOR_REGISTER(arg_unlock_keyfile, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_unlock_fido2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_pkcs11_token_uri, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fido2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
@@ -105,6 +108,8 @@ static int help(void) {
                "     --recovery-key    Enroll a recovery key\n"
                "     --unlock-key-file=PATH\n"
                "                       Use a file to unlock the volume\n"
+               "     --unlock-fido2-device=PATH\n"
+               "                       Use a FIDO2 device to unlock the volume\n"
                "     --pkcs11-token-uri=URI\n"
                "                       Specify PKCS#11 security token URI\n"
                "     --fido2-credential-algorithm=STRING\n"
@@ -148,6 +153,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PASSWORD,
                 ARG_RECOVERY_KEY,
                 ARG_UNLOCK_KEYFILE,
+                ARG_UNLOCK_FIDO2_DEVICE,
                 ARG_PKCS11_TOKEN_URI,
                 ARG_FIDO2_DEVICE,
                 ARG_TPM2_DEVICE,
@@ -169,6 +175,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "password",                     no_argument,       NULL, ARG_PASSWORD              },
                 { "recovery-key",                 no_argument,       NULL, ARG_RECOVERY_KEY          },
                 { "unlock-key-file",              required_argument, NULL, ARG_UNLOCK_KEYFILE        },
+                { "unlock-fido2-device",          required_argument, NULL, ARG_UNLOCK_FIDO2_DEVICE   },
                 { "pkcs11-token-uri",             required_argument, NULL, ARG_PKCS11_TOKEN_URI      },
                 { "fido2-credential-algorithm",   required_argument, NULL, ARG_FIDO2_CRED_ALG        },
                 { "fido2-device",                 required_argument, NULL, ARG_FIDO2_DEVICE          },
@@ -250,10 +257,36 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_UNLOCK_KEYFILE:
+                        if (arg_unlock_type != UNLOCK_PASSWORD)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Multiple unlock methods specified at once, refusing.");
+
                         r = parse_path_argument(optarg, /* suppress_root= */ true, &arg_unlock_keyfile);
                         if (r < 0)
                                 return r;
+
+                        arg_unlock_type = UNLOCK_KEYFILE;
                         break;
+
+                case ARG_UNLOCK_FIDO2_DEVICE: {
+                        _cleanup_free_ char *device = NULL;
+
+                        if (arg_unlock_type != UNLOCK_PASSWORD)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Multiple unlock methods specified at once, refusing.");
+
+                        assert(!arg_unlock_fido2_device);
+
+                        if (!streq(optarg, "auto")) {
+                                device = strdup(optarg);
+                                if (!device)
+                                        return log_oom();
+                        }
+
+                        arg_unlock_type = UNLOCK_FIDO2;
+                        arg_unlock_fido2_device = TAKE_PTR(device);
+                        break;
+                }
 
                 case ARG_PKCS11_TOKEN_URI: {
                         _cleanup_free_ char *uri = NULL;
@@ -299,11 +332,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Multiple operations specified at once, refusing.");
 
-                        if (streq(optarg, "auto")) {
-                                r = fido2_find_device_auto(&device);
-                                if (r < 0)
-                                        return r;
-                        } else {
+                        if (!streq(optarg, "auto")) {
                                 device = strdup(optarg);
                                 if (!device)
                                         return log_oom();
@@ -432,6 +461,18 @@ static int parse_argv(int argc, char *argv[]) {
                 }
         }
 
+        if ((arg_enroll_type == ENROLL_FIDO2 && arg_unlock_type == UNLOCK_FIDO2)
+                        && !(arg_fido2_device && arg_unlock_fido2_device))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "When both enrolling and unlocking with FIDO2 tokens, automatic discovery is unsupported. "
+                                       "Please specify device paths for enrolling and unlocking respectively.");
+
+        if (arg_enroll_type == ENROLL_FIDO2 && !arg_fido2_device) {
+                r = fido2_find_device_auto(&arg_fido2_device);
+                if (r < 0)
+                        return r;
+        }
+
         if (optind >= argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "No block device node specified, refusing.");
@@ -472,6 +513,44 @@ static int check_for_homed(struct crypt_device *cd) {
         }
 
         return 0;
+}
+
+static int load_volume_key_keyfile(
+                struct crypt_device *cd,
+                void *ret_vk,
+                size_t *ret_vks) {
+
+        _cleanup_(erase_and_freep) char *password = NULL;
+        size_t password_len;
+        int r;
+
+        assert_se(cd);
+        assert_se(ret_vk);
+        assert_se(ret_vks);
+
+        r = read_full_file_full(
+                        AT_FDCWD,
+                        arg_unlock_keyfile,
+                        0,
+                        SIZE_MAX,
+                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
+                        NULL,
+                        &password,
+                        &password_len);
+        if (r < 0)
+                return log_error_errno(r, "Reading keyfile %s failed: %m", arg_unlock_keyfile);
+
+        r = crypt_volume_key_get(
+                        cd,
+                        CRYPT_ANY_SLOT,
+                        ret_vk,
+                        ret_vks,
+                        password,
+                        password_len);
+        if (r < 0)
+                return log_error_errno(r, "Unlocking via keyfile failed: %m");
+
+        return r;
 }
 
 static int prepare_luks(
@@ -516,99 +595,27 @@ static int prepare_luks(
         if (!vk)
                 return log_oom();
 
-        if (arg_unlock_keyfile) {
-                _cleanup_(erase_and_freep) char *password = NULL;
-                size_t password_len;
+        switch (arg_unlock_type) {
 
-                r = read_full_file_full(
-                                AT_FDCWD,
-                                arg_unlock_keyfile,
-                                0,
-                                SIZE_MAX,
-                                READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
-                                NULL,
-                                &password,
-                                &password_len);
-                if (r < 0)
-                        return log_error_errno(r, "Reading keyfile %s failed: %m", arg_unlock_keyfile);
+        case UNLOCK_KEYFILE:
+                r = load_volume_key_keyfile(cd, vk, &vks);
+                break;
 
-                r = crypt_volume_key_get(
-                                cd,
-                                CRYPT_ANY_SLOT,
-                                vk,
-                                &vks,
-                                password,
-                                password_len);
-                if (r < 0)
-                        return log_error_errno(r, "Unlocking via keyfile failed: %m");
+        case UNLOCK_FIDO2:
+                r = load_volume_key_fido2(cd, arg_node, arg_unlock_fido2_device, vk, &vks);
+                break;
 
-                goto out;
+        case UNLOCK_PASSWORD:
+                r = load_volume_key_password(cd, arg_node, vk, &vks);
+                break;
+
+        default:
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown LUKS unlock method");
         }
 
-        r = getenv_steal_erase("PASSWORD", &envpw);
         if (r < 0)
-                return log_error_errno(r, "Failed to acquire password from environment: %m");
-        if (r > 0) {
-                r = crypt_volume_key_get(
-                                cd,
-                                CRYPT_ANY_SLOT,
-                                vk,
-                                &vks,
-                                envpw,
-                                strlen(envpw));
-                if (r < 0)
-                        return log_error_errno(r, "Password from environment variable $PASSWORD did not work.");
-        } else {
-                AskPasswordFlags ask_password_flags = ASK_PASSWORD_PUSH_CACHE|ASK_PASSWORD_ACCEPT_CACHED;
-                _cleanup_free_ char *question = NULL, *disk_path = NULL;
-                unsigned i = 5;
-                const char *id;
+                return r;
 
-                question = strjoin("Please enter current passphrase for disk ", arg_node, ":");
-                if (!question)
-                        return log_oom();
-
-                disk_path = cescape(arg_node);
-                if (!disk_path)
-                        return log_oom();
-
-                id = strjoina("cryptsetup:", disk_path);
-
-                for (;;) {
-                        _cleanup_strv_free_erase_ char **passwords = NULL;
-
-                        if (--i == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOKEY),
-                                                       "Too many attempts, giving up:");
-
-                        r = ask_password_auto(
-                                        question, "drive-harddisk", id, "cryptenroll", "cryptenroll.passphrase", USEC_INFINITY,
-                                        ask_password_flags,
-                                        &passwords);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to query password: %m");
-
-                        r = -EPERM;
-                        STRV_FOREACH(p, passwords) {
-                                r = crypt_volume_key_get(
-                                                cd,
-                                                CRYPT_ANY_SLOT,
-                                                vk,
-                                                &vks,
-                                                *p,
-                                                strlen(*p));
-                                if (r >= 0)
-                                        break;
-                        }
-                        if (r >= 0)
-                                break;
-
-                        log_error_errno(r, "Password not correct, please try again.");
-                        ask_password_flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
-                }
-        }
-
-out:
         *ret_cd = TAKE_PTR(cd);
         *ret_volume_key = TAKE_PTR(vk);
         *ret_volume_key_size = vks;
