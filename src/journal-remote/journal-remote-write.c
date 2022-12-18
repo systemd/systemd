@@ -22,7 +22,7 @@ static int do_rotate(ManagedJournalFile **f, MMapCache *m, JournalFileFlags file
 }
 
 Writer* writer_new(RemoteServer *server) {
-        Writer *w;
+        _cleanup_(writer_unrefp) Writer *w = NULL;
         int r;
 
         w = new0(Writer, 1);
@@ -33,7 +33,7 @@ Writer* writer_new(RemoteServer *server) {
 
         w->mmap = mmap_cache_new();
         if (!w->mmap)
-                return mfree(w);
+                return NULL;
 
         w->n_ref = 1;
         w->server = server;
@@ -50,7 +50,7 @@ Writer* writer_new(RemoteServer *server) {
                 }
         }
 
-        return w;
+        return TAKE_PTR(w);
 }
 
 static Writer* writer_free(Writer *w) {
