@@ -774,7 +774,7 @@ static struct HashmapBase* hashmap_base_new(const struct hash_ops *hash_ops, enu
         HashmapBase *h;
         const struct hashmap_type_info *hi = &hashmap_type_info[type];
 
-        bool use_pool = mempool_enabled && mempool_enabled();
+        bool use_pool = mempool_enabled && mempool_enabled();  /* mempool_enabled is a weak symbol */
 
         h = use_pool ? mempool_alloc0_tile(hi->mempool) : malloc0(hi->head_size);
         if (!h)
