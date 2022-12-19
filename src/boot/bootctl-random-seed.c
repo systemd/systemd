@@ -58,7 +58,7 @@ int install_random_seed(const char *esp) {
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write while writing random seed file.");
 
         if (rename(tmp, path) < 0)
-                return log_error_errno(r, "Failed to move random seed file into place: %m");
+                return log_error_errno(errno, "Failed to move random seed file into place: %m");
 
         tmp = mfree(tmp);
 
