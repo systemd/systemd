@@ -161,7 +161,7 @@ static int show_cgroup_name(
 
         uint64_t cgroupid = UINT64_MAX;
         _cleanup_free_ char *b = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         bool delegate;
         int r;
 

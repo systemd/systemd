@@ -553,7 +553,7 @@ int bus_image_common_remove(
                 return r;
 
         child = 0;
-        errno_pipe_fd[0] = -1;
+        errno_pipe_fd[0] = -EBADF;
 
         return 1;
 }

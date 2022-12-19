@@ -287,7 +287,7 @@ static int run(int argc, char *argv[]) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_strv_free_ char **arguments = NULL;
                 _cleanup_free_ char *w = NULL;
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
                 pid_t pid;
 
                 /* Ignore SIGINT and allow the forked process to receive it */

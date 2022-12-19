@@ -349,7 +349,7 @@ int ethtool_get_link_info(
 }
 
 int ethtool_get_permanent_hw_addr(int *ethtool_fd, const char *ifname, struct hw_addr_data *ret) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         struct {
                 struct ethtool_perm_addr addr;
                 uint8_t space[HW_ADDR_MAX_SIZE];

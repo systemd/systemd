@@ -247,7 +247,7 @@ static int image_make(
                 (faccessat(dfd, filename, W_OK, AT_EACCESS) < 0 && errno == EROFS);
 
         if (S_ISDIR(st->st_mode)) {
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
                 unsigned file_attr = 0;
                 usec_t crtime = 0;
 
@@ -367,7 +367,7 @@ static int image_make(
                 return 0;
 
         } else if (S_ISBLK(st->st_mode)) {
-                _cleanup_close_ int block_fd = -1;
+                _cleanup_close_ int block_fd = -EBADF;
                 uint64_t size = UINT64_MAX;
 
                 /* A block device */
@@ -984,7 +984,7 @@ int image_read_only(Image *i, bool b) {
         }
 
         case IMAGE_BLOCK: {
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
                 struct stat st;
                 int state = b;
 
@@ -1152,7 +1152,7 @@ int image_read_metadata(Image *i) {
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to chase /etc/machine-id in image %s: %m", i->name);
                 else if (r >= 0) {
-                        _cleanup_close_ int fd = -1;
+                        _cleanup_close_ int fd = -EBADF;
 
                         fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
                         if (fd < 0)

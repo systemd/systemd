@@ -94,7 +94,7 @@ static inline int make_null_stdio(void) {
         ({                                      \
                 int *_fd_ = &(fd);              \
                 int _ret_ = *_fd_;              \
-                *_fd_ = -1;                     \
+                *_fd_ = -EBADF;                 \
                 _ret_;                          \
         })
 

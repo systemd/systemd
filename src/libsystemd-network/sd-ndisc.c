@@ -171,7 +171,7 @@ int sd_ndisc_new(sd_ndisc **ret) {
 
         *nd = (sd_ndisc) {
                 .n_ref = 1,
-                .fd = -1,
+                .fd = -EBADF,
         };
 
         *ret = TAKE_PTR(nd);

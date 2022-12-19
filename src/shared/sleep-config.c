@@ -718,7 +718,7 @@ static int swap_device_to_device_id(const SwapEntry *swap, dev_t *ret_dev) {
  * filesystems, a debug message is logged and ret_offset is set to UINT64_MAX.
  */
 static int calculate_swap_file_offset(const SwapEntry *swap, uint64_t *ret_offset) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ struct fiemap *fiemap = NULL;
         struct stat sb;
         int r;

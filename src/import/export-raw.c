@@ -84,8 +84,8 @@ int raw_export_new(
                 return -ENOMEM;
 
         *e = (RawExport) {
-                .output_fd = -1,
-                .input_fd = -1,
+                .output_fd = -EBADF,
+                .input_fd = -EBADF,
                 .on_finished = on_finished,
                 .userdata = userdata,
                 .last_percent = UINT_MAX,
@@ -267,7 +267,7 @@ static int reflink_snapshot(int fd, const char *path) {
 }
 
 int raw_export_start(RawExport *e, const char *path, int fd, ImportCompressType compress) {
-        _cleanup_close_ int sfd = -1, tfd = -1;
+        _cleanup_close_ int sfd = -EBADF, tfd = -EBADF;
         int r;
 
         assert(e);

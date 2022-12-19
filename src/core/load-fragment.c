@@ -674,7 +674,7 @@ int config_parse_socket_listen(
                 p->type = SOCKET_SOCKET;
         }
 
-        p->fd = -1;
+        p->fd = -EBADF;
         p->auxiliary_fds = NULL;
         p->n_auxiliary_fds = 0;
         p->socket = s;
@@ -2232,7 +2232,7 @@ int config_parse_path_spec(const char *unit,
         s->unit = UNIT(p);
         s->path = TAKE_PTR(k);
         s->type = b;
-        s->inotify_fd = -1;
+        s->inotify_fd = -EBADF;
 
         LIST_PREPEND(spec, p->specs, s);
 

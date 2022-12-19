@@ -37,7 +37,7 @@ int lldp_network_bind_raw_socket(int ifindex) {
                 .ll.sll_family = AF_PACKET,
                 .ll.sll_ifindex = ifindex,
         };
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         assert(ifindex > 0);
 

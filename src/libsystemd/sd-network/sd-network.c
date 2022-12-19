@@ -344,7 +344,7 @@ static int monitor_add_inotify_watch(int fd) {
 }
 
 int sd_network_monitor_new(sd_network_monitor **m, const char *category) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int k;
         bool good = false;
 

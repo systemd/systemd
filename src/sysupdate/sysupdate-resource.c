@@ -563,7 +563,7 @@ int resource_resolve_path(
                         d = orig_root_stats.st_rdev;
 
         } else if (rr->type == RESOURCE_PARTITION) {
-                _cleanup_close_ int fd = -1, real_fd = -1;
+                _cleanup_close_ int fd = -EBADF, real_fd = -EBADF;
                 _cleanup_free_ char *resolved = NULL;
                 struct stat st;
 

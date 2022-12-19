@@ -294,7 +294,7 @@ int journal_remote_add_raw_socket(RemoteServer *s, int fd) {
         if (r < 0)
                 return r;
 
-        fd_ = -1;
+        fd_ = -EBADF;
         s->active++;
         return 0;
 }
@@ -483,7 +483,7 @@ static int accept_connection(
                 SocketAddress *addr,
                 char **hostname) {
 
-        _cleanup_close_ int fd2 = -1;
+        _cleanup_close_ int fd2 = -EBADF;
         int r;
 
         log_debug("Accepting new %s connection on fd:%d", type, fd);

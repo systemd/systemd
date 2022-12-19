@@ -115,15 +115,15 @@ Unit* unit_new(Manager *m, size_t size) {
         u->cgroup_invalidated_mask |= CGROUP_MASK_BPF_FIREWALL;
         u->failure_action_exit_status = u->success_action_exit_status = -1;
 
-        u->ip_accounting_ingress_map_fd = -1;
-        u->ip_accounting_egress_map_fd = -1;
+        u->ip_accounting_ingress_map_fd = -EBADF;
+        u->ip_accounting_egress_map_fd = -EBADF;
         for (CGroupIOAccountingMetric i = 0; i < _CGROUP_IO_ACCOUNTING_METRIC_MAX; i++)
                 u->io_accounting_last[i] = UINT64_MAX;
 
-        u->ipv4_allow_map_fd = -1;
-        u->ipv6_allow_map_fd = -1;
-        u->ipv4_deny_map_fd = -1;
-        u->ipv6_deny_map_fd = -1;
+        u->ipv4_allow_map_fd = -EBADF;
+        u->ipv6_allow_map_fd = -EBADF;
+        u->ipv4_deny_map_fd = -EBADF;
+        u->ipv6_deny_map_fd = -EBADF;
 
         u->last_section_private = -1;
 
@@ -5274,7 +5274,7 @@ static int unit_export_log_level_max(Unit *u, const ExecContext *c) {
 }
 
 static int unit_export_log_extra_fields(Unit *u, const ExecContext *c) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         struct iovec *iovec;
         const char *p;
         char *pattern;

@@ -110,7 +110,7 @@ TEST(copy_tree_replace_dirs) {
 TEST(copy_file_fd) {
         char in_fn[] = "/tmp/test-copy-file-fd-XXXXXX";
         char out_fn[] = "/tmp/test-copy-file-fd-XXXXXX";
-        _cleanup_close_ int in_fd = -1, out_fd = -1;
+        _cleanup_close_ int in_fd = -EBADF, out_fd = -EBADF;
         const char *text = "boohoo\nfoo\n\tbar\n";
         char buf[64] = {};
 
@@ -258,7 +258,7 @@ TEST(copy_tree) {
 
 TEST(copy_bytes) {
         _cleanup_close_pair_ int pipefd[2] = {-1, -1};
-        _cleanup_close_ int infd = -1;
+        _cleanup_close_ int infd = -EBADF;
         int r, r2;
         char buf[1024], buf2[1024];
 
@@ -295,7 +295,7 @@ TEST(copy_bytes) {
 static void test_copy_bytes_regular_file_one(const char *src, bool try_reflink, uint64_t max_bytes) {
         char fn2[] = "/tmp/test-copy-file-XXXXXX";
         char fn3[] = "/tmp/test-copy-file-XXXXXX";
-        _cleanup_close_ int fd = -1, fd2 = -1, fd3 = -1;
+        _cleanup_close_ int fd = -EBADF, fd2 = -EBADF, fd3 = -EBADF;
         int r;
         struct stat buf, buf2, buf3;
 

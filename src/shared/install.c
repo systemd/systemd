@@ -739,7 +739,7 @@ static int remove_marked_symlinks(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         bool restart;
         int r = 0;
 
@@ -1330,7 +1330,7 @@ static int unit_file_load(
 
         UnitType type;
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         struct stat st;
         int r;
 

@@ -188,7 +188,7 @@ static int socket_from_display(const char *display) {
         char *c;
         union sockaddr_union sa;
         socklen_t sa_len;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         assert(display);
@@ -236,7 +236,7 @@ static int socket_from_display(const char *display) {
 
 static int get_seat_from_display(const char *display, const char **seat, uint32_t *vtnr) {
         _cleanup_free_ char *sys_path = NULL, *tty = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         struct ucred ucred;
         int v, r;
         dev_t display_ctty;
@@ -671,7 +671,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 *memory_max = NULL, *tasks_max = NULL, *cpu_weight = NULL, *io_weight = NULL, *runtime_max_sec = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-        int session_fd = -1, existing, r;
+        int session_fd = -EBADF, existing, r;
         bool debug = false, remote;
         uint32_t vtnr = 0;
         uid_t original_uid;

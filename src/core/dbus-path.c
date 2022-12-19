@@ -112,7 +112,7 @@ static int bus_path_set_transient_property(
                                 s->unit = u;
                                 s->path = TAKE_PTR(k);
                                 s->type = t;
-                                s->inotify_fd = -1;
+                                s->inotify_fd = -EBADF;
 
                                 LIST_PREPEND(spec, p->specs, s);
 

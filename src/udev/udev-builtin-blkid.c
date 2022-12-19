@@ -238,7 +238,7 @@ static int builtin_blkid(sd_device *dev, sd_netlink **rtnl, int argc, char *argv
         const char *devnode, *root_partition = NULL, *data, *name;
         _cleanup_(blkid_free_probep) blkid_probe pr = NULL;
         bool noraid = false, is_gpt = false;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int64_t offset = 0;
         int r;
 

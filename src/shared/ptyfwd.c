@@ -412,9 +412,9 @@ int pty_forward_new(
 
         *f = (struct PTYForward) {
                 .flags = flags,
-                .master = -1,
-                .input_fd = -1,
-                .output_fd = -1,
+                .master = -EBADF,
+                .input_fd = -EBADF,
+                .output_fd = -EBADF,
         };
 
         if (event)

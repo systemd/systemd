@@ -27,7 +27,7 @@ void pull_job_close_disk_fd(PullJob *j) {
         if (j->close_disk_fd)
                 safe_close(j->disk_fd);
 
-        j->disk_fd = -1;
+        j->disk_fd = -EBADF;
 }
 
 PullJob* pull_job_unref(PullJob *j) {
@@ -692,7 +692,7 @@ int pull_job_new(
 
         *j = (PullJob) {
                 .state = PULL_JOB_INIT,
-                .disk_fd = -1,
+                .disk_fd = -EBADF,
                 .close_disk_fd = true,
                 .userdata = userdata,
                 .glue = glue,

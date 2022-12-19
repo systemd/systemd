@@ -235,7 +235,7 @@ static int manager_connect_udev(Manager *m) {
 
 static int manager_listen_fds(Manager *m, int *ret_rtnl_fd) {
         _cleanup_strv_free_ char **names = NULL;
-        int n, rtnl_fd = -1;
+        int n, rtnl_fd = -EBADF;
 
         assert(m);
         assert(ret_rtnl_fd);
@@ -499,7 +499,7 @@ static int manager_set_keep_configuration(Manager *m) {
 }
 
 int manager_setup(Manager *m) {
-        _cleanup_close_ int rtnl_fd = -1;
+        _cleanup_close_ int rtnl_fd = -EBADF;
         int r;
 
         assert(m);
@@ -583,7 +583,7 @@ int manager_new(Manager **ret, bool test_mode) {
                 .online_state = _LINK_ONLINE_STATE_INVALID,
                 .manage_foreign_routes = true,
                 .manage_foreign_rules = true,
-                .ethtool_fd = -1,
+                .ethtool_fd = -EBADF,
                 .dhcp_duid.type = DUID_TYPE_EN,
                 .dhcp6_duid.type = DUID_TYPE_EN,
                 .duid_product_uuid.type = DUID_TYPE_UUID,

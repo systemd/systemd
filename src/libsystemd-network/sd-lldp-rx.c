@@ -405,7 +405,7 @@ int sd_lldp_rx_new(sd_lldp_rx **ret) {
 
         *lldp_rx = (sd_lldp_rx) {
                 .n_ref = 1,
-                .fd = -1,
+                .fd = -EBADF,
                 .neighbors_max = LLDP_DEFAULT_NEIGHBORS_MAX,
                 .capability_mask = UINT16_MAX,
         };

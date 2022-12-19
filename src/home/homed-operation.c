@@ -17,7 +17,7 @@ Operation *operation_new(OperationType type, sd_bus_message *m) {
                 .type = type,
                 .n_ref = 1,
                 .message = sd_bus_message_ref(m),
-                .send_fd = -1,
+                .send_fd = -EBADF,
                 .result = -1,
         };
 

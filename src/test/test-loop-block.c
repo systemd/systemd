@@ -145,7 +145,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_free_ char *p = NULL, *cmd = NULL;
         _cleanup_(pclosep) FILE *sfdisk = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         test_setup_logging(LOG_DEBUG);

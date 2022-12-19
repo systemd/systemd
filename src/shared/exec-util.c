@@ -123,7 +123,7 @@ static int do_execute(
 
         STRV_FOREACH(path, paths) {
                 _cleanup_free_ char *t = NULL;
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
                 pid_t pid;
 
                 t = strdup(*path);
@@ -158,7 +158,7 @@ static int do_execute(
                                         return log_error_errno(errno, "Failed to seek on serialization fd: %m");
 
                                 r = callbacks[STDOUT_GENERATE](fd, callback_args[STDOUT_GENERATE]);
-                                fd = -1;
+                                fd = -EBADF;
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to process output from %s: %m", *path);
                         }
@@ -199,7 +199,7 @@ int execute_directories(
                 ExecDirFlags flags) {
 
         char **dirs = (char**) directories;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         char *name;
         int r;
         pid_t executor_pid;
@@ -245,7 +245,7 @@ int execute_directories(
                 return log_error_errno(errno, "Failed to rewind serialization fd: %m");
 
         r = callbacks[STDOUT_CONSUME](fd, callback_args[STDOUT_CONSUME]);
-        fd = -1;
+        fd = -EBADF;
         if (r < 0)
                 return log_error_errno(r, "Failed to parse returned data: %m");
         return 0;

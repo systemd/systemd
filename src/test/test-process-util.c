@@ -240,7 +240,7 @@ TEST(personality) {
 
 TEST(get_process_cmdline_harder) {
         char path[] = "/tmp/test-cmdlineXXXXXX";
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *line = NULL;
         pid_t pid;
 

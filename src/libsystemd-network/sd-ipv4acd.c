@@ -151,7 +151,7 @@ int sd_ipv4acd_new(sd_ipv4acd **ret) {
                 .n_ref = 1,
                 .state = IPV4ACD_STATE_INIT,
                 .ifindex = -1,
-                .fd = -1,
+                .fd = -EBADF,
         };
 
         *ret = TAKE_PTR(acd);

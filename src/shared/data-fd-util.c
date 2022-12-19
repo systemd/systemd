@@ -28,7 +28,7 @@
 int acquire_data_fd(const void *data, size_t size, unsigned flags) {
         _cleanup_close_pair_ int pipefds[2] = { -1, -1 };
         char pattern[] = "/dev/shm/data-fd-XXXXXX";
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int isz = 0, r;
         ssize_t n;
         off_t f;
@@ -163,7 +163,7 @@ try_dev_shm_without_o_tmpfile:
 }
 
 int copy_data_fd(int fd) {
-        _cleanup_close_ int copy_fd = -1, tmp_fd = -1;
+        _cleanup_close_ int copy_fd = -EBADF, tmp_fd = -EBADF;
         _cleanup_free_ void *remains = NULL;
         size_t remains_size = 0;
         const char *td;
@@ -376,7 +376,7 @@ int memfd_clone_fd(int fd, const char *name, int mode) {
                 return r;
 
         if (ro) {
-                _cleanup_close_ int rfd = -1;
+                _cleanup_close_ int rfd = -EBADF;
 
                 r = memfd_set_sealed(mfd);
                 if (r < 0)

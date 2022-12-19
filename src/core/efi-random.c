@@ -13,7 +13,7 @@
 #include "strv.h"
 
 void lock_down_efi_variables(void) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         fd = open(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderSystemToken)), O_RDONLY|O_CLOEXEC);

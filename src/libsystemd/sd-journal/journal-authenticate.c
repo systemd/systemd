@@ -308,7 +308,7 @@ int journal_file_hmac_put_header(JournalFile *f) {
 }
 
 int journal_file_fss_load(JournalFile *f) {
-        int r, fd = -1;
+        int r, fd = -EBADF;
         char *p = NULL;
         struct stat st;
         FSSHeader *m = NULL;

@@ -503,7 +503,7 @@ static int run(int argc, char *argv[]) {
         start_time = now(CLOCK_MONOTONIC);
 
         for (;;) {
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
                 usec_t n;
 
                 /* Exit the worker in regular intervals, to flush out all memory use */

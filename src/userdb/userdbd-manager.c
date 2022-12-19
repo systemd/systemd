@@ -83,7 +83,7 @@ int manager_new(Manager **ret) {
                 return -ENOMEM;
 
         *m = (Manager) {
-                .listen_fd = -1,
+                .listen_fd = -EBADF,
                 .worker_ratelimit = {
                         .interval = 5 * USEC_PER_SEC,
                         .burst = 50,

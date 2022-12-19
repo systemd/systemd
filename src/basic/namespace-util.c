@@ -34,8 +34,8 @@ const struct namespace_info namespace_info[] = {
 #define pid_namespace_path(pid, type) procfs_file_alloca(pid, namespace_info[type].proc_path)
 
 int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *userns_fd, int *root_fd) {
-        _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, netnsfd = -1, usernsfd = -1;
-        int rfd = -1;
+        _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, netnsfd = -EBADF, usernsfd = -EBADF;
+        int rfd = -EBADF;
 
         assert(pid >= 0);
 
@@ -113,7 +113,7 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
                 if (r < 0)
                         return r;
                 if (r)
-                        userns_fd = -1;
+                        userns_fd = -EBADF;
         }
 
         if (pidns_fd >= 0)
@@ -202,7 +202,7 @@ int detach_mount_namespace(void) {
 int userns_acquire(const char *uid_map, const char *gid_map) {
         char path[STRLEN("/proc//uid_map") + DECIMAL_STR_MAX(pid_t) + 1];
         _cleanup_(sigkill_waitp) pid_t pid = 0;
-        _cleanup_close_ int userns_fd = -1;
+        _cleanup_close_ int userns_fd = -EBADF;
         int r;
 
         assert(uid_map);

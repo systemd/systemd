@@ -669,7 +669,7 @@ int stdout_stream_install(Server *s, int fd, StdoutStream **ret) {
                 return log_oom();
 
         *stream = (StdoutStream) {
-                .fd = -1,
+                .fd = -EBADF,
                 .priority = LOG_INFO,
                 .ucred = UCRED_INVALID,
         };
@@ -716,7 +716,7 @@ int stdout_stream_install(Server *s, int fd, StdoutStream **ret) {
 }
 
 static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revents, void *userdata) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         Server *s = ASSERT_PTR(userdata);
         int r;
 

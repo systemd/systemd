@@ -585,7 +585,7 @@ static int boot_entries_find_type1(
 
         _cleanup_free_ DirectoryEntries *dentries = NULL;
         _cleanup_free_ char *full = NULL;
-        _cleanup_close_ int dir_fd = -1;
+        _cleanup_close_ int dir_fd = -EBADF;
         int r;
 
         assert(config);
@@ -860,7 +860,7 @@ static int boot_entries_find_unified(
 
         FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read %s: %m", full)) {
                 _cleanup_free_ char *j = NULL, *osrelease = NULL, *cmdline = NULL;
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
 
                 if (!dirent_is_file(de))
                         continue;

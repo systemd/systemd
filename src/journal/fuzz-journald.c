@@ -7,13 +7,13 @@
 
 void dummy_server_init(Server *s, const uint8_t *buffer, size_t size) {
         *s = (Server) {
-                .syslog_fd = -1,
-                .native_fd = -1,
-                .stdout_fd = -1,
-                .dev_kmsg_fd = -1,
-                .audit_fd = -1,
-                .hostname_fd = -1,
-                .notify_fd = -1,
+                .syslog_fd = -EBADF,
+                .native_fd = -EBADF,
+                .stdout_fd = -EBADF,
+                .dev_kmsg_fd = -EBADF,
+                .audit_fd = -EBADF,
+                .hostname_fd = -EBADF,
+                .notify_fd = -EBADF,
                 .storage = STORAGE_NONE,
                 .line_max = 64,
         };

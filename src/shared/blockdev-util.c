@@ -198,7 +198,7 @@ int block_device_new_from_fd(int fd, BlockDeviceLookupFlag flags, sd_device **re
 }
 
 int block_device_new_from_path(const char *path, BlockDeviceLookupFlag flags, sd_device **ret) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         assert(path);
         assert(ret);
@@ -283,7 +283,7 @@ int get_block_device_fd(int fd, dev_t *ret) {
 }
 
 int get_block_device(const char *path, dev_t *ret) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         assert(path);
         assert(ret);
@@ -333,7 +333,7 @@ int get_block_device_harder_fd(int fd, dev_t *ret) {
 }
 
 int get_block_device_harder(const char *path, dev_t *ret) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         assert(path);
         assert(ret);
@@ -346,7 +346,7 @@ int get_block_device_harder(const char *path, dev_t *ret) {
 }
 
 int lock_whole_block_device(dev_t devt, int operation) {
-        _cleanup_close_ int lock_fd = -1;
+        _cleanup_close_ int lock_fd = -EBADF;
         dev_t whole_devt;
         int r;
 
@@ -519,7 +519,7 @@ int fd_get_whole_disk(int fd, bool backing, dev_t *ret) {
 }
 
 int path_get_whole_disk(const char *path, bool backing, dev_t *ret) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         fd = open(path, O_CLOEXEC|O_PATH);
         if (fd < 0)
@@ -662,7 +662,7 @@ int partition_enumerator_new(sd_device *dev, sd_device_enumerator **ret) {
 int block_device_remove_all_partitions(sd_device *dev, int fd) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_(sd_device_unrefp) sd_device *dev_unref = NULL;
-        _cleanup_close_ int fd_close = -1;
+        _cleanup_close_ int fd_close = -EBADF;
         bool has_partitions = false;
         sd_device *part;
         int r, k = 0;
@@ -740,7 +740,7 @@ int block_device_has_partitions(sd_device *dev) {
 }
 
 int blockdev_reread_partition_table(sd_device *dev) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         assert(dev);
 

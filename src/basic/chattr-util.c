@@ -20,7 +20,7 @@ int chattr_full(const char *path,
                 unsigned *ret_final,
                 ChattrApplyFlags flags) {
 
-        _cleanup_close_ int fd_will_close = -1;
+        _cleanup_close_ int fd_will_close = -EBADF;
         unsigned old_attr, new_attr;
         int set_flags_errno = 0;
         struct stat st;
@@ -149,7 +149,7 @@ int read_attr_fd(int fd, unsigned *ret) {
 }
 
 int read_attr_path(const char *p, unsigned *ret) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         assert(p);
         assert(ret);

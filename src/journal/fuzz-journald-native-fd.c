@@ -11,7 +11,7 @@
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         Server s;
-        _cleanup_close_ int sealed_fd = -1, unsealed_fd = -1;
+        _cleanup_close_ int sealed_fd = -EBADF, unsealed_fd = -EBADF;
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/fuzz-journald-native-fd.XXXXXX";
         char *label = NULL;
         size_t label_len = 0;

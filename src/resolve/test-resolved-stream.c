@@ -107,7 +107,7 @@ static void server_handle(int fd) {
 }
 
 static void *tcp_dns_server(void *p) {
-        _cleanup_close_ int bindfd = -1, acceptfd = -1;
+        _cleanup_close_ int bindfd = -EBADF, acceptfd = -EBADF;
 
         assert_se((bindfd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0)) >= 0);
         assert_se(setsockopt(bindfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) >= 0);
@@ -125,7 +125,7 @@ static void *tcp_dns_server(void *p) {
 static void *tls_dns_server(void *p) {
         pid_t openssl_pid;
         int r;
-        _cleanup_close_ int fd_server = -1, fd_tls = -1;
+        _cleanup_close_ int fd_server = -EBADF, fd_tls = -EBADF;
         _cleanup_free_ char *cert_path = NULL, *key_path = NULL;
         _cleanup_free_ char *bind_str = NULL;
 
@@ -213,7 +213,7 @@ static void test_dns_stream(bool tls) {
         Manager manager = {};
          _cleanup_(dns_stream_unrefp) DnsStream *stream = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_close_ int clientfd = -1;
+        _cleanup_close_ int clientfd = -EBADF;
         int r;
 
         void *(*server_entrypoint)(void *);
@@ -331,7 +331,7 @@ static void test_dns_stream(bool tls) {
 }
 
 static void try_isolate_network(void) {
-        _cleanup_close_ int socket_fd = -1;
+        _cleanup_close_ int socket_fd = -EBADF;
         int r;
 
         /* First test if CLONE_NEWUSER/CLONE_NEWNET can actually work for us, i.e. we can open the namespaces

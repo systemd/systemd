@@ -344,7 +344,7 @@ static int save_external_coredump(
 
         _cleanup_(unlink_and_freep) char *tmp = NULL;
         _cleanup_free_ char *fn = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         uint64_t rlimit, process_limit, max_size;
         bool truncated, storage_on_tmpfs;
         struct stat st;
@@ -458,7 +458,7 @@ static int save_external_coredump(
         if (arg_compress) {
                 _cleanup_(unlink_and_freep) char *tmp_compressed = NULL;
                 _cleanup_free_ char *fn_compressed = NULL;
-                _cleanup_close_ int fd_compressed = -1;
+                _cleanup_close_ int fd_compressed = -EBADF;
                 uint64_t uncompressed_size = 0;
 
                 if (lseek(fd, 0, SEEK_SET) == (off_t) -1)
@@ -584,7 +584,7 @@ static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_s
  */
 static int compose_open_fds(pid_t pid, char **open_fds) {
         _cleanup_closedir_ DIR *proc_fd_dir = NULL;
-        _cleanup_close_ int proc_fdinfo_fd = -1;
+        _cleanup_close_ int proc_fdinfo_fd = -EBADF;
         _cleanup_free_ char *buffer = NULL;
         _cleanup_fclose_ FILE *stream = NULL;
         const char *fddelim = "", *path;
@@ -610,7 +610,7 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
         FOREACH_DIRENT(de, proc_fd_dir, return -errno) {
                 _cleanup_fclose_ FILE *fdinfo = NULL;
                 _cleanup_free_ char *fdname = NULL;
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
 
                 r = readlinkat_malloc(dirfd(proc_fd_dir), de->d_name, &fdname);
                 if (r < 0)
@@ -656,7 +656,7 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
 static int get_process_ns(pid_t pid, const char *namespace, ino_t *ns) {
         const char *p;
         struct stat stbuf;
-        _cleanup_close_ int proc_ns_dir_fd = -1;
+        _cleanup_close_ int proc_ns_dir_fd = -EBADF;
 
         p = procfs_file_alloca(pid, "ns");
 
@@ -771,7 +771,7 @@ static int submit_coredump(
                 int input_fd) {
 
         _cleanup_(json_variant_unrefp) JsonVariant *json_metadata = NULL;
-        _cleanup_close_ int coredump_fd = -1, coredump_node_fd = -1;
+        _cleanup_close_ int coredump_fd = -EBADF, coredump_node_fd = -EBADF;
         _cleanup_free_ char *filename = NULL, *coredump_data = NULL;
         _cleanup_free_ char *stacktrace = NULL;
         char *core_message;
@@ -976,7 +976,7 @@ static int save_context(Context *context, const struct iovec_wrapper *iovw) {
 }
 
 static int process_socket(int fd) {
-        _cleanup_close_ int input_fd = -1;
+        _cleanup_close_ int input_fd = -EBADF;
         Context context = {};
         struct iovec_wrapper iovw = {};
         struct iovec iovec;
@@ -1074,7 +1074,7 @@ finish:
 }
 
 static int send_iovec(const struct iovec_wrapper *iovw, int input_fd) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         assert(iovw);

@@ -162,7 +162,7 @@ static int set_trackpoint_sensitivity(sd_device *dev, const char *value) {
 static int builtin_keyboard(sd_device *dev, sd_netlink **rtnl, int argc, char *argv[], bool test) {
         unsigned release[1024];
         unsigned release_count = 0;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         const char *node, *key, *value;
         int has_abs = -1, r;
 

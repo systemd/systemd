@@ -28,7 +28,7 @@ static int get_acl(int fd, const char *name, acl_type_t type, acl_t *ret) {
         assert(ret);
 
         if (name) {
-                _cleanup_close_ int child_fd = -1;
+                _cleanup_close_ int child_fd = -EBADF;
 
                 child_fd = openat(fd, name, O_PATH|O_CLOEXEC|O_NOFOLLOW);
                 if (child_fd < 0)
@@ -53,7 +53,7 @@ static int set_acl(int fd, const char *name, acl_type_t type, acl_t acl) {
         assert(acl);
 
         if (name) {
-                _cleanup_close_ int child_fd = -1;
+                _cleanup_close_ int child_fd = -EBADF;
 
                 child_fd = openat(fd, name, O_PATH|O_CLOEXEC|O_NOFOLLOW);
                 if (child_fd < 0)

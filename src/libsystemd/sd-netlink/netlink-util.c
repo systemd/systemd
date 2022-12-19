@@ -658,7 +658,7 @@ static int socket_open(int family) {
 }
 
 int netlink_open_family(sd_netlink **ret, int family) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         fd = socket_open(family);

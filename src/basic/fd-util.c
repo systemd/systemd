@@ -56,11 +56,9 @@ int close_nointr(int fd) {
 }
 
 int safe_close(int fd) {
-
         /*
-         * Like close_nointr() but cannot fail. Guarantees errno is
-         * unchanged. Is a NOP with negative fds passed, and returns
-         * -1, so that it can be used in this syntax:
+         * Like close_nointr() but cannot fail. Guarantees errno is unchanged. Is a noop for negative fds,
+         * and returns -EBADF, so that it can be used in this syntax:
          *
          * fd = safe_close(fd);
          */
@@ -76,7 +74,7 @@ int safe_close(int fd) {
                 assert_se(close_nointr(fd) != -EBADF);
         }
 
-        return -1;
+        return -EBADF;
 }
 
 void safe_close_pair(int p[static 2]) {
@@ -412,7 +410,7 @@ int close_all_fds(const int except[], size_t n_except) {
                 return close_all_fds_frugal(except, n_except); /* ultimate fallback if /proc/ is not available */
 
         FOREACH_DIRENT(de, d, return -errno) {
-                int fd = -1, q;
+                int fd = -EBADF, q;
 
                 if (!IN_SET(de->d_type, DT_LNK, DT_UNKNOWN))
                         continue;
@@ -639,17 +637,19 @@ int rearrange_stdio(int original_input_fd, int original_output_fd, int original_
         };
 
         int r, i,
-                null_fd = -1,                /* if we open /dev/null, we store the fd to it here */
-                copy_fd[3] = { -1, -1, -1 }; /* This contains all fds we duplicate here temporarily, and hence need to close at the end */
+                null_fd = -EBADF,                        /* If we open /dev/null, we store the fd to it here */
+                copy_fd[3] = { -EBADF, -EBADF, -EBADF }; /* This contains all fds we duplicate here
+                                                          * temporarily, and hence need to close at the end. */
         bool null_readable, null_writable;
 
-        /* Sets up stdin, stdout, stderr with the three file descriptors passed in. If any of the descriptors is
-         * specified as -1 it will be connected with /dev/null instead. If any of the file descriptors is passed as
-         * itself (e.g. stdin as STDIN_FILENO) it is left unmodified, but the O_CLOEXEC bit is turned off should it be
-         * on.
+        /* Sets up stdin, stdout, stderr with the three file descriptors passed in. If any of the descriptors
+         * is specified as -EBADF it will be connected with /dev/null instead. If any of the file descriptors
+         * is passed as itself (e.g. stdin as STDIN_FILENO) it is left unmodified, but the O_CLOEXEC bit is
+         * turned off should it be on.
          *
-         * Note that if any of the passed file descriptors are > 2 they will be closed — both on success and on
-         * failure! Thus, callers should assume that when this function returns the input fds are invalidated.
+         * Note that if any of the passed file descriptors are > 2 they will be closed — both on success and
+         * on failure! Thus, callers should assume that when this function returns the input fds are
+         * invalidated.
          *
          * Note that when this function fails stdin/stdout/stderr might remain half set up!
          *
@@ -701,9 +701,9 @@ int rearrange_stdio(int original_input_fd, int original_output_fd, int original_
                 }
         }
 
-        /* At this point we now have the fds to use in fd[], and they are all above the stdio range, so that we
-         * have freedom to move them around. If the fds already were at the right places then the specific fds are
-         * -1. Let's now move them to the right places. This is the point of no return. */
+        /* At this point we now have the fds to use in fd[], and they are all above the stdio range, so that
+         * we have freedom to move them around. If the fds already were at the right places then the specific
+         * fds are -EBADF. Let's now move them to the right places. This is the point of no return. */
         for (i = 0; i < 3; i++) {
 
                 if (fd[i] == i) {
@@ -800,7 +800,7 @@ int fd_reopen_condition(
                 return -errno;
 
         if ((r & mask) == (flags & mask)) {
-                *ret_new_fd = -1;
+                *ret_new_fd = -EBADF;
                 return fd;
         }
 

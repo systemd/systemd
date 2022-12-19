@@ -213,7 +213,7 @@ int lock_whole_disk_from_devname(const char *devname, int open_flags, int flock_
 
     // take the fd to avoid automatic cleanup
     int ret_fd = fd;
-    fd = -1;
+    fd = -EBADF;
     return ret_fd;
 }
 

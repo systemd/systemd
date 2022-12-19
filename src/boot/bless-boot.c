@@ -360,7 +360,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                   left, done);
 
         STRV_FOREACH(p, arg_path) {
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
 
                 fd = open(*p, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
                 if (fd < 0) {
@@ -439,7 +439,7 @@ static int verb_set(int argc, char *argv[], void *userdata) {
         }
 
         STRV_FOREACH(p, arg_path) {
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
 
                 fd = open(*p, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
                 if (fd < 0)

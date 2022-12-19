@@ -276,7 +276,7 @@ TEST(path_is_mount_point) {
 }
 
 TEST(fd_is_mount_point) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);

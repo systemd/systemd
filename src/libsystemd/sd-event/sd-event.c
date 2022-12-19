@@ -378,22 +378,22 @@ _public_ int sd_event_new(sd_event** ret) {
 
         *e = (sd_event) {
                 .n_ref = 1,
-                .epoll_fd = -1,
-                .watchdog_fd = -1,
+                .epoll_fd = -EBADF,
+                .watchdog_fd = -EBADF,
                 .realtime.wakeup = WAKEUP_CLOCK_DATA,
-                .realtime.fd = -1,
+                .realtime.fd = -EBADF,
                 .realtime.next = USEC_INFINITY,
                 .boottime.wakeup = WAKEUP_CLOCK_DATA,
-                .boottime.fd = -1,
+                .boottime.fd = -EBADF,
                 .boottime.next = USEC_INFINITY,
                 .monotonic.wakeup = WAKEUP_CLOCK_DATA,
-                .monotonic.fd = -1,
+                .monotonic.fd = -EBADF,
                 .monotonic.next = USEC_INFINITY,
                 .realtime_alarm.wakeup = WAKEUP_CLOCK_DATA,
-                .realtime_alarm.fd = -1,
+                .realtime_alarm.fd = -EBADF,
                 .realtime_alarm.next = USEC_INFINITY,
                 .boottime_alarm.wakeup = WAKEUP_CLOCK_DATA,
-                .boottime_alarm.fd = -1,
+                .boottime_alarm.fd = -EBADF,
                 .boottime_alarm.next = USEC_INFINITY,
                 .perturb = USEC_INFINITY,
                 .original_pid = getpid_cached(),
@@ -643,7 +643,7 @@ static int event_make_signal_data(
 
                 *d = (struct signal_data) {
                         .wakeup = WAKEUP_SIGNAL_DATA,
-                        .fd = -1,
+                        .fd = -EBADF,
                         .priority = priority,
                 };
 
@@ -1180,7 +1180,7 @@ static int event_setup_timer_fd(
         if (_likely_(d->fd >= 0))
                 return 0;
 
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         fd = timerfd_create(clock, TFD_NONBLOCK|TFD_CLOEXEC);
         if (fd < 0)
@@ -1516,7 +1516,7 @@ _public_ int sd_event_add_child(
                 } else
                         s->child.pidfd_owned = true; /* If we allocate the pidfd we own it by default */
         } else
-                s->child.pidfd = -1;
+                s->child.pidfd = -EBADF;
 
         if (EVENT_SOURCE_WATCH_PIDFD(s)) {
                 /* We have a pidfd and we only want to watch for exit */
@@ -1779,7 +1779,7 @@ static int event_make_inotify_data(
                 int64_t priority,
                 struct inotify_data **ret) {
 
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         struct inotify_data *d;
         int r;
 
@@ -1976,7 +1976,7 @@ static int event_make_inode_data(
                 .dev = dev,
                 .ino = ino,
                 .wd = -1,
-                .fd = -1,
+                .fd = -EBADF,
                 .inotify_data = inotify_data,
         };
 

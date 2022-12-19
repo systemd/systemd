@@ -73,7 +73,7 @@ static int get_current_uevent_seqnum(uint64_t *ret) {
 }
 
 static int open_lock_fd(int primary_fd, int operation) {
-        _cleanup_close_ int lock_fd = -1;
+        _cleanup_close_ int lock_fd = -EBADF;
 
         assert(primary_fd >= 0);
         assert(IN_SET(operation & ~LOCK_NB, LOCK_SH, LOCK_EX));
@@ -238,8 +238,8 @@ static int loop_configure(
         static bool loop_configure_broken = false;
 
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-        _cleanup_(cleanup_clear_loop_close) int loop_with_fd = -1; /* This must be declared before lock_fd. */
-        _cleanup_close_ int fd = -1, lock_fd = -1;
+        _cleanup_(cleanup_clear_loop_close) int loop_with_fd = -EBADF; /* This must be declared before lock_fd. */
+        _cleanup_close_ int fd = -EBADF, lock_fd = -EBADF;
         _cleanup_free_ char *node = NULL;
         uint64_t diskseq = 0, seqnum = UINT64_MAX;
         usec_t timestamp = USEC_INFINITY;
@@ -409,7 +409,7 @@ static int loop_device_make_internal(
                 LoopDevice **ret) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-        _cleanup_close_ int direct_io_fd = -1, control = -1;
+        _cleanup_close_ int direct_io_fd = -EBADF, control = -EBADF;
         _cleanup_free_ char *backing_file = NULL;
         struct loop_config config;
         int r, f_flags;
@@ -588,7 +588,7 @@ int loop_device_make_by_path(
                 LoopDevice **ret) {
 
         int r, basic_flags, direct_flags, rdwr_flags;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         bool direct = false;
 
         assert(path);
@@ -776,7 +776,7 @@ int loop_device_open(
                 int lock_op,
                 LoopDevice **ret) {
 
-        _cleanup_close_ int fd = -1, lock_fd = -1;
+        _cleanup_close_ int fd = -EBADF, lock_fd = -EBADF;
         _cleanup_free_ char *node = NULL, *backing_file = NULL;
         struct loop_info64 info;
         uint64_t diskseq = 0;
@@ -896,7 +896,7 @@ static int resize_partition(int partition_fd, uint64_t offset, uint64_t size) {
         char sysfs[STRLEN("/sys/dev/block/:/partition") + 2*DECIMAL_STR_MAX(dev_t) + 1];
         _cleanup_free_ char *buffer = NULL;
         uint64_t current_offset, current_size, partno;
-        _cleanup_close_ int whole_fd = -1;
+        _cleanup_close_ int whole_fd = -EBADF;
         struct stat st;
         dev_t devno;
         int r;

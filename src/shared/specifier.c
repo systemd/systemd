@@ -188,7 +188,7 @@ int specifier_machine_id(char specifier, const void *data, const char *root, con
         assert(ret);
 
         if (root) {
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
 
                 fd = chase_symlinks_and_open("/etc/machine-id", root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
                 if (fd < 0)

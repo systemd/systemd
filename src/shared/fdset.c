@@ -131,7 +131,7 @@ int fdset_new_fill(FDSet **_s) {
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
-                int fd = -1;
+                int fd = -EBADF;
 
                 r = safe_atoi(de->d_name, &fd);
                 if (r < 0)

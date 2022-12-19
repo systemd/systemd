@@ -560,7 +560,7 @@ static int vacuum_offline_user_journals(Server *s) {
 
         for (;;) {
                 _cleanup_free_ char *u = NULL, *full = NULL;
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
                 const char *a, *b;
                 struct dirent *de;
                 ManagedJournalFile *f;
@@ -2299,19 +2299,19 @@ static int set_namespace(Server *s, const char *namespace) {
 int server_init(Server *s, const char *namespace) {
         const char *native_socket, *syslog_socket, *stdout_socket, *varlink_socket, *e;
         _cleanup_fdset_free_ FDSet *fds = NULL;
-        int n, r, fd, varlink_fd = -1;
+        int n, r, fd, varlink_fd = -EBADF;
         bool no_sockets;
 
         assert(s);
 
         *s = (Server) {
-                .syslog_fd = -1,
-                .native_fd = -1,
-                .stdout_fd = -1,
-                .dev_kmsg_fd = -1,
-                .audit_fd = -1,
-                .hostname_fd = -1,
-                .notify_fd = -1,
+                .syslog_fd = -EBADF,
+                .native_fd = -EBADF,
+                .stdout_fd = -EBADF,
+                .dev_kmsg_fd = -EBADF,
+                .audit_fd = -EBADF,
+                .hostname_fd = -EBADF,
+                .notify_fd = -EBADF,
 
                 .compress.enabled = true,
                 .compress.threshold_bytes = UINT64_MAX,

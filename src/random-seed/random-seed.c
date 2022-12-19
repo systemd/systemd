@@ -320,7 +320,7 @@ static int refresh_boot_seed(void) {
         struct sha256_ctx hash_state;
         _cleanup_free_ void *seed_file_bytes = NULL;
         _cleanup_free_ char *esp_path = NULL;
-        _cleanup_close_ int seed_fd = -1, dir_fd = -1;
+        _cleanup_close_ int seed_fd = -EBADF, dir_fd = -EBADF;
         size_t len;
         ssize_t n;
         int r;
@@ -485,7 +485,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_free_ struct sha256_ctx *hash_state = NULL;
-        _cleanup_close_ int seed_fd = -1, random_fd = -1;
+        _cleanup_close_ int seed_fd = -EBADF, random_fd = -EBADF;
         bool read_seed_file, write_seed_file, synchronous;
         size_t seed_size;
         int r;

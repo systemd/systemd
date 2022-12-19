@@ -188,7 +188,7 @@ int mac_smack_fix_full(
                 const char *label_path,
                 LabelFixFlags flags) {
 
-        _cleanup_close_ int opened_fd = -1;
+        _cleanup_close_ int opened_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r, inode_fd;
 

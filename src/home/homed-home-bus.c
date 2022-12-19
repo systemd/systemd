@@ -597,7 +597,7 @@ int bus_home_method_acquire(
 
         _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
         _cleanup_(operation_unrefp) Operation *o = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r, please_suspend;
         Home *h = ASSERT_PTR(userdata);
 
@@ -635,7 +635,7 @@ int bus_home_method_ref(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         Home *h = ASSERT_PTR(userdata);
         HomeState state;
         int please_suspend, r;

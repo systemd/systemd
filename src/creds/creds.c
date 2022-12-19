@@ -137,7 +137,7 @@ static int add_credentials_to_table(Table *t, bool encrypted) {
         for (;;) {
                 _cleanup_free_ char *j = NULL;
                 const char *secure, *secure_color = NULL;
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
                 struct dirent *de;
                 struct stat st;
 

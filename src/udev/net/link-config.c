@@ -97,7 +97,7 @@ int link_config_ctx_new(LinkConfigContext **ret) {
                 return -ENOMEM;
 
         *ctx = (LinkConfigContext) {
-                .ethtool_fd = -1,
+                .ethtool_fd = -EBADF,
         };
 
         *ret = TAKE_PTR(ctx);

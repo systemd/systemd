@@ -205,7 +205,7 @@ static int enumerate_binaries(
 
         FOREACH_DIRENT(de, d, break) {
                 _cleanup_free_ char *v = NULL;
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
 
                 if (!endswith_no_case(de->d_name, ".efi"))
                         continue;

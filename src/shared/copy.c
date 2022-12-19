@@ -713,7 +713,7 @@ static int fd_copy_regular(
                 copy_progress_bytes_t progress,
                 void *userdata) {
 
-        _cleanup_close_ int fdf = -1, fdt = -1;
+        _cleanup_close_ int fdf = -EBADF, fdt = -EBADF;
         int r, q;
 
         assert(from);
@@ -904,11 +904,11 @@ static int fd_copy_directory(
                 void *userdata) {
 
         _cleanup_(hardlink_context_destroy) HardlinkContext our_hardlink_context = {
-                .dir_fd = -1,
-                .parent_fd = -1,
+                .dir_fd = -EBADF,
+                .parent_fd = -EBADF,
         };
 
-        _cleanup_close_ int fdf = -1, fdt = -1;
+        _cleanup_close_ int fdf = -EBADF, fdt = -EBADF;
         _cleanup_closedir_ DIR *d = NULL;
         bool exists, created;
         int r;
@@ -1286,7 +1286,7 @@ int copy_file_fd_full(
                 copy_progress_bytes_t progress_bytes,
                 void *userdata) {
 
-        _cleanup_close_ int fdf = -1;
+        _cleanup_close_ int fdf = -EBADF;
         struct stat st;
         int r;
 
@@ -1339,7 +1339,7 @@ int copy_file_full(
                 copy_progress_bytes_t progress_bytes,
                 void *userdata) {
 
-        _cleanup_close_ int fdf = -1, fdt = -1;
+        _cleanup_close_ int fdf = -EBADF, fdt = -EBADF;
         struct stat st;
         int r;
 
@@ -1428,7 +1428,7 @@ int copy_file_atomic_full(
                 void *userdata) {
 
         _cleanup_(unlink_and_freep) char *t = NULL;
-        _cleanup_close_ int fdt = -1;
+        _cleanup_close_ int fdt = -EBADF;
         int r;
 
         assert(from);

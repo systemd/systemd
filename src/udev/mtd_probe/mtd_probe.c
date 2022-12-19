@@ -33,7 +33,7 @@
 #include "mtd_probe.h"
 
 int main(int argc, char** argv) {
-        _cleanup_close_ int mtd_fd = -1;
+        _cleanup_close_ int mtd_fd = -EBADF;
         mtd_info_t mtd_info;
 
         if (argc != 2) {

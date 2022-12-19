@@ -211,7 +211,7 @@ int mkdir_p_safe(const char *prefix, const char *path, mode_t mode, uid_t uid, g
 
 int mkdir_p_root(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m) {
         _cleanup_free_ char *pp = NULL, *bn = NULL;
-        _cleanup_close_ int dfd = -1;
+        _cleanup_close_ int dfd = -EBADF;
         int r;
 
         r = path_extract_directory(p, &pp);
@@ -250,7 +250,7 @@ int mkdir_p_root(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m
         }
 
         if (uid_is_valid(uid) || gid_is_valid(gid)) {
-                _cleanup_close_ int nfd = -1;
+                _cleanup_close_ int nfd = -EBADF;
 
                 nfd = openat(dfd, bn, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
                 if (nfd < 0)

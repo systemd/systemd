@@ -570,7 +570,7 @@ int udev_queue_is_empty(void) {
 }
 
 int udev_queue_init(void) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         fd = inotify_init1(IN_CLOEXEC);
         if (fd < 0)

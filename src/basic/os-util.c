@@ -227,7 +227,7 @@ int open_extension_release(const char *root, const char *extension, bool relax_e
 
 int fopen_extension_release(const char *root, const char *extension, bool relax_extension_release_check, char **ret_path, FILE **ret_file) {
         _cleanup_free_ char *p = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         FILE *f;
         int r;
 

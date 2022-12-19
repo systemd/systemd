@@ -399,7 +399,7 @@ int main(int argc, char *argv[]) {
         char revision[9];
         const char *node = NULL;
         int export = 0;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         uint16_t word;
         int is_packet_device = 0;
         static const struct option options[] = {

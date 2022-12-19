@@ -14,7 +14,7 @@
 
 static int builtin_btrfs(sd_device *dev, sd_netlink **rtnl, int argc, char *argv[], bool test) {
         struct btrfs_ioctl_vol_args args = {};
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         if (argc != 3 || !streq(argv[1], "ready"))

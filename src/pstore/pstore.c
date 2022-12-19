@@ -174,7 +174,7 @@ static int move_file(PStoreEntry *pe, const char *subdir1, const char *subdir2) 
 static int append_dmesg(PStoreEntry *pe, const char *subdir1, const char *subdir2) {
         /* Append dmesg chunk to end, create if needed */
         _cleanup_free_ char *ofd_path = NULL;
-        _cleanup_close_ int ofd = -1;
+        _cleanup_close_ int ofd = -EBADF;
         ssize_t wr;
 
         assert(pe);

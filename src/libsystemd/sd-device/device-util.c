@@ -35,7 +35,7 @@ int devname_from_devnum(mode_t mode, dev_t devnum, char **ret) {
 
 int device_open_from_devnum(mode_t mode, dev_t devnum, int flags, char **ret) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         r = device_new_from_mode_and_devnum(&dev, mode, devnum);

@@ -554,13 +554,13 @@ int manager_new(Manager **ret) {
                 return -ENOMEM;
 
         *m = (Manager) {
-                .llmnr_ipv4_udp_fd = -1,
-                .llmnr_ipv6_udp_fd = -1,
-                .llmnr_ipv4_tcp_fd = -1,
-                .llmnr_ipv6_tcp_fd = -1,
-                .mdns_ipv4_fd = -1,
-                .mdns_ipv6_fd = -1,
-                .hostname_fd = -1,
+                .llmnr_ipv4_udp_fd = -EBADF,
+                .llmnr_ipv6_udp_fd = -EBADF,
+                .llmnr_ipv4_tcp_fd = -EBADF,
+                .llmnr_ipv6_tcp_fd = -EBADF,
+                .mdns_ipv4_fd = -EBADF,
+                .mdns_ipv6_fd = -EBADF,
+                .hostname_fd = -EBADF,
 
                 .llmnr_support = DEFAULT_LLMNR_MODE,
                 .mdns_support = DEFAULT_MDNS_MODE,

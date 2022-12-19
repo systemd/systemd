@@ -90,8 +90,8 @@ int tar_export_new(
                 return -ENOMEM;
 
         *e = (TarExport) {
-                .output_fd = -1,
-                .tar_fd = -1,
+                .output_fd = -EBADF,
+                .tar_fd = -EBADF,
                 .on_finished = on_finished,
                 .userdata = userdata,
                 .quota_referenced = UINT64_MAX,
@@ -250,7 +250,7 @@ static int tar_export_on_defer(sd_event_source *s, void *userdata) {
 }
 
 int tar_export_start(TarExport *e, const char *path, int fd, ImportCompressType compress) {
-        _cleanup_close_ int sfd = -1;
+        _cleanup_close_ int sfd = -EBADF;
         int r;
 
         assert(e);

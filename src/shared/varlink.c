@@ -258,7 +258,7 @@ static int varlink_new(Varlink **ret) {
 
         *v = (Varlink) {
                 .n_ref = 1,
-                .fd = -1,
+                .fd = -EBADF,
 
                 .state = _VARLINK_STATE_INVALID,
 
@@ -2194,7 +2194,7 @@ int varlink_server_add_connection(VarlinkServer *server, int fd, Varlink **ret) 
                 r = varlink_attach_event(v, server->event, server->event_priority);
                 if (r < 0) {
                         varlink_log_errno(v, r, "Failed to attach new connection: %m");
-                        v->fd = -1; /* take the fd out of the connection again */
+                        v->fd = -EBADF; /* take the fd out of the connection again */
                         varlink_close(v);
                         return r;
                 }
@@ -2218,7 +2218,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(VarlinkServerSocket *, varlink_server_socket_free);
 
 static int connect_callback(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         VarlinkServerSocket *ss = ASSERT_PTR(userdata);
-        _cleanup_close_ int cfd = -1;
+        _cleanup_close_ int cfd = -EBADF;
         Varlink *v = NULL;
         int r;
 
@@ -2306,7 +2306,7 @@ int varlink_server_listen_address(VarlinkServer *s, const char *address, mode_t 
         _cleanup_(varlink_server_socket_freep) VarlinkServerSocket *ss = NULL;
         union sockaddr_union sockaddr;
         socklen_t sockaddr_len;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         assert_return(s, -EINVAL);
@@ -2619,7 +2619,7 @@ int varlink_server_deserialize_one(VarlinkServer *s, const char *value, FDSet *f
         _cleanup_(varlink_server_socket_freep) VarlinkServerSocket *ss = NULL;
         _cleanup_free_ char *address = NULL;
         const char *v = ASSERT_PTR(value);
-        int r, fd = -1;
+        int r, fd = -EBADF;
         char *buf;
         size_t n;
 

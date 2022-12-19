@@ -18,7 +18,7 @@
 TEST(getxattr_at_malloc) {
         char t[] = "/var/tmp/xattrtestXXXXXX";
         _cleanup_free_ char *value = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         const char *x;
         int r;
 
@@ -60,7 +60,7 @@ cleanup:
 }
 
 TEST(getcrtime) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         const char *vt;
         usec_t usec, k;
         int r;

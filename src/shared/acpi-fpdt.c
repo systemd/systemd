@@ -100,7 +100,7 @@ int acpi_get_boot_usec(usec_t *ret_loader_start, usec_t *ret_loader_exit) {
         struct acpi_fpdt_header *rec;
         int r;
         uint64_t ptr = 0;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         struct acpi_fpdt_boot_header hbrec;
         struct acpi_fpdt_boot brec;
 

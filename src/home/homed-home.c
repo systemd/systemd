@@ -135,11 +135,11 @@ int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret) {
                 .user_name = TAKE_PTR(nm),
                 .uid = hr->uid,
                 .state = _HOME_STATE_INVALID,
-                .worker_stdout_fd = -1,
+                .worker_stdout_fd = -EBADF,
                 .sysfs = TAKE_PTR(ns),
                 .signed_locally = -1,
-                .pin_fd = -1,
-                .luks_lock_fd = -1,
+                .pin_fd = -EBADF,
+                .luks_lock_fd = -EBADF,
         };
 
         r = hashmap_put(m->homes_by_name, home->user_name, home);
@@ -1137,7 +1137,7 @@ static int home_on_worker_process(sd_event_source *s, const siginfo_t *si, void 
 static int home_start_work(Home *h, const char *verb, UserRecord *hr, UserRecord *secret) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_(erase_and_freep) char *formatted = NULL;
-        _cleanup_close_ int stdin_fd = -1, stdout_fd = -1;
+        _cleanup_close_ int stdin_fd = -EBADF, stdout_fd = -EBADF;
         pid_t pid = 0;
         int r;
 
@@ -1496,7 +1496,7 @@ int home_create(Home *h, UserRecord *secret, sd_bus_error *error) {
                 if (IN_SET(t, USER_TEST_MAYBE, USER_TEST_UNDEFINED))
                         break; /* And if the image path test isn't conclusive, let's also go on */
 
-                if (IN_SET(t, -EBADFD, -ENOTDIR))
+                if (IN_SET(t, -EBADF, -ENOTDIR))
                         return sd_bus_error_setf(error, BUS_ERROR_HOME_EXISTS, "Selected home image of user %s already exists or has wrong inode type.", h->user_name);
 
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_EXISTS, "Selected home image of user %s already exists.", h->user_name);
@@ -2630,7 +2630,7 @@ static int on_home_ref_eof(sd_event_source *s, int fd, uint32_t revents, void *u
 }
 
 int home_create_fifo(Home *h, bool please_suspend) {
-        _cleanup_close_ int ret_fd = -1;
+        _cleanup_close_ int ret_fd = -EBADF;
         sd_event_source **ss;
         const char *fn, *suffix;
         int r;
@@ -2648,7 +2648,7 @@ int home_create_fifo(Home *h, bool please_suspend) {
         fn = strjoina("/run/systemd/home/", h->user_name, suffix);
 
         if (!*ss) {
-                _cleanup_close_ int ref_fd = -1;
+                _cleanup_close_ int ref_fd = -EBADF;
 
                 (void) mkdir("/run/systemd/home/", 0755);
                 if (mkfifo(fn, 0600) < 0 && errno != EEXIST)

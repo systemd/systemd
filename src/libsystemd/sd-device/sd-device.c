@@ -145,7 +145,7 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
         assert(_syspath);
 
         if (verify) {
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
 
                 /* The input path maybe a symlink located outside of /sys. Let's try to chase the symlink at first.
                  * The primary usecase is that e.g. /proc/device-tree is a symlink to /sys/firmware/devicetree/base.
@@ -2535,7 +2535,7 @@ _public_ int sd_device_trigger_with_uuid(
 }
 
 _public_ int sd_device_open(sd_device *device, int flags) {
-        _cleanup_close_ int fd = -1, fd2 = -1;
+        _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
         const char *devname, *subsystem = NULL;
         uint64_t q, diskseq = 0;
         struct stat st;

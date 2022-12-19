@@ -447,7 +447,7 @@ _public_ int sd_pid_notify_with_fds(
                 .msg_iovlen = 1,
                 .msg_name = &sockaddr,
         };
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         struct cmsghdr *cmsg = NULL;
         const char *e;
         bool send_ucred;

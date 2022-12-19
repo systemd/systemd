@@ -146,7 +146,7 @@ static int finalize_credentials_dir(const char *dir, const char *envvar) {
 
 static int import_credentials_boot(void) {
         _cleanup_(import_credentials_context_free) ImportCredentialContext context = {
-                .target_dir_fd = -1,
+                .target_dir_fd = -EBADF,
         };
         int r;
 
@@ -165,7 +165,7 @@ static int import_credentials_boot(void) {
                        "/.extra/global_credentials/") { /* boot partition wide */
 
                 _cleanup_free_ DirectoryEntries *de = NULL;
-                _cleanup_close_ int source_dir_fd = -1;
+                _cleanup_close_ int source_dir_fd = -EBADF;
 
                 source_dir_fd = open(p, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
                 if (source_dir_fd < 0) {
@@ -186,7 +186,7 @@ static int import_credentials_boot(void) {
 
                 for (size_t i = 0; i < de->n_entries; i++) {
                         const struct dirent *d = de->entries[i];
-                        _cleanup_close_ int cfd = -1, nfd = -1;
+                        _cleanup_close_ int cfd = -EBADF, nfd = -EBADF;
                         _cleanup_free_ char *n = NULL;
                         const char *e;
                         struct stat st;
@@ -294,7 +294,7 @@ static int acquire_credential_directory(ImportCredentialContext *c) {
 static int proc_cmdline_callback(const char *key, const char *value, void *data) {
         ImportCredentialContext *c = ASSERT_PTR(data);
         _cleanup_free_ char *n = NULL;
-        _cleanup_close_ int nfd = -1;
+        _cleanup_close_ int nfd = -EBADF;
         const char *colon;
         size_t l;
         int r;
@@ -365,7 +365,7 @@ static int import_credentials_proc_cmdline(ImportCredentialContext *c) {
 
 static int import_credentials_qemu(ImportCredentialContext *c) {
         _cleanup_free_ DirectoryEntries *de = NULL;
-        _cleanup_close_ int source_dir_fd = -1;
+        _cleanup_close_ int source_dir_fd = -EBADF;
         int r;
 
         assert(c);
@@ -389,7 +389,7 @@ static int import_credentials_qemu(ImportCredentialContext *c) {
 
         for (size_t i = 0; i < de->n_entries; i++) {
                 const struct dirent *d = de->entries[i];
-                _cleanup_close_ int vfd = -1, rfd = -1, nfd = -1;
+                _cleanup_close_ int vfd = -EBADF, rfd = -EBADF, nfd = -EBADF;
                 _cleanup_free_ char *szs = NULL;
                 uint64_t sz;
 
@@ -468,7 +468,7 @@ static int parse_smbios_strings(ImportCredentialContext *c, const char *data, si
         for (p = data, left = size; left > 0; p += skip, left -= skip) {
                 _cleanup_free_ void *buf = NULL;
                 _cleanup_free_ char *cn = NULL;
-                _cleanup_close_ int nfd = -1;
+                _cleanup_close_ int nfd = -EBADF;
                 const char *nul, *n, *eq;
                 const void *cdata;
                 size_t buflen, cdata_len;
@@ -606,7 +606,7 @@ static int import_credentials_smbios(ImportCredentialContext *c) {
 
 static int import_credentials_trusted(void) {
         _cleanup_(import_credentials_context_free) ImportCredentialContext c = {
-                .target_dir_fd = -1,
+                .target_dir_fd = -EBADF,
         };
         int q, w, r;
 

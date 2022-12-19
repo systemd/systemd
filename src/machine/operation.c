@@ -81,7 +81,7 @@ int operation_new(Manager *manager, Machine *machine, pid_t child, sd_bus_messag
         if (!o)
                 return -ENOMEM;
 
-        o->extra_fd = -1;
+        o->extra_fd = -EBADF;
 
         r = sd_event_add_child(manager->event, &o->event_source, child, WEXITED, operation_done, o);
         if (r < 0) {

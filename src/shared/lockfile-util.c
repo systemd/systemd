@@ -16,7 +16,7 @@
 #include "path-util.h"
 
 int make_lock_file(const char *p, int operation, LockFile *ret) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *t = NULL;
         int r;
 
@@ -76,7 +76,7 @@ int make_lock_file(const char *p, int operation, LockFile *ret) {
         ret->fd = fd;
         ret->operation = operation;
 
-        fd = -1;
+        fd = -EBADF;
         t = NULL;
 
         return r;

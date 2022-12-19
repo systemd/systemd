@@ -92,7 +92,7 @@ static int run(int argc, char **argv) {
 
         for (int i = optind; i < argc; i++) {
                 _cleanup_free_ char *p = NULL;
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
 
                 printf("%s ", argv[i]);
                 fflush(stdout);
@@ -105,7 +105,7 @@ static int run(int argc, char **argv) {
                         if (arg_open)
                                 assert_se(fd >= 0);
                         else
-                                assert_se(fd == -1);
+                                assert_se(fd == -EBADF);
                 }
         }
 

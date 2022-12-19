@@ -31,7 +31,7 @@ static int netlink_new(sd_netlink **ret) {
 
         *nl = (sd_netlink) {
                 .n_ref = 1,
-                .fd = -1,
+                .fd = -EBADF,
                 .sockaddr.nl.nl_family = AF_NETLINK,
                 .original_pid = getpid_cached(),
                 .protocol = -1,
@@ -93,7 +93,7 @@ int sd_netlink_open_fd(sd_netlink **ret, int fd) {
 
         r = socket_bind(nl);
         if (r < 0) {
-                nl->fd = -1; /* on failure, the caller remains owner of the fd, hence don't close it here */
+                nl->fd = -EBADF; /* on failure, the caller remains owner of the fd, hence don't close it here */
                 nl->protocol = -1;
                 return r;
         }

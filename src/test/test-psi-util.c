@@ -11,7 +11,7 @@
 
 TEST(read_mem_pressure) {
         _cleanup_(unlink_tempfilep) char path[] = "/tmp/pressurereadtestXXXXXX";
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         ResourcePressure rp;
 
         if (geteuid() != 0)

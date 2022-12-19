@@ -1499,7 +1499,7 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
                 .ia_pd.type = SD_DHCP6_OPTION_IA_PD,
                 .ifindex = -1,
                 .request_ia = DHCP6_REQUEST_IA_NA | DHCP6_REQUEST_IA_PD,
-                .fd = -1,
+                .fd = -EBADF,
                 .rapid_commit = true,
         };
 

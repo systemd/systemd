@@ -351,7 +351,7 @@ static int dns_scope_socket(
                 uint16_t port,
                 union sockaddr_union *ret_socket_address) {
 
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         union sockaddr_union sa;
         socklen_t salen;
         int r, ifindex;

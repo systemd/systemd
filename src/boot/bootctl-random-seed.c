@@ -19,7 +19,7 @@ int install_random_seed(const char *esp) {
         _cleanup_(unlink_and_freep) char *tmp = NULL;
         uint8_t buffer[RANDOM_EFI_SEED_SIZE];
         _cleanup_free_ char *path = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         size_t token_size;
         ssize_t n;
         int r;

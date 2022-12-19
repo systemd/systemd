@@ -265,7 +265,7 @@ static void path_spec_dump(PathSpec *s, FILE *f, const char *prefix) {
 
 void path_spec_done(PathSpec *s) {
         assert(s);
-        assert(s->inotify_fd == -1);
+        assert(s->inotify_fd == -EBADF);
 
         free(s->path);
 }

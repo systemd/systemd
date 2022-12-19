@@ -200,9 +200,9 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
 
         *server = (sd_dhcp_server) {
                 .n_ref = 1,
-                .fd_raw = -1,
-                .fd = -1,
-                .fd_broadcast = -1,
+                .fd_raw = -EBADF,
+                .fd = -EBADF,
+                .fd_broadcast = -EBADF,
                 .address = htobe32(INADDR_ANY),
                 .netmask = htobe32(INADDR_ANY),
                 .ifindex = ifindex,
