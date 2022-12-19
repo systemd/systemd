@@ -9,6 +9,7 @@
 #include "fd-util.h"
 #include "find-esp.h"
 #include "fs-util.h"
+#include "io-util.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "random-util.h"
@@ -16,53 +17,47 @@
 #include "umask-util.h"
 
 int install_random_seed(const char *esp) {
-        _cleanup_(unlink_and_freep) char *tmp = NULL;
+        _cleanup_close_ int esp_fd = -EBADF, loader_dir_fd = -EBADF, fd = -EBADF;
+        _cleanup_free_ char *tmp = NULL;
         uint8_t buffer[RANDOM_EFI_SEED_SIZE];
-        _cleanup_free_ char *path = NULL;
-        _cleanup_close_ int fd = -EBADF;
         size_t token_size;
-        ssize_t n;
         int r;
 
         assert(esp);
 
-        path = path_join(esp, "/loader/random-seed");
-        if (!path)
-                return log_oom();
+        esp_fd = open(esp, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+        if (esp_fd < 0)
+                return log_error_errno(errno, "Failed to open ESP directory '%s': %m", esp);
+
+        loader_dir_fd = open_mkdir_at(esp_fd, "loader", O_DIRECTORY|O_RDONLY|O_CLOEXEC|O_NOFOLLOW, 0775);
+        if (loader_dir_fd < 0)
+                return log_error_errno(loader_dir_fd, "Failed to open loader directory '%s/loader': %m", esp);
 
         r = crypto_random_bytes(buffer, sizeof(buffer));
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire random seed: %m");
 
-        /* Normally create_subdirs() should already have created everything we need, but in case "bootctl
-         * random-seed" is called we want to just create the minimum we need for it, and not the full
-         * list. */
-        r = mkdir_parents(path, 0755);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create parent directory for %s: %m", path);
-
-        r = tempfn_random(path, "bootctl", &tmp);
-        if (r < 0)
+        if (tempfn_random("random-seed", "bootctl", &tmp) < 0)
                 return log_oom();
 
-        fd = open(tmp, O_CREAT|O_EXCL|O_NOFOLLOW|O_NOCTTY|O_WRONLY|O_CLOEXEC, 0600);
-        if (fd < 0) {
-                tmp = mfree(tmp);
+        fd = openat(loader_dir_fd, tmp, O_CREAT|O_EXCL|O_NOFOLLOW|O_NOCTTY|O_WRONLY|O_CLOEXEC, 0600);
+        if (fd < 0)
                 return log_error_errno(fd, "Failed to open random seed file for writing: %m");
+
+        r = loop_write(fd, buffer, sizeof(buffer), /* do_poll= */ false);
+        if (r < 0) {
+                log_error_errno(r, "Failed to write random seed file: %m");
+                goto fail;
         }
 
-        n = write(fd, buffer, sizeof(buffer));
-        if (n < 0)
-                return log_error_errno(errno, "Failed to write random seed file: %m");
-        if ((size_t) n != sizeof(buffer))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write while writing random seed file.");
-
-        if (rename(tmp, path) < 0)
-                return log_error_errno(errno, "Failed to move random seed file into place: %m");
+        if (renameat(loader_dir_fd, tmp, loader_dir_fd, "random-seed") < 0) {
+                r = log_error_errno(errno, "Failed to move random seed file into place: %m");
+                goto fail;
+        }
 
         tmp = mfree(tmp);
 
-        log_info("Random seed file %s successfully written (%zu bytes).", path, sizeof(buffer));
+        log_info("Random seed file %s/loader/random-seed successfully written (%zu bytes).", esp, sizeof(buffer));
 
         if (!arg_touch_variables)
                 return 0;
@@ -125,6 +120,12 @@ int install_random_seed(const char *esp) {
         }
 
         return 0;
+
+fail:
+        if (tmp)
+                (void) unlinkat(loader_dir_fd, tmp, 0);
+
+        return r;
 }
 
 int verb_random_seed(int argc, char *argv[], void *userdata) {
