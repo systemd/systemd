@@ -223,7 +223,7 @@ TEST(getpeercred_getpeergroups) {
 
 TEST(passfd_read) {
         static const char file_contents[] = "test contents for passfd";
-        _cleanup_close_pair_ int pair[2] = { -1, -1 };
+        _cleanup_close_pair_ int pair[2];
         int r;
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
@@ -263,7 +263,7 @@ TEST(passfd_read) {
 }
 
 TEST(passfd_contents_read) {
-        _cleanup_close_pair_ int pair[2] = { -1, -1 };
+        _cleanup_close_pair_ int pair[2];
         static const char file_contents[] = "test contents in the file";
         static const char wire_contents[] = "test contents on the wire";
         int r;
@@ -311,7 +311,7 @@ TEST(passfd_contents_read) {
 }
 
 TEST(receive_nopassfd) {
-        _cleanup_close_pair_ int pair[2] = { -1, -1 };
+        _cleanup_close_pair_ int pair[2];
         static const char wire_contents[] = "no fd passed here";
         int r;
 
@@ -348,7 +348,7 @@ TEST(receive_nopassfd) {
 }
 
 TEST(send_nodata_nofd) {
-        _cleanup_close_pair_ int pair[2] = { -1, -1 };
+        _cleanup_close_pair_ int pair[2];
         int r;
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
@@ -381,7 +381,7 @@ TEST(send_nodata_nofd) {
 }
 
 TEST(send_emptydata) {
-        _cleanup_close_pair_ int pair[2] = { -1, -1 };
+        _cleanup_close_pair_ int pair[2];
         int r;
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);

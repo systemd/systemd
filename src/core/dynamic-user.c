@@ -74,7 +74,7 @@ static int dynamic_user_add(Manager *m, const char *name, int storage_socket[sta
 }
 
 static int dynamic_user_acquire(Manager *m, const char *name, DynamicUser** ret) {
-        _cleanup_close_pair_ int storage_socket[2] = { -1, -1 };
+        _cleanup_close_pair_ int storage_socket[2] = { -EBADF, -EBADF };
         DynamicUser *d;
         int r;
 

@@ -683,7 +683,7 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
                 REMOVE_HIDDEN,
         } mode;
 
-        _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
+        _cleanup_close_pair_ int errno_pipe_fd[2] = { -EBADF, -EBADF };
         _cleanup_close_ int result_fd = -EBADF;
         Manager *m = userdata;
         Operation *operation;
