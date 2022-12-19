@@ -177,7 +177,7 @@ static StackContext* stack_context_destroy(StackContext *c) {
         return NULL;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(Elf *, sym_elf_end, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_SYM(Elf *, sym_elf_end, NULL);
 
 static int frame_callback(Dwfl_Frame *frame, void *userdata) {
         StackContext *c = ASSERT_PTR(userdata);
