@@ -629,17 +629,13 @@ int fd_move_above_stdio(int fd) {
 }
 
 int rearrange_stdio(int original_input_fd, int original_output_fd, int original_error_fd) {
-
-        int fd[3] = { /* Put together an array of fds we work on */
-                original_input_fd,
-                original_output_fd,
-                original_error_fd
-        };
-
-        int r, i,
-                null_fd = -EBADF,                        /* If we open /dev/null, we store the fd to it here */
-                copy_fd[3] = { -EBADF, -EBADF, -EBADF }; /* This contains all fds we duplicate here
-                                                          * temporarily, and hence need to close at the end. */
+        int fd[3] = { original_input_fd,             /* Put together an array of fds we work on */
+                      original_output_fd,
+                      original_error_fd },
+            null_fd = -EBADF,                        /* If we open /dev/null, we store the fd to it here */
+            copy_fd[3] = { -EBADF, -EBADF, -EBADF }, /* This contains all fds we duplicate here
+                                                      * temporarily, and hence need to close at the end. */
+            r;
         bool null_readable, null_writable;
 
         /* Sets up stdin, stdout, stderr with the three file descriptors passed in. If any of the descriptors
@@ -685,7 +681,7 @@ int rearrange_stdio(int original_input_fd, int original_output_fd, int original_
         }
 
         /* Let's assemble fd[] with the fds to install in place of stdin/stdout/stderr */
-        for (i = 0; i < 3; i++) {
+        for (int i = 0; i < 3; i++) {
 
                 if (fd[i] < 0)
                         fd[i] = null_fd;        /* A negative parameter means: connect this one to /dev/null */
@@ -704,7 +700,7 @@ int rearrange_stdio(int original_input_fd, int original_output_fd, int original_
         /* At this point we now have the fds to use in fd[], and they are all above the stdio range, so that
          * we have freedom to move them around. If the fds already were at the right places then the specific
          * fds are -EBADF. Let's now move them to the right places. This is the point of no return. */
-        for (i = 0; i < 3; i++) {
+        for (int i = 0; i < 3; i++) {
 
                 if (fd[i] == i) {
 
@@ -735,7 +731,7 @@ finish:
                 safe_close_above_stdio(original_error_fd);
 
         /* Close the copies we moved > 2 */
-        for (i = 0; i < 3; i++)
+        for (int i = 0; i < 3; i++)
                 safe_close(copy_fd[i]);
 
         /* Close our null fd, if it's > 2 */
