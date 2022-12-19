@@ -469,7 +469,7 @@ static int userdb_start_query(
                     streq(de->d_name, "io.systemd.DynamicUser"))
                         continue;
 
-                /* Avoid NSS is this is requested. Note that we also skip NSS when we were asked to skip the
+                /* Avoid NSS if this is requested. Note that we also skip NSS when we were asked to skip the
                  * multiplexer, since in that case it's safer to do NSS in the client side emulation below
                  * (and when we run as part of systemd-userdbd.service we don't want to talk to ourselves
                  * anyway). */
