@@ -23,3 +23,11 @@ extern bool arg_arch_all;
 extern char *arg_root;
 extern char *arg_image;
 extern char *arg_efi_boot_option_description;
+
+static inline const char *arg_dollar_boot_path(void) {
+        /* $BOOT shall be the XBOOTLDR partition if it exists, and otherwise the ESP */
+        return arg_xbootldr_path ?: arg_esp_path;
+}
+
+int acquire_esp(bool unprivileged_mode, bool graceful, uint32_t *ret_part, uint64_t *ret_pstart, uint64_t *ret_psize, sd_id128_t *ret_uuid, dev_t *ret_devid);
+int acquire_xbootldr(bool unprivileged_mode, sd_id128_t *ret_uuid, dev_t *ret_devid);

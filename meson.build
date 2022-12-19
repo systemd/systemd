@@ -2613,6 +2613,8 @@ if conf.get('HAVE_BLKID') == 1 and conf.get('HAVE_GNU_EFI') == 1
                  'src/boot/bootctl-reboot-to-firmware.h',
                  'src/boot/bootctl-set-efivar.c',
                  'src/boot/bootctl-set-efivar.h',
+                 'src/boot/bootctl-status.c',
+                 'src/boot/bootctl-status.h',
                  'src/boot/bootctl-systemd-efi-options.c',
                  'src/boot/bootctl-systemd-efi-options.h',
                  'src/boot/bootctl-util.c',
