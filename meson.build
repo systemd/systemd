@@ -2607,6 +2607,8 @@ if conf.get('HAVE_BLKID') == 1 and conf.get('HAVE_GNU_EFI') == 1
                 'bootctl',
                 ['src/boot/bootctl.c',
                  'src/boot/bootctl.h',
+                 'src/boot/bootctl-install.c',
+                 'src/boot/bootctl-install.h',
                  'src/boot/bootctl-random-seed.c',
                  'src/boot/bootctl-random-seed.h',
                  'src/boot/bootctl-reboot-to-firmware.c',
