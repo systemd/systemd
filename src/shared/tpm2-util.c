@@ -566,6 +566,40 @@ static int tpm2_create_primary(
                         ret_alg);
 }
 
+static int tpm2_load_key(
+                ESYS_CONTEXT *c,
+                ESYS_TR parent,
+                ESYS_TR session,
+                const TPM2B_PUBLIC *public,
+                const TPM2B_PRIVATE *private,
+                ESYS_TR *ret_handle) {
+
+        TSS2_RC rc;
+
+        assert(c);
+        assert(parent != ESYS_TR_NONE);
+        assert(public);
+        assert(private);
+        assert(ret_handle);
+
+        log_debug("Loading key into TPM.");
+
+        rc = sym_Esys_Load(
+                        c,
+                        parent,
+                        session,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        private,
+                        public,
+                        ret_handle);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to load key into TPM: %s", sym_Tss2_RC_Decode(rc));
+
+        return 0;
+}
+
 /* Utility functions for TPMS_PCR_SELECTION. */
 
 static uint32_t tpm2_tpms_pcr_selection_to_mask(const TPMS_PCR_SELECTION *s) {
@@ -2251,28 +2285,15 @@ int tpm2_unseal(const char *device,
          * is provided. If an attacker gives back a bad key, we already lost since
          * primary key is not verified and they could attack there as well.
          */
-        rc = sym_Esys_Load(
+        r = tpm2_load_key(
                         c.esys_context,
                         primary,
                         ESYS_TR_PASSWORD,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        &private,
                         &public,
+                        &private,
                         &hmac_key);
-        if (rc != TSS2_RC_SUCCESS) {
-                /* If we're in dictionary attack lockout mode, we should see a lockout error here, which we
-                 * need to translate for the caller. */
-                if (rc == TPM2_RC_LOCKOUT)
-                        return log_error_errno(
-                                        SYNTHETIC_ERRNO(ENOLCK),
-                                        "TPM2 device is in dictionary attack lockout mode.");
-                else
-                        return log_error_errno(
-                                        SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                        "Failed to load HMAC key in TPM: %s",
-                                        sym_Tss2_RC_Decode(rc));
-        }
+        if (r < 0)
+                return r;
 
         if (pin) {
                 r = tpm2_set_auth(c.esys_context, hmac_key, pin);
