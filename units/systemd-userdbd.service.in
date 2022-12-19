@@ -16,7 +16,7 @@ Before=sysinit.target
 DefaultDependencies=no
 
 [Service]
-CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_SYS_RESOURCE
 ExecStart={{ROOTLIBEXECDIR}}/systemd-userdbd
 IPAddressDeny=any
 LimitNOFILE={{HIGH_RLIMIT_NOFILE}}
