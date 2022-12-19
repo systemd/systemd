@@ -321,9 +321,10 @@ def check_inputs(opts):
 
 def find_tool(name, fallback=None, opts=None):
     if opts and opts.tools:
-        tool = opts.tools / name
-        if tool.exists():
-            return tool
+        for d in opts.tools:
+            tool = d / name
+            if tool.exists():
+                return tool
 
     return fallback or name
 
@@ -656,7 +657,8 @@ usage: ukify [options…] linux initrd…
 
     p.add_argument('--tools',
                    type=pathlib.Path,
-                   help='a directory with systemd-measure and other tools')
+                   nargs='+',
+                   help='Directories to search for tools (systemd-measure, llvm-objcopy, ...)')
 
     p.add_argument('--output', '-o',
                    type=pathlib.Path,
