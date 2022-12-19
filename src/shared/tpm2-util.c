@@ -1409,13 +1409,12 @@ int tpm2_seal(const char *device,
         _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
         static const TPML_PCR_SELECTION creation_pcr = {};
         _cleanup_(erase_and_freep) void *secret = NULL;
-        _cleanup_free_ void *blob = NULL, *hash = NULL;
+        _cleanup_free_ void *hash = NULL;
         ESYS_TR primary = ESYS_TR_NONE, session = ESYS_TR_NONE;
         TPM2B_SENSITIVE_CREATE hmac_sensitive;
         TPMI_ALG_PUBLIC primary_alg;
         TPM2B_PUBLIC hmac_template;
         TPMI_ALG_HASH pcr_bank;
-        size_t k, blob_size;
         usec_t start;
         TSS2_RC rc;
         int r;
@@ -1548,38 +1547,27 @@ int tpm2_seal(const char *device,
 
         log_debug("Marshalling private and public part of HMAC key.");
 
-        k = ALIGN8(sizeof(*private)) + ALIGN8(sizeof(*public)); /* Some roughly sensible start value */
-        for (;;) {
-                _cleanup_free_ void *buf = NULL;
-                size_t offset = 0;
+        _cleanup_free_ void *blob = NULL;
+        size_t max_size = sizeof(*private) + sizeof(*public), blob_size = 0;
 
-                buf = malloc(k);
-                if (!buf) {
-                        r = log_oom();
-                        goto finish;
-                }
+        blob = malloc0(max_size);
+        if (!blob) {
+                r = log_oom();
+                goto finish;
+        }
 
-                rc = sym_Tss2_MU_TPM2B_PRIVATE_Marshal(private, buf, k, &offset);
-                if (rc == TSS2_RC_SUCCESS) {
-                        rc = sym_Tss2_MU_TPM2B_PUBLIC_Marshal(public, buf, k, &offset);
-                        if (rc == TSS2_RC_SUCCESS) {
-                                blob = TAKE_PTR(buf);
-                                blob_size = offset;
-                                break;
-                        }
-                }
-                if (rc != TSS2_MU_RC_INSUFFICIENT_BUFFER) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                            "Failed to marshal private/public key: %s", sym_Tss2_RC_Decode(rc));
-                        goto finish;
-                }
+        rc = sym_Tss2_MU_TPM2B_PRIVATE_Marshal(private, blob, max_size, &blob_size);
+        if (rc != TSS2_RC_SUCCESS) {
+                r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                    "Failed to marshal private key: %s", sym_Tss2_RC_Decode(rc));
+                goto finish;
+        }
 
-                if (k > SIZE_MAX / 2) {
-                        r = log_oom();
-                        goto finish;
-                }
-
-                k *= 2;
+        rc = sym_Tss2_MU_TPM2B_PUBLIC_Marshal(public, blob, max_size, &blob_size);
+        if (rc != TSS2_RC_SUCCESS) {
+                r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                    "Failed to marshal public key: %s", sym_Tss2_RC_Decode(rc));
+                goto finish;
         }
 
         hash = memdup(policy_digest->buffer, policy_digest->size);
