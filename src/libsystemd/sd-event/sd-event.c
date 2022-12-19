@@ -659,7 +659,9 @@ static int event_make_signal_data(
         ss_copy = d->sigset;
         assert_se(sigaddset(&ss_copy, sig) >= 0);
 
-        r = signalfd(d->fd, &ss_copy, SFD_NONBLOCK|SFD_CLOEXEC);
+        r = signalfd(d->fd >= 0 ? d->fd : -1,   /* the first arg must be -1 or a valid signalfd */
+                     &ss_copy,
+                     SFD_NONBLOCK|SFD_CLOEXEC);
         if (r < 0) {
                 r = -errno;
                 goto fail;
