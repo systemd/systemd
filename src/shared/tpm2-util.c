@@ -1441,6 +1441,47 @@ static int tpm2_get_policy_digest(
         return 0;
 }
 
+static int tpm2_load(
+                Tpm2Context *c,
+                const Tpm2Handle *parent,
+                const Tpm2Handle *session,
+                const TPM2B_PUBLIC *public,
+                const TPM2B_PRIVATE *private,
+                Tpm2Handle **ret_handle) {
+
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+        assert(public);
+        assert(private);
+        assert(ret_handle);
+
+        log_debug("Loading object into TPM.");
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        r = tpm2_handle_new(c, &handle);
+        if (r < 0)
+                return r;
+
+        rc = sym_Esys_Load(
+                        c->esys_context,
+                        parent ? parent->esys_handle : ESYS_TR_RH_OWNER,
+                        session ? session->esys_handle : ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        private,
+                        public,
+                        &handle->esys_handle);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to load key into TPM: %s", sym_Tss2_RC_Decode(rc));
+
+        *ret_handle = TAKE_PTR(handle);
+
+        return 0;
+}
+
 static int tpm2_pcr_read(
                 Tpm2Context *c,
                 const TPML_PCR_SELECTION *pcr_selection,
@@ -3094,32 +3135,9 @@ int tpm2_unseal(const char *device,
          * provides protections.
          */
         _cleanup_(tpm2_handle_freep) Tpm2Handle *hmac_key = NULL;
-        r = tpm2_handle_new(c, &hmac_key);
+        r = tpm2_load(c, primary, NULL, &public, &private, &hmac_key);
         if (r < 0)
                 return r;
-
-        rc = sym_Esys_Load(
-                        c->esys_context,
-                        primary->esys_handle,
-                        ESYS_TR_PASSWORD,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        &private,
-                        &public,
-                        &hmac_key->esys_handle);
-        if (rc != TSS2_RC_SUCCESS) {
-                /* If we're in dictionary attack lockout mode, we should see a lockout error here, which we
-                 * need to translate for the caller. */
-                if (rc == TPM2_RC_LOCKOUT)
-                        return log_error_errno(
-                                        SYNTHETIC_ERRNO(ENOLCK),
-                                        "TPM2 device is in dictionary attack lockout mode.");
-                else
-                        return log_error_errno(
-                                        SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                        "Failed to load HMAC key in TPM: %s",
-                                        sym_Tss2_RC_Decode(rc));
-        }
 
         TPM2B_PUBLIC pubkey_tpm2, *authorize_key = NULL;
         _cleanup_free_ void *fp = NULL;
