@@ -1848,7 +1848,7 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent) {
 
         *manager = (Manager) {
                 .inotify_fd = -EBADF,
-                .worker_watch = { -1, -1 },
+                .worker_watch = { -EBADF, -EBADF },
                 .cgroup = TAKE_PTR(cgroup),
         };
 

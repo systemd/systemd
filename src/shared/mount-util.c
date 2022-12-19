@@ -806,7 +806,7 @@ static int mount_in_namespace(
                 const MountOptions *options,
                 bool is_image) {
 
-        _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
+        _cleanup_close_pair_ int errno_pipe_fd[2] = { -EBADF, -EBADF };
         _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF, chased_src_fd = -EBADF;
         char mount_slave[] = "/tmp/propagate.XXXXXX", *mount_tmp, *mount_outside, *p;
         bool mount_slave_created = false, mount_slave_mounted = false,

@@ -1624,7 +1624,7 @@ int add_matches_for_user_unit(sd_journal *j, const char *unit, uid_t uid) {
 }
 
 static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
-        _cleanup_close_pair_ int pair[2] = { -1, -1 };
+        _cleanup_close_pair_ int pair[2] = { -EBADF, -EBADF };
         _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, rootfd = -EBADF;
         char buf[SD_ID128_UUID_STRING_MAX];
         pid_t pid, child;

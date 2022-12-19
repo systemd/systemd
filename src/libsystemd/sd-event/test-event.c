@@ -198,7 +198,8 @@ static void test_basic_one(bool with_pidfd) {
         sd_event *e = NULL;
         sd_event_source *w = NULL, *x = NULL, *y = NULL, *z = NULL, *q = NULL, *t = NULL;
         static const char ch = 'x';
-        int a[2] = { -1, -1 }, b[2] = { -1, -1}, d[2] = { -1, -1}, k[2] = { -1, -1 };
+        int a[2] = { -EBADF, -EBADF }, b[2] = { -EBADF, -EBADF },
+            d[2] = { -EBADF, -EBADF }, k[2] = { -EBADF, -EBADF };
         uint64_t event_now;
         int64_t priority;
 
