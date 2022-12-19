@@ -183,7 +183,7 @@ static int fd_is_read_only_fs(int fd) {
 }
 
 int path_is_read_only_fs(const char *path) {
-        _cleanup_close_ int fd = -EBADFD;
+        _cleanup_close_ int fd = -EBADF;
 
         assert(path);
 

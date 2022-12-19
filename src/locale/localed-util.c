@@ -93,7 +93,7 @@ int locale_read_data(Context *c, sd_bus_message *m) {
 }
 
 int vconsole_read_data(Context *c, sd_bus_message *m) {
-        _cleanup_close_ int fd = -EBADFD;
+        _cleanup_close_ int fd = -EBADF;
         struct stat st;
 
         /* Do not try to re-read the file within single bus operation. */
@@ -130,7 +130,7 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
 }
 
 int x11_read_data(Context *c, sd_bus_message *m) {
-        _cleanup_close_ int fd = -EBADFD, fd_ro = -EBADFD;
+        _cleanup_close_ int fd = -EBADF, fd_ro = -EBADF;
         _cleanup_fclose_ FILE *f = NULL;
         bool in_section = false;
         struct stat st;
