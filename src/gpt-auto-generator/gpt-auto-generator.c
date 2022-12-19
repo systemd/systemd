@@ -47,10 +47,11 @@ static int add_cryptsetup(
                 const char *what,
                 bool rw,
                 bool require,
+                bool measure,
                 char **ret_device) {
 
 #if HAVE_LIBCRYPTSETUP
-        _cleanup_free_ char *e = NULL, *n = NULL, *d = NULL;
+        _cleanup_free_ char *e = NULL, *n = NULL, *d = NULL, *options = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -84,7 +85,28 @@ static int add_cryptsetup(
                 "After=%s\n",
                 d, d);
 
-        r = generator_write_cryptsetup_service_section(f, id, what, NULL, rw ? NULL : "read-only");
+        if (!rw) {
+                options = strdup("read-only");
+                if (!options)
+                        return log_oom();
+        }
+
+        if (measure) {
+                /* We only measure the root volume key into PCR 15 if we are booted with sd-stub (i.e. in a
+                 * UKI), and sd-stub measured the UKI. We do this in order not to step into people's own PCR
+                 * assignment, under the assumption that people who are fine to use sd-stub with its PCR
+                 * assignments are also OK with our PCR 15 use here. */
+
+                r = efi_stub_measured();
+                if (r < 0)
+                        log_debug_errno(r, "Failed to determine whether booted via systemd-stub with measurements enabled, ignoring: %m");
+                else if (r == 0)
+                        log_debug("Will not measure volume key of volume '%s', because not booted via systemd-stub with measurements enabled.", id);
+                else if (!strextend_with_separator(&options, ",", "tpm2-measure-pcr=yes"))
+                        return log_oom();
+        }
+
+        r = generator_write_cryptsetup_service_section(f, id, what, NULL, options);
         if (r < 0)
                 return r;
 
@@ -139,6 +161,7 @@ static int add_mount(
                 const char *fstype,
                 bool rw,
                 bool growfs,
+                bool measure,
                 const char *options,
                 const char *description,
                 const char *post) {
@@ -159,7 +182,7 @@ static int add_mount(
         log_debug("Adding %s: %s fstype=%s", where, what, fstype ?: "(any)");
 
         if (streq_ptr(fstype, "crypto_LUKS")) {
-                r = add_cryptsetup(id, what, rw, true, &crypto_what);
+                r = add_cryptsetup(id, what, rw, /* require= */ true, measure, &crypto_what);
                 if (r < 0)
                         return r;
 
@@ -222,6 +245,12 @@ static int add_mount(
                         return r;
         }
 
+        if (measure) {
+                r = generator_hook_up_pcrfs(arg_dest, where, post);
+                if (r < 0)
+                        return r;
+        }
+
         if (post) {
                 r = generator_add_symlink(arg_dest, post, "requires", unit);
                 if (r < 0)
@@ -277,6 +306,7 @@ static int add_partition_mount(
                         p->fstype,
                         p->rw,
                         p->growfs,
+                        /* measure= */ STR_IN_SET(id, "root", "var"), /* by default measure rootfs and /var, since they contain the "identity" of the system */
                         NULL,
                         description,
                         SPECIAL_LOCAL_FS_TARGET);
@@ -301,7 +331,7 @@ static int add_partition_swap(DissectedPartition *p) {
         }
 
         if (streq_ptr(p->fstype, "crypto_LUKS")) {
-                r = add_cryptsetup("swap", p->node, true, true, &crypto_what);
+                r = add_cryptsetup("swap", p->node, /* rw= */ true, /* require= */ true, /* measure= */ false, &crypto_what);
                 if (r < 0)
                         return r;
                 what = crypto_what;
@@ -370,6 +400,7 @@ static int add_automount(
                       fstype,
                       rw,
                       growfs,
+                      /* measure= */ false,
                       options,
                       description,
                       NULL);
@@ -578,7 +609,7 @@ static int add_root_cryptsetup(void) {
         /* If a device /dev/gpt-auto-root-luks appears, then make it pull in systemd-cryptsetup-root.service, which
          * sets it up, and causes /dev/gpt-auto-root to appear which is all we are looking for. */
 
-        return add_cryptsetup("root", "/dev/gpt-auto-root-luks", true, false, NULL);
+        return add_cryptsetup("root", "/dev/gpt-auto-root-luks", /* rw= */ true, /* require= */ false, /* measure= */ true, NULL);
 #else
         return 0;
 #endif
@@ -625,6 +656,7 @@ static int add_root_mount(void) {
                         NULL,
                         /* rw= */ arg_root_rw > 0,
                         /* growfs= */ false,
+                        /* measure= */ true,
                         NULL,
                         "Root Partition",
                         in_initrd() ? SPECIAL_INITRD_ROOT_FS_TARGET : SPECIAL_LOCAL_FS_TARGET);
