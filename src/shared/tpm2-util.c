@@ -604,6 +604,94 @@ static int tpm2_create_primary(
                         ret_alg);
 }
 
+static int tpm2_load_key(
+                Tpm2Context *c,
+                const Tpm2Handle *parent,
+                const Tpm2Handle *session,
+                const TPM2B_PUBLIC *public,
+                const TPM2B_PRIVATE *private,
+                Tpm2Handle **ret_handle) {
+
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+        assert(parent);
+        assert(session);
+        assert(public);
+        assert(private);
+        assert(ret_handle);
+
+        log_debug("Loading key into TPM.");
+
+        _cleanup_tpm2_handle_ Tpm2Handle *handle = NULL;
+        r = tpm2_handle_new(c, &handle);
+        if (r < 0)
+                return r;
+
+        rc = sym_Esys_Load(
+                        c->esys_context,
+                        parent->esys_handle,
+                        session->esys_handle,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        private,
+                        public,
+                        &handle->esys_handle);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to load key into TPM: %s", sym_Tss2_RC_Decode(rc));
+
+        *ret_handle = TAKE_PTR(handle);
+
+        return 0;
+}
+
+static int tpm2_load_external_key(
+                Tpm2Context *c,
+                const Tpm2Handle *encryption_session,
+                const TPM2B_PUBLIC *public,
+                const TPM2B_SENSITIVE *private,
+                Tpm2Handle **ret_handle) {
+
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+        assert(encryption_session);
+        assert(ret_handle);
+
+        log_debug("Loading external key into TPM.");
+
+        _cleanup_tpm2_handle_ Tpm2Handle *handle = NULL;
+        r = tpm2_handle_new(c, &handle);
+        if (r < 0)
+                return r;
+
+        rc = sym_Esys_LoadExternal(
+                        c->esys_context,
+                        encryption_session->esys_handle,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        private,
+                        public,
+#if HAVE_TSS2_ESYS3
+                        /* tpm2-tss >= 3.0.0 requires a ESYS_TR_RH_* constant specifying the requested
+                         * hierarchy, older versions need TPM2_RH_* instead. */
+                        ESYS_TR_RH_OWNER,
+#else
+                        TPM2_RH_OWNER,
+#endif
+                        &handle->esys_handle);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to load public key into TPM: %s", sym_Tss2_RC_Decode(rc));
+
+        *ret_handle = TAKE_PTR(handle);
+
+        return 0;
+}
+
 /* Utility functions for TPMS_PCR_SELECTION. */
 
 static uint32_t tpm2_tpms_pcr_selection_to_mask(const TPMS_PCR_SELECTION *s) {
@@ -1847,30 +1935,11 @@ static int tpm2_policy_authorize(
         if (r < 0)
                 return r;
 
+        /* No need for an encryption session when loading only a public key. */
         _cleanup_tpm2_handle_ Tpm2Handle *pubkey_handle = NULL;
-        r = tpm2_handle_new(c, &pubkey_handle);
+        r = tpm2_load_external_key(c, &TPM2_HANDLE_NONE, &pubkey_tpm2, NULL, &pubkey_handle);
         if (r < 0)
                 return r;
-
-        /* Load the key into the TPM */
-        rc = sym_Esys_LoadExternal(
-                        c->esys_context,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        NULL,
-                        &pubkey_tpm2,
-#if HAVE_TSS2_ESYS3
-                        /* tpm2-tss >= 3.0.0 requires a ESYS_TR_RH_* constant specifying the requested
-                         * hierarchy, older versions need TPM2_RH_* instead. */
-                        ESYS_TR_RH_OWNER,
-#else
-                        TPM2_RH_OWNER,
-#endif
-                        &pubkey_handle->esys_handle);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                    "Failed to load public key into TPM: %s", sym_Tss2_RC_Decode(rc));
 
         /* Acquire the "name" of what we just loaded */
         _cleanup_(Esys_Freep) TPM2B_NAME *pubkey_name = NULL;
@@ -2335,32 +2404,15 @@ int tpm2_unseal(const char *device,
          * primary key is not verified and they could attack there as well.
          */
         _cleanup_tpm2_handle_ Tpm2Handle *hmac_key = NULL;
-        r = tpm2_handle_new(c, &hmac_key);
+        r = tpm2_load_key(
+                        c,
+                        primary,
+                        &TPM2_HANDLE_PASSWORD,
+                        &public,
+                        &private,
+                        &hmac_key);
         if (r < 0)
                 return r;
-
-        rc = sym_Esys_Load(
-                        c->esys_context,
-                        primary->esys_handle,
-                        ESYS_TR_PASSWORD,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        &private,
-                        &public,
-                        &hmac_key->esys_handle);
-        if (rc != TSS2_RC_SUCCESS) {
-                /* If we're in dictionary attack lockout mode, we should see a lockout error here, which we
-                 * need to translate for the caller. */
-                if (rc == TPM2_RC_LOCKOUT)
-                        return log_error_errno(
-                                        SYNTHETIC_ERRNO(ENOLCK),
-                                        "TPM2 device is in dictionary attack lockout mode.");
-                else
-                        return log_error_errno(
-                                        SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                        "Failed to load HMAC key in TPM: %s",
-                                        sym_Tss2_RC_Decode(rc));
-        }
 
         if (pin) {
                 r = tpm2_set_auth(c, hmac_key, pin);
