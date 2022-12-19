@@ -851,6 +851,9 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 return 0;
         }
 
+        log_set_max_level(LOG_DEBUG);
+        log_set_target(LOG_TARGET_KMSG);
+
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
