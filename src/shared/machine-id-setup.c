@@ -28,7 +28,7 @@
 
 static int generate_machine_id(const char *root, sd_id128_t *ret) {
         const char *dbus_machine_id;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         assert(ret);
@@ -83,7 +83,7 @@ static int generate_machine_id(const char *root, sd_id128_t *ret) {
 
 int machine_id_setup(const char *root, bool force_transient, sd_id128_t machine_id, sd_id128_t *ret) {
         const char *etc_machine_id, *run_machine_id;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         bool writable;
         int r;
 
@@ -195,7 +195,7 @@ finish:
 }
 
 int machine_id_commit(const char *root) {
-        _cleanup_close_ int fd = -1, initial_mntns_fd = -1;
+        _cleanup_close_ int fd = -EBADF, initial_mntns_fd = -EBADF;
         const char *etc_machine_id;
         sd_id128_t id;
         int r;

@@ -134,7 +134,7 @@ static void set_scsi_type(char *to, const char *from, size_t len) {
 #define USB_DT_INTERFACE                0x04
 
 static int dev_if_packed_info(sd_device *dev, char *ifs_str, size_t len) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         ssize_t size;
         unsigned char buf[18 + 65535];
         size_t pos = 0;

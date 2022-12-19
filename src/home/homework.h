@@ -50,8 +50,8 @@ typedef struct HomeSetup {
 
 #define HOME_SETUP_INIT                                 \
         {                                               \
-                .root_fd = -1,                          \
-                .image_fd = -1,                         \
+                .root_fd = -EBADF,                      \
+                .image_fd = -EBADF,                     \
                 .partition_offset = UINT64_MAX,         \
                 .partition_size = UINT64_MAX,           \
                 .key_serial = -1,                       \

@@ -486,7 +486,7 @@ static int add_connection_socket(Context *context, int fd) {
         *c = (Connection) {
                .context = context,
                .server_fd = fd,
-               .client_fd = -1,
+               .client_fd = -EBADF,
                .server_to_client_buffer = {-1, -1},
                .client_to_server_buffer = {-1, -1},
         };
@@ -504,7 +504,7 @@ static int add_connection_socket(Context *context, int fd) {
 static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_free_ char *peer = NULL;
         Context *context = ASSERT_PTR(userdata);
-        int nfd = -1, r;
+        int nfd = -EBADF, r;
 
         assert(s);
         assert(fd >= 0);

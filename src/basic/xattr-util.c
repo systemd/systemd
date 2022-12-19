@@ -26,7 +26,7 @@ int getxattr_at_malloc(
                 int flags,
                 char **ret) {
 
-        _cleanup_close_ int opened_fd = -1;
+        _cleanup_close_ int opened_fd = -EBADF;
         unsigned n_attempts = 7;
         bool by_procfs = false;
         size_t l = 100;
@@ -212,7 +212,7 @@ int listxattr_at_malloc(
                 int flags,
                 char **ret) {
 
-        _cleanup_close_ int opened_fd = -1;
+        _cleanup_close_ int opened_fd = -EBADF;
         bool by_procfs = false;
         unsigned n_attempts = 7;
         size_t l = 100;

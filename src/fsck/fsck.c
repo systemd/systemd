@@ -225,7 +225,7 @@ static int process_progress(int fd, FILE* console) {
 }
 
 static int fsck_progress_socket(void) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         fd = socket(AF_UNIX, SOCK_STREAM, 0);

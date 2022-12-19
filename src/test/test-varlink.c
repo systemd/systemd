@@ -21,7 +21,7 @@
 #define OVERLOAD_CONNECTIONS 333
 
 static int n_done = 0;
-static int block_write_fd = -1;
+static int block_write_fd = -EBADF;
 
 static int method_something(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
         _cleanup_(json_variant_unrefp) JsonVariant *ret = NULL;

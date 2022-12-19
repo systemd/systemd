@@ -401,7 +401,7 @@ static int md_list_get(MountPoint **head) {
 }
 
 static int delete_loopback(const char *device) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         struct loop_info64 info;
 
         assert(device);
@@ -476,7 +476,7 @@ static int delete_loopback(const char *device) {
 }
 
 static int delete_dm(MountPoint *m) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         assert(m);
@@ -503,7 +503,7 @@ static int delete_dm(MountPoint *m) {
 }
 
 static int delete_md(MountPoint *m) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         assert(m);
         assert(major(m->devnum) != 0);

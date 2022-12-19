@@ -1800,7 +1800,7 @@ static int import_tar(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *ll = NULL, *fn = NULL;
         const char *local = NULL, *path = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -1861,7 +1861,7 @@ static int import_raw(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *ll = NULL, *fn = NULL;
         const char *local = NULL, *path = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -1922,7 +1922,7 @@ static int import_fs(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         const char *local = NULL, *path = NULL;
         _cleanup_free_ char *fn = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -1987,7 +1987,7 @@ static void determine_compression_from_filename(const char *p) {
 
 static int export_tar(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         const char *local = NULL, *path = NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -2027,7 +2027,7 @@ static int export_tar(int argc, char *argv[], void *userdata) {
 
 static int export_raw(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         const char *local = NULL, *path = NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;

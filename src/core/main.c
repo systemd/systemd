@@ -213,7 +213,7 @@ static int manager_find_user_config_paths(char ***ret_files, char ***ret_dirs) {
 }
 
 static int console_setup(void) {
-        _cleanup_close_ int tty_fd = -1;
+        _cleanup_close_ int tty_fd = -EBADF;
         int r;
 
         tty_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);

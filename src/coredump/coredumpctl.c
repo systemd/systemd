@@ -451,7 +451,7 @@ static void analyze_coredump_file(
                 const char **ret_color,
                 uint64_t *ret_size) {
 
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         struct stat st;
         int r;
 
@@ -965,7 +965,7 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
         _cleanup_free_ char *filename = NULL;
         size_t len;
         int r, fd;
-        _cleanup_close_ int fdt = -1;
+        _cleanup_close_ int fdt = -EBADF;
         char *temp = NULL;
 
         assert(!(file && path));         /* At most one can be specified */
@@ -1047,7 +1047,7 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
 
         if (filename) {
 #if HAVE_COMPRESSION
-                _cleanup_close_ int fdf = -1;
+                _cleanup_close_ int fdf = -EBADF;
 
                 fdf = open(filename, O_RDONLY | O_CLOEXEC);
                 if (fdf < 0) {

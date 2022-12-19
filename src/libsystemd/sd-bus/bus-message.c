@@ -433,7 +433,7 @@ int bus_message_from_malloc(
                 m->body.data = (uint8_t*) buffer + sizeof(struct bus_header) + ALIGN8(m->fields_size);
                 m->body.size = sz;
                 m->body.sealed = true;
-                m->body.memfd = -1;
+                m->body.memfd = -EBADF;
         }
 
         m->n_iovec = 1;
@@ -1108,7 +1108,7 @@ static struct bus_body_part *message_append_part(sd_bus_message *m) {
                 m->body_end->next = part;
         }
 
-        part->memfd = -1;
+        part->memfd = -EBADF;
         m->body_end = part;
         m->n_body_parts++;
 
@@ -1303,7 +1303,7 @@ static int message_push_fd(sd_bus_message *m, int fd) {
 }
 
 int message_append_basic(sd_bus_message *m, char type, const void *p, const void **stored) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         struct bus_container *c;
         ssize_t align, sz;
         uint32_t u32;
@@ -1422,7 +1422,7 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
         if (c->enclosing != SD_BUS_TYPE_ARRAY)
                 c->index++;
 
-        fd = -1;
+        fd = -EBADF;
         return 0;
 }
 
@@ -2172,7 +2172,7 @@ _public_ int sd_bus_message_append_array_memfd(
                 uint64_t offset,
                 uint64_t size) {
 
-        _cleanup_close_ int copy_fd = -1;
+        _cleanup_close_ int copy_fd = -EBADF;
         struct bus_body_part *part;
         ssize_t align, sz;
         uint64_t real_size;
@@ -2234,7 +2234,7 @@ _public_ int sd_bus_message_append_array_memfd(
         part->memfd_offset = offset;
         part->sealed = true;
         part->size = size;
-        copy_fd = -1;
+        copy_fd = -EBADF;
 
         m->body_size += size;
         message_extend_containers(m, size);
@@ -2248,7 +2248,7 @@ _public_ int sd_bus_message_append_string_memfd(
                 uint64_t offset,
                 uint64_t size) {
 
-        _cleanup_close_ int copy_fd = -1;
+        _cleanup_close_ int copy_fd = -EBADF;
         struct bus_body_part *part;
         struct bus_container *c;
         uint64_t real_size;
@@ -2319,7 +2319,7 @@ _public_ int sd_bus_message_append_string_memfd(
         part->memfd_offset = offset;
         part->sealed = true;
         part->size = size;
-        copy_fd = -1;
+        copy_fd = -EBADF;
 
         m->body_size += size;
         message_extend_containers(m, size);

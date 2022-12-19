@@ -88,7 +88,7 @@ int bus_image_method_remove(
                 return r;
         }
 
-        errno_pipe_fd[0] = -1;
+        errno_pipe_fd[0] = -EBADF;
 
         return 1;
 }
@@ -211,7 +211,7 @@ int bus_image_method_clone(
                 return r;
         }
 
-        errno_pipe_fd[0] = -1;
+        errno_pipe_fd[0] = -EBADF;
 
         return 1;
 }

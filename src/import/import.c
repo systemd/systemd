@@ -83,7 +83,7 @@ static int normalize_local(const char *local, char **ret) {
 }
 
 static int open_source(const char *path, const char *local, int *ret_open_fd) {
-        _cleanup_close_ int open_fd = -1;
+        _cleanup_close_ int open_fd = -EBADF;
         int retval;
 
         assert(local);
@@ -132,7 +132,7 @@ static int import_tar(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *ll = NULL, *normalized = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         const char *path = NULL, *local = NULL;
-        _cleanup_close_ int open_fd = -1;
+        _cleanup_close_ int open_fd = -EBADF;
         int r, fd;
 
         if (argc >= 2)
@@ -204,7 +204,7 @@ static int import_raw(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *ll = NULL, *normalized = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         const char *path = NULL, *local = NULL;
-        _cleanup_close_ int open_fd = -1;
+        _cleanup_close_ int open_fd = -EBADF;
         int r, fd;
 
         if (argc >= 2)

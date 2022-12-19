@@ -329,7 +329,7 @@ static int connect_logger_as(
                 uid_t uid,
                 gid_t gid) {
 
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         assert(context);
@@ -385,7 +385,7 @@ static int open_terminal_as(const char *path, int flags, int nfd) {
 }
 
 static int acquire_path(const char *path, int flags, mode_t mode) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         assert(path);
@@ -766,7 +766,7 @@ static int setup_confirm_stdio(
                 int *ret_saved_stdin,
                 int *ret_saved_stdout) {
 
-        _cleanup_close_ int fd = -1, saved_stdin = -1, saved_stdout = -1;
+        _cleanup_close_ int fd = -EBADF, saved_stdin = -EBADF, saved_stdout = -EBADF;
         int r;
 
         assert(ret_saved_stdin);
@@ -818,7 +818,7 @@ static void write_confirm_error_fd(int err, int fd, const Unit *u) {
 }
 
 static void write_confirm_error(int err, const char *vc, const Unit *u) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         assert(vc);
 
@@ -2100,7 +2100,7 @@ bool exec_needs_mount_namespace(
 static int setup_private_users(uid_t ouid, gid_t ogid, uid_t uid, gid_t gid) {
         _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
         _cleanup_close_pair_ int errno_pipe[2] = { -1, -1 };
-        _cleanup_close_ int unshare_ready_fd = -1;
+        _cleanup_close_ int unshare_ready_fd = -EBADF;
         _cleanup_(sigkill_waitp) pid_t pid = 0;
         uint64_t c = 1;
         ssize_t n;
@@ -2159,7 +2159,7 @@ static int setup_private_users(uid_t ouid, gid_t ogid, uid_t uid, gid_t gid) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
                 const char *a;
                 pid_t ppid;
 
@@ -2554,7 +2554,7 @@ static int write_credential(
                 bool ownership_ok) {
 
         _cleanup_(unlink_and_freep) char *tmp = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         r = tempfn_random_child("", "cred", &tmp);
@@ -2852,7 +2852,7 @@ static int acquire_credentials(
                 bool ownership_ok) {
 
         uint64_t left = CREDENTIALS_TOTAL_SIZE_MAX;
-        _cleanup_close_ int dfd = -1;
+        _cleanup_close_ int dfd = -EBADF;
         ExecLoadCredential *lc;
         ExecSetCredential *sc;
         int r;
@@ -2866,7 +2866,7 @@ static int acquire_credentials(
 
         /* First, load credentials off disk (or acquire via AF_UNIX socket) */
         HASHMAP_FOREACH(lc, context->load_credentials) {
-                _cleanup_close_ int sub_fd = -1;
+                _cleanup_close_ int sub_fd = -EBADF;
 
                 /* If this is an absolute path, then try to open it as a directory. If that works, then we'll
                  * recurse into it. If it is an absolute path but it isn't a directory, then we'll open it as
@@ -4084,7 +4084,7 @@ static int add_shifted_fd(int *fds, size_t fds_size, size_t *n_fds, int fd, int 
         assert(ret_fd);
 
         if (fd < 0) {
-                *ret_fd = -1;
+                *ret_fd = -EBADF;
                 return 0;
         }
 
@@ -4781,7 +4781,7 @@ static int exec_child(
          * shall execute. */
 
         _cleanup_free_ char *executable = NULL;
-        _cleanup_close_ int executable_fd = -1;
+        _cleanup_close_ int executable_fd = -EBADF;
         r = find_executable_full(command->path, /* root= */ NULL, context->exec_search_path, false, &executable, &executable_fd);
         if (r < 0) {
                 if (r != -ENOMEM && (command->flags & EXEC_COMMAND_IGNORE_FAILURE)) {
@@ -4812,7 +4812,7 @@ static int exec_child(
 
 #if HAVE_SELINUX
         if (needs_sandboxing && use_selinux && params->selinux_context_net) {
-                int fd = -1;
+                int fd = -EBADF;
 
                 if (socket_fd >= 0)
                         fd = socket_fd;
@@ -5211,7 +5211,7 @@ int exec_spawn(Unit *unit,
 
                 socket_fd = params->fds[0];
         } else {
-                socket_fd = -1;
+                socket_fd = -EBADF;
                 fds = params->fds;
                 n_socket_fds = params->n_socket_fds;
                 n_storage_fds = params->n_storage_fds;
@@ -6279,7 +6279,7 @@ void exec_context_free_log_extra_fields(ExecContext *c) {
 }
 
 void exec_context_revert_tty(ExecContext *c) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         const char *path;
         struct stat st;
         int r;

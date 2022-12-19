@@ -32,7 +32,7 @@ int socket_address_listen(
                 mode_t socket_mode,
                 const char *label) {
 
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         const char *p;
         int r;
 

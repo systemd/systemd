@@ -113,7 +113,7 @@ int memfd_set_size(int fd, uint64_t sz) {
 }
 
 int memfd_new_and_map(const char *name, size_t sz, void **p) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         assert(sz > 0);

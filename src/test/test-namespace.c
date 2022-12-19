@@ -170,7 +170,7 @@ TEST(protect_kernel_logs) {
         assert_se(pid >= 0);
 
         if (pid == 0) {
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
 
                 fd = open("/dev/kmsg", O_RDONLY | O_CLOEXEC);
                 assert_se(fd > 0);

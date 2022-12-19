@@ -504,7 +504,7 @@ int catalog_update(const char* database, const char* root, const char* const* di
 }
 
 static int open_mmap(const char *database, int *_fd, struct stat *_st, void **_p) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         const CatalogHeader *h;
         struct stat st;
         void *p;
@@ -601,7 +601,7 @@ static const char *find_id(void *p, sd_id128_t id) {
 }
 
 int catalog_get(const char* database, sd_id128_t id, char **_text) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         void *p = NULL;
         struct stat st = {};
         char *text = NULL;
@@ -668,7 +668,7 @@ static void dump_catalog_entry(FILE *f, sd_id128_t id, const char *s, bool oneli
 }
 
 int catalog_list(FILE *f, const char *database, bool oneline) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         void *p = NULL;
         struct stat st;
         const CatalogHeader *h;

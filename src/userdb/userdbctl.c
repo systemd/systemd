@@ -931,7 +931,7 @@ static int display_services(int argc, char *argv[], void *userdata) {
 
         FOREACH_DIRENT(de, d, return -errno) {
                 _cleanup_free_ char *j = NULL, *no = NULL;
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
 
                 j = path_join("/run/systemd/userdb/", de->d_name);
                 if (!j)

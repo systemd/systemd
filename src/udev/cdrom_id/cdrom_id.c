@@ -103,7 +103,7 @@ typedef struct Context {
 } Context;
 
 #define CONTEXT_EMPTY {                                 \
-                .fd = -1,                               \
+                .fd = -EBADF,                           \
                 .media_feature = _FEATURE_INVALID,      \
                 .media_state = _MEDIA_STATE_INVALID,    \
         }

@@ -20,7 +20,7 @@
 #include "user-util.h"
 
 static int chown_cgroup_path(const char *path, uid_t uid_shift) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         fd = open(path, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
         if (fd < 0)

@@ -19,7 +19,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         int fdin;
         void *mem;
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/fuzz-journal-remote.XXXXXX.journal";
-        _cleanup_close_ int fdout = -1;
+        _cleanup_close_ int fdout = -EBADF;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         _cleanup_(journal_remote_server_destroy) RemoteServer s = {};
         int r;

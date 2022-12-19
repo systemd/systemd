@@ -65,7 +65,7 @@ int is_device_node(const char *path) {
 }
 
 int dir_is_empty_at(int dir_fd, const char *path, bool ignore_hidden_or_backup) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         struct dirent *buf;
         size_t m;
 

@@ -53,8 +53,8 @@ static int manager_new(Manager **ret) {
                 return -ENOMEM;
 
         *m = (Manager) {
-                .console_active_fd = -1,
-                .reserve_vt_fd = -1,
+                .console_active_fd = -EBADF,
+                .reserve_vt_fd = -EBADF,
                 .enable_wall_messages = true,
                 .idle_action_not_before_usec = now(CLOCK_MONOTONIC),
         };
@@ -701,7 +701,7 @@ static int manager_vt_switch(sd_event_source *src, const struct signalfd_siginfo
 
         active = m->seat0->active;
         if (!active || active->vtnr < 1) {
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
                 int r;
 
                 /* We are requested to acknowledge the VT-switch signal by the kernel but

@@ -2459,7 +2459,7 @@ static int setup_credentials(const char *root) {
 
         for (size_t i = 0; i < arg_n_credentials; i++) {
                 _cleanup_free_ char *j = NULL;
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
 
                 j = path_join(q, arg_credentials[i].id);
                 if (!j)
@@ -2500,7 +2500,7 @@ static int setup_credentials(const char *root) {
 static int setup_kmsg(int fd_inner_socket) {
         _cleanup_(unlink_and_freep) char *from = NULL;
         _cleanup_free_ char *fifo = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         assert(fd_inner_socket >= 0);
@@ -3590,7 +3590,7 @@ static int inner_child(
 }
 
 static int setup_notify_child(void) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         static const union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
                 .un.sun_path = NSPAWN_NOTIFY_SOCKET_PATH,
@@ -3631,7 +3631,7 @@ static int outer_child(
 
         _cleanup_(bind_user_context_freep) BindUserContext *bind_user_context = NULL;
         _cleanup_strv_free_ char **os_release_pairs = NULL;
-        _cleanup_close_ int fd = -1, mntns_fd = -EBADF;
+        _cleanup_close_ int fd = -EBADF, mntns_fd = -EBADF;
         bool idmap = false;
         const char *p;
         pid_t pid;
@@ -4760,7 +4760,7 @@ static int run_container(
         int ifi = 0, r;
         ssize_t l;
         sigset_t mask_chld;
-        _cleanup_close_ int child_netns_fd = -1;
+        _cleanup_close_ int child_netns_fd = -EBADF;
 
         assert_se(sigemptyset(&mask_chld) == 0);
         assert_se(sigaddset(&mask_chld, SIGCHLD) == 0);
@@ -5168,7 +5168,7 @@ static int run_container(
         }
 
         if (arg_console_mode != CONSOLE_PIPE) {
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
                 PTYForwardFlags flags = 0;
 
                 /* Retrieve the master pty allocated by inner child */
@@ -5236,7 +5236,7 @@ static int run_container(
                         return r;
 
                 if (r == 0) {
-                        _cleanup_close_ int parent_netns_fd = -1;
+                        _cleanup_close_ int parent_netns_fd = -EBADF;
 
                         r = namespace_open(getpid(), NULL, NULL, &parent_netns_fd, NULL, NULL);
                         if (r < 0) {
@@ -5373,7 +5373,7 @@ static int initialize_rlimits(void) {
 }
 
 static int cant_be_in_netns(void) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         struct ucred ucred;
         int r;
 

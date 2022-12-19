@@ -823,7 +823,7 @@ int journal_file_verify(
         bool entry_seqnum_set = false, entry_monotonic_set = false, entry_realtime_set = false, found_main_entry_array = false;
         uint64_t n_objects = 0, n_entries = 0, n_data = 0, n_fields = 0, n_data_hash_tables = 0, n_field_hash_tables = 0, n_entry_arrays = 0, n_tags = 0;
         usec_t last_usec = 0;
-        _cleanup_close_ int data_fd = -1, entry_fd = -1, entry_array_fd = -1;
+        _cleanup_close_ int data_fd = -EBADF, entry_fd = -EBADF, entry_array_fd = -EBADF;
         _cleanup_fclose_ FILE *data_fp = NULL, *entry_fp = NULL, *entry_array_fp = NULL;
         MMapFileDescriptor *cache_data_fd = NULL, *cache_entry_fd = NULL, *cache_entry_array_fd = NULL;
         unsigned i;

@@ -55,7 +55,7 @@ static bool bpf_can_link_lsm_program(struct bpf_program *prog) {
 
 static int prepare_restrict_fs_bpf(struct restrict_fs_bpf **ret_obj) {
         _cleanup_(restrict_fs_bpf_freep) struct restrict_fs_bpf *obj = NULL;
-        _cleanup_close_ int inner_map_fd = -1;
+        _cleanup_close_ int inner_map_fd = -EBADF;
         int r;
 
         assert(ret_obj);

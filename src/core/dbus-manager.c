@@ -1379,7 +1379,7 @@ static int method_dump(sd_bus_message *message, void *userdata, sd_bus_error *er
 }
 
 static int reply_dump_by_fd(sd_bus_message *message, char *dump) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         fd = acquire_data_fd(dump, strlen(dump), 0);
         if (fd < 0)

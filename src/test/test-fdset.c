@@ -10,7 +10,7 @@
 #include "tmpfile-util.h"
 
 TEST(fdset_new_fill) {
-        int fd = -1;
+        int fd = -EBADF;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
         char name[] = "/tmp/test-fdset_new_fill.XXXXXX";
 
@@ -23,8 +23,8 @@ TEST(fdset_new_fill) {
 }
 
 TEST(fdset_put_dup) {
-        _cleanup_close_ int fd = -1;
-        int copyfd = -1;
+        _cleanup_close_ int fd = -EBADF;
+        int copyfd = -EBADF;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
         char name[] = "/tmp/test-fdset_put_dup.XXXXXX";
 
@@ -42,7 +42,7 @@ TEST(fdset_put_dup) {
 }
 
 TEST(fdset_cloexec) {
-        int fd = -1;
+        int fd = -EBADF;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
         int flags = -1;
         char name[] = "/tmp/test-fdset_cloexec.XXXXXX";
@@ -68,8 +68,8 @@ TEST(fdset_cloexec) {
 }
 
 TEST(fdset_close_others) {
-        int fd = -1;
-        int copyfd = -1;
+        int fd = -EBADF;
+        int copyfd = -EBADF;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
         int flags = -1;
         char name[] = "/tmp/test-fdset_close_others.XXXXXX";
@@ -92,7 +92,7 @@ TEST(fdset_close_others) {
 }
 
 TEST(fdset_remove) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         FDSet *fdset = NULL;
         char name[] = "/tmp/test-fdset_remove.XXXXXX";
 
@@ -112,7 +112,7 @@ TEST(fdset_remove) {
 }
 
 TEST(fdset_iterate) {
-        int fd = -1;
+        int fd = -EBADF;
         FDSet *fdset = NULL;
         char name[] = "/tmp/test-fdset_iterate.XXXXXX";
         int c = 0;

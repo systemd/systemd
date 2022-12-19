@@ -101,7 +101,7 @@ static int restrict_network_interfaces_install_impl(Unit *u) {
         _cleanup_(bpf_link_freep) struct bpf_link *egress_link = NULL, *ingress_link = NULL;
         _cleanup_(restrict_ifaces_bpf_freep) struct restrict_ifaces_bpf *obj = NULL;
         _cleanup_free_ char *cgroup_path = NULL;
-        _cleanup_close_ int cgroup_fd = -1;
+        _cleanup_close_ int cgroup_fd = -EBADF;
         CGroupContext *cc;
         int r;
 

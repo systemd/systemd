@@ -13,7 +13,7 @@
 
 int bus_container_connect_socket(sd_bus *b) {
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
-        _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, usernsfd = -1, rootfd = -1;
+        _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF;
         int r, error_buf = 0;
         pid_t child;
         ssize_t n;

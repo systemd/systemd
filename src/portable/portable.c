@@ -150,7 +150,7 @@ static int send_one_fd_iov_with_data_fd(
                 size_t iovlen,
                 int fd) {
 
-        _cleanup_close_ int data_fd = -1;
+        _cleanup_close_ int data_fd = -EBADF;
 
         assert(iov || iovlen == 0);
         assert(socket_fd >= 0);
@@ -179,7 +179,7 @@ static int extract_now(
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
-        _cleanup_close_ int os_release_fd = -1;
+        _cleanup_close_ int os_release_fd = -EBADF;
         _cleanup_free_ char *os_release_path = NULL;
         const char *os_release_id;
         int r;
@@ -224,7 +224,7 @@ static int extract_now(
                         if (!os_release)
                                 return -ENOMEM;
 
-                        os_release_fd = -1;
+                        os_release_fd = -EBADF;
                         os_release->source = TAKE_PTR(os_release_path);
                 }
         }
@@ -253,7 +253,7 @@ static int extract_now(
                 FOREACH_DIRENT(de, d, return log_debug_errno(errno, "Failed to read directory: %m")) {
                         _cleanup_(portable_metadata_unrefp) PortableMetadata *m = NULL;
                         _cleanup_(mac_selinux_freep) char *con = NULL;
-                        _cleanup_close_ int fd = -1;
+                        _cleanup_close_ int fd = -EBADF;
 
                         if (!unit_name_is_valid(de->d_name, UNIT_NAME_ANY))
                                 continue;
@@ -298,7 +298,7 @@ static int extract_now(
                         m = portable_metadata_new(de->d_name, where, con, fd);
                         if (!m)
                                 return -ENOMEM;
-                        fd = -1;
+                        fd = -EBADF;
 
                         m->source = path_join(resolved, de->d_name);
                         if (!m->source)
@@ -428,7 +428,7 @@ static int portable_extract_by_path(
 
                 for (;;) {
                         _cleanup_(portable_metadata_unrefp) PortableMetadata *add = NULL;
-                        _cleanup_close_ int fd = -1;
+                        _cleanup_close_ int fd = -EBADF;
                         /* We use NAME_MAX space for the SELinux label here. The kernel currently enforces no limit, but
                          * according to suggestions from the SELinux people this will change and it will probably be
                          * identical to NAME_MAX. For now we use that, but this should be updated one day when the final
@@ -461,7 +461,7 @@ static int portable_extract_by_path(
                         add = portable_metadata_new(iov_buffer, path, selinux_label, fd);
                         if (!add)
                                 return -ENOMEM;
-                        fd = -1;
+                        fd = -EBADF;
 
                         /* Note that we do not initialize 'add->source' here, as the source path is not usable here as
                          * it refers to a path only valid in the short-living namespaced child process we forked
@@ -594,7 +594,7 @@ static int extract_image_and_extensions(
                 _cleanup_(portable_metadata_unrefp) PortableMetadata *extension_release_meta = NULL;
                 _cleanup_hashmap_free_ Hashmap *extra_unit_files = NULL;
                 _cleanup_strv_free_ char **extension_release = NULL;
-                _cleanup_close_ int extension_release_fd = -1;
+                _cleanup_close_ int extension_release_fd = -EBADF;
                 _cleanup_fclose_ FILE *f = NULL;
                 const char *e;
 
@@ -1172,7 +1172,7 @@ static int attach_unit_file(
 
         } else {
                 _cleanup_(unlink_and_freep) char *tmp = NULL;
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
 
                 (void) mac_selinux_create_file_prepare_label(path, m->selinux_label);
 
@@ -1502,7 +1502,7 @@ static int test_chroot_dropin(
 
         _cleanup_free_ char *line = NULL, *marker = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         const char *p, *e, *k;
         int r;
 

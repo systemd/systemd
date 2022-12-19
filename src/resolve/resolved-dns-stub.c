@@ -1138,7 +1138,7 @@ static int manager_dns_stub_fd(
                 int type) {
 
         sd_event_source **event_source;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         union sockaddr_union sa;
         int r;
 
@@ -1225,7 +1225,7 @@ static int manager_dns_stub_fd(
 
 static int manager_dns_stub_fd_extra(Manager *m, DnsStubListenerExtra *l, int type) {
         _cleanup_free_ char *pretty = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         union sockaddr_union sa;
         int r;
 

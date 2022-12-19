@@ -807,7 +807,7 @@ static int mount_in_namespace(
                 bool is_image) {
 
         _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
-        _cleanup_close_ int mntns_fd = -1, root_fd = -1, pidns_fd = -1, chased_src_fd = -1;
+        _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF, chased_src_fd = -EBADF;
         char mount_slave[] = "/tmp/propagate.XXXXXX", *mount_tmp, *mount_outside, *p;
         bool mount_slave_created = false, mount_slave_mounted = false,
                 mount_tmp_created = false, mount_tmp_mounted = false,
@@ -1067,7 +1067,7 @@ int make_mount_point(const char *path) {
 }
 
 static int make_userns(uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping idmapping) {
-        _cleanup_close_ int userns_fd = -1;
+        _cleanup_close_ int userns_fd = -EBADF;
         _cleanup_free_ char *line = NULL;
 
         /* Allocates a userns file descriptor with the mapping we need. For this we'll fork off a child
@@ -1118,7 +1118,7 @@ int remount_idmap(
                 uid_t owner,
                 RemountIdmapping idmapping) {
 
-        _cleanup_close_ int mount_fd = -1, userns_fd = -1;
+        _cleanup_close_ int mount_fd = -EBADF, userns_fd = -EBADF;
         int r;
 
         assert(p);

@@ -80,7 +80,7 @@ int chase_symlinks_at(
                 int *ret_fd) {
 
         _cleanup_free_ char *buffer = NULL, *done = NULL;
-        _cleanup_close_ int fd = -1, root_fd = -1;
+        _cleanup_close_ int fd = -EBADF, root_fd = -EBADF;
         unsigned max_follow = CHASE_SYMLINKS_MAX; /* how many symlinks to follow before giving up and returning ELOOP */
         bool exists = true, append_trail_slash = false;
         struct stat previous_stat;
@@ -227,7 +227,7 @@ int chase_symlinks_at(
                 /* Two dots? Then chop off the last bit of what we already found out. */
                 if (path_equal(first, "..")) {
                         _cleanup_free_ char *parent = NULL;
-                        _cleanup_close_ int fd_parent = -1;
+                        _cleanup_close_ int fd_parent = -EBADF;
 
                         /* If we already are at the top, then going up will not change anything. This is
                          * in-line with how the kernel handles this. */
@@ -415,7 +415,7 @@ int chase_symlinks(
                 int *ret_fd) {
 
         _cleanup_free_ char *root = NULL, *absolute = NULL, *p = NULL;
-        _cleanup_close_ int fd = -1, pfd = -1;
+        _cleanup_close_ int fd = -EBADF, pfd = -EBADF;
         int r;
 
         assert(path);
@@ -496,7 +496,7 @@ int chase_symlinks_and_open(
                 int open_flags,
                 char **ret_path) {
 
-        _cleanup_close_ int path_fd = -1;
+        _cleanup_close_ int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -534,7 +534,7 @@ int chase_symlinks_and_opendir(
                 char **ret_path,
                 DIR **ret_dir) {
 
-        _cleanup_close_ int path_fd = -1;
+        _cleanup_close_ int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         DIR *d;
         int r;
@@ -578,7 +578,7 @@ int chase_symlinks_and_stat(
                 struct stat *ret_stat,
                 int *ret_fd) {
 
-        _cleanup_close_ int path_fd = -1;
+        _cleanup_close_ int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -621,7 +621,7 @@ int chase_symlinks_and_access(
                 char **ret_path,
                 int *ret_fd) {
 
-        _cleanup_close_ int path_fd = -1;
+        _cleanup_close_ int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -665,7 +665,7 @@ int chase_symlinks_and_fopen_unlocked(
                 FILE **ret_file) {
 
         _cleanup_free_ char *final_path = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int mode_flags, r;
 
         assert(path);

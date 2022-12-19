@@ -1075,7 +1075,7 @@ static int mount_sysfs(const MountEntry *m) {
 }
 
 static bool mount_option_supported(const char *fstype, const char *key, const char *value) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         /* This function assumes support by default. Only if the fsconfig() call fails with -EINVAL/-EOPNOTSUPP
@@ -2698,7 +2698,7 @@ int temporary_filesystem_add(
 
 static int make_tmp_prefix(const char *prefix) {
         _cleanup_free_ char *t = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         /* Don't do anything unless we know the dir is actually missing */

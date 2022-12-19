@@ -860,7 +860,7 @@ static int manager_assess_image(
 
         if (S_ISDIR(st.st_mode)) {
                 _cleanup_free_ char *n = NULL, *user_name = NULL, *realm = NULL;
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
                 UserStorage storage;
 
                 if (!directory_suffix)
@@ -1041,7 +1041,7 @@ static ssize_t read_datagram(
 
         CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred)) + CMSG_SPACE(sizeof(int))) control;
         _cleanup_free_ void *buffer = NULL;
-        _cleanup_close_ int passed_fd = -1;
+        _cleanup_close_ int passed_fd = -EBADF;
         struct ucred *sender = NULL;
         struct cmsghdr *cmsg;
         struct msghdr mh;
@@ -1119,7 +1119,7 @@ static ssize_t read_datagram(
 static int on_notify_socket(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_strv_free_ char **l = NULL;
         _cleanup_free_ void *datagram = NULL;
-        _cleanup_close_ int passed_fd = -1;
+        _cleanup_close_ int passed_fd = -EBADF;
         struct ucred sender = UCRED_INVALID;
         Manager *m = ASSERT_PTR(userdata);
         ssize_t n;
@@ -1154,7 +1154,7 @@ static int on_notify_socket(sd_event_source *s, int fd, uint32_t revents, void *
 }
 
 static int manager_listen_notify(Manager *m) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
                 .un.sun_path = "/run/systemd/home/notify",

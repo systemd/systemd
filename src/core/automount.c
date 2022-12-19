@@ -73,7 +73,7 @@ static void automount_init(Unit *u) {
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
-        a->pipe_fd = -1;
+        a->pipe_fd = -EBADF;
         a->directory_mode = 0755;
         UNIT(a)->ignore_on_isolate = true;
 }
@@ -392,7 +392,7 @@ static int open_ioctl_fd(int dev_autofs_fd, const char *where, dev_t devid) {
 
         init_autofs_dev_ioctl(param);
         param->size = l;
-        param->ioctlfd = -1;
+        param->ioctlfd = -EBADF;
         param->openmount.devid = devid;
         strcpy(param->path, where);
 
@@ -470,7 +470,7 @@ static int autofs_send_ready(int dev_autofs_fd, int ioctl_fd, uint32_t token, in
 }
 
 static int automount_send_ready(Automount *a, Set *tokens, int status) {
-        _cleanup_close_ int ioctl_fd = -1;
+        _cleanup_close_ int ioctl_fd = -EBADF;
         unsigned token;
         int r;
 
@@ -572,7 +572,7 @@ static void automount_trigger_notify(Unit *u, Unit *other) {
 }
 
 static void automount_enter_waiting(Automount *a) {
-        _cleanup_close_ int ioctl_fd = -1;
+        _cleanup_close_ int ioctl_fd = -EBADF;
         int p[2] = { -1, -1 };
         char name[STRLEN("systemd-") + DECIMAL_STR_MAX(pid_t) + 1];
         _cleanup_free_ char *options = NULL;
@@ -707,7 +707,7 @@ static int automount_dispatch_expire(sd_event_source *source, usec_t usec, void 
         if (!data)
                 return log_oom();
 
-        data->ioctl_fd = -1;
+        data->ioctl_fd = -EBADF;
 
         data->dev_autofs_fd = fcntl(UNIT(a)->manager->dev_autofs_fd, F_DUPFD_CLOEXEC, 3);
         if (data->dev_autofs_fd < 0)

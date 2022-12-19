@@ -111,8 +111,8 @@ static void service_init(Unit *u) {
         s->restart_usec = u->manager->default_restart_usec;
         s->runtime_max_usec = USEC_INFINITY;
         s->type = _SERVICE_TYPE_INVALID;
-        s->socket_fd = -1;
-        s->stdin_fd = s->stdout_fd = s->stderr_fd = -1;
+        s->socket_fd = -EBADF;
+        s->stdin_fd = s->stdout_fd = s->stderr_fd = -EBADF;
         s->guess_main_pid = true;
 
         s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
@@ -480,7 +480,7 @@ static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name, bo
         assert(s);
 
         while (fdset_size(fds) > 0) {
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
 
                 fd = fdset_steal_first(fds);
                 if (fd < 0)
@@ -495,7 +495,7 @@ static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name, bo
                         return log_unit_error_errno(UNIT(s), r, "Failed to add fd to store: %m");
                 if (r > 0)
                         log_unit_debug(UNIT(s), "Added fd %i (%s) to fd store.", fd, strna(name));
-                fd = -1;
+                fd = -EBADF;
         }
 
         return 0;
@@ -959,7 +959,7 @@ static int service_is_suitable_main_pid(Service *s, pid_t pid, int prio) {
 static int service_load_pid_file(Service *s, bool may_warn) {
         bool questionable_pid_file = false;
         _cleanup_free_ char *k = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r, prio;
         pid_t pid;
 
@@ -1483,10 +1483,10 @@ static int service_spawn_internal(
 
         _cleanup_(exec_params_clear) ExecParameters exec_params = {
                 .flags     = flags,
-                .stdin_fd  = -1,
-                .stdout_fd = -1,
-                .stderr_fd = -1,
-                .exec_fd   = -1,
+                .stdin_fd  = -EBADF,
+                .stdout_fd = -EBADF,
+                .stderr_fd = -EBADF,
+                .exec_fd   = -EBADF,
         };
         _cleanup_(sd_event_source_unrefp) sd_event_source *exec_fd_source = NULL;
         _cleanup_strv_free_ char **final_env = NULL, **our_env = NULL;
@@ -3241,7 +3241,7 @@ static int service_demand_pid_file(Service *s) {
         /* PATH_CHANGED would not be enough. There are daemons (sendmail) that
          * keep their PID file open all the time. */
         ps->type = PATH_MODIFIED;
-        ps->inotify_fd = -1;
+        ps->inotify_fd = -EBADF;
 
         s->pid_file_pathspec = ps;
 

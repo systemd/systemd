@@ -411,7 +411,7 @@ static int bpf_firewall_prepare_access_maps(
                 int *ret_ipv6_map_fd,
                 bool *ret_has_any) {
 
-        _cleanup_close_ int ipv4_map_fd = -1, ipv6_map_fd = -1;
+        _cleanup_close_ int ipv4_map_fd = -EBADF, ipv6_map_fd = -EBADF;
         size_t n_ipv4 = 0, n_ipv6 = 0;
         Unit *p;
         int r;
@@ -874,8 +874,8 @@ int bpf_firewall_supported(void) {
         // Ideally it should behave like GCC, so that we can remove these workarounds.
         zero(attr);
         attr.attach_type = BPF_CGROUP_INET_EGRESS;
-        attr.target_fd = -1;
-        attr.attach_bpf_fd = -1;
+        attr.target_fd = -EBADF;
+        attr.attach_bpf_fd = -EBADF;
 
         if (bpf(BPF_PROG_DETACH, &attr, sizeof(attr)) < 0) {
                 if (errno != EBADF) {
@@ -902,8 +902,8 @@ int bpf_firewall_supported(void) {
 
         zero(attr);
         attr.attach_type = BPF_CGROUP_INET_EGRESS;
-        attr.target_fd = -1;
-        attr.attach_bpf_fd = -1;
+        attr.target_fd = -EBADF;
+        attr.attach_bpf_fd = -EBADF;
         attr.attach_flags = BPF_F_ALLOW_MULTI;
 
         if (bpf(BPF_PROG_ATTACH, &attr, sizeof(attr)) < 0) {

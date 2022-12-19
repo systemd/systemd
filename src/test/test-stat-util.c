@@ -43,7 +43,7 @@ TEST(null_or_empty_path_with_root) {
 }
 
 TEST(files_same) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         char name[] = "/tmp/test-files_same.XXXXXX";
         char name_alias[] = "/tmp/test-files_same.alias";
 
@@ -63,7 +63,7 @@ TEST(files_same) {
 TEST(is_symlink) {
         char name[] = "/tmp/test-is_symlink.XXXXXX";
         char name_link[] = "/tmp/test-is_symlink.link";
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         fd = mkostemp_safe(name);
         assert_se(fd >= 0);
@@ -125,7 +125,7 @@ TEST(path_is_read_only_fs) {
 }
 
 TEST(fd_is_ns) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         assert_se(fd_is_ns(STDIN_FILENO, CLONE_NEWNET) == 0);
         assert_se(fd_is_ns(STDERR_FILENO, CLONE_NEWNET) == 0);

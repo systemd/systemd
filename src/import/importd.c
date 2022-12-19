@@ -157,9 +157,9 @@ static int transfer_new(Manager *m, Transfer **ret) {
 
         *t = (Transfer) {
                 .type = _TRANSFER_TYPE_INVALID,
-                .log_fd = -1,
-                .stdin_fd = -1,
-                .stdout_fd = -1,
+                .log_fd = -EBADF,
+                .stdin_fd = -EBADF,
+                .stdout_fd = -EBADF,
                 .verify = _IMPORT_VERIFY_INVALID,
                 .progress_percent= UINT_MAX,
         };

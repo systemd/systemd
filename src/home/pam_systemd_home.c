@@ -477,7 +477,7 @@ static int acquire_home(
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL, *secret = NULL;
         bool do_auth = please_authenticate, home_not_active = false, home_locked = false;
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
-        _cleanup_close_ int acquired_fd = -1;
+        _cleanup_close_ int acquired_fd = -EBADF;
         _cleanup_free_ char *fd_field = NULL;
         const void *home_fd_ptr = NULL;
         const char *username = NULL;

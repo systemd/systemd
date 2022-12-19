@@ -18,7 +18,7 @@
 #include "varlink-internal.h"
 
 int manager_open_serialization(Manager *m, FILE **ret_f) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         FILE *f;
 
         assert(ret_f);
