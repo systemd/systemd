@@ -107,8 +107,8 @@ int tar_import_new(
                 return -ENOMEM;
 
         *i = (TarImport) {
-                .input_fd = -1,
-                .tar_fd = -1,
+                .input_fd = -EBADF,
+                .tar_fd = -EBADF,
                 .on_finished = on_finished,
                 .userdata = userdata,
                 .last_percent = UINT_MAX,

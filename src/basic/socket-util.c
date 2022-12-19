@@ -1049,7 +1049,7 @@ ssize_t receive_one_fd_iov(
         if (found)
                 *ret_fd = *(int*) CMSG_DATA(found);
         else
-                *ret_fd = -1;
+                *ret_fd = -EBADF;
 
         return k;
 }
@@ -1426,7 +1426,7 @@ int socket_get_mtu(int fd, int af, size_t *ret) {
 }
 
 int connect_unix_path(int fd, int dir_fd, const char *path) {
-        _cleanup_close_ int inode_fd = -1;
+        _cleanup_close_ int inode_fd = -EBADF;
         union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
         };

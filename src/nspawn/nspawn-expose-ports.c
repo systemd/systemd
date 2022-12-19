@@ -160,7 +160,7 @@ int expose_port_execute(sd_netlink *rtnl, FirewallContext **fw_ctx, ExposePort *
 }
 
 int expose_port_send_rtnl(int send_fd) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         assert(send_fd >= 0);

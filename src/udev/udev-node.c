@@ -281,7 +281,7 @@ static int stack_directory_update(sd_device *dev, int fd, bool add) {
 }
 
 static int stack_directory_open(const char *dirname) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         assert(dirname);
@@ -298,7 +298,7 @@ static int stack_directory_open(const char *dirname) {
 }
 
 static int stack_directory_lock(int dirfd) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         assert(dirfd >= 0);
 
@@ -387,7 +387,7 @@ static int stack_directory_get_name(const char *slink, char **ret) {
 
 static int link_update(sd_device *dev, const char *slink, bool add) {
         _cleanup_free_ char *dirname = NULL, *devnode = NULL;
-        _cleanup_close_ int dirfd = -1, lockfd = -1;
+        _cleanup_close_ int dirfd = -EBADF, lockfd = -EBADF;
         int r;
 
         assert(dev);
@@ -624,7 +624,7 @@ int udev_node_apply_permissions(
                 OrderedHashmap *seclabel_list) {
 
         const char *devnode;
-        _cleanup_close_ int node_fd = -1;
+        _cleanup_close_ int node_fd = -EBADF;
         int r;
 
         assert(dev);
@@ -654,7 +654,7 @@ int static_node_apply_permissions(
                 char **tags) {
 
         _cleanup_free_ char *unescaped_filename = NULL;
-        _cleanup_close_ int node_fd = -1;
+        _cleanup_close_ int node_fd = -EBADF;
         const char *devnode;
         struct stat stats;
         int r;

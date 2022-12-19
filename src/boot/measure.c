@@ -427,7 +427,7 @@ static int measure_kernel(PcrState *pcr_states, size_t n) {
 
         for (UnifiedSection c = 0; c < _UNIFIED_SECTION_MAX; c++) {
                 _cleanup_(evp_md_ctx_free_all) EVP_MD_CTX **mdctx = NULL;
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
                 uint64_t m = 0;
 
                 if (!arg_sections[c])

@@ -223,7 +223,7 @@ TEST(getpeercred_getpeergroups) {
 
 TEST(passfd_read) {
         static const char file_contents[] = "test contents for passfd";
-        _cleanup_close_pair_ int pair[2] = { -1, -1 };
+        _cleanup_close_pair_ int pair[2];
         int r;
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
@@ -249,7 +249,7 @@ TEST(passfd_read) {
         /* Parent */
         char buf[64];
         struct iovec iov = IOVEC_INIT(buf, sizeof(buf)-1);
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd;
 
         pair[1] = safe_close(pair[1]);
 
@@ -263,7 +263,7 @@ TEST(passfd_read) {
 }
 
 TEST(passfd_contents_read) {
-        _cleanup_close_pair_ int pair[2] = { -1, -1 };
+        _cleanup_close_pair_ int pair[2];
         static const char file_contents[] = "test contents in the file";
         static const char wire_contents[] = "test contents on the wire";
         int r;
@@ -293,7 +293,7 @@ TEST(passfd_contents_read) {
         /* Parent */
         char buf[64];
         struct iovec iov = IOVEC_INIT(buf, sizeof(buf)-1);
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd;
         ssize_t k;
 
         pair[1] = safe_close(pair[1]);
@@ -311,7 +311,7 @@ TEST(passfd_contents_read) {
 }
 
 TEST(receive_nopassfd) {
-        _cleanup_close_pair_ int pair[2] = { -1, -1 };
+        _cleanup_close_pair_ int pair[2];
         static const char wire_contents[] = "no fd passed here";
         int r;
 
@@ -344,11 +344,11 @@ TEST(receive_nopassfd) {
         assert_se(streq(buf, wire_contents));
 
         /* no fd passed here, confirm it was reset */
-        assert_se(fd == -1);
+        assert_se(fd == -EBADF);
 }
 
 TEST(send_nodata_nofd) {
-        _cleanup_close_pair_ int pair[2] = { -1, -1 };
+        _cleanup_close_pair_ int pair[2];
         int r;
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
@@ -381,7 +381,7 @@ TEST(send_nodata_nofd) {
 }
 
 TEST(send_emptydata) {
-        _cleanup_close_pair_ int pair[2] = { -1, -1 };
+        _cleanup_close_pair_ int pair[2];
         int r;
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
@@ -418,7 +418,7 @@ TEST(send_emptydata) {
 }
 
 TEST(flush_accept) {
-        _cleanup_close_ int listen_stream = -1, listen_dgram = -1, listen_seqpacket = 1, connect_stream = -1, connect_dgram = -1, connect_seqpacket = -1;
+        _cleanup_close_ int listen_stream, listen_dgram, listen_seqpacket, connect_stream, connect_dgram, connect_seqpacket;
         static const union sockaddr_union sa = { .un.sun_family = AF_UNIX };
         union sockaddr_union lsa;
         socklen_t l;
@@ -488,7 +488,7 @@ TEST(sockaddr_un_set_path) {
         _cleanup_(unlink_and_freep) char *sh = NULL;
         _cleanup_free_ char *j = NULL;
         union sockaddr_union sa;
-        _cleanup_close_ int fd1 = -1, fd2 = -1, fd3 = -1;
+        _cleanup_close_ int fd1, fd2, fd3;
 
         assert_se(mkdtemp_malloc("/tmp/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaXXXXXX", &t) >= 0);
         assert_se(strlen(t) > SUN_PATH_LEN);

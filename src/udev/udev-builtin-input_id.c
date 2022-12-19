@@ -47,7 +47,7 @@ static int abs_size_mm(const struct input_absinfo *absinfo) {
 static void extract_info(sd_device *dev, bool test) {
         char width[DECIMAL_STR_MAX(int)], height[DECIMAL_STR_MAX(int)];
         struct input_absinfo xabsinfo = {}, yabsinfo = {};
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)

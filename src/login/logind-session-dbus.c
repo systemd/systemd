@@ -774,7 +774,7 @@ static bool session_ready(Session *s) {
 
 int session_send_create_reply(Session *s, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *c = NULL;
-        _cleanup_close_ int fifo_fd = -1;
+        _cleanup_close_ int fifo_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
 
         assert(s);

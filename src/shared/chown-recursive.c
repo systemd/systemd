@@ -63,7 +63,7 @@ static int chown_recursive_internal(
         }
 
         FOREACH_DIRENT_ALL(de, d, return -errno) {
-                _cleanup_close_ int path_fd = -1;
+                _cleanup_close_ int path_fd = -EBADF;
                 struct stat fst;
 
                 if (dot_or_dot_dot(de->d_name))
@@ -113,7 +113,7 @@ int path_chown_recursive(
                 gid_t gid,
                 mode_t mask) {
 
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         struct stat st;
 
         fd = open(path, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
@@ -142,7 +142,7 @@ int fd_chown_recursive(
                 gid_t gid,
                 mode_t mask) {
 
-        int duplicated_fd = -1;
+        int duplicated_fd = -EBADF;
         struct stat st;
 
         /* Note that the slightly different order of fstat() and the checks here and in

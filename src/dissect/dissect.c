@@ -859,7 +859,7 @@ static int list_print_item(
 }
 
 static int get_file_sha256(int inode_fd, uint8_t ret[static SHA256_DIGEST_SIZE]) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         struct sha256_ctx ctx;
 
         /* convert O_PATH fd into a regular one */
@@ -1063,7 +1063,7 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
                 return log_error_errno(r, "Failed to relinquish DM and loopback block devices: %m");
 
         if (arg_action == ACTION_COPY_FROM) {
-                _cleanup_close_ int source_fd = -1, target_fd = -1;
+                _cleanup_close_ int source_fd = -EBADF, target_fd = -EBADF;
 
                 source_fd = chase_symlinks_and_open(arg_source, mounted_dir, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
                 if (source_fd < 0)
@@ -1108,7 +1108,7 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
                 /* When this is a regular file we don't copy ownership! */
 
         } else if (arg_action == ACTION_COPY_TO) {
-                _cleanup_close_ int source_fd = -1, target_fd = -1, dfd = -1;
+                _cleanup_close_ int source_fd = -EBADF, target_fd = -EBADF, dfd = -EBADF;
                 _cleanup_free_ char *dn = NULL, *bn = NULL;
 
                 r = path_extract_directory(arg_target, &dn);
@@ -1177,7 +1177,7 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
                 /* When this is a regular file we don't copy ownership! */
 
         } else {
-                _cleanup_close_ int dfd = -1;
+                _cleanup_close_ int dfd = -EBADF;
 
                 dfd = open(mounted_dir, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
                 if (dfd < 0)
@@ -1199,7 +1199,7 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
 }
 
 static int action_umount(const char *path) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *canonical = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
@@ -1219,7 +1219,7 @@ static int action_umount(const char *path) {
 
         r = block_device_new_from_fd(fd, BLOCK_DEVICE_LOOKUP_WHOLE_DISK | BLOCK_DEVICE_LOOKUP_BACKING, &dev);
         if (r < 0) {
-                _cleanup_close_ int usr_fd = -1;
+                _cleanup_close_ int usr_fd = -EBADF;
 
                 /* The command `systemd-dissect --mount` expects that the image at least has the root or /usr
                  * partition. If it does not have the root partition, then we mount the /usr partition on a

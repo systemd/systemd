@@ -19,7 +19,7 @@
 #include "string-util.h"
 
 int clock_get_hwclock(struct tm *tm) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         assert(tm);
 
@@ -40,7 +40,7 @@ int clock_get_hwclock(struct tm *tm) {
 }
 
 int clock_set_hwclock(const struct tm *tm) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         assert(tm);
 

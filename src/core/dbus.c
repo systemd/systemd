@@ -649,7 +649,7 @@ static int bus_setup_disconnected_match(Manager *m, sd_bus *bus) {
 
 static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_close_ int nfd = -1;
+        _cleanup_close_ int nfd = -EBADF;
         Manager *m = ASSERT_PTR(userdata);
         sd_id128_t id;
         int r;
@@ -684,7 +684,7 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
                 return 0;
         }
 
-        nfd = -1;
+        nfd = -EBADF;
 
         r = bus_check_peercred(bus);
         if (r < 0) {
@@ -897,7 +897,7 @@ int bus_init_system(Manager *m) {
 }
 
 int bus_init_private(Manager *m) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         union sockaddr_union sa;
         socklen_t sa_len;
         sd_event_source *s;

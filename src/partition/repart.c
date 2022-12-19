@@ -336,7 +336,7 @@ static Partition *partition_new(void) {
                 .padding_max = UINT64_MAX,
                 .partno = UINT64_MAX,
                 .offset = UINT64_MAX,
-                .copy_blocks_fd = -1,
+                .copy_blocks_fd = -EBADF,
                 .copy_blocks_size = UINT64_MAX,
                 .no_auto = -1,
                 .read_only = -1,
@@ -3079,7 +3079,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(PartitionTarget*, partition_target_free);
 
 static int prepare_temporary_file(PartitionTarget *t, uint64_t size) {
         _cleanup_(unlink_and_freep) char *temp = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         const char *vt;
         int r;
 
@@ -3128,8 +3128,8 @@ static int partition_target_prepare(
         if (!t)
                 return log_oom();
         *t = (PartitionTarget) {
-                .fd = -1,
-                .whole_fd = -1,
+                .fd = -EBADF,
+                .whole_fd = -EBADF,
         };
 
         if (!need_path) {
@@ -3736,7 +3736,7 @@ static int do_copy_files(
         assert(root);
 
         STRV_FOREACH_PAIR(source, target, p->copy_files) {
-                _cleanup_close_ int sfd = -1, pfd = -1, tfd = -1;
+                _cleanup_close_ int sfd = -EBADF, pfd = -EBADF, tfd = -EBADF;
 
                 sfd = chase_symlinks_and_open(*source, arg_root, CHASE_PREFIX_ROOT, O_CLOEXEC|O_NOCTTY, NULL);
                 if (sfd < 0)
@@ -3858,7 +3858,7 @@ static bool partition_needs_populate(Partition *p) {
 
 static int partition_populate_directory(Partition *p, const Set *denylist, char **ret) {
         _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
-        _cleanup_close_ int rfd = -1;
+        _cleanup_close_ int rfd = -EBADF;
         int r;
 
         assert(ret);
@@ -4627,7 +4627,7 @@ static int split_name_resolve(Context *context) {
 }
 
 static int context_split(Context *context) {
-        int fd = -1, r;
+        int fd = -EBADF, r;
 
         if (!arg_split)
                 return 0;
@@ -4642,7 +4642,7 @@ static int context_split(Context *context) {
                 return r;
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_close_ int fdt = -1;
+                _cleanup_close_ int fdt = -EBADF;
 
                 if (p->dropped)
                         continue;
@@ -4766,7 +4766,7 @@ static int context_read_seed(Context *context, const char *root) {
                 return 0;
 
         if (!arg_randomize) {
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
 
                 fd = chase_symlinks_and_open("/etc/machine-id", root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC, NULL);
                 if (fd == -ENOENT)
@@ -4856,7 +4856,7 @@ static int resolve_copy_blocks_auto_candidate(
                 sd_id128_t *ret_uuid) {
 
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         const char *pttype, *t;
         sd_id128_t pt_parsed, u;
@@ -5141,7 +5141,7 @@ static int context_open_copy_block_paths(
         assert(context);
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_close_ int source_fd = -1;
+                _cleanup_close_ int source_fd = -EBADF;
                 _cleanup_free_ char *opened = NULL;
                 sd_id128_t uuid = SD_ID128_NULL;
                 uint64_t size;
@@ -5302,7 +5302,7 @@ static int context_minimize(Context *context) {
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
                 _cleanup_(unlink_and_freep) char *temp = NULL;
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
                 sd_id128_t fs_uuid;
                 uint64_t fsz;
 
@@ -6005,7 +6005,7 @@ static int acquire_root_devno(
 
         _cleanup_free_ char *found_path = NULL;
         dev_t devno, fd_devno = MODE_INVALID;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         struct stat st;
         int r;
 
@@ -6076,7 +6076,7 @@ static int find_root(Context *context) {
 
         if (arg_node) {
                 if (arg_empty == EMPTY_CREATE) {
-                        _cleanup_close_ int fd = -1;
+                        _cleanup_close_ int fd = -EBADF;
                         _cleanup_free_ char *s = NULL;
 
                         s = strdup(arg_node);
@@ -6176,7 +6176,7 @@ static int resize_backing_fd(
                 const char *backing_file,   /* If the above refers to a loopback device, the backing regular file for that, which we can grow */
                 LoopDevice *loop_device) {
 
-        _cleanup_close_ int writable_fd = -1;
+        _cleanup_close_ int writable_fd = -EBADF;
         uint64_t current_size;
         struct stat st;
         int r;

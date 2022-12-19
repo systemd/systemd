@@ -174,7 +174,7 @@ finalize:
 
 int udev_watch_begin(int inotify_fd, sd_device *dev) {
         char wd_str[DECIMAL_STR_MAX(int)];
-        _cleanup_close_ int dirfd = -1;
+        _cleanup_close_ int dirfd = -EBADF;
         const char *devnode, *id;
         int wd, r;
 
@@ -229,7 +229,7 @@ on_failure:
 }
 
 int udev_watch_end(int inotify_fd, sd_device *dev) {
-        _cleanup_close_ int dirfd = -1;
+        _cleanup_close_ int dirfd = -EBADF;
         int wd, r;
 
         assert(dev);

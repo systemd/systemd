@@ -182,7 +182,7 @@ int recurse_dir(
                 return r;
 
         for (size_t i = 0; i < de->n_entries; i++) {
-                _cleanup_close_ int inode_fd = -1, subdir_fd = -1;
+                _cleanup_close_ int inode_fd = -EBADF, subdir_fd = -EBADF;
                 _cleanup_free_ char *joined = NULL;
                 STRUCT_STATX_DEFINE(sx);
                 bool sx_valid = false;
@@ -490,7 +490,7 @@ int recurse_dir_at(
                 recurse_dir_func_t func,
                 void *userdata) {
 
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         assert(atfd >= 0 || atfd == AT_FDCWD);
         assert(func);

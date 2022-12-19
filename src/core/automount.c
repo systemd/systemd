@@ -73,7 +73,7 @@ static void automount_init(Unit *u) {
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
-        a->pipe_fd = -1;
+        a->pipe_fd = -EBADF;
         a->directory_mode = 0755;
         UNIT(a)->ignore_on_isolate = true;
 }
@@ -392,7 +392,7 @@ static int open_ioctl_fd(int dev_autofs_fd, const char *where, dev_t devid) {
 
         init_autofs_dev_ioctl(param);
         param->size = l;
-        param->ioctlfd = -1;
+        param->ioctlfd = -EBADF;
         param->openmount.devid = devid;
         strcpy(param->path, where);
 
@@ -470,7 +470,7 @@ static int autofs_send_ready(int dev_autofs_fd, int ioctl_fd, uint32_t token, in
 }
 
 static int automount_send_ready(Automount *a, Set *tokens, int status) {
-        _cleanup_close_ int ioctl_fd = -1;
+        _cleanup_close_ int ioctl_fd = -EBADF;
         unsigned token;
         int r;
 
@@ -572,8 +572,8 @@ static void automount_trigger_notify(Unit *u, Unit *other) {
 }
 
 static void automount_enter_waiting(Automount *a) {
-        _cleanup_close_ int ioctl_fd = -1;
-        int p[2] = { -1, -1 };
+        _cleanup_close_ int ioctl_fd = -EBADF;
+        int pipe_fd[2] = { -EBADF, -EBADF };
         char name[STRLEN("systemd-") + DECIMAL_STR_MAX(pid_t) + 1];
         _cleanup_free_ char *options = NULL;
         bool mounted = false;
@@ -600,18 +600,18 @@ static void automount_enter_waiting(Automount *a) {
                 goto fail;
         }
 
-        if (pipe2(p, O_CLOEXEC) < 0) {
+        if (pipe2(pipe_fd, O_CLOEXEC) < 0) {
                 r = -errno;
                 goto fail;
         }
-        r = fd_nonblock(p[0], true);
+        r = fd_nonblock(pipe_fd[0], true);
         if (r < 0)
                 goto fail;
 
         if (asprintf(
                     &options,
                     "fd=%i,pgrp="PID_FMT",minproto=5,maxproto=5,direct%s%s",
-                    p[1],
+                    pipe_fd[1],
                     getpgrp(),
                     isempty(a->extra_options) ? "" : ",",
                     strempty(a->extra_options)) < 0) {
@@ -626,7 +626,7 @@ static void automount_enter_waiting(Automount *a) {
 
         mounted = true;
 
-        p[1] = safe_close(p[1]);
+        pipe_fd[1] = safe_close(pipe_fd[1]);
 
         if (stat(a->where, &st) < 0) {
                 r = -errno;
@@ -647,13 +647,13 @@ static void automount_enter_waiting(Automount *a) {
         if (r < 0)
                 goto fail;
 
-        r = sd_event_add_io(UNIT(a)->manager->event, &a->pipe_event_source, p[0], EPOLLIN, automount_dispatch_io, a);
+        r = sd_event_add_io(UNIT(a)->manager->event, &a->pipe_event_source, pipe_fd[0], EPOLLIN, automount_dispatch_io, a);
         if (r < 0)
                 goto fail;
 
         (void) sd_event_source_set_description(a->pipe_event_source, "automount-io");
 
-        a->pipe_fd = p[0];
+        a->pipe_fd = pipe_fd[0];
         a->dev_id = st.st_dev;
 
         automount_set_state(a, AUTOMOUNT_WAITING);
@@ -663,7 +663,7 @@ static void automount_enter_waiting(Automount *a) {
 fail:
         log_unit_error_errno(UNIT(a), r, "Failed to initialize automounter: %m");
 
-        safe_close_pair(p);
+        safe_close_pair(pipe_fd);
 
         if (mounted) {
                 r = repeat_unmount(a->where, MNT_DETACH|UMOUNT_NOFOLLOW);
@@ -707,7 +707,7 @@ static int automount_dispatch_expire(sd_event_source *source, usec_t usec, void 
         if (!data)
                 return log_oom();
 
-        data->ioctl_fd = -1;
+        data->ioctl_fd = -EBADF;
 
         data->dev_autofs_fd = fcntl(UNIT(a)->manager->dev_autofs_fd, F_DUPFD_CLOEXEC, 3);
         if (data->dev_autofs_fd < 0)

@@ -213,7 +213,7 @@ int ask_password_plymouth(
                 char ***ret) {
 
         static const union sockaddr_union sa = PLYMOUTH_SOCKET;
-        _cleanup_close_ int fd = -1, notify = -1;
+        _cleanup_close_ int fd = -EBADF, notify = -EBADF;
         _cleanup_free_ char *packet = NULL;
         ssize_t k;
         int r, n;
@@ -394,7 +394,7 @@ int ask_password_tty(
         };
 
         bool reset_tty = false, dirty = false, use_color = false, press_tab_visible = false;
-        _cleanup_close_ int cttyfd = -1, notify = -1;
+        _cleanup_close_ int cttyfd = -EBADF, notify = -EBADF;
         struct termios old_termios, new_termios;
         char passphrase[LINE_MAX + 1] = {}, *x;
         _cleanup_strv_free_erase_ char **l = NULL;
@@ -670,7 +670,7 @@ static int create_socket(char **ret) {
         _cleanup_free_ char *path = NULL;
         union sockaddr_union sa;
         socklen_t sa_len;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         assert(ret);
@@ -715,7 +715,7 @@ int ask_password_agent(
                 _FD_MAX
         };
 
-        _cleanup_close_ int socket_fd = -1, signal_fd = -1, notify = -1, fd = -1;
+        _cleanup_close_ int socket_fd = -EBADF, signal_fd = -EBADF, notify = -EBADF, fd = -EBADF;
         char temp[] = "/run/systemd/ask-password/tmp.XXXXXX";
         char final[sizeof(temp)] = "";
         _cleanup_free_ char *socket_name = NULL;

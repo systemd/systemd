@@ -1116,7 +1116,7 @@ static int fifo_address_create(
                 mode_t directory_mode,
                 mode_t socket_mode) {
 
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         mode_t old_mask;
         struct stat st;
         int r;
@@ -1172,7 +1172,7 @@ fail:
 }
 
 static int special_address_create(const char *path, bool writable) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         struct stat st;
 
         assert(path);
@@ -1192,7 +1192,7 @@ static int special_address_create(const char *path, bool writable) {
 }
 
 static int usbffs_address_create(const char *path) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         struct stat st;
 
         assert(path);
@@ -1217,7 +1217,7 @@ static int mq_address_create(
                 long maxmsg,
                 long msgsize) {
 
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         struct stat st;
         mode_t old_mask;
         struct mq_attr _attr, *attr = NULL;
@@ -1502,7 +1502,7 @@ static int socket_address_listen_in_cgroup(
                 const SocketAddress *address,
                 const char *label) {
 
-        _cleanup_close_pair_ int pair[2] = { -1, -1 };
+        _cleanup_close_pair_ int pair[2] = { -EBADF, -EBADF };
         int fd, r;
         pid_t pid;
 
@@ -1918,10 +1918,10 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
 
         _cleanup_(exec_params_clear) ExecParameters exec_params = {
                 .flags     = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
-                .stdin_fd  = -1,
-                .stdout_fd = -1,
-                .stderr_fd = -1,
-                .exec_fd   = -1,
+                .stdin_fd  = -EBADF,
+                .stdout_fd = -EBADF,
+                .stderr_fd = -EBADF,
+                .exec_fd   = -EBADF,
         };
         pid_t pid;
         int r;
@@ -2899,7 +2899,7 @@ static int socket_accept_do(Socket *s, int fd) {
 }
 
 static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
-        _cleanup_close_pair_ int pair[2] = { -1, -1 };
+        _cleanup_close_pair_ int pair[2] = { -EBADF, -EBADF };
         int cfd, r;
         pid_t pid;
 
@@ -2978,7 +2978,7 @@ shortcut:
 
 static int socket_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         SocketPort *p = ASSERT_PTR(userdata);
-        int cfd = -1;
+        int cfd = -EBADF;
 
         assert(fd >= 0);
 

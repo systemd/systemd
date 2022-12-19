@@ -95,7 +95,7 @@ static int add_locales_from_archive(Set *locales) {
         const struct locarhead *h;
         const struct namehashent *e;
         const void *p = MAP_FAILED;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         size_t sz = 0;
         struct stat st;
         int r;

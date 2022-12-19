@@ -381,7 +381,7 @@ int parse_env_file_fd_sentinel(
                 const char *fname, /* only used for logging */
                 ...) {
 
-        _cleanup_close_ int fd_ro = -EBADFD;
+        _cleanup_close_ int fd_ro = -EBADF;
         _cleanup_fclose_ FILE *f = NULL;
         va_list ap;
         int r;

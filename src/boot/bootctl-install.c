@@ -299,7 +299,7 @@ static int version_check(int fd_from, const char *from, int fd_to, const char *t
 }
 
 static int copy_file_with_version_check(const char *from, const char *to, bool force) {
-        _cleanup_close_ int fd_from = -1, fd_to = -1;
+        _cleanup_close_ int fd_from = -EBADF, fd_to = -EBADF;
         _cleanup_free_ char *t = NULL;
         int r;
 
@@ -899,7 +899,7 @@ static int remove_boot_efi(const char *esp_path) {
                 return log_error_errno(r, "Failed to open directory \"%s/EFI/BOOT\": %m", esp_path);
 
         FOREACH_DIRENT(de, d, break) {
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
                 _cleanup_free_ char *v = NULL;
 
                 if (!endswith_no_case(de->d_name, ".efi"))

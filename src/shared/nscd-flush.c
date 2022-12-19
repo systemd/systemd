@@ -23,7 +23,7 @@ struct nscdInvalidateRequest {
 static int nscd_flush_cache_one(const char *database, usec_t end) {
         size_t req_size, has_written = 0, has_read = 0, l;
         struct nscdInvalidateRequest *req;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int32_t resp;
         int events, r;
 

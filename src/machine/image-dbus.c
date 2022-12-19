@@ -31,7 +31,7 @@ int bus_image_method_remove(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
+        _cleanup_close_pair_ int errno_pipe_fd[2] = { -EBADF, -EBADF };
         Image *image = ASSERT_PTR(userdata);
         Manager *m = image->userdata;
         pid_t child;
@@ -88,7 +88,7 @@ int bus_image_method_remove(
                 return r;
         }
 
-        errno_pipe_fd[0] = -1;
+        errno_pipe_fd[0] = -EBADF;
 
         return 1;
 }
@@ -145,7 +145,7 @@ int bus_image_method_clone(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
+        _cleanup_close_pair_ int errno_pipe_fd[2] = { -EBADF, -EBADF };
         Image *image = ASSERT_PTR(userdata);
         Manager *m = ASSERT_PTR(image->userdata);
         const char *new_name;
@@ -211,7 +211,7 @@ int bus_image_method_clone(
                 return r;
         }
 
-        errno_pipe_fd[0] = -1;
+        errno_pipe_fd[0] = -EBADF;
 
         return 1;
 }

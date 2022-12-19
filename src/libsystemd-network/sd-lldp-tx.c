@@ -451,7 +451,7 @@ static int lldp_tx_create_packet(sd_lldp_tx *lldp_tx, size_t *ret_packet_size, u
 }
 
 static int lldp_tx_send_packet(sd_lldp_tx *lldp_tx, size_t packet_size, const uint8_t *packet) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         union sockaddr_union sa;
         ssize_t l;
 

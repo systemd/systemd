@@ -15,7 +15,7 @@
 
 TEST(glob_first) {
         char *first, name[] = "/tmp/test-glob_first.XXXXXX";
-        int fd = -1;
+        int fd = -EBADF;
         int r;
 
         fd = mkostemp_safe(name);
@@ -36,7 +36,7 @@ TEST(glob_first) {
 
 TEST(glob_exists) {
         char name[] = "/tmp/test-glob_exists.XXXXXX";
-        int fd = -1;
+        int fd = -EBADF;
         int r;
 
         fd = mkostemp_safe(name);

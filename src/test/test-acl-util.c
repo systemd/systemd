@@ -16,7 +16,7 @@
 
 TEST_RET(add_acls_for_user) {
         char fn[] = "/tmp/test-empty.XXXXXX";
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         char *cmd;
         uid_t uid;
         int r;

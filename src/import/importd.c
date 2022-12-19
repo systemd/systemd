@@ -157,9 +157,9 @@ static int transfer_new(Manager *m, Transfer **ret) {
 
         *t = (Transfer) {
                 .type = _TRANSFER_TYPE_INVALID,
-                .log_fd = -1,
-                .stdin_fd = -1,
-                .stdout_fd = -1,
+                .log_fd = -EBADF,
+                .stdin_fd = -EBADF,
+                .stdout_fd = -EBADF,
                 .verify = _IMPORT_VERIFY_INVALID,
                 .progress_percent= UINT_MAX,
         };
@@ -356,7 +356,7 @@ static int transfer_on_log(sd_event_source *s, int fd, uint32_t revents, void *u
 }
 
 static int transfer_start(Transfer *t) {
-        _cleanup_close_pair_ int pipefd[2] = { -1, -1 };
+        _cleanup_close_pair_ int pipefd[2] = { -EBADF, -EBADF };
         int r;
 
         assert(t);

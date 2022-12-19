@@ -58,8 +58,8 @@ TEST(close_nointr) {
 }
 
 TEST(same_fd) {
-        _cleanup_close_pair_ int p[2] = { -1, -1 };
-        _cleanup_close_ int a = -1, b = -1, c = -1;
+        _cleanup_close_pair_ int p[2];
+        _cleanup_close_ int a, b, c;
 
         assert_se(pipe2(p, O_CLOEXEC) >= 0);
         assert_se((a = fcntl(p[0], F_DUPFD, 3)) >= 0);
@@ -92,7 +92,7 @@ TEST(same_fd) {
 }
 
 TEST(open_serialization_fd) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         fd = open_serialization_fd("test");
         assert_se(fd >= 0);
@@ -389,7 +389,7 @@ TEST(format_proc_fd_path) {
 }
 
 TEST(fd_reopen) {
-        _cleanup_close_ int fd1 = -1, fd2 = -1;
+        _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
         struct stat st1, st2;
         int fl;
 
@@ -480,11 +480,11 @@ TEST(fd_reopen) {
         /* Also check the right error is generated if the fd is already closed */
         safe_close(fd1);
         assert_se(fd_reopen(fd1, O_RDONLY|O_CLOEXEC) == -EBADF);
-        fd1 = -1;
+        fd1 = -EBADF;
 }
 
 TEST(fd_reopen_condition) {
-        _cleanup_close_ int fd1 = -1, fd3 = -1;
+        _cleanup_close_ int fd1 = -EBADF, fd3 = -EBADF;
         int fd2, fl;
 
         /* Open without O_PATH */
@@ -531,42 +531,42 @@ TEST(fd_reopen_condition) {
 }
 
 TEST(take_fd) {
-        _cleanup_close_ int fd1 = -1, fd2 = -1;
-        int array[2] = { -1, -1 }, i = 0;
+        _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
+        int array[2] = { -EBADF, -EBADF }, i = 0;
 
-        assert_se(fd1 == -1);
-        assert_se(fd2 == -1);
+        assert_se(fd1 == -EBADF);
+        assert_se(fd2 == -EBADF);
 
         fd1 = eventfd(0, EFD_CLOEXEC);
         assert_se(fd1 >= 0);
 
         fd2 = TAKE_FD(fd1);
-        assert_se(fd1 == -1);
+        assert_se(fd1 == -EBADF);
         assert_se(fd2 >= 0);
 
-        assert_se(array[0] == -1);
-        assert_se(array[1] == -1);
+        assert_se(array[0] == -EBADF);
+        assert_se(array[1] == -EBADF);
 
         array[0] = TAKE_FD(fd2);
-        assert_se(fd1 == -1);
-        assert_se(fd2 == -1);
+        assert_se(fd1 == -EBADF);
+        assert_se(fd2 == -EBADF);
         assert_se(array[0] >= 0);
-        assert_se(array[1] == -1);
+        assert_se(array[1] == -EBADF);
 
         array[1] = TAKE_FD(array[i]);
-        assert_se(array[0] == -1);
+        assert_se(array[0] == -EBADF);
         assert_se(array[1] >= 0);
 
         i = 1 - i;
         array[0] = TAKE_FD(*(array + i));
         assert_se(array[0] >= 0);
-        assert_se(array[1] == -1);
+        assert_se(array[1] == -EBADF);
 
         i = 1 - i;
         fd1 = TAKE_FD(array[i]);
         assert_se(fd1 >= 0);
-        assert_se(array[0] == -1);
-        assert_se(array[1] == -1);
+        assert_se(array[0] == -EBADF);
+        assert_se(array[1] == -EBADF);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

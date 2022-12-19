@@ -234,15 +234,15 @@ static int traffic_cb(sd_event_source *s, int fd, uint32_t revents, void *userda
                 goto quit;
 
         /* EOF on both sides? */
-        if (c->server_fd == -1 && c->client_fd == -1)
+        if (c->server_fd < 0 && c->client_fd < 0)
                 goto quit;
 
         /* Server closed, and all data written to client? */
-        if (c->server_fd == -1 && c->server_to_client_buffer_full <= 0)
+        if (c->server_fd < 0 && c->server_to_client_buffer_full <= 0)
                 goto quit;
 
         /* Client closed, and all data written to server? */
-        if (c->client_fd == -1 && c->client_to_server_buffer_full <= 0)
+        if (c->client_fd < 0 && c->client_to_server_buffer_full <= 0)
                 goto quit;
 
         r = connection_enable_event_sources(c);
@@ -486,9 +486,9 @@ static int add_connection_socket(Context *context, int fd) {
         *c = (Connection) {
                .context = context,
                .server_fd = fd,
-               .client_fd = -1,
-               .server_to_client_buffer = {-1, -1},
-               .client_to_server_buffer = {-1, -1},
+               .client_fd = -EBADF,
+               .server_to_client_buffer = { -EBADF, -EBADF },
+               .client_to_server_buffer = { -EBADF, -EBADF },
         };
 
         r = set_ensure_put(&context->connections, NULL, c);
@@ -504,7 +504,7 @@ static int add_connection_socket(Context *context, int fd) {
 static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_free_ char *peer = NULL;
         Context *context = ASSERT_PTR(userdata);
-        int nfd = -1, r;
+        int nfd = -EBADF, r;
 
         assert(s);
         assert(fd >= 0);
