@@ -423,6 +423,7 @@ static int find_paths_to_edit(
                 char **names,
                 EditFile **ret_edit_files) {
 
+        _cleanup_free_ char *dropin = NULL, *suffix = NULL;
         _cleanup_(hashmap_freep) Hashmap *cached_name_map = NULL, *cached_id_map = NULL;
         _cleanup_(edit_file_free_all) EditFile *edit_files = NULL;
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
@@ -431,6 +432,22 @@ static int find_paths_to_edit(
 
         assert(names);
         assert(ret_edit_files);
+
+        if (!arg_drop_in || streq(arg_drop_in, ""))
+                dropin = strdup("override.conf");
+        else if (!endswith(arg_drop_in, ".conf"))
+                dropin = strjoin(arg_drop_in, ".conf");
+        else
+                dropin = strdup(arg_drop_in);
+        if (!dropin)
+                return log_oom();
+
+        if (!filename_is_valid(dropin))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid drop-in file name '%s'.", dropin);
+
+        suffix = strjoin(".d/", dropin);
+        if (!suffix)
+                return log_oom();
 
         r = lookup_paths_init(&lp, arg_scope, 0, arg_root);
         if (r < 0)
@@ -468,7 +485,7 @@ static int find_paths_to_edit(
                         r = unit_file_create_new(
                                         &lp,
                                         *name,
-                                        arg_full ? NULL : ".d/override.conf",
+                                        arg_full ? NULL : suffix,
                                         NULL,
                                         edit_files + n_edit_files);
                 } else {
@@ -508,7 +525,7 @@ static int find_paths_to_edit(
                                 r = unit_file_create_new(
                                                 &lp,
                                                 unit_name,
-                                                ".d/override.conf",
+                                                suffix,
                                                 unit_paths,
                                                 edit_files + n_edit_files);
                         }

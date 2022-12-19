@@ -118,6 +118,7 @@ TimestampStyle arg_timestamp_style = TIMESTAMP_PRETTY;
 bool arg_read_only = false;
 bool arg_mkdir = false;
 bool arg_marked = false;
+const char *arg_drop_in = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_types, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_states, strv_freep);
@@ -131,6 +132,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_reboot_argument, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_host, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_boot_loader_entry, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_clean_what, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_drop_in, unsetp);
 
 static int systemctl_help(void) {
         _cleanup_free_ char *link = NULL;
@@ -316,6 +318,7 @@ static int systemctl_help(void) {
                "     --read-only         Create read-only bind mount\n"
                "     --mkdir             Create directory before mounting, if missing\n"
                "     --marked            Restart/reload previously marked units\n"
+               "     --drop-in=NAME      Edit unit files using the specified drop-in file name\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -438,6 +441,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_MKDIR,
                 ARG_MARKED,
                 ARG_NO_WARN,
+                ARG_DROP_IN,
         };
 
         static const struct option options[] = {
@@ -500,6 +504,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "read-only",           no_argument,       NULL, ARG_READ_ONLY           },
                 { "mkdir",               no_argument,       NULL, ARG_MKDIR               },
                 { "marked",              no_argument,       NULL, ARG_MARKED              },
+                { "drop-in",             required_argument, NULL, ARG_DROP_IN             },
                 {}
         };
 
@@ -934,6 +939,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_WARN:
                         arg_no_warn = true;
+                        break;
+
+                case ARG_DROP_IN:
+                        arg_drop_in = optarg;
                         break;
 
                 case '.':
