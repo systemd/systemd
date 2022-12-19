@@ -318,10 +318,12 @@ static inline int __coverity_check_and_return__(int condition) {
                         *p = func(*p);                          \
         }
 
-/* When func() doesn't return the appropriate type, set variable to empty afterwards */
+/* When func() doesn't return the appropriate type, set variable to empty afterwards.
+ * The func() may be provided by a dynamically loaded shared library, hence add an assertion. */
 #define DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(type, func, empty)     \
         static inline void func##p(type *p) {                   \
                 if (*p != (empty)) {                            \
+                        assert(func);                           \
                         func(*p);                               \
                         *p = (empty);                           \
                 }                                               \
