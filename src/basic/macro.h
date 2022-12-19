@@ -327,6 +327,16 @@ static inline int __coverity_check_and_return__(int condition) {
                 }                                               \
         }
 
+/* When func() is provided by a dynamically loaded shared library */
+#define DEFINE_TRIVIAL_CLEANUP_FUNC_SYM(type, func, empty)      \
+        static inline void func##p(type *p) {                   \
+                if (*p != (empty)) {                            \
+                        assert(func);                           \
+                        func(*p);                               \
+                        *p = (empty);                           \
+                }                                               \
+        }
+
 #define _DEFINE_TRIVIAL_REF_FUNC(type, name, scope)             \
         scope type *name##_ref(type *p) {                       \
                 if (!p)                                         \

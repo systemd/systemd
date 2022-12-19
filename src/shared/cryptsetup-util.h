@@ -78,7 +78,7 @@ extern int (*sym_crypt_header_restore)(struct crypt_device *cd, const char *requ
 extern int (*sym_crypt_volume_key_keyring)(struct crypt_device *cd, int enable);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct crypt_device *, crypt_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct crypt_device *, sym_crypt_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_SYM(struct crypt_device *, sym_crypt_free, NULL);
 
 /* Be careful, this works with dlopen_cryptsetup(), that is, it calls sym_crypt_free() instead of crypt_free(). */
 #define crypt_free_and_replace(a, b)                    \
