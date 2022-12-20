@@ -206,7 +206,7 @@ int chase_symlinks_at(
 
         for (todo = buffer;;) {
                 _cleanup_free_ char *first = NULL;
-                _cleanup_close_ int child = -1;
+                _cleanup_close_ int child = -EBADF;
                 struct stat st;
                 const char *e;
 

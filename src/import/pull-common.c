@@ -381,7 +381,7 @@ static int verify_gpg(
                 const void *payload, size_t payload_size,
                 const void *signature, size_t signature_size) {
 
-        _cleanup_close_pair_ int gpg_pipe[2] = { -EBADF, -EBADF };
+        _cleanup_close_pair_ int gpg_pipe[2] = PIPE_EBADF;
         char sig_file_path[] = "/tmp/sigXXXXXX", gpg_home[] = "/tmp/gpghomeXXXXXX";
         _cleanup_(sigkill_waitp) pid_t pid = 0;
         bool gpg_home_created = false;
@@ -395,7 +395,7 @@ static int verify_gpg(
                 return log_error_errno(errno, "Failed to create pipe for gpg: %m");
 
         if (signature_size > 0) {
-                _cleanup_close_ int sig_file = -1;
+                _cleanup_close_ int sig_file = -EBADF;
 
                 sig_file = mkostemp(sig_file_path, O_RDWR);
                 if (sig_file < 0)
@@ -440,7 +440,7 @@ static int verify_gpg(
 
                 gpg_pipe[1] = safe_close(gpg_pipe[1]);
 
-                r = rearrange_stdio(TAKE_FD(gpg_pipe[0]), -1, STDERR_FILENO);
+                r = rearrange_stdio(TAKE_FD(gpg_pipe[0]), -EBADF, STDERR_FILENO);
                 if (r < 0) {
                         log_error_errno(r, "Failed to rearrange stdin/stdout: %m");
                         _exit(EXIT_FAILURE);

@@ -559,7 +559,7 @@ static int find_libraries(const char *exec, char ***ret) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *sigchld_source = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *stdout_source = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *stderr_source = NULL;
-        _cleanup_close_pair_ int outpipe[2] = {-1, -1}, errpipe[2] = {-1, -1};
+        _cleanup_close_pair_ int outpipe[2] = PIPE_EBADF, errpipe[2] = PIPE_EBADF;
         _cleanup_strv_free_ char **libraries = NULL;
         _cleanup_free_ char *result = NULL;
         pid_t pid;
@@ -576,7 +576,7 @@ static int find_libraries(const char *exec, char ***ret) {
         r = safe_fork("(spawn-ldd)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
         assert_se(r >= 0);
         if (r == 0) {
-                if (rearrange_stdio(-1, TAKE_FD(outpipe[1]), TAKE_FD(errpipe[1])) < 0)
+                if (rearrange_stdio(-EBADF, TAKE_FD(outpipe[1]), TAKE_FD(errpipe[1])) < 0)
                         _exit(EXIT_FAILURE);
 
                 (void) close_all_fds(NULL, 0);

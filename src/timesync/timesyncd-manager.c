@@ -1113,7 +1113,7 @@ int manager_new(Manager **ret) {
 
                 .connection_retry_usec = DEFAULT_CONNECTION_RETRY_USEC,
 
-                .server_socket = -1,
+                .server_socket = -EBADF,
 
                 .ratelimit = (const RateLimit) {
                         RATELIMIT_INTERVAL_USEC,

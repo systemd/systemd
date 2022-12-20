@@ -211,9 +211,9 @@ int main(int argc, char *argv[]) {
                 MODE_CHART,
         } mode = MODE_BISECT;
         Type type = TYPE_LEGACY;
-        int i, pair[2] = { -EBADF, -EBADF };
+        int i, pair[2] = PIPE_EBADF;
         _cleanup_free_ char *address = NULL, *server_name = NULL;
-        _cleanup_close_ int bus_ref = -1;
+        _cleanup_close_ int bus_ref = -EBADF;
         const char *unique;
         cpu_set_t cpuset;
         size_t result;

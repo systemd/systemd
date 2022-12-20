@@ -487,8 +487,8 @@ static int add_connection_socket(Context *context, int fd) {
                .context = context,
                .server_fd = fd,
                .client_fd = -EBADF,
-               .server_to_client_buffer = { -EBADF, -EBADF },
-               .client_to_server_buffer = { -EBADF, -EBADF },
+               .server_to_client_buffer = PIPE_EBADF,
+               .client_to_server_buffer = PIPE_EBADF,
         };
 
         r = set_ensure_put(&context->connections, NULL, c);

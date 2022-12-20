@@ -526,7 +526,7 @@ static int hardlink_context_setup(
                 const char *to,
                 CopyFlags copy_flags) {
 
-        _cleanup_close_ int dt_copy = -1;
+        _cleanup_close_ int dt_copy = -EBADF;
         int r;
 
         assert(c);

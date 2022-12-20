@@ -763,7 +763,7 @@ int udev_event_spawn(
                 size_t ressize,
                 bool *ret_truncated) {
 
-        _cleanup_close_pair_ int outpipe[2] = {-1, -1}, errpipe[2] = {-1, -1};
+        _cleanup_close_pair_ int outpipe[2] = PIPE_EBADF, errpipe[2] = PIPE_EBADF;
         _cleanup_strv_free_ char **argv = NULL;
         char **envp = NULL;
         Spawn spawn;
@@ -815,7 +815,7 @@ int udev_event_spawn(
                 return log_device_error_errno(event->dev, r,
                                               "Failed to fork() to execute command '%s': %m", cmd);
         if (r == 0) {
-                if (rearrange_stdio(-1, TAKE_FD(outpipe[WRITE_END]), TAKE_FD(errpipe[WRITE_END])) < 0)
+                if (rearrange_stdio(-EBADF, TAKE_FD(outpipe[WRITE_END]), TAKE_FD(errpipe[WRITE_END])) < 0)
                         _exit(EXIT_FAILURE);
 
                 (void) close_all_fds(NULL, 0);
