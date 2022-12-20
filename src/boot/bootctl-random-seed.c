@@ -13,6 +13,7 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "random-util.h"
+#include "sha256.h"
 #include "tmpfile-util.h"
 #include "umask-util.h"
 
@@ -20,10 +21,14 @@ int install_random_seed(const char *esp) {
         _cleanup_close_ int esp_fd = -EBADF, loader_dir_fd = -EBADF, fd = -EBADF;
         _cleanup_free_ char *tmp = NULL;
         uint8_t buffer[RANDOM_EFI_SEED_SIZE];
+        struct sha256_ctx hash_state;
         size_t token_size;
+        bool refreshed;
         int r;
 
         assert(esp);
+
+        assert_cc(RANDOM_EFI_SEED_SIZE == SHA256_DIGEST_SIZE);
 
         esp_fd = open(esp, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
         if (esp_fd < 0)
@@ -36,6 +41,35 @@ int install_random_seed(const char *esp) {
         r = crypto_random_bytes(buffer, sizeof(buffer));
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire random seed: %m");
+
+        sha256_init_ctx(&hash_state);
+        sha256_process_bytes(&(const size_t) { sizeof(buffer) }, sizeof(size_t), &hash_state);
+        sha256_process_bytes(buffer, sizeof(buffer), &hash_state);
+
+        fd = openat(loader_dir_fd, "random-seed", O_NOFOLLOW|O_CLOEXEC|O_RDONLY|O_NOCTTY);
+        if (fd < 0) {
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to open old random seed file: %m");
+
+                sha256_process_bytes(&(const ssize_t) { 0 }, sizeof(ssize_t), &hash_state);
+                refreshed = false;
+        } else {
+                ssize_t n;
+
+                /* Hash the old seed in so that we never regress in entropy. */
+
+                n = read(fd, buffer, sizeof(buffer));
+                if (n < 0)
+                        return log_error_errno(errno, "Failed to read old random seed file: %m");
+
+                sha256_process_bytes(&n, sizeof(n), &hash_state);
+                sha256_process_bytes(buffer, n, &hash_state);
+
+                fd = safe_close(fd);
+                refreshed = n > 0;
+        }
+
+        sha256_finish_ctx(&hash_state, buffer);
 
         if (tempfn_random("random-seed", "bootctl", &tmp) < 0)
                 return log_oom();
@@ -65,7 +99,7 @@ int install_random_seed(const char *esp) {
         if (syncfs(fd) < 0)
                 return log_error_errno(errno, "Failed to sync ESP file system: %m");
 
-        log_info("Random seed file %s/loader/random-seed successfully written (%zu bytes).", esp, sizeof(buffer));
+        log_info("Random seed file %s/loader/random-seed successfully %s (%zu bytes).", esp, refreshed ? "refreshed" : "written", sizeof(buffer));
 
         if (!arg_touch_variables)
                 return 0;
