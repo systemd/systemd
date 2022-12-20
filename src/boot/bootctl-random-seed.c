@@ -17,12 +17,79 @@
 #include "tmpfile-util.h"
 #include "umask-util.h"
 
+static int set_system_token(void) {
+        uint8_t buffer[RANDOM_EFI_SEED_SIZE];
+        size_t token_size;
+        int r;
+
+        if (!arg_touch_variables)
+                return 0;
+
+        if (arg_root) {
+                log_warning("Acting on %s, skipping EFI variable setup.",
+                             arg_image ? "image" : "root directory");
+                return 0;
+        }
+
+        if (!is_efi_boot()) {
+                log_notice("Not booted with EFI, skipping EFI variable setup.");
+                return 0;
+        }
+
+        r = getenv_bool("SYSTEMD_WRITE_SYSTEM_TOKEN");
+        if (r < 0) {
+                if (r != -ENXIO)
+                         log_warning_errno(r, "Failed to parse $SYSTEMD_WRITE_SYSTEM_TOKEN, ignoring.");
+        } else if (r == 0) {
+                log_notice("Not writing system token, because $SYSTEMD_WRITE_SYSTEM_TOKEN is set to false.");
+                return 0;
+        }
+
+        r = efi_get_variable(EFI_LOADER_VARIABLE(LoaderSystemToken), NULL, NULL, &token_size);
+        if (r == -ENODATA)
+                log_debug_errno(r, "LoaderSystemToken EFI variable is invalid (too short?), replacing.");
+        else if (r < 0) {
+                if (r != -ENOENT)
+                        return log_error_errno(r, "Failed to test system token validity: %m");
+        } else {
+                if (token_size >= sizeof(buffer)) {
+                        /* Let's avoid writes if we can, and initialize this only once. */
+                        log_debug("System token already written, not updating.");
+                        return 0;
+                }
+
+                log_debug("Existing system token size (%zu) does not match our expectations (%zu), replacing.", token_size, sizeof(buffer));
+        }
+
+        r = crypto_random_bytes(buffer, sizeof(buffer));
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire random seed: %m");
+
+        /* Let's write this variable with an umask in effect, so that unprivileged users can't see the token
+         * and possibly get identification information or too much insight into the kernel's entropy pool
+         * state. */
+        WITH_UMASK(0077) {
+                r = efi_set_variable(EFI_LOADER_VARIABLE(LoaderSystemToken), buffer, sizeof(buffer));
+                if (r < 0) {
+                        if (!arg_graceful)
+                                return log_error_errno(r, "Failed to write 'LoaderSystemToken' EFI variable: %m");
+
+                        if (r == -EINVAL)
+                                log_notice_errno(r, "Unable to write 'LoaderSystemToken' EFI variable (firmware problem?), ignoring: %m");
+                        else
+                                log_notice_errno(r, "Unable to write 'LoaderSystemToken' EFI variable, ignoring: %m");
+                } else
+                        log_info("Successfully initialized system token in EFI variable with %zu bytes.", sizeof(buffer));
+        }
+
+        return 0;
+}
+
 int install_random_seed(const char *esp) {
         _cleanup_close_ int esp_fd = -EBADF, loader_dir_fd = -EBADF, fd = -EBADF;
         _cleanup_free_ char *tmp = NULL;
         uint8_t buffer[RANDOM_EFI_SEED_SIZE];
         struct sha256_ctx hash_state;
-        size_t token_size;
         bool refreshed;
         int r;
 
@@ -99,67 +166,7 @@ int install_random_seed(const char *esp) {
 
         log_info("Random seed file %s/loader/random-seed successfully %s (%zu bytes).", esp, refreshed ? "refreshed" : "written", sizeof(buffer));
 
-        if (!arg_touch_variables)
-                return 0;
-
-        if (arg_root) {
-                log_warning("Acting on %s, skipping EFI variable setup.",
-                             arg_image ? "image" : "root directory");
-                return 0;
-        }
-
-        if (!is_efi_boot()) {
-                log_notice("Not booted with EFI, skipping EFI variable setup.");
-                return 0;
-        }
-
-        r = getenv_bool("SYSTEMD_WRITE_SYSTEM_TOKEN");
-        if (r < 0) {
-                if (r != -ENXIO)
-                         log_warning_errno(r, "Failed to parse $SYSTEMD_WRITE_SYSTEM_TOKEN, ignoring.");
-        } else if (r == 0) {
-                log_notice("Not writing system token, because $SYSTEMD_WRITE_SYSTEM_TOKEN is set to false.");
-                return 0;
-        }
-
-        r = efi_get_variable(EFI_LOADER_VARIABLE(LoaderSystemToken), NULL, NULL, &token_size);
-        if (r == -ENODATA)
-                log_debug_errno(r, "LoaderSystemToken EFI variable is invalid (too short?), replacing.");
-        else if (r < 0) {
-                if (r != -ENOENT)
-                        return log_error_errno(r, "Failed to test system token validity: %m");
-        } else {
-                if (token_size >= sizeof(buffer)) {
-                        /* Let's avoid writes if we can, and initialize this only once. */
-                        log_debug("System token already written, not updating.");
-                        return 0;
-                }
-
-                log_debug("Existing system token size (%zu) does not match our expectations (%zu), replacing.", token_size, sizeof(buffer));
-        }
-
-        r = crypto_random_bytes(buffer, sizeof(buffer));
-        if (r < 0)
-                return log_error_errno(r, "Failed to acquire random seed: %m");
-
-        /* Let's write this variable with an umask in effect, so that unprivileged users can't see the token
-         * and possibly get identification information or too much insight into the kernel's entropy pool
-         * state. */
-        WITH_UMASK(0077) {
-                r = efi_set_variable(EFI_LOADER_VARIABLE(LoaderSystemToken), buffer, sizeof(buffer));
-                if (r < 0) {
-                        if (!arg_graceful)
-                                return log_error_errno(r, "Failed to write 'LoaderSystemToken' EFI variable: %m");
-
-                        if (r == -EINVAL)
-                                log_notice_errno(r, "Unable to write 'LoaderSystemToken' EFI variable (firmware problem?), ignoring: %m");
-                        else
-                                log_notice_errno(r, "Unable to write 'LoaderSystemToken' EFI variable, ignoring: %m");
-                } else
-                        log_info("Successfully initialized system token in EFI variable with %zu bytes.", sizeof(buffer));
-        }
-
-        return 0;
+        return set_system_token();
 
 fail:
         if (tmp)
