@@ -877,7 +877,7 @@ TEST(read_nul_string) {
 
 TEST(read_full_file_socket) {
         _cleanup_(rm_rf_physical_and_freep) char *z = NULL;
-        _cleanup_close_ int listener = -1;
+        _cleanup_close_ int listener = -EBADF;
         _cleanup_free_ char *data = NULL, *clientname = NULL;
         union sockaddr_union sa;
         const char *j, *jj;

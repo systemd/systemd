@@ -267,7 +267,7 @@ static void context_save_and_clear(Context *c) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(context_save_and_clear) Context c = { .rfkill_fd = -1 };
+        _cleanup_(context_save_and_clear) Context c = { .rfkill_fd = -EBADF };
         bool ready = false;
         int r, n;
 

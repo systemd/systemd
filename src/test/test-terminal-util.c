@@ -66,7 +66,7 @@ TEST(read_one_char) {
 
 TEST(getttyname_malloc) {
         _cleanup_free_ char *ttyname = NULL;
-        _cleanup_close_ int master = -1;
+        _cleanup_close_ int master = -EBADF;
 
         assert_se((master = posix_openpt(O_RDWR|O_NOCTTY)) >= 0);
         assert_se(getttyname_malloc(master, &ttyname) >= 0);

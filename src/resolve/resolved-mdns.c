@@ -466,7 +466,7 @@ int manager_mdns_ipv4_fd(Manager *m) {
                 .in.sin_family = AF_INET,
                 .in.sin_port = htobe16(MDNS_PORT),
         };
-        _cleanup_close_ int s = -1;
+        _cleanup_close_ int s = -EBADF;
         int r;
 
         assert(m);
@@ -541,7 +541,7 @@ int manager_mdns_ipv6_fd(Manager *m) {
                 .in6.sin6_family = AF_INET6,
                 .in6.sin6_port = htobe16(MDNS_PORT),
         };
-        _cleanup_close_ int s = -1;
+        _cleanup_close_ int s = -EBADF;
         int r;
 
         assert(m);

@@ -683,7 +683,7 @@ int loop_device_make_by_path_memory(
 }
 
 static LoopDevice* loop_device_free(LoopDevice *d) {
-        _cleanup_close_ int control = -1;
+        _cleanup_close_ int control = -EBADF;
         int r;
 
         if (!d)

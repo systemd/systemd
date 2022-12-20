@@ -2832,7 +2832,7 @@ int setup_tmp_dirs(const char *id, char **tmp_dir, char **var_tmp_dir) {
 }
 
 int setup_shareable_ns(const int ns_storage_socket[static 2], unsigned long nsflag) {
-        _cleanup_close_ int ns = -1;
+        _cleanup_close_ int ns = -EBADF;
         int r, q;
         const char *ns_name, *ns_path;
 
@@ -2900,7 +2900,7 @@ fail:
 }
 
 int open_shareable_ns_path(const int ns_storage_socket[static 2], const char *path, unsigned long nsflag) {
-        _cleanup_close_ int ns = -1;
+        _cleanup_close_ int ns = -EBADF;
         int q, r;
 
         assert(ns_storage_socket);

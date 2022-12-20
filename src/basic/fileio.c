@@ -767,7 +767,7 @@ int read_full_file_full(
 
         r = xfopenat(dir_fd, filename, "re", 0, &f);
         if (r < 0) {
-                _cleanup_close_ int sk = -1;
+                _cleanup_close_ int sk = -EBADF;
 
                 /* ENXIO is what Linux returns if we open a node that is an AF_UNIX socket */
                 if (r != -ENXIO)

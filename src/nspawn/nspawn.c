@@ -2376,7 +2376,7 @@ static int setup_pts(const char *dest) {
 }
 
 static int setup_stdio_as_dev_console(void) {
-        _cleanup_close_ int terminal = -1;
+        _cleanup_close_ int terminal = -EBADF;
         int r;
 
         /* We open the TTY in O_NOCTTY mode, so that we do not become controller yet. We'll do that later
@@ -3348,7 +3348,7 @@ static int inner_child(
         }
 
         if (arg_console_mode != CONSOLE_PIPE) {
-                _cleanup_close_ int master = -1;
+                _cleanup_close_ int master = -EBADF;
                 _cleanup_free_ char *console = NULL;
 
                 /* Allocate a pty and make it available as /dev/console. */
@@ -4742,12 +4742,12 @@ static int run_container(
         };
 
         _cleanup_(release_lock_file) LockFile uid_shift_lock = LOCK_FILE_INIT;
-        _cleanup_close_ int etc_passwd_lock = -1;
+        _cleanup_close_ int etc_passwd_lock = -EBADF;
         _cleanup_close_pair_ int
                 fd_inner_socket_pair[2] = PIPE_EBADF,
                 fd_outer_socket_pair[2] = PIPE_EBADF;
 
-        _cleanup_close_ int notify_socket = -1, mntns_fd = -EBADF, fd_kmsg_fifo = -EBADF;
+        _cleanup_close_ int notify_socket = -EBADF, mntns_fd = -EBADF, fd_kmsg_fifo = -EBADF;
         _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -5413,7 +5413,7 @@ static int cant_be_in_netns(void) {
 static int run(int argc, char *argv[]) {
         bool secondary = false, remove_directory = false, remove_image = false,
                 veth_created = false, remove_tmprootdir = false;
-        _cleanup_close_ int master = -1;
+        _cleanup_close_ int master = -EBADF;
         _cleanup_fdset_free_ FDSet *fds = NULL;
         int r, n_fd_passed, ret = EXIT_SUCCESS;
         char veth_name[IFNAMSIZ] = "";

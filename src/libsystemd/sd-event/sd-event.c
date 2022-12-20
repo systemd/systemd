@@ -2072,7 +2072,7 @@ static int event_add_inotify_fd_internal(
                 sd_event_inotify_handler_t callback,
                 void *userdata) {
 
-        _cleanup_close_ int donated_fd = donate ? fd : -1;
+        _cleanup_close_ int donated_fd = donate ? fd : -EBADF;
         _cleanup_(source_freep) sd_event_source *s = NULL;
         struct inotify_data *inotify_data = NULL;
         struct inode_data *inode_data = NULL;
