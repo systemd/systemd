@@ -1251,12 +1251,6 @@ static int read_dns_server_one(sd_bus_message *m, bool with_ifindex, bool extend
                 return 1;
         }
 
-        if (with_ifindex && ifindex != 0) {
-                /* only show the global ones here */
-                *ret = NULL;
-                return 1;
-        }
-
         r = in_addr_port_ifindex_name_to_string(family, &a, port, ifindex, name, &pretty);
         if (r < 0)
                 return r;
