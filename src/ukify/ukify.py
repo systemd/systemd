@@ -64,6 +64,15 @@ def shell_join(cmd):
     return ' '.join(shlex.quote(str(x)) for x in cmd)
 
 
+def path_is_readable(s: str | None) -> pathlib.Path | None:
+    """Convert a filename string to a Path and verify access."""
+    if s is None:
+        return None
+    p = pathlib.Path(s)
+    p.open().close()
+    return p
+
+
 def pe_executable_size(filename):
     import pefile
 
@@ -675,26 +684,36 @@ usage: ukify [options…] linux initrd…
 
     opts = p.parse_args(args)
 
+    path_is_readable(opts.linux)
+    for initrd in opts.initrd or ():
+        path_is_readable(initrd)
+    path_is_readable(opts.devicetree)
+    path_is_readable(opts.pcrpkey)
+    for key in opts.pcr_private_keys or ():
+        path_is_readable(key)
+    for key in opts.pcr_public_keys or ():
+        path_is_readable(key)
+
     if opts.cmdline and opts.cmdline.startswith('@'):
-        opts.cmdline = pathlib.Path(opts.cmdline[1:])
+        opts.cmdline = path_is_readable(opts.cmdline[1:])
 
     if opts.os_release is not None and opts.os_release.startswith('@'):
-        opts.os_release = pathlib.Path(opts.os_release[1:])
+        opts.os_release = path_is_readable(opts.os_release[1:])
     elif opts.os_release is None:
         p = pathlib.Path('/etc/os-release')
         if not p.exists():
-            p = pathlib.Path('/usr/lib/os-release')
+            p = path_is_readable('/usr/lib/os-release')
         opts.os_release = p
 
     if opts.efi_arch is None:
         opts.efi_arch = guess_efi_arch()
 
     if opts.stub is None:
-        opts.stub = f'/usr/lib/systemd/boot/efi/linux{opts.efi_arch}.efi.stub'
+        opts.stub = path_is_readable(f'/usr/lib/systemd/boot/efi/linux{opts.efi_arch}.efi.stub')
 
     if opts.signing_engine is None:
-        opts.sb_key = pathlib.Path(opts.sb_key) if opts.sb_key else None
-        opts.sb_cert = pathlib.Path(opts.sb_cert) if opts.sb_cert else None
+        opts.sb_key = path_is_readable(opts.sb_key) if opts.sb_key else None
+        opts.sb_cert = path_is_readable(opts.sb_cert) if opts.sb_cert else None
 
     if bool(opts.sb_key) ^ bool(opts.sb_cert):
         raise ValueError('--secureboot-private-key= and --secureboot-certificate= must be specified together')
