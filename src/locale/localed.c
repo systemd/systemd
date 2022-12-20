@@ -78,6 +78,7 @@ static int vconsole_reload(sd_bus *bus) {
 static int vconsole_convert_to_x11_and_emit(Context *c, sd_bus_message *m) {
         int r;
 
+        assert(c);
         assert(m);
 
         r = x11_read_data(c, m);
@@ -104,6 +105,7 @@ static int vconsole_convert_to_x11_and_emit(Context *c, sd_bus_message *m) {
 static int x11_convert_to_vconsole_and_emit(Context *c, sd_bus_message *m) {
         int r;
 
+        assert(c);
         assert(m);
 
         r = vconsole_read_data(c, m);
@@ -136,7 +138,7 @@ static int property_get_locale(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Context *c = userdata;
+        Context *c = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **l = NULL;
         int r;
 
@@ -160,8 +162,10 @@ static int property_get_vconsole(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Context *c = userdata;
+        Context *c = ASSERT_PTR(userdata);
         int r;
+
+        assert(property);
 
         r = vconsole_read_data(c, reply);
         if (r < 0)
@@ -169,7 +173,7 @@ static int property_get_vconsole(
 
         if (streq(property, "VConsoleKeymap"))
                 return sd_bus_message_append_basic(reply, 's', c->vc_keymap);
-        else if (streq(property, "VConsoleKeymapToggle"))
+        if (streq(property, "VConsoleKeymapToggle"))
                 return sd_bus_message_append_basic(reply, 's', c->vc_keymap_toggle);
 
         return -EINVAL;
@@ -184,8 +188,10 @@ static int property_get_xkb(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Context *c = userdata;
+        Context *c = ASSERT_PTR(userdata);
         int r;
+
+        assert(property);
 
         r = x11_read_data(c, reply);
         if (r < 0)
@@ -193,11 +199,11 @@ static int property_get_xkb(
 
         if (streq(property, "X11Layout"))
                 return sd_bus_message_append_basic(reply, 's', c->x11_layout);
-        else if (streq(property, "X11Model"))
+        if (streq(property, "X11Model"))
                 return sd_bus_message_append_basic(reply, 's', c->x11_model);
-        else if (streq(property, "X11Variant"))
+        if (streq(property, "X11Variant"))
                 return sd_bus_message_append_basic(reply, 's', c->x11_variant);
-        else if (streq(property, "X11Options"))
+        if (streq(property, "X11Options"))
                 return sd_bus_message_append_basic(reply, 's', c->x11_options);
 
         return -EINVAL;
@@ -243,9 +249,9 @@ static int process_locale_list_item(
         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Locale assignment %s not valid, refusing.", assignment);
 }
 
-static int locale_gen_process_locale(char *new_locale[static _VARIABLE_LC_MAX],
-                                     sd_bus_error *error) {
+static int locale_gen_process_locale(char *new_locale[static _VARIABLE_LC_MAX], sd_bus_error *error) {
         int r;
+
         assert(new_locale);
 
         for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++) {
@@ -263,13 +269,15 @@ static int locale_gen_process_locale(char *new_locale[static _VARIABLE_LC_MAX],
                                                  SD_BUS_ERROR_INVALID_ARGS,
                                                  "Specified locale is not installed and non-UTF-8 locale will not be auto-generated: %s",
                                                  new_locale[p]);
-                } else if (r == -EINVAL) {
+                }
+                if (r == -EINVAL) {
                         log_error_errno(r, "Failed to enable invalid locale %s for generation.", new_locale[p]);
                         return sd_bus_error_setf(error,
                                                  SD_BUS_ERROR_INVALID_ARGS,
                                                  "Can not enable locale generation for invalid locale: %s",
                                                  new_locale[p]);
-                } else if (r < 0) {
+                }
+                if (r < 0) {
                         log_error_errno(r, "Failed to enable locale for generation: %m");
                         return sd_bus_error_set_errnof(error, r, "Failed to enable locale generation: %m");
                 }
