@@ -22,6 +22,7 @@ typedef struct Context {
         sd_bus_message *x11_cache;
         struct stat x11_stat;
         X11Context x11_from_xorg;
+        X11Context x11_from_vc;
 
         sd_bus_message *vc_cache;
         struct stat vc_stat;
