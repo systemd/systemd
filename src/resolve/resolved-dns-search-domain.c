@@ -52,7 +52,7 @@ int dns_search_domain_new(
                 l->n_search_domains++;
                 break;
 
-        case DNS_SERVER_SYSTEM:
+        case DNS_SEARCH_DOMAIN_SYSTEM:
                 LIST_APPEND(domains, m->search_domains, d);
                 m->n_search_domains++;
                 break;
