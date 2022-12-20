@@ -223,7 +223,6 @@ node /org/freedesktop/login1 {
       readonly b PreparingForShutdown = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b PreparingForSleep = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly (st) ScheduledShutdown = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s MaintenanceWindow = '...';
