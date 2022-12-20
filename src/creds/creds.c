@@ -698,7 +698,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "     --tpm2-pcrs=PCR1+PCR2+PCR3+…\n"
                "                          Specify TPM2 PCRs to seal against (fixed hash)\n"
                "     --tpm2-public-key=PATH\n"
-               "                          Specify PEM certificate to seal against\n"
+               "                          Specify PEM public key to seal against\n"
                "     --tpm2-public-key-pcrs=PCR1+PCR2+PCR3+…\n"
                "                          Specify TPM2 PCRs to seal against (public key)\n"
                "     --tpm2-signature=PATH\n"
