@@ -56,7 +56,7 @@ static const char* systemd_language_fallback_map(void) {
         return SYSTEMD_LANGUAGE_FALLBACK_MAP;
 }
 
-static void context_free_x11(Context *c) {
+static void context_clear_x11(Context *c) {
         assert(c);
 
         c->x11_layout = mfree(c->x11_layout);
@@ -65,7 +65,7 @@ static void context_free_x11(Context *c) {
         c->x11_variant = mfree(c->x11_variant);
 }
 
-static void context_free_vconsole(Context *c) {
+static void context_clear_vconsole(Context *c) {
         assert(c);
 
         c->vc_keymap = mfree(c->vc_keymap);
@@ -76,14 +76,14 @@ void context_clear(Context *c) {
         assert(c);
 
         locale_context_clear(&c->locale_context);
-        context_free_x11(c);
-        context_free_vconsole(c);
+        context_clear_x11(c);
+        context_clear_vconsole(c);
 
-        sd_bus_message_unref(c->locale_cache);
-        sd_bus_message_unref(c->x11_cache);
-        sd_bus_message_unref(c->vc_cache);
+        c->locale_cache = sd_bus_message_unref(c->locale_cache);
+        c->x11_cache = sd_bus_message_unref(c->x11_cache);
+        c->vc_cache = sd_bus_message_unref(c->vc_cache);
 
-        bus_verify_polkit_async_registry_free(c->polkit_registry);
+        c->polkit_registry = bus_verify_polkit_async_registry_free(c->polkit_registry);
 };
 
 int locale_read_data(Context *c, sd_bus_message *m) {
@@ -119,7 +119,7 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
         fd = RET_NERRNO(open("/etc/vconsole.conf", O_CLOEXEC | O_PATH));
         if (fd == -ENOENT) {
                 c->vc_stat = (struct stat) {};
-                context_free_vconsole(c);
+                context_clear_vconsole(c);
                 return 0;
         }
         if (fd < 0)
@@ -133,7 +133,7 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
                 return 0;
 
         c->vc_stat = st;
-        context_free_vconsole(c);
+        context_clear_vconsole(c);
 
         return parse_env_file_fd(fd, "/etc/vconsole.conf",
                                  "KEYMAP",        &c->vc_keymap,
@@ -161,7 +161,7 @@ int x11_read_data(Context *c, sd_bus_message *m) {
         fd = RET_NERRNO(open("/etc/X11/xorg.conf.d/00-keyboard.conf", O_CLOEXEC | O_PATH));
         if (fd == -ENOENT) {
                 c->x11_stat = (struct stat) {};
-                context_free_x11(c);
+                context_clear_x11(c);
                 return 0;
         }
         if (fd < 0)
@@ -175,7 +175,7 @@ int x11_read_data(Context *c, sd_bus_message *m) {
                 return 0;
 
         c->x11_stat = st;
-        context_free_x11(c);
+        context_clear_x11(c);
 
         fd_ro = fd_reopen(fd, O_CLOEXEC | O_RDONLY);
         if (fd_ro < 0)
@@ -399,7 +399,7 @@ int vconsole_convert_to_x11(Context *c) {
                         !isempty(c->x11_variant) ||
                         !isempty(c->x11_options);
 
-                context_free_x11(c);
+                context_clear_x11(c);
         } else {
                 _cleanup_fclose_ FILE *f = NULL;
                 const char *map;
@@ -629,7 +629,7 @@ int x11_convert_to_vconsole(Context *c) {
                         !isempty(c->vc_keymap) ||
                         !isempty(c->vc_keymap_toggle);
 
-                context_free_vconsole(c);
+                context_clear_vconsole(c);
         } else {
                 _cleanup_free_ char *new_keymap = NULL;
                 int r;
@@ -646,8 +646,8 @@ int x11_convert_to_vconsole(Context *c) {
                         log_notice("No conversion to virtual console map found for \"%s\".", c->x11_layout);
 
                 if (!streq_ptr(c->vc_keymap, new_keymap)) {
-                        free_and_replace(c->vc_keymap, new_keymap);
-                        c->vc_keymap_toggle = mfree(c->vc_keymap_toggle);
+                        context_clear_vconsole(c);
+                        c->vc_keymap = TAKE_PTR(new_keymap);
                         modified = true;
                 }
         }
