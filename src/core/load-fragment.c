@@ -6542,3 +6542,34 @@ int config_parse_log_filter_patterns(
 
         return 0;
 }
+
+int config_parse_open_file(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(open_file_freep) OpenFile *of = NULL;
+        OpenFile **head = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = open_file_parse(rvalue, &of);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse OpenFile= setting, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        LIST_APPEND(open_files, *head, TAKE_PTR(of));
+
+        return 0;
+}
