@@ -241,7 +241,7 @@ static int fsck_progress_socket(void) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_close_pair_ int progress_pipe[2] = { -EBADF, -EBADF };
+        _cleanup_close_pair_ int progress_pipe[2] = PIPE_EBADF;
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         _cleanup_free_ char *dpath = NULL;
         _cleanup_fclose_ FILE *console = NULL;

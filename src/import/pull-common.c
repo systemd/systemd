@@ -381,7 +381,7 @@ static int verify_gpg(
                 const void *payload, size_t payload_size,
                 const void *signature, size_t signature_size) {
 
-        _cleanup_close_pair_ int gpg_pipe[2] = { -EBADF, -EBADF };
+        _cleanup_close_pair_ int gpg_pipe[2] = PIPE_EBADF;
         char sig_file_path[] = "/tmp/sigXXXXXX", gpg_home[] = "/tmp/gpghomeXXXXXX";
         _cleanup_(sigkill_waitp) pid_t pid = 0;
         bool gpg_home_created = false;

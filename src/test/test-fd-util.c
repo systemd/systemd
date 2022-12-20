@@ -532,7 +532,7 @@ TEST(fd_reopen_condition) {
 
 TEST(take_fd) {
         _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
-        int array[2] = { -EBADF, -EBADF }, i = 0;
+        int array[2] = PIPE_EBADF, i = 0;
 
         assert_se(fd1 == -EBADF);
         assert_se(fd2 == -EBADF);

@@ -83,7 +83,7 @@ static int no_quit_on_interrupt(int exe_name_fd, const char *less_opts) {
 }
 
 void pager_open(PagerFlags flags) {
-        _cleanup_close_pair_ int fd[2] = { -EBADF, -EBADF }, exe_name_pipe[2] = { -EBADF, -EBADF };
+        _cleanup_close_pair_ int fd[2] = PIPE_EBADF, exe_name_pipe[2] = PIPE_EBADF;
         _cleanup_strv_free_ char **pager_args = NULL;
         _cleanup_free_ char *l = NULL;
         const char *pager, *less_opts;
