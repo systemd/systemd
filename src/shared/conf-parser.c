@@ -8,6 +8,7 @@
 #include <sys/types.h>
 
 #include "alloc-util.h"
+#include "calendarspec.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "constants.h"
@@ -1861,6 +1862,41 @@ int config_parse_in_addr_non_null(
                 *ipv4 = a.in;
         else
                 *ipv6 = a.in6;
+        return 0;
+}
+
+int config_parse_calendar(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        CalendarSpec **cr = data;
+        _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                *cr = calendar_spec_free(*cr);
+                return 0;
+        }
+
+        r = calendar_spec_from_string(rvalue, &c);
+        if (r < 0)
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse calendar specification, ignoring: %s", rvalue);
+        else
+                *cr = TAKE_PTR(c);
+
         return 0;
 }
 

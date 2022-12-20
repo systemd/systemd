@@ -369,6 +369,31 @@ static int property_get_scheduled_shutdown(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_maintenance_window(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        _cleanup_free_ char *s = NULL;
+        Manager *m = userdata;
+
+        assert(bus);
+        assert(reply);
+        assert(m);
+
+        if (m->maintenance_window) {
+                int r = calendar_spec_to_string(m->maintenance_window, &s);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to format calendar specification: %m");
+        }
+
+        return sd_bus_message_append(reply, "s", s);
+}
+
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_handle_action, handle_action, HandleAction);
 static BUS_DEFINE_PROPERTY_GET(property_get_docked, "b", Manager, manager_is_docked_or_external_displays);
 static BUS_DEFINE_PROPERTY_GET(property_get_lid_closed, "b", Manager, manager_is_lid_closed);
@@ -2152,6 +2177,8 @@ static void reset_scheduled_shutdown(Manager *m) {
         }
 
         (void) unlink(SHUTDOWN_SCHEDULE_FILE);
+
+        manager_send_changed(m, "ScheduledShutdown", NULL);
 }
 
 static int manager_scheduled_shutdown_handler(
@@ -2232,6 +2259,14 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
         if (r != 0)
                 return r;
 
+        if (!timestamp_is_set(elapse) && m->maintenance_window) {
+                r = calendar_spec_next_usec(m->maintenance_window, now(CLOCK_REALTIME), &elapse);
+                if (r < 0)
+                        return log_error_errno(r, "failed to parse shutdown time: %m");
+
+                log_info("scheduled %s at %s", type, FORMAT_TIMESTAMP(elapse));
+        }
+
         m->scheduled_shutdown_action = a;
         m->shutdown_dry_run = dry_run;
         m->scheduled_shutdown_timeout = elapse;
@@ -2248,6 +2283,8 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
                 reset_scheduled_shutdown(m);
                 return r;
         }
+
+        manager_send_changed(m, "ScheduledShutdown", NULL);
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -3344,7 +3381,8 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("IdleActionUSec", "t", NULL, offsetof(Manager, idle_action_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PreparingForShutdown", "b", property_get_preparing, 0, 0),
         SD_BUS_PROPERTY("PreparingForSleep", "b", property_get_preparing, 0, 0),
-        SD_BUS_PROPERTY("ScheduledShutdown", "(st)", property_get_scheduled_shutdown, 0, 0),
+        SD_BUS_PROPERTY("ScheduledShutdown", "(st)", property_get_scheduled_shutdown, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("MaintenanceWindow", "s", property_get_maintenance_window, 0, 0),
         SD_BUS_PROPERTY("Docked", "b", property_get_docked, 0, 0),
         SD_BUS_PROPERTY("LidClosed", "b", property_get_lid_closed, 0, 0),
         SD_BUS_PROPERTY("OnExternalPower", "b", property_get_on_external_power, 0, 0),
