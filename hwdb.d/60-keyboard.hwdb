@@ -1436,6 +1436,10 @@ evdev:name:MSI Laptop hotkeys:dmi:bvn*:bvr*:bd*:svn*:pnM[iI][cC][rR][oO]-S[tT][a
  KEYBOARD_KEY_0213=f22
  KEYBOARD_KEY_0214=f23
 
+# MSI Bravo 15-B5DX FnKeys
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Bravo15B5D*:*
+ KEYBOARD_KEY_f1=f20                                    # Fn+F5 Micmute
+
 ##########################################
 # NEC
 ##########################################
