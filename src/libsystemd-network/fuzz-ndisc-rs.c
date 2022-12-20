@@ -4,12 +4,13 @@
 #include <netinet/icmp6.h>
 #include <unistd.h>
 
-#include "alloc-util.h"
-#include "icmp6-util.h"
-#include "fuzz.h"
 #include "sd-ndisc.h"
-#include "socket-util.h"
+
+#include "alloc-util.h"
+#include "fuzz.h"
+#include "icmp6-util.h"
 #include "ndisc-internal.h"
+#include "socket-util.h"
 
 static int test_fd[2] = { -EBADF, -EBADF };
 
