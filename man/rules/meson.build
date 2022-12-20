@@ -864,7 +864,7 @@ manpages = [
   '8',
   ['systemd-boot-check-no-failures'],
   ''],
- ['systemd-boot-system-token.service', '8', [], 'HAVE_GNU_EFI'],
+ ['systemd-boot-random-seed.service', '8', [], 'HAVE_GNU_EFI'],
  ['systemd-boot', '7', ['sd-boot'], 'HAVE_GNU_EFI'],
  ['systemd-cat', '1', [], ''],
  ['systemd-cgls', '1', [], ''],

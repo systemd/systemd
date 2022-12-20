@@ -105,7 +105,7 @@ units = [
         ['systemd-ask-password-wall.path',      '',
          'multi-user.target.wants/'],
         ['systemd-ask-password-wall.service',   ''],
-        ['systemd-boot-system-token.service',   'HAVE_GNU_EFI',
+        ['systemd-boot-random-seed.service',    'HAVE_GNU_EFI',
          'sysinit.target.wants/'],
         ['systemd-boot-update.service',         'HAVE_GNU_EFI'],
         ['systemd-coredump.socket',             'ENABLE_COREDUMP',
