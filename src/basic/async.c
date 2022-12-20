@@ -103,5 +103,5 @@ int asynchronous_close(int fd) {
                          assert_se(close_nointr(fd) != -EBADF);
         }
 
-        return -1;
+        return -EBADF;
 }

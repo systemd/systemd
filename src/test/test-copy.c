@@ -78,7 +78,7 @@ TEST(copy_tree_replace_file) {
 
 TEST(copy_tree_replace_dirs) {
         _cleanup_(rm_rf_physical_and_freep) char *srcp = NULL, *dstp = NULL;
-        _cleanup_close_ int src = -1, dst = -1;
+        _cleanup_close_ int src = -EBADF, dst = -EBADF;
 
         /* Create the random source/destination directories */
         assert_se((src = mkdtemp_open(NULL, 0, &srcp)) >= 0);
@@ -257,7 +257,7 @@ TEST(copy_tree) {
 }
 
 TEST(copy_bytes) {
-        _cleanup_close_pair_ int pipefd[2] = {-1, -1};
+        _cleanup_close_pair_ int pipefd[2] = PIPE_EBADF;
         _cleanup_close_ int infd = -EBADF;
         int r, r2;
         char buf[1024], buf2[1024];

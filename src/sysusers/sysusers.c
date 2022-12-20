@@ -251,7 +251,7 @@ static int load_group_database(void) {
 static int make_backup(const char *target, const char *x) {
         _cleanup_(unlink_and_freep) char *dst_tmp = NULL;
         _cleanup_fclose_ FILE *dst = NULL;
-        _cleanup_close_ int src = -1;
+        _cleanup_close_ int src = -EBADF;
         const char *backup;
         struct stat st;
         int r;
@@ -2093,7 +2093,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *unlink_dir = NULL;
 #endif
-        _cleanup_close_ int lock = -1;
+        _cleanup_close_ int lock = -EBADF;
         Item *i;
         int r;
 

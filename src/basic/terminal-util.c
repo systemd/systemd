@@ -1130,7 +1130,7 @@ static int ptsname_namespace(int pty, char **ret) {
 
 int openpt_allocate_in_namespace(pid_t pid, int flags, char **ret_slave) {
         _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF, fd = -EBADF;
-        _cleanup_close_pair_ int pair[2] = { -EBADF, -EBADF };
+        _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
         pid_t child;
         int r;
 
@@ -1183,7 +1183,7 @@ int openpt_allocate_in_namespace(pid_t pid, int flags, char **ret_slave) {
 
 int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
         _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF;
-        _cleanup_close_pair_ int pair[2] = { -EBADF, -EBADF };
+        _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
         pid_t child;
         int r;
 

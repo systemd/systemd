@@ -73,7 +73,7 @@ int arp_network_bind_raw_socket(int ifindex, const struct in_addr *a, const stru
                 .ll.sll_halen    = ETH_ALEN,
                 .ll.sll_addr     = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
         };
-        _cleanup_close_ int s = -1;
+        _cleanup_close_ int s = -EBADF;
         int r;
 
         assert(ifindex > 0);

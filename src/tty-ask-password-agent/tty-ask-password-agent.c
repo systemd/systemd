@@ -338,7 +338,7 @@ static int process_and_watch_password_files(bool watch) {
         };
 
         _unused_ _cleanup_close_ int tty_block_fd = -EBADF;
-        _cleanup_close_ int notify = -1, signal_fd = -EBADF;
+        _cleanup_close_ int notify = -EBADF, signal_fd = -EBADF;
         struct pollfd pollfd[_FD_MAX];
         sigset_t mask;
         int r;

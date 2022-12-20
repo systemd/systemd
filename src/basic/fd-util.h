@@ -15,6 +15,7 @@
 /* Make sure we can distinguish fd 0 and NULL */
 #define FD_TO_PTR(fd) INT_TO_PTR((fd)+1)
 #define PTR_TO_FD(p) (PTR_TO_INT(p)-1)
+#define PIPE_EBADF { -EBADF, -EBADF }
 
 int close_nointr(int fd);
 int safe_close(int fd);
@@ -22,7 +23,7 @@ void safe_close_pair(int p[static 2]);
 
 static inline int safe_close_above_stdio(int fd) {
         if (fd < 3) /* Don't close stdin/stdout/stderr, but still invalidate the fd by returning -1 */
-                return -1;
+                return -EBADF;
 
         return safe_close(fd);
 }
@@ -86,7 +87,7 @@ int fd_move_above_stdio(int fd);
 int rearrange_stdio(int original_input_fd, int original_output_fd, int original_error_fd);
 
 static inline int make_null_stdio(void) {
-        return rearrange_stdio(-1, -1, -1);
+        return rearrange_stdio(-EBADF, -EBADF, -EBADF);
 }
 
 /* Like TAKE_PTR() but for file descriptors, resetting them to -1 */

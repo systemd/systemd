@@ -23,7 +23,7 @@
 #include "tmpfile-util.h"
 
 int import_fork_tar_x(const char *path, pid_t *ret) {
-        _cleanup_close_pair_ int pipefd[2] = { -EBADF, -EBADF };
+        _cleanup_close_pair_ int pipefd[2] = PIPE_EBADF;
         bool use_selinux;
         pid_t pid;
         int r;
@@ -64,7 +64,7 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
 
                 pipefd[1] = safe_close(pipefd[1]);
 
-                r = rearrange_stdio(TAKE_FD(pipefd[0]), -1, STDERR_FILENO);
+                r = rearrange_stdio(TAKE_FD(pipefd[0]), -EBADF, STDERR_FILENO);
                 if (r < 0) {
                         log_error_errno(r, "Failed to rearrange stdin/stdout: %m");
                         _exit(EXIT_FAILURE);
@@ -96,7 +96,7 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
 }
 
 int import_fork_tar_c(const char *path, pid_t *ret) {
-        _cleanup_close_pair_ int pipefd[2] = { -EBADF, -EBADF };
+        _cleanup_close_pair_ int pipefd[2] = PIPE_EBADF;
         bool use_selinux;
         pid_t pid;
         int r;
@@ -130,7 +130,7 @@ int import_fork_tar_c(const char *path, pid_t *ret) {
 
                 pipefd[0] = safe_close(pipefd[0]);
 
-                r = rearrange_stdio(-1, TAKE_FD(pipefd[1]), STDERR_FILENO);
+                r = rearrange_stdio(-EBADF, TAKE_FD(pipefd[1]), STDERR_FILENO);
                 if (r < 0) {
                         log_error_errno(r, "Failed to rearrange stdin/stdout: %m");
                         _exit(EXIT_FAILURE);

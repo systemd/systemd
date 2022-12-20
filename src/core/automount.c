@@ -573,7 +573,7 @@ static void automount_trigger_notify(Unit *u, Unit *other) {
 
 static void automount_enter_waiting(Automount *a) {
         _cleanup_close_ int ioctl_fd = -EBADF;
-        int pipe_fd[2] = { -EBADF, -EBADF };
+        int pipe_fd[2] = PIPE_EBADF;
         char name[STRLEN("systemd-") + DECIMAL_STR_MAX(pid_t) + 1];
         _cleanup_free_ char *options = NULL;
         bool mounted = false;

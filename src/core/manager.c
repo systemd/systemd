@@ -851,7 +851,7 @@ int manager_new(LookupScope scope, ManagerTestRunFlags test_run_flags, Manager *
                 .notify_fd = -EBADF,
                 .cgroups_agent_fd = -EBADF,
                 .signal_fd = -EBADF,
-                .user_lookup_fds = { -EBADF, -EBADF },
+                .user_lookup_fds = PIPE_EBADF,
                 .private_listen_fd = -EBADF,
                 .dev_autofs_fd = -EBADF,
                 .cgroup_inotify_fd = -EBADF,
