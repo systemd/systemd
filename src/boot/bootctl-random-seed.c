@@ -152,9 +152,9 @@ int install_random_seed(const char *esp) {
                                 return log_error_errno(r, "Failed to write 'LoaderSystemToken' EFI variable: %m");
 
                         if (r == -EINVAL)
-                                log_warning_errno(r, "Unable to write 'LoaderSystemToken' EFI variable (firmware problem?), ignoring: %m");
+                                log_notice_errno(r, "Unable to write 'LoaderSystemToken' EFI variable (firmware problem?), ignoring: %m");
                         else
-                                log_warning_errno(r, "Unable to write 'LoaderSystemToken' EFI variable, ignoring: %m");
+                                log_notice_errno(r, "Unable to write 'LoaderSystemToken' EFI variable, ignoring: %m");
                 } else
                         log_info("Successfully initialized system token in EFI variable with %zu bytes.", sizeof(buffer));
         }
