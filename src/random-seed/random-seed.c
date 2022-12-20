@@ -194,8 +194,7 @@ static int load_seed_file(
                         return log_oom();
 
                 sha256_init_ctx(hash_state);
-                sha256_process_bytes(&k, sizeof(k), hash_state); /* Hash length to distinguish from new seed. */
-                sha256_process_bytes(buf, k, hash_state);
+                sha256_process_bytes_and_size(buf, k, hash_state); /* Hash with length to distinguish from new seed. */
 
                 *ret_hash_state = hash_state;
         }
@@ -288,8 +287,7 @@ static int save_seed_file(
         if (hash_state) {
                 uint8_t hash[SHA256_DIGEST_SIZE];
 
-                sha256_process_bytes(&k, sizeof(k), hash_state); /* Hash length to distinguish from old seed. */
-                sha256_process_bytes(buf, k, hash_state);
+                sha256_process_bytes_and_size(buf, k, hash_state); /* Hash with length to distinguish from old seed. */
                 sha256_finish_ctx(hash_state, hash);
                 l = MIN((size_t)k, sizeof(hash));
                 memcpy((uint8_t *)buf + k - l, hash, l);
@@ -370,8 +368,7 @@ static int refresh_boot_seed(void) {
 
         /* Hash the old seed in so that we never regress in entropy. */
         sha256_init_ctx(&hash_state);
-        sha256_process_bytes(&n, sizeof(n), &hash_state);
-        sha256_process_bytes(seed_file_bytes, n, &hash_state);
+        sha256_process_bytes_and_size(seed_file_bytes, n, &hash_state);
 
         /* We're doing this opportunistically, so if the seeding dance before didn't manage to initialize the
          * RNG, there's no point in doing it here. Secondly, getrandom(GRND_NONBLOCK) has been around longer
@@ -392,8 +389,7 @@ static int refresh_boot_seed(void) {
         assert(n == sizeof(buffer));
 
         /* Hash the new seed into the state containing the old one to generate our final seed. */
-        sha256_process_bytes(&n, sizeof(n), &hash_state);
-        sha256_process_bytes(buffer, n, &hash_state);
+        sha256_process_bytes_and_size(buffer, n, &hash_state);
         sha256_finish_ctx(&hash_state, buffer);
 
         if (lseek(seed_fd, 0, SEEK_SET) < 0)
