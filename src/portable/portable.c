@@ -355,7 +355,7 @@ static int portable_extract_by_path(
         else {
                 _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
                 _cleanup_(rmdir_and_freep) char *tmpdir = NULL;
-                _cleanup_(close_pairp) int seq[2] = { -EBADF, -EBADF };
+                _cleanup_(close_pairp) int seq[2] = PIPE_EBADF;
                 _cleanup_(sigkill_waitp) pid_t child = 0;
 
                 /* We now have a loopback block device, let's fork off a child in its own mount namespace, mount it

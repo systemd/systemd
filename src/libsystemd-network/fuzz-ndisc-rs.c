@@ -7,12 +7,13 @@
 #include "sd-ndisc.h"
 
 #include "alloc-util.h"
+#include "fd-util.h"
 #include "fuzz.h"
 #include "icmp6-util.h"
 #include "ndisc-internal.h"
 #include "socket-util.h"
 
-static int test_fd[2] = { -EBADF, -EBADF };
+static int test_fd[2] = PIPE_EBADF;
 
 int icmp6_bind_router_solicitation(int index) {
         assert_se(socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) >= 0);

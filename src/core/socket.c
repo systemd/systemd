@@ -1502,7 +1502,7 @@ static int socket_address_listen_in_cgroup(
                 const SocketAddress *address,
                 const char *label) {
 
-        _cleanup_close_pair_ int pair[2] = { -EBADF, -EBADF };
+        _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
         int fd, r;
         pid_t pid;
 
@@ -2899,7 +2899,7 @@ static int socket_accept_do(Socket *s, int fd) {
 }
 
 static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
-        _cleanup_close_pair_ int pair[2] = { -EBADF, -EBADF };
+        _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
         int cfd, r;
         pid_t pid;
 

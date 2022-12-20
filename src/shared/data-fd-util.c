@@ -26,7 +26,7 @@
 #define DATA_FD_TMP_LIMIT (1024U*1024U)
 
 int acquire_data_fd(const void *data, size_t size, unsigned flags) {
-        _cleanup_close_pair_ int pipefds[2] = { -EBADF, -EBADF };
+        _cleanup_close_pair_ int pipefds[2] = PIPE_EBADF;
         char pattern[] = "/dev/shm/data-fd-XXXXXX";
         _cleanup_close_ int fd = -EBADF;
         int isz = 0, r;
@@ -218,7 +218,7 @@ int copy_data_fd(int fd) {
                         /* Hmm, pity, this didn't fit. Let's fall back to /tmp then, see below */
 
                 } else {
-                        _cleanup_(close_pairp) int pipefds[2] = { -EBADF, -EBADF };
+                        _cleanup_(close_pairp) int pipefds[2] = PIPE_EBADF;
                         int isz;
 
                         /* If memfds aren't available, use a pipe. Set O_NONBLOCK so that we will get EAGAIN rather

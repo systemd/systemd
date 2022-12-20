@@ -356,7 +356,7 @@ static int transfer_on_log(sd_event_source *s, int fd, uint32_t revents, void *u
 }
 
 static int transfer_start(Transfer *t) {
-        _cleanup_close_pair_ int pipefd[2] = { -EBADF, -EBADF };
+        _cleanup_close_pair_ int pipefd[2] = PIPE_EBADF;
         int r;
 
         assert(t);

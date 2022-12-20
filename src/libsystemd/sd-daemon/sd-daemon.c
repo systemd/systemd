@@ -549,7 +549,7 @@ finish:
 }
 
 _public_ int sd_notify_barrier(int unset_environment, uint64_t timeout) {
-        _cleanup_close_pair_ int pipe_fd[2] = { -EBADF, -EBADF };
+        _cleanup_close_pair_ int pipe_fd[2] = PIPE_EBADF;
         int r;
 
         if (pipe2(pipe_fd, O_CLOEXEC) < 0)

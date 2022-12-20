@@ -2099,7 +2099,7 @@ bool exec_needs_mount_namespace(
 
 static int setup_private_users(uid_t ouid, gid_t ogid, uid_t uid, gid_t gid) {
         _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
-        _cleanup_close_pair_ int errno_pipe[2] = { -EBADF, -EBADF };
+        _cleanup_close_pair_ int errno_pipe[2] = PIPE_EBADF;
         _cleanup_close_ int unshare_ready_fd = -EBADF;
         _cleanup_(sigkill_waitp) pid_t pid = 0;
         uint64_t c = 1;
@@ -6609,8 +6609,8 @@ static int exec_runtime_allocate(ExecRuntime **ret, const char *id) {
 
         *n = (ExecRuntime) {
                 .id = TAKE_PTR(id_copy),
-                .netns_storage_socket = { -EBADF, -EBADF },
-                .ipcns_storage_socket = { -EBADF, -EBADF },
+                .netns_storage_socket = PIPE_EBADF,
+                .ipcns_storage_socket = PIPE_EBADF,
         };
 
         *ret = n;
@@ -6672,7 +6672,7 @@ static int exec_runtime_make(
                 ExecRuntime **ret) {
 
         _cleanup_(namespace_cleanup_tmpdirp) char *tmp_dir = NULL, *var_tmp_dir = NULL;
-        _cleanup_close_pair_ int netns_storage_socket[2] = { -EBADF, -EBADF }, ipcns_storage_socket[2] = { -EBADF, -EBADF };
+        _cleanup_close_pair_ int netns_storage_socket[2] = PIPE_EBADF, ipcns_storage_socket[2] = PIPE_EBADF;
         int r;
 
         assert(m);

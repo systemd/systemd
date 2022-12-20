@@ -1402,7 +1402,7 @@ static int service_allocate_exec_fd(
                 sd_event_source **ret_event_source,
                 int *ret_exec_fd) {
 
-        _cleanup_close_pair_ int p[] = { -EBADF, -EBADF };
+        _cleanup_close_pair_ int p[] = PIPE_EBADF;
         int r;
 
         assert(s);
