@@ -29,6 +29,7 @@ static char **arg_banks = NULL;
 static char *arg_tpm2_device = NULL;
 static char *arg_private_key = NULL;
 static char *arg_public_key = NULL;
+static char *arg_certificate = NULL;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO|JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_current = false;
@@ -39,6 +40,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_banks, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_public_key, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_certificate, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_phase, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_append, freep);
 
@@ -73,6 +75,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --tpm2-device=PATH  Use specified TPM2 device\n"
                "     --private-key=KEY   Private key (PEM) to sign with\n"
                "     --public-key=KEY    Public key (PEM) to validate against\n"
+               "     --certificate=CERT  Certificate (PEM) to read public key from\n"
                "     --json=MODE         Output as JSON\n"
                "  -j                     Same as --json=pretty on tty, --json=short otherwise\n"
                "     --append=PATH       Load specified JSON signature, and append new signature to it\n"
@@ -128,6 +131,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_BANK,
                 ARG_PRIVATE_KEY,
                 ARG_PUBLIC_KEY,
+                ARG_CERTIFICATE,
                 ARG_TPM2_DEVICE,
                 ARG_JSON,
                 ARG_PHASE,
@@ -150,6 +154,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "tpm2-device", required_argument, NULL, ARG_TPM2_DEVICE },
                 { "private-key", required_argument, NULL, ARG_PRIVATE_KEY },
                 { "public-key",  required_argument, NULL, ARG_PUBLIC_KEY  },
+                { "certificate", required_argument, NULL, ARG_CERTIFICATE },
                 { "json",        required_argument, NULL, ARG_JSON        },
                 { "phase",       required_argument, NULL, ARG_PHASE       },
                 { "append",      required_argument, NULL, ARG_APPEND      },
@@ -218,6 +223,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_CERTIFICATE:
+                        r = parse_path_argument(optarg, /* supress_root= */ false, &arg_certificate);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
                 case ARG_TPM2_DEVICE: {
                         _cleanup_free_ char *device = NULL;
 
@@ -272,6 +284,10 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached();
                 }
+
+        if (arg_public_key && arg_certificate)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Cannot specify both --public-key and --certificate");
 
         if (strv_isempty(arg_banks)) {
                 /* If no banks are specifically selected, pick all known banks */
@@ -762,7 +778,22 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         if (!privkey)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse private key '%s'.", arg_private_key);
 
-        if (arg_public_key) {
+        if (arg_certificate) {
+                _cleanup_fclose_ FILE *certf = NULL;
+                _cleanup_(X509_freep) X509 *cert = NULL;
+
+                certf = fopen(arg_certificate, "re");
+                if (!certf)
+                        return log_error_errno(errno, "Failed to open certificate file '%s': %m", arg_certificate);
+
+                cert = PEM_read_X509(certf, NULL, NULL, NULL);
+                if (!cert)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse certificate '%s'.", arg_certificate);
+
+                pubkey = X509_get_pubkey(cert);
+                if (!pubkey)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to extract public key from certificate '%s'.", arg_certificate);
+        } else if (arg_public_key) {
                 _cleanup_fclose_ FILE *pubkeyf = NULL;
 
                 pubkeyf = fopen(arg_public_key, "re");

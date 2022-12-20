@@ -321,9 +321,10 @@ def check_inputs(opts):
 
 def find_tool(name, fallback=None, opts=None):
     if opts and opts.tools:
-        tool = opts.tools / name
-        if tool.exists():
-            return tool
+        for d in opts.tools:
+            tool = d / name
+            if tool.exists():
+                return tool
 
     return fallback or name
 
@@ -374,6 +375,7 @@ def call_systemd_measure(uki, linux, opts):
         n_priv = len(opts.pcr_private_keys or ())
         pp_groups = opts.phase_path_groups or [None] * n_priv
         pub_keys = opts.pcr_public_keys or [None] * n_priv
+        certs = opts.pcr_certificates or [None] * n_priv
 
         pcrsigs = []
 
@@ -388,12 +390,17 @@ def call_systemd_measure(uki, linux, opts):
               for bank in banks),
         ]
 
-        for priv_key, pub_key, group in zip(opts.pcr_private_keys,
-                                            pub_keys,
-                                            pp_groups):
+        for priv_key, pub_key, cert, group in zip(opts.pcr_private_keys,
+                                                  pub_keys,
+                                                  certs,
+                                                  pp_groups):
+            assert pub_key is None or cert is None
+
             extra = [f'--private-key={priv_key}']
             if pub_key:
                 extra += [f'--public-key={pub_key}']
+            if cert:
+                extra += [f'--certificate={cert}']
             extra += [f'--phase={phase_path}' for phase_path in group or ()]
 
             print('+', shell_join(cmd + extra))
@@ -629,6 +636,12 @@ usage: ukify [options…] linux initrd…
                    type=pathlib.Path,
                    action='append',
                    help='public part of the keypair for signing PCR signatures')
+    p.add_argument('--pcr-certificate',
+                   dest='pcr_certificates',
+                   metavar='PATH',
+                   type=pathlib.Path,
+                   action='append',
+                   help='certificate containing the public key for signing PCR signatures')
     p.add_argument('--phases',
                    dest='phase_path_groups',
                    metavar='PHASE-PATH…',
@@ -656,7 +669,8 @@ usage: ukify [options…] linux initrd…
 
     p.add_argument('--tools',
                    type=pathlib.Path,
-                   help='a directory with systemd-measure and other tools')
+                   nargs='+',
+                   help='Directories to search for tools (systemd-measure, llvm-objcopy, ...)')
 
     p.add_argument('--output', '-o',
                    type=pathlib.Path,
@@ -701,9 +715,14 @@ usage: ukify [options…] linux initrd…
 
     n_pcr_pub = None if opts.pcr_public_keys is None else len(opts.pcr_public_keys)
     n_pcr_priv = None if opts.pcr_private_keys is None else len(opts.pcr_private_keys)
+    n_pcr_cert = None if opts.pcr_certificates is None else len(opts.pcr_certificates)
     n_phase_path_groups = None if opts.phase_path_groups is None else len(opts.phase_path_groups)
+    if n_pcr_pub and n_pcr_cert:
+        raise ValueError('Only one of --pcr-public-key= and --pcr-certificate= can be used')
     if n_pcr_pub is not None and n_pcr_pub != n_pcr_priv:
         raise ValueError('--pcr-public-key= specifications must match --pcr-private-key=')
+    if n_pcr_cert is not None and n_pcr_cert != n_pcr_priv:
+        raise ValueError('--pcr-certificate= specifications must match --pcr-private-key=')
     if n_phase_path_groups is not None and n_phase_path_groups != n_pcr_priv:
         raise ValueError('--phases= specifications must match --pcr-private-key=')
 

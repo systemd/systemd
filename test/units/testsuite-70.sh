@@ -98,9 +98,25 @@ fi
 if [ -e /usr/lib/systemd/systemd-measure ] && \
          [ -f /sys/class/tpm/tpm0/pcr-sha1/11 ] && \
          [ -f /sys/class/tpm/tpm0/pcr-sha256/11 ]; then
-    # Generate key pair
-    openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "/tmp/pcrsign-private.pem"
-    openssl rsa -pubout -in "/tmp/pcrsign-private.pem" -out "/tmp/pcrsign-public.pem"
+
+    # Unfortunately OpenSSL insists on reading some config file, hence provide one with mostly placeholder contents
+    cat >> "/tmp/verity.openssl.cnf" <<EOF
+[ req ]
+prompt = no
+distinguished_name = req_distinguished_name
+
+[ req_distinguished_name ]
+C = DE
+ST = Test State
+L = Test Locality
+O = Org Name
+OU = Org Unit Name
+CN = Common Name
+emailAddress = test@email.com
+EOF
+
+    openssl req -config "$/tmp/verity.openssl.cnf" -new -x509 -newkey rsa:2048 -keyout "/tmp/pcrsign-private.pem" -out "/tmp/pcrsign-cert.pem" -days 365 -nodes
+    openssl x509 -pubkey -noout -in "/tmp/pcrsign-cert.pem" >"/tmp/pcrsign-public.pem"
 
     MEASURE_BANKS=("--bank=sha256")
     # Check if SHA1 signatures are supported
@@ -112,9 +128,9 @@ if [ -e /usr/lib/systemd/systemd-measure ] && \
     fi
 
     # Sign current PCR state with it
-    /usr/lib/systemd/systemd-measure sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: | tee "/tmp/pcrsign.sig"
+    /usr/lib/systemd/systemd-measure sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --certificate="/tmp/pcrsign-cert.pem" --phase=: | tee "/tmp/pcrsign.sig"
     dd if=/dev/urandom of=/tmp/pcrtestdata bs=1024 count=64
-    systemd-creds encrypt /tmp/pcrtestdata /tmp/pcrtestdata.encrypted --with-key=host+tpm2-with-public-key --tpm2-public-key="/tmp/pcrsign-public.pem"
+    systemd-creds encrypt /tmp/pcrtestdata /tmp/pcrtestdata.encrypted --with-key=host+tpm2-with-public-key --tpm2-certificate="/tmp/pcrsign-cert.pem"
     systemd-creds decrypt /tmp/pcrtestdata.encrypted - --tpm2-signature="/tmp/pcrsign.sig" | cmp - /tmp/pcrtestdata
 
     # Invalidate PCR, decrypting should fail now
@@ -122,7 +138,7 @@ if [ -e /usr/lib/systemd/systemd-measure ] && \
     systemd-creds decrypt /tmp/pcrtestdata.encrypted - --tpm2-signature="/tmp/pcrsign.sig" > /dev/null && { echo 'unexpected success'; exit 1; }
 
     # Sign new PCR state, decrypting should work now.
-    /usr/lib/systemd/systemd-measure sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: > "/tmp/pcrsign.sig2"
+    /usr/lib/systemd/systemd-measure sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --certificate="/tmp/pcrsign-cert.pem" --phase=: > "/tmp/pcrsign.sig2"
     systemd-creds decrypt /tmp/pcrtestdata.encrypted - --tpm2-signature="/tmp/pcrsign.sig2" | cmp - /tmp/pcrtestdata
 
     # Now, do the same, but with a cryptsetup binding
