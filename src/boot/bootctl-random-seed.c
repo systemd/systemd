@@ -43,8 +43,7 @@ int install_random_seed(const char *esp) {
                 return log_error_errno(r, "Failed to acquire random seed: %m");
 
         sha256_init_ctx(&hash_state);
-        sha256_process_bytes(&(const size_t) { sizeof(buffer) }, sizeof(size_t), &hash_state);
-        sha256_process_bytes(buffer, sizeof(buffer), &hash_state);
+        sha256_process_bytes_and_size(buffer, sizeof(buffer), &hash_state);
 
         fd = openat(loader_dir_fd, "random-seed", O_NOFOLLOW|O_CLOEXEC|O_RDONLY|O_NOCTTY);
         if (fd < 0) {
@@ -62,8 +61,7 @@ int install_random_seed(const char *esp) {
                 if (n < 0)
                         return log_error_errno(errno, "Failed to read old random seed file: %m");
 
-                sha256_process_bytes(&n, sizeof(n), &hash_state);
-                sha256_process_bytes(buffer, n, &hash_state);
+                sha256_process_bytes_and_size(buffer, n, &hash_state);
 
                 fd = safe_close(fd);
                 refreshed = n > 0;
