@@ -247,6 +247,17 @@ int expand_unit_names(sd_bus *bus, char **names, const char* suffix, char ***ret
                 if (r < 0)
                         return log_error_errno(r, "Failed to mangle name: %m");
 
+                /* We would expand 'foo@bar.servie' to 'foo@bar.servie.service', be nice and warn users about
+                 * an expansion that hides typos inside instance parameter. */
+                if (!streq(*name, t) && unit_name_is_valid(t, UNIT_NAME_INSTANCE)) {
+                        _cleanup_free_ char *instance = NULL;
+                        r = unit_name_to_instance(t, &instance);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse instance parameter: %m");
+                        if (strchr(instance, '.'))
+                                log_warning("%s templated name expanded to %s", *name, t);
+                }
+
                 if (string_is_glob(t))
                         r = strv_consume(&globs, t);
                 else
