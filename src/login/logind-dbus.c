@@ -2177,6 +2177,8 @@ static void reset_scheduled_shutdown(Manager *m) {
         }
 
         (void) unlink(SHUTDOWN_SCHEDULE_FILE);
+
+        manager_send_changed(m, "ScheduledShutdown", NULL);
 }
 
 static int manager_scheduled_shutdown_handler(
@@ -2281,6 +2283,8 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
                 reset_scheduled_shutdown(m);
                 return r;
         }
+
+        manager_send_changed(m, "ScheduledShutdown", NULL);
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -3377,7 +3381,7 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("IdleActionUSec", "t", NULL, offsetof(Manager, idle_action_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PreparingForShutdown", "b", property_get_preparing, 0, 0),
         SD_BUS_PROPERTY("PreparingForSleep", "b", property_get_preparing, 0, 0),
-        SD_BUS_PROPERTY("ScheduledShutdown", "(st)", property_get_scheduled_shutdown, 0, 0),
+        SD_BUS_PROPERTY("ScheduledShutdown", "(st)", property_get_scheduled_shutdown, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("MaintenanceWindow", "s", property_get_maintenance_window, 0, 0),
         SD_BUS_PROPERTY("Docked", "b", property_get_docked, 0, 0),
         SD_BUS_PROPERTY("LidClosed", "b", property_get_lid_closed, 0, 0),
