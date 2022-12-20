@@ -98,7 +98,7 @@ static int _bind_raw_socket(
                 .len = ELEMENTSOF(filter),
                 .filter = filter
         };
-        _cleanup_close_ int s = -1;
+        _cleanup_close_ int s = -EBADF;
         int r;
 
         s = socket(AF_PACKET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
@@ -178,7 +178,7 @@ int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port, int
                 .in.sin_port = htobe16(port),
                 .in.sin_addr.s_addr = address,
         };
-        _cleanup_close_ int s = -1;
+        _cleanup_close_ int s = -EBADF;
         int r;
 
         s = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);

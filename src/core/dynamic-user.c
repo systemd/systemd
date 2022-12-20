@@ -127,7 +127,7 @@ static int dynamic_user_acquire(Manager *m, const char *name, DynamicUser** ret)
         if (r < 0)
                 return r;
 
-        storage_socket[0] = storage_socket[1] = -1;
+        storage_socket[0] = storage_socket[1] = -EBADF;
 
         if (ret) {
                 d->n_ref++;
@@ -382,7 +382,7 @@ static int dynamic_user_realize(
                 uid_t *ret_uid, gid_t *ret_gid,
                 bool is_user) {
 
-        _cleanup_(unlockfp) int storage_socket0_lock = -1;
+        _cleanup_(unlockfp) int storage_socket0_lock = -EBADF;
         _cleanup_close_ int uid_lock_fd = -EBADF;
         _cleanup_close_ int etc_passwd_lock_fd = -EBADF;
         uid_t num = UID_INVALID; /* a uid if is_user, and a gid otherwise */
@@ -524,7 +524,7 @@ static int dynamic_user_realize(
 }
 
 int dynamic_user_current(DynamicUser *d, uid_t *ret) {
-        _cleanup_(unlockfp) int storage_socket0_lock = -1;
+        _cleanup_(unlockfp) int storage_socket0_lock = -EBADF;
         _cleanup_close_ int lock_fd = -EBADF;
         uid_t uid;
         int r;
@@ -567,7 +567,7 @@ static DynamicUser* dynamic_user_unref(DynamicUser *d) {
 }
 
 static int dynamic_user_close(DynamicUser *d) {
-        _cleanup_(unlockfp) int storage_socket0_lock = -1;
+        _cleanup_(unlockfp) int storage_socket0_lock = -EBADF;
         _cleanup_close_ int lock_fd = -EBADF;
         uid_t uid;
         int r;

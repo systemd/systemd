@@ -39,7 +39,7 @@ static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
 
                 pipe_fds[0] = safe_close(pipe_fds[0]);
 
-                if (rearrange_stdio(-1, TAKE_FD(pipe_fds[1]), -1) < 0)
+                if (rearrange_stdio(-EBADF, TAKE_FD(pipe_fds[1]), -EBADF) < 0)
                         _exit(EXIT_FAILURE);
 
                 (void) close_all_fds(NULL, 0);

@@ -133,7 +133,7 @@ TEST(rearrange_stdio) {
 
                 safe_close(STDERR_FILENO); /* Let's close an fd < 2, to make it more interesting */
 
-                assert_se(rearrange_stdio(-1, -1, -1) >= 0);
+                assert_se(rearrange_stdio(-EBADF, -EBADF, -EBADF) >= 0);
 
                 assert_se(fd_get_path(STDIN_FILENO, &path) >= 0);
                 assert_se(path_equal(path, "/dev/null"));
@@ -170,7 +170,7 @@ TEST(rearrange_stdio) {
                 assert_se(read(0, buffer, sizeof(buffer)) == 6);
                 assert_se(memcmp(buffer, "foobar", 6) == 0);
 
-                assert_se(rearrange_stdio(-1, 1, 2) >= 0);
+                assert_se(rearrange_stdio(-EBADF, 1, 2) >= 0);
                 assert_se(write(1, "a", 1) < 0 && errno == ENOSPC);
                 assert_se(write(2, "y", 1) == 1);
                 assert_se(read(3, buffer, sizeof(buffer)) == 1);
