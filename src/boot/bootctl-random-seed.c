@@ -50,12 +50,20 @@ int install_random_seed(const char *esp) {
                 goto fail;
         }
 
+        if (fsync(fd) < 0 || fsync(loader_dir_fd) < 0) {
+                r = log_error_errno(errno, "Failed to sync random seed file: %m");
+                goto fail;
+        }
+
         if (renameat(loader_dir_fd, tmp, loader_dir_fd, "random-seed") < 0) {
                 r = log_error_errno(errno, "Failed to move random seed file into place: %m");
                 goto fail;
         }
 
         tmp = mfree(tmp);
+
+        if (syncfs(fd) < 0)
+                return log_error_errno(errno, "Failed to sync ESP file system: %m");
 
         log_info("Random seed file %s/loader/random-seed successfully written (%zu bytes).", esp, sizeof(buffer));
 
@@ -147,6 +155,5 @@ int verb_random_seed(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        (void) sync_everything();
         return 0;
 }
