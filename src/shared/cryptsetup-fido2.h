@@ -31,12 +31,7 @@ int acquire_fido2_key(
 
 int acquire_fido2_key_auto(
                 struct crypt_device *cd,
-                const char *name,
-                const char *friendly_name,
                 const char *fido2_device,
-                const char *key_file,
-                size_t key_file_size,
-                uint64_t key_file_offset,
                 usec_t until,
                 bool headless,
                 void **ret_decrypted_key,
@@ -70,12 +65,7 @@ static inline int acquire_fido2_key(
 
 static inline int acquire_fido2_key_auto(
                 struct crypt_device *cd,
-                const char *name,
-                const char *friendly_name,
                 const char *fido2_device,
-                const char *key_file,
-                size_t key_file_size,
-                uint64_t key_file_offset,
                 usec_t until,
                 bool headless,
                 void **ret_decrypted_key,
