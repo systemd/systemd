@@ -625,12 +625,6 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
                 return log_oom();
 
         if (convert) {
-                r = vconsole_read_data(c, m);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to read virtual console keymap data: %m");
-                        return sd_bus_error_set_errnof(error, r, "Failed to read virtual console keymap data: %m");
-                }
-
                 r = x11_convert_to_vconsole(c);
                 if (r < 0) {
                         log_error_errno(r, "Failed to convert keymap data: %m");
@@ -639,12 +633,12 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
 
                 /* save the result of conversion to emit changed properties later. */
                 convert = r > 0;
+        }
 
-                r = vconsole_write_data(c);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to update vconsole.conf: %m");
-                        return sd_bus_error_set_errnof(error, r, "Failed to update vconsole.conf: %m");
-                }
+        r = vconsole_write_data(c);
+        if (r < 0) {
+                log_error_errno(r, "Failed to update vconsole.conf: %m");
+                return sd_bus_error_set_errnof(error, r, "Failed to update vconsole.conf: %m");
         }
 
         r = x11_write_data(c);

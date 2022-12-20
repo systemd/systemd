@@ -72,7 +72,7 @@ TEST(find_legacy_keymap) {
 
 TEST(vconsole_convert_to_x11) {
         _cleanup_(context_clear) Context c = {};
-        X11Context *xc = &c.x11_from_xorg;
+        X11Context *xc = &c.x11_from_vc;
 
         log_info("/* test emptying first (:) */");
         assert_se(free_and_strdup(&xc->layout, "foo") >= 0);
