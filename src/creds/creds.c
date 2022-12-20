@@ -47,6 +47,7 @@ static const char *arg_tpm2_device = NULL;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
 static char *arg_tpm2_public_key = NULL;
 static uint32_t arg_tpm2_public_key_pcr_mask = UINT32_MAX;
+static char *arg_tpm2_certificate = NULL;
 static char *arg_tpm2_signature = NULL;
 static const char *arg_name = NULL;
 static bool arg_name_any = false;
@@ -56,6 +57,7 @@ static bool arg_pretty = false;
 static bool arg_quiet = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_tpm2_certificate, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_signature, freep);
 
 static const char* transcode_mode_table[_TRANSCODE_MAX] = {
@@ -449,8 +451,8 @@ static int verb_encrypt(int argc, char **argv, void *userdata) {
         _cleanup_free_ char *base64_buf = NULL, *fname = NULL;
         _cleanup_(erase_and_freep) char *plaintext = NULL;
         const char *input_path, *output_path, *name;
-        _cleanup_free_ void *output = NULL;
-        size_t plaintext_size, output_size;
+        void *output = NULL, *pubkey = NULL;
+        size_t plaintext_size, output_size, pubkey_size = 0;
         ssize_t base64_size;
         usec_t timestamp;
         int r;
@@ -492,6 +494,28 @@ static int verb_encrypt(int argc, char **argv, void *userdata) {
         if (arg_not_after != USEC_INFINITY && arg_not_after < timestamp)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential is invalidated before it is valid.");
 
+        if (sd_id128_in_set(arg_with_key,
+                        _CRED_AUTO,
+                        _CRED_AUTO_INITRD,
+                        CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK,
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK)) {
+
+                /* Load public key for PCR policies, if one is specified, or explicitly requested */
+
+                if (arg_tpm2_certificate)
+                        r = tpm2_load_pcr_public_key_from_certificate(arg_tpm2_certificate, &pubkey, &pubkey_size);
+                else
+                        r = tpm2_load_pcr_public_key(arg_tpm2_public_key, &pubkey, &pubkey_size);
+                if (r < 0) {
+                        if (arg_tpm2_public_key || arg_tpm2_public_key || r != -ENOENT || !sd_id128_in_set(arg_with_key, _CRED_AUTO, _CRED_AUTO_INITRD))
+                                return log_error_errno(r, "Failed read TPM PCR public key: %m");
+
+                        log_debug_errno(r, "Failed to read TPM2 PCR public key, proceeding without: %m");
+                }
+
+                log_info("pubkey: %s", (char *) pubkey);
+        }
+
         r = encrypt_credential_and_warn(
                         arg_with_key,
                         name,
@@ -499,7 +523,7 @@ static int verb_encrypt(int argc, char **argv, void *userdata) {
                         arg_not_after,
                         arg_tpm2_device,
                         arg_tpm2_pcr_mask,
-                        arg_tpm2_public_key,
+                        pubkey, pubkey_size,
                         arg_tpm2_public_key_pcr_mask,
                         plaintext, plaintext_size,
                         &output, &output_size);
@@ -698,7 +722,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "     --tpm2-pcrs=PCR1+PCR2+PCR3+…\n"
                "                          Specify TPM2 PCRs to seal against (fixed hash)\n"
                "     --tpm2-public-key=PATH\n"
-               "                          Specify PEM certificate to seal against\n"
+               "                          Specify PEM public key to seal against\n"
                "     --tpm2-public-key-pcrs=PCR1+PCR2+PCR3+…\n"
                "                          Specify TPM2 PCRs to seal against (public key)\n"
                "     --tpm2-signature=PATH\n"
@@ -729,6 +753,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TPM2_PCRS,
                 ARG_TPM2_PUBLIC_KEY,
                 ARG_TPM2_PUBLIC_KEY_PCRS,
+                ARG_TPM2_CERTIFICATE,
                 ARG_TPM2_SIGNATURE,
                 ARG_NAME,
                 ARG_TIMESTAMP,
@@ -750,6 +775,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "tpm2-pcrs",            required_argument, NULL, ARG_TPM2_PCRS            },
                 { "tpm2-public-key",      required_argument, NULL, ARG_TPM2_PUBLIC_KEY      },
                 { "tpm2-public-key-pcrs", required_argument, NULL, ARG_TPM2_PUBLIC_KEY_PCRS },
+                { "tpm2-certificate",     required_argument, NULL, ARG_TPM2_CERTIFICATE     },
                 { "tpm2-signature",       required_argument, NULL, ARG_TPM2_SIGNATURE       },
                 { "name",                 required_argument, NULL, ARG_NAME                 },
                 { "timestamp",            required_argument, NULL, ARG_TIMESTAMP            },
@@ -883,6 +909,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_TPM2_CERTIFICATE:
+                        r = parse_path_argument(optarg, /* supress_root= */ false, &arg_tpm2_certificate);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
                 case ARG_TPM2_SIGNATURE:
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm2_signature);
                         if (r < 0)
@@ -929,6 +962,10 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
         }
+
+        if (arg_tpm2_public_key && arg_tpm2_certificate)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Cannot specify both --tpm2-public-key and --tpm2-certificate");
 
         if (arg_tpm2_pcr_mask == UINT32_MAX)
                 arg_tpm2_pcr_mask = TPM2_PCR_MASK_DEFAULT;

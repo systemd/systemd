@@ -150,6 +150,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--certificate=PATH</option></term>
+
+        <listitem><para>Takes a path to a PEM encoded X509 certificate. If specified,
+        <command>systemd-measure</command> will use the certificate's public key to sign the resulting PCR 11
+        values. This option cannot be used together with <option>--public-key</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--tpm2-device=</option><replaceable>PATH</replaceable></term>
 
         <listitem><para>Controls which TPM2 device to use. Expects a device node path referring to the TPM2
