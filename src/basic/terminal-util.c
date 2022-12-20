@@ -53,7 +53,7 @@ static volatile int cached_color_mode = _COLOR_INVALID;
 static volatile int cached_underline_enabled = -1;
 
 int chvt(int vt) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         /* Switch to the specified vt number. If the VT is specified <= 0 switch to the VT the kernel log messages go,
          * if that's configured. */
@@ -300,7 +300,7 @@ finish:
 }
 
 int reset_terminal(const char *name) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         /* We open the terminal with O_NONBLOCK here, to ensure we
          * don't block on carrier if this is a terminal with carrier
@@ -314,7 +314,7 @@ int reset_terminal(const char *name) {
 }
 
 int open_terminal(const char *name, int mode) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         unsigned c = 0;
 
         /*
@@ -355,7 +355,7 @@ int acquire_terminal(
                 AcquireTerminalFlags flags,
                 usec_t timeout) {
 
-        _cleanup_close_ int notify = -1, fd = -1;
+        _cleanup_close_ int notify = -EBADF, fd = -EBADF;
         usec_t ts = USEC_INFINITY;
         int r, wd = -1;
 
@@ -483,7 +483,7 @@ int release_terminal(void) {
                 .sa_flags = SA_RESTART,
         };
 
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         struct sigaction sa_old;
         int r;
 
@@ -508,7 +508,7 @@ int terminal_vhangup_fd(int fd) {
 }
 
 int terminal_vhangup(const char *name) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)
@@ -530,7 +530,7 @@ int vt_disallocate(const char *name) {
                 return -EINVAL;
 
         if (tty_is_vc(name)) {
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
                 unsigned u;
                 const char *n;
 
@@ -1083,7 +1083,7 @@ int ptsname_malloc(int fd, char **ret) {
 }
 
 int openpt_allocate(int flags, char **ret_slave) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -1129,8 +1129,8 @@ static int ptsname_namespace(int pty, char **ret) {
 }
 
 int openpt_allocate_in_namespace(pid_t pid, int flags, char **ret_slave) {
-        _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, usernsfd = -1, rootfd = -1, fd = -1;
-        _cleanup_close_pair_ int pair[2] = { -1, -1 };
+        _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF, fd = -EBADF;
+        _cleanup_close_pair_ int pair[2] = { -EBADF, -EBADF };
         pid_t child;
         int r;
 
@@ -1182,8 +1182,8 @@ int openpt_allocate_in_namespace(pid_t pid, int flags, char **ret_slave) {
 }
 
 int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
-        _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, usernsfd = -1, rootfd = -1;
-        _cleanup_close_pair_ int pair[2] = { -1, -1 };
+        _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF;
+        _cleanup_close_pair_ int pair[2] = { -EBADF, -EBADF };
         pid_t child;
         int r;
 

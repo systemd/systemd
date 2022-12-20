@@ -495,7 +495,7 @@ static int manager_setup_timezone_change(Manager *m) {
 }
 
 static int enable_special_signals(Manager *m) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         assert(m);
 
@@ -848,16 +848,16 @@ int manager_new(LookupScope scope, ManagerTestRunFlags test_run_flags, Manager *
 
                 .show_status_overridden = _SHOW_STATUS_INVALID,
 
-                .notify_fd = -1,
-                .cgroups_agent_fd = -1,
-                .signal_fd = -1,
-                .user_lookup_fds = { -1, -1 },
-                .private_listen_fd = -1,
-                .dev_autofs_fd = -1,
-                .cgroup_inotify_fd = -1,
-                .pin_cgroupfs_fd = -1,
-                .ask_password_inotify_fd = -1,
-                .idle_pipe = { -1, -1, -1, -1},
+                .notify_fd = -EBADF,
+                .cgroups_agent_fd = -EBADF,
+                .signal_fd = -EBADF,
+                .user_lookup_fds = { -EBADF, -EBADF },
+                .private_listen_fd = -EBADF,
+                .dev_autofs_fd = -EBADF,
+                .cgroup_inotify_fd = -EBADF,
+                .pin_cgroupfs_fd = -EBADF,
+                .ask_password_inotify_fd = -EBADF,
+                .idle_pipe = { -EBADF, -EBADF, -EBADF, -EBADF},
 
                  /* start as id #1, so that we can leave #0 around as "null-like" value */
                 .current_job_id = 1,
@@ -1000,7 +1000,7 @@ static int manager_setup_notify(Manager *m) {
                 return 0;
 
         if (m->notify_fd < 0) {
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
                 union sockaddr_union sa;
                 socklen_t sa_len;
 
@@ -1091,7 +1091,7 @@ static int manager_setup_cgroups_agent(Manager *m) {
                 return 0;
 
         if (m->cgroups_agent_fd < 0) {
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
 
                 /* First free all secondary fields */
                 m->cgroups_agent_event_source = sd_event_source_disable_unref(m->cgroups_agent_event_source);
@@ -3187,7 +3187,7 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
 void manager_send_unit_plymouth(Manager *m, Unit *u) {
         static const union sockaddr_union sa = PLYMOUTH_SOCKET;
         _cleanup_free_ char *message = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int n = 0;
 
         /* Don't generate plymouth events if the service was already

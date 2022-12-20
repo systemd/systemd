@@ -18,7 +18,7 @@
 
 int talk_initctl(char rl) {
 #if HAVE_SYSV_COMPAT
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         const char *path;
         int r;
 

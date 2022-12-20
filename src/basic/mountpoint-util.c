@@ -97,7 +97,7 @@ int name_to_handle_at_loop(
 static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *ret_mnt_id) {
         char path[STRLEN("/proc/self/fdinfo/") + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *fdinfo = NULL;
-        _cleanup_close_ int subfd = -1;
+        _cleanup_close_ int subfd = -EBADF;
         char *p;
         int r;
 
@@ -322,7 +322,7 @@ fallback_fstat:
 /* flags can be AT_SYMLINK_FOLLOW or 0 */
 int path_is_mount_point(const char *t, const char *root, int flags) {
         _cleanup_free_ char *canonical = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         assert(t);
@@ -550,7 +550,7 @@ int mount_nofollow(
                 unsigned long mountflags,
                 const void *data) {
 
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         /* In almost all cases we want to manipulate the mount table without following symlinks, hence
          * mount_nofollow() is usually the way to go. The only exceptions are environments where /proc/ is

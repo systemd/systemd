@@ -43,7 +43,7 @@ void server_forward_console(
         char tbuf[STRLEN("[] ") + DECIMAL_STR_MAX(ts.tv_sec) + DECIMAL_STR_MAX(ts.tv_nsec)-3 + 1];
         char header_pid[STRLEN("[]: ") + DECIMAL_STR_MAX(pid_t)];
         _cleanup_free_ char *ident_buf = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         const char *tty;
         int n = 0;
 

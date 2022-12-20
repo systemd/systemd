@@ -390,7 +390,7 @@ int local_outbounds(
         }
 
         for (int i = 0; i < n_gateways; i++) {
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
                 union sockaddr_union sa;
                 socklen_t salen;
 

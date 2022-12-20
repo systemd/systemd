@@ -101,7 +101,7 @@ static int tuntap_take_fd(NetDev *netdev) {
 }
 
 static int netdev_create_tuntap(NetDev *netdev) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         struct ifreq ifr = {};
         TunTap *t;
         int r;
@@ -180,7 +180,7 @@ static void tuntap_init(NetDev *netdev) {
         t = TUNTAP(netdev);
         assert(t);
 
-        t->fd = -1;
+        t->fd = -EBADF;
 }
 
 static void tuntap_drop(NetDev *netdev) {

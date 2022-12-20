@@ -1395,7 +1395,7 @@ int get_timezones(char ***ret) {
 int verify_timezone(const char *name, int log_level) {
         bool slash = false;
         const char *p, *t;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         char buf[4];
         int r;
 
@@ -1568,7 +1568,7 @@ int time_change_fd(void) {
                 .it_value.tv_sec = TIME_T_MAX,
         };
 
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         assert_cc(sizeof(time_t) == sizeof(TIME_T_MAX));
 

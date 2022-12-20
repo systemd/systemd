@@ -40,7 +40,7 @@ struct DissectedPartition {
         ((DissectedPartition) {                                         \
                 .partno = -1,                                           \
                 .architecture = _ARCHITECTURE_INVALID,                  \
-                .mount_node_fd = -1,                                    \
+                .mount_node_fd = -EBADF,                                \
         })
 #define TAKE_PARTITION(p)                                       \
         ({                                                      \

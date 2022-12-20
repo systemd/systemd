@@ -88,7 +88,7 @@ int probe_filesystem_full(
 #if HAVE_BLKID
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
         _cleanup_free_ char *path_by_fd = NULL;
-        _cleanup_close_ int fd_close = -1;
+        _cleanup_close_ int fd_close = -EBADF;
         const char *fstype;
         int r;
 
@@ -313,7 +313,7 @@ static int make_partition_devname(
 
 static int open_partition(const char *node, bool is_partition, const LoopDevice *loop) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         dev_t devnum;
         int r;
 
@@ -477,7 +477,7 @@ static int dissect_image(
                 if (STRPTR_IN_SET(usage, "filesystem", "crypto")) {
                         _cleanup_free_ char *t = NULL, *n = NULL, *o = NULL;
                         const char *fstype = NULL, *options = NULL, *suuid = NULL;
-                        _cleanup_close_ int mount_node_fd = -1;
+                        _cleanup_close_ int mount_node_fd = -EBADF;
                         sd_id128_t uuid = SD_ID128_NULL;
 
                         if (FLAGS_SET(flags, DISSECT_IMAGE_PIN_PARTITION_DEVICES)) {
@@ -872,7 +872,7 @@ static int dissect_image(
 
                         if (type.designator != _PARTITION_DESIGNATOR_INVALID) {
                                 _cleanup_free_ char *t = NULL, *o = NULL, *l = NULL;
-                                _cleanup_close_ int mount_node_fd = -1;
+                                _cleanup_close_ int mount_node_fd = -EBADF;
                                 const char *options = NULL;
 
                                 if (m->partitions[type.designator].found) {
@@ -958,7 +958,7 @@ static int dissect_image(
                                 break;
 
                         case 0xEA: { /* Boot Loader Spec extended $BOOT partition */
-                                _cleanup_close_ int mount_node_fd = -1;
+                                _cleanup_close_ int mount_node_fd = -EBADF;
                                 _cleanup_free_ char *o = NULL;
                                 sd_id128_t id = SD_ID128_NULL;
                                 const char *options = NULL;
@@ -1043,7 +1043,7 @@ static int dissect_image(
 
                 /* If we didn't find a generic node, then we can't fix this up either */
                 if (generic_node) {
-                        _cleanup_close_ int mount_node_fd = -1;
+                        _cleanup_close_ int mount_node_fd = -EBADF;
                         _cleanup_free_ char *o = NULL;
                         const char *options;
 
@@ -1152,7 +1152,7 @@ int dissect_image_file(
 
 #if HAVE_BLKID
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         assert(path);
@@ -1282,7 +1282,7 @@ static int run_fsck(int node_fd, const char *fstype) {
 }
 
 static int fs_grow(const char *node_path, const char *mount_path) {
-        _cleanup_close_ int mount_fd = -1, node_fd = -1;
+        _cleanup_close_ int mount_fd = -EBADF, node_fd = -EBADF;
         uint64_t size, newsize;
         int r;
 
@@ -1736,7 +1736,7 @@ static int decrypt_partition(
 
         _cleanup_free_ char *node = NULL, *name = NULL;
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         assert(m);
@@ -2026,7 +2026,7 @@ static int verity_partition(
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(dm_deferred_remove_cleanp) char *restore_deferred_remove = NULL;
         _cleanup_free_ char *node = NULL, *name = NULL;
-        _cleanup_close_ int mount_node_fd = -1;
+        _cleanup_close_ int mount_node_fd = -EBADF;
         int r;
 
         assert(m);
@@ -2088,7 +2088,7 @@ static int verity_partition(
          * retry a few times before giving up. */
         for (unsigned i = 0; i < N_DEVICE_NODE_LIST_ATTEMPTS; i++) {
                 _cleanup_(sym_crypt_freep) struct crypt_device *existing_cd = NULL;
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
 
                 /* First, check if the device already exists. */
                 fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
@@ -2696,7 +2696,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
         };
 
         _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL, **initrd_release = NULL, **extension_release = NULL;
-        _cleanup_close_pair_ int error_pipe[2] = { -1, -1 };
+        _cleanup_close_pair_ int error_pipe[2] = { -EBADF, -EBADF };
         _cleanup_(rmdir_and_freep) char *t = NULL;
         _cleanup_(sigkill_waitp) pid_t child = 0;
         sd_id128_t machine_id = SD_ID128_NULL;
@@ -2712,7 +2712,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
 
         for (; n_meta_initialized < _META_MAX; n_meta_initialized ++) {
                 if (!paths[n_meta_initialized]) {
-                        fds[2*n_meta_initialized] = fds[2*n_meta_initialized+1] = -1;
+                        fds[2*n_meta_initialized] = fds[2*n_meta_initialized+1] = -EBADF;
                         continue;
                 }
 

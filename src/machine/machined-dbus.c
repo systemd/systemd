@@ -44,7 +44,7 @@ static int property_get_pool_usage(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         uint64_t usage = UINT64_MAX;
 
         assert(bus);
@@ -70,7 +70,7 @@ static int property_get_pool_limit(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         uint64_t size = UINT64_MAX;
 
         assert(bus);
@@ -683,8 +683,8 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
                 REMOVE_HIDDEN,
         } mode;
 
-        _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
-        _cleanup_close_ int result_fd = -1;
+        _cleanup_close_pair_ int errno_pipe_fd[2] = { -EBADF, -EBADF };
+        _cleanup_close_ int result_fd = -EBADF;
         Manager *m = userdata;
         Operation *operation;
         const char *mm;
@@ -824,8 +824,8 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
         operation->extra_fd = result_fd;
         operation->done = clean_pool_done;
 
-        result_fd = -1;
-        errno_pipe_fd[0] = -1;
+        result_fd = -EBADF;
+        errno_pipe_fd[0] = -EBADF;
 
         return 1;
 }

@@ -21,7 +21,7 @@
 #define OVERLOAD_CONNECTIONS 333
 
 static int n_done = 0;
-static int block_write_fd = -1;
+static int block_write_fd = -EBADF;
 
 static int method_something(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
         _cleanup_(json_variant_unrefp) JsonVariant *ret = NULL;
@@ -191,7 +191,7 @@ int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_(close_pairp) int block_fds[2] = { -1, -1 };
+        _cleanup_(close_pairp) int block_fds[2] = { -EBADF, -EBADF };
         pthread_t t;
         const char *sp;
 

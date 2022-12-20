@@ -31,7 +31,7 @@ int switch_root(const char *new_root,
                 unsigned long mount_flags) {  /* MS_MOVE or MS_BIND */
 
         _cleanup_free_ char *resolved_old_root_after = NULL;
-        _cleanup_close_ int old_root_fd = -1;
+        _cleanup_close_ int old_root_fd = -EBADF;
         int r;
 
         assert(new_root);

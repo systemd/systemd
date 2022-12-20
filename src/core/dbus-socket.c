@@ -371,7 +371,7 @@ static int bus_socket_set_transient_property(
                                 return log_oom();
 
                         *p = (SocketPort) {
-                                .fd = -1,
+                                .fd = -EBADF,
                                 .socket = s,
                         };
 

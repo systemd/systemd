@@ -37,7 +37,7 @@ int sd_radv_new(sd_radv **ret) {
 
         *ra = (sd_radv) {
                 .n_ref = 1,
-                .fd = -1,
+                .fd = -EBADF,
                 .lifetime_usec = RADV_DEFAULT_ROUTER_LIFETIME_USEC,
         };
 

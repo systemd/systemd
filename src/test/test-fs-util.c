@@ -28,7 +28,7 @@ static const char *arg_test_dir = NULL;
 
 TEST(chase_symlinks) {
         _cleanup_free_ char *result = NULL, *pwd = NULL;
-        _cleanup_close_ int pfd = -1;
+        _cleanup_close_ int pfd = -EBADF;
         char *temp;
         const char *top, *p, *pslash, *q, *qslash;
         struct stat st;
@@ -316,7 +316,7 @@ TEST(chase_symlinks) {
 
         r = chase_symlinks(p, NULL, 0, NULL, &pfd);
         if (r != -ENOENT && sd_id128_get_machine(NULL) >= 0) {
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
                 sd_id128_t a, b;
 
                 assert_se(pfd >= 0);
@@ -553,7 +553,7 @@ TEST(dot_or_dot_dot) {
 
 TEST(access_fd) {
         _cleanup_(rmdir_and_freep) char *p = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         const char *a;
 
         a = strjoina(arg_test_dir ?: "/tmp", "/access-fd.XXXXXX");
@@ -679,7 +679,7 @@ TEST(touch_file) {
 
 TEST(unlinkat_deallocate) {
         _cleanup_free_ char *p = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         struct stat st;
 
         assert_se(tempfn_random_child(arg_test_dir, "unlink-deallocation", &p) >= 0);
@@ -704,7 +704,7 @@ TEST(unlinkat_deallocate) {
 }
 
 TEST(fsync_directory_of_file) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         fd = open_tmpfile_unlinkable(arg_test_dir, O_RDWR);
         assert_se(fd >= 0);
@@ -821,7 +821,7 @@ TEST(chmod_and_chown) {
 }
 
 static void create_binary_file(const char *p, const void *data, size_t l) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         fd = open(p, O_CREAT|O_WRONLY|O_EXCL|O_CLOEXEC, 0600);
         assert_se(fd >= 0);
@@ -961,7 +961,7 @@ TEST(parse_cifs_service) {
 }
 
 TEST(open_mkdir_at) {
-        _cleanup_close_ int fd = -1, subdir_fd = -1, subsubdir_fd = -1;
+        _cleanup_close_ int fd = -EBADF, subdir_fd = -EBADF, subsubdir_fd = -EBADF;
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
 
         assert_se(open_mkdir_at(AT_FDCWD, "/proc", O_EXCL|O_CLOEXEC, 0) == -EEXIST);
@@ -1005,7 +1005,7 @@ TEST(open_mkdir_at) {
 TEST(openat_report_new) {
         _cleanup_free_ char *j = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         bool b;
 
         assert_se(mkdtemp_malloc(NULL, &d) >= 0);

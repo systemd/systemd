@@ -137,7 +137,7 @@ int log_tests_skipped_errno(int r, const char *message) {
 }
 
 int write_tmpfile(char *pattern, const char *contents) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         assert(pattern);
         assert(contents);

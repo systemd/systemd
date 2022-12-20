@@ -44,7 +44,7 @@ int inhibitor_new(Inhibitor **ret, Manager *m, const char* id) {
                 .what = _INHIBIT_WHAT_INVALID,
                 .mode = _INHIBIT_MODE_INVALID,
                 .uid = UID_INVALID,
-                .fifo_fd = -1,
+                .fifo_fd = -EBADF,
         };
 
         i->state_file = path_join("/run/systemd/inhibit", id);
@@ -264,7 +264,7 @@ int inhibitor_load(Inhibitor *i) {
         }
 
         if (i->fifo_path) {
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
 
                 /* Let's re-open the FIFO on both sides, and close the writing side right away */
                 fd = inhibitor_create_fifo(i);

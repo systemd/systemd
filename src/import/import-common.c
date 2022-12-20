@@ -23,7 +23,7 @@
 #include "tmpfile-util.h"
 
 int import_fork_tar_x(const char *path, pid_t *ret) {
-        _cleanup_close_pair_ int pipefd[2] = { -1, -1 };
+        _cleanup_close_pair_ int pipefd[2] = { -EBADF, -EBADF };
         bool use_selinux;
         pid_t pid;
         int r;
@@ -96,7 +96,7 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
 }
 
 int import_fork_tar_c(const char *path, pid_t *ret) {
-        _cleanup_close_pair_ int pipefd[2] = { -1, -1 };
+        _cleanup_close_pair_ int pipefd[2] = { -EBADF, -EBADF };
         bool use_selinux;
         pid_t pid;
         int r;

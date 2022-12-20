@@ -513,7 +513,7 @@ irrelevant:
 }
 
 static int worker_lock_whole_disk(sd_device *dev, int *ret_fd) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         sd_device *dev_whole_disk;
         const char *val;
         int r;
@@ -550,12 +550,12 @@ static int worker_lock_whole_disk(sd_device *dev, int *ret_fd) {
         return 1;
 
 nolock:
-        *ret_fd = -1;
+        *ret_fd = -EBADF;
         return 0;
 }
 
 static int worker_mark_block_device_read_only(sd_device *dev) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         const char *val;
         int state = 1, r;
 
@@ -600,7 +600,7 @@ static int worker_mark_block_device_read_only(sd_device *dev) {
 
 static int worker_process_device(Manager *manager, sd_device *dev) {
         _cleanup_(udev_event_freep) UdevEvent *udev_event = NULL;
-        _cleanup_close_ int fd_lock = -1;
+        _cleanup_close_ int fd_lock = -EBADF;
         int r;
 
         assert(manager);
@@ -1561,7 +1561,7 @@ static int on_post(sd_event_source *s, void *userdata) {
 }
 
 static int listen_fds(int *ret_ctrl, int *ret_netlink) {
-        int ctrl_fd = -1, netlink_fd = -1;
+        int ctrl_fd = -EBADF, netlink_fd = -EBADF;
         int fd, n;
 
         assert(ret_ctrl);
@@ -1847,8 +1847,8 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent) {
                 return log_oom();
 
         *manager = (Manager) {
-                .inotify_fd = -1,
-                .worker_watch = { -1, -1 },
+                .inotify_fd = -EBADF,
+                .worker_watch = { -EBADF, -EBADF },
                 .cgroup = TAKE_PTR(cgroup),
         };
 
@@ -1993,7 +1993,7 @@ static int main_loop(Manager *manager) {
 
 int run_udevd(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *manager = NULL;
-        int fd_ctrl = -1, fd_uevent = -1;
+        int fd_ctrl = -EBADF, fd_uevent = -EBADF;
         int r;
 
         log_set_target(LOG_TARGET_AUTO);

@@ -786,7 +786,7 @@ out:
 int scsi_get_serial(struct scsi_id_device *dev_scsi, const char *devname,
                     int page_code, int len) {
         unsigned char page0[SCSI_INQ_BUFF_LEN];
-        int fd = -1;
+        int fd = -EBADF;
         int cnt;
         int ind;
         int retval;

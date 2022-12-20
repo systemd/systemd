@@ -239,7 +239,7 @@ finish:
 _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         PROTECT_ERRNO;
         int fd, r;
-        _cleanup_close_ int buffer_fd = -1;
+        _cleanup_close_ int buffer_fd = -EBADF;
         struct iovec *w;
         uint64_t *l;
         int i, j = 0;
@@ -419,7 +419,7 @@ _public_ int sd_journal_perror(const char *message) {
 }
 
 _public_ int sd_journal_stream_fd(const char *identifier, int priority, int level_prefix) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         char *header;
         size_t l;
         int r;

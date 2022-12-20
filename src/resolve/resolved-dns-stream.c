@@ -523,7 +523,7 @@ int dns_stream_new(
 
         *s = (DnsStream) {
                 .n_ref = 1,
-                .fd = -1,
+                .fd = -EBADF,
                 .protocol = protocol,
                 .type = type,
         };

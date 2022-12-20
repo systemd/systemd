@@ -106,7 +106,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         (void) boot_config_select_special_entries(&config, /* skip_efivars= */ false);
 
-        _cleanup_close_ int orig_stdout_fd = -1;
+        _cleanup_close_ int orig_stdout_fd = -EBADF;
         if (getenv_bool("SYSTEMD_FUZZ_OUTPUT") <= 0) {
                 orig_stdout_fd = fcntl(fileno(stdout), F_DUPFD_CLOEXEC, 3);
                 if (orig_stdout_fd < 0)

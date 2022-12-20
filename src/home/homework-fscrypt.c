@@ -491,7 +491,7 @@ int home_create_fscrypt(
         _cleanup_(rm_rf_physical_and_freep) char *temporary = NULL;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
-        _cleanup_close_ int mount_fd = -1;
+        _cleanup_close_ int mount_fd = -EBADF;
         struct fscrypt_policy policy = {};
         size_t volume_key_size = 512 / 8;
         _cleanup_free_ char *d = NULL;

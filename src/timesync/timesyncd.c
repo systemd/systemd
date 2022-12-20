@@ -23,7 +23,7 @@
 
 static int load_clock_timestamp(uid_t uid, gid_t gid) {
         usec_t min = TIME_EPOCH * USEC_PER_SEC, ct;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         /* Let's try to make sure that the clock is always

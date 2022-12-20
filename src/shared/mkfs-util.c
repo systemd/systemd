@@ -130,7 +130,7 @@ static int setup_userns(uid_t uid, gid_t gid) {
 static int do_mcopy(const char *node, const char *root) {
         _cleanup_free_ char *mcopy = NULL;
         _cleanup_strv_free_ char **argv = NULL;
-        _cleanup_close_ int rfd = -1;
+        _cleanup_close_ int rfd = -EBADF;
         _cleanup_free_ DirectoryEntries *de = NULL;
         struct stat st;
         int r;

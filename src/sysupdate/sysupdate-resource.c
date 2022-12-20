@@ -242,7 +242,7 @@ static int download_manifest(
                 size_t *ret_size) {
 
         _cleanup_free_ char *buffer = NULL, *suffixed_url = NULL;
-        _cleanup_(close_pairp) int pfd[2] = { -1, -1 };
+        _cleanup_(close_pairp) int pfd[2] = { -EBADF, -EBADF };
         _cleanup_fclose_ FILE *manifest = NULL;
         size_t size = 0;
         pid_t pid;
@@ -563,7 +563,7 @@ int resource_resolve_path(
                         d = orig_root_stats.st_rdev;
 
         } else if (rr->type == RESOURCE_PARTITION) {
-                _cleanup_close_ int fd = -1, real_fd = -1;
+                _cleanup_close_ int fd = -EBADF, real_fd = -EBADF;
                 _cleanup_free_ char *resolved = NULL;
                 struct stat st;
 

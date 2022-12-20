@@ -80,7 +80,7 @@ int take_fdopen_unlocked(int *fd, const char *options, FILE **ret) {
         if (r < 0)
                 return r;
 
-        *fd = -1;
+        *fd = -EBADF;
 
         return 0;
 }
@@ -92,7 +92,7 @@ FILE* take_fdopen(int *fd, const char *options) {
         if (!f)
                 return NULL;
 
-        *fd = -1;
+        *fd = -EBADF;
 
         return f;
 }
@@ -104,7 +104,7 @@ DIR* take_fdopendir(int *dfd) {
         if (!d)
                 return NULL;
 
-        *dfd = -1;
+        *dfd = -EBADF;
 
         return d;
 }
@@ -136,7 +136,7 @@ int write_string_stream_ts(
                 const struct timespec *ts) {
 
         bool needs_nl;
-        int r, fd = -1;
+        int r, fd = -EBADF;
 
         assert(f);
         assert(line);
@@ -558,7 +558,7 @@ int read_virtual_file_at(
                 char **ret_contents,
                 size_t *ret_size) {
 
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 

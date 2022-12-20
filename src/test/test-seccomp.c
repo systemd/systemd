@@ -1020,7 +1020,7 @@ TEST(restrict_suid_sgid) {
 
         if (pid == 0) {
                 char path[] = "/tmp/suidsgidXXXXXX", dir[] = "/tmp/suidsgiddirXXXXXX";
-                int fd = -1, k = -1;
+                int fd = -EBADF, k = -EBADF;
                 const char *z;
 
                 fd = mkostemp_safe(path);

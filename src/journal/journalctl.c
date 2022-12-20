@@ -1803,7 +1803,7 @@ static int setup_keys(void) {
         _cleanup_(unlink_and_freep) char *k = NULL;
         _cleanup_free_ char *p = NULL;
         uint8_t *mpk, *seed, *state;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         sd_id128_t machine, boot;
         struct stat st;
         uint64_t n;
@@ -2101,7 +2101,7 @@ int main(int argc, char *argv[]) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         sd_id128_t previous_boot_id = SD_ID128_NULL, previous_boot_id_output = SD_ID128_NULL;
         dual_timestamp previous_ts_output = DUAL_TIMESTAMP_NULL;
-        int n_shown = 0, r, poll_fd = -1;
+        int n_shown = 0, r, poll_fd = -EBADF;
 
         setlocale(LC_ALL, "");
         log_setup();

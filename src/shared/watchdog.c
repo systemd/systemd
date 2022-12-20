@@ -17,7 +17,7 @@
 #include "time-util.h"
 #include "watchdog.h"
 
-static int watchdog_fd = -1;
+static int watchdog_fd = -EBADF;
 static char *watchdog_device = NULL;
 static usec_t watchdog_timeout = 0; /* 0 → close device and USEC_INFINITY → don't change timeout */
 static usec_t watchdog_pretimeout = 0; /* 0 → disable pretimeout and USEC_INFINITY → don't change pretimeout */

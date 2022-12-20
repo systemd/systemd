@@ -48,7 +48,7 @@ Button* button_new(Manager *m, const char *name) {
         }
 
         b->manager = m;
-        b->fd = -1;
+        b->fd = -EBADF;
 
         return b;
 }
@@ -463,7 +463,7 @@ static int button_set_mask(const char *name, int fd) {
 }
 
 int button_open(Button *b) {
-        _cleanup_(asynchronous_closep) int fd = -1;
+        _cleanup_(asynchronous_closep) int fd = -EBADF;
         const char *p;
         char name[256];
         int r;

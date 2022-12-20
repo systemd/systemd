@@ -122,7 +122,7 @@ int shall_restore_state(void) {
 
 static int xen_kexec_loaded(void) {
 #if HAVE_XENCTRL
-        _cleanup_close_ int privcmd_fd = -1, buf_fd = -1;
+        _cleanup_close_ int privcmd_fd = -EBADF, buf_fd = -EBADF;
         xen_kexec_status_t *buffer;
         size_t size;
         int r;

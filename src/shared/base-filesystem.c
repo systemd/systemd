@@ -123,7 +123,7 @@ static const BaseFilesystem table[] = {
 #endif
 
 int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         fd = open(root, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);

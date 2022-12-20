@@ -431,7 +431,7 @@ fail:
 }
 
 int server_open_kernel_seqnum(Server *s) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         const char *fn;
         uint64_t *p;
         int r;

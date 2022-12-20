@@ -23,7 +23,7 @@ TEST(id128) {
         sd_id128_t id, id2;
         char t[SD_ID128_STRING_MAX], q[SD_ID128_UUID_STRING_MAX];
         _cleanup_free_ char *b = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         assert_se(sd_id128_randomize(&id) == 0);
         printf("random: %s\n", sd_id128_to_string(id, t));

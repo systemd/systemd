@@ -1021,7 +1021,7 @@ static int path_set_perms(
                 const char *path,
                 CreationMode creation) {
 
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         assert(i);
         assert(path);
@@ -1094,7 +1094,7 @@ static int path_set_xattrs(
                 const char *path,
                 CreationMode creation) {
 
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         assert(i);
         assert(path);
@@ -1240,7 +1240,7 @@ static int fd_set_acls(
 static int path_set_acls(Item *item, const char *path, CreationMode creation) {
         int r = 0;
 #if HAVE_ACL
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         assert(item);
         assert(path);
@@ -1345,7 +1345,7 @@ static int fd_set_attribute(
                 const struct stat *st,
                 CreationMode creation) {
 
-        _cleanup_close_ int procfs_fd = -1;
+        _cleanup_close_ int procfs_fd = -EBADF;
         struct stat stbuf;
         unsigned f;
         int r;
@@ -1395,7 +1395,7 @@ static int fd_set_attribute(
 }
 
 static int path_set_attribute(Item *item, const char *path, CreationMode creation) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         if (!item->attribute_set || item->attribute_mask == 0)
                 return 0;
@@ -1429,7 +1429,7 @@ static int write_argument_data(Item *i, int fd, const char *path) {
 }
 
 static int write_one_file(Item *i, const char *path, CreationMode creation) {
-        _cleanup_close_ int fd = -1, dir_fd = -1;
+        _cleanup_close_ int fd = -EBADF, dir_fd = -EBADF;
         _cleanup_free_ char *bn = NULL;
         int r;
 
@@ -1475,7 +1475,7 @@ static int write_one_file(Item *i, const char *path, CreationMode creation) {
 }
 
 static int create_file(Item *i, const char *path) {
-        _cleanup_close_ int fd = -1, dir_fd = -1;
+        _cleanup_close_ int fd = -EBADF, dir_fd = -EBADF;
         _cleanup_free_ char *bn = NULL;
         struct stat stbuf, *st = NULL;
         CreationMode creation;
@@ -1540,7 +1540,7 @@ static int create_file(Item *i, const char *path) {
 }
 
 static int truncate_file(Item *i, const char *path) {
-        _cleanup_close_ int fd = -1, dir_fd = -1;
+        _cleanup_close_ int fd = -EBADF, dir_fd = -EBADF;
         _cleanup_free_ char *bn = NULL;
         struct stat stbuf, *st = NULL;
         CreationMode creation;
@@ -1629,7 +1629,7 @@ static int truncate_file(Item *i, const char *path) {
 }
 
 static int copy_files(Item *i) {
-        _cleanup_close_ int dfd = -1, fd = -1;
+        _cleanup_close_ int dfd = -EBADF, fd = -EBADF;
         _cleanup_free_ char *bn = NULL;
         struct stat st, a;
         int r;
@@ -1684,7 +1684,7 @@ static int create_directory_or_subvolume(
                 CreationMode *ret_creation) {
 
         _cleanup_free_ char *bn = NULL;
-        _cleanup_close_ int pfd = -1;
+        _cleanup_close_ int pfd = -EBADF;
         CreationMode creation;
         struct stat st;
         int r, fd;
@@ -1761,7 +1761,7 @@ static int create_directory_or_subvolume(
 }
 
 static int create_directory(Item *i, const char *path) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         CreationMode creation;
         struct stat st;
 
@@ -1778,7 +1778,7 @@ static int create_directory(Item *i, const char *path) {
 }
 
 static int create_subvolume(Item *i, const char *path) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         CreationMode creation;
         struct stat st;
         int r, q = 0;
@@ -1817,7 +1817,7 @@ static int create_subvolume(Item *i, const char *path) {
 }
 
 static int empty_directory(Item *i, const char *path, CreationMode creation) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         struct stat st;
         int r;
 
@@ -1847,7 +1847,7 @@ static int empty_directory(Item *i, const char *path, CreationMode creation) {
 }
 
 static int create_device(Item *i, mode_t file_type) {
-        _cleanup_close_ int dfd = -1, fd = -1;
+        _cleanup_close_ int dfd = -EBADF, fd = -EBADF;
         _cleanup_free_ char *bn = NULL;
         CreationMode creation;
         struct stat st;
@@ -1952,7 +1952,7 @@ handle_privilege:
 }
 
 static int create_fifo(Item *i) {
-        _cleanup_close_ int pfd = -1, fd = -1;
+        _cleanup_close_ int pfd = -EBADF, fd = -EBADF;
         _cleanup_free_ char *bn = NULL;
         CreationMode creation;
         struct stat st;
@@ -2037,7 +2037,7 @@ static int create_fifo(Item *i) {
 }
 
 static int create_symlink(Item *i) {
-        _cleanup_close_ int pfd = -1, fd = -1;
+        _cleanup_close_ int pfd = -EBADF, fd = -EBADF;
         _cleanup_free_ char *bn = NULL;
         CreationMode creation;
         struct stat st;
@@ -2223,7 +2223,7 @@ static int glob_item_recursively(Item *i, fdaction_t action) {
                 return log_error_errno(k, "glob(%s) failed: %m", i->path);
 
         STRV_FOREACH(fn, g.gl_pathv) {
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
 
                 /* Make sure we won't trigger/follow file object (such as
                  * device nodes, automounts, ...) pointed out by 'fn' with
@@ -2243,7 +2243,7 @@ static int glob_item_recursively(Item *i, fdaction_t action) {
                         r = k;
 
                 /* we passed fd ownership to the previous call */
-                fd = -1;
+                fd = -EBADF;
         }
 
         return r;
@@ -2306,7 +2306,7 @@ static int rm_if_wrong_type_safe(
                                 "Not removing  \"%s/%s\" because it is a mount point.", strna(parent_name), name);
 
         if ((st.st_mode & S_IFMT) == S_IFDIR) {
-                _cleanup_close_ int child_fd = -1;
+                _cleanup_close_ int child_fd = -EBADF;
 
                 child_fd = openat(parent_fd, name, O_NOCTTY | O_CLOEXEC | O_DIRECTORY);
                 if (child_fd < 0)
@@ -2329,7 +2329,7 @@ static int rm_if_wrong_type_safe(
 
 /* If child_mode is non-zero, rm_if_wrong_type_safe will be executed for the last path component. */
 static int mkdir_parents_rm_if_wrong_type(mode_t child_mode, const char *path) {
-        _cleanup_close_ int parent_fd = -1;
+        _cleanup_close_ int parent_fd = -EBADF;
         struct stat parent_st;
         size_t path_len;
         int r;
@@ -2357,7 +2357,7 @@ static int mkdir_parents_rm_if_wrong_type(mode_t child_mode, const char *path) {
 
         /* Check every parent directory in the path, except the last component */
         for (const char *e = path;;) {
-                _cleanup_close_ int next_fd = -1;
+                _cleanup_close_ int next_fd = -EBADF;
                 char t[path_len + 1];
                 const char *s;
 

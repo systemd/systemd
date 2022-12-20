@@ -278,7 +278,7 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
 
         for (i = 1; i <= 63; i++) {
                 char ttyname[sizeof("/dev/tty63")];
-                _cleanup_close_ int fd_d = -1;
+                _cleanup_close_ int fd_d = -EBADF;
 
                 if (i == src_idx || verify_vc_allocation(i) < 0)
                         continue;
@@ -350,7 +350,7 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
                 return log_oom();
 
         for (i = 1; i <= 63; i++) {
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
 
                 r = verify_vc_allocation(i);
                 if (r < 0) {
@@ -383,7 +383,7 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
 }
 
 static int verify_source_vc(char **ret_path, const char *src_vc) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         char *path;
         int r;
 
@@ -416,7 +416,7 @@ int main(int argc, char **argv) {
                 *vc = NULL,
                 *vc_keymap = NULL, *vc_keymap_toggle = NULL,
                 *vc_font = NULL, *vc_font_map = NULL, *vc_font_unimap = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         bool utf8, keyboard_ok;
         unsigned idx = 0;
         int r;

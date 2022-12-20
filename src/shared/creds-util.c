@@ -167,7 +167,7 @@ static int make_credential_host_secret(
 
         struct credential_host_secret_format buf;
         _cleanup_free_ char *t = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         assert(dfd >= 0);
@@ -251,7 +251,7 @@ finish:
 
 int get_credential_host_secret(CredentialSecretFlags flags, void **ret, size_t *ret_size) {
         _cleanup_free_ char *_dirname = NULL, *_filename = NULL;
-        _cleanup_close_ int dfd = -1;
+        _cleanup_close_ int dfd = -EBADF;
         sd_id128_t machine_id;
         const char *dirname, *filename;
         int r;
@@ -298,7 +298,7 @@ int get_credential_host_secret(CredentialSecretFlags flags, void **ret, size_t *
 
         for (unsigned attempt = 0;; attempt++) {
                 _cleanup_(erase_and_freep) struct credential_host_secret_format *f = NULL;
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
                 size_t l = 0;
                 ssize_t n = 0;
                 struct stat st;

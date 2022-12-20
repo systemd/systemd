@@ -243,7 +243,7 @@ static int verify_fsroot_dir(
                 bool unprivileged_mode,
                 dev_t *ret_dev) {
 
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         STRUCT_NEW_STATX_DEFINE(sxa);
         STRUCT_NEW_STATX_DEFINE(sxb);
         int r;
@@ -328,7 +328,7 @@ success:
                 return 0;
 
         if (sxa.sx.stx_dev_major == 0) { /* Hmm, maybe a btrfs device, and the caller asked for the backing device? Then let's try to get it. */
-                _cleanup_close_ int real_fd = -1;
+                _cleanup_close_ int real_fd = -EBADF;
 
                 /* The statx() above we can execute on an O_PATH fd. But the btrfs ioctl we cannot. Hence
                  * acquire a "real" fd first, without the O_PATH flag. */

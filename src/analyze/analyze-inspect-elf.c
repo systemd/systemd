@@ -18,7 +18,7 @@ static int analyze_elf(char **filenames, JsonFormatFlags json_flags) {
                 _cleanup_(json_variant_unrefp) JsonVariant *package_metadata = NULL;
                 _cleanup_(table_unrefp) Table *t = NULL;
                 _cleanup_free_ char *abspath = NULL;
-                _cleanup_close_ int fd = -1;
+                _cleanup_close_ int fd = -EBADF;
 
                 r = path_make_absolute_cwd(*filename, &abspath);
                 if (r < 0)

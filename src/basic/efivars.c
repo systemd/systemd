@@ -37,7 +37,7 @@ int efi_get_variable(
                 void **ret_value,
                 size_t *ret_size) {
 
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ void *buf = NULL;
         struct stat st;
         usec_t begin = 0; /* Unnecessary initialization to appease gcc */
@@ -181,7 +181,7 @@ int efi_set_variable(const char *variable, const void *value, size_t size) {
                 uint32_t attr;
                 char buf[];
         } _packed_ * _cleanup_free_ buf = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         uint32_t attr = EFI_VARIABLE_NON_VOLATILE|EFI_VARIABLE_BOOTSERVICE_ACCESS|EFI_VARIABLE_RUNTIME_ACCESS;
         bool saved_flags_valid = false;
         unsigned saved_flags;

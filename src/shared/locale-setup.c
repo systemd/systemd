@@ -55,7 +55,7 @@ static int locale_context_load_proc(LocaleContext *c, LocaleLoadFlag flag) {
 }
 
 static int locale_context_load_conf(LocaleContext *c, LocaleLoadFlag flag) {
-        _cleanup_close_ int fd = -EBADFD;
+        _cleanup_close_ int fd = -EBADF;
         struct stat st;
         int r;
 

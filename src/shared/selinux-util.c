@@ -297,7 +297,7 @@ int mac_selinux_fix_full(
         assert(atfd >= 0 || inode_path);
 
 #if HAVE_SELINUX
-        _cleanup_close_ int opened_fd = -1;
+        _cleanup_close_ int opened_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int inode_fd, r;
 
