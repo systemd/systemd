@@ -49,6 +49,7 @@
 #include "missing_ioprio.h"
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
+#include "open-file.h"
 #include "parse-helpers.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -6539,6 +6540,43 @@ int config_parse_log_filter_patterns(
                            "Failed to store log filtering pattern, ignoring: %s=%s", lvalue, rvalue);
                 return 0;
         }
+
+        return 0;
+}
+
+int config_parse_open_file(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(open_file_freep) OpenFile *of = NULL;
+        OpenFile **head = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue))
+                while ((of = *head)) {
+                        LIST_REMOVE(open_files, *head, of);
+                        open_file_free(of);
+                }
+
+        r = open_file_parse(rvalue, &of);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse OpenFile= setting, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        LIST_APPEND(open_files, *head, TAKE_PTR(of));
 
         return 0;
 }
