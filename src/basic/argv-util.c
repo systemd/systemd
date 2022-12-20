@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "argv-util.h"
+#include "capability-util.h"
 #include "errno-util.h"
 #include "missing_sched.h"
 #include "parse-util.h"
@@ -83,12 +84,9 @@ static int update_argv(const char name[], size_t l) {
                 return 0;
         can_do = false; /* We'll set it to true only if the whole process works */
 
-        /* Let's not bother with this if we don't have euid == 0. Strictly speaking we should check for the
-         * CAP_SYS_RESOURCE capability which is independent of the euid. In our own code the capability generally is
-         * present only for euid == 0, hence let's use this as quick bypass check, to avoid calling mmap() if
-         * PR_SET_MM_ARG_{START,END} fails with EPERM later on anyway. After all geteuid() is dead cheap to call, but
-         * mmap() is not. */
-        if (geteuid() != 0)
+        /* Calling prctl() with PR_SET_MM_ARG_{START,END} requires CAP_SYS_RESOURCE so let's use this as quick bypass
+         * check, to avoid calling mmap() should PR_SET_MM_ARG_{START,END} fail with EPERM later on anyway. */
+        if (!have_effective_cap(CAP_SYS_RESOURCE))
                 return log_debug_errno(SYNTHETIC_ERRNO(EPERM),
                                        "Skipping PR_SET_MM, as we don't have privileges.");
 
