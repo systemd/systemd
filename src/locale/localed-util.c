@@ -563,17 +563,24 @@ int find_legacy_keymap(Context *c, char **ret) {
                 }
         }
 
-        if (best_matching < 10 && c->x11_layout) {
+        if (best_matching < 10 && !isempty(c->x11_layout)) {
+                _cleanup_free_ char *l = NULL, *v = NULL, *converted = NULL;
+
                 /* The best match is only the first part of the X11
                  * keymap. Check if we have a converted map which
                  * matches just the first layout.
                  */
-                char *l, *v = NULL, *converted;
 
-                l = strndupa_safe(c->x11_layout, strcspn(c->x11_layout, ","));
-                if (c->x11_variant)
-                        v = strndupa_safe(c->x11_variant,
-                                          strcspn(c->x11_variant, ","));
+                l = strndup(c->x11_layout, strcspn(c->x11_layout, ","));
+                if (!l)
+                        return -ENOMEM;
+
+                if (!isempty(c->x11_variant)) {
+                        v = strndup(c->x11_variant, strcspn(c->x11_variant, ","));
+                        if (!v)
+                                return -ENOMEM;
+                }
+
                 r = find_converted_keymap(l, v, &converted);
                 if (r < 0)
                         return r;
