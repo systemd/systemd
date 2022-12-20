@@ -2315,6 +2315,54 @@ int tpm2_load_pcr_public_key(const char *path, void **ret_pubkey, size_t *ret_pu
         return 0;
 }
 
+int tpm2_load_pcr_public_key_from_certificate(const char *path, void **ret_pubkey, size_t *ret_pubkey_size) {
+#if HAVE_OPENSSL
+        _cleanup_fclose_ FILE *cf = NULL, *pkf = NULL;
+        _cleanup_free_ char *discovered_path = NULL, *pkd = NULL;
+        _cleanup_(X509_freep) X509 *cert = NULL;
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pk = NULL;
+        size_t pksz;
+        int r;
+
+        assert(path);
+        assert(ret_pubkey);
+        assert(ret_pubkey_size);
+
+        /* Tries to load a PCR public key file. Takes an absolute path, a simple file name or NULL. In the
+         * latter two cases searches in /etc/, /usr/lib/, /run/, as usual. */
+
+        r = search_and_fopen(path, "re", NULL, (const char**) CONF_PATHS_STRV("systemd"), &cf, &discovered_path);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to find TPM PCR certificate file '%s': %m", path);
+
+        cert = PEM_read_X509(cf, NULL, NULL, NULL);
+        if (!cert)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to load TPM PCR public key from PEM certificate '%s': %m", discovered_path);
+
+        pk = X509_get_pubkey(cert);
+        if (!cert)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to extract public key from certificate '%s'.", discovered_path);
+
+        pkf = open_memstream_unlocked(&pkd, &pksz);
+        if (!pkf)
+                return -ENOMEM;
+
+        if (PEM_write_PUBKEY(pkf, pk) <= 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to serialize public key to PEM.");
+
+        r = fflush_and_check(pkf);
+        if (r < 0)
+                return r;
+
+        *ret_pubkey = TAKE_PTR(pkd);
+        *ret_pubkey_size = pksz;
+
+        return 0;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "openssl is not supported, cannot load PCR public key from certificate.");
+#endif
+}
+
 int pcr_mask_to_string(uint32_t mask, char **ret) {
         _cleanup_free_ char *buf = NULL;
         int r;
