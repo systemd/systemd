@@ -282,7 +282,7 @@ static int download_manifest(
 
                 pfd[0] = safe_close(pfd[0]);
 
-                r = rearrange_stdio(-1, pfd[1], STDERR_FILENO);
+                r = rearrange_stdio(-EBADF, pfd[1], STDERR_FILENO);
                 if (r < 0) {
                         log_error_errno(r, "Failed to rearrange stdin/stdout: %m");
                         _exit(EXIT_FAILURE);

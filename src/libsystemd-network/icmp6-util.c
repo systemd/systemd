@@ -31,7 +31,7 @@
 static int icmp6_bind_router_message(const struct icmp6_filter *filter,
                                      const struct ipv6_mreq *mreq) {
         int ifindex = mreq->ipv6mr_interface;
-        _cleanup_close_ int s = -1;
+        _cleanup_close_ int s = -EBADF;
         int r;
 
         assert(filter);

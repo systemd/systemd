@@ -881,7 +881,7 @@ static int write_root_shadow(const char *shadow_path, const char *hashed_passwor
 }
 
 static int process_root_account(void) {
-        _cleanup_close_ int lock = -1;
+        _cleanup_close_ int lock = -EBADF;
         _cleanup_(erase_and_freep) char *_hashed_password = NULL;
         const char *password, *hashed_password;
         const char *etc_passwd, *etc_shadow;

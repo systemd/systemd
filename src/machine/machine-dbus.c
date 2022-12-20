@@ -436,7 +436,7 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
 int bus_machine_method_open_pty(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *pty_name = NULL;
-        _cleanup_close_ int master = -1;
+        _cleanup_close_ int master = -EBADF;
         Machine *m = ASSERT_PTR(userdata);
         int r;
 
@@ -525,7 +525,7 @@ int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bu
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *pty_name = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *allocated_bus = NULL;
-        _cleanup_close_ int master = -1;
+        _cleanup_close_ int master = -EBADF;
         sd_bus *container_bus = NULL;
         Machine *m = ASSERT_PTR(userdata);
         const char *p, *getty;
@@ -588,7 +588,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         _cleanup_free_ char *pty_name = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *allocated_bus = NULL;
         sd_bus *container_bus = NULL;
-        _cleanup_close_ int master = -1, slave = -1;
+        _cleanup_close_ int master = -EBADF, slave = -EBADF;
         _cleanup_strv_free_ char **env = NULL, **args_wire = NULL, **args = NULL;
         Machine *m = ASSERT_PTR(userdata);
         const char *p, *unit, *user, *path, *description, *utmp_id;
