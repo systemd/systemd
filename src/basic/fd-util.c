@@ -246,7 +246,7 @@ static int close_all_fds_frugal(const int except[], size_t n_except) {
                                        "Refusing to loop over %d potential fds.",
                                        max_fd);
 
-        for (int fd = 3; fd >= 0; fd = fd < max_fd ? fd + 1 : -1) {
+        for (int fd = 3; fd >= 0; fd = fd < max_fd ? fd + 1 : -EBADF) {
                 int q;
 
                 if (fd_in_set(fd, except, n_except))

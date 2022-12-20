@@ -46,7 +46,7 @@ struct UdevCtrl {
 };
 
 int udev_ctrl_new_from_fd(UdevCtrl **ret, int fd) {
-        _cleanup_close_ int sock = -1;
+        _cleanup_close_ int sock = -EBADF;
         UdevCtrl *uctrl;
 
         assert(ret);
@@ -64,7 +64,7 @@ int udev_ctrl_new_from_fd(UdevCtrl **ret, int fd) {
         *uctrl = (UdevCtrl) {
                 .n_ref = 1,
                 .sock = fd >= 0 ? fd : TAKE_FD(sock),
-                .sock_connect = -1,
+                .sock_connect = -EBADF,
                 .bound = fd >= 0,
         };
 
@@ -217,7 +217,7 @@ static int udev_ctrl_connection_event_handler(sd_event_source *s, int fd, uint32
 
 static int udev_ctrl_event_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         UdevCtrl *uctrl = ASSERT_PTR(userdata);
-        _cleanup_close_ int sock = -1;
+        _cleanup_close_ int sock = -EBADF;
         struct ucred ucred;
         int r;
 

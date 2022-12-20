@@ -223,7 +223,7 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
         }
 
         case MACHINE_CONTAINER: {
-                _cleanup_close_pair_ int pair[2] = { -EBADF, -EBADF };
+                _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
                 _cleanup_free_ char *us = NULL, *them = NULL;
                 _cleanup_close_ int netns_fd = -EBADF;
                 const char *p;
@@ -371,7 +371,7 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
 
         case MACHINE_CONTAINER: {
                 _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF;
-                _cleanup_close_pair_ int pair[2] = { -EBADF, -EBADF };
+                _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
                 _cleanup_fclose_ FILE *f = NULL;
                 pid_t child;
 
@@ -436,7 +436,7 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
 int bus_machine_method_open_pty(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *pty_name = NULL;
-        _cleanup_close_ int master = -1;
+        _cleanup_close_ int master = -EBADF;
         Machine *m = ASSERT_PTR(userdata);
         int r;
 
@@ -525,7 +525,7 @@ int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bu
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *pty_name = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *allocated_bus = NULL;
-        _cleanup_close_ int master = -1;
+        _cleanup_close_ int master = -EBADF;
         sd_bus *container_bus = NULL;
         Machine *m = ASSERT_PTR(userdata);
         const char *p, *getty;
@@ -588,7 +588,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         _cleanup_free_ char *pty_name = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *allocated_bus = NULL;
         sd_bus *container_bus = NULL;
-        _cleanup_close_ int master = -1, slave = -1;
+        _cleanup_close_ int master = -EBADF, slave = -EBADF;
         _cleanup_strv_free_ char **env = NULL, **args_wire = NULL, **args = NULL;
         Machine *m = ASSERT_PTR(userdata);
         const char *p, *unit, *user, *path, *description, *utmp_id;
@@ -888,7 +888,7 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
 int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *host_basename = NULL, *container_basename = NULL;
         const char *src, *dest, *host_path, *container_path;
-        _cleanup_close_pair_ int errno_pipe_fd[2] = { -EBADF, -EBADF };
+        _cleanup_close_pair_ int errno_pipe_fd[2] = PIPE_EBADF;
         CopyFlags copy_flags = COPY_REFLINK|COPY_MERGE|COPY_HARDLINKS;
         _cleanup_close_ int hostfd = -EBADF;
         Machine *m = ASSERT_PTR(userdata);
@@ -1085,7 +1085,7 @@ int bus_machine_method_open_root_directory(sd_bus_message *message, void *userda
 
         case MACHINE_CONTAINER: {
                 _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF;
-                _cleanup_close_pair_ int pair[2] = { -EBADF, -EBADF };
+                _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
                 pid_t child;
 
                 r = namespace_open(m->leader, NULL, &mntns_fd, NULL, NULL, &root_fd);

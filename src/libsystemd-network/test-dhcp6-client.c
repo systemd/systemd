@@ -73,7 +73,7 @@ static const uint8_t server_id[] = { SERVER_ID_BYTES };
 static const struct ether_addr mac = {
         .ether_addr_octet = { 'A', 'B', 'C', '1', '2', '3' },
 };
-static int test_fd[2] = { -EBADF, -EBADF };
+static int test_fd[2] = PIPE_EBADF;
 static int test_ifindex = 42;
 static unsigned test_client_sent_message_count = 0;
 static sd_dhcp6_client *client_ref = NULL;

@@ -130,7 +130,7 @@ int device_monitor_get_fd(sd_device_monitor *m) {
 
 int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, int fd) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *m = NULL;
-        _cleanup_close_ int sock = -1;
+        _cleanup_close_ int sock = -EBADF;
         int r;
 
         assert(group >= 0 && group < _MONITOR_NETLINK_GROUP_MAX);
@@ -184,7 +184,7 @@ int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, 
         }
 
         if (DEBUG_LOGGING) {
-                _cleanup_close_ int netns = -1;
+                _cleanup_close_ int netns = -EBADF;
 
                 /* So here's the thing: only AF_NETLINK sockets from the main network namespace will get
                  * hardware events. Let's check if ours is from there, and if not generate a debug message,
