@@ -64,6 +64,24 @@ def shell_join(cmd):
     return ' '.join(shlex.quote(str(x)) for x in cmd)
 
 
+def check_path_exists(p):
+    """Immediately check whether the file exists and is readable.
+
+    In particular initrds may not be readable by non-root users, so we open and
+    close the file. This is quick, but will throw a nice exception for us if
+    access is not possible.
+    """
+    if p is not None:
+        p.open().close()
+
+
+def path_must_exist(s):
+    """Convert a filename string to a Path, checking for existence."""
+    p = pathlib.Path(s)
+    check_path_exists(p)
+    return p
+
+
 def pe_executable_size(filename):
     import pefile
 
@@ -675,26 +693,36 @@ usage: ukify [options…] linux initrd…
 
     opts = p.parse_args(args)
 
+    check_path_exists(opts.linux)
+    for initrd in opts.initrd or ():
+        check_path_exists(initrd)
+    check_path_exists(opts.devicetree)
+    check_path_exists(opts.pcrpkey)
+    for key in opts.pcr_private_keys or ():
+        check_path_exists(key)
+    for key in opts.pcr_public_keys or ():
+        check_path_exists(key)
+
     if opts.cmdline and opts.cmdline.startswith('@'):
-        opts.cmdline = pathlib.Path(opts.cmdline[1:])
+        opts.cmdline = path_must_exist(opts.cmdline[1:])
 
     if opts.os_release is not None and opts.os_release.startswith('@'):
-        opts.os_release = pathlib.Path(opts.os_release[1:])
+        opts.os_release = path_must_exist(opts.os_release[1:])
     elif opts.os_release is None:
         p = pathlib.Path('/etc/os-release')
         if not p.exists():
-            p = pathlib.Path('/usr/lib/os-release')
+            p = path_must_exist('/usr/lib/os-release')
         opts.os_release = p
 
     if opts.efi_arch is None:
         opts.efi_arch = guess_efi_arch()
 
     if opts.stub is None:
-        opts.stub = f'/usr/lib/systemd/boot/efi/linux{opts.efi_arch}.efi.stub'
+        opts.stub = path_must_exist(f'/usr/lib/systemd/boot/efi/linux{opts.efi_arch}.efi.stub')
 
     if opts.signing_engine is None:
-        opts.sb_key = pathlib.Path(opts.sb_key) if opts.sb_key else None
-        opts.sb_cert = pathlib.Path(opts.sb_cert) if opts.sb_cert else None
+        opts.sb_key = path_must_exist(opts.sb_key) if opts.sb_key else None
+        opts.sb_cert = path_must_exist(opts.sb_cert) if opts.sb_cert else None
 
     if bool(opts.sb_key) ^ bool(opts.sb_cert):
         raise ValueError('--secureboot-private-key= and --secureboot-certificate= must be specified together')
