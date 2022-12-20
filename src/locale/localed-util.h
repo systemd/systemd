@@ -8,16 +8,20 @@
 #include "hashmap.h"
 #include "locale-setup.h"
 
+typedef struct X11Context {
+        char *layout;
+        char *model;
+        char *variant;
+        char *options;
+} X11Context;
+
 typedef struct Context {
         sd_bus_message *locale_cache;
         LocaleContext locale_context;
 
         sd_bus_message *x11_cache;
         struct stat x11_stat;
-        char *x11_layout;
-        char *x11_model;
-        char *x11_variant;
-        char *x11_options;
+        X11Context x11_from_xorg;
 
         sd_bus_message *vc_cache;
         struct stat vc_stat;
@@ -27,8 +31,15 @@ typedef struct Context {
         Hashmap *polkit_registry;
 } Context;
 
-int find_converted_keymap(const char *x11_layout, const char *x11_variant, char **ret);
-int find_legacy_keymap(Context *c, char **ret);
+void x11_context_empty_to_null(X11Context *xc);
+bool x11_context_is_safe(const X11Context *xc);
+bool x11_context_equal(const X11Context *a, const X11Context *b);
+int x11_context_copy(X11Context *dest, const X11Context *src);
+
+X11Context *context_get_x11_context_safe(Context *c);
+
+int find_converted_keymap(const X11Context *xc, char **ret);
+int find_legacy_keymap(const X11Context *xc, char **ret);
 int find_language_fallback(const char *lang, char **ret);
 
 int locale_read_data(Context *c, sd_bus_message *m);

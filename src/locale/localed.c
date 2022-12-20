@@ -189,6 +189,7 @@ static int property_get_xkb(
                 sd_bus_error *error) {
 
         Context *c = ASSERT_PTR(userdata);
+        const X11Context *xc;
         int r;
 
         assert(property);
@@ -197,14 +198,16 @@ static int property_get_xkb(
         if (r < 0)
                 return r;
 
+        xc = context_get_x11_context_safe(c);
+
         if (streq(property, "X11Layout"))
-                return sd_bus_message_append_basic(reply, 's', c->x11_layout);
+                return sd_bus_message_append_basic(reply, 's', xc->layout);
         if (streq(property, "X11Model"))
-                return sd_bus_message_append_basic(reply, 's', c->x11_model);
+                return sd_bus_message_append_basic(reply, 's', xc->model);
         if (streq(property, "X11Variant"))
-                return sd_bus_message_append_basic(reply, 's', c->x11_variant);
+                return sd_bus_message_append_basic(reply, 's', xc->variant);
         if (streq(property, "X11Options"))
-                return sd_bus_message_append_basic(reply, 's', c->x11_options);
+                return sd_bus_message_append_basic(reply, 's', xc->options);
 
         return -EINVAL;
 }
@@ -597,19 +600,16 @@ static int verify_xkb_rmlvo(const char *model, const char *layout, const char *v
 
 static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = ASSERT_PTR(userdata);
-        const char *layout, *model, *variant, *options;
         int convert, interactive, r;
+        X11Context *xc, in;
 
         assert(m);
 
-        r = sd_bus_message_read(m, "ssssbb", &layout, &model, &variant, &options, &convert, &interactive);
+        r = sd_bus_message_read(m, "ssssbb", &in.layout, &in.model, &in.variant, &in.options, &convert, &interactive);
         if (r < 0)
                 return r;
 
-        layout = empty_to_null(layout);
-        model = empty_to_null(model);
-        variant = empty_to_null(variant);
-        options = empty_to_null(options);
+        x11_context_empty_to_null(&in);
 
         r = x11_read_data(c, m);
         if (r < 0) {
@@ -617,22 +617,18 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
                 return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Failed to read x11 keyboard layout data");
         }
 
-        if (streq_ptr(layout, c->x11_layout) &&
-            streq_ptr(model, c->x11_model) &&
-            streq_ptr(variant, c->x11_variant) &&
-            streq_ptr(options, c->x11_options))
+        xc = context_get_x11_context_safe(c);
+
+        if (x11_context_equal(xc, &in))
                 return sd_bus_reply_method_return(m, NULL);
 
-        if ((layout && !string_is_safe(layout)) ||
-            (model && !string_is_safe(model)) ||
-            (variant && !string_is_safe(variant)) ||
-            (options && !string_is_safe(options)))
+        if (!x11_context_is_safe(&in))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Received invalid keyboard data");
 
-        r = verify_xkb_rmlvo(model, layout, variant, options);
+        r = verify_xkb_rmlvo(in.model, in.layout, in.variant, in.options);
         if (r < 0) {
                 log_error_errno(r, "Cannot compile XKB keymap for new x11 keyboard layout ('%s' / '%s' / '%s' / '%s'): %m",
-                                strempty(model), strempty(layout), strempty(variant), strempty(options));
+                                strempty(in.model), strempty(in.layout), strempty(in.variant), strempty(in.options));
 
                 if (r == -EOPNOTSUPP)
                         return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Local keyboard configuration not supported on this system.");
@@ -654,11 +650,9 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        if (free_and_strdup(&c->x11_layout, layout) < 0 ||
-            free_and_strdup(&c->x11_model, model) < 0 ||
-            free_and_strdup(&c->x11_variant, variant) < 0 ||
-            free_and_strdup(&c->x11_options, options) < 0)
-                return -ENOMEM;
+        r = x11_context_copy(xc, &in);
+        if (r < 0)
+                return log_oom();
 
         r = x11_write_data(c);
         if (r < 0) {
@@ -667,10 +661,10 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
         }
 
         log_info("Changed X11 keyboard layout to '%s' model '%s' variant '%s' options '%s'",
-                 strempty(c->x11_layout),
-                 strempty(c->x11_model),
-                 strempty(c->x11_variant),
-                 strempty(c->x11_options));
+                 strempty(in.layout),
+                 strempty(in.model),
+                 strempty(in.variant),
+                 strempty(in.options));
 
         (void) sd_bus_emit_properties_changed(
                         sd_bus_message_get_bus(m),
