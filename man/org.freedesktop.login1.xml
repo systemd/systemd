@@ -223,8 +223,9 @@ node /org/freedesktop/login1 {
       readonly b PreparingForShutdown = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b PreparingForSleep = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly (st) ScheduledShutdown = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s MaintenanceWindow = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b Docked = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -263,6 +264,8 @@ node /org/freedesktop/login1 {
     <!--property HandleSuspendKeyLongPress is not documented!-->
 
     <!--property HandleHibernateKeyLongPress is not documented!-->
+
+    <!--property MaintenanceWindow is not documented!-->
 
     <!--property StopIdleSessionUSec is not documented!-->
 
@@ -474,6 +477,8 @@ node /org/freedesktop/login1 {
 
     <variablelist class="dbus-property" generated="True" extra-ref="ScheduledShutdown"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="MaintenanceWindow"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="Docked"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="LidClosed"/>
@@ -630,7 +635,10 @@ node /org/freedesktop/login1 {
       authorization.</para>
 
       <para><function>ScheduleShutdown()</function> schedules a shutdown operation <varname>type</varname> at
-      time <varname>usec</varname> in microseconds since the UNIX epoch. <varname>type</varname> can be one
+      time <varname>usec</varname> in microseconds since the UNIX epoch. Alternatively, if
+      <varname>usec</varname> is zero or <literal>UINT64_MAX</literal> and a maintenance window is
+      configured, <filename>systemd-logind</filename> will use the next time of the maintenance window
+      instead. <varname>type</varname> can be one
       of <literal>poweroff</literal>, <literal>dry-poweroff</literal>, <literal>reboot</literal>,
       <literal>dry-reboot</literal>, <literal>halt</literal>, and <literal>dry-halt</literal>. (The
       <literal>dry-</literal> variants do not actually execute the shutdown action.)

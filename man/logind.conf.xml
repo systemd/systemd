@@ -355,6 +355,19 @@
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>MaintenanceWindow=</varname></term>
+
+        <listitem>
+          <para>
+            Specifies a default calendar event for scheduled shutdowns. So when using e.g. the command
+            <command>shutdown -r</command> to reboot the system without specifying a timeout, logind would
+            use the configured calendar event instead. For details about the syntax of calendar events, see
+            <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+          </para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
