@@ -149,6 +149,7 @@ static void context_clear_x11(Context *c) {
         assert(c);
 
         x11_context_clear(&c->x11_from_xorg);
+        x11_context_clear(&c->x11_from_vc);
 }
 
 static void context_clear_vconsole(Context *c) {
@@ -175,6 +176,9 @@ void context_clear(Context *c) {
 static X11Context *context_get_x11_context(Context *c) {
         assert(c);
 
+        if (!x11_context_isempty(&c->x11_from_vc))
+                return &c->x11_from_vc;
+
         if (!x11_context_isempty(&c->x11_from_xorg))
                 return &c->x11_from_xorg;
 
@@ -182,7 +186,8 @@ static X11Context *context_get_x11_context(Context *c) {
 }
 
 X11Context *context_get_x11_context_safe(Context *c) {
-        return &ASSERT_PTR(c)->x11_from_xorg;
+        assert(c);
+        return context_get_x11_context(c) ?: &c->x11_from_vc;
 }
 
 int locale_read_data(Context *c, sd_bus_message *m) {
@@ -233,10 +238,15 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
 
         c->vc_stat = st;
         context_clear_vconsole(c);
+        x11_context_clear(&c->x11_from_vc);
 
         return parse_env_file_fd(fd, "/etc/vconsole.conf",
                                  "KEYMAP",        &c->vc_keymap,
-                                 "KEYMAP_TOGGLE", &c->vc_keymap_toggle);
+                                 "KEYMAP_TOGGLE", &c->vc_keymap_toggle,
+                                 "XKB_LAYOUT",    &c->x11_from_vc.layout,
+                                 "XKB_MODEL",     &c->x11_from_vc.model,
+                                 "XKB_VARIANT",   &c->x11_from_vc.variant,
+                                 "XKB_OPTIONS",   &c->x11_from_vc.options);
 }
 
 int x11_read_data(Context *c, sd_bus_message *m) {
@@ -247,6 +257,15 @@ int x11_read_data(Context *c, sd_bus_message *m) {
         int r;
 
         assert(c);
+
+        r = vconsole_read_data(c, m);
+        if (r < 0)
+                return r;
+
+        if (!x11_context_isempty(&c->x11_from_vc)) {
+                log_debug("XKB settings loaded from vconsole.conf, not reading xorg.conf.d/00-keyboard.conf.");
+                return 0;
+        }
 
         /* Do not try to re-read the file within single bus operation. */
         if (m) {
@@ -345,9 +364,17 @@ int x11_read_data(Context *c, sd_bus_message *m) {
 
 int vconsole_write_data(Context *c) {
         _cleanup_strv_free_ char **l = NULL;
+        const X11Context *xc;
         int r;
 
         assert(c);
+
+        xc = context_get_x11_context(c);
+
+        /* If the X11 context is from xorg.conf, then sync one from vconsole.conf with it. */
+        r = x11_context_copy(&c->x11_from_vc, xc);
+        if (r < 0)
+                return r;
 
         r = load_env_file(NULL, "/etc/vconsole.conf", &l);
         if (r < 0 && r != -ENOENT)
@@ -358,6 +385,22 @@ int vconsole_write_data(Context *c) {
                 return r;
 
         r = strv_env_assign(&l, "KEYMAP_TOGGLE", empty_to_null(c->vc_keymap_toggle));
+        if (r < 0)
+                return r;
+
+        r = strv_env_assign(&l, "XKB_LAYOUT", xc ? empty_to_null(xc->layout) : NULL);
+        if (r < 0)
+                return r;
+
+        r = strv_env_assign(&l, "XKB_MODEL", xc ? empty_to_null(xc->model) : NULL);
+        if (r < 0)
+                return r;
+
+        r = strv_env_assign(&l, "XKB_VARIANT", xc ? empty_to_null(xc->variant) : NULL);
+        if (r < 0)
+                return r;
+
+        r = strv_env_assign(&l, "XKB_OPTIONS", xc ? empty_to_null(xc->options) : NULL);
         if (r < 0)
                 return r;
 
@@ -493,6 +536,10 @@ int vconsole_convert_to_x11(Context *c) {
 
         assert(c);
 
+        /* If Context.x11_from_vc is empty, then here we update Context.x11_from_xorg, as the caller may
+         * already have been called context_get_x11_context() or _safe(), and otherwise the caller's
+         * X11Context may be outdated. The updated context will be copied to Context.x11_from_vc in
+         * vconsole_write_data() if necessary. */
         xc = context_get_x11_context_safe(c);
 
         if (isempty(c->vc_keymap)) {
