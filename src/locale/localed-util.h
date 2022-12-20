@@ -27,9 +27,9 @@ typedef struct Context {
         Hashmap *polkit_registry;
 } Context;
 
-int find_converted_keymap(const char *x11_layout, const char *x11_variant, char **new_keymap);
-int find_legacy_keymap(Context *c, char **new_keymap);
-int find_language_fallback(const char *lang, char **language);
+int find_converted_keymap(const char *x11_layout, const char *x11_variant, char **ret);
+int find_legacy_keymap(Context *c, char **ret);
+int find_language_fallback(const char *lang, char **ret);
 
 int locale_read_data(Context *c, sd_bus_message *m);
 int vconsole_read_data(Context *c, sd_bus_message *m);
