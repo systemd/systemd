@@ -147,6 +147,7 @@ static size_t arg_n_filter_partitions = 0;
 static FilterPartitionsType arg_filter_partitions_type = FILTER_PARTITIONS_NONE;
 static sd_id128_t *arg_defer_partitions = NULL;
 static size_t arg_n_defer_partitions = 0;
+static ImagePolicy *arg_image_policy = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -157,6 +158,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_certificate, X509_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_filter_partitions, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 typedef struct FreeArea FreeArea;
 
@@ -5487,6 +5489,8 @@ static int help(void) {
                "     --can-factory-reset  Test whether factory reset is defined\n"
                "     --root=PATH          Operate relative to root path\n"
                "     --image=PATH         Operate relative to image file\n"
+               "     --image-policy=POLICY\n"
+               "                          Specify disk image dissection policy\n"
                "     --definitions=DIR    Find partition definitions in specified directory\n"
                "     --key-file=PATH      Key to use when encrypting partitions\n"
                "     --private-key=PATH   Private key to use when generating verity roothash\n"
@@ -5550,6 +5554,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_INCLUDE_PARTITIONS,
                 ARG_EXCLUDE_PARTITIONS,
                 ARG_DEFER_PARTITIONS,
+                ARG_SKIP_PARTITIONS,
+                ARG_IMAGE_POLICY,
         };
 
         static const struct option options[] = {
@@ -5580,6 +5586,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "include-partitions",   required_argument, NULL, ARG_INCLUDE_PARTITIONS   },
                 { "exclude-partitions",   required_argument, NULL, ARG_EXCLUDE_PARTITIONS   },
                 { "defer-partitions",     required_argument, NULL, ARG_DEFER_PARTITIONS     },
+                { "image-policy",         required_argument, NULL, ARG_IMAGE_POLICY         },
                 {}
         };
 
@@ -5866,6 +5873,18 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         break;
+
+                case ARG_IMAGE_POLICY: {
+                        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
+
+                        r = image_policy_from_string(optarg, &p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse image policy: %s", optarg);
+
+                        image_policy_free(arg_image_policy);
+                        arg_image_policy = TAKE_PTR(p);
+                        break;
+                }
 
                 case '?':
                         return -EINVAL;
@@ -6366,6 +6385,7 @@ static int run(int argc, char *argv[]) {
                  * systems */
                 r = mount_image_privately_interactively(
                                 arg_image,
+                                arg_image_policy,
                                 DISSECT_IMAGE_MOUNT_READ_ONLY |
                                 (arg_node ? DISSECT_IMAGE_DEVICE_READ_ONLY : 0) | /* If a different node to make changes to is specified let's open the device in read-only mode) */
                                 DISSECT_IMAGE_GPT_ONLY |
