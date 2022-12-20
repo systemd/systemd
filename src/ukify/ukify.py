@@ -161,7 +161,10 @@ class Uname:
         ]
 
         print('+', shell_join(cmd))
-        notes = subprocess.check_output(cmd, text=True)
+        try:
+            notes = subprocess.check_output(cmd, stderr=subprocess.PIPE, text=True)
+        except subprocess.CalledProcessError as e:
+            raise ValueError(e.stderr.strip()) from e
 
         if not (m := re.search(cls.NOTES_PATTERN, notes, re.MULTILINE)):
             raise ValueError('Cannot find Linux version note')
