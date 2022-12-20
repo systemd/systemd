@@ -499,7 +499,10 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   journal. Note that journal files in compact mode are limited to 4G to allow use of
   32-bit offsets. Enabled by default.
 
-`systemd-pcrphase`:
+`systemd-pcrphase`, `systemd-cryptsetup`:
 
-* `$SYSTEMD_PCRPHASE_STUB_VERIFY` – Takes a boolean. If false the requested
-  measurement is done even if no EFI stub usage was reported via EFI variables.
+* `$SYSTEMD_FORCE_MEASURE=1` — If set, force measuring of resources (which are
+  marked for measurement) even if not booted on a kernel equipped with
+  systemd-stub. Normally, requested measurement of resources is conditionalized
+  on kernels that have booted with `systemd-stub`. With this environment
+  variable the test for that my be bypassed, for testing purposes.
