@@ -6,7 +6,7 @@ KERNEL!="event*", GOTO="evdev_end"
 # Execute the match patterns below, from least-to-most specific.
 
 # Device matching the modalias string (bustype, vendor, product, version, other properties)
-IMPORT{builtin}="hwdb --subsystem=input --lookup-prefix=evdev:",
+IMPORT{builtin}="hwdb --subsystem=input --lookup-prefix=evdev:", \
   ENV{.HAVE_HWDB_PROPERTIES}="1"
 
 # AT keyboard matching by the machine's DMI data
