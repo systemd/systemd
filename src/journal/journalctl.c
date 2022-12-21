@@ -46,6 +46,7 @@
 #include "log.h"
 #include "logs-show.h"
 #include "memory-util.h"
+#include "missing_sched.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -1119,11 +1120,11 @@ static int add_matches(sd_journal *j, char **args) {
                                 if (executable_is_script(p, &interpreter) > 0) {
                                         _cleanup_free_ char *comm = NULL;
 
-                                        comm = strndup(basename(p), 15);
-                                        if (!comm)
-                                                return log_oom();
+                                        r = path_extract_filename(p, &comm);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to extract filename of '%s': %m", p);
 
-                                        t = strjoin("_COMM=", comm);
+                                        t = strjoin("_COMM=", strshorten(comm, TASK_COMM_LEN-1));
                                         if (!t)
                                                 return log_oom();
 
