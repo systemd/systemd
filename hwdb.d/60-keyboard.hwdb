@@ -1385,6 +1385,7 @@ evdev:input:b0003v1532p0200*
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pn*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*:*
+ KEYBOARD_KEY_91=config                                 # MSIControl Center
  KEYBOARD_KEY_a0=mute                                   # Fn+F9
  KEYBOARD_KEY_ae=volumedown                             # Fn+F7
  KEYBOARD_KEY_b0=volumeup                               # Fn+F8
@@ -1395,6 +1396,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*:*
  KEYBOARD_KEY_e4=f21                                    # Fn+F3 Touchpad disable
  KEYBOARD_KEY_ec=email                                  # envelope button
  KEYBOARD_KEY_ee=camera                                 # Fn+F6 camera disable
+ KEYBOARD_KEY_f1=f20                                    # Microphone mute
+ KEYBOARD_KEY_f2=rotate_display                         # Rotate screen
  KEYBOARD_KEY_f6=wlan                                   # satellite dish1
  KEYBOARD_KEY_f7=brightnessdown                         # Fn+F4
  KEYBOARD_KEY_f8=brightnessup                           # Fn+F5
@@ -1435,10 +1438,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Modern*:*
 evdev:name:MSI Laptop hotkeys:dmi:bvn*:bvr*:bd*:svn*:pnM[iI][cC][rR][oO]-S[tT][aA][rR]*:*
  KEYBOARD_KEY_0213=f22
  KEYBOARD_KEY_0214=f23
-
-# MSI Bravo 15-B5DX FnKeys
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Bravo15B5D*:*
- KEYBOARD_KEY_f1=f20                                    # Fn+F5 Micmute
 
 ##########################################
 # NEC
