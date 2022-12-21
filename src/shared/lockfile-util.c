@@ -83,15 +83,16 @@ int make_lock_file(const char *p, int operation, LockFile *ret) {
 }
 
 int make_lock_file_for(const char *p, int operation, LockFile *ret) {
-        const char *fn;
+        _cleanup_free_ char *fn = NULL;
         char *t;
+        int r;
 
         assert(p);
         assert(ret);
 
-        fn = basename(p);
-        if (!filename_is_valid(fn))
-                return -EINVAL;
+        r = path_extract_filename(p, &fn);
+        if (r < 0)
+                return r;
 
         t = newa(char, strlen(p) + 2 + 4 + 1);
         stpcpy(stpcpy(stpcpy(mempcpy(t, p, fn - p), ".#"), fn), ".lck");
