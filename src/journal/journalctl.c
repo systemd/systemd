@@ -93,6 +93,7 @@ static bool arg_no_tail = false;
 static bool arg_quiet = false;
 static bool arg_merge = false;
 static bool arg_boot = false;
+static bool arg_smart_relinquish = false;
 static sd_id128_t arg_boot_id = {};
 static int arg_boot_offset = 0;
 static bool arg_dmesg = false;
@@ -157,6 +158,8 @@ static enum {
         ACTION_LIST_BOOTS,
         ACTION_FLUSH,
         ACTION_RELINQUISH_VAR,
+        ACTION_LOCK_VAR,
+        ACTION_UNLOCK_VAR,
         ACTION_SYNC,
         ACTION_ROTATE,
         ACTION_VACUUM,
@@ -435,6 +438,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FLUSH,
                 ARG_RELINQUISH_VAR,
                 ARG_SMART_RELINQUISH_VAR,
+                ARG_LOCK_VAR,
+                ARG_UNLOCK_VAR,
                 ARG_ROTATE,
                 ARG_VACUUM_SIZE,
                 ARG_VACUUM_FILES,
@@ -501,6 +506,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "flush",                no_argument,       NULL, ARG_FLUSH                },
                 { "relinquish-var",       no_argument,       NULL, ARG_RELINQUISH_VAR       },
                 { "smart-relinquish-var", no_argument,       NULL, ARG_SMART_RELINQUISH_VAR },
+                { "lock-var",             no_argument,       NULL, ARG_LOCK_VAR             },
+                { "unlock-var",           no_argument,       NULL, ARG_UNLOCK_VAR           },
                 { "sync",                 no_argument,       NULL, ARG_SYNC                 },
                 { "rotate",               no_argument,       NULL, ARG_ROTATE               },
                 { "vacuum-size",          required_argument, NULL, ARG_VACUUM_SIZE          },
@@ -981,33 +988,21 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_action = ACTION_FLUSH;
                         break;
 
-                case ARG_SMART_RELINQUISH_VAR: {
-                        int root_mnt_id, log_mnt_id;
-
-                        /* Try to be smart about relinquishing access to /var/log/journal/ during shutdown:
-                         * if it's on the same mount as the root file system there's no point in
-                         * relinquishing access and we can leave journald write to it until the very last
-                         * moment. */
-
-                        r = path_get_mnt_id("/", &root_mnt_id);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to get root mount ID, ignoring: %m");
-                        else {
-                                r = path_get_mnt_id("/var/log/journal/", &log_mnt_id);
-                                if (r < 0)
-                                        log_debug_errno(r, "Failed to get journal directory mount ID, ignoring: %m");
-                                else if (root_mnt_id == log_mnt_id) {
-                                        log_debug("/var/log/journal/ is on root file system, not relinquishing access to /var.");
-                                        return 0;
-                                } else
-                                        log_debug("/var/log/journal/ is not on the root file system, relinquishing access to it.");
-                        }
-
+                case ARG_SMART_RELINQUISH_VAR:
+                        arg_smart_relinquish = true;
                         _fallthrough_;
-                }
 
                 case ARG_RELINQUISH_VAR:
                         arg_action = ACTION_RELINQUISH_VAR;
+                        break;
+
+                case ARG_LOCK_VAR:
+                        arg_action = ACTION_LOCK_VAR;
+                        break;
+
+                case ARG_UNLOCK_VAR:
+                        arg_smart_relinquish = true;
+                        arg_action = ACTION_UNLOCK_VAR;
                         break;
 
                 case ARG_ROTATE:
@@ -2008,6 +2003,38 @@ static int verify(sd_journal *j, bool verbose) {
         return r;
 }
 
+static bool can_skip_relinquish_var(void) {
+        int root_mnt_id, log_mnt_id;
+        int r;
+
+        if (!arg_smart_relinquish)
+                return false;
+
+        /* Try to be smart about relinquishing access to /var/log/journal/ during shutdown:  if it's on the
+         * same mount as the root file system there's no point in relinquishing access and we can leave
+         * journald write to it until the very last moment. */
+
+        r = path_get_mnt_id("/", &root_mnt_id);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to get root mount ID, ignoring: %m");
+                return false;
+        }
+
+        r = path_get_mnt_id("/var/log/journal/", &log_mnt_id);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to get journal directory mount ID, ignoring: %m");
+                return false;
+        }
+
+        if (root_mnt_id != log_mnt_id) {
+                log_debug("/var/log/journal/ is not on the root file system, relinquishing access to it.");
+                return false;
+        }
+
+        log_debug("/var/log/journal/ is on root file system, not relinquishing access to /var.");
+        return true;
+}
+
 static int simple_varlink_call(const char *option, const char *method) {
         _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
         const char *error, *fn;
@@ -2038,16 +2065,22 @@ static int simple_varlink_call(const char *option, const char *method) {
 }
 
 static int flush_to_var(void) {
-        if (access("/run/systemd/journal/flushed", F_OK) >= 0)
-                return 0; /* Already flushed, no need to contact journald */
-        if (errno != ENOENT)
-                return log_error_errno(errno, "Unable to check for existence of /run/systemd/journal/flushed: %m");
-
         return simple_varlink_call("--flush", "io.systemd.Journal.FlushToVar");
 }
 
 static int relinquish_var(void) {
+        if (can_skip_relinquish_var())
+                return 0;
+
         return simple_varlink_call("--relinquish-var/--smart-relinquish-var", "io.systemd.Journal.RelinquishVar");
+}
+
+static int lock_var(void) {
+        return simple_varlink_call("--lock-var", "io.systemd.Journal.LockVar");
+}
+
+static int unlock_var(void) {
+        return simple_varlink_call("--unlock-var", "io.systemd.Journal.UnlockVar");
 }
 
 static int rotate(void) {
@@ -2178,9 +2211,21 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        case ACTION_UNLOCK_VAR:
+                r = unlock_var();
+                if (r < 0)
+                        goto finish;
+                _fallthrough_;  /* unlock implied flushing the journal */
+
         case ACTION_FLUSH:
                 r = flush_to_var();
                 goto finish;
+
+        case ACTION_LOCK_VAR:
+                r = lock_var();
+                if (r < 0)
+                        goto finish;
+                _fallthrough_;  /* lock implied switching back to the volatile mode  */
 
         case ACTION_RELINQUISH_VAR:
                 r = relinquish_var();
