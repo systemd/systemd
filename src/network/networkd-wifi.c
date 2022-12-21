@@ -90,6 +90,21 @@ int manager_genl_process_nl80211_config(sd_netlink *genl, sd_netlink_message *me
 
         r = link_get_by_index(manager, ifindex, &link);
         if (r < 0) {
+                /* The NL80211_CMD_NEW_INTERFACE message might arrive before RTM_NEWLINK, in which case a
+                 * link will not have been created yet. Store the interface index such that the wireless
+                 * properties of the link (such as wireless interface type) are queried again after the link
+                 * is created.
+                 */
+                if (cmd == NL80211_CMD_NEW_INTERFACE) {
+                        r = set_ensure_put(&manager->new_wlan_links, NULL, INT_TO_PTR(ifindex));
+                        if (r < 0)
+                                log_error_errno(r, "Failed to add new wireless interface index to set: %m");
+                        return r;
+                } else if (cmd == NL80211_CMD_DEL_INTERFACE) {
+                        set_remove(manager->new_wlan_links, INT_TO_PTR(ifindex));
+                        return 0;
+                }
+
                 log_debug_errno(r, "nl80211: received %s(%u) message for link '%"PRIu32"' we don't know about, ignoring.",
                                 strna(nl80211_cmd_to_string(cmd)), cmd, ifindex);
                 return 0;
