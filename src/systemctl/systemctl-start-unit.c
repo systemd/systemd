@@ -299,7 +299,7 @@ int verb_start(int argc, char *argv[], void *userdata) {
                                 mode = "isolate";
                                 suffix = ".target";
                         } else if (!arg_marked) {
-                                /* A command in style of "systemctl start <unit1> <unit2> …", "sysemctl stop <unit1> <unit2> …" and so on */
+                                /* A command in style of "systemctl start <unit1> <unit2> …", "systemctl stop <unit1> <unit2> …" and so on */
                                 method = verb_to_method(argv[0]);
                                 job_type = verb_to_job_type(argv[0]);
                                 mode = arg_job_mode();
