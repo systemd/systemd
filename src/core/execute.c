@@ -1376,15 +1376,14 @@ fail:
 }
 
 static void rename_process_from_path(const char *path) {
+        _cleanup_free_ char *p = NULL;
         char process_name[11];
-        const char *p;
         size_t l;
 
         /* This resulting string must fit in 10 chars (i.e. the length
          * of "/sbin/init") to look pretty in /bin/ps */
 
-        p = basename(path);
-        if (isempty(p)) {
+        if (path_extract_filename(path, &p) < 0) {
                 rename_process("(...)");
                 return;
         }
