@@ -830,9 +830,7 @@ static int dissect_image(
                                         generic_rw = !(pflags & SD_GPT_FLAG_READ_ONLY);
                                         generic_growfs = FLAGS_SET(pflags, SD_GPT_FLAG_GROWFS);
                                         generic_uuid = id;
-                                        generic_node = strdup(node);
-                                        if (!generic_node)
-                                                return -ENOMEM;
+                                        generic_node = TAKE_PTR(node);
                                 }
 
                         } else if (type.designator == PARTITION_VAR) {
@@ -950,9 +948,7 @@ static int dissect_image(
                                         generic_nr = nr;
                                         generic_rw = true;
                                         generic_growfs = false;
-                                        generic_node = strdup(node);
-                                        if (!generic_node)
-                                                return -ENOMEM;
+                                        generic_node = TAKE_PTR(node);
                                 }
 
                                 break;
