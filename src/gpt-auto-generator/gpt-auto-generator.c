@@ -170,6 +170,15 @@ static int add_mount(
 
                 what = crypto_what;
                 fstype = NULL;
+        } else if (fstype) {
+                r = dissect_fstype_ok(fstype);
+                if (r < 0)
+                        return log_error_errno(r, "Unable to determine of dissected file system type '%s' is permitted: %m", fstype);
+                if (!r)
+                        return log_error_errno(
+                                        SYNTHETIC_ERRNO(EIDRM),
+                                        "Refusing to automatically mount uncommon file system '%s' to '%s'.",
+                                        fstype, where);
         }
 
         r = unit_name_from_path(where, ".mount", &unit);
