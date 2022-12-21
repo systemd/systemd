@@ -2515,6 +2515,16 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         log_link_debug(link, "Saved new link: ifindex=%i, iftype=%s(%u), kind=%s",
                        link->ifindex, strna(arphrd_to_name(link->iftype)), link->iftype, strna(link->kind));
 
+        /* If contained in this set, the link is wireless and the corresponding NL80211_CMD_NEW_INTERFACE
+         * message arrived too early. Request the wireless link information again.
+         */
+        if (set_contains(manager->new_wlan_links, INT_TO_PTR(link->ifindex))) {
+                set_remove(manager->new_wlan_links, INT_TO_PTR(link->ifindex));
+                r = link_get_wlan_interface(link);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to get wireless interface: %m");
+        }
+
         *ret = TAKE_PTR(link);
         return 0;
 }
