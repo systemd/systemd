@@ -2580,10 +2580,8 @@ static int partition_hint(const Partition *p, const char *node, char **ret) {
 
         /* Tries really hard to find a suitable description for this partition */
 
-        if (p->definition_path) {
-                buf = strdup(basename(p->definition_path));
-                goto done;
-        }
+        if (p->definition_path)
+                return path_extract_filename(p->definition_path, ret);
 
         label = partition_label(p);
         if (!isempty(label)) {
