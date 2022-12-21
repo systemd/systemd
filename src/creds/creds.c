@@ -563,7 +563,7 @@ static int verb_decrypt(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read encrypted credential data: %m");
 
-        output_path = (argc < 3 || isempty(argv[2]) || streq(argv[2], "-")) ? NULL : argv[2];
+        output_path = (argc < 3 || empty_or_dash(argv[2])) ? NULL : argv[2];
 
         if (arg_name_any)
                 name = NULL;
