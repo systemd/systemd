@@ -424,6 +424,18 @@ def join_initrds(initrds):
     assert False
 
 
+def pe_validate(filename):
+    import pefile
+
+    pe = pefile.PE(filename)
+
+    sections = sorted(pe.sections, key=lambda s: (s.VirtualAddress, s.Misc_VirtualSize))
+
+    for l, r in itertools.pairwise(sections):
+        if l.VirtualAddress + l.Misc_VirtualSize > r.VirtualAddress + r.Misc_VirtualSize:
+            raise ValueError(f'Section "{l.Name.decode()}" ({l.VirtualAddress}, {l.Misc_VirtualSize}) overlaps with section "{r.Name.decode()}" ({r.VirtualAddress}, {r.Misc_VirtualSize})')
+
+
 def make_uki(opts):
     # kernel payload signing
 
@@ -539,6 +551,8 @@ def make_uki(opts):
 
     print('+', shell_join(cmd))
     subprocess.check_call(cmd)
+
+    pe_validate(output)
 
     # UKI signing
 
