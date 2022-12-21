@@ -47,10 +47,14 @@ int systemd_installation_has_version(const char *root, const char *minimal_versi
                 *c = '\0'; /* truncate the glob part */
 
                 STRV_FOREACH(name, names) {
+                        _cleanup_free_ char *bn = NULL;
                         /* This is most likely to run only once, hence let's not optimize anything. */
                         char *t, *t2;
 
-                        t = startswith(basename(*name), "libsystemd-shared-");
+                        if (path_extract_filename(*name, &bn) < 0)
+                                continue;
+
+                        t = startswith(bn, "libsystemd-shared-");
                         if (!t)
                                 continue;
 
