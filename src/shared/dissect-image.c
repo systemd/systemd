@@ -290,28 +290,57 @@ static void dissected_partition_done(DissectedPartition *p) {
 #if HAVE_BLKID
 static int make_partition_devname(
                 const char *whole_devname,
+                uint64_t diskseq,
                 int nr,
+                DissectImageFlags flags,
                 char **ret) {
 
-        bool need_p;
+        _cleanup_free_ char *s = NULL;
+        int r;
 
         assert(whole_devname);
-        assert(nr > 0);
+        assert(ret);
 
-        /* Given a whole block device node name (e.g. /dev/sda or /dev/loop7) generate a partition device
-         * name (e.g. /dev/sda7 or /dev/loop7p5). The rule the kernel uses is simple: if whole block device
-         * node name ends in a digit, then suffix a 'p', followed by the partition number. Otherwise, just
-         * suffix the partition number without any 'p'. */
+        if (!FLAGS_SET(flags, DISSECT_IMAGE_DISKSEQ_DEVNODE) || diskseq == UINT64_MAX) {
+                bool need_p;
 
-        if (isempty(whole_devname)) /* Make sure there *is* a last char */
-                return -EINVAL;
+                /* Given a whole block device node name (e.g. /dev/sda or /dev/loop7) generate a partition
+                 * device name (e.g. /dev/sda7 or /dev/loop7p5). The rule the kernel uses is simple: if whole
+                 * block device node name ends in a digit, then suffix a 'p', followed by the partition
+                 * number. Otherwise, just suffix the partition number without any 'p'. */
 
-        need_p = ascii_isdigit(whole_devname[strlen(whole_devname)-1]); /* Last char a digit? */
+                if (nr < 0) { /* no partition? */
+                        s = strdup(whole_devname);
+                        if (!s)
+                                return -ENOMEM;
+                } else {
 
-        return asprintf(ret, "%s%s%i", whole_devname, need_p ? "p" : "", nr);
+                        if (isempty(whole_devname)) /* Make sure there *is* a last char */
+                                return -EINVAL;
+
+                        need_p = ascii_isdigit(whole_devname[strlen(whole_devname)-1]); /* Last char a digit? */
+
+                        if (asprintf(&s, "%s%s%i", whole_devname, need_p ? "p" : "", nr) < 0)
+                                return -ENOMEM;
+                }
+        } else {
+                if (nr < 0)
+                        r = asprintf(&s, "/dev/disk/by-diskseq/%" PRIu64, diskseq);
+                else
+                        r = asprintf(&s, "/dev/disk/by-diskseq/%" PRIu64 "-part%i", diskseq, nr);
+                if (r < 0)
+                        return -ENOMEM;
+        }
+
+        *ret = TAKE_PTR(s);
+        return 0;
 }
 
-static int open_partition(const char *node, bool is_partition, const LoopDevice *loop) {
+static int open_partition(
+                const char *node,
+                bool is_partition,
+                const LoopDevice *loop) {
+
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         _cleanup_close_ int fd = -EBADF;
         dev_t devnum;
@@ -410,6 +439,8 @@ static int dissect_image(
          * Returns -ENXIO if we couldn't find any partition suitable as root or /usr partition
          * Returns -ENOTUNIQ if we only found multiple generic partitions and thus don't know what to do with that */
 
+        uint64_t diskseq = m->loop ? m->loop->diskseq : UINT64_MAX;
+
         if (verity && verity->root_hash) {
                 sd_id128_t fsuuid, vuuid;
 
@@ -505,9 +536,9 @@ static int dissect_image(
                                         log_debug_errno(r, "Failed to parse file system UUID '%s', ignoring: %m", suuid);
                         }
 
-                        n = strdup(devname);
-                        if (!n)
-                                return -ENOMEM;
+                        r = make_partition_devname(devname, diskseq, -1, flags, &n);
+                        if (r < 0)
+                                return r;
 
                         m->single_file_system = true;
                         m->encrypted = streq_ptr(fstype, "crypto_LUKS");
@@ -618,7 +649,9 @@ static int dissect_image(
 
                 assert((uint64_t) size < UINT64_MAX/512);
 
-                r = make_partition_devname(devname, nr, &node);
+                /* While probing we need the non-diskseq device node name to access the thing, hence mask off
+                 * DISSECT_IMAGE_DISKSEQ_DEVNODE. */
+                r = make_partition_devname(devname, diskseq, nr, flags & ~DISSECT_IMAGE_DISKSEQ_DEVNODE, &node);
                 if (r < 0)
                         return r;
 
@@ -869,7 +902,7 @@ static int dissect_image(
                         }
 
                         if (type.designator != _PARTITION_DESIGNATOR_INVALID) {
-                                _cleanup_free_ char *t = NULL, *o = NULL, *l = NULL;
+                                _cleanup_free_ char *t = NULL, *o = NULL, *l = NULL, *n = NULL;
                                 _cleanup_close_ int mount_node_fd = -EBADF;
                                 const char *options = NULL;
 
@@ -896,6 +929,10 @@ static int dissect_image(
                                                 return mount_node_fd;
                                 }
 
+                                r = make_partition_devname(devname, diskseq, nr, flags, &n);
+                                if (r < 0)
+                                        return r;
+
                                 if (fstype) {
                                         t = strdup(fstype);
                                         if (!t)
@@ -921,7 +958,7 @@ static int dissect_image(
                                         .rw = rw,
                                         .growfs = growfs,
                                         .architecture = type.arch,
-                                        .node = TAKE_PTR(node),
+                                        .node = TAKE_PTR(n),
                                         .fstype = TAKE_PTR(t),
                                         .label = TAKE_PTR(l),
                                         .uuid = id,
@@ -955,7 +992,7 @@ static int dissect_image(
 
                         case 0xEA: { /* Boot Loader Spec extended $BOOT partition */
                                 _cleanup_close_ int mount_node_fd = -EBADF;
-                                _cleanup_free_ char *o = NULL;
+                                _cleanup_free_ char *o = NULL, *n = NULL;
                                 sd_id128_t id = SD_ID128_NULL;
                                 const char *options = NULL;
 
@@ -971,6 +1008,10 @@ static int dissect_image(
 
                                 (void) blkid_partition_get_uuid_id128(pp, &id);
 
+                                r = make_partition_devname(devname, diskseq, nr, flags, &n);
+                                if (r < 0)
+                                        return r;
+
                                 options = mount_options_from_designator(mount_options, PARTITION_XBOOTLDR);
                                 if (options) {
                                         o = strdup(options);
@@ -984,7 +1025,7 @@ static int dissect_image(
                                         .rw = true,
                                         .growfs = false,
                                         .architecture = _ARCHITECTURE_INVALID,
-                                        .node = TAKE_PTR(node),
+                                        .node = TAKE_PTR(n),
                                         .uuid = id,
                                         .mount_options = TAKE_PTR(o),
                                         .mount_node_fd = TAKE_FD(mount_node_fd),
@@ -1040,7 +1081,7 @@ static int dissect_image(
                 /* If we didn't find a generic node, then we can't fix this up either */
                 if (generic_node) {
                         _cleanup_close_ int mount_node_fd = -EBADF;
-                        _cleanup_free_ char *o = NULL;
+                        _cleanup_free_ char *o = NULL, *n = NULL;
                         const char *options;
 
                         if (FLAGS_SET(flags, DISSECT_IMAGE_PIN_PARTITION_DEVICES)) {
@@ -1048,6 +1089,10 @@ static int dissect_image(
                                 if (mount_node_fd < 0)
                                         return mount_node_fd;
                         }
+
+                        r = make_partition_devname(devname, diskseq, generic_nr, flags, &n);
+                        if (r < 0)
+                                return r;
 
                         options = mount_options_from_designator(mount_options, PARTITION_ROOT);
                         if (options) {
@@ -1063,7 +1108,7 @@ static int dissect_image(
                                 .growfs = generic_growfs,
                                 .partno = generic_nr,
                                 .architecture = _ARCHITECTURE_INVALID,
-                                .node = TAKE_PTR(generic_node),
+                                .node = TAKE_PTR(n),
                                 .uuid = generic_uuid,
                                 .mount_options = TAKE_PTR(o),
                                 .mount_node_fd = TAKE_FD(mount_node_fd),
