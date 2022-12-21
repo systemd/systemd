@@ -167,9 +167,6 @@ Features:
 * systemd-dissect: maybe add "--attach" and "--detach" verbs which
   synchronously attach a DDI to a loopback device but not actually mount them.
 
-* gpt-auto-generator: generate device names via /dev/disk/by-diskseq/ to pin
-  the medium
-
 * pam_systemd_home: add module parameter to control whether to only accept
   only password or only pcks11/fido2 auth, and then use this to hook nicely
   into two of the three PAM stacks gdm provides.
