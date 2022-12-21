@@ -38,6 +38,7 @@ struct Manager {
         bool manage_foreign_rules;
 
         Set *dirty_links;
+        Set *new_wlan_ifindices;
 
         char *state_file;
         LinkOperationalState operational_state;
