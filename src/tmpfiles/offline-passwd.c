@@ -9,8 +9,9 @@
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(uid_gid_hash_ops, char, string_hash_func, string_compare_func, free);
 
 static int open_passwd_file(const char *root, const char *fname, FILE **ret_file) {
-        _cleanup_free_ char *p = NULL;
+        _cleanup_free_ char *p = NULL, *bn = NULL;
         _cleanup_close_ int fd = -EBADF;
+        int r;
 
         fd = chase_symlinks_and_open(fname, root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC, &p);
         if (fd < 0)
@@ -22,7 +23,11 @@ static int open_passwd_file(const char *root, const char *fname, FILE **ret_file
 
         TAKE_FD(fd);
 
-        log_debug("Reading %s entries from %s...", basename(fname), p);
+        r = path_extract_filename(fname, &bn);
+        if (r < 0)
+                return r;
+
+        log_debug("Reading %s entries from %s...", bn, p);
 
         *ret_file = f;
         return 0;
