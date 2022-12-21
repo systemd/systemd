@@ -18,6 +18,7 @@
 #include "hashmap.h"
 #include "macro.h"
 #include "missing_syscall.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "serialize.h"
@@ -131,7 +132,13 @@ static int do_execute(
                         return log_oom();
 
                 if (callbacks) {
-                        fd = open_serialization_fd(basename(*path));
+                        _cleanup_free_ char *bn = NULL;
+
+                        r = path_extract_filename(*path, &bn);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract filename from path '%s': %m", *path);
+
+                        fd = open_serialization_fd(bn);
                         if (fd < 0)
                                 return log_error_errno(fd, "Failed to open serialization file: %m");
                 }
@@ -199,15 +206,16 @@ int execute_directories(
                 ExecDirFlags flags) {
 
         char **dirs = (char**) directories;
+        _cleanup_free_ char *name = NULL;
         _cleanup_close_ int fd = -EBADF;
-        char *name;
         int r;
         pid_t executor_pid;
 
         assert(!strv_isempty(dirs));
 
-        name = basename(dirs[0]);
-        assert(!isempty(name));
+        r = path_extract_filename(dirs[0], &name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract file name from '%s': %m", dirs[0]);
 
         if (callbacks) {
                 assert(callback_args);

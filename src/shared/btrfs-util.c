@@ -51,20 +51,22 @@ static int validate_subvolume_name(const char *name) {
         return 0;
 }
 
-static int extract_subvolume_name(const char *path, const char **subvolume) {
-        const char *fn;
+static int extract_subvolume_name(const char *path, char **ret) {
+        _cleanup_free_ char *fn = NULL;
         int r;
 
         assert(path);
-        assert(subvolume);
+        assert(ret);
 
-        fn = basename(path);
+        r = path_extract_filename(path, &fn);
+        if (r < 0)
+                return r;
 
         r = validate_subvolume_name(fn);
         if (r < 0)
                 return r;
 
-        *subvolume = fn;
+        *ret = TAKE_PTR(fn);
         return 0;
 }
 
@@ -119,8 +121,8 @@ int btrfs_subvol_make_fd(int fd, const char *subvolume) {
 }
 
 int btrfs_subvol_make(const char *path) {
+        _cleanup_free_ char *subvolume = NULL;
         _cleanup_close_ int fd = -EBADF;
-        const char *subvolume;
         int r;
 
         assert(path);
@@ -1180,8 +1182,8 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
 }
 
 int btrfs_subvol_remove(const char *path, BtrfsRemoveFlags flags) {
+        _cleanup_free_ char *subvolume = NULL;
         _cleanup_close_ int fd = -EBADF;
-        const char *subvolume;
         int r;
 
         assert(path);
@@ -1578,8 +1580,8 @@ int btrfs_subvol_snapshot_fd_full(
                 copy_progress_bytes_t progress_bytes,
                 void *userdata) {
 
+        _cleanup_free_ char *subvolume = NULL;
         _cleanup_close_ int new_fd = -EBADF;
-        const char *subvolume;
         int r;
 
         assert(old_fd >= 0);
