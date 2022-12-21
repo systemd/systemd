@@ -3976,14 +3976,26 @@ UnitFileState unit_get_unit_file_state(Unit *u) {
 }
 
 int unit_get_unit_file_preset(Unit *u) {
+        int r;
+
         assert(u);
 
-        if (u->unit_file_preset < 0 && u->fragment_path)
+        if (u->unit_file_preset < 0 && u->fragment_path) {
+                _cleanup_free_ char *bn = NULL;
+
+                r = path_extract_filename(u->fragment_path, &bn);
+                if (r < 0)
+                        return (u->unit_file_preset = r);
+
+                if (r == O_DIRECTORY)
+                        return (u->unit_file_preset = -EISDIR);
+
                 u->unit_file_preset = unit_file_query_preset(
                                 u->manager->unit_file_scope,
                                 NULL,
-                                basename(u->fragment_path),
+                                bn,
                                 NULL);
+        }
 
         return u->unit_file_preset;
 }
