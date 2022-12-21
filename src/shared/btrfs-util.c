@@ -51,20 +51,22 @@ static int validate_subvolume_name(const char *name) {
         return 0;
 }
 
-static int extract_subvolume_name(const char *path, const char **subvolume) {
-        const char *fn;
+static int extract_subvolume_name(const char *path, const char **ret) {
+        _cleanup_free_ char *fn = NULL;
         int r;
 
         assert(path);
-        assert(subvolume);
+        assert(ret);
 
-        fn = basename(path);
+        r = path_extract_filename(path, &fn);
+        if (r < 0)
+                return r;
 
         r = validate_subvolume_name(fn);
         if (r < 0)
                 return r;
 
-        *subvolume = fn;
+        *ret = TAKE_PTR(fn);
         return 0;
 }
 
