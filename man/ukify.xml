@@ -221,11 +221,11 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--tools=<replaceable>DIR</replaceable></option></term>
+        <term><option>--tools=<replaceable>DIRS</replaceable></option></term>
 
-        <listitem><para>Specify a directory with helper tools. <command>ukify</command> will look for helper
-        tools in that directory first, and if not found, try to load them from <varname>$PATH</varname> in
-        the usual fashion.</para></listitem>
+        <listitem><para>Specify one or more directories with helper tools. <command>ukify</command> will look
+        for helper tools in those directories first, and if not found, try to load them from
+        <varname>$PATH</varname> in the usual fashion.</para></listitem>
       </varlistentry>
 
       <varlistentry>
