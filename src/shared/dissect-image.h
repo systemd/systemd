@@ -183,3 +183,5 @@ bool dissected_image_verity_sig_ready(const DissectedImage *image, PartitionDesi
 int mount_image_privately_interactively(const char *path, DissectImageFlags flags, char **ret_directory, LoopDevice **ret_loop_device);
 
 int verity_dissect_and_mount(int src_fd, const char *src, const char *dest, const MountOptions *options, const char *required_host_os_release_id, const char *required_host_os_release_version_id, const char *required_host_os_release_sysext_level, const char *required_sysext_scope);
+
+int dissect_fstype_ok(const char *fstype);
