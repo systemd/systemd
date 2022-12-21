@@ -3045,16 +3045,19 @@ static int determine_names(void) {
                 else if (arg_image) {
                         char *e;
 
-                        arg_machine = strdup(basename(arg_image));
+                        r = path_extract_filename(arg_image, &arg_machine);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract file name from '%s': %m", arg_image);
 
                         /* Truncate suffix if there is one */
                         e = endswith(arg_machine, ".raw");
                         if (e)
                                 *e = 0;
-                } else
-                        arg_machine = strdup(basename(arg_directory));
-                if (!arg_machine)
-                        return log_oom();
+                } else {
+                        r = path_extract_filename(arg_directory, &arg_machine);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract file name from '%s': %m", arg_directory);
+                }
 
                 hostname_cleanup(arg_machine);
                 if (!hostname_is_valid(arg_machine, 0))
