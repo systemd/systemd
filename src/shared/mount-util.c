@@ -952,7 +952,7 @@ static int mount_in_namespace(
         if (r < 0)
                 goto finish;
         if (r == 0) {
-                const char *mount_inside;
+                _cleanup_free_ char *mount_outside_fn = NULL, *mount_inside = NULL;
 
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
@@ -965,8 +965,19 @@ static int mount_in_namespace(
                 }
 
                 /* Fifth, move the mount to the right place inside */
-                mount_inside = strjoina(incoming_path, basename(mount_outside));
-                r = mount_nofollow_verbose(LOG_ERR, mount_inside, dest, NULL, MS_MOVE, NULL);
+                r = path_extract_filename(mount_outside, &mount_outside_fn);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to extract filename from propagation file or directory '%s': %m", mount_outside);
+                        goto child_fail;
+                }
+
+                mount_inside = path_join(incoming_path, mount_outside_fn);
+                if (!mount_inside) {
+                        r = log_oom_debug();
+                        goto child_fail;
+                }
+
+                r = mount_nofollow_verbose(LOG_DEBUG, mount_inside, dest, NULL, MS_MOVE, NULL);
                 if (r < 0)
                         goto child_fail;
 
