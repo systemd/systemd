@@ -74,6 +74,38 @@
 /* how many times to wait for the device nodes to appear */
 #define N_DEVICE_NODE_LIST_ATTEMPTS 10
 
+int dissect_fstype_ok(const char *fstype) {
+        const char *e;
+        bool b;
+
+        /* When we automatically mount file systems, be a bit conservative by default what we are willing to
+         * mount, just as an extra safety net to not mount with badly maintained legacy file system
+         * drivers. */
+
+        e = secure_getenv("SYSTEMD_DISSECT_FILE_SYSTEMS");
+        if (e) {
+                _cleanup_strv_free_ char **l = NULL;
+
+                l = strv_split(e, ":");
+                if (!l)
+                        return -ENOMEM;
+
+                b = strv_contains(l, fstype);
+        } else
+                b = STR_IN_SET(fstype,
+                               "btrfs",
+                               "erofs",
+                               "ext4",
+                               "squashfs",
+                               "vfat",
+                               "xfs");
+        if (b)
+                return true;
+
+        log_debug("Discovered system type '%s' is not among file systems OK for mounting from dissection.", fstype);
+        return false;
+}
+
 int probe_filesystem_full(
                 int fd,
                 const char *path,
@@ -1339,6 +1371,11 @@ static int mount_partition(
 
         if (!fstype)
                 return -EAFNOSUPPORT;
+        r = dissect_fstype_ok(fstype);
+        if (r < 0)
+                return r;
+        if (!r)
+                return -EIDRM; /* Recognizable error */
 
         /* We are looking at an encrypted partition? This either means stacked encryption, or the caller
          * didn't call dissected_image_decrypt() beforehand. Let's return a recognizable error for this
@@ -1488,6 +1525,7 @@ int dissected_image_mount(
          *  -EUCLEAN      → fsck for file system failed
          *  -EBUSY        → File system already mounted/used elsewhere (kernel)
          *  -EAFNOSUPPORT → File system type not supported or not known
+         *  -EIDRM        → File system is not among allowlisted "common" file systems
          */
 
         if (!(m->partitions[PARTITION_ROOT].found ||
@@ -1625,6 +1663,8 @@ int dissected_image_mount_and_warn(
                 return log_error_errno(r, "File system already mounted elsewhere.");
         if (r == -EAFNOSUPPORT)
                 return log_error_errno(r, "File system type not supported or not known.");
+        if (r == -EIDRM)
+                return log_error_errno(r, "File system is too uncommon, refused.");
         if (r < 0)
                 return log_error_errno(r, "Failed to mount image: %m");
 
