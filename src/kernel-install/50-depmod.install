@@ -26,6 +26,8 @@ INITRD_OPTIONS_START="5"
 
 [[ $KERNEL_VERSION ]] || exit 1
 
+[ -w "/lib/modules" ] || exit 0
+
 case "$COMMAND" in
     add)
         [[ -d "/lib/modules/${KERNEL_VERSION}/kernel" ]] || exit 0
