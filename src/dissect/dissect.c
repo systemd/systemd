@@ -1110,6 +1110,7 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
         } else if (arg_action == ACTION_COPY_TO) {
                 _cleanup_close_ int source_fd = -EBADF, target_fd = -EBADF, dfd = -EBADF;
                 _cleanup_free_ char *dn = NULL, *bn = NULL;
+                bool is_dir;
 
                 r = path_extract_directory(arg_target, &dn);
                 if (r < 0)
@@ -1117,6 +1118,7 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
                 r = path_extract_filename(arg_target, &bn);
                 if (r < 0)
                         return log_error_errno(r, "Failed to extract filename from target path '%s': %m", arg_target);
+                is_dir = r == O_DIRECTORY;
 
                 r = chase_symlinks(dn, mounted_dir, CHASE_PREFIX_ROOT|CHASE_WARN, NULL, &dfd);
                 if (r < 0)
@@ -1124,6 +1126,9 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
 
                 /* Are we reading from stdin? */
                 if (streq(arg_source, "-")) {
+                        if (is_dir)
+                                return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Cannot copy STDIN to a directory, refusing.");
+
                         target_fd = openat(dfd, bn, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_EXCL, 0644);
                         if (target_fd < 0)
                                 return log_error_errno(errno, "Failed to open target file '%s': %m", arg_target);
@@ -1161,8 +1166,11 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
                         return 0;
                 }
 
+                if (is_dir)
+                        return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Source is a regular file, but target is not, refusing.");
+
                 /* We area looking at a regular file */
-                target_fd = openat(dfd, basename(arg_target), O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_EXCL, 0600);
+                target_fd = openat(dfd, bn, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_EXCL, 0600);
                 if (target_fd < 0)
                         return log_error_errno(errno, "Failed to open target file '%s': %m", arg_target);
 
