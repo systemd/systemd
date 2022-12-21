@@ -1022,9 +1022,9 @@ static int manager_bind_varlink(Manager *m) {
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
 
         assert(!m->userdb_service);
-        m->userdb_service = strdup(basename(socket_path));
-        if (!m->userdb_service)
-                return log_oom();
+        r = path_extract_filename(socket_path, &m->userdb_service);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extra filename from socket path '%s': %m", socket_path);
 
         /* Avoid recursion */
         if (setenv("SYSTEMD_BYPASS_USERDB", m->userdb_service, 1) < 0)
@@ -1505,7 +1505,11 @@ static int manager_load_public_key_one(Manager *m, const char *path) {
 
         assert(m);
 
-        if (streq(basename(path), "local.public")) /* we already loaded the private key, which includes the public one */
+        r = path_extract_filename(path, &fn);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract filename of path '%s': %m", path);
+
+        if (streq(fn, "local.public")) /* we already loaded the private key, which includes the public one */
                 return 0;
 
         f = fopen(path, "re");
@@ -1533,10 +1537,6 @@ static int manager_load_public_key_one(Manager *m, const char *path) {
         pkey = PEM_read_PUBKEY(f, &pkey, NULL, NULL);
         if (!pkey)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse public key file %s.", path);
-
-        fn = strdup(basename(path));
-        if (!fn)
-                return log_oom();
 
         r = hashmap_put(m->public_keys, fn, pkey);
         if (r < 0)
