@@ -415,6 +415,10 @@ disk images with `--image=` or similar:
 * `$SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC=sec` — takes a timespan, which controls
   the timeout waiting for the image to be configured. Defaults to 100 msec.
 
+* `$SYSTEMD_DISSECT_FILE_SYSTEMS=` — takes a colon-separated list of file
+  systems that may be mounted for automatically dissected disk images. If not
+  specified defaults to something like: `ext4:btrfs:xfs:vfat:erofs:squashfs`
+
 * `$SYSTEMD_LOOP_DIRECT_IO` – takes a boolean, which controls whether to enable
   LO_FLAGS_DIRECT_IO (i.e. direct IO + asynchronous IO) on loopback block
   devices when opening them. Defaults to on, set this to "0" to disable this
