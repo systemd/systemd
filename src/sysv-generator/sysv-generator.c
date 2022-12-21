@@ -244,21 +244,22 @@ static int sysv_translate_facility(SysvStub *s, unsigned line, const char *name,
                 "time",                 SPECIAL_TIME_SYNC_TARGET,
         };
 
-        const char *filename;
-        char *filename_no_sh, *e, *m;
+        _cleanup_free_ char *filename = NULL;
         const char *n;
-        unsigned i;
+        char *e, *m;
         int r;
 
         assert(name);
         assert(s);
         assert(ret);
 
-        filename = basename(s->path);
+        r = path_extract_filename(s->path, &filename);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract file name from path '%s': %m", s->path);
 
         n = *name == '$' ? name + 1 : name;
 
-        for (i = 0; i < ELEMENTSOF(table); i += 2) {
+        for (size_t i = 0; i < ELEMENTSOF(table); i += 2) {
                 if (!streq(table[i], n))
                         continue;
 
@@ -288,12 +289,9 @@ static int sysv_translate_facility(SysvStub *s, unsigned line, const char *name,
         }
 
         /* Strip ".sh" suffix from file name for comparison */
-        filename_no_sh = strdupa_safe(filename);
-        e = endswith(filename_no_sh, ".sh");
-        if (e) {
+        e = endswith(filename, ".sh");
+        if (e)
                 *e = '\0';
-                filename = filename_no_sh;
-        }
 
         /* Names equaling the file name of the services are redundant */
         if (streq_ptr(n, filename)) {
