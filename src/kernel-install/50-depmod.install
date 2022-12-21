@@ -23,6 +23,8 @@ set -e
 COMMAND="${1:?}"
 KERNEL_VERSION="${2:?}"
 
+[ -w "/lib/modules" ] || exit 0
+
 case "$COMMAND" in
     add)
         [ -d "/lib/modules/$KERNEL_VERSION/kernel" ] || exit 0
