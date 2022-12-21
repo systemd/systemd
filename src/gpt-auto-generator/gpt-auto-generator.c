@@ -674,7 +674,8 @@ static int enumerate_partitions(dev_t devnum) {
                         loop,
                         NULL, NULL,
                         DISSECT_IMAGE_GPT_ONLY|
-                        DISSECT_IMAGE_USR_NO_ROOT,
+                        DISSECT_IMAGE_USR_NO_ROOT|
+                        DISSECT_IMAGE_DISKSEQ_DEVNODE,
                         /* NB! Unlike most other places where we dissect block devices we do not use
                          * DISSECT_IMAGE_ADD_PARTITION_DEVICES here: we want that the kernel finds the
                          * devices, and udev probes them before we mount them via .mount units much later
