@@ -281,6 +281,7 @@ static size_t table_data_size(TableDataType type, const void *data) {
 
         case TABLE_STRING:
         case TABLE_PATH:
+        case TABLE_PATH_BASENAME:
         case TABLE_FIELD:
         case TABLE_HEADER:
                 return strlen(data) + 1;
@@ -513,7 +514,7 @@ int table_add_cell_stringf_full(Table *t, TableCell **ret_cell, TableDataType dt
         int r;
 
         assert(t);
-        assert(IN_SET(dt, TABLE_STRING, TABLE_PATH, TABLE_FIELD, TABLE_HEADER));
+        assert(IN_SET(dt, TABLE_STRING, TABLE_PATH, TABLE_PATH_BASENAME, TABLE_FIELD, TABLE_HEADER));
 
         va_start(ap, format);
         r = vasprintf(&buffer, format, ap);
@@ -873,6 +874,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
 
                 case TABLE_STRING:
                 case TABLE_PATH:
+                case TABLE_PATH_BASENAME:
                 case TABLE_FIELD:
                 case TABLE_HEADER:
                         data = va_arg(ap, const char *);
@@ -1281,6 +1283,7 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                         return strcmp(a->string, b->string);
 
                 case TABLE_PATH:
+                case TABLE_PATH_BASENAME:
                         return path_compare(a->string, b->string);
 
                 case TABLE_STRV:
@@ -1453,15 +1456,24 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
 
         case TABLE_STRING:
         case TABLE_PATH:
+        case TABLE_PATH_BASENAME:
         case TABLE_FIELD:
-        case TABLE_HEADER:
+        case TABLE_HEADER: {
+                _cleanup_free_ char *bn = NULL;
+                const char *s;
+
+                if (d->type == TABLE_PATH_BASENAME)
+                        s = path_extract_filename(d->string, &bn) < 0 ? d->string : bn;
+                else
+                        s = d->string;
+
                 if (d->uppercase && !avoid_uppercasing) {
-                        d->formatted = new(char, strlen(d->string) + (d->type == TABLE_FIELD) + 1);
+                        d->formatted = new(char, strlen(s) + (d->type == TABLE_FIELD) + 1);
                         if (!d->formatted)
                                 return NULL;
 
                         char *q = d->formatted;
-                        for (char *p = d->string; *p; p++)
+                        for (const char *p = s; *p; p++)
                                 *(q++) = (char) toupper((unsigned char) *p);
 
                         if (d->type == TABLE_FIELD)
@@ -1470,14 +1482,20 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                         *q = 0;
                         return d->formatted;
                 } else if (d->type == TABLE_FIELD) {
-                        d->formatted = strjoin(d->string, ":");
+                        d->formatted = strjoin(s, ":");
                         if (!d->formatted)
                                 return NULL;
 
                         return d->formatted;
                 }
 
+                if (bn) {
+                        d->formatted = TAKE_PTR(bn);
+                        return d->formatted;
+                }
+
                 return d->string;
+        }
 
         case TABLE_STRV:
                 if (strv_isempty(d->strv))
@@ -2544,6 +2562,7 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
 
         case TABLE_STRING:
         case TABLE_PATH:
+        case TABLE_PATH_BASENAME:
         case TABLE_FIELD:
         case TABLE_HEADER:
                 return json_variant_new_string(ret, d->string);

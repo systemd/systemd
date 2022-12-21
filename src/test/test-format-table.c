@@ -565,6 +565,24 @@ TEST(vertical) {
         assert_se(json_variant_equal(a, b));
 }
 
+TEST(path_basename) {
+        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_free_ char *formatted = NULL;
+
+        assert_se(t = table_new("x"));
+
+        table_set_header(t, false);
+
+        assert_se(table_add_many(t,
+                                 TABLE_PATH_BASENAME, "/foo/bar",
+                                 TABLE_PATH_BASENAME, "/quux/bar",
+                                 TABLE_PATH_BASENAME, "/foo/baz") >= 0);
+
+        assert_se(table_format(t, &formatted) >= 0);
+
+        assert_se(streq(formatted, "bar\nbar\nbaz\n"));
+}
+
 static int intro(void) {
         assert_se(setenv("SYSTEMD_COLORS", "0", 1) >= 0);
         assert_se(setenv("COLUMNS", "40", 1) >= 0);
