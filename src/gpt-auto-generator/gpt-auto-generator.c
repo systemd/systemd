@@ -40,7 +40,12 @@
 static const char *arg_dest = NULL;
 static bool arg_enabled = true;
 static bool arg_root_enabled = true;
+static char *arg_root_fstype = NULL;
+static char *arg_root_options = NULL;
 static int arg_root_rw = -1;
+
+STATIC_DESTRUCTOR_REGISTER(arg_root_fstype, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root_options, freep);
 
 static int add_cryptsetup(
                 const char *id,
@@ -622,10 +627,10 @@ static int add_root_mount(void) {
                         "root",
                         "/dev/gpt-auto-root",
                         in_initrd() ? "/sysroot" : "/",
-                        NULL,
+                        arg_root_fstype,
                         /* rw= */ arg_root_rw > 0,
                         /* growfs= */ false,
-                        NULL,
+                        arg_root_options,
                         "Root Partition",
                         in_initrd() ? SPECIAL_INITRD_ROOT_FS_TARGET : SPECIAL_LOCAL_FS_TARGET);
 #else
@@ -800,6 +805,21 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 /* Disable root disk logic if there's roothash= defined (i.e. verity enabled) */
 
                 arg_root_enabled = false;
+
+        } else if (streq(key, "rootfstype")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                return free_and_strdup_warn(&arg_root_fstype, value);
+
+        } else if (streq(key, "rootflags")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                if (!strextend_with_separator(&arg_root_options, ",", value))
+                        return log_oom();
 
         } else if (proc_cmdline_key_streq(key, "rw") && !value)
                 arg_root_rw = true;
