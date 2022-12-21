@@ -1104,12 +1104,13 @@ static const char* get_label(sd_device *d) {
 
 static int acquire_mount_where(sd_device *d) {
         const char *v;
+        int r;
 
         if (arg_mount_where)
                 return 0;
 
         if (sd_device_get_property_value(d, "SYSTEMD_MOUNT_WHERE", &v) < 0) {
-                _cleanup_free_ char *escaped = NULL;
+                _cleanup_free_ char *escaped = NULL, *devname_bn = NULL;
                 const char *name;
 
                 name = get_label(d);
@@ -1121,7 +1122,11 @@ static int acquire_mount_where(sd_device *d) {
                         if (sd_device_get_devname(d, &dn) < 0)
                                 return 0;
 
-                        name = basename(dn);
+                        r = path_extract_filename(dn, &devname_bn);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract file name from '%s': %m", dn);
+
+                        name = devname_bn;
                 }
 
                 escaped = xescape(name, "\\");
@@ -1253,12 +1258,16 @@ static int discover_loop_backing_file(void) {
                 return log_error_errno(errno, "Can't get loop device for %s: %m", arg_mount_what);
 
         if (r == -ENXIO) {
-                _cleanup_free_ char *escaped = NULL;
+                _cleanup_free_ char *escaped = NULL, *bn = NULL;
 
                 if (arg_mount_where)
                         return 0;
 
-                escaped = xescape(basename(arg_mount_what), "\\");
+                r = path_extract_filename(arg_mount_what, &bn);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract file name from backing file path '%s': %m", arg_mount_what);
+
+                escaped = xescape(bn, "\\");
                 if (!escaped)
                         return log_oom();
                 if (!filename_is_valid(escaped))
