@@ -20,6 +20,7 @@
 #include "proc-cmdline.h"
 #include "recurse-dir.h"
 #include "strv.h"
+#include "virt.h"
 
 /* This imports credentials passed in from environments higher up (VM manager, boot loader, …) and rearranges
  * them so that later code can access them using our regular credential protocol
@@ -370,6 +371,9 @@ static int import_credentials_qemu(ImportCredentialContext *c) {
 
         assert(c);
 
+        if (detect_container() > 0) /* don't access /sys/ in a container */
+                return 0;
+
         source_dir_fd = open(QEMU_FWCFG_PATH, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
         if (source_dir_fd < 0) {
                 if (errno == ENOENT) {
@@ -560,6 +564,9 @@ static int import_credentials_smbios(ImportCredentialContext *c) {
         int r;
 
         /* Parses DMI OEM strings fields (SMBIOS type 11), as settable with qemu's -smbios type=11,value=… switch. */
+
+        if (detect_container() > 0) /* don't access /sys/ in a container */
+                return 0;
 
         for (unsigned i = 0;; i++) {
                 struct dmi_field_header {
