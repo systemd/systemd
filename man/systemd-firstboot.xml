@@ -265,6 +265,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--reset</option></term>
+
+        <listitem><para>If specified, all existing files that are configured by
+        <command>systemd-firstboot</command> are removed. Note that the files are removed regardless of
+        whether they'll be configured with a new value or not. This operation ensures that the next boot of
+        the image will be considered a first boot, and <command>systemd-firstboot</command> will prompt again
+        to configure each of the removed files.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--delete-root-password</option></term>
 
         <listitem><para>Removes the password of the system's root user, enabling login as root without a
