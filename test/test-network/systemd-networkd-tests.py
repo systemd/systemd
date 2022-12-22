@@ -1145,6 +1145,23 @@ class NetworkdMatchTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'Network File: /run/systemd/network/14-match-udev-property')
 
+class WaitOnlineTests(unittest.TestCase, Utilities):
+
+    def setUp(self):
+        setup_common()
+
+    def tearDown(self):
+        tear_down_common()
+
+    def test_wait_online_any(self):
+        copy_network_unit('25-bridge.netdev', '25-bridge.network', '11-dummy.netdev', '11-dummy.network')
+        start_networkd()
+
+        self.wait_online(['bridge99', 'test1:degraded'], bool_any=True)
+
+        self.wait_operstate('bridge99', '(off|no-carrier)', setup_state='configuring')
+        self.wait_operstate('test1', 'degraded')
+
 class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     def setUp(self):
@@ -1162,15 +1179,6 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         output = check_output('ip link show dropin-test')
         print(output)
         self.assertRegex(output, '00:50:56:c0:00:28')
-
-    def test_wait_online_any(self):
-        copy_network_unit('25-bridge.netdev', '25-bridge.network', '11-dummy.netdev', '11-dummy.network')
-        start_networkd()
-
-        self.wait_online(['bridge99', 'test1:degraded'], bool_any=True)
-
-        self.wait_operstate('bridge99', '(off|no-carrier)', setup_state='configuring')
-        self.wait_operstate('test1', 'degraded')
 
     @expectedFailureIfModuleIsNotAvailable('bareudp')
     def test_bareudp(self):
