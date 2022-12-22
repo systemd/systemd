@@ -2,9 +2,11 @@
 #pragma once
 
 #include <dirent.h>
+#include <fcntl.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <sys/socket.h>
+#include <sys/unistd.h>
 
 #include "macro.h"
 #include "stdio-util.h"
@@ -126,3 +128,21 @@ static inline char *format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int f
 
 #define FORMAT_PROC_FD_PATH(fd) \
         format_proc_fd_path((char[PROC_FD_PATH_MAX]) {}, (fd))
+
+/* Determining a file descriptor's path via /proc is not reliable. Only use this function to provide better
+ * log messages when doing fd based path handling! */
+static inline const char *FORMAT_FD_PATH(int fd, char **buf) {
+        assert(buf);
+
+        if (fd == AT_FDCWD)
+                return "";
+
+        if (!*buf) {
+                *buf = new0(char, PATH_MAX);
+                if (!*buf)
+                        return NULL;
+        }
+
+        memzero(*buf, PATH_MAX);
+        return readlink(FORMAT_PROC_FD_PATH(fd), *buf, PATH_MAX) >= 0 ? *buf : "(unknown)";
+}
