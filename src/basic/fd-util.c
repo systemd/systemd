@@ -881,3 +881,19 @@ int dir_fd_is_root(int dir_fd) {
         /* If we opened the same directory, that means the directory fd points to the host root directory */
         return stat_inode_same(&st, &rst);
 }
+
+const char *format_fd_path(int fd, char **buf) {
+        assert(buf);
+
+        if (fd == AT_FDCWD)
+                return "";
+
+        *buf = mfree(*buf);
+
+        if (readlink_malloc(FORMAT_PROC_FD_PATH(fd), buf) < 0)
+                return "(unknown)";
+
+        /* Avoid double "/" in log messages when working on the host filesystem by translating "/" to the
+         * empty string. */
+        return path_equal(*buf, "/") ? "" : *buf;
+}
