@@ -20,15 +20,15 @@ int make_lock_file(const char *p, int operation, LockFile *ret) {
         _cleanup_free_ char *t = NULL;
         int r;
 
+        assert(p);
+        assert(ret);
+
         /*
-         * We use UNPOSIX locks if they are available. They have nice
-         * semantics, and are mostly compatible with NFS. However,
-         * they are only available on new kernels. When we detect we
-         * are running on an older kernel, then we fall back to good
-         * old BSD locks. They also have nice semantics, but are
-         * slightly problematic on NFS, where they are upgraded to
-         * POSIX locks, even though locally they are orthogonal to
-         * POSIX locks.
+         * We use UNPOSIX locks if they are available. They have nice semantics, and are mostly compatible
+         * with NFS. However, they are only available on new kernels. When we detect we are running on an
+         * older kernel, then we fall back to good old BSD locks. They also have nice semantics, but are
+         * slightly problematic on NFS, where they are upgraded to POSIX locks, even though locally they are
+         * orthogonal to POSIX locks.
          */
 
         t = strdup(p);
@@ -48,23 +48,18 @@ int make_lock_file(const char *p, int operation, LockFile *ret) {
 
                 r = fcntl(fd, (operation & LOCK_NB) ? F_OFD_SETLK : F_OFD_SETLKW, &fl);
                 if (r < 0) {
-
                         /* If the kernel is too old, use good old BSD locks */
-                        if (errno == EINVAL)
+                        if (errno == EINVAL || ERRNO_IS_NOT_SUPPORTED(errno))
                                 r = flock(fd, operation);
-
                         if (r < 0)
                                 return errno == EAGAIN ? -EBUSY : -errno;
                 }
 
-                /* If we acquired the lock, let's check if the file
-                 * still exists in the file system. If not, then the
-                 * previous exclusive owner removed it and then closed
-                 * it. In such a case our acquired lock is worthless,
-                 * hence try again. */
+                /* If we acquired the lock, let's check if the file still exists in the file system. If not,
+                 * then the previous exclusive owner removed it and then closed it. In such a case our
+                 * acquired lock is worthless, hence try again. */
 
-                r = fstat(fd, &st);
-                if (r < 0)
+                if (fstat(fd, &st) < 0)
                         return -errno;
                 if (st.st_nlink > 0)
                         break;
@@ -72,12 +67,11 @@ int make_lock_file(const char *p, int operation, LockFile *ret) {
                 fd = safe_close(fd);
         }
 
-        ret->path = t;
-        ret->fd = fd;
-        ret->operation = operation;
-
-        fd = -EBADF;
-        t = NULL;
+        *ret = (LockFile) {
+                .path = TAKE_PTR(t),
+                .fd = TAKE_FD(fd),
+                .operation = operation,
+        };
 
         return r;
 }
@@ -124,7 +118,7 @@ void release_lock_file(LockFile *f) {
                         };
 
                         r = fcntl(f->fd, F_OFD_SETLK, &fl);
-                        if (r < 0 && errno == EINVAL)
+                        if (r < 0 && (errno == EINVAL || ERRNO_IS_NOT_SUPPORTED(errno)))
                                 r = flock(f->fd, LOCK_EX|LOCK_NB);
 
                         if (r >= 0)
