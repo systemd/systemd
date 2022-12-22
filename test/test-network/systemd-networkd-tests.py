@@ -854,7 +854,7 @@ class Utilities():
         This returns if the links reached the requested operstate/setup_state; otherwise it
         raises CalledProcessError or fails test assertion.
         """
-        args = wait_online_cmd + [f'--timeout={timeout}'] + [f'--interface={link}' for link in links_with_operstate]
+        args = wait_online_cmd + [f'--timeout={timeout}'] + [f'--interface={link}' for link in links_with_operstate] + [f'--ignore={link}' for link in protected_links]
         if bool_any:
             args += ['--any']
         if ipv4:
@@ -1152,6 +1152,10 @@ class WaitOnlineTests(unittest.TestCase, Utilities):
 
     def tearDown(self):
         tear_down_common()
+
+    def test_wait_online_all_unmanaged(self):
+        start_networkd()
+        self.wait_online([])
 
     def test_wait_online_any(self):
         copy_network_unit('25-bridge.netdev', '25-bridge.network', '11-dummy.netdev', '11-dummy.network')
