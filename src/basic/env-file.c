@@ -578,14 +578,15 @@ static void write_env_var(FILE *f, const char *v) {
         fputc_unlocked('\n', f);
 }
 
-int write_env_file(const char *fname, char **l) {
+int write_env_file_at(int dir_fd, const char *fname, char **l) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
 
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(fname);
 
-        r = fopen_temporary(fname, &f, &p);
+        r = fopen_temporary_at(dir_fd, fname, &f, &p);
         if (r < 0)
                 return r;
 
@@ -596,12 +597,12 @@ int write_env_file(const char *fname, char **l) {
 
         r = fflush_and_check(f);
         if (r >= 0) {
-                if (rename(p, fname) >= 0)
+                if (renameat(dir_fd, p, dir_fd, fname) >= 0)
                         return 0;
 
                 r = -errno;
         }
 
-        (void) unlink(p);
+        (void) unlinkat(dir_fd, p, 0);
         return r;
 }
