@@ -709,6 +709,30 @@ int take_etc_passwd_lock(const char *root) {
         return fd;
 }
 
+int take_etc_passwd_lock_at(int dir_fd) {
+
+        struct flock flock = {
+                .l_type = F_WRLCK,
+                .l_whence = SEEK_SET,
+                .l_start = 0,
+                .l_len = 0,
+        };
+
+        int fd, r;
+
+        fd = openat(dir_fd, ETC_PASSWD_LOCK_PATH, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
+        if (fd < 0)
+                return log_debug_errno(errno, "Cannot open " ETC_PASSWD_LOCK_PATH ": %m");
+
+        r = fcntl(fd, F_SETLKW, &flock);
+        if (r < 0) {
+                safe_close(fd);
+                return log_debug_errno(errno, "Locking " ETC_PASSWD_LOCK_PATH " failed: %m");
+        }
+
+        return fd;
+}
+
 bool valid_user_group_name(const char *u, ValidUserFlags flags) {
         const char *i;
 

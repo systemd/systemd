@@ -1193,6 +1193,7 @@ static int run(int argc, char *argv[]) {
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |
                                 DISSECT_IMAGE_VALIDATE_OS,
                                 &mounted_dir,
+                                NULL,
                                 &loop_device);
                 if (r < 0)
                         return r;
