@@ -3152,6 +3152,7 @@ int mount_image_privately_interactively(
                 const char *image,
                 DissectImageFlags flags,
                 char **ret_directory,
+                int *ret_dir_fd,
                 LoopDevice **ret_loop_device) {
 
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
@@ -3223,6 +3224,16 @@ int mount_image_privately_interactively(
         r = dissected_image_relinquish(dissected_image);
         if (r < 0)
                 return log_error_errno(r, "Failed to relinquish DM and loopback block devices: %m");
+
+        if (ret_dir_fd) {
+                _cleanup_close_ int dir_fd = -EBADF;
+
+                dir_fd = open(created_dir, O_CLOEXEC|O_DIRECTORY);
+                if (dir_fd < 0)
+                        return log_error_errno(errno, "Failed to open mount point directory: %m");
+
+                *ret_dir_fd = TAKE_FD(dir_fd);
+        }
 
         *ret_directory = TAKE_PTR(created_dir);
         *ret_loop_device = TAKE_PTR(d);
