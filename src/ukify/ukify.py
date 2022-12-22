@@ -212,12 +212,12 @@ class Section:
     name: str
     content: pathlib.Path
     tmpfile: typing.IO | None = None
-    flags: list[str] | None = dataclasses.field(default=None)
+    flags: list[str] = dataclasses.field(default_factory=lambda: ['data', 'readonly'])
     offset: int | None = None
     measure: bool = False
 
     @classmethod
-    def create(cls, name, contents, flags=None, measure=False):
+    def create(cls, name, contents, **kwargs):
         if isinstance(contents, str | bytes):
             mode = 'wt' if isinstance(contents, str) else 'wb'
             tmp = tempfile.NamedTemporaryFile(mode=mode, prefix=f'tmp{name}')
@@ -227,7 +227,7 @@ class Section:
         else:
             tmp = None
 
-        return cls(name, contents, tmpfile=tmp, flags=flags, measure=measure)
+        return cls(name, contents, tmpfile=tmp, **kwargs)
 
     @classmethod
     def parse_arg(cls, s):
@@ -333,9 +333,10 @@ def check_inputs(opts):
 
 def find_tool(name, fallback=None, opts=None):
     if opts and opts.tools:
-        tool = opts.tools / name
-        if tool.exists():
-            return tool
+        for d in opts.tools:
+            tool = d / name
+            if tool.exists():
+                return tool
 
     return fallback or name
 
@@ -435,6 +436,18 @@ def join_initrds(initrds):
     assert False
 
 
+def pe_validate(filename):
+    import pefile
+
+    pe = pefile.PE(filename)
+
+    sections = sorted(pe.sections, key=lambda s: (s.VirtualAddress, s.Misc_VirtualSize))
+
+    for l, r in itertools.pairwise(sections):
+        if l.VirtualAddress + l.Misc_VirtualSize > r.VirtualAddress + r.Misc_VirtualSize:
+            raise ValueError(f'Section "{l.Name.decode()}" ({l.VirtualAddress}, {l.Misc_VirtualSize}) overlaps with section "{r.Name.decode()}" ({r.VirtualAddress}, {r.Misc_VirtualSize})')
+
+
 def make_uki(opts):
     # kernel payload signing
 
@@ -532,23 +545,26 @@ def make_uki(opts):
     else:
         output = opts.output
 
-    objcopy_tool = find_tool('objcopy', opts=opts)
+    objcopy_tool = find_tool('llvm-objcopy', 'objcopy', opts=opts)
 
     cmd = [
         objcopy_tool,
         opts.stub,
         *itertools.chain.from_iterable(
-            ('--add-section',        f'{s.name}={s.content}',
-             '--change-section-vma', f'{s.name}=0x{s.offset:x}')
+            ('--add-section',       f'{s.name}={s.content}',
+             '--set-section-flags', f"{s.name}={','.join(s.flags)}")
             for s in uki.sections),
-        *itertools.chain.from_iterable(
-            ('--set-section-flags',  f"{s.name}={','.join(s.flags)}")
-            for s in uki.sections
-            if s.flags is not None),
         output,
     ]
+
+    if pathlib.Path(objcopy_tool).name != 'llvm-objcopy':
+        cmd += itertools.chain.from_iterable(
+            ('--change-section-vma', f'{s.name}=0x{s.offset:x}') for s in uki.sections)
+
     print('+', shell_join(cmd))
     subprocess.check_call(cmd)
+
+    pe_validate(output)
 
     # UKI signing
 
@@ -668,7 +684,8 @@ usage: ukify [options…] linux initrd…
 
     p.add_argument('--tools',
                    type=pathlib.Path,
-                   help='a directory with systemd-measure and other tools')
+                   nargs='+',
+                   help='Directories to search for tools (systemd-measure, llvm-objcopy, ...)')
 
     p.add_argument('--output', '-o',
                    type=pathlib.Path,
