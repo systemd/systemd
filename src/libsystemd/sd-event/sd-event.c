@@ -3777,8 +3777,6 @@ static int event_prepare(sd_event *e) {
 
                 s->prepare_iteration = e->iteration;
                 r = prioq_reshuffle(e->prepare, s, &s->prepare_index);
-                if (r < 0)
-                        return r;
 
                 assert(s->prepare);
 
