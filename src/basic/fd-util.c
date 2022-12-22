@@ -864,3 +864,19 @@ int fd_get_diskseq(int fd, uint64_t *ret) {
 
         return 0;
 }
+
+const char *format_fd_path(int fd, char **buf) {
+        assert(buf);
+
+        if (fd == AT_FDCWD)
+                return "";
+
+        *buf = mfree(*buf);
+
+        if (readlink_malloc(FORMAT_PROC_FD_PATH(fd), buf) < 0)
+                return "(unknown)";
+
+        /* Avoid double "/" in log messages when working on the host filesystem by translating "/" to the
+         * empty string. */
+        return path_equal(*buf, "/") ? "" : *buf;
+}
