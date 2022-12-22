@@ -881,6 +881,7 @@ static int process_image(
                         DISSECT_IMAGE_GENERIC_ROOT |
                         DISSECT_IMAGE_REQUIRE_ROOT,
                         &mounted_dir,
+                        /* ret_dir_fd= */ NULL,
                         &loop_device);
         if (r < 0)
                 return r;
