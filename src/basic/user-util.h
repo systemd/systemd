@@ -60,6 +60,7 @@ int get_shell(char **ret);
 int reset_uid_gid(void);
 
 int take_etc_passwd_lock(const char *root);
+int take_etc_passwd_lock_at(int dir_fd);
 
 #define UID_INVALID ((uid_t) -1)
 #define GID_INVALID ((gid_t) -1)
