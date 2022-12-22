@@ -1376,28 +1376,29 @@ fail:
 }
 
 static void rename_process_from_path(const char *path) {
-        char process_name[11];
+        _cleanup_free_ char *buf = NULL;
         const char *p;
-        size_t l;
 
-        /* This resulting string must fit in 10 chars (i.e. the length
-         * of "/sbin/init") to look pretty in /bin/ps */
+        assert(path);
 
-        p = basename(path);
-        if (isempty(p)) {
+        /* This resulting string must fit in 10 chars (i.e. the length of "/sbin/init") to look pretty in
+         * /bin/ps */
+
+        if (path_extract_filename(path, &buf) < 0) {
                 rename_process("(...)");
                 return;
         }
 
-        l = strlen(p);
+        size_t l = strlen(buf);
         if (l > 8) {
-                /* The end of the process name is usually more
-                 * interesting, since the first bit might just be
+                /* The end of the process name is usually more interesting, since the first bit might just be
                  * "systemd-" */
-                p = p + l - 8;
+                p = buf + l - 8;
                 l = 8;
-        }
+        } else
+                p = buf;
 
+        char process_name[11];
         process_name[0] = '(';
         memcpy(process_name+1, p, l);
         process_name[1+l] = ')';

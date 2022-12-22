@@ -2122,10 +2122,12 @@ int manager_load_unit_prepare(
                 Unit **ret) {
 
         _cleanup_(unit_freep) Unit *cleanup_unit = NULL;
+        _cleanup_free_ char *nbuf = NULL;
         int r;
 
         assert(m);
         assert(ret);
+        assert(name || path);
 
         /* This will prepare the unit for loading, but not actually load anything from disk. */
 
@@ -2133,11 +2135,13 @@ int manager_load_unit_prepare(
                 return sd_bus_error_setf(e, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not absolute.", path);
 
         if (!name) {
-                /* 'name' and 'path' must not both be null. Check here 'path' using assert_se() to
-                 * workaround a bug in gcc that generates a -Wnonnull warning when calling basename(),
-                 * but this cannot be possible in any code path (See #6119). */
-                assert_se(path);
-                name = basename(path);
+                r = path_extract_filename(path, &nbuf);
+                if (r < 0)
+                        return r;
+                if (r == O_DIRECTORY)
+                        return sd_bus_error_setf(e, SD_BUS_ERROR_INVALID_ARGS, "Path '%s' refers to directory, refusing.", path);
+
+                name = nbuf;
         }
 
         UnitType t = unit_name_to_type(name);
