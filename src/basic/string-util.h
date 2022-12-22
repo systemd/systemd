@@ -53,9 +53,13 @@ static inline const char* enable_disable(bool b) {
         return b ? "enable" : "disable";
 }
 
-static inline const char *empty_to_null(const char *p) {
-        return isempty(p) ? NULL : p;
-}
+/* This macro's return pointer will have the "const" qualifier set or unset the same way as the input
+ * pointer. */
+#define empty_to_null(p)                                \
+        ({                                              \
+                const char *_p = (p);                   \
+                (typeof(p)) (isempty(_p) ? NULL : _p);  \
+        })
 
 static inline const char *empty_to_na(const char *p) {
         return isempty(p) ? "n/a" : p;
@@ -74,6 +78,11 @@ static inline bool empty_or_dash(const char *str) {
 static inline const char *empty_or_dash_to_null(const char *p) {
         return empty_or_dash(p) ? NULL : p;
 }
+#define empty_or_dash_to_null(p)                                \
+        ({                                                      \
+                const char *_p = (p);                           \
+                (typeof(p)) (empty_or_dash(_p) ? NULL : _p);    \
+        })
 
 char *first_word(const char *s, const char *word) _pure_;
 
