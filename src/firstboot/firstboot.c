@@ -17,6 +17,7 @@
 #include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "find-esp.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "hostname-util.h"
@@ -71,6 +72,7 @@ static bool arg_force = false;
 static bool arg_delete_root_password = false;
 static bool arg_root_password_is_hashed = false;
 static bool arg_welcome = true;
+static bool arg_reset = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -1027,6 +1029,75 @@ static int process_kernel_cmdline(int rfd) {
         return 0;
 }
 
+static int process_reset(int rfd) {
+        _cleanup_free_ char *buf = NULL;
+        _cleanup_close_ int esp_fd = -EBADF, loader_fd = -EBADF;
+        int r;
+
+        if (!arg_reset)
+                return 0;
+
+        FOREACH_STRING(s,
+                       "/etc/locale.conf",
+                       "/etc/vconsole.conf",
+                       "/etc/localtime",
+                       "/etc/hostname",
+                       "/etc/machine-id",
+                       "/etc/kernel/cmdline",
+                       "/etc/machine-info",
+                       "/var/lib/systemd/random-seed",
+                       "/var/lib/systemd/credential.secret") {
+                _cleanup_free_ char *bn = NULL;
+                _cleanup_close_ int pfd = -EBADF;
+
+                r = chase_symlinks_at(rfd, s, CHASE_AT_RESOLVE_IN_ROOT|CHASE_PARENT, NULL, &pfd);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve %s/%s: %m", FORMAT_FD_PATH(rfd, &buf), s);
+
+                r = path_extract_filename(s, &bn);
+                if (r < 0)
+                        return r;
+
+                r = RET_NERRNO(unlinkat(pfd, bn, 0));
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to remove %s/%s: %m", FORMAT_FD_PATH(rfd, &buf), s);
+
+                log_info("Removed %s/%s.", FORMAT_FD_PATH(pfd, &buf), bn);
+        }
+
+        r = find_esp_at_and_warn(rfd, NULL, /* unprivileged_mode= */ false, NULL,
+                                 &esp_fd, NULL, NULL, NULL, NULL, NULL);
+        if (r < 0) {
+                if (r != -ENOKEY)
+                        return r; /* find_esp_and_warn() already logged */
+
+                log_debug_errno(r, "Couldn't find any ESP, so not removing ESP random seed.");
+                return 0;
+        }
+
+        r = chase_symlinks_at(esp_fd, "loader", CHASE_AT_RESOLVE_IN_ROOT|CHASE_PROHIBIT_SYMLINKS,
+                              NULL, &loader_fd);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve %s/loader: %m", FORMAT_FD_PATH(esp_fd, &buf));
+
+        r = RET_NERRNO(unlinkat(loader_fd, "random-seed", 0));
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to remove %s/loader/random-seed: %m",
+                                       FORMAT_FD_PATH(esp_fd, &buf));
+
+        log_info("Removed %s/random-seed.", FORMAT_FD_PATH(loader_fd, &buf));
+
+        return 0;
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -1068,6 +1139,7 @@ static int help(void) {
                "     --force                      Overwrite existing files\n"
                "     --delete-root-password       Delete root password\n"
                "     --welcome=no                 Disable the welcome text\n"
+               "     --reset                      Remove existing files\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                link);
@@ -1109,6 +1181,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FORCE,
                 ARG_DELETE_ROOT_PASSWORD,
                 ARG_WELCOME,
+                ARG_RESET,
         };
 
         static const struct option options[] = {
@@ -1144,6 +1217,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "force",                   no_argument,       NULL, ARG_FORCE                   },
                 { "delete-root-password",    no_argument,       NULL, ARG_DELETE_ROOT_PASSWORD    },
                 { "welcome",                 required_argument, NULL, ARG_WELCOME                 },
+                { "reset",                   no_argument,       NULL, ARG_RESET                   },
                 {}
         };
 
@@ -1346,6 +1420,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_welcome = r;
                         break;
 
+                case ARG_RESET:
+                        arg_reset = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1433,6 +1511,10 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return r;
         }
+
+        r = process_reset(rfd);
+        if (r < 0)
+                return r;
 
         r = process_locale(rfd);
         if (r < 0)
