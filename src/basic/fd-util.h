@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <sys/socket.h>
+#include <sys/unistd.h>
 
 #include "macro.h"
 #include "stdio-util.h"
@@ -126,3 +127,12 @@ static inline char *format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int f
 
 #define FORMAT_PROC_FD_PATH(fd) \
         format_proc_fd_path((char[PROC_FD_PATH_MAX]) {}, (fd))
+
+static inline const char *format_fd_path(char buf[static PATH_MAX], int fd) {
+        buf[0] = 0;
+        (void) readlink(FORMAT_PROC_FD_PATH(fd), buf, PATH_MAX);
+        return buf;
+}
+
+#define FORMAT_FD_PATH(fd) \
+        format_fd_path((char[PATH_MAX]) {}, (fd))
