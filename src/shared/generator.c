@@ -82,7 +82,7 @@ static int write_fsck_sysroot_service(
                 const char *what,
                 const char *extra_after) {
 
-        _cleanup_free_ char *device = NULL, *escaped = NULL, *escaped2 = NULL;
+        _cleanup_free_ char *device = NULL, *escaped = NULL, *escaped2 = NULL, *makefs_unit;
         _cleanup_fclose_ FILE *f = NULL;
         const char *fn;
         int r;
@@ -107,6 +107,10 @@ static int write_fsck_sysroot_service(
         if (r < 0)
                 return log_error_errno(r, "Failed to convert device \"%s\" to unit name: %m", what);
 
+        r = unit_name_from_path_instance("systemd-makefs", what, ".service", &makefs_unit);
+        if (r < 0)
+                return log_error_errno(r, "Failed to make unit instance name from path \"%s\": %m", what);
+
         f = fopen(fn, "wxe");
         if (!f)
                 return log_error_errno(errno, "Failed to create unit file %s: %m", fn);
@@ -119,7 +123,7 @@ static int write_fsck_sysroot_service(
                 "DefaultDependencies=no\n"
                 "BindsTo=%4$s\n"
                 "Conflicts=shutdown.target\n"
-                "After=%5$s%6$slocal-fs-pre.target %4$s\n"
+                "After=%5$s%6$slocal-fs-pre.target %4$s %8$s\n"
                 "Before=shutdown.target\n"
                 "\n"
                 "[Service]\n"
@@ -133,7 +137,8 @@ static int write_fsck_sysroot_service(
                 device,
                 strempty(extra_after),
                 isempty(extra_after) ? "" : " ",
-                escaped2);
+                escaped2,
+                makefs_unit);
 
         r = fflush_and_check(f);
         if (r < 0)
