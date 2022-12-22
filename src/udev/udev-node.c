@@ -32,7 +32,7 @@ int udev_node_cleanup(void) {
         _cleanup_closedir_ DIR *dir = NULL;
 
         /* This must not be called when any workers exist. It would cause a race between mkdir() called
-         * by stack_directory_lock() and unlinkat() called by this. */
+         * by link_directory_lock() and unlinkat() called by this. */
 
         dir = opendir("/run/udev/links");
         if (!dir) {
@@ -104,7 +104,7 @@ static int node_symlink(sd_device *dev, const char *devnode, const char *slink) 
         return 0;
 }
 
-static int stack_directory_read_one(int dirfd, const char *id, char **devnode, int *priority) {
+static int link_directory_read_one(int dirfd, const char *id, char **devnode, int *priority) {
         _cleanup_free_ char *buf = NULL;
         int tmp_prio, r;
 
@@ -172,7 +172,7 @@ static int stack_directory_read_one(int dirfd, const char *id, char **devnode, i
         return 1; /* Updated */
 }
 
-static int stack_directory_find_prioritized_id(int dirfd, char **ret_id) {
+static int link_directory_find_prioritized_id(int dirfd, char **ret_id) {
         _cleanup_free_ char *devnode = NULL, *id = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
         int priority, r;
@@ -193,7 +193,7 @@ static int stack_directory_find_prioritized_id(int dirfd, char **ret_id) {
                 if (streq(de->d_name, "owner"))
                         continue;
 
-                r = stack_directory_read_one(dirfd, de->d_name, &devnode, &priority);
+                r = link_directory_read_one(dirfd, de->d_name, &devnode, &priority);
                 if (r <= 0) {
                         if (r < 0)
                                 log_warning_errno(r, "Failed to read '%s', ignoring: %m", de->d_name);
@@ -216,7 +216,7 @@ static int stack_directory_find_prioritized_id(int dirfd, char **ret_id) {
         return 0;
 }
 
-static int stack_directory_update(int dirfd, sd_device *dev, bool add, const char **ret_devname, int *ret_prio) {
+static int link_directory_update(int dirfd, sd_device *dev, bool add, const char **ret_devname, int *ret_prio) {
         _cleanup_free_ char *data = NULL, *buf = NULL;
         const char *devname, *id;
         int priority;
@@ -307,7 +307,7 @@ toolong:
         return size - 1;
 }
 
-static int stack_directory_get_name(const char *slink, char **ret) {
+static int link_directory_get_name(const char *slink, char **ret) {
         _cleanup_free_ char *s = NULL, *dirname = NULL;
         char name_enc[NAME_MAX+1];
         const char *name;
@@ -338,7 +338,7 @@ static int stack_directory_get_name(const char *slink, char **ret) {
         return 0;
 }
 
-static int stack_directory_open(sd_device *dev, const char *slink, int *ret_dirfd, int *ret_lockfd) {
+static int link_directory_open(sd_device *dev, const char *slink, int *ret_dirfd, int *ret_lockfd) {
         _cleanup_close_ int dirfd = -EBADF, lockfd = -EBADF;
         _cleanup_free_ char *dirname = NULL;
         int r;
@@ -348,21 +348,21 @@ static int stack_directory_open(sd_device *dev, const char *slink, int *ret_dirf
         assert(ret_dirfd);
         assert(ret_lockfd);
 
-        r = stack_directory_get_name(slink, &dirname);
+        r = link_directory_get_name(slink, &dirname);
         if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to build stack directory name for '%s': %m", slink);
+                return log_device_error_errno(dev, r, "Failed to build link directory name for '%s': %m", slink);
 
         r = mkdir_parents(dirname, 0755);
         if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to create stack directory '%s': %m", dirname);
+                return log_device_error_errno(dev, r, "Failed to create link directory '%s': %m", dirname);
 
         dirfd = open_mkdir_at(AT_FDCWD, dirname, O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW | O_RDONLY, 0755);
         if (dirfd < 0)
-                return log_device_error_errno(dev, dirfd, "Failed to open stack directory '%s': %m", dirname);
+                return log_device_error_errno(dev, dirfd, "Failed to open link directory '%s': %m", dirname);
 
         lockfd = openat(dirfd, ".lock", O_CLOEXEC | O_NOFOLLOW | O_RDONLY | O_CREAT, 0600);
         if (lockfd < 0)
-                return log_device_error_errno(dev, errno, "Failed to create lock file for stack directory '%s': %m", dirname);
+                return log_device_error_errno(dev, errno, "Failed to create lock file for link directory '%s': %m", dirname);
 
         if (flock(lockfd, LOCK_EX) < 0)
                 return log_device_error_errno(dev, errno, "Failed to place a lock on lock file for %s: %m", dirname);
@@ -373,7 +373,7 @@ static int stack_directory_open(sd_device *dev, const char *slink, int *ret_dirf
         return 0;
 }
 
-static int stack_directory_set_current_owner(int dirfd, const char *slink, sd_device *dev, const char *id) {
+static int link_directory_set_current_owner(int dirfd, const char *slink, sd_device *dev, const char *id) {
         _cleanup_free_ char *devname = NULL;
         int priority;
         int r;
@@ -394,7 +394,7 @@ static int stack_directory_set_current_owner(int dirfd, const char *slink, sd_de
                 return 0;
         }
 
-        r = stack_directory_read_one(dirfd, id, &devname, &priority);
+        r = link_directory_read_one(dirfd, id, &devname, &priority);
         if (r < 0)
                 return r;
 
@@ -409,7 +409,7 @@ static int stack_directory_set_current_owner(int dirfd, const char *slink, sd_de
         return r;
 }
 
-static int stack_directory_get_current_owner(int dirfd, const char *slink, char **ret_devname, int *ret_prio) {
+static int link_directory_get_current_owner(int dirfd, const char *slink, char **ret_devname, int *ret_prio) {
         _cleanup_free_ char *devname = NULL, *id = NULL;
         int prio, r;
 
@@ -422,7 +422,7 @@ static int stack_directory_get_current_owner(int dirfd, const char *slink, char 
         if (r < 0)
                 return r == -ENOENT ? -ENODEV : r;
 
-        r = stack_directory_read_one(dirfd, id, &devname, &prio);
+        r = link_directory_read_one(dirfd, id, &devname, &prio);
         if (r < 0)
                 return r;
 
@@ -448,7 +448,7 @@ static int link_add(int dirfd, sd_device *dev, const char *devname, int devprio,
          * don't have to search for the prioritized device, which can be slow if numerous devices are
          * claiming the same symlink (systems with large number of LUNs for example). */
 
-        r = stack_directory_get_current_owner(dirfd, slink, &owner, &owner_prio);
+        r = link_directory_get_current_owner(dirfd, slink, &owner, &owner_prio);
         if (r < 0 && r != -ENODEV)
                 return log_device_error_errno(dev, r, "Failed to retrieve current priority of %s: %m", slink);
 
@@ -457,7 +457,7 @@ static int link_add(int dirfd, sd_device *dev, const char *devname, int devprio,
 
                 assert_se(device_get_device_id(dev, &id) >= 0);
 
-                return stack_directory_set_current_owner(dirfd, slink, dev, id);
+                return link_directory_set_current_owner(dirfd, slink, dev, id);
         }
 
         log_device_debug(dev, "Symlink %s is owned by %s with %s priority (%d), skipping",
@@ -481,7 +481,7 @@ static int link_remove(int dirfd, sd_device *dev, const char *devname, const cha
          * the symlink is still in place but the claiming device is gone, let the relevant uevent (not yet
          * processed) deals with the symlink handling itself. */
 
-        r = stack_directory_get_current_owner(dirfd, slink, &owner, NULL);
+        r = link_directory_get_current_owner(dirfd, slink, &owner, NULL);
         if (r >= 0) {
                 /* The symlink is owned by another device. If it was owned by 'dev', we would get -ENODEV
                  * since its entry in the link directory has just been removed. */
@@ -492,11 +492,11 @@ static int link_remove(int dirfd, sd_device *dev, const char *devname, const cha
                 log_device_warning_errno(dev, r, "Failed to retrieve current owner of %s, ignoring: %m", slink);
 
         /* Find a substitute. */
-        r = stack_directory_find_prioritized_id(dirfd, &found);
+        r = link_directory_find_prioritized_id(dirfd, &found);
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to find the device with highest priority for '%s': %m", slink);
 
-        return stack_directory_set_current_owner(dirfd, slink, dev, found);
+        return link_directory_set_current_owner(dirfd, slink, dev, found);
 }
 
 static int link_update(sd_device *dev, const char *slink, bool add) {
@@ -508,11 +508,11 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         assert(dev);
         assert(slink);
 
-        r = stack_directory_open(dev, slink, &dirfd, &lockfd);
+        r = link_directory_open(dev, slink, &dirfd, &lockfd);
         if (r < 0)
                 return r;
 
-        r = stack_directory_update(dirfd, dev, add, &devname, &priority);
+        r = link_directory_update(dirfd, dev, add, &devname, &priority);
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to update link directory for '%s': %m", slink);
 
