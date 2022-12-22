@@ -1391,6 +1391,7 @@ static int run(int argc, char *argv[]) {
                                 DISSECT_IMAGE_FSCK |
                                 DISSECT_IMAGE_GROWFS,
                                 &unlink_dir,
+                                NULL,
                                 &loop_device);
                 if (r < 0)
                         return r;
