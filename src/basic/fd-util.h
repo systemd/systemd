@@ -121,3 +121,7 @@ static inline char *format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int f
 
 #define FORMAT_PROC_FD_PATH(fd) \
         format_proc_fd_path((char[PROC_FD_PATH_MAX]) {}, (fd))
+
+/* Determining a file descriptor's path via /proc is not reliable. Only use this function to provide better
+ * log messages when doing fd based path handling! */
+const char *format_fd_path(int fd, char **buf);
