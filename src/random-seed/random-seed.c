@@ -328,7 +328,7 @@ static int refresh_boot_seed(void) {
         assert_cc(RANDOM_EFI_SEED_SIZE == SHA256_DIGEST_SIZE);
 
         r = find_esp_and_warn(NULL, NULL, /* unprivileged_mode= */ false, &esp_path,
-                              NULL, NULL, NULL, NULL, NULL);
+                              NULL, NULL, NULL, NULL, NULL, NULL);
         if (r < 0) {
                 if (r == -ENOKEY) {
                         log_debug_errno(r, "Couldn't find any ESP, so not updating ESP random seed.");
