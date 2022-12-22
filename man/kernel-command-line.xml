@@ -336,11 +336,16 @@
         <term><varname>rw</varname></term>
 
         <listitem>
-          <para>Configures the root file system and its file system
-          type and mount options, as well as whether it shall be
-          mounted read-only or read-write initially. For details,
-          see
+          <para>Configures the root file system and its file system type and mount options, as well as
+          whether it shall be mounted read-only or read-write initially. For details, see
           <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+          <para>If <varname>root=</varname> is not set (or set to <literal>gpt-auto</literal>) the automatic
+          root partition discovery implemented by
+          <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          will be in effect. In this case <varname>rootfstype=</varname>, <varname>rootflags=</varname>,
+          <varname>ro</varname>, <varname>rw</varname> will be interpreted by
+          <command>systemd-gpt-auto-generator</command>.</para>
         </listitem>
       </varlistentry>
 

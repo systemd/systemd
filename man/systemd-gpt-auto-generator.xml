@@ -244,10 +244,16 @@
 
       <varlistentry>
         <term><varname>root=</varname></term>
+        <term><varname>rootfstype=</varname></term>
+        <term><varname>rootflags=</varname></term>
 
-        <listitem><para>When used with the special value <literal>gpt-auto</literal>, automatic discovery of
-        the root partition based on the GPT partition type is enabled.  Any other value disables this
-        generator.</para></listitem>
+        <listitem><para>When <varname>root=</varname> is used with the special value
+        <literal>gpt-auto</literal> (or if the parameter is not used at all), automatic discovery of the root
+        partition based on the GPT partition type is enabled. Any other value disables this
+        logic.</para>
+
+        <para>The <varname>rootfstype=</varname> and <varname>rootflags=</varname> are used to select the
+        file system type and options when the root file system is automatically discovered.</para></listitem>
       </varlistentry>
 
       <varlistentry>
