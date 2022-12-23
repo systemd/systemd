@@ -419,6 +419,15 @@ TEST(chase_symlinks) {
         assert_se(chase_symlinks("top/dot/dot", temp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, NULL, NULL) == -EREMCHG);
         assert_se(chase_symlinks("top/dot/dot", temp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_WARN, NULL, NULL) == -EREMCHG);
 
+        /* Test CHASE_PARENT */
+
+        assert_se(chase_symlinks("/chase/parent", temp, CHASE_PREFIX_ROOT|CHASE_PARENT|CHASE_NONEXISTENT, &result, NULL) >= 0);
+        p = strjoina(temp, "/chase");
+        assert_se(streq(p, result));
+        assert_se(chase_symlinks("/chase", temp, CHASE_PREFIX_ROOT|CHASE_PARENT|CHASE_NONEXISTENT, &result, NULL) >= 0);
+        assert_se(streq(temp, result));
+        assert_se(chase_symlinks("/", temp, CHASE_PREFIX_ROOT|CHASE_PARENT|CHASE_NONEXISTENT, NULL, NULL) == -EADDRNOTAVAIL);
+
  cleanup:
         assert_se(rm_rf(temp, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }
@@ -1000,6 +1009,21 @@ TEST(open_mkdir_at) {
 
         subsubdir_fd = open_mkdir_at(fd, "xxx/yyy", O_CLOEXEC, 0700);
         assert_se(subsubdir_fd >= 0);
+}
+
+TEST(open_mkdir_at_parents) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int dfd = -EBADF, tfd = -EBADF;
+
+        assert_se((tfd = mkdtemp_open(NULL, 0, &t)) >= 0);
+
+        assert_se((dfd = open_mkdir_at_p(tfd, "a/b/c", O_CLOEXEC, 0700)) >= 0);
+        assert_se(faccessat(tfd, "a/b/c", F_OK, 0) >= 0);
+        dfd = safe_close(dfd);
+
+        assert_se((dfd = open_mkdir_at_p(tfd, "a/b/c/d/e", O_CLOEXEC, 0700)) >= 0);
+        assert_se(faccessat(tfd, "a/b/c/d/e", F_OK, 0) >= 0);
+        dfd = safe_close(dfd);
 }
 
 TEST(openat_report_new) {
