@@ -79,6 +79,7 @@ bool argv_looks_like_help(int argc, char **argv) {
 
 static int update_argv(const char name[], size_t l) {
         static int can_do = -1;
+        int r;
 
         if (can_do == 0)
                 return 0;
@@ -86,13 +87,15 @@ static int update_argv(const char name[], size_t l) {
 
         /* Calling prctl() with PR_SET_MM_ARG_{START,END} requires CAP_SYS_RESOURCE so let's use this as quick bypass
          * check, to avoid calling mmap() should PR_SET_MM_ARG_{START,END} fail with EPERM later on anyway. */
-        if (!have_effective_cap(CAP_SYS_RESOURCE))
+        r = have_effective_cap(CAP_SYS_RESOURCE);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to check if we have enough privileges: %m");
+        if (r == 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EPERM),
                                        "Skipping PR_SET_MM, as we don't have privileges.");
 
         static size_t mm_size = 0;
         static char *mm = NULL;
-        int r;
 
         if (mm_size < l+1) {
                 size_t nn_size;
