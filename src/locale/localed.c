@@ -435,10 +435,8 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
         }
 
         r = vconsole_write_data(c);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set virtual console keymap: %m");
-                return sd_bus_error_set_errnof(error, r, "Failed to set virtual console keymap: %m");
-        }
+        if (r < 0)
+                log_warning_errno(r, "Failed to set virtual console keymap, ignoring: %m");
 
         if (convert) {
                 r = x11_write_data(c);
@@ -646,10 +644,8 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
         }
 
         r = x11_write_data(c);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set X11 keyboard layout: %m");
-                return sd_bus_error_set_errnof(error, r, "Failed to set X11 keyboard layout: %m");
-        }
+        if (r < 0)
+                log_warning_errno(r, "Failed to set X11 keyboard layout, ignoring: %m");
 
         log_info("Changed X11 keyboard layout to '%s' model '%s' variant '%s' options '%s'",
                  strempty(in.layout),
