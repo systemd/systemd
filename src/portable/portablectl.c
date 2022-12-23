@@ -123,11 +123,14 @@ static int attach_extensions_to_message(sd_bus_message *m, char **extensions) {
 }
 
 static int extract_prefix(const char *path, char **ret) {
-        _cleanup_free_ char *name = NULL;
-        const char *bn, *underscore;
+        _cleanup_free_ char *name = NULL, *bn = NULL;
+        const char *underscore;
         size_t m;
+        int r;
 
-        bn = basename(path);
+        r = path_extract_filename(path, &bn);
+        if (r < 0)
+                return r;
 
         underscore = strchr(bn, '_');
         if (underscore)
@@ -155,7 +158,6 @@ static int extract_prefix(const char *path, char **ret) {
                 return -EINVAL;
 
         *ret = TAKE_PTR(name);
-
         return 0;
 }
 
@@ -591,13 +593,18 @@ static int maybe_enable_disable(sd_bus *bus, const char *path, bool enable) {
 static int maybe_start_stop_restart(sd_bus *bus, const char *path, const char *method, BusWaitForJobs *wait) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        char *name = (char *)basename(path), *job = NULL;
+        _cleanup_free_ char *name = NULL;
+        const char *job = NULL;
         int r;
 
         assert(STR_IN_SET(method, "StartUnit", "StopUnit", "RestartUnit"));
 
         if (!arg_now)
                 return 0;
+
+        r = path_extract_filename(path, &name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract file name from '%s': %m", path);
 
         r = bus_call_method(
                         bus,
