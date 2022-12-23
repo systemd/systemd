@@ -165,12 +165,11 @@ int enroll_tpm2(struct crypt_device *cd,
                         return r;
 
                 r = crypto_random_bytes(binary_salt, sizeof(binary_salt));
-                if (r != 1)
+                if (r != 0)
                         return 1;
 
                 uint8_t salted_pin[SHA256_DIGEST_SIZE] = {};
                 tpm2_util_pbkdf(pin_str, strlen(pin_str), binary_salt, sizeof(binary_salt), 1000, salted_pin);
-                erase_and_freep(pin_str);
 
                 /* re-stringify pin_str */
                 // Question: r is in int but base64mem returns ssize_t, this was copied
