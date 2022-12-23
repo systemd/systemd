@@ -1680,9 +1680,9 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
         if (r < 0)
                 return r;
 
-        if (isempty(root))
+        if (!path_is_valid(root))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "New root directory may not be the empty string.");
+                                         "New root directory must be a valid path.");
         if (!path_is_absolute(root))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "New root path '%s' is not absolute.", root);
@@ -1702,25 +1702,21 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
                                                  "Specified switch root path '%s' does not seem to be an OS tree. os-release file is missing.",
                                                  root);
         } else {
-                _cleanup_free_ char *chased = NULL;
+                if (!path_is_valid(init))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Path to init binary '%s' is not a valid path.", init);
 
                 if (!path_is_absolute(init))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                  "Path to init binary '%s' not absolute.", init);
 
-                r = chase_symlinks(init, root, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &chased, NULL);
+                r = chase_symlinks_and_access(init, root, CHASE_PREFIX_ROOT, X_OK, NULL, NULL);
+                if (r == -EACCES)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Init binary %s is not executable.", init);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r,
                                                        "Could not resolve init executable %s: %m", init);
-
-                if (laccess(chased, X_OK) < 0) {
-                        if (errno == EACCES)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                         "Init binary %s is not executable.", init);
-
-                        return sd_bus_error_set_errnof(error, r,
-                                                       "Could not check whether init binary %s is executable: %m", init);
-                }
         }
 
         rt = strdup(root);
