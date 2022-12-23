@@ -1011,6 +1011,25 @@ TEST(open_mkdir_at) {
         assert_se(subsubdir_fd >= 0);
 }
 
+TEST(open_mkdir_at_p) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int dfd = -EBADF, tfd = -EBADF;
+
+        assert_se((tfd = mkdtemp_open(NULL, 0, &t)) >= 0);
+
+        assert_se((dfd = open_mkdir_at_p(tfd, "a/b/c", O_CLOEXEC, 0700)) >= 0);
+        assert_se(faccessat(tfd, "a/b/c", F_OK, 0) >= 0);
+        dfd = safe_close(dfd);
+
+        assert_se((dfd = open_mkdir_at_p(tfd, "a/b/c/d/e", O_CLOEXEC, 0700)) >= 0);
+        assert_se(faccessat(tfd, "a/b/c/d/e", F_OK, 0) >= 0);
+        dfd = safe_close(dfd);
+
+        assert_se(open_mkdir_at_p(tfd, "q/../f", O_CLOEXEC, 0700) == -EINVAL);
+        assert_se(open_mkdir_at_p(tfd, "q/./f", O_CLOEXEC, 0700) == -EINVAL);
+        assert_se(open_mkdir_at_p(tfd, "/a/b", O_CLOEXEC, 0700) == -EINVAL);
+}
+
 TEST(openat_report_new) {
         _cleanup_free_ char *j = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
