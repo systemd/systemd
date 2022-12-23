@@ -18,6 +18,11 @@
 #include "user-util.h"
 
 int have_effective_cap(int value) {
+#if defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION) && defined(HAS_FEATURE_MEMORY_SANITIZER)
+        /* OSSFuzz does not have libcap built with the memory sanitizer, and reports many false-positive
+         * about the function, like issues #25808, #25827, and #25840. See issue #20542 for more details. */
+        return -EOPNOTSUPP;
+#else
         _cleanup_cap_free_ cap_t cap = NULL;
         cap_flag_value_t fv;
 
@@ -29,6 +34,7 @@ int have_effective_cap(int value) {
                 return -errno;
 
         return fv == CAP_SET;
+#fi
 }
 
 unsigned cap_last_cap(void) {
