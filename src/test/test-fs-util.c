@@ -426,6 +426,17 @@ TEST(chase_symlinks) {
         assert_se(chase_symlinks("top/dot/dot", temp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, NULL, NULL) == -EREMCHG);
         assert_se(chase_symlinks("top/dot/dot", temp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_WARN, NULL, NULL) == -EREMCHG);
 
+        /* Test CHASE_PARENT */
+
+        assert_se(chase_symlinks("/chase/parent", temp, CHASE_PREFIX_ROOT|CHASE_PARENT|CHASE_NONEXISTENT, &result, NULL) >= 0);
+        p = strjoina(temp, "/chase");
+        assert_se(streq(p, result));
+        result = mfree(result);
+        assert_se(chase_symlinks("/chase", temp, CHASE_PREFIX_ROOT|CHASE_PARENT|CHASE_NONEXISTENT, &result, NULL) >= 0);
+        assert_se(streq(temp, result));
+        result = mfree(result);
+        assert_se(chase_symlinks("/", temp, CHASE_PREFIX_ROOT|CHASE_PARENT|CHASE_NONEXISTENT, NULL, NULL) == -EADDRNOTAVAIL);
+
  cleanup:
         assert_se(rm_rf(temp, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }
