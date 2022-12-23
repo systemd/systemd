@@ -2097,11 +2097,11 @@ int tpm2_parse_luks2_json(
                 SET_FLAG(flags, TPM2_FLAGS_USE_PIN, json_variant_boolean(w));
         }
 
-        w = json_variant_by_key(v, "tpm2-salt");
+        w = json_variant_by_key(v, "tpm2_salt");
         if (w) {
                 r = json_variant_unbase64(w, &salt, &salt_size);
                 if (r < 0)
-                        return log_debug_errno(r, "Invalid base64 data in 'tpm2-salt' field.");
+                        return log_debug_errno(r, "Invalid base64 data in 'tpm2_salt' field.");
         }
 
         w = json_variant_by_key(v, "tpm2_pubkey_pcrs");
