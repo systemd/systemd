@@ -3776,12 +3776,9 @@ static int event_prepare(sd_event *e) {
                         break;
 
                 s->prepare_iteration = e->iteration;
-                r = prioq_reshuffle(e->prepare, s, &s->prepare_index);
-                if (r < 0)
-                        return r;
+                prioq_reshuffle(e->prepare, s, &s->prepare_index);
 
                 assert(s->prepare);
-
                 s->dispatching = true;
                 r = s->prepare(s, s->userdata);
                 s->dispatching = false;
