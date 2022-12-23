@@ -34,11 +34,12 @@ else
 
     apt-get update
     apt-get install -y gperf m4 gettext python3-pip \
-        libcap-dev libmount-dev \
         pkg-config wget python3-jinja2 zipmerge
 
+    apt-get install -y autoconf automake autopoint bison libtool
+
     if [[ "$ARCHITECTURE" == i386 ]]; then
-        apt-get install -y pkg-config:i386 libcap-dev:i386 libmount-dev:i386
+        apt-get install -y pkg-config:i386
     fi
 
     # gnu-efi is installed here to enable -Dgnu-efi behind which fuzz-bcd
@@ -71,6 +72,22 @@ else
         # Let's just fail here for now to make it clear that fuzz-introspector isn't supported.
         exit 1
     fi
+
+    git clone https://git.kernel.org/pub/scm/libs/libcap/libcap
+    pushd libcap
+    git checkout 4f96e6788d535da5f57a3452a54b8d92bd41cd8e # v1.2.66
+    make -j"$(nproc)" -C libcap CC="$CC" V=1
+    make install -C libcap V=1 CC="$CC"
+    popd
+
+    git clone https://github.com/util-linux/util-linux
+    pushd util-linux
+    git checkout 1f5129b79ad232c79ecbac31998e96c20ff4c90c # v2.38
+    ./autogen.sh
+    ./configure --prefix=/usr --disable-all-programs --enable-libuuid --enable-libblkid --enable-libmount
+    make -j"$(nproc)" V=1
+    make install V=1
+    popd
 fi
 
 if ! meson "$build" "-D$fuzzflag" -Db_lundef=false; then
@@ -109,6 +126,7 @@ install -Dt "$OUT/src/shared/" \
         "$build"/src/shared/libsystemd-shared-*.so \
         "$build"/src/core/libsystemd-core-*.so
 
+# TODO: make sure coverage reports still can be built
 # Most i386 libraries have to be brought to the runtime environment somehow. Ideally they
 # should be linked statically but since it isn't possible another way to keep them close
 # to the fuzz targets is used here. The dependencies are copied to "$OUT/src/shared" and
@@ -116,7 +134,7 @@ install -Dt "$OUT/src/shared/" \
 # is chosen because the runtime search path of all the fuzz targets already points to it
 # to load "libsystemd-shared" and "libsystemd-core". Stuff like that should be avoided on
 # x86_64 because it tends to break coverage reports, fuzz-introspector, CIFuzz and so on.
-if [[ "$ARCHITECTURE" == i386 ]]; then
+if [[ -n "$FUZZING_ENGINE" ]]; then
     for lib_path in $(ldd "$OUT"/src/shared/libsystemd-shared-*.so | perl -lne 'print $1 if m{=>\s+(/lib\S+)}'); do
         lib_name=$(basename "$lib_path")
         cp "$lib_path" "$OUT/src/shared"
