@@ -607,6 +607,7 @@ Manager* manager_free(Manager *m) {
         m->request_queue = ordered_set_free(m->request_queue);
 
         m->dirty_links = set_free_with_destructor(m->dirty_links, link_unref);
+        m->new_wlan_ifindices = set_free(m->new_wlan_ifindices);
         m->links_by_name = hashmap_free(m->links_by_name);
         m->links_by_hw_addr = hashmap_free(m->links_by_hw_addr);
         m->links_by_dhcp_pd_subnet_prefix = hashmap_free(m->links_by_dhcp_pd_subnet_prefix);
