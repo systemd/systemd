@@ -75,58 +75,6 @@ static int vconsole_reload(sd_bus *bus) {
         return 0;
 }
 
-static int vconsole_convert_to_x11_and_emit(Context *c, sd_bus_message *m) {
-        int r;
-
-        assert(m);
-
-        r = x11_read_data(c, m);
-        if (r < 0)
-                return r;
-
-        r = vconsole_convert_to_x11(c);
-        if (r <= 0)
-                return r;
-
-        /* modified */
-        r = x11_write_data(c);
-        if (r < 0)
-                return log_error_errno(r, "Failed to write X11 keyboard layout: %m");
-
-        sd_bus_emit_properties_changed(sd_bus_message_get_bus(m),
-                                       "/org/freedesktop/locale1",
-                                       "org.freedesktop.locale1",
-                                       "X11Layout", "X11Model", "X11Variant", "X11Options", NULL);
-
-        return 1;
-}
-
-static int x11_convert_to_vconsole_and_emit(Context *c, sd_bus_message *m) {
-        int r;
-
-        assert(m);
-
-        r = vconsole_read_data(c, m);
-        if (r < 0)
-                return r;
-
-        r = x11_convert_to_vconsole(c);
-        if (r <= 0)
-                return r;
-
-        /* modified */
-        r = vconsole_write_data(c);
-        if (r < 0)
-                log_error_errno(r, "Failed to save virtual console keymap: %m");
-
-        sd_bus_emit_properties_changed(sd_bus_message_get_bus(m),
-                                       "/org/freedesktop/locale1",
-                                       "org.freedesktop.locale1",
-                                       "VConsoleKeymap", "VConsoleKeymapToggle", NULL);
-
-        return vconsole_reload(sd_bus_message_get_bus(m));
-}
-
 static int property_get_locale(
                 sd_bus *bus,
                 const char *path,
@@ -136,7 +84,7 @@ static int property_get_locale(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Context *c = userdata;
+        Context *c = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **l = NULL;
         int r;
 
@@ -160,8 +108,10 @@ static int property_get_vconsole(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Context *c = userdata;
+        Context *c = ASSERT_PTR(userdata);
         int r;
+
+        assert(property);
 
         r = vconsole_read_data(c, reply);
         if (r < 0)
@@ -169,7 +119,7 @@ static int property_get_vconsole(
 
         if (streq(property, "VConsoleKeymap"))
                 return sd_bus_message_append_basic(reply, 's', c->vc_keymap);
-        else if (streq(property, "VConsoleKeymapToggle"))
+        if (streq(property, "VConsoleKeymapToggle"))
                 return sd_bus_message_append_basic(reply, 's', c->vc_keymap_toggle);
 
         return -EINVAL;
@@ -184,21 +134,26 @@ static int property_get_xkb(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Context *c = userdata;
+        Context *c = ASSERT_PTR(userdata);
+        X11Context *xc;
         int r;
+
+        assert(property);
 
         r = x11_read_data(c, reply);
         if (r < 0)
                 return r;
 
+        xc = context_get_x11_context_safe(c);
+
         if (streq(property, "X11Layout"))
-                return sd_bus_message_append_basic(reply, 's', c->x11_layout);
-        else if (streq(property, "X11Model"))
-                return sd_bus_message_append_basic(reply, 's', c->x11_model);
-        else if (streq(property, "X11Variant"))
-                return sd_bus_message_append_basic(reply, 's', c->x11_variant);
-        else if (streq(property, "X11Options"))
-                return sd_bus_message_append_basic(reply, 's', c->x11_options);
+                return sd_bus_message_append_basic(reply, 's', xc->layout);
+        if (streq(property, "X11Model"))
+                return sd_bus_message_append_basic(reply, 's', xc->model);
+        if (streq(property, "X11Variant"))
+                return sd_bus_message_append_basic(reply, 's', xc->variant);
+        if (streq(property, "X11Options"))
+                return sd_bus_message_append_basic(reply, 's', xc->options);
 
         return -EINVAL;
 }
@@ -243,9 +198,9 @@ static int process_locale_list_item(
         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Locale assignment %s not valid, refusing.", assignment);
 }
 
-static int locale_gen_process_locale(char *new_locale[static _VARIABLE_LC_MAX],
-                                     sd_bus_error *error) {
+static int locale_gen_process_locale(char *new_locale[static _VARIABLE_LC_MAX], sd_bus_error *error) {
         int r;
+
         assert(new_locale);
 
         for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++) {
@@ -263,13 +218,15 @@ static int locale_gen_process_locale(char *new_locale[static _VARIABLE_LC_MAX],
                                                  SD_BUS_ERROR_INVALID_ARGS,
                                                  "Specified locale is not installed and non-UTF-8 locale will not be auto-generated: %s",
                                                  new_locale[p]);
-                } else if (r == -EINVAL) {
+                }
+                if (r == -EINVAL) {
                         log_error_errno(r, "Failed to enable invalid locale %s for generation.", new_locale[p]);
                         return sd_bus_error_setf(error,
                                                  SD_BUS_ERROR_INVALID_ARGS,
                                                  "Can not enable locale generation for invalid locale: %s",
                                                  new_locale[p]);
-                } else if (r < 0) {
+                }
+                if (r < 0) {
                         log_error_errno(r, "Failed to enable locale for generation: %m");
                         return sd_bus_error_set_errnof(error, r, "Failed to enable locale generation: %m");
                 }
@@ -460,10 +417,31 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
             free_and_strdup(&c->vc_keymap_toggle, keymap_toggle) < 0)
                 return -ENOMEM;
 
+        if (convert) {
+                r = x11_read_data(c, m);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to read X11 keyboard layout data: %m");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Failed to read X11 keyboard layout data");
+                }
+
+                r = vconsole_convert_to_x11(c);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to convert keymap data: %m");
+                        return sd_bus_error_set_errnof(error, r, "Failed to convert keymap data: %m");
+                }
+
+                /* save the result of conversion to emit changed properties later. */
+                convert = r > 0;
+        }
+
         r = vconsole_write_data(c);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set virtual console keymap: %m");
-                return sd_bus_error_set_errnof(error, r, "Failed to set virtual console keymap: %m");
+        if (r < 0)
+                log_warning_errno(r, "Failed to set virtual console keymap, ignoring: %m");
+
+        if (convert) {
+                r = x11_write_data(c);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to write X11 keyboard layout, ignoring: %m");
         }
 
         log_info("Changed virtual console keymap to '%s' toggle '%s'",
@@ -475,13 +453,12 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
                         sd_bus_message_get_bus(m),
                         "/org/freedesktop/locale1",
                         "org.freedesktop.locale1",
-                        "VConsoleKeymap", "VConsoleKeymapToggle", NULL);
-
-        if (convert) {
-                r = vconsole_convert_to_x11_and_emit(c, m);
-                if (r < 0)
-                        log_error_errno(r, "Failed to convert keymap data: %m");
-        }
+                        "VConsoleKeymap", "VConsoleKeymapToggle",
+                        convert ? "X11Layout" : NULL,
+                        convert ? "X11Model" : NULL,
+                        convert ? "X11Variant" : NULL,
+                        convert ? "X11Options" : NULL,
+                        NULL);
 
         return sd_bus_reply_method_return(m, NULL);
 }
@@ -589,19 +566,16 @@ static int verify_xkb_rmlvo(const char *model, const char *layout, const char *v
 
 static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = ASSERT_PTR(userdata);
-        const char *layout, *model, *variant, *options;
         int convert, interactive, r;
+        X11Context *xc, in;
 
         assert(m);
 
-        r = sd_bus_message_read(m, "ssssbb", &layout, &model, &variant, &options, &convert, &interactive);
+        r = sd_bus_message_read(m, "ssssbb", &in.layout, &in.model, &in.variant, &in.options, &convert, &interactive);
         if (r < 0)
                 return r;
 
-        layout = empty_to_null(layout);
-        model = empty_to_null(model);
-        variant = empty_to_null(variant);
-        options = empty_to_null(options);
+        x11_context_empty_to_null(&in);
 
         r = x11_read_data(c, m);
         if (r < 0) {
@@ -609,22 +583,18 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
                 return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Failed to read x11 keyboard layout data");
         }
 
-        if (streq_ptr(layout, c->x11_layout) &&
-            streq_ptr(model, c->x11_model) &&
-            streq_ptr(variant, c->x11_variant) &&
-            streq_ptr(options, c->x11_options))
+        xc = context_get_x11_context_safe(c);
+
+        if (x11_context_equal(xc, &in))
                 return sd_bus_reply_method_return(m, NULL);
 
-        if ((layout && !string_is_safe(layout)) ||
-            (model && !string_is_safe(model)) ||
-            (variant && !string_is_safe(variant)) ||
-            (options && !string_is_safe(options)))
+        if (!x11_context_is_safe(&in))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Received invalid keyboard data");
 
-        r = verify_xkb_rmlvo(model, layout, variant, options);
+        r = verify_xkb_rmlvo(in.model, in.layout, in.variant, in.options);
         if (r < 0) {
                 log_error_errno(r, "Cannot compile XKB keymap for new x11 keyboard layout ('%s' / '%s' / '%s' / '%s'): %m",
-                                strempty(model), strempty(layout), strempty(variant), strempty(options));
+                                strempty(in.model), strempty(in.layout), strempty(in.variant), strempty(in.options));
 
                 if (r == -EOPNOTSUPP)
                         return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Local keyboard configuration not supported on this system.");
@@ -646,35 +616,46 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        if (free_and_strdup(&c->x11_layout, layout) < 0 ||
-            free_and_strdup(&c->x11_model, model) < 0 ||
-            free_and_strdup(&c->x11_variant, variant) < 0 ||
-            free_and_strdup(&c->x11_options, options) < 0)
-                return -ENOMEM;
+        r = x11_context_copy(xc, &in);
+        if (r < 0)
+                return log_oom();
 
-        r = x11_write_data(c);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set X11 keyboard layout: %m");
-                return sd_bus_error_set_errnof(error, r, "Failed to set X11 keyboard layout: %m");
+        if (convert) {
+                r = x11_convert_to_vconsole(c);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to convert keymap data: %m");
+                        return sd_bus_error_set_errnof(error, r, "Failed to convert keymap data: %m");
+                }
+
+                /* save the result of conversion to emit changed properties later. */
+                convert = r > 0;
         }
 
+        r = vconsole_write_data(c);
+        if (r < 0)
+                log_warning_errno(r, "Failed to update vconsole.conf, ignoring: %m");
+
+        r = x11_write_data(c);
+        if (r < 0)
+                log_warning_errno(r, "Failed to set X11 keyboard layout, ignoring: %m");
+
         log_info("Changed X11 keyboard layout to '%s' model '%s' variant '%s' options '%s'",
-                 strempty(c->x11_layout),
-                 strempty(c->x11_model),
-                 strempty(c->x11_variant),
-                 strempty(c->x11_options));
+                 strempty(in.layout),
+                 strempty(in.model),
+                 strempty(in.variant),
+                 strempty(in.options));
 
         (void) sd_bus_emit_properties_changed(
                         sd_bus_message_get_bus(m),
                         "/org/freedesktop/locale1",
                         "org.freedesktop.locale1",
-                        "X11Layout", "X11Model", "X11Variant", "X11Options", NULL);
+                        "X11Layout", "X11Model", "X11Variant", "X11Options",
+                        convert ? "VConsoleKeymap" : NULL,
+                        convert ? "VConsoleKeymapToggle" : NULL,
+                        NULL);
 
-        if (convert) {
-                r = x11_convert_to_vconsole_and_emit(c, m);
-                if (r < 0)
-                        log_error_errno(r, "Failed to convert keymap data: %m");
-        }
+        if (convert)
+                (void) vconsole_reload(sd_bus_message_get_bus(m));
 
         return sd_bus_reply_method_return(m, NULL);
 }
