@@ -253,7 +253,7 @@ int prioq_remove(Prioq *q, void *data, unsigned *idx) {
         return 1;
 }
 
-int prioq_reshuffle(Prioq *q, void *data, unsigned *idx) {
+void prioq_reshuffle(Prioq *q, void *data, unsigned *idx) {
         struct prioq_item *i;
         unsigned k;
 
@@ -261,12 +261,11 @@ int prioq_reshuffle(Prioq *q, void *data, unsigned *idx) {
 
         i = find_item(q, data, idx);
         if (!i)
-                return 0;
+                return;
 
         k = i - q->items;
         k = shuffle_down(q, k);
         shuffle_up(q, k);
-        return 1;
 }
 
 void *prioq_peek_by_index(Prioq *q, unsigned idx) {

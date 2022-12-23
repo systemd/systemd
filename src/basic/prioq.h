@@ -18,7 +18,7 @@ int prioq_ensure_allocated(Prioq **q, compare_func_t compare_func);
 int prioq_put(Prioq *q, void *data, unsigned *idx);
 int prioq_ensure_put(Prioq **q, compare_func_t compare_func, void *data, unsigned *idx);
 int prioq_remove(Prioq *q, void *data, unsigned *idx);
-int prioq_reshuffle(Prioq *q, void *data, unsigned *idx);
+void prioq_reshuffle(Prioq *q, void *data, unsigned *idx);
 
 void *prioq_peek_by_index(Prioq *q, unsigned idx) _pure_;
 static inline void *prioq_peek(Prioq *q) {
