@@ -60,13 +60,19 @@ int generator_open_unit_file(
 }
 
 int generator_add_symlink(const char *dir, const char *dst, const char *dep_type, const char *src) {
+        _cleanup_free_ char *bn = NULL;
+        const char *from, *to;
+        int r;
+
         /* Adds a symlink from <dst>.<dep_type>/ to <src> (if src is absolute)
          * or ../<src> (otherwise). */
 
-        const char *from, *to;
+        r = path_extract_filename(src, &bn);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract filename from '%s': %m", src);
 
         from = path_is_absolute(src) ? src : strjoina("../", src);
-        to = strjoina(dir, "/", dst, ".", dep_type, "/", basename(src));
+        to = strjoina(dir, "/", dst, ".", dep_type, "/", bn);
 
         (void) mkdir_parents_label(to, 0755);
         if (symlink(from, to) < 0)

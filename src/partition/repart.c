@@ -2461,7 +2461,7 @@ static int context_dump_partitions(Context *context) {
                                 TABLE_STRING, gpt_partition_type_uuid_to_string_harder(p->type.uuid, uuid_buffer),
                                 TABLE_STRING, empty_to_null(label) ?: "-", TABLE_SET_COLOR, empty_to_null(label) ? NULL : ansi_grey(),
                                 TABLE_UUID, p->new_uuid_is_set ? p->new_uuid : p->current_uuid,
-                                TABLE_STRING, p->definition_path ? basename(p->definition_path) : "-", TABLE_SET_COLOR, p->definition_path ? NULL : ansi_grey(),
+                                TABLE_PATH_BASENAME, p->definition_path, TABLE_SET_COLOR, p->definition_path ? NULL : ansi_grey(),
                                 TABLE_STRING, partname ?: "-", TABLE_SET_COLOR, partname ? NULL : ansi_highlight(),
                                 TABLE_UINT64, p->offset,
                                 TABLE_UINT64, p->current_size == UINT64_MAX ? 0 : p->current_size,
@@ -2580,10 +2580,8 @@ static int partition_hint(const Partition *p, const char *node, char **ret) {
 
         /* Tries really hard to find a suitable description for this partition */
 
-        if (p->definition_path) {
-                buf = strdup(basename(p->definition_path));
-                goto done;
-        }
+        if (p->definition_path)
+                return path_extract_filename(p->definition_path, ret);
 
         label = partition_label(p);
         if (!isempty(label)) {
