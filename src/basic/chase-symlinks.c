@@ -91,10 +91,6 @@ int chase_symlinks_at(
         assert(!FLAGS_SET(flags, CHASE_PREFIX_ROOT));
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
-        /* Either the file may be missing, or we return an fd to the final object, but both make no sense */
-        if ((flags & CHASE_NONEXISTENT) && ret_fd)
-                return -EINVAL;
-
         if ((flags & CHASE_STEP) && ret_fd)
                 return -EINVAL;
 
@@ -380,13 +376,10 @@ int chase_symlinks_at(
         if (ret_path)
                 *ret_path = TAKE_PTR(done);
 
-        if (ret_fd) {
+        if (ret_fd)
                 /* Return the O_PATH fd we currently are looking to the caller. It can translate it to a
                  * proper fd by opening /proc/self/fd/xyz. */
-
-                assert(fd >= 0);
-                *ret_fd = TAKE_FD(fd);
-        }
+                *ret_fd = exists ? TAKE_FD(fd) : -EBADF;
 
         if (flags & CHASE_STEP)
                 return 1;
