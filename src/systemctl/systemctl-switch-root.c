@@ -3,14 +3,34 @@
 #include "argv-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "chase-symlinks.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "signal-util.h"
 #include "stat-util.h"
+#include "systemctl.h"
 #include "systemctl-switch-root.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
+
+static int same_file_in_root(
+                const char *root,
+                const char *a,
+                const char *b) {
+
+        struct stat sta, stb;
+        int r;
+
+        r = chase_symlinks_and_stat(a, root, CHASE_PREFIX_ROOT, NULL, &sta, NULL);
+        if (r < 0)
+                return r;
+
+        r = chase_symlinks_and_stat(b, root, CHASE_PREFIX_ROOT, NULL, &stb, NULL);
+        if (r < 0)
+                return r;
+
+        return stat_inode_same(&sta, &stb);
+}
 
 int verb_switch_root(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -26,6 +46,10 @@ int verb_switch_root(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Wrong number of arguments.");
 
         root = argv[1];
+        if (!path_is_valid(root))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid root path: %s", root);
+        if (!path_is_absolute(root))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Root path is not absolute: %s", root);
 
         if (argc >= 3)
                 init = argv[2];
@@ -39,13 +63,13 @@ int verb_switch_root(int argc, char *argv[], void *userdata) {
 
         init = empty_to_null(init);
         if (init) {
-                const char *root_systemd_path = NULL, *root_init_path = NULL;
-
-                root_systemd_path = prefix_roota(root, "/" SYSTEMD_BINARY_PATH);
-                root_init_path = prefix_roota(root, init);
+                if (!path_is_valid(init))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid path to init binary: %s", init);
+                if (!path_is_absolute(init))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Path to init binary is not absolute: %s", init);
 
                 /* If the passed init is actually the same as the systemd binary, then let's suppress it. */
-                if (files_same(root_init_path, root_systemd_path, 0) > 0)
+                if (same_file_in_root(root, SYSTEMD_BINARY_PATH, init) > 0)
                         init = NULL;
         }
 
