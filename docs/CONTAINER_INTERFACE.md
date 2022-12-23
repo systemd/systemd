@@ -298,9 +298,9 @@ care should be taken to avoid naming conflicts. `systemd` (and in particular
    you cannot link them to each other.
 
 4. Do not pretend that the real VTs are available in the container. The VT
-   subsystem consists of all the devices `/dev/tty*`, `/dev/vcs*`, `/dev/vcsa*`
-   plus their `sysfs` counterparts. They speak specific `ioctl()`s and
-   understand specific escape sequences, that other ptys don't understand.
+   subsystem consists of all the devices `/dev/tty[0-9]*`, `/dev/vcs*`,
+   `/dev/vcsa*` plus their `sysfs` counterparts. They speak specific `ioctl()`s
+   and understand specific escape sequences, that other ptys don't understand.
    Hence, it is explicitly not OK to mount a pty to `/dev/tty1`, `/dev/tty2`,
    `/dev/tty3`. This is explicitly not supported.
 
