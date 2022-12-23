@@ -10,7 +10,7 @@
 [Unit]
 Description=Container %i
 Documentation=man:systemd-nspawn(1)
-Wants=modprobe@tun.service modprobe@loop.service modprobe@dm-mod.service
+Wants=modprobe@tun.service modprobe@loop.service modprobe@dm_mod.service
 PartOf=machines.target
 Before=machines.target
 After=network.target modprobe@tun.service modprobe@loop.service modprobe@dm_mod.service
