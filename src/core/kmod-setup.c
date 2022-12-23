@@ -130,7 +130,7 @@ int kmod_setup(void) {
         _cleanup_(kmod_unrefp) struct kmod_ctx *ctx = NULL;
         unsigned i;
 
-        if (have_effective_cap(CAP_SYS_MODULE) == 0)
+        if (have_effective_cap(CAP_SYS_MODULE) <= 0)
                 return 0;
 
         for (i = 0; i < ELEMENTSOF(kmod_table); i++) {

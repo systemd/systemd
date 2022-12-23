@@ -161,7 +161,7 @@ static void test_drop_privileges_fail(void) {
 static void test_drop_privileges(void) {
         fork_test(test_drop_privileges_fail);
 
-        if (have_effective_cap(CAP_NET_RAW) == 0) /* The remaining two tests only work if we have CAP_NET_RAW
+        if (have_effective_cap(CAP_NET_RAW) <= 0) /* The remaining two tests only work if we have CAP_NET_RAW
                                                    * in the first place. If we are run in some restricted
                                                    * container environment we might not. */
                 return;
@@ -171,15 +171,15 @@ static void test_drop_privileges(void) {
 }
 
 static void test_have_effective_cap(void) {
-        assert_se(have_effective_cap(CAP_KILL));
-        assert_se(have_effective_cap(CAP_CHOWN));
+        assert_se(have_effective_cap(CAP_KILL) > 0);
+        assert_se(have_effective_cap(CAP_CHOWN) > 0);
 
         assert_se(drop_privileges(test_uid, test_gid, test_flags | (1ULL << CAP_KILL)) >= 0);
         assert_se(getuid() == test_uid);
         assert_se(getgid() == test_gid);
 
-        assert_se(have_effective_cap(CAP_KILL));
-        assert_se(!have_effective_cap(CAP_CHOWN));
+        assert_se(have_effective_cap(CAP_KILL) > 0);
+        assert_se(have_effective_cap(CAP_CHOWN) == 0);
 }
 
 static void test_update_inherited_set(void) {

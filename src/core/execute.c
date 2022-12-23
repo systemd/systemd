@@ -1433,7 +1433,7 @@ static bool context_has_no_new_privileges(const ExecContext *c) {
         if (c->no_new_privileges)
                 return true;
 
-        if (have_effective_cap(CAP_SYS_ADMIN)) /* if we are privileged, we don't need NNP */
+        if (have_effective_cap(CAP_SYS_ADMIN) > 0) /* if we are privileged, we don't need NNP */
                 return false;
 
         /* We need NNP if we have any form of seccomp and are unprivileged */
@@ -2117,7 +2117,7 @@ static int setup_private_users(uid_t ouid, gid_t ogid, uid_t uid, gid_t gid) {
          * does not need CAP_SETUID to write the single line mapping to itself. */
 
         /* Can only set up multiple mappings with CAP_SETUID. */
-        if (have_effective_cap(CAP_SETUID) && uid != ouid && uid_is_valid(uid))
+        if (have_effective_cap(CAP_SETUID) > 0 && uid != ouid && uid_is_valid(uid))
                 r = asprintf(&uid_map,
                              UID_FMT " " UID_FMT " 1\n"     /* Map $OUID → $OUID */
                              UID_FMT " " UID_FMT " 1\n",    /* Map $UID → $UID */
@@ -2131,7 +2131,7 @@ static int setup_private_users(uid_t ouid, gid_t ogid, uid_t uid, gid_t gid) {
                 return -ENOMEM;
 
         /* Can only set up multiple mappings with CAP_SETGID. */
-        if (have_effective_cap(CAP_SETGID) && gid != ogid && gid_is_valid(gid))
+        if (have_effective_cap(CAP_SETGID) > 0 && gid != ogid && gid_is_valid(gid))
                 r = asprintf(&gid_map,
                              GID_FMT " " GID_FMT " 1\n"     /* Map $OGID → $OGID */
                              GID_FMT " " GID_FMT " 1\n",    /* Map $GID → $GID */
@@ -4669,7 +4669,7 @@ static int exec_child(
                 }
         }
 
-        if (needs_sandboxing && context->private_users && !have_effective_cap(CAP_SYS_ADMIN)) {
+        if (needs_sandboxing && context->private_users && have_effective_cap(CAP_SYS_ADMIN) <= 0) {
                 /* If we're unprivileged, set up the user namespace first to enable use of the other namespaces.
                  * Users with CAP_SYS_ADMIN can set up user namespaces last because they will be able to
                  * set up the all of the other namespaces (i.e. network, mount, UTS) without a user namespace. */

@@ -19,7 +19,7 @@ static int audit_fd;
 int get_audit_fd(void) {
 
         if (!initialized) {
-                if (have_effective_cap(CAP_AUDIT_WRITE) == 0) {
+                if (have_effective_cap(CAP_AUDIT_WRITE) <= 0) {
                         audit_fd = -EPERM;
                         initialized = true;
 
