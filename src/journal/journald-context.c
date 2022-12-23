@@ -540,7 +540,7 @@ static void client_context_really_refresh(
 
         if (c->in_lru) {
                 assert(c->n_ref == 0);
-                assert_se(prioq_reshuffle(s->client_contexts_lru, c, &c->lru_index) >= 0);
+                prioq_reshuffle(s->client_contexts_lru, c, &c->lru_index);
         }
 }
 
