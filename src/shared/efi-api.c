@@ -524,20 +524,32 @@ bool efi_has_tpm2(void) {
 
         /* Returns whether the system has a TPM2 chip which is known to the EFI firmware. */
 
-        if (cache < 0) {
+        if (cache >= 0)
+                return cache;
 
-                /* First, check if we are on an EFI boot at all. */
-                if (!is_efi_boot())
-                        cache = false;
-                else {
-                        /* Then, check if the ACPI table "TPM2" exists, which is the TPM2 event log table, see:
-                         * https://trustedcomputinggroup.org/wp-content/uploads/TCG_ACPIGeneralSpecification_v1.20_r8.pdf
-                         * This table exists whenever the firmware is hooked up to TPM2. */
-                        cache = access("/sys/firmware/acpi/tables/TPM2", F_OK) >= 0;
-                        if (!cache && errno != ENOENT)
-                                log_debug_errno(errno, "Unable to test whether /sys/firmware/acpi/tables/TPM2 exists, assuming it doesn't: %m");
-                }
+        /* First, check if we are on an EFI boot at all. */
+        if (!is_efi_boot()) {
+                cache = 0;
+                return cache;
         }
+
+        /* Then, check if the ACPI table "TPM2" exists, which is the TPM2 event log table, see:
+         * https://trustedcomputinggroup.org/wp-content/uploads/TCG_ACPIGeneralSpecification_v1.20_r8.pdf
+         * This table exists whenever the firmware is hooked up to TPM2. */
+        cache = access("/sys/firmware/acpi/tables/TPM2", F_OK) >= 0;
+        if (cache)
+                return cache;
+
+        if (errno != ENOENT)
+                log_debug_errno(errno, "Unable to test whether /sys/firmware/acpi/tables/TPM2 exists, assuming it doesn't: %m");
+
+        /* As the last try, check if the EFI firmware provides the EFI_TCG2_FINAL_EVENTS_TABLE
+         * stored in EFI configuration table, see:
+         * https://trustedcomputinggroup.org/wp-content/uploads/EFI-Protocol-Specification-rev13-160330final.pdf
+         */
+        cache = access("/sys/kernel/security/tpm0/binary_bios_measurements", F_OK) >= 0;
+        if (!cache && errno != ENOENT)
+                log_debug_errno(errno, "Unable to test whether /sys/kernel/security/tpm0/binary_bios_measurements exists, assuming it doesn't: %m");
 
         return cache;
 }
