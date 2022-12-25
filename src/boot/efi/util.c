@@ -275,10 +275,22 @@ char16_t *xstr8_to_path(const char *str8) {
 }
 
 void mangle_stub_cmdline(char16_t *cmdline) {
+        char16_t *p = cmdline;
+
         for (; *cmdline != '\0'; cmdline++)
                 /* Convert ASCII control characters to spaces. */
                 if (*cmdline <= 0x1F)
                         *cmdline = ' ';
+
+        /* chomp the trailing whitespaces */
+        while (cmdline != p) {
+                --cmdline;
+
+                if (*cmdline != ' ')
+                        break;
+
+                *cmdline = '\0';
+        }
 }
 
 EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, UINTN off, UINTN size, char **ret, UINTN *ret_size) {
