@@ -175,6 +175,7 @@ static bool test_pointers(sd_device *dev,
         bool is_joystick = false;
         bool is_accelerometer = false;
         bool is_pointing_stick = false;
+        bool has_wheel = false;
 
         has_keys = test_bit(EV_KEY, bitmask_ev);
         has_abs_coordinates = test_bit(ABS_X, bitmask_abs) && test_bit(ABS_Y, bitmask_abs);
@@ -203,7 +204,8 @@ static bool test_pointers(sd_device *dev,
                 has_mt_coordinates = false;
         is_direct = test_bit(INPUT_PROP_DIRECT, bitmask_props);
         has_touch = test_bit(BTN_TOUCH, bitmask_key);
-        has_pad_buttons = test_bit(BTN_0, bitmask_key) && has_stylus && !has_pen;
+        has_pad_buttons = test_bit(BTN_0, bitmask_key) && test_bit(BTN_1, bitmask_key) && !has_pen;
+        has_wheel = test_bit(EV_REL, bitmask_ev) && (test_bit(REL_WHEEL, bitmask_rel) || test_bit(REL_HWHEEL, bitmask_rel));
 
         /* joysticks don't necessarily have buttons; e. g.
          * rudders/pedals are joystick-like, but buttonless; they have
@@ -256,8 +258,11 @@ static bool test_pointers(sd_device *dev,
         if (is_tablet && has_pad_buttons)
                 is_tablet_pad = true;
 
+        if (has_pad_buttons && has_wheel)
+                is_tablet_pad = true;
+
         if (!is_tablet && !is_touchpad && !is_joystick &&
-            has_mouse_button &&
+            has_mouse_button && !has_pad_buttons &&
             (has_rel_coordinates ||
             !has_abs_coordinates)) /* mouse buttons and no axis */
                 is_mouse = true;
@@ -290,6 +295,13 @@ static bool test_pointers(sd_device *dev,
                         log_device_debug(dev, "Input device has %zu joystick buttons and %zu axes but also %zu keyboard key sets, "
                                          "assuming this is a keyboard, not a joystick.",
                                          num_joystick_buttons, num_joystick_axes, num_well_known_keys);
+                        is_joystick = false;
+                }
+
+                if (has_wheel && has_pad_buttons) {
+                        log_device_debug(dev, "Input device has %zu joystick buttons as well as tablet pad buttons, "
+                                        "assuming this is a tablet pad, not a joystick.", num_joystick_buttons);
+
                         is_joystick = false;
                 }
         }
