@@ -901,10 +901,11 @@ static int mtree_print_item(
         int r;
 
         assert(path);
-        assert(sx);
 
         if (IN_SET(event, RECURSE_DIR_ENTER, RECURSE_DIR_ENTRY)) {
                 _cleanup_free_ char *escaped = NULL;
+
+                assert(sx);
 
                 if (isempty(path))
                         path = ".";
