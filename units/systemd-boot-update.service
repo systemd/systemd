@@ -10,9 +10,10 @@
 [Unit]
 Description=Automatic Boot Loader Update
 Documentation=man:bootctl(1)
+
 DefaultDependencies=no
-Conflicts=shutdown.target
 After=local-fs.target
+Conflicts=shutdown.target
 Before=sysinit.target shutdown.target systemd-update-done.service
 
 [Service]
