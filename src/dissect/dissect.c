@@ -848,7 +848,7 @@ static int list_print_item(
                 const struct statx *sx,
                 void *userdata) {
 
-        assert_se(path);
+        assert(path);
 
         if (event == RECURSE_DIR_ENTER)
                 printf("%s%s/%s\n", path, ansi_grey(), ansi_normal());
@@ -900,8 +900,8 @@ static int mtree_print_item(
 
         int r;
 
-        assert_se(path);
-        assert_se(sx);
+        assert(path);
+        assert(sx);
 
         if (IN_SET(event, RECURSE_DIR_ENTER, RECURSE_DIR_ENTRY)) {
                 _cleanup_free_ char *escaped = NULL;
