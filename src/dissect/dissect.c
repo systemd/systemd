@@ -848,7 +848,7 @@ static int list_print_item(
                 const struct statx *sx,
                 void *userdata) {
 
-        assert_se(path);
+        assert(path);
 
         if (event == RECURSE_DIR_ENTER)
                 printf("%s%s/%s\n", path, ansi_grey(), ansi_normal());
@@ -898,122 +898,121 @@ static int mtree_print_item(
                 const struct statx *sx,
                 void *userdata) {
 
+        _cleanup_free_ char *escaped = NULL;
         int r;
 
-        assert_se(path);
-        assert_se(sx);
+        assert(path);
 
-        if (IN_SET(event, RECURSE_DIR_ENTER, RECURSE_DIR_ENTRY)) {
-                _cleanup_free_ char *escaped = NULL;
+        if (!IN_SET(event, RECURSE_DIR_ENTER, RECURSE_DIR_ENTRY))
+                return RECURSE_DIR_CONTINUE;
 
-                if (isempty(path))
-                        path = ".";
-                else {
-                        /* BSD mtree uses either C or octal escaping, and covers whitespace, comments and glob characters. We use C style escaping and follow suit */
-                        escaped = xescape(path, WHITESPACE COMMENTS GLOB_CHARS);
-                        if (!escaped)
-                                return log_oom();
+        assert(sx);
 
-                        path = escaped;
-                }
+        if (isempty(path))
+                path = ".";
+        else {
+                /* BSD mtree uses either C or octal escaping, and covers whitespace, comments and glob characters. We use C style escaping and follow suit */
+                path = escaped = xescape(path, WHITESPACE COMMENTS GLOB_CHARS);
+                if (!escaped)
+                        return log_oom();
+        }
 
-                printf("%s", isempty(path) ? "." : path);
+        printf("%s", isempty(path) ? "." : path);
 
-                if (FLAGS_SET(sx->stx_mask, STATX_TYPE)) {
-                        if (S_ISDIR(sx->stx_mode))
-                                printf("%s/%s", ansi_grey(), ansi_normal());
+        if (FLAGS_SET(sx->stx_mask, STATX_TYPE)) {
+                if (S_ISDIR(sx->stx_mode))
+                        printf("%s/%s", ansi_grey(), ansi_normal());
 
-                        printf(" %stype=%s%s%s%s",
-                               ansi_grey(),
-                               ansi_normal(),
-                               S_ISDIR(sx->stx_mode) ? ansi_highlight_blue() :
-                               S_ISLNK(sx->stx_mode) ? ansi_highlight_cyan() :
-                               (S_ISFIFO(sx->stx_mode) || S_ISCHR(sx->stx_mode) || S_ISBLK(sx->stx_mode)) ? ansi_highlight_yellow4() :
-                               S_ISSOCK(sx->stx_mode) ? ansi_highlight_magenta() : "",
-                               ASSERT_PTR(S_ISDIR(sx->stx_mode) ? "dir" :
-                                          S_ISREG(sx->stx_mode) ? "file" :
-                                          S_ISLNK(sx->stx_mode) ? "link" :
-                                          S_ISFIFO(sx->stx_mode) ? "fifo" :
-                                          S_ISBLK(sx->stx_mode) ? "block" :
-                                          S_ISCHR(sx->stx_mode) ? "char" :
-                                          S_ISSOCK(sx->stx_mode) ? "socket" : NULL),
-                               ansi_normal());
-                }
+                printf(" %stype=%s%s%s%s",
+                       ansi_grey(),
+                       ansi_normal(),
+                       S_ISDIR(sx->stx_mode) ? ansi_highlight_blue() :
+                       S_ISLNK(sx->stx_mode) ? ansi_highlight_cyan() :
+                       (S_ISFIFO(sx->stx_mode) || S_ISCHR(sx->stx_mode) || S_ISBLK(sx->stx_mode)) ? ansi_highlight_yellow4() :
+                       S_ISSOCK(sx->stx_mode) ? ansi_highlight_magenta() : "",
+                       ASSERT_PTR(S_ISDIR(sx->stx_mode) ? "dir" :
+                                  S_ISREG(sx->stx_mode) ? "file" :
+                                  S_ISLNK(sx->stx_mode) ? "link" :
+                                  S_ISFIFO(sx->stx_mode) ? "fifo" :
+                                  S_ISBLK(sx->stx_mode) ? "block" :
+                                  S_ISCHR(sx->stx_mode) ? "char" :
+                                  S_ISSOCK(sx->stx_mode) ? "socket" : NULL),
+                       ansi_normal());
+        }
 
-                if (FLAGS_SET(sx->stx_mask, STATX_MODE) && (!FLAGS_SET(sx->stx_mask, STATX_TYPE) || !S_ISLNK(sx->stx_mode)))
-                        printf(" %smode=%s%04o",
-                               ansi_grey(),
-                               ansi_normal(),
-                               (unsigned) (sx->stx_mode & 0777));
+        if (FLAGS_SET(sx->stx_mask, STATX_MODE) && (!FLAGS_SET(sx->stx_mask, STATX_TYPE) || !S_ISLNK(sx->stx_mode)))
+                printf(" %smode=%s%04o",
+                       ansi_grey(),
+                       ansi_normal(),
+                       (unsigned) (sx->stx_mode & 0777));
 
-                if (FLAGS_SET(sx->stx_mask, STATX_UID))
-                        printf(" %suid=%s" UID_FMT,
-                               ansi_grey(),
-                               ansi_normal(),
-                               sx->stx_uid);
+        if (FLAGS_SET(sx->stx_mask, STATX_UID))
+                printf(" %suid=%s" UID_FMT,
+                       ansi_grey(),
+                       ansi_normal(),
+                       sx->stx_uid);
 
-                if (FLAGS_SET(sx->stx_mask, STATX_GID))
-                        printf(" %sgid=%s" GID_FMT,
-                               ansi_grey(),
-                               ansi_normal(),
-                               sx->stx_gid);
+        if (FLAGS_SET(sx->stx_mask, STATX_GID))
+                printf(" %sgid=%s" GID_FMT,
+                       ansi_grey(),
+                       ansi_normal(),
+                       sx->stx_gid);
 
-                if (FLAGS_SET(sx->stx_mask, STATX_TYPE|STATX_SIZE) && S_ISREG(sx->stx_mode)) {
-                        printf(" %ssize=%s%" PRIu64,
-                               ansi_grey(),
-                               ansi_normal(),
-                               (uint64_t) sx->stx_size);
+        if (FLAGS_SET(sx->stx_mask, STATX_TYPE|STATX_SIZE) && S_ISREG(sx->stx_mode)) {
+                printf(" %ssize=%s%" PRIu64,
+                       ansi_grey(),
+                       ansi_normal(),
+                       (uint64_t) sx->stx_size);
 
-                        if (inode_fd >= 0 && sx->stx_size > 0) {
-                                uint8_t hash[SHA256_DIGEST_SIZE];
+                if (inode_fd >= 0 && sx->stx_size > 0) {
+                        uint8_t hash[SHA256_DIGEST_SIZE];
 
-                                r = get_file_sha256(inode_fd, hash);
-                                if (r < 0)
-                                        log_warning_errno(r, "Failed to calculate file SHA256 sum for '%s', ignoring: %m", path);
-                                else {
-                                        _cleanup_free_ char *h = NULL;
-
-                                        h = hexmem(hash, sizeof(hash));
-                                        if (!h)
-                                                return log_oom();
-
-                                        printf(" %ssha256sum=%s%s",
-                                               ansi_grey(),
-                                               ansi_normal(),
-                                               h);
-                                }
-                        }
-                }
-
-                if (FLAGS_SET(sx->stx_mask, STATX_TYPE) && S_ISLNK(sx->stx_mode) && inode_fd >= 0) {
-                        _cleanup_free_ char *target = NULL;
-
-                        r = readlinkat_malloc(inode_fd, "", &target);
+                        r = get_file_sha256(inode_fd, hash);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to read symlink '%s', ignoring: %m", path);
+                                log_warning_errno(r, "Failed to calculate file SHA256 sum for '%s', ignoring: %m", path);
                         else {
-                                _cleanup_free_ char *target_escaped = NULL;
+                                _cleanup_free_ char *h = NULL;
 
-                                target_escaped = xescape(target, WHITESPACE COMMENTS GLOB_CHARS);
-                                if (!target_escaped)
+                                h = hexmem(hash, sizeof(hash));
+                                if (!h)
                                         return log_oom();
 
-                                printf(" %slink=%s%s",
+                                printf(" %ssha256sum=%s%s",
                                        ansi_grey(),
                                        ansi_normal(),
-                                       target_escaped);
+                                       h);
                         }
                 }
+        }
 
-                if (FLAGS_SET(sx->stx_mask, STATX_TYPE) && (S_ISBLK(sx->stx_mode) || S_ISCHR(sx->stx_mode)))
-                        printf(" %sdevice=%slinux,%" PRIu64 ",%" PRIu64,
+        if (FLAGS_SET(sx->stx_mask, STATX_TYPE) && S_ISLNK(sx->stx_mode) && inode_fd >= 0) {
+                _cleanup_free_ char *target = NULL;
+
+                r = readlinkat_malloc(inode_fd, "", &target);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to read symlink '%s', ignoring: %m", path);
+                else {
+                        _cleanup_free_ char *target_escaped = NULL;
+
+                        target_escaped = xescape(target, WHITESPACE COMMENTS GLOB_CHARS);
+                        if (!target_escaped)
+                                return log_oom();
+
+                        printf(" %slink=%s%s",
                                ansi_grey(),
                                ansi_normal(),
-                               (uint64_t) sx->stx_rdev_major,
-                               (uint64_t) sx->stx_rdev_minor);
-
-                printf("\n");
+                               target_escaped);
+                }
         }
+
+        if (FLAGS_SET(sx->stx_mask, STATX_TYPE) && (S_ISBLK(sx->stx_mode) || S_ISCHR(sx->stx_mode)))
+                printf(" %sdevice=%slinux,%" PRIu64 ",%" PRIu64,
+                       ansi_grey(),
+                       ansi_normal(),
+                       (uint64_t) sx->stx_rdev_major,
+                       (uint64_t) sx->stx_rdev_minor);
+
+        printf("\n");
 
         return RECURSE_DIR_CONTINUE;
 }
