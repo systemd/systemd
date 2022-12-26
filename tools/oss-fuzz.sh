@@ -34,11 +34,12 @@ else
 
     apt-get update
     apt-get install -y gperf m4 gettext python3-pip \
-        libcap-dev libmount-dev \
         pkg-config wget python3-jinja2 zipmerge
 
+    apt-get install -y autoconf automake autopoint bison libtool
+
     if [[ "$ARCHITECTURE" == i386 ]]; then
-        apt-get install -y pkg-config:i386 libcap-dev:i386 libmount-dev:i386
+        apt-get install -y pkg-config:i386
     fi
 
     # gnu-efi is installed here to enable -Dgnu-efi behind which fuzz-bcd
@@ -71,6 +72,42 @@ else
         # Let's just fail here for now to make it clear that fuzz-introspector isn't supported.
         exit 1
     fi
+
+    target_dir="$(pwd)/deps"
+
+    git clone https://git.kernel.org/pub/scm/libs/libcap/libcap
+    pushd libcap
+    git checkout 4f96e6788d535da5f57a3452a54b8d92bd41cd8e # v1.2.66
+    make prefix="$target_dir/usr" lib="lib" -j"$(nproc)" -C libcap CC="$CC" V=1
+    make DESTDIR="$target_dir" lib="usr/lib" -C libcap install V=1 CC="$CC"
+    popd
+
+    git clone https://github.com/util-linux/util-linux
+    pushd util-linux
+    git checkout 1f5129b79ad232c79ecbac31998e96c20ff4c90c # v2.38
+    ./autogen.sh
+    ./configure --prefix="$target_dir/usr" --disable-all-programs --enable-libuuid --enable-libblkid --enable-libmount
+    make -j"$(nproc)" V=1
+    make install V=1
+    popd
+
+    git clone https://github.com/besser82/libxcrypt
+    pushd libxcrypt
+    git checkout d7fe1ac04c326dba7e0440868889d1dccb41a175 # v4.4.33
+
+    # ASan isn't compatible with -Wl,zdefs
+    sed -i 's/UNDEF_FLAG=".*/UNDEF_FLAG=/' configure.ac
+
+    ./autogen.sh
+    ./configure --prefix=/usr
+    make -j"$(nproc)" V=1
+    make install V=1
+    popd
+
+    CFLAGS+=" -I$target_dir/usr/include"
+    CXXFLAGS+=" -I$target_dir/usr/include"
+    export LIBRARY_PATH="$target_dir/usr/lib"
+    export PKG_CONFIG_PATH="$target_dir/usr/lib/pkgconfig"
 fi
 
 if ! meson "$build" "-D$fuzzflag" -Db_lundef=false; then
@@ -109,6 +146,36 @@ install -Dt "$OUT/src/shared/" \
         "$build"/src/shared/libsystemd-shared-*.so \
         "$build"/src/core/libsystemd-core-*.so
 
+is_instrumented() {
+    local _path="$1"
+    local _call_insn _asan_calls _ubsan_calls _msan_calls
+
+    if [[ $ARCHITECTURE == "x86_64" ]]; then
+        _call_insn="callq?\s+[0-9a-f]+\s+<"
+    elif [[ $ARCHITECTURE == "i386" ]]; then
+        _call_insn="call\s+[0-9a-f]+\s+<"
+    elif [[ $ARCHITECTURE == "aarch64" ]]; then
+        _call_insn="bl\s+[0-9a-f]+\s+<"
+    else
+        return 1
+    fi
+
+
+    if [[ "$SANITIZER" == address ]]; then
+        _asan_calls=$(objdump -dC "$_path" | grep -E "${_call_insn}__asan" -c)
+        [[ "$_asan_calls" -gt 100 ]] && return 0 || return 1
+    elif [[ "$SANITIZER" == memory ]]; then
+        _msan_calls=$(objdump -dC "$_path" | grep -E "${_call_insn}__msan" -c)
+        [[ "$_msan_calls" -gt 100 ]] && return 0 || return 1
+    elif [[ "$SANITIZER" == undefined ]]; then
+        _ubsan_calls=$(objdump -dC "$_path" | grep -E "${_call_insn}__ubsan" -c)
+        [[ "$_ubsan_calls" -gt 100 ]] && return 0 || return 1
+    else
+        return 1
+    fi
+}
+
+# TODO: make sure coverage reports still can be built
 # Most i386 libraries have to be brought to the runtime environment somehow. Ideally they
 # should be linked statically but since it isn't possible another way to keep them close
 # to the fuzz targets is used here. The dependencies are copied to "$OUT/src/shared" and
@@ -116,9 +183,22 @@ install -Dt "$OUT/src/shared/" \
 # is chosen because the runtime search path of all the fuzz targets already points to it
 # to load "libsystemd-shared" and "libsystemd-core". Stuff like that should be avoided on
 # x86_64 because it tends to break coverage reports, fuzz-introspector, CIFuzz and so on.
-if [[ "$ARCHITECTURE" == i386 ]]; then
-    for lib_path in $(ldd "$OUT"/src/shared/libsystemd-shared-*.so | perl -lne 'print $1 if m{=>\s+(/lib\S+)}'); do
+if [[ -n "$FUZZING_ENGINE" ]]; then
+    LD_LIBRARY_PATH="$LIBRARY_PATH" ldd "$OUT"/src/shared/libsystemd-shared-*.so
+
+    if LD_LIBRARY_PATH="$LIBRARY_PATH" ldd "$OUT"/src/shared/libsystemd-shared-*.so | grep -i 'not found'; then
+        printf "Runtime dependencies are missing" >&2
+        exit 1
+    fi
+
+    for lib_path in $(LD_LIBRARY_PATH="$LIBRARY_PATH" ldd "$OUT"/src/shared/libsystemd-shared-*.so | perl -lne 'print $1 if m{=>\s+(\S+/lib\S+)}'); do
         lib_name=$(basename "$lib_path")
+        if [[ "$lib_name" =~ libcap|libmount|libcrypt ]]; then
+            if ! is_instrumented "$lib_path"; then
+                printf "%s isn't instrumented" "$lib_path" >&2
+            fi
+        fi
+
         cp "$lib_path" "$OUT/src/shared"
         patchelf --set-rpath \$ORIGIN "$OUT/src/shared/$lib_name"
     done
