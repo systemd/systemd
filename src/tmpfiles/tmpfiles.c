@@ -138,6 +138,7 @@ typedef struct Item {
         char **xattrs;
 #if HAVE_ACL
         acl_t acl_access;
+        acl_t acl_access_cond_exec;
         acl_t acl_default;
 #endif
         uid_t uid;
@@ -1115,7 +1116,8 @@ static int parse_acls_from_arg(Item *item) {
         /* If append_or_force (= modify) is set, we will not modify the acl
          * afterwards, so the mask can be added now if necessary. */
 
-        r = parse_acl(item->argument, &item->acl_access, &item->acl_default, !item->append_or_force);
+        r = parse_acl(item->argument, &item->acl_access, &item->acl_access_cond_exec,
+                      &item->acl_default, !item->append_or_force);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse ACL \"%s\": %m. Ignoring", item->argument);
 #else
@@ -1126,6 +1128,85 @@ static int parse_acls_from_arg(Item *item) {
 }
 
 #if HAVE_ACL
+static int set_acl_cond_exec(const char *path, acl_t cond_exec, acl_t *ret, bool isdir) {
+        _cleanup_(acl_freep) acl_t old = NULL;
+        acl_entry_t entry, ret_entry;
+        acl_permset_t permset;
+        bool has_exec = false;
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        if (isdir) {
+                for (r = acl_get_entry(cond_exec, ACL_FIRST_ENTRY, &entry);
+                     r > 0;
+                     r = acl_get_entry(cond_exec, ACL_NEXT_ENTRY, &entry)) {
+
+                        if (acl_create_entry(ret, &ret_entry) < 0)
+                                return -errno;
+
+                        if (acl_copy_entry(ret_entry, entry) < 0)
+                                return -errno;
+                }
+                if (r < 0)
+                        return -errno;
+
+                goto finish;
+        }
+
+        old = acl_get_file(path, ACL_TYPE_ACCESS);
+        if (!old)
+                return -errno;
+
+        for (r = acl_get_entry(old, ACL_FIRST_ENTRY, &entry);
+             r > 0;
+             r = acl_get_entry(old, ACL_NEXT_ENTRY, &entry)) {
+
+                if (acl_get_permset(entry, &permset) < 0)
+                        return -errno;
+
+                r = acl_get_perm(permset, ACL_EXECUTE);
+                if (r < 0)
+                        return -errno;
+
+                if (r > 0) {
+                        has_exec = true;
+                        break;
+                }
+        }
+        if (r < 0)
+                return -errno;
+
+        for (r = acl_get_entry(cond_exec, ACL_FIRST_ENTRY, &entry);
+             r > 0;
+             r = acl_get_entry(cond_exec, ACL_NEXT_ENTRY, &entry)) {
+
+                if (acl_create_entry(ret, &ret_entry) < 0)
+                        return -errno;
+
+                if (acl_copy_entry(ret_entry, entry) < 0)
+                        return -errno;
+
+                if (!has_exec) {
+                        if (acl_get_permset(ret_entry, &permset) < 0)
+                                return -errno;
+
+                        if (acl_delete_perm(permset, ACL_EXECUTE) < 0)
+                                return -errno;
+                }
+        }
+        if (r < 0)
+                return -errno;
+
+finish:
+        r = calc_acl_mask_if_needed(ret);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int path_set_acl(
                 const char *path,
                 const char *pretty,
@@ -1211,6 +1292,9 @@ static int fd_set_acls(
                 log_debug("Skipping ACL fix for symlink %s.", path);
                 return 0;
         }
+
+        if (item->acl_access_cond_exec)
+                r = set_acl_cond_exec(FORMAT_PROC_FD_PATH(fd), item->acl_access_cond_exec, &item->acl_access, S_ISDIR(st->st_mode));
 
         if (item->acl_access)
                 r = path_set_acl(FORMAT_PROC_FD_PATH(fd), path, ACL_TYPE_ACCESS, item->acl_access, item->append_or_force);
@@ -2853,6 +2937,7 @@ static void item_free_contents(Item *i) {
 
 #if HAVE_ACL
         acl_free(i->acl_access);
+        acl_free(i->acl_access_cond_exec);
         acl_free(i->acl_default);
 #endif
 }
