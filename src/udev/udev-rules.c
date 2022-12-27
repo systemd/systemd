@@ -1641,7 +1641,7 @@ static int udev_rule_apply_token_to_event(
         case TK_M_PARENTS_TAG: {
                 const char *val;
 
-                FOREACH_DEVICE_TAG(dev, val)
+                FOREACH_DEVICE_CURRENT_TAG(dev, val)
                         if (token_match_string(token, val))
                                 return token->op == OP_MATCH;
                 return token->op == OP_NOMATCH;
