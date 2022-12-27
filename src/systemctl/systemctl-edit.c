@@ -19,8 +19,8 @@
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 
-#define EDIT_MARKER_START "### Anything between here and the comment below will become the new contents of the file"
-#define EDIT_MARKER_END "### Lines below this comment will be discarded"
+#define EDIT_MARKER_START "### Anything between here and the comment below will become the contents of the drop-in file"
+#define EDIT_MARKER_END "### Edits below this comment will be discarded"
 
 int verb_cat(int argc, char *argv[], void *userdata) {
         _cleanup_(hashmap_freep) Hashmap *cached_name_map = NULL, *cached_id_map = NULL;
