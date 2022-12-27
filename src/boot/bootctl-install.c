@@ -78,14 +78,16 @@ static int load_etc_machine_info(void) {
 
 static int load_etc_kernel_install_conf(void) {
         _cleanup_free_ char *layout = NULL;
+        const char *p;
         int r;
 
-        r = parse_env_file(NULL, "/etc/kernel/install.conf",
-                           "layout", &layout);
+        p = prefix_roota(get_conf_root(), "install.conf");
+
+        r = parse_env_file(NULL, p, "layout", &layout);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
-                return log_error_errno(r, "Failed to parse /etc/kernel/install.conf: %m");
+                return log_error_errno(r, "Failed to parse %s: %m", p);
 
         if (!isempty(layout)) {
                 log_debug("layout=%s is specified in /etc/machine-info.", layout);
@@ -488,6 +490,7 @@ static int install_entry_directory(const char *root) {
 }
 
 static int install_entry_token(void) {
+        const char* p;
         int r;
 
         assert(arg_make_entry_directory >= 0);
@@ -499,9 +502,11 @@ static int install_entry_token(void) {
         if (!arg_make_entry_directory && arg_entry_token_type == ARG_ENTRY_TOKEN_MACHINE_ID)
                 return 0;
 
-        r = write_string_file("/etc/kernel/entry-token", arg_entry_token, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755);
+        p = prefix_roota(get_conf_root(), "entry-token");
+
+        r = write_string_file(p, arg_entry_token, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755);
         if (r < 0)
-                return log_error_errno(r, "Failed to write entry token '%s' to /etc/kernel/entry-token", arg_entry_token);
+                return log_error_errno(r, "Failed to write entry token '%s' to %s", arg_entry_token, p);
 
         return 0;
 }
