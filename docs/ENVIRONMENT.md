@@ -256,6 +256,9 @@ All tools:
   `--path=` switch only very superficial validation of the specified path is
   done when this environment variable is used.
 
+* `$KERNEL_INSTALL_CONF_ROOT=…` — override the built in default configuration
+  directory /etc/kernel to read files like entry-token and install.conf from.
+
 `systemd` itself:
 
 * `$SYSTEMD_ACTIVATION_UNIT` — set for all NSS and PAM module invocations that
