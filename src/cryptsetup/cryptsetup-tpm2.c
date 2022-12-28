@@ -62,6 +62,8 @@ int acquire_tpm2_key(
                 uint32_t pubkey_pcr_mask,
                 const char *signature_path,
                 uint16_t primary_alg,
+                const char *primary_template,
+                size_t primary_template_size,
                 const char *key_file,
                 size_t key_file_size,
                 uint64_t key_file_offset,
@@ -132,6 +134,8 @@ int acquire_tpm2_key(
                                 signature_json,
                                 /* pin= */ NULL,
                                 primary_alg,
+                                primary_template,
+                                primary_template_size,
                                 blob,
                                 blob_size,
                                 policy_hash,
@@ -157,6 +161,8 @@ int acquire_tpm2_key(
                                 signature_json,
                                 pin_str,
                                 primary_alg,
+                                primary_template,
+                                primary_template_size,
                                 blob,
                                 blob_size,
                                 policy_hash,
@@ -184,6 +190,8 @@ int find_tpm2_auto_data(
                 size_t *ret_pubkey_size,
                 uint32_t *ret_pubkey_pcr_mask,
                 uint16_t *ret_primary_alg,
+                void **ret_primary_template,
+                size_t *ret_primary_template_size,
                 void **ret_blob,
                 size_t *ret_blob_size,
                 void **ret_policy_hash,
@@ -197,9 +205,9 @@ int find_tpm2_auto_data(
         assert(cd);
 
         for (token = start_token; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
-                _cleanup_free_ void *blob = NULL, *policy_hash = NULL, *pubkey = NULL;
+                _cleanup_free_ void *primary_template = NULL, *blob = NULL, *policy_hash = NULL, *pubkey = NULL;
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-                size_t blob_size, policy_hash_size, pubkey_size;
+                size_t primary_template_size, blob_size, policy_hash_size, pubkey_size;
                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
                 uint16_t pcr_bank, primary_alg;
                 TPM2Flags flags;
@@ -219,6 +227,8 @@ int find_tpm2_auto_data(
                                 &pubkey, &pubkey_size,
                                 &pubkey_pcr_mask,
                                 &primary_alg,
+                                &primary_template,
+                                &primary_template_size,
                                 &blob, &blob_size,
                                 &policy_hash, &policy_hash_size,
                                 &flags);
@@ -239,6 +249,8 @@ int find_tpm2_auto_data(
                         *ret_pubkey_size = pubkey_size;
                         *ret_pubkey_pcr_mask = pubkey_pcr_mask;
                         *ret_primary_alg = primary_alg;
+                        *ret_primary_template = TAKE_PTR(primary_template);
+                        *ret_primary_template_size = primary_template_size;
                         *ret_blob = TAKE_PTR(blob);
                         *ret_blob_size = blob_size;
                         *ret_policy_hash = TAKE_PTR(policy_hash);
