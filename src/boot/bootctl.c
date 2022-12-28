@@ -144,6 +144,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  set-timeout SECONDS Set the menu timeout\n"
                "  set-timeout-oneshot SECONDS\n"
                "                      Set the menu timeout for the next boot only\n"
+               "  purge-entry ID      Remove specified entry and files referenced by it\n"
+               "  cleanup             Remove files in ESP not referenced in any boot entry\n"
                "\n%3$ssystemd-boot Commands:%4$s\n"
                "  install             Install systemd-boot to the ESP and EFI variables\n"
                "  update              Update systemd-boot in the ESP and EFI variables\n"
@@ -384,7 +386,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if ((arg_root || arg_image) && argv[optind] && !STR_IN_SET(argv[optind], "status", "list",
-                        "install", "update", "remove", "is-installed", "random-seed"))
+                        "install", "update", "remove", "is-installed", "random-seed", "purge-entry"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Options --root= and --image= are not supported with verb %s.",
                                        argv[optind]);
@@ -407,6 +409,8 @@ static int bootctl_main(int argc, char *argv[]) {
                 { "remove",              VERB_ANY, 1,        0,            verb_remove              },
                 { "is-installed",        VERB_ANY, 1,        0,            verb_is_installed        },
                 { "list",                VERB_ANY, 1,        0,            verb_list                },
+                { "purge-entry",         2,        2,        0,            verb_purge_entry         },
+                { "cleanup",             VERB_ANY, 1,        0,            verb_list                },
                 { "set-default",         2,        2,        0,            verb_set_efivar          },
                 { "set-oneshot",         2,        2,        0,            verb_set_efivar          },
                 { "set-timeout",         2,        2,        0,            verb_set_efivar          },

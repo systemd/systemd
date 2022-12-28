@@ -32,20 +32,44 @@ MACHINE_ID="$KERNEL_INSTALL_MACHINE_ID"
 ENTRY_TOKEN="$KERNEL_INSTALL_ENTRY_TOKEN"
 BOOT_ROOT="$KERNEL_INSTALL_BOOT_ROOT"
 
-BOOT_MNT="$(stat -c %m "$BOOT_ROOT")"
+# XXX: kernel-install has no way of passing a root dir but bootctl does. We
+# need that for the test suite. So use an externally provided $BOOT_MNT as
+# trigger when calling bootctl.
+if [ -n "$BOOT_MNT" ]; then
+    BOOTCTL_ROOT="--root=$BOOT_MNT"
+    SYSTEMD_ESP_PATH="/"
+    export SYSTEMD_ESP_PATH
+else
+    BOOT_MNT="$(stat -c %m "$BOOT_ROOT")"
+fi
 if [ "$BOOT_MNT" = '/' ]; then
     ENTRY_DIR="$ENTRY_DIR_ABS"
 else
     ENTRY_DIR="${ENTRY_DIR_ABS#"$BOOT_MNT"}"
 fi
 
+KERNEL_DEST="$ENTRY_DIR_ABS/linux"
+KERNEL_ENTRY="$ENTRY_DIR/linux"
+LOADER_ENTRY="$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION.conf"
+
+plugin_init() { :;}
+plugin_remove_entry() { :;}
+plugin_update_options() { :;}
+plugin_rename_initrd() { :;}
+plugin_finish() { :;}
+
+if [ -e /usr/lib/kernel/loaderentry-plugin.sh ]; then
+    # shellcheck source=/dev/null
+    . /usr/lib/kernel/loaderentry-plugin.sh
+fi
+
+plugin_init
+
 case "$COMMAND" in
     remove)
-        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-            echo "Removing $BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION*.conf"
-        exec rm -f \
-            "$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION.conf" \
-            "$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION+"*".conf"
+        plugin_remove_entry
+        bootctl $BOOTCTL_ROOT purge-entry "${LOADER_ENTRY##*/}"
+        exit 0
         ;;
     add)
         ;;
@@ -89,6 +113,8 @@ if [ "$ENTRY_TOKEN" = "$MACHINE_ID" ] && ! echo "$BOOT_OPTIONS" | grep -q "syste
     BOOT_OPTIONS="$BOOT_OPTIONS systemd.machine_id=$MACHINE_ID"
 fi
 
+plugin_update_options
+
 TRIES_FILE="${KERNEL_INSTALL_CONF_ROOT:-/etc/kernel}/tries"
 
 if [ -f "$TRIES_FILE" ]; then
@@ -97,9 +123,7 @@ if [ -f "$TRIES_FILE" ]; then
         echo "$TRIES_FILE does not contain an integer." >&2
         exit 1
     fi
-    LOADER_ENTRY="$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION+$TRIES.conf"
-else
-    LOADER_ENTRY="$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION.conf"
+    LOADER_ENTRY="${LOADER_ENTRY%.conf}+$TRIES.conf"
 fi
 
 if ! [ -d "$ENTRY_DIR_ABS" ]; then
@@ -107,11 +131,11 @@ if ! [ -d "$ENTRY_DIR_ABS" ]; then
     exit 1
 fi
 
-install -m 0644 "$KERNEL_IMAGE" "$ENTRY_DIR_ABS/linux" || {
-    echo "Error: could not copy '$KERNEL_IMAGE' to '$ENTRY_DIR_ABS/linux'." >&2
+install -m 0644 "$KERNEL_IMAGE" "$KERNEL_DEST" || {
+    echo "Error: could not copy '$KERNEL_IMAGE' to '$KERNEL_DEST'." >&2
     exit 1
 }
-chown root:root "$ENTRY_DIR_ABS/linux" || :
+chown root:root "$KERNEL_DEST" || :
 
 shift "$INITRD_OPTIONS_SHIFT"
 # All files listed as arguments, and staged files starting with "initrd" are installed as initrds.
@@ -121,6 +145,8 @@ for initrd in "$@" "${KERNEL_INSTALL_STAGING_AREA}"/initrd*; do
         echo "Error: initrd '$initrd' not a file." >&2
         exit 1
     }
+
+    plugin_rename_initrd
 
     initrd_basename="${initrd##*/}"
     [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Installing $ENTRY_DIR_ABS/$initrd_basename"
@@ -148,7 +174,7 @@ mkdir -p "${LOADER_ENTRY%/*}" || {
     fi
     [ -n "$SORT_KEY" ] && echo "sort-key   $SORT_KEY"
     echo "options    $BOOT_OPTIONS"
-    echo "linux      $ENTRY_DIR/linux"
+    echo "linux      $KERNEL_ENTRY"
 
     have_initrd=
     for initrd in "${@}" "${KERNEL_INSTALL_STAGING_AREA}"/initrd*; do
@@ -164,4 +190,6 @@ mkdir -p "${LOADER_ENTRY%/*}" || {
     echo "Error: could not create loader entry '$LOADER_ENTRY'." >&2
     exit 1
 }
+
+plugin_finish
 exit 0
