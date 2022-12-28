@@ -3357,6 +3357,8 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
                               /* pin= */ NULL,
                               /* external_pubkey= */ NULL,
                               /* external_pubkey_size= */ 0,
+                              /* ret_primary_template= */ NULL,
+                              /* ret_primary_template_size= */ NULL,
                               &secret, &secret_size,
                               &blob, &blob_size,
                               &hash, &hash_size,
@@ -3390,6 +3392,8 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
                                 pubkey, pubkey_size,
                                 arg_tpm2_public_key_pcr_mask,
                                 primary_alg,
+                                /* primary_template= */ NULL,
+                                /* primary_template_size= */ 0,
                                 blob, blob_size,
                                 hash, hash_size,
                                 NULL, 0, /* no salt because tpm2_seal has no pin */
