@@ -126,6 +126,8 @@ shared_sources = files(
         'exit-status.h',
         'extension-release.c',
         'extension-release.h',
+        'factory-reset.c',
+        'factory-reset.h',
         'fdset.c',
         'fdset.h',
         'fileio-label.c',
