@@ -42,8 +42,10 @@ _public_ int cryptsetup_token_open_pin(
                 void *usrptr /* plugin defined parameter passed to crypt_activate_by_token*() API */) {
 
         _cleanup_(erase_and_freep) char *base64_encoded = NULL, *pin_string = NULL;
-        _cleanup_free_ void *blob = NULL, *pubkey = NULL, *policy_hash = NULL, *salt = NULL;
-        size_t blob_size, policy_hash_size, decrypted_key_size, pubkey_size, salt_size = 0;
+        _cleanup_free_ void *blob = NULL, *pubkey = NULL, *policy_hash = NULL, *salt = NULL,
+                *primary_template = NULL;
+        size_t blob_size, policy_hash_size, decrypted_key_size, pubkey_size, salt_size = 0,
+                primary_template_size = 0;
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         uint32_t hash_pcr_mask, pubkey_pcr_mask;
@@ -86,6 +88,8 @@ _public_ int cryptsetup_token_open_pin(
                         &pubkey_size,
                         &pubkey_pcr_mask,
                         &primary_alg,
+                        &primary_template,
+                        &primary_template_size,
                         &blob,
                         &blob_size,
                         &policy_hash,
@@ -108,6 +112,8 @@ _public_ int cryptsetup_token_open_pin(
                         params.signature_path,
                         pin_string,
                         primary_alg,
+                        primary_template,
+                        primary_template_size,
                         blob,
                         blob_size,
                         policy_hash,
@@ -171,10 +177,12 @@ _public_ void cryptsetup_token_dump(
                 struct crypt_device *cd /* is always LUKS2 context */,
                 const char *json /* validated 'systemd-tpm2' token if cryptsetup_token_validate is defined */) {
 
-        _cleanup_free_ char *hash_pcrs_str = NULL, *pubkey_pcrs_str = NULL, *blob_str = NULL, *policy_hash_str = NULL, *pubkey_str = NULL;
-        _cleanup_free_ void *blob = NULL, *pubkey = NULL, *policy_hash = NULL, *salt = NULL;
+        _cleanup_free_ char *hash_pcrs_str = NULL, *pubkey_pcrs_str = NULL, *blob_str = NULL,
+                *policy_hash_str = NULL, *pubkey_str = NULL, *primary_template_str = NULL;
+        _cleanup_free_ void *blob = NULL, *pubkey = NULL, *policy_hash = NULL, *salt = NULL,
+                *primary_template = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-        size_t blob_size, policy_hash_size, pubkey_size, salt_size = 0;
+        size_t blob_size, policy_hash_size, pubkey_size, salt_size = 0, primary_template_size = 0;
         uint32_t hash_pcr_mask, pubkey_pcr_mask;
         uint16_t pcr_bank, primary_alg;
         TPM2Flags flags = 0;
@@ -195,6 +203,8 @@ _public_ void cryptsetup_token_dump(
                         &pubkey_size,
                         &pubkey_pcr_mask,
                         &primary_alg,
+                        &primary_template,
+                        &primary_template_size,
                         &blob,
                         &blob_size,
                         &policy_hash,
@@ -213,6 +223,10 @@ _public_ void cryptsetup_token_dump(
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Cannot format PCR hash mask: %m");
 
+        r = crypt_dump_buffer_to_hex_string(primary_template, primary_template_size, &primary_template_str);
+        if (r < 0)
+                return (void) crypt_log_debug_errno(cd, r, "Can not dump " TOKEN_NAME " content: %m");
+
         r = crypt_dump_buffer_to_hex_string(blob, blob_size, &blob_str);
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Can not dump " TOKEN_NAME " content: %m");
@@ -230,6 +244,7 @@ _public_ void cryptsetup_token_dump(
         crypt_log(cd, "\ttpm2-pubkey:" CRYPT_DUMP_LINE_SEP "%s\n", pubkey_str);
         crypt_log(cd, "\ttpm2-pubkey-pcrs: %s\n", strna(pubkey_pcrs_str));
         crypt_log(cd, "\ttpm2-primary-alg: %s\n", strna(tpm2_alg_to_string(primary_alg)));
+        crypt_log(cd, "\ttpm2-primary-template:" CRYPT_DUMP_LINE_SEP "%s\n", primary_template_str);
         crypt_log(cd, "\ttpm2-blob:        %s\n", blob_str);
         crypt_log(cd, "\ttpm2-policy-hash:" CRYPT_DUMP_LINE_SEP "%s\n", policy_hash_str);
         crypt_log(cd, "\ttpm2-pin:         %s\n", true_false(flags & TPM2_FLAGS_USE_PIN));
