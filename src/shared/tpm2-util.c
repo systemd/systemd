@@ -69,6 +69,7 @@ TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal)(uint8_t const buffer[], size_t buf
 TSS2_RC (*sym_Tss2_MU_TPML_PCR_SELECTION_Marshal)(TPML_PCR_SELECTION const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
 TSS2_RC (*sym_Tss2_MU_TPMT_HA_Marshal)(TPMT_HA const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
 TSS2_RC (*sym_Tss2_MU_TPMT_PUBLIC_Marshal)(TPMT_PUBLIC const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
+TSS2_RC (*sym_Tss2_MU_TPMT_PUBLIC_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPMT_PUBLIC *dest) = NULL;
 
 int dlopen_tpm2(void) {
         int r;
@@ -123,7 +124,8 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Tss2_MU_TPM2B_PUBLIC_Unmarshal),
                         DLSYM_ARG(Tss2_MU_TPML_PCR_SELECTION_Marshal),
                         DLSYM_ARG(Tss2_MU_TPMT_HA_Marshal),
-                        DLSYM_ARG(Tss2_MU_TPMT_PUBLIC_Marshal));
+                        DLSYM_ARG(Tss2_MU_TPMT_PUBLIC_Marshal),
+                        DLSYM_ARG(Tss2_MU_TPMT_PUBLIC_Unmarshal));
 }
 
 #define _MARSHAL(src) _Generic((src),                                   \
@@ -138,7 +140,8 @@ int dlopen_tpm2(void) {
 #define _UNMARSHAL(dst) _Generic((dst),                                 \
                 TPM2B_ENCRYPTED_SECRET*: sym_Tss2_MU_TPM2B_ENCRYPTED_SECRET_Unmarshal, \
                 TPM2B_PRIVATE*: sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal,    \
-                TPM2B_PUBLIC*: sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal)
+                TPM2B_PUBLIC*: sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal,      \
+                TPMT_PUBLIC*: sym_Tss2_MU_TPMT_PUBLIC_Unmarshal)
 
 #define tpm2_marshal(description, src, buf, size, offset)               \
         ({                                                              \
@@ -2399,6 +2402,8 @@ int tpm2_seal(const char *device,
               const char *pin,
               const void *external_pubkey,
               const size_t external_pubkey_size,
+              void **ret_primary_template,
+              size_t *ret_primary_template_size,
               void **ret_secret,
               size_t *ret_secret_size,
               void **ret_blob,
@@ -2510,24 +2515,28 @@ int tpm2_seal(const char *device,
                 return r;
 
         _cleanup_tpm2_handle_ Tpm2Handle *parent_handle = NULL;
+        _cleanup_(Esys_Freep) TPM2B_PUBLIC *primary_public = NULL;
         r = tpm2_create_primary(
                         c,
                         /* alg= */ 0,
-                        /* ret_public= */ NULL,
+                        &primary_public,
                         /* ret_private= */ NULL,
                         &parent_handle,
                         &primary_alg);
         if (r < 0)
                 return r;
 
+        TPM2B_PUBLIC primary_template_public = *primary_public;
         if (external_pubkey) {
-                TPM2B_PUBLIC external_public = {};
                 size_t offset = 0;
 
+                TPM2B_PUBLIC external_public = {};
                 r = tpm2_unmarshal("external public key", external_pubkey, external_pubkey_size,
                                    &offset, &external_public);
                 if (r < 0)
                         return r;
+
+                primary_template_public = external_public;
 
                 _cleanup_tpm2_handle_ Tpm2Handle *load_external_session = NULL;
                 r = tpm2_make_encryption_session(c, parent_handle, &TPM2_HANDLE_NONE, &load_external_session);
@@ -2566,6 +2575,16 @@ int tpm2_seal(const char *device,
                 parent_handle = tpm2_handle_free(parent_handle);
                 parent_handle = TAKE_PTR(secondary_handle);
         }
+
+        size_t primary_template_max_size = sizeof(primary_template_public.publicArea), primary_template_size = 0;
+        _cleanup_free_ void *primary_template = malloc0(primary_template_max_size);
+        if (!primary_template)
+                return log_oom();
+
+        r = tpm2_marshal("primary template public key", &primary_template_public.publicArea,
+                         primary_template, primary_template_max_size, &primary_template_size);
+        if (r < 0)
+                return r;
 
         /* We use a keyed hash object (i.e. HMAC) to store the secret key we want to use for unlocking the
          * LUKS2 volume with. We don't ever use for HMAC/keyed hash operations however, we just use it
@@ -2668,6 +2687,10 @@ int tpm2_seal(const char *device,
         if (DEBUG_LOGGING)
                 log_debug("Completed TPM2 key sealing in %s.", FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - start, 1));
 
+        if (ret_primary_template)
+                *ret_primary_template = TAKE_PTR(primary_template);
+        if (ret_primary_template_size)
+                *ret_primary_template_size = primary_template_size;
         *ret_secret = TAKE_PTR(secret);
         *ret_secret_size = hmac_sensitive.sensitive.data.size;
         *ret_blob = TAKE_PTR(blob);
@@ -2675,7 +2698,8 @@ int tpm2_seal(const char *device,
         *ret_pcr_hash = TAKE_PTR(hash);
         *ret_pcr_hash_size = policy_digest.size;
         *ret_pcr_bank = pcr_bank;
-        *ret_primary_alg = primary_alg;
+        if (ret_primary_alg)
+                *ret_primary_alg = primary_alg;
 
         return 0;
 }
@@ -2691,6 +2715,8 @@ int tpm2_unseal(const char *device,
                 JsonVariant *signature,
                 const char *pin,
                 uint16_t primary_alg,
+                const void *primary_template,
+                size_t primary_template_size,
                 const void *blob,
                 size_t blob_size,
                 const void *known_policy_hash,
@@ -2738,15 +2764,34 @@ int tpm2_unseal(const char *device,
                 return r;
 
         _cleanup_tpm2_handle_ Tpm2Handle *parent_handle = NULL;
-        r = tpm2_create_primary(
-                        c,
-                        primary_alg,
-                        /* ret_public= */ NULL,
-                        /* ret_private= */ NULL,
-                        &parent_handle,
-                        /* ret_alg= */ NULL);
-        if (r < 0)
-                return r;
+        if (primary_template) {
+                TPMT_PUBLIC template = {};
+                size_t primary_template_offset = 0;
+                r = tpm2_unmarshal("primary template public key", primary_template, primary_template_size,
+                                   &primary_template_offset, &template);
+                if (r < 0)
+                        return r;
+
+                r = tpm2_create_primary_from_template(
+                                c,
+                                &template,
+                                /* sensitive= */ NULL,
+                                /* ret_public= */ NULL,
+                                /* ret_private= */ NULL,
+                                &parent_handle);
+                if (r < 0)
+                        return r;
+        } else {
+                r = tpm2_create_primary(
+                                c,
+                                primary_alg,
+                                /* ret_public= */ NULL,
+                                /* ret_private= */ NULL,
+                                &parent_handle,
+                                /* ret_alg= */ NULL);
+                if (r < 0)
+                        return r;
+        }
 
         r = tpm2_unmarshal("HMAC private key", blob, blob_size, &offset, &private);
         if (r < 0)
@@ -3233,6 +3278,8 @@ int tpm2_make_luks2_json(
                 size_t pubkey_size,
                 uint32_t pubkey_pcr_mask,
                 uint16_t primary_alg,
+                const void *primary_template,
+                size_t primary_template_size,
                 const void *blob,
                 size_t blob_size,
                 const void *policy_hash,
@@ -3249,6 +3296,7 @@ int tpm2_make_luks2_json(
         assert(blob || blob_size == 0);
         assert(policy_hash || policy_hash_size == 0);
         assert(pubkey || pubkey_size == 0);
+        assert(primary_template || primary_template_size == 0);
 
         if (asprintf(&keyslot_as_string, "%i", keyslot) < 0)
                 return -ENOMEM;
@@ -3271,6 +3319,7 @@ int tpm2_make_luks2_json(
                        JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-tpm2")),
                                        JSON_BUILD_PAIR("keyslots", JSON_BUILD_ARRAY(JSON_BUILD_STRING(keyslot_as_string))),
+                                       JSON_BUILD_PAIR_CONDITION(!!primary_template, "tpm2_primary_template", JSON_BUILD_BASE64(primary_template, primary_template_size)),
                                        JSON_BUILD_PAIR("tpm2-blob", JSON_BUILD_BASE64(blob, blob_size)),
                                        JSON_BUILD_PAIR("tpm2-pcrs", JSON_BUILD_VARIANT(hmj)),
                                        JSON_BUILD_PAIR_CONDITION(!!tpm2_pcr_bank_to_string(pcr_bank), "tpm2-pcr-bank", JSON_BUILD_STRING(tpm2_pcr_bank_to_string(pcr_bank))),
@@ -3298,6 +3347,8 @@ int tpm2_parse_luks2_json(
                 size_t *ret_pubkey_size,
                 uint32_t *ret_pubkey_pcr_mask,
                 uint16_t *ret_primary_alg,
+                void **ret_primary_template,
+                size_t *ret_primary_template_size,
                 void **ret_blob,
                 size_t *ret_blob_size,
                 void **ret_policy_hash,
@@ -3306,8 +3357,10 @@ int tpm2_parse_luks2_json(
                 size_t *ret_salt_size,
                 TPM2Flags *ret_flags) {
 
-        _cleanup_free_ void *blob = NULL, *policy_hash = NULL, *pubkey = NULL, *salt = NULL;
-        size_t blob_size = 0, policy_hash_size = 0, pubkey_size = 0, salt_size = 0;
+        _cleanup_free_ void *blob = NULL, *policy_hash = NULL, *pubkey = NULL, *salt = NULL,
+                *primary_template = NULL;
+        size_t blob_size = 0, policy_hash_size = 0, pubkey_size = 0, salt_size = 0,
+                primary_template_size = 0;
         uint32_t hash_pcr_mask = 0, pubkey_pcr_mask = 0;
         uint16_t primary_alg = TPM2_ALG_ECC; /* ECC was the only supported algorithm in systemd < 250, use that as implied default, for compatibility */
         uint16_t pcr_bank = UINT16_MAX; /* default: pick automatically */
@@ -3366,6 +3419,15 @@ int tpm2_parse_luks2_json(
                         return log_debug_errno(r, "TPM2 primary key algorithm invalid or not supported: %s", json_variant_string(w));
 
                 primary_alg = r;
+        }
+
+        w = json_variant_by_key(v, "tpm2_primary_template");
+        if (w) {
+                /* The primary key template is optional */
+
+                r = json_variant_unbase64(w, &primary_template, &primary_template_size);
+                if (r < 0)
+                        return log_debug_errno(r, "Invalid base64 data in 'tpm2_primary_template' field.");
         }
 
         w = json_variant_by_key(v, "tpm2-blob");
@@ -3428,6 +3490,10 @@ int tpm2_parse_luks2_json(
                 *ret_pubkey_pcr_mask = pubkey_pcr_mask;
         if (ret_primary_alg)
                 *ret_primary_alg = primary_alg;
+        if (ret_primary_template)
+                *ret_primary_template = TAKE_PTR(primary_template);
+        if (ret_primary_template_size)
+                *ret_primary_template_size = primary_template_size;
         if (ret_blob)
                 *ret_blob = TAKE_PTR(blob);
         if (ret_blob_size)
