@@ -590,6 +590,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         sd_bus *container_bus = NULL;
         _cleanup_close_ int master = -EBADF, slave = -EBADF;
         _cleanup_strv_free_ char **env = NULL, **args_wire = NULL, **args = NULL;
+        _cleanup_free_ char *command_line = NULL;
         Machine *m = ASSERT_PTR(userdata);
         const char *p, *unit, *user, *path, *description, *utmp_id;
         int r;
@@ -642,10 +643,12 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         if (!strv_env_is_valid(env))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment assignments");
 
+        command_line = strv_join(args, " ");
         const char *details[] = {
                 "machine", m->name,
                 "user", user,
                 "program", path,
+                "command_line", command_line,
                 NULL
         };
 
