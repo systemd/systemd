@@ -1892,6 +1892,7 @@ static int install_info_symlink_alias(
 
         STRV_FOREACH(s, info->aliases) {
                 _cleanup_free_ char *alias_path = NULL, *dst = NULL, *dst_updated = NULL;
+                bool broken = false;
 
                 q = install_name_printf(scope, info, *s, &dst);
                 if (q < 0) {
@@ -1912,7 +1913,14 @@ static int install_info_symlink_alias(
                 if (!alias_path)
                         return -ENOMEM;
 
-                q = create_symlink(lp, info->path, alias_path, force, changes, n_changes);
+                q = chase_symlinks(alias_path, lp->root_dir, CHASE_NONEXISTENT, NULL, NULL);
+                if (q < 0 && q != -ENOENT) {
+                        r = r < 0 ? r : q;
+                        continue;
+                }
+                broken = q == 0; /* symlink target does not exist? */
+
+                q = create_symlink(lp, info->path, alias_path, force || broken, changes, n_changes);
                 r = r < 0 ? r : q;
         }
 
