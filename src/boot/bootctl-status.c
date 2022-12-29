@@ -560,7 +560,7 @@ static int deref_unlink_file(Hashmap *known_files, const char *fn, const char *r
                 r = chase_symlinks_and_access(fn, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, F_OK, &path, NULL);
                 if (r < 0)
                         return r;
-                if (unlink(path) < 0)
+                if (!arg_dry && unlink(path) < 0)
                         return log_error_errno(errno, "failed to remove \"%s\": %m", path);
                 log_info("Removed %s", path);
         }
@@ -630,9 +630,11 @@ static int purge_entry(const BootConfig *config, const char *fn)
         if (dir_is_empty(d, /* ignore_hidden_or_backup= */ false))
                 rmdir(d);
 
-        r = unlink(e->path);
-        if (r < 0)
-                return log_error_errno(errno, "failed to remove \"%s\": %m", e->path);
+        if (!arg_dry) {
+                r = unlink(e->path);
+                if (r < 0)
+                        return log_error_errno(errno, "failed to remove \"%s\": %m", e->path);
+        }
 
         log_info("Removed %s", e->path);
 
@@ -656,11 +658,13 @@ static int list_remove_orphaned_file(
         if (event == RECURSE_DIR_ENTRY) {
                 if (hashmap_get(known_files, path) == NULL) {
                         log_info("removing orphaned file %s\n", path);
-                        int r = unlink(path);
-                        if (r < 0)
-                                log_error_errno(r, "failed to remove \"%s\": %m", path);
-                        else
-                                log_info("Removed %s", path);
+                        if (!arg_dry) {
+                                int r = unlink(path);
+                                if (r < 0)
+                                        log_error_errno(r, "failed to remove \"%s\": %m", path);
+                                else
+                                        log_info("Removed %s", path);
+                        }
                 }
         }
 
