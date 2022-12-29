@@ -47,6 +47,7 @@ char *arg_root = NULL;
 char *arg_image = NULL;
 InstallSource arg_install_source = ARG_INSTALL_SOURCE_AUTO;
 char *arg_efi_boot_option_description = NULL;
+bool arg_dry = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -178,6 +179,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "                       Install all supported EFI architectures\n"
                "     --efi-boot-option-description=DESCRIPTION\n"
                "                       Description of the entry in the boot option list\n"
+               "     --dry             Dry run (purge and cleanup)\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -205,6 +207,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_JSON,
                 ARG_ARCH_ALL,
                 ARG_EFI_BOOT_OPTION_DESCRIPTION,
+                ARG_DRY,
         };
 
         static const struct option options[] = {
@@ -229,6 +232,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "json",                        required_argument, NULL, ARG_JSON                        },
                 { "all-architectures",           no_argument,       NULL, ARG_ARCH_ALL                    },
                 { "efi-boot-option-description", required_argument, NULL, ARG_EFI_BOOT_OPTION_DESCRIPTION },
+                { "dry",                         no_argument,       NULL, ARG_DRY                         },
                 {}
         };
 
@@ -378,6 +382,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_DRY:
+                        arg_dry = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -396,6 +404,9 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_install_source != ARG_INSTALL_SOURCE_AUTO && !arg_root && !arg_image)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--install-from-host is only supported with --root= or --image=.");
+
+        if (arg_dry && argv[optind] && !STR_IN_SET(argv[optind], "purge-entry", "cleanup"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--dry is only supported with --purge-entry or --cleanup");
 
         return 1;
 }
