@@ -1912,6 +1912,14 @@ static int install_info_symlink_alias(
                 if (!alias_path)
                         return -ENOMEM;
 
+                q = chase_symlinks(alias_path, lp->root_dir, CHASE_NONEXISTENT, NULL, NULL);
+                if (q < 0 && q != -ENOENT) {
+                        r = r < 0 ? r : q;
+                        continue;
+                }
+                if (q == 0)
+                        force = true;
+
                 q = create_symlink(lp, info->path, alias_path, force, changes, n_changes);
                 r = r < 0 ? r : q;
         }
