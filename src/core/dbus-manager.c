@@ -2783,6 +2783,50 @@ static int method_set_show_status(sd_bus_message *message, void *userdata, sd_bu
         return sd_bus_reply_method_return(message, NULL);
 }
 
+/* Create a new user namespace that maps all UIDs/GIDs in the system and return the
+ * file descriptor to the caller. */
+static int method_get_uid_gid_mapping(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        _cleanup_free_ char *line = NULL;
+        _cleanup_close_ int fd = -1;
+        Manager *m = ASSERT_PTR(userdata);
+        uid_t user;
+        int r;
+
+        assert(message);
+
+        if (!MANAGER_IS_SYSTEM(m))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                         "This method is only supported on the system manager.");
+
+        r = mac_selinux_access_check(message, "acquire-namespace", error);
+        if (r < 0)
+                return r;
+
+        r = bus_verify_acquire_namespace_async(m, message, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_UID|SD_BUS_CREDS_AUGMENT, &creds);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_creds_get_uid(creds, &user);
+        if (r < 0)
+                return r;
+
+        if (asprintf(&line, UID_FMT " " UID_FMT " " UID_FMT "\n", 0u, 0u, DYNAMIC_UID_MIN - 1u) < 0)
+                return log_oom_debug();
+
+        fd = userns_acquire(line, line, user);
+        if (fd < 0)
+                return fd;
+
+        return sd_bus_reply_method_return(message, "h", fd);
+}
+
 const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -3315,6 +3359,11 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                 SD_BUS_NO_ARGS,
                                 SD_BUS_RESULT("a(us)", users),
                                 method_get_dynamic_users,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("GetUIDGIDMapping",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_RESULT("h", namespace),
+                                method_get_uid_gid_mapping,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_SIGNAL_WITH_ARGS("UnitNew",
