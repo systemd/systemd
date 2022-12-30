@@ -7,6 +7,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "io-util.h"
 #include "missing_fs.h"
 #include "missing_magic.h"
 #include "missing_sched.h"
@@ -199,8 +200,10 @@ int detach_mount_namespace(void) {
         return RET_NERRNO(mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL));
 }
 
-int userns_acquire(const char *uid_map, const char *gid_map) {
+int userns_acquire(const char *uid_map, const char *gid_map, uid_t owner_uid, gid_t owner_gid) {
         char path[STRLEN("/proc//uid_map") + DECIMAL_STR_MAX(pid_t) + 1];
+        ForkFlags flags = FORK_CLOSE_ALL_FDS|FORK_DEATHSIG;
+        _cleanup_close_pair_ int pipe_fd[2] = PIPE_EBADF;
         _cleanup_(sigkill_waitp) pid_t pid = 0;
         _cleanup_close_ int userns_fd = -EBADF;
         int r;
@@ -210,14 +213,65 @@ int userns_acquire(const char *uid_map, const char *gid_map) {
 
         /* Forks off a process in a new userns, configures the specified uidmap/gidmap, acquires an fd to it,
          * and then kills the process again. This way we have a userns fd that is not bound to any
-         * process. We can use that for file system mounts and similar. */
+         * process. We can use that for file system mounts and similar.
+         * If the owner of the new namespace is specified, setuid to it in the child. Use a pipe to sync and
+         * ensure setuid() happens first, then unshare(), then the mapping update. */
 
-        r = safe_fork("(sd-mkuserns)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_NEW_USERNS, &pid);
+        if (pipe2(pipe_fd, 0) < 0)
+                return log_error_errno(errno, "Failed to open bidirectional pipe: %m");
+
+        /* If we have to set a different owner we have to setuid before unsharing the new namespace, otherwise
+         * the kernel will refuse the operation, so don't fork directly in the new user namespace in that case.
+         * If we don't have to change the owner then it easier and we can let the clone set up the namespace
+         * instead via the apposite flag. */
+        if (owner_uid == UID_INVALID)
+                flags |= FORK_NEW_USERNS;
+
+        r = safe_fork_full("(sd-mkuserns)", (int[]) { pipe_fd[1] }, 1, flags, &pid);
         if (r < 0)
                 return r;
-        if (r == 0)
-                /* Child. We do nothing here, just freeze until somebody kills us. */
+        if (r == 0) {
+                /* Child. Signal after setuid() and then just freeze until somebody kills us. */
+                if (owner_uid != UID_INVALID) {
+                        if (owner_gid != GID_INVALID) {
+                                r = RET_NERRNO(setresgid(owner_gid, owner_gid, owner_gid));
+                                if (r < 0)
+                                        goto child_fail;
+                        }
+
+                        r = RET_NERRNO(setresuid(owner_uid, owner_uid, owner_uid));
+                        if (r < 0)
+                                goto child_fail;
+
+                        r = RET_NERRNO(unshare(CLONE_NEWUSER));
+                        if (r < 0)
+                                goto child_fail;
+                }
+
+                pipe_fd[1] = safe_close(pipe_fd[1]);
                 freeze();
+                _exit(EXIT_SUCCESS);
+
+        child_fail:
+                (void) write(pipe_fd[1], &r, sizeof(r));
+                pipe_fd[1] = safe_close(pipe_fd[1]);
+                _exit(EXIT_FAILURE);
+        }
+
+        pipe_fd[1] = safe_close(pipe_fd[1]);
+
+        if (owner_uid != UID_INVALID) {
+                r = fd_wait_for_event(pipe_fd[0], POLLHUP|POLLIN, USEC_PER_SEC * 10);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -ETIMEDOUT;
+                if (r & POLLIN) {
+                        if (read(pipe_fd[0], &r, sizeof(r)) == sizeof(r))
+                                return log_error_errno(r, "Failed to create user namespace: %m");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to create user namespace.");
+                }
+        }
 
         xsprintf(path, "/proc/" PID_FMT "/uid_map", pid);
         r = write_string_file(path, uid_map, WRITE_STRING_FILE_DISABLE_BUFFER);
