@@ -25,7 +25,8 @@ static int _bind_raw_socket(
                 const struct hw_addr_data *hw_addr,
                 const struct hw_addr_data *bcast_addr,
                 uint16_t arp_type,
-                uint16_t port) {
+                uint16_t port,
+                int so_priority) {
 
         assert(ifindex > 0);
         assert(link);
@@ -113,6 +114,10 @@ static int _bind_raw_socket(
         if (r < 0)
                 return -errno;
 
+        r = setsockopt_int(s, SOL_SOCKET, SO_PRIORITY, so_priority);
+        if (r < 0)
+                return r;
+
         link->ll = (struct sockaddr_ll) {
                 .sll_family = AF_PACKET,
                 .sll_protocol = htobe16(ETH_P_IP),
@@ -137,7 +142,8 @@ int dhcp_network_bind_raw_socket(
                 const struct hw_addr_data *hw_addr,
                 const struct hw_addr_data *bcast_addr,
                 uint16_t arp_type,
-                uint16_t port) {
+                uint16_t port,
+                int so_priority) {
 
         static struct hw_addr_data default_eth_bcast = {
                 .length = ETH_ALEN,
@@ -160,13 +166,13 @@ int dhcp_network_bind_raw_socket(
                 return _bind_raw_socket(ifindex, link, xid,
                                         hw_addr,
                                         (bcast_addr && !hw_addr_is_null(bcast_addr)) ? bcast_addr : &default_eth_bcast,
-                                        arp_type, port);
+                                        arp_type, port, so_priority);
 
         case ARPHRD_INFINIBAND:
                 return _bind_raw_socket(ifindex, link, xid,
                                         &HW_ADDR_NULL,
                                         (bcast_addr && !hw_addr_is_null(bcast_addr)) ? bcast_addr : &default_ib_bcast,
-                                        arp_type, port);
+                                        arp_type, port, so_priority);
         default:
                 return -EINVAL;
         }
