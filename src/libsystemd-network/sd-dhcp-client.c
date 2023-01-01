@@ -2223,6 +2223,7 @@ int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
                 .anonymize = !!anonymize,
                 .max_attempts = UINT64_MAX,
                 .ip_service_type = -1,
+                .socket_priority = -1,
         };
         /* NOTE: this could be moved to a function. */
         if (anonymize) {
