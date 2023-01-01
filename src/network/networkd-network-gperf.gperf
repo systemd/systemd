@@ -243,6 +243,7 @@ DHCPv4.SendDecline,                          config_parse_bool,                 
 DHCPv4.DenyList,                             config_parse_in_addr_prefixes,                            AF_INET,                       offsetof(Network, dhcp_deny_listed_ip)
 DHCPv4.AllowList,                            config_parse_in_addr_prefixes,                            AF_INET,                       offsetof(Network, dhcp_allow_listed_ip)
 DHCPv4.IPServiceType,                        config_parse_dhcp_ip_service_type,                        0,                             offsetof(Network, dhcp_ip_service_type)
+DHCPv4.SocketPriority,                       config_parse_dhcp_socket_priority,                        0,                             0
 DHCPv4.SendOption,                           config_parse_dhcp_send_option,                            AF_INET,                       offsetof(Network, dhcp_client_send_options)
 DHCPv4.SendVendorOption,                     config_parse_dhcp_send_option,                            0,                             offsetof(Network, dhcp_client_send_vendor_options)
 DHCPv4.RouteMTUBytes,                        config_parse_mtu,                                         AF_INET,                       offsetof(Network, dhcp_route_mtu)
