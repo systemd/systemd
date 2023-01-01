@@ -1499,6 +1499,12 @@ static int dhcp4_configure(Link *link) {
                         return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set IP service type: %m");
         }
 
+        if (link->network->dhcp_socket_priority >= 0) {
+                r = sd_dhcp_client_set_socket_priority(link->dhcp_client, link->network->dhcp_socket_priority);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set socket priority: %m");
+        }
+
         if (link->network->dhcp_fallback_lease_lifetime > 0) {
                 r = sd_dhcp_client_set_fallback_lease_lifetime(link->dhcp_client, link->network->dhcp_fallback_lease_lifetime);
                 if (r < 0)
