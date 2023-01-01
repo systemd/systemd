@@ -1890,6 +1890,15 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>SocketPriority=</varname></term>
+        <listitem>
+          <para>An integer value assigned as the linux internal socket priority of the
+          raw IP socket used to send initial DHCPv4 messages. If not set, the default raw socket priority
+          is unchanged.</para>
+        </listitem>
+      </varlistentry>
+
       <!-- How to use the DHCP lease -->
 
       <varlistentry>
