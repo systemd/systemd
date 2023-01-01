@@ -1890,6 +1890,20 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>SocketPriority=</varname></term>
+        <listitem>
+          <para>The Linux socket option <constant>SO_PRIORITY</constant> applied to the raw IP socket used for
+          initial DHCPv4 messages. Unset by default. Usual values range from 0 to 6.
+          More details about <constant>SO_PRIORITY</constant> socket option in
+          <citerefentry project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+          Can be used in conjunction with [VLAN] section <varname>EgressQOSMaps=</varname> setting of .netdev
+          file to set the 802.1Q VLAN ethernet tagged header priority, see
+          <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          </para>
+        </listitem>
+      </varlistentry>
+
       <!-- How to use the DHCP lease -->
 
       <varlistentry>

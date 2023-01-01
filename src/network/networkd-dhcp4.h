@@ -29,6 +29,7 @@ int link_request_dhcp4_client(Link *link);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_client_identifier);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_max_attempts);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_ip_service_type);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_socket_priority);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_mud_url);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_fallback_lease_lifetime);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_label);

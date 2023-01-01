@@ -309,6 +309,9 @@ int sd_dhcp_client_get_lease(
 int sd_dhcp_client_set_service_type(
                 sd_dhcp_client *client,
                 int type);
+int sd_dhcp_client_set_socket_priority(
+                sd_dhcp_client *client,
+                int so_priority);
 int sd_dhcp_client_set_fallback_lease_lifetime(
                 sd_dhcp_client *client,
                 uint32_t fallback_lease_lifetime);

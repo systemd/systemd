@@ -16,7 +16,10 @@ int dhcp_network_bind_raw_socket(
                 uint32_t id,
                 const struct hw_addr_data *hw_addr,
                 const struct hw_addr_data *bcast_addr,
-                uint16_t arp_type, uint16_t port) {
+                uint16_t arp_type,
+                uint16_t port,
+                bool so_priority_set,
+                int so_priority) {
 
         int fd;
         fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
