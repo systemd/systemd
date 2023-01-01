@@ -1499,6 +1499,12 @@ static int dhcp4_configure(Link *link) {
                         return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set IP service type: %m");
         }
 
+        if (link->network->dhcp_socket_priority_set) {
+                r = sd_dhcp_client_set_socket_priority(link->dhcp_client, link->network->dhcp_socket_priority);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set socket priority: %m");
+        }
+
         if (link->network->dhcp_fallback_lease_lifetime > 0) {
                 r = sd_dhcp_client_set_fallback_lease_lifetime(link->dhcp_client, link->network->dhcp_fallback_lease_lifetime);
                 if (r < 0)
@@ -1697,6 +1703,42 @@ int config_parse_dhcp_ip_service_type(
         else
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
+
+        return 0;
+}
+
+int config_parse_dhcp_socket_priority(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = ASSERT_PTR(data);
+        int a,r;
+
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                network->dhcp_socket_priority_set = false;
+                return 0;
+        }
+
+        r = safe_atoi(rvalue, &a);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse socket priority, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        network->dhcp_socket_priority_set = true;
+        network->dhcp_socket_priority = a;
 
         return 0;
 }

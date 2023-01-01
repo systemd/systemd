@@ -48,6 +48,12 @@ CHANGES WITH 253 in spe:
         * systemd-fstab-generator now supports x-systemd.makefs option for
           /sysroot (in the initrd).
 
+        * New Network param [DHCPv4]SocketPriority= to assign the Linux socket priority
+          used by the DHCPv4 raw socket. Can be used in conjuntion with the EgressQosMaps=
+          setting in [VLAN] section of .netdev file to send the desired ethernet 802.1Q frame
+          priority for DHCPv4 initial packets. This cannot be achieved with
+          netfilter mangle tables because of the raw socket bypass.
+
         Changes in udev:
 
         * The new net naming scheme "v253" has been introduced. In the new
