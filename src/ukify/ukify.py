@@ -73,12 +73,12 @@ def path_is_readable(s: str | None) -> pathlib.Path | None:
     return p
 
 
-def pe_executable_size(filename):
+def pe_next_section_offset(filename):
     import pefile
 
     pe = pefile.PE(filename)
     section = pe.sections[-1]
-    return section.VirtualAddress + section.Misc_VirtualSize
+    return pe.OPTIONAL_HEADER.ImageBase + section.VirtualAddress + section.Misc_VirtualSize
 
 
 def round_up(x, blocksize=4096):
@@ -262,7 +262,7 @@ class UKI:
     offset: int | None = dataclasses.field(default=None, init=False)
 
     def __post_init__(self):
-        self.offset = round_up(pe_executable_size(self.executable))
+        self.offset = round_up(pe_next_section_offset(self.executable))
 
     def add_section(self, section):
         assert self.offset
