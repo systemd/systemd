@@ -687,7 +687,7 @@ usage: ukify [options…] linux initrd…
 
     p.add_argument('--tools',
                    type=pathlib.Path,
-                   nargs='+',
+                   action='append',
                    help='Directories to search for tools (systemd-measure, llvm-objcopy, ...)')
 
     p.add_argument('--output', '-o',
