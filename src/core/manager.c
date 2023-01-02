@@ -809,6 +809,8 @@ static int manager_find_credentials_dirs(Manager *m) {
 }
 
 void manager_set_switching_root(Manager *m, bool switching_root) {
+        assert(m);
+
         m->switching_root = MANAGER_IS_SYSTEM(m) && switching_root;
 }
 
