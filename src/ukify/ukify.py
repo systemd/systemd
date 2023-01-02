@@ -69,7 +69,10 @@ def path_is_readable(s: str | None) -> pathlib.Path | None:
     if s is None:
         return None
     p = pathlib.Path(s)
-    p.open().close()
+    try:
+        p.open().close()
+    except IsADirectoryError:
+        pass
     return p
 
 
