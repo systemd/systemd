@@ -115,4 +115,6 @@ int manager_enumerate(Manager *m);
 int manager_set_hostname(Manager *m, const char *hostname);
 int manager_set_timezone(Manager *m, const char *timezone);
 
+int manager_reload(Manager *m);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);

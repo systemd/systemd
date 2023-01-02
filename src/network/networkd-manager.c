@@ -474,6 +474,14 @@ static int signal_restart_callback(sd_event_source *s, const struct signalfd_sig
         return sd_event_exit(sd_event_source_get_event(s), 0);
 }
 
+static int signal_reload_callback(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+
+        manager_reload(m);
+
+        return 0;
+}
+
 static int manager_set_keep_configuration(Manager *m) {
         int r;
 
@@ -508,12 +516,11 @@ int manager_setup(Manager *m) {
         if (r < 0)
                 return r;
 
-        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM, SIGUSR2, -1) >= 0);
-
         (void) sd_event_set_watchdog(m->event, true);
-        (void) sd_event_add_signal(m->event, NULL, SIGTERM, signal_terminate_callback, m);
-        (void) sd_event_add_signal(m->event, NULL, SIGINT, signal_terminate_callback, m);
-        (void) sd_event_add_signal(m->event, NULL, SIGUSR2, signal_restart_callback, m);
+        (void) sd_event_add_signal(m->event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, signal_terminate_callback, m);
+        (void) sd_event_add_signal(m->event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, signal_terminate_callback, m);
+        (void) sd_event_add_signal(m->event, NULL, SIGUSR2 | SD_EVENT_SIGNAL_PROCMASK, signal_restart_callback, m);
+        (void) sd_event_add_signal(m->event, NULL, SIGHUP | SD_EVENT_SIGNAL_PROCMASK, signal_reload_callback, m);
 
         r = sd_event_add_post(m->event, NULL, manager_dirty_handler, m);
         if (r < 0)
@@ -1068,4 +1075,35 @@ int manager_set_timezone(Manager *m, const char *tz) {
                 return log_error_errno(r, "Could not set timezone: %m");
 
         return 0;
+}
+
+int manager_reload(Manager *m) {
+        Link *link;
+        int r;
+
+        assert(m);
+
+        (void) sd_notifyf(/* unset= */ false,
+                          "RELOADING=1\n"
+                          "STATUS=Reloading configuration...\n"
+                          "MONOTONIC_USEC=" USEC_FMT, now(CLOCK_MONOTONIC));
+
+        r = netdev_load(m, /* reload= */ true);
+        if (r < 0)
+                goto finish;
+
+        r = network_reload(m);
+        if (r < 0)
+                goto finish;
+
+        HASHMAP_FOREACH(link, m->links_by_index) {
+                r = link_reconfigure(link, /* force = */ false);
+                if (r < 0)
+                        goto finish;
+        }
+
+        r = 0;
+finish:
+        (void) sd_notify(/* unset= */ false, NOTIFY_READY);
+        return r;
 }
