@@ -195,19 +195,19 @@ void dns_server_move_back_and_unmark(DnsServer *s) {
 
         case DNS_SERVER_LINK:
                 assert(s->link);
-                LIST_FIND_TAIL(servers, s, tail);
+                tail = LIST_FIND_TAIL(servers, s);
                 LIST_REMOVE(servers, s->link->dns_servers, s);
                 LIST_INSERT_AFTER(servers, s->link->dns_servers, tail, s);
                 break;
 
         case DNS_SERVER_SYSTEM:
-                LIST_FIND_TAIL(servers, s, tail);
+                tail = LIST_FIND_TAIL(servers, s);
                 LIST_REMOVE(servers, s->manager->dns_servers, s);
                 LIST_INSERT_AFTER(servers, s->manager->dns_servers, tail, s);
                 break;
 
         case DNS_SERVER_FALLBACK:
-                LIST_FIND_TAIL(servers, s, tail);
+                tail = LIST_FIND_TAIL(servers, s);
                 LIST_REMOVE(servers, s->manager->fallback_dns_servers, s);
                 LIST_INSERT_AFTER(servers, s->manager->fallback_dns_servers, tail, s);
                 break;

@@ -37,7 +37,7 @@ int server_address_new(
 
         memcpy(&a->sockaddr, sockaddr, socklen);
 
-        LIST_FIND_TAIL(addresses, n->addresses, tail);
+        tail = LIST_FIND_TAIL(addresses, n->addresses);
         LIST_INSERT_AFTER(addresses, n->addresses, tail, a);
 
         if (ret)
