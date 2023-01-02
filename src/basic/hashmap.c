@@ -1753,7 +1753,7 @@ HashmapBase* _hashmap_copy(HashmapBase *h  HASHMAP_DEBUG_PARAMS) {
         }
 
         if (r < 0)
-                return _hashmap_free(copy, false, false);
+                return _hashmap_free(copy, NULL, NULL);
 
         return copy;
 }
