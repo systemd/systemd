@@ -1961,6 +1961,8 @@ static int invoke_main_loop(
                         LogTarget saved_log_target;
                         int saved_log_level;
 
+                        manager_send_reloading(m);
+
                         log_info("Reloading.");
 
                         /* First, save any overridden log level/target, then parse the configuration file,
@@ -1991,6 +1993,10 @@ static int invoke_main_loop(
                 }
 
                 case MANAGER_REEXECUTE:
+
+                        manager_send_reloading(m); /* From the perspective of the manager calling us this is
+                                                    * pretty much the same as a reload */
+
                         r = prepare_reexecute(m, &arg_serialization, ret_fds, false);
                         if (r < 0) {
                                 *ret_error_message = "Failed to prepare for reexecution";
@@ -2005,6 +2011,10 @@ static int invoke_main_loop(
                         return objective;
 
                 case MANAGER_SWITCH_ROOT:
+
+                        manager_send_reloading(m); /* From the perspective of the manager calling us this is
+                                                    * pretty much the same as a reload */
+
                         manager_set_switching_root(m, true);
 
                         if (!m->switch_root_init) {

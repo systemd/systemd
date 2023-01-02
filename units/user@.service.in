@@ -17,7 +17,7 @@ IgnoreOnIsolate=yes
 [Service]
 User=%i
 PAMName=systemd-user
-Type=notify
+Type=notify-reload
 ExecStart={{ROOTLIBEXECDIR}}/systemd --user
 Slice=user-%i.slice
 KillMode=mixed
