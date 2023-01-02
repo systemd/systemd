@@ -228,6 +228,7 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("GID", "u", bus_property_get_gid, offsetof(Unit, ref_gid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("NRestarts", "u", bus_property_get_unsigned, offsetof(Service, n_restarts), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("OOMPolicy", "s", bus_property_get_oom_policy, offsetof(Service, oom_policy), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ReloadSignal", "i", bus_property_get_int, offsetof(Service, reload_signal), SD_BUS_VTABLE_PROPERTY_CONST),
 
         BUS_EXEC_STATUS_VTABLE("ExecMain", offsetof(Service, main_exec_status), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecCondition", offsetof(Service, exec_command[SERVICE_EXEC_CONDITION]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
@@ -374,6 +375,7 @@ static BUS_DEFINE_SET_TRANSIENT_PARSE(service_restart, ServiceRestart, service_r
 static BUS_DEFINE_SET_TRANSIENT_PARSE(oom_policy, OOMPolicy, oom_policy_from_string);
 static BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(bus_name, sd_bus_service_name_is_valid);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(timeout_failure_mode, ServiceTimeoutFailureMode, service_timeout_failure_mode_from_string);
+static BUS_DEFINE_SET_TRANSIENT_TO_STRING(reload_signal, "i", int32_t, int, "%" PRIi32, signal_to_string_with_check);
 
 static int bus_service_set_transient_property(
                 Service *s,
@@ -531,6 +533,9 @@ static int bus_service_set_transient_property(
 
         if (streq(name, "StandardErrorFileDescriptor"))
                 return bus_set_transient_std_fd(u, name, &s->stderr_fd, &s->exec_context.stdio_as_fds, message, flags, error);
+
+        if (streq(name, "ReloadSignal"))
+                return bus_set_transient_reload_signal(u, name, &s->reload_signal, message, flags, error);
 
         return 0;
 }
