@@ -5793,7 +5793,7 @@ int unit_clean(Unit *u, ExecCleanMask mask) {
                 return -EBUSY;
 
         state = unit_active_state(u);
-        if (!IN_SET(state, UNIT_INACTIVE))
+        if (state != UNIT_INACTIVE)
                 return -EBUSY;
 
         return UNIT_VTABLE(u)->clean(u, mask);

@@ -320,7 +320,7 @@ ssize_t dns_resource_record_payload(DnsResourceRecord *rr, void **out);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceKey*, dns_resource_key_unref);
 
 static inline bool dns_key_is_shared(const DnsResourceKey *key) {
-        return IN_SET(key->type, DNS_TYPE_PTR);
+        return key->type == DNS_TYPE_PTR;
 }
 
 bool dns_resource_key_reduce(DnsResourceKey **a, DnsResourceKey **b);
