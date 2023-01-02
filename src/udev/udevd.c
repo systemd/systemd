@@ -32,6 +32,7 @@
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "cpu-set-util.h"
+#include "daemon-util.h"
 #include "dev-setup.h"
 #include "device-monitor-private.h"
 #include "device-private.h"
@@ -330,9 +331,7 @@ static void manager_exit(Manager *manager) {
 
         manager->exit = true;
 
-        sd_notify(false,
-                  "STOPPING=1\n"
-                  "STATUS=Starting shutdown...");
+        (void) sd_notify(/* unset= */ false, NOTIFY_STOPPING);
 
         /* close sources of new events and discard buffered events */
         manager->ctrl = udev_ctrl_unref(manager->ctrl);
@@ -350,7 +349,7 @@ static void manager_exit(Manager *manager) {
 static void notify_ready(void) {
         int r;
 
-        r = sd_notifyf(false,
+        r = sd_notifyf(/* unset= */ false,
                        "READY=1\n"
                        "STATUS=Processing with %u children at max", arg_children_max);
         if (r < 0)
@@ -375,23 +374,33 @@ static void manager_reload(Manager *manager, bool force) {
         mac_selinux_maybe_reload();
 
         /* Nothing changed. It is not necessary to reload. */
-        if (!udev_rules_should_reload(manager->rules) && !udev_builtin_should_reload())
-                return;
+        if (!udev_rules_should_reload(manager->rules) && !udev_builtin_should_reload()) {
 
-        sd_notify(false,
-                  "RELOADING=1\n"
-                  "STATUS=Flushing configuration...");
+                if (!force)
+                        return;
 
-        manager_kill_workers(manager, false);
+                /* If we eat this up, then tell our service manager to just continue */
+                (void) sd_notifyf(/* unset= */ false,
+                                  "RELOADING=1\n"
+                                  "STATUS=Skipping configuration reloading, nothing changed.\n"
+                                  "MONOTONIC_USEC=" USEC_FMT, now(CLOCK_MONOTONIC));
+        } else {
+                (void) sd_notifyf(/* unset= */ false,
+                                  "RELOADING=1\n"
+                                  "STATUS=Flushing configuration...\n"
+                                  "MONOTONIC_USEC=" USEC_FMT, now(CLOCK_MONOTONIC));
 
-        udev_builtin_exit();
-        udev_builtin_init();
+                manager_kill_workers(manager, false);
 
-        r = udev_rules_load(&rules, arg_resolve_name_timing);
-        if (r < 0)
-                log_warning_errno(r, "Failed to read udev rules, using the previously loaded rules, ignoring: %m");
-        else
-                udev_rules_free_and_replace(manager->rules, rules);
+                udev_builtin_exit();
+                udev_builtin_init();
+
+                r = udev_rules_load(&rules, arg_resolve_name_timing);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to read udev rules, using the previously loaded rules, ignoring: %m");
+                else
+                        udev_rules_free_and_replace(manager->rules, rules);
+        }
 
         notify_ready();
 }
@@ -1985,9 +1994,7 @@ static int main_loop(Manager *manager) {
         if (r < 0)
                 log_error_errno(r, "Event loop failed: %m");
 
-        sd_notify(false,
-                  "STOPPING=1\n"
-                  "STATUS=Shutting down...");
+        (void) sd_notify(/* unset= */ false, NOTIFY_STOPPING);
         return r;
 }
 
