@@ -41,6 +41,8 @@
 #  define IDN_FLAGS 0
 #endif
 
+#define SNDBUF_SIZE (8*1024*1024)
+
 static const char* const socket_address_type_table[] = {
         [SOCK_STREAM] =    "Stream",
         [SOCK_DGRAM] =     "Datagram",
@@ -1471,4 +1473,106 @@ int connect_unix_path(int fd, int dir_fd, const char *path) {
         }
 
         return RET_NERRNO(connect(fd, &sa.sa, salen));
+}
+
+int socket_address_pid_notify(
+                SocketAddress *address,
+                pid_t pid,
+                const char *state,
+                const int *fds,
+                unsigned n_fds) {
+
+        assert(address);
+
+        struct iovec iovec;
+        struct msghdr msghdr = {
+                .msg_iov = &iovec,
+                .msg_iovlen = 1,
+                .msg_name = &address->sockaddr,
+                .msg_namelen = address->size,
+        };
+        _cleanup_close_ int fd = -EBADF;
+        struct cmsghdr *cmsg = NULL;
+        bool send_ucred;
+
+        if (!state)
+                return -EINVAL;
+
+        if (n_fds > 0 && !fds)
+                return -EINVAL;
+
+        /* At the time of writing QEMU does not yet support AF_VSOCK + SOCK_DGRAM and returns
+         * ENODEV. Fallback to SOCK_SEQPACKET in that case. */
+        fd = socket(address->sockaddr.sa.sa_family, SOCK_DGRAM|SOCK_CLOEXEC, 0);
+        if (fd < 0 && errno == ENODEV && address->sockaddr.sa.sa_family == AF_VSOCK) {
+                fd = socket(address->sockaddr.sa.sa_family, SOCK_SEQPACKET|SOCK_CLOEXEC, 0);
+                if (fd < 0)
+                        return -errno;
+
+                if (connect(fd, &address->sockaddr.sa, address->size) < 0)
+                        return -errno;
+
+                msghdr.msg_name = NULL;
+                msghdr.msg_namelen = 0;
+        } else if (fd < 0)
+                return -errno;
+
+        (void) fd_inc_sndbuf(fd, SNDBUF_SIZE);
+
+        iovec = IOVEC_MAKE_STRING(state);
+
+        send_ucred =
+                (pid != 0 && pid != getpid_cached()) ||
+                getuid() != geteuid() ||
+                getgid() != getegid();
+
+        if (n_fds > 0 || send_ucred) {
+                /* CMSG_SPACE(0) may return value different than zero, which results in miscalculated controllen. */
+                msghdr.msg_controllen =
+                        (n_fds > 0 ? CMSG_SPACE(sizeof(int) * n_fds) : 0) +
+                        (send_ucred ? CMSG_SPACE(sizeof(struct ucred)) : 0);
+
+                msghdr.msg_control = alloca0(msghdr.msg_controllen);
+
+                cmsg = CMSG_FIRSTHDR(&msghdr);
+                if (n_fds > 0) {
+                        cmsg->cmsg_level = SOL_SOCKET;
+                        cmsg->cmsg_type = SCM_RIGHTS;
+                        cmsg->cmsg_len = CMSG_LEN(sizeof(int) * n_fds);
+
+                        memcpy(CMSG_DATA(cmsg), fds, sizeof(int) * n_fds);
+
+                        if (send_ucred)
+                                assert_se(cmsg = CMSG_NXTHDR(&msghdr, cmsg));
+                }
+
+                if (send_ucred) {
+                        struct ucred *ucred;
+
+                        cmsg->cmsg_level = SOL_SOCKET;
+                        cmsg->cmsg_type = SCM_CREDENTIALS;
+                        cmsg->cmsg_len = CMSG_LEN(sizeof(struct ucred));
+
+                        ucred = (struct ucred*) CMSG_DATA(cmsg);
+                        ucred->pid = pid != 0 ? pid : getpid_cached();
+                        ucred->uid = getuid();
+                        ucred->gid = getgid();
+                }
+        }
+
+        /* First try with fake ucred data, as requested */
+        if (sendmsg(fd, &msghdr, MSG_NOSIGNAL) >= 0)
+                return 1;
+
+        /* If that failed, try with our own ucred instead */
+        if (send_ucred) {
+                msghdr.msg_controllen -= CMSG_SPACE(sizeof(struct ucred));
+                if (msghdr.msg_controllen == 0)
+                        msghdr.msg_control = NULL;
+
+                if (sendmsg(fd, &msghdr, MSG_NOSIGNAL) >= 0)
+                        return 1;
+        }
+
+        return -errno;
 }

@@ -440,106 +440,20 @@ _public_ int sd_pid_notify_with_fds(
                 const int *fds,
                 unsigned n_fds) {
 
-        union sockaddr_union sockaddr;
-        struct iovec iovec;
-        struct msghdr msghdr = {
-                .msg_iov = &iovec,
-                .msg_iovlen = 1,
-                .msg_name = &sockaddr,
-        };
-        _cleanup_close_ int fd = -EBADF;
-        struct cmsghdr *cmsg = NULL;
+        SocketAddress address;
         const char *e;
-        bool send_ucred;
         int r;
-
-        if (!state) {
-                r = -EINVAL;
-                goto finish;
-        }
-
-        if (n_fds > 0 && !fds) {
-                r = -EINVAL;
-                goto finish;
-        }
 
         e = getenv("NOTIFY_SOCKET");
         if (!e)
                 return 0;
 
-        r = sockaddr_un_set_path(&sockaddr.un, e);
+        r = sockaddr_un_set_path(&address.sockaddr.un, e);
         if (r < 0)
                 goto finish;
-        msghdr.msg_namelen = r;
+        address.size = r;
 
-        fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
-        if (fd < 0) {
-                r = -errno;
-                goto finish;
-        }
-
-        (void) fd_inc_sndbuf(fd, SNDBUF_SIZE);
-
-        iovec = IOVEC_MAKE_STRING(state);
-
-        send_ucred =
-                (pid != 0 && pid != getpid_cached()) ||
-                getuid() != geteuid() ||
-                getgid() != getegid();
-
-        if (n_fds > 0 || send_ucred) {
-                /* CMSG_SPACE(0) may return value different than zero, which results in miscalculated controllen. */
-                msghdr.msg_controllen =
-                        (n_fds > 0 ? CMSG_SPACE(sizeof(int) * n_fds) : 0) +
-                        (send_ucred ? CMSG_SPACE(sizeof(struct ucred)) : 0);
-
-                msghdr.msg_control = alloca0(msghdr.msg_controllen);
-
-                cmsg = CMSG_FIRSTHDR(&msghdr);
-                if (n_fds > 0) {
-                        cmsg->cmsg_level = SOL_SOCKET;
-                        cmsg->cmsg_type = SCM_RIGHTS;
-                        cmsg->cmsg_len = CMSG_LEN(sizeof(int) * n_fds);
-
-                        memcpy(CMSG_DATA(cmsg), fds, sizeof(int) * n_fds);
-
-                        if (send_ucred)
-                                assert_se(cmsg = CMSG_NXTHDR(&msghdr, cmsg));
-                }
-
-                if (send_ucred) {
-                        struct ucred *ucred;
-
-                        cmsg->cmsg_level = SOL_SOCKET;
-                        cmsg->cmsg_type = SCM_CREDENTIALS;
-                        cmsg->cmsg_len = CMSG_LEN(sizeof(struct ucred));
-
-                        ucred = (struct ucred*) CMSG_DATA(cmsg);
-                        ucred->pid = pid != 0 ? pid : getpid_cached();
-                        ucred->uid = getuid();
-                        ucred->gid = getgid();
-                }
-        }
-
-        /* First try with fake ucred data, as requested */
-        if (sendmsg(fd, &msghdr, MSG_NOSIGNAL) >= 0) {
-                r = 1;
-                goto finish;
-        }
-
-        /* If that failed, try with our own ucred instead */
-        if (send_ucred) {
-                msghdr.msg_controllen -= CMSG_SPACE(sizeof(struct ucred));
-                if (msghdr.msg_controllen == 0)
-                        msghdr.msg_control = NULL;
-
-                if (sendmsg(fd, &msghdr, MSG_NOSIGNAL) >= 0) {
-                        r = 1;
-                        goto finish;
-                }
-        }
-
-        r = -errno;
+        r = socket_address_pid_notify(&address, pid, state, fds, n_fds);
 
 finish:
         if (unset_environment)

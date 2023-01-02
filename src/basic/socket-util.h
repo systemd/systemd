@@ -336,3 +336,5 @@ int socket_get_mtu(int fd, int af, size_t *ret);
 #define UCRED_INVALID { .pid = 0, .uid = UID_INVALID, .gid = GID_INVALID }
 
 int connect_unix_path(int fd, int dir_fd, const char *path);
+
+int socket_address_pid_notify(SocketAddress *address, pid_t pid, const char *state, const int *fds, unsigned n_fds);
