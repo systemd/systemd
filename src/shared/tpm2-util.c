@@ -133,6 +133,50 @@ static inline void Esys_Freep(void *p) {
                 sym_Esys_Free(*(void**) p);
 }
 
+static int tpm2_get_capability(
+                Tpm2Context *c,
+                TPM2_CAP capability,
+                uint32_t start,
+                uint32_t count,
+                TPMI_YES_NO *ret_more,
+                TPMU_CAPABILITIES *ret_capability_data) {
+
+        _cleanup_(Esys_Freep) TPMS_CAPABILITY_DATA *capabilities = NULL;
+        TPMI_YES_NO more;
+        TSS2_RC rc;
+
+        assert(c);
+
+        log_debug("Getting TPM2 capability 0x%04x property 0x%04x count %u.", capability, start, count);
+
+        rc = sym_Esys_GetCapability(
+                        c->esys_context,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        capability,
+                        start,
+                        count,
+                        &more,
+                        &capabilities);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to get TPM2 capability 0x%04x property 0x%04x: %s",
+                                       capability, start, sym_Tss2_RC_Decode(rc));
+
+        if (capabilities->capability != capability)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "TPM provided wrong capability: 0x%04x instead of 0x%04x.",
+                                       capabilities->capability, capability);
+
+        if (ret_more)
+                *ret_more = more;
+        if (ret_capability_data)
+                *ret_capability_data = capabilities->data;
+
+        return 0;
+}
+
 static Tpm2Context *tpm2_context_free(Tpm2Context *c) {
         if (!c)
                 return NULL;
