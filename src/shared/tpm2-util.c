@@ -133,6 +133,73 @@ static inline void Esys_Freep(void *p) {
                 sym_Esys_Free(*(void**) p);
 }
 
+static int tpm2_get_capability(
+                Tpm2Context *c,
+                TPM2_CAP capability,
+                uint32_t start,
+                uint32_t count,
+                TPMU_CAPABILITIES *ret_capability_data) {
+
+        _cleanup_(Esys_Freep) TPMS_CAPABILITY_DATA *capabilities = NULL;
+        TPMI_YES_NO more;
+        TSS2_RC rc;
+
+        assert(c);
+
+        log_debug("Getting TPM2 capability 0x%04" PRIx32 " property 0x%04" PRIx32 " count %" PRIu32 ".",
+                  capability, start, count);
+
+        rc = sym_Esys_GetCapability(
+                        c->esys_context,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        capability,
+                        start,
+                        count,
+                        &more,
+                        &capabilities);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to get TPM2 capability 0x%04" PRIx32 " property 0x%04" PRIx32 ": %s",
+                                       capability, start, sym_Tss2_RC_Decode(rc));
+
+        if (capabilities->capability != capability)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "TPM provided wrong capability: 0x%04" PRIx32 " instead of 0x%04" PRIx32 ".",
+                                       capabilities->capability, capability);
+
+        if (ret_capability_data)
+                *ret_capability_data = capabilities->data;
+
+        return more == TPM2_YES;
+}
+
+static int tpm2_cache_capabilities(Tpm2Context *c) {
+        TPMU_CAPABILITIES capability;
+        int r;
+
+        /* Cache the PCR capabilities, which are safe to cache, as the only way they can change is
+         * TPM2_PCR_Allocate(), which changes the allocation after the next _TPM_Init(). If the TPM is
+         * reinitialized while we are using it, all our context and sessions will be invalid, so we can
+         * safely assume the TPM PCR allocation will not change while we are using it. */
+        r = tpm2_get_capability(
+                        c,
+                        TPM2_CAP_PCRS,
+                        0,
+                        1,
+                        &capability);
+        if (r < 0)
+                return r;
+        if (r == 1)
+                log_error("TPM bug: reported more pcrs, ignoring.");
+        c->capability_pcrs = capability.assignedPCR;
+
+        return 0;
+}
+
+#define tpm2_capability_pcrs(c) ((c)->capability_pcrs)
+
 static Tpm2Context *tpm2_context_free(Tpm2Context *c) {
         if (!c)
                 return NULL;
@@ -254,6 +321,10 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
         else
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to start up TPM: %s", sym_Tss2_RC_Decode(rc));
+
+        r = tpm2_cache_capabilities(context);
+        if (r < 0)
+                return r;
 
         *ret_context = TAKE_PTR(context);
 
@@ -1180,48 +1251,33 @@ static int tpm2_get_best_pcr_bank(
                 uint32_t pcr_mask,
                 TPMI_ALG_HASH *ret) {
 
-        _cleanup_(Esys_Freep) TPMS_CAPABILITY_DATA *pcap = NULL;
+        TPML_PCR_SELECTION pcrs;
         TPMI_ALG_HASH supported_hash = 0, hash_with_valid_pcr = 0;
-        TPMI_YES_NO more;
-        TSS2_RC rc;
         int r;
 
         assert(c);
+        assert(ret);
 
-        rc = sym_Esys_GetCapability(
-                        c->esys_context,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        TPM2_CAP_PCRS,
-                        0,
-                        1,
-                        &more,
-                        &pcap);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to determine TPM2 PCR bank capabilities: %s", sym_Tss2_RC_Decode(rc));
-
-        assert(pcap->capability == TPM2_CAP_PCRS);
-
-        for (size_t i = 0; i < pcap->data.assignedPCR.count; i++) {
+        pcrs = tpm2_capability_pcrs(c);
+        FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(selection, &pcrs) {
+                TPMI_ALG_HASH hash = selection->hash;
                 int good;
 
                 /* For now we are only interested in the SHA1 and SHA256 banks */
-                if (!IN_SET(pcap->data.assignedPCR.pcrSelections[i].hash, TPM2_ALG_SHA256, TPM2_ALG_SHA1))
+                if (!IN_SET(hash, TPM2_ALG_SHA256, TPM2_ALG_SHA1))
                         continue;
 
-                r = tpm2_bank_has24(pcap->data.assignedPCR.pcrSelections + i);
+                r = tpm2_bank_has24(selection);
                 if (r < 0)
                         return r;
                 if (!r)
                         continue;
 
-                good = tpm2_pcr_mask_good(c, pcap->data.assignedPCR.pcrSelections[i].hash, pcr_mask);
+                good = tpm2_pcr_mask_good(c, hash, pcr_mask);
                 if (good < 0)
                         return good;
 
-                if (pcap->data.assignedPCR.pcrSelections[i].hash == TPM2_ALG_SHA256) {
+                if (hash == TPM2_ALG_SHA256) {
                         supported_hash = TPM2_ALG_SHA256;
                         if (good) {
                                 /* Great, SHA256 is supported and has initialized PCR values, we are done. */
@@ -1229,7 +1285,7 @@ static int tpm2_get_best_pcr_bank(
                                 break;
                         }
                 } else {
-                        assert(pcap->data.assignedPCR.pcrSelections[i].hash == TPM2_ALG_SHA1);
+                        assert(hash == TPM2_ALG_SHA1);
 
                         if (supported_hash == 0)
                                 supported_hash = TPM2_ALG_SHA1;
@@ -1278,42 +1334,26 @@ int tpm2_get_good_pcr_banks(
                 TPMI_ALG_HASH **ret) {
 
         _cleanup_free_ TPMI_ALG_HASH *good_banks = NULL, *fallback_banks = NULL;
-        _cleanup_(Esys_Freep) TPMS_CAPABILITY_DATA *pcap = NULL;
+        TPML_PCR_SELECTION pcrs;
         size_t n_good_banks = 0, n_fallback_banks = 0;
-        TPMI_YES_NO more;
-        TSS2_RC rc;
         int r;
 
         assert(c);
         assert(ret);
 
-        rc = sym_Esys_GetCapability(
-                        c->esys_context,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        TPM2_CAP_PCRS,
-                        0,
-                        1,
-                        &more,
-                        &pcap);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to determine TPM2 PCR bank capabilities: %s", sym_Tss2_RC_Decode(rc));
-
-        assert(pcap->capability == TPM2_CAP_PCRS);
-
-        for (size_t i = 0; i < pcap->data.assignedPCR.count; i++) {
+        pcrs = tpm2_capability_pcrs(c);
+        FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(selection, &pcrs) {
+                TPMI_ALG_HASH hash = selection->hash;
 
                 /* Let's see if this bank is superficially OK, i.e. has at least 24 enabled registers */
-                r = tpm2_bank_has24(pcap->data.assignedPCR.pcrSelections + i);
+                r = tpm2_bank_has24(selection);
                 if (r < 0)
                         return r;
                 if (!r)
                         continue;
 
                 /* Let's now see if this bank has any of the selected PCRs actually initialized */
-                r = tpm2_pcr_mask_good(c, pcap->data.assignedPCR.pcrSelections[i].hash, pcr_mask);
+                r = tpm2_pcr_mask_good(c, hash, pcr_mask);
                 if (r < 0)
                         return r;
 
@@ -1324,12 +1364,12 @@ int tpm2_get_good_pcr_banks(
                         if (!GREEDY_REALLOC(good_banks, n_good_banks+1))
                                 return log_oom();
 
-                        good_banks[n_good_banks++] = pcap->data.assignedPCR.pcrSelections[i].hash;
+                        good_banks[n_good_banks++] = hash;
                 } else {
                         if (!GREEDY_REALLOC(fallback_banks, n_fallback_banks+1))
                                 return log_oom();
 
-                        fallback_banks[n_fallback_banks++] = pcap->data.assignedPCR.pcrSelections[i].hash;
+                        fallback_banks[n_fallback_banks++] = hash;
                 }
         }
 
