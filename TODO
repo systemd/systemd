@@ -552,10 +552,6 @@ Features:
 * sd-boot should look for information what to boot in SMBIOS, too, so that VM
   managers can tell sd-boot what to boot into and suchlike
 
-* PID 1 should look for an SMBIOS variable that encodes an AF_VSOCK address it
-  should send sd_notify() ready notifications to. That way a VMM can boot up a
-  system, and generically know when it finished booting.
-
 * add "systemd-sysext identify" verb, that you can point on any file in /usr/
   and that determines from which overlayfs layer it originates, which image, and with
   what it was signed.
@@ -777,13 +773,7 @@ Features:
   don't query this unnecessarily in entirely uninitialized
   containers. (i.e. containers with empty /etc).
 
-* beef up sd_notify() to support AV_VSOCK in $NOTIFY_SOCKET, so that VM
-  managers can get ready notifications from VMs, just like container managers
-  from their payload. Also pick up address from qemu/fw_cfg if set there.
-  (which has benefits, given SecureBoot and kernel cmdline are not necessarily
-  friends.)
-
-* mirroring this: maybe support binding to AV_VSOCK in Type=notify services,
+* sd_notify/vsock: maybe support binding to AF_VSOCK in Type=notify services,
   then passing $NOTIFY_SOCKET and $NOTIFY_GUESTCID with PID1's cid (typically
   fixed to "2", i.e. the official host cid) and the expected guest cid, for the
   two sides of the channel. The latter env var could then be used in an
