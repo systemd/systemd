@@ -69,7 +69,10 @@ def path_is_readable(s: str | None) -> pathlib.Path | None:
     if s is None:
         return None
     p = pathlib.Path(s)
-    p.open().close()
+    try:
+        p.open().close()
+    except IsADirectoryError:
+        pass
     return p
 
 
@@ -684,7 +687,7 @@ usage: ukify [options…] linux initrd…
 
     p.add_argument('--tools',
                    type=pathlib.Path,
-                   nargs='+',
+                   action='append',
                    help='Directories to search for tools (systemd-measure, llvm-objcopy, ...)')
 
     p.add_argument('--output', '-o',
