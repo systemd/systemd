@@ -202,22 +202,22 @@ TEST(ptr_to_int) {
 }
 
 TEST(in_set) {
-        assert_se(IN_SET(1, 1));
+        assert_se(IN_SET(1, 1, 2));
         assert_se(IN_SET(1, 1, 2, 3, 4));
         assert_se(IN_SET(2, 1, 2, 3, 4));
         assert_se(IN_SET(3, 1, 2, 3, 4));
         assert_se(IN_SET(4, 1, 2, 3, 4));
-        assert_se(!IN_SET(0, 1));
+        assert_se(!IN_SET(0, 1, 2));
         assert_se(!IN_SET(0, 1, 2, 3, 4));
 
         struct {
                 unsigned x:3;
         } t = { 1 };
 
-        assert_se(IN_SET(t.x, 1));
+        assert_se(IN_SET(t.x, 1, 2));
         assert_se(IN_SET(t.x, 1, 2, 3, 4));
         assert_se(IN_SET(t.x, 2, 3, 4, 1));
-        assert_se(!IN_SET(t.x, 0));
+        assert_se(!IN_SET(t.x, 0, 2));
         assert_se(!IN_SET(t.x, 2, 3, 4));
 }
 

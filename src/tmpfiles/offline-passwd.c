@@ -62,7 +62,7 @@ static int populate_uid_cache(const char *root, Hashmap **ret) {
                                 return -ENOMEM;
 
                         r = hashmap_put(cache, n, UID_TO_PTR(pw->pw_uid));
-                        if (IN_SET(r, 0 -EEXIST))
+                        if (IN_SET(r, 0, -EEXIST))
                                 continue;
                         if (r < 0)
                                 return r;

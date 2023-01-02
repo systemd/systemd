@@ -864,7 +864,7 @@ static int timer_clean(Unit *u, ExecCleanMask mask) {
         if (t->state != TIMER_DEAD)
                 return -EBUSY;
 
-        if (!IN_SET(mask, EXEC_CLEAN_STATE))
+        if (mask != EXEC_CLEAN_STATE)
                 return -EUNATCH;
 
         r = timer_setup_persistent(t);

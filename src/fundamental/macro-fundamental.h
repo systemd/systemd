@@ -278,15 +278,15 @@
                                CASE_F_10,CASE_F_9,CASE_F_8,CASE_F_7,CASE_F_6,CASE_F_5,CASE_F_4,CASE_F_3,CASE_F_2,CASE_F_1) \
                    (__VA_ARGS__)
 
-#define IN_SET(x, ...)                                                  \
+#define IN_SET(x, first, ...)                                           \
         ({                                                              \
                 bool _found = false;                                    \
                 /* If the build breaks in the line below, you need to extend the case macros. We use typeof(+x) \
                  * here to widen the type of x if it is a bit-field as this would otherwise be illegal. */      \
-                static const typeof(+x) __assert_in_set[] _unused_ = { __VA_ARGS__ }; \
+                static const typeof(+x) __assert_in_set[] _unused_ = { first, __VA_ARGS__ }; \
                 assert_cc(ELEMENTSOF(__assert_in_set) <= 20);           \
                 switch (x) {                                            \
-                FOR_EACH_MAKE_CASE(__VA_ARGS__)                         \
+                FOR_EACH_MAKE_CASE(first, __VA_ARGS__)                  \
                         _found = true;                                  \
                         break;                                          \
                 default:                                                \

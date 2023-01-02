@@ -1249,7 +1249,7 @@ typedef enum EndOfLineMarker {
 
 static EndOfLineMarker categorize_eol(char c, ReadLineFlags flags) {
 
-        if (!IN_SET(flags, READ_LINE_ONLY_NUL)) {
+        if (!FLAGS_SET(flags, READ_LINE_ONLY_NUL)) {
                 if (c == '\n')
                         return EOL_TEN;
                 if (c == '\r')
