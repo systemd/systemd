@@ -423,7 +423,7 @@ static int varlink_test_disconnect(Varlink *v) {
         /* Similar, if are a client that hasn't written anything yet but the write side is dead, also
          * disconnect. We also explicitly check for POLLHUP here since we likely won't notice the write side
          * being down if we never wrote anything. */
-        if (IN_SET(v->state, VARLINK_IDLE_CLIENT) && (v->write_disconnected || v->got_pollhup))
+        if (v->state == VARLINK_IDLE_CLIENT && (v->write_disconnected || v->got_pollhup))
                 goto disconnect;
 
         /* We are on the server side and still want to send out more replies, but we saw POLLHUP already, and
@@ -1473,7 +1473,7 @@ int varlink_call(
 
         if (v->state == VARLINK_DISCONNECTED)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
-        if (!IN_SET(v->state, VARLINK_IDLE_CLIENT))
+        if (v->state != VARLINK_IDLE_CLIENT)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
 
         assert(v->n_pending == 0); /* n_pending can't be > 0 if we are in VARLINK_IDLE_CLIENT state */
