@@ -529,13 +529,13 @@ static usec_t service_running_timeout(Service *s) {
                         delta);
 }
 
-static int service_arm_timer(Service *s, usec_t usec) {
+static int service_arm_timer(Service *s, bool relative, usec_t usec) {
         int r;
 
         assert(s);
 
         if (s->timer_event_source) {
-                r = sd_event_source_set_time(s->timer_event_source, usec);
+                r = (relative ? sd_event_source_set_time_relative : sd_event_source_set_time)(s->timer_event_source, usec);
                 if (r < 0)
                         return r;
 
@@ -545,7 +545,7 @@ static int service_arm_timer(Service *s, usec_t usec) {
         if (usec == USEC_INFINITY)
                 return 0;
 
-        r = sd_event_add_time(
+        r = (relative ? sd_event_add_time_relative : sd_event_add_time)(
                         UNIT(s)->manager->event,
                         &s->timer_event_source,
                         CLOCK_MONOTONIC,
@@ -1194,7 +1194,7 @@ static int service_coldplug(Unit *u) {
         if (s->deserialized_state == s->state)
                 return 0;
 
-        r = service_arm_timer(s, service_coldplug_timeout(s));
+        r = service_arm_timer(s, /* relative= */ false, service_coldplug_timeout(s));
         if (r < 0)
                 return r;
 
@@ -1537,7 +1537,7 @@ static int service_spawn_internal(
                         return r;
         }
 
-        r = service_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), timeout));
+        r = service_arm_timer(s, /* relative= */ true, timeout);
         if (r < 0)
                 return r;
 
@@ -1856,7 +1856,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         if (s->will_auto_restart) {
                 s->will_auto_restart = false;
 
-                r = service_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->restart_usec));
+                r = service_arm_timer(s, /* relative= */ true, s->restart_usec);
                 if (r < 0) {
                         s->n_keep_fd_store--;
                         goto fail;
@@ -1988,8 +1988,8 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
                 goto fail;
 
         if (r > 0) {
-                r = service_arm_timer(s, usec_add(now(CLOCK_MONOTONIC),
-                                      kill_operation == KILL_WATCHDOG ? service_timeout_abort_usec(s) : s->timeout_stop_usec));
+                r = service_arm_timer(s, /* relative= */ true,
+                                      kill_operation == KILL_WATCHDOG ? service_timeout_abort_usec(s) : s->timeout_stop_usec);
                 if (r < 0)
                         goto fail;
 
@@ -2019,7 +2019,7 @@ static void service_enter_stop_by_notify(Service *s) {
 
         (void) unit_enqueue_rewatch_pids(UNIT(s));
 
-        service_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_stop_usec));
+        service_arm_timer(s, /* relative= */ true, s->timeout_stop_usec);
 
         /* The service told us it's stopping, so it's as if we SIGTERM'd it. */
         service_set_state(s, SERVICE_STOP_SIGTERM);
@@ -2098,7 +2098,7 @@ static void service_enter_running(Service *s, ServiceResult f) {
                         service_enter_stop_by_notify(s);
                 else {
                         service_set_state(s, SERVICE_RUNNING);
-                        service_arm_timer(s, service_running_timeout(s));
+                        service_arm_timer(s, /* relative= */ false, service_running_timeout(s));
                 }
 
         } else if (s->remain_after_exit)
@@ -2397,7 +2397,7 @@ static void service_enter_reload_by_notify(Service *s) {
 
         assert(s);
 
-        service_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_start_usec));
+        service_arm_timer(s, /* relative= */ true, s->timeout_start_usec);
         service_set_state(s, SERVICE_RELOAD);
 
         /* service_enter_reload_by_notify is never called during a reload, thus no loops are possible. */
@@ -4569,7 +4569,7 @@ static int service_clean(Unit *u, ExecCleanMask mask) {
         s->control_command = NULL;
         s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
 
-        r = service_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->exec_context.timeout_clean_usec));
+        r = service_arm_timer(s, /* relative= */ true, s->exec_context.timeout_clean_usec);
         if (r < 0)
                 goto fail;
 
