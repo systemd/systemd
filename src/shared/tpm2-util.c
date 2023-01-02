@@ -718,6 +718,71 @@ static int tpm2_esys_handle_from_tpm_handle(
         return 1;
 }
 
+/* Copy an object in the TPM at a transient location to a persistent location.
+ *
+ * The provided transient handle must exist in the TPM in the transient range. The persistent location may be
+ * 0 or any location in the persistent range. If 0, this will try each handle in the persistent range, in
+ * ascending order, until an available one is found. If non-zero, only the requested persistent location will
+ * be used.
+ *
+ * Returns 1 if the object was successfully persisted, or 0 if there is already a key at the requested
+ * location, or < 0 on error. */
+static int tpm2_persist_handle(
+                Tpm2Context *c,
+                const Tpm2Handle *transient_handle,
+                TPMI_DH_PERSISTENT persistent_location,
+                Tpm2Handle **ret_persistent_handle) {
+
+        TPMI_DH_PERSISTENT first = TPM2_PERSISTENT_FIRST, last = TPM2_PERSISTENT_LAST;
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+        assert(transient_handle);
+
+        /* If persistent location specified, only try that. */
+        if (persistent_location != 0) {
+                if (tpm2_handle_type(persistent_location) != TPM2_HT_PERSISTENT)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Handle not in persistent range: 0x%x", persistent_location);
+
+                first = last = persistent_location;
+        }
+
+        for (TPMI_DH_PERSISTENT requested = first; requested <= last; requested++) {
+                _cleanup_(tpm2_handle_freep) Tpm2Handle *persistent_handle = NULL;
+                r = tpm2_handle_new(c, &persistent_handle);
+                if (r < 0)
+                        return r;
+
+                /* Since this is a persistent handle, don't flush it. */
+                persistent_handle->no_flush = true;
+
+                rc = sym_Esys_EvictControl(
+                                c->esys_context,
+                                ESYS_TR_RH_OWNER,
+                                transient_handle->esys_handle,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE,
+                                requested,
+                                &persistent_handle->esys_handle);
+                if (rc == TSS2_RC_SUCCESS) {
+                        if (ret_persistent_handle)
+                                *ret_persistent_handle = TAKE_PTR(persistent_handle);
+
+                        return 1;
+                }
+                if (rc == TPM2_RC_NV_DEFINED)
+                        continue;
+
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to persist handle: %s", sym_Tss2_RC_Decode(rc));
+        }
+
+        return 0;
+}
+
 #define TPM2_CREDIT_RANDOM_FLAG_PATH "/run/systemd/tpm-rng-credited"
 
 static int tpm2_credit_random(Tpm2Context *c) {
@@ -1135,16 +1200,12 @@ static int tpm2_make_primary(
                         FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - ts, USEC_PER_MSEC));
 
         if (use_srk_model) {
-                rc = sym_Esys_EvictControl(c->esys_context, ESYS_TR_RH_OWNER, primary->esys_handle,
-                                ESYS_TR_PASSWORD, ESYS_TR_NONE, ESYS_TR_NONE, TPM2_SRK_HANDLE, &primary->esys_handle);
-                if (rc != TSS2_RC_SUCCESS)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Failed to persist SRK within TPM: %s", sym_Tss2_RC_Decode(rc));
-                primary->no_flush = true;
-        }
+                r = tpm2_persist_handle(c, primary, TPM2_SRK_HANDLE, ret_primary);
+                if (r < 0)
+                        return r;
+        } else if (ret_primary)
+                        *ret_primary = TAKE_PTR(primary);
 
-        if (ret_primary)
-                *ret_primary = TAKE_PTR(primary);
         if (ret_alg)
                 *ret_alg = alg;
 
