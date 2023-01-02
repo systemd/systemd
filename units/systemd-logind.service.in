@@ -58,6 +58,7 @@ StateDirectory=systemd/linger
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
+Type=notify-reload
 {{SERVICE_WATCHDOG}}
 
 # Increase the default a bit in order to allow many simultaneous logins since
