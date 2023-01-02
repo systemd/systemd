@@ -102,23 +102,24 @@
       <varlistentry>
         <term>READY=1</term>
 
-        <listitem><para>Tells the service manager that service startup is finished, or the service finished loading its
-        configuration. This is only used by systemd if the service definition file has <varname>Type=notify</varname>
-        set. Since there is little value in signaling non-readiness, the only value services should send is
-        <literal>READY=1</literal> (i.e.  <literal>READY=0</literal> is not defined).</para></listitem>
+        <listitem><para>Tells the service manager that service startup is finished, or the service finished
+        re-loading its configuration. This is only used by systemd if the service definition file has
+        <varname>Type=notify</varname> or <varname>Type=notify-reload</varname> set. Since there is little
+        value in signaling non-readiness, the only value services should send is <literal>READY=1</literal>
+        (i.e.  <literal>READY=0</literal> is not defined).</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term>RELOADING=1</term>
 
-        <listitem><para>Tells the service manager that the service is
-        reloading its configuration. This is useful to allow the
-        service manager to track the service's internal state, and
-        present it to the user. Note that a service that sends this
-        notification must also send a <literal>READY=1</literal>
-        notification when it completed reloading its
-        configuration. Reloads are propagated in the same way as they
-        are when initiated by the user.</para></listitem>
+        <listitem><para>Tells the service manager that the service is beginning to reload its
+        configuration. This is useful to allow the service manager to track the service's internal state, and
+        present it to the user. Note that a service that sends this notification must also send a
+        <literal>READY=1</literal> notification when it completed reloading its configuration. Reloads the
+        service manager is notified about with this mechanisms are propagated in the same way as they are
+        when originally initiated through the service manager. This message is particularly relevant for
+        <varname>Type=notify-reload</varname> services, to inform the service manager that the request to
+        reload the service has been received and is now being processed.</para></listitem>
       </varlistentry>
 
       <varlistentry>
