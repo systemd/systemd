@@ -74,6 +74,7 @@
 #include "rm-rf.h"
 #include "selinux-util.h"
 #include "signal-util.h"
+#include "socket-netlink.h"
 #include "socket-util.h"
 #include "special.h"
 #include "stat-util.h"
@@ -3463,6 +3464,34 @@ static void log_taint_string(Manager *m) {
                    "MESSAGE_ID=" SD_MESSAGE_TAINTED_STR);
 }
 
+static void send_notify_ready_via_creds(void) {
+        _cleanup_free_ char *cred = NULL, *address = NULL;
+        SocketAddress a;
+        int r;
+
+        cred = path_join(SYSTEM_CREDENTIALS_DIRECTORY, "notify_socket");
+        if (!cred)
+                return (void) log_oom();
+
+        r = read_one_line_file(cred, &address);
+        if (r == -ENOENT)
+                return; /* Nothing to do. */
+        if (r < 0)
+                return (void) log_warning_errno(r, "Failed to read notify socket address from %s, ignoring: %m", cred);
+
+        r = socket_address_parse(&a, address);
+        if (r < 0)
+                return (void) log_warning_errno(r, "Failed to parse notify socket address from %s, ignoring: %m", address);
+
+        /* If we didn't get an address, talk to the hypervisor by default, as that's the purpose of this functionality */
+        if (a.sockaddr.vm.svm_family == AF_VSOCK && a.sockaddr.vm.svm_cid == VMADDR_CID_ANY)
+                a.sockaddr.vm.svm_cid = VMADDR_CID_HYPERVISOR;
+
+        r = socket_address_pid_notify(&a, /* pid= */ 0, "READY=1", /* fds= */ NULL, /* n_fds= */ 0);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send SD_READY=1 to %s: %m", address);
+}
+
 static void manager_notify_finished(Manager *m) {
         usec_t firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec;
 
@@ -3522,6 +3551,12 @@ static void manager_notify_finished(Manager *m) {
                                                FORMAT_TIMESPAN(userspace_usec, USEC_PER_MSEC),
                                                FORMAT_TIMESPAN(total_usec, USEC_PER_MSEC)));
                 }
+
+                /* Send SD_READY=1 to hypervisor. Note that we don't check that we are running in a VM, nor that the passed
+                 * notify_socket credential is a VSOCK address. While that's the documented use case, it doesn't hurt to let
+                 * people try weirder things if they want to, after all setting the credential requires privileges over pid1
+                 * so there's no reason not to. */
+                send_notify_ready_via_creds();
         } else {
                 /* The container and --user case */
                 firmware_usec = loader_usec = initrd_usec = kernel_usec = 0;

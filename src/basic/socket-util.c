@@ -1501,8 +1501,20 @@ int socket_address_pid_notify(
         if (n_fds > 0 && !fds)
                 return -EINVAL;
 
+        /* At the time of writing QEMU does not yet support AF_VSOCK + SOCK_DGRAM and returns
+         * ENODEV. Fallback to SOCK_SEQPACKET in that case. */
         fd = socket(address->sockaddr.sa.sa_family, SOCK_DGRAM|SOCK_CLOEXEC, 0);
-        if (fd < 0)
+        if (fd < 0 && errno == ENODEV && address->sockaddr.sa.sa_family == AF_VSOCK) {
+                fd = socket(address->sockaddr.sa.sa_family, SOCK_SEQPACKET|SOCK_CLOEXEC, 0);
+                if (fd < 0)
+                        return -errno;
+
+                if (connect(fd, &address->sockaddr.sa, address->size) < 0)
+                        return -errno;
+
+                msghdr.msg_name = NULL;
+                msghdr.msg_namelen = 0;
+        } else if (fd < 0)
                 return -errno;
 
         (void) fd_inc_sndbuf(fd, SNDBUF_SIZE);
