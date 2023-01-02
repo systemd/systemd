@@ -995,7 +995,7 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         r = sd_dhcp_lease_get_router(lease, &addresses);
         if (r > 0) {
                 fputs("ROUTER=", f);
-                serialize_in_addrs(f, addresses, r, false, NULL);
+                serialize_in_addrs(f, addresses, r, NULL, NULL);
                 fputc('\n', f);
         }
 
@@ -1030,21 +1030,21 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         r = sd_dhcp_lease_get_dns(lease, &addresses);
         if (r > 0) {
                 fputs("DNS=", f);
-                serialize_in_addrs(f, addresses, r, false, NULL);
+                serialize_in_addrs(f, addresses, r, NULL, NULL);
                 fputc('\n', f);
         }
 
         r = sd_dhcp_lease_get_ntp(lease, &addresses);
         if (r > 0) {
                 fputs("NTP=", f);
-                serialize_in_addrs(f, addresses, r, false, NULL);
+                serialize_in_addrs(f, addresses, r, NULL, NULL);
                 fputc('\n', f);
         }
 
         r = sd_dhcp_lease_get_sip(lease, &addresses);
         if (r > 0) {
                 fputs("SIP=", f);
-                serialize_in_addrs(f, addresses, r, false, NULL);
+                serialize_in_addrs(f, addresses, r, NULL, NULL);
                 fputc('\n', f);
         }
 
