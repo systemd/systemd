@@ -1472,3 +1472,64 @@ int connect_unix_path(int fd, int dir_fd, const char *path) {
 
         return RET_NERRNO(connect(fd, &sa.sa, salen));
 }
+
+int socket_local_address_parse(SocketAddress *a, const char *s) {
+        int r;
+
+        assert(a);
+        assert(s);
+
+        if (IN_SET(*s, '/', '@')) {
+                /* AF_UNIX socket */
+                struct sockaddr_un un;
+
+                r = sockaddr_un_set_path(&un, s);
+                if (r < 0)
+                        return r;
+
+                *a = (SocketAddress) {
+                        .sockaddr.un = un,
+                        .size = r,
+                };
+
+        } else if (startswith(s, "vsock:")) {
+                /* AF_VSOCK socket in vsock:cid:port notation */
+                const char *cid_start = s + STRLEN("vsock:");
+                _cleanup_free_ char *n = NULL;
+                unsigned port, cid;
+                char *e;
+
+                e = strchr(cid_start, ':');
+                if (!e)
+                        return -EINVAL;
+
+                r = safe_atou(e+1, &port);
+                if (r < 0)
+                        return r;
+
+                n = strndup(cid_start, e - cid_start);
+                if (!n)
+                        return -ENOMEM;
+
+                if (isempty(n))
+                        cid = VMADDR_CID_ANY;
+                else {
+                        r = safe_atou(n, &cid);
+                        if (r < 0)
+                                return r;
+                }
+
+                *a = (SocketAddress) {
+                        .sockaddr.vm = {
+                                .svm_cid = cid,
+                                .svm_family = AF_VSOCK,
+                                .svm_port = port,
+                        },
+                        .size = sizeof(struct sockaddr_vm),
+                };
+
+        } else
+                return -EPROTO;
+
+        return 0;
+}

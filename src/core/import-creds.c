@@ -713,5 +713,15 @@ int import_credentials(void) {
                         r = q;
         }
 
+        if (r >= 0) {
+                _cleanup_free_ char *address = NULL;
+
+                r = read_credential("notify_socket", (void **)&address, /* ret_size= */ NULL);
+                if (r < 0 && r != -ENOENT)
+                        log_warning_errno(r, "Failed to read 'notify_socket' credential, ignoring: %m");
+                else if (r >= 0 && !isempty(address))
+                        setenv("NOTIFY_SOCKET", address, /* replace= */ 1);
+        }
+
         return r;
 }
