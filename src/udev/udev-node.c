@@ -80,7 +80,7 @@ static int node_symlink(sd_device *dev, const char *devnode, const char *slink) 
         if (!devnode) {
                 r = sd_device_get_devname(dev, &devnode);
                 if (r < 0)
-                        return log_device_debug_errno(dev, r, "Failed to get device node: %m");
+                        return log_device_error_errno(dev, r, "Failed to get device node: %m");
         }
 
         if (lstat(slink, &st) >= 0) {
@@ -89,16 +89,16 @@ static int node_symlink(sd_device *dev, const char *devnode, const char *slink) 
                                                       "Conflicting inode '%s' found, symlink to '%s' will not be created.",
                                                       slink, devnode);
         } else if (errno != ENOENT)
-                return log_device_debug_errno(dev, errno, "Failed to lstat() '%s': %m", slink);
+                return log_device_error_errno(dev, errno, "Failed to lstat() '%s': %m", slink);
 
         r = mkdir_parents_label(slink, 0755);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to create parent directory of '%s': %m", slink);
+                return log_device_error_errno(dev, r, "Failed to create parent directory of '%s': %m", slink);
 
         /* use relative link */
         r = symlink_atomic_full_label(devnode, slink, /* make_relative = */ true);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to create symlink '%s' to '%s': %m", slink, devnode);
+                return log_device_error_errno(dev, r, "Failed to create symlink '%s' to '%s': %m", slink, devnode);
 
         log_device_debug(dev, "Successfully created symlink '%s' to '%s'", slink, devnode);
         return 0;
@@ -226,7 +226,8 @@ static int stack_directory_find_prioritized_devnode(sd_device *dev, int dirfd, b
 
                 r = stack_directory_read_one(dirfd, de->d_name, /* is_symlink = */ de->d_type == DT_LNK, &devnode, &priority);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to read '%s', ignoring: %m", de->d_name);
+                        if (r != -ENODEV)
+                                log_warning_errno(r, "Failed to read '%s', ignoring: %m", de->d_name);
                         continue;
                 }
         }
@@ -403,18 +404,18 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
 
         r = stack_directory_update(dev, dirfd, add);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to update stack directory for '%s': %m", slink);
+                return log_device_error_errno(dev, r, "Failed to update stack directory for '%s': %m", slink);
 
         r = stack_directory_find_prioritized_devnode(dev, dirfd, add, &devnode);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to determine device node with the highest priority for '%s': %m", slink);
+                return log_device_error_errno(dev, r, "Failed to determine device node with the highest priority for '%s': %m", slink);
         if (r > 0)
                 return node_symlink(dev, devnode, slink);
 
         log_device_debug(dev, "No reference left for '%s', removing", slink);
 
         if (unlink(slink) < 0 && errno != ENOENT)
-                log_device_debug_errno(dev, errno, "Failed to remove '%s', ignoring: %m", slink);
+                log_device_warning_errno(dev, errno, "Failed to remove '%s', ignoring: %m", slink);
 
         (void) rmdir_parents(slink, "/dev");
 
@@ -504,11 +505,11 @@ int udev_node_remove(sd_device *dev) {
 
         r = device_get_devpath_by_devnum(dev, &filename);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get device path: %m");
+                return log_device_error_errno(dev, r, "Failed to get device path: %m");
 
         /* remove /dev/{block,char}/$major:$minor */
         if (unlink(filename) < 0 && errno != ENOENT)
-                return log_device_debug_errno(dev, errno, "Failed to remove '%s': %m", filename);
+                return log_device_error_errno(dev, errno, "Failed to remove '%s': %m", filename);
 
         return 0;
 }
@@ -531,7 +532,7 @@ static int udev_node_apply_permissions_impl(
         assert(devnode);
 
         if (fstat(node_fd, &stats) < 0)
-                return log_device_debug_errno(dev, errno, "cannot stat() node %s: %m", devnode);
+                return log_device_error_errno(dev, errno, "cannot stat() node %s: %m", devnode);
 
         /* If group is set, but mode is not set, "upgrade" mode for the group. */
         if (mode == MODE_INVALID && gid_is_valid(gid) && gid > 0)
