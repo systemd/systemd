@@ -8,6 +8,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "missing_threads.h"
 #include "parse-util.h"
 #include "psi-util.h"
 #include "string-util.h"

@@ -18,6 +18,7 @@
 #include "io-util.h"
 #include "logind-dbus.h"
 #include "logind-inhibit.h"
+#include "missing_threads.h"
 #include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"
