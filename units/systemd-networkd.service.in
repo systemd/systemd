@@ -24,7 +24,6 @@ BusName=org.freedesktop.network1
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW
 DeviceAllow=char-* rw
 ExecStart=!!{{ROOTLIBEXECDIR}}/systemd-networkd
-ExecReload=networkctl reload
 FileDescriptorStoreMax=512
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
@@ -48,7 +47,7 @@ RuntimeDirectoryPreserve=yes
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
-Type=notify
+Type=notify-reload
 User=systemd-network
 {{SERVICE_WATCHDOG}}
 
