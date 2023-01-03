@@ -296,6 +296,9 @@ static inline int __coverity_check_and_return__(int condition) {
              p != (typeof(p)) POINTER_MAX;                                               \
              p = *(++_l))
 
+#if HAVE_THREADS_H
+#include <threads.h>
+#else
 /* Define C11 thread_local attribute even on older gcc compiler
  * version */
 #ifndef thread_local
@@ -307,6 +310,7 @@ static inline int __coverity_check_and_return__(int condition) {
 #define thread_local _Thread_local
 #else
 #define thread_local __thread
+#endif
 #endif
 #endif
 
