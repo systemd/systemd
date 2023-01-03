@@ -133,7 +133,7 @@ static int stack_directory_read_one(int dirfd, const char *id, bool is_symlink, 
                  * symlink will be removed during processing the event. The check is just for shortening the
                  * timespan that the symlink points to a non-existing device node. */
                 if (access(colon + 1, F_OK) < 0)
-                        return -errno;
+                        return -ENODEV;
 
                 r = safe_atoi(buf, &tmp_prio);
                 if (r < 0)
