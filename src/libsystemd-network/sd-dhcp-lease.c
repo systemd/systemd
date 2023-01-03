@@ -971,7 +971,6 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         char **search_domains;
         uint32_t t1, t2, lifetime;
         int r;
-        bool wls = false;
 
         assert(lease);
         assert(lease_file);
