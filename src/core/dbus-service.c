@@ -97,10 +97,11 @@ static int property_get_exit_status_set(
 
 static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_bus_error *error, bool is_image) {
         _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
-        const char *dest, *src, *propagate_directory;
+        const char *dest, *src;
         int read_only, make_file_or_directory;
         Unit *u = ASSERT_PTR(userdata);
         ExecContext *c;
+        ExecRuntime *rt;
         pid_t unit_pid;
         int r;
 
@@ -155,23 +156,24 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
         if (path_startswith_strv(dest, c->inaccessible_paths))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s is not accessible to this unit", dest);
 
+        rt = unit_get_exec_runtime(u);
         /* Ensure that the unit was started in a private mount namespace */
-        if (!exec_needs_mount_namespace(c, NULL, unit_get_exec_runtime(u)))
+        if (!exec_needs_mount_namespace(c, NULL, rt))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unit not running in private mount namespace, cannot activate bind mount");
+        assert(rt); /* paired with exec_needs_mount_namespace() check above */
 
         unit_pid = unit_main_pid(u);
         if (unit_pid == 0 || !UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u)))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unit is not running");
 
-        propagate_directory = strjoina("/run/systemd/propagate/", u->id);
         if (is_image)
                 r = mount_image_in_namespace(unit_pid,
-                                             propagate_directory,
+                                             rt->propagate_dir,
                                              "/run/systemd/incoming/",
                                              src, dest, read_only, make_file_or_directory, options);
         else
                 r = bind_mount_in_namespace(unit_pid,
-                                            propagate_directory,
+                                            rt->propagate_dir,
                                             "/run/systemd/incoming/",
                                             src, dest, read_only, make_file_or_directory);
         if (r < 0)
