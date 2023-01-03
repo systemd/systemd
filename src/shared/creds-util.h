@@ -36,6 +36,11 @@ int get_encrypted_credentials_dir(const char **ret);
 
 int read_credential(const char *name, void **ret, size_t *ret_size);
 
+int read_credential_strings_many_internal(const char *first_name, char **first_value, ...);
+
+#define read_credential_strings_many(first_name, first_value, ...) \
+        read_credential_strings_many_internal(first_name, first_value, __VA_ARGS__, NULL)
+
 typedef enum CredentialSecretFlags {
         CREDENTIAL_SECRET_GENERATE             = 1 << 0,
         CREDENTIAL_SECRET_WARN_NOT_ENCRYPTED   = 1 << 1,

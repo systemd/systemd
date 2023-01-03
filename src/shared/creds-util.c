@@ -86,6 +86,56 @@ int read_credential(const char *name, void **ret, size_t *ret_size) {
                         (char**) ret, ret_size);
 }
 
+int read_credential_strings_many_internal(
+                const char *first_name, char **first_value,
+                ...) {
+
+        _cleanup_free_ void *b = NULL;
+        int r, ret = 0;
+
+        /* Reads a bunch of credentials into the specified buffers. If the specified buffers are already
+         * non-NULL frees them if a credential is found. Only supports string-based credentials
+         * (i.e. refuses embedded NUL bytes) */
+
+        if (!first_name)
+                return 0;
+
+        r = read_credential(first_name, &b, NULL);
+        if (r == -ENXIO) /* no creds passed at all? propagate this */
+                return r;
+        if (r < 0)
+                ret = r;
+        else
+                free_and_replace(*first_value, b);
+
+        va_list ap;
+        va_start(ap, first_value);
+
+        for (;;) {
+                _cleanup_free_ void *bb = NULL;
+                const char *name;
+                char **value;
+
+                name = va_arg(ap, const char *);
+                if (!name)
+                        break;
+
+                value = va_arg(ap, char **);
+                if (*value)
+                        continue;
+
+                r = read_credential(name, &bb, NULL);
+                if (r < 0) {
+                        if (ret >= 0)
+                                ret = r;
+                } else
+                        free_and_replace(*value, bb);
+        }
+
+        va_end(ap);
+        return ret;
+}
+
 int get_credential_user_password(const char *username, char **ret_password, bool *ret_is_hashed) {
         _cleanup_(erase_and_freep) char *creds_password = NULL;
         _cleanup_free_ char *cn = NULL;
