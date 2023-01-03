@@ -280,36 +280,34 @@ static int stack_directory_update(sd_device *dev, int fd, bool add) {
         return 1; /* Updated. */
 }
 
-static int stack_directory_open(const char *dirname) {
-        _cleanup_close_ int fd = -EBADF;
+static int stack_directory_open(sd_device *dev, const char *dirname, int *ret_dirfd, int *ret_lockfd) {
+        _cleanup_close_ int dirfd = -EBADF, lockfd = -EBADF;
         int r;
 
+        assert(dev);
         assert(dirname);
+        assert(ret_dirfd);
+        assert(ret_lockfd);
 
         r = mkdir_parents(dirname, 0755);
         if (r < 0)
-                return r;
+                return log_device_error_errno(dev, r, "Failed to create stack directory '%s': %m", dirname);
 
-        fd = open_mkdir_at(AT_FDCWD, dirname, O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW | O_RDONLY, 0755);
-        if (fd < 0)
-                return fd;
+        dirfd = open_mkdir_at(AT_FDCWD, dirname, O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW | O_RDONLY, 0755);
+        if (dirfd < 0)
+                return log_device_error_errno(dev, dirfd, "Failed to open stack directory '%s': %m", dirname);
 
-        return TAKE_FD(fd);
-}
+        lockfd = openat(dirfd, ".lock", O_CLOEXEC | O_NOFOLLOW | O_RDONLY | O_CREAT, 0600);
+        if (lockfd < 0)
+                return log_device_error_errno(dev, errno, "Failed to create lock file for stack directory '%s': %m", dirname);
 
-static int stack_directory_lock(int dirfd) {
-        _cleanup_close_ int fd = -EBADF;
+        if (flock(lockfd, LOCK_EX) < 0)
+                return log_device_error_errno(dev, errno, "Failed to place a lock on lock file for %s: %m", dirname);
 
-        assert(dirfd >= 0);
+        *ret_dirfd = TAKE_FD(dirfd);
+        *ret_lockfd = TAKE_FD(lockfd);
 
-        fd = openat(dirfd, ".lock", O_CLOEXEC | O_NOFOLLOW | O_RDONLY | O_CREAT, 0600);
-        if (fd < 0)
-                return -errno;
-
-        if (flock(fd, LOCK_EX) < 0)
-                return -errno;
-
-        return TAKE_FD(fd);
+        return 0;
 }
 
 size_t udev_node_escape_path(const char *src, char *dest, size_t size) {
@@ -397,13 +395,9 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to build stack directory name for '%s': %m", slink);
 
-        dirfd = stack_directory_open(dirname);
-        if (dirfd < 0)
-                return log_device_debug_errno(dev, dirfd, "Failed to open stack directory '%s': %m", dirname);
-
-        lockfd = stack_directory_lock(dirfd);
-        if (lockfd < 0)
-                return log_device_debug_errno(dev, lockfd, "Failed to lock stack directory '%s': %m", dirname);
+        r = stack_directory_open(dev, dirname, &dirfd, &lockfd);
+        if (r < 0)
+                return r;
 
         r = stack_directory_update(dev, dirfd, add);
         if (r < 0)
