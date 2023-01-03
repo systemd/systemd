@@ -24,6 +24,7 @@
 #include "memory-util.h"
 #include "missing_magic.h"
 #include "missing_syscall.h"
+#include "missing_threads.h"
 #include "path-util.h"
 #include "prioq.h"
 #include "process-util.h"

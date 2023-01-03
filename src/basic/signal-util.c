@@ -6,6 +6,7 @@
 #include "errno-util.h"
 #include "macro.h"
 #include "missing_syscall.h"
+#include "missing_threads.h"
 #include "parse-util.h"
 #include "signal-util.h"
 #include "stdio-util.h"

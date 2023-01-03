@@ -37,6 +37,7 @@
 #include "macro.h"
 #include "memory-util.h"
 #include "missing_syscall.h"
+#include "missing_threads.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
