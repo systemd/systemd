@@ -713,5 +713,18 @@ int import_credentials(void) {
                         r = q;
         }
 
+        if (r >= 0) {
+                _cleanup_free_ char *address = NULL;
+
+                r = read_credential("vmm.notify_socket", (void **)&address, /* ret_size= */ NULL);
+                if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))
+                        log_warning_errno(r, "Failed to read 'vmm.notify_socket' credential, ignoring: %m");
+                else if (r >= 0 && !isempty(address)) {
+                        r = setenv("NOTIFY_SOCKET", address, /* replace= */ 1);
+                        if (r < 0)
+                                log_warning_errno(errno, "Failed to set $NOTIFY_SOCKET environment variable, ignoring: %m");
+                }
+        }
+
         return r;
 }
