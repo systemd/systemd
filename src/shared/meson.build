@@ -243,6 +243,8 @@ shared_sources = files(
         'nsflags.h',
         'numa-util.c',
         'numa-util.h',
+        'open-file.c',
+        'open-file.h',
         'openssl-util.c',
         'openssl-util.h',
         'output-mode.c',
