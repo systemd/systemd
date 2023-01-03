@@ -726,9 +726,9 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_(pcr_state_free_all) PcrState *pcr_states = NULL;
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *privkey = NULL, *pubkey = NULL;
-        _cleanup_(tpm2_context_destroy) struct tpm2_context c = {};
+        _cleanup_(tpm2_context_freep) struct tpm2_context *c = NULL;
         _cleanup_fclose_ FILE *privkeyf = NULL;
-        void local_flush_context(ESYS_TR *handle) { tpm2_flush_context_verbose(c.esys_context, *handle); }
+        void local_flush_context(ESYS_TR *handle) { tpm2_flush_context_verbose(c, *handle); }
         _cleanup_(local_flush_context) ESYS_TR session_handle = ESYS_TR_NONE;
         TSS2_RC rc;
         size_t n;
@@ -812,7 +812,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = tpm2_context_init(arg_tpm2_device, &c);
+        r = tpm2_context_allocate(arg_tpm2_device, &c);
         if (r < 0)
                 return r;
 
@@ -831,7 +831,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                         PcrState *p = pcr_states + i;
 
                         rc = sym_Esys_StartAuthSession(
-                                        c.esys_context,
+                                        c->esys_context,
                                         ESYS_TR_NONE,
                                         ESYS_TR_NONE,
                                         ESYS_TR_NONE,
@@ -863,7 +863,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                                         tpmalg);
 
                         rc = sym_Esys_PolicyPCR(
-                                        c.esys_context,
+                                        c->esys_context,
                                         session_handle,
                                         ESYS_TR_NONE,
                                         ESYS_TR_NONE,
@@ -876,7 +876,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
 
                         _cleanup_(Esys_Freep) TPM2B_DIGEST *pcr_policy_digest = NULL;
                         rc = sym_Esys_PolicyGetDigest(
-                                        c.esys_context,
+                                        c->esys_context,
                                         session_handle,
                                         ESYS_TR_NONE,
                                         ESYS_TR_NONE,
