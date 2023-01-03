@@ -3535,7 +3535,7 @@ static int apply_mount_namespace(
         _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL;
         const char *tmp_dir = NULL, *var_tmp_dir = NULL;
         const char *root_dir = NULL, *root_image = NULL;
-        _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL,
+        _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL,
                         *extension_dir = NULL;
         NamespaceInfo ns_info;
         bool needs_sandboxing;
@@ -3544,6 +3544,7 @@ static int apply_mount_namespace(
         int r;
 
         assert(context);
+        assert(runtime);
 
         if (params->flags & EXEC_APPLY_CHROOT) {
                 root_image = context->root_image;
@@ -3568,7 +3569,7 @@ static int apply_mount_namespace(
                  * that is sticky, and that's the one we want to use here.
                  * This does not apply when we are using /run/systemd/empty as fallback. */
 
-                if (context->private_tmp && runtime) {
+                if (context->private_tmp) {
                         if (streq_ptr(runtime->tmp_dir, RUN_SYSTEMD_EMPTY))
                                 tmp_dir = runtime->tmp_dir;
                         else if (runtime->tmp_dir)
@@ -3624,12 +3625,6 @@ static int apply_mount_namespace(
         }
 
         if (MANAGER_IS_SYSTEM(u->manager)) {
-                propagate_dir = path_join("/run/systemd/propagate/", u->id);
-                if (!propagate_dir) {
-                        r = -ENOMEM;
-                        goto finalize;
-                }
-
                 incoming_dir = strdup("/run/systemd/incoming");
                 if (!incoming_dir) {
                         r = -ENOMEM;
@@ -3672,7 +3667,7 @@ static int apply_mount_namespace(
                             context->extension_images,
                             context->n_extension_images,
                             context->extension_directories,
-                            propagate_dir,
+                            runtime->propagate_dir,
                             incoming_dir,
                             extension_dir,
                             root_dir || root_image ? params->notify_socket : NULL,
@@ -4723,6 +4718,14 @@ static int exec_child(
 
         if (needs_mount_namespace) {
                 _cleanup_free_ char *error_path = NULL;
+
+                assert(runtime);
+                // XXX MANAGER_IS_SYSTEM logic extracted from apply_mount_namespace to preserve const ExecRuntime*
+                if (MANAGER_IS_SYSTEM(unit->manager) && !runtime->propagate_dir) {
+                        runtime->propagate_dir = path_join("/run/systemd/propagate/", unit->id);
+                        if (!runtime->propagate_dir)
+                                return -ENOMEM;
+                }
 
                 r = apply_mount_namespace(unit, command->flags, context, params, runtime, &error_path);
                 if (r < 0) {
@@ -6582,9 +6585,21 @@ static ExecRuntime* exec_runtime_free(ExecRuntime *rt, bool destroy) {
                         rt->var_tmp_dir = NULL;
         }
 
+        if (destroy && rt->propagate_dir) {
+                log_debug("Spawning thread to nuke %s", rt->propagate_dir);
+
+                // XXX make sure we only remove empty directory (see mount_in_namespace())
+                r = asynchronous_job(remove_tmpdir_thread, rt->propagate_dir);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to nuke %s: %m", rt->propagate_dir);
+                else
+                        rt->propagate_dir = NULL;
+        }
+
         rt->id = mfree(rt->id);
         rt->tmp_dir = mfree(rt->tmp_dir);
         rt->var_tmp_dir = mfree(rt->var_tmp_dir);
+        rt->propagate_dir = mfree(rt->propagate_dir);
         safe_close_pair(rt->netns_storage_socket);
         safe_close_pair(rt->ipcns_storage_socket);
         return mfree(rt);

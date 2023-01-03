@@ -114,6 +114,7 @@ struct ExecRuntime {
 
         char *tmp_dir;
         char *var_tmp_dir;
+        char *propagate_dir;
 
         /* An AF_UNIX socket pair, that contains a datagram containing a file descriptor referring to the network
          * namespace. */
