@@ -132,7 +132,7 @@ static int determine_banks(struct tpm2_context *c) {
         if (!strv_isempty(arg_banks)) /* Explicitly configured? Then use that */
                 return 0;
 
-        n_algs = tpm2_get_good_pcr_banks(c->esys_context, UINT32_C(1) << TPM_PCR_INDEX_KERNEL_IMAGE, &algs);
+        n_algs = tpm2_get_good_pcr_banks(c, UINT32_C(1) << TPM_PCR_INDEX_KERNEL_IMAGE, &algs);
         if (n_algs <= 0)
                 return n_algs;
 
@@ -157,7 +157,7 @@ static int determine_banks(struct tpm2_context *c) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(tpm2_context_destroy) struct tpm2_context c = {};
+        _cleanup_(tpm2_context_freep) struct tpm2_context *c = NULL;
         _cleanup_free_ char *joined = NULL, *pcr_string = NULL;
         const char *word;
         unsigned pcr_nr;
@@ -221,11 +221,11 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to load TPM2 libraries: %m");
 
-        r = tpm2_context_init(arg_tpm2_device, &c);
+        r = tpm2_context_allocate(arg_tpm2_device, &c);
         if (r < 0)
                 return r;
 
-        r = determine_banks(&c);
+        r = determine_banks(c);
         if (r < 0)
                 return r;
         if (strv_isempty(arg_banks)) /* Still none? */
@@ -263,7 +263,7 @@ static int run(int argc, char *argv[]) {
         log_debug("Measuring '%s' into PCR index %u, banks %s.", word, TPM_PCR_INDEX_KERNEL_IMAGE, joined);
 
         rc = sym_Esys_PCR_Extend(
-                        c.esys_context,
+                        c->esys_context,
                         ESYS_TR_PCR0 + TPM_PCR_INDEX_KERNEL_IMAGE, /* → PCR 11 */
                         ESYS_TR_PASSWORD,
                         ESYS_TR_NONE,

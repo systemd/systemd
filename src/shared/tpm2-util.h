@@ -68,14 +68,14 @@ struct tpm2_context {
         ESYS_CONTEXT *esys_context;
 };
 
-ESYS_TR tpm2_flush_context_verbose(ESYS_CONTEXT *c, ESYS_TR handle);
+ESYS_TR tpm2_flush_context_verbose(struct tpm2_context *c, ESYS_TR handle);
 
 static inline void Esys_Freep(void *p) {
         if (*(void**) p)
                 sym_Esys_Free(*(void**) p);
 }
 
-int tpm2_get_good_pcr_banks(ESYS_CONTEXT *c, uint32_t pcr_mask, TPMI_ALG_HASH **ret_banks);
+int tpm2_get_good_pcr_banks(struct tpm2_context *c, uint32_t pcr_mask, TPMI_ALG_HASH **ret_banks);
 
 /* Like TAKE_PTR() but for ESYS_TR handles, resetting them to ESYS_TR_NONE */
 #define TAKE_ESYS_TR(handle) TAKE_GENERIC(handle, ESYS_TR_NONE)
@@ -87,8 +87,12 @@ uint32_t tpm2_tpml_pcr_selection_to_mask(const TPML_PCR_SELECTION *l, TPMI_ALG_H
 struct tpm2_context;
 #endif
 
-int tpm2_context_init(const char *device, struct tpm2_context *ret);
-void tpm2_context_destroy(struct tpm2_context *c);
+int tpm2_context_allocate(const char *device, struct tpm2_context **ret_context);
+struct tpm2_context *tpm2_context_free(struct tpm2_context *c);
+static inline void tpm2_context_freep(struct tpm2_context **c) {
+        if (*c)
+                *c = tpm2_context_free(*c);
+}
 
 int tpm2_list_devices(void);
 int tpm2_find_device_auto(int log_level, char **ret);
