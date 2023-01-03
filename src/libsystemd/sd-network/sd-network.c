@@ -159,6 +159,25 @@ int sd_network_link_get_network_file(int ifindex, char **ret) {
         return network_link_get_string(ifindex, "NETWORK_FILE", ret);
 }
 
+int sd_network_link_get_network_file_dropins(int ifindex, char ***ret) {
+        _cleanup_free_ char **sv = NULL, *joined = NULL;
+        int r;
+
+        assert_return(ifindex > 0, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        r = network_link_get_string(ifindex, "NETWORK_FILE_DROPINS", &joined);
+        if (r < 0)
+                return r;
+
+        r = strv_split_full(&sv, joined, ":", EXTRACT_CUNESCAPE);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(sv);
+        return 0;
+}
+
 int sd_network_link_get_operational_state(int ifindex, char **ret) {
         return network_link_get_string(ifindex, "OPER_STATE", ret);
 }
