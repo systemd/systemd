@@ -114,9 +114,12 @@ static int _bind_raw_socket(
         if (r < 0)
                 return -errno;
 
-        r = setsockopt_int(s, SOL_SOCKET, SO_PRIORITY, so_priority);
-        if (r < 0)
-                return r;
+        if (so_priority != 0)
+        {
+                r = setsockopt_int(s, SOL_SOCKET, SO_PRIORITY, so_priority);
+                if (r < 0)
+                        return r;
+        }
 
         link->ll = (struct sockaddr_ll) {
                 .sll_family = AF_PACKET,
