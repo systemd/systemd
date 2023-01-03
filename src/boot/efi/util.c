@@ -326,9 +326,11 @@ EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, UINTN off, UINTN size,
         UINTN extra = size % sizeof(char16_t) + sizeof(char16_t);
 
         buf = xmalloc(size + extra);
-        err = handle->Read(handle, &size, buf);
-        if (err != EFI_SUCCESS)
-                return err;
+        if (size > 0) {
+                err = handle->Read(handle, &size, buf);
+                if (err != EFI_SUCCESS)
+                        return err;
+        }
 
         /* Note that handle->Read() changes size to reflect the actually bytes read. */
         memset(buf + size, 0, extra);
