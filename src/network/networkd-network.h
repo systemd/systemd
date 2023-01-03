@@ -130,6 +130,7 @@ struct Network {
         uint16_t dhcp_client_port;
         int dhcp_critical;
         int dhcp_ip_service_type;
+        int dhcp_socket_priority;
         bool dhcp_anonymize;
         bool dhcp_send_hostname;
         int dhcp_broadcast;
