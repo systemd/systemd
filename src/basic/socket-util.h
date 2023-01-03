@@ -336,3 +336,7 @@ int socket_get_mtu(int fd, int af, size_t *ret);
 #define UCRED_INVALID { .pid = 0, .uid = UID_INVALID, .gid = GID_INVALID }
 
 int connect_unix_path(int fd, int dir_fd, const char *path);
+
+/* Parses AF_UNIX and AF_VSOCK addresses. AF_INET[6] require some netlink calls, so it cannot be in
+ * src/basic/ and is done from 'socket_local_address from src/shared/. */
+int socket_local_address_parse(SocketAddress *a, const char *s);
