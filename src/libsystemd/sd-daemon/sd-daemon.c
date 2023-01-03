@@ -433,6 +433,23 @@ _public_ int sd_is_mq(int fd, const char *path) {
         return 1;
 }
 
+static int vsock_bind_privileged_port(int fd) {
+        union sockaddr_union sa = {
+                .vm.svm_family = AF_VSOCK,
+                .vm.svm_cid = VMADDR_CID_ANY,
+                .vm.svm_port = 1023,
+        };
+        int r;
+
+        assert(fd >= 0);
+
+        do
+                r = RET_NERRNO(bind(fd, &sa.sa, sizeof(sa.vm)));
+        while (r == EADDRINUSE && sa.vm.svm_port-- > 0);
+
+        return r;
+}
+
 _public_ int sd_pid_notify_with_fds(
                 pid_t pid,
                 int unset_environment,
@@ -440,12 +457,12 @@ _public_ int sd_pid_notify_with_fds(
                 const int *fds,
                 unsigned n_fds) {
 
-        union sockaddr_union sockaddr;
+        SocketAddress address;
         struct iovec iovec;
         struct msghdr msghdr = {
                 .msg_iov = &iovec,
                 .msg_iovlen = 1,
-                .msg_name = &sockaddr,
+                .msg_name = &address.sockaddr,
         };
         _cleanup_close_ int fd = -EBADF;
         struct cmsghdr *cmsg = NULL;
@@ -467,15 +484,51 @@ _public_ int sd_pid_notify_with_fds(
         if (!e)
                 return 0;
 
-        r = sockaddr_un_set_path(&sockaddr.un, e);
+        /* Allow AF_UNIX and AF_VSOCK, reject the rest. */
+        r = socket_address_parse_unix(&address, e);
+        if (r == -EPROTO)
+                r = socket_address_parse_vsock(&address, e);
         if (r < 0)
                 goto finish;
-        msghdr.msg_namelen = r;
+        msghdr.msg_namelen = address.size;
 
-        fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
-        if (fd < 0) {
-                r = -errno;
+        /* If we didn't get an address (which is a normal pattern when specifying VSOCK tuples) error out,
+         * we always require a specific CID. */
+        if (address.sockaddr.vm.svm_family == AF_VSOCK && address.sockaddr.vm.svm_cid == VMADDR_CID_ANY) {
+                r = -EINVAL;
                 goto finish;
+        }
+
+        /* At the time of writing QEMU does not yet support AF_VSOCK + SOCK_DGRAM and returns
+         * ENODEV. Fallback to SOCK_SEQPACKET in that case. */
+        fd = socket(address.sockaddr.sa.sa_family, SOCK_DGRAM|SOCK_CLOEXEC, 0);
+        if (fd < 0) {
+                if (!(ERRNO_IS_NOT_SUPPORTED(errno) || errno == ENODEV) || address.sockaddr.sa.sa_family != AF_VSOCK) {
+                        r = -errno;
+                        goto finish;
+                }
+
+                fd = socket(address.sockaddr.sa.sa_family, SOCK_SEQPACKET|SOCK_CLOEXEC, 0);
+                if (fd < 0) {
+                        r = -errno;
+                        goto finish;
+                }
+
+                r = vsock_bind_privileged_port(fd);
+                if (r < 0 && !ERRNO_IS_PRIVILEGE(r))
+                        goto finish;
+
+                if (connect(fd, &address.sockaddr.sa, address.size) < 0) {
+                        r = -errno;
+                        goto finish;
+                }
+
+                msghdr.msg_name = NULL;
+                msghdr.msg_namelen = 0;
+        } else if (address.sockaddr.sa.sa_family == AF_VSOCK) {
+                r = vsock_bind_privileged_port(fd);
+                if (r < 0 && !ERRNO_IS_PRIVILEGE(r))
+                        goto finish;
         }
 
         (void) fd_inc_sndbuf(fd, SNDBUF_SIZE);
