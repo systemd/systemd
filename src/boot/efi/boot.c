@@ -2295,6 +2295,9 @@ static EFI_STATUS initrd_prepare(
                 if (err != EFI_SUCCESS)
                         return err;
 
+                if (info->FileSize == 0) /* Automatically skip over empty files */
+                        continue;
+
                 UINTN new_size, read_size = info->FileSize;
                 if (__builtin_add_overflow(size, read_size, &new_size))
                         return EFI_OUT_OF_RESOURCES;
