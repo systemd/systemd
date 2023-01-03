@@ -243,7 +243,7 @@ static void vl_method_resolve_hostname_complete(DnsQuery *query) {
                                            JSON_BUILD_PAIR("flags", JSON_BUILD_INTEGER(dns_query_reply_flags_make(q)))));
 finish:
         if (r < 0) {
-                log_error_errno(r, "Failed to send hostname reply: %m");
+                log_full_errno(ERRNO_IS_DISCONNECT(r) ? LOG_DEBUG : LOG_ERR, r, "Failed to send hostname reply: %m");
                 r = varlink_error_errno(q->varlink_request, r);
         }
 }
@@ -462,7 +462,7 @@ static void vl_method_resolve_address_complete(DnsQuery *query) {
                                            JSON_BUILD_PAIR("flags", JSON_BUILD_INTEGER(dns_query_reply_flags_make(q)))));
 finish:
         if (r < 0) {
-                log_error_errno(r, "Failed to send address reply: %m");
+                log_full_errno(ERRNO_IS_DISCONNECT(r) ? LOG_DEBUG : LOG_ERR, r, "Failed to send address reply: %m");
                 r = varlink_error_errno(q->varlink_request, r);
         }
 }
