@@ -104,6 +104,59 @@ sleep 10
 
 systemctl daemon-reload
 
+# Let's now test the notify-reload logic
+
+cat >/run/notify-reload-test.sh <<EOF
+#!/usr/bin/env bash
+set -eux
+set -o pipefail
+
+EXIT_STATUS=88
+LEAVE=0
+
+function reload() {
+    systemd-notify --reloading --status="Adding 11 to exit status"
+    EXIT_STATUS=\$((\$EXIT_STATUS + 11))
+    systemd-notify --ready --status="Back running"
+}
+
+function leave() {
+    systemd-notify --stopping --status="Adding 7 to exit status"
+    EXIT_STATUS=\$((\$EXIT_STATUS + 7))
+    LEAVE=1
+    return 0
+}
+
+trap reload SIGHUP
+trap leave SIGTERM
+
+systemd-notify --ready
+systemd-notify --status="Running now"
+
+while [ \$LEAVE = 0 ] ; do
+    sleep 1
+done
+
+systemd-notify --status="Adding 3 to exit status"
+EXIT_STATUS=\$((\$EXIT_STATUS + 3))
+exit \$EXIT_STATUS
+EOF
+
+chmod +x /run/notify-reload-test.sh
+
+systemd-analyze log-level debug
+
+systemd-run --unit notify-reload-test -p Type=notify-reload -p KillMode=process /run/notify-reload-test.sh
+systemctl reload notify-reload-test
+systemctl stop notify-reload-test
+
+test $(systemctl show -p ExecMainStatus --value notify-reload-test) = 109
+
+systemctl reset-failed notify-reload-test
+rm /run/notify-reload-test.sh
+
+systemd-analyze log-level info
+
 echo OK >/testok
 
 exit 0
