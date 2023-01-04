@@ -37,3 +37,4 @@ int chase_symlinks_and_access(const char *path, const char *root, ChaseSymlinksF
 int chase_symlinks_and_fopen_unlocked(const char *path, const char *root, ChaseSymlinksFlags chase_flags, const char *open_flags, char **ret_path, FILE **ret_file);
 
 int chase_symlinks_at(int dir_fd, const char *path, ChaseSymlinksFlags flags, char **ret_path, int *ret_fd);
+int chase_symlinks_at_and_open_mkdir_p(int dir_fd, const char *path, ChaseSymlinksFlags chase_flags, int open_flags, mode_t mode, char **ret_path);
