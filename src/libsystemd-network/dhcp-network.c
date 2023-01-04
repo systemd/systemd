@@ -26,7 +26,7 @@ static int _bind_raw_socket(
                 const struct hw_addr_data *bcast_addr,
                 uint16_t arp_type,
                 uint16_t port,
-                bool set_so_priority,
+                bool so_priority_set,
                 int so_priority) {
 
         assert(ifindex > 0);
@@ -115,7 +115,7 @@ static int _bind_raw_socket(
         if (r < 0)
                 return -errno;
 
-        if (set_so_priority)
+        if (so_priority_set)
         {
                 r = setsockopt_int(s, SOL_SOCKET, SO_PRIORITY, so_priority);
                 if (r < 0)
