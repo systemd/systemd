@@ -104,7 +104,8 @@ static int node_symlink(sd_device *dev, const char *devnode, const char *slink) 
         return 0;
 }
 
-static int stack_directory_read_one(int dirfd, const char *id, bool is_symlink, char **devnode, int *priority) {
+static int stack_directory_read_one(int dirfd, const char *id, char **devnode, int *priority) {
+        _cleanup_free_ char *buf = NULL;
         int tmp_prio, r;
 
         assert(dirfd >= 0);
@@ -112,15 +113,14 @@ static int stack_directory_read_one(int dirfd, const char *id, bool is_symlink, 
         assert(devnode);
         assert(priority);
 
-        if (is_symlink) {
-                _cleanup_free_ char *buf = NULL;
+        /* First, let's try to read the entry with the new format, which should replace the old format pretty
+         * quickly. */
+
+        r = readlinkat_malloc(dirfd, id, &buf);
+        if (r >= 0) {
                 char *colon;
 
-                /* New format. The devnode and priority can be obtained from symlink. */
-
-                r = readlinkat_malloc(dirfd, id, &buf);
-                if (r < 0)
-                        return r;
+                /* With the new format, the devnode and priority can be obtained from symlink itself. */
 
                 colon = strchr(buf, ':');
                 if (!colon || colon == buf)
@@ -146,7 +146,7 @@ static int stack_directory_read_one(int dirfd, const char *id, bool is_symlink, 
                 if (r < 0)
                         return r;
 
-        } else {
+        } else if (r == -EINVAL) { /* Not a symlink ? try the old format */
                 _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
                 const char *val;
 
@@ -170,7 +170,9 @@ static int stack_directory_read_one(int dirfd, const char *id, bool is_symlink, 
                 r = free_and_strdup(devnode, val);
                 if (r < 0)
                         return r;
-        }
+
+        } else
+                return r == -ENOENT ? -ENODEV : r;
 
         *priority = tmp_prio;
         return 1; /* Updated */
@@ -213,22 +215,15 @@ static int stack_directory_find_prioritized_devnode(sd_device *dev, int dirfd, b
         if (r < 0)
                 return r;
 
-        FOREACH_DIRENT_ALL(de, dir, break) {
-                if (de->d_name[0] == '.')
-                        continue;
+        FOREACH_DIRENT(de, dir, break) {
 
                 /* skip ourself */
                 if (streq(de->d_name, id))
                         continue;
 
-                if (!IN_SET(de->d_type, DT_LNK, DT_REG))
-                        continue;
-
-                r = stack_directory_read_one(dirfd, de->d_name, /* is_symlink = */ de->d_type == DT_LNK, &devnode, &priority);
-                if (r < 0) {
+                r = stack_directory_read_one(dirfd, de->d_name, &devnode, &priority);
+                if (r < 0 && r != -ENODEV)
                         log_debug_errno(r, "Failed to read '%s', ignoring: %m", de->d_name);
-                        continue;
-                }
         }
 
         *ret = TAKE_PTR(devnode);
