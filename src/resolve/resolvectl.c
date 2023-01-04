@@ -1218,7 +1218,11 @@ static int read_dns_server_one(sd_bus_message *m, bool with_ifindex, bool extend
         assert(m);
         assert(ret);
 
-        r = sd_bus_message_enter_container(m, 'r', with_ifindex ? (extended ? "iiayqs" : "iiay") : (extended ? "iayqs" : "iay"));
+        r = sd_bus_message_enter_container(
+                        m,
+                        'r',
+                        with_ifindex ? (extended ? "iiayqs" : "iiay") :
+                                       (extended ? "iayqs" : "iay"));
         if (r <= 0)
                 return r;
 
@@ -1263,7 +1267,6 @@ static int read_dns_server_one(sd_bus_message *m, bool with_ifindex, bool extend
                 return r;
 
         *ret = TAKE_PTR(pretty);
-
         return 1;
 }
 
@@ -1730,7 +1733,14 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         return 0;
 }
 
-static int map_global_dns_servers_internal(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata, bool extended) {
+static int map_global_dns_servers_internal(
+                sd_bus *bus,
+                const char *member,
+                sd_bus_message *m,
+                sd_bus_error *error,
+                void *userdata,
+                bool extended) {
+
         char ***l = ASSERT_PTR(userdata);
         int r;
 
@@ -1767,11 +1777,11 @@ static int map_global_dns_servers_internal(sd_bus *bus, const char *member, sd_b
 }
 
 static int map_global_dns_servers(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        return map_global_dns_servers_internal(bus, member, m, error, userdata, false);
+        return map_global_dns_servers_internal(bus, member, m, error, userdata, /* extended= */ false);
 }
 
 static int map_global_dns_servers_ex(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        return map_global_dns_servers_internal(bus, member, m, error, userdata, true);
+        return map_global_dns_servers_internal(bus, member, m, error, userdata, /* extended= */ true);
 }
 
 static int map_global_current_dns_server(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
