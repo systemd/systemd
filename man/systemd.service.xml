@@ -157,7 +157,7 @@
         <listitem>
           <para>Configures the process start-up type for this service unit. One of <option>simple</option>,
           <option>exec</option>, <option>forking</option>, <option>oneshot</option>, <option>dbus</option>,
-          <option>notify</option> or <option>idle</option>:</para>
+          <option>notify</option>, <option>notify-reload</option> or <option>idle</option>:</para>
 
           <itemizedlist>
             <listitem><para>If set to <option>simple</option> (the default if <varname>ExecStart=</varname> is
@@ -216,14 +216,30 @@
             logic thus should be prepared to receive a <constant>SIGTERM</constant> (or whichever signal is
             configured in <varname>KillSignal=</varname>) as result.</para></listitem>
 
-            <listitem><para>Behavior of <option>notify</option> is similar to <option>exec</option>; however, it is
-            expected that the service sends a notification message via
-            <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry> or an
-            equivalent call when it has finished starting up. systemd will proceed with starting follow-up units after
-            this notification message has been sent. If this option is used, <varname>NotifyAccess=</varname> (see
-            below) should be set to open access to the notification socket provided by systemd. If
-            <varname>NotifyAccess=</varname> is missing or set to <option>none</option>, it will be forcibly set to
-            <option>main</option>.</para></listitem>
+            <listitem><para>Behavior of <option>notify</option> is similar to <option>exec</option>; however,
+            it is expected that the service sends a <literal>READY=1</literal> notification message via
+            <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry> or
+            an equivalent call when it has finished starting up. systemd will proceed with starting follow-up
+            units after this notification message has been sent. If this option is used,
+            <varname>NotifyAccess=</varname> (see below) should be set to open access to the notification
+            socket provided by systemd. If <varname>NotifyAccess=</varname> is missing or set to
+            <option>none</option>, it will be forcibly set to <option>main</option>.</para></listitem>
+
+            <listitem><para>Behavior of <option>notify-reload</option> is identical to
+            <option>notify</option>. However, it extends the logic in one way: the
+            <constant>SIGHUP</constant> UNIX process signal is sent to the service's main process when the
+            service is asked to reload. (The signal to send can be tweaked via
+            <varname>ReloadSignal=</varname>, see below.). When
+            initiating the reload process the service is then expected to reply with a notification message
+            via <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+            that contains the <literal>RELOADING=1</literal> field in combination with
+            <literal>MONOTONIC_USEC=</literal> set to the current monotonic time
+            (i.e. <constant>CLOCK_MONOTONIC</constant> in
+            <citerefentry><refentrytitle>clock_gettime</refentrytitle><manvolnum>2</manvolnum></citerefentry>)
+            in µs, formatted as decimal string. Once reloading is complete another notification message must
+            be sent, containing <literal>READY=1</literal>. Using this service type and implementing this
+            reload protocol is an efficient alternative to providing an <varname>ExecReload=</varname>
+            command for reloading of the service's configuration.</para></listitem>
 
             <listitem><para>Behavior of <option>idle</option> is very similar to <option>simple</option>; however,
             actual execution of the service program is delayed until all active jobs are dispatched. This may be used
@@ -233,25 +249,27 @@
             anyway.</para></listitem>
           </itemizedlist>
 
-          <para>It is generally recommended to use <varname>Type=</varname><option>simple</option> for long-running
-          services whenever possible, as it is the simplest and fastest option. However, as this service type won't
-          propagate service start-up failures and doesn't allow ordering of other units against completion of
-          initialization of the service (which for example is useful if clients need to connect to the service through
-          some form of IPC, and the IPC channel is only established by the service itself — in contrast to doing this
-          ahead of time through socket or bus activation or similar), it might not be sufficient for many cases. If so,
-          <option>notify</option> or <option>dbus</option> (the latter only in case the service provides a D-Bus
-          interface) are the preferred options as they allow service program code to precisely schedule when to
-          consider the service started up successfully and when to proceed with follow-up units. The
-          <option>notify</option> service type requires explicit support in the service codebase (as
-          <function>sd_notify()</function> or an equivalent API needs to be invoked by the service at the appropriate
-          time) — if it's not supported, then <option>forking</option> is an alternative: it supports the traditional
-          UNIX service start-up protocol. Finally, <option>exec</option> might be an option for cases where it is
-          enough to ensure the service binary is invoked, and where the service binary itself executes no or little
-          initialization on its own (and its initialization is unlikely to fail). Note that using any type other than
-          <option>simple</option> possibly delays the boot process, as the service manager needs to wait for service
-          initialization to complete. It is hence recommended not to needlessly use any types other than
-          <option>simple</option>. (Also note it is generally not recommended to use <option>idle</option> or
-          <option>oneshot</option> for long-running services.)</para>
+          <para>It is generally recommended to use <varname>Type=</varname><option>simple</option> for
+          long-running services whenever possible, as it is the simplest and fastest option. However, as this
+          service type won't propagate service start-up failures and doesn't allow ordering of other units
+          against completion of initialization of the service (which for example is useful if clients need to
+          connect to the service through some form of IPC, and the IPC channel is only established by the
+          service itself — in contrast to doing this ahead of time through socket or bus activation or
+          similar), it might not be sufficient for many cases. If so, <option>notify</option>,
+          <option>notify-reload</option> or <option>dbus</option> (the latter only in case the service
+          provides a D-Bus interface) are the preferred options as they allow service program code to
+          precisely schedule when to consider the service started up successfully and when to proceed with
+          follow-up units. The <option>notify</option>/<option>notify-reload</option> service types require
+          explicit support in the service codebase (as <function>sd_notify()</function> or an equivalent API
+          needs to be invoked by the service at the appropriate time) — if it's not supported, then
+          <option>forking</option> is an alternative: it supports the traditional UNIX service start-up
+          protocol. Finally, <option>exec</option> might be an option for cases where it is enough to ensure
+          the service binary is invoked, and where the service binary itself executes no or little
+          initialization on its own (and its initialization is unlikely to fail). Note that using any type
+          other than <option>simple</option> possibly delays the boot process, as the service manager needs
+          to wait for service initialization to complete. It is hence recommended not to needlessly use any
+          types other than <option>simple</option>. (Also note it is generally not recommended to use
+          <option>idle</option> or <option>oneshot</option> for long-running services.)</para>
         </listitem>
       </varlistentry>
 
@@ -319,9 +337,10 @@
         the file may not be a symlink to a file owned by a different user (neither directly nor indirectly), and the
         PID file must refer to a process already belonging to the service.</para>
 
-        <para>Note that PID files should be avoided in modern projects. Use <option>Type=notify</option> or
-        <option>Type=simple</option> where possible, which does not require use of PID files to determine the
-        main process of a service and avoids needless forking.</para></listitem>
+        <para>Note that PID files should be avoided in modern projects. Use <option>Type=notify</option>,
+        <option>Type=notify-reload</option> or <option>Type=simple</option> where possible, which does not
+        require use of PID files to determine the main process of a service and avoids needless
+        forking.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -443,12 +462,13 @@
         with a <literal>-</literal> exit successfully.</para>
 
         <para><varname>ExecStartPost=</varname> commands are only run after the commands specified in
-        <varname>ExecStart=</varname> have been invoked successfully, as determined by <varname>Type=</varname>
-        (i.e. the process has been started for <varname>Type=simple</varname> or <varname>Type=idle</varname>, the last
-        <varname>ExecStart=</varname> process exited successfully for <varname>Type=oneshot</varname>, the initial
-        process exited successfully for <varname>Type=forking</varname>, <literal>READY=1</literal> is sent for
-        <varname>Type=notify</varname>, or the <varname>BusName=</varname> has been taken for
-        <varname>Type=dbus</varname>).</para>
+        <varname>ExecStart=</varname> have been invoked successfully, as determined by
+        <varname>Type=</varname> (i.e. the process has been started for <varname>Type=simple</varname> or
+        <varname>Type=idle</varname>, the last <varname>ExecStart=</varname> process exited successfully for
+        <varname>Type=oneshot</varname>, the initial process exited successfully for
+        <varname>Type=forking</varname>, <literal>READY=1</literal> is sent for
+        <varname>Type=notify</varname>/<varname>Type=notify-reload</varname>, or the
+        <varname>BusName=</varname> has been taken for <varname>Type=dbus</varname>).</para>
 
         <para>Note that <varname>ExecStartPre=</varname> may not be
         used to start long-running processes. All processes forked
@@ -487,30 +507,26 @@
 
       <varlistentry>
         <term><varname>ExecReload=</varname></term>
-        <listitem><para>Commands to execute to trigger a configuration
-        reload in the service. This argument takes multiple command
-        lines, following the same scheme as described for
-        <varname>ExecStart=</varname> above. Use of this setting is
-        optional. Specifier and environment variable substitution is
-        supported here following the same scheme as for
+
+        <listitem><para>Commands to execute to trigger a configuration reload in the service. This argument
+        takes multiple command lines, following the same scheme as described for
+        <varname>ExecStart=</varname> above. Use of this setting is optional. Specifier and environment
+        variable substitution is supported here following the same scheme as for
         <varname>ExecStart=</varname>.</para>
 
-        <para>One additional, special environment variable is set: if
-        known, <varname>$MAINPID</varname> is set to the main process
-        of the daemon, and may be used for command lines like the
-        following:</para>
+        <para>One additional, special environment variable is set: if known, <varname>$MAINPID</varname> is
+        set to the main process of the daemon, and may be used for command lines like the following:</para>
 
         <programlisting>ExecReload=kill -HUP $MAINPID</programlisting>
 
-        <para>Note however that reloading a daemon by sending a signal
-        (as with the example line above) is usually not a good choice,
-        because this is an asynchronous operation and hence not
-        suitable to order reloads of multiple services against each
-        other. It is strongly recommended to set
-        <varname>ExecReload=</varname> to a command that not only
-        triggers a configuration reload of the daemon, but also
-        synchronously waits for it to complete. For example,
-        <citerefentry project='mankier'><refentrytitle>dbus-broker</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        <para>Note however that reloading a daemon by enqueing a signal (as with the example line above) is
+        usually not a good choice, because this is an asynchronous operation and hence not suitable when
+        ordering reloads of multiple services against each other. It is thus strongly recommended to either
+        use <varname>Type=</varname><option>notify-reload</option> in place of
+        <varname>ExecReload=</varname>, or to set <varname>ExecReload=</varname> to a command that not only
+        triggers a configuration reload of the daemon, but also synchronously waits for it to complete. For
+        example, <citerefentry
+        project='mankier'><refentrytitle>dbus-broker</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         uses the following:</para>
 
         <programlisting>ExecReload=busctl call org.freedesktop.DBus \
@@ -605,12 +621,13 @@
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
         </para>
 
-        <para>If a service of <varname>Type=notify</varname> sends <literal>EXTEND_TIMEOUT_USEC=…</literal>, this may cause
-        the start time to be extended beyond <varname>TimeoutStartSec=</varname>. The first receipt of this message
-        must occur before <varname>TimeoutStartSec=</varname> is exceeded, and once the start time has extended beyond
-        <varname>TimeoutStartSec=</varname>, the service manager will allow the service to continue to start, provided
-        the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified until the service
-        startup status is finished by <literal>READY=1</literal>. (see
+        <para>If a service of <varname>Type=notify</varname>/<varname>Type=notify-reload</varname> sends
+        <literal>EXTEND_TIMEOUT_USEC=…</literal>, this may cause the start time to be extended beyond
+        <varname>TimeoutStartSec=</varname>. The first receipt of this message must occur before
+        <varname>TimeoutStartSec=</varname> is exceeded, and once the start time has extended beyond
+        <varname>TimeoutStartSec=</varname>, the service manager will allow the service to continue to start,
+        provided the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified
+        until the service startup status is finished by <literal>READY=1</literal>. (see
         <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
         </para></listitem>
       </varlistentry>
@@ -633,12 +650,14 @@
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
         </para>
 
-        <para>If a service of <varname>Type=notify</varname> sends <literal>EXTEND_TIMEOUT_USEC=…</literal>, this may cause
-        the stop time to be extended beyond <varname>TimeoutStopSec=</varname>. The first receipt of this message
-        must occur before <varname>TimeoutStopSec=</varname> is exceeded, and once the stop time has extended beyond
-        <varname>TimeoutStopSec=</varname>, the service manager will allow the service to continue to stop, provided
-        the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified, or terminates itself
-        (see <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
+        <para>If a service of <varname>Type=notify</varname>/<varname>Type=notify-reload</varname> sends
+        <literal>EXTEND_TIMEOUT_USEC=…</literal>, this may cause the stop time to be extended beyond
+        <varname>TimeoutStopSec=</varname>. The first receipt of this message must occur before
+        <varname>TimeoutStopSec=</varname> is exceeded, and once the stop time has extended beyond
+        <varname>TimeoutStopSec=</varname>, the service manager will allow the service to continue to stop,
+        provided the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified,
+        or terminates itself (see
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
         </para></listitem>
       </varlistentry>
 
@@ -661,13 +680,15 @@
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
         </para>
 
-        <para>If a service of <varname>Type=notify</varname> handles <constant>SIGABRT</constant> itself (instead of relying
-        on the kernel to write a core dump) it can send <literal>EXTEND_TIMEOUT_USEC=…</literal> to
-        extended the abort time beyond <varname>TimeoutAbortSec=</varname>. The first receipt of this message
-        must occur before <varname>TimeoutAbortSec=</varname> is exceeded, and once the abort time has extended beyond
-        <varname>TimeoutAbortSec=</varname>, the service manager will allow the service to continue to abort, provided
-        the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified, or terminates itself
-        (see <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
+        <para>If a service of <varname>Type=notify</varname>/<varname>Type=notify-reload</varname> handles
+        <constant>SIGABRT</constant> itself (instead of relying on the kernel to write a core dump) it can
+        send <literal>EXTEND_TIMEOUT_USEC=…</literal> to extended the abort time beyond
+        <varname>TimeoutAbortSec=</varname>. The first receipt of this message must occur before
+        <varname>TimeoutAbortSec=</varname> is exceeded, and once the abort time has extended beyond
+        <varname>TimeoutAbortSec=</varname>, the service manager will allow the service to continue to abort,
+        provided the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified,
+        or terminates itself (see
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
         </para></listitem>
       </varlistentry>
 
@@ -710,12 +731,13 @@
         activation completed. Pass <literal>infinity</literal> (the default) to configure no runtime
         limit.</para>
 
-        <para>If a service of <varname>Type=notify</varname> sends <literal>EXTEND_TIMEOUT_USEC=…</literal>, this may cause
-        the runtime to be extended beyond <varname>RuntimeMaxSec=</varname>. The first receipt of this message
-        must occur before <varname>RuntimeMaxSec=</varname> is exceeded, and once the runtime has extended beyond
-        <varname>RuntimeMaxSec=</varname>, the service manager will allow the service to continue to run, provided
-        the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified until the service
-        shutdown is achieved by <literal>STOPPING=1</literal> (or termination). (see
+        <para>If a service of <varname>Type=notify</varname>/<varname>Type=notify-reload</varname> sends
+        <literal>EXTEND_TIMEOUT_USEC=…</literal>, this may cause the runtime to be extended beyond
+        <varname>RuntimeMaxSec=</varname>. The first receipt of this message must occur before
+        <varname>RuntimeMaxSec=</varname> is exceeded, and once the runtime has extended beyond
+        <varname>RuntimeMaxSec=</varname>, the service manager will allow the service to continue to run,
+        provided the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified
+        until the service shutdown is achieved by <literal>STOPPING=1</literal> (or termination). (see
         <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
         </para></listitem>
       </varlistentry>
@@ -1023,16 +1045,19 @@
       <varlistentry>
         <term><varname>NotifyAccess=</varname></term>
         <listitem><para>Controls access to the service status notification socket, as accessible via the
-        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry> call. Takes one
-        of <option>none</option> (the default), <option>main</option>, <option>exec</option> or
-        <option>all</option>. If <option>none</option>, no daemon status updates are accepted from the service
-        processes, all status update messages are ignored. If <option>main</option>, only service updates sent from the
-        main process of the service are accepted. If <option>exec</option>, only service updates sent from any of the
-        main or control processes originating from one of the <varname>Exec*=</varname> commands are accepted. If
-        <option>all</option>, all services updates from all members of the service's control group are accepted. This
-        option should be set to open access to the notification socket when using <varname>Type=notify</varname> or
-        <varname>WatchdogSec=</varname> (see above). If those options are used but <varname>NotifyAccess=</varname> is
-        not configured, it will be implicitly set to <option>main</option>.</para>
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        call. Takes one of <option>none</option> (the default), <option>main</option>, <option>exec</option>
+        or <option>all</option>. If <option>none</option>, no daemon status updates are accepted from the
+        service processes, all status update messages are ignored. If <option>main</option>, only service
+        updates sent from the main process of the service are accepted. If <option>exec</option>, only
+        service updates sent from any of the main or control processes originating from one of the
+        <varname>Exec*=</varname> commands are accepted. If <option>all</option>, all services updates from
+        all members of the service's control group are accepted. This option should be set to open access to
+        the notification socket when using
+        <varname>Type=notify</varname>/<varname>Type=notify-reload</varname> or
+        <varname>WatchdogSec=</varname> (see above). If those options are used but
+        <varname>NotifyAccess=</varname> is not configured, it will be implicitly set to
+        <option>main</option>.</para>
 
         <para>Note that <function>sd_notify()</function> notifications may be attributed to units correctly only if
         either the sending process is still around at the time PID 1 processes the message, or if the sending process
@@ -1156,6 +1181,15 @@
         kills, this setting determines the state of the unit after <command>systemd-oomd</command> kills a
         cgroup associated with it.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>ReloadSignal=</varname></term>
+        <listitem><para>Configures the UNIX process signal to send to the service's main process when asked
+        to reload the service's configuration. Defaults to <constant>SIGHUP</constant>. This option has no
+        effect unless <varname>Type=</varname><option>notify-reload</option> is used, see
+        above.</para></listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para id='shared-unit-options'>Check
@@ -1319,16 +1353,13 @@ WantedBy=multi-user.target</programlisting>
       <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
       for details.</para>
 
-      <para>Note that this unit type does not include any type of
-      notification when a service has completed initialization. For
-      this, you should use other unit types, such as
-      <varname>Type=</varname><option>notify</option> if the service
-      understands systemd's notification protocol,
-      <varname>Type=</varname><option>forking</option> if the service
-      can background itself or
-      <varname>Type=</varname><option>dbus</option> if the unit
-      acquires a DBus name once initialization is complete. See
-      below.</para>
+      <para>Note that this unit type does not include any type of notification when a service has completed
+      initialization. For this, you should use other unit types, such as
+      <varname>Type=</varname><option>notify</option>/<varname>Type=</varname><option>notify-reload</option>
+      if the service understands systemd's notification protocol,
+      <varname>Type=</varname><option>forking</option> if the service can background itself or
+      <varname>Type=</varname><option>dbus</option> if the unit acquires a DBus name once initialization is
+      complete. See below.</para>
     </example>
 
     <example>
@@ -1505,15 +1536,12 @@ SystemdService=simple-dbus-service.service</programlisting>
     <example>
       <title>Services that notify systemd about their initialization</title>
 
-      <para><varname>Type=</varname><option>simple</option> services
-      are really easy to write, but have the major disadvantage of
-      systemd not being able to tell when initialization of the given
-      service is complete. For this reason, systemd supports a simple
-      notification protocol that allows daemons to make systemd aware
-      that they are done initializing. Use
-      <varname>Type=</varname><option>notify</option> for this. A
-      typical service file for such a daemon would look like
-      this:</para>
+      <para><varname>Type=</varname><option>simple</option> services are really easy to write, but have the
+      major disadvantage of systemd not being able to tell when initialization of the given service is
+      complete. For this reason, systemd supports a simple notification protocol that allows daemons to make
+      systemd aware that they are done initializing. Use <varname>Type=</varname><option>notify</option> or
+      <varname>Type=</varname><option>notify-reload</option> for this. A typical service file for such a
+      daemon would look like this:</para>
 
       <programlisting>[Unit]
 Description=Simple notifying service
