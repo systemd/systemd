@@ -1328,8 +1328,10 @@ int copy_file_fd_full(
         return 0;
 }
 
-int copy_file_full(
+int copy_file_at_full(
+                int dir_fdf,
                 const char *from,
+                int dir_fdt,
                 const char *to,
                 int flags,
                 mode_t mode,
@@ -1346,7 +1348,7 @@ int copy_file_full(
         assert(from);
         assert(to);
 
-        fdf = open(from, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        fdf = openat(dir_fdf, from, O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fdf < 0)
                 return -errno;
 
@@ -1359,11 +1361,11 @@ int copy_file_full(
 
         WITH_UMASK(0000) {
                 if (copy_flags & COPY_MAC_CREATE) {
-                        r = mac_selinux_create_file_prepare(to, S_IFREG);
+                        r = mac_selinux_create_file_prepare_at(dir_fdt, to, S_IFREG);
                         if (r < 0)
                                 return r;
                 }
-                fdt = open(to, flags|O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY,
+                fdt = openat(dir_fdt, to, flags|O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY,
                            mode != MODE_INVALID ? mode : st.st_mode);
                 if (copy_flags & COPY_MAC_CREATE)
                         mac_selinux_create_file_clear();
@@ -1402,7 +1404,7 @@ int copy_file_full(
                 goto fail;
 
         if (copy_flags & COPY_FSYNC_FULL) {
-                r = fsync_parent_at(AT_FDCWD, to);
+                r = fsync_parent_at(dir_fdt, to);
                 if (r < 0)
                         goto fail;
         }
@@ -1412,7 +1414,7 @@ int copy_file_full(
 fail:
         /* Only unlink if we definitely are the ones who created the file */
         if (FLAGS_SET(flags, O_EXCL))
-                (void) unlink(to);
+                (void) unlinkat(dir_fdt, to, 0);
 
         return r;
 }
