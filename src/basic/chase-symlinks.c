@@ -91,15 +91,19 @@ int chase_symlinks_at(
         assert(!FLAGS_SET(flags, CHASE_PREFIX_ROOT));
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
-        /* Either the file may be missing, or we return an fd to the final object, but both make no sense */
-        if ((flags & CHASE_NONEXISTENT) && ret_fd)
-                return -EINVAL;
-
         if ((flags & CHASE_STEP) && ret_fd)
                 return -EINVAL;
 
         if (isempty(path))
                 path = ".";
+
+        if (flags & CHASE_PARENT) {
+                r = path_extract_directory(path, &buffer);
+                if (r == -EDESTADDRREQ)
+                        path = "."; /* If we don't have a parent directory, fall back to the root directory. */
+                else if (r < 0)
+                        return r;
+        }
 
         /* This function resolves symlinks of the path relative to the given directory file descriptor. If
          * CHASE_SYMLINKS_RESOLVE_IN_ROOT is specified, symlinks are resolved relative to the given directory
@@ -165,7 +169,7 @@ int chase_symlinks_at(
 
                 /* Shortcut the ret_fd case if the caller isn't interested in the actual path and has no root
                  * set and doesn't care about any of the other special features we provide either. */
-                r = openat(dir_fd, path, O_PATH|O_CLOEXEC|((flags & CHASE_NOFOLLOW) ? O_NOFOLLOW : 0));
+                r = openat(dir_fd, buffer ?: path, O_PATH|O_CLOEXEC|((flags & CHASE_NOFOLLOW) ? O_NOFOLLOW : 0));
                 if (r < 0)
                         return -errno;
 
@@ -173,9 +177,11 @@ int chase_symlinks_at(
                 return 0;
         }
 
-        buffer = strdup(path);
-        if (!buffer)
-                return -ENOMEM;
+        if (!buffer) {
+                buffer = strdup(path);
+                if (!buffer)
+                        return -ENOMEM;
+        }
 
         bool need_absolute = !FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT) && path_is_absolute(path);
         if (need_absolute) {
@@ -370,13 +376,10 @@ int chase_symlinks_at(
         if (ret_path)
                 *ret_path = TAKE_PTR(done);
 
-        if (ret_fd) {
+        if (ret_fd)
                 /* Return the O_PATH fd we currently are looking to the caller. It can translate it to a
                  * proper fd by opening /proc/self/fd/xyz. */
-
-                assert(fd >= 0);
-                *ret_fd = TAKE_FD(fd);
-        }
+                *ret_fd = exists ? TAKE_FD(fd) : -EBADF;
 
         if (flags & CHASE_STEP)
                 return 1;
