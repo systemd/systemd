@@ -236,6 +236,7 @@ int dhcp_network_bind_raw_socket(
                 const struct hw_addr_data *_hw_addr,
                 const struct hw_addr_data *_bcast_addr,
                 uint16_t arp_type, uint16_t port,
+                bool so_priority_set,
                 int so_priority) {
 
         if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) < 0)

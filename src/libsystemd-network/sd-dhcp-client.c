@@ -121,6 +121,7 @@ struct sd_dhcp_client {
         sd_dhcp_lease *lease;
         usec_t start_delay;
         int ip_service_type;
+        bool socket_priority_set;
         int socket_priority;
 
         /* Ignore machine-ID when generating DUID. See dhcp_identifier_set_duid_en(). */
@@ -652,6 +653,7 @@ int sd_dhcp_client_set_socket_priority(sd_dhcp_client *client, int socket_priori
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
 
+        client->socket_priority_set = true;
         client->socket_priority = socket_priority;
 
         return 0;
@@ -1391,7 +1393,8 @@ static int client_start_delayed(sd_dhcp_client *client) {
 
         r = dhcp_network_bind_raw_socket(client->ifindex, &client->link, client->xid,
                                          &client->hw_addr, &client->bcast_addr,
-                                         client->arp_type, client->port, client->socket_priority);
+                                         client->arp_type, client->port,
+                                         client->socket_priority, client->socket_priority_set);
         if (r < 0) {
                 client_stop(client, r);
                 return r;
@@ -1439,7 +1442,8 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
 
         r = dhcp_network_bind_raw_socket(client->ifindex, &client->link, client->xid,
                                          &client->hw_addr, &client->bcast_addr,
-                                         client->arp_type, client->port, client->socket_priority);
+                                         client->arp_type, client->port,
+                                         client->socket_priority, client->socket_priority_set);
         if (r < 0) {
                 client_stop(client, r);
                 return 0;
@@ -2223,7 +2227,6 @@ int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
                 .anonymize = !!anonymize,
                 .max_attempts = UINT64_MAX,
                 .ip_service_type = -1,
-                .socket_priority = 0,
         };
         /* NOTE: this could be moved to a function. */
         if (anonymize) {

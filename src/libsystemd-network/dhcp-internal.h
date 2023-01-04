@@ -41,6 +41,7 @@ int dhcp_network_bind_raw_socket(
                 const struct hw_addr_data *bcast_addr,
                 uint16_t arp_type,
                 uint16_t port,
+                bool so_priority_set,
                 int so_priority);
 int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port, int ip_service_type);
 int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
