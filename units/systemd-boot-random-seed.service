@@ -8,22 +8,21 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Store a System Token in an EFI Variable
-Documentation=man:systemd-boot-system-token.service(8)
+Description=Update Boot Loader Random Seed
+Documentation=man:systemd-boot-random-seed.service(8) man:random(4)
 
 DefaultDependencies=no
 After=local-fs.target systemd-random-seed.service
-Conflicts=shutdown.target initrd-switch-root.target
-Before=shutdown.target initrd-switch-root.target
+Conflicts=shutdown.target
+Before=sysinit.target shutdown.target
 
+ConditionVirtualization=!container
+ConditionPathExists=!/etc/initrd-release
 # Only run this if the boot loader can support random seed initialization.
 ConditionPathExists=|/sys/firmware/efi/efivars/LoaderFeatures-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
 ConditionPathExists=|/sys/firmware/efi/efivars/StubFeatures-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
 
-# Only run this if there is no system token defined yet
-ConditionPathExists=!/sys/firmware/efi/efivars/LoaderSystemToken-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
-
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=bootctl random-seed --graceful
+ExecStart=bootctl --graceful random-seed
