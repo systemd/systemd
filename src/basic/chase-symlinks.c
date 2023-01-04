@@ -699,3 +699,32 @@ int chase_symlinks_and_fopen_unlocked(
 
         return 0;
 }
+
+int chase_symlinks_at_and_open_mkdir_p(
+                int dir_fd,
+                const char *path,
+                ChaseSymlinksFlags chase_flags,
+                int open_flags,
+                mode_t mode,
+                char **ret_path) {
+
+        _cleanup_free_ char *p = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(path);
+
+        r = chase_symlinks_at(dir_fd, path, chase_flags|CHASE_NONEXISTENT, &p, NULL);
+        if (r < 0)
+                return r;
+
+        fd = open_mkdir_at_p(dir_fd, p, open_flags, mode);
+        if (fd < 0)
+                return fd;
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(p);
+
+        return TAKE_FD(fd);
+}
