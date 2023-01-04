@@ -101,6 +101,14 @@ int chase_symlinks_at(
         if (isempty(path))
                 path = ".";
 
+        if (flags & CHASE_PARENT) {
+                r = path_extract_directory(path, &buffer);
+                if (r == -EDESTADDRREQ)
+                        path = "."; /* If we don't have a parent directory, fall back to the root directory. */
+                else if (r < 0)
+                        return r;
+        }
+
         /* This function resolves symlinks of the path relative to the given directory file descriptor. If
          * CHASE_SYMLINKS_RESOLVE_IN_ROOT is specified, symlinks are resolved relative to the given directory
          * file descriptor. Otherwise, they are resolved relative to the root directory of the host.
@@ -165,7 +173,7 @@ int chase_symlinks_at(
 
                 /* Shortcut the ret_fd case if the caller isn't interested in the actual path and has no root
                  * set and doesn't care about any of the other special features we provide either. */
-                r = openat(dir_fd, path, O_PATH|O_CLOEXEC|((flags & CHASE_NOFOLLOW) ? O_NOFOLLOW : 0));
+                r = openat(dir_fd, buffer ?: path, O_PATH|O_CLOEXEC|((flags & CHASE_NOFOLLOW) ? O_NOFOLLOW : 0));
                 if (r < 0)
                         return -errno;
 
@@ -173,9 +181,11 @@ int chase_symlinks_at(
                 return 0;
         }
 
-        buffer = strdup(path);
-        if (!buffer)
-                return -ENOMEM;
+        if (!buffer) {
+                buffer = strdup(path);
+                if (!buffer)
+                        return -ENOMEM;
+        }
 
         bool need_absolute = !FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT) && path_is_absolute(path);
         if (need_absolute) {
@@ -688,4 +698,33 @@ int chase_symlinks_and_fopen_unlocked(
                 *ret_path = TAKE_PTR(final_path);
 
         return 0;
+}
+
+int chase_symlinks_at_and_open_mkdir_p(
+                int dir_fd,
+                const char *path,
+                ChaseSymlinksFlags chase_flags,
+                int open_flags,
+                mode_t mode,
+                char **ret_path) {
+
+        _cleanup_free_ char *p = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(path);
+
+        r = chase_symlinks_at(dir_fd, path, chase_flags|CHASE_NONEXISTENT, &p, NULL);
+        if (r < 0)
+                return r;
+
+        fd = open_mkdir_at_p(dir_fd, p, open_flags, mode);
+        if (fd < 0)
+                return fd;
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(p);
+
+        return TAKE_FD(fd);
 }
