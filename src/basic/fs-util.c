@@ -1070,6 +1070,45 @@ int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode) {
         return TAKE_FD(fd);
 }
 
+int open_mkdir_at_p(int dir_fd, const char *path, int open_flags, mode_t mode) {
+        _cleanup_close_ int dfd = -EBADF;
+        int r;
+
+        assert(dir_fd == AT_FDCWD || dir_fd >= 0);
+
+        /* Only accept normalized paths so we don't end up creating unnecessary directories. */
+        if (path_is_absolute(path) || !path_is_normalized(path))
+                return -EINVAL;
+
+        dfd = fd_reopen(dir_fd, O_CLOEXEC|O_DIRECTORY|O_PATH);
+        if (dfd < 0)
+                return -errno;
+
+        for (;;) {
+                _cleanup_free_ char *first = NULL;
+                _cleanup_close_ int nfd = -EBADF;
+                const char *p;
+
+                r = path_find_first_component(&path, /* accept_dotdot= */ false, &p);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                first = strndup(p, r);
+                if (!first)
+                        return -ENOMEM;
+
+                nfd = open_mkdir_at(dfd, first, path ? O_PATH|O_CLOEXEC : open_flags, mode);
+                if (nfd < 0)
+                        return nfd;
+
+                close_and_replace(dfd, nfd);
+        }
+
+        return TAKE_FD(dfd);
+}
+
 int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, bool *ret_newly_created) {
         unsigned attempts = 7;
         int fd;
