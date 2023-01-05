@@ -81,7 +81,7 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                 _cleanup_free_ char *options = NULL, *remount_options = NULL;
                 struct libmnt_fs *fs;
                 const char *path, *fstype;
-                unsigned long remount_flags = 0u;
+                unsigned long remount_flags = 0u, propagation_flags;
                 bool try_remount_ro, is_api_vfs;
                 _cleanup_free_ MountPoint *m = NULL;
                 _cleanup_(mnt_free_iterp) struct libmnt_iter *iter_children = NULL;
@@ -133,16 +133,18 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                                  !fstype_is_ro(fstype) &&
                                  !fstab_test_yes_no_option(options, "ro\0rw\0");
 
+                r = mnt_fs_get_propagation(fs, &propagation_flags);
+                if (r < 0) {
+                        log_warning_errno(r, "mnt_fs_get_propagation() failed for %s, ignoring: %m", path);
+                        continue;
+                }
+
                 if (try_remount_ro) {
                         /* mount(2) states that mount flags and options need to be exactly the same as they
                          * were when the filesystem was mounted, except for the desired changes. So we
                          * reconstruct both here and adjust them for the later remount call too. */
 
-                        r = mnt_fs_get_propagation(fs, &remount_flags);
-                        if (r < 0) {
-                                log_warning_errno(r, "mnt_fs_get_propagation() failed for %s, ignoring: %m", path);
-                                continue;
-                        }
+                        remount_flags = propagation_flags;
 
                         r = mount_option_mangle(options, remount_flags, &remount_flags, &remount_options);
                         if (r < 0) {
@@ -179,6 +181,7 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                          * something keeps an fd open to it. */
                         .umount_lazily = is_api_vfs,
                         .leaf = leaf,
+                        .shared = propagation_flags & MS_SHARED,
                 };
 
                 m->path = strdup(path);
@@ -744,8 +747,24 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool last_
                  *
                  * umount_with_timeout will return EPROTO even on EBUSY due to forking.
                  */
-                if (r != -EPROTO || !m->leaf)
+                if (r != -EPROTO)
                         continue;
+
+                if  (!m->leaf) {
+                        /* If not a leaf and busy, it might be because some submounts are busy and need to be
+                         * moved out. We can only move mounts whose parent mounts are private.
+                         */
+                        if (m->shared) {
+                                r = RET_NERRNO(mount(NULL, m->path, NULL, MS_PRIVATE, NULL));
+                                if (r < 0) {
+                                        n_failed++;
+                                        log_full_errno(last_try ? LOG_ERR : LOG_INFO, r, "Cannot make mount private %s: %m", m->path);
+                                } else
+                                        *changed = true;
+                        }
+
+                        continue ;
+                }
 
                 _cleanup_free_ char *dirname = NULL;
 
@@ -761,10 +780,19 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool last_
 
                         xsprintf(newpath, "/run/shutdown/mounts/%08" PRIu64, random_u64());
 
-                        if (is_dir(m->path, true))
-                                (void) mkdir_p(newpath, 0700);
-                        else
-                                (void) touch_file(newpath, true, USEC_INFINITY, UID_INVALID, GID_INVALID, 0700);
+                        if (is_dir(m->path, true)) {
+                                r = mkdir_p(newpath, 0700);
+                                if (r < 0) {
+                                        log_full_errno(last_try ? LOG_ERR : LOG_INFO, r, "Could not create directory %s: %m", newpath);
+                                        continue;
+                                }
+                        } else {
+                                r = touch_file(newpath, true, USEC_INFINITY, UID_INVALID, GID_INVALID, 0700);
+                                if (r < 0) {
+                                        log_full_errno(last_try ? LOG_ERR : LOG_INFO, r, "Could not create file %s: %m", newpath);
+                                        continue;
+                                }
+                        }
 
                         log_info("Moving mount %s to %s.", m->path, newpath);
 
