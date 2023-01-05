@@ -95,7 +95,7 @@ EFI_STATUS devicetree_install(struct devicetree_state *state, EFI_FILE *root_dir
         if (err != EFI_SUCCESS)
                 return err;
 
-        err = handle->Read(handle, &len, PHYSICAL_ADDRESS_TO_POINTER(state->addr));
+        err = chunked_read(handle, &len, PHYSICAL_ADDRESS_TO_POINTER(state->addr));
         if (err != EFI_SUCCESS)
                 return err;
 
