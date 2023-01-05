@@ -5592,7 +5592,7 @@ int config_parse_emergency_action(
         if (unit)
                 m = ASSERT_PTR(ASSERT_PTR((Unit*) userdata)->manager);
         else
-                m = data;
+                m = userdata;
 
         r = parse_emergency_action(rvalue, MANAGER_IS_SYSTEM(m), x);
         if (r < 0) {
