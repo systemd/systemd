@@ -368,13 +368,26 @@
     <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
 
     <para>These functions send a single datagram with the
-    state string as payload to the <constant>AF_UNIX</constant> socket
-    referenced in the <varname>$NOTIFY_SOCKET</varname> environment
-    variable. If the first character of
-    <varname>$NOTIFY_SOCKET</varname> is <literal>@</literal>, the
-    string is understood as Linux abstract namespace socket. The
-    datagram is accompanied by the process credentials of the sending
-    service, using SCM_CREDENTIALS.</para>
+    state string as payload to the socket referenced in the
+    <varname>$NOTIFY_SOCKET</varname> environment variable. If the
+    first character of <varname>$NOTIFY_SOCKET</varname> is
+    <literal>/</literal> or <literal>@</literal>, the string is understood
+    as an <constant>AF_UNIX</constant> or Linux abstract namespace socket
+    (respectively), and in both cases the datagram is accompanied by the
+    process credentials of the sending service, using SCM_CREDENTIALS. If
+    the string starts with <literal>vsock:</literal> then the string is
+    understood as an <constant>AF_VSOCK</constant> address, which is useful
+    for hypervisors/VMMs or other processes on the host to receive a
+    notification when a virtual machine has finished booting. Note that in
+    case the hypervisor does not support <constant>SOCK_DGRAM</constant>
+    over <constant>AF_VSOCK</constant>, <constant>SOCK_SEQPACKET</constant>
+    will be used instead. The address should be in the form:
+    <literal>vsock:CID:PORT</literal>. Note that unlike other uses of vsock,
+    the CID is mandatory and cannot be <literal>VMADDR_CID_ANY</literal>.
+    Note that PID1 will send the VSOCK packets from a privileged port, as an
+    attempt to address concerns that unprivileged processes in the guest might
+    try to send malicious notifications to the host, driving it to make
+    destructive decisions based on them.</para>
   </refsect1>
 
   <refsect1>
