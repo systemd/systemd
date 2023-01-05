@@ -5581,8 +5581,8 @@ int config_parse_emergency_action(
                 void *data,
                 void *userdata) {
 
-        Manager *m = NULL;
         EmergencyAction *x = ASSERT_PTR(data);
+        Manager *m;
         int r;
 
         assert(filename);
@@ -5590,9 +5590,9 @@ int config_parse_emergency_action(
         assert(rvalue);
 
         if (unit)
-                m = ((Unit*) userdata)->manager;
+                m = ((Unit*) ASSERT_PTR(userdata))->manager;
         else
-                m = data;
+                m = ASSERT_PTR(userdata);
 
         r = parse_emergency_action(rvalue, MANAGER_IS_SYSTEM(m), x);
         if (r < 0) {
