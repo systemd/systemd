@@ -33,48 +33,91 @@ static inline void event_closep(EFI_EVENT *event) {
  * sync. Falling back on a different protocol can end up with double input.
  *
  * Therefore, we will preferably use TextInputEx for ConIn if that is available. Additionally,
- * we look for the first TextInputEx device the firmware gives us as a fallback option. It
+ * we look for all TextInputEx devices the firmware gives us as a fallback option. It
  * will replace ConInEx permanently if it ever reports a key press.
  * Lastly, a timer event allows us to provide a input timeout without having to call into
  * any input functions that can freeze on us or using a busy/stall loop. */
 EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
-        static EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *conInEx = NULL, *extraInEx = NULL;
+        static EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *conInEx = NULL;
+        static EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL **protocols;
+        static UINTN n_protocols = 0;
         static bool checked = false;
         UINTN index;
         EFI_STATUS err;
+        EFI_EVENT *events;
+        UINTN n_events = 0;
         _cleanup_(event_closep) EFI_EVENT timer = NULL;
 
         assert(key);
 
         if (!checked) {
-                /* Get the *first* TextInputEx device.*/
-                err = BS->LocateProtocol(&SimpleTextInputExProtocol, NULL, (void **) &extraInEx);
-                if (err != EFI_SUCCESS || BS->CheckEvent(extraInEx->WaitForKeyEx) == EFI_INVALID_PARAMETER)
-                        /* If WaitForKeyEx fails here, the firmware pretends it talks this
-                         * protocol, but it really doesn't. */
-                        extraInEx = NULL;
+                console_connect();
+
+                EFI_HANDLE *handleBuffer;
+                UINTN handleCount;
+
+                err = BS->LocateHandleBuffer(
+                        ByProtocol,
+                        &SimpleTextInputExProtocol,
+                        NULL,
+                        &handleCount,
+                        &handleBuffer
+                );
+
+                protocols = AllocateZeroPool(sizeof(EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL*) * handleCount);
+                if (protocols == NULL) {
+                        FreePool(handleBuffer);
+                        err = EFI_DEVICE_ERROR;
+                        return log_error_status_stall(err, L"Error allocating protocols buffer: %r", err);
+                }
+
+                n_protocols = 0;
+
+                for(UINTN i = 0; i < handleCount; i++) {
+                        EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *extraInEx = NULL;
+                        err = BS->HandleProtocol(handleBuffer[i], &SimpleTextInputExProtocol, (void **) &extraInEx);
+                        if (err != EFI_SUCCESS || BS->CheckEvent(extraInEx->WaitForKeyEx) == EFI_INVALID_PARAMETER)
+                                continue;
+
+                        protocols[n_protocols] = extraInEx;
+                        n_protocols++;
+                }
 
                 /* Get the TextInputEx version of ST->ConIn. */
                 err = BS->HandleProtocol(ST->ConsoleInHandle, &SimpleTextInputExProtocol, (void **) &conInEx);
                 if (err != EFI_SUCCESS || BS->CheckEvent(conInEx->WaitForKeyEx) == EFI_INVALID_PARAMETER)
                         conInEx = NULL;
 
-                if (conInEx == extraInEx)
-                        extraInEx = NULL;
-
                 checked = true;
+
+                FreePool(handleBuffer);
+        }
+
+        events = AllocateZeroPool(sizeof(EFI_EVENT) * (n_protocols + 2));
+        if (events == NULL) {
+                FreePool(protocols);
+                err = EFI_DEVICE_ERROR;
+                return log_error_status_stall(err, L"Error allocating events buffer: %r", err);
+        }
+
+        n_events = 0;
+        for(UINTN i = 0; i < n_protocols; i++) {
+                events[n_events] = protocols[i]->WaitForKeyEx;
+                n_events++;
         }
 
         err = BS->CreateEvent(EVT_TIMER, 0, NULL, NULL, &timer);
-        if (err != EFI_SUCCESS)
+        if (err != EFI_SUCCESS) {
+                FreePool(protocols);
+                FreePool(events);
                 return log_error_status_stall(err, L"Error creating timer event: %r", err);
+        }
 
-        EFI_EVENT events[] = {
-                timer,
-                conInEx ? conInEx->WaitForKeyEx : ST->ConIn->WaitForKey,
-                extraInEx ? extraInEx->WaitForKeyEx : NULL,
-        };
-        UINTN n_events = extraInEx ? 3 : 2;
+        events[n_events] = timer;
+        n_events++;
+
+        events[n_events] = conInEx ? conInEx->WaitForKeyEx : ST->ConIn->WaitForKey;
+        n_events++;
 
         /* Watchdog rearming loop in case the user never provides us with input or some
          * broken firmware never returns from WaitForEvent. */
@@ -87,15 +130,21 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
                                 timer,
                                 TimerRelative,
                                 MIN(timeout_usec, watchdog_ping_usec) * 10);
-                if (err != EFI_SUCCESS)
+                if (err != EFI_SUCCESS) {
+                        FreePool(protocols);
+                        FreePool(events);
                         return log_error_status_stall(err, L"Error arming timer event: %r", err);
+                }
 
                 (void) BS->SetWatchdogTimer(watchdog_timeout_sec, 0x10000, 0, NULL);
                 err = BS->WaitForEvent(n_events, events, &index);
                 (void) BS->SetWatchdogTimer(watchdog_timeout_sec, 0x10000, 0, NULL);
 
-                if (err != EFI_SUCCESS)
+                if (err != EFI_SUCCESS) {
+                        FreePool(protocols);
+                        FreePool(events);
                         return log_error_status_stall(err, L"Error waiting for events: %r", err);
+                }
 
                 /* We have keyboard input, process it after this loop. */
                 if (timer != events[index])
@@ -110,14 +159,14 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
                 }
 
                 /* The caller requested a timeout? They shall have one! */
+                FreePool(events);
                 return EFI_TIMEOUT;
         }
 
         /* If the extra input device we found returns something, always use that instead
          * to work around broken firmware freezing on ConIn/ConInEx. */
-        if (extraInEx && BS->CheckEvent(extraInEx->WaitForKeyEx) == EFI_SUCCESS) {
-                conInEx = extraInEx;
-                extraInEx = NULL;
+        if (n_protocols > 0 && index < n_protocols && BS->CheckEvent(events[index]) == EFI_SUCCESS) {
+                conInEx = protocols[index];
         }
 
         /* Do not fall back to ConIn if we have a ConIn that supports TextInputEx.
@@ -127,8 +176,10 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
                 uint32_t shift = 0;
 
                 err = conInEx->ReadKeyStrokeEx(conInEx, &keydata);
-                if (err != EFI_SUCCESS)
+                if (err != EFI_SUCCESS) {
+                        FreePool(events);
                         return err;
+                }
 
                 if (FLAGS_SET(keydata.KeyState.KeyShiftState, EFI_SHIFT_STATE_VALID)) {
                         /* Do not distinguish between left and right keys (set both flags). */
@@ -149,18 +200,23 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
 
                 /* 32 bit modifier keys + 16 bit scan code + 16 bit unicode */
                 *key = KEYPRESS(shift, keydata.Key.ScanCode, keydata.Key.UnicodeChar);
+                FreePool(events);
                 return EFI_SUCCESS;
         } else if (BS->CheckEvent(ST->ConIn->WaitForKey) == EFI_SUCCESS) {
                 EFI_INPUT_KEY k;
 
                 err = ST->ConIn->ReadKeyStroke(ST->ConIn, &k);
-                if (err != EFI_SUCCESS)
+                if (err != EFI_SUCCESS){
+                        FreePool(events);
                         return err;
+                }
 
                 *key = KEYPRESS(0, k.ScanCode, k.UnicodeChar);
+                FreePool(events);
                 return EFI_SUCCESS;
         }
 
+        FreePool(events);
         return EFI_NOT_READY;
 }
 
