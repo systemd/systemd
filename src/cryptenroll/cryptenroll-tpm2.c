@@ -171,6 +171,9 @@ int enroll_tpm2(struct crypt_device *cd,
                 uint8_t salted_pin[SHA256_DIGEST_SIZE] = {};
                 tpm2_util_pbkdf(pin_str, strlen(pin_str), binary_salt, sizeof(binary_salt), 1000, salted_pin);
 
+                size_t l;
+                l = MALLOC_SIZEOF_SAFE(pin_str);
+                explicit_bzero_safe(pin_str, l);
                 /* re-stringify pin_str */
                 // Question: r is in int but base64mem returns ssize_t, this was copied
                 // from enroll_fido2 from line 56.
