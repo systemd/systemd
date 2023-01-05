@@ -3,15 +3,17 @@
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "constants.h"
+#include "creds-util.h"
+#include "dns-domain.h"
 #include "extract-word.h"
 #include "hexdecoct.h"
 #include "parse-util.h"
+#include "proc-cmdline.h"
 #include "resolved-conf.h"
-#include "resolved-dnssd.h"
-#include "resolved-manager.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-stub.h"
-#include "dns-domain.h"
+#include "resolved-dnssd.h"
+#include "resolved-manager.h"
 #include "socket-netlink.h"
 #include "specifier.h"
 #include "string-table.h"
@@ -463,6 +465,99 @@ int config_parse_dns_stub_listener_extra(
         return 0;
 }
 
+static void read_credentials(Manager *m) {
+        _cleanup_free_ char *dns = NULL, *domains = NULL;
+        int r;
+
+        assert(m);
+
+        /* Hmm, if we aren't supposed to read /etc/resolv.conf because the DNS settings were already
+         * configured explicitly in our config file, we don't want to honour credentials either */
+        if (!m->read_resolv_conf)
+                return;
+
+        r = read_credential_strings_many(
+                        "network.dns", &dns,
+                        "network.search_domains", &domains);
+        if (r < 0 && !IN_SET(r, -ENXIO, -ENOENT))
+                log_warning_errno(r, "Failed to read credentials, ignoring: %m");
+
+        if (dns) {
+                r = manager_parse_dns_server_string_and_warn(m, DNS_SERVER_SYSTEM, dns);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse credential provided DNS server string '%s', ignoring.", dns);
+
+                m->read_resolv_conf = false;
+        }
+
+        if (domains) {
+                r = manager_parse_search_domains_and_warn(m, domains);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse credential provided search domain string '%s', ignoring.", domains);
+
+                m->read_resolv_conf = false;
+        }
+}
+
+struct ProcCmdlineInfo {
+        Manager *manager;
+
+        /* If there's a setting configured via /proc/cmdline we want to reset the configured lists, but only
+         * once, so that multiple nameserver= or domain= settings can be specified on the kernel command line
+         * and will be combined. These booleans will be set once we erase the list once. */
+        bool dns_server_unlinked;
+        bool search_domain_unlinked;
+};
+
+static int proc_cmdline_callback(const char *key, const char *value, void *data) {
+        struct ProcCmdlineInfo *info = ASSERT_PTR(data);
+        int r;
+
+        assert(info->manager);
+
+        /* The kernel command line option names are chosen to be compatible with what various tools already
+         * interpret, for example dracut and SUSE Linux. */
+
+        if (proc_cmdline_key_streq(key, "nameserver")) {
+                if (!info->dns_server_unlinked) {
+                        /* The kernel command line overrides any prior configuration */
+                        dns_server_unlink_all(manager_get_first_dns_server(info->manager, DNS_SERVER_SYSTEM));
+                        info->dns_server_unlinked = true;
+                }
+
+                r = manager_parse_dns_server_string_and_warn(info->manager, DNS_SERVER_SYSTEM, value);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse DNS server string '%s', ignoring.", value);
+
+                info->manager->read_resolv_conf = false;
+
+        } else if (proc_cmdline_key_streq(key, "domain")) {
+
+                if (!info->search_domain_unlinked) {
+                        dns_search_domain_unlink_all(info->manager->search_domains);
+                        info->search_domain_unlinked = true;
+                }
+
+                r = manager_parse_search_domains_and_warn(info->manager, value);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse credential provided search domain string '%s', ignoring.", value);
+
+                info->manager->read_resolv_conf = false;
+        }
+
+        return 0;
+}
+
+static void read_proc_cmdline(Manager *m) {
+        int r;
+
+        assert(m);
+
+        r = proc_cmdline_parse(proc_cmdline_callback, &(struct ProcCmdlineInfo) { .manager = m }, 0);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read kernel command line, ignoring: %m");
+}
+
 int manager_parse_config_file(Manager *m) {
         int r;
 
@@ -478,6 +573,9 @@ int manager_parse_config_file(Manager *m) {
                         NULL);
         if (r < 0)
                 return r;
+
+        read_credentials(m);   /* credentials are only used when nothing is explicitly configured … */
+        read_proc_cmdline(m);  /* … but kernel command line overrides local configuration. */
 
         if (m->need_builtin_fallbacks) {
                 r = manager_parse_dns_server_string_and_warn(m, DNS_SERVER_FALLBACK, DNS_SERVERS);
