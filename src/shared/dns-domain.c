@@ -832,7 +832,6 @@ int dns_name_address(const char *p, int *ret_family, union in_addr_union *ret_ad
 }
 
 bool dns_name_is_root(const char *name) {
-
         assert(name);
 
         /* There are exactly two ways to encode the root domain name:
