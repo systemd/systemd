@@ -649,11 +649,11 @@ DnsScopeMatch dns_scope_good_domain(
                 DnsScopeMatch m;
                 int n_best = -1;
 
-                if (dns_name_is_empty(domain)) {
+                if (dns_name_is_root(domain)) {
                         DnsResourceKey *t;
                         bool found = false;
 
-                        /* Refuse empty name if only A and/or AAAA records are requested. */
+                        /* Refuse root name if only A and/or AAAA records are requested. */
 
                         DNS_QUESTION_FOREACH(t, question)
                                 if (!IN_SET(t->type, DNS_TYPE_A, DNS_TYPE_AAAA)) {
