@@ -1441,7 +1441,10 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                          * at once. */
                         r = json_append(&v, JSON_BUILD_OBJECT(
                                                        JSON_BUILD_PAIR_CONDITION(e->tries_left != UINT_MAX, "triesLeft", JSON_BUILD_UNSIGNED(e->tries_left)),
-                                                       JSON_BUILD_PAIR_CONDITION(e->tries_done != UINT_MAX, "triesDone", JSON_BUILD_UNSIGNED(e->tries_done))));
+                                                       JSON_BUILD_PAIR_CONDITION(e->tries_done != UINT_MAX, "triesDone", JSON_BUILD_UNSIGNED(e->tries_done)),
+                                                       JSON_BUILD_PAIR_CONDITION(config->default_entry >= 0, "isDefault", JSON_BUILD_BOOLEAN(i == (size_t) config->default_entry)),
+                                                       JSON_BUILD_PAIR_CONDITION(config->selected_entry >= 0, "isSelected", JSON_BUILD_BOOLEAN(i == (size_t) config->selected_entry))));
+
                         if (r < 0)
                                 return log_oom();
 
