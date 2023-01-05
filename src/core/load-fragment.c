@@ -5581,8 +5581,8 @@ int config_parse_emergency_action(
                 void *data,
                 void *userdata) {
 
-        Manager *m = NULL;
         EmergencyAction *x = ASSERT_PTR(data);
+        Manager *m;
         int r;
 
         assert(filename);
@@ -5590,22 +5590,12 @@ int config_parse_emergency_action(
         assert(rvalue);
 
         if (unit)
-                m = ((Unit*) userdata)->manager;
+                m = ((Unit*) ASSERT_PTR(userdata))->manager;
         else
-                m = data;
+                m = ASSERT_PTR(userdata);
 
         r = parse_emergency_action(rvalue, MANAGER_IS_SYSTEM(m), x);
         if (r < 0) {
-                if (r == -EOPNOTSUPP && MANAGER_IS_USER(m)) {
-                        /* Compat mode: remove for systemd 241. */
-
-                        log_syntax(unit, LOG_INFO, filename, line, r,
-                                   "%s= in user mode specified as \"%s\", using \"exit-force\" instead.",
-                                   lvalue, rvalue);
-                        *x = EMERGENCY_ACTION_EXIT_FORCE;
-                        return 0;
-                }
-
                 if (r == -EOPNOTSUPP)
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "%s= specified as %s mode action, ignoring: %s",
