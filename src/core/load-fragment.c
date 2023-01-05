@@ -5590,7 +5590,7 @@ int config_parse_emergency_action(
         assert(rvalue);
 
         if (unit)
-                m = ((Unit*) userdata)->manager;
+                m = ASSERT_PTR(ASSERT_PTR((Unit*) userdata)->manager);
         else
                 m = data;
 
