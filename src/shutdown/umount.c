@@ -32,13 +32,16 @@
 #include "fs-util.h"
 #include "fstab-util.h"
 #include "libmount-util.h"
+#include "mkdir.h"
 #include "mount-setup.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "random-util.h"
 #include "signal-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
@@ -78,9 +81,10 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                 _cleanup_free_ char *options = NULL, *remount_options = NULL;
                 struct libmnt_fs *fs;
                 const char *path, *fstype;
-                unsigned long remount_flags = 0u;
+                unsigned long remount_flags = 0u, propagation_flags;
                 bool try_remount_ro, is_api_vfs;
                 _cleanup_free_ MountPoint *m = NULL;
+                _cleanup_(mnt_free_iterp) struct libmnt_iter *iter_children = NULL;
 
                 r = mnt_table_next_fs(table, iter, &fs);
                 if (r == 1) /* EOF */
@@ -129,16 +133,18 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                                  !fstype_is_ro(fstype) &&
                                  !fstab_test_yes_no_option(options, "ro\0rw\0");
 
+                r = mnt_fs_get_propagation(fs, &propagation_flags);
+                if (r < 0) {
+                        log_warning_errno(r, "mnt_fs_get_propagation() failed for %s, ignoring: %m", path);
+                        continue;
+                }
+
                 if (try_remount_ro) {
                         /* mount(2) states that mount flags and options need to be exactly the same as they
                          * were when the filesystem was mounted, except for the desired changes. So we
                          * reconstruct both here and adjust them for the later remount call too. */
 
-                        r = mnt_fs_get_propagation(fs, &remount_flags);
-                        if (r < 0) {
-                                log_warning_errno(r, "mnt_fs_get_propagation() failed for %s, ignoring: %m", path);
-                                continue;
-                        }
+                        remount_flags = propagation_flags;
 
                         r = mount_option_mangle(options, remount_flags, &remount_flags, &remount_options);
                         if (r < 0) {
@@ -155,6 +161,17 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                 if (!m)
                         return log_oom();
 
+                iter_children = mnt_new_iter(MNT_ITER_FORWARD);
+                if (!iter_children)
+                        return log_oom();
+
+                /* We care only whether it exists, it is unused */
+                _unused_ struct libmnt_fs *child;
+                r = mnt_table_next_child_fs(table, iter_children, fs, &child);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get children mounts for %s from %s: %m", path, mountinfo ?: "/proc/self/mountinfo");
+                bool leaf = r == 1;
+
                 *m = (MountPoint) {
                         .remount_options = remount_options,
                         .remount_flags = remount_flags,
@@ -163,6 +180,8 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                         /* Unmount sysfs/procfs/… lazily, since syncing doesn't matter there, and it's OK if
                          * something keeps an fd open to it. */
                         .umount_lazily = is_api_vfs,
+                        .leaf = leaf,
+                        .shared = propagation_flags & MS_SHARED,
                 };
 
                 m->path = strdup(path);
@@ -681,7 +700,7 @@ static int umount_with_timeout(MountPoint *m, bool last_try) {
 /* This includes remounting readonly, which changes the kernel mount options.  Therefore the list passed to
  * this function is invalidated, and should not be reused. */
 static int mount_points_list_umount(MountPoint **head, bool *changed, bool last_try) {
-        int n_failed = 0;
+        int n_failed = 0, r;
 
         assert(head);
         assert(changed);
@@ -716,10 +735,74 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool last_
                         continue;
 
                 /* Trying to umount */
-                if (umount_with_timeout(m, last_try) < 0)
+                r = umount_with_timeout(m, last_try);
+                if (r < 0)
                         n_failed++;
                 else
                         *changed = true;
+
+                /* If a mount is busy, we move it to not keep parent mount points busy.
+                 * If a mount point is not a leaf, moving it would invalidate our mount table.
+                 * More moving will occur in next iteration with a fresh mount table.
+                 *
+                 * umount_with_timeout will return EPROTO even on EBUSY due to forking.
+                 */
+                if (r != -EPROTO)
+                        continue;
+
+                if  (!m->leaf) {
+                        /* If not a leaf and busy, it might be because some submounts are busy and need to be
+                         * moved out. We can only move mounts whose parent mounts are private.
+                         */
+                        if (m->shared) {
+                                r = RET_NERRNO(mount(NULL, m->path, NULL, MS_PRIVATE, NULL));
+                                if (r < 0) {
+                                        n_failed++;
+                                        log_full_errno(last_try ? LOG_ERR : LOG_INFO, r, "Cannot make mount private %s: %m", m->path);
+                                } else
+                                        *changed = true;
+                        }
+
+                        continue ;
+                }
+
+                _cleanup_free_ char *dirname = NULL;
+
+                r = path_extract_directory(m->path, &dirname);
+                if (r < 0) {
+                        n_failed++;
+                        log_full_errno(last_try ? LOG_ERR : LOG_INFO, r, "Cannot find directory for %s: %m", m->path);
+                        continue;
+                }
+
+                if (!path_equal_or_files_same(dirname, "/run/shutdown/mounts", 0)) {
+                        char newpath[STRLEN("/run/shutdown/mounts/") + DECIMAL_STR_MAX(uint64_t)];
+
+                        xsprintf(newpath, "/run/shutdown/mounts/%08" PRIu64, random_u64());
+
+                        if (is_dir(m->path, true)) {
+                                r = mkdir_p(newpath, 0700);
+                                if (r < 0) {
+                                        log_full_errno(last_try ? LOG_ERR : LOG_INFO, r, "Could not create directory %s: %m", newpath);
+                                        continue;
+                                }
+                        } else {
+                                r = touch_file(newpath, true, USEC_INFINITY, UID_INVALID, GID_INVALID, 0700);
+                                if (r < 0) {
+                                        log_full_errno(last_try ? LOG_ERR : LOG_INFO, r, "Could not create file %s: %m", newpath);
+                                        continue;
+                                }
+                        }
+
+                        log_info("Moving mount %s to %s.", m->path, newpath);
+
+                        r = RET_NERRNO(mount(m->path, newpath, NULL, MS_MOVE, NULL));
+                        if (r < 0) {
+                                n_failed++;
+                                log_full_errno(last_try ? LOG_ERR : LOG_INFO, r, "Could not move %s to %s: %m", m->path, newpath);
+                        } else
+                                *changed = true;
+                }
         }
 
         return n_failed;
