@@ -30,7 +30,6 @@ MemoryDenyWriteExecute=yes
 NoNewPrivileges=yes
 PrivateDevices=yes
 PrivateTmp=yes
-ProtectProc=invisible
 ProtectClock=yes
 ProtectControlGroups=yes
 ProtectHome=yes
@@ -51,6 +50,8 @@ SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
 Type=notify
 User=systemd-resolve
+LoadCredential=network.dns
+LoadCredential=network.search_domains
 {{SERVICE_WATCHDOG}}
 
 [Install]

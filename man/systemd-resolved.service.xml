@@ -400,6 +400,49 @@ search foobar.com barbar.com
   </refsect1>
 
   <refsect1>
+    <title>Credentials</title>
+
+    <para><command>systemd-resolved</command> supports the service credentials logic as implemented by
+    <varname>LoadCredential=</varname>/<varname>SetCredential=</varname> (see
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+    details). The following credentials are used when passed in:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>network.dns</varname></term>
+        <term><varname>network.search_domains</varname></term>
+
+        <listitem><para>May contain a space separated list of DNS server IP addresses and DNS search
+        domains. This information is only used when no explicit configuration via
+        <filename>/etc/systemd/resolved.conf</filename>, <filename>/etc/resolv.conf</filename> or the kernel
+        command line has been provided.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Kernel Command Line</title>
+
+    <para><command>systemd-resolved</command> also honours two kernel command line options:</para>
+
+    <variablelist class='kernel-commandline-options'>
+      <varlistentry>
+        <term><varname>nameserver=</varname></term>
+        <term><varname>domain=</varname></term>
+
+        <listitem><para>Takes the IP address of a DNS server (in case of <varname>nameserver=</varname>), and
+        a DNS search domain (in case of <varname>domain=</varname>). May be used multiple times, to define
+        multiple DNS servers/search domains. If either of these options are specified
+        <filename>/etc/resolv.conf</filename> will not be read and the <varname>DNS=</varname> and
+        <varname>Domains=</varname> settings of
+        <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        will be ignored. These two kernel command line options hence override system
+        configuration.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
