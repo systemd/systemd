@@ -31,6 +31,7 @@ EOF
 export KERNEL_INSTALL_CONF_ROOT="$D/sources"
 export KERNEL_INSTALL_PLUGINS="$plugin"
 export BOOT_ROOT="$D/boot"
+export BOOT_MNT="$D/boot"
 export MACHINE_ID='3e0484f3634a418b8e6a39e8828b03e3'
 
 "$kernel_install" -v add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
