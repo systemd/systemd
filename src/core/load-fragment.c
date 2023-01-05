@@ -5584,6 +5584,7 @@ int config_parse_emergency_action(
         Manager *m = NULL;
         EmergencyAction *x = ASSERT_PTR(data);
         int r;
+        bool system;
 
         assert(filename);
         assert(lvalue);
@@ -5592,14 +5593,18 @@ int config_parse_emergency_action(
         if (unit)
                 m = ASSERT_PTR(ASSERT_PTR((Unit*) userdata)->manager);
         else
+                // NOTE: this doesn't have any effect ATM. main.c doesn't pass manager to the config parser,
+                // because the parsing is done before the manager is created.
                 m = userdata;
 
-        r = parse_emergency_action(rvalue, MANAGER_IS_SYSTEM(m), x);
+        system = !m || MANAGER_IS_SYSTEM(m);
+
+        r = parse_emergency_action(rvalue, system, x);
         if (r < 0) {
                 if (r == -EOPNOTSUPP)
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "%s= specified as %s mode action, ignoring: %s",
-                                   lvalue, MANAGER_IS_SYSTEM(m) ? "user" : "system", rvalue);
+                                   lvalue, system ? "user" : "system", rvalue);
                 else
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to parse %s=, ignoring: %s", lvalue, rvalue);
