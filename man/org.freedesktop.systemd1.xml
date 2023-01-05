@@ -265,6 +265,7 @@ node /org/freedesktop/systemd1 {
       LookupDynamicUserByUID(in  u uid,
                              out s name);
       GetDynamicUsers(out a(us) users);
+      GetIdentityMapping(out h namespace);
     signals:
       UnitNew(s id,
               o unit);
@@ -954,6 +955,8 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="GetDynamicUsers()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="GetIdentityMapping()"/>
+
     <variablelist class="dbus-signal" generated="True" extra-ref="UnitNew"/>
 
     <variablelist class="dbus-signal" generated="True" extra-ref="UnitRemoved"/>
@@ -1495,6 +1498,13 @@ node /org/freedesktop/systemd1 {
       <ulink url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface">New Control Group
       Interface</ulink> for more information how to make use of this functionality for resource control
       purposes.</para>
+
+      <para><function>GetIdentityMapping()</function> may be used to create a fully mapped user namespace.
+      Unprivileged processes cannot set up a fully mapped user namespace, and are only allowed to map their
+      own user. This method sets up a new namespace, owned by the caller's uid, and returns a file descriptor
+      that the caller can change into. The caller will be root in the new namespace after changing into it,
+      so it should setuid back to its own user if it needs to run as such. Note that due to the security
+      implications, this method is gated by a new Polkit authorization policy (or CAP_SYS_ADMIN).</para>
     </refsect2>
 
     <refsect2>
