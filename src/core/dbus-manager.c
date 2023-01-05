@@ -37,6 +37,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "syslog-util.h"
+#include "uid-range.h"
 #include "user-util.h"
 #include "virt.h"
 #include "watchdog.h"
@@ -2783,6 +2784,93 @@ static int method_set_show_status(sd_bus_message *message, void *userdata, sd_bu
         return sd_bus_reply_method_return(message, NULL);
 }
 
+static int get_caller_user_and_is_session_manager(sd_bus_message *message, Manager *manager, uid_t *ret_user) {
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        _cleanup_free_ char *prefix = NULL;
+        Unit *caller;
+        pid_t pid;
+        uid_t user;
+        int r;
+
+        assert(message);
+        assert(manager);
+        assert(ret_user);
+
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID|SD_BUS_CREDS_UID|SD_BUS_CREDS_AUGMENT, &creds);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_creds_get_pid(creds, &pid);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_creds_get_uid(creds, &user);
+        if (r < 0)
+                return r;
+
+        *ret_user = user;
+
+        /* After this point, an error simply means the caller is not a user manager instance, so return false. */
+
+        caller = manager_get_unit_by_pid(manager, pid);
+        if (!caller || !unit_name_is_valid(caller->id, UNIT_NAME_INSTANCE))
+                return 0;
+
+        if (unit_name_to_prefix(caller->id, &prefix) < 0)
+                return 0;
+
+        return streq(prefix, "user");
+}
+
+/* Create a new user namespace that maps all UIDs/GIDs in the system and return the
+ * file descriptor to the caller. */
+static int method_get_identity_mapping(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
+        _cleanup_close_ int fd = -1;
+        Manager *m = ASSERT_PTR(userdata);
+        uid_t user;
+        int r;
+
+        assert(message);
+
+        if (!MANAGER_IS_SYSTEM(m))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                         "This method is only supported on the system manager.");
+
+        r = mac_selinux_access_check(message, "acquire-namespace", error);
+        if (r < 0)
+                return r;
+
+        /* User manager instances are allowed to bypass Polkit, and are always authorized as they will use this to set up
+         * sandboxing options for user units. Everything else goes through the Polkit auth step first. */
+        r = get_caller_user_and_is_session_manager(message, m, &user);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                r = bus_verify_acquire_namespace_async(m, message, error);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+        }
+
+        /* Create the new namespace copying the mapping of the current one, so that we know we have permissions
+         * to do so. */
+        r = read_full_virtual_file("/proc/self/uid_map", &uid_map, NULL);
+        if (r < 0)
+                return r;
+
+        r = read_full_virtual_file("/proc/self/gid_map", &gid_map, NULL);
+        if (r < 0)
+                return r;
+
+        fd = userns_acquire(uid_map, gid_map, user);
+        if (fd < 0)
+                return fd;
+
+        return sd_bus_reply_method_return(message, "h", fd);
+}
+
 const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -3315,6 +3403,11 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                 SD_BUS_NO_ARGS,
                                 SD_BUS_RESULT("a(us)", users),
                                 method_get_dynamic_users,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("GetIdentityMapping",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_RESULT("h", namespace),
+                                method_get_identity_mapping,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_SIGNAL_WITH_ARGS("UnitNew",
