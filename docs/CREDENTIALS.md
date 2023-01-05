@@ -330,6 +330,18 @@ systemd-run -p LoadCredential=mycred -P --wait systemd-creds cat mycred
 
 Various services shipped with `systemd` consume credentials for tweaking behaviour:
 
+* [`systemd(1)`](https://www.freedesktop.org/software/systemd/man/systemd.html)
+  (I.E.: PID1, the system manager) will look for the credential `vmm.notify_socket`
+  and will use it to send a `READY=1` datagram when the system has finished
+  booting. This is useful for hypervisors/VMMs or other processes on the host
+  to receive a notification via VSOCK when a virtual machine has finished booting.
+  Note that in case the hypervisor does not support `SOCK_DGRAM` over `AF_VSOCK`,
+  `SOCK_SEQPACKET` will be tried instead. The credential payload should be in the
+  form: `vsock:<CID>:<PORT>`, where `<CID>` is optional and if omitted will
+  default to talking to the hypervisor (`0`). Also note that this requires
+  support for VHOST to be built-in both the guest and the host kernels, and the
+  kernel modules to be loaded.
+
 * [`systemd-sysusers(8)`](https://www.freedesktop.org/software/systemd/man/systemd-sysusers.html)
   will look for the credentials `passwd.hashed-password.<username>`,
   `passwd.plaintext-password.<username>` and `passwd.shell.<username>` to
@@ -382,7 +394,8 @@ qemu-system-x86_64 \
 ```
 
 This boots the specified disk image via qemu, provisioning public key SSH access
-for the root user from the caller's key:
+for the root user from the caller's key, and sends a notification when booting
+has finished to a process on the host:
 
 ```
 qemu-system-x86_64 \
@@ -396,8 +409,18 @@ qemu-system-x86_64 \
         -drive if=none,id=hd,file=test.raw,format=raw \
         -device virtio-scsi-pci,id=scsi \
         -device scsi-hd,drive=hd,bootindex=1 \
+        -device vhost-vsock-pci,id=vhost-vsock-pci0,guest-cid=42 \
+        -smbios type=11,value=io.systemd.credential:vmm.notify_socket=vsock:2:1234 \
         -smbios type=11,value=io.systemd.credential.binary:tmpfiles.extra=$(echo "f~ /root/.ssh/authorized_keys 700 root root - $(ssh-add -L | base64 -w 0)" | base64 -w 0)
 ```
+
+A process on the host can listen for the notification, for example:
+
+```
+$ socat - VSOCK-LISTEN:1234,socktype=5
+READY=1
+```
+
 ## Relevant Paths
 
 From *service* perspective the runtime path to find loaded credentials in is
