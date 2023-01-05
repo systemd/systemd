@@ -260,6 +260,8 @@ tests += [
 
         [files('test-umask-util.c')],
 
+        [files('test-creds.c')],
+
         [files('test-proc-cmdline.c')],
 
         [files('test-fd-util.c'),
