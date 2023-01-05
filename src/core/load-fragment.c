@@ -5581,25 +5581,26 @@ int config_parse_emergency_action(
                 void *data,
                 void *userdata) {
 
-        Manager *m = NULL;
         EmergencyAction *x = ASSERT_PTR(data);
+        bool is_system;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
 
+        /* If we have a unit determine the scope based on it */
         if (unit)
-                m = ((Unit*) userdata)->manager;
+                is_system = MANAGER_IS_SYSTEM(((Unit*) ASSERT_PTR(userdata))->manager);
         else
-                m = data;
+                is_system = ltype; /* otherwise, assume the scope is passed in via ltype */
 
-        r = parse_emergency_action(rvalue, MANAGER_IS_SYSTEM(m), x);
+        r = parse_emergency_action(rvalue, is_system, x);
         if (r < 0) {
                 if (r == -EOPNOTSUPP)
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "%s= specified as %s mode action, ignoring: %s",
-                                   lvalue, MANAGER_IS_SYSTEM(m) ? "user" : "system", rvalue);
+                                   lvalue, is_system ? "user" : "system", rvalue);
                 else
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to parse %s=, ignoring: %s", lvalue, rvalue);

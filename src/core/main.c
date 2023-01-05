@@ -683,7 +683,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultMemoryAccounting",      config_parse_bool,                  0,                        &arg_default_memory_accounting    },
                 { "Manager", "DefaultTasksAccounting",       config_parse_bool,                  0,                        &arg_default_tasks_accounting     },
                 { "Manager", "DefaultTasksMax",              config_parse_tasks_max,             0,                        &arg_default_tasks_max            },
-                { "Manager", "CtrlAltDelBurstAction",        config_parse_emergency_action,      0,                        &arg_cad_burst_action             },
+                { "Manager", "CtrlAltDelBurstAction",        config_parse_emergency_action,      arg_system,               &arg_cad_burst_action             },
                 { "Manager", "DefaultOOMPolicy",             config_parse_oom_policy,            0,                        &arg_default_oom_policy           },
                 { "Manager", "DefaultOOMScoreAdjust",        config_parse_oom_score_adjust,      0,                        NULL                              },
                 { "Manager", "ReloadLimitIntervalSec",       config_parse_sec,                   0,                        &arg_reload_limit_interval_sec    },
