@@ -39,13 +39,17 @@ else
     ENTRY_DIR="${ENTRY_DIR_ABS#"$BOOT_MNT"}"
 fi
 
+KERNEL_DEST="$ENTRY_DIR_ABS/linux"
+KERNEL_ENTRY="$ENTRY_DIR/linux"
+LOADER_ENTRY="$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION.conf"
+
 case "$COMMAND" in
     remove)
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-            echo "Removing $BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION*.conf"
+            echo "Removing ${LOADER_ENTRY%.conf}*.conf"
         exec rm -f \
-            "$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION.conf" \
-            "$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION+"*".conf"
+            "$LOADER_ENTRY" \
+            "${LOADER_ENTRY%.conf}"*".conf"
         ;;
     add)
         ;;
@@ -97,9 +101,7 @@ if [ -f "$TRIES_FILE" ]; then
         echo "$TRIES_FILE does not contain an integer." >&2
         exit 1
     fi
-    LOADER_ENTRY="$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION+$TRIES.conf"
-else
-    LOADER_ENTRY="$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION.conf"
+    LOADER_ENTRY="${LOADER_ENTRY%.conf}+$TRIES.conf"
 fi
 
 if ! [ -d "$ENTRY_DIR_ABS" ]; then
@@ -107,11 +109,11 @@ if ! [ -d "$ENTRY_DIR_ABS" ]; then
     exit 1
 fi
 
-install -m 0644 "$KERNEL_IMAGE" "$ENTRY_DIR_ABS/linux" || {
-    echo "Error: could not copy '$KERNEL_IMAGE' to '$ENTRY_DIR_ABS/linux'." >&2
+install -m 0644 "$KERNEL_IMAGE" "$KERNEL_DEST" || {
+    echo "Error: could not copy '$KERNEL_IMAGE' to '$KERNEL_DEST'." >&2
     exit 1
 }
-chown root:root "$ENTRY_DIR_ABS/linux" || :
+chown root:root "$KERNEL_DEST" || :
 
 shift "$INITRD_OPTIONS_SHIFT"
 # All files listed as arguments, and staged files starting with "initrd" are installed as initrds.
@@ -148,7 +150,7 @@ mkdir -p "${LOADER_ENTRY%/*}" || {
     fi
     [ -n "$SORT_KEY" ] && echo "sort-key   $SORT_KEY"
     echo "options    $BOOT_OPTIONS"
-    echo "linux      $ENTRY_DIR/linux"
+    echo "linux      $KERNEL_ENTRY"
 
     have_initrd=
     for initrd in "${@}" "${KERNEL_INSTALL_STAGING_AREA}"/initrd*; do
