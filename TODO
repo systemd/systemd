@@ -128,6 +128,9 @@ Deprecations and removals:
 
 Features:
 
+* systemd-shutdown: keep sending sd_notify() status updates immediately before
+  going down, in particular include the "reboot param" string.
+
 * homed: when resizing an fs don't sync identity beforehand there might simply
   not be enough disk space for that. try to be defensive and sync only after
   resize.
