@@ -683,11 +683,11 @@ static int enumerate_partitions(dev_t devnum) {
                          * we don't actually mount anything immediately. */
                         &m);
         if (r == -ENOPKG) {
-                log_debug_errno(r, "No suitable partition table found, ignoring.");
+                log_debug_errno(r, "No suitable partition table found on block device %s, ignoring.", devname);
                 return 0;
         }
         if (r < 0)
-                return log_error_errno(r, "Failed to dissect: %m");
+                return log_error_errno(r, "Failed to dissect partition table of block device %s: %m", devname);
 
         if (m->partitions[PARTITION_SWAP].found) {
                 k = add_partition_swap(m->partitions + PARTITION_SWAP);
