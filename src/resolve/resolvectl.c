@@ -1946,15 +1946,15 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
                         return table_log_add_error(r);
         }
 
-        r = dump_list(table, "DNS Servers:", global_info.dns_ex ?: global_info.dns);
+        r = dump_list(table, "DNS Servers", global_info.dns_ex ?: global_info.dns);
         if (r < 0)
                 return r;
 
-        r = dump_list(table, "Fallback DNS Servers:", global_info.fallback_dns_ex ?: global_info.fallback_dns);
+        r = dump_list(table, "Fallback DNS Servers", global_info.fallback_dns_ex ?: global_info.fallback_dns);
         if (r < 0)
                 return r;
 
-        r = dump_list(table, "DNS Domain:", global_info.domains);
+        r = dump_list(table, "DNS Domain", global_info.domains);
         if (r < 0)
                 return r;
 
