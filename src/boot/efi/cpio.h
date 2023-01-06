@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <efi.h>
-#include <stdbool.h>
-#include <uchar.h>
+#include "efi.h"
+#include "proto/loaded-image.h"
 
 EFI_STATUS pack_cpio(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,

@@ -8,12 +8,11 @@
  * This method works for Linux 5.8 and newer on ARM/Aarch64, x86/x68_64 and RISC-V.
  */
 
-#include <efi.h>
-#include <efilib.h>
-
 #include "initrd.h"
 #include "linux.h"
 #include "pe.h"
+#include "proto/device-path.h"
+#include "proto/loaded-image.h"
 #include "secure-boot.h"
 #include "util.h"
 
@@ -57,14 +56,14 @@ static EFI_STATUS load_image(EFI_HANDLE parent, const void *source, size_t len, 
                         .Header = {
                                 .Type = MEDIA_DEVICE_PATH,
                                 .SubType = MEDIA_VENDOR_DP,
-                                .Length = { sizeof(payload_device_path.payload), 0 },
+                                .Length = sizeof(payload_device_path.payload),
                         },
                         .Guid = STUB_PAYLOAD_GUID,
                 },
                 .end = {
                         .Type = END_DEVICE_PATH_TYPE,
                         .SubType = END_ENTIRE_DEVICE_PATH_SUBTYPE,
-                        .Length = { sizeof(payload_device_path.end), 0 },
+                        .Length = sizeof(payload_device_path.end),
                 },
         };
 

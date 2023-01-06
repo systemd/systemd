@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <efi.h>
-#include <stddef.h>
+#include "efi.h"
 
 EFI_STATUS initrd_register(
                 const void *initrd_address,

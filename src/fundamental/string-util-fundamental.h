@@ -2,8 +2,7 @@
 #pragma once
 
 #if SD_BOOT
-#  include <efi.h>
-#  include <efilib.h>
+#  include "efi.h"
 #  include "efi-string.h"
 #else
 #  include <string.h>

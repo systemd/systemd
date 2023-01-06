@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "console.h"
+#include "proto/security-arch.h"
 #include "sbat.h"
 #include "secure-boot.h"
 #include "util.h"
@@ -93,7 +94,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
                 char *buffer;
                 size_t size;
         } sb_vars[] = {
-                { u"db",  u"db.auth",  EFI_IMAGE_SECURITY_DATABASE_VARIABLE, NULL, 0 },
+                { u"db",  u"db.auth",  EFI_IMAGE_SECURITY_DATABASE_GUID, NULL, 0 },
                 { u"KEK", u"KEK.auth", EFI_GLOBAL_VARIABLE, NULL, 0 },
                 { u"PK",  u"PK.auth",  EFI_GLOBAL_VARIABLE, NULL, 0 },
         };
@@ -164,7 +165,7 @@ static EFIAPI EFI_STATUS security2_hook(
                 const EFI_DEVICE_PATH *device_path,
                 void *file_buffer,
                 size_t file_size,
-                BOOLEAN boot_policy) {
+                bool boot_policy) {
 
         assert(security_override.validator);
         assert(security_override.security2);

@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <uchar.h>
-
+#include "efi.h"
 #include "macro-fundamental.h"
 
 size_t strnlen8(const char *s, size_t n);
@@ -109,17 +105,6 @@ bool efi_fnmatch(const char16_t *pattern, const char16_t *haystack);
 
 bool parse_number8(const char *s, uint64_t *ret_u, const char **ret_tail);
 bool parse_number16(const char16_t *s, uint64_t *ret_u, const char16_t **ret_tail);
-
-typedef size_t EFI_STATUS;
-
-#if !SD_BOOT
-/* Provide these for unit testing. */
-enum {
-        EFI_ERROR_MASK = ((EFI_STATUS) 1 << (sizeof(EFI_STATUS) * CHAR_BIT - 1)),
-        EFI_SUCCESS = 0,
-        EFI_LOAD_ERROR = 1 | EFI_ERROR_MASK,
-};
-#endif
 
 #ifdef __clang__
 #  define _gnu_printf_(a, b) _printf_(a, b)

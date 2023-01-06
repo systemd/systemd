@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <efi.h>
+#include "efi.h"
+#include "proto/loaded-image.h"
 
 EFI_STATUS reconnect_all_drivers(void);
 EFI_STATUS load_drivers(

@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "missing_efi.h"
+#include "efi.h"
+#include "proto/simple-text-io.h"
 
 enum {
         EFI_SHIFT_PRESSED   = EFI_RIGHT_SHIFT_PRESSED|EFI_LEFT_SHIFT_PRESSED,

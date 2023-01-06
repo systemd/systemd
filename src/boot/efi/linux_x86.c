@@ -10,9 +10,6 @@
  * see https://docs.kernel.org/x86/boot.html
  */
 
-#include <efi.h>
-#include <efilib.h>
-
 #include "initrd.h"
 #include "linux.h"
 #include "macro-fundamental.h"
