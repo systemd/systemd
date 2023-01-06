@@ -274,7 +274,7 @@ static bool line_edit(
 
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'w'):
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('w')):
-                case KEYPRESS(EFI_ALT_PRESSED, 0, CHAR_BACKSPACE):
+                case KEYPRESS(EFI_ALT_PRESSED, 0, '\b'):
                         /* backward-kill-word */
                         clear = 0;
                         if ((first + cursor) > 0 && line[first + cursor-1] == ' ') {
@@ -317,17 +317,17 @@ static bool line_edit(
                         len = first + cursor;
                         continue;
 
-                case KEYPRESS(0, 0, CHAR_LINEFEED):
-                case KEYPRESS(0, 0, CHAR_CARRIAGE_RETURN):
+                case KEYPRESS(0, 0, '\n'):
+                case KEYPRESS(0, 0, '\r'):
                 case KEYPRESS(0, SCAN_F3, 0): /* EZpad Mini 4s firmware sends malformed events */
-                case KEYPRESS(0, SCAN_F3, CHAR_CARRIAGE_RETURN): /* Teclast X98+ II firmware sends malformed events */
+                case KEYPRESS(0, SCAN_F3, '\r'): /* Teclast X98+ II firmware sends malformed events */
                         if (!streq16(line, *line_in)) {
                                 free(*line_in);
                                 *line_in = TAKE_PTR(line);
                         }
                         return true;
 
-                case KEYPRESS(0, 0, CHAR_BACKSPACE):
+                case KEYPRESS(0, 0, '\b'):
                         if (len == 0)
                                 continue;
                         if (first == 0 && cursor == 0)
@@ -837,7 +837,7 @@ static bool menu_run(
 
                 if (firmware_setup) {
                         firmware_setup = false;
-                        if (key == KEYPRESS(0, 0, CHAR_CARRIAGE_RETURN))
+                        if (IN_SET(key, KEYPRESS(0, 0, '\r'), KEYPRESS(0, 0, '\n')))
                                 reboot_into_firmware();
                         continue;
                 }
@@ -886,10 +886,10 @@ static bool menu_run(
                                 idx_highlight = config->entry_count-1;
                         break;
 
-                case KEYPRESS(0, 0, CHAR_LINEFEED):
-                case KEYPRESS(0, 0, CHAR_CARRIAGE_RETURN):
+                case KEYPRESS(0, 0, '\n'):
+                case KEYPRESS(0, 0, '\r'):
                 case KEYPRESS(0, SCAN_F3, 0): /* EZpad Mini 4s firmware sends malformed events */
-                case KEYPRESS(0, SCAN_F3, CHAR_CARRIAGE_RETURN): /* Teclast X98+ II firmware sends malformed events */
+                case KEYPRESS(0, SCAN_F3, '\r'): /* Teclast X98+ II firmware sends malformed events */
                 case KEYPRESS(0, SCAN_RIGHT, 0):
                         exit = true;
                         break;
