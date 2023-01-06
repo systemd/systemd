@@ -785,6 +785,7 @@ int cgroup_log_xattr_apply(Unit *u, const char *cgroup_path) {
         ExecContext *c;
         size_t len, allowed_patterns_len, denied_patterns_len;
         _cleanup_free_ char *patterns = NULL, *allowed_patterns = NULL, *denied_patterns = NULL;
+        char *last;
         int r;
 
         assert(u);
@@ -817,9 +818,9 @@ int cgroup_log_xattr_apply(Unit *u, const char *cgroup_path) {
         if (!patterns)
                 return log_oom_debug();
 
-        memcpy_safe(patterns, allowed_patterns, allowed_patterns_len);
-        patterns[allowed_patterns_len] = '\xff';
-        memcpy_safe(&patterns[allowed_patterns_len + 1], denied_patterns, denied_patterns_len);
+        last = mempcpy_safe(patterns, allowed_patterns, allowed_patterns_len);
+        *last++ = '\xff';
+        mempcpy_safe(last, denied_patterns, denied_patterns_len);
 
         unit_set_xattr_graceful(u, cgroup_path, "user.journald_log_filter_patterns", patterns, len);
 

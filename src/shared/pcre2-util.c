@@ -52,7 +52,7 @@ int dlopen_pcre2(void) {
 int pattern_compile_and_log(const char *pattern, PatternCompileCase case_, pcre2_code **ret) {
 #if HAVE_PCRE2
         PCRE2_SIZE erroroffset;
-        pcre2_code *p;
+        _cleanup_(pcre2_code_freep) pcre2_code *p = NULL;
         unsigned flags = 0;
         int errorcode, r;
 
@@ -100,7 +100,7 @@ int pattern_compile_and_log(const char *pattern, PatternCompileCase case_, pcre2
         }
 
         if (ret)
-                *ret = p;
+                *ret = TAKE_PTR(p);
 
         return 0;
 #else
