@@ -723,9 +723,11 @@ static int boot_entry_load_unified(
         if (!tmp.title)
                 return log_oom();
 
-        tmp.sort_key = strdup(good_sort_key);
-        if (!tmp.sort_key)
-                return log_oom();
+        if (good_sort_key) {
+                tmp.sort_key = strdup(good_sort_key);
+                if (!tmp.sort_key)
+                        return log_oom();
+        }
 
         if (good_version) {
                 tmp.version = strdup(good_version);
