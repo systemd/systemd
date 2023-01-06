@@ -137,7 +137,7 @@ TEST(set_make_nulstr) {
 
         {
                 /* Unallocated and empty set. */
-                char expect[] = { 0x00, 0x00 };
+                static const char expect[] = { 0x00, 0x00 };
                 _cleanup_free_ char *nulstr = NULL;
 
                 r = set_make_nulstr(set, &nulstr, &len);
@@ -148,7 +148,7 @@ TEST(set_make_nulstr) {
 
         {
                 /* Allocated by empty set. */
-                char expect[] = { 0x00, 0x00 };
+                static const char expect[] = { 0x00, 0x00 };
                 _cleanup_free_ char *nulstr = NULL;
 
                 set = set_new(NULL);
@@ -162,7 +162,7 @@ TEST(set_make_nulstr) {
 
         {
                 /* Non-empty set. */
-                char expect[] = { 'a', 'a', 'a', 0x00, 0x00 };
+                static const char expect[] = { 'a', 'a', 'a', 0x00, 0x00 };
                 _cleanup_free_ char *nulstr = NULL;
 
                 assert_se(set_put_strdup(&set, "aaa") >= 0);
