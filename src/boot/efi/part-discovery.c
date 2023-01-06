@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <efi.h>
-#include <efilib.h>
-
 #include "part-discovery.h"
+#include "proto-block-io.h"
+#include "proto-device-path.h"
 #include "util.h"
 
 typedef struct {
@@ -45,7 +44,7 @@ static EFI_DEVICE_PATH *path_replace_hd(
         if (new_node)
                 new_node_len = DevicePathNodeLength(&new_node->Header);
 
-        EFI_DEVICE_PATH *ret = xmalloc(len + new_node_len + END_DEVICE_PATH_LENGTH);
+        EFI_DEVICE_PATH *ret = xmalloc(len + new_node_len + sizeof(EFI_DEVICE_PATH));
         EFI_DEVICE_PATH *end = mempcpy(ret, path, len);
 
         if (new_node)
@@ -159,6 +158,7 @@ static EFI_STATUS try_gpt(
                         .Header = {
                                 .Type = MEDIA_DEVICE_PATH,
                                 .SubType = MEDIA_HARDDRIVE_DP,
+                                .Length = sizeof(HARDDRIVE_DEVICE_PATH),
                         },
                         .PartitionNumber = i + 1,
                         .PartitionStart = entry->StartingLBA,
@@ -167,11 +167,6 @@ static EFI_STATUS try_gpt(
                         .SignatureType = SIGNATURE_TYPE_GUID,
                 };
                 memcpy(ret_hd->Signature, &entry->UniquePartitionGUID, sizeof(ret_hd->Signature));
-
-                /* HARDDRIVE_DEVICE_PATH has padding, which at least OVMF does not like. */
-                SetDevicePathNodeLength(
-                                &ret_hd->Header,
-                                offsetof(HARDDRIVE_DEVICE_PATH, SignatureType) + sizeof(ret_hd->SignatureType));
 
                 return EFI_SUCCESS;
         }
