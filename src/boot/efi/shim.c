@@ -8,13 +8,9 @@
  * https://github.com/mjg59/efitools
  */
 
-#include <efi.h>
-#include <efilib.h>
-
-#include "missing_efi.h"
-#include "util.h"
 #include "secure-boot.h"
 #include "shim.h"
+#include "util.h"
 
 #if defined(__x86_64__) || defined(__i386__)
 #define __sysv_abi__ __attribute__((sysv_abi))
