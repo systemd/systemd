@@ -32,8 +32,17 @@ actions:
     # [0] https://github.com/mesonbuild/meson/issues/7360
     # [1] https://github.com/systemd/systemd/pull/18908#issuecomment-792250110
     - 'sed -i "/^CONFIGURE_OPTS=(/a--werror" .packit_rpm/systemd.spec'
-    # Ignore unpackages standalone binaries
+    # Ignore unpackaged standalone binaries
     - "sed -i 's/assert False,.*/pass/' .packit_rpm/split-files.py"
+    # Temporarily lower the default Source Fortification level to 2.
+    #
+    # Since the respective Fedora change[0] landed, some unit tests keep
+    # failing with `*** buffer overflow detected ***: terminated` when systemd
+    # is built with _FORTIFY_SOURCE=3. Let's lower it back to the original 2
+    # until the issue is resolved.
+    #
+    # [0] https://fedoraproject.org/wiki/Changes/Add_FORTIFY_SOURCE%3D3_to_distribution_build_flags
+    - "sed -i '1 i%define _fortify_level 2' .packit_rpm/systemd.spec"
 
 jobs:
 - job: copr_build
