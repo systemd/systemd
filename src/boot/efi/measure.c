@@ -2,17 +2,14 @@
 
 #if ENABLE_TPM
 
-#include <efi.h>
-#include <efilib.h>
-
-#include "tpm-pcr.h"
 #include "macro-fundamental.h"
 #include "measure.h"
-#include "missing_efi.h"
+#include "proto-tcg.h"
+#include "tpm-pcr.h"
 #include "util.h"
 
 static EFI_STATUS tpm1_measure_to_pcr_and_event_log(
-                const EFI_TCG *tcg,
+                const EFI_TCG_PROTOCOL *tcg,
                 uint32_t pcrindex,
                 EFI_PHYSICAL_ADDRESS buffer,
                 size_t buffer_size,
@@ -37,7 +34,7 @@ static EFI_STATUS tpm1_measure_to_pcr_and_event_log(
         memcpy(tcg_event->Event, description, desc_len);
 
         return tcg->HashLogExtendEvent(
-                        (EFI_TCG *) tcg,
+                        (EFI_TCG_PROTOCOL *) tcg,
                         buffer, buffer_size,
                         TCG_ALG_SHA,
                         tcg_event,
@@ -46,7 +43,7 @@ static EFI_STATUS tpm1_measure_to_pcr_and_event_log(
 }
 
 static EFI_STATUS tpm2_measure_to_pcr_and_event_log(
-                EFI_TCG2 *tcg,
+                EFI_TCG2_PROTOCOL *tcg,
                 uint32_t pcrindex,
                 EFI_PHYSICAL_ADDRESS buffer,
                 uint64_t buffer_size,
@@ -78,16 +75,16 @@ static EFI_STATUS tpm2_measure_to_pcr_and_event_log(
                         tcg_event);
 }
 
-static EFI_TCG *tcg1_interface_check(void) {
+static EFI_TCG_PROTOCOL *tcg1_interface_check(void) {
         EFI_PHYSICAL_ADDRESS event_log_location, event_log_last_entry;
-        TCG_BOOT_SERVICE_CAPABILITY capability = {
+        EFI_TCG_BOOT_SERVICE_CAPABILITY capability = {
                 .Size = sizeof(capability),
         };
         EFI_STATUS err;
         uint32_t features;
-        EFI_TCG *tcg;
+        EFI_TCG_PROTOCOL *tcg;
 
-        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_TCG), NULL, (void **) &tcg);
+        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_TCG_PROTOCOL), NULL, (void **) &tcg);
         if (err != EFI_SUCCESS)
                 return NULL;
 
@@ -109,14 +106,14 @@ static EFI_TCG *tcg1_interface_check(void) {
         return tcg;
 }
 
-static EFI_TCG2 * tcg2_interface_check(void) {
+static EFI_TCG2_PROTOCOL *tcg2_interface_check(void) {
         EFI_TCG2_BOOT_SERVICE_CAPABILITY capability = {
                 .Size = sizeof(capability),
         };
         EFI_STATUS err;
-        EFI_TCG2 *tcg;
+        EFI_TCG2_PROTOCOL *tcg;
 
-        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_TCG2), NULL, (void **) &tcg);
+        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_TCG2_PROTOCOL), NULL, (void **) &tcg);
         if (err != EFI_SUCCESS)
                 return NULL;
 
@@ -126,8 +123,8 @@ static EFI_TCG2 * tcg2_interface_check(void) {
 
         if (capability.StructureVersion.Major == 1 &&
             capability.StructureVersion.Minor == 0) {
-                TCG_BOOT_SERVICE_CAPABILITY *caps_1_0 =
-                        (TCG_BOOT_SERVICE_CAPABILITY*) &capability;
+                EFI_TCG_BOOT_SERVICE_CAPABILITY *caps_1_0 =
+                        (EFI_TCG_BOOT_SERVICE_CAPABILITY*) &capability;
                 if (caps_1_0->TPMPresentFlag)
                         return tcg;
         }
@@ -143,7 +140,7 @@ bool tpm_present(void) {
 }
 
 EFI_STATUS tpm_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t buffer_size, const char16_t *description, bool *ret_measured) {
-        EFI_TCG2 *tpm2;
+        EFI_TCG2_PROTOCOL *tpm2;
         EFI_STATUS err;
 
         assert(description);
@@ -162,7 +159,7 @@ EFI_STATUS tpm_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t 
         if (tpm2)
                 err = tpm2_measure_to_pcr_and_event_log(tpm2, pcrindex, buffer, buffer_size, description);
         else {
-                EFI_TCG *tpm1;
+                EFI_TCG_PROTOCOL *tpm1;
 
                 tpm1 = tcg1_interface_check();
                 if (tpm1)

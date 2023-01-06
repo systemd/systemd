@@ -2,6 +2,7 @@
 
 #include "cpio.h"
 #include "measure.h"
+#include "proto-device-path.h"
 #include "util.h"
 
 static char *write_cpio_word(char *p, uint32_t v) {

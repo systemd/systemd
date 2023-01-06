@@ -1,8 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <efi.h>
-#include <efilib.h>
-
 #include "cpio.h"
 #include "devicetree.h"
 #include "disk.h"
@@ -11,6 +8,7 @@
 #include "measure.h"
 #include "part-discovery.h"
 #include "pe.h"
+#include "proto-shell-parameters.h"
 #include "random-seed.h"
 #include "secure-boot.h"
 #include "splash.h"
