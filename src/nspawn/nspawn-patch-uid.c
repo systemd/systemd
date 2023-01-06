@@ -181,7 +181,9 @@ static int patch_acls(int fd, const char *name, const struct stat *st, uid_t shi
 
         if (S_ISDIR(st->st_mode)) {
                 acl_free(acl);
-                acl_free(shifted);
+
+                if (shifted)
+                        acl_free(shifted);
 
                 acl = shifted = NULL;
 
