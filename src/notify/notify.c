@@ -23,6 +23,8 @@
 #include "user-util.h"
 
 static bool arg_ready = false;
+static bool arg_reloading = false;
+static bool arg_stopping = false;
 static pid_t arg_pid = 0;
 static const char *arg_status = NULL;
 static bool arg_booted = false;
@@ -42,7 +44,10 @@ static int help(void) {
                "\n%sNotify the init system about service status updates.%s\n\n"
                "  -h --help            Show this help\n"
                "     --version         Show package version\n"
-               "     --ready           Inform the init system about service start-up completion\n"
+               "     --ready           Inform the service manager about service start-up/reload\n"
+               "                       completion\n"
+               "     --reloading       Inform the service manager about configuration reloading\n"
+               "     --stopping        Inform the service manager about service shutdown\n"
                "     --pid[=PID]       Set main PID of daemon\n"
                "     --uid=USER        Set user to send from\n"
                "     --status=TEXT     Set status text\n"
@@ -81,6 +86,8 @@ static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_READY = 0x100,
+                ARG_RELOADING,
+                ARG_STOPPING,
                 ARG_VERSION,
                 ARG_PID,
                 ARG_STATUS,
@@ -93,6 +100,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",      no_argument,       NULL, 'h'           },
                 { "version",   no_argument,       NULL, ARG_VERSION   },
                 { "ready",     no_argument,       NULL, ARG_READY     },
+                { "reloading", no_argument,       NULL, ARG_RELOADING },
+                { "stopping",  no_argument,       NULL, ARG_STOPPING  },
                 { "pid",       optional_argument, NULL, ARG_PID       },
                 { "status",    required_argument, NULL, ARG_STATUS    },
                 { "booted",    no_argument,       NULL, ARG_BOOTED    },
@@ -118,6 +127,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_READY:
                         arg_ready = true;
+                        break;
+
+                case ARG_RELOADING:
+                        arg_reloading = true;
+                        break;
+
+                case ARG_STOPPING:
+                        arg_stopping = true;
                         break;
 
                 case ARG_PID:
@@ -176,6 +193,8 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (optind >= argc &&
             !arg_ready &&
+            !arg_stopping &&
+            !arg_reloading &&
             !arg_status &&
             !arg_pid &&
             !arg_booted) {
@@ -187,10 +206,10 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char* argv[]) {
-        _cleanup_free_ char *status = NULL, *cpid = NULL, *n = NULL;
+        _cleanup_free_ char *status = NULL, *cpid = NULL, *n = NULL, *monotonic_usec = NULL;
         _cleanup_strv_free_ char **final_env = NULL;
-        char* our_env[4];
-        unsigned i = 0;
+        char* our_env[7];
+        size_t i = 0;
         pid_t source_pid;
         int r;
 
@@ -212,8 +231,20 @@ static int run(int argc, char* argv[]) {
                 return r <= 0;
         }
 
+        if (arg_reloading) {
+                our_env[i++] = (char*) "RELOADING=1";
+
+                if (asprintf(&monotonic_usec, "MONOTONIC_USEC=" USEC_FMT, now(CLOCK_MONOTONIC)) < 0)
+                        return log_oom();
+
+                our_env[i++] = monotonic_usec;
+        }
+
         if (arg_ready)
                 our_env[i++] = (char*) "READY=1";
+
+        if (arg_stopping)
+                our_env[i++] = (char*) "STOPPING=1";
 
         if (arg_status) {
                 status = strjoin("STATUS=", arg_status);
