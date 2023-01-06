@@ -189,7 +189,7 @@ void* greedy_realloc0(void **p, size_t need, size_t size);
  * pointer as is; the only reason for its existence is as a conduit for the _alloc_ attribute. This cannot be
  * a static inline because gcc then loses the attributes on the function.
  * See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=96503 */
-void *expand_to_usable(void *p, size_t newsize) _alloc_(2) _returns_nonnull_;
+void *expand_to_usable(void *p, size_t newsize) _alloc_(2) _returns_nonnull_ __attribute__((noinline));
 
 static inline size_t malloc_sizeof_safe(void **xp) {
         if (_unlikely_(!xp || !*xp))
