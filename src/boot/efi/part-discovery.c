@@ -1,16 +1,34 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <efi.h>
-#include <efigpt.h>
 #include <efilib.h>
 
 #include "part-discovery.h"
 #include "util.h"
 
-union GptHeaderBuffer {
-        EFI_PARTITION_TABLE_HEADER gpt_header;
-        uint8_t space[CONST_ALIGN_TO(sizeof(EFI_PARTITION_TABLE_HEADER), 512)];
-};
+typedef struct {
+        EFI_GUID PartitionTypeGUID;
+        EFI_GUID UniquePartitionGUID;
+        EFI_LBA StartingLBA;
+        EFI_LBA EndingLBA;
+        uint64_t Attributes;
+        char16_t PartitionName[36];
+} EFI_PARTITION_ENTRY;
+
+typedef struct {
+        EFI_TABLE_HEADER Header;
+        EFI_LBA MyLBA;
+        EFI_LBA AlternateLBA;
+        EFI_LBA FirstUsableLBA;
+        EFI_LBA LastUsableLBA;
+        EFI_GUID DiskGUID;
+        EFI_LBA PartitionEntryLBA;
+        uint32_t NumberOfPartitionEntries;
+        uint32_t SizeOfPartitionEntry;
+        uint32_t PartitionEntryArrayCRC32;
+        uint8_t _pad[420];
+} _packed_ GptHeader;
+assert_cc(sizeof(GptHeader) == 512);
 
 static EFI_DEVICE_PATH *path_replace_hd(
                 const EFI_DEVICE_PATH *path,
@@ -37,14 +55,11 @@ static EFI_DEVICE_PATH *path_replace_hd(
         return ret;
 }
 
-static bool verify_gpt(union GptHeaderBuffer *gpt_header_buffer, EFI_LBA lba_expected) {
-        EFI_PARTITION_TABLE_HEADER *h;
+static bool verify_gpt(GptHeader *h, EFI_LBA lba_expected) {
         uint32_t crc32, crc32_saved;
         EFI_STATUS err;
 
-        assert(gpt_header_buffer);
-
-        h = &gpt_header_buffer->gpt_header;
+        assert(h);
 
         /* Some superficial validation of the GPT header */
         if (memcmp(&h->Header.Signature, "EFI PART", sizeof(h->Header.Signature)) != 0)
@@ -59,7 +74,7 @@ static bool verify_gpt(union GptHeaderBuffer *gpt_header_buffer, EFI_LBA lba_exp
         /* Calculate CRC check */
         crc32_saved = h->Header.CRC32;
         h->Header.CRC32 = 0;
-        err = BS->CalculateCrc32(gpt_header_buffer, h->Header.HeaderSize, &crc32);
+        err = BS->CalculateCrc32(h, h->Header.HeaderSize, &crc32);
         h->Header.CRC32 = crc32_saved;
         if (err != EFI_SUCCESS || crc32 != crc32_saved)
                 return false;
@@ -88,7 +103,7 @@ static EFI_STATUS try_gpt(
                 HARDDRIVE_DEVICE_PATH *ret_hd) {
 
         _cleanup_free_ EFI_PARTITION_ENTRY *entries = NULL;
-        union GptHeaderBuffer gpt;
+        GptHeader gpt;
         EFI_STATUS err;
         uint32_t crc32;
         size_t size;
@@ -107,32 +122,32 @@ static EFI_STATUS try_gpt(
 
         /* Indicate the location of backup LBA even if the rest of the header is corrupt. */
         if (ret_backup_lba)
-                *ret_backup_lba = gpt.gpt_header.AlternateLBA;
+                *ret_backup_lba = gpt.AlternateLBA;
 
         if (!verify_gpt(&gpt, lba))
                 return EFI_NOT_FOUND;
 
         /* Now load the GPT entry table */
-        size = ALIGN_TO((size_t) gpt.gpt_header.SizeOfPartitionEntry * (size_t) gpt.gpt_header.NumberOfPartitionEntries, 512);
+        size = ALIGN_TO((size_t) gpt.SizeOfPartitionEntry * (size_t) gpt.NumberOfPartitionEntries, 512);
         entries = xmalloc(size);
 
         err = block_io->ReadBlocks(
                         block_io,
                         block_io->Media->MediaId,
-                        gpt.gpt_header.PartitionEntryLBA,
+                        gpt.PartitionEntryLBA,
                         size, entries);
         if (err != EFI_SUCCESS)
                 return err;
 
         /* Calculate CRC of entries array, too */
         err = BS->CalculateCrc32(entries, size, &crc32);
-        if (err != EFI_SUCCESS || crc32 != gpt.gpt_header.PartitionEntryArrayCRC32)
+        if (err != EFI_SUCCESS || crc32 != gpt.PartitionEntryArrayCRC32)
                 return EFI_CRC_ERROR;
 
         /* Now we can finally look for xbootloader partitions. */
-        for (size_t i = 0; i < gpt.gpt_header.NumberOfPartitionEntries; i++) {
+        for (size_t i = 0; i < gpt.NumberOfPartitionEntries; i++) {
                 EFI_PARTITION_ENTRY *entry =
-                                (EFI_PARTITION_ENTRY *) ((uint8_t *) entries + gpt.gpt_header.SizeOfPartitionEntry * i);
+                                (EFI_PARTITION_ENTRY *) ((uint8_t *) entries + gpt.SizeOfPartitionEntry * i);
 
                 if (!efi_guid_equal(&entry->PartitionTypeGUID, type))
                         continue;
