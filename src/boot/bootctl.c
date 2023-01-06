@@ -74,7 +74,7 @@ int acquire_esp(
          * we simply eat up the error here, so that --list and --status work too, without noise about
          * this). */
 
-        r = find_esp_and_warn(arg_root, arg_esp_path, unprivileged_mode, &np, ret_part, ret_pstart, ret_psize, ret_uuid, ret_devid);
+        r = find_esp_and_warn(arg_root, arg_esp_path, unprivileged_mode, &np, NULL, ret_part, ret_pstart, ret_psize, ret_uuid, ret_devid);
         if (r == -ENOKEY) {
                 if (graceful)
                         return log_full_errno(arg_quiet ? LOG_DEBUG : LOG_INFO, r,
@@ -101,7 +101,7 @@ int acquire_xbootldr(
         char *np;
         int r;
 
-        r = find_xbootldr_and_warn(arg_root, arg_xbootldr_path, unprivileged_mode, &np, ret_uuid, ret_devid);
+        r = find_xbootldr_and_warn(arg_root, arg_xbootldr_path, unprivileged_mode, &np, NULL, ret_uuid, ret_devid);
         if (r == -ENOKEY) {
                 log_debug_errno(r, "Didn't find an XBOOTLDR partition, using the ESP as $BOOT.");
                 arg_xbootldr_path = mfree(arg_xbootldr_path);
@@ -445,6 +445,7 @@ static int run(int argc, char *argv[]) {
                                 DISSECT_IMAGE_GENERIC_ROOT |
                                 DISSECT_IMAGE_RELAX_VAR_CHECK,
                                 &unlink_dir,
+                                NULL,
                                 &loop_device);
                 if (r < 0)
                         return r;
