@@ -7,6 +7,7 @@
 #include "bus-map-properties.h"
 #include "sort-util.h"
 #include "version.h"
+#include "format-table.h"
 
 #define SCALE_X (0.1 / 1000.0) /* pixels per us */
 #define SCALE_Y (20.0)
@@ -178,40 +179,10 @@ static int plot_unit_times(UnitTimes *u, double width, int y) {
         return 1;
 }
 
-int verb_plot(int argc, char *argv[], void *userdata) {
-        _cleanup_(free_host_infop) HostInfo *host = NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(unit_times_free_arrayp) UnitTimes *times = NULL;
-        _cleanup_free_ char *pretty_times = NULL;
-        bool use_full_bus = arg_scope == LOOKUP_SCOPE_SYSTEM;
-        BootTimes *boot;
+static int produce_plot_as_svg(UnitTimes* times, HostInfo* host, BootTimes* boot, char* pretty_times) {
+        int m = 1, y = 0;
         UnitTimes *u;
-        int n, m = 1, y = 0, r;
         double width;
-
-        r = acquire_bus(&bus, &use_full_bus);
-        if (r < 0)
-                return bus_log_connect_error(r, arg_transport);
-
-        n = acquire_boot_times(bus, &boot);
-        if (n < 0)
-                return n;
-
-        n = pretty_boot_time(bus, &pretty_times);
-        if (n < 0)
-                return n;
-
-        if (use_full_bus || arg_scope != LOOKUP_SCOPE_SYSTEM) {
-                n = acquire_host_info(bus, &host);
-                if (n < 0)
-                        return n;
-        }
-
-        n = acquire_time_data(bus, &times);
-        if (n <= 0)
-                return n;
-
-        typesafe_qsort(times, n, compare_unit_start);
 
         width = SCALE_X * (boot->firmware_time + boot->finish_time);
         if (width < 800.0)
@@ -390,6 +361,108 @@ int verb_plot(int argc, char *argv[], void *userdata) {
         svg("</g>\n\n");
 
         svg("</svg>\n");
+
+        return 0;
+}
+
+static int show_table(Table* table, const char* word) {
+        int r;
+
+        assert(table);
+        assert(word);
+
+        if (table_get_rows(table) > 1) {
+                table_set_header(table, arg_legend);
+
+                if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+                        r = table_print_json(table, NULL,
+                                             arg_json_format_flags |
+                                                 JSON_FORMAT_COLOR_AUTO);
+                else
+                        r = table_print(table, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to show table: %m");
+        }
+
+        if (arg_legend) {
+                if (table_get_rows(table) > 1)
+                        printf("\n%zu %s listed.\n", table_get_rows(table) - 1, word);
+                else
+                        printf("No %s.\n", word);
+        }
+
+        return 0;
+}
+
+static int produce_plot_as_text(UnitTimes* times) {
+        _cleanup_(table_unrefp) Table* table = NULL;
+        UnitTimes *u;
+        int r;
+
+        table = table_new("name", "activated", "activating", "time", "deactivated",
+                          "deactivating");
+        if (!table)
+                return log_oom();
+
+        for (u = times; u->has_data; u++) {
+                r = table_add_many(table, TABLE_STRING, u->name, TABLE_UINT64, u->activated,
+                                   TABLE_UINT64, u->activating, TABLE_UINT64, u->time,
+                                   TABLE_UINT64, u->deactivated, TABLE_UINT64,
+                                   u->deactivating);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add table row: %m");
+        }
+
+        r = show_table(table, "Units");
+
+        return 0;
+}
+
+int verb_plot(int argc, char *argv[], void *userdata) {
+        _cleanup_(free_host_infop) HostInfo *host = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(unit_times_free_arrayp) UnitTimes *times = NULL;
+        _cleanup_free_ char *pretty_times = NULL;
+        bool use_full_bus = arg_scope == LOOKUP_SCOPE_SYSTEM;
+        BootTimes *boot;
+        int n, r;
+
+        r = acquire_bus(&bus, &use_full_bus);
+        if (r < 0)
+                return bus_log_connect_error(r, arg_transport);
+
+        n = acquire_boot_times(bus, &boot);
+        if (n < 0)
+                return n;
+
+        n = pretty_boot_time(bus, &pretty_times);
+        if (n < 0)
+                return n;
+
+        if (use_full_bus || arg_scope != LOOKUP_SCOPE_SYSTEM) {
+                n = acquire_host_info(bus, &host);
+                if (n < 0)
+                        return n;
+        }
+
+        n = acquire_time_data(bus, &times);
+        if (n <= 0)
+                return n;
+
+        typesafe_qsort(times, n, compare_unit_start);
+
+        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF) || arg_table) {
+                r = produce_plot_as_text(times);
+
+                if (r < 0)
+                        return log_error_errno(r, "Failed to produce text output: %m");
+
+        } else {
+                r = produce_plot_as_svg(times, host, boot, pretty_times);
+
+                if (r < 0)
+                        return log_error_errno(r, "Failed to produce SVG output: %m");
+        }
 
         return EXIT_SUCCESS;
 }
