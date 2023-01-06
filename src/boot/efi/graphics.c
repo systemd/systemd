@@ -4,22 +4,19 @@
  *   Authored by Joonas Lahtinen <joonas.lahtinen@linux.intel.com>
  */
 
-#include <efi.h>
-#include <efilib.h>
-
 #include "graphics.h"
-#include "missing_efi.h"
+#include "proto/console-control.h"
+#include "proto/simple-text-io.h"
 #include "util.h"
 
 EFI_STATUS graphics_mode(bool on) {
         EFI_CONSOLE_CONTROL_PROTOCOL *ConsoleControl = NULL;
         EFI_CONSOLE_CONTROL_SCREEN_MODE new;
         EFI_CONSOLE_CONTROL_SCREEN_MODE current;
-        BOOLEAN uga_exists;
-        BOOLEAN stdin_locked;
+        bool uga_exists, stdin_locked;
         EFI_STATUS err;
 
-        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_CONSOLE_CONTROL), NULL, (void **) &ConsoleControl);
+        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_CONSOLE_CONTROL_PROTOCOL), NULL, (void **) &ConsoleControl);
         if (err != EFI_SUCCESS)
                 /* console control protocol is nonstandard and might not exist. */
                 return err == EFI_NOT_FOUND ? EFI_SUCCESS : err;
