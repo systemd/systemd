@@ -6505,7 +6505,6 @@ int config_parse_log_filter_patterns(
                 void *userdata) {
 
         ExecContext *c = ASSERT_PTR(data);
-        _cleanup_(pattern_freep) pcre2_code *compiled_pattern = NULL;
         const char *pattern = ASSERT_PTR(rvalue);
         bool is_allowlist = true;
         int r;
@@ -6529,7 +6528,7 @@ int config_parse_log_filter_patterns(
                                           "Regex pattern invalid, ignoring: %s=%s", lvalue, rvalue);
         }
 
-        if (pattern_compile_and_log(pattern, 0, &compiled_pattern) < 0)
+        if (pattern_compile_and_log(pattern, 0, NULL) < 0)
                 return 0;
 
         r = set_put_strdup(is_allowlist ? &c->log_filter_allowed_patterns : &c->log_filter_denied_patterns,
