@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <efidef.h>
-#include <uchar.h>
+#include "efi.h"
 
 EFI_STATUS pe_memory_locate_sections(
                 const void *base,

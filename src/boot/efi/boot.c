@@ -1,8 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <efi.h>
-#include <efigpt.h>
-#include <efilib.h>
 #include <inttypes.h>
 
 #include "bcd.h"
@@ -18,12 +15,15 @@
 #include "measure.h"
 #include "part-discovery.h"
 #include "pe.h"
-#include "vmm.h"
+#include "proto-block-io.h"
+#include "proto-device-path.h"
+#include "proto-simple-text-io.h"
 #include "random-seed.h"
 #include "secure-boot.h"
 #include "shim.h"
 #include "ticks.h"
 #include "util.h"
+#include "vmm.h"
 
 #ifndef GNU_EFI_USE_MS_ABI
         /* We do not use uefi_call_wrapper() in systemd-boot. As such, we rely on the
@@ -31,8 +31,6 @@
          * to make sure the -DGNU_EFI_USE_MS_ABI was passed to the comiler. */
         #error systemd-boot requires compilation with GNU_EFI_USE_MS_ABI defined.
 #endif
-
-#define TEXT_ATTR_SWAP(c) EFI_TEXT_ATTR(((c) & 0b11110000) >> 4, (c) & 0b1111)
 
 /* Magic string for recognizing our own binaries */
 _used_ _section_(".sdmagic") static const char magic[] =
@@ -162,7 +160,7 @@ static bool line_edit(
                 EFI_STATUS err;
                 uint64_t key;
                 size_t j;
-                size_t cursor_color = TEXT_ATTR_SWAP(COLOR_EDIT);
+                size_t cursor_color = EFI_TEXT_ATTR_SWAP(COLOR_EDIT);
 
                 j = MIN(len - first, x_max);
                 memcpy(print, line + first, j * sizeof(char16_t));
@@ -180,7 +178,7 @@ static bool line_edit(
                 print[cursor+1] = '\0';
                 do {
                         print_at(cursor + 1, y_pos, cursor_color, print + cursor);
-                        cursor_color = TEXT_ATTR_SWAP(cursor_color);
+                        cursor_color = EFI_TEXT_ATTR_SWAP(cursor_color);
 
                         err = console_key_read(&key, 750 * 1000);
                         if (!IN_SET(err, EFI_SUCCESS, EFI_TIMEOUT, EFI_NOT_READY))

@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <efi.h>
-#include <stdbool.h>
-#include <uchar.h>
+#include "efi.h"
 
 #if ENABLE_TPM
 

@@ -1,9 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <efi.h>
-#include <efilib.h>
-
-#include "missing_efi.h"
 #include "pe.h"
 #include "util.h"
 
@@ -12,16 +8,16 @@
 #define MAX_SECTIONS 96
 
 #if defined(__i386__)
-#  define TARGET_MACHINE_TYPE EFI_IMAGE_MACHINE_IA32
-#  define TARGET_MACHINE_TYPE_COMPATIBILITY EFI_IMAGE_MACHINE_X64
+#  define TARGET_MACHINE_TYPE 0x014c
+#  define TARGET_MACHINE_TYPE_COMPATIBILITY 0x8664
 #elif defined(__x86_64__)
-#  define TARGET_MACHINE_TYPE EFI_IMAGE_MACHINE_X64
+#  define TARGET_MACHINE_TYPE 0x8664
 #elif defined(__aarch64__)
-#  define TARGET_MACHINE_TYPE EFI_IMAGE_MACHINE_AARCH64
+#  define TARGET_MACHINE_TYPE 0xAA64
 #elif defined(__arm__)
-#  define TARGET_MACHINE_TYPE EFI_IMAGE_MACHINE_ARMTHUMB_MIXED
+#  define TARGET_MACHINE_TYPE 0x01C2
 #elif defined(__riscv) && __riscv_xlen == 64
-#  define TARGET_MACHINE_TYPE EFI_IMAGE_MACHINE_RISCV64
+#  define TARGET_MACHINE_TYPE 0x5064
 #else
 #  error Unknown EFI arch
 #endif

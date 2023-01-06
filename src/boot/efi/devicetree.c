@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <efi.h>
-
 #include "devicetree.h"
-#include "missing_efi.h"
+#include "proto-dt-fixup.h"
 #include "util.h"
 
 #define FDT_V1_SIZE (7*4)

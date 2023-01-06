@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <efi.h>
-#include <efilib.h>
-
 #include "memory-util-fundamental.h"
-#include "missing_efi.h"
+#include "proto-rng.h"
 #include "random-seed.h"
 #include "secure-boot.h"
 #include "sha256.h"

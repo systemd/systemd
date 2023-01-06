@@ -8,10 +8,6 @@
  * https://github.com/mjg59/efitools
  */
 
-#include <efi.h>
-#include <efilib.h>
-
-#include "missing_efi.h"
 #include "util.h"
 #include "secure-boot.h"
 #include "shim.h"

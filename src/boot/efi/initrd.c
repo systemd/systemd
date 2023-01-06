@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <efi.h>
-#include <efilib.h>
-
 #include "initrd.h"
 #include "macro-fundamental.h"
-#include "missing_efi.h"
+#include "proto-device-path.h"
+#include "proto-load-file.h"
 #include "util.h"
+
+#define LINUX_INITRD_MEDIA_GUID \
+        GUID_DEF(0x5568e427, 0x68fc, 0x4f3d, 0xac, 0x74, 0xca, 0x55, 0x52, 0x31, 0xcc, 0x68)
 
 /* extend LoadFileProtocol */
 struct initrd_loader {
@@ -26,21 +27,21 @@ static const struct {
                 .Header = {
                         .Type = MEDIA_DEVICE_PATH,
                         .SubType = MEDIA_VENDOR_DP,
-                        .Length = { sizeof(efi_initrd_device_path.vendor), 0 }
+                        .Length = sizeof(efi_initrd_device_path.vendor),
                 },
                 .Guid = LINUX_INITRD_MEDIA_GUID
         },
         .end = {
                 .Type = END_DEVICE_PATH_TYPE,
                 .SubType = END_ENTIRE_DEVICE_PATH_SUBTYPE,
-                .Length = { sizeof(efi_initrd_device_path.end), 0 }
+                .Length = sizeof(efi_initrd_device_path.end),
         }
 };
 
 static EFIAPI EFI_STATUS initrd_load_file(
                 EFI_LOAD_FILE_PROTOCOL *this,
                 EFI_DEVICE_PATH *file_path,
-                BOOLEAN boot_policy,
+                bool boot_policy,
                 size_t *buffer_size,
                 void *buffer) {
 

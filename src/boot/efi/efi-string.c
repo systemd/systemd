@@ -1,14 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdbool.h>
-#include <stdint.h>
-#include <wchar.h>
-
 #include "efi-string.h"
 
 #if SD_BOOT
-#  include "missing_efi.h"
 #  include "util.h"
+#  include "proto-simple-text-io.h"
 #else
 #  include <stdlib.h>
 #  include "alloc-util.h"
@@ -382,7 +378,6 @@ DEFINE_PARSE_NUMBER(char16_t, parse_number16);
 
 static const char * const warn_table[] = {
         [EFI_SUCCESS]               = "Success",
-#if SD_BOOT
         [EFI_WARN_UNKNOWN_GLYPH]    = "Unknown glyph",
         [EFI_WARN_DELETE_FAILURE]   = "Delete failure",
         [EFI_WARN_WRITE_FAILURE]    = "Write failure",
@@ -390,7 +385,6 @@ static const char * const warn_table[] = {
         [EFI_WARN_STALE_DATA]       = "Stale data",
         [EFI_WARN_FILE_SYSTEM]      = "File system",
         [EFI_WARN_RESET_REQUIRED]   = "Reset required",
-#endif
 };
 
 /* Errors have MSB set, remove it to keep the table compact. */
@@ -399,7 +393,6 @@ static const char * const warn_table[] = {
 static const char * const err_table[] = {
         [NOERR(EFI_ERROR_MASK)]           = "Error",
         [NOERR(EFI_LOAD_ERROR)]           = "Load error",
-#if SD_BOOT
         [NOERR(EFI_INVALID_PARAMETER)]    = "Invalid parameter",
         [NOERR(EFI_UNSUPPORTED)]          = "Unsupported",
         [NOERR(EFI_BAD_BUFFER_SIZE)]      = "Bad buffer size",
@@ -427,14 +420,13 @@ static const char * const err_table[] = {
         [NOERR(EFI_SECURITY_VIOLATION)]   = "Security violation",
         [NOERR(EFI_CRC_ERROR)]            = "CRC error",
         [NOERR(EFI_END_OF_MEDIA)]         = "End of media",
-        [29]                              = "Reserved (29)",
-        [30]                              = "Reserved (30)",
+        [NOERR(EFI_ERROR_RESERVED_29)]    = "Reserved (29)",
+        [NOERR(EFI_ERROR_RESERVED_30)]    = "Reserved (30)",
         [NOERR(EFI_END_OF_FILE)]          = "End of file",
         [NOERR(EFI_INVALID_LANGUAGE)]     = "Invalid language",
         [NOERR(EFI_COMPROMISED_DATA)]     = "Compromised data",
         [NOERR(EFI_IP_ADDRESS_CONFLICT)]  = "IP address conflict",
         [NOERR(EFI_HTTP_ERROR)]           = "HTTP error",
-#endif
 };
 
 static const char *status_to_string(EFI_STATUS status) {
