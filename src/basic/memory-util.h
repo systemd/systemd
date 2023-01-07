@@ -9,6 +9,7 @@
 
 #include "alloc-util.h"
 #include "macro.h"
+#include "memory-util-fundamental.h"
 
 size_t page_size(void) _pure_;
 #define PAGE_ALIGN(l) ALIGN_TO((l), page_size())
@@ -90,17 +91,6 @@ static inline void *mempmem_safe(const void *haystack, size_t haystacklen, const
 
         return (uint8_t*) p + needlelen;
 }
-
-#if HAVE_EXPLICIT_BZERO
-static inline void* explicit_bzero_safe(void *p, size_t l) {
-        if (l > 0)
-                explicit_bzero(p, l);
-
-        return p;
-}
-#else
-void *explicit_bzero_safe(void *p, size_t l);
-#endif
 
 static inline void* erase_and_free(void *p) {
         size_t l;
