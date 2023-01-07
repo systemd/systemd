@@ -79,7 +79,7 @@ EFI_STATUS devicetree_install(struct devicetree_state *state, EFI_FILE *root_dir
         if (err != EFI_SUCCESS)
                 return err;
 
-        err = get_file_info_harder(handle, &info, NULL);
+        err = get_file_info(handle, &info, NULL);
         if (err != EFI_SUCCESS)
                 return err;
         if (info->FileSize < FDT_V1_SIZE || info->FileSize > 32 * 1024 * 1024)
