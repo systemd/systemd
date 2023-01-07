@@ -105,6 +105,56 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Tss2_MU_TPM2B_PUBLIC_Unmarshal));
 }
 
+#define _MARSHAL(src) _Generic((src),                                   \
+                const TPM2B_PRIVATE*: sym_Tss2_MU_TPM2B_PRIVATE_Marshal, TPM2B_PRIVATE*: sym_Tss2_MU_TPM2B_PRIVATE_Marshal, \
+                const TPM2B_PUBLIC*: sym_Tss2_MU_TPM2B_PUBLIC_Marshal, TPM2B_PUBLIC*: sym_Tss2_MU_TPM2B_PUBLIC_Marshal)
+
+#define _UNMARSHAL(dst) _Generic((dst),                                 \
+                TPM2B_PRIVATE*: sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal,    \
+                TPM2B_PUBLIC*: sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal)
+
+#define tpm2_marshal(description, src, buf, size, offset)               \
+        ({                                                              \
+                const char *_desc_ = (description);                     \
+                typeof(src) _src_ = (src);                              \
+                typeof(offset) _offsetp_ = (offset);                    \
+                size_t _offset_ = *_offsetp_;                           \
+                TSS2_RC _rc_;                                           \
+                int _r_ = 0;                                            \
+                                                                        \
+                log_debug("Marshalling %s", _desc_);                    \
+                _rc_ = _MARSHAL(_src_)(_src_, buf, size, &_offset_);    \
+                if (_rc_ != TSS2_RC_SUCCESS)                            \
+                        _r_ = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), \
+                                              "Failed to marshal %s: %s", \
+                                              _desc_,                   \
+                                              sym_Tss2_RC_Decode(_rc_)); \
+                else                                                    \
+                        *_offsetp_ = _offset_;                          \
+                _r_;                                                    \
+        })
+
+#define tpm2_unmarshal(description, buf, size, offset, dst)             \
+        ({                                                              \
+                const char *_desc_ = (description);                     \
+                typeof(dst) _dst_ = (dst);                              \
+                typeof(offset) _offsetp_ = (offset);                    \
+                size_t _offset_ = *_offsetp_;                           \
+                TSS2_RC _rc_;                                           \
+                int _r_ = 0;                                            \
+                                                                        \
+                log_debug("Unmarshalling %s", _desc_);                  \
+                _rc_ = _UNMARSHAL(_dst_)(buf, size, &_offset_, _dst_);  \
+                if (_rc_ != TSS2_RC_SUCCESS)                            \
+                        _r_ = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), \
+                                              "Failed to unmarshal %s: %s", \
+                                              _desc_,                   \
+                                              sym_Tss2_RC_Decode(_rc_)); \
+                else                                                    \
+                        *_offsetp_ = _offset_;                          \
+                _r_;                                                    \
+        })
+
 void tpm2_context_destroy(struct tpm2_context *c) {
         assert(c);
 
@@ -1804,8 +1854,6 @@ int tpm2_seal(const char *device,
         if (!secret)
                 return log_oom();
 
-        log_debug("Marshalling private and public part of HMAC key.");
-
         _cleanup_free_ void *blob = NULL;
         size_t max_size = sizeof(*private) + sizeof(*public), blob_size = 0;
 
@@ -1813,15 +1861,13 @@ int tpm2_seal(const char *device,
         if (!blob)
                 return log_oom();
 
-        rc = sym_Tss2_MU_TPM2B_PRIVATE_Marshal(private, blob, max_size, &blob_size);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to marshal private key: %s", sym_Tss2_RC_Decode(rc));
+        r = tpm2_marshal("HMAC private key", private, blob, max_size, &blob_size);
+        if (r < 0)
+                return r;
 
-        rc = sym_Tss2_MU_TPM2B_PUBLIC_Marshal(public, blob, max_size, &blob_size);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to marshal public key: %s", sym_Tss2_RC_Decode(rc));
+        r = tpm2_marshal("HMAC public key", public, blob, max_size, &blob_size);
+        if (r < 0)
+                return r;
 
         hash = memdup(policy_digest->buffer, policy_digest->size);
         if (!hash)
@@ -1898,19 +1944,13 @@ int tpm2_unseal(const char *device,
 
         start = now(CLOCK_MONOTONIC);
 
-        log_debug("Unmarshalling private part of HMAC key.");
+        r = tpm2_unmarshal("HMAC private key", blob, blob_size, &offset, &private);
+        if (r < 0)
+                return r;
 
-        rc = sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal(blob, blob_size, &offset, &private);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to unmarshal private key: %s", sym_Tss2_RC_Decode(rc));
-
-        log_debug("Unmarshalling public part of HMAC key.");
-
-        rc = sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal(blob, blob_size, &offset, &public);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to unmarshal public key: %s", sym_Tss2_RC_Decode(rc));
+        r = tpm2_unmarshal("HMAC public key", blob, blob_size, &offset, &public);
+        if (r < 0)
+                return r;
 
         r = tpm2_context_init(device, c);
         if (r < 0)
