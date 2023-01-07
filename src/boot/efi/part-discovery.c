@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "device-path-util.h"
 #include "part-discovery.h"
 #include "proto-block-io.h"
 #include "proto-device-path.h"
@@ -28,31 +29,6 @@ typedef struct {
         uint8_t _pad[420];
 } _packed_ GptHeader;
 assert_cc(sizeof(GptHeader) == 512);
-
-static EFI_DEVICE_PATH *path_replace_hd(
-                const EFI_DEVICE_PATH *path,
-                const EFI_DEVICE_PATH *node,
-                const HARDDRIVE_DEVICE_PATH *new_node) {
-
-        /* Create a new device path as a copy of path, while chopping off the remainder starting at the given
-         * node. If new_node is provided, it is appended at the end of the new path. */
-
-        assert(path);
-        assert(node);
-
-        size_t len = (uint8_t *) node - (uint8_t *) path, new_node_len = 0;
-        if (new_node)
-                new_node_len = DevicePathNodeLength(&new_node->Header);
-
-        EFI_DEVICE_PATH *ret = xmalloc(len + new_node_len + sizeof(EFI_DEVICE_PATH));
-        EFI_DEVICE_PATH *end = mempcpy(ret, path, len);
-
-        if (new_node)
-                end = mempcpy(end, new_node, new_node_len);
-
-        SetDevicePathEndNode(end);
-        return ret;
-}
 
 static bool verify_gpt(GptHeader *h, EFI_LBA lba_expected) {
         uint32_t crc32, crc32_saved;
@@ -204,7 +180,7 @@ static EFI_STATUS find_device(const EFI_GUID *type, EFI_HANDLE *device, EFI_DEVI
 
         /* Chop off the partition part, leaving us with the full path to the disk itself. */
         _cleanup_free_ EFI_DEVICE_PATH *disk_path = NULL;
-        EFI_DEVICE_PATH *p = disk_path = path_replace_hd(partition_path, part_node, NULL);
+        EFI_DEVICE_PATH *p = disk_path = device_path_replace_node(partition_path, part_node, NULL);
 
         EFI_HANDLE disk_handle;
         EFI_BLOCK_IO_PROTOCOL *block_io;
@@ -258,7 +234,7 @@ static EFI_STATUS find_device(const EFI_GUID *type, EFI_HANDLE *device, EFI_DEVI
                 }
 
                 /* Patch in the data we found */
-                *ret_device_path = path_replace_hd(partition_path, part_node, &hd);
+                *ret_device_path = device_path_replace_node(partition_path, part_node, (EFI_DEVICE_PATH *) &hd);
                 return EFI_SUCCESS;
         }
 

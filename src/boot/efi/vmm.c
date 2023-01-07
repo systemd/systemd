@@ -4,6 +4,7 @@
 #  include <cpuid.h>
 #endif
 
+#include "device-path-util.h"
 #include "drivers.h"
 #include "efi-string.h"
 #include "proto-device-path.h"
@@ -37,27 +38,6 @@ bool is_direct_boot(EFI_HANDLE device) {
                 return true;
 
         return false;
-}
-
-static bool device_path_startswith(const EFI_DEVICE_PATH *dp, const EFI_DEVICE_PATH *start) {
-        if (!start)
-                return true;
-        if (!dp)
-                return false;
-        for (;;) {
-                if (IsDevicePathEnd(start))
-                        return true;
-                if (IsDevicePathEnd(dp))
-                        return false;
-                size_t l1 = DevicePathNodeLength(start);
-                size_t l2 = DevicePathNodeLength(dp);
-                if (l1 != l2)
-                        return false;
-                if (memcmp(dp, start, l1) != 0)
-                        return false;
-                start = NextDevicePathNode(start);
-                dp    = NextDevicePathNode(dp);
-        }
 }
 
 /*

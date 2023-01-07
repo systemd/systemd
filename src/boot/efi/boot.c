@@ -3,6 +3,7 @@
 #include "bcd.h"
 #include "bootspec-fundamental.h"
 #include "console.h"
+#include "device-path-util.h"
 #include "devicetree.h"
 #include "drivers.h"
 #include "efivars-fundamental.h"
