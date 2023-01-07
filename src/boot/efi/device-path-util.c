@@ -26,12 +26,13 @@ EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DE
         *ret_dp = xmalloc(dp_size + file_size + sizeof(FILEPATH_DEVICE_PATH) + sizeof(EFI_DEVICE_PATH));
         dp = mempcpy(*ret_dp, dp, dp_size);
 
-        /* Replace end node with file media device path. Use memcpy() in case dp is unaligned (if accessed as
-         * FILEPATH_DEVICE_PATH). */
-        dp->Type = MEDIA_DEVICE_PATH;
-        dp->SubType = MEDIA_FILEPATH_DP;
-        dp->Length = sizeof(FILEPATH_DEVICE_PATH) + file_size;
-        memcpy((uint8_t *) dp + sizeof(FILEPATH_DEVICE_PATH), file, file_size);
+        FILEPATH_DEVICE_PATH *file_dp = (FILEPATH_DEVICE_PATH *) dp;
+        file_dp->Header = (EFI_DEVICE_PATH) {
+                .Type = MEDIA_DEVICE_PATH,
+                .SubType = MEDIA_FILEPATH_DP,
+                .Length = sizeof(FILEPATH_DEVICE_PATH) + file_size,
+        };
+        memcpy(file_dp->PathName, file, file_size);
 
         dp = device_path_next_node(dp);
         *dp = DEVICE_PATH_END_NODE;
