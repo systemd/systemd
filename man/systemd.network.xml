@@ -2305,6 +2305,15 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           [IPv6AcceptRA] section.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>SendRelease=</varname></term>
+        <listitem>
+          <para>When true, the DHCPv6 client sends a DHCP release packet when it stops. Defaults to
+          true.</para>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
