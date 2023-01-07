@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <inttypes.h>
-
 #include "proto-device-path.h"
 #include "proto-simple-text-io.h"
 #include "ticks.h"

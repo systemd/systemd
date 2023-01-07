@@ -121,6 +121,33 @@ _gnu_printf_(2, 0) _warn_unused_result_ char16_t *xvasprintf_status(EFI_STATUS s
 #  define printf(...) printf_status(EFI_SUCCESS, __VA_ARGS__)
 #  define xasprintf(...) xasprintf_status(EFI_SUCCESS, __VA_ARGS__)
 
+/* inttypes.h is not safe for freestanding environments when cross-compiling. We have to provide our own PRI
+ * constants (at least the important ones) if we do not want to require a full cross environment with libc
+ * headers around. We could use clang __*_FMT*__ constants for this, bug gcc does not have them. :( */
+
+#  if defined(__ILP32__)
+#    define PRI64_PREFIX "ll"
+#  elif defined(__LP64__)
+#    define PRI64_PREFIX "l"
+#  elif defined(__LLP64__) || (__SIZEOF_LONG__ == 4 && __SIZEOF_POINTER__ == 8)
+#    define PRI64_PREFIX "ll"
+#  else
+#    error Unknown 64-bit data model
+#  endif
+
+#  define PRIi32 "i"
+#  define PRIu32 "u"
+#  define PRIx32 "x"
+#  define PRIX32 "X"
+#  define PRIiPTR "zi"
+#  define PRIuPTR "zu"
+#  define PRIxPTR "zx"
+#  define PRIXPTR "zX"
+#  define PRIi64 PRI64_PREFIX "i"
+#  define PRIu64 PRI64_PREFIX "u"
+#  define PRIx64 PRI64_PREFIX "x"
+#  define PRIX64 PRI64_PREFIX "X"
+
 /* The compiler normally has knowledge about standard functions such as memcmp, but this is not the case when
  * compiling with -ffreestanding. By referring to builtins, the compiler can check arguments and do
  * optimizations again. Note that we still need to provide implementations as the compiler is free to not
