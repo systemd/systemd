@@ -298,7 +298,7 @@ EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, size_t off, size_t siz
         if (size == 0) {
                 _cleanup_free_ EFI_FILE_INFO *info = NULL;
 
-                err = get_file_info_harder(handle, &info, NULL);
+                err = get_file_info(handle, &info, NULL);
                 if (err != EFI_SUCCESS)
                         return err;
 
@@ -370,19 +370,13 @@ void sort_pointer_array(
         }
 }
 
-EFI_STATUS get_file_info_harder(
-                EFI_FILE *handle,
-                EFI_FILE_INFO **ret,
-                size_t *ret_size) {
-
+EFI_STATUS get_file_info(EFI_FILE *handle, EFI_FILE_INFO **ret, size_t *ret_size) {
         size_t size = offsetof(EFI_FILE_INFO, FileName) + 256;
         _cleanup_free_ EFI_FILE_INFO *fi = NULL;
         EFI_STATUS err;
 
         assert(handle);
         assert(ret);
-
-        /* A lot like LibFileInfo() but with useful error propagation */
 
         fi = xmalloc(size);
         err = handle->GetInfo(handle, MAKE_GUID_PTR(EFI_FILE_INFO), &size, fi);
@@ -403,7 +397,7 @@ EFI_STATUS get_file_info_harder(
         return EFI_SUCCESS;
 }
 
-EFI_STATUS readdir_harder(
+EFI_STATUS readdir(
                 EFI_FILE *handle,
                 EFI_FILE_INFO **buffer,
                 size_t *buffer_size) {
@@ -489,7 +483,7 @@ EFI_STATUS open_directory(
         if (err != EFI_SUCCESS)
                 return err;
 
-        err = get_file_info_harder(dir, &file_info, NULL);
+        err = get_file_info(dir, &file_info, NULL);
         if (err != EFI_SUCCESS)
                 return err;
         if (!FLAGS_SET(file_info->Attribute, EFI_FILE_DIRECTORY))

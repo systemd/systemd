@@ -124,9 +124,8 @@ void clear_screen(size_t attr);
 typedef int (*compare_pointer_func_t)(const void *a, const void *b);
 void sort_pointer_array(void **array, size_t n_members, compare_pointer_func_t compare);
 
-EFI_STATUS get_file_info_harder(EFI_FILE *handle, EFI_FILE_INFO **ret, size_t *ret_size);
-
-EFI_STATUS readdir_harder(EFI_FILE *handle, EFI_FILE_INFO **buffer, size_t *buffer_size);
+EFI_STATUS get_file_info(EFI_FILE *handle, EFI_FILE_INFO **ret, size_t *ret_size);
+EFI_STATUS readdir(EFI_FILE *handle, EFI_FILE_INFO **buffer, size_t *buffer_size);
 
 bool is_ascii(const char16_t *f);
 
