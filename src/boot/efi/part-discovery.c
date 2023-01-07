@@ -287,14 +287,11 @@ char16_t *disk_get_part_uuid(EFI_HANDLE *handle) {
                 if (dp->Type != MEDIA_DEVICE_PATH || dp->SubType != MEDIA_HARDDRIVE_DP)
                         continue;
 
-                /* The HD device path may be misaligned. */
-                HARDDRIVE_DEVICE_PATH hd;
-                memcpy(&hd, dp, MIN(sizeof(hd), dp->Length));
-
-                if (hd.SignatureType != SIGNATURE_TYPE_GUID)
+                HARDDRIVE_DEVICE_PATH *hd = (HARDDRIVE_DEVICE_PATH *) dp;
+                if (hd->SignatureType != SIGNATURE_TYPE_GUID)
                         continue;
 
-                return xasprintf(GUID_FORMAT_STR, GUID_FORMAT_VAL(hd.SignatureGuid));
+                return xasprintf(GUID_FORMAT_STR, GUID_FORMAT_VAL(hd->SignatureGuid));
         }
 
         return NULL;

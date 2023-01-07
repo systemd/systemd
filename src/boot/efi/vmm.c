@@ -20,7 +20,7 @@
 /* detect direct boot */
 bool is_direct_boot(EFI_HANDLE device) {
         EFI_STATUS err;
-        VENDOR_DEVICE_PATH *dp; /* NB: Alignment of this structure might be quirky! */
+        VENDOR_DEVICE_PATH *dp;
 
         err = BS->HandleProtocol(device, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), (void **) &dp);
         if (err != EFI_SUCCESS)
@@ -29,7 +29,7 @@ bool is_direct_boot(EFI_HANDLE device) {
         /* 'qemu -kernel systemd-bootx64.efi' */
         if (dp->Header.Type == MEDIA_DEVICE_PATH &&
             dp->Header.SubType == MEDIA_VENDOR_DP &&
-            memcmp(&dp->Guid, MAKE_GUID_PTR(QEMU_KERNEL_LOADER_FS_MEDIA), sizeof(EFI_GUID)) == 0) /* Don't change to efi_guid_equal() because EFI device path objects are not necessarily aligned! */
+            memcmp(&dp->Guid, MAKE_GUID_PTR(QEMU_KERNEL_LOADER_FS_MEDIA), sizeof(EFI_GUID)) == 0)
                 return true;
 
         /* loaded from firmware volume (sd-boot added to ovmf) */
