@@ -82,10 +82,6 @@ typedef struct {
                         const char16_t *ConvertTextToDevicPath);
 } EFI_DEVICE_PATH_FROM_TEXT_PROTOCOL;
 
-#define DevicePathType(dp) ((dp)->Type)
-#define DevicePathSubType(dp) ((dp)->SubType)
-#define DevicePathNodeLength(dp) ((dp)->Length)
-
 static inline EFI_DEVICE_PATH *NextDevicePathNode(const EFI_DEVICE_PATH *dp) {
         assert(dp);
         return (EFI_DEVICE_PATH *) ((uint8_t *) dp + dp->Length);
