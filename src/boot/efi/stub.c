@@ -2,7 +2,6 @@
 
 #include "cpio.h"
 #include "devicetree.h"
-#include "disk.h"
 #include "graphics.h"
 #include "linux.h"
 #include "measure.h"

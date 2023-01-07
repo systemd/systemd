@@ -4,7 +4,6 @@
 #include "bootspec-fundamental.h"
 #include "console.h"
 #include "devicetree.h"
-#include "disk.h"
 #include "drivers.h"
 #include "efivars-fundamental.h"
 #include "graphics.h"
