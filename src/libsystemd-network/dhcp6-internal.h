@@ -79,6 +79,7 @@ struct sd_dhcp6_client {
 
         sd_dhcp6_client_callback_t callback;
         void *userdata;
+        bool send_release;
 
         /* Ignore machine-ID when generating DUID. See dhcp_identifier_set_duid_en(). */
         bool test_mode;
