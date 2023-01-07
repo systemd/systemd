@@ -165,7 +165,8 @@ static EFI_STATUS find_device(const EFI_GUID *type, EFI_HANDLE *device, EFI_DEVI
 
         /* Find the (last) partition node itself. */
         EFI_DEVICE_PATH *part_node = NULL;
-        for (EFI_DEVICE_PATH *node = partition_path; !IsDevicePathEnd(node); node = NextDevicePathNode(node)) {
+        for (EFI_DEVICE_PATH *node = partition_path; !device_path_is_end(node);
+             node = device_path_next_node(node)) {
                 if (node->Type != MEDIA_DEVICE_PATH || node->SubType != MEDIA_HARDDRIVE_DP)
                         continue;
 
@@ -282,7 +283,7 @@ EFI_STATUS disk_get_part_uuid(EFI_HANDLE *handle, char16_t uuid[static 37]) {
         if (err != EFI_SUCCESS)
                 return err;
 
-        for (; !IsDevicePathEnd(dp); dp = NextDevicePathNode(dp)) {
+        for (; !device_path_is_end(dp); dp = device_path_next_node(dp)) {
                 if (dp->Type != MEDIA_DEVICE_PATH || dp->SubType != MEDIA_HARDDRIVE_DP)
                         continue;
 

@@ -16,8 +16,8 @@ EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DE
                 return err;
 
         EFI_DEVICE_PATH *end_node = dp;
-        while (!IsDevicePathEnd(end_node))
-                end_node = NextDevicePathNode(end_node);
+        while (!device_path_is_end(end_node))
+                end_node = device_path_next_node(end_node);
 
         size_t file_size = strsize16(file);
         size_t dp_size = (uint8_t *) end_node - (uint8_t *) dp;
@@ -33,8 +33,8 @@ EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DE
         dp->Length = sizeof(FILEPATH_DEVICE_PATH) + file_size;
         memcpy((uint8_t *) dp + sizeof(FILEPATH_DEVICE_PATH), file, file_size);
 
-        dp = NextDevicePathNode(dp);
-        SetDevicePathEndNode(dp);
+        dp = device_path_next_node(dp);
+        *dp = DEVICE_PATH_END_NODE;
         return EFI_SUCCESS;
 }
 
@@ -52,8 +52,8 @@ EFI_STATUS device_path_to_str(const EFI_DEVICE_PATH *dp, char16_t **ret) {
                  * to convert it ourselves if we are given filepath-only device path. */
 
                 size_t size = 0;
-                for (const EFI_DEVICE_PATH *node = dp; !IsDevicePathEnd(node);
-                     node = NextDevicePathNode(node)) {
+                for (const EFI_DEVICE_PATH *node = dp; !device_path_is_end(node);
+                     node = device_path_next_node(node)) {
 
                         if (node->Type != MEDIA_DEVICE_PATH || node->SubType != MEDIA_FILEPATH_DP)
                                 return err;
@@ -94,16 +94,16 @@ bool device_path_startswith(const EFI_DEVICE_PATH *dp, const EFI_DEVICE_PATH *st
         if (!dp)
                 return false;
         for (;;) {
-                if (IsDevicePathEnd(start))
+                if (device_path_is_end(start))
                         return true;
-                if (IsDevicePathEnd(dp))
+                if (device_path_is_end(dp))
                         return false;
                 if (start->Length != dp->Length)
                         return false;
                 if (memcmp(dp, start, start->Length) != 0)
                         return false;
-                start = NextDevicePathNode(start);
-                dp = NextDevicePathNode(dp);
+                start = device_path_next_node(start);
+                dp = device_path_next_node(dp);
         }
 }
 
@@ -123,6 +123,6 @@ EFI_DEVICE_PATH *device_path_replace_node(
         if (new_node)
                 end = mempcpy(end, new_node, new_node->Length);
 
-        SetDevicePathEndNode(end);
+        *end = DEVICE_PATH_END_NODE;
         return ret;
 }

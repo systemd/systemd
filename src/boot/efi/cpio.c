@@ -311,7 +311,8 @@ static char16_t *get_dropin_dir(const EFI_DEVICE_PATH *file_path) {
          * not create a legal EFI file path that the file protocol can use. */
 
         /* Make sure we really only got file paths. */
-        for (const EFI_DEVICE_PATH *node = file_path; !IsDevicePathEnd(node); node = NextDevicePathNode(node))
+        for (const EFI_DEVICE_PATH *node = file_path; !device_path_is_end(node);
+             node = device_path_next_node(node))
                 if (node->Type != MEDIA_DEVICE_PATH || node->SubType != MEDIA_FILEPATH_DP)
                         return NULL;
 
