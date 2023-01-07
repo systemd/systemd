@@ -200,7 +200,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
                 return err;
         }
 
-        err = get_file_info_harder(handle, &info, NULL);
+        err = get_file_info(handle, &info, NULL);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Failed to get file info for random seed: %m");
 

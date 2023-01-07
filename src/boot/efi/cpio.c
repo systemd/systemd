@@ -373,7 +373,7 @@ EFI_STATUS pack_cpio(
         for (;;) {
                 _cleanup_free_ char16_t *d = NULL;
 
-                err = readdir_harder(extra_dir, &dirent, &dirent_size);
+                err = readdir(extra_dir, &dirent, &dirent_size);
                 if (err != EFI_SUCCESS)
                         return log_error_status(err, "Failed to read extra directory of loaded image: %m");
                 if (!dirent) /* End of directory */
