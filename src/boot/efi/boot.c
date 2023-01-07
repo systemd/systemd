@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <inttypes.h>
-
 #include "bcd.h"
 #include "bootspec-fundamental.h"
 #include "console.h"
