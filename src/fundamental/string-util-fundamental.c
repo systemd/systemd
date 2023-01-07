@@ -20,7 +20,6 @@ sd_char *startswith(const sd_char *s, const sd_char *prefix) {
         return (sd_char*) s + l;
 }
 
-#if !SD_BOOT
 sd_char *startswith_no_case(const sd_char *s, const sd_char *prefix) {
         size_t l;
 
@@ -33,7 +32,6 @@ sd_char *startswith_no_case(const sd_char *s, const sd_char *prefix) {
 
         return (sd_char*) s + l;
 }
-#endif
 
 sd_char* endswith(const sd_char *s, const sd_char *postfix) {
         size_t sl, pl;
