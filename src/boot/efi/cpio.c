@@ -312,7 +312,7 @@ static char16_t *get_dropin_dir(const EFI_DEVICE_PATH *file_path) {
 
         /* Make sure we really only got file paths. */
         for (const EFI_DEVICE_PATH *node = file_path; !IsDevicePathEnd(node); node = NextDevicePathNode(node))
-                if (DevicePathType(node) != MEDIA_DEVICE_PATH || DevicePathSubType(node) != MEDIA_FILEPATH_DP)
+                if (node->Type != MEDIA_DEVICE_PATH || node->SubType != MEDIA_FILEPATH_DP)
                         return NULL;
 
         _cleanup_free_ char16_t *file_path_str = NULL;

@@ -55,11 +55,10 @@ EFI_STATUS device_path_to_str(const EFI_DEVICE_PATH *dp, char16_t **ret) {
                 for (const EFI_DEVICE_PATH *node = dp; !IsDevicePathEnd(node);
                      node = NextDevicePathNode(node)) {
 
-                        if (DevicePathType(node) != MEDIA_DEVICE_PATH ||
-                            DevicePathSubType(node) != MEDIA_FILEPATH_DP)
+                        if (node->Type != MEDIA_DEVICE_PATH || node->SubType != MEDIA_FILEPATH_DP)
                                 return err;
 
-                        size_t path_size = DevicePathNodeLength(node);
+                        size_t path_size = node->Length;
                         if (path_size <= offsetof(FILEPATH_DEVICE_PATH, PathName) || path_size % sizeof(char16_t))
                                 return EFI_INVALID_PARAMETER;
                         path_size -= offsetof(FILEPATH_DEVICE_PATH, PathName);
@@ -99,11 +98,9 @@ bool device_path_startswith(const EFI_DEVICE_PATH *dp, const EFI_DEVICE_PATH *st
                         return true;
                 if (IsDevicePathEnd(dp))
                         return false;
-                size_t l1 = DevicePathNodeLength(start);
-                size_t l2 = DevicePathNodeLength(dp);
-                if (l1 != l2)
+                if (start->Length != dp->Length)
                         return false;
-                if (memcmp(dp, start, l1) != 0)
+                if (memcmp(dp, start, start->Length) != 0)
                         return false;
                 start = NextDevicePathNode(start);
                 dp = NextDevicePathNode(dp);
@@ -119,15 +116,12 @@ EFI_DEVICE_PATH *device_path_replace_node(
         assert(path);
         assert(node);
 
-        size_t len = (uint8_t *) node - (uint8_t *) path, new_node_len = 0;
-        if (new_node)
-                new_node_len = DevicePathNodeLength(new_node);
-
-        EFI_DEVICE_PATH *ret = xmalloc(len + new_node_len + sizeof(EFI_DEVICE_PATH));
+        size_t len = (uint8_t *) node - (uint8_t *) path;
+        EFI_DEVICE_PATH *ret = xmalloc(len + (new_node ? new_node->Length : 0) + sizeof(EFI_DEVICE_PATH));
         EFI_DEVICE_PATH *end = mempcpy(ret, path, len);
 
         if (new_node)
-                end = mempcpy(end, new_node, new_node_len);
+                end = mempcpy(end, new_node, new_node->Length);
 
         SetDevicePathEndNode(end);
         return ret;

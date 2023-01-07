@@ -166,10 +166,7 @@ static EFI_STATUS find_device(const EFI_GUID *type, EFI_HANDLE *device, EFI_DEVI
         /* Find the (last) partition node itself. */
         EFI_DEVICE_PATH *part_node = NULL;
         for (EFI_DEVICE_PATH *node = partition_path; !IsDevicePathEnd(node); node = NextDevicePathNode(node)) {
-                if (DevicePathType(node) != MEDIA_DEVICE_PATH)
-                        continue;
-
-                if (DevicePathSubType(node) != MEDIA_HARDDRIVE_DP)
+                if (node->Type != MEDIA_DEVICE_PATH || node->SubType != MEDIA_HARDDRIVE_DP)
                         continue;
 
                 part_node = node;
@@ -286,14 +283,12 @@ EFI_STATUS disk_get_part_uuid(EFI_HANDLE *handle, char16_t uuid[static 37]) {
                 return err;
 
         for (; !IsDevicePathEnd(dp); dp = NextDevicePathNode(dp)) {
-                if (DevicePathType(dp) != MEDIA_DEVICE_PATH)
-                        continue;
-                if (DevicePathSubType(dp) != MEDIA_HARDDRIVE_DP)
+                if (dp->Type != MEDIA_DEVICE_PATH || dp->SubType != MEDIA_HARDDRIVE_DP)
                         continue;
 
                 /* The HD device path may be misaligned. */
                 HARDDRIVE_DEVICE_PATH hd;
-                memcpy(&hd, dp, MIN(sizeof(hd), (size_t) DevicePathNodeLength(dp)));
+                memcpy(&hd, dp, MIN(sizeof(hd), dp->Length));
 
                 if (hd.SignatureType != SIGNATURE_TYPE_GUID)
                         continue;
