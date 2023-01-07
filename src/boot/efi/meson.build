@@ -332,6 +332,7 @@ efi_headers = files(
         'bcd.h',
         'console.h',
         'cpio.h',
+        'device-path-util.h',
         'devicetree.h',
         'drivers.h',
         'efi-string.h',
@@ -366,6 +367,7 @@ efi_headers = files(
 
 common_sources = files(
         'console.c',
+        'device-path-util.c',
         'devicetree.c',
         'drivers.c',
         'efi-string.c',
