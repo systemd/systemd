@@ -58,6 +58,7 @@ typedef enum DHCP6State {
         DHCP6_STATE_BOUND,
         DHCP6_STATE_RENEW,
         DHCP6_STATE_REBIND,
+        DHCP6_STATE_STOPPING,
         _DHCP6_STATE_MAX,
         _DHCP6_STATE_INVALID = -EINVAL,
 } DHCP6State;
