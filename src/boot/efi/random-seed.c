@@ -116,19 +116,35 @@ static void validate_sha256(void) {
 #endif
 }
 
+typedef struct {
+        void *p;
+        size_t size;
+} VarEraser;
+
+static void erase_var(VarEraser *e) {
+        explicit_bzero_safe(e->p, e->size);
+}
+
+#define CLEANUP_ERASE(obj) \
+        _cleanup_(erase_var) _unused_ VarEraser UNIQ_T(eraser, UNIQ) = { .p = &obj, .size = sizeof(obj) }
+
 EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
-        _cleanup_erase_ uint8_t random_bytes[DESIRED_SEED_SIZE], hash_key[HASH_VALUE_SIZE];
+        uint8_t random_bytes[DESIRED_SEED_SIZE], hash_key[HASH_VALUE_SIZE];
         _cleanup_free_ struct linux_efi_random_seed *new_seed_table = NULL;
         struct linux_efi_random_seed *previous_seed_table = NULL;
         _cleanup_free_ void *seed = NULL, *system_token = NULL;
         _cleanup_(file_closep) EFI_FILE *handle = NULL;
         _cleanup_free_ EFI_FILE_INFO *info = NULL;
-        _cleanup_erase_ struct sha256_ctx hash;
+        struct sha256_ctx hash;
         uint64_t uefi_monotonic_counter = 0;
         size_t size, rsize, wsize;
         bool seeded_by_efi = false;
         EFI_STATUS err;
         EFI_TIME now;
+
+        CLEANUP_ERASE(random_bytes);
+        CLEANUP_ERASE(hash_key);
+        CLEANUP_ERASE(hash);
 
         assert(root_dir);
         assert_cc(DESIRED_SEED_SIZE == HASH_VALUE_SIZE);
