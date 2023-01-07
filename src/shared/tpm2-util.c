@@ -39,6 +39,10 @@ static void *libtss2_esys_dl = NULL;
 static void *libtss2_rc_dl = NULL;
 static void *libtss2_mu_dl = NULL;
 
+static bool is_dlopened(void) {
+        return libtss2_esys_dl && libtss2_rc_dl && libtss2_mu_dl;
+}
+
 static TSS2_RC (*sym_Esys_Create)(ESYS_CONTEXT *esysContext, ESYS_TR parentHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE_CREATE *inSensitive, const TPM2B_PUBLIC *inPublic, const TPM2B_DATA *outsideInfo, const TPML_PCR_SELECTION *creationPCR, TPM2B_PRIVATE **outPrivate, TPM2B_PUBLIC **outPublic, TPM2B_CREATION_DATA **creationData, TPM2B_DIGEST **creationHash, TPMT_TK_CREATION **creationTicket) = NULL;
 static TSS2_RC (*sym_Esys_CreateLoaded)(ESYS_CONTEXT *esysContext, ESYS_TR parentHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE_CREATE *inSensitive, const TPM2B_TEMPLATE *inPublic, ESYS_TR *objectHandle, TPM2B_PRIVATE **outPrivate, TPM2B_PUBLIC **outPublic) = NULL;
 static TSS2_RC (*sym_Esys_CreatePrimary)(ESYS_CONTEXT *esysContext, ESYS_TR primaryHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE_CREATE *inSensitive, const TPM2B_PUBLIC *inPublic, const TPM2B_DATA *outsideInfo, const TPML_PCR_SELECTION *creationPCR, ESYS_TR *objectHandle, TPM2B_PUBLIC **outPublic, TPM2B_CREATION_DATA **creationData, TPM2B_DIGEST **creationHash, TPMT_TK_CREATION **creationTicket) = NULL;
@@ -74,27 +78,39 @@ static TSS2_RC (*sym_Esys_TRSess_SetAttributes)(ESYS_CONTEXT *esysContext, ESYS_
 static TSS2_RC (*sym_Esys_Unseal)(ESYS_CONTEXT *esysContext, ESYS_TR itemHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPM2B_SENSITIVE_DATA **outData) = NULL;
 static TSS2_RC (*sym_Esys_VerifySignature)(ESYS_CONTEXT *esysContext, ESYS_TR keyHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_DIGEST *digest, const TPMT_SIGNATURE *signature, TPMT_TK_VERIFIED **validation) = NULL;
 
-static TSS2_RC (*sym_Tss2_MU_TPM2_CC_Marshal)(TPM2_CC src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
-static TSS2_RC (*sym_Tss2_MU_TPM2_HANDLE_Marshal)(TPM2_HANDLE src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
-static TSS2_RC (*sym_Tss2_MU_TPM2B_DIGEST_Marshal)(TPM2B_DIGEST const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
-static TSS2_RC (*sym_Tss2_MU_TPM2B_ENCRYPTED_SECRET_Marshal)(TPM2B_ENCRYPTED_SECRET const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
-static TSS2_RC (*sym_Tss2_MU_TPM2B_ENCRYPTED_SECRET_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_ENCRYPTED_SECRET *dest) = NULL;
-static TSS2_RC (*sym_Tss2_MU_TPM2B_NAME_Marshal)(TPM2B_NAME const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
-static TSS2_RC (*sym_Tss2_MU_TPM2B_PRIVATE_Marshal)(TPM2B_PRIVATE const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
-static TSS2_RC (*sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PRIVATE  *dest) = NULL;
-static TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Marshal)(TPM2B_PUBLIC const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
-static TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PUBLIC *dest) = NULL;
-static TSS2_RC (*sym_Tss2_MU_TPM2B_SENSITIVE_Marshal)(TPM2B_SENSITIVE const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
-static TSS2_RC (*sym_Tss2_MU_TPML_PCR_SELECTION_Marshal)(TPML_PCR_SELECTION const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
-static TSS2_RC (*sym_Tss2_MU_TPMS_ECC_POINT_Marshal)(TPMS_ECC_POINT const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
-static TSS2_RC (*sym_Tss2_MU_TPMT_HA_Marshal)(TPMT_HA const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
-static TSS2_RC (*sym_Tss2_MU_TPMT_PUBLIC_Marshal)(TPMT_PUBLIC const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
-static TSS2_RC (*sym_Tss2_MU_UINT32_Marshal)(UINT32 src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
+#define DEFINE_MU(TYPE)                                                 \
+        TSS2_RC (*sym_Tss2_MU_##TYPE##_Marshal)(TYPE const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL; \
+        TSS2_RC (*sym_Tss2_MU_##TYPE##_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TYPE *dest) = NULL
 
-static const char* (*sym_Tss2_RC_Decode)(TSS2_RC rc) = NULL;
+DEFINE_MU(TPM2B_DIGEST);
+DEFINE_MU(TPM2B_ENCRYPTED_SECRET);
+DEFINE_MU(TPM2B_NAME);
+DEFINE_MU(TPM2B_PRIVATE);
+DEFINE_MU(TPM2B_PUBLIC);
+DEFINE_MU(TPM2B_SENSITIVE);
+DEFINE_MU(TPML_PCR_SELECTION);
+DEFINE_MU(TPMS_ECC_POINT);
+DEFINE_MU(TPMT_HA);
+DEFINE_MU(TPMT_PUBLIC);
+
+#define DEFINE_MU_UINT(SIZE)                                            \
+        TSS2_RC (*sym_Tss2_MU_UINT##SIZE##_Marshal)(UINT##SIZE src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL; \
+        TSS2_RC (*sym_Tss2_MU_UINT##SIZE##_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, UINT##SIZE *dest) = NULL
+
+DEFINE_MU_UINT(8);
+DEFINE_MU_UINT(16);
+DEFINE_MU_UINT(32);
+DEFINE_MU_UINT(64);
+
+#define TPM2_MU_DLSYM_ARGS(TYPE) DLSYM_ARG(Tss2_MU_##TYPE##_Marshal), DLSYM_ARG(Tss2_MU_##TYPE##_Unmarshal)
+
+const char* (*sym_Tss2_RC_Decode)(TSS2_RC rc) = NULL;
 
 int dlopen_tpm2(void) {
         int r;
+
+        if (is_dlopened())
+                return 0;
 
         r = dlopen_many_sym_or_warn(
                         &libtss2_esys_dl, "libtss2-esys.so.0", LOG_DEBUG,
@@ -148,22 +164,20 @@ int dlopen_tpm2(void) {
 
         return dlopen_many_sym_or_warn(
                         &libtss2_mu_dl, "libtss2-mu.so.0", LOG_DEBUG,
-                        DLSYM_ARG(Tss2_MU_TPM2_CC_Marshal),
-                        DLSYM_ARG(Tss2_MU_TPM2_HANDLE_Marshal),
-                        DLSYM_ARG(Tss2_MU_TPM2B_DIGEST_Marshal),
-                        DLSYM_ARG(Tss2_MU_TPM2B_ENCRYPTED_SECRET_Marshal),
-                        DLSYM_ARG(Tss2_MU_TPM2B_ENCRYPTED_SECRET_Unmarshal),
-                        DLSYM_ARG(Tss2_MU_TPM2B_NAME_Marshal),
-                        DLSYM_ARG(Tss2_MU_TPM2B_PRIVATE_Marshal),
-                        DLSYM_ARG(Tss2_MU_TPM2B_PRIVATE_Unmarshal),
-                        DLSYM_ARG(Tss2_MU_TPM2B_PUBLIC_Marshal),
-                        DLSYM_ARG(Tss2_MU_TPM2B_PUBLIC_Unmarshal),
-                        DLSYM_ARG(Tss2_MU_TPM2B_SENSITIVE_Marshal),
-                        DLSYM_ARG(Tss2_MU_TPML_PCR_SELECTION_Marshal),
-                        DLSYM_ARG(Tss2_MU_TPMS_ECC_POINT_Marshal),
-                        DLSYM_ARG(Tss2_MU_TPMT_HA_Marshal),
-                        DLSYM_ARG(Tss2_MU_TPMT_PUBLIC_Marshal),
-                        DLSYM_ARG(Tss2_MU_UINT32_Marshal));
+                        TPM2_MU_DLSYM_ARGS(TPM2B_DIGEST),
+                        TPM2_MU_DLSYM_ARGS(TPM2B_ENCRYPTED_SECRET),
+                        TPM2_MU_DLSYM_ARGS(TPM2B_NAME),
+                        TPM2_MU_DLSYM_ARGS(TPM2B_PRIVATE),
+                        TPM2_MU_DLSYM_ARGS(TPM2B_PUBLIC),
+                        TPM2_MU_DLSYM_ARGS(TPM2B_SENSITIVE),
+                        TPM2_MU_DLSYM_ARGS(TPML_PCR_SELECTION),
+                        TPM2_MU_DLSYM_ARGS(TPMS_ECC_POINT),
+                        TPM2_MU_DLSYM_ARGS(TPMT_HA),
+                        TPM2_MU_DLSYM_ARGS(TPMT_PUBLIC),
+                        TPM2_MU_DLSYM_ARGS(UINT8),
+                        TPM2_MU_DLSYM_ARGS(UINT16),
+                        TPM2_MU_DLSYM_ARGS(UINT32),
+                        TPM2_MU_DLSYM_ARGS(UINT64));
 }
 
 static void Esys_Freep(void *p) {
@@ -2225,18 +2239,14 @@ static int _tpm2_create_loaded(
         TPMT_PUBLIC template_copy = *template;
         zero(template_copy.unique);
 
-        TPM2B_TEMPLATE tpm2b_template;
-        size_t size = 0;
-        rc = sym_Tss2_MU_TPMT_PUBLIC_Marshal(
+        TPM2B_TEMPLATE tpm2b_template = {};
+        r = tpm2_marshal(
+                        "public key template",
                         &template_copy,
                         tpm2b_template.buffer,
                         sizeof(tpm2b_template.buffer),
-                        &size);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to marshal public key template: %s", sym_Tss2_RC_Decode(rc));
-        assert(size <= UINT16_MAX);
-        tpm2b_template.size = size;
+                        0,
+                        &tpm2b_template.size);
 
         TPM2B_SENSITIVE_CREATE tpm2b_sensitive;
         if (sensitive)
@@ -3190,15 +3200,10 @@ static int find_signature(
  * Since we (currently) hardcode to always using SHA256 for hashing, this returns an error if the public key
  * nameAlg is not TPM2_ALG_SHA256. */
 int tpm2_calculate_name(const TPMT_PUBLIC *public, TPM2B_NAME *ret_name) {
-        TSS2_RC rc;
         int r;
 
         assert(public);
         assert(ret_name);
-
-        r = dlopen_tpm2();
-        if (r < 0)
-                return log_error_errno(r, "TPM2 support not installed: %m");
 
         if (public->nameAlg != TPM2_ALG_SHA256)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
@@ -3207,15 +3212,9 @@ int tpm2_calculate_name(const TPMT_PUBLIC *public, TPM2B_NAME *ret_name) {
 
         _cleanup_free_ uint8_t *buf = NULL;
         size_t size = 0;
-
-        buf = (uint8_t*) new(TPMT_PUBLIC, 1);
-        if (!buf)
-                return log_oom();
-
-        rc = sym_Tss2_MU_TPMT_PUBLIC_Marshal(public, buf, sizeof(TPMT_PUBLIC), &size);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to marshal public key: %s", sym_Tss2_RC_Decode(rc));
+        r = tpm2_marshal_realloc("public key", public, buf, 0, &size);
+        if (r < 0)
+                return r;
 
         TPM2B_DIGEST digest = {};
         r = tpm2_digest_buffer(TPM2_ALG_SHA256, &digest, buf, size, /* extend= */ false);
@@ -3228,13 +3227,10 @@ int tpm2_calculate_name(const TPMT_PUBLIC *public, TPM2B_NAME *ret_name) {
         assert(digest.size <= sizeof(ha.digest.sha256));
         memcpy_safe(ha.digest.sha256, digest.buffer, digest.size);
 
-        TPM2B_NAME name;
-        size = 0;
-        rc = sym_Tss2_MU_TPMT_HA_Marshal(&ha, name.name, sizeof(name.name), &size);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to marshal key name: %s", sym_Tss2_RC_Decode(rc));
-        name.size = size;
+        TPM2B_NAME name = {};
+        r = tpm2_marshal("key name", &ha, name.name, sizeof(name.name), 0, &name.size);
+        if (r < 0)
+                return r;
 
         tpm2_log_debug_name(&name, "Calculated name");
 
@@ -3276,29 +3272,18 @@ static int tpm2_get_name(
 /* Extend 'digest' with the PolicyAuthValue calculated hash. */
 int tpm2_calculate_policy_auth_value(TPM2B_DIGEST *digest) {
         TPM2_CC command = TPM2_CC_PolicyAuthValue;
-        TSS2_RC rc;
         int r;
 
         assert(digest);
         assert(digest->size == SHA256_DIGEST_SIZE);
 
-        r = dlopen_tpm2();
+        _cleanup_free_ uint8_t *buf = NULL;
+        size_t size = 0;
+        r = tpm2_marshal_realloc("PolicyAuthValue command", command, buf, 0, &size);
         if (r < 0)
-                return log_error_errno(r, "TPM2 support not installed: %m");
+                return r;
 
-        uint8_t buf[sizeof(command)];
-        size_t offset = 0;
-
-        rc = sym_Tss2_MU_TPM2_CC_Marshal(command, buf, sizeof(buf), &offset);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to marshal PolicyAuthValue command: %s", sym_Tss2_RC_Decode(rc));
-
-        if (offset != sizeof(command))
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Offset 0x%zx wrong after marshalling PolicyAuthValue command", offset);
-
-        r = tpm2_digest_buffer(TPM2_ALG_SHA256, digest, buf, offset, /* extend= */ true);
+        r = tpm2_digest_buffer(TPM2_ALG_SHA256, digest, buf, size, /* extend= */ true);
         if (r < 0)
                 return r;
 
@@ -3340,16 +3325,11 @@ int tpm2_calculate_policy_pcr(
                 TPM2B_DIGEST *digest) {
 
         TPM2_CC command = TPM2_CC_PolicyPCR;
-        TSS2_RC rc;
         int r;
 
         assert(pcr_values || n_pcr_values == 0);
         assert(digest);
         assert(digest->size == SHA256_DIGEST_SIZE);
-
-        r = dlopen_tpm2();
-        if (r < 0)
-                return log_error_errno(r, "TPM2 support not installed: %m");
 
         TPML_PCR_SELECTION pcr_selection;
         _cleanup_free_ TPM2B_DIGEST *values = NULL;
@@ -3364,21 +3344,14 @@ int tpm2_calculate_policy_pcr(
                 return r;
 
         _cleanup_free_ uint8_t *buf = NULL;
-        size_t size = 0, maxsize = sizeof(command) + sizeof(pcr_selection);
+        size_t size = 0;
+        r = tpm2_marshal_realloc("PolicyPCR command", command, buf, 0, &size);
+        if (r < 0)
+                return r;
 
-        buf = malloc(maxsize);
-        if (!buf)
-                return log_oom();
-
-        rc = sym_Tss2_MU_TPM2_CC_Marshal(command, buf, maxsize, &size);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to marshal PolicyPCR command: %s", sym_Tss2_RC_Decode(rc));
-
-        rc = sym_Tss2_MU_TPML_PCR_SELECTION_Marshal(&pcr_selection, buf, maxsize, &size);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to marshal PCR selection: %s", sym_Tss2_RC_Decode(rc));
+        r = tpm2_marshal_realloc("PCR selection", &pcr_selection, buf, size, &size);
+        if (r < 0)
+                return r;
 
         struct iovec data[] = {
                 IOVEC_MAKE(buf, size),
@@ -3429,28 +3402,17 @@ int tpm2_calculate_policy_authorize(
                 TPM2B_DIGEST *digest) {
 
         TPM2_CC command = TPM2_CC_PolicyAuthorize;
-        TSS2_RC rc;
         int r;
 
         assert(public);
         assert(digest);
         assert(digest->size == SHA256_DIGEST_SIZE);
 
-        r = dlopen_tpm2();
+        _cleanup_free_ uint8_t *buf = NULL;
+        size_t size = 0;
+        r = tpm2_marshal_realloc("PolicyAuthorize command", command, buf, 0, &size);
         if (r < 0)
-                return log_error_errno(r, "TPM2 support not installed: %m");
-
-        uint8_t buf[sizeof(command)];
-        size_t offset = 0;
-
-        rc = sym_Tss2_MU_TPM2_CC_Marshal(command, buf, sizeof(buf), &offset);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to marshal PolicyAuthorize command: %s", sym_Tss2_RC_Decode(rc));
-
-        if (offset != sizeof(command))
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Offset 0x%zx wrong after marshalling PolicyAuthorize command", offset);
+                return r;
 
         TPM2B_NAME name = {};
         r = tpm2_calculate_name(&public->publicArea, &name);
@@ -3461,7 +3423,7 @@ int tpm2_calculate_policy_authorize(
         zero(digest->buffer);
 
         struct iovec data[] = {
-                IOVEC_MAKE(buf, offset),
+                IOVEC_MAKE(buf, size),
                 IOVEC_MAKE(name.name, name.size),
         };
         r = tpm2_digest_many(TPM2_ALG_SHA256, digest, data, ELEMENTSOF(data), /* extend= */ true);
@@ -3924,41 +3886,31 @@ int tpm2_marshal_blob(
                 void **ret_blob,
                 size_t *ret_blob_size) {
 
-        TSS2_RC rc;
+        int r;
 
         assert(public);
         assert(private);
         assert(ret_blob);
         assert(ret_blob_size);
 
-        size_t max_size = sizeof(*private) + sizeof(*public);
-        if (seed)
-                max_size += sizeof(*seed);
+        _cleanup_free_ void *buf = NULL;
+        size_t size = 0;
+        r = tpm2_marshal_realloc("private key", private, buf, 0, &size);
+        if (r < 0)
+                return r;
 
-        _cleanup_free_ void *blob = malloc(max_size);
-        if (!blob)
-                return log_oom_debug();
-
-        size_t blob_size = 0;
-        rc = sym_Tss2_MU_TPM2B_PRIVATE_Marshal(private, blob, max_size, &blob_size);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to marshal private key: %s", sym_Tss2_RC_Decode(rc));
-
-        rc = sym_Tss2_MU_TPM2B_PUBLIC_Marshal(public, blob, max_size, &blob_size);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to marshal public key: %s", sym_Tss2_RC_Decode(rc));
+        r = tpm2_marshal_realloc("public key", public, buf, size, &size);
+        if (r < 0)
+                return r;
 
         if (seed) {
-                rc = sym_Tss2_MU_TPM2B_ENCRYPTED_SECRET_Marshal(seed, blob, max_size, &blob_size);
-                if (rc != TSS2_RC_SUCCESS)
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Failed to marshal encrypted seed: %s", sym_Tss2_RC_Decode(rc));
+                r = tpm2_marshal_realloc("encrypted seed", seed, buf, size, &size);
+                if (r < 0)
+                        return r;
         }
 
-        *ret_blob = TAKE_PTR(blob);
-        *ret_blob_size = blob_size;
+        *ret_blob = TAKE_PTR(buf);
+        *ret_blob_size = size;
 
         return 0;
 }
@@ -3974,7 +3926,7 @@ int tpm2_unmarshal_blob(
                 TPM2B_PRIVATE *ret_private,
                 TPM2B_ENCRYPTED_SECRET *ret_seed) {
 
-        TSS2_RC rc;
+        int r;
 
         assert(blob);
         assert(ret_public);
@@ -3983,23 +3935,20 @@ int tpm2_unmarshal_blob(
 
         TPM2B_PRIVATE private = {};
         size_t offset = 0;
-        rc = sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal(blob, blob_size, &offset, &private);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to unmarshal private key: %s", sym_Tss2_RC_Decode(rc));
+        r = tpm2_unmarshal("private key", &private, blob, blob_size, offset, &offset);
+        if (r < 0)
+                return r;
 
         TPM2B_PUBLIC public = {};
-        rc = sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal(blob, blob_size, &offset, &public);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to unmarshal public key: %s", sym_Tss2_RC_Decode(rc));
+        r = tpm2_unmarshal("public key", &public, blob, blob_size, offset, &offset);
+        if (r < 0)
+                return r;
 
         TPM2B_ENCRYPTED_SECRET seed = {};
         if (blob_size > offset) {
-                rc = sym_Tss2_MU_TPM2B_ENCRYPTED_SECRET_Unmarshal(blob, blob_size, &offset, &seed);
-                if (rc != TSS2_RC_SUCCESS)
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Failed to unmarshal encrypted seed: %s", sym_Tss2_RC_Decode(rc));
+                r = tpm2_unmarshal("encrypted seed", &seed, blob, blob_size, offset, &offset);
+                if (r < 0)
+                        return r;
         }
 
         *ret_public = public;
@@ -4019,42 +3968,34 @@ static int tpm2_calculate_serialize(
                 void **ret_serialized,
                 size_t *ret_serialized_size) {
 
-        TSS2_RC rc;
+        int r;
 
         assert(name);
         assert(public);
         assert(ret_serialized);
         assert(ret_serialized_size);
 
-        size_t max_size = sizeof(TPM2_HANDLE) + sizeof(TPM2B_NAME) + sizeof(uint32_t) + sizeof(TPM2B_PUBLIC);
-        _cleanup_free_ void *serialized = malloc(max_size);
-        if (!serialized)
-                return log_oom();
+        _cleanup_free_ void *buf = NULL;
+        size_t size = 0;
+        r = tpm2_marshal_realloc("handle", handle, buf, 0, &size);
+        if (r < 0)
+                return r;
 
-        size_t serialized_size = 0;
-        rc = sym_Tss2_MU_TPM2_HANDLE_Marshal(handle, serialized, max_size, &serialized_size);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to marshal tpm handle: %s", sym_Tss2_RC_Decode(rc));
-
-        rc = sym_Tss2_MU_TPM2B_NAME_Marshal(name, serialized, max_size, &serialized_size);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to marshal name: %s", sym_Tss2_RC_Decode(rc));
+        r = tpm2_marshal_realloc("name", name, buf, size, &size);
+        if (r < 0)
+                return r;
 
         /* This is defined (non-publicly) in the tpm2-tss source as IESYSC_KEY_RSRC, to a value of "1". */
-        rc = sym_Tss2_MU_UINT32_Marshal(UINT32_C(1), serialized, max_size, &serialized_size);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to marshal esys resource id: %s", sym_Tss2_RC_Decode(rc));
+        r = tpm2_marshal_realloc("esys resource id", (uint32_t) 1, buf, size, &size);
+        if (r < 0)
+                return r;
 
-        rc = sym_Tss2_MU_TPM2B_PUBLIC_Marshal(public, serialized, max_size, &serialized_size);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to marshal public: %s", sym_Tss2_RC_Decode(rc));
+        r = tpm2_marshal_realloc("public", public, buf, size, &size);
+        if (r < 0)
+                return r;
 
-        *ret_serialized = TAKE_PTR(serialized);
-        *ret_serialized_size = serialized_size;
+        *ret_serialized = TAKE_PTR(buf);
+        *ret_serialized_size = size;
 
         return 0;
 }
@@ -4327,7 +4268,6 @@ static int tpm2_calculate_seal_private(
                 size_t secret_size,
                 TPM2B_PRIVATE *ret) {
 
-        TSS2_RC rc;
         int r;
 
         assert(parent);
@@ -4387,19 +4327,16 @@ static int tpm2_calculate_seal_private(
                 },
         };
 
-        _cleanup_free_ void *marshalled_sensitive = malloc(sizeof(sensitive));
-        if (!marshalled_sensitive)
-                return log_oom();
-
+        _cleanup_free_ void *marshalled_sensitive = NULL;
         size_t marshalled_sensitive_size = 0;
-        rc = sym_Tss2_MU_TPM2B_SENSITIVE_Marshal(
+        r = tpm2_marshal_realloc(
+                        "sensitive",
                         &sensitive,
                         marshalled_sensitive,
-                        sizeof(sensitive),
+                        /* offset= */ 0,
                         &marshalled_sensitive_size);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to marshal sensitive: %s", sym_Tss2_RC_Decode(rc));
+        if (r < 0)
+                return 0;
 
         _cleanup_free_ void *encrypted_sensitive = NULL;
         size_t encrypted_sensitive_size;
@@ -4410,7 +4347,7 @@ static int tpm2_calculate_seal_private(
                         /* iv= */ NULL,
                         /* n_iv= */ 0,
                         &IOVEC_MAKE((void*) marshalled_sensitive, marshalled_sensitive_size),
-                        1,
+                        /* n_data= */ 1,
                         &encrypted_sensitive,
                         &encrypted_sensitive_size);
         if (r < 0)
@@ -4439,23 +4376,12 @@ static int tpm2_calculate_seal_private(
         if (r < 0)
                 return log_error_errno(r, "HMAC failed: %m");
 
-        assert(hmac_size <= UINT16_MAX);
-        TPM2B_DIGEST outer_hmac = {
-                .size = hmac_size,
-        };
-        memcpy(outer_hmac.buffer, hmac_buffer, hmac_size);
+        TPM2B_DIGEST outer_hmac = TPM2B_DIGEST_MAKE(hmac_buffer, hmac_size);
 
         TPM2B_PRIVATE private = {};
-        size_t private_size = 0;
-        rc = sym_Tss2_MU_TPM2B_DIGEST_Marshal(
-                        &outer_hmac,
-                        private.buffer,
-                        sizeof(private.buffer),
-                        &private_size);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to marshal digest: %s", sym_Tss2_RC_Decode(rc));
-        private.size = private_size;
+        r = tpm2_marshal("digest", &outer_hmac, private.buffer, sizeof(private.buffer), 0, &private.size);
+        if (r < 0)
+                return r;
 
         assert(sizeof(private.buffer) - private.size >= encrypted_sensitive_size);
         memcpy_safe(&private.buffer[private.size], encrypted_sensitive, encrypted_sensitive_size);
@@ -4534,7 +4460,6 @@ static int tpm2_calculate_seal_ecc_seed(
                 void **ret_encrypted_seed,
                 size_t *ret_encrypted_seed_size) {
 
-        TSS2_RC rc;
         int r;
 
         assert(parent);
@@ -4574,15 +4499,11 @@ static int tpm2_calculate_seal_ecc_seed(
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "ECC point y too large.");
         memcpy(point.y.buffer, y, y_size);
 
-        _cleanup_free_ void *encrypted_seed = malloc(sizeof(point));
-        if (!encrypted_seed)
-                return log_oom_debug();
-
+        _cleanup_free_ void *encrypted_seed = NULL;
         size_t encrypted_seed_size = 0;
-        rc = sym_Tss2_MU_TPMS_ECC_POINT_Marshal(&point, encrypted_seed, sizeof(point), &encrypted_seed_size);
-        if (rc != TPM2_RC_SUCCESS)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to marshal ECC point: %s", sym_Tss2_RC_Decode(rc));
+        r = tpm2_marshal_realloc("ECC point", &point, encrypted_seed, 0, &encrypted_seed_size);
+        if (r < 0)
+                return r;
 
         size_t hash_size = tpm2_hash_alg_to_size(parent->publicArea.nameAlg);
         if (hash_size == 0)
@@ -4884,8 +4805,6 @@ int tpm2_seal(Tpm2Context *c,
         if (!secret)
                 return log_oom();
 
-        log_debug("Marshalling private and public part of HMAC key.");
-
         _cleanup_free_ void *blob = NULL;
         size_t blob_size;
         r = tpm2_marshal_blob(public, private, /* seed= */ NULL, &blob, &blob_size);
@@ -5144,10 +5063,6 @@ int tpm2_list_devices(void) {
         _cleanup_closedir_ DIR *d = NULL;
         int r;
 
-        r = dlopen_tpm2();
-        if (r < 0)
-                return log_error_errno(r, "TPM2 support is not installed.");
-
         t = table_new("path", "device", "driver");
         if (!t)
                 return log_oom();
@@ -5218,11 +5133,6 @@ int tpm2_find_device_auto(
                 char **ret) {
 #if HAVE_TPM2
         _cleanup_closedir_ DIR *d = NULL;
-        int r;
-
-        r = dlopen_tpm2();
-        if (r < 0)
-                return log_error_errno(r, "TPM2 support is not installed.");
 
         d = opendir("/sys/class/tpmrm");
         if (!d) {
