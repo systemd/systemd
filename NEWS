@@ -131,6 +131,11 @@ CHANGES WITH 253 in spe:
 
         * systemd-networkd-wait-online now supports alternative interface names.
 
+        * The [DHCPv6] section in .network file gained new SendRelease=
+          setting which enables the DHCPv6 client to send release when
+          it stops. This is the analog of the [DHCPv4] SendRelease= setting.
+          It is enabled by default.
+
         Changes in systemd-dissect:
 
         * systemd-dissect gained a new option --list, to print the paths fo the

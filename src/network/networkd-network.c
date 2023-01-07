@@ -416,6 +416,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp6_use_rapid_commit = true,
                 .dhcp6_duid.type = _DUID_TYPE_INVALID,
                 .dhcp6_client_start_mode = _DHCP6_CLIENT_START_MODE_INVALID,
+                .dhcp6_send_release = true,
 
                 .dhcp_pd = -1,
                 .dhcp_pd_announce = true,
