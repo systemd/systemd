@@ -4,7 +4,6 @@
 #include "bootspec-fundamental.h"
 #include "console.h"
 #include "devicetree.h"
-#include "disk.h"
 #include "drivers.h"
 #include "efivars-fundamental.h"
 #include "graphics.h"
@@ -2542,7 +2541,6 @@ static void export_variables(
                 0;
 
         _cleanup_free_ char16_t *infostr = NULL, *typestr = NULL;
-        char16_t uuid[37];
 
         assert(loaded_image);
 
@@ -2561,7 +2559,8 @@ static void export_variables(
         efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderImageIdentifier", loaded_image_path, 0);
 
         /* export the device path this image is started from */
-        if (disk_get_part_uuid(loaded_image->DeviceHandle, uuid) == EFI_SUCCESS)
+        _cleanup_free_ char16_t *uuid = disk_get_part_uuid(loaded_image->DeviceHandle);
+        if (uuid)
                 efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderDevicePartUUID", uuid, 0);
 }
 
