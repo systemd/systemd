@@ -2117,24 +2117,16 @@ int tpm2_seal(const char *device,
         if (!secret)
                 return log_oom();
 
-        log_debug("Marshalling private and public part of HMAC key.");
-
         _cleanup_free_ void *blob = NULL;
-        size_t max_size = sizeof(*private) + sizeof(*public), blob_size = 0;
+        size_t blob_size = 0;
 
-        blob = malloc0(max_size);
-        if (!blob)
-                return log_oom();
+        r = tpm2_marshal_realloc("HMAC private key", private, &blob, &blob_size);
+        if (r < 0)
+                return r;
 
-        rc = sym_Tss2_MU_TPM2B_PRIVATE_Marshal(private, blob, max_size, &blob_size);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to marshal private key: %s", sym_Tss2_RC_Decode(rc));
-
-        rc = sym_Tss2_MU_TPM2B_PUBLIC_Marshal(public, blob, max_size, &blob_size);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to marshal public key: %s", sym_Tss2_RC_Decode(rc));
+        r = tpm2_marshal_realloc("HMAC public key", public, &blob, &blob_size);
+        if (r < 0)
+                return r;
 
         hash = memdup(policy_digest->buffer, policy_digest->size);
         if (!hash)
@@ -2234,19 +2226,13 @@ int tpm2_unseal(const char *device,
 
         start = now(CLOCK_MONOTONIC);
 
-        log_debug("Unmarshalling private part of HMAC key.");
+        r = tpm2_unmarshal("HMAC private key", blob, blob_size, &offset, &private);
+        if (r < 0)
+                return r;
 
-        rc = sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal(blob, blob_size, &offset, &private);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to unmarshal private key: %s", sym_Tss2_RC_Decode(rc));
-
-        log_debug("Unmarshalling public part of HMAC key.");
-
-        rc = sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal(blob, blob_size, &offset, &public);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to unmarshal public key: %s", sym_Tss2_RC_Decode(rc));
+        r = tpm2_unmarshal("HMAC public key", blob, blob_size, &offset, &public);
+        if (r < 0)
+                return r;
 
         _cleanup_tpm2_context_ Tpm2Context *c = NULL;
         r = tpm2_context_new(device, &c);
