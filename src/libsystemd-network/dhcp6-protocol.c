@@ -11,6 +11,7 @@ static const char * const dhcp6_state_table[_DHCP6_STATE_MAX] = {
         [DHCP6_STATE_BOUND]               = "bound",
         [DHCP6_STATE_RENEW]               = "renew",
         [DHCP6_STATE_REBIND]              = "rebind",
+        [DHCP6_STATE_STOPPING]             = "stopping",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dhcp6_state, DHCP6State);
