@@ -8,6 +8,7 @@
  * https://github.com/mjg59/efitools
  */
 
+#include "device-path-util.h"
 #include "secure-boot.h"
 #include "shim.h"
 #include "util.h"
