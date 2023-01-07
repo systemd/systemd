@@ -104,6 +104,160 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Tss2_MU_TPM2B_PUBLIC_Unmarshal));
 }
 
+/* Generic mappings for marshal/unmarshal type->function. */
+#define MARSHAL(src)                                                    \
+        _Generic(src,                                                   \
+                 TPM2B_PRIVATE*: sym_Tss2_MU_TPM2B_PRIVATE_Marshal,     \
+                 TPM2B_PUBLIC*: sym_Tss2_MU_TPM2B_PUBLIC_Marshal)
+#define UNMARSHAL(dst)                                                  \
+        _Generic(dst,                                                   \
+                 TPM2B_PRIVATE*: sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal,   \
+                 TPM2B_PUBLIC*: sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal)
+
+/* Marshal src object into buf. The type of src must be defined in MARSHAL() above. The buffer size ('max')
+ * must be large enough to contain all the marshalled data, which is added to the buffer starting at the
+ * offset from the value of the pointer 'sizep'. The 'sizep' pointer will be increased by the size of the
+ * added data. */
+#define tpm2_marshal(desc, src, buf, max, sizep)                        \
+        UNIQ_tpm2_marshal(desc, src, buf, max, sizep, UNIQ)
+#define UNIQ_tpm2_marshal(desc, src, buf, max, sizep, uniq)             \
+        ({                                                              \
+                const char *UNIQ_T(_desc, uniq) = (desc);               \
+                typeof(src) UNIQ_T(_src, uniq) = (src);                 \
+                typeof(buf) UNIQ_T(_buf, uniq) = (buf);                 \
+                typeof(max) UNIQ_T(_max, uniq) = (max);                 \
+                typeof(sizep) UNIQ_T(_sizep, uniq) = (sizep);           \
+                _tpm2_marshal(UNIQ_T(_desc, uniq),                      \
+                              UNIQ_T(_src, uniq),                       \
+                              UNIQ_T(_buf, uniq),                       \
+                              UNIQ_T(_max, uniq),                       \
+                              UNIQ_T(_sizep, uniq),                     \
+                              UNIQ_T(_size, uniq),                      \
+                              UNIQ_T(_rc, uniq),                        \
+                              UNIQ_T(_r, uniq));                        \
+        })
+#define _tpm2_marshal(desc, src, buf, max, sizep, _size_, _rc_, _r_)    \
+        ({                                                              \
+                log_debug("Marshalling %s", desc);                      \
+                size_t _size_ = sizep ? *sizep : 0;                     \
+                int _r_ = __tpm2_marshal(desc, src, buf, max, &_size_, _rc_); \
+                if (_r_ == 0 && sizep)                                  \
+                        *sizep = _size_;                                \
+                _r_;                                                    \
+        })
+#define __tpm2_marshal(desc, src, buf, max, sizep, _rc_)                \
+        ({                                                              \
+                TSS2_RC _rc_ = MARSHAL(src)(src, buf, max, sizep);      \
+                _rc_ == TSS2_RC_SUCCESS ? (int)0                        \
+                        : log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), \
+                                          "Failed to marshal %s: %s",   \
+                                          desc,                         \
+                                          sym_Tss2_RC_Decode(_rc_));    \
+        })
+
+/* This is the same as tpm2_marshal() but does not actually perform the marshalling, it only calls the Esys
+ * function with a NULL buffer to calculate the required size for marshalling. See tpm2_marshal() for details
+ * on parameter requirements. */
+#define tpm2_marshal_size(desc, src, sizep)                             \
+        UNIQ_tpm2_marshal_size(desc, src, sizep, UNIQ)
+#define UNIQ_tpm2_marshal_size(desc, src, sizep, uniq)                  \
+        ({                                                              \
+                const char *UNIQ_T(_desc, uniq) = (desc);               \
+                typeof(src) UNIQ_T(_src, uniq) = (src);                 \
+                typeof(sizep) UNIQ_T(_sizep, uniq) = (sizep);           \
+                _tpm2_marshal_size(UNIQ_T(_desc, uniq),                 \
+                                   UNIQ_T(_src, uniq),                  \
+                                   UNIQ_T(_sizep, uniq),                \
+                                   UNIQ_T(_newsize, uniq),              \
+                                   UNIQ_T(_rc, uniq),                   \
+                                   UNIQ_T(_r, uniq));                   \
+        })
+#define _tpm2_marshal_size(desc, src, sizep, _newsize_, _rc_, _r_)      \
+        ({                                                              \
+                size_t _newsize_ = *sizep;                              \
+                int _r_ = __tpm2_marshal(desc, src, NULL, 0, &_newsize_, _rc_); \
+                if (_r_ == 0) {                                         \
+                        log_debug("Marshalling %s requires %lu bytes.", \
+                                  desc, _newsize_ - *sizep);            \
+                        *sizep = _newsize_;                             \
+                }                                                       \
+                _r_;                                                    \
+        })
+
+/* Realloc the buffer to add the size required to marshal the src object, and then marshal into the new
+ * space. Note that the 'bufp' parameter must be uint8_t**, and must point to a buffer compatible with
+ * realloc(); it will be updated realloc(). See tpm2_marshal() for details on other parameter
+ * requirements. Returns 0 or error. */
+#define tpm2_marshal_realloc(desc, src, bufp, sizep)                    \
+        UNIQ_tpm2_marshal_realloc(desc, src, bufp, sizep, UNIQ)
+#define UNIQ_tpm2_marshal_realloc(desc, src, bufp, sizep, uniq)         \
+        ({                                                              \
+                const char *UNIQ_T(_desc, uniq) = (desc);               \
+                typeof(src) UNIQ_T(_src, uniq) = (src);                 \
+                typeof(bufp) UNIQ_T(_bufp, uniq) = (bufp);              \
+                typeof(sizep) UNIQ_T(_sizep, uniq) = (sizep);           \
+                _tpm2_marshal_realloc(UNIQ_T(_desc, uniq),              \
+                                      UNIQ_T(_src, uniq),               \
+                                      UNIQ_T(_bufp, uniq),              \
+                                      UNIQ_T(_sizep, uniq),             \
+                                      UNIQ_T(_newsize, uniq),           \
+                                      UNIQ_T(_buf, uniq),               \
+                                      UNIQ_T(_rc, uniq),                \
+                                      UNIQ_T(_r, uniq));                \
+        })
+#define _tpm2_marshal_realloc(desc, src, bufp, sizep, _newsize_, _buf_, _rc_, _r_) \
+        ({                                                              \
+                size_t _newsize_ = *sizep;                              \
+                int _r_ = tpm2_marshal_size(desc, src, &_newsize_);     \
+                _r_ ?: __tpm2_marshal_realloc(desc, src, bufp, sizep, _newsize_, _buf_, _rc_); \
+        })
+#define __tpm2_marshal_realloc(desc, src, bufp, sizep, newsize, _buf_, _rc_) \
+        ({                                                              \
+                typeof(*bufp) _buf_ = realloc(*bufp, newsize);          \
+                !_buf_ ? log_oom() :                                    \
+                        ({                                              \
+                                *bufp = _buf_;                          \
+                                __tpm2_marshal(desc, src, _buf_, newsize, sizep, _rc_); \
+                        });                                             \
+        })
+
+#define tpm2_unmarshal(desc, buf, max, sizep, dst)                      \
+        UNIQ_tpm2_unmarshal(desc, buf, max, sizep, dst, UNIQ)
+#define UNIQ_tpm2_unmarshal(desc, buf, max, sizep, dst, uniq)           \
+        ({                                                              \
+                const char *UNIQ_T(_desc, uniq) = (desc);               \
+                typeof(buf) UNIQ_T(_buf, uniq) = (buf);                 \
+                typeof(max) UNIQ_T(_max, uniq) = (max);                 \
+                typeof(sizep) UNIQ_T(_sizep, uniq) = (sizep);           \
+                typeof(dst) UNIQ_T(_dst, uniq) = (dst);                 \
+                _tpm2_unmarshal(UNIQ_T(_desc, uniq),                    \
+                                UNIQ_T(_buf, uniq),                     \
+                                UNIQ_T(_max, uniq),                     \
+                                UNIQ_T(_sizep, uniq),                   \
+                                UNIQ_T(_dst, uniq),                     \
+                                UNIQ_T(_size, uniq),                    \
+                                UNIQ_T(_rc, uniq),                      \
+                                UNIQ_T(_r, uniq));                      \
+        })
+#define _tpm2_unmarshal(desc, buf, max, sizep, dst, _size_, _rc_, _r_)  \
+        ({                                                              \
+                log_debug("Unmarshalling %s", desc);                    \
+                size_t _size_ = sizep ? *sizep : 0;                     \
+                int _r_ = __tpm2_unmarshal(desc, buf, max, &_size_, dst, _rc_); \
+                if (_r_ == 0 && sizep)                                  \
+                        *sizep = _size_;                                \
+                _r_;                                                    \
+        })
+#define __tpm2_unmarshal(desc, buf, max, sizep, dst, _rc_)              \
+        ({                                                              \
+                TSS2_RC _rc_ = UNMARSHAL(dst)(buf, max, sizep, dst);    \
+                _rc_ == TSS2_RC_SUCCESS ? (int)0                        \
+                        : log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), \
+                                          "Failed to unmarshal %s: %s", \
+                                          desc,                         \
+                                          sym_Tss2_RC_Decode(_rc_));    \
+        })
+
 static Tpm2Context *tpm2_context_free(Tpm2Context *c) {
         if (!c)
                 return NULL;
@@ -1774,24 +1928,16 @@ int tpm2_seal(const char *device,
         if (!secret)
                 return log_oom();
 
-        log_debug("Marshalling private and public part of HMAC key.");
-
         _cleanup_free_ void *blob = NULL;
-        size_t max_size = sizeof(*private) + sizeof(*public), blob_size = 0;
+        size_t blob_size = 0;
 
-        blob = malloc0(max_size);
-        if (!blob)
-                return log_oom();
+        r = tpm2_marshal_realloc("HMAC private key", private, &blob, &blob_size);
+        if (r < 0)
+                return r;
 
-        rc = sym_Tss2_MU_TPM2B_PRIVATE_Marshal(private, blob, max_size, &blob_size);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to marshal private key: %s", sym_Tss2_RC_Decode(rc));
-
-        rc = sym_Tss2_MU_TPM2B_PUBLIC_Marshal(public, blob, max_size, &blob_size);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to marshal public key: %s", sym_Tss2_RC_Decode(rc));
+        r = tpm2_marshal_realloc("HMAC public key", public, &blob, &blob_size);
+        if (r < 0)
+                return r;
 
         hash = memdup(policy_digest->buffer, policy_digest->size);
         if (!hash)
@@ -1864,19 +2010,13 @@ int tpm2_unseal(const char *device,
 
         start = now(CLOCK_MONOTONIC);
 
-        log_debug("Unmarshalling private part of HMAC key.");
+        r = tpm2_unmarshal("HMAC private key", blob, blob_size, &offset, &private);
+        if (r < 0)
+                return r;
 
-        rc = sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal(blob, blob_size, &offset, &private);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to unmarshal private key: %s", sym_Tss2_RC_Decode(rc));
-
-        log_debug("Unmarshalling public part of HMAC key.");
-
-        rc = sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal(blob, blob_size, &offset, &public);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to unmarshal public key: %s", sym_Tss2_RC_Decode(rc));
+        r = tpm2_unmarshal("HMAC public key", blob, blob_size, &offset, &public);
+        if (r < 0)
+                return r;
 
         _cleanup_tpm2_context_ Tpm2Context *c = NULL;
         r = tpm2_context_new(device, &c);
