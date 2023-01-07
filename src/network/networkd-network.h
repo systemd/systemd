@@ -185,6 +185,7 @@ struct Network {
         OrderedHashmap *dhcp6_client_send_vendor_options;
         Set *dhcp6_request_options;
         char *dhcp6_netlabel;
+        bool dhcp6_send_release;
 
         /* DHCP Server Support */
         bool dhcp_server;
