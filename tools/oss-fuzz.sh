@@ -96,8 +96,10 @@ rm -rf "$hosts"
 
 # The seed corpus is a separate flat archive for each fuzzer,
 # with a fixed name ${fuzzer}_seed_corpus.zip.
-for d in test/fuzz/fuzz-*; do
-    zip -jqr "$OUT/$(basename "$d")_seed_corpus.zip" "$d"
+for d in test/fuzz/fuzz-* "$build/test/fuzz"; do
+    fname="$(basename "$d")"
+    [[ "$fname" == "fuzz" ]] && fname="fuzz-generated-directives"
+    zip -jqr "$OUT/${fname}_seed_corpus.zip" "$d"
 done
 
 # get fuzz-dns-packet corpus
