@@ -14,14 +14,6 @@
 /* This TPM PCR is where sd-stub extends the kernel command line and any passed credentials into. */
 #define TPM_PCR_INDEX_KERNEL_PARAMETERS 12U
 
-/* sd-stub used to write the kernel command line/credentials into PCR 8, in systemd <= 250. Let's provide for
- * some compatibility. (Remove in 2023!) */
-#if EFI_TPM_PCR_COMPAT
-#define TPM_PCR_INDEX_KERNEL_PARAMETERS_COMPAT 8U
-#else
-#define TPM_PCR_INDEX_KERNEL_PARAMETERS_COMPAT UINT32_MAX
-#endif
-
 /* This TPM PCR is where we extend the initrd sysext images into which we pass to the booted kernel */
 #define TPM_PCR_INDEX_INITRD_SYSEXTS 13U
 
