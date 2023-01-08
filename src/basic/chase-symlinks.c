@@ -101,21 +101,31 @@ int chase_symlinks_at(
         if (isempty(path))
                 path = ".";
 
+        if (flags & CHASE_PARENT) {
+                r = path_extract_directory(path, &buffer);
+                if (r == -EDESTADDRREQ)
+                        path = "."; /* If we don't have a parent directory, fall back to the root directory. */
+                else if (r < 0)
+                        return r;
+        }
+
         /* This function resolves symlinks of the path relative to the given directory file descriptor. If
-         * CHASE_SYMLINKS_RESOLVE_IN_ROOT is specified, symlinks are resolved relative to the given directory
-         * file descriptor. Otherwise, they are resolved relative to the root directory of the host.
+         * CHASE_SYMLINKS_RESOLVE_IN_ROOT is specified and a directory file descriptor is provided, symlinks
+         * are resolved relative to the given directory file descriptor. Otherwise, they are resolved
+         * relative to the root directory of the host.
          *
-         * Note that when CHASE_SYMLINKS_RESOLVE_IN_ROOT is specified and we find an absolute symlink, it is
-         * resolved relative to given directory file descriptor and not the root of the host. Also, when
-         * following relative symlinks, this functions ensure they cannot be used to "escape" the given
-         * directory file descriptor. The "path" parameter is always interpreted relative to the given
-         * directory file descriptor. If the given directory file descriptor is AT_FDCWD and "path" is
-         * absolute, it is interpreted relative to the root directory of the host.
+         * Note that when a positive directory file descriptor is provided and CHASE_AT_RESOLVE_IN_ROOT is
+         * specified and we find an absolute symlink, it is resolved relative to given directory file
+         * descriptor and not the root of the host. Also, when following relative symlinks, this functions
+         * ensures they cannot be used to "escape" the given directory file descriptor. If a positive
+         * directory file descriptor is provided, the "path" parameter is always interpreted relative to the
+         * given directory file descriptor, even if it is absolute. If the given directory file descriptor is
+         * AT_FDCWD and "path" is absolute, it is interpreted relative to the root directory of the host.
          *
          * If "dir_fd" is a valid directory fd, "path" is an absolute path and "ret_path" is not NULL, this
          * functions returns a relative path in "ret_path" because openat() like functions generally ignore
          * the directory fd if they are provided with an absolute path. On the other hand, if "dir_fd" is
-         * AT_FDCWD and "path" is an absolute path, we need to return an absolute path in "ret_path" because
+         * AT_FDCWD and "path" is an absolute path, we return an absolute path in "ret_path" because
          * otherwise, if the caller passes the returned relative path to another openat() like function, it
          * would be resolved relative to the current working directory instead of to "/".
          *
@@ -165,7 +175,7 @@ int chase_symlinks_at(
 
                 /* Shortcut the ret_fd case if the caller isn't interested in the actual path and has no root
                  * set and doesn't care about any of the other special features we provide either. */
-                r = openat(dir_fd, path, O_PATH|O_CLOEXEC|((flags & CHASE_NOFOLLOW) ? O_NOFOLLOW : 0));
+                r = openat(dir_fd, buffer ?: path, O_PATH|O_CLOEXEC|((flags & CHASE_NOFOLLOW) ? O_NOFOLLOW : 0));
                 if (r < 0)
                         return -errno;
 
@@ -173,25 +183,36 @@ int chase_symlinks_at(
                 return 0;
         }
 
-        buffer = strdup(path);
-        if (!buffer)
-                return -ENOMEM;
+        if (!buffer) {
+                buffer = strdup(path);
+                if (!buffer)
+                        return -ENOMEM;
+        }
 
-        bool need_absolute = !FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT) && path_is_absolute(path);
+        /* If we receive an absolute path together with AT_FDCWD, we need to return an absolute path, because
+         * a relative path would be interpreted relative to the current working directory. */
+        bool need_absolute = dir_fd == AT_FDCWD && path_is_absolute(path);
         if (need_absolute) {
                 done = strdup("/");
                 if (!done)
                         return -ENOMEM;
         }
 
-        if (FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT))
+        /* If we get AT_FDCWD, we always resolve symlinks relative to the host's root. Only if a positive
+         * directory file descriptor is provided will we look at CHASE_AT_RESOLVE_IN_ROOT to determine
+         * whether to resolve symlinks in it or not. */
+        if (dir_fd >= 0 && FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT))
                 root_fd = openat(dir_fd, ".", O_CLOEXEC|O_DIRECTORY|O_PATH);
         else
                 root_fd = open("/", O_CLOEXEC|O_DIRECTORY|O_PATH);
         if (root_fd < 0)
                 return -errno;
 
-        if (FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT) || !path_is_absolute(path))
+        /* If a positive directory file descriptor is provided, always resolve the given path relative to it,
+         * regardless of whether it is absolute or not. If we get AT_FDCWD, follow regular openat()
+         * semantics, if the path is relative, resolve against the current working directory. Otherwise,
+         * resolve against root. */
+        if (dir_fd >= 0 || !path_is_absolute(path))
                 fd = openat(dir_fd, ".", O_CLOEXEC|O_DIRECTORY|O_PATH);
         else
                 fd = open("/", O_CLOEXEC|O_DIRECTORY|O_PATH);
@@ -688,4 +709,36 @@ int chase_symlinks_and_fopen_unlocked(
                 *ret_path = TAKE_PTR(final_path);
 
         return 0;
+}
+
+int chase_symlinks_at_and_open_mkdir_p(
+                int dir_fd,
+                const char *path,
+                ChaseSymlinksFlags chase_flags,
+                int open_flags,
+                mode_t mode,
+                char **ret_path) {
+
+        _cleanup_free_ char *p = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(path);
+
+        if (chase_flags & (CHASE_NONEXISTENT|CHASE_STEP))
+                return -EINVAL;
+
+        r = chase_symlinks_at(dir_fd, path, chase_flags|CHASE_NONEXISTENT, &p, NULL);
+        if (r < 0)
+                return r;
+
+        fd = open_mkdir_at_p(dir_fd, p, open_flags, mode);
+        if (fd < 0)
+                return fd;
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(p);
+
+        return TAKE_FD(fd);
 }
