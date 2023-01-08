@@ -500,6 +500,12 @@ TEST(chase_symlinks_at) {
         result = mfree(result);
 
         assert_se(chase_symlinks_at(tfd, "i/../p", CHASE_MKDIR_0755, NULL, NULL) == -ENOENT);
+
+        /* Test chase_symlinks_at_and_open() */
+
+        fd = chase_symlinks_at_and_open(tfd, "o/p/e/n", CHASE_MKDIR_0755, O_CLOEXEC, NULL);
+        assert_se(fd >= 0);
+        fd = safe_close(fd);
 }
 
 TEST(unlink_noerrno) {
