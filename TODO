@@ -118,8 +118,6 @@ Deprecations and removals:
 * rework our PID tracking in services and so on, to be strictly based on pidfd,
   once kernel baseline is 5.13.
 
-* ~2023: remove support for TPM_PCR_INDEX_KERNEL_PARAMETERS_COMPAT
-
 * H2 2023: remove support for unmerged-usr
 
 * Remove /dev/mem ACPI FPDT parsing when /sys/firmware/acpi/fpdt is ubiquitous.
