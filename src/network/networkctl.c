@@ -1536,13 +1536,29 @@ static int table_add_string_line(Table *table, const char *key, const char *valu
         return 0;
 }
 
+static int format_dropins(char **dropins) {
+        STRV_FOREACH(d, dropins) {
+                _cleanup_free_ char *s = NULL;
+                int glyph = *(d + 1) == NULL ? SPECIAL_GLYPH_TREE_RIGHT : SPECIAL_GLYPH_TREE_BRANCH;
+
+                s = strjoin(special_glyph(glyph), *d);
+                if (!s)
+                        return log_oom();
+
+                free_and_replace(*d, s);
+        }
+
+        return 0;
+}
+
 static int link_status_one(
                 sd_bus *bus,
                 sd_netlink *rtnl,
                 sd_hwdb *hwdb,
                 const LinkInfo *info) {
 
-        _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **sip = NULL, **search_domains = NULL, **route_domains = NULL;
+        _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **sip = NULL, **search_domains = NULL,
+                **route_domains = NULL, **link_dropins = NULL, **network_dropins = NULL;
         _cleanup_free_ char *t = NULL, *network = NULL, *iaid = NULL, *duid = NULL,
                 *setup_state = NULL, *operational_state = NULL, *online_state = NULL, *activation_policy = NULL;
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL,
@@ -1571,12 +1587,22 @@ static int link_status_one(
         (void) sd_network_link_get_ntp(info->ifindex, &ntp);
         (void) sd_network_link_get_sip(info->ifindex, &sip);
         (void) sd_network_link_get_network_file(info->ifindex, &network);
+        (void) sd_network_link_get_network_file_dropins(info->ifindex, &network_dropins);
         (void) sd_network_link_get_carrier_bound_to(info->ifindex, &carrier_bound_to);
         (void) sd_network_link_get_carrier_bound_by(info->ifindex, &carrier_bound_by);
         (void) sd_network_link_get_activation_policy(info->ifindex, &activation_policy);
 
         if (info->sd_device) {
+                const char *joined;
+
                 (void) sd_device_get_property_value(info->sd_device, "ID_NET_LINK_FILE", &link);
+
+                if (sd_device_get_property_value(info->sd_device, "ID_NET_LINK_FILE_DROPINS", &joined) >= 0) {
+                        r = strv_split_full(&link_dropins, joined, ":", EXTRACT_CUNESCAPE);
+                        if (r < 0)
+                                return r;
+                }
+
                 (void) sd_device_get_property_value(info->sd_device, "ID_NET_DRIVER", &driver);
                 (void) sd_device_get_property_value(info->sd_device, "ID_PATH", &path);
 
@@ -1595,6 +1621,20 @@ static int link_status_one(
         xsprintf(lease_file, "/run/systemd/netif/leases/%i", info->ifindex);
 
         (void) dhcp_lease_load(&lease, lease_file);
+
+        r = format_dropins(network_dropins);
+        if (r < 0)
+                return r;
+
+        if (strv_prepend(&network_dropins, network) < 0)
+                return log_oom();
+
+        r = format_dropins(link_dropins);
+        if (r < 0)
+                return r;
+
+        if (strv_prepend(&link_dropins, link) < 0)
+                return log_oom();
 
         table = table_new("dot", "key", "value");
         if (!table)
@@ -1631,10 +1671,10 @@ static int link_status_one(
                            TABLE_EMPTY,
                            TABLE_STRING, "Link File:",
                            TABLE_SET_ALIGN_PERCENT, 100,
-                           TABLE_STRING, strna(link),
+                           TABLE_STRV, link_dropins ?: STRV_MAKE("n/a"),
                            TABLE_EMPTY,
                            TABLE_STRING, "Network File:",
-                           TABLE_STRING, strna(network),
+                           TABLE_STRV, network_dropins ?: STRV_MAKE("n/a"),
                            TABLE_EMPTY,
                            TABLE_STRING, "State:");
         if (r < 0)
