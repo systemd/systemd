@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "chase-symlinks.h"
 #include "errno-util.h"
 #include "time-util.h"
 #include "user-util.h"
@@ -127,5 +128,6 @@ int posix_fallocate_loop(int fd, uint64_t offset, uint64_t size);
 int parse_cifs_service(const char *s, char **ret_host, char **ret_service, char **ret_path);
 
 int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode);
+int open_mkdir_at_p(int dir_fd, const char *path, int open_flags, mode_t mode);
 
 int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, bool *ret_newly_created);
