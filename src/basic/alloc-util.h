@@ -186,10 +186,11 @@ void* greedy_realloc0(void **p, size_t need, size_t size);
 #endif
 
 /* Dummy allocator to tell the compiler that the new size of p is newsize. The implementation returns the
- * pointer as is; the only reason for its existence is as a conduit for the _alloc_ attribute. This cannot be
- * a static inline because gcc then loses the attributes on the function.
+ * pointer as is; the only reason for its existence is as a conduit for the _alloc_ attribute.  This must not
+ * be inlined (hence a non-static function with _noinline_ because LTO otherwise tries to inline it) because
+ * gcc then loses the attributes on the function.
  * See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=96503 */
-void *expand_to_usable(void *p, size_t newsize) _alloc_(2) _returns_nonnull_;
+void *expand_to_usable(void *p, size_t newsize) _alloc_(2) _returns_nonnull_ _noinline_;
 
 static inline size_t malloc_sizeof_safe(void **xp) {
         if (_unlikely_(!xp || !*xp))
