@@ -20,6 +20,7 @@
 #define _hidden_ __attribute__((__visibility__("hidden")))
 #define _likely_(x) (__builtin_expect(!!(x), 1))
 #define _malloc_ __attribute__((__malloc__))
+#define _noinline_ __attribute__((noinline))
 #define _noreturn_ _Noreturn
 #define _packed_ __attribute__((__packed__))
 #define _printf_(a, b) __attribute__((__format__(printf, a, b)))
