@@ -1000,7 +1000,7 @@ int transaction_add_job_and_dependencies(
                                 r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, true, false, false, ignore_order, e);
                                 if (r < 0) {
                                         if (r != -EBADR) /* job type not applicable */
-                                                goto fail;
+                                                return r;
 
                                         sd_bus_error_free(e);
                                 }
@@ -1022,7 +1022,7 @@ int transaction_add_job_and_dependencies(
                                 r = transaction_add_job_and_dependencies(tr, JOB_VERIFY_ACTIVE, dep, ret, true, false, false, ignore_order, e);
                                 if (r < 0) {
                                         if (r != -EBADR) /* job type not applicable */
-                                                goto fail;
+                                                return r;
 
                                         sd_bus_error_free(e);
                                 }
@@ -1032,7 +1032,7 @@ int transaction_add_job_and_dependencies(
                                 r = transaction_add_job_and_dependencies(tr, JOB_STOP, dep, ret, true, true, false, ignore_order, e);
                                 if (r < 0) {
                                         if (r != -EBADR) /* job type not applicable */
-                                                goto fail;
+                                                return r;
 
                                         sd_bus_error_free(e);
                                 }
@@ -1073,7 +1073,7 @@ int transaction_add_job_and_dependencies(
                                 r = transaction_add_job_and_dependencies(tr, nt, dep, ret, true, false, false, ignore_order, e);
                                 if (r < 0) {
                                         if (r != -EBADR) /* job type not applicable */
-                                                goto fail;
+                                                return r;
 
                                         sd_bus_error_free(e);
                                 }
@@ -1087,9 +1087,6 @@ int transaction_add_job_and_dependencies(
         }
 
         return 0;
-
-fail:
-        return r;
 }
 
 int transaction_add_isolate_jobs(Transaction *tr, Manager *m) {
