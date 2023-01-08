@@ -162,8 +162,10 @@ int chase_symlinks_at(
          *    the mount point is emitted. CHASE_WARN cannot be used in PID 1.
          */
 
-        if (!(flags & (CHASE_AT_RESOLVE_IN_ROOT|CHASE_NONEXISTENT|CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_STEP)) &&
-                !ret_path && ret_fd) {
+        if (!(flags &
+              (CHASE_AT_RESOLVE_IN_ROOT|CHASE_NONEXISTENT|CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_STEP|
+               CHASE_PROHIBIT_SYMLINKS)) &&
+            !ret_path && ret_fd) {
 
                 /* Shortcut the ret_fd case if the caller isn't interested in the actual path and has no root
                  * set and doesn't care about any of the other special features we provide either. */
@@ -510,7 +512,8 @@ int chase_symlinks_and_open(
         if (chase_flags & (CHASE_NONEXISTENT|CHASE_STEP))
                 return -EINVAL;
 
-        if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0) {
+        if (empty_or_root(root) && !ret_path &&
+            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS)) == 0) {
                 /* Shortcut this call if none of the special features of this call are requested */
                 r = open(path, open_flags | (FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? O_NOFOLLOW : 0));
                 if (r < 0)
@@ -551,7 +554,8 @@ int chase_symlinks_and_opendir(
         if (chase_flags & (CHASE_NONEXISTENT|CHASE_STEP))
                 return -EINVAL;
 
-        if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0) {
+        if (empty_or_root(root) && !ret_path &&
+            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS)) == 0) {
                 /* Shortcut this call if none of the special features of this call are requested */
                 d = opendir(path);
                 if (!d)
@@ -595,7 +599,8 @@ int chase_symlinks_and_stat(
         if (chase_flags & (CHASE_NONEXISTENT|CHASE_STEP))
                 return -EINVAL;
 
-        if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0 && !ret_fd) {
+        if (empty_or_root(root) && !ret_path &&
+            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS)) == 0 && !ret_fd) {
                 /* Shortcut this call if none of the special features of this call are requested */
 
                 if (fstatat(AT_FDCWD, path, ret_stat, FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0) < 0)
@@ -637,7 +642,8 @@ int chase_symlinks_and_access(
         if (chase_flags & (CHASE_NONEXISTENT|CHASE_STEP))
                 return -EINVAL;
 
-        if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0 && !ret_fd) {
+        if (empty_or_root(root) && !ret_path &&
+            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS)) == 0 && !ret_fd) {
                 /* Shortcut this call if none of the special features of this call are requested */
 
                 if (faccessat(AT_FDCWD, path, access_mode, FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0) < 0)
