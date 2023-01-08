@@ -599,6 +599,7 @@ static int run(int argc, char *argv[]) {
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |
                                 DISSECT_IMAGE_READ_ONLY,
                                 &unlink_dir,
+                                NULL,
                                 &loop_device);
                 if (r < 0)
                         return r;
