@@ -464,30 +464,26 @@ int chase_symlinks(
                         return r;
         }
 
-        if (root) {
-                path = path_startswith(absolute, root);
-                if (!path)
-                        return log_full_errno(flags & CHASE_WARN ? LOG_WARNING : LOG_DEBUG,
-                                              SYNTHETIC_ERRNO(ECHRNG),
-                                              "Specified path '%s' is outside of specified root directory '%s', refusing to resolve.",
-                                              absolute, root);
+        path = path_startswith(absolute, empty_to_root(root));
+        if (!path)
+                return log_full_errno(flags & CHASE_WARN ? LOG_WARNING : LOG_DEBUG,
+                                        SYNTHETIC_ERRNO(ECHRNG),
+                                        "Specified path '%s' is outside of specified root directory '%s', refusing to resolve.",
+                                        absolute, empty_to_root(root));
 
-                fd = open(root, O_CLOEXEC|O_DIRECTORY|O_PATH);
-                if (fd < 0)
-                        return -errno;
+        fd = open(empty_to_root(root), O_CLOEXEC|O_DIRECTORY|O_PATH);
+        if (fd < 0)
+                return -errno;
 
-                flags |= CHASE_AT_RESOLVE_IN_ROOT;
-        } else {
-                path = absolute;
-                fd = AT_FDCWD;
-        }
+        flags |= CHASE_AT_RESOLVE_IN_ROOT;
+        flags &= ~CHASE_PREFIX_ROOT;
 
-        r = chase_symlinks_at(fd, path, flags & ~CHASE_PREFIX_ROOT, ret_path ? &p : NULL, ret_fd ? &pfd : NULL);
+        r = chase_symlinks_at(fd, path, flags, ret_path ? &p : NULL, ret_fd ? &pfd : NULL);
         if (r < 0)
                 return r;
 
         if (ret_path) {
-                char *q = path_join(root, p);
+                char *q = path_join(empty_to_root(root), p);
                 if (!q)
                         return -ENOMEM;
 
