@@ -60,6 +60,8 @@ TSS2_RC (*sym_Esys_VerifySignature)(ESYS_CONTEXT *esysContext, ESYS_TR keyHandle
 const char* (*sym_Tss2_RC_Decode)(TSS2_RC rc) = NULL;
 
 TSS2_RC (*sym_Tss2_MU_TPM2_CC_Marshal)(TPM2_CC src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
+TSS2_RC (*sym_Tss2_MU_TPM2B_ENCRYPTED_SECRET_Marshal)(TPM2B_ENCRYPTED_SECRET const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
+TSS2_RC (*sym_Tss2_MU_TPM2B_ENCRYPTED_SECRET_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_ENCRYPTED_SECRET *dest) = NULL;
 TSS2_RC (*sym_Tss2_MU_TPM2B_PRIVATE_Marshal)(TPM2B_PRIVATE const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
 TSS2_RC (*sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PRIVATE  *dest) = NULL;
 TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Marshal)(TPM2B_PUBLIC const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
@@ -113,6 +115,8 @@ int dlopen_tpm2(void) {
         return dlopen_many_sym_or_warn(
                         &libtss2_mu_dl, "libtss2-mu.so.0", LOG_DEBUG,
                         DLSYM_ARG(Tss2_MU_TPM2_CC_Marshal),
+                        DLSYM_ARG(Tss2_MU_TPM2B_ENCRYPTED_SECRET_Marshal),
+                        DLSYM_ARG(Tss2_MU_TPM2B_ENCRYPTED_SECRET_Unmarshal),
                         DLSYM_ARG(Tss2_MU_TPM2B_PRIVATE_Marshal),
                         DLSYM_ARG(Tss2_MU_TPM2B_PRIVATE_Unmarshal),
                         DLSYM_ARG(Tss2_MU_TPM2B_PUBLIC_Marshal),
@@ -124,6 +128,7 @@ int dlopen_tpm2(void) {
 
 #define _MARSHAL(src) _Generic((src),                                   \
                 TPM2_CC: sym_Tss2_MU_TPM2_CC_Marshal,                   \
+                const TPM2B_ENCRYPTED_SECRET*: sym_Tss2_MU_TPM2B_ENCRYPTED_SECRET_Marshal, TPM2B_ENCRYPTED_SECRET*: sym_Tss2_MU_TPM2B_ENCRYPTED_SECRET_Marshal, \
                 const TPM2B_PRIVATE*: sym_Tss2_MU_TPM2B_PRIVATE_Marshal, TPM2B_PRIVATE*: sym_Tss2_MU_TPM2B_PRIVATE_Marshal, \
                 const TPM2B_PUBLIC*: sym_Tss2_MU_TPM2B_PUBLIC_Marshal, TPM2B_PUBLIC*: sym_Tss2_MU_TPM2B_PUBLIC_Marshal, \
                 const TPML_PCR_SELECTION*: sym_Tss2_MU_TPML_PCR_SELECTION_Marshal, TPML_PCR_SELECTION*: sym_Tss2_MU_TPML_PCR_SELECTION_Marshal, \
@@ -131,6 +136,7 @@ int dlopen_tpm2(void) {
                 const TPMT_PUBLIC*: sym_Tss2_MU_TPMT_PUBLIC_Marshal, TPMT_PUBLIC*: sym_Tss2_MU_TPMT_PUBLIC_Marshal)
 
 #define _UNMARSHAL(dst) _Generic((dst),                                 \
+                TPM2B_ENCRYPTED_SECRET*: sym_Tss2_MU_TPM2B_ENCRYPTED_SECRET_Unmarshal, \
                 TPM2B_PRIVATE*: sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal,    \
                 TPM2B_PUBLIC*: sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal)
 
@@ -2391,6 +2397,8 @@ int tpm2_seal(const char *device,
               const size_t pubkey_size,
               uint32_t pubkey_pcr_mask,
               const char *pin,
+              const void *external_pubkey,
+              const size_t external_pubkey_size,
               void **ret_secret,
               size_t *ret_secret_size,
               void **ret_blob,
@@ -2400,17 +2408,19 @@ int tpm2_seal(const char *device,
               uint16_t *ret_pcr_bank,
               uint16_t *ret_primary_alg) {
 
-        _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
-        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
-        static const TPML_PCR_SELECTION creation_pcr = {};
+        _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL, *secondary_private = NULL, *dup_private = NULL;
+        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL, *secondary_public = NULL;
+        _cleanup_(Esys_Freep) TPM2B_ENCRYPTED_SECRET *dup_seed = NULL;
         _cleanup_(erase_and_freep) void *secret = NULL;
         _cleanup_free_ void *hash = NULL;
         _cleanup_free_ TPM2B_DIGEST *hash_pcr_values = NULL;
+        static const TPML_PCR_SELECTION creation_pcr = {};
         TPM2B_DIGEST policy_digest = { .size = SHA256_DIGEST_SIZE, .buffer = {}, };
         TPML_PCR_SELECTION hash_pcr_selection = {};
         TPM2B_SENSITIVE_CREATE hmac_sensitive;
         TPMI_ALG_PUBLIC primary_alg;
         TPM2B_PUBLIC hmac_template;
+        TPMA_OBJECT hmac_attributes = TPMA_OBJECT_FIXEDTPM | TPMA_OBJECT_FIXEDPARENT | TPMA_OBJECT_ADMINWITHPOLICY;
         TPMI_ALG_HASH pcr_bank = UINT16_MAX;
         size_t hash_pcr_values_size = 0;
         usec_t start;
@@ -2473,23 +2483,6 @@ int tpm2_seal(const char *device,
                 }
         }
 
-        _cleanup_tpm2_handle_ Tpm2Handle *primary = NULL;
-        r = tpm2_create_primary(
-                        c,
-                        /* alg= */ 0,
-                        /* ret_public= */ NULL,
-                        /* ret_private= */ NULL,
-                        &primary,
-                        &primary_alg);
-        if (r < 0)
-                return r;
-
-        /* we cannot use the bind key before its created */
-        _cleanup_tpm2_handle_ Tpm2Handle *encryption_session = NULL;
-        r = tpm2_make_encryption_session(c, primary, &TPM2_HANDLE_NONE, &encryption_session);
-        if (r < 0)
-                return r;
-
         if (hash_pcr_mask) {
                 hash_pcr_selection = tpm2_tpml_pcr_selection_from_mask(hash_pcr_mask, pcr_bank);
 
@@ -2516,6 +2509,64 @@ int tpm2_seal(const char *device,
         if (r < 0)
                 return r;
 
+        _cleanup_tpm2_handle_ Tpm2Handle *parent_handle = NULL;
+        r = tpm2_create_primary(
+                        c,
+                        /* alg= */ 0,
+                        /* ret_public= */ NULL,
+                        /* ret_private= */ NULL,
+                        &parent_handle,
+                        &primary_alg);
+        if (r < 0)
+                return r;
+
+        if (external_pubkey) {
+                TPM2B_PUBLIC external_public = {};
+                size_t offset = 0;
+
+                r = tpm2_unmarshal("external public key", external_pubkey, external_pubkey_size,
+                                   &offset, &external_public);
+                if (r < 0)
+                        return r;
+
+                _cleanup_tpm2_handle_ Tpm2Handle *load_external_session = NULL;
+                r = tpm2_make_encryption_session(c, parent_handle, &TPM2_HANDLE_NONE, &load_external_session);
+                if (r < 0)
+                        return r;
+
+                _cleanup_tpm2_handle_ Tpm2Handle *external_handle = NULL;
+                r = tpm2_load_external_key(
+                                c,
+                                load_external_session,
+                                &external_public,
+                                /* private= */ NULL,
+                                &external_handle);
+                if (r < 0)
+                        return r;
+
+                _cleanup_tpm2_handle_ Tpm2Handle *secondary_handle = NULL;
+                r = tpm2_create_and_duplicate_key(
+                                c,
+                                parent_handle,
+                                external_handle,
+                                load_external_session,
+                                /* alg= */ 0,
+                                &secondary_public,
+                                &secondary_private,
+                                &secondary_handle,
+                                &dup_private,
+                                &dup_seed,
+                                /* ret_alg= */ NULL);
+                if (r < 0)
+                        return r;
+
+                hmac_attributes &= ~(TPMA_OBJECT_FIXEDTPM | TPMA_OBJECT_FIXEDPARENT);
+
+                /* Switch to using the secondary handle. */
+                parent_handle = tpm2_handle_free(parent_handle);
+                parent_handle = TAKE_PTR(secondary_handle);
+        }
+
         /* We use a keyed hash object (i.e. HMAC) to store the secret key we want to use for unlocking the
          * LUKS2 volume with. We don't ever use for HMAC/keyed hash operations however, we just use it
          * because it's a key type that is universally supported and suitable for symmetric binary blobs. */
@@ -2524,7 +2575,7 @@ int tpm2_seal(const char *device,
                 .publicArea = {
                         .type = TPM2_ALG_KEYEDHASH,
                         .nameAlg = TPM2_ALG_SHA256,
-                        .objectAttributes = TPMA_OBJECT_FIXEDTPM | TPMA_OBJECT_FIXEDPARENT,
+                        .objectAttributes = hmac_attributes,
                         .parameters.keyedHashDetail.scheme.scheme = TPM2_ALG_NULL,
                         .unique.keyedHash.size = SHA256_DIGEST_SIZE,
                         .authPolicy = policy_digest,
@@ -2548,11 +2599,16 @@ int tpm2_seal(const char *device,
         if (r < 0)
                 return log_error_errno(r, "Failed to generate secret key: %m");
 
+        _cleanup_tpm2_handle_ Tpm2Handle *encryption_session = NULL;
+        r = tpm2_make_encryption_session(c, parent_handle, &TPM2_HANDLE_NONE, &encryption_session);
+        if (r < 0)
+                return r;
+
         log_debug("Creating HMAC key.");
 
         rc = sym_Esys_Create(
                         c->esys_context,
-                        primary->esys_handle,
+                        parent_handle->esys_handle,
                         encryption_session->esys_handle, /* use HMAC session to enable parameter encryption */
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
@@ -2576,6 +2632,9 @@ int tpm2_seal(const char *device,
         _cleanup_free_ void *blob = NULL;
         size_t max_size = sizeof(*private) + sizeof(*public), blob_size = 0;
 
+        if (dup_private)
+                max_size += sizeof(*dup_private) + sizeof(*secondary_public) + sizeof(*dup_seed);
+
         blob = malloc0(max_size);
         if (!blob)
                 return log_oom();
@@ -2587,6 +2646,20 @@ int tpm2_seal(const char *device,
         r = tpm2_marshal("HMAC public key", public, blob, max_size, &blob_size);
         if (r < 0)
                 return r;
+
+        if (dup_private) {
+                r = tpm2_marshal("duplicated private key", dup_private, blob, max_size, &blob_size);
+                if (r < 0)
+                        return r;
+
+                r = tpm2_marshal("duplicated public key", secondary_public, blob, max_size, &blob_size);
+                if (r < 0)
+                        return r;
+
+                r = tpm2_marshal("duplicated key seed", dup_seed, blob, max_size, &blob_size);
+                if (r < 0)
+                        return r;
+        }
 
         hash = memdup(policy_digest.buffer, policy_digest.size);
         if (!hash)
@@ -2659,6 +2732,22 @@ int tpm2_unseal(const char *device,
 
         start = now(CLOCK_MONOTONIC);
 
+        _cleanup_tpm2_context_ Tpm2Context *c = NULL;
+        r = tpm2_context_new(device, &c);
+        if (r < 0)
+                return r;
+
+        _cleanup_tpm2_handle_ Tpm2Handle *parent_handle = NULL;
+        r = tpm2_create_primary(
+                        c,
+                        primary_alg,
+                        /* ret_public= */ NULL,
+                        /* ret_private= */ NULL,
+                        &parent_handle,
+                        /* ret_alg= */ NULL);
+        if (r < 0)
+                return r;
+
         r = tpm2_unmarshal("HMAC private key", blob, blob_size, &offset, &private);
         if (r < 0)
                 return r;
@@ -2667,21 +2756,56 @@ int tpm2_unseal(const char *device,
         if (r < 0)
                 return r;
 
-        _cleanup_tpm2_context_ Tpm2Context *c = NULL;
-        r = tpm2_context_new(device, &c);
-        if (r < 0)
-                return r;
+        if (blob_size > offset) {
+                TPM2B_PRIVATE duplicated_private = {};
+                r = tpm2_unmarshal("duplicated private key", blob, blob_size, &offset, &duplicated_private);
+                if (r < 0)
+                        return r;
 
-        _cleanup_tpm2_handle_ Tpm2Handle *primary = NULL;
-        r = tpm2_create_primary(
-                        c,
-                        primary_alg,
-                        /* ret_public= */ NULL,
-                        /* ret_private= */ NULL,
-                        &primary,
-                        /* ret_alg= */ NULL);
-        if (r < 0)
-                return r;
+                TPM2B_PUBLIC duplicated_public = {};
+                r = tpm2_unmarshal("duplicated public key", blob, blob_size, &offset, &duplicated_public);
+                if (r < 0)
+                        return r;
+
+                TPM2B_ENCRYPTED_SECRET duplicated_seed = {};
+                r = tpm2_unmarshal("duplicated key seed", blob, blob_size, &offset, &duplicated_seed);
+                if (r < 0)
+                        return r;
+
+                _cleanup_tpm2_handle_ Tpm2Handle *import_session = NULL;
+                r = tpm2_make_encryption_session(c, parent_handle, &TPM2_HANDLE_NONE, &import_session);
+                if (r < 0)
+                        return r;
+
+                _cleanup_(Esys_Freep) TPM2B_PRIVATE *imported_private = NULL;
+                r = tpm2_import_key(
+                                c,
+                                parent_handle,
+                                import_session,
+                                &duplicated_public,
+                                &duplicated_private,
+                                &duplicated_seed,
+                                /* encryption_key= */ NULL,
+                                /* symmetric= */ NULL,
+                                &imported_private);
+                if (r < 0)
+                        return r;
+
+                _cleanup_tpm2_handle_ Tpm2Handle *imported_handle = NULL;
+                r = tpm2_load_key(
+                                c,
+                                parent_handle,
+                                import_session,
+                                &duplicated_public,
+                                imported_private,
+                                &imported_handle);
+                if (r < 0)
+                        return r;
+
+                /* Switch to use the imported handle. */
+                parent_handle = tpm2_handle_free(parent_handle);
+                parent_handle = TAKE_PTR(imported_handle);
+        }
 
         log_debug("Loading HMAC key into TPM.");
 
@@ -2694,7 +2818,7 @@ int tpm2_unseal(const char *device,
         _cleanup_tpm2_handle_ Tpm2Handle *hmac_key = NULL;
         r = tpm2_load_key(
                         c,
-                        primary,
+                        parent_handle,
                         &TPM2_HANDLE_PASSWORD,
                         &public,
                         &private,
@@ -2709,7 +2833,7 @@ int tpm2_unseal(const char *device,
         }
 
         _cleanup_tpm2_handle_ Tpm2Handle *encryption_session = NULL;
-        r = tpm2_make_encryption_session(c, primary, hmac_key, &encryption_session);
+        r = tpm2_make_encryption_session(c, parent_handle, hmac_key, &encryption_session);
         if (r < 0)
                 return r;
 
@@ -2717,7 +2841,7 @@ int tpm2_unseal(const char *device,
                 _cleanup_tpm2_handle_ Tpm2Handle *policy_session = NULL;
                 r = tpm2_make_policy_session(
                                 c,
-                                primary,
+                                parent_handle,
                                 encryption_session,
                                 /* trial= */ false,
                                 &policy_session);
