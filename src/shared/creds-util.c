@@ -703,6 +703,8 @@ int encrypt_credential_and_warn(
                               pubkey, pubkey_size,
                               tpm2_pubkey_pcr_mask,
                               /* pin= */ NULL,
+                              /* external_pubkey= */ NULL,
+                              /* external_pubkey_size= */ 0,
                               &tpm2_key, &tpm2_key_size,
                               &tpm2_blob, &tpm2_blob_size,
                               &tpm2_policy_hash, &tpm2_policy_hash_size,
