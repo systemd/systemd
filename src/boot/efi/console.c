@@ -42,6 +42,7 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
         static EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL **protocols;
         static UINTN n_protocols = 0;
         static bool checked = false;
+        static bool locked = false;
         UINTN index;
         EFI_STATUS err;
         EFI_EVENT *events;
@@ -165,8 +166,11 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
 
         /* If the extra input device we found returns something, always use that instead
          * to work around broken firmware freezing on ConIn/ConInEx. */
-        if (n_protocols > 0 && index < n_protocols && BS->CheckEvent(events[index]) == EFI_SUCCESS) {
+        if (!locked && n_protocols > 0 && index < n_protocols && BS->CheckEvent(events[index]) == EFI_SUCCESS) {
                 conInEx = protocols[index];
+                locked = true;
+                FreePool(protocols);
+                n_protocols = 0;
         }
 
         /* Do not fall back to ConIn if we have a ConIn that supports TextInputEx.
