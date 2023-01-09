@@ -52,8 +52,6 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
         assert(key);
 
         if (!checked) {
-                console_connect();
-
                 EFI_HANDLE *handleBuffer;
                 UINTN handleCount;
 
@@ -96,7 +94,9 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
 
         events = AllocateZeroPool(sizeof(EFI_EVENT) * (n_protocols + 2));
         if (events == NULL) {
-                FreePool(protocols);
+                if (!locked)
+                        FreePool(protocols);
+
                 err = EFI_DEVICE_ERROR;
                 return log_error_status_stall(err, L"Error allocating events buffer: %r", err);
         }
@@ -170,6 +170,7 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
                 conInEx = protocols[index];
                 locked = true;
                 FreePool(protocols);
+                protocols = NULL;
                 n_protocols = 0;
         }
 
