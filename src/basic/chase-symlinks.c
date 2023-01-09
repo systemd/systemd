@@ -689,3 +689,42 @@ int chase_symlinks_and_fopen_unlocked(
 
         return 0;
 }
+
+int chase_symlinks_and_unlink(
+                const char *path,
+                const char *root,
+                ChaseSymlinksFlags chase_flags,
+                int unlink_flags,
+                char **ret_path) {
+
+        _cleanup_free_ char *p = NULL, *rp = NULL, *dir = NULL, *fname = NULL;
+        _cleanup_close_ int fd = -1;
+        int r;
+
+        assert(path);
+
+        r = path_extract_directory(path, &dir);
+        if (r < 0)
+                return r;
+        r = path_extract_filename(path, &fname);
+        if (r < 0)
+                return r;
+
+        fd = chase_symlinks_and_open(dir, root, chase_flags, O_DIRECTORY|O_CLOEXEC, ret_path ? &p : NULL);
+        if (fd < 0)
+                return fd;
+
+        if (p) {
+                rp = path_join(p, fname);
+                if (!rp)
+                        return -ENOMEM;
+        }
+
+        if (unlinkat(fd, fname, unlink_flags) < 0)
+                return -errno;
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(rp);
+
+        return 0;
+}
