@@ -249,6 +249,10 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
 
         free_and_replace(device->syspath, syspath);
         device->devpath = devpath;
+
+        /* Unset sysname and sysnum, they will be assigned when requested. */
+        device->sysnum = NULL;
+        device->sysname = mfree(device->sysname);
         return 0;
 }
 
