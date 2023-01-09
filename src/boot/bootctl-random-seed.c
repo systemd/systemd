@@ -169,8 +169,8 @@ int install_random_seed(const char *esp) {
         return set_system_token();
 
 fail:
-        if (tmp)
-                (void) unlinkat(loader_dir_fd, tmp, 0);
+        assert(tmp);
+        (void) unlinkat(loader_dir_fd, tmp, 0);
 
         return r;
 }
