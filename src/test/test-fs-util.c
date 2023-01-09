@@ -330,6 +330,13 @@ TEST(chase_symlinks) {
                 assert_se(sd_id128_equal(a, b));
         }
 
+        assert_se(lstat(p, &st) >= 0);
+        r = chase_symlinks_and_unlink(p, NULL, 0, 0,  &result);
+        assert_se(path_equal(result, p));
+        result = mfree(result);
+        assert_se(r == 0);
+        assert_se(lstat(p, &st) == -1 && errno == ENOENT);
+
         /* Test CHASE_NOFOLLOW */
 
         p = strjoina(temp, "/target");
