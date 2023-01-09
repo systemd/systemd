@@ -400,6 +400,9 @@ int main(int argc, char *argv[]) {
         /* Lock us into memory */
         (void) mlockall(MCL_CURRENT|MCL_FUTURE);
 
+        if (mount(NULL, "/", NULL, MS_REC|MS_PRIVATE, NULL) < 0)
+                log_warning_errno(errno, "Failed to make mounts private: %m");
+
         /* Synchronize everything that is not written to disk yet at this point already. This is a good idea so that
          * slow IO is processed here already and the final process killing spree is not impacted by processes
          * desperately trying to sync IO to disk within their timeout. Do not remove this sync, data corruption will
