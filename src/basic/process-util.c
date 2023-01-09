@@ -765,6 +765,23 @@ void sigterm_wait(pid_t pid) {
         (void) wait_for_terminate(pid, NULL);
 }
 
+void sigkill_nowait(pid_t pid) {
+        assert(pid > 1);
+
+        (void) kill(pid, SIGKILL);
+}
+
+void sigkill_nowaitp(pid_t *pid) {
+        PROTECT_ERRNO;
+
+        if (!pid)
+                return;
+        if (*pid <= 1)
+                return;
+
+        sigkill_nowait(*pid);
+}
+
 int kill_and_sigcont(pid_t pid, int sig) {
         int r;
 
