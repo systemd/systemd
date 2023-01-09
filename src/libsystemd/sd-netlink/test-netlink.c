@@ -601,30 +601,81 @@ TEST(genl) {
         }
 }
 
+static void remove_dummy_interfacep(int *ifindex) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
+
+        if (!ifindex || *ifindex <= 0)
+                return;
+
+        assert_se(sd_netlink_open(&rtnl) >= 0);
+
+        assert_se(sd_rtnl_message_new_link(rtnl, &message, RTM_DELLINK, *ifindex) >= 0);
+        assert_se(sd_netlink_call(rtnl, message, 0, NULL) == 1);
+}
+
 TEST(rtnl_set_link_name) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
+        _cleanup_(remove_dummy_interfacep) int ifindex = 0;
         _cleanup_strv_free_ char **alternative_names = NULL;
-        int ifindex, r;
+        int r;
 
         if (geteuid() != 0)
                 return (void) log_tests_skipped("not root");
 
         assert_se(sd_netlink_open(&rtnl) >= 0);
-        ifindex = (int) if_nametoindex("lo");
+
+        assert_se(sd_rtnl_message_new_link(rtnl, &message, RTM_NEWLINK, 0) >= 0);
+        assert_se(sd_netlink_message_append_string(message, IFLA_IFNAME, "test-netlink") >= 0);
+        assert_se(sd_netlink_message_open_container(message, IFLA_LINKINFO) >= 0);
+        assert_se(sd_netlink_message_append_string(message, IFLA_INFO_KIND, "dummy") >= 0);
+        r = sd_netlink_call(rtnl, message, 0, &reply);
+        if (r == -EPERM)
+                return (void) log_tests_skipped("missing required capabilities");
+        if (r == -EOPNOTSUPP)
+                return (void) log_tests_skipped("dummy network interface is not supported");
+        assert_se(r >= 0);
+
+        message = sd_netlink_message_unref(message);
+        reply = sd_netlink_message_unref(reply);
+
+        assert_se(sd_rtnl_message_new_link(rtnl, &message, RTM_GETLINK, 0) >= 0);
+        assert_se(sd_netlink_message_append_string(message, IFLA_IFNAME, "test-netlink") >= 0);
+        assert_se(sd_netlink_call(rtnl, message, 0, &reply) == 1);
+
+        assert_se(sd_rtnl_message_link_get_ifindex(reply, &ifindex) >= 0);
+        assert_se(ifindex > 0);
 
         /* Test that the new name (which is currently an alternative name) is
          * restored as an alternative name on error. Create an error by using
          * an invalid device name, namely one that exceeds IFNAMSIZ
          * (alternative names can exceed IFNAMSIZ, but not regular names). */
-        r = rtnl_set_link_alternative_names(&rtnl, ifindex, STRV_MAKE("testlongalternativename"));
+        r = rtnl_set_link_alternative_names(&rtnl, ifindex, STRV_MAKE("testlongalternativename", "test-shortname"));
         if (r == -EPERM)
                 return (void) log_tests_skipped("missing required capabilities");
-
+        if (r == -EOPNOTSUPP)
+                return (void) log_tests_skipped("alternative name is not supported");
         assert_se(r >= 0);
-        assert_se(rtnl_set_link_name(&rtnl, ifindex, "testlongalternativename") == -EINVAL);
+
         assert_se(rtnl_get_link_alternative_names(&rtnl, ifindex, &alternative_names) >= 0);
         assert_se(strv_contains(alternative_names, "testlongalternativename"));
+        assert_se(strv_contains(alternative_names, "test-shortname"));
+        alternative_names = mfree(alternative_names);
+
+        assert_se(rtnl_set_link_name(&rtnl, ifindex, "testlongalternativename") == -EINVAL);
+        assert_se(rtnl_set_link_name(&rtnl, ifindex, "test-shortname") >= 0);
+
+        assert_se(rtnl_get_link_alternative_names(&rtnl, ifindex, &alternative_names) >= 0);
+        assert_se(strv_contains(alternative_names, "testlongalternativename"));
+        assert_se(!strv_contains(alternative_names, "test-shortname"));
+        alternative_names = mfree(alternative_names);
+
         assert_se(rtnl_delete_link_alternative_names(&rtnl, ifindex, STRV_MAKE("testlongalternativename")) >= 0);
+
+        assert_se(rtnl_get_link_alternative_names(&rtnl, ifindex, &alternative_names) >= 0);
+        assert_se(!strv_contains(alternative_names, "testlongalternativename"));
+        assert_se(!strv_contains(alternative_names, "test-shortname"));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
