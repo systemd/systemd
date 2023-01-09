@@ -52,7 +52,7 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
         assert(key);
 
         if (!checked) {
-                EFI_HANDLE *handleBuffer;
+                _cleanup_free_ EFI_HANDLE *handleBuffer = NULL;
                 UINTN handleCount;
 
                 err = BS->LocateHandleBuffer(
@@ -88,10 +88,7 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
                         conInEx = NULL;
 
                 checked = true;
-
-                FreePool(handleBuffer);
         }
-
 
         events = xmalloc(sizeof(EFI_EVENT) * (n_protocols + 2));
         n_events = 0;
