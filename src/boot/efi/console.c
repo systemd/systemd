@@ -45,7 +45,7 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
         static bool locked = false;
         UINTN index;
         EFI_STATUS err;
-        EFI_EVENT *events;
+        _cleanup_free_ EFI_EVENT *events;
         UINTN n_events = 0;
         _cleanup_(event_closep) EFI_EVENT timer = NULL;
 
@@ -92,15 +92,8 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
                 FreePool(handleBuffer);
         }
 
-        events = AllocateZeroPool(sizeof(EFI_EVENT) * (n_protocols + 2));
-        if (events == NULL) {
-                if (!locked)
-                        FreePool(protocols);
 
-                err = EFI_DEVICE_ERROR;
-                return log_error_status_stall(err, L"Error allocating events buffer: %r", err);
-        }
-
+        events = xmalloc(sizeof(EFI_EVENT) * (n_protocols + 2));
         n_events = 0;
         for(UINTN i = 0; i < n_protocols; i++) {
                 events[n_events] = protocols[i]->WaitForKeyEx;
@@ -110,7 +103,6 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
         err = BS->CreateEvent(EVT_TIMER, 0, NULL, NULL, &timer);
         if (err != EFI_SUCCESS) {
                 FreePool(protocols);
-                FreePool(events);
                 return log_error_status_stall(err, L"Error creating timer event: %r", err);
         }
 
@@ -133,7 +125,6 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
                                 MIN(timeout_usec, watchdog_ping_usec) * 10);
                 if (err != EFI_SUCCESS) {
                         FreePool(protocols);
-                        FreePool(events);
                         return log_error_status_stall(err, L"Error arming timer event: %r", err);
                 }
 
@@ -143,7 +134,6 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
 
                 if (err != EFI_SUCCESS) {
                         FreePool(protocols);
-                        FreePool(events);
                         return log_error_status_stall(err, L"Error waiting for events: %r", err);
                 }
 
@@ -160,7 +150,6 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
                 }
 
                 /* The caller requested a timeout? They shall have one! */
-                FreePool(events);
                 return EFI_TIMEOUT;
         }
 
@@ -181,10 +170,8 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
                 uint32_t shift = 0;
 
                 err = conInEx->ReadKeyStrokeEx(conInEx, &keydata);
-                if (err != EFI_SUCCESS) {
-                        FreePool(events);
+                if (err != EFI_SUCCESS)
                         return err;
-                }
 
                 if (FLAGS_SET(keydata.KeyState.KeyShiftState, EFI_SHIFT_STATE_VALID)) {
                         /* Do not distinguish between left and right keys (set both flags). */
@@ -205,23 +192,18 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
 
                 /* 32 bit modifier keys + 16 bit scan code + 16 bit unicode */
                 *key = KEYPRESS(shift, keydata.Key.ScanCode, keydata.Key.UnicodeChar);
-                FreePool(events);
                 return EFI_SUCCESS;
         } else if (BS->CheckEvent(ST->ConIn->WaitForKey) == EFI_SUCCESS) {
                 EFI_INPUT_KEY k;
 
                 err = ST->ConIn->ReadKeyStroke(ST->ConIn, &k);
-                if (err != EFI_SUCCESS){
-                        FreePool(events);
+                if (err != EFI_SUCCESS)
                         return err;
-                }
 
                 *key = KEYPRESS(0, k.ScanCode, k.UnicodeChar);
-                FreePool(events);
                 return EFI_SUCCESS;
         }
 
-        FreePool(events);
         return EFI_NOT_READY;
 }
 
