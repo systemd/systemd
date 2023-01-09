@@ -119,24 +119,24 @@ struct subst_map_entry {
 };
 
 static const struct subst_map_entry map[] = {
-           { .name = "devnode",  .fmt = 'N', .type = FORMAT_SUBST_DEVNODE },
-           { .name = "tempnode", .fmt = 'N', .type = FORMAT_SUBST_DEVNODE }, /* deprecated */
-           { .name = "attr",     .fmt = 's', .type = FORMAT_SUBST_ATTR },
-           { .name = "sysfs",    .fmt = 's', .type = FORMAT_SUBST_ATTR }, /* deprecated */
-           { .name = "env",      .fmt = 'E', .type = FORMAT_SUBST_ENV },
-           { .name = "kernel",   .fmt = 'k', .type = FORMAT_SUBST_KERNEL },
+           { .name = "devnode",  .fmt = 'N', .type = FORMAT_SUBST_DEVNODE       },
+           { .name = "tempnode", .fmt = 'N', .type = FORMAT_SUBST_DEVNODE       }, /* deprecated */
+           { .name = "attr",     .fmt = 's', .type = FORMAT_SUBST_ATTR          },
+           { .name = "sysfs",    .fmt = 's', .type = FORMAT_SUBST_ATTR          }, /* deprecated */
+           { .name = "env",      .fmt = 'E', .type = FORMAT_SUBST_ENV           },
+           { .name = "kernel",   .fmt = 'k', .type = FORMAT_SUBST_KERNEL        },
            { .name = "number",   .fmt = 'n', .type = FORMAT_SUBST_KERNEL_NUMBER },
-           { .name = "driver",   .fmt = 'd', .type = FORMAT_SUBST_DRIVER },
-           { .name = "devpath",  .fmt = 'p', .type = FORMAT_SUBST_DEVPATH },
-           { .name = "id",       .fmt = 'b', .type = FORMAT_SUBST_ID },
-           { .name = "major",    .fmt = 'M', .type = FORMAT_SUBST_MAJOR },
-           { .name = "minor",    .fmt = 'm', .type = FORMAT_SUBST_MINOR },
-           { .name = "result",   .fmt = 'c', .type = FORMAT_SUBST_RESULT },
-           { .name = "parent",   .fmt = 'P', .type = FORMAT_SUBST_PARENT },
-           { .name = "name",     .fmt = 'D', .type = FORMAT_SUBST_NAME },
-           { .name = "links",    .fmt = 'L', .type = FORMAT_SUBST_LINKS },
-           { .name = "root",     .fmt = 'r', .type = FORMAT_SUBST_ROOT },
-           { .name = "sys",      .fmt = 'S', .type = FORMAT_SUBST_SYS },
+           { .name = "driver",   .fmt = 'd', .type = FORMAT_SUBST_DRIVER        },
+           { .name = "devpath",  .fmt = 'p', .type = FORMAT_SUBST_DEVPATH       },
+           { .name = "id",       .fmt = 'b', .type = FORMAT_SUBST_ID            },
+           { .name = "major",    .fmt = 'M', .type = FORMAT_SUBST_MAJOR         },
+           { .name = "minor",    .fmt = 'm', .type = FORMAT_SUBST_MINOR         },
+           { .name = "result",   .fmt = 'c', .type = FORMAT_SUBST_RESULT        },
+           { .name = "parent",   .fmt = 'P', .type = FORMAT_SUBST_PARENT        },
+           { .name = "name",     .fmt = 'D', .type = FORMAT_SUBST_NAME          },
+           { .name = "links",    .fmt = 'L', .type = FORMAT_SUBST_LINKS         },
+           { .name = "root",     .fmt = 'r', .type = FORMAT_SUBST_ROOT          },
+           { .name = "sys",      .fmt = 'S', .type = FORMAT_SUBST_SYS           },
 };
 
 static const char *format_type_to_string(FormatSubstitutionType t) {
