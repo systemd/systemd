@@ -43,6 +43,9 @@
 #include "async.h"
 #include "barrier.h"
 #include "bpf-lsm.h"
+#include "bus-error.h"
+#include "bus-locator.h"
+#include "bus-util.h"
 #include "cap-list.h"
 #include "capability-util.h"
 #include "cgroup-setup.h"
@@ -4105,6 +4108,88 @@ static int add_shifted_fd(int *fds, size_t fds_size, size_t *n_fds, int fd, int 
         return 1;
 }
 
+static bool exec_context_need_unprivileged_private_users(const ExecContext *context, const Manager *manager) {
+        assert(context);
+        assert(manager);
+
+        /* These options require PrivateUsers= when used in user units, as we need to be in a user namespace
+         * to have permission to enable them when not running as root. If we have effective CAP_SYS_ADMIN
+         * (system manager) then we have privileges and don't need this. */
+        if (MANAGER_IS_SYSTEM(manager))
+                return false;
+
+        return context->private_users ||
+               context->private_tmp ||
+               context->private_devices ||
+               context->private_network ||
+               context->network_namespace_path ||
+               context->private_ipc ||
+               context->ipc_namespace_path ||
+               context->private_mounts ||
+               context->mount_apivfs ||
+               context->n_bind_mounts > 0 ||
+               context->n_temporary_filesystems > 0 ||
+               context->root_directory ||
+               context->extension_directories ||
+               context->protect_system != PROTECT_SYSTEM_NO ||
+               context->protect_home != PROTECT_HOME_NO ||
+               context->protect_kernel_tunables ||
+               context->protect_kernel_modules ||
+               context->protect_kernel_logs ||
+               context->protect_control_groups ||
+               context->protect_clock ||
+               context->protect_hostname ||
+               context->read_write_paths ||
+               context->read_only_paths ||
+               context->inaccessible_paths ||
+               context->exec_paths ||
+               context->no_exec_paths;
+}
+
+static int exec_acquire_user_namespace(Unit *unit) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL; /* Ensure fd stays valid till returning */
+        _cleanup_close_ int fd_to_close = -EBADF;
+        _cleanup_free_ char *line = NULL;
+        int fd, r;
+
+        assert(unit);
+
+        /* First try to get a fully mapped user ns ourselves, in case we happen to have permissions to
+         * do so. If we get EPERM, then ask PID1 for help via D-Bus. */
+        if (asprintf(&line, UID_FMT " " UID_FMT " " UID_FMT "\n", 0u, 0u, DYNAMIC_UID_MIN - 1u) < 0)
+                return log_oom_debug();
+
+        fd = fd_to_close = userns_acquire(line, line, UID_INVALID, GID_INVALID);
+        if (fd < 0 && !ERRNO_IS_PRIVILEGE(fd))
+                return log_unit_debug_errno(unit, fd, "Failed to acquire user namespace: %m");
+        if (fd < 0) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+
+                r = bus_connect_system_systemd(&bus);
+                if (r < 0)
+                        return log_unit_debug_errno(unit, r, "Failed to get D-Bus connection, ignoring: %m");
+
+                r = bus_call_method(bus,
+                                bus_systemd_mgr,
+                                "GetIdentityMapping",
+                                &error, &reply,
+                                "");
+                if (r < 0)
+                        return log_unit_debug_errno(unit, r, "Failed to set up user namespacing for unprivileged user, ignoring: %s", bus_error_message(&error, r));
+
+                r = sd_bus_message_read(reply, "h", &fd);
+                if (r < 0)
+                        return log_unit_debug_errno(unit, r, "Failed to parse GetIdentityMapping() bus message, ignoring: %m");
+        }
+
+        r = namespace_enter(-EBADFD, -EBADFD, -EBADFD, fd, -EBADFD);
+        if (r < 0)
+                return log_unit_debug_errno(unit, r, "Failed to enter user namespace for unprivileged user, ignoring: %m");
+
+        return 0;
+}
+
 static int exec_child(
                 Unit *unit,
                 const ExecCommand *command,
@@ -4130,7 +4215,7 @@ static int exec_child(
         char **final_argv = NULL;
         dev_t journal_stream_dev = 0;
         ino_t journal_stream_ino = 0;
-        bool userns_set_up = false;
+        bool userns_set_up = false, set_gid_uid_again = false;
         bool needs_sandboxing,          /* Do we need to set up full sandboxing? (i.e. all namespacing, all MAC stuff, caps, yadda yadda */
                 needs_setuid,           /* Do we need to do the actual setresuid()/setresgid() calls? */
                 needs_mount_namespace,  /* Do we need to set up a mount namespace for this kernel? */
@@ -4670,16 +4755,25 @@ static int exec_child(
                 }
         }
 
-        if (needs_sandboxing && context->private_users && have_effective_cap(CAP_SYS_ADMIN) <= 0) {
+        if (needs_sandboxing && exec_context_need_unprivileged_private_users(context, unit->manager)) {
                 /* If we're unprivileged, set up the user namespace first to enable use of the other namespaces.
                  * Users with CAP_SYS_ADMIN can set up user namespaces last because they will be able to
-                 * set up the all of the other namespaces (i.e. network, mount, UTS) without a user namespace. */
-
-                userns_set_up = true;
-                r = setup_private_users(saved_uid, saved_gid, uid, gid);
-                if (r < 0) {
-                        *exit_status = EXIT_USER;
-                        return log_unit_error_errno(unit, r, "Failed to set up user namespacing for unprivileged user: %m");
+                 * set up the all of the other namespaces (i.e. network, mount, UTS) without a user namespace.
+                 * If a user namespace was requested explicitly and we can't set it up, fail early. Otherwise,
+                 * continue and let the actual requested operations fail (or silently continue). */
+                if (context->private_users) {
+                        r = setup_private_users(saved_uid, saved_gid, uid, gid);
+                        if (r < 0) {
+                                *exit_status = EXIT_USER;
+                                return log_unit_error_errno(unit, r, "Failed to set up user namespacing for unprivileged user: %m");
+                        }
+                        userns_set_up = true;
+                } else {
+                        r = exec_acquire_user_namespace(unit);
+                        if (r < 0)
+                                log_unit_info_errno(unit, r, "Failed to acquire and enter pre-mapped user namespace for unprivileged user, ignoring: %m");
+                        else
+                                set_gid_uid_again = userns_set_up = true;
                 }
         }
 
@@ -5143,6 +5237,36 @@ static int exec_child(
                 log_unit_struct(unit, LOG_DEBUG,
                                 "EXECUTABLE=%s", executable,
                                 LOG_UNIT_MESSAGE(unit, "Executing: %s", line));
+        }
+
+        /* If we are a user manager and setting up a UID/GID full mapping from a user namespace PID1 created for us,
+         * after we are done setting up we want to go back to the original UID/GID, given we'll be root when we
+         * move into the namespace. The point of having PID1 set us a mapping for us is to make sure there's no
+         * visible difference for the units due to the implicit user namespace. */
+        if (set_gid_uid_again) {
+                if (gid == GID_INVALID)
+                        r = setresgid(saved_gid, saved_gid, saved_gid);
+                else
+                        r = setresgid(gid, gid, gid);
+                if (r < 0) {
+                        *exit_status = EXIT_USER;
+                        return log_unit_error_errno(unit,
+                                                    errno,
+                                                    "Failed to set GID back to " GID_FMT ": %m",
+                                                    gid == GID_INVALID ? saved_gid : gid);
+                }
+
+                if (uid == UID_INVALID)
+                        r = setresuid(saved_uid, saved_uid, saved_uid);
+                else
+                        r = setresuid(uid, uid, uid);
+                if (r < 0) {
+                        *exit_status = EXIT_USER;
+                        return log_unit_error_errno(unit,
+                                                    errno,
+                                                    "Failed to set UID back to " UID_FMT ": %m",
+                                                    uid == UID_INVALID ? saved_uid : uid);
+                }
         }
 
         if (exec_fd >= 0) {
