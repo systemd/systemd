@@ -134,7 +134,8 @@
       <title>Disabling coredump processing</title>
 
       <para>To disable potentially resource-intensive processing by <command>systemd-coredump</command>, set
-      <programlisting>Storage=none ProcessSizeMax=0</programlisting> in
+      <programlisting>Storage=none
+ProcessSizeMax=0</programlisting> in
       <citerefentry><refentrytitle>coredump.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
       </para>
     </refsect2>
