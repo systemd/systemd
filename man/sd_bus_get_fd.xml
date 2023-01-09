@@ -66,23 +66,21 @@
     <constant>POLLIN</constant>, <constant>POLLOUT</constant>, … events, or negative on error.
     </para>
 
-    <para><function>sd_bus_get_timeout()</function> returns the timeout in µs to pass to
-    <function>poll()</function> or a similar call when waiting for events on the specified bus
-    connection. The returned timeout may be zero, in which case a subsequent I/O polling call
-    should be invoked in non-blocking mode. The returned timeout may be
-    <constant>UINT64_MAX</constant> in which case the I/O polling call may block indefinitely,
-    without any applied timeout. Note that the returned timeout should be considered only a
-    maximum sleeping time. It is permissible (and even expected) that shorter timeouts are used by
-    the calling program, in case other event sources are polled in the same event loop. Note that
-    the returned time-value is absolute, based of <constant>CLOCK_MONOTONIC</constant> and specified 
-    in microseconds. When converting this value in order to pass it as third argument to 
-    <function>poll()</function> (which expects relative milliseconds), care should be taken to convert
-    to a relative time and use a division that rounds up to ensure the I/O polling operation
-    doesn't sleep for shorter than necessary, which might result in unintended busy looping
-    (alternatively, use
-    <citerefentry project='man-pages'><refentrytitle>ppoll</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-    instead of plain <function>poll()</function>, which understands timeouts with nano-second
-    granularity).</para>
+    <para><function>sd_bus_get_timeout()</function> returns the <emphasis>absolute</emphasis> time-out in µs,
+    from which the relative time-out to pass to <function>poll()</function> (or a similar call) can be
+    derived, when waiting for events on the specified bus connection. The returned timeout may be zero, in
+    which case a subsequent I/O polling call should be invoked in non-blocking mode. The returned timeout may
+    be <constant>UINT64_MAX</constant> in which case the I/O polling call may block indefinitely, without any
+    applied timeout. Note that the returned timeout should be considered only a maximum sleeping time. It is
+    permissible (and even expected) that shorter timeouts are used by the calling program, in case other
+    event sources are polled in the same event loop. Note that the returned time-value is absolute, based of
+    <constant>CLOCK_MONOTONIC</constant> and specified in microseconds. When converting this value in order
+    to pass it as third argument to <function>poll()</function> (which expects relative milliseconds), care
+    should be taken to convert to a relative time and use a division that rounds up to ensure the I/O polling
+    operation doesn't sleep for shorter than necessary, which might result in unintended busy looping
+    (alternatively, use <citerefentry
+    project='man-pages'><refentrytitle>ppoll</refentrytitle><manvolnum>2</manvolnum></citerefentry> instead
+    of plain <function>poll()</function>, which understands timeouts with nano-second granularity).</para>
 
     <para>These three functions are useful to hook up a bus connection object with an external or
     manual event loop involving <function>poll()</function> or a similar I/O polling call. Before
