@@ -906,7 +906,8 @@ static int device_rename(sd_device *device, const char *name) {
 }
 
 static int rename_netif(UdevEvent *event) {
-        const char *oldname;
+        _cleanup_free_ char *old_syspath = NULL, *old_sysname = NULL;
+        const char *s;
         sd_device *dev;
         int ifindex, r;
 
@@ -917,15 +918,6 @@ static int rename_netif(UdevEvent *event) {
 
         dev = ASSERT_PTR(event->dev);
 
-        /* Read sysname from cloned sd-device object, otherwise use-after-free is triggered, as the
-         * main object will be renamed and dev->sysname will be freed in device_rename(). */
-        r = sd_device_get_sysname(event->dev_db_clone, &oldname);
-        if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to get sysname: %m");
-
-        if (streq(event->name, oldname))
-                return 0; /* The interface name is already requested name. */
-
         if (!device_for_action(dev, SD_DEVICE_ADD))
                 return 0; /* Rename the interface only when it is added. */
 
@@ -933,7 +925,7 @@ static int rename_netif(UdevEvent *event) {
         if (r == -ENOENT)
                 return 0; /* Device is not a network interface. */
         if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to get ifindex: %m");
+                return log_device_warning_errno(dev, r, "Failed to get ifindex: %m");
 
         if (naming_scheme_has(NAMING_REPLACE_STRICTLY) &&
             !ifname_valid(event->name)) {
@@ -941,39 +933,82 @@ static int rename_netif(UdevEvent *event) {
                 return 0;
         }
 
-        /* Set ID_RENAMING boolean property here. It will be dropped when the corresponding move uevent is processed. */
-        r = device_add_property(dev, "ID_RENAMING", "1");
+        r = sd_device_get_sysname(dev, &s);
         if (r < 0)
-                return log_device_warning_errno(dev, r, "Failed to add 'ID_RENAMING' property: %m");
+                return log_device_warning_errno(dev, r, "Failed to get sysname: %m");
+
+        if (streq(event->name, s))
+                return 0; /* The interface name is already requested name. */
+
+        old_sysname = strdup(s);
+        if (!old_sysname)
+                return -ENOMEM;
+
+        r = sd_device_get_syspath(dev, &s);
+        if (r < 0)
+                return log_device_warning_errno(dev, r, "Failed to get syspath: %m");
+
+        old_syspath = strdup(s);
+        if (!old_syspath)
+                return -ENOMEM;
 
         r = device_rename(dev, event->name);
-        if (r < 0)
-                return log_device_warning_errno(dev, r, "Failed to update properties with new name '%s': %m", event->name);
+        if (r < 0) {
+                log_device_warning_errno(dev, r, "Failed to update properties with new name '%s': %m", event->name);
+                goto revert;
+        }
+
+        /* Set ID_RENAMING boolean property here. It will be dropped when the corresponding move uevent is processed. */
+        r = device_add_property(dev, "ID_RENAMING", "1");
+        if (r < 0) {
+                log_device_warning_errno(dev, r, "Failed to add 'ID_RENAMING' property: %m");
+                goto revert;
+        }
 
         /* Also set ID_RENAMING boolean property to cloned sd_device object and save it to database
          * before calling rtnl_set_link_name(). Otherwise, clients (e.g., systemd-networkd) may receive
          * RTM_NEWLINK netlink message before the database is updated. */
         r = device_add_property(event->dev_db_clone, "ID_RENAMING", "1");
-        if (r < 0)
-                return log_device_warning_errno(event->dev_db_clone, r, "Failed to add 'ID_RENAMING' property: %m");
+        if (r < 0) {
+                log_device_warning_errno(event->dev_db_clone, r, "Failed to add 'ID_RENAMING' property: %m");
+                goto revert;
+        }
 
         r = device_update_db(event->dev_db_clone);
-        if (r < 0)
-                return log_device_debug_errno(event->dev_db_clone, r, "Failed to update database under /run/udev/data/: %m");
+        if (r < 0) {
+                log_device_debug_errno(event->dev_db_clone, r, "Failed to update database under /run/udev/data/: %m");
+                goto revert;
+        }
 
         r = rtnl_set_link_name(&event->rtnl, ifindex, event->name);
-        if (r == -EBUSY) {
-                log_device_info(dev, "Network interface '%s' is already up, cannot rename to '%s'.",
-                                oldname, event->name);
-                return 0;
+        if (r < 0) {
+                if (r == -EBUSY) {
+                        log_device_info(dev, "Network interface '%s' is already up, cannot rename to '%s'.",
+                                        old_sysname, event->name);
+                        r = 0;
+                } else
+                        log_device_error_errno(dev, r, "Failed to rename network interface %i from '%s' to '%s': %m",
+                                               ifindex, old_sysname, event->name);
+                goto revert;
         }
-        if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to rename network interface %i from '%s' to '%s': %m",
-                                              ifindex, oldname, event->name);
 
-        log_device_debug(dev, "Network interface %i is renamed from '%s' to '%s'", ifindex, oldname, event->name);
-
+        log_device_debug(dev, "Network interface %i is renamed from '%s' to '%s'", ifindex, old_sysname, event->name);
         return 1;
+
+revert:
+        /* Restore 'dev_db_clone' */
+        (void) device_add_property(event->dev_db_clone, "ID_RENAMING", NULL);
+        (void) device_update_db(event->dev_db_clone);
+
+        /* Restore 'dev' */
+        (void) device_set_syspath(dev, old_syspath, /* verify = */ false);
+        if (sd_device_get_property_value(dev, "INTERFACE_OLD", &s) >= 0) {
+                (void) device_add_property_internal(dev, "INTERFACE", s);
+                (void) device_add_property_internal(dev, "INTERFACE_OLD", NULL);
+        }
+        (void) device_add_property(dev, "ID_RENAMING", NULL);
+
+        return r;
 }
 
 static int update_devnode(UdevEvent *event) {
