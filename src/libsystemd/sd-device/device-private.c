@@ -620,7 +620,7 @@ int device_get_devlink_priority(sd_device *device, int *ret) {
 
 int device_rename(sd_device *device, const char *name) {
         _cleanup_free_ char *new_syspath = NULL;
-        const char *interface;
+        const char *s;
         int r;
 
         assert(device);
@@ -629,7 +629,11 @@ int device_rename(sd_device *device, const char *name) {
         if (!filename_is_valid(name))
                 return -EINVAL;
 
-        r = path_extract_directory(device->syspath, &new_syspath);
+        r = sd_device_get_syspath(device, &s);
+        if (r < 0)
+                return r;
+
+        r = path_extract_directory(s, &new_syspath);
         if (r < 0)
                 return r;
 
@@ -641,18 +645,18 @@ int device_rename(sd_device *device, const char *name) {
 
         /* At the time this is called, the renamed device may not exist yet. Hence, we cannot validate
          * the new syspath. */
-        r = device_set_syspath(device, new_syspath, false);
+        r = device_set_syspath(device, new_syspath, /* verify = */ false);
         if (r < 0)
                 return r;
 
-        r = sd_device_get_property_value(device, "INTERFACE", &interface);
+        r = sd_device_get_property_value(device, "INTERFACE", &s);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
                 return r;
 
         /* like DEVPATH_OLD, INTERFACE_OLD is not saved to the db, but only stays around for the current event */
-        r = device_add_property_internal(device, "INTERFACE_OLD", interface);
+        r = device_add_property_internal(device, "INTERFACE_OLD", s);
         if (r < 0)
                 return r;
 
