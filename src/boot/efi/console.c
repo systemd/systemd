@@ -63,14 +63,7 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
                         &handleBuffer
                 );
 
-                protocols = AllocateZeroPool(sizeof(EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL*) * handleCount);
-                if (protocols == NULL) {
-                        FreePool(handleBuffer);
-                        err = EFI_DEVICE_ERROR;
-                        return log_error_status_stall(err, L"Error allocating protocols buffer: %r", err);
-                }
-
-                n_protocols = 0;
+                protocols = xmalloc(sizeof(EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL*) * handleCount);
 
                 for(UINTN i = 0; i < handleCount; i++) {
                         EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *extraInEx = NULL;
