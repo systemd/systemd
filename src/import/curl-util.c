@@ -252,7 +252,11 @@ int curl_glue_make(CURL **ret, const char *url, void *userdata) {
         if (curl_easy_setopt(c, CURLOPT_LOW_SPEED_LIMIT, 30L) != CURLE_OK)
                 return -EIO;
 
+#if LIBCURL_VERSION_NUM >= 0x075500 /* libcurl 7.85.0 */
+        if (curl_easy_setopt(c, CURLOPT_PROTOCOLS_STR, "HTTP,HTTPS,FILE") != CURLE_OK)
+#else
         if (curl_easy_setopt(c, CURLOPT_PROTOCOLS, CURLPROTO_HTTP|CURLPROTO_HTTPS|CURLPROTO_FILE) != CURLE_OK)
+#endif
                 return -EIO;
 
         *ret = TAKE_PTR(c);
