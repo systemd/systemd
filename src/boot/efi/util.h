@@ -10,17 +10,6 @@
 #define UINTN_MAX (~(UINTN)0)
 #define INTN_MAX ((INTN)(UINTN_MAX>>1))
 
-#ifndef __has_attribute
-#define __has_attribute(x) 0
-#endif
-#if __has_attribute(__error__)
-__attribute__((noreturn)) extern void __assert_cl_failure__(void) __attribute__((__error__("compile-time assertion failed")));
-#else
-__attribute__((noreturn)) extern void __assert_cl_failure__(void);
-#endif
-/* assert_cl generates a later-stage compile-time assertion when constant folding occurs. */
-#define assert_cl(condition) ({ if (!(condition)) __assert_cl_failure__(); })
-
 /* gnu-efi format specifiers for integers are fixed to either 64bit with 'l' and 32bit without a size prefix.
  * We rely on %u/%d/%x to format regular ints, so ensure the size is what we expect. At the same time, we also
  * need specifiers for (U)INTN which are native (pointer) sized. */
@@ -53,20 +42,6 @@ static inline void freep(void *p) {
 }
 
 #define _cleanup_free_ _cleanup_(freep)
-
-static __always_inline void erase_obj(void *p) {
-#ifdef __OPTIMIZE__
-        size_t l;
-        assert_cl(p);
-        l = __builtin_object_size(p, 0);
-        assert_cl(l != (size_t) -1);
-        explicit_bzero_safe(p, l);
-#else
-#warning "Object will not be erased with -O0; do not release to production."
-#endif
-}
-
-#define _cleanup_erase_ _cleanup_(erase_obj)
 
 _malloc_ _alloc_(1) _returns_nonnull_ _warn_unused_result_
 static inline void *xmalloc(size_t size) {

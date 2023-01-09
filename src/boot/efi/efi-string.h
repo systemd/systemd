@@ -125,12 +125,6 @@ static inline void *mempcpy(void * restrict dest, const void * restrict src, siz
         return (uint8_t *) dest + n;
 }
 
-static inline void explicit_bzero_safe(void *bytes, size_t len) {
-        if (!bytes || len == 0)
-                return;
-        memset(bytes, 0, len);
-        __asm__ __volatile__("": :"r"(bytes) :"memory");
-}
 #else
 /* For unit testing. */
 int efi_memcmp(const void *p1, const void *p2, size_t n);
