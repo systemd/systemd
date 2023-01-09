@@ -486,6 +486,20 @@ TEST(chase_symlinks_at) {
         assert_se(chase_symlinks_at(tfd, "chase", CHASE_NONEXISTENT|CHASE_PARENT, &result, NULL) >= 0);
         assert_se(streq(result, "."));
         result = mfree(result);
+
+        /* Test CHASE_MKDIR_0755 */
+
+        assert_se(chase_symlinks_at(tfd, "m/k/d/i/r", CHASE_MKDIR_0755, &result, NULL) >= 0);
+        assert_se(faccessat(tfd, "m/k/d/i/r", F_OK, 0) >= 0);
+        assert_se(streq(result, "m/k/d/i/r"));
+        result = mfree(result);
+
+        assert_se(chase_symlinks_at(tfd, "m/../q", CHASE_MKDIR_0755, &result, NULL) >= 0);
+        assert_se(faccessat(tfd, "q", F_OK, 0) >= 0);
+        assert_se(streq(result, "q"));
+        result = mfree(result);
+
+        assert_se(chase_symlinks_at(tfd, "i/../p", CHASE_MKDIR_0755, NULL, NULL) == -ENOENT);
 }
 
 TEST(unlink_noerrno) {
