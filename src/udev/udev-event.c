@@ -12,6 +12,7 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "device-internal.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "fd-util.h"
@@ -857,6 +858,51 @@ int udev_event_spawn(
                 *ret_truncated = spawn.truncated;
 
         return r; /* 0 for success, and positive if the program failed */
+}
+
+static int device_rename(sd_device *device, const char *name) {
+        _cleanup_free_ char *new_syspath = NULL;
+        const char *s;
+        int r;
+
+        assert(device);
+        assert(name);
+
+        if (!filename_is_valid(name))
+                return -EINVAL;
+
+        r = sd_device_get_syspath(device, &s);
+        if (r < 0)
+                return r;
+
+        r = path_extract_directory(s, &new_syspath);
+        if (r < 0)
+                return r;
+
+        if (!path_extend(&new_syspath, name))
+                return -ENOMEM;
+
+        if (!path_is_safe(new_syspath))
+                return -EINVAL;
+
+        /* At the time this is called, the renamed device may not exist yet. Hence, we cannot validate
+         * the new syspath. */
+        r = device_set_syspath(device, new_syspath, /* verify = */ false);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_property_value(device, "INTERFACE", &s);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return r;
+
+        /* like DEVPATH_OLD, INTERFACE_OLD is not saved to the db, but only stays around for the current event */
+        r = device_add_property_internal(device, "INTERFACE_OLD", s);
+        if (r < 0)
+                return r;
+
+        return device_add_property_internal(device, "INTERFACE", name);
 }
 
 static int rename_netif(UdevEvent *event) {
