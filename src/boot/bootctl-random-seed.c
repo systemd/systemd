@@ -39,7 +39,7 @@ static int set_system_token(void) {
         r = getenv_bool("SYSTEMD_WRITE_SYSTEM_TOKEN");
         if (r < 0) {
                 if (r != -ENXIO)
-                         log_warning_errno(r, "Failed to parse $SYSTEMD_WRITE_SYSTEM_TOKEN, ignoring.");
+                        log_warning_errno(r, "Failed to parse $SYSTEMD_WRITE_SYSTEM_TOKEN, ignoring.");
         } else if (r == 0) {
                 log_notice("Not writing system token, because $SYSTEMD_WRITE_SYSTEM_TOKEN is set to false.");
                 return 0;
@@ -169,8 +169,8 @@ int install_random_seed(const char *esp) {
         return set_system_token();
 
 fail:
-        if (tmp)
-                (void) unlinkat(loader_dir_fd, tmp, 0);
+        assert(tmp);
+        (void) unlinkat(loader_dir_fd, tmp, 0);
 
         return r;
 }
