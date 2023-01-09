@@ -400,6 +400,11 @@ int main(int argc, char *argv[]) {
         /* Lock us into memory */
         (void) mlockall(MCL_CURRENT|MCL_FUTURE);
 
+        /* We need to make mounts private so that we can MS_MOVE in unmount_all(). Kernel does not allow
+         * MS_MOVE when parent mountpoints have shared propagation. */
+        if (mount(NULL, "/", NULL, MS_REC|MS_PRIVATE, NULL) < 0)
+                log_warning_errno(errno, "Failed to make mounts private, ignoring: %m");
+
         /* Synchronize everything that is not written to disk yet at this point already. This is a good idea so that
          * slow IO is processed here already and the final process killing spree is not impacted by processes
          * desperately trying to sync IO to disk within their timeout. Do not remove this sync, data corruption will
