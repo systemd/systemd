@@ -121,6 +121,7 @@ static int client_context_new(Server *s, pid_t pid, ClientContext **ret) {
 
         *c = (ClientContext) {
                 .pid = pid,
+                .ppid = PID_INVALID,
                 .uid = UID_INVALID,
                 .gid = GID_INVALID,
                 .auditid = AUDIT_SESSION_INVALID,
@@ -148,6 +149,7 @@ static void client_context_reset(Server *s, ClientContext *c) {
 
         c->timestamp = USEC_INFINITY;
 
+        c->ppid = PID_INVALID;
         c->uid = UID_INVALID;
         c->gid = GID_INVALID;
 
@@ -223,6 +225,8 @@ static void client_context_read_basic(ClientContext *c) {
 
         assert(c);
         assert(pid_is_valid(c->pid));
+
+        (void) get_process_ppid(c->pid, &c->ppid);
 
         if (get_process_comm(c->pid, &t) >= 0)
                 free_and_replace(c->comm, t);

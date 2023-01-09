@@ -27,7 +27,7 @@ __contains_word () {
 
 __journal_fields=(MESSAGE{,_ID} PRIORITY CODE_{FILE,LINE,FUNC}
                   ERRNO SYSLOG_{FACILITY,IDENTIFIER,PID} COREDUMP_EXE
-                  _{P,U,G}ID _COMM _EXE _CMDLINE
+                  _{P,PP,U,G}ID _COMM _EXE _CMDLINE
                   _AUDIT_{SESSION,LOGINUID}
                   _SYSTEMD_{CGROUP,SESSION,UNIT,OWNER_UID}
                   _SELINUX_CONTEXT _SOURCE_REALTIME_TIMESTAMP
