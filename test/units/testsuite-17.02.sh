@@ -102,4 +102,82 @@ timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /s
 # cleanup
 ip link del hoge
 
+teardown_netif_renaming_conflict() {
+    set +ex
+
+    if [[ -n "$KILL_PID" ]]; then
+        kill "$KILL_PID"
+    fi
+
+    rm -rf "$TMPDIR"
+
+    rm -f /run/udev/rules.d/50-testsuite.rules
+    udevadm control --reload --timeout=30
+
+    ip link del hoge
+    ip link del foobar
+}
+
+test_netif_renaming_conflict() {
+    local found= since=
+
+    trap teardown_netif_renaming_conflict RETURN
+
+    cat >/run/udev/rules.d/50-testsuite.rules <<EOF
+ACTION!="add", GOTO="hoge_end"
+SUBSYSTEM!="net", GOTO="hoge_end"
+
+OPTIONS="log_level=debug"
+
+KERNEL=="foobar", NAME="hoge"
+
+LABEL="hoge_end"
+EOF
+
+    udevadm control --log-priority=debug --reload --timeout=30
+
+    ip link add hoge type dummy
+    udevadm wait --timeout=30 --settle /sys/devices/virtual/net/hoge
+
+    TMPDIR=$(mktemp -d -p /tmp udev-tests.XXXXXX)
+    udevadm monitor --udev --property --subsystem-match=net >"$TMPDIR"/monitor.txt &
+    KILL_PID="$!"
+
+    # make sure that 'udevadm monitor' actually monitor uevents
+    sleep 1
+
+    since="$(date '+%H:%M:%S')"
+
+    # add another interface which will conflict with an existing interface
+    ip link add foobar type dummy
+
+    for _ in {1..40}; do
+        if (
+            grep -q 'ACTION=add' "$TMPDIR"/monitor.txt
+            grep -q 'DEVPATH=/devices/virtual/net/foobar' "$TMPDIR"/monitor.txt
+            grep -q 'SUBSYSTEM=net' "$TMPDIR"/monitor.txt
+            grep -q 'INTERFACE=foobar' "$TMPDIR"/monitor.txt
+            grep -q 'ID_NET_DRIVER=dummy' "$TMPDIR"/monitor.txt
+            grep -q 'ID_NET_NAME=foobar' "$TMPDIR"/monitor.txt
+            # Even when network interface renaming is failed, SYSTEMD_ALIAS with the conflicting name will be broadcast.
+            grep -q 'SYSTEMD_ALIAS=/sys/subsystem/net/devices/hoge' "$TMPDIR"/monitor.txt
+            grep -q 'UDEV_WORKER_FAILED=1' "$TMPDIR"/monitor.txt
+            grep -q 'UDEV_WORKER_ERRNO=17' "$TMPDIR"/monitor.txt
+            grep -q 'UDEV_WORKER_ERRNO_NAME=EEXIST' "$TMPDIR"/monitor.txt
+        ); then
+            cat "$TMPDIR"/monitor.txt
+            found=1
+            break
+        fi
+        sleep .5
+    done
+    test -n "$found"
+
+    timeout 30 bash -c "while ! journalctl _PID=1 _COMM=systemd --since $since | grep -q 'foobar: systemd-udevd failed to process the device, ignoring: File exists'; do sleep 1; done"
+    # check if the invalid SYSTEMD_ALIAS property for the interface foobar is ignored by PID1
+    assert_eq "$(systemctl show --property=SysFSPath --value /sys/subsystem/net/devices/hoge)" "/sys/devices/virtual/net/hoge"
+}
+
+test_netif_renaming_conflict
+
 exit 0
