@@ -1137,6 +1137,25 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
         if (action == SD_DEVICE_MOVE)
                 device_remove_old_on_move(m, dev);
 
+        /* When udevd failed to process the device, SYSTEMD_ALIAS or any other properties may contain invalid
+         * values. Let's refuse to handle the uevent. */
+        if (sd_device_get_property_value(dev, "UDEV_WORKER_FAILED", NULL) >= 0) {
+                int v;
+
+                if (device_get_property_int(dev, "UDEV_WORKER_ERRNO", &v) >= 0)
+                        log_device_warning_errno(dev, v, "systemd-udevd failed to process the device, ignoring: %m");
+                else if (device_get_property_int(dev, "UDEV_WORKER_EXIT_STATUS", &v) >= 0)
+                        log_device_warning(dev, "systemd-udevd failed to process the device with exit status %i, ignoring.", v);
+                else if (device_get_property_int(dev, "UDEV_WORKER_SIGNAL", &v) >= 0) {
+                        const char *s;
+                        (void) sd_device_get_property_value(dev, "UDEV_WORKER_SIGNAL_NAME", &s);
+                        log_device_warning(dev, "systemd-udevd failed to process the device with signal %i(%s), ignoring.", v, strna(s));
+                } else
+                        log_device_warning(dev, "systemd-udevd failed to process the device with unknown result, ignoring.");
+
+                return 0;
+        }
+
         /* A change event can signal that a device is becoming ready, in particular if the device is using
          * the SYSTEMD_READY logic in udev so we need to reach the else block of the following if, even for
          * change events */
