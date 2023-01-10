@@ -809,6 +809,8 @@ static int manager_find_credentials_dirs(Manager *m) {
 }
 
 void manager_set_switching_root(Manager *m, bool switching_root) {
+        assert(m);
+
         m->switching_root = MANAGER_IS_SYSTEM(m) && switching_root;
 }
 
@@ -3644,6 +3646,18 @@ void manager_check_finished(Manager *m) {
         manager_notify_finished(m);
 
         manager_invalidate_startup_units(m);
+}
+
+void manager_send_reloading(Manager *m) {
+        assert(m);
+
+        /* Let whoever invoked us know that we are now reloading */
+        (void) sd_notifyf(/* unset= */ false,
+                          "RELOADING=1\n"
+                          "MONOTONIC_USEC=" USEC_FMT "\n", now(CLOCK_MONOTONIC));
+
+        /* And ensure that we'll send READY=1 again as soon as we are ready again */
+        m->ready_sent = false;
 }
 
 static bool generator_path_any(const char* const* paths) {
