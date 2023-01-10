@@ -11,7 +11,7 @@
 
 #include "macro-fundamental.h"
 
-#if defined(HAVE_EXPLICIT_BZERO)
+#if !defined(SD_BOOT) && HAVE_EXPLICIT_BZERO
 static inline void *explicit_bzero_safe(void *p, size_t l) {
         if (p && l > 0)
                 explicit_bzero(p, l);
