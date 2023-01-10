@@ -249,6 +249,10 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
 
         free_and_replace(device->syspath, syspath);
         device->devpath = devpath;
+
+        /* Unset sysname and sysnum, they will be assigned when requested. */
+        device->sysnum = NULL;
+        device->sysname = mfree(device->sysname);
         return 0;
 }
 
@@ -2179,6 +2183,26 @@ int device_get_property_bool(sd_device *device, const char *key) {
                 return r;
 
         return parse_boolean(value);
+}
+
+int device_get_property_int(sd_device *device, const char *key, int *ret) {
+        const char *value;
+        int r, v;
+
+        assert(device);
+        assert(key);
+
+        r = sd_device_get_property_value(device, key, &value);
+        if (r < 0)
+                return r;
+
+        r = safe_atoi(value, &v);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = v;
+        return 0;
 }
 
 _public_ int sd_device_get_trigger_uuid(sd_device *device, sd_id128_t *ret) {
