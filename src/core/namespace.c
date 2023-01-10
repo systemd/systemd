@@ -2144,7 +2144,8 @@ int setup_namespace(
         }
 
         if (n_extension_images > 0 || !strv_isempty(extension_directories)) {
-                r = parse_env_extension_hierarchies(&hierarchies);
+                // temporarily setting this value to false for now
+                r = parse_env_extension_hierarchies(&hierarchies, false);
                 if (r < 0)
                         return r;
         }
