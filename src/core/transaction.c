@@ -976,11 +976,11 @@ int transaction_add_job_and_dependencies(
         }
 
         if (is_new && !ignore_requirements && type != JOB_NOP) {
-                Set *following;
+                _cleanup_set_free_ Set *following = NULL;
 
                 /* If we are following some other unit, make sure we
                  * add all dependencies of everybody following. */
-                if (unit_following_set(ret->unit, &following) > 0) {
+                if (unit_following_set(ret->unit, &following) > 0)
                         SET_FOREACH(dep, following) {
                                 r = transaction_add_job_and_dependencies(tr, type, dep, ret, false, false, false, ignore_order, e);
                                 if (r < 0) {
@@ -990,9 +990,6 @@ int transaction_add_job_and_dependencies(
                                         sd_bus_error_free(e);
                                 }
                         }
-
-                        set_free(following);
-                }
 
                 /* Finally, recursively add in all dependencies. */
                 if (IN_SET(type, JOB_START, JOB_RESTART)) {
