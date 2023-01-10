@@ -38,5 +38,12 @@ static inline void erase_var(struct VarEraser *e) {
 }
 
 /* Mark var to be erased when leaving scope. */
-#define CLEANUP_ERASE(var) \
-        _cleanup_(erase_var) _unused_ struct VarEraser CONCATENATE(_eraser_, UNIQ) = { .p = &var, .size = sizeof(var) }
+#define CLEANUP_ERASE(var)                                              \
+        _cleanup_(erase_var) _unused_ struct VarEraser CONCATENATE(_eraser_, UNIQ) = { \
+                .p = &var, .size = sizeof(var)                          \
+        }
+
+#define CLEANUP_ERASE_PTR(ptr, sz)                                      \
+        _cleanup_(erase_var) _unused_ struct VarEraser CONCATENATE(_eraser_, UNIQ) = { \
+                .p = (ptr), .size = sz                                  \
+        }
