@@ -364,6 +364,7 @@ common_sources = files(
         'assert.c',
         'console.c',
         'devicetree.c',
+        'drivers.c',
         'disk.c',
         'efi-string.c',
         'graphics.c',
@@ -375,13 +376,12 @@ common_sources = files(
         'secure-boot.c',
         'ticks.c',
         'util.c',
+        'vmm.c',
 )
 
 systemd_boot_sources = files(
         'boot.c',
-        'drivers.c',
         'shim.c',
-        'vmm.c',
 )
 
 stub_sources = files(

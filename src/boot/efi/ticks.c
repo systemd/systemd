@@ -5,6 +5,7 @@
 
 #include "ticks.h"
 #include "util.h"
+#include "vmm.h"
 
 #ifdef __x86_64__
 static uint64_t ticks_read(void) {
