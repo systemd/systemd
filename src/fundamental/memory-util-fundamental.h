@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 
-#ifdef SD_BOOT
+#if SD_BOOT
 #  include "efi-string.h"
 #else
 #  include <string.h>
@@ -11,7 +11,7 @@
 
 #include "macro-fundamental.h"
 
-#if defined(HAVE_EXPLICIT_BZERO)
+#if !SD_BOOT && HAVE_EXPLICIT_BZERO
 static inline void *explicit_bzero_safe(void *p, size_t l) {
         if (p && l > 0)
                 explicit_bzero(p, l);
