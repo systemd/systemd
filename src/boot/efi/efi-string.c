@@ -5,7 +5,7 @@
 
 #include "efi-string.h"
 
-#ifdef SD_BOOT
+#if SD_BOOT
 #  include "util.h"
 #else
 #  include <stdlib.h>
@@ -378,7 +378,7 @@ bool efi_fnmatch(const char16_t *pattern, const char16_t *haystack) {
 DEFINE_PARSE_NUMBER(char, parse_number8);
 DEFINE_PARSE_NUMBER(char16_t, parse_number16);
 
-#ifdef SD_BOOT
+#if SD_BOOT
 /* To provide the actual implementation for these we need to remove the redirection to the builtins. */
 #  undef memcmp
 #  undef memcpy
@@ -414,7 +414,7 @@ _used_ _weak_ void *memcpy(void * restrict dest, const void * restrict src, size
         if (!dest || !src || n == 0)
                 return dest;
 
-#ifdef SD_BOOT
+#if SD_BOOT
         /* The firmware-provided memcpy is likely optimized, so use that. The function is guaranteed to be
          * available by the UEFI spec. We still make it depend on the boot services pointer being set just in
          * case the compiler emits a call before it is available. */
@@ -441,7 +441,7 @@ _used_ _weak_ void *memset(void *p, int c, size_t n) {
         if (!p || n == 0)
                 return p;
 
-#ifdef SD_BOOT
+#if SD_BOOT
         /* See comment in efi_memcpy. Note that the signature has c and n swapped! */
         if (_likely_(BS)) {
                 BS->SetMem(p, n, c);
