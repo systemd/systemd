@@ -175,7 +175,7 @@ efi_config_h = configure_file(
 
 efi_cflags = [
         '-DGNU_EFI_USE_MS_ABI',
-        '-DSD_BOOT',
+        '-DSD_BOOT=1',
         '-ffreestanding',
         '-fshort-wchar',
         '-fvisibility=hidden',

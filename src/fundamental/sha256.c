@@ -22,7 +22,7 @@
    <https://www.gnu.org/licenses/>.  */
 
 #include <stdbool.h>
-#ifdef SD_BOOT
+#if SD_BOOT
 #  include "efi-string.h"
 #else
 #  include <string.h>

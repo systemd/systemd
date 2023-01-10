@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#ifdef SD_BOOT
+#if SD_BOOT
 #  include <efi.h>
 #  include <efilib.h>
 #  include "efi-string.h"
@@ -11,7 +11,7 @@
 
 #include "macro-fundamental.h"
 
-#ifdef SD_BOOT
+#if SD_BOOT
 #  define strlen strlen16
 #  define strcmp strcmp16
 #  define strncmp strncmp16
@@ -59,7 +59,7 @@ static inline size_t strlen_ptr(const sd_char *s) {
 }
 
 sd_char *startswith(const sd_char *s, const sd_char *prefix) _pure_;
-#ifndef SD_BOOT
+#if !SD_BOOT
 sd_char *startswith_no_case(const sd_char *s, const sd_char *prefix) _pure_;
 #endif
 sd_char *endswith(const sd_char *s, const sd_char *postfix) _pure_;
