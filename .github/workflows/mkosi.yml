@@ -72,24 +72,14 @@ jobs:
             release: rawhide
           - distro: opensuse
             release: tumbleweed
-          - distro: centos_epel
+          - distro: centos
             release: 9-stream
-          - distro: centos_epel
+          - distro: centos
             release: 8-stream
 
     steps:
     - uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b
-    - uses: systemd/mkosi@c9772ec920f1cd03181ba14e6fe2c3d35ccb4f92
-
-    # FIXME: temporary workaround for a file conflict between systemd (C9S) and
-    # systemd-boot (EPEL9). Drop this once systemd in C9S is updated to v252
-    # (should be done by the end of 2022).
-    - name: Fix C9S/EPEL9
-      if: ${{ matrix.release == '9-stream' }}
-      run: sudo sed -i '/add_packages/s/systemd-boot/systemd/g' /usr/local/lib/python3.10/dist-packages/mkosi/__init__.py
-
-    - name: Install
-      run: sudo apt-get update && sudo apt-get install --no-install-recommends python3-pexpect python3-jinja2
+    - uses: systemd/mkosi@ab2aff830096e681da1950a7d29f277caa89516c
 
     - name: Configure
       run: |
@@ -106,7 +96,7 @@ jobs:
         EOF
 
     - name: Build ${{ matrix.distro }}
-      run: sudo mkosi build
+      run: sudo mkosi --idmap no
 
     - name: Show ${{ matrix.distro }} image summary
       run: sudo mkosi summary
