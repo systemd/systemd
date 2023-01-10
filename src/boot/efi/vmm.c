@@ -3,6 +3,9 @@
 #include <efi.h>
 #include <efilib.h>
 #include <stdbool.h>
+#if defined(__i386__) || defined(__x86_64__)
+#  include <cpuid.h>
+#endif
 
 #include "drivers.h"
 #include "efi-string.h"
@@ -131,4 +134,157 @@ EFI_STATUS vmm_open(EFI_HANDLE *ret_vmm_dev, EFI_FILE **ret_vmm_dir) {
                         return EFI_NOT_FOUND;
         }
         assert_not_reached();
+}
+
+static bool cpuid_in_hypervisor(void) {
+#if defined(__i386__) || defined(__x86_64__)
+        unsigned eax, ebx, ecx, edx;
+
+        /* This is a dumbed down version of src/basic/virt.c's detect_vm() that safely works in the UEFI
+         * environment. */
+
+        if (__get_cpuid(1, &eax, &ebx, &ecx, &edx) == 0)
+                return false;
+
+        if (FLAGS_SET(ecx, 0x80000000U))
+                return true;
+#endif
+
+        return false;
+}
+
+typedef struct {
+        uint8_t anchor_string[4];
+        uint8_t entry_point_structure_checksum;
+        uint8_t entry_point_length;
+        uint8_t major_version;
+        uint8_t minor_version;
+        uint16_t max_structure_size;
+        uint8_t entry_point_revision;
+        uint8_t formatted_area[5];
+        uint8_t intermediate_anchor_string[5];
+        uint8_t intermediate_checksum;
+        uint16_t table_length;
+        uint32_t table_address;
+        uint16_t number_of_smbios_structures;
+        uint8_t smbios_bcd_revision;
+} _packed_ SmbiosEntryPoint;
+
+typedef struct {
+        uint8_t anchor_string[5];
+        uint8_t entry_point_structure_checksum;
+        uint8_t entry_point_length;
+        uint8_t major_version;
+        uint8_t minor_version;
+        uint8_t docrev;
+        uint8_t entry_point_revision;
+        uint8_t reserved;
+        uint32_t table_maximum_size;
+        uint64_t table_address;
+} _packed_ Smbios3EntryPoint;
+
+typedef struct {
+        uint8_t type;
+        uint8_t length;
+        uint8_t handle[2];
+} _packed_ SmbiosHeader;
+
+typedef struct {
+        SmbiosHeader header;
+        uint8_t vendor;
+        uint8_t bios_version;
+        uint16_t bios_segment;
+        uint8_t bios_release_date;
+        uint8_t bios_size;
+        uint64_t bios_characteristics;
+        uint8_t bios_characteristics_ext[2];
+} _packed_ SmbiosTableType0;
+
+static void *find_smbios_configuration_table(uint64_t *ret_size) {
+        assert(ret_size);
+
+        Smbios3EntryPoint *entry3 = find_configuration_table(&(EFI_GUID) SMBIOS3_TABLE_GUID);
+        if (entry3 && memcmp(entry3->anchor_string, "_SM3_", 5) == 0 &&
+            entry3->entry_point_length <= sizeof(*entry3)) {
+                *ret_size = entry3->table_maximum_size;
+                return PHYSICAL_ADDRESS_TO_POINTER(entry3->table_address);
+        }
+
+        SmbiosEntryPoint *entry = find_configuration_table(&(EFI_GUID) SMBIOS_TABLE_GUID);
+        if (entry && memcmp(entry->anchor_string, "_SM_", 4) == 0 &&
+            entry->entry_point_length <= sizeof(*entry)) {
+                *ret_size = entry->table_length;
+                return PHYSICAL_ADDRESS_TO_POINTER(entry->table_address);
+        }
+
+        return NULL;
+}
+
+static SmbiosHeader *get_smbios_table(uint8_t type) {
+        uint64_t size = 0;
+        uint8_t *p = find_smbios_configuration_table(&size);
+        if (!p)
+                return false;
+
+        for (;;) {
+                if (size < sizeof(SmbiosHeader))
+                        return NULL;
+
+                SmbiosHeader *header = (SmbiosHeader *) p;
+
+                /* End of table. */
+                if (header->type == 127)
+                        return NULL;
+
+                if (size < header->length)
+                        return NULL;
+
+                if (header->type == type)
+                        return header; /* Yay! */
+
+                /* Skip over formatted area. */
+                size -= header->length;
+                p += header->length;
+
+                /* Skip over string table. */
+                for (;;) {
+                        while (size > 0 && *p != '\0') {
+                                p++;
+                                size--;
+                        }
+                        if (size == 0)
+                                return NULL;
+                        p++;
+                        size--;
+
+                        /* Double NUL terminates string table. */
+                        if (*p == '\0') {
+                                if (size == 0)
+                                        return NULL;
+                                p++;
+                                break;
+                        }
+                }
+        }
+
+        return NULL;
+}
+
+static bool smbios_in_hypervisor(void) {
+        /* Look up BIOS Information (Type 0). */
+        SmbiosTableType0 *type0 = (SmbiosTableType0 *) get_smbios_table(0);
+        if (!type0 || type0->header.length < sizeof(SmbiosTableType0))
+                return false;
+
+        /* Bit 4 of 2nd BIOS characteristics extension bytes indicates virtualization. */
+        return FLAGS_SET(type0->bios_characteristics_ext[1], 1 << 4);
+}
+
+bool in_hypervisor(void) {
+        static int cache = -1;
+        if (cache >= 0)
+                return cache;
+
+        cache = cpuid_in_hypervisor() || smbios_in_hypervisor();
+        return cache;
 }

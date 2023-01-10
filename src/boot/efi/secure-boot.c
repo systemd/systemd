@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "console.h"
 #include "sbat.h"
 #include "secure-boot.h"
-#include "console.h"
 #include "util.h"
+#include "vmm.h"
 
 bool secure_boot_enabled(void) {
         bool secure = false;  /* avoid false maybe-uninitialized warning */
