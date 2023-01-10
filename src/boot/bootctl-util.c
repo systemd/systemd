@@ -6,6 +6,7 @@
 #include "bootctl-util.h"
 #include "fileio.h"
 #include "os-util.h"
+#include "path-util.h"
 #include "stat-util.h"
 #include "sync-util.h"
 #include "utf8.h"
@@ -118,10 +119,13 @@ int settle_entry_token(void) {
         switch (arg_entry_token_type) {
 
         case ARG_ENTRY_TOKEN_AUTO: {
-                _cleanup_free_ char *buf = NULL;
-                r = read_one_line_file("/etc/kernel/entry-token", &buf);
+                _cleanup_free_ char *buf = NULL, *p = NULL;
+                p = path_join(etc_kernel(), "entry-token");
+                if (!p)
+                        return log_oom();
+                r = read_one_line_file(p, &buf);
                 if (r < 0 && r != -ENOENT)
-                        return log_error_errno(r, "Failed to read /etc/kernel/entry-token: %m");
+                        return log_error_errno(r, "Failed to read %s: %m", p);
 
                 if (!isempty(buf)) {
                         free_and_replace(arg_entry_token, buf);
