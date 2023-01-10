@@ -348,6 +348,7 @@ sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0B0D:*
 sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0B11:*
 sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0C00:*
 sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0C02:*
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0C40:*
 sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0C41:*
 sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0C42:*
  ACCEL_LOCATION=base
