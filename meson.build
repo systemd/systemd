@@ -2600,7 +2600,7 @@ if conf.get('HAVE_PAM') == 1
                 install_dir : rootlibexecdir)
 endif
 
-if conf.get('HAVE_BLKID') == 1 and conf.get('HAVE_GNU_EFI') == 1
+if conf.get('HAVE_BLKID') == 1 and conf.get('ENABLE_BOOTCTL') == 1
         if get_option('link-boot-shared')
                 boot_link_with = [libshared]
         else

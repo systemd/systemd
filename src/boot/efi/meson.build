@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 conf.set10('ENABLE_EFI', get_option('efi'))
-conf.set10('HAVE_GNU_EFI', false)
+conf.set10('ENABLE_BOOTCTL', false)
 
 efi_config_h_dir = meson.current_build_dir()
 
@@ -114,7 +114,7 @@ if efi_lds == ''
         subdir_done()
 endif
 
-conf.set10('HAVE_GNU_EFI', true)
+conf.set10('ENABLE_BOOTCTL', true)
 conf.set_quoted('EFI_MACHINE_TYPE_NAME', efi_arch[0])
 
 efi_conf = configuration_data()
