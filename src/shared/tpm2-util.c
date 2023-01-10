@@ -2433,6 +2433,9 @@ int tpm2_seal(const char *device,
                 hmac_attributes &= ~(TPMA_OBJECT_FIXEDTPM | TPMA_OBJECT_FIXEDPARENT);
                 primary_template_public = external_public;
                 hmac_parent_handle = secondary_handle;
+
+                /* We no longer need the primary. */
+                primary_handle = tpm2_handle_release(primary_handle);
         } else {
                 primary_template_public = *primary_public;
                 hmac_parent_handle = primary_handle;
@@ -2714,6 +2717,9 @@ int tpm2_unseal(const char *device,
                         return r;
 
                 hmac_parent_handle = secondary_handle;
+
+                /* We no longer need the primary. */
+                primary_handle = tpm2_handle_release(primary_handle);
         } else
                 hmac_parent_handle = primary_handle;
 
@@ -2741,7 +2747,7 @@ int tpm2_unseal(const char *device,
                         return r;
         }
 
-        r = tpm2_make_encryption_session(c, primary_handle, hmac_key, &encryption_session);
+        r = tpm2_make_encryption_session(c, hmac_parent_handle, hmac_key, &encryption_session);
         if (r < 0)
                 return r;
 
@@ -2749,7 +2755,7 @@ int tpm2_unseal(const char *device,
                 _cleanup_(tpm2_handle_releasep) struct tpm2_handle policy_session = tpm2_handle_init(c);
                 r = tpm2_make_policy_session(
                                 c,
-                                primary_handle,
+                                hmac_parent_handle,
                                 encryption_session,
                                 /* trial= */ false,
                                 &policy_session);
