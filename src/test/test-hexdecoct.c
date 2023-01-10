@@ -322,6 +322,13 @@ TEST(base64mem_linebreak) {
                 assert_se(decoded_size == n);
                 assert_se(memcmp(data, decoded, n) == 0);
 
+                /* Also try in secure mode */
+                decoded = mfree(decoded);
+                decoded_size = 0;
+                assert_se(unbase64mem_full(encoded, SIZE_MAX, /* secure= */ true, &decoded, &decoded_size) >= 0);
+                assert_se(decoded_size == n);
+                assert_se(memcmp(data, decoded, n) == 0);
+
                 for (size_t j = 0; j < (size_t) l; j++)
                         assert_se((encoded[j] == '\n') == (j % (m + 1) == m));
         }
@@ -446,7 +453,17 @@ static void test_unbase64mem_one(const char *input, const char *output, int ret)
         size_t size = 0;
 
         assert_se(unbase64mem(input, SIZE_MAX, &buffer, &size) == ret);
+        if (ret >= 0) {
+                assert_se(size == strlen(output));
+                assert_se(memcmp(buffer, output, size) == 0);
+                assert_se(((char*) buffer)[size] == 0);
+        }
 
+        /* also try in secure mode */
+        buffer = mfree(buffer);
+        size = 0;
+
+        assert_se(unbase64mem_full(input, SIZE_MAX, /* secure=*/ true, &buffer, &size) == ret);
         if (ret >= 0) {
                 assert_se(size == strlen(output));
                 assert_se(memcmp(buffer, output, size) == 0);
