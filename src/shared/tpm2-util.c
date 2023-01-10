@@ -2454,6 +2454,9 @@ int tpm2_seal(const char *device,
                 hmac_attributes &= ~(TPMA_OBJECT_FIXEDTPM | TPMA_OBJECT_FIXEDPARENT);
                 primary_template_public = external_public;
                 hmac_parent = secondary;
+
+                /* We no longer need the primary. */
+                primary = tpm2_flush_context_verbose(c, primary);
         } else {
                 primary_template_public = *primary_public;
                 hmac_parent = primary;
@@ -2732,6 +2735,9 @@ int tpm2_unseal(const char *device,
                         return r;
 
                 hmac_parent = secondary;
+
+                /* We no longer need the primary. */
+                primary = tpm2_flush_context_verbose(c, primary);
         } else
                 hmac_parent = primary;
 
@@ -2759,14 +2765,14 @@ int tpm2_unseal(const char *device,
                         return r;
         }
 
-        r = tpm2_make_encryption_session(c, primary, hmac_key, &encryption_session);
+        r = tpm2_make_encryption_session(c, hmac_parent, hmac_key, &encryption_session);
         if (r < 0)
                 return r;
 
         for (unsigned i = RETRY_UNSEAL_MAX;; i--) {
                 r = tpm2_make_policy_session(
                                 c,
-                                primary,
+                                hmac_parent,
                                 encryption_session,
                                 /* trial= */ false,
                                 &policy_session);
