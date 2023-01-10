@@ -33,8 +33,6 @@ BuildPackages=
         gcc
         gettext
         git
-        gnu-efi
-        gnu-efi-devel
         gnutls-devel
         gperf
         hostname

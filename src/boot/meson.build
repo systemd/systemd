@@ -19,7 +19,7 @@ bootctl_sources = files(
         'bootctl.h',
 )
 
-if host_machine.cpu_family() in ['arm', 'aarch64', 'x86', 'x86_64']
+if conf.get('ENABLE_BOOTCTL') == 1 and efi_arch != ''
         libefitest_sources = files(
                 'efi/bcd.c',
                 'efi/bcd.h',

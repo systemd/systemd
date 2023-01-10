@@ -432,8 +432,3 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         log_wait();
         return err;
 }
-
-/* See comment in boot.c. */
-EFI_STATUS _entry(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
-        return efi_main(image, sys_table);
-}

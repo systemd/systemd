@@ -9,7 +9,7 @@ success() { echo >&2 -e "\033[32;1m$1\033[0m"; }
 
 ARGS=(
     "--optimization=0"
-    "--optimization=s -Dgnu-efi=true -Defi-cflags=-m32 -Defi-libdir=/usr/lib32"
+    "--optimization=s"
     "--optimization=3 -Db_lto=true -Ddns-over-tls=false"
     "--optimization=3 -Db_lto=false"
     "--optimization=3 -Ddns-over-tls=openssl"
@@ -100,7 +100,7 @@ elif [[ "$COMPILER" == gcc ]]; then
         add-apt-repository -y ppa:ubuntu-toolchain-r/test
     fi
 
-    PACKAGES+=("gcc-$COMPILER_VERSION" "gcc-$COMPILER_VERSION-multilib")
+    PACKAGES+=("gcc-$COMPILER_VERSION")
 else
     fatal "Unknown compiler: $COMPILER"
 fi
@@ -155,12 +155,6 @@ for args in "${ARGS[@]}"; do
     if ! meson compile -C build -v; then
         fatal "'meson compile' failed with '$args'"
     fi
-
-    for loader in build/src/boot/efi/*.efi; do
-        if sbverify --list "$loader" |& grep -q "gap in section table"; then
-            fatal "$loader: Gaps found in section table"
-        fi
-    done
 
     git clean -dxf
 

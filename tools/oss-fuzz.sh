@@ -41,11 +41,7 @@ else
         apt-get install -y pkg-config:i386 libcap-dev:i386 libmount-dev:i386
     fi
 
-    # gnu-efi is installed here to enable -Dgnu-efi behind which fuzz-bcd
-    # is hidden. It isn't linked against efi. It doesn't
-    # even include "efi.h" because "bcd.c" can work in "unit test" mode
-    # where it isn't necessary.
-    apt-get install -y gnu-efi zstd
+    apt-get install -y zstd
 
     pip3 install -r .github/workflows/requirements.txt --require-hashes
 

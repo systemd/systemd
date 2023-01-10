@@ -46,7 +46,6 @@ BuildPackages=
         docbook-xsl
         dwarves
         glibc-static
-        gnu-efi-devel
         libcap-static
         pam-devel
         pkgconfig # pkgconf shim to provide /usr/bin/pkg-config

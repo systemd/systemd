@@ -501,8 +501,7 @@ tests += [
         [files('test-date.c')],
 
         [files('test-sbat.c'),
-         [], [], [], 'ENABLE_BOOTCTL', '',
-         ['-I@0@'.format(efi_config_h_dir)]],
+         [], [], [], 'ENABLE_BOOTCTL'],
 
         [files('test-sleep.c')],
 

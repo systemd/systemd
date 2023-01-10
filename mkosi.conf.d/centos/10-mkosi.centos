@@ -48,7 +48,6 @@ BuildPackages=
         glibc-devel.i686
         glibc-static
         glibc-static.i686
-        gnu-efi-devel
         libgcrypt-devel # CentOS Stream 8 libgcrypt-devel doesn't ship a pkg-config file.
         libxslt
         pam-devel

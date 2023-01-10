@@ -469,6 +469,10 @@ endif
 
 #####################################################################
 
+subdir('src/boot/efi')
+
+#####################################################################
+
 want_tests = get_option('tests')
 slow_tests = want_tests != 'false' and get_option('slow-tests')
 fuzz_tests = want_tests != 'false' and get_option('fuzz-tests')
@@ -1874,6 +1878,7 @@ conf.set10('ENABLE_REMOTE', have)
 foreach term : ['analyze',
                 'backlight',
                 'binfmt',
+                'bootctl',
                 'coredump',
                 'efi',
                 'environment-d',
@@ -1956,12 +1961,6 @@ catalogs = []
 
 ############################################################
 
-# Include these now as they provide gnu-efi detection.
-subdir('src/fundamental')
-subdir('src/boot/efi')
-
-############################################################
-
 generate_gperfs = find_program('tools/generate-gperfs.py')
 make_autosuspend_rules_py = find_program('tools/make-autosuspend-rules.py')
 make_directive_index_py = find_program('tools/make-directive-index.py')
@@ -2021,6 +2020,7 @@ includes = [libsystemd_includes, include_directories('src/shared')]
 
 subdir('po')
 subdir('catalog')
+subdir('src/fundamental')
 subdir('src/basic')
 subdir('src/libsystemd')
 subdir('src/shared')
@@ -4544,11 +4544,11 @@ foreach tuple : [
         # components
         ['backlight'],
         ['binfmt'],
+        ['bootctl'],
         ['bpf-framework',          conf.get('BPF_FRAMEWORK') == 1],
         ['coredump'],
         ['environment.d'],
         ['efi'],
-        ['gnu-efi'],
         ['firstboot'],
         ['hibernate'],
         ['homed'],
