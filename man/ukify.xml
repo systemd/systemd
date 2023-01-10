@@ -245,6 +245,13 @@
         performed.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--output-split-initrd=<replaceable>FILENAME</replaceable></option></term>
+
+        <listitem><para>An optional filename to use as the output path for the initrd. If not specified, no
+        split initrd will be written.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
