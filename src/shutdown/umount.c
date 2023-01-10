@@ -638,7 +638,7 @@ static int remount_with_timeout(MountPoint *m, bool last_try) {
                 if (read(pfd[0], &r, sizeof(r)) == sizeof(r))
                         log_debug_errno(r, "Remounting '%s' failed abnormally, child process " PID_FMT " failed: %m", m->path, pid);
                 else
-                        log_debug_errno(r, "Remounting '%s' failed abnormally, child process " PID_FMT " aborted or exited non-zero.", m->path, pid);
+                        r = log_debug_errno(EPROTO, "Remounting '%s' failed abnormally, child process " PID_FMT " aborted or exited non-zero.", m->path, pid);
                 TAKE_PID(pid); /* child exited (just not as we expected) hence don't kill anymore */
         } else if (r < 0)
                 log_error_errno(r, "Remounting '%s' failed unexpectedly, couldn't wait for child process " PID_FMT ": %m", m->path, pid);
