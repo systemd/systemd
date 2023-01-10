@@ -16,6 +16,7 @@ import os
 import pathlib
 import re
 import shlex
+import shutil
 import subprocess
 import tempfile
 import typing
@@ -341,7 +342,10 @@ def find_tool(name, fallback=None, opts=None):
             if tool.exists():
                 return tool
 
-    return fallback or name
+    if shutil.which(name) is not None:
+        return name
+
+    return fallback
 
 
 def combine_signatures(pcrsigs):
