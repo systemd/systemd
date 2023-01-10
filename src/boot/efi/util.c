@@ -748,9 +748,9 @@ EFI_STATUS device_path_to_str(const EFI_DEVICE_PATH *dp, char16_t **ret) {
         return EFI_SUCCESS;
 }
 
-#if defined(__i386__) || defined(__x86_64__)
 bool in_hypervisor(void) {
-        uint32_t eax, ebx, ecx, edx;
+#if defined(__i386__) || defined(__x86_64__)
+        unsigned eax, ebx, ecx, edx;
 
         /* This is a dumbed down version of src/basic/virt.c's detect_vm() that safely works in the UEFI
          * environment. */
@@ -758,9 +758,12 @@ bool in_hypervisor(void) {
         if (__get_cpuid(1, &eax, &ebx, &ecx, &edx) == 0)
                 return false;
 
-        return !!(ecx & 0x80000000U);
-}
+        if (!!(ecx & 0x80000000U))
+                return true;
 #endif
+
+        return streq16(ST->FirmwareVendor, u"EDK II");
+}
 
 void *find_configuration_table(const EFI_GUID *guid) {
         for (UINTN i = 0; i < ST->NumberOfTableEntries; i++)
