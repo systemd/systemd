@@ -6,7 +6,7 @@ name: "Pull Request Labeler"
 
 on:
   pull_request_target:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review, closed]
   issue_comment:
     types: [created]
 
@@ -81,3 +81,34 @@ jobs:
             repo: context.repo.repo,
             labels: ["please-review"]
           })
+
+    - uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0
+      if: github.event_name == 'pull_request_target' && github.event.issue.pull_request && github.event.pull_request.merged == true
+      with:
+        script: |
+          for (const label of ["please-review",
+                               "reviewed/needs-rework 🔨",
+                               "ci-fails/needs-rework 🔥",
+                               "needs-rebase",
+                               "good-to-merge/waiting-for-ci 👍",
+                               "good-to-merge/after-next-release",
+                               "good-to-merge/with-minor-suggestions",
+                               "good-to-merge/waiting-for-reporter-feedback 👍",
+                               "needs-discussion 🤔",
+                               "needs-reporter-feedback ❓",
+                               "dont-merge",
+                               "squash-on-merge,
+                               "quick-review"]) {
+            try {
+              await github.rest.issues.removeLabel({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: label,
+              });
+            } catch (err) {
+              if (err.status != 404) {
+                throw err;
+              }
+            }
+          }
