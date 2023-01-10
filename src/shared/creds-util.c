@@ -215,7 +215,6 @@ static int make_credential_host_secret(
                 void **ret_data,
                 size_t *ret_size) {
 
-        struct credential_host_secret_format buf;
         _cleanup_free_ char *t = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
@@ -239,21 +238,23 @@ static int make_credential_host_secret(
         if (r < 0)
                 log_debug_errno(r, "Failed to set file attributes for secrets file, ignoring: %m");
 
-        buf = (struct credential_host_secret_format) {
+        struct credential_host_secret_format buf = {
                 .machine_id = machine_id,
         };
 
+        CLEANUP_ERASE(buf);
+
         r = crypto_random_bytes(buf.data, sizeof(buf.data));
         if (r < 0)
-                goto finish;
+                goto fail;
 
         r = loop_write(fd, &buf, sizeof(buf), false);
         if (r < 0)
-                goto finish;
+                goto fail;
 
         if (fsync(fd) < 0) {
                 r = -errno;
-                goto finish;
+                goto fail;
         }
 
         warn_not_encrypted(fd, flags, dirname, fn);
@@ -261,17 +262,17 @@ static int make_credential_host_secret(
         if (t) {
                 r = rename_noreplace(dfd, t, dfd, fn);
                 if (r < 0)
-                        goto finish;
+                        goto fail;
 
                 t = mfree(t);
         } else if (linkat(fd, "", dfd, fn, AT_EMPTY_PATH) < 0) {
                 r = -errno;
-                goto finish;
+                goto fail;
         }
 
         if (fsync(dfd) < 0) {
                 r = -errno;
-                goto finish;
+                goto fail;
         }
 
         if (ret_data) {
@@ -280,7 +281,7 @@ static int make_credential_host_secret(
                 copy = memdup(buf.data, sizeof(buf.data));
                 if (!copy) {
                         r = -ENOMEM;
-                        goto finish;
+                        goto fail;
                 }
 
                 *ret_data = copy;
@@ -289,13 +290,12 @@ static int make_credential_host_secret(
         if (ret_size)
                 *ret_size = sizeof(buf.data);
 
-        r = 0;
+        return 0;
 
-finish:
+fail:
         if (t && unlinkat(dfd, t, 0) < 0)
                 log_debug_errno(errno, "Failed to remove temporary credential key: %m");
 
-        explicit_bzero_safe(&buf, sizeof(buf));
         return r;
 }
 
