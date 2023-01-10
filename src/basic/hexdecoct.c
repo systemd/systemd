@@ -115,7 +115,6 @@ int unhexmem_full(const char *p, size_t l, bool secure, void **ret, size_t *ret_
         size_t buf_size;
         const char *x;
         uint8_t *z;
-        int r;
 
         assert(p || l == 0);
 
@@ -128,22 +127,20 @@ int unhexmem_full(const char *p, size_t l, bool secure, void **ret, size_t *ret_
         if (!buf)
                 return -ENOMEM;
 
+        CLEANUP_ERASE_PTR(secure ? buf : NULL, buf_size);
+
         for (x = p, z = buf;;) {
                 int a, b;
 
                 a = unhex_next(&x, &l);
                 if (a == -EPIPE) /* End of string */
                         break;
-                if (a < 0) {
-                        r = a;
-                        goto on_failure;
-                }
+                if (a < 0)
+                        return a;
 
                 b = unhex_next(&x, &l);
-                if (b < 0) {
-                        r = b;
-                        goto on_failure;
-                }
+                if (b < 0)
+                        return b;
 
                 *(z++) = (uint8_t) a << 4 | (uint8_t) b;
         }
@@ -156,12 +153,6 @@ int unhexmem_full(const char *p, size_t l, bool secure, void **ret, size_t *ret_
                 *ret = TAKE_PTR(buf);
 
         return 0;
-
-on_failure:
-        if (secure)
-                explicit_bzero_safe(buf, buf_size);
-
-        return r;
 }
 
 /* https://tools.ietf.org/html/rfc4648#section-6
@@ -786,60 +777,44 @@ int unbase64mem_full(const char *p, size_t l, bool secure, void **ret, size_t *r
         if (!buf)
                 return -ENOMEM;
 
+        CLEANUP_ERASE_PTR(secure ? buf : NULL, len);
+
         for (x = p, z = buf;;) {
                 int a, b, c, d; /* a == 00XXXXXX; b == 00YYYYYY; c == 00ZZZZZZ; d == 00WWWWWW */
 
                 a = unbase64_next(&x, &l);
                 if (a == -EPIPE) /* End of string */
                         break;
-                if (a < 0) {
-                        r = a;
-                        goto on_failure;
-                }
-                if (a == INT_MAX) { /* Padding is not allowed at the beginning of a 4ch block */
-                        r = -EINVAL;
-                        goto on_failure;
-                }
+                if (a < 0)
+                        return a;
+                if (a == INT_MAX) /* Padding is not allowed at the beginning of a 4ch block */
+                        return -EINVAL;
 
                 b = unbase64_next(&x, &l);
-                if (b < 0) {
-                        r = b;
-                        goto on_failure;
-                }
-                if (b == INT_MAX) { /* Padding is not allowed at the second character of a 4ch block either */
-                        r = -EINVAL;
-                        goto on_failure;
-                }
+                if (b < 0)
+                        return b;
+                if (b == INT_MAX) /* Padding is not allowed at the second character of a 4ch block either */
+                        return -EINVAL;
 
                 c = unbase64_next(&x, &l);
-                if (c < 0) {
-                        r = c;
-                        goto on_failure;
-                }
+                if (c < 0)
+                        return c;
 
                 d = unbase64_next(&x, &l);
-                if (d < 0) {
-                        r = d;
-                        goto on_failure;
-                }
+                if (d < 0)
+                        return d;
 
                 if (c == INT_MAX) { /* Padding at the third character */
 
-                        if (d != INT_MAX) { /* If the third character is padding, the fourth must be too */
-                                r = -EINVAL;
-                                goto on_failure;
-                        }
+                        if (d != INT_MAX) /* If the third character is padding, the fourth must be too */
+                                return -EINVAL;
 
                         /* b == 00YY0000 */
-                        if (b & 15) {
-                                r = -EINVAL;
-                                goto on_failure;
-                        }
+                        if (b & 15)
+                                return -EINVAL;
 
-                        if (l > 0) { /* Trailing rubbish? */
-                                r = -ENAMETOOLONG;
-                                goto on_failure;
-                        }
+                        if (l > 0) /* Trailing rubbish? */
+                                return -ENAMETOOLONG;
 
                         *(z++) = (uint8_t) a << 2 | (uint8_t) (b >> 4); /* XXXXXXYY */
                         break;
@@ -847,15 +822,11 @@ int unbase64mem_full(const char *p, size_t l, bool secure, void **ret, size_t *r
 
                 if (d == INT_MAX) {
                         /* c == 00ZZZZ00 */
-                        if (c & 3) {
-                                r = -EINVAL;
-                                goto on_failure;
-                        }
+                        if (c & 3)
+                                return -EINVAL;
 
-                        if (l > 0) { /* Trailing rubbish? */
-                                r = -ENAMETOOLONG;
-                                goto on_failure;
-                        }
+                        if (l > 0) /* Trailing rubbish? */
+                                return -ENAMETOOLONG;
 
                         *(z++) = (uint8_t) a << 2 | (uint8_t) b >> 4; /* XXXXXXYY */
                         *(z++) = (uint8_t) b << 4 | (uint8_t) c >> 2; /* YYYYZZZZ */
@@ -875,12 +846,6 @@ int unbase64mem_full(const char *p, size_t l, bool secure, void **ret, size_t *r
                 *ret = TAKE_PTR(buf);
 
         return 0;
-
-on_failure:
-        if (secure)
-                explicit_bzero_safe(buf, len);
-
-        return r;
 }
 
 void hexdump(FILE *f, const void *p, size_t s) {
