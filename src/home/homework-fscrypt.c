@@ -58,10 +58,10 @@ static int fscrypt_upload_volume_key(
         };
         memcpy(key.raw, volume_key, volume_key_size);
 
+        CLEANUP_ERASE(key);
+
         /* Upload to the kernel */
         serial = add_key("logon", description, &key, sizeof(key), where);
-        explicit_bzero_safe(&key, sizeof(key));
-
         if (serial < 0)
                 return log_error_errno(errno, "Failed to install master key in keyring: %m");
 
@@ -124,20 +124,18 @@ static int fscrypt_slot_try_one(
          *      resulting hash.
          */
 
+        CLEANUP_ERASE(derived);
+
         if (PKCS5_PBKDF2_HMAC(
                             password, strlen(password),
                             salt, salt_size,
                             0xFFFF, EVP_sha512(),
-                            sizeof(derived), derived) != 1) {
-                r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "PBKDF2 failed");
-                goto finish;
-        }
+                            sizeof(derived), derived) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "PBKDF2 failed");
 
         context = EVP_CIPHER_CTX_new();
-        if (!context) {
-                r = log_oom();
-                goto finish;
-        }
+        if (!context)
+                return log_oom();
 
         /* We use AES256 in counter mode */
         assert_se(cc = EVP_aes_256_ctr());
@@ -145,13 +143,8 @@ static int fscrypt_slot_try_one(
         /* We only use the first half of the derived key */
         assert(sizeof(derived) >= (size_t) EVP_CIPHER_key_length(cc));
 
-        if (EVP_DecryptInit_ex(context, cc, NULL, derived, NULL) != 1)  {
-                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize decryption context.");
-                goto finish;
-        }
-
-        /* Flush out the derived key now, we don't need it anymore */
-        explicit_bzero_safe(derived, sizeof(derived));
+        if (EVP_DecryptInit_ex(context, cc, NULL, derived, NULL) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize decryption context.");
 
         decrypted_size = encrypted_size + EVP_CIPHER_key_length(cc) * 2;
         decrypted = malloc(decrypted_size);
@@ -184,10 +177,6 @@ static int fscrypt_slot_try_one(
                 *ret_decrypted_size = decrypted_size;
 
         return 0;
-
-finish:
-        explicit_bzero_safe(derived, sizeof(derived));
-        return r;
 }
 
 static int fscrypt_slot_try_many(
@@ -413,20 +402,18 @@ static int fscrypt_slot_set(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate salt: %m");
 
+        CLEANUP_ERASE(derived);
+
         if (PKCS5_PBKDF2_HMAC(
                             password, strlen(password),
                             salt, sizeof(salt),
                             0xFFFF, EVP_sha512(),
-                            sizeof(derived), derived) != 1) {
-                r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "PBKDF2 failed");
-                goto finish;
-        }
+                            sizeof(derived), derived) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "PBKDF2 failed");
 
         context = EVP_CIPHER_CTX_new();
-        if (!context) {
-                r = log_oom();
-                goto finish;
-        }
+        if (!context)
+                return log_oom();
 
         /* We use AES256 in counter mode */
         cc = EVP_aes_256_ctr();
@@ -434,13 +421,8 @@ static int fscrypt_slot_set(
         /* We only use the first half of the derived key */
         assert(sizeof(derived) >= (size_t) EVP_CIPHER_key_length(cc));
 
-        if (EVP_EncryptInit_ex(context, cc, NULL, derived, NULL) != 1)  {
-                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize encryption context.");
-                goto finish;
-        }
-
-        /* Flush out the derived key now, we don't need it anymore */
-        explicit_bzero_safe(derived, sizeof(derived));
+        if (EVP_EncryptInit_ex(context, cc, NULL, derived, NULL) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize encryption context.");
 
         encrypted_size = volume_key_size + EVP_CIPHER_key_length(cc) * 2;
         encrypted = malloc(encrypted_size);
@@ -477,10 +459,6 @@ static int fscrypt_slot_set(
         log_info("Written key slot %s.", label);
 
         return 0;
-
-finish:
-        explicit_bzero_safe(derived, sizeof(derived));
-        return r;
 }
 
 int home_create_fscrypt(
