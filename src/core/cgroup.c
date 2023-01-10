@@ -2315,7 +2315,7 @@ static int unit_update_cgroup(
         return 0;
 }
 
-static int unit_attach_pid_to_cgroup_via_bus(Unit *u, pid_t pid, const char *suffix_path) {
+static int unit_attach_pid_to_cgroup_via_bus(Unit *u, pid_t pid, const char *subcgroup) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char *pp;
         int r;
@@ -2336,7 +2336,7 @@ static int unit_attach_pid_to_cgroup_via_bus(Unit *u, pid_t pid, const char *suf
         if (!pp)
                 return -EINVAL;
 
-        pp = strjoina("/", pp, suffix_path);
+        pp = strjoina("/", pp, subcgroup);
         path_simplify(pp);
 
         r = bus_call_method(u->manager->system_bus,
@@ -2351,7 +2351,7 @@ static int unit_attach_pid_to_cgroup_via_bus(Unit *u, pid_t pid, const char *suf
         return 0;
 }
 
-int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
+int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *subcgroup) {
         _cleanup_free_ char *joined = NULL;
         CGroupMask delegated_mask;
         const char *p;
@@ -2376,10 +2376,10 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
         if (r < 0)
                 return r;
 
-        if (isempty(suffix_path))
+        if (isempty(subcgroup))
                 p = u->cgroup_path;
         else {
-                joined = path_join(u->cgroup_path, suffix_path);
+                joined = path_join(u->cgroup_path, subcgroup);
                 if (!joined)
                         return -ENOMEM;
 
@@ -2409,7 +2409,7 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
                                  * Since it's more privileged it might be able to move the process across the
                                  * leaves of a subtree whose top node is not owned by us. */
 
-                                z = unit_attach_pid_to_cgroup_via_bus(u, pid, suffix_path);
+                                z = unit_attach_pid_to_cgroup_via_bus(u, pid, subcgroup);
                                 if (z < 0)
                                         log_unit_info_errno(u, z, "Couldn't move process "PID_FMT" to requested cgroup '%s' (directly or via the system bus): %m", pid, empty_to_root(p));
                                 else {
