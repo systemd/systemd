@@ -18,3 +18,28 @@ bootctl_sources = files(
         'bootctl.c',
         'bootctl.h',
 )
+
+if host_machine.cpu_family() in ['arm', 'aarch64', 'x86', 'x86_64']
+        libefitest_sources = files(
+                'efi/bcd.c',
+                'efi/bcd.h',
+                'efi/efi-string.c',
+                'efi/efi-string.h',
+        )
+        libefitest = static_library(
+                'efitest',
+                libefitest_sources,
+                include_directories : includes,
+                link_with : libshared,
+                build_by_default : false)
+
+        tests += [
+                [files('efi/test-bcd.c'), [libefitest], [libzstd], [], 'HAVE_ZSTD'],
+                [files('efi/test-efi-string.c'), [libefitest]],
+        ]
+        fuzzers += [
+                [files('efi/fuzz-bcd.c'), [libefitest]],
+                [files('efi/fuzz-efi-string.c'), [libefitest]],
+                [files('efi/fuzz-efi-printf.c'), [libefitest]],
+        ]
+endif
