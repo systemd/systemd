@@ -425,7 +425,7 @@
         <term><option>--verity-data=</option></term>
 
         <listitem><para>Takes the path to a data integrity (dm-verity) file. This option enables data integrity checks
-        using dm-verity, if a root-hash is passed and if the used image itself does not contains the integrity data.
+        using dm-verity, if a root-hash is passed and if the used image itself does not contain the integrity data.
         The integrity data must be matched by the root hash. If this option is not specified, but a file with the
         <filename>.verity</filename> suffix is found next to the image file, bearing otherwise the same name (except if
         the image has the <filename>.raw</filename> suffix, in which case the verity data file must not have it in its name),
