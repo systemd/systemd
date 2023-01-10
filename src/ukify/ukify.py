@@ -16,6 +16,7 @@ import os
 import pathlib
 import re
 import shlex
+import shutil
 import subprocess
 import tempfile
 import typing
@@ -322,7 +323,7 @@ def check_splash(filename):
 
 def check_inputs(opts):
     for name, value in vars(opts).items():
-        if name in {'output', 'tools'}:
+        if name in {'output', 'output_split_initrd', 'tools'}:
             continue
 
         if not isinstance(value, pathlib.Path):
@@ -586,6 +587,14 @@ def make_uki(opts):
 
     print(f"Wrote {'signed' if opts.sb_key else 'unsigned'} {opts.output}")
 
+    if opts.output_split_initrd:
+        if isinstance(initrd, pathlib.PosixPath):
+            shutil.copy2(initrd, opts.output_split_initrd)
+        else:
+            assert isinstance(initrd, bytes)
+            opts.output_split_initrd.write_bytes(initrd)
+
+        print(f'Wrote {opts.output_split_initrd}')
 
 def parse_args(args=None):
     p = argparse.ArgumentParser(
@@ -693,6 +702,9 @@ usage: ukify [options…] linux initrd…
     p.add_argument('--output', '-o',
                    type=pathlib.Path,
                    help='output file path')
+    p.add_argument('--output-split-initrd',
+                   type=pathlib.Path,
+                   help='split initrd output file path')
 
     p.add_argument('--measure',
                    action=argparse.BooleanOptionalAction,
