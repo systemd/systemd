@@ -2173,6 +2173,7 @@ subdir('src/journal')
 subdir('src/libsystemd-network')
 
 subdir('src/analyze')
+subdir('src/boot')
 subdir('src/busctl')
 subdir('src/coredump')
 subdir('src/cryptenroll')
@@ -2608,22 +2609,7 @@ if conf.get('HAVE_BLKID') == 1 and conf.get('HAVE_GNU_EFI') == 1
 
         exe = executable(
                 'bootctl',
-                ['src/boot/bootctl.c',
-                 'src/boot/bootctl.h',
-                 'src/boot/bootctl-install.c',
-                 'src/boot/bootctl-install.h',
-                 'src/boot/bootctl-random-seed.c',
-                 'src/boot/bootctl-random-seed.h',
-                 'src/boot/bootctl-reboot-to-firmware.c',
-                 'src/boot/bootctl-reboot-to-firmware.h',
-                 'src/boot/bootctl-set-efivar.c',
-                 'src/boot/bootctl-set-efivar.h',
-                 'src/boot/bootctl-status.c',
-                 'src/boot/bootctl-status.h',
-                 'src/boot/bootctl-systemd-efi-options.c',
-                 'src/boot/bootctl-systemd-efi-options.h',
-                 'src/boot/bootctl-util.c',
-                 'src/boot/bootctl-util.h'],
+                bootctl_sources,
                 include_directories : includes,
                 link_with : [boot_link_with],
                 dependencies : [libblkid,
