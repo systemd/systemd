@@ -63,6 +63,12 @@ static const char* const image_search_path[_IMAGE_CLASS_MAX] = {
                             "/var/lib/extensions\0"         /* the main place for images */
                             "/usr/local/lib/extensions\0"
                             "/usr/lib/extensions\0",
+
+        [IMAGE_CONFIGURATION] = "/etc/configuration\0"             /* only place symlinks here */
+                                "/run/configuration\0"             /* and here too */
+                                "/var/lib/configuration\0"         /* the main place for images */
+                                "/usr/local/lib/configuration\0"
+                                "/usr/lib/configuration\0",
 };
 
 static Image *image_free(Image *i) {
@@ -1315,6 +1321,7 @@ static const char* const image_class_table[_IMAGE_CLASS_MAX] = {
         [IMAGE_MACHINE] = "machine",
         [IMAGE_PORTABLE] = "portable",
         [IMAGE_EXTENSION] = "extension",
+        [IMAGE_CONFIGURATION] = "configuration",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(image_class, ImageClass);
