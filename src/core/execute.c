@@ -4045,14 +4045,16 @@ static int exec_parameters_get_cgroup_path(Unit *u, const ExecParameters *params
          * unit's main cgroup because it is now an inner one, and inner cgroups may not contain processes.
          * Hence, if delegation is on, use a subcgroup per configuration.
          * Note that we do so only for ExecStartPost=, ExecReload=, ExecStop=, ExecStopPost=, i.e. for the
-         * commands where the main process is already forked. For ExecStartPre= this is not necessary, the
-         * cgroup is still empty. We distinguish these cases with the EXEC_CONTROL_CGROUP flag, which is only
-         * passed for the former statements, not for the latter. */
+         * commands where the main process is already forked. For ExecStartPre=, ExecCondition= this is not necessary, the
+         * cgroup is still empty. We distinguish these cases with the EXEC_NO_SUBCGROUP flag, which is only
+         * passed for the latter statements, not for the former. */
 
-        if (FLAGS_SET(params->flags, EXEC_CONTROL_CGROUP|EXEC_CGROUP_DELEGATE|EXEC_IS_CONTROL))
-                subcgroup = c->delegate_subcgroup ?: DELEGATE_CGROUP_CONTROL;
-        else if (FLAGS_SET(params->flags, EXEC_CONTROL_CGROUP|EXEC_CGROUP_DELEGATE))
-                subcgroup = c->delegate_subcgroup ?: DELEGATE_CGROUP_PAYLOAD;
+        if (!(params->flags & EXEC_NO_SUBCGROUP) && (params->flags & EXEC_CGROUP_DELEGATE)) {
+                if (params->flags & EXEC_IS_CONTROL)
+                        subcgroup = c->delegate_subcgroup ?: DELEGATE_CGROUP_CONTROL;
+                else
+                        subcgroup = c->delegate_subcgroup ?: DELEGATE_CGROUP_PAYLOAD;
+        }
 
         p = path_join(params->cgroup_path, subcgroup);
         if (!p)
