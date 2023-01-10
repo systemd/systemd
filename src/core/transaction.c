@@ -976,7 +976,7 @@ int transaction_add_job_and_dependencies(
         }
 
         if (is_new && !ignore_requirements && type != JOB_NOP) {
-                Set *following;
+                _cleanup_set_free_ Set *following = NULL;
 
                 /* If we are following some other unit, make sure we
                  * add all dependencies of everybody following. */
@@ -990,8 +990,6 @@ int transaction_add_job_and_dependencies(
                                         sd_bus_error_free(e);
                                 }
                         }
-
-                        set_free(following);
                 }
 
                 /* Finally, recursively add in all dependencies. */
