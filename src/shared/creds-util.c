@@ -243,6 +243,8 @@ static int make_credential_host_secret(
                 .machine_id = machine_id,
         };
 
+        CLEANUP_ERASE(buf);
+
         r = crypto_random_bytes(buf.data, sizeof(buf.data));
         if (r < 0)
                 goto finish;
@@ -295,7 +297,6 @@ finish:
         if (t && unlinkat(dfd, t, 0) < 0)
                 log_debug_errno(errno, "Failed to remove temporary credential key: %m");
 
-        explicit_bzero_safe(&buf, sizeof(buf));
         return r;
 }
 
