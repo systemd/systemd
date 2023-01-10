@@ -75,6 +75,29 @@ endif
 
 #####################################################################
 
+version_tag = get_option('version-tag')
+if version_tag != ''
+        vcs_data = configuration_data()
+        vcs_data.set('VCS_TAG', version_tag)
+        version_h = configure_file(configuration : vcs_data,
+                                   input : 'src/version/version.h.in',
+                                   output : 'version.h')
+else
+        vcs_tagger = [
+                project_source_root + '/tools/meson-vcs-tag.sh',
+                project_source_root,
+                meson.project_version()]
+
+        version_h = vcs_tag(
+                input : 'src/version/version.h.in',
+                output : 'version.h',
+                command: vcs_tagger)
+endif
+
+versiondep = declare_dependency(sources: version_h)
+
+#####################################################################
+
 fs = import('fs')
 if get_option('split-usr') == 'auto'
         split_usr = not fs.is_symlink('/bin')
@@ -319,32 +342,6 @@ cc = meson.get_compiler('c')
 pkgconfig = import('pkgconfig')
 meson_build_sh = find_program('tools/meson-build.sh')
 
-want_tests = get_option('tests')
-slow_tests = want_tests != 'false' and get_option('slow-tests')
-fuzz_tests = want_tests != 'false' and get_option('fuzz-tests')
-install_tests = get_option('install-tests')
-
-if add_languages('cpp', required : fuzzer_build)
-        #  Used only for tests
-        cxx = meson.get_compiler('cpp')
-        cxx_cmd = ' '.join(cxx.cmd_array())
-else
-        cxx_cmd = ''
-endif
-
-if want_libfuzzer
-        fuzzing_engine = meson.get_compiler('cpp').find_library('Fuzzer', required : false)
-        if fuzzing_engine.found()
-                add_project_arguments('-fsanitize-coverage=trace-pc-guard,trace-cmp', language : 'c')
-        elif cc.has_argument('-fsanitize=fuzzer-no-link')
-                add_project_arguments('-fsanitize=fuzzer-no-link', language : 'c')
-        else
-                error('Looks like neither libFuzzer nor -fsanitize=fuzzer-no-link is supported')
-        endif
-elif want_ossfuzz
-        fuzzing_engine = meson.get_compiler('cpp').find_library('FuzzingEngine')
-endif
-
 # Those generate many false positives, and we do not want to change the code to
 # avoid them.
 basic_disabled_warnings = [
@@ -468,6 +465,34 @@ endif
 
 if get_option('mode') == 'developer'
         possible_cc_flags += '-fno-omit-frame-pointer'
+endif
+
+#####################################################################
+
+want_tests = get_option('tests')
+slow_tests = want_tests != 'false' and get_option('slow-tests')
+fuzz_tests = want_tests != 'false' and get_option('fuzz-tests')
+install_tests = get_option('install-tests')
+
+if add_languages('cpp', required : fuzzer_build)
+        #  Used only for tests
+        cxx = meson.get_compiler('cpp')
+        cxx_cmd = ' '.join(cxx.cmd_array())
+else
+        cxx_cmd = ''
+endif
+
+if want_libfuzzer
+        fuzzing_engine = meson.get_compiler('cpp').find_library('Fuzzer', required : false)
+        if fuzzing_engine.found()
+                add_project_arguments('-fsanitize-coverage=trace-pc-guard,trace-cmp', language : 'c')
+        elif cc.has_argument('-fsanitize=fuzzer-no-link')
+                add_project_arguments('-fsanitize=fuzzer-no-link', language : 'c')
+        else
+                error('Looks like neither libFuzzer nor -fsanitize=fuzzer-no-link is supported')
+        endif
+elif want_ossfuzz
+        fuzzing_engine = meson.get_compiler('cpp').find_library('FuzzingEngine')
 endif
 
 add_project_arguments(cc.get_supported_arguments(basic_disabled_warnings), language : 'c')
@@ -639,27 +664,6 @@ else
 endif
 
 #####################################################################
-
-version_tag = get_option('version-tag')
-if version_tag != ''
-        vcs_data = configuration_data()
-        vcs_data.set('VCS_TAG', version_tag)
-        version_h = configure_file(configuration : vcs_data,
-                                   input : 'src/version/version.h.in',
-                                   output : 'version.h')
-else
-        vcs_tagger = [
-                project_source_root + '/tools/meson-vcs-tag.sh',
-                project_source_root,
-                meson.project_version()]
-
-        version_h = vcs_tag(
-                input : 'src/version/version.h.in',
-                output : 'version.h',
-                command: vcs_tagger)
-endif
-
-versiondep = declare_dependency(sources: version_h)
 
 shared_lib_tag = get_option('shared-lib-tag')
 if shared_lib_tag == ''
