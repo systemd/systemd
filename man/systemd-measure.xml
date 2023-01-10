@@ -208,22 +208,13 @@
     <example>
       <title>Generate a unified kernel image, and calculate the expected TPM PCR 11 value</title>
 
-      <programlisting># objcopy \
-    --add-section .linux=vmlinux --change-section-vma .linux=0x2000000 \
-    --add-section .osrel=os-release.txt --change-section-vma .osrel=0x20000 \
-    --add-section .cmdline=cmdline.txt --change-section-vma .cmdline=0x30000 \
-    --add-section .initrd=initrd.cpio --change-section-vma .initrd=0x3000000 \
-    --add-section .splash=splash.bmp --change-section-vma .splash=0x100000 \
-    --add-section .dtb=devicetree.dtb --change-section-vma .dtb=0x40000 \
-    /usr/lib/systemd/boot/efi/linuxx64.efi.stub \
-    foo.efi
-# systemd-measure calculate \
-     --linux=vmlinux \
-     --osrel=os-release.txt \
-     --cmdline=cmdline.txt \
-     --initrd=initrd.cpio \
-     --splash=splash.bmp \
-     --dtb=devicetree.dtb
+      <programlisting># ukify --output foo.efi \
+     --os-release @os-release.txt \
+     --cmdline @cmdline.txt \
+     --splash splash.bmp \
+     --devicetree devicetree.dtb \
+     --measure \
+     vmlinux initrd.cpio
 11:sha1=d775a7b4482450ac77e03ee19bda90bd792d6ec7
 11:sha256=bc6170f9ce28eb051ab465cd62be8cf63985276766cf9faf527ffefb66f45651
 11:sha384=1cf67dff4757e61e5a73d2a21a6694d668629bbc3761747d493f7f49ad720be02fd07263e1f93061243aec599d1ee4b4
@@ -249,17 +240,15 @@
      --bank=sha256 \
      --private-key=tpm2-pcr-private.pem \
      --public-key=tpm2-pcr-public.pem > tpm2-pcr-signature.json
-# objcopy \
-    --add-section .linux=vmlinux --change-section-vma .linux=0x2000000 \
-    --add-section .osrel=os-release.txt --change-section-vma .osrel=0x20000 \
-    --add-section .cmdline=cmdline.txt --change-section-vma .cmdline=0x30000 \
-    --add-section .initrd=initrd.cpio --change-section-vma .initrd=0x3000000 \
-    --add-section .splash=splash.bmp --change-section-vma .splash=0x100000 \
-    --add-section .dtb=devicetree.dtb --change-section-vma .dtb=0x40000 \
-    --add-section .pcrsig=tpm2-pcr-signature.json --change-section-vma .pcrsig=0x80000 \
-    --add-section .pcrpkey=tpm2-pcr-public.pem --change-section-vma .pcrpkey=0x90000 \
-    /usr/lib/systemd/boot/efi/linuxx64.efi.stub \
-    foo.efi</programlisting>
+# ukify --output foo.efi \
+     --os-release @os-release.txt \
+     --cmdline @cmdline.txt \
+     --splash splash.bmp \
+     --devicetree devicetree.dtb \
+     --pcr-private-key tpm2-pcr-private.pem \
+     --pcr-public-key tpm2-pcr-public.pem \
+     --pcr-banks sha1,sha256 \
+     vmlinux initrd.cpio</programlisting>
 
      <para>Later on, enroll the signed PCR policy on a LUKS volume:</para>
 
@@ -314,17 +303,16 @@
      --public-key=tpm2-pcr-initrd-public.pem \
      --phase=enter-initrd \
      --append=tpm2-pcr-signature.json.tmp >tpm2-pcr-signature.json
-# objcopy \
-    --add-section .linux=vmlinux --change-section-vma .linux=0x2000000 \
-    --add-section .osrel=os-release.txt --change-section-vma .osrel=0x20000 \
-    --add-section .cmdline=cmdline.txt --change-section-vma .cmdline=0x30000 \
-    --add-section .initrd=initrd.cpio --change-section-vma .initrd=0x3000000 \
-    --add-section .splash=splash.bmp --change-section-vma .splash=0x100000 \
-    --add-section .dtb=devicetree.dtb --change-section-vma .dtb=0x40000 \
-    --add-section .pcrsig=tpm2-pcr-signature.json --change-section-vma .pcrsig=0x80000 \
-    --add-section .pcrpkey=tpm2-pcr-public.pem --change-section-vma .pcrpkey=0x90000 \
-    /usr/lib/systemd/boot/efi/linuxx64.efi.stub \
-    foo.efi</programlisting>
+# ukify --output foo.efi \
+     --os-release @os-release.txt \
+     --cmdline @cmdline.txt \
+     --splash splash.bmp \
+     --devicetree devicetree.dtb \
+     --pcr-private-key tpm2-pcr-initrd-private.pem \
+     --pcr-public-key tpm2-pcr-initrd-public.pem \
+     --section .pcrsig=@tpm2-pcr-signature.json \
+     --section .pcrpkey=@tpm2-pcr-public.pem \
+     vmlinux initrd.cpio</programlisting>
     </example>
 
     <para>Note that in this example the <literal>.pcrpkey</literal> PE section contains the key covering all
@@ -345,7 +333,7 @@
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry project='man-pages'><refentrytitle>objcopy</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-pcrphase.service</refentrytitle><manvolnum>1</manvolnum></citerefentry>
