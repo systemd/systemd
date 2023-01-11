@@ -14,6 +14,7 @@
 #include "splash.h"
 #include "tpm-pcr.h"
 #include "util.h"
+#include "version.h"
 
 /* magic string to find in the binary image */
 _used_ _section_(".sdmagic") static const char magic[] = "#### LoaderInfo: systemd-stub " GIT_VERSION " ####";

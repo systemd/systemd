@@ -5,12 +5,13 @@ project('systemd', 'c',
         license : 'LGPLv2+',
         default_options: [
                 'c_std=gnu11',
+                'c_winlibs=', # for systemd-boot
+                'localstatedir=/var',
                 'prefix=/usr',
                 'sysconfdir=/etc',
-                'localstatedir=/var',
                 'warning_level=2',
         ],
-        meson_version : '>= 0.53.2',
+        meson_version : '>= 0.64.2',
        )
 
 libsystemd_version = '0.35.0'
@@ -54,9 +55,6 @@ fuzzer_build = want_ossfuzz or want_libfuzzer
 # (for testing and for reproduction of issues discovered with previously-higher
 # limits).
 conf.set10('FUZZ_USE_SIZE_LIMIT', fuzzer_build)
-
-# We'll set this to '1' for EFI builds in a different place.
-conf.set10('SD_BOOT', false)
 
 # Create a title-less summary section early, so it ends up first in the output.
 # More items are added later after they have been detected.
@@ -468,9 +466,53 @@ if get_option('mode') == 'developer'
 endif
 
 #####################################################################
+# EFI stuff
+# Anything applying to both userspace and sd-boot should come before
+# this section and anything else after.
+#####################################################################
 
+subdir('src/fundamental')
+
+# This provides us with EFI arch and SBAT info for userspace when not
+# cross-building.
 subdir('src/boot/efi')
 
+if conf.get('SD_BOOT') == 1
+        boot = executable(
+                'systemd-boot' + efi_arch,
+                systemd_boot_sources,
+                c_args : boot_c_args,
+                include_directories : efi_includes,
+                dependencies : [versiondep],
+                link_with : [libefi],
+                install : true,
+                install_dir : bootlibdir,
+                name_suffix : 'efi',
+                win_subsystem : 'efi_application')
+
+        stub = executable(
+                'linux' + efi_arch,
+                stub_sources,
+                c_args : boot_c_args,
+                include_directories : efi_includes,
+                dependencies : [versiondep],
+                link_with : [libefi],
+                install : true,
+                install_dir : bootlibdir,
+                name_suffix : 'efi.stub',
+                win_subsystem : 'efi_application')
+
+        alias_target('systemd-boot', boot)
+        alias_target('systemd-stub', stub)
+
+        # The rest of the build system makes no sense for native PE
+        # binary builds. A systemd port for windows is left as an
+        # excercise to the reader 😹.
+        subdir_done()
+endif
+
+#####################################################################
+# End of EFI stuff
 #####################################################################
 
 want_tests = get_option('tests')
@@ -2020,7 +2062,6 @@ includes = [libsystemd_includes, include_directories('src/shared')]
 
 subdir('po')
 subdir('catalog')
-subdir('src/fundamental')
 subdir('src/basic')
 subdir('src/libsystemd')
 subdir('src/shared')
