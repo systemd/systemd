@@ -25,6 +25,7 @@
 #include "ask-password-api.h"
 #include "blkid-util.h"
 #include "blockdev-util.h"
+#include "btrfs-util.h"
 #include "chase-symlinks.h"
 #include "conf-files.h"
 #include "constants.h"
@@ -1255,6 +1256,8 @@ int dissect_image_file(
 }
 
 DissectedImage* dissected_image_unref(DissectedImage *m) {
+        int r;
+
         if (!m)
                 return NULL;
 
@@ -1265,6 +1268,10 @@ DissectedImage* dissected_image_unref(DissectedImage *m) {
         /* Second, free decrypted images. This must be after dissected_partition_done(), as freeing
          * DecryptedImage may try to deactivate partitions. */
         decrypted_image_unref(m->decrypted_image);
+
+        r = btrfs_forget_device(m->loop->fd);
+        if (r < 0)
+                log_debug_errno(r, "Failed to forget btrfs device %s, ignoring: %m", m->loop->node);
 
         /* Third, unref LoopDevice. This must be called after the above two, as freeing LoopDevice may try to
          * remove existing partitions on the loopback block device. */
