@@ -143,7 +143,8 @@ for args in "${ARGS[@]}"; do
     if ! AR="$AR" \
          CC="$CC" CC_LD="$LD" CFLAGS="-Werror" \
          CXX="$CXX" CXX_LD="$LD" CXXFLAGS="-Werror" \
-         meson -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror \
+         meson setup \
+               -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror \
                -Dnobody-group=nogroup -Dcryptolib="${CRYPTOLIB:?}" \
                $args build; then
 
@@ -152,7 +153,7 @@ for args in "${ARGS[@]}"; do
     fi
 
     if ! meson compile -C build -v; then
-        fatal "'meson compile' failed with $args"
+        fatal "'meson compile' failed with '$args'"
     fi
 
     for loader in build/src/boot/efi/*.efi; do
@@ -163,5 +164,5 @@ for args in "${ARGS[@]}"; do
 
     git clean -dxf
 
-    success "Build with $args passed in $SECONDS seconds"
+    success "Build with '$args' passed in $SECONDS seconds"
 done
