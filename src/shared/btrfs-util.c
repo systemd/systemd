@@ -1986,3 +1986,16 @@ int btrfs_subvol_get_parent(int fd, uint64_t subvol_id, uint64_t *ret) {
 
         return -ENXIO;
 }
+
+int btrfs_forget_device(int fd)
+{
+        _cleanup_close_ int control_fd = -EBADF;
+
+        assert(fd >= 0);
+
+        control_fd = open("/dev/btrfs-control", O_RDWR|O_CLOEXEC);
+        if (control_fd < 0)
+                return -errno;
+
+        return RET_NERRNO(ioctl(control_fd, BTRFS_IOC_FORGET_DEV, &(struct btrfs_ioctl_vol_args) { .fd = fd }));
+}
