@@ -14,3 +14,7 @@ int libmount_parse(
                 FILE *source,
                 struct libmnt_table **ret_table,
                 struct libmnt_iter **ret_iter);
+
+int libmount_is_leaf(
+                struct libmnt_table *table,
+                struct libmnt_fs *fs);

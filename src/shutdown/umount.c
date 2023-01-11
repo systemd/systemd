@@ -32,13 +32,16 @@
 #include "fs-util.h"
 #include "fstab-util.h"
 #include "libmount-util.h"
+#include "mkdir.h"
 #include "mount-setup.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "random-util.h"
 #include "signal-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
@@ -155,6 +158,11 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                 if (!m)
                         return log_oom();
 
+                r = libmount_is_leaf(table, fs);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get children mounts for %s from %s: %m", path, mountinfo ?: "/proc/self/mountinfo");
+                bool leaf = r;
+
                 *m = (MountPoint) {
                         .remount_options = remount_options,
                         .remount_flags = remount_flags,
@@ -163,6 +171,7 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                         /* Unmount sysfs/procfs/… lazily, since syncing doesn't matter there, and it's OK if
                          * something keeps an fd open to it. */
                         .umount_lazily = is_api_vfs,
+                        .leaf = leaf,
                 };
 
                 m->path = strdup(path);
@@ -709,7 +718,8 @@ static int umount_with_timeout(MountPoint *m, bool last_try) {
 /* This includes remounting readonly, which changes the kernel mount options.  Therefore the list passed to
  * this function is invalidated, and should not be reused. */
 static int mount_points_list_umount(MountPoint **head, bool *changed, bool last_try) {
-        int n_failed = 0;
+        int n_failed = 0, r;
+        _cleanup_free_ char *resolved_mounts_path = NULL;
 
         assert(head);
         assert(changed);
@@ -744,10 +754,62 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool last_
                         continue;
 
                 /* Trying to umount */
-                if (umount_with_timeout(m, last_try) < 0)
+                r = umount_with_timeout(m, last_try);
+                if (r < 0)
                         n_failed++;
                 else
                         *changed = true;
+
+                /* If a mount is busy, we move it to not keep parent mount points busy.
+                 * If a mount point is not a leaf, moving it would invalidate our mount table.
+                 * More moving will occur in next iteration with a fresh mount table.
+                 */
+                if (r != -EBUSY || !m->leaf)
+                        continue;
+
+                _cleanup_free_ char *dirname = NULL;
+
+                r = path_extract_directory(m->path, &dirname);
+                if (r < 0) {
+                        n_failed++;
+                        log_full_errno(last_try ? LOG_ERR : LOG_INFO, r, "Cannot find directory for %s: %m", m->path);
+                        continue;
+                }
+
+                /* We need to canonicalize /run/shutdown/mounts. We cannot compare inodes, since /run
+                 * might be bind mounted somewhere we want to unmount. And we need to move all mounts in
+                 * /run/shutdown/mounts from there.
+                 */
+                if (resolved_mounts_path == NULL)
+                        (void) chase_symlinks("/run/shutdown/mounts", NULL, 0, &resolved_mounts_path, NULL);
+                if ((resolved_mounts_path == NULL) || !path_equal(dirname, resolved_mounts_path)) {
+                        char newpath[STRLEN("/run/shutdown/mounts/") + 16 + 1];
+
+                        xsprintf(newpath, "/run/shutdown/mounts/%016" PRIx64, random_u64());
+
+                        if (is_dir(m->path, true)) {
+                                r = mkdir_p(newpath, 0000);
+                                if (r < 0) {
+                                        log_full_errno(last_try ? LOG_ERR : LOG_INFO, r, "Could not create directory %s: %m", newpath);
+                                        continue;
+                                }
+                        } else {
+                                r = touch_file(newpath, /* parents= */ true, USEC_INFINITY, UID_INVALID, GID_INVALID, 0700);
+                                if (r < 0) {
+                                        log_full_errno(last_try ? LOG_ERR : LOG_INFO, r, "Could not create file %s: %m", newpath);
+                                        continue;
+                                }
+                        }
+
+                        log_info("Moving mount %s to %s.", m->path, newpath);
+
+                        r = RET_NERRNO(mount(m->path, newpath, NULL, MS_MOVE, NULL));
+                        if (r < 0) {
+                                n_failed++;
+                                log_full_errno(last_try ? LOG_ERR : LOG_INFO, r, "Could not move %s to %s: %m", m->path, newpath);
+                        } else
+                                *changed = true;
+                }
         }
 
         return n_failed;
