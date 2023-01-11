@@ -25,6 +25,7 @@
 #include "ask-password-api.h"
 #include "blkid-util.h"
 #include "blockdev-util.h"
+#include "btrfs-util.h"
 #include "chase-symlinks.h"
 #include "conf-files.h"
 #include "constants.h"
@@ -1254,9 +1255,29 @@ int dissect_image_file(
 #endif
 }
 
+static bool dissected_image_has_mounted_btrfs_partition(DissectedImage *m) {
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+                DissectedPartition *p = m->partitions + i;
+
+                if (p->mount_node_fd < 0)
+                        continue;
+
+                if (!streq_ptr(p->fstype, "btrfs") && !streq_ptr(p->decrypted_fstype, "btrfs"))
+                        continue;
+
+                return true;
+        }
+
+        return false;
+}
+
 DissectedImage* dissected_image_unref(DissectedImage *m) {
+        int r;
+
         if (!m)
                 return NULL;
+
+        bool do_forget = dissected_image_has_mounted_btrfs_partition(m);
 
         /* First, clear dissected partitions. */
         for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
@@ -1265,6 +1286,12 @@ DissectedImage* dissected_image_unref(DissectedImage *m) {
         /* Second, free decrypted images. This must be after dissected_partition_done(), as freeing
          * DecryptedImage may try to deactivate partitions. */
         decrypted_image_unref(m->decrypted_image);
+
+        if (do_forget) {
+                r = btrfs_forget_device(m->loop->fd);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to forget btrfs device %s, ignoring: %m", m->loop->node);
+        }
 
         /* Third, unref LoopDevice. This must be called after the above two, as freeing LoopDevice may try to
          * remove existing partitions on the loopback block device. */
