@@ -30,43 +30,47 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-notify</command> may be called by daemon
-    scripts to notify the init system about status changes. It can be
-    used to send arbitrary information, encoded in an
-    environment-block-like list of strings. Most importantly, it can be
-    used for start-up completion notification.</para>
+    <para><command>systemd-notify</command> may be called by service scripts to notify the invoking service
+    manager about status changes. It can be used to send arbitrary information, encoded in an
+    environment-block-like list of strings. Most importantly, it can be used for start-up completion
+    notification.</para>
 
-    <para>This is mostly just a wrapper around
-    <function>sd_notify()</function> and makes this functionality
+    <para>This is mostly just a wrapper around <function>sd_notify()</function> and makes this functionality
     available to shell scripts. For details see
     <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
 
-    <para>The command line may carry a list of environment variables
-    to send as part of the status update.</para>
+    <para>The command line may carry a list of environment variables to send as part of the status
+    update.</para>
 
     <para>Note that systemd will refuse reception of status updates from this command unless
-    <varname>NotifyAccess=</varname> is set for the service unit this command is called from.</para>
+    <varname>NotifyAccess=</varname> is appropriately set for the service unit this command is called
+    from. See
+    <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details.</para>
 
-    <para>Note that <function>sd_notify()</function> notifications may be attributed to units correctly only if either
-    the sending process is still around at the time PID 1 processes the message, or if the sending process is
-    explicitly runtime-tracked by the service manager. The latter is the case if the service manager originally forked
-    off the process, i.e. on all processes that match <varname>NotifyAccess=</varname><option>main</option> or
-    <varname>NotifyAccess=</varname><option>exec</option>. Conversely, if an auxiliary process of the unit sends an
-    <function>sd_notify()</function> message and immediately exits, the service manager might not be able to properly
-    attribute the message to the unit, and thus will ignore it, even if <varname>NotifyAccess=</varname><option>all
-    </option> is set for it. When <option>--no-block</option> is used, all synchronization for reception of notifications
-    is disabled, and hence the aforementioned race may occur if the invoking process is not the service manager or spawned
-    by the service manager.</para>
+    <para>Note that <function>sd_notify()</function> notifications may be attributed to units correctly only
+    if either the sending process is still around at the time the service manager processes the message, or
+    if the sending process is explicitly runtime-tracked by the service manager. The latter is the case if
+    the service manager originally forked off the process, i.e. on all processes that match
+    <varname>NotifyAccess=</varname><option>main</option> or
+    <varname>NotifyAccess=</varname><option>exec</option>. Conversely, if an auxiliary process of the unit
+    sends an <function>sd_notify()</function> message and immediately exits, the service manager might not be
+    able to properly attribute the message to the unit, and thus will ignore it, even if
+    <varname>NotifyAccess=</varname><option>all</option> is set for it. To address this
+    <command>systemd-notify</command> will wait until the notification message has been processed by the
+    service manager. When <option>--no-block</option> is used, this synchronization for reception of
+    notifications is disabled, and hence the aforementioned race may occur if the invoking process is not the
+    service manager or spawned by the service manager.</para>
 
-    <para>Hence, <command>systemd-notify</command> will first attempt to invoke <function>sd_notify()</function>
-    pretending to have the PID of the invoking process. This will only succeed when invoked with sufficient privileges.
-    On failure, it will then fall back to invoking it under its own PID. This behaviour is useful in order that when
-    the tool is invoked from a shell script the shell process — and not the <command>systemd-notify</command> process
-    — appears as sender of the message, which in turn is helpful if the shell process is the main process of a service,
-    due to the limitations of <varname>NotifyAccess=</varname><option>all</option>. Use the <option>--pid=</option>
-    switch to tweak this behaviour.</para>
-
+    <para><command>systemd-notify</command> will first attempt to invoke <function>sd_notify()</function>
+    pretending to have the PID of the parent process of <command>systemd-notify</command> (i.e. the invoking
+    process). This will only succeed when invoked with sufficient privileges.  On failure, it will then fall
+    back to invoking it under its own PID. This behaviour is useful in order that when the tool is invoked
+    from a shell script the shell process — and not the <command>systemd-notify</command> process — appears
+    as sender of the message, which in turn is helpful if the shell process is the main process of a service,
+    due to the limitations of <varname>NotifyAccess=</varname><option>all</option>. Use the
+    <option>--pid=</option> switch to tweak this behaviour.</para>
   </refsect1>
 
   <refsect1>
@@ -78,24 +82,52 @@
       <varlistentry>
         <term><option>--ready</option></term>
 
-        <listitem><para>Inform the init system about service start-up
-        completion. This is equivalent to <command>systemd-notify
-        READY=1</command>. For details about the semantics of this
-        option see
+        <listitem><para>Inform the invoking service manager about service start-up or configuration reload
+        completion. This is equivalent to <command>systemd-notify READY=1</command>. For details about the
+        semantics of this option see
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--reloading</option></term>
+
+        <listitem><para>Inform the invoking service manager about the beginning of a configuration reload
+        cycle. This is equivalent to <command>systemd-notify RELOADING=1</command> (but implicitly also sets
+        a <varname>MONOTONIC_USEC=</varname> field as required for <varname>Type=notify-reload</varname>
+        services, see
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        for details). For details about the semantics of this option see
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--stopping</option></term>
+
+        <listitem><para>Inform the invoking service manager about the beginning of the shutdown phase of the
+        service. This is equivalent to <command>systemd-notify STOPPING=1</command>. For details about the
+        semantics of this option see
         <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--pid=</option></term>
 
-        <listitem><para>Inform the service manager about the main PID of the daemon. Takes a PID as
+        <listitem><para>Inform the service manager about the main PID of the service. Takes a PID as
         argument. If the argument is specified as <literal>auto</literal> or omitted, the PID of the process
         that invoked <command>systemd-notify</command> is used, except if that's the service manager. If the
         argument is specified as <literal>self</literal>, the PID of the <command>systemd-notify</command>
         command itself is used, and if <literal>parent</literal> is specified the calling process' PID is
-        used — even if it is the service manager. This is equivalent to <command>systemd-notify
+        used — even if it is the service manager. The latter is equivalent to <command>systemd-notify
         MAINPID=$PID</command>. For details about the semantics of this option see
-        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+        <para>If this switch is used in an <command>systemd-notify</command> invocation from a process that
+        shall become the new main process of a service — and which is not the process forked off by the
+        service manager (or the current main process) —, then it is essential to set
+        <varname>NotifyAccess=all</varname> in the service unit file, or otherwise the notification will be
+        ignored for security reasons. See
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -110,27 +142,26 @@
       <varlistentry>
         <term><option>--status=</option></term>
 
-        <listitem><para>Send a free-form status string for the daemon
-        to the init systemd. This option takes the status string as
-        argument. This is equivalent to <command>systemd-notify
-        STATUS=…</command>. For details about the semantics of this
-        option see
-        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
+        <listitem><para>Send a free-form human readable status string for the daemon to the service
+        manager. This option takes the status string as argument. This is equivalent to
+        <command>systemd-notify STATUS=…</command>. For details about the semantics of this option see
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>. This
+        information is shown in
+        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        <command>status</command> output, among other places.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--booted</option></term>
 
-        <listitem><para>Returns 0 if the system was booted up with
-        systemd, non-zero otherwise. If this option is passed, no
-        message is sent. This option is hence unrelated to the other
-        options. For details about the semantics of this option, see
+        <listitem><para>Returns 0 if the system was booted up with systemd, non-zero otherwise. If this
+        option is passed, no message is sent. This option is hence unrelated to the other options. For
+        details about the semantics of this option, see
         <citerefentry><refentrytitle>sd_booted</refentrytitle><manvolnum>3</manvolnum></citerefentry>. An
         alternate way to check for this state is to call
-        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        with the <command>is-system-running</command> command. It will
-        return <literal>offline</literal> if the system was not booted
-        with systemd.  </para></listitem>
+        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> with
+        the <command>is-system-running</command> command. It will return <literal>offline</literal> if the
+        system was not booted with systemd.  </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -162,9 +193,8 @@
     <example>
       <title>Start-up Notification and Status Updates</title>
 
-      <para>A simple shell daemon that sends start-up notifications
-      after having set up its communication channel. During runtime it
-      sends further status updates to the init system:</para>
+      <para>A simple shell daemon that sends start-up notifications after having set up its communication
+      channel. During runtime it sends further status updates to the init system:</para>
 
       <programlisting>#!/bin/sh
 
@@ -188,9 +218,9 @@ done</programlisting>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_booted</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
-
 </refentry>

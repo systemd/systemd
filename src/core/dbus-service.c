@@ -17,6 +17,7 @@
 #include "fileio.h"
 #include "locale-util.h"
 #include "mount-util.h"
+#include "open-file.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "selinux-access.h"
@@ -35,6 +36,34 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_emergency_action, emergency_act
 static BUS_DEFINE_PROPERTY_GET(property_get_timeout_abort_usec, "t", Service, service_timeout_abort_usec);
 static BUS_DEFINE_PROPERTY_GET(property_get_watchdog_usec, "t", Service, service_get_watchdog_usec);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_timeout_failure_mode, service_timeout_failure_mode, ServiceTimeoutFailureMode);
+
+static int property_get_open_files(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        OpenFile **open_files = ASSERT_PTR(userdata);
+        int r;
+
+        assert(bus);
+        assert(reply);
+
+        r = sd_bus_message_open_container(reply, 'a', "(sst)");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(open_files, of, *open_files) {
+                r = sd_bus_message_append(reply, "(sst)", of->path, of->fdname, of->flags);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
 
 static int property_get_exit_status_set(
                 sd_bus *bus,
@@ -228,6 +257,8 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("GID", "u", bus_property_get_gid, offsetof(Unit, ref_gid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("NRestarts", "u", bus_property_get_unsigned, offsetof(Service, n_restarts), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("OOMPolicy", "s", bus_property_get_oom_policy, offsetof(Service, oom_policy), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OpenFile", "a(sst)", property_get_open_files, offsetof(Service, open_files), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ReloadSignal", "i", bus_property_get_int, offsetof(Service, reload_signal), SD_BUS_VTABLE_PROPERTY_CONST),
 
         BUS_EXEC_STATUS_VTABLE("ExecMain", offsetof(Service, main_exec_status), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecCondition", offsetof(Service, exec_command[SERVICE_EXEC_CONDITION]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
@@ -374,6 +405,7 @@ static BUS_DEFINE_SET_TRANSIENT_PARSE(service_restart, ServiceRestart, service_r
 static BUS_DEFINE_SET_TRANSIENT_PARSE(oom_policy, OOMPolicy, oom_policy_from_string);
 static BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(bus_name, sd_bus_service_name_is_valid);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(timeout_failure_mode, ServiceTimeoutFailureMode, service_timeout_failure_mode_from_string);
+static BUS_DEFINE_SET_TRANSIENT_TO_STRING(reload_signal, "i", int32_t, int, "%" PRIi32, signal_to_string_with_check);
 
 static int bus_service_set_transient_property(
                 Service *s,
@@ -531,6 +563,59 @@ static int bus_service_set_transient_property(
 
         if (streq(name, "StandardErrorFileDescriptor"))
                 return bus_set_transient_std_fd(u, name, &s->stderr_fd, &s->exec_context.stdio_as_fds, message, flags, error);
+
+        if (streq(name, "OpenFile")) {
+                const char *path, *fdname;
+                uint64_t offlags;
+
+                r = sd_bus_message_enter_container(message, 'a', "(sst)");
+                if (r < 0)
+                        return r;
+
+                while ((r = sd_bus_message_read(message, "(sst)", &path, &fdname, &offlags)) > 0) {
+                        _cleanup_(open_file_freep) OpenFile *of = NULL;
+                        _cleanup_free_ char *ofs = NULL;
+
+                        of = new(OpenFile, 1);
+                        if (!of)
+                                return -ENOMEM;
+
+                        *of = (OpenFile) {
+                                .path = strdup(path),
+                                .fdname = strdup(fdname),
+                                .flags = offlags,
+                        };
+
+                        if (!of->path || !of->fdname)
+                                return -ENOMEM;
+
+                        r = open_file_validate(of);
+                        if (r < 0)
+                                return r;
+
+                        if (UNIT_WRITE_FLAGS_NOOP(flags))
+                                continue;
+
+                        r = open_file_to_string(of, &ofs);
+                        if (r < 0)
+                                return sd_bus_error_set_errnof(
+                                                error, r, "Failed to convert OpenFile= value to string: %m");
+
+                        LIST_APPEND(open_files, s->open_files, TAKE_PTR(of));
+                        unit_write_settingf(u, flags | UNIT_ESCAPE_SPECIFIERS, name, "OpenFile=%s", ofs);
+                }
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                return 1;
+        }
+
+        if (streq(name, "ReloadSignal"))
+                return bus_set_transient_reload_signal(u, name, &s->reload_signal, message, flags, error);
 
         return 0;
 }

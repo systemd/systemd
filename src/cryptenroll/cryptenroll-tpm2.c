@@ -145,6 +145,7 @@ int enroll_tpm2(struct crypt_device *cd,
         uint16_t pcr_bank, primary_alg;
         const char *node;
         _cleanup_(erase_and_freep) char *pin_str = NULL;
+        ssize_t base64_encoded_size;
         int r, keyslot;
         TPM2Flags flags = 0;
 
@@ -230,9 +231,9 @@ int enroll_tpm2(struct crypt_device *cd,
         }
 
         /* let's base64 encode the key to use, for compat with homed (and it's easier to every type it in by keyboard, if that might end up being necessary. */
-        r = base64mem(secret, secret_size, &base64_encoded);
-        if (r < 0)
-                return log_error_errno(r, "Failed to base64 encode secret key: %m");
+        base64_encoded_size = base64mem(secret, secret_size, &base64_encoded);
+        if (base64_encoded_size < 0)
+                return log_error_errno(base64_encoded_size, "Failed to base64 encode secret key: %m");
 
         r = cryptsetup_set_minimal_pbkdf(cd);
         if (r < 0)
@@ -244,7 +245,7 @@ int enroll_tpm2(struct crypt_device *cd,
                         volume_key,
                         volume_key_size,
                         base64_encoded,
-                        strlen(base64_encoded));
+                        base64_encoded_size);
         if (keyslot < 0)
                 return log_error_errno(keyslot, "Failed to add new TPM2 key to %s: %m", node);
 

@@ -683,7 +683,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultMemoryAccounting",      config_parse_bool,                  0,                        &arg_default_memory_accounting    },
                 { "Manager", "DefaultTasksAccounting",       config_parse_bool,                  0,                        &arg_default_tasks_accounting     },
                 { "Manager", "DefaultTasksMax",              config_parse_tasks_max,             0,                        &arg_default_tasks_max            },
-                { "Manager", "CtrlAltDelBurstAction",        config_parse_emergency_action,      0,                        &arg_cad_burst_action             },
+                { "Manager", "CtrlAltDelBurstAction",        config_parse_emergency_action,      arg_system,               &arg_cad_burst_action             },
                 { "Manager", "DefaultOOMPolicy",             config_parse_oom_policy,            0,                        &arg_default_oom_policy           },
                 { "Manager", "DefaultOOMScoreAdjust",        config_parse_oom_score_adjust,      0,                        NULL                              },
                 { "Manager", "ReloadLimitIntervalSec",       config_parse_sec,                   0,                        &arg_reload_limit_interval_sec    },
@@ -1494,9 +1494,15 @@ static void redirect_telinit(int argc, char *argv[]) {
 #endif
 }
 
-static int become_shutdown(
-                const char *shutdown_verb,
-                int retval) {
+static int become_shutdown(int objective, int retval) {
+
+        static const char* const table[_MANAGER_OBJECTIVE_MAX] = {
+                [MANAGER_EXIT]     = "exit",
+                [MANAGER_REBOOT]   = "reboot",
+                [MANAGER_POWEROFF] = "poweroff",
+                [MANAGER_HALT]     = "halt",
+                [MANAGER_KEXEC]    = "kexec",
+        };
 
         char log_level[DECIMAL_STR_MAX(int) + 1],
                 exit_code[DECIMAL_STR_MAX(uint8_t) + 1],
@@ -1504,7 +1510,7 @@ static int become_shutdown(
 
         const char* command_line[13] = {
                 SYSTEMD_SHUTDOWN_BINARY_PATH,
-                shutdown_verb,
+                table[objective],
                 "--timeout", timeout,
                 "--log-level", log_level,
                 "--log-target",
@@ -1515,7 +1521,8 @@ static int become_shutdown(
         size_t pos = 7;
         int r;
 
-        assert(shutdown_verb);
+        assert(objective >= 0 && objective < _MANAGER_OBJECTIVE_MAX);
+        assert(table[objective]);
         assert(!command_line[pos]);
         env_block = strv_copy(environ);
 
@@ -1549,7 +1556,7 @@ static int become_shutdown(
         if (log_get_show_time())
                 command_line[pos++] = "--log-time";
 
-        if (streq(shutdown_verb, "exit")) {
+        if (objective == MANAGER_EXIT) {
                 command_line[pos++] = "--exit-code";
                 command_line[pos++] = exit_code;
                 xsprintf(exit_code, "%d", retval);
@@ -1557,9 +1564,9 @@ static int become_shutdown(
 
         assert(pos < ELEMENTSOF(command_line));
 
-        if (streq(shutdown_verb, "reboot"))
+        if (objective == MANAGER_REBOOT)
                 watchdog_timer = arg_reboot_watchdog;
-        else if (streq(shutdown_verb, "kexec"))
+        else if (objective == MANAGER_KEXEC)
                 watchdog_timer = arg_kexec_watchdog;
 
         /* If we reboot or kexec let's set the shutdown watchdog and tell the
@@ -1925,7 +1932,6 @@ static int invoke_main_loop(
                 const struct rlimit *saved_rlimit_nofile,
                 const struct rlimit *saved_rlimit_memlock,
                 int *ret_retval,                   /* Return parameters relevant for shutting down */
-                const char **ret_shutdown_verb,    /* … */
                 FDSet **ret_fds,                   /* Return parameters for reexecuting */
                 char **ret_switch_root_dir,        /* … */
                 char **ret_switch_root_init,       /* … */
@@ -1937,7 +1943,6 @@ static int invoke_main_loop(
         assert(saved_rlimit_nofile);
         assert(saved_rlimit_memlock);
         assert(ret_retval);
-        assert(ret_shutdown_verb);
         assert(ret_fds);
         assert(ret_switch_root_dir);
         assert(ret_switch_root_init);
@@ -1955,6 +1960,8 @@ static int invoke_main_loop(
                 case MANAGER_RELOAD: {
                         LogTarget saved_log_target;
                         int saved_log_level;
+
+                        manager_send_reloading(m);
 
                         log_info("Reloading.");
 
@@ -1986,6 +1993,10 @@ static int invoke_main_loop(
                 }
 
                 case MANAGER_REEXECUTE:
+
+                        manager_send_reloading(m); /* From the perspective of the manager calling us this is
+                                                    * pretty much the same as a reload */
+
                         r = prepare_reexecute(m, &arg_serialization, ret_fds, false);
                         if (r < 0) {
                                 *ret_error_message = "Failed to prepare for reexecution";
@@ -1995,12 +2006,15 @@ static int invoke_main_loop(
                         log_notice("Reexecuting.");
 
                         *ret_retval = EXIT_SUCCESS;
-                        *ret_shutdown_verb = NULL;
                         *ret_switch_root_dir = *ret_switch_root_init = NULL;
 
                         return objective;
 
                 case MANAGER_SWITCH_ROOT:
+
+                        manager_send_reloading(m); /* From the perspective of the manager calling us this is
+                                                    * pretty much the same as a reload */
+
                         manager_set_switching_root(m, true);
 
                         if (!m->switch_root_init) {
@@ -2015,7 +2029,6 @@ static int invoke_main_loop(
                         log_notice("Switching root.");
 
                         *ret_retval = EXIT_SUCCESS;
-                        *ret_shutdown_verb = NULL;
 
                         /* Steal the switch root parameters */
                         *ret_switch_root_dir = TAKE_PTR(m->switch_root);
@@ -2028,7 +2041,6 @@ static int invoke_main_loop(
                                 log_debug("Exit.");
 
                                 *ret_retval = m->return_value;
-                                *ret_shutdown_verb = NULL;
                                 *ret_fds = NULL;
                                 *ret_switch_root_dir = *ret_switch_root_init = NULL;
 
@@ -2040,18 +2052,9 @@ static int invoke_main_loop(
                 case MANAGER_POWEROFF:
                 case MANAGER_HALT:
                 case MANAGER_KEXEC: {
-                        static const char* const table[_MANAGER_OBJECTIVE_MAX] = {
-                                [MANAGER_EXIT]     = "exit",
-                                [MANAGER_REBOOT]   = "reboot",
-                                [MANAGER_POWEROFF] = "poweroff",
-                                [MANAGER_HALT]     = "halt",
-                                [MANAGER_KEXEC]    = "kexec",
-                        };
-
                         log_notice("Shutting down.");
 
                         *ret_retval = m->return_value;
-                        assert_se(*ret_shutdown_verb = table[m->objective]);
                         *ret_fds = NULL;
                         *ret_switch_root_dir = *ret_switch_root_init = NULL;
 
@@ -2723,7 +2726,7 @@ int main(int argc, char *argv[]) {
         char *switch_root_dir = NULL, *switch_root_init = NULL;
         usec_t before_startup, after_startup;
         static char systemd[] = "systemd";
-        const char *shutdown_verb = NULL, *error_message = NULL;
+        const char *error_message = NULL;
         int r, retval = EXIT_FAILURE;
         Manager *m = NULL;
         FDSet *fds = NULL;
@@ -3036,7 +3039,6 @@ int main(int argc, char *argv[]) {
                              &saved_rlimit_nofile,
                              &saved_rlimit_memlock,
                              &retval,
-                             &shutdown_verb,
                              &fds,
                              &switch_root_dir,
                              &switch_root_init,
@@ -3096,8 +3098,13 @@ finish:
 
         /* Try to invoke the shutdown binary unless we already failed.
          * If we failed above, we want to freeze after finishing cleanup. */
-        if (r >= 0 && shutdown_verb) {
-                r = become_shutdown(shutdown_verb, retval);
+        if (arg_system && IN_SET(r, MANAGER_EXIT,
+                                    MANAGER_REBOOT,
+                                    MANAGER_POWEROFF,
+                                    MANAGER_HALT,
+                                    MANAGER_KEXEC)) {
+
+                r = become_shutdown(r, retval);
                 log_error_errno(r, "Failed to execute shutdown binary, %s: %m", getpid_cached() == 1 ? "freezing" : "quitting");
                 error_message = "Failed to execute shutdown binary";
         }

@@ -120,7 +120,6 @@ conf.set_quoted('EFI_MACHINE_TYPE_NAME', efi_arch[0])
 efi_conf = configuration_data()
 efi_conf.set_quoted('EFI_MACHINE_TYPE_NAME', efi_arch[0])
 efi_conf.set10('ENABLE_TPM', get_option('tpm'))
-efi_conf.set10('EFI_TPM_PCR_COMPAT', get_option('efi-tpm-pcr-compat'))
 
 foreach ctype : ['color-normal', 'color-entry', 'color-highlight', 'color-edit']
         c = get_option('efi-' + ctype).split(',')
@@ -176,7 +175,7 @@ efi_config_h = configure_file(
 
 efi_cflags = [
         '-DGNU_EFI_USE_MS_ABI',
-        '-DSD_BOOT',
+        '-DSD_BOOT=1',
         '-ffreestanding',
         '-fshort-wchar',
         '-fvisibility=hidden',

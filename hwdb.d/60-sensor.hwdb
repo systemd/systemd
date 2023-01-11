@@ -348,6 +348,9 @@ sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0B0D:*
 sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0B11:*
 sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0C00:*
 sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0C02:*
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0C40:*
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0C41:*
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0C42:*
  ACCEL_LOCATION=base
 
 # Dell Venue 8 Pro 3845
@@ -362,8 +365,8 @@ sensor:modalias:acpi:INVN6500*:dmi:*svnDell*:pnVenue10Pro5055:*
 # DERE
 #########################################
 
-# DBook D10
-sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInternational,LLC.:bvrJP2V1.05:bd04/27/2022:br1.5:efr1.3:svnDefaultstring:*
+# DBook D10 / Juno Tablet
+sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInternational,LLC.:bvrJP2V*:svnDefaultstring:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 #########################################
@@ -649,6 +652,10 @@ sensor:modalias:i2c:bmc150_accel:dmi:*:svnLENOVO:*:pvrLenovoYoga300-11IBR:*
 sensor:modalias:acpi:BOSC0200*:dmi:*:svnLINX*:pnLINX1010B:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
 
+# Linx 1020
+sensor:modalias:acpi:MIRAACC*:dmi:*:svnLINX*:pnLINX1020:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, -1
+
 # Linx 12X64, 12V64 and Vision 8
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnLINX*:pnLINX12*64:*
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnLINX:pnVISION004:*
@@ -909,6 +916,10 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:svnTECLAST:pnX80Pro:*
 
 # Teclast X89 (E7ED), "tPAD" is too generic also match on BIOS date
 sensor:modalias:acpi:SMO8500*:dmi:*bd12/19/2014:*:rvnTECLAST:rntPAD:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+
+# Teclast X98 Air 3G (C5J6), "tPAD" is too generic also match on newest BIOS date
+sensor:modalias:acpi:SMO8500*:dmi:*bd05/05/2015:*:rvnTECLAST:rntPAD:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 # Teclast X98 Plus I (A5C6), generic DMI strings, match entire dmi modalias inc. bios-date

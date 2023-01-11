@@ -3314,6 +3314,7 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
                 _cleanup_free_ void *pubkey = NULL;
                 _cleanup_free_ void *blob = NULL, *hash = NULL;
                 size_t secret_size, blob_size, hash_size, pubkey_size = 0;
+                ssize_t base64_encoded_size;
                 uint16_t pcr_bank, primary_alg;
                 int keyslot;
 
@@ -3341,9 +3342,9 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to seal to TPM2: %m");
 
-                r = base64mem(secret, secret_size, &base64_encoded);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to base64 encode secret key: %m");
+                base64_encoded_size = base64mem(secret, secret_size, &base64_encoded);
+                if (base64_encoded_size < 0)
+                        return log_error_errno(base64_encoded_size, "Failed to base64 encode secret key: %m");
 
                 r = cryptsetup_set_minimal_pbkdf(cd);
                 if (r < 0)
@@ -3355,7 +3356,7 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
                                 NULL,
                                 VOLUME_KEY_SIZE,
                                 base64_encoded,
-                                strlen(base64_encoded));
+                                base64_encoded_size);
                 if (keyslot < 0)
                         return log_error_errno(keyslot, "Failed to add new TPM2 key: %m");
 

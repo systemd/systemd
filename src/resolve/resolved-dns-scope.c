@@ -474,7 +474,8 @@ static int dns_scope_socket(
                  * host result in EHOSTUNREACH, since Linux won't send the packets out of the specified
                  * interface, but delivers them directly to the local socket. */
                 if (s->link &&
-                    !manager_find_link_address(s->manager, sa.sa.sa_family, sockaddr_in_addr(&sa.sa))) {
+                    !manager_find_link_address(s->manager, sa.sa.sa_family, sockaddr_in_addr(&sa.sa)) &&
+                    in_addr_is_localhost(sa.sa.sa_family, sockaddr_in_addr(&sa.sa)) == 0) {
                         r = socket_bind_to_ifindex(fd, ifindex);
                         if (r < 0)
                                 return r;
@@ -649,11 +650,11 @@ DnsScopeMatch dns_scope_good_domain(
                 DnsScopeMatch m;
                 int n_best = -1;
 
-                if (dns_name_is_empty(domain)) {
+                if (dns_name_is_root(domain)) {
                         DnsResourceKey *t;
                         bool found = false;
 
-                        /* Refuse empty name if only A and/or AAAA records are requested. */
+                        /* Refuse root name if only A and/or AAAA records are requested. */
 
                         DNS_QUESTION_FOREACH(t, question)
                                 if (!IN_SET(t->type, DNS_TYPE_A, DNS_TYPE_AAAA)) {

@@ -594,19 +594,26 @@ static void log_umount_blockers(const char *mnt) {
 }
 
 static int remount_with_timeout(MountPoint *m, bool last_try) {
-        pid_t pid;
+        _cleanup_(close_pairp) int pfd[2] = PIPE_EBADF;
+        _cleanup_(sigkill_nowaitp) pid_t pid = 0;
         int r;
 
         BLOCK_SIGNALS(SIGCHLD);
 
         assert(m);
 
+        r = pipe2(pfd, O_CLOEXEC|O_NONBLOCK);
+        if (r < 0)
+                return r;
+
         /* Due to the possibility of a remount operation hanging, we fork a child process and set a
          * timeout. If the timeout lapses, the assumption is that the particular remount failed. */
-        r = safe_fork("(sd-remount)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_REOPEN_LOG, &pid);
+        r = safe_fork_full("(sd-remount)", pfd, ELEMENTSOF(pfd), FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_REOPEN_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
+                pfd[0] = safe_close(pfd[0]);
+
                 log_info("Remounting '%s' read-only with options '%s'.", m->path, strempty(m->remount_options));
 
                 /* Start the mount operation here in the child */
@@ -617,35 +624,49 @@ static int remount_with_timeout(MountPoint *m, bool last_try) {
                                        "Failed to remount '%s' read-only: %m",
                                        m->path);
 
+                (void) write(pfd[1], &r, sizeof(r)); /* try to send errno up */
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
 
+        pfd[1] = safe_close(pfd[1]);
+
         r = wait_for_terminate_with_timeout(pid, DEFAULT_TIMEOUT_USEC);
-        if (r == -ETIMEDOUT) {
+        if (r == -ETIMEDOUT)
                 log_error_errno(r, "Remounting '%s' timed out, issuing SIGKILL to PID " PID_FMT ".", m->path, pid);
-                (void) kill(pid, SIGKILL);
-        } else if (r == -EPROTO)
-                log_debug_errno(r, "Remounting '%s' failed abnormally, child process " PID_FMT " aborted or exited non-zero.", m->path, pid);
-        else if (r < 0)
+        else if (r == -EPROTO) {
+                /* Try to read error code from child */
+                if (read(pfd[0], &r, sizeof(r)) == sizeof(r))
+                        log_debug_errno(r, "Remounting '%s' failed abnormally, child process " PID_FMT " failed: %m", m->path, pid);
+                else
+                        r = log_debug_errno(EPROTO, "Remounting '%s' failed abnormally, child process " PID_FMT " aborted or exited non-zero.", m->path, pid);
+                TAKE_PID(pid); /* child exited (just not as we expected) hence don't kill anymore */
+        } else if (r < 0)
                 log_error_errno(r, "Remounting '%s' failed unexpectedly, couldn't wait for child process " PID_FMT ": %m", m->path, pid);
 
         return r;
 }
 
 static int umount_with_timeout(MountPoint *m, bool last_try) {
-        pid_t pid;
+        _cleanup_(close_pairp) int pfd[2] = PIPE_EBADF;
+        _cleanup_(sigkill_nowaitp) pid_t pid = 0;
         int r;
 
         BLOCK_SIGNALS(SIGCHLD);
 
         assert(m);
 
+        r = pipe2(pfd, O_CLOEXEC|O_NONBLOCK);
+        if (r < 0)
+                return r;
+
         /* Due to the possibility of a umount operation hanging, we fork a child process and set a
          * timeout. If the timeout lapses, the assumption is that the particular umount failed. */
-        r = safe_fork("(sd-umount)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_REOPEN_LOG, &pid);
+        r = safe_fork_full("(sd-umount)", pfd, ELEMENTSOF(pfd), FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_REOPEN_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
+                pfd[0] = safe_close(pfd[0]);
+
                 log_info("Unmounting '%s'.", m->path);
 
                 /* Start the mount operation here in the child Using MNT_FORCE causes some filesystems
@@ -663,16 +684,23 @@ static int umount_with_timeout(MountPoint *m, bool last_try) {
                                 log_umount_blockers(m->path);
                 }
 
+                (void) write(pfd[1], &r, sizeof(r)); /* try to send errno up */
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
 
+        pfd[1] = safe_close(pfd[1]);
+
         r = wait_for_terminate_with_timeout(pid, DEFAULT_TIMEOUT_USEC);
-        if (r == -ETIMEDOUT) {
+        if (r == -ETIMEDOUT)
                 log_error_errno(r, "Unmounting '%s' timed out, issuing SIGKILL to PID " PID_FMT ".", m->path, pid);
-                (void) kill(pid, SIGKILL);
-        } else if (r == -EPROTO)
-                log_debug_errno(r, "Unmounting '%s' failed abnormally, child process " PID_FMT " aborted or exited non-zero.", m->path, pid);
-        else if (r < 0)
+        else if (r == -EPROTO) {
+                /* Try to read error code from child */
+                if (read(pfd[0], &r, sizeof(r)) == sizeof(r))
+                        log_debug_errno(r, "Unmounting '%s' failed abnormally, child process " PID_FMT " failed: %m", m->path, pid);
+                else
+                        r = log_debug_errno(EPROTO, "Unmounting '%s' failed abnormally, child process " PID_FMT " aborted or exited non-zero.", m->path, pid);
+                TAKE_PID(pid); /* It died, but abnormally, no purpose in killing */
+        } else if (r < 0)
                 log_error_errno(r, "Unmounting '%s' failed unexpectedly, couldn't wait for child process " PID_FMT ": %m", m->path, pid);
 
         return r;

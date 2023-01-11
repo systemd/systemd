@@ -55,6 +55,9 @@ fuzzer_build = want_ossfuzz or want_libfuzzer
 # limits).
 conf.set10('FUZZ_USE_SIZE_LIMIT', fuzzer_build)
 
+# We'll set this to '1' for EFI builds in a different place.
+conf.set10('SD_BOOT', false)
+
 # Create a title-less summary section early, so it ends up first in the output.
 # More items are added later after they have been detected.
 summary({'build mode' : get_option('mode')})
@@ -309,8 +312,6 @@ conf.set('STATUS_UNIT_FORMAT_DEFAULT',                        'STATUS_UNIT_FORMA
 conf.set_quoted('STATUS_UNIT_FORMAT_DEFAULT_STR',             status_unit_format_default)
 
 conf.set10('FIRST_BOOT_FULL_PRESET',                          get_option('first-boot-full-preset'))
-
-conf.set10('EFI_TPM_PCR_COMPAT',                              get_option('efi-tpm-pcr-compat'))
 
 #####################################################################
 

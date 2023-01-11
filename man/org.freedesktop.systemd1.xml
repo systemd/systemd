@@ -2576,6 +2576,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly u NRestarts = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s OOMPolicy = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(sst) OpenFile = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly i ReloadSignal = ...;
       readonly t ExecMainStartTimestamp = ...;
       readonly t ExecMainStartTimestampMonotonic = ...;
       readonly t ExecMainExitTimestamp = ...;
@@ -3173,6 +3177,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property OOMPolicy is not documented!-->
 
+    <!--property OpenFile is not documented!-->
+
+    <!--property ReloadSignal is not documented!-->
+
     <!--property ExecCondition is not documented!-->
 
     <!--property ExecConditionEx is not documented!-->
@@ -3728,6 +3736,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="NRestarts"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="OOMPolicy"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OpenFile"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ReloadSignal"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExecMainStartTimestamp"/>
 

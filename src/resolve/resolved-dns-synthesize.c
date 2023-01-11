@@ -463,7 +463,7 @@ int dns_synthesize_answer(
 
                 name = dns_resource_key_name(key);
 
-                if (dns_name_is_empty(name)) {
+                if (dns_name_is_root(name)) {
                         /* Do nothing. */
 
                 } else if (dns_name_dont_resolve(name)) {

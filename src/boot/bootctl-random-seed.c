@@ -9,60 +9,18 @@
 #include "fd-util.h"
 #include "find-esp.h"
 #include "fs-util.h"
+#include "io-util.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "random-util.h"
+#include "sha256.h"
 #include "tmpfile-util.h"
 #include "umask-util.h"
 
-int install_random_seed(const char *esp) {
-        _cleanup_(unlink_and_freep) char *tmp = NULL;
+static int set_system_token(void) {
         uint8_t buffer[RANDOM_EFI_SEED_SIZE];
-        _cleanup_free_ char *path = NULL;
-        _cleanup_close_ int fd = -EBADF;
         size_t token_size;
-        ssize_t n;
         int r;
-
-        assert(esp);
-
-        path = path_join(esp, "/loader/random-seed");
-        if (!path)
-                return log_oom();
-
-        r = crypto_random_bytes(buffer, sizeof(buffer));
-        if (r < 0)
-                return log_error_errno(r, "Failed to acquire random seed: %m");
-
-        /* Normally create_subdirs() should already have created everything we need, but in case "bootctl
-         * random-seed" is called we want to just create the minimum we need for it, and not the full
-         * list. */
-        r = mkdir_parents(path, 0755);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create parent directory for %s: %m", path);
-
-        r = tempfn_random(path, "bootctl", &tmp);
-        if (r < 0)
-                return log_oom();
-
-        fd = open(tmp, O_CREAT|O_EXCL|O_NOFOLLOW|O_NOCTTY|O_WRONLY|O_CLOEXEC, 0600);
-        if (fd < 0) {
-                tmp = mfree(tmp);
-                return log_error_errno(fd, "Failed to open random seed file for writing: %m");
-        }
-
-        n = write(fd, buffer, sizeof(buffer));
-        if (n < 0)
-                return log_error_errno(errno, "Failed to write random seed file: %m");
-        if ((size_t) n != sizeof(buffer))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write while writing random seed file.");
-
-        if (rename(tmp, path) < 0)
-                return log_error_errno(r, "Failed to move random seed file into place: %m");
-
-        tmp = mfree(tmp);
-
-        log_info("Random seed file %s successfully written (%zu bytes).", path, sizeof(buffer));
 
         if (!arg_touch_variables)
                 return 0;
@@ -81,7 +39,7 @@ int install_random_seed(const char *esp) {
         r = getenv_bool("SYSTEMD_WRITE_SYSTEM_TOKEN");
         if (r < 0) {
                 if (r != -ENXIO)
-                         log_warning_errno(r, "Failed to parse $SYSTEMD_WRITE_SYSTEM_TOKEN, ignoring.");
+                        log_warning_errno(r, "Failed to parse $SYSTEMD_WRITE_SYSTEM_TOKEN, ignoring.");
         } else if (r == 0) {
                 log_notice("Not writing system token, because $SYSTEMD_WRITE_SYSTEM_TOKEN is set to false.");
                 return 0;
@@ -117,14 +75,104 @@ int install_random_seed(const char *esp) {
                                 return log_error_errno(r, "Failed to write 'LoaderSystemToken' EFI variable: %m");
 
                         if (r == -EINVAL)
-                                log_warning_errno(r, "Unable to write 'LoaderSystemToken' EFI variable (firmware problem?), ignoring: %m");
+                                log_notice_errno(r, "Unable to write 'LoaderSystemToken' EFI variable (firmware problem?), ignoring: %m");
                         else
-                                log_warning_errno(r, "Unable to write 'LoaderSystemToken' EFI variable, ignoring: %m");
+                                log_notice_errno(r, "Unable to write 'LoaderSystemToken' EFI variable, ignoring: %m");
                 } else
                         log_info("Successfully initialized system token in EFI variable with %zu bytes.", sizeof(buffer));
         }
 
         return 0;
+}
+
+int install_random_seed(const char *esp) {
+        _cleanup_close_ int esp_fd = -EBADF, loader_dir_fd = -EBADF, fd = -EBADF;
+        _cleanup_free_ char *tmp = NULL;
+        uint8_t buffer[RANDOM_EFI_SEED_SIZE];
+        struct sha256_ctx hash_state;
+        bool refreshed;
+        int r;
+
+        assert(esp);
+
+        assert_cc(RANDOM_EFI_SEED_SIZE == SHA256_DIGEST_SIZE);
+
+        esp_fd = open(esp, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+        if (esp_fd < 0)
+                return log_error_errno(errno, "Failed to open ESP directory '%s': %m", esp);
+
+        loader_dir_fd = open_mkdir_at(esp_fd, "loader", O_DIRECTORY|O_RDONLY|O_CLOEXEC|O_NOFOLLOW, 0775);
+        if (loader_dir_fd < 0)
+                return log_error_errno(loader_dir_fd, "Failed to open loader directory '%s/loader': %m", esp);
+
+        r = crypto_random_bytes(buffer, sizeof(buffer));
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire random seed: %m");
+
+        sha256_init_ctx(&hash_state);
+        sha256_process_bytes_and_size(buffer, sizeof(buffer), &hash_state);
+
+        fd = openat(loader_dir_fd, "random-seed", O_NOFOLLOW|O_CLOEXEC|O_RDONLY|O_NOCTTY);
+        if (fd < 0) {
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to open old random seed file: %m");
+
+                sha256_process_bytes(&(const ssize_t) { 0 }, sizeof(ssize_t), &hash_state);
+                refreshed = false;
+        } else {
+                ssize_t n;
+
+                /* Hash the old seed in so that we never regress in entropy. */
+
+                n = read(fd, buffer, sizeof(buffer));
+                if (n < 0)
+                        return log_error_errno(errno, "Failed to read old random seed file: %m");
+
+                sha256_process_bytes_and_size(buffer, n, &hash_state);
+
+                fd = safe_close(fd);
+                refreshed = n > 0;
+        }
+
+        sha256_finish_ctx(&hash_state, buffer);
+
+        if (tempfn_random("random-seed", "bootctl", &tmp) < 0)
+                return log_oom();
+
+        fd = openat(loader_dir_fd, tmp, O_CREAT|O_EXCL|O_NOFOLLOW|O_NOCTTY|O_WRONLY|O_CLOEXEC, 0600);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open random seed file for writing: %m");
+
+        r = loop_write(fd, buffer, sizeof(buffer), /* do_poll= */ false);
+        if (r < 0) {
+                log_error_errno(r, "Failed to write random seed file: %m");
+                goto fail;
+        }
+
+        if (fsync(fd) < 0 || fsync(loader_dir_fd) < 0) {
+                r = log_error_errno(errno, "Failed to sync random seed file: %m");
+                goto fail;
+        }
+
+        if (renameat(loader_dir_fd, tmp, loader_dir_fd, "random-seed") < 0) {
+                r = log_error_errno(errno, "Failed to move random seed file into place: %m");
+                goto fail;
+        }
+
+        tmp = mfree(tmp);
+
+        if (syncfs(fd) < 0)
+                return log_error_errno(errno, "Failed to sync ESP file system: %m");
+
+        log_info("Random seed file %s/loader/random-seed successfully %s (%zu bytes).", esp, refreshed ? "refreshed" : "written", sizeof(buffer));
+
+        return set_system_token();
+
+fail:
+        assert(tmp);
+        (void) unlinkat(loader_dir_fd, tmp, 0);
+
+        return r;
 }
 
 int verb_random_seed(int argc, char *argv[], void *userdata) {
@@ -146,6 +194,5 @@ int verb_random_seed(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        (void) sync_everything();
         return 0;
 }

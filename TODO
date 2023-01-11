@@ -118,8 +118,6 @@ Deprecations and removals:
 * rework our PID tracking in services and so on, to be strictly based on pidfd,
   once kernel baseline is 5.13.
 
-* ~2023: remove support for TPM_PCR_INDEX_KERNEL_PARAMETERS_COMPAT
-
 * H2 2023: remove support for unmerged-usr
 
 * Remove /dev/mem ACPI FPDT parsing when /sys/firmware/acpi/fpdt is ubiquitous.
@@ -127,6 +125,17 @@ Deprecations and removals:
   x86 and v6.2 for arm.
 
 Features:
+
+* sd-stub: detect if we are running with uefi console output on serial, and if so
+  automatically add console= to kernel cmdline matching the same port.
+
+* add a utility that can be used with the kernel's
+  CONFIG_STATIC_USERMODEHELPER_PATH and then handles them within pid1 so that
+  security, resource management and cgroup settings can be enforced properly
+  for all umh processes.
+
+* systemd-shutdown: keep sending sd_notify() status updates immediately before
+  going down, in particular include the "reboot param" string.
 
 * homed: when resizing an fs don't sync identity beforehand there might simply
   not be enough disk space for that. try to be defensive and sync only after
@@ -549,10 +558,6 @@ Features:
 * sd-boot should look for information what to boot in SMBIOS, too, so that VM
   managers can tell sd-boot what to boot into and suchlike
 
-* PID 1 should look for an SMBIOS variable that encodes an AF_VSOCK address it
-  should send sd_notify() ready notifications to. That way a VMM can boot up a
-  system, and generically know when it finished booting.
-
 * add "systemd-sysext identify" verb, that you can point on any file in /usr/
   and that determines from which overlayfs layer it originates, which image, and with
   what it was signed.
@@ -595,7 +600,6 @@ Features:
   • resolved: allow defining additional /etc/hosts entries via a credential (it
     might make sense to then synthesize a new combined /etc/hosts file in /run
     and bind mount it on /etc/hosts for other clients that want to read it.
-    Similar, allow picking up DNS server IP addresses from credential.
   • repart: allow defining additional partitions via credential
   • timesyncd: pick NTP server info from credential
   • portabled: read a credential "portable.extra" or so, that takes a list of
@@ -759,29 +763,15 @@ Features:
     and synthesize initrd from it, and measure it. Signing is not necessary, as
     microcode does that on its own. Pass as first initrd to kernel.
 
-* Add a new service type very similar to Type=notify, that goes one step
-  further and extends the protocol to cover reloads. Specifically, SIGHUP will
-  become the official way to reload, and daemon has to respond with sd_notify()
-  to report when it starts reloading, and when it is complete reloading. Care
-  must be taken to remove races from this model. I.e. PID 1 needs to take
-  CLOCK_MONOTONIC, then send SIGHUP, then wait for at least one RELOADING=1
-  message that comes with a newer timestamp, then wait for a READY=1 message.
-  while we are at it, also maybe extend the logic to require handling of some
-  specific SIGRT signal for setting debug log level, that carries the level via
-  the sigqueue() data parameter. With that we extended with minimal logic the
-  service runtime logic quite substantially.
+* Maybe extend the service protocol to support handling of some specific SIGRT
+  signal for setting service log level, that carries the level via the
+  sigqueue() data parameter. Enable this via unit file setting.
 
 * firstboot: maybe just default to C.UTF-8 locale if nothing is set, so that we
   don't query this unnecessarily in entirely uninitialized
   containers. (i.e. containers with empty /etc).
 
-* beef up sd_notify() to support AV_VSOCK in $NOTIFY_SOCKET, so that VM
-  managers can get ready notifications from VMs, just like container managers
-  from their payload. Also pick up address from qemu/fw_cfg if set there.
-  (which has benefits, given SecureBoot and kernel cmdline are not necessarily
-  friends.)
-
-* mirroring this: maybe support binding to AV_VSOCK in Type=notify services,
+* sd_notify/vsock: maybe support binding to AF_VSOCK in Type=notify services,
   then passing $NOTIFY_SOCKET and $NOTIFY_GUESTCID with PID1's cid (typically
   fixed to "2", i.e. the official host cid) and the expected guest cid, for the
   two sides of the channel. The latter env var could then be used in an
@@ -1776,7 +1766,6 @@ Features:
 * unit files:
   - allow port=0 in .socket units
   - maybe introduce ExecRestartPre=
-  - add ReloadSignal= for configuring a reload signal to use
   - implement Register= switch in .socket units to enable registration
     in Avahi, RPC and other socket registration services.
   - allow Type=simple with PIDFile=

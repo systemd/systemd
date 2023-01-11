@@ -839,6 +839,10 @@ static bool shall_try_append_again(JournalFile *f, int r) {
                 log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Journal file is from the future, rotating.", f->path);
                 return true;
 
+        case -EREMCHG:         /* Time jumped backwards relative to last journal entry */
+                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Time jumped backwards relative to last journal entry, rotating.", f->path);
+                return true;
+
         case -EAFNOSUPPORT:
                 log_ratelimit_warning(JOURNAL_LOG_RATELIMIT,
                                       "%s: underlying file system does not support memory mapping or another required file system feature.",
@@ -2500,10 +2504,13 @@ int server_init(Server *s, const char *namespace) {
 
         /* Unless we got *some* sockets and not audit, open audit socket */
         if (s->audit_fd >= 0 || no_sockets) {
+                log_info("Collecting audit messages is enabled.");
+
                 r = server_open_audit(s);
                 if (r < 0)
                         return r;
-        }
+        } else
+                log_info("Collecting audit messages is disabled.");
 
         r = server_open_varlink(s, varlink_socket, varlink_fd);
         if (r < 0)

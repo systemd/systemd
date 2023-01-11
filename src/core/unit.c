@@ -4511,26 +4511,30 @@ static int log_kill(pid_t pid, int sig, void *userdata) {
         return 1;
 }
 
-static int operation_to_signal(const KillContext *c, KillOperation k, bool *noteworthy) {
+static int operation_to_signal(
+                const KillContext *c,
+                KillOperation k,
+                bool *ret_noteworthy) {
+
         assert(c);
 
         switch (k) {
 
         case KILL_TERMINATE:
         case KILL_TERMINATE_AND_LOG:
-                *noteworthy = false;
+                *ret_noteworthy = false;
                 return c->kill_signal;
 
         case KILL_RESTART:
-                *noteworthy = false;
+                *ret_noteworthy = false;
                 return restart_kill_signal(c);
 
         case KILL_KILL:
-                *noteworthy = true;
+                *ret_noteworthy = true;
                 return c->final_kill_signal;
 
         case KILL_WATCHDOG:
-                *noteworthy = true;
+                *ret_noteworthy = true;
                 return c->watchdog_signal;
 
         default:
@@ -5789,7 +5793,7 @@ int unit_clean(Unit *u, ExecCleanMask mask) {
                 return -EBUSY;
 
         state = unit_active_state(u);
-        if (!IN_SET(state, UNIT_INACTIVE))
+        if (state != UNIT_INACTIVE)
                 return -EBUSY;
 
         return UNIT_VTABLE(u)->clean(u, mask);

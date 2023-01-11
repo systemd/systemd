@@ -109,7 +109,7 @@ bool efi_fnmatch(const char16_t *pattern, const char16_t *haystack);
 bool parse_number8(const char *s, uint64_t *ret_u, const char **ret_tail);
 bool parse_number16(const char16_t *s, uint64_t *ret_u, const char16_t **ret_tail);
 
-#ifdef SD_BOOT
+#if SD_BOOT
 /* The compiler normally has knowledge about standard functions such as memcmp, but this is not the case when
  * compiling with -ffreestanding. By referring to builtins, the compiler can check arguments and do
  * optimizations again. Note that we still need to provide implementations as the compiler is free to not
@@ -125,12 +125,6 @@ static inline void *mempcpy(void * restrict dest, const void * restrict src, siz
         return (uint8_t *) dest + n;
 }
 
-static inline void explicit_bzero_safe(void *bytes, size_t len) {
-        if (!bytes || len == 0)
-                return;
-        memset(bytes, 0, len);
-        __asm__ __volatile__("": :"r"(bytes) :"memory");
-}
 #else
 /* For unit testing. */
 int efi_memcmp(const void *p1, const void *p2, size_t n);

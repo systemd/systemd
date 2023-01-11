@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#ifndef SD_BOOT
+#if !SD_BOOT
 #  include <assert.h>
 #endif
 
@@ -20,6 +20,7 @@
 #define _hidden_ __attribute__((__visibility__("hidden")))
 #define _likely_(x) (__builtin_expect(!!(x), 1))
 #define _malloc_ __attribute__((__malloc__))
+#define _noinline_ __attribute__((noinline))
 #define _noreturn_ _Noreturn
 #define _packed_ __attribute__((__packed__))
 #define _printf_(a, b) __attribute__((__format__(printf, a, b)))
@@ -66,7 +67,7 @@
 #define XCONCATENATE(x, y) x ## y
 #define CONCATENATE(x, y) XCONCATENATE(x, y)
 
-#ifdef SD_BOOT
+#if SD_BOOT
         _noreturn_ void efi_assert(const char *expr, const char *file, unsigned line, const char *function);
 
         #ifdef NDEBUG
@@ -278,15 +279,15 @@
                                CASE_F_10,CASE_F_9,CASE_F_8,CASE_F_7,CASE_F_6,CASE_F_5,CASE_F_4,CASE_F_3,CASE_F_2,CASE_F_1) \
                    (__VA_ARGS__)
 
-#define IN_SET(x, ...)                                                  \
+#define IN_SET(x, first, ...)                                           \
         ({                                                              \
                 bool _found = false;                                    \
                 /* If the build breaks in the line below, you need to extend the case macros. We use typeof(+x) \
                  * here to widen the type of x if it is a bit-field as this would otherwise be illegal. */      \
-                static const typeof(+x) __assert_in_set[] _unused_ = { __VA_ARGS__ }; \
+                static const typeof(+x) __assert_in_set[] _unused_ = { first, __VA_ARGS__ }; \
                 assert_cc(ELEMENTSOF(__assert_in_set) <= 20);           \
                 switch (x) {                                            \
-                FOR_EACH_MAKE_CASE(__VA_ARGS__)                         \
+                FOR_EACH_MAKE_CASE(first, __VA_ARGS__)                  \
                         _found = true;                                  \
                         break;                                          \
                 default:                                                \
@@ -333,7 +334,7 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
 #define ALIGN2_PTR(p) ((void*) ALIGN2((uintptr_t) p))
 #define ALIGN4_PTR(p) ((void*) ALIGN4((uintptr_t) p))
 #define ALIGN8_PTR(p) ((void*) ALIGN8((uintptr_t) p))
-#ifndef SD_BOOT
+#if !SD_BOOT
 /* libefi also provides ALIGN, and we do not use them in sd-boot explicitly. */
 #define ALIGN(l)  ALIGN_TO(l, sizeof(void*))
 #define ALIGN_PTR(p) ((void*) ALIGN((uintptr_t) (p)))

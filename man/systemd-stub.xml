@@ -382,45 +382,8 @@
   <refsect1>
     <title>Assembling Kernel Images</title>
 
-    <para>In order to assemble an UEFI PE kernel image from various components as described above, use an
-    <citerefentry project='man-pages'><refentrytitle>objcopy</refentrytitle><manvolnum>1</manvolnum></citerefentry> command line
-    like this:</para>
-
-    <programlisting>objcopy \
-    --add-section .osrel=os-release --change-section-vma .osrel=0x20000 \
-    --add-section .cmdline=cmdline.txt --change-section-vma .cmdline=0x30000 \
-    --add-section .dtb=devicetree.dtb --change-section-vma .dtb=0x40000 \
-    --add-section .splash=splash.bmp --change-section-vma .splash=0x100000 \
-    --add-section .linux=vmlinux --change-section-vma .linux=0x2000000 \
-    --add-section .initrd=initrd.cpio --change-section-vma .initrd=0x3000000 \
-    /usr/lib/systemd/boot/efi/linuxx64.efi.stub \
-    foo-unsigned.efi</programlisting>
-
-    <para>Note that these PE section offsets are example values and a properly assembled image must not
-    contain any overlapping sections (this includes already existing sections inside the stub before
-    assembly) or boot may fail.</para>
-
-    <para>This generates one PE executable file <filename>foo-unsigned.efi</filename> from the six individual
-    files for OS release information, kernel command line, boot splash image, kernel image, main initrd and
-    UEFI boot stub.</para>
-
-    <para>To then sign the resulting image for UEFI SecureBoot use an
-    <citerefentry project='archlinux'><refentrytitle>sbsign</refentrytitle><manvolnum>1</manvolnum></citerefentry> command like
-    the following:</para>
-
-    <programlisting>sbsign \
-    --key mykey.pem \
-    --cert mykey.crt \
-    --output foo.efi \
-    foo-unsigned.efi</programlisting>
-
-    <para>This expects a pair of X.509 private key and certificate as parameters and then signs the UEFI PE
-    executable we generated above for UEFI SecureBoot and generates a signed UEFI PE executable as
-    result.</para>
-
-    <para>See
-    <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
-    an example involving the <literal>.pcrsig</literal> and <literal>.pcrpkey</literal> sections.</para>
+    <para>In order to assemble a bootable Unified Kernel Image from various components as described above, use
+    <citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
   </refsect1>
 
   <refsect1>
@@ -432,8 +395,7 @@
       <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink>,
       <ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>,
-      <citerefentry project='man-pages'><refentrytitle>objcopy</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry project='archlinux'><refentrytitle>sbsign</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>

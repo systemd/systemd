@@ -16,6 +16,7 @@ import os
 import pathlib
 import re
 import shlex
+import shutil
 import subprocess
 import tempfile
 import typing
@@ -69,16 +70,19 @@ def path_is_readable(s: str | None) -> pathlib.Path | None:
     if s is None:
         return None
     p = pathlib.Path(s)
-    p.open().close()
+    try:
+        p.open().close()
+    except IsADirectoryError:
+        pass
     return p
 
 
-def pe_executable_size(filename):
+def pe_next_section_offset(filename):
     import pefile
 
     pe = pefile.PE(filename)
     section = pe.sections[-1]
-    return section.VirtualAddress + section.Misc_VirtualSize
+    return pe.OPTIONAL_HEADER.ImageBase + section.VirtualAddress + section.Misc_VirtualSize
 
 
 def round_up(x, blocksize=4096):
@@ -262,7 +266,7 @@ class UKI:
     offset: int | None = dataclasses.field(default=None, init=False)
 
     def __post_init__(self):
-        self.offset = round_up(pe_executable_size(self.executable))
+        self.offset = round_up(pe_next_section_offset(self.executable))
 
     def add_section(self, section):
         assert self.offset
@@ -338,7 +342,10 @@ def find_tool(name, fallback=None, opts=None):
             if tool.exists():
                 return tool
 
-    return fallback or name
+    if shutil.which(name) is not None:
+        return name
+
+    return fallback
 
 
 def combine_signatures(pcrsigs):
@@ -684,7 +691,7 @@ usage: ukify [options…] linux initrd…
 
     p.add_argument('--tools',
                    type=pathlib.Path,
-                   nargs='+',
+                   action='append',
                    help='Directories to search for tools (systemd-measure, llvm-objcopy, ...)')
 
     p.add_argument('--output', '-o',

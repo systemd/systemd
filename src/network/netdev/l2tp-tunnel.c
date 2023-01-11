@@ -521,7 +521,7 @@ int config_parse_l2tp_tunnel_local_address(
                         return log_oom();
         }
 
-        type = l2tp_local_address_type_from_string(rvalue);
+        type = l2tp_local_address_type_from_string(addr_or_type);
         if (type >= 0) {
                 free_and_replace(t->local_ifname, ifname);
                 t->local_address_type = type;
@@ -534,15 +534,15 @@ int config_parse_l2tp_tunnel_local_address(
                 return 0;
         }
 
-        r = in_addr_from_string_auto(rvalue, &f, &a);
+        r = in_addr_from_string_auto(addr_or_type, &f, &a);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Invalid L2TP Tunnel local address specified, ignoring assignment: %s", rvalue);
+                           "Invalid L2TP Tunnel local address \"%s\" specified, ignoring assignment: %s", addr_or_type, rvalue);
                 return 0;
         }
 
         if (in_addr_is_null(f, &a)) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "L2TP Tunnel local address cannot be null, ignoring assignment: %s", rvalue);
                 return 0;
         }
@@ -598,7 +598,7 @@ int config_parse_l2tp_tunnel_remote_address(
         }
 
         if (in_addr_is_null(f, &a)) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "L2TP Tunnel remote address cannot be null, ignoring assignment: %s", rvalue);
                 return 0;
         }

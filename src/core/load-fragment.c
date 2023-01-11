@@ -49,6 +49,7 @@
 #include "missing_ioprio.h"
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
+#include "open-file.h"
 #include "parse-helpers.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -5581,35 +5582,26 @@ int config_parse_emergency_action(
                 void *data,
                 void *userdata) {
 
-        Manager *m = NULL;
         EmergencyAction *x = ASSERT_PTR(data);
+        bool is_system;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
 
+        /* If we have a unit determine the scope based on it */
         if (unit)
-                m = ((Unit*) userdata)->manager;
+                is_system = MANAGER_IS_SYSTEM(((Unit*) ASSERT_PTR(userdata))->manager);
         else
-                m = data;
+                is_system = ltype; /* otherwise, assume the scope is passed in via ltype */
 
-        r = parse_emergency_action(rvalue, MANAGER_IS_SYSTEM(m), x);
+        r = parse_emergency_action(rvalue, is_system, x);
         if (r < 0) {
-                if (r == -EOPNOTSUPP && MANAGER_IS_USER(m)) {
-                        /* Compat mode: remove for systemd 241. */
-
-                        log_syntax(unit, LOG_INFO, filename, line, r,
-                                   "%s= in user mode specified as \"%s\", using \"exit-force\" instead.",
-                                   lvalue, rvalue);
-                        *x = EMERGENCY_ACTION_EXIT_FORCE;
-                        return 0;
-                }
-
                 if (r == -EOPNOTSUPP)
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "%s= specified as %s mode action, ignoring: %s",
-                                   lvalue, MANAGER_IS_SYSTEM(m) ? "user" : "system", rvalue);
+                                   lvalue, is_system ? "user" : "system", rvalue);
                 else
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to parse %s=, ignoring: %s", lvalue, rvalue);
@@ -6505,7 +6497,6 @@ int config_parse_log_filter_patterns(
                 void *userdata) {
 
         ExecContext *c = ASSERT_PTR(data);
-        _cleanup_(pattern_freep) pcre2_code *compiled_pattern = NULL;
         const char *pattern = ASSERT_PTR(rvalue);
         bool is_allowlist = true;
         int r;
@@ -6529,7 +6520,7 @@ int config_parse_log_filter_patterns(
                                           "Regex pattern invalid, ignoring: %s=%s", lvalue, rvalue);
         }
 
-        if (pattern_compile_and_log(pattern, 0, &compiled_pattern) < 0)
+        if (pattern_compile_and_log(pattern, 0, NULL) < 0)
                 return 0;
 
         r = set_put_strdup(is_allowlist ? &c->log_filter_allowed_patterns : &c->log_filter_denied_patterns,
@@ -6539,6 +6530,42 @@ int config_parse_log_filter_patterns(
                            "Failed to store log filtering pattern, ignoring: %s=%s", lvalue, rvalue);
                 return 0;
         }
+
+        return 0;
+}
+
+int config_parse_open_file(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(open_file_freep) OpenFile *of = NULL;
+        OpenFile **head = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                open_file_free_many(head);
+                return 0;
+        }
+
+        r = open_file_parse(rvalue, &of);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse OpenFile= setting, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        LIST_APPEND(open_files, *head, TAKE_PTR(of));
 
         return 0;
 }

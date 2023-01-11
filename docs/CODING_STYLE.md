@@ -686,7 +686,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - Do not use `basename()` or `dirname()`. The semantics in corner cases are
   full of pitfalls, and the fact that there are two quite different versions of
   `basename()` (one POSIX and one GNU, of which the latter is much more useful)
-  doesn't make it bette either. Use path_extract_filename() and
+  doesn't make it better either. Use path_extract_filename() and
   path_extract_directory() instead.
 
 - Never use `FILENAME_MAX`. Use `PATH_MAX` instead (for checking maximum size

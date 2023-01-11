@@ -325,7 +325,15 @@
         <term><literal>firstboot.keymap</literal></term>
 
         <listitem><para>This credential specifies the keyboard setting to set during first boot, in place of
-        prompting the user.</para></listitem>
+        prompting the user.</para>
+
+        <para>Note the relationship to the <literal>vconsole.keymap</literal> credential understood by
+        <citerefentry><refentrytitle>systemd-vconsole-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>:
+        both ultimately affect the same setting, but <varname>firstboot.keymap</varname> is written into
+        <filename>/etc/vconsole.conf</filename> on first boot (if not already configured), and then read from
+        there by <command>systemd-vconsole-setup</command>, while <varname>vconsole.keymap</varname> is read
+        on every boot, and is not persisted to disk (but any configuration in
+        <filename>vconsole.conf</filename> will take precedence if present).</para></listitem>
       </varlistentry>
 
       <varlistentry>

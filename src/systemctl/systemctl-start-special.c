@@ -216,7 +216,7 @@ int verb_start_special(int argc, char *argv[], void *userdata) {
 
                         arg_no_block = true;
 
-                } else if (IN_SET(a, ACTION_EXIT))
+                } else if (a == ACTION_EXIT)
                         /* Since exit is so close in behaviour to power-off/reboot, let's also make
                          * it asynchronous, in order to not confuse the user needlessly with unexpected
                          * behaviour. */
