@@ -197,7 +197,7 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
                 r = mount_image_in_namespace(unit_pid,
                                              propagate_directory,
                                              "/run/systemd/incoming/",
-                                             src, dest, read_only, make_file_or_directory, options);
+                                             src, dest, read_only, make_file_or_directory, options, c->mount_image_policy ?: &image_policy_service);
         else
                 r = bind_mount_in_namespace(unit_pid,
                                             propagate_directory,
