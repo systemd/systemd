@@ -2507,7 +2507,9 @@ int server_init(Server *s, const char *namespace) {
                 r = server_open_audit(s);
                 if (r < 0)
                         return r;
-        }
+                log_info("Audit messages are collected.");
+        } else
+                log_info("Audit messages are ignored.");
 
         r = server_open_varlink(s, varlink_socket, varlink_fd);
         if (r < 0)
