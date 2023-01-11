@@ -707,6 +707,10 @@ int block_device_remove_all_partitions(sd_device *dev, int fd) {
                 if (r < 0)
                         return r;
 
+                r = btrfs_forget_device(devname);
+                if (r < 0 && r != -ENOENT)
+                        log_debug_errno(r, "Failed to forget btrfs device %s, ignoring: %m", devname);
+
                 r = block_device_remove_partition(fd, devname, nr);
                 if (r == -ENODEV) {
                         log_debug("Kernel removed partition %s before us, ignoring", devname);
