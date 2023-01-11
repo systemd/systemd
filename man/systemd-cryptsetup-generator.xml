@@ -63,7 +63,7 @@
         <literal>no</literal>, causes the generator to ignore any devices configured in
         <filename>/etc/crypttab</filename> (<varname>luks.uuid=</varname> will still work however).
         <varname>rd.luks.crypttab=</varname> is honored only in initrd while
-        <varname>luks.crypttab=</varname> is honored by both the main system and the initrd.
+        <varname>luks.crypttab=</varname> is honored by both the main system and in the initrd.
         </para></listitem>
       </varlistentry>
 
@@ -75,7 +75,7 @@
         part of the boot process as if it was listed in <filename>/etc/crypttab</filename>. This option may
         be specified more than once in order to set up multiple devices. <varname>rd.luks.uuid=</varname> is
         honored only in the initrd, while <varname>luks.uuid=</varname> is honored by both the main system
-        and the initrd.</para>
+        and in the initrd.</para>
 
         <para>If <filename>/etc/crypttab</filename> contains entries with the same UUID, then the name,
         keyfile and options specified there will be used. Otherwise, the device will have the name
@@ -101,7 +101,7 @@
         <manvolnum>5</manvolnum></citerefentry> field <replaceable>volume-name</replaceable>.</para>
 
         <para><varname>rd.luks.name=</varname> is honored only in the initrd, while
-        <varname>luks.name=</varname> is honored by both the main system and the initrd.</para>
+        <varname>luks.name=</varname> is honored by both the main system and in the initrd.</para>
         </listitem>
       </varlistentry>
 
@@ -203,7 +203,7 @@
 
         <para><varname>rd.luks.options=</varname> is honored only by initial
         RAM disk (initrd) while <varname>luks.options=</varname> is
-        honored by both the main system and the initrd.</para>
+        honored by both the main system and in the initrd.</para>
         </listitem>
       </varlistentry>
     </variablelist>
