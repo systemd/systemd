@@ -5,6 +5,7 @@
 #include "resolved-dns-synthesize.h"
 #include "resolved-varlink.h"
 #include "socket-netlink.h"
+#include "resolved-mdns-browse-services.h"
 
 typedef struct LookupParameters {
         int ifindex;
@@ -15,9 +16,25 @@ typedef struct LookupParameters {
         char *name;
 } LookupParameters;
 
+typedef struct LookupParametersMdnsBrowse {
+        char *domain_name;
+        char *name;
+        char *type;
+        char *ifname;
+        uint64_t token;
+} LookupParametersMdnsBrowse;
+
 static void lookup_parameters_destroy(LookupParameters *p) {
         assert(p);
         free(p->name);
+}
+
+static void lookup_parameters_mdns_destroy(LookupParametersMdnsBrowse *p) {
+        assert(p);
+        free(p->domain_name);
+        free(p->name);
+        free(p->type);
+        free(p->ifname);
 }
 
 static int reply_query_state(DnsQuery *q) {
@@ -85,7 +102,7 @@ static int reply_query_state(DnsQuery *q) {
 
 static void vl_on_disconnect(VarlinkServer *s, Varlink *link, void *userdata) {
         DnsQuery *q;
-
+        Manager *m;
         assert(s);
         assert(link);
 
@@ -98,6 +115,13 @@ static void vl_on_disconnect(VarlinkServer *s, Varlink *link, void *userdata) {
 
         log_debug("Client of active query vanished, aborting query.");
         dns_query_complete(q, DNS_TRANSACTION_ABORTED);
+
+        m = varlink_server_get_userdata(varlink_get_server(link));
+        if (!m)
+                return;
+
+        if (m->dns_service_subscriber)
+                m->dns_service_subscriber = mdns_service_subscriber_free(m->dns_service_subscriber);
 }
 
 static void vl_on_notification_disconnect(VarlinkServer *s, Varlink *link, void *userdata) {
@@ -531,6 +555,58 @@ static int vl_method_resolve_address(Varlink *link, JsonVariant *parameters, Var
         return 1;
 }
 
+static int vl_method_start_browse(Varlink* link, JsonVariant* parameters, VarlinkMethodFlags flags, void* userdata) {
+        static const JsonDispatch dispatch_table[] = {
+                { "domain_name", JSON_VARIANT_STRING,   json_dispatch_string, offsetof(LookupParametersMdnsBrowse, domain_name), JSON_MANDATORY },
+                { "name",        JSON_VARIANT_STRING,   json_dispatch_string, offsetof(LookupParametersMdnsBrowse, name),        JSON_MANDATORY },
+                { "type",        JSON_VARIANT_STRING,   json_dispatch_string, offsetof(LookupParametersMdnsBrowse, type),        JSON_MANDATORY },
+                { "ifname",      JSON_VARIANT_STRING,   json_dispatch_string, offsetof(LookupParametersMdnsBrowse, ifname),      JSON_MANDATORY },
+                { "token",       JSON_VARIANT_UNSIGNED, json_dispatch_uint64, offsetof(LookupParametersMdnsBrowse, token),       JSON_MANDATORY },
+                {}
+        };
+
+        _cleanup_(lookup_parameters_mdns_destroy) LookupParametersMdnsBrowse p = {};
+        Manager *m;
+        int r = 0;
+
+        assert(link);
+
+        m = varlink_server_get_userdata(varlink_get_server(link));
+        assert(m);
+
+        r = json_dispatch(parameters, dispatch_table, NULL, 0, &p);
+        if (r < 0) {
+                log_error_errno(r, "vl_method_start_browse json_dispatch fail. %m\n");
+                return r;
+        }
+
+        r = mdns_subscribe_browse_service(m, link, p.domain_name, p.name, p.type, p.ifname, p.token);
+        if (r < 0)
+                return varlink_error_errno(link, r);
+
+        return 1;
+}
+
+static int vl_method_stop_Browse(Varlink* link, JsonVariant* parameters, VarlinkMethodFlags flags, void* userdata) {
+        Manager *m;
+        uint64_t token;
+        int r;
+
+        assert(link);
+
+        m = varlink_server_get_userdata(varlink_get_server(link));
+        assert(m);
+
+        token = json_variant_unsigned(json_variant_by_key(parameters, "token"));
+
+        r = mdns_unsubscribe_browse_service(m, link, token);
+        if (r < 0)
+               return varlink_error_errno(link, r);
+
+        varlink_reply(link, NULL);
+        return 1;
+}
+
 static int vl_method_subscribe_dns_resolves(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
         Manager *m;
         int r;
@@ -620,7 +696,9 @@ static int varlink_main_server_init(Manager *m) {
         r = varlink_server_bind_method_many(
                         s,
                         "io.systemd.Resolve.ResolveHostname",  vl_method_resolve_hostname,
-                        "io.systemd.Resolve.ResolveAddress", vl_method_resolve_address);
+                        "io.systemd.Resolve.ResolveAddress", vl_method_resolve_address,
+                        "io.systemd.Resolve.StartBrowse", vl_method_start_browse,
+                        "io.systemd.Resolve.StopBrowse", vl_method_stop_Browse);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
