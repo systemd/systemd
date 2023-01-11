@@ -25,6 +25,7 @@
 #include "ask-password-api.h"
 #include "blkid-util.h"
 #include "blockdev-util.h"
+#include "btrfs-util.h"
 #include "chase-symlinks.h"
 #include "conf-files.h"
 #include "constants.h"
@@ -1255,12 +1256,27 @@ int dissect_image_file(
 }
 
 DissectedImage* dissected_image_unref(DissectedImage *m) {
+        int r;
+
         if (!m)
                 return NULL;
 
         /* First, clear dissected partitions. */
-        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
-                dissected_partition_done(m->partitions + i);
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+                DissectedPartition *p = m->partitions + i;
+
+                if (p->mount_node_fd > 0) {
+                        /* Let's make sure the mount node fd is closed before we tell btrfs to forget the
+                         * device. */
+                        p->mount_node_fd = safe_close(p->mount_node_fd);
+
+                        r = btrfs_forget_device(p->node);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to forget btrfs device %s, ignoring: %m", p->node);
+                }
+
+                dissected_partition_done(p);
+        }
 
         /* Second, free decrypted images. This must be after dissected_partition_done(), as freeing
          * DecryptedImage may try to deactivate partitions. */
