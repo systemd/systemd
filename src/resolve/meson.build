@@ -13,6 +13,8 @@ basic_dns_sources = files(
         'resolved-dns-answer.h',
         'resolved-dns-question.c',
         'resolved-dns-question.h',
+        'resolved-mdns-browse-services.c',
+        'resolved-mdns-browse-services.h',
         'resolved-util.c',
         'resolved-util.h',
         'dns-type.c',
@@ -77,6 +79,10 @@ resolvectl_sources = files(
          'resolvconf-compat.h',
          'resolvectl.c',
          'resolvectl.h',
+)
+
+mdns_browse_services_sources = files(
+         'test-mdns-browse-services.c',
 )
 
 ############################################################
