@@ -8,6 +8,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "chase-symlinks.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fstab-util.h"
@@ -660,7 +661,7 @@ static int parse_fstab(bool initrd) {
                 _cleanup_free_ char *where = NULL, *what = NULL, *canonical_where = NULL;
                 bool makefs, growfs, noauto, nofail;
                 MountPointFlags flags;
-                int k;
+                int e, k;
 
                 if (initrd && !mount_in_initrd(me))
                         continue;
@@ -675,7 +676,11 @@ static int parse_fstab(bool initrd) {
                                 continue;
                         }
 
-                        if (is_device_path(what)) {
+                        e = getenv_bool_secure("SYSTEMD_FORCE_FSTAB");
+                        if (e < 0 && e != -ENXIO)
+                                log_debug_errno(r, "Failed to parse $SYSTEMD_FORCE_FSTAB, ignoring: %m");
+
+                        if (e <= 0 && is_device_path(what)) {
                                 log_info("/sys/ is read-only (running in a container?), ignoring fstab device entry for %s.", what);
                                 continue;
                         }
