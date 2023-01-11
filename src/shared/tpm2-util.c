@@ -735,13 +735,14 @@ static void hash_pin(const char *pin, size_t len, TPM2B_AUTH *auth) {
 
         assert(auth);
         assert(pin);
+
         auth->size = SHA256_DIGEST_SIZE;
+
+        CLEANUP_ERASE(hash);
 
         sha256_init_ctx(&hash);
         sha256_process_bytes(pin, len, &hash);
         sha256_finish_ctx(&hash, auth->buffer);
-
-        explicit_bzero_safe(&hash, sizeof(hash));
 }
 
 static int tpm2_make_encryption_session(
@@ -773,11 +774,11 @@ static int tpm2_make_encryption_session(
         if (pin) {
                 TPM2B_AUTH auth = {};
 
+                CLEANUP_ERASE(auth);
+
                 hash_pin(pin, strlen(pin), &auth);
 
                 rc = sym_Esys_TR_SetAuth(c, bind_key, &auth);
-                /* ESAPI knows about it, so clear it from our memory */
-                explicit_bzero_safe(&auth, sizeof(auth));
                 if (rc != TSS2_RC_SUCCESS)
                         return log_error_errno(
                                                SYNTHETIC_ERRNO(ENOTRECOVERABLE),
@@ -1369,7 +1370,6 @@ int tpm2_seal(const char *device,
         static const TPML_PCR_SELECTION creation_pcr = {};
         _cleanup_(erase_and_freep) void *secret = NULL;
         _cleanup_free_ void *blob = NULL, *hash = NULL;
-        TPM2B_SENSITIVE_CREATE hmac_sensitive;
         ESYS_TR primary = ESYS_TR_NONE, session = ESYS_TR_NONE;
         TPMI_ALG_PUBLIC primary_alg;
         TPM2B_PUBLIC hmac_template;
@@ -1455,10 +1455,13 @@ int tpm2_seal(const char *device,
                 },
         };
 
-        hmac_sensitive = (TPM2B_SENSITIVE_CREATE) {
+        TPM2B_SENSITIVE_CREATE hmac_sensitive = (TPM2B_SENSITIVE_CREATE) {
                 .size = sizeof(hmac_sensitive.sensitive),
                 .sensitive.data.size = 32,
         };
+
+        CLEANUP_ERASE(hmac_sensitive);
+
         if (pin)
                 hash_pin(pin, strlen(pin), &hmac_sensitive.sensitive.userAuth);
 
@@ -1498,7 +1501,6 @@ int tpm2_seal(const char *device,
         }
 
         secret = memdup(hmac_sensitive.sensitive.data.buffer, hmac_sensitive.sensitive.data.size);
-        explicit_bzero_safe(hmac_sensitive.sensitive.data.buffer, hmac_sensitive.sensitive.data.size);
         if (!secret) {
                 r = log_oom();
                 goto finish;
@@ -1559,7 +1561,6 @@ int tpm2_seal(const char *device,
         r = 0;
 
 finish:
-        explicit_bzero_safe(&hmac_sensitive, sizeof(hmac_sensitive));
         primary = tpm2_flush_context_verbose(c.esys_context, primary);
         session = tpm2_flush_context_verbose(c.esys_context, session);
         return r;
