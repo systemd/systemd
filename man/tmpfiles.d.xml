@@ -88,8 +88,9 @@ A+    /path-or-glob/to/append/acls/recursively -    -    -     -           POSIX
     <filename>/sys/</filename> or <filename>/proc/</filename>, as well as some other directories below
     <filename>/var/</filename>).</para>
 
-    <para><command>systemd-tmpfiles</command> uses this configuration to create volatile files and
-    directories during boot and to do periodic cleanup afterwards. See
+    <para><citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    uses this configuration to create volatile files and directories during boot and to do periodic cleanup
+    afterwards. See
     <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
     the description of <filename>systemd-tmpfiles-setup.service</filename>,
     <filename>systemd-tmpfiles-clean.service</filename>, and associated units.</para>
