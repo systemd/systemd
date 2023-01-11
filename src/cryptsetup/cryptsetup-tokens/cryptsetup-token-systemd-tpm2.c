@@ -51,6 +51,7 @@ _public_ int cryptsetup_token_open_pin(
                 .search_pcr_mask = UINT32_MAX
         };
         uint16_t pcr_bank, primary_alg;
+        ssize_t base64_encoded_size;
         TPM2Flags flags = 0;
         const char *json;
         int r;
@@ -116,13 +117,13 @@ _public_ int cryptsetup_token_open_pin(
                 return log_debug_open_error(cd, r);
 
         /* Before using this key as passphrase we base64 encode it, for compat with homed */
-        r = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
-        if (r < 0)
-                return log_debug_open_error(cd, r);
+        base64_encoded_size = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
+        if (base64_encoded_size < 0)
+                return log_debug_open_error(cd, base64_encoded_size);
 
         /* free'd automatically by libcryptsetup */
-        *ret_password_len = strlen(base64_encoded);
         *ret_password = TAKE_PTR(base64_encoded);
+        *ret_password_len = base64_encoded_size;
 
         return 0;
 }

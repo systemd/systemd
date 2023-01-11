@@ -1160,14 +1160,15 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                 r = crypt_activate_by_volume_key(cd, name, decrypted_key, decrypted_key_size, flags);
         else {
                 _cleanup_(erase_and_freep) char *base64_encoded = NULL;
+                ssize_t base64_encoded_size;
 
                 /* Before using this key as passphrase we base64 encode it, for compat with homed */
 
-                r = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
-                if (r < 0)
+                base64_encoded_size = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
+                if (base64_encoded_size < 0)
                         return log_oom();
 
-                r = crypt_activate_by_passphrase(cd, name, keyslot, base64_encoded, strlen(base64_encoded), flags);
+                r = crypt_activate_by_passphrase(cd, name, keyslot, base64_encoded, base64_encoded_size, flags);
         }
         if (r == -EPERM) {
                 log_error_errno(r, "Failed to activate with FIDO2 decrypted key. (Key incorrect?)");
@@ -1307,6 +1308,7 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                 r = crypt_activate_by_volume_key(cd, name, decrypted_key, decrypted_key_size, flags);
         else {
                 _cleanup_(erase_and_freep) char *base64_encoded = NULL;
+                ssize_t base64_encoded_size;
 
                 /* Before using this key as passphrase we base64 encode it. Why? For compatibility
                  * with homed's PKCS#11 hookup: there we want to use the key we acquired through
@@ -1316,11 +1318,11 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                  * without embedded NUL here too, and that's easiest to generate from a binary blob
                  * via base64 encoding. */
 
-                r = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
-                if (r < 0)
+                base64_encoded_size = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
+                if (base64_encoded_size < 0)
                         return log_oom();
 
-                r = crypt_activate_by_passphrase(cd, name, keyslot, base64_encoded, strlen(base64_encoded), flags);
+                r = crypt_activate_by_passphrase(cd, name, keyslot, base64_encoded, base64_encoded_size, flags);
         }
         if (r == -EPERM) {
                 log_error_errno(r, "Failed to activate with PKCS#11 decrypted key. (Key incorrect?)");
@@ -1595,14 +1597,15 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                 r = crypt_activate_by_volume_key(cd, name, decrypted_key, decrypted_key_size, flags);
         else {
                 _cleanup_(erase_and_freep) char *base64_encoded = NULL;
+                ssize_t base64_encoded_size;
 
                 /* Before using this key as passphrase we base64 encode it, for compat with homed */
 
-                r = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
-                if (r < 0)
+                base64_encoded_size = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
+                if (base64_encoded_size < 0)
                         return log_oom();
 
-                r = crypt_activate_by_passphrase(cd, name, keyslot, base64_encoded, strlen(base64_encoded), flags);
+                r = crypt_activate_by_passphrase(cd, name, keyslot, base64_encoded, base64_encoded_size, flags);
         }
         if (r == -EPERM) {
                 log_error_errno(r, "Failed to activate with TPM2 decrypted key. (Key incorrect?)");
