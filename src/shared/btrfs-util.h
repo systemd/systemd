@@ -136,3 +136,5 @@ static inline bool btrfs_might_be_subvol(const struct stat *st) {
 
         return S_ISDIR(st->st_mode) && st->st_ino == 256;
 }
+
+int btrfs_forget_device(const char *path);
