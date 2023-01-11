@@ -90,3 +90,4 @@ BuildPackages=
         python3dist(docutils)
         python3dist(jinja2)
         python3dist(lxml)
+        rust

@@ -492,6 +492,7 @@ libshared = shared_library(
         c_args : ['-fvisibility=default'],
         link_args : ['-shared',
                      '-Wl,--version-script=' + libshared_sym_path],
+        link_with : [libbasic_rust],
         link_whole : [libshared_static,
                       libbasic,
                       libbasic_gcrypt,

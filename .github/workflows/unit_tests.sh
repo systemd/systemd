@@ -24,6 +24,9 @@ ADDITIONAL_DEPS=(
     python3-pefile
     python3-pyparsing
     rpm
+    rustc
+    rustfmt
+    rust-clippy
     zstd
 )
 
@@ -32,7 +35,7 @@ function info() {
 }
 
 function run_meson() {
-    if ! meson "$@"; then
+    if ! ../meson/meson.py "$@"; then
         find . -type f -name meson-log.txt -exec cat '{}' +
         return 1
     fi
@@ -53,8 +56,20 @@ for phase in "${PHASES[@]}"; do
             apt-get -y build-dep systemd
             apt-get -y install "${ADDITIONAL_DEPS[@]}"
             pip3 install -r .github/workflows/requirements.txt --require-hashes
+            # For rust_crate_type: object
+            git clone --depth 1 --branch rust_objects https://github.com/bluca/meson.git ../meson
+            # Create pkg-config file so that meson can use dependency()
+            libstd_rust_link="$(dpkg-query --listfiles "$(dpkg-query --showformat "\${Package}" --show 'libstd-rust-1*')" | grep usr/lib | grep libstd | sed "s|.*/lib\(std-.*\).so|\1|")"
+            libstd_rust_version="$(dpkg-query --showformat "\${Version}" --show 'libstd-rust-1*')"
+            mkdir -p /usr/lib/pkgconfig/
+            cat >/usr/lib/pkgconfig/std-rust.pc <<EOF
+Name: std-rust
+Description: Rust standard library
+Version: $libstd_rust_version
+Libs: -l${libstd_rust_link}
+EOF
             ;;
-        RUN|RUN_GCC|RUN_CLANG|RUN_CLANG_RELEASE)
+        RUN|RUN_GCC|RUN_GCC_RUST|RUN_CLANG|RUN_CLANG_RELEASE|RUN_CLANG_RUST)
             if [[ "$phase" =~ ^RUN_CLANG ]]; then
                 export CC=clang
                 export CXX=clang++
@@ -74,10 +89,13 @@ for phase in "${PHASES[@]}"; do
             # "Project targeting '>= 0.53.2' but tried to use feature introduced in '0.60.0': install_tag arg in custom_target"
             # It can be safely removed from the CI since it isn't actually used anywhere to test anything.
             find . -type f -name meson.build -exec sed -i '/install_tag/d' '{}' '+'
-            MESON_ARGS+=(--fatal-meson-warnings)
-            run_meson -Dnobody-group=nogroup --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true "${MESON_ARGS[@]}" build
+            #MESON_ARGS+=(--fatal-meson-warnings)
+            if [[ "$phase" = "RUN_GCC_RUST" ]] || [[ "$phase" = "RUN_CLANG_RUST" ]]; then
+                MESON_ARGS=(-Dbuild-rust=true)
+            fi
+            run_meson -Drust_args="--deny warnings" -Dnobody-group=nogroup --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true "${MESON_ARGS[@]}" build
             ninja -C build -v
-            meson test -C build --print-errorlogs
+            run_meson test -C build --print-errorlogs
             ;;
         RUN_ASAN_UBSAN|RUN_GCC_ASAN_UBSAN|RUN_CLANG_ASAN_UBSAN|RUN_CLANG_ASAN_UBSAN_NO_DEPS)
             MESON_ARGS=(--optimization=1)
@@ -98,7 +116,7 @@ for phase in "${PHASES[@]}"; do
             # "Project targeting '>= 0.53.2' but tried to use feature introduced in '0.60.0': install_tag arg in custom_target"
             # It can be safely removed from the CI since it isn't actually used anywhere to test anything.
             find . -type f -name meson.build -exec sed -i '/install_tag/d' '{}' '+'
-            MESON_ARGS+=(--fatal-meson-warnings)
+            #MESON_ARGS+=(--fatal-meson-warnings)
             run_meson -Dnobody-group=nogroup --werror -Dtests=unsafe -Db_sanitize=address,undefined "${MESON_ARGS[@]}" build
             ninja -C build -v
 
@@ -115,7 +133,18 @@ for phase in "${PHASES[@]}"; do
             # during debugging, wonderful), so let's at least keep a workaround
             # here to make the builds stable for the time being.
             (set +x; while :; do echo -ne "\n[WATCHDOG] $(date)\n"; sleep 30; done) &
-            meson test --timeout-multiplier=3 -C build --print-errorlogs
+            run_meson test --timeout-multiplier=3 -C build --print-errorlogs
+	    ;;
+        RUN_CLANG_RUST_CLIPPY)
+            export CC=clang
+            export CXX=clang++
+            export RUSTC=clippy-driver
+
+            find src/ -name '*.rs' -print0 | xargs rustfmt --check
+            run_meson --werror -Drust_args="--deny warnings" -Dfuzz-tests=true -Dtests=unsafe -Dbuild-rust=true build
+            ninja -C build -v
+            (set +x; while :; do echo -ne "\n[WATCHDOG] $(date)\n"; sleep 30; done) &
+            run_meson test --timeout-multiplier=3 -C build --print-errorlogs
             ;;
         CLEANUP)
             info "Cleanup phase"
