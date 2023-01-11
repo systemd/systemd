@@ -542,7 +542,7 @@ int config_parse_l2tp_tunnel_local_address(
         }
 
         if (in_addr_is_null(f, &a)) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "L2TP Tunnel local address cannot be null, ignoring assignment: %s", rvalue);
                 return 0;
         }
@@ -598,7 +598,7 @@ int config_parse_l2tp_tunnel_remote_address(
         }
 
         if (in_addr_is_null(f, &a)) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "L2TP Tunnel remote address cannot be null, ignoring assignment: %s", rvalue);
                 return 0;
         }
