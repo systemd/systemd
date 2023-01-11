@@ -187,6 +187,7 @@ int acquire_luks2_key(
         _cleanup_free_ char *pkcs11_uri = NULL;
         _cleanup_free_ void *encrypted_key = NULL;
         systemd_pkcs11_plugin_params *pkcs11_params = userdata;
+        ssize_t base64_encoded_size;
 
         assert(json);
         assert(ret_password);
@@ -213,12 +214,12 @@ int acquire_luks2_key(
         if (r < 0)
                 return r;
 
-        r = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
-        if (r < 0)
-                return crypt_log_error_errno(cd, r, "Can not base64 encode key: %m");
+        base64_encoded_size = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
+        if (base64_encoded_size < 0)
+                return crypt_log_error_errno(cd, (int) base64_encoded_size, "Can not base64 encode key: %m");
 
         *ret_password = TAKE_PTR(base64_encoded);
-        *ret_password_size = strlen(*ret_password);
+        *ret_password_size = base64_encoded_size;
 
         return 0;
 }
