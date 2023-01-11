@@ -533,9 +533,10 @@ Subject: TPM PCR Extended
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-The string '@MEASURING@' has been extended into Trusted Platform Module's (TPM)
-Platform Configuration Register (PCR) @PCR@, on banks @BANKS@.
+The Trusted Platform Module's (TPM) Platform Configuration Register (PCR)
+@PCR@, on banks @BANKS@, has been extended with the string '@MEASURING@'.
 
-Whenever the system transitions to a new runtime phase, a different string is
-extended into the specified PCR, to ensure that security policies for TPM-bound
-secrets and other resources are limited to specific phases of the runtime.
+Whenever the system transitions to a new runtime phase, the specified PCR is
+extended with a different string, to ensure that security policies for
+TPM-bound secrets and other resources are limited to specific phases of the
+runtime.
