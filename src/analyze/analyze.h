@@ -36,6 +36,8 @@ extern char *arg_unit;
 extern JsonFormatFlags arg_json_format_flags;
 extern bool arg_quiet;
 extern char *arg_profile;
+extern bool arg_legend;
+extern bool arg_table;
 
 int acquire_bus(sd_bus **bus, bool *use_full_bus);
 
