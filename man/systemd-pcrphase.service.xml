@@ -41,11 +41,11 @@
 
     <para>These services require
     <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> to be
-    used in a unified kernel image (UKI) setup. They execute no operation when invoked when the stub has not
-    been used to invoke the kernel. The stub will measure the invoked kernel and associated vendor resources
-    into PCR 11 before handing control to it; once userspace is invoked these services then will extend
-    certain literal strings indicating various phases of the boot process into TPM2 PCR 11. During a regular
-    boot process the following strings are extended into PCR 11.</para>
+    used in a unified kernel image (UKI). They execute no operation when the stub has not been used to invoke
+    the kernel. The stub will measure the invoked kernel and associated vendor resources into PCR 11 before
+    handing control to it; once userspace is invoked these services then will extend certain literal strings
+    indicating various phases of the boot process into TPM2 PCR 11. During a regular boot process the
+    following strings are extended into PCR 11:</para>
 
     <orderedlist>
       <listitem><para><literal>enter-initrd</literal> is extended into PCR 11 early when the initrd
@@ -78,9 +78,8 @@
 
       <listitem><para><literal>final</literal> is extended into PCR 11 at the end of system shutdown. It is
       supposed to act as barrier between the time the service manager still runs and when it transitions into
-      the final boot phase where service management is not available anymore. (This string is extended at
+      the final shutdown phase where service management is not available anymore. (This string is extended at
       stop of <filename>systemd-pcrphase-sysinit.service</filename>.)</para></listitem>
-
     </orderedlist>
 
     <para>During a regular system lifecycle, the strings <literal>enter-initrd</literal> →
@@ -91,7 +90,7 @@
     <para>Specific phases of the boot process may be referenced via the series of strings measured, separated
     by colons (the "boot path"). For example, the boot path for the regular system runtime is
     <literal>enter-initrd:leave-initrd:sysinit:ready</literal>, while the one for the initrd is just
-    <literal>enter-initrd</literal>. The boot path for the the boot phase before the initrd, is an empty
+    <literal>enter-initrd</literal>. The boot path for the boot phase before the initrd, is an empty
     string; because that's hard to pass around a single colon (<literal>:</literal>) may be used
     instead. Note that the aforementioned six strings are just the default strings and individual systems
     might measure other strings at other times, and thus implement different and more fine-grained boot

@@ -2297,7 +2297,7 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
   <refsect1>
     <title>[DHCPPrefixDelegation] Section Options</title>
     <para>The [DHCPPrefixDelegation] section configures subnet prefixes of the delegated prefixes
-    acquired by a DHCPv6 client, or by a DHCPv4 client through the 6RD option on another interface.
+    acquired by a DHCPv6 client or by a DHCPv4 client through the 6RD option on another interface.
     The settings in this section are used only when the <varname>DHCPPrefixDelegation=</varname>
     setting in the [Network] section is enabled.</para>
 
