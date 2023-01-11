@@ -109,7 +109,9 @@ rpc:            db files
 
 netgroup:       nis</programlisting>
 
-    <para>To test, use <command>glibc</command>'s <command>getent</command> tool:</para>
+    <para>To test, use <command>glibc</command>'s
+    <citerefentry project='man-pages'><refentrytitle>getent</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    tool:</para>
 
     <programlisting>$ getent ahosts `hostname`
 ::1       STREAM omega

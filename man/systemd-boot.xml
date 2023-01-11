@@ -56,7 +56,7 @@
 
       <listitem><para>A reboot into the UEFI firmware setup option, if supported by the firmware.</para></listitem>
 
-      <listitem><para>Secure boot variables enrollement if the UEFI firmware is in setup-mode and files are provided
+      <listitem><para>Secure Boot variables enrollment if the UEFI firmware is in setup-mode and files are provided
       on the ESP.</para></listitem>
     </itemizedlist>
 
@@ -95,7 +95,7 @@
       with a 'system token' stored in a persistent EFI variable and derives a random seed to use by the OS as
       entropy pool initialization, providing a full entropy pool during early boot.</para></listitem>
 
-      <listitem><para>The boot manager allows for secure boot variables to be enrolled if the UEFI firmware is
+      <listitem><para>The boot manager allows for Secure Boot variables to be enrolled if the UEFI firmware is
       in setup-mode. Additionally, variables can be automatically enrolled if configured.</para></listitem>
     </itemizedlist>
 

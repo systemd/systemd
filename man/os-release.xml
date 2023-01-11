@@ -451,12 +451,12 @@
         <varlistentry>
           <term><varname>PORTABLE_PREFIXES=</varname></term>
           <listitem><para>Takes a space-separated list of one or more valid prefix match strings for the
-          <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink> logic. This field
-          serves two purposes: it is informational, identifying portable service images as such (and thus
-          allowing them to be distinguished from other OS images, such as bootable system images). It is also
-          used when a portable service image is attached: the specified or implied portable service prefix is
-          checked against the list specified here, to enforce restrictions how images may be attached to a
-          system.</para></listitem>
+          <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services Documentation</ulink> logic.
+          This field serves two purposes: it is informational, identifying portable service images as such
+          (and thus allowing them to be distinguished from other OS images, such as bootable system images).
+          It is also used when a portable service image is attached: the specified or implied portable
+          service prefix is checked against the list specified here, to enforce restrictions how images may
+          be attached to a system.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>

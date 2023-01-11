@@ -429,7 +429,7 @@
       <programlisting>$ <command>bootctl status</command>
 System:
      Firmware: UEFI 2.40 (<replaceable>firmware-version</replaceable>)  ← firmware vendor and version
-  Secure Boot: disabled (setup)              ← secure boot status
+  Secure Boot: disabled (setup)              ← Secure Boot status
  TPM2 Support: yes
  Boot into FW: supported                     ← does the firmware support booting into itself
 

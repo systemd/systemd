@@ -727,9 +727,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <para>Note that this setting only has an effect on the unit's processes themselves (or any processes
         directly or indirectly forked off them). It has no effect on processes potentially invoked on request
         of them through tools such as <citerefentry
-        project='man-pages'><refentrytitle>at</refentrytitle><manvolnum>1p</manvolnum></citerefentry>,
+        project='man-pages'><refentrytitle>at</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry
-        project='man-pages'><refentrytitle>crontab</refentrytitle><manvolnum>1p</manvolnum></citerefentry>,
+        project='man-pages'><refentrytitle>crontab</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>, or
         arbitrary IPC services.</para></listitem>
       </varlistentry>
@@ -934,7 +934,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
                 <entry>LimitNOFILE=</entry>
                 <entry>ulimit -n</entry>
                 <entry>Number of File Descriptors</entry>
-                <entry>Don't use. Be careful when raising the soft limit above 1024, since <function>select()</function> cannot function with file descriptors above 1023 on Linux. Nowadays, the hard limit defaults to 524288, a very high value compared to historical defaults. Typically applications should increase their soft limit to the hard limit on their own, if they are OK with working with file descriptors above 1023, i.e. do not use <function>select()</function>. Note that file descriptors are nowadays accounted like any other form of memory, thus there should not be any need to lower the hard limit. Use <varname>MemoryMax=</varname> to control overall service memory use, including file descriptor memory.</entry>
+                <entry>Don't use. Be careful when raising the soft limit above 1024, since <citerefentry project='man-pages'><refentrytitle>select</refentrytitle><manvolnum>2</manvolnum></citerefentry> cannot function with file descriptors above 1023 on Linux. Nowadays, the hard limit defaults to 524288, a very high value compared to historical defaults. Typically applications should increase their soft limit to the hard limit on their own, if they are OK with working with file descriptors above 1023, i.e. do not use <citerefentry project='man-pages'><refentrytitle>select</refentrytitle><manvolnum>2</manvolnum></citerefentry>. Note that file descriptors are nowadays accounted like any other form of memory, thus there should not be any need to lower the hard limit. Use <varname>MemoryMax=</varname> to control overall service memory use, including file descriptor memory.</entry>
               </row>
               <row>
                 <entry>LimitAS=</entry>
@@ -3173,11 +3173,13 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         11) with a prefix of <literal>io.systemd.credential:</literal> or
         <literal>io.systemd.credential.binary:</literal>. In both cases a key/value pair separated by
         <literal>=</literal> is expected, in the latter case the right-hand side is Base64 decoded when
-        parsed (thus permitting binary data to be passed in). Example qemu switch: <literal>-smbios
+        parsed (thus permitting binary data to be passed in). Example
+        <ulink url="https://www.qemu.org/docs/master/system/index.html">qemu</ulink>
+        switch: <literal>-smbios
         type=11,value=io.systemd.credential:xx=yy</literal>, or <literal>-smbios
         type=11,value=io.systemd.credential.binary:rick=TmV2ZXIgR29ubmEgR2l2ZSBZb3UgVXA=</literal>. Alternatively,
         use the <command>qemu</command> <literal>fw_cfg</literal> node
-        <literal>opt/io.systemd.credentials/</literal>. Example qemu switch: <literal>-fw_cfg
+        <literal>opt/io.systemd.credentials/</literal>. Example <command>qemu</command> switch: <literal>-fw_cfg
         name=opt/io.systemd.credentials/mycred,string=supersecret</literal>. They may also be specified on
         the kernel command line using the <literal>systemd.set_credential=</literal> switch (see
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>) and from

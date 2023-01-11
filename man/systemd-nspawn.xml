@@ -1374,7 +1374,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         <itemizedlist>
           <listitem><para>If <option>noidmap</option> is used, any user <option>z</option> in the range
           <option>0 … y</option> seen from inside of the container is mapped to <option>x + z</option> in the
-          <option>x … x + y</option> range on the host. All host users outside of that range are mapped to
+          <option>x … x + y</option> range on the host. Other host users are mapped to
           <option>nobody</option> inside the container.</para></listitem>
           <listitem><para>If <option>idmap</option> is used, any user <option>z</option> in the UID range
           <option>0 … y</option> as seen from inside the container is mapped to the same <option>z</option>

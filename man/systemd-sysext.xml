@@ -98,16 +98,16 @@
     suitable for shipping resources that are processed by subsystems running in earliest boot. Specifically,
     OS extension images are not suitable for shipping system services or
     <citerefentry><refentrytitle>systemd-sysusers</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    definitions. See <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink> for a simple
-    mechanism for shipping system services in disk images, in a similar fashion to OS extensions. Note the
-    different isolation on these two mechanisms: while system extension directly extend the underlying OS
-    image with additional files that appear in a way very similar to as if they were shipped in the OS image
-    itself and thus imply no security isolation, portable services imply service level sandboxing in one way
-    or another. The <filename>systemd-sysext.service</filename> service is guaranteed to finish start-up
-    before <filename>basic.target</filename> is reached; i.e. at the time regular services initialize (those
-    which do not use <varname>DefaultDependencies=no</varname>), the files and directories system extensions
-    provide are available in <filename>/usr/</filename> and <filename>/opt/</filename> and may be
-    accessed.</para>
+    definitions. See the <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services Documentation</ulink>
+    for a simple mechanism for shipping system services in disk images, in a similar fashion to OS
+    extensions. Note the different isolation on these two mechanisms: while system extension directly extend
+    the underlying OS image with additional files that appear in a way very similar to as if they were
+    shipped in the OS image itself and thus imply no security isolation, portable services imply service
+    level sandboxing in one way or another. The <filename>systemd-sysext.service</filename> service is
+    guaranteed to finish start-up before <filename>basic.target</filename> is reached; i.e. at the time
+    regular services initialize (those which do not use <varname>DefaultDependencies=no</varname>), the files
+    and directories system extensions provide are available in <filename>/usr/</filename> and
+    <filename>/opt/</filename> and may be accessed.</para>
 
     <para>Note that there is no concept of enabling/disabling installed system extension images: all
     installed extension images are automatically activated at boot. However, you can place an empty directory

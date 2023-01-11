@@ -432,7 +432,7 @@
   <refsect1>
     <title>[Transfer] Section Options</title>
 
-    <para>This section defines general properties of this transfer:</para>
+    <para>This section defines general properties of this transfer.</para>
 
     <variablelist>
       <varlistentry>
@@ -485,7 +485,7 @@
   <refsect1>
     <title>[Source] Section Options</title>
 
-    <para>This section defines properties of the transfer source:</para>
+    <para>This section defines properties of the transfer source.</para>
 
     <variablelist>
       <varlistentry>
@@ -535,7 +535,7 @@
   <refsect1>
     <title>[Target] Section Options</title>
 
-    <para>This section defines properties of the transfer target:</para>
+    <para>This section defines properties of the transfer target.</para>
 
     <variablelist>
       <varlistentry>
@@ -546,7 +546,8 @@
         <constant>subvolume</constant>. For details about the resource types, see above. This option is
         mandatory.</para>
 
-        <para>Note that only some combinations of source and target resource types are supported, see above.</para></listitem>
+        <para>Note that only certain combinations of source and target resource types are supported, see
+        above.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -625,7 +626,7 @@
         <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions
         Specification</ulink>, similar to the <varname>PartitionNoAuto=</varname> and
         <varname>PartitionGrowFileSystem=</varname> flags described above. If the target type is
-        <constant>regular-file</constant>, the writable bit is removed from the access mode. If the the
+        <constant>regular-file</constant>, the writable bit is removed from the access mode. If the
         target type is <constant>subvolume</constant>, the subvolume will be marked read-only as a
         whole. Finally, if the target <varname>Type=</varname> is selected as <constant>directory</constant>,
         the "immutable" file attribute is set, see <citerefentry
@@ -675,7 +676,7 @@
 
         <para>If the target <varname>Type=</varname> is selected as <constant>partition</constant>, the number
         of concurrent versions to keep is additionally restricted by the number of partition slots of the
-        right type in the partition table. i.e. if there are only 2 partition slots for the selected
+        right type in the partition table. I.e. if there are only 2 partition slots for the selected
         partition type, setting this value larger than 2 is without effect, since no more than 2 concurrent
         versions could be stored in the image anyway.</para></listitem>
       </varlistentry>

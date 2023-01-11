@@ -18,7 +18,7 @@
 
   <refnamediv>
     <refname>journalctl</refname>
-    <refpurpose>Print log entries from the the systemd journal</refpurpose>
+    <refpurpose>Print log entries from the systemd journal</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -664,7 +664,8 @@
   <refsect1>
     <title>Forward Secure Sealing (FSS) Options</title>
 
-    <para>The following options make be used together with the <option>--setup-keys</option> command, see below.</para>
+    <para>The following options may be used together with the <option>--setup-keys</option> command described
+    below:</para>
 
     <variablelist>
       <varlistentry>

@@ -427,9 +427,11 @@
 
         <para>This option cannot be combined with <varname>CopyBlocks=</varname>.</para>
 
-        <para>When <command>systemd-repart</command> is invoked with the <option>--image=</option> or
-        <option>--root=</option> command line switches the source paths specified are taken relative to the
-        specified root directory or disk image root.</para></listitem>
+        <para>When
+        <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        is invoked with the <option>--image=</option> or <option>--root=</option> command line switches the
+        source paths specified are taken relative to the specified root directory or disk image root.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -492,7 +494,7 @@
         to <literal>off</literal> or <literal>data</literal>, the partition is populated with content as
         specified by <varname>CopyBlocks=</varname> or <varname>CopyFiles=</varname>. If set to
         <literal>hash</literal>, the partition will be populated with verity hashes from the matching verity
-        data partition. If set to <literal>signature</literal>, The partition will be populated with a JSON
+        data partition. If set to <literal>signature</literal>, the partition will be populated with a JSON
         object containing a signature of the verity root hash of the matching verity hash partition.</para>
 
         <para>A matching verity partition is a partition with the same verity match key (as configured with

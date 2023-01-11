@@ -1116,7 +1116,7 @@
       links.</para>
 
       <programlisting>[Link]
-NamePolicy=kernel database onboard slot path
+NamePolicy=kernel database on-board slot path
 MACAddressPolicy=persistent</programlisting>
     </example>
 

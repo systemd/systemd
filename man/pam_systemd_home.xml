@@ -97,13 +97,14 @@
   <refsect1>
     <title>Module Types Provided</title>
 
-    <para>The module implements all four PAM operations: <option>auth</option> (reason: to allow
-    authentication using the encrypted data), <option>account</option> (reason: users with
+    <para>The module implements all four PAM operations: <option>auth</option> (to allow authentication using
+    the encrypted data), <option>account</option> (because users with
     <filename>systemd-homed.service</filename> user accounts are described in a <ulink
     url="https://systemd.io/USER_RECORD/">JSON user record</ulink> and may be configured in more detail than
-    in the traditional Linux user database), <option>session</option> (user sessions must be tracked in order
-    to implement automatic release when the last session of the user is gone), <option>password</option> (to
-    change the encryption password — also used for user authentication — through PAM).</para>
+    in the traditional Linux user database), <option>session</option> (because user sessions must be tracked
+    in order to implement automatic release when the last session of the user is gone),
+    <option>password</option> (to change the encryption password — also used for user authentication —
+    through PAM).</para>
   </refsect1>
 
   <refsect1>

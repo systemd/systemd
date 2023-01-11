@@ -866,7 +866,7 @@
           the "whole" block device in case a partition block device is specified. The devices will be sorted
           by their device node major number as primary ordering key and the minor number as secondary
           ordering key (i.e. they are shown in the order they'd be locked). Note that the number of lines
-          printed here can be less than the the number of <option>--device=</option> and
+          printed here can be less than the number of <option>--device=</option> and
           <option>--backing=</option> switches specified in case these resolve to the same "whole"
           devices.</para></listitem>
         </varlistentry>

@@ -78,12 +78,13 @@
         seen in TPM2 PCR register 11 after boot-up of a unified kernel image. Then, cryptographically sign
         the resulting values with the private/public key pair (RSA) configured via
         <option>--private-key=</option> and <option>--public-key=</option>. This will write a JSON object to
-        standard output that contains signatures for all specified PCR banks (see
-        <option>--pcr-bank=</option>) below, which may be used to unlock encrypted credentials (see
+        standard output that contains signatures for all specified PCR banks (see the
+        <option>--pcr-bank=</option> option below), which may be used to unlock encrypted credentials (see
         <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>) or
         LUKS volumes (see
-        <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>). This
-        allows binding secrets to a set of kernels for which such PCR 11 signatures can be provided.</para>
+        <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>).
+        This allows binding secrets to a set of kernels for which such PCR 11 signatures can be
+        provided.</para>
 
         <para>Note that a TPM2 device must be available for this signing to take place, even though the
         result is not tied to any TPM2 device or its state.</para></listitem>
@@ -98,13 +99,13 @@
 
     <variablelist>
       <varlistentry>
-        <term><option>--linux=PATH</option></term>
-        <term><option>--osrel=PATH</option></term>
-        <term><option>--cmdline=PATH</option></term>
-        <term><option>--initrd=PATH</option></term>
-        <term><option>--splash=PATH</option></term>
-        <term><option>--dtb=PATH</option></term>
-        <term><option>--pcrpkey=PATH</option></term>
+        <term><option>--linux=<replaceable>PATH</replaceable></option></term>
+        <term><option>--osrel=<replaceable>PATH</replaceable></option></term>
+        <term><option>--cmdline=<replaceable>PATH</replaceable></option></term>
+        <term><option>--initrd=<replaceable>PATH</replaceable></option></term>
+        <term><option>--splash=<replaceable>PATH</replaceable></option></term>
+        <term><option>--dtb=<replaceable>PATH</replaceable></option></term>
+        <term><option>--pcrpkey=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>When used with the <command>calculate</command> or <command>sign</command> verb,
         configures the files to read the unified kernel image components from. Each option corresponds with
@@ -122,7 +123,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--bank=DIGEST</option></term>
+        <term><option>--bank=<replaceable>DIGEST</replaceable></option></term>
 
         <listitem><para>Controls the PCR banks to pre-calculate the PCR values for – in case
         <command>calculate</command> or <command>sign</command> is invoked –, or the banks to show in the
@@ -132,8 +133,8 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--private-key=PATH</option></term>
-        <term><option>--public-key=PATH</option></term>
+        <term><option>--private-key=<replaceable>PATH</replaceable></option></term>
+        <term><option>--public-key=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>These switches take paths to a pair of PEM encoded RSA key files, for use with
         the <command>sign</command> command.</para>
