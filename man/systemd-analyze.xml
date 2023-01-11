@@ -284,6 +284,17 @@ Timestamp units-load-finish: Thu 2019-03-14 23:28:07 CET
 $ eog bootup.svg&amp;
 </programlisting>
       </example>
+
+      <para>Note that this plot is based on the most recent per-unit timing data of loaded units. This means
+      if – after boot – a unit gets started, then stopped and then started again the information shown will
+      cover the most recent start cycle, not the first one. Thus it's recommended to consult this information
+      only shortly after boot, so that this distinction doesn't matter. Moreover, units that are not
+      referenced by any other unit through a dependency might be unloaded by the service manager once they
+      terminate (and did not fail). Such units will not show up in the plot, hence. Thus it is essential to
+      ensure that all relevant units are referenced directly or indirectly from a unit such as
+      <filename>multi-user.target</filename> which is generally what is activated at boot. Note that
+      typically this is the target unit that regular units are hooked into anyway (directly or indirectly),
+      hence this requirement typically does not require any extra work, but effectively is given.</para>
     </refsect2>
 
     <refsect2>
