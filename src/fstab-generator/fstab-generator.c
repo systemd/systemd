@@ -734,7 +734,7 @@ static int parse_fstab(bool initrd) {
                 if (streq(me->mnt_type, "swap"))
                         k = add_swap(fstab, what, me, flags);
                 else {
-                        bool rw_only, automount;
+                        bool rw_only, automount, is_sysroot, is_sysroot_usr;
 
                         rw_only = fstab_test_option(me->mnt_opts, "x-systemd.rw-only\0");
                         automount = fstab_test_option(me->mnt_opts,
@@ -744,10 +744,21 @@ static int parse_fstab(bool initrd) {
                         flags |= rw_only * MOUNT_RW_ONLY |
                                  automount * MOUNT_AUTOMOUNT;
 
+                        is_sysroot = path_equal(where, "/sysroot");
+                        is_sysroot_usr = path_equal(where, "/sysroot/usr");
+
                         const char *target_unit =
                                 initrd ?               SPECIAL_INITRD_FS_TARGET :
+                                is_sysroot ?           SPECIAL_INITRD_ROOT_FS_TARGET :
+                                is_sysroot_usr ?       SPECIAL_INITRD_USR_FS_TARGET :
                                 mount_is_network(me) ? SPECIAL_REMOTE_FS_TARGET :
                                                        SPECIAL_LOCAL_FS_TARGET;
+
+                        if (is_sysroot && is_device_path(what)) {
+                                r = generator_write_initrd_root_device_deps(arg_dest, what);
+                                if (r < 0)
+                                        return r;
+                        }
 
                         k = add_mount(fstab,
                                       arg_dest,
