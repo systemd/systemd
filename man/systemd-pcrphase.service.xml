@@ -35,7 +35,7 @@
     <title>Description</title>
 
     <para><filename>systemd-pcrphase.service</filename>,
-    <filename>systemd-pcrphase-sysinit.service</filename> and
+    <filename>systemd-pcrphase-sysinit.service</filename>, and
     <filename>systemd-pcrphase-initrd.service</filename> are system services that measure specific strings
     into TPM2 PCR 11 during boot at various milestones of the boot process.</para>
 
@@ -43,66 +43,65 @@
     <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> to be
     used in a unified kernel image (UKI). They execute no operation when the stub has not been used to invoke
     the kernel. The stub will measure the invoked kernel and associated vendor resources into PCR 11 before
-    handing control to it; once userspace is invoked these services then will extend certain literal strings
-    indicating various phases of the boot process into TPM2 PCR 11. During a regular boot process the
-    following strings are extended into PCR 11:</para>
+    handing control to it; once userspace is invoked these services then will extend TPM2 PCR 11 with certain
+    literal strings indicating phases of the boot process. During a regular boot process the following
+    strings are used:</para>
 
     <orderedlist>
-      <listitem><para><literal>enter-initrd</literal> is extended into PCR 11 early when the initrd
-      initializes, before activating system extension images for the initrd. It is supposed to act as barrier
-      between the time where the kernel initializes, and where the initrd starts operating and enables
-      system extension images, i.e. code shipped outside of the UKI. (This string is extended at start of
-      <filename>systemd-pcrphase-initrd.service</filename>.)</para></listitem>
+      <listitem><para><literal>enter-initrd</literal> — early when the initrd initializes, before activating
+      system extension images for the initrd. It acts as a barrier between the time where the kernel
+      initializes and where the initrd starts operating and enables system extension images, i.e. code
+      shipped outside of the UKI. (This extension happens when
+      <filename>systemd-pcrphase-initrd.service</filename> is started.)</para></listitem>
 
-      <listitem><para><literal>leave-initrd</literal> is extended into PCR 11 when the initrd is about to
-      transition into the host file system, i.e. when it achieved its purpose. It is supposed to act as
-      barrier between kernel/initrd code and host OS code. (This string is extended at stop of
-      <filename>systemd-pcrphase-initrd.service</filename>.)</para></listitem>
+      <listitem><para><literal>leave-initrd</literal> — when the initrd is about to transition into the host
+      file system. It acts as barrier between initrd code and host OS code. (This extension happens when
+      <filename>systemd-pcrphase-initrd.service</filename> is stopped.)</para></listitem>
 
-      <listitem><para><literal>sysinit</literal> is extended into PCR 11 when basic system initialization is
-      complete (which includes local file systems have been mounted), and the system begins starting regular
-      system services. (This string is extended at start of
-      <filename>systemd-pcrphase-sysinit.service</filename>.)</para></listitem>
+      <listitem><para><literal>sysinit</literal> — when basic system initialization is complete (which
+      includes local file systems having been mounted), and the system begins starting regular system
+      services. (This extension happens when <filename>systemd-pcrphase-sysinit.service</filename> is
+      started.)</para></listitem>
 
-      <listitem><para><literal>ready</literal> is extended into PCR 11 during later boot-up, after remote
-      file systems have been activated (i.e. after <filename>remote-fs.target</filename>), but before users
-      are permitted to log in (i.e. before <filename>systemd-user-sessions.service</filename>). It is
-      supposed to act as barrier between the time where unprivileged regular users are still prohibited to
-      log in and where they are allowed to log in. (This string is extended at start of
-      <filename>systemd-pcrphase.service</filename>.)</para></listitem>
+      <listitem><para><literal>ready</literal> — during later boot-up, after remote file systems have been
+      activated (i.e. after <filename>remote-fs.target</filename>), but before users are permitted to log in
+      (i.e. before <filename>systemd-user-sessions.service</filename>). It acts as barrier between the time
+      where unprivileged regular users are still prohibited to log in and where they are allowed to log in.
+      (This extension happens when <filename>systemd-pcrphase.service</filename> is started.)
+      </para></listitem>
 
-      <listitem><para><literal>shutdown</literal> is extended into PCR 11 when system shutdown begins. It is
-      supposed to act as barrier between the time the system is fully up and running and where it is about to
-      shut down. (This string is extended at stop of
-      <filename>systemd-pcrphase.service</filename>.)</para></listitem>
+      <listitem><para><literal>shutdown</literal> — when the system shutdown begins. It acts as barrier
+      between the time the system is fully up and running and where it is about to shut down. (This extension
+      happens when <filename>systemd-pcrphase.service</filename> is stopped.)</para></listitem>
 
-      <listitem><para><literal>final</literal> is extended into PCR 11 at the end of system shutdown. It is
-      supposed to act as barrier between the time the service manager still runs and when it transitions into
-      the final shutdown phase where service management is not available anymore. (This string is extended at
-      stop of <filename>systemd-pcrphase-sysinit.service</filename>.)</para></listitem>
+      <listitem><para><literal>final</literal> — at the end of system shutdown. It acts as barrier between
+      the time the service manager still runs and when it transitions into the final shutdown phase where
+      service management is not available anymore. (This extension happens when
+      <filename>systemd-pcrphase-sysinit.service</filename> is stopped.)</para></listitem>
     </orderedlist>
 
-    <para>During a regular system lifecycle, the strings <literal>enter-initrd</literal> →
-    <literal>leave-initrd</literal> → <literal>sysinit</literal> → <literal>ready</literal> →
-    <literal>shutdown</literal> → <literal>final</literal> are extended into PCR 11, one after the
-    other.</para>
+    <para>During a regular system lifecycle, PCR 11 is extended with the strings
+    <literal>enter-initrd</literal>, <literal>leave-initrd</literal>, <literal>sysinit</literal>,
+    <literal>ready</literal>, <literal>shutdown</literal>, and <literal>final</literal>.</para>
 
     <para>Specific phases of the boot process may be referenced via the series of strings measured, separated
-    by colons (the "boot path"). For example, the boot path for the regular system runtime is
+    by colons (the "phase path"). For example, the phase path for the regular system runtime is
     <literal>enter-initrd:leave-initrd:sysinit:ready</literal>, while the one for the initrd is just
-    <literal>enter-initrd</literal>. The boot path for the boot phase before the initrd, is an empty
-    string; because that's hard to pass around a single colon (<literal>:</literal>) may be used
-    instead. Note that the aforementioned six strings are just the default strings and individual systems
-    might measure other strings at other times, and thus implement different and more fine-grained boot
-    phases to bind policy to.</para>
+    <literal>enter-initrd</literal>. The phase path for the boot phase before the initrd is an empty string;
+    because that's hard to pass around a single colon (<literal>:</literal>) may be used instead. Note that
+    the aforementioned six strings are just the default strings and individual systems might measure other
+    strings at other times, and thus implement different and more fine-grained boot phases to bind policy
+    to.</para>
 
-    <para>By binding policy of TPM2 objects to a specific boot path it is possible to restrict access to them
-    to specific phases of the boot process, for example making it impossible to access the root file system's
-    encryption key after the system transitioned from the initrd into the host root file system.</para>
+    <para>By binding policy of TPM2 objects to a specific phase path it is possible to restrict access to
+    them to specific phases of the boot process, for example making it impossible to access the root file
+    system's encryption key after the system transitioned from the initrd into the host root file system.
+    </para>
 
     <para>Use
     <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry> to
-    pre-calculate expected PCR 11 values for specific boot phases (via the <option>--phase=</option> switch).</para>
+    pre-calculate expected PCR 11 values for specific boot phases (via the <option>--phase=</option> switch).
+    </para>
   </refsect1>
 
   <refsect1>
