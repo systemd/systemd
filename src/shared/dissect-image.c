@@ -25,6 +25,7 @@
 #include "ask-password-api.h"
 #include "blkid-util.h"
 #include "blockdev-util.h"
+#include "btrfs-util.h"
 #include "chase-symlinks.h"
 #include "conf-files.h"
 #include "constants.h"
@@ -1739,6 +1740,16 @@ static DecryptedImage* decrypted_image_free(DecryptedImage *d) {
                 DecryptedPartition *p = d->decrypted + i;
 
                 if (p->device && p->name && !p->relinquished) {
+                        _cleanup_free_ char *node = NULL;
+
+                        node = path_join("/dev/mapper", p->name);
+                        if (node) {
+                                r = btrfs_forget_device(node);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to forget btrfs device %s, ignoring: %m", node);
+                        } else
+                                log_oom_debug();
+
                         /* Let's deactivate lazily, as the dm volume may be already/still used by other processes. */
                         r = sym_crypt_deactivate_by_name(p->device, p->name, CRYPT_DEACTIVATE_DEFERRED);
                         if (r < 0)
