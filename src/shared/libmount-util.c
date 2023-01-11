@@ -38,3 +38,22 @@ int libmount_parse(
         *ret_iter = TAKE_PTR(iter);
         return 0;
 }
+
+int libmount_is_leaf(
+                struct libmnt_table *table,
+                struct libmnt_fs *fs) {
+        int r;
+
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter_children = NULL;
+        iter_children = mnt_new_iter(MNT_ITER_FORWARD);
+        if (!iter_children)
+                return log_oom();
+
+        /* We care only whether it exists, it is unused */
+        _unused_ struct libmnt_fs *child;
+        r = mnt_table_next_child_fs(table, iter_children, fs, &child);
+        if (r < 0)
+                return r;
+
+        return r == 1;
+}
