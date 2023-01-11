@@ -19,6 +19,7 @@ int load_volume_key_fido2(
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
         _cleanup_(erase_and_freep) char *passphrase = NULL;
         size_t decrypted_key_size;
+        ssize_t passphrase_size;
         int r;
 
         assert_se(cd);
@@ -43,8 +44,8 @@ int load_volume_key_fido2(
 
         /* Because cryptenroll requires a LUKS header, we can assume that this device is not
          * a PLAIN device. In this case, we need to base64 encode the secret to use as the passphrase */
-        r = base64mem(decrypted_key, decrypted_key_size, &passphrase);
-        if (r < 0)
+        passphrase_size = base64mem(decrypted_key, decrypted_key_size, &passphrase);
+        if (passphrase_size < 0)
                 return log_oom();
 
         r = crypt_volume_key_get(
@@ -53,7 +54,7 @@ int load_volume_key_fido2(
                         ret_vk,
                         ret_vks,
                         passphrase,
-                        /* passphrase_size= */ r);
+                        passphrase_size);
         if (r < 0)
                 return log_error_errno(r, "Unlocking via FIDO2 device failed: %m");
 
@@ -74,6 +75,7 @@ int enroll_fido2(
         _cleanup_free_ char *keyslot_as_string = NULL;
         size_t cid_size, salt_size, secret_size;
         _cleanup_free_ void *cid = NULL;
+        ssize_t base64_encoded_size;
         const char *node, *un;
         int r, keyslot;
 
@@ -106,9 +108,9 @@ int enroll_fido2(
                 return r;
 
         /* Before we use the secret, we base64 encode it, for compat with homed, and to make it easier to type in manually */
-        r = base64mem(secret, secret_size, &base64_encoded);
-        if (r < 0)
-                return log_error_errno(r, "Failed to base64 encode secret key: %m");
+        base64_encoded_size = base64mem(secret, secret_size, &base64_encoded);
+        if (base64_encoded_size < 0)
+                return log_error_errno(base64_encoded_size, "Failed to base64 encode secret key: %m");
 
         r = cryptsetup_set_minimal_pbkdf(cd);
         if (r < 0)
@@ -120,7 +122,7 @@ int enroll_fido2(
                         volume_key,
                         volume_key_size,
                         base64_encoded,
-                        strlen(base64_encoded));
+                        base64_encoded_size);
         if (keyslot < 0)
                 return log_error_errno(keyslot, "Failed to add new FIDO2 key to %s: %m", node);
 

@@ -17,6 +17,7 @@ int fido2_use_token(
         _cleanup_(erase_and_freep) void *hmac = NULL;
         size_t hmac_size;
         Fido2EnrollFlags flags = 0;
+        ssize_t ss;
         int r;
 
         assert(h);
@@ -65,9 +66,9 @@ int fido2_use_token(
         if (r < 0)
                 return r;
 
-        r = base64mem(hmac, hmac_size, ret);
-        if (r < 0)
-                return log_error_errno(r, "Failed to base64 encode HMAC secret: %m");
+        ss = base64mem(hmac, hmac_size, ret);
+        if (ss < 0)
+                return log_error_errno(ss, "Failed to base64 encode HMAC secret: %m");
 
         return 0;
 }

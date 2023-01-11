@@ -407,6 +407,7 @@ static int fscrypt_slot_set(
         _cleanup_free_ void *encrypted = NULL;
         const EVP_CIPHER *cc;
         size_t encrypted_size;
+        ssize_t ss;
 
         r = crypto_random_bytes(salt, sizeof(salt));
         if (r < 0)
@@ -457,12 +458,12 @@ static int fscrypt_slot_set(
         assert((size_t) encrypted_size_out1 + (size_t) encrypted_size_out2 < encrypted_size);
         encrypted_size = (size_t) encrypted_size_out1 + (size_t) encrypted_size_out2;
 
-        r = base64mem(salt, sizeof(salt), &salt_base64);
-        if (r < 0)
+        ss = base64mem(salt, sizeof(salt), &salt_base64);
+        if (ss < 0)
                 return log_oom();
 
-        r = base64mem(encrypted, encrypted_size, &encrypted_base64);
-        if (r < 0)
+        ss = base64mem(encrypted, encrypted_size, &encrypted_base64);
+        if (ss < 0)
                 return log_oom();
 
         joined = strjoin(salt_base64, ":", encrypted_base64);

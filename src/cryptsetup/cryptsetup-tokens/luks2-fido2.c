@@ -25,6 +25,7 @@ int acquire_luks2_key(
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
         _cleanup_strv_free_erase_ char **pins = NULL;
+        ssize_t base64_encoded_size;
 
         assert(ret_keyslot_passphrase);
         assert(ret_keyslot_passphrase_size);
@@ -58,12 +59,12 @@ int acquire_luks2_key(
                 return r;
 
         /* Before using this key as passphrase we base64 encode it, for compat with homed */
-        r = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
-        if (r < 0)
-                return crypt_log_error_errno(cd, r, "Failed to base64 encode key: %m");
+        base64_encoded_size = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
+        if (base64_encoded_size < 0)
+                return crypt_log_error_errno(cd, (int) base64_encoded_size, "Failed to base64 encode key: %m");
 
         *ret_keyslot_passphrase = TAKE_PTR(base64_encoded);
-        *ret_keyslot_passphrase_size = strlen(*ret_keyslot_passphrase);
+        *ret_keyslot_passphrase_size = base64_encoded_size;
 
         return 0;
 }
