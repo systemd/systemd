@@ -55,6 +55,7 @@ if not cc.has_header_symbol('efi.h', 'EFI_IMAGE_MACHINE_X64',
 endif
 
 objcopy = run_command(cc.cmd_array(), '-print-prog-name=objcopy', check: true).stdout().strip()
+objcopy_2_38 = find_program('objcopy', version: '>=2.38', required: false)
 
 efi_ld = get_option('efi-ld')
 if efi_ld == 'auto'
@@ -273,9 +274,17 @@ foreach arg : ['-Wl,--no-warn-execstack',
         endif
 endforeach
 
-if efi_arch[1] in ['aarch64', 'arm', 'riscv64']
+# If using objcopy, crt0 must not include the PE/COFF header
+if run_command('grep', '-q', 'coff_header', efi_crt0, check: false).returncode() == 0
+        coff_header_in_crt0 = true
+else
+        coff_header_in_crt0 = false
+endif
+
+if efi_arch[1] in ['arm', 'riscv64'] or (efi_arch[1] == 'aarch64' and (not objcopy_2_38.found() or coff_header_in_crt0))
         efi_ldflags += ['-shared']
-        # Aarch64, ARM32 and 64bit RISC-V don't have an EFI capable objcopy.
+        # ARM32 and 64bit RISC-V don't have an EFI capable objcopy.
+        # Older objcopy doesn't support Aarch64 either.
         # Use 'binary' instead, and add required symbols manually.
         efi_ldflags += ['-Wl,--defsym=EFI_SUBSYSTEM=0xa']
         efi_format = ['-O', 'binary']
