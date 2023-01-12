@@ -33,16 +33,23 @@
     systemd, it might still change in behaviour and interface.</para>
 
     <para><command>systemd-measure</command> is a tool that may be used to pre-calculate and sign the
-    expected TPM2 PCR 11 values that should be seen when a unified Linux kernel image based on
+    expected TPM2 PCR 11 values that should be seen when a Linux <ulink
+    url="https://uapi-group.org/specifications/specs/unified_kernel_image/">Unified Kernel Image
+    (UKI)</ulink> based on
     <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> is
     booted up. It accepts paths to the ELF kernel image file, initrd image file, devicetree file, kernel
     command line file,
     <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file, boot
     splash file, and TPM2 PCR PEM public key file that make up the unified kernel image, and determines the
     PCR values expected to be in place after booting the image. Calculation starts with a zero-initialized
-    PCR 11, and is executed in a fashion compatible with what <filename>systemd-stub</filename> does at
-    boot. The result may optionally be signed cryptographically, to allow TPM2 policies that can only be
-    unlocked if a certain set of kernels is booted, for which such a PCR signature can be provided.</para>
+    PCR 11, and is executed in a fashion compatible with what <filename>systemd-stub</filename> does at boot.
+    The result may optionally be signed cryptographically, to allow TPM2 policies that can only be unlocked
+    if a certain set of kernels is booted, for which such a PCR signature can be provided.</para>
+
+    <para>It usually doesn't make sense to call this tool directly when constructing a UKI. Instead,
+    <citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry> should be used;
+    it will invoke <command>systemd-measure</command> and take care of embedding the resulting measurements
+    into the UKI.</para>
   </refsect1>
 
   <refsect1>
@@ -209,26 +216,31 @@
     <example>
       <title>Generate a unified kernel image, and calculate the expected TPM PCR 11 value</title>
 
-      <programlisting># ukify --output foo.efi \
-     --os-release @os-release.txt \
-     --cmdline @cmdline.txt \
-     --splash splash.bmp \
-     --devicetree devicetree.dtb \
+      <programlisting>$ ukify --output=vmlinux.efi \
+     --os-release=@os-release.txt \
+     --cmdline=@cmdline.txt \
+     --splash=splash.bmp \
+     --devicetree=devicetree.dtb \
      --measure \
      vmlinux initrd.cpio
 11:sha1=d775a7b4482450ac77e03ee19bda90bd792d6ec7
 11:sha256=bc6170f9ce28eb051ab465cd62be8cf63985276766cf9faf527ffefb66f45651
-11:sha384=1cf67dff4757e61e5a73d2a21a6694d668629bbc3761747d493f7f49ad720be02fd07263e1f93061243aec599d1ee4b4
-11:sha512=8e79acd3ddbbc8282e98091849c3530f996303c8ac8e87a3b2378b71c8b3a6e86d5c4f41ecea9e1517090c3e8ec0c714821032038f525f744960bcd082d937da
+11:sha384=1cf67dff4757e61e5...7f49ad720be02fd07263e1f93061243aec599d1ee4b4
+11:sha512=8e79acd3ddbbc8282...0c3e8ec0c714821032038f525f744960bcd082d937da
 </programlisting>
+
+      <para><citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      internally calls <command>systemd-measure</command>. The output with hashes is from
+      <command>systemd-measure</command>.</para>
     </example>
 
     <example>
-      <title>Generate a private/public key pair, and a unified kernel image, and a TPM PCR 11 signature for
+      <title>Generate a private/public key pair, a unified kernel image, and a TPM PCR 11 signature for
       it, and embed the signature and the public key in the image</title>
 
-      <programlisting># openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out tpm2-pcr-private.pem
-# openssl rsa -pubout -in tpm2-pcr-private.pem -out tpm2-pcr-public.pem
+      <programlisting>$ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out tpm2-pcr-private.pem
+..+.+++++++++......+.........+......+.......+....+.....+.+...+..........
+$ openssl rsa -pubout -in tpm2-pcr-private.pem -out tpm2-pcr-public.pem
 # systemd-measure sign \
      --linux=vmlinux \
      --osrel=os-release.txt \
@@ -241,25 +253,30 @@
      --bank=sha256 \
      --private-key=tpm2-pcr-private.pem \
      --public-key=tpm2-pcr-public.pem >tpm2-pcr-signature.json
-# ukify --output foo.efi \
-     --os-release @os-release.txt \
-     --cmdline @cmdline.txt \
-     --splash splash.bmp \
-     --devicetree devicetree.dtb \
-     --pcr-private-key tpm2-pcr-private.pem \
-     --pcr-public-key tpm2-pcr-public.pem \
-     --pcr-banks sha1,sha256 \
+# ukify --output=vmlinuz.efi \
+     --os-release=@os-release.txt \
+     --cmdline=@cmdline.txt \
+     --splash=splash.bmp \
+     --devicetree=devicetree.dtb \
+     --pcr-private-key=tpm2-pcr-private.pem \
+     --pcr-public-key=tpm2-pcr-public.pem \
+     --pcr-banks=sha1,sha256 \
      vmlinux initrd.cpio</programlisting>
 
      <para>Later on, enroll the signed PCR policy on a LUKS volume:</para>
 
-     <programlisting># systemd-cryptenroll --tpm2-device=auto --tpm2-public-key=tpm2-pcr-public.pem --tpm2-signature=tpm2-pcr-signature.json /dev/sda5</programlisting>
+     <programlisting># systemd-cryptenroll --tpm2-device=auto \
+     --tpm2-public-key=tpm2-pcr-public.pem \
+     --tpm2-signature=tpm2-pcr-signature.json \
+     /dev/sda5</programlisting>
 
      <para>And then unlock the device with the signature:</para>
 
-     <programlisting># /usr/lib/systemd/systemd-cryptsetup attach myvolume /dev/sda5 - tpm2-device=auto,tpm2-signature=/path/to/tpm2-pcr-signature.json</programlisting>
+     <programlisting># /usr/lib/systemd/systemd-cryptsetup attach \
+     volume5 /dev/sda5 - \
+     tpm2-device=auto,tpm2-signature=/path/to/tpm2-pcr-signature.json</programlisting>
 
-     <para>Note that when the generated unified kernel image <filename>foo.efi</filename> is booted the
+     <para>Note that when the generated unified kernel image <filename>vmlinux.efi</filename> is booted, the
      signature and public key files will be placed at locations <command>systemd-cryptenroll</command> and
      <command>systemd-cryptsetup</command> will look for anyway, and thus these paths do not actually need to
      be specified.</para>
@@ -274,53 +291,55 @@
       two classes of secrets or credentials: one that can be unlocked during the entire runtime, and the
       other that can only be used in the initrd.</para>
 
-      <programlisting># openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out tpm2-pcr-private.pem
-# openssl rsa -pubout -in tpm2-pcr-private.pem -out tpm2-pcr-public.pem
-# systemd-measure sign \
-     --linux=vmlinux \
-     --osrel=os-release.txt \
-     --cmdline=cmdline.txt \
-     --initrd=initrd.cpio \
+      <programlisting>$ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out tpm2-pcr-private.pem
+.+........+.+........+.......+...+...+........+....+......+..+..........
+$ openssl rsa -pubout -in tpm2-pcr-private.pem -out tpm2-pcr-public.pem
+$ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out tpm2-pcr-initrd-private.pem
+..+.......++........+........+......+........+....+.....+.+..+..........
+$ openssl rsa -pubout -in tpm2-pcr-initrd-private.pem -out tpm2-pcr-initrd-public.pem
+# ukify --output vmlinux-1.2.3.efi \
+     --os-release=@os-release.txt \
+     --cmdline=@cmdline.txt \
      --splash=splash.bmp \
-     --dtb=devicetree.dtb \
-     --pcrpkey=tpm2-pcr-public.pem \
-     --bank=sha1 \
-     --bank=sha256 \
-     --private-key=tpm2-pcr-private.pem \
-     --public-key=tpm2-pcr-public.pem >tpm2-pcr-signature.json.tmp
-# openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out tpm2-pcr-initrd-private.pem
-# openssl rsa -pubout -in tpm2-pcr-initrd-private.pem -out tpm2-pcr-initrd-public.pem
-# systemd-measure sign \
-     --linux=vmlinux \
-     --osrel=os-release.txt \
-     --cmdline=cmdline.txt \
-     --initrd=initrd.cpio \
-     --splash=splash.bmp \
-     --dtb=devicetree.dtb \
-     --pcrpkey=tpm2-pcr-public.pem \
-     --bank=sha1 \
-     --bank=sha256 \
-     --private-key=tpm2-pcr-initrd-private.pem \
-     --public-key=tpm2-pcr-initrd-public.pem \
-     --phase=enter-initrd \
-     --append=tpm2-pcr-signature.json.tmp >tpm2-pcr-signature.json
-# ukify --output foo.efi \
-     --os-release @os-release.txt \
-     --cmdline @cmdline.txt \
-     --splash splash.bmp \
-     --devicetree devicetree.dtb \
-     --pcr-private-key tpm2-pcr-initrd-private.pem \
-     --pcr-public-key tpm2-pcr-initrd-public.pem \
-     --section .pcrsig=@tpm2-pcr-signature.json \
-     --section .pcrpkey=@tpm2-pcr-public.pem \
-     vmlinux initrd.cpio</programlisting>
-    </example>
+     --devicetree=devicetree.dtb \
+     --pcr-private-key=tpm2-pcr-private.pem \
+     --pcr-public-key=tpm2-pcr-public.pem \
+     --phases=enter-initrd,enter-initrd:leave-initrd,enter-initrd:leave-initrd:sysinit,enter-initrd:leave-initrd:sysinit:ready \
+     --pcr-banks=sha1,sha256 \
+     --pcr-private-key=tpm2-pcr-initrd-private.pem \
+     --pcr-public-key=tpm2-pcr-initrd-public.pem \
+     --phases=enter-initrd \
+     vmlinux-1.2.3 initrd.cpio \
+     --uname=1.2.3
++ /usr/lib/systemd/systemd-measure sign --linux=vmlinux-1.2.3 \
+--osrel=os-release.txt --cmdline=cmdline.txt --dtb=devicetree.dtb \
+--splash=splash.bmp --initrd=initrd.cpio --bank=sha1 --bank=sha256 \
+--private-key=tpm2-pcr-private.pem --public-key=tpm2-pcr-public.pem \
+--phase=enter-initrd --phase=enter-initrd:leave-initrd \
+--phase=enter-initrd:leave-initrd:sysinit \
+--phase=enter-initrd:leave-initrd:sysinit:ready
++ /usr/lib/systemd/systemd-measure sign --linux=vmlinux-1.2.3 \
+--osrel=os-release.txt --cmdline=cmdline.txt --dtb=devicetree.dtb \
+--splash=splash.bmp --initrd=initrd.cpio --bank=sha1 --bank=sha256 \
+--private-key=tpm2-pcr-initrd-private.pem \
+--public-key=tpm2-pcr-initrd-public.pem \
+--phase=enter-initrd
+Wrote unsigned vmlinux-1.2.3.efi
+      </programlisting>
 
-    <para>Note that in this example the <literal>.pcrpkey</literal> PE section contains the key covering all
-    boot phases. The <literal>.pcrpkey</literal> is used in the default policies of
-    <command>systemd-cryptenroll</command> and <command>systemd-creds</command>. To use the stricter
-    <filename>tpm-pcr-initrd-public.pem</filename>-bound policy, specify <option>--tpm2-public-key=</option>
-    on the command line of those tools.</para>
+      <para><command>ukify</command> prints out both invocations of <command>systemd-measure</command> as
+      informative output (the lines starting with <literal>+</literal>); this allows us to see how
+      <command>systemd-measure</command> is called. It then merges the output of both invocations into the
+      <literal>.pcrsig</literal> section. <command>systemd-measure</command> may also do this merge itself
+      using the <option>--append=</option> option.</para>
+
+      <para>Note that in this example the <literal>.pcrpkey</literal> PE section contains the key specified
+      by the first <option>--pcr-private-key=</option> option, covering all boot phases. The
+      <literal>.pcrpkey</literal> section is used in the default policies of
+      <command>systemd-cryptenroll</command> and <command>systemd-creds</command>. To use the stricter policy
+      bound to <filename>tpm-pcr-initrd-public.pem</filename>, specify <option>--tpm2-public-key=</option> on
+      the command line of those tools.</para>
+    </example>
   </refsect1>
 
   <refsect1>
