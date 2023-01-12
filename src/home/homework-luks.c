@@ -2356,7 +2356,7 @@ int home_create_luks(
         r = mkfs_options_for_fstype(fstype, &extra_mkfs_options);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine mkfs command line options for '%s': %m", fstype);
-        r = make_filesystem(setup->dm_node, fstype, user_record_user_name_and_realm(h), NULL, fs_uuid, user_record_luks_discard(h), extra_mkfs_options);
+        r = make_filesystem(setup->dm_node, fstype, user_record_user_name_and_realm(h), NULL, fs_uuid, user_record_luks_discard(h), 0, extra_mkfs_options);
         if (r < 0)
                 return r;
 
