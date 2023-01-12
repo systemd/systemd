@@ -8,6 +8,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "chase-symlinks.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fstab-util.h"
@@ -660,7 +661,7 @@ static int parse_fstab(bool initrd) {
                 _cleanup_free_ char *where = NULL, *what = NULL, *canonical_where = NULL;
                 bool makefs, growfs, noauto, nofail;
                 MountPointFlags flags;
-                int k;
+                int e, k;
 
                 if (initrd && !mount_in_initrd(me))
                         continue;
@@ -675,7 +676,11 @@ static int parse_fstab(bool initrd) {
                                 continue;
                         }
 
-                        if (is_device_path(what)) {
+                        e = getenv_bool_secure("SYSTEMD_FORCE_FSTAB");
+                        if (e < 0 && e != -ENXIO)
+                                log_debug_errno(r, "Failed to parse $SYSTEMD_FORCE_FSTAB, ignoring: %m");
+
+                        if (e <= 0 && is_device_path(what)) {
                                 log_info("/sys/ is read-only (running in a container?), ignoring fstab device entry for %s.", what);
                                 continue;
                         }
@@ -734,7 +739,7 @@ static int parse_fstab(bool initrd) {
                 if (streq(me->mnt_type, "swap"))
                         k = add_swap(fstab, what, me, flags);
                 else {
-                        bool rw_only, automount;
+                        bool rw_only, automount, is_sysroot, is_sysroot_usr;
 
                         rw_only = fstab_test_option(me->mnt_opts, "x-systemd.rw-only\0");
                         automount = fstab_test_option(me->mnt_opts,
@@ -744,10 +749,21 @@ static int parse_fstab(bool initrd) {
                         flags |= rw_only * MOUNT_RW_ONLY |
                                  automount * MOUNT_AUTOMOUNT;
 
+                        is_sysroot = path_equal(where, "/sysroot");
+                        is_sysroot_usr = path_equal(where, "/sysroot/usr");
+
                         const char *target_unit =
                                 initrd ?               SPECIAL_INITRD_FS_TARGET :
+                                is_sysroot ?           SPECIAL_INITRD_ROOT_FS_TARGET :
+                                is_sysroot_usr ?       SPECIAL_INITRD_USR_FS_TARGET :
                                 mount_is_network(me) ? SPECIAL_REMOTE_FS_TARGET :
                                                        SPECIAL_LOCAL_FS_TARGET;
+
+                        if (is_sysroot && is_device_path(what)) {
+                                r = generator_write_initrd_root_device_deps(arg_dest, what);
+                                if (r < 0)
+                                        return r;
+                        }
 
                         k = add_mount(fstab,
                                       arg_dest,
