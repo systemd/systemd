@@ -128,7 +128,7 @@ _systemctl () {
         [STANDALONE]='--all -a --reverse --after --before --defaults --force -f --full -l --global
                              --help -h --no-ask-password --no-block --legend=no --no-pager --no-reload --no-wall --now
                              --quiet -q --system --user --version --runtime --recursive -r --firmware-setup
-                             --show-types --plain --failed --value --fail --dry-run --wait'
+                             --show-types --plain --failed --value --fail --dry-run --wait --no-warn'
         [ARG]='--host -H --kill-whom --property -p --signal -s --type -t --state --job-mode --root
                              --preset-mode -n --lines -o --output -M --machine --message --timestamp --check-inhibitors'
     )

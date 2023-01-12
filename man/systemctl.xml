@@ -2012,10 +2012,18 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <term><option>--no-warn</option></term>
 
         <listitem>
-          <para>Don't generate the warning shown by default when using
-          <command>enable</command> or <command>disable</command> on units
-          without install information (i.e. don't have or have an empty
-          [Install] section).</para>
+          <para>Don't generate the warnings shown by default in the following cases:
+          <itemizedlist>
+            <listitem>
+              <para>when <command>systemctl</command> is invoked without procfs mounted on
+              <filename>/proc/</filename>,</para>
+            </listitem>
+            <listitem>
+              <para>when using <command>enable</command> or <command>disable</command> on units without
+              install information (i.e. don't have or have an empty [Install] section).</para>
+            </listitem>
+          </itemizedlist>
+          </para>
         </listitem>
       </varlistentry>
 
