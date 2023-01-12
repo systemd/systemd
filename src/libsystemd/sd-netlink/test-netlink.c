@@ -23,6 +23,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "udev-util.h"
 
 TEST(message_newlink_bridge) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
@@ -646,6 +647,19 @@ TEST(rtnl_set_link_name) {
 
         assert_se(sd_rtnl_message_link_get_ifindex(reply, &ifindex) >= 0);
         assert_se(ifindex > 0);
+
+        if (udev_available()) {
+                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+
+                for (unsigned i = 0; i < 100; i++) {
+                        r = sd_device_new_from_ifname(&dev, "test-netlink");
+                        if (r >= 0)
+                                break;
+                        usleep(100 * USEC_PER_MSEC);
+                }
+                assert_se(r >= 0);
+                assert_se(device_wait_for_initialization(dev, /* subsystem = */ NULL, 30 * USEC_PER_SEC, /* ret = */ NULL) >= 0);
+        }
 
         /* Test that the new name (which is currently an alternative name) is
          * restored as an alternative name on error. Create an error by using
