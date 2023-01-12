@@ -905,7 +905,7 @@ static void test_client_callback(sd_dhcp6_client *client, int event, void *userd
         case SD_DHCP6_CLIENT_EVENT_IP_ACQUIRE:
                 log_debug("/* %s (event=ip-acquire) */", __func__);
 
-                assert_se(IN_SET(test_client_sent_message_count, 3, 4));
+                assert_se(IN_SET(test_client_sent_message_count, 3, 5));
 
                 test_lease_managed(client);
 
@@ -916,7 +916,7 @@ static void test_client_callback(sd_dhcp6_client *client, int event, void *userd
                         assert_se(dhcp6_client_set_transaction_id(client, ((const DHCP6Message*) msg_reply)->transaction_id) >= 0);
                         break;
 
-                case 4:
+                case 5:
                         assert_se(sd_event_exit(sd_dhcp6_client_get_event(client), 0) >= 0);
                         break;
 
@@ -974,6 +974,9 @@ int dhcp6_network_send_udp_socket(int s, struct in6_addr *a, const void *packet,
                 break;
 
         case 3:
+                break;
+
+        case 4:
                 test_client_verify_solicit(packet, len);
                 assert_se(write(test_fd[1], msg_reply, sizeof(msg_reply)) == sizeof(msg_reply));
                 break;
@@ -1028,7 +1031,7 @@ TEST(dhcp6_client) {
 
         assert_se(sd_event_loop(e) >= 0);
 
-        assert_se(test_client_sent_message_count == 4);
+        assert_se(test_client_sent_message_count == 5);
 
         assert_se(!sd_dhcp6_client_unref(client_ref));
         test_fd[1] = safe_close(test_fd[1]);

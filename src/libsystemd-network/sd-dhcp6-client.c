@@ -498,6 +498,14 @@ int sd_dhcp6_client_set_rapid_commit(sd_dhcp6_client *client, int enable) {
         return 0;
 }
 
+int sd_dhcp6_client_set_send_release(sd_dhcp6_client *client, bool enable) {
+        assert_return(client, -EINVAL);
+        assert_return(!sd_dhcp6_client_is_running(client), -EBUSY);
+
+        client->send_release = enable;
+        return 0;
+}
+
 int sd_dhcp6_client_get_lease(sd_dhcp6_client *client, sd_dhcp6_lease **ret) {
         assert_return(client, -EINVAL);
 
@@ -626,6 +634,8 @@ static DHCP6MessageType client_message_type_from_state(sd_dhcp6_client *client) 
         assert(client);
 
         switch (client->state) {
+        case DHCP6_STATE_STOPPED:
+                return DHCP6_MESSAGE_RELEASE;
         case DHCP6_STATE_INFORMATION_REQUEST:
                 return DHCP6_MESSAGE_INFORMATION_REQUEST;
         case DHCP6_STATE_SOLICITATION:
@@ -754,6 +764,8 @@ int dhcp6_client_send_message(sd_dhcp6_client *client) {
                 break;
 
         case DHCP6_STATE_STOPPED:
+                break;
+
         case DHCP6_STATE_BOUND:
         default:
                 assert_not_reached();
@@ -1331,6 +1343,8 @@ int sd_dhcp6_client_stop(sd_dhcp6_client *client) {
                 return 0;
 
         client_stop(client, SD_DHCP6_CLIENT_EVENT_STOP);
+        if (client->send_release)
+                dhcp6_client_send_message(client);
 
         client->receive_message = sd_event_source_unref(client->receive_message);
         client->fd = safe_close(client->fd);
