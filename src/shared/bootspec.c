@@ -1362,6 +1362,8 @@ int show_boot_entry(
                 printf(" architecture: %s\n", e->architecture);
         if (e->kernel)
                 boot_entry_file_list("linux", e->root, e->kernel, &status);
+        if (e->efi)
+                boot_entry_file_list("efi", e->root, e->efi, &status);
 
         STRV_FOREACH(s, e->initrd)
                 boot_entry_file_list(s == e->initrd ? "initrd" : NULL,
