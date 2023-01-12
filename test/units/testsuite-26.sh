@@ -317,7 +317,7 @@ systemctl unset-environment IMPORT_THIS IMPORT_THIS_TOO
 
 # test for sysv-generator (issue #24990)
 if [[ -x /usr/lib/systemd/system-generators/systemd-sysv-generator ]]; then
-
+    mkdir -p /etc/init.d
     # invalid dependency
     cat >/etc/init.d/issue-24990 <<\EOF
 #!/bin/bash
