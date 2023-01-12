@@ -12,5 +12,5 @@ int extension_release_validate(
                 const char *host_sysext_scope,
                 char **extension_release);
 
-/* Parse SYSTEMD_SYSEXT_HIERARCHIES and if not set, return "/usr /opt" */
-int parse_env_extension_hierarchies(char ***ret_hierarchies);
+/* Parse hierarchy env variable and if not set, return default values */
+int parse_env_extension_hierarchies(char ***ret_hierarchies, bool syscfg_setting);
