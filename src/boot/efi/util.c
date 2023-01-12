@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "proto-device-path.h"
+#include "proto-loaded-image.h"
 #include "proto-simple-text-io.h"
 #include "ticks.h"
 #include "util.h"
@@ -508,10 +509,18 @@ uint64_t get_os_indications_supported(void) {
 }
 
 #ifdef EFI_DEBUG
-__attribute__((noinline)) void debug_break(void) {
+__attribute__((noinline)) void wait_for_debugger(EFI_HANDLE image, const char *identity, volatile bool wait) {
+        EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
+        assert(BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image) ==
+               EFI_SUCCESS);
+
+        /* Inform debugger where we were loaded. */
+        printf("%s@%p\n", identity, loaded_image->ImageBase);
+        if(wait)
+                printf("Waiting for debugger to attach...\n");
+
         /* This is a poor programmer's breakpoint to wait until a debugger
          * has attached to us. Just "set variable wait = 0" or "return" to continue. */
-        volatile bool wait = true;
         while (wait)
                 /* Prefer asm based stalling so that gdb has a source location to present. */
 #if defined(__i386__) || defined(__x86_64__)

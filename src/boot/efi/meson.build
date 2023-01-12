@@ -132,6 +132,10 @@ boot_c_args = [
         '-fwide-exec-charset=UCS2',
 )
 
+if get_option('mode') == 'developer'
+        boot_c_args += '-DEFI_DEBUG'
+endif
+
 # Really only for i386.
 entry_prefix = cc.symbols_have_underscore_prefix() ? '_' : ''
 

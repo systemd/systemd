@@ -2746,9 +2746,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         BS = sys_table->BootServices;
         RT = sys_table->RuntimeServices;
 
-        debug_hook("systemd-boot");
-        /* Uncomment the next line if you need to wait for debugger. */
-        // debug_break();
+        /* Uncomment the next line if you wish to attach a debugger and optionally wait for it. */
+        // wait_for_debugger(image, "systemd-boot", false);
 
         EFI_STATUS err = real_main(image);
         log_wait();
