@@ -32,7 +32,16 @@ MACHINE_ID="$KERNEL_INSTALL_MACHINE_ID"
 ENTRY_TOKEN="$KERNEL_INSTALL_ENTRY_TOKEN"
 BOOT_ROOT="$KERNEL_INSTALL_BOOT_ROOT"
 
-BOOT_MNT="$(stat -c %m "$BOOT_ROOT")"
+# XXX: kernel-install has no way of passing a root dir but bootctl does. We
+# need that for the test suite. So use an externally provided $BOOT_MNT as
+# trigger when calling bootctl.
+if [ -n "$BOOT_MNT" ]; then
+    BOOTCTL_ROOT="--root=$BOOT_MNT"
+    SYSTEMD_ESP_PATH="/"
+    export SYSTEMD_ESP_PATH
+else
+    BOOT_MNT="$(stat -c %m "$BOOT_ROOT")"
+fi
 if [ "$BOOT_MNT" = '/' ]; then
     ENTRY_DIR="$ENTRY_DIR_ABS"
 else
@@ -43,13 +52,44 @@ KERNEL_DEST="$ENTRY_DIR_ABS/linux"
 KERNEL_ENTRY="$ENTRY_DIR/linux"
 LOADER_ENTRY="$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION.conf"
 
+plugin_init() { :;}
+plugin_remove_entry() { :;}
+plugin_update_options() { :;}
+plugin_rename_initrd() { :;}
+plugin_finish() { :;}
+
+if [ -n "$KERNEL_INSTALL_CONF_ROOT" ] && [ -e "$KERNEL_INSTALL_CONF_ROOT/loaderentry-plugin.sh" ]; then
+    # shellcheck source=/dev/null
+    . "$KERNEL_INSTALL_CONF_ROOT/loaderentry-plugin.sh"
+elif [ -e /usr/lib/kernel/loaderentry-plugin.sh ]; then
+    # shellcheck source=/dev/null
+    . /usr/lib/kernel/loaderentry-plugin.sh
+fi
+
+plugin_init
+
 case "$COMMAND" in
     remove)
-        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-            echo "Removing ${LOADER_ENTRY%.conf}*.conf"
-        exec rm -f \
-            "$LOADER_ENTRY" \
-            "${LOADER_ENTRY%.conf}"*".conf"
+        plugin_remove_entry
+        if [ -x "/usr/bin/bootctl" ]; then
+            bootctl ${BOOTCTL_ROOT:+"$BOOTCTL_ROOT"} unlink "${LOADER_ENTRY##*/}"
+            exit 0
+        else
+            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+                echo "Removing ${LOADER_ENTRY%.conf}*.conf"
+            for file in "$LOADER_ENTRY" \ "${LOADER_ENTRY%.conf}"*".conf"; do
+                test -e "$file" || continue
+                while read -r k v; do
+                    case "$k" in
+                        linux|initrd|devicetree|devicetree_overlay)
+                            [ "${v#"$ENTRY_DIR"}" != "$v" ] || continue
+                            rm -f "$ENTRY_DIR_ABS${v#"$ENTRY_DIR"}"
+                            ;;
+                    esac
+                done < "$file"
+            done
+        fi
+        exit 0
         ;;
     add)
         ;;
@@ -93,6 +133,8 @@ if [ "$ENTRY_TOKEN" = "$MACHINE_ID" ] && ! echo "$BOOT_OPTIONS" | grep -q "syste
     BOOT_OPTIONS="$BOOT_OPTIONS systemd.machine_id=$MACHINE_ID"
 fi
 
+plugin_update_options
+
 TRIES_FILE="${KERNEL_INSTALL_CONF_ROOT:-/etc/kernel}/tries"
 
 if [ -f "$TRIES_FILE" ]; then
@@ -123,6 +165,8 @@ for initrd in "$@" "${KERNEL_INSTALL_STAGING_AREA}"/initrd*; do
         echo "Error: initrd '$initrd' not a file." >&2
         exit 1
     }
+
+    plugin_rename_initrd
 
     initrd_basename="${initrd##*/}"
     [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Installing $ENTRY_DIR_ABS/$initrd_basename"
@@ -166,4 +210,6 @@ mkdir -p "${LOADER_ENTRY%/*}" || {
     echo "Error: could not create loader entry '$LOADER_ENTRY'." >&2
     exit 1
 }
+
+plugin_finish
 exit 0
