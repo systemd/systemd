@@ -303,6 +303,7 @@ int make_filesystem(
                 const char *root,
                 sd_id128_t uuid,
                 bool discard,
+                uint64_t sector_size,
                 char * const *extra_mkfs_args) {
 
         _cleanup_free_ char *mkfs = NULL, *mangled_label = NULL;
@@ -399,6 +400,7 @@ int make_filesystem(
                                 "-I", "256",
                                 "-m", "0",
                                 "-E", discard ? "discard,lazy_itable_init=1" : "nodiscard,lazy_itable_init=1",
+                                "-b", "4096",
                                 node);
                 if (!argv)
                         return log_oom();
@@ -418,6 +420,7 @@ int make_filesystem(
                                 "-O", "has_journal",
                                 "-m", "0",
                                 "-E", discard ? "discard,lazy_itable_init=1" : "nodiscard,lazy_itable_init=1",
+                                "-b", "4096",
                                 node);
 
                 if (root) {
@@ -487,7 +490,17 @@ int make_filesystem(
                                 return log_oom();
                 }
 
-        } else if (streq(fstype, "vfat"))
+                if (sector_size > 0) {
+                        r = strv_extend(&argv, "-s");
+                        if (r < 0)
+                                return log_oom();
+
+                        r = strv_extendf(&argv, "size=%"PRIu64, sector_size);
+                        if (r < 0)
+                                return log_oom();
+                }
+
+        } else if (streq(fstype, "vfat")) {
 
                 argv = strv_new(mkfs,
                                 "-i", vol_id,
@@ -495,7 +508,17 @@ int make_filesystem(
                                 "-F", "32",  /* yes, we force FAT32 here */
                                 node);
 
-        else if (streq(fstype, "swap"))
+                if (sector_size > 0) {
+                        r = strv_extend(&argv, "-S");
+                        if (r < 0)
+                                return log_oom();
+
+                        r = strv_extendf(&argv, "%"PRIu64, sector_size);
+                        if (r < 0)
+                                return log_oom();
+                }
+
+        } else if (streq(fstype, "swap"))
                 /* TODO: add --quiet here if
                  * https://github.com/util-linux/util-linux/issues/1499 resolved. */
 
