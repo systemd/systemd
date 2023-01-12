@@ -38,6 +38,7 @@ Packages=
         libxkbcommon0
         pam
         tpm2-0-tss
+        shadow
         vim
 
 BuildPackages=

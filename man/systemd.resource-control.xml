@@ -1024,6 +1024,23 @@ DeviceAllow=/dev/loop-control
       </varlistentry>
 
       <varlistentry>
+        <term><varname>DelegateSubControlGroup=</varname></term>
+
+        <listitem>
+          <para>
+            Specifies a cgroup path relative to the unit's cgroup where processes shall be initially placed.
+            This applies to all processes started by systemd (except for
+            <varname>ExecStartPre=</varname> and <varname>ExecCondition=</varname>)
+            and the subcgroup has no controllers enabled (but delegated controllers are available).
+            If you wish to use the unit's cgroup to host all processes, pass <literal>.</literal> as the subcgroup.
+            Empty value denotes that the placement is up to systemd implementation but main process starts in
+            the unit's cgroup.
+            The default is the empty value.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DisableControllers=</varname></term>
 
         <listitem>

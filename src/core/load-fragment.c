@@ -3988,6 +3988,49 @@ int config_parse_delegate(
         return 0;
 }
 
+int config_parse_delegate_subcgroup(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *subcgroup = NULL;
+        CGroupContext *c = ASSERT_PTR(data);
+        UnitType t;
+
+        t = unit_name_to_type(unit);
+        assert(t != _UNIT_TYPE_INVALID);
+
+        if (!unit_vtable[t]->can_delegate ||
+            !unit_vtable[t]->exec_context_offset) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "%s= setting not supported for this unit type, ignoring.", lvalue);
+                return 0;
+        }
+
+        if (isempty(rvalue)) {
+                c->delegate_subcgroup = mfree(c->delegate_subcgroup);
+                return 0;
+        }
+
+        subcgroup = strdup(rvalue);
+        if (!subcgroup)
+                return log_oom();
+
+        if (streq(subcgroup, "."))
+                subcgroup[0] = '\0'; /* "" */
+        else if (path_simplify_and_warn(subcgroup, PATH_CHECK_RELATIVE | PATH_CHECK_FATAL, unit, filename, line, lvalue) < 0)
+                return 0;
+
+        free_and_replace(c->delegate_subcgroup, subcgroup);
+        return 0;
+}
+
 int config_parse_managed_oom_mode(
                 const char *unit,
                 const char *filename,

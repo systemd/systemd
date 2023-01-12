@@ -245,6 +245,8 @@ void cgroup_context_remove_socket_bind(CGroupSocketBindItem **head) {
 void cgroup_context_done(CGroupContext *c) {
         assert(c);
 
+        c->delegate_subcgroup = mfree(c->delegate_subcgroup);
+
         while (c->io_device_weights)
                 cgroup_context_free_io_device_weight(c, c->io_device_weights);
 
@@ -520,9 +522,11 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
 
                 (void) cg_mask_to_string(c->delegate_controllers, &t);
 
-                fprintf(f, "%sDelegateControllers: %s\n",
-                        prefix,
-                        strempty(t));
+                fprintf(f,
+                        "%sDelegateControllers: %s\n"
+                        "%sDelegateSubControlGroup: %s\n",
+                        prefix, strempty(t),
+                        prefix, c->delegate_subcgroup);
         }
 
         LIST_FOREACH(device_allow, a, c->device_allow)
@@ -2311,7 +2315,7 @@ static int unit_update_cgroup(
         return 0;
 }
 
-static int unit_attach_pid_to_cgroup_via_bus(Unit *u, pid_t pid, const char *suffix_path) {
+static int unit_attach_pid_to_cgroup_via_bus(Unit *u, pid_t pid, const char *subcgroup) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char *pp;
         int r;
@@ -2332,7 +2336,7 @@ static int unit_attach_pid_to_cgroup_via_bus(Unit *u, pid_t pid, const char *suf
         if (!pp)
                 return -EINVAL;
 
-        pp = strjoina("/", pp, suffix_path);
+        pp = strjoina("/", pp, subcgroup);
         path_simplify(pp);
 
         r = bus_call_method(u->manager->system_bus,
@@ -2347,7 +2351,7 @@ static int unit_attach_pid_to_cgroup_via_bus(Unit *u, pid_t pid, const char *suf
         return 0;
 }
 
-int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
+int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *subcgroup) {
         _cleanup_free_ char *joined = NULL;
         CGroupMask delegated_mask;
         const char *p;
@@ -2372,10 +2376,10 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
         if (r < 0)
                 return r;
 
-        if (isempty(suffix_path))
+        if (isempty(subcgroup))
                 p = u->cgroup_path;
         else {
-                joined = path_join(u->cgroup_path, suffix_path);
+                joined = path_join(u->cgroup_path, subcgroup);
                 if (!joined)
                         return -ENOMEM;
 
@@ -2405,7 +2409,7 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
                                  * Since it's more privileged it might be able to move the process across the
                                  * leaves of a subtree whose top node is not owned by us. */
 
-                                z = unit_attach_pid_to_cgroup_via_bus(u, pid, suffix_path);
+                                z = unit_attach_pid_to_cgroup_via_bus(u, pid, subcgroup);
                                 if (z < 0)
                                         log_unit_info_errno(u, z, "Couldn't move process "PID_FMT" to requested cgroup '%s' (directly or via the system bus): %m", pid, empty_to_root(p));
                                 else {
