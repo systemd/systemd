@@ -60,7 +60,7 @@
     used to perform this calculation and signing.</para>
 
     <para>The calculation of PCR values is done for specific boot phase paths. Those can be specified with
-    <option>--phases=</option> option. If not specified, the default provided by
+    the <option>--phases=</option> option. If not specified, the default provided by
     <command>systemd-measure</command> is used. It is also possible to specify the
     <option>--pcr-private-key=</option>, <option>--pcr-public-key=</option>, and <option>--phases=</option>
     arguments more than once. Signatures will be then performed with each of the specified keys. When both
