@@ -54,6 +54,10 @@ All tools:
 * `$SYSTEMD_SYSROOT_FSTAB` — if set, use this path instead of
   `/sysroot/etc/fstab`. Only useful for debugging `systemd-fstab-generator`.
 
+* `$SYSTEMD_FORCE_FSTAB` — takes a boolean. If set, overrides container
+  detection that ignores /dev entries in fstab. Only useful for debugging
+  `systemd-fstab-generator`.
+
 * `$SYSTEMD_CRYPTTAB` — if set, use this path instead of `/etc/crypttab`. Only
   useful for debugging. Currently only supported by
   `systemd-cryptsetup-generator`.
