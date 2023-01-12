@@ -103,6 +103,7 @@ config_h = configure_file(
 
 efi_includes = [fundamental_include, include_directories('.')]
 
+# This will be shared with any compiler-rt builds, so keep it generic.
 efi_c_args = [
         '-ffreestanding',
         '-fno-stack-protector',
@@ -129,8 +130,21 @@ efi_c_ld_args = [
         '-nostdlib',
         '-static',
         '-Wl,--entry=' + entry_prefix + 'efi_main',
-        '-lgcc',
 ]
+
+compiler_rt = get_option('compiler-rt')
+if compiler_rt == ''
+        # Rely on compiler-provided libgcc for intrinsics. Note that clang is smart enough to find
+        # the mingw libgcc on its own.
+        efi_c_ld_args += '-lgcc'
+elif fs.is_file(compiler_rt)
+        # Pass this directly to the link command line as it is expected to be a static archive. If the
+        # user-provided compiler-rt build is unsuitable (for example because it is an ELF build) linking
+        # will fail.
+        efi_c_ld_args += compiler_rt
+elif not fs.is_dir(compiler_rt)
+        error('Cannot find compiler-rt in "@0@"'.format(compiler_rt))
+endif
 
 ############################################################
 
@@ -205,10 +219,54 @@ if host_machine.cpu_family() in ['x86', 'x86_64']
         stub_sources += files('linux_x86.c')
 endif
 
+compiler_rt_sources = []
+if compiler_rt != '' and fs.is_dir(compiler_rt)
+        p = compiler_rt / 'lib/builtins'
+
+        # Add further intrinsics as needed.
+        compiler_rt_sources = {
+                'aarch64' : files(
+                        p / 'aarch64/chkstk.S',
+                ),
+                'arm' : files(
+                        p / 'arm/aeabi_idivmod.S',
+                        p / 'arm/aeabi_ldivmod.S',
+                        p / 'arm/aeabi_uidivmod.S',
+                        p / 'arm/aeabi_uldivmod.S',
+                        p / 'arm/chkstk.S',
+                        p / 'arm/divmodsi4.S',
+                        p / 'arm/udivmodsi4.S',
+                        p / 'divmoddi4.c',
+                        p / 'udivmoddi4.c',
+                ),
+                'x86_64' : files(
+                        p / 'popcountdi2.c',
+                        p / 'x86_64/chkstk.S',
+                ),
+                'x86' : files(
+                        p / 'i386/chkstk.S',
+                        p / 'i386/chkstk2.S',
+                        p / 'i386/divdi3.S',
+                        p / 'i386/moddi3.S',
+                        p / 'i386/udivdi3.S',
+                        p / 'i386/umoddi3.S',
+                        p / 'popcountsi2.c',
+                ),
+        }.get(host_machine.cpu_family())
+endif
+
 ############################################################
 
 add_project_arguments(efi_c_args, language : 'c')
 add_project_link_arguments(efi_c_ld_args, language : 'c')
+
+if compiler_rt_sources.length() == 0
+        libcompiler_rt = []
+else
+        libcompiler_rt = static_library(
+                'compiler-rt',
+                compiler_rt_sources)
+endif
 
 libefi = static_library(
         'efi',

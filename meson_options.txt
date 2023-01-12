@@ -434,6 +434,8 @@ option('glib', type : 'combo', choices : ['auto', 'true', 'false'],
 option('dbus', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libdbus support (for tests only)')
 
+option('compiler-rt', type : 'string',
+       description : 'location of compiler-rt to use for for EFI binaries (pre-built static archive or source tree)')
 option('sbat-distro', type : 'string', value : 'auto',
        description : 'SBAT distribution ID, e.g. fedora, or auto for autodetection')
 option('sbat-distro-generation', type : 'integer', value : 1,
