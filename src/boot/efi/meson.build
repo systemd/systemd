@@ -86,6 +86,15 @@ if cc.get_define('__MINGW32__') != '1'
         error('Must use mingw compiler or use -gnu flavor target triple!')
 endif
 
+foreach arg : get_option('c_args')
+        if arg.startswith('-march=')
+                error('''Building with -march is not supported as it may emit instructions not available
+in early boot environments. Please double check your CFLAGS for other such problematic flags.''')
+        endif
+endforeach
+
+############################################################
+
 conf.set10('ENABLE_TPM', get_option('tpm'))
 
 foreach ctype : ['color-normal', 'color-entry', 'color-highlight', 'color-edit']
