@@ -27,8 +27,8 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-integritysetup-generator</filename> is a generator that translates <filename>/etc/integritytab</filename> entries into
-    native systemd units early at boot. This will create
+    <para><command>systemd-integritysetup-generator</command> is a generator that translates
+    <filename>/etc/integritytab</filename> entries into native systemd units early at boot. This will create
     <citerefentry><refentrytitle>systemd-integritysetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     units as necessary.</para>
 

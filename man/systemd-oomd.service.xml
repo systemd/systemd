@@ -36,7 +36,8 @@
     <para>You can enable monitoring and actions on units by setting <varname>ManagedOOMSwap=</varname> and
     <varname>ManagedOOMMemoryPressure=</varname> in the unit configuration, see
     <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-    <command>systemd-oomd</command> retrieves information about such units from <command>systemd</command>
+    <command>systemd-oomd</command> retrieves information about such units from
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     when it starts and watches for subsequent changes.</para>
 
     <para>Cgroups of units with <varname>ManagedOOMSwap=</varname> or
