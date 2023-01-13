@@ -38,10 +38,10 @@ else
 fi
 
 case "${BASH_REMATCH[1]}" in
-    ia32) arch="i386";;
-    x64)  arch="i386:x86-64";;
     aa64) arch="aarch64";;
     arm)  arch="arm";;
+    ia32) arch="i386";;
+    x64)  arch="i386:x86-64";;
     *)
         echo "Unknown EFI arch '${BASH_REMATCH[1]}'."
         exit 1

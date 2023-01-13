@@ -7,19 +7,24 @@ info() { echo -e "\033[33;1m$1\033[0m"; }
 fatal() { echo >&2 -e "\033[31;1m$1\033[0m"; exit 1; }
 success() { echo >&2 -e "\033[32;1m$1\033[0m"; }
 
-ARGS=(
+ARGS_BOOT=(
     "--optimization=0"
     "--optimization=s"
     "--optimization=3 -Db_lto=true -Ddns-over-tls=false"
     "--optimization=3 -Db_lto=false"
+    "-Db_ndebug=true"
+)
+ARGS=(
+    "${ARGS_BOOT[@]}"
     "--optimization=3 -Ddns-over-tls=openssl"
     "--optimization=3 -Dfexecve=true -Dstandalone-binaries=true -Dstatic-libsystemd=true -Dstatic-libudev=true"
-    "-Db_ndebug=true"
 )
 PACKAGES=(
     cryptsetup-bin
     expect
     fdisk
+    gcc-mingw-w64-i686
+    gcc-mingw-w64-x86-64
     gettext
     iputils-ping
     isc-dhcp-client
@@ -27,7 +32,6 @@ PACKAGES=(
     kbd
     libblkid-dev
     libbpf-dev
-    libc6-dev-i386
     libcap-dev
     libcurl4-gnutls-dev
     libfdisk-dev
@@ -67,6 +71,7 @@ COMPILER="${COMPILER:?}"
 COMPILER_VERSION="${COMPILER_VERSION:?}"
 LINKER="${LINKER:?}"
 CRYPTOLIB="${CRYPTOLIB:?}"
+EFI_ARCH="${EFI_ARCH:?}"
 RELEASE="$(lsb_release -cs)"
 
 bash -c "echo 'deb-src http://archive.ubuntu.com/ubuntu/ $RELEASE main restricted universe multiverse' >>/etc/apt/sources.list"
@@ -121,13 +126,35 @@ $CC --version
 meson --version
 ninja --version
 
+if [[ "$COMPILER" == gcc ]]; then
+    x86_64-w64-mingw32-gcc --version
+    i686-w64-mingw32-gcc --version
+    cross_compiler="mingw"
+elif [[ "$COMPILER" == clang ]]; then
+    cross_compiler="clang"
+fi
+
+for arch in ${EFI_ARCH}; do
+    for args in "${ARGS_BOOT[@]}"; do
+        info "Checking systemd-boot for ${arch} build with $args"
+
+        if ! meson setup --cross-file "src/boot/efi/cross-${cross_compiler}-${arch}.ini" \
+           --werror $args build; then
+
+            cat build/meson-logs/meson-log.txt
+            fatal "meson failed with $args"
+        fi
+
+        if ! meson compile -C build -v; then
+            fatal "'meson compile' failed with '$args'"
+        fi
+
+        git clean -dxf
+    done
+done
+
 for args in "${ARGS[@]}"; do
     SECONDS=0
-
-    # The install_tag feature introduced in 0.60 causes meson to fail with fatal-meson-warnings
-    # "Project targeting '>= 0.53.2' but tried to use feature introduced in '0.60.0': install_tag arg in custom_target"
-    # It can be safely removed from the CI since it isn't actually used anywhere to test anything.
-    find . -type f -name meson.build -exec sed -i '/install_tag/d' '{}' '+'
 
     # mold < 1.1 does not support LTO.
     if dpkg --compare-versions "$(dpkg-query --showformat='${Version}' --show mold)" ge 1.1; then
