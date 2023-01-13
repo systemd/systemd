@@ -163,6 +163,7 @@ typedef enum ExecCleanMask {
 typedef struct ExecLoadCredential {
         char *id, *path;
         bool encrypted;
+        bool glob;
 } ExecLoadCredential;
 
 /* A credential configured with SetCredential= */

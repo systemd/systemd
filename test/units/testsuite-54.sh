@@ -104,6 +104,21 @@ systemd-run -p LoadCredential=cred:/tmp/ts54-creds \
 rm /tmp/ts54-concat
 rm -rf /tmp/ts54-creds
 
+# Check that globs work as expected
+mkdir -p /run/credstore
+echo -n a >/run/credstore/test.creds.first
+echo -n b >/run/credstore/test.creds.second
+mkdir -p /etc/credstore
+echo -n c >/etc/credstore/test.creds.third
+systemd-run -p "LoadCredentialGlob=test.creds.*" \
+            -p DynamicUser=1 \
+            --wait \
+            --pipe \
+            cat '${CREDENTIALS_DIRECTORY}/test.creds.first' \
+                '${CREDENTIALS_DIRECTORY}/test.creds.second' \
+                '${CREDENTIALS_DIRECTORY}/test.creds.third'>/tmp/ts54-concat
+( echo -n abc ) | cmp /tmp/ts54-concat
+
 # Now test encrypted credentials (only supported when built with OpenSSL though)
 if systemctl --version | grep -q -- +OPENSSL ; then
     echo -n $RANDOM >/tmp/test-54-plaintext

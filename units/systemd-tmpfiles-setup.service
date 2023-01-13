@@ -23,7 +23,7 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStart=systemd-tmpfiles --create --remove --boot --exclude-prefix=/dev
 SuccessExitStatus=DATAERR CANTCREAT
-LoadCredential=tmpfiles.extra
+LoadCredentialGlob=tmpfiles.*
 LoadCredential=login.motd
 LoadCredential=login.issue
 LoadCredential=network.hosts

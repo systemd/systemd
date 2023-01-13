@@ -34,4 +34,4 @@ LoadCredential=passwd.plaintext-password.root
 LoadCredential=passwd.shell.root
 
 # Also, allow configuring extra sysusers lines via a credential
-LoadCredential=sysusers.extra
+LoadCredentialGlob=sysusers.*
