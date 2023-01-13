@@ -119,14 +119,18 @@ int extension_release_validate(
         return 1;
 }
 
-int parse_env_extension_hierarchies(char ***ret_hierarchies) {
+int parse_env_extension_hierarchies(char ***ret_hierarchies, char const *env_hierarchy) {
         _cleanup_free_ char **l = NULL;
         int r;
 
-        r = getenv_path_list("SYSTEMD_SYSEXT_HIERARCHIES", &l);
+        r = getenv_path_list(env_hierarchy, &l);
         if (r == -ENXIO) {
-                /* Default when unset */
-                l = strv_new("/usr", "/opt");
+                if (strcmp(env_hierarchy, "SYSTEMD_SYSCFG_HIERARCHIES") == 0)
+                        /* Default for syscfg when unset */
+                        l = strv_new("/etc");
+                else
+                        /* Default for sysext when unset */
+                        l = strv_new("/usr", "/opt");
                 if (!l)
                         return -ENOMEM;
         } else if (r < 0)
