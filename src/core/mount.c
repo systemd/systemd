@@ -13,6 +13,7 @@
 #include "device.h"
 #include "exit-status.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "fstab-util.h"
 #include "initrd-util.h"
 #include "libmount-util.h"
@@ -27,6 +28,7 @@
 #include "process-util.h"
 #include "serialize.h"
 #include "special.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -1074,6 +1076,7 @@ fail:
 static void mount_enter_mounting(Mount *m) {
         int r;
         MountParameters *p;
+        bool source_is_dir = true;
 
         assert(m);
 
@@ -1081,16 +1084,28 @@ static void mount_enter_mounting(Mount *m) {
         if (r < 0)
                 goto fail;
 
-        (void) mkdir_p_label(m->where, m->directory_mode);
+        p = get_mount_parameters_fragment(m);
+        if (p && mount_is_bind(p)) {
+                r = is_dir(p->what, /* follow = */ true);
+                if (r < 0 && r != -ENOENT)
+                        log_unit_info_errno(UNIT(m), r, "Failed to determine type of bind mount source '%s', ignoring: %m", p->what);
+                else if (r == 0)
+                        source_is_dir = false;
+        }
 
-        unit_warn_if_dir_nonempty(UNIT(m), m->where);
+        if (source_is_dir)
+                (void) mkdir_p_label(m->where, m->directory_mode);
+        else
+                (void) touch_file(m->where, /* parents = */ true, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID);
+
+        if (source_is_dir)
+                unit_warn_if_dir_nonempty(UNIT(m), m->where);
         unit_warn_leftover_processes(UNIT(m), unit_log_leftover_process_start);
 
         m->control_command_id = MOUNT_EXEC_MOUNT;
         m->control_command = m->exec_command + MOUNT_EXEC_MOUNT;
 
         /* Create the source directory for bind-mounts if needed */
-        p = get_mount_parameters_fragment(m);
         if (p && mount_is_bind(p)) {
                 r = mkdir_p_label(p->what, m->directory_mode);
                 /* mkdir_p_label() can return -EEXIST if the target path exists and is not a directory - which is
