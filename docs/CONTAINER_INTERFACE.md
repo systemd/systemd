@@ -138,15 +138,16 @@ manager, please consider supporting the following interfaces.
    `$container_host_version_id=10`
 
 5. systemd supports passing immutable binary data blobs with limited size and
-   restricted access to services via the `LoadCredential=` and `SetCredential=`
-   settings. The same protocol may be used to pass credentials from the
-   container manager to systemd itself. The credential data should be placed in
-   some location (ideally a read-only and non-swappable file system, like
-   'ramfs'), and the absolute path to this directory exported in the
+   restricted access to services via the `ImportCredential=`, `LoadCredential=`
+   and `SetCredential=` settings. The same protocol may be used to pass credentials
+   from the container manager to systemd itself. The credential data should be
+   placed in some location (ideally a read-only and non-swappable file system,
+   like 'ramfs'), and the absolute path to this directory exported in the
    `$CREDENTIALS_DIRECTORY` environment variable. If the container managers
    does this, the credentials passed to the service manager can be propagated
-   to services via `LoadCredential=` (see ...). The container manager can
-   choose any path, but `/run/host/credentials` is recommended.
+   to services via `LoadCredential=` or `ImportCredential=` (see ...). The
+   container manager can choose any path, but `/run/host/credentials` is
+   recommended.
 
 ## Advanced Integration
 
