@@ -89,10 +89,25 @@ test_chassis() {
     fi
 }
 
+
+restore_sysfs_dmi() {
+    umount /sys/class/dmi/id
+}
+
+
+test_firmware_date() {
+    trap restore_machine_info RETURN
+
+    mount -t tmpfs none /sys/class/dmi/id
+    echo '12/31/2022' > /sys/class/dmi/id/bios_date
+    assert_in '2022-12-31' "$(hostnamectl)"
+}
+
 : >/failed
 
 test_hostname
 test_chassis
+test_firmware_date
 
 touch /testok
 rm /failed

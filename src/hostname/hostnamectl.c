@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 #include "sd-bus.h"
 #include "sd-id128.h"
@@ -52,6 +53,7 @@ typedef struct StatusInfo {
         const char *hardware_vendor;
         const char *hardware_model;
         const char *firmware_version;
+        const usec_t firmware_date;
 } StatusInfo;
 
 static const char* chassis_string_to_glyph(const char *chassis) {
@@ -239,6 +241,14 @@ static int print_status_info(StatusInfo *i) {
                         return table_log_add_error(r);
         }
 
+        if (i->firmware_date != 0) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Firmware Date",
+                                   TABLE_TIMESTAMP, i->firmware_date);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
         r = table_print(table, NULL);
         if (r < 0)
                 return table_log_print_error(r);
@@ -304,6 +314,7 @@ static int show_all_names(sd_bus *bus) {
                 { "HardwareVendor",            "s", NULL, offsetof(StatusInfo, hardware_vendor)  },
                 { "HardwareModel",             "s", NULL, offsetof(StatusInfo, hardware_model)   },
                 { "FirmwareVersion",           "s", NULL, offsetof(StatusInfo, firmware_version) },
+                { "FirmwareDate",              "t", NULL, offsetof(StatusInfo, firmware_date) },
                 {}
         };
 
