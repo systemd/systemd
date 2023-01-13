@@ -89,10 +89,45 @@ test_chassis() {
     fi
 }
 
+restore_sysfs_dmi() {
+    umount /sys/class/dmi/id
+    rm -rf /run/systemd/system/systemd-hostnamed.service.d
+    systemctl daemon-reload
+    systemctl restart systemd-hostnamed
+}
+
+test_firmware_date() {
+    trap restore_sysfs_dmi RETURN
+
+    # Ignore /sys being mounted as tmpfs
+    mkdir /run/systemd/system/systemd-hostnamed.service.d/
+    cat > /run/systemd/system/systemd-hostnamed.service.d/override.conf <<- EOF
+[Service]
+Environment="SYSTEMD_DEVICE_VERIFY_SYSFS=0"
+EOF
+    systemctl daemon-reload
+
+    mount -t tmpfs none /sys/class/dmi/id
+    echo '1' > /sys/class/dmi/id/uevent
+
+    echo '01/01/2000' > /sys/class/dmi/id/bios_date
+    systemctl restart systemd-hostnamed
+    assert_in '2000-01-01' "$(hostnamectl)"
+
+    echo '2022' > /sys/class/dmi/id/bios_date
+    systemctl restart systemd-hostnamed
+    assert_not_in 'Firmware Date' "$(hostnamectl)"
+
+    echo 'garbage' > /sys/class/dmi/id/bios_date
+    systemctl restart systemd-hostnamed
+    assert_not_in 'Firmware Date' "$(hostnamectl)"
+}
+
 : >/failed
 
 test_hostname
 test_chassis
+test_firmware_date
 
 touch /testok
 rm /failed
