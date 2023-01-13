@@ -18,7 +18,16 @@ systemd-analyze || :
 systemd-analyze time || :
 systemd-analyze blame || :
 systemd-analyze critical-chain || :
+# plot
 systemd-analyze plot >/dev/null || :
+systemd-analyze plot --json=pretty >/dev/null || :
+systemd-analyze plot --json=short >/dev/null || :
+systemd-analyze plot --json=off >/dev/null || :
+systemd-analyze plot --json=pretty --no-legend >/dev/null || :
+systemd-analyze plot --json=short --no-legend >/dev/null || :
+systemd-analyze plot --json=off --no-legend >/dev/null || :
+systemd-analyze plot --table >/dev/null || :
+systemd-analyze plot --table --no-legend >/dev/null || :
 # legacy/deprecated options (moved to systemctl, but still usable from analyze)
 systemd-analyze log-level
 systemd-analyze log-level "$(systemctl log-level)"
