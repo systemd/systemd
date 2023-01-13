@@ -911,7 +911,7 @@
         <term><varname>systemd.set_credential=</varname></term>
 
         <listitem><para>Sets a system credential, which can then be propagated to system services using the
-        <varname>LoadCredential=</varname> setting, see
+        <varname>ImportCredential=</varname> or <varname>LoadCredential=</varname> setting, see
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
         details. Takes a pair of credential name and value, separated by a colon. Note that the kernel
         command line is typically accessible by unprivileged programs in
