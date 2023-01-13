@@ -4840,6 +4840,46 @@ int config_parse_set_credential(
         return 0;
 }
 
+int hashmap_put_credential(Hashmap **h, const char *id, const char *path, bool encrypted) {
+        ExecLoadCredential *old;
+        int r;
+
+        assert(h);
+        assert(id);
+        assert(path);
+
+        old = hashmap_get(*h, id);
+        if (old) {
+                r = free_and_strdup(&old->path, path);
+                if (r < 0)
+                        return r;
+
+                old->encrypted = encrypted;
+        } else {
+                _cleanup_(exec_load_credential_freep) ExecLoadCredential *lc = NULL;
+
+                lc = new(ExecLoadCredential, 1);
+                if (!lc)
+                        return log_oom();
+
+                *lc = (ExecLoadCredential) {
+                        .id = strdup(id),
+                        .path = strdup(path),
+                        .encrypted = encrypted,
+                };
+                if (!lc->id || !lc->path)
+                        return -ENOMEM;
+
+                r = hashmap_ensure_put(h, &exec_load_credential_hash_ops, lc->id, lc);
+                if (r < 0)
+                        return r;
+
+                TAKE_PTR(lc);
+        }
+
+        return 0;
+}
+
 int config_parse_load_credential(
                 const char *unit,
                 const char *filename,
@@ -4854,7 +4894,6 @@ int config_parse_load_credential(
 
         _cleanup_free_ char *word = NULL, *k = NULL, *q = NULL;
         ExecContext *context = ASSERT_PTR(data);
-        ExecLoadCredential *old;
         bool encrypted = ltype;
         Unit *u = userdata;
         const char *p;
@@ -4907,34 +4946,53 @@ int config_parse_load_credential(
                 }
         }
 
-        old = hashmap_get(context->load_credentials, k);
-        if (old) {
-                free_and_replace(old->path, q);
-                old->encrypted = encrypted;
-        } else {
-                _cleanup_(exec_load_credential_freep) ExecLoadCredential *lc = NULL;
+        r = hashmap_put_credential(&context->load_credentials, k, q, encrypted);
+        if (r < 0)
+                return log_error_errno(r, "Failed to store load credential '%s': %m", rvalue);
 
-                lc = new(ExecLoadCredential, 1);
-                if (!lc)
-                        return log_oom();
+        return 0;
+}
 
-                *lc = (ExecLoadCredential) {
-                        .id = TAKE_PTR(k),
-                        .path = TAKE_PTR(q),
-                        .encrypted = encrypted,
-                };
+int config_parse_import_credential(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
-                r = hashmap_ensure_put(&context->load_credentials, &exec_load_credential_hash_ops, lc->id, lc);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Duplicated credential value '%s', ignoring assignment: %s", lc->id, rvalue);
-                        return 0;
-                }
+        _cleanup_free_ char *s = NULL;
+        Set** import_credentials = ASSERT_PTR(data);
+        Unit *u = userdata;
+        int r;
 
-                TAKE_PTR(lc);
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                *import_credentials = set_free(*import_credentials);
+                return 0;
         }
+
+        r = unit_cred_printf(u, rvalue, &s);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in \"%s\", ignoring: %m", s);
+                return 0;
+        }
+        if (!filename_is_valid(s)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Credential name \"%s\" not valid, ignoring.", s);
+                return 0;
+        }
+
+        r = set_put_strdup(import_credentials, s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to store credential name '%s': %m", rvalue);
 
         return 0;
 }

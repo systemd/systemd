@@ -38,9 +38,9 @@
     processes. They are primarily used for passing cryptographic keys (both public and private) or
     certificates, user account information or identity information from the host to services.</para>
 
-    <para>Credentials are configured in unit files via the <varname>LoadCredential=</varname>,
-    <varname>SetCredential=</varname>, <varname>LoadCredentialEncrypted=</varname> and
-    <varname>SetCredentialEncrypted=</varname> settings, see
+    <para>Credentials are configured in unit files via the <varname>ImportCredential></varname>,
+    <varname>LoadCredential=</varname>, <varname>SetCredential=</varname>,
+    <varname>LoadCredentialEncrypted=</varname> and <varname>SetCredentialEncrypted=</varname> settings, see
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
     details.</para>
 
