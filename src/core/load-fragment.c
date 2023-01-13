@@ -38,6 +38,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "glob-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
 #include "ioprio-util.h"
@@ -4765,6 +4766,47 @@ int config_parse_set_credential(
         return 0;
 }
 
+int hashmap_put_credential(Hashmap **h, const char *id, const char *path, bool encrypted, bool glob) {
+        ExecLoadCredential *old;
+        int r;
+
+        assert(h);
+        assert(id);
+        assert(path);
+
+        old = hashmap_get(*h, id);
+        if (old) {
+                r = free_and_strdup(&old->path, path);
+                if (r < 0)
+                        return r;
+
+                old->encrypted = encrypted;
+        } else {
+                _cleanup_(exec_load_credential_freep) ExecLoadCredential *lc = NULL;
+
+                lc = new(ExecLoadCredential, 1);
+                if (!lc)
+                        return log_oom();
+
+                *lc = (ExecLoadCredential) {
+                        .id = strdup(id),
+                        .path = strdup(path),
+                        .encrypted = encrypted,
+                        .glob = glob,
+                };
+                if (!lc->id || !lc->path)
+                        return -ENOMEM;
+
+                r = hashmap_ensure_put(h, &exec_load_credential_hash_ops, lc->id, lc);
+                if (r < 0)
+                        return r;
+
+                TAKE_PTR(lc);
+        }
+
+        return 0;
+}
+
 int config_parse_load_credential(
                 const char *unit,
                 const char *filename,
@@ -4779,7 +4821,6 @@ int config_parse_load_credential(
 
         _cleanup_free_ char *word = NULL, *k = NULL, *q = NULL;
         ExecContext *context = ASSERT_PTR(data);
-        ExecLoadCredential *old;
         bool encrypted = ltype;
         Unit *u = userdata;
         const char *p;
@@ -4832,34 +4873,64 @@ int config_parse_load_credential(
                 }
         }
 
-        old = hashmap_get(context->load_credentials, k);
-        if (old) {
-                free_and_replace(old->path, q);
-                old->encrypted = encrypted;
-        } else {
-                _cleanup_(exec_load_credential_freep) ExecLoadCredential *lc = NULL;
-
-                lc = new(ExecLoadCredential, 1);
-                if (!lc)
-                        return log_oom();
-
-                *lc = (ExecLoadCredential) {
-                        .id = TAKE_PTR(k),
-                        .path = TAKE_PTR(q),
-                        .encrypted = encrypted,
-                };
-
-                r = hashmap_ensure_put(&context->load_credentials, &exec_load_credential_hash_ops, lc->id, lc);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Duplicated credential value '%s', ignoring assignment: %s", lc->id, rvalue);
-                        return 0;
-                }
-
-                TAKE_PTR(lc);
+        r = hashmap_put_credential(&context->load_credentials, k, q, encrypted, /* glob= */ false);
+        if (r == -EEXIST) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Duplicated credential value '%s', ignoring assignment: %s", k, rvalue);
+                return 0;
         }
+        if (r < 0)
+                return log_error_errno(r, "Failed to store load credential '%s': %m", rvalue);
+
+        return 0;
+}
+
+int config_parse_load_credential_glob(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *glob = NULL;
+        ExecContext *context = ASSERT_PTR(data);
+        Unit *u = userdata;
+        bool encrypted = ltype;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                context->load_credentials = hashmap_free(context->load_credentials);
+                return 0;
+        }
+
+        r = unit_cred_printf(u, rvalue, &glob);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in \"%s\", ignoring: %m", glob);
+                return 0;
+        }
+        if (!filename_is_valid(glob)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Credential glob \"%s\" not valid, ignoring.", glob);
+                return 0;
+        }
+
+        r = hashmap_put_credential(&context->load_credentials, glob, glob, encrypted, /* glob= */ true);
+        if (r == -EEXIST) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Duplicated credential value '%s', ignoring assignment: %s", glob, rvalue);
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to store load credential glob '%s': %m", rvalue);
 
         return 0;
 }

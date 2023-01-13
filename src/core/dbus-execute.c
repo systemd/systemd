@@ -26,6 +26,7 @@
 #include "io-util.h"
 #include "ioprio-util.h"
 #include "journal-file.h"
+#include "load-fragment.h"
 #include "missing_ioprio.h"
 #include "mountpoint-util.h"
 #include "namespace.h"
@@ -919,7 +920,47 @@ static int property_get_load_credential(
                 if (lc->encrypted != streq(property, "LoadCredentialEncrypted"))
                         continue;
 
+                if (lc->glob)
+                        continue;
+
                 r = sd_bus_message_append(reply, "(ss)", lc->id, lc->path);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
+static int property_get_load_credential_glob(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = ASSERT_PTR(userdata);
+        ExecLoadCredential *lc;
+        int r;
+
+        assert(bus);
+        assert(property);
+        assert(reply);
+
+        r = sd_bus_message_open_container(reply, 'a', "s");
+        if (r < 0)
+                return r;
+
+        HASHMAP_FOREACH(lc, c->load_credentials) {
+
+                if (lc->encrypted != streq(property, "LoadCredentialEncryptedGlob"))
+                        continue;
+
+                if (!lc->glob)
+                        continue;
+
+                r = sd_bus_message_append(reply, "s", lc->id);
                 if (r < 0)
                         return r;
         }
@@ -1256,6 +1297,8 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("SetCredentialEncrypted", "a(say)", property_get_set_credential, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LoadCredential", "a(ss)", property_get_load_credential, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LoadCredentialEncrypted", "a(ss)", property_get_load_credential, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LoadCredentialGlob", "as", property_get_load_credential_glob, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LoadCredentialEncryptedGlob", "as", property_get_load_credential_glob, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SupplementaryGroups", "as", NULL, offsetof(ExecContext, supplementary_groups), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PAMName", "s", NULL, offsetof(ExecContext, pam_name), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ReadWritePaths", "as", NULL, offsetof(ExecContext, read_write_paths), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -2275,41 +2318,56 @@ int bus_exec_context_set_transient_property(
                         isempty = false;
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                _cleanup_free_ char *copy = NULL;
-                                ExecLoadCredential *old;
+                                bool encrypted = streq(name, "LoadCredentialEncrypted");
 
-                                copy = strdup(source);
-                                if (!copy)
-                                        return -ENOMEM;
-
-                                old = hashmap_get(c->load_credentials, id);
-                                if (old) {
-                                        free_and_replace(old->path, copy);
-                                        old->encrypted = streq(name, "LoadCredentialEncrypted");
-                                } else {
-                                        _cleanup_(exec_load_credential_freep) ExecLoadCredential *lc = NULL;
-
-                                        lc = new(ExecLoadCredential, 1);
-                                        if (!lc)
-                                                return -ENOMEM;
-
-                                        *lc = (ExecLoadCredential) {
-                                                .id = strdup(id),
-                                                .path = TAKE_PTR(copy),
-                                                .encrypted = streq(name, "LoadCredentialEncrypted"),
-                                        };
-
-                                        if (!lc->id)
-                                                return -ENOMEM;
-
-                                        r = hashmap_ensure_put(&c->load_credentials, &exec_load_credential_hash_ops, lc->id, lc);
-                                        if (r < 0)
-                                                return r;
-
-                                        TAKE_PTR(lc);
-                                }
+                                r = hashmap_put_credential(&c->load_credentials, id, source, encrypted, /* glob= */ false);
+                                if (r < 0)
+                                        return r;
 
                                 (void) unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s:%s", name, id, source);
+                        }
+                }
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags) && isempty) {
+                        c->load_credentials = hashmap_free(c->load_credentials);
+                        (void) unit_write_settingf(u, flags, name, "%s=", name);
+                }
+
+                return 1;
+
+        } else if (STR_IN_SET(name, "LoadCredentialGlob", "LoadCredentialEncryptedGlob")) {
+                bool isempty = true;
+
+                r = sd_bus_message_enter_container(message, 'a', "s");
+                if (r < 0)
+                        return r;
+
+                for (;;) {
+                        const char *glob;
+
+                        r = sd_bus_message_read(message, "s", &glob);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        if (!filename_is_valid(glob))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Credential glob is invalid: %s", glob);
+
+                        isempty = false;
+
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                bool encrypted = streq(name, "LoadCredentialEncryptedGlob");
+
+                                r = hashmap_put_credential(&c->load_credentials, glob, glob, encrypted, /* glob= */ true);
+                                if (r < 0)
+                                        return sd_bus_error_set_errnof(error, r, "Failed to store credential glob %s: %m", glob);
+
+                                (void) unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name, glob);
                         }
                 }
 
