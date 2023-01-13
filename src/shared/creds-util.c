@@ -9,6 +9,7 @@
 #include "sd-id128.h"
 
 #include "blockdev-util.h"
+#include "capability-util.h"
 #include "chattr-util.h"
 #include "constants.h"
 #include "creds-util.h"
@@ -223,7 +224,11 @@ static int make_credential_host_secret(
         assert(dfd >= 0);
         assert(fn);
 
-        fd = openat(dfd, ".", O_CLOEXEC|O_WRONLY|O_TMPFILE, 0400);
+        /* For non-root users creating a temporary file using the openat(2) over "." will fail later, in the
+         * linkat(2) step at the end.  The reason is that linkat(2) requires the CAP_DAC_READ_SEARCH
+         * capability when it uses the AT_EMPTY_PATH flag. */
+        if (have_effective_cap(CAP_DAC_READ_SEARCH))
+                fd = openat(dfd, ".", O_CLOEXEC|O_WRONLY|O_TMPFILE, 0400);
         if (fd < 0) {
                 log_debug_errno(errno, "Failed to create temporary credential file with O_TMPFILE, proceeding without: %m");
 
