@@ -54,7 +54,7 @@ int open_file_parse(const char *v, OpenFile **ret) {
         }
 
         if (isempty(of->fdname)) {
-                free(of->fdname);
+                of->fdname = mfree(of->fdname);
                 r = path_extract_filename(of->path, &of->fdname);
                 if (r < 0)
                         return r;
