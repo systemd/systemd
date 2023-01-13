@@ -317,9 +317,12 @@ systemctl unset-environment IMPORT_THIS IMPORT_THIS_TOO
 
 # test for sysv-generator (issue #24990)
 if [[ -x /usr/lib/systemd/system-generators/systemd-sysv-generator ]]; then
-    mkdir -p /etc/init.d
+    # This is configurable via -Dsysvinit-path=, but we can't get the value
+    # at runtime, so let's just support the two most common paths for now.
+    [[ -d /etc/rc.d/init.d ]] && SYSVINIT_PATH="/etc/rc.d/init.d" || SYSVINIT_PATH="/etc/init.d"
+
     # invalid dependency
-    cat >/etc/init.d/issue-24990 <<\EOF
+    cat >"${SYSVINIT_PATH:?}/issue-24990" <<\EOF
 #!/bin/bash
 
 ### BEGIN INIT INFO
@@ -345,21 +348,21 @@ case "$1" in
 esac
 EOF
 
-    chmod +x /etc/init.d/issue-24990
+    chmod +x "$SYSVINIT_PATH/issue-24990"
     systemctl daemon-reload
     [[ -L /run/systemd/generator.late/test1.service ]]
     [[ -L /run/systemd/generator.late/test2.service ]]
     assert_eq "$(readlink -f /run/systemd/generator.late/test1.service)" "/run/systemd/generator.late/issue-24990.service"
     assert_eq "$(readlink -f /run/systemd/generator.late/test2.service)" "/run/systemd/generator.late/issue-24990.service"
     output=$(systemctl cat issue-24990)
-    assert_in "SourcePath=/etc/init.d/issue-24990" "$output"
+    assert_in "SourcePath=$SYSVINIT_PATH/issue-24990" "$output"
     assert_in "Description=LSB: Test" "$output"
     assert_in "After=test1.service" "$output"
     assert_in "After=remote-fs.target" "$output"
     assert_in "After=network-online.target" "$output"
     assert_in "Wants=network-online.target" "$output"
-    assert_in "ExecStart=/etc/init.d/issue-24990 start" "$output"
-    assert_in "ExecStop=/etc/init.d/issue-24990 stop" "$output"
+    assert_in "ExecStart=$SYSVINIT_PATH/issue-24990 start" "$output"
+    assert_in "ExecStop=$SYSVINIT_PATH/issue-24990 stop" "$output"
     systemctl status issue-24990 || :
     systemctl show issue-24990
     assert_not_in "issue-24990.service" "$(systemctl show --property=After --value)"
@@ -373,7 +376,7 @@ EOF
     systemctl stop issue-24990
 
     # valid dependency
-    cat >/etc/init.d/issue-24990 <<\EOF
+    cat >"$SYSVINIT_PATH/issue-24990" <<\EOF
 #!/bin/bash
 
 ### BEGIN INIT INFO
@@ -399,18 +402,18 @@ case "$1" in
 esac
 EOF
 
-    chmod +x /etc/init.d/issue-24990
+    chmod +x "$SYSVINIT_PATH/issue-24990"
     systemctl daemon-reload
     [[ -L /run/systemd/generator.late/test1.service ]]
     [[ -L /run/systemd/generator.late/test2.service ]]
     assert_eq "$(readlink -f /run/systemd/generator.late/test1.service)" "/run/systemd/generator.late/issue-24990.service"
     assert_eq "$(readlink -f /run/systemd/generator.late/test2.service)" "/run/systemd/generator.late/issue-24990.service"
     output=$(systemctl cat issue-24990)
-    assert_in "SourcePath=/etc/init.d/issue-24990" "$output"
+    assert_in "SourcePath=$SYSVINIT_PATH/issue-24990" "$output"
     assert_in "Description=LSB: Test" "$output"
     assert_in "After=remote-fs.target" "$output"
-    assert_in "ExecStart=/etc/init.d/issue-24990 start" "$output"
-    assert_in "ExecStop=/etc/init.d/issue-24990 stop" "$output"
+    assert_in "ExecStart=$SYSVINIT_PATH/issue-24990 start" "$output"
+    assert_in "ExecStop=$SYSVINIT_PATH/issue-24990 stop" "$output"
     systemctl status issue-24990 || :
     systemctl show issue-24990
     assert_not_in "issue-24990.service" "$(systemctl show --property=After --value)"
