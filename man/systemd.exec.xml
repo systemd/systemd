@@ -3208,6 +3208,25 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
       </varlistentry>
 
       <varlistentry>
+        <term><varname>ImportCredential=</varname><replaceable>GLOB</replaceable></term>
+
+        <listitem><para>Pass one or more credentials to the unit. Takes a credential name for which we'll
+        attempt to find a credential that the service manager itself received under the specified name —
+        which may be used to propagate credentials from an invoking environment (e.g. a container manager
+        that invoked the service manager) into a service. If the credential name is a glob, all credentials
+        matching the glob are passed to the unit. Matching credentials are searched for in the system
+        credentials, the encrypted system credentials, and under <filename>/etc/credstore/</filename>,
+        <filename>/run/credstore/</filename>, <filename>/usr/lib/credstore/</filename>,
+        <filename>/run/credstore.encrypted/</filename>, <filename>/etc/credstore.encrypted/</filename>, and
+        <filename>/usr/lib/credstore.encrypted/</filename> in that order. When multiple credentials of the
+        same name are found, the first one found is used.</para>
+
+        <para>When multiple credentials of the same name are found, credentials found by
+        <varname>LoadCredential=</varname> and <varname>LoadCredentialEncrypted=</varname> take priority over
+        credentials found by <varname>ImportCredential=</varname></para></listitem>.
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SetCredential=</varname><replaceable>ID</replaceable>:<replaceable>VALUE</replaceable></term>
         <term><varname>SetCredentialEncrypted=</varname><replaceable>ID</replaceable>:<replaceable>VALUE</replaceable></term>
 
@@ -3228,10 +3247,13 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         directly from plaintext credentials. For further details see
         <varname>LoadCredentialEncrypted=</varname> above.</para>
 
-        <para>If a credential of the same ID is listed in both <varname>LoadCredential=</varname> and
-        <varname>SetCredential=</varname>, the latter will act as default if the former cannot be
-        retrieved. In this case not being able to retrieve the credential from the path specified in
-        <varname>LoadCredential=</varname> is not considered fatal.</para></listitem>
+        <para>When multiple credentials of the same name are found, credentials found by
+        <varname>LoadCredential=</varname>, <varname>LoadCredentialEncrypted=</varname> and
+        <varname>ImportCredential=</varname> take priority over credentials found by
+        <varname>SetCredential=</varname>. As such, <varname>SetCredential=</varname> will act as default if
+        no credentials are found by any of the former. In this case not being able to retrieve the credential
+        from the path specified in <varname>LoadCredential=</varname> or
+        <varname>LoadCredentialEncrypted=</varname> is not considered fatal.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -3413,10 +3435,10 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <term><varname>$CREDENTIALS_DIRECTORY</varname></term>
 
           <listitem><para>An absolute path to the per-unit directory with credentials configured via
-          <varname>LoadCredential=</varname>/<varname>SetCredential=</varname>. The directory is marked
-          read-only and is placed in unswappable memory (if supported and permitted), and is only accessible to
-          the UID associated with the unit via <varname>User=</varname> or <varname>DynamicUser=</varname> (and
-          the superuser).</para></listitem>
+          <varname>ImportCredential=</varname>/<varname>LoadCredential=</varname>/<varname>SetCredential=</varname>.
+          The directory is marked read-only and is placed in unswappable memory (if supported and permitted),
+          and is only accessible to the UID associated with the unit via <varname>User=</varname> or
+          <varname>DynamicUser=</varname> (and the superuser).</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -4074,7 +4096,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <row>
             <entry>243</entry>
             <entry><constant>EXIT_CREDENTIALS</constant></entry>
-            <entry>Failed to set up unit's credentials. See <varname>LoadCredential=</varname> and <varname>SetCredential=</varname> above.</entry>
+            <entry>Failed to set up unit's credentials. See <varname>ImportCredential=</varname>, <varname>LoadCredential=</varname> and <varname>SetCredential=</varname> above.</entry>
           </row>
           <row>
             <entry>245</entry>
