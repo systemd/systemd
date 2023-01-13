@@ -99,6 +99,9 @@ systemctl list-jobs --after
 systemctl list-jobs --before
 systemctl list-jobs --after --before
 systemctl list-jobs "*"
+systemctl list-dependencies sysinit.target --type=socket,mount
+systemctl list-dependencies multi-user.target --state=active
+systemctl list-dependencies sysinit.target --state=mounted --all
 
 # is-* verbs
 # Should return 4 for a missing unit file

@@ -122,6 +122,7 @@ int get_state_one_unit(sd_bus *bus, const char *unit, UnitActiveState *ret_activ
         UnitActiveState state;
         int r;
 
+        assert(bus);
         assert(unit);
         assert(ret_active_state);
 
@@ -145,6 +146,34 @@ int get_state_one_unit(sd_bus *bus, const char *unit, UnitActiveState *ret_activ
                 return log_error_errno(state, "Invalid unit state '%s' for: %s", buf, unit);
 
         *ret_active_state = state;
+        return 0;
+}
+
+int get_sub_state_one_unit(sd_bus *bus, const char *unit, char **ret_sub_state) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *sub_state = NULL, *dbus_path = NULL;
+        int r;
+
+        assert(bus);
+        assert(unit);
+        assert(ret_sub_state);
+
+        dbus_path = unit_dbus_path_from_name(unit);
+        if (!dbus_path)
+                return log_oom();
+
+        r = sd_bus_get_property_string(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        dbus_path,
+                        "org.freedesktop.systemd1.Unit",
+                        "SubState",
+                        &error,
+                        &sub_state);
+        if (r < 0)
+                return log_error_errno(r, "Failed to retrieve unit sub state: %s", bus_error_message(&error, r));
+
+        *ret_sub_state = TAKE_PTR(sub_state);
         return 0;
 }
 

@@ -354,6 +354,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             dependencies. If no units are specified,
             <filename>default.target</filename> is implied.</para>
 
+            <para>The units that are shown are additionally filtered by <option>--type=</option> and
+            <option>--state=</option> if those options are specified. Note that we won't be able to
+            use a tree structure in this case, so <option>--plain</option> is implied.</para>
+
             <para>By default, only target units are recursively
             expanded. When <option>--all</option> is passed, all other
             units are recursively expanded as well.</para>
@@ -1657,8 +1661,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <listitem>
           <para>The argument is a comma-separated list of unit types such as <option>service</option> and
           <option>socket</option>. When units are listed with <command>list-units</command>,
-          <command>show</command>, or <command>status</command>, only units of the specified types will be
-          shown. By default, units of all types are shown.</para>
+          <command>list-dependencies</command>, <command>show</command>, or <command>status</command>,
+          only units of the specified types will be shown. By default, units of all types are shown.</para>
 
           <para>As a special case, if one of the arguments is <option>help</option>, a list of allowed values
           will be printed and the program will exit.</para>
@@ -1670,9 +1674,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
         <listitem>
           <para>The argument is a comma-separated list of unit LOAD, SUB, or ACTIVE states. When listing
-          units with <command>list-units</command>, <command>show</command>, or <command>status</command>,
-          show only those in the specified states. Use <option>--state=failed</option> or
-          <option>--failed</option> to show only failed units.</para>
+          units with <command>list-units</command>, <command>list-dependencies</command>, <command>show</command>
+          or <command>status</command>, show only those in the specified states. Use <option>--state=failed</option>
+          or <option>--failed</option> to show only failed units.</para>
 
           <para>As a special case, if one of the arguments is <option>help</option>, a list of allowed values
           will be printed and the program will exit.</para>
