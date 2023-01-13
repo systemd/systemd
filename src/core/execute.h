@@ -361,6 +361,7 @@ struct ExecContext {
 
         Hashmap *set_credentials; /* output id → ExecSetCredential */
         Hashmap *load_credentials; /* output id → ExecLoadCredential */
+        Set *import_credentials;
 
         ImagePolicy *root_image_policy, *mount_image_policy, *extension_image_policy;
 };

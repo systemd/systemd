@@ -139,8 +139,8 @@
     <title>Credentials</title>
 
     <para><command>systemd-sysusers</command> supports the service credentials logic as implemented by
-    <varname>LoadCredential=</varname>/<varname>SetCredential=</varname> (see
-    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+    <varname>ImportCredential=</varname><varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
+    (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
     details). The following credentials are used when passed in:</para>
 
     <variablelist>
