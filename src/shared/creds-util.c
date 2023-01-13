@@ -9,6 +9,7 @@
 #include "sd-id128.h"
 
 #include "blockdev-util.h"
+#include "capability-util.h"
 #include "chattr-util.h"
 #include "constants.h"
 #include "creds-util.h"
@@ -223,7 +224,10 @@ static int make_credential_host_secret(
         assert(dfd >= 0);
         assert(fn);
 
-        fd = openat(dfd, ".", O_CLOEXEC|O_WRONLY|O_TMPFILE, 0400);
+        /* used by linkat(2) with AT_EMPTY_PATH flag to create a link to a file referred to by a file
+           descriptor */
+        if (have_effective_cap(CAP_DAC_READ_SEARCH))
+                fd = openat(dfd, ".", O_CLOEXEC|O_WRONLY|O_TMPFILE, 0400);
         if (fd < 0) {
                 log_debug_errno(errno, "Failed to create temporary credential file with O_TMPFILE, proceeding without: %m");
 
