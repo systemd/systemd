@@ -476,7 +476,9 @@
         <term><varname>Where=</varname></term>
         <listitem><para>Takes an absolute path of a file or directory for the mount point; in particular, the
         destination cannot be a symbolic link.  If the mount point does not exist at the time of mounting, it
-        is created as directory. This string must be reflected in the unit filename. (See above.) This option
+        is created as either a directory or a file. The former is the usual case; the latter is done only if this mount
+        is a bind mount and the source (<varname>What=</varname>) is not a directory.
+        This string must be reflected in the unit filename. (See above.) This option
         is mandatory.</para></listitem>
       </varlistentry>
 
