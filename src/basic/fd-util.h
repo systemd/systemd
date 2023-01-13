@@ -90,14 +90,8 @@ static inline int make_null_stdio(void) {
         return rearrange_stdio(-EBADF, -EBADF, -EBADF);
 }
 
-/* Like TAKE_PTR() but for file descriptors, resetting them to -1 */
-#define TAKE_FD(fd)                             \
-        ({                                      \
-                int *_fd_ = &(fd);              \
-                int _ret_ = *_fd_;              \
-                *_fd_ = -EBADF;                 \
-                _ret_;                          \
-        })
+/* Like TAKE_PTR() but for file descriptors, resetting them to -EBADF */
+#define TAKE_FD(fd) TAKE_GENERIC(fd, -EBADF)
 
 /* Like free_and_replace(), but for file descriptors */
 #define close_and_replace(a, b)                 \

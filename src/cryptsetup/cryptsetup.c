@@ -1448,6 +1448,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         /* pubkey_pcr_mask= */ 0,
                                         /* signature_path= */ NULL,
                                         /* primary_alg= */ 0,
+                                        /* primary_template= */ NULL, /* primary_template_size= */ 0,
                                         key_file, arg_keyfile_size, arg_keyfile_offset,
                                         key_data, key_data_size,
                                         /* policy_hash= */ NULL, /* policy_hash_size= */ 0, /* we don't know the policy hash */
@@ -1486,8 +1487,8 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                 }
 
                 if (r == -EOPNOTSUPP) { /* Plugin not available, let's process TPM2 stuff right here instead */
-                        _cleanup_free_ void *blob = NULL, *policy_hash = NULL;
-                        size_t blob_size, policy_hash_size;
+                        _cleanup_free_ void *primary_template = NULL, *blob = NULL, *policy_hash = NULL;
+                        size_t primary_template_size, blob_size, policy_hash_size;
                         bool found_some = false;
                         int token = 0; /* first token to look at */
 
@@ -1511,6 +1512,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 &pubkey, &pubkey_size,
                                                 &pubkey_pcr_mask,
                                                 &primary_alg,
+                                                &primary_template, &primary_template_size,
                                                 &blob, &blob_size,
                                                 &policy_hash, &policy_hash_size,
                                                 &tpm2_flags,
@@ -1539,6 +1541,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 pubkey_pcr_mask,
                                                 arg_tpm2_signature,
                                                 primary_alg,
+                                                primary_template, primary_template_size,
                                                 /* key_file= */ NULL, /* key_file_size= */ 0, /* key_file_offset= */ 0, /* no key file */
                                                 blob, blob_size,
                                                 policy_hash, policy_hash_size,
