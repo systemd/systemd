@@ -250,8 +250,62 @@ static int get_firmware_vendor(char **ret) {
          return get_hardware_firmware_data("bios_vendor", ret);
 }
 
-static int get_firmware_date(char **ret) {
-         return get_hardware_firmware_data("bios_date", ret);
+static int get_firmware_date(usec_t *ret) {
+         _cleanup_free_ char *bios_date = NULL, *month = NULL, *day = NULL, *year = NULL;
+         int r;
+
+         r = get_hardware_firmware_data("bios_date", &bios_date);
+         if (r < 0)
+                return r;
+         if (r == 0) {
+                *ret = USEC_INFINITY;
+                return 0;
+         }
+
+         const char *p = bios_date;
+         r = extract_many_words(&p, "/", EXTRACT_DONT_COALESCE_SEPARATORS, &month, &day, &year, NULL);
+         if (r < 0)
+                return r;
+         if (r != 3) /* less than three args read? */
+                return -EINVAL;
+         if (!isempty(p)) /* more left in the string? */
+                return -EINVAL;
+
+         unsigned m, d, y;
+         r = safe_atou(month, &m);
+         if (r < 0)
+                return r;
+         if (m < 1 || m > 12)
+                return -EINVAL;
+         m -= 1;
+
+         r = safe_atou(day, &d);
+         if (r < 0)
+                return r;
+         if (d < 1 || d > 31)
+                return -EINVAL;
+
+         r = safe_atou(year, &y);
+         if (r < 0)
+                return r;
+         if (y < 1970 || y > (unsigned) INT_MAX)
+                return -EINVAL;
+         y -= 1900;
+
+         struct tm tm = {
+                .tm_mday = d,
+                .tm_mon = m,
+                .tm_year = y,
+         };
+         time_t v = timegm(&tm);
+         if (v == (time_t) -1)
+                return -errno;
+         if (tm.tm_mday != (int) d || tm.tm_mon != (int) m || tm.tm_year != (int) y)
+                return -EINVAL; /* date was not normalized? (e.g. "30th of feb") */
+
+         *ret = (usec_t) v * USEC_PER_SEC;
+
+         return 0;
 }
 
 static const char* valid_chassis(const char *chassis) {
@@ -661,11 +715,11 @@ static int property_get_firmware_date(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_free_ char *firmware_date = NULL;
+        usec_t firmware_date = USEC_INFINITY;
 
         (void) get_firmware_date(&firmware_date);
 
-        return sd_bus_message_append(reply, "s", firmware_date);
+        return sd_bus_message_append(reply, "t", firmware_date);
 }
 static int property_get_hostname(
                 sd_bus *bus,
@@ -1189,7 +1243,8 @@ static int method_get_hardware_serial(sd_bus_message *m, void *userdata, sd_bus_
 static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *hn = NULL, *dhn = NULL, *in = NULL, *text = NULL,
                 *chassis = NULL, *vendor = NULL, *model = NULL, *serial = NULL, *firmware_version = NULL,
-                *firmware_vendor = NULL, *firmware_date = NULL;
+                *firmware_vendor = NULL;
+        usec_t firmware_date = USEC_INFINITY;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         sd_id128_t product_uuid = SD_ID128_NULL;
@@ -1277,7 +1332,7 @@ static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *erro
                                        JSON_BUILD_PAIR("HardwareSerial", JSON_BUILD_STRING(serial)),
                                        JSON_BUILD_PAIR("FirmwareVersion", JSON_BUILD_STRING(firmware_version)),
                                        JSON_BUILD_PAIR("FirmwareVendor", JSON_BUILD_STRING(firmware_vendor)),
-                                       JSON_BUILD_PAIR("FirmwareDate", JSON_BUILD_STRING(firmware_date)),
+                                       JSON_BUILD_PAIR_FINITE_USEC("FirmwareDate", firmware_date),
                                        JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(product_uuid), "ProductUUID", JSON_BUILD_ID128(product_uuid)),
                                        JSON_BUILD_PAIR_CONDITION(sd_id128_is_null(product_uuid), "ProductUUID", JSON_BUILD_NULL)));
 
@@ -1320,7 +1375,7 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_PROPERTY("HardwareModel", "s", property_get_hardware_model, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("FirmwareVersion", "s", property_get_firmware_version, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("FirmwareVendor", "s", property_get_firmware_vendor, 0, SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("FirmwareDate", "s", property_get_firmware_date, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("FirmwareDate", "t", property_get_firmware_date, 0, SD_BUS_VTABLE_PROPERTY_CONST),
 
         SD_BUS_METHOD_WITH_ARGS("SetHostname",
                                 SD_BUS_ARGS("s", hostname, "b", interactive),

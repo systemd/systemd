@@ -92,7 +92,7 @@ node /org/freedesktop/hostname1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s FirmwareVendor = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly s FirmwareDate = '...';
+      readonly t FirmwareDate = ...;
   };
   interface org.freedesktop.DBus.Peer { ... };
   interface org.freedesktop.DBus.Introspectable { ... };
