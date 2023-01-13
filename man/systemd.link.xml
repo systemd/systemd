@@ -623,7 +623,7 @@
                 credential <literal><replaceable>LINK</replaceable>.link.wol.password</literal> (e.g.,
                 <literal>60-foo.link.wol.password</literal>), and if the credential not found, then
                 read from <literal>wol.password</literal>. See
-                <varname>LoadCredential=</varname>/<varname>SetCredential=</varname> in
+                <varname>ImportCredential=</varname>/<varname>LoadCredential=</varname>/<varname>SetCredential=</varname> in
                 <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 for details. The password in the credential, must be 6 bytes in hex format with each
                 byte separated by a colon (<literal>:</literal>) like an Ethernet MAC address, e.g.,
