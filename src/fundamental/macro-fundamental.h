@@ -298,13 +298,16 @@
 
 /* Takes inspiration from Rust's Option::take() method: reads and returns a pointer, but at the same time
  * resets it to NULL. See: https://doc.rust-lang.org/std/option/enum.Option.html#method.take */
-#define TAKE_PTR(ptr)                           \
-        ({                                      \
-                typeof(ptr) *_pptr_ = &(ptr);   \
-                typeof(ptr) _ptr_ = *_pptr_;    \
-                *_pptr_ = NULL;                 \
-                _ptr_;                          \
+#define TAKE_GENERIC(var, nullvalue)                          \
+        ({                                                    \
+                typeof(var) *_pvar_ = &(var);                 \
+                typeof(var) _var_ = *_pvar_;                  \
+                typeof(var) _nullvalue_ = nullvalue;          \
+                *_pvar_ = _nullvalue_;                        \
+                _var_;                                        \
         })
+#define TAKE_PTR(ptr) TAKE_GENERIC(ptr, NULL)
+#define TAKE_STRUCT(s) TAKE_GENERIC(s, {})
 
 /*
  * STRLEN - return the length of a string literal, minus the trailing NUL byte.
