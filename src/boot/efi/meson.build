@@ -146,6 +146,14 @@ efi_c_ld_args = [
         '-Wl,--entry=' + entry_prefix + 'efi_main',
 ]
 
+if get_option('mode') == 'release'
+        # Debug information has little value in release builds as no normal human being knows
+        # how to attach a debugger to EFI binaries running on real hardware. Anyone who does
+        # certainly has the means to do their own dev build.
+        # As an added bonus, it removes the "gaps between PE/COFF sections" warning from sbsign.
+        efi_c_ld_args += '-Wl,--strip-all'
+endif
+
 compiler_rt = get_option('compiler-rt')
 if compiler_rt == ''
         # Rely on compiler-provided libgcc for intrinsics. Note that clang is smart enough to find
