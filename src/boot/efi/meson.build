@@ -130,6 +130,7 @@ boot_c_args = [
         basic_disabled_warnings,
         possible_common_cc_flags,
         '-fwide-exec-charset=UCS2',
+        '-Wstrict-flex-arrays=3',
 )
 
 if get_option('mode') == 'developer'
