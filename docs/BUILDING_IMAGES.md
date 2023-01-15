@@ -32,7 +32,7 @@ boot. For that it's essential to:
    is not reset, and carries a valid ID every instance of the system will come
    up with the same ID and that will likely lead to problems sooner or later,
    as many network-visible identifiers are commonly derived from the machine
-   ID, for example IPv6 addresses or transient MAC addresses.
+   ID, for example, IPv6 addresses or transient MAC addresses.
 
 2. Remove the `/var/lib/systemd/random-seed` file (see
    [`systemd-random-seed(8)`](https://www.freedesktop.org/software/systemd/man/systemd-random-seed.service.html)),
@@ -83,7 +83,7 @@ which can be a freely chosen string to use for identifying the boot menu
 resources of the OS. If not configured explicitly it defaults to the machine
 ID. The file `/etc/kernel/entry-token` may be used to configure this string
 explicitly. Thus, golden image builders should write a suitable identifier into
-this file, for example the `IMAGE_ID=` or `ID=` field from
+this file, for example, the `IMAGE_ID=` or `ID=` field from
 [`/etc/os-release`](https://www.freedesktop.org/software/systemd/man/os-release.html)
 (also see below). It is recommended to do this before the `kernel-install`
 functionality is invoked (i.e. before the package manager is used to install

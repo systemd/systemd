@@ -162,7 +162,7 @@ When invoked from service context, `systemd-creds` passed without further
 parameters will list passed credentials. The `systemd-creds cat xyz` command
 may be used to write the contents of credential `xyz` to standard output. If
 these calls are combined with the `--system` switch credentials passed to the
-system as a whole are shown, instead of the those passed to the service the
+system as a whole are shown, instead of those passed to the service the
 command is invoked from.
 
 Example use:
@@ -179,17 +179,17 @@ via `systemd-creds cat`.
 
 Credentials are supposed to be useful for carrying sensitive information, such
 as cryptographic key material. For this kind of data (symmetric) encryption and
-authentication is provided to make storage of the data at rest safer. The data
+authentication are provided to make storage of the data at rest safer. The data
 may be encrypted and authenticated with AES256-GCM. The encryption key can
 either be one derived from the local TPM2 device, or one stored in
 `/var/lib/systemd/credential.secret`, or a combination of both. If a TPM2
-device is available and `/var/` resides on persistent storage the default
+device is available and `/var/` resides on a persistent storage, the default
 behaviour is to use the combination of both for encryption, thus ensuring that
 credentials protected this way can only be decrypted and validated on the
 local hardware and OS installation. Encrypted credentials stored on disk thus
 cannot be decrypted without access to the TPM2 chip and the aforementioned key
 file `/var/lib/systemd/credential.secret`. Moreover, credentials cannot be
-prepared on another machine than the local one.
+prepared on a machine other than the local one.
 
 The `systemd-creds` tool provides the commands `encrypt` and `decrypt` to
 encrypt and decrypt/authenticate credentials. Example:
@@ -345,7 +345,7 @@ Various services shipped with `systemd` consume credentials for tweaking behavio
   `passwd.plaintext-password.<username>` and `passwd.shell.<username>` to
   configure the password (either in UNIX hashed form, or plaintext) or shell of
   system users created. Replace `<username>` with the system user of your
-  choice, for example `root`.
+  choice, for example, `root`.
 
 * [`systemd-firstboot(1)`](https://www.freedesktop.org/software/systemd/man/systemd-firstboot.html)
   will look for the credentials `firstboot.locale`, `firstboot.locale-messages`,
