@@ -217,6 +217,14 @@ REQUIREMENTS:
         clang >= 10.0, llvm >= 10.0 (optional, required to build BPF programs
                 from source code in C)
 
+        For systemd-boot/stub:
+          mingw-gcc (x86/x86_64 only)
+            or
+          clang (arm/aarch64/x86/x86_64)
+          compiler-rt (Required for arm/aarch64, only required on x86/x86_64 if
+                mingw-gcc is not installed. Must be provided for windows target
+                by compiler or via meson option or as a source tree.)
+
         During runtime, you need the following additional
         dependencies:
 
