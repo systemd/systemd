@@ -83,7 +83,7 @@ if [ ! -f "$BUILDDIR"/build.ninja ] ; then
                 rootprefix=/${rootprefix#/}
         fi
 
-        meson "$BUILDDIR" \
+        meson setup "$BUILDDIR" \
                 -D "sysvinit-path=$sysvinit_path" \
                 -D "rootprefix=$rootprefix" \
                 -D man=false \
