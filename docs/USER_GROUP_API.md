@@ -129,7 +129,7 @@ interface. Specifically:
    `systemd-machined.service` and provides records for the users and groups used
    by local containers that use user namespacing.
 
-Other projects are invited to implement these services too. For example it
+Other projects are invited to implement these services too. For example, it
 would make sense for LDAP/ActiveDirectory projects to implement these
 interfaces, which would provide them a way to do per-user resource management
 enforced by systemd and defined directly in LDAP directories.

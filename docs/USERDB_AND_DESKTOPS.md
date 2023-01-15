@@ -152,7 +152,7 @@ users registered in `/etc/passwd` or LDAP to users managed by
 ## Future Additions
 
 JSON user/group records are extensible, hence we can easily add any additional
-fields desktop environments require. For example pattern-based authentication
+fields desktop environments require. For example, pattern-based authentication
 is likely very useful on touch-based devices, and the user records should hence
 learn them natively. Fields for other authentication mechanisms, such as
 fingerprint authentication should be provided as well, eventually.

@@ -155,7 +155,7 @@ without communicating with the `systemd` process:
 `systemd-sysusers`.
 
 Many other programs support operation without the system manager except when
-the specific functionality requires such communication. For example
+the specific functionality requires such communication. For example,
 `journalctl` operates almost independently, but will query the boot id when
 `--boot` option is used; it also requires `systemd-journald` (and thus
 `systemd`) to be running for options like `--flush` and `--sync`.
