@@ -2329,7 +2329,7 @@ PrivateTmp=yes</programlisting>
       <title>Top level drop-ins with template units</title>
 
       <para>Top level per-type drop-ins can be used to change some aspect of
-      all units of a particular type. For example by creating the
+      all units of a particular type. For example, by creating the
       <filename index='false'>/etc/systemd/system/service.d/</filename>
       directory with a drop-in file, the contents of the drop-in file can be
       applied to all service units. We can take this further by having the

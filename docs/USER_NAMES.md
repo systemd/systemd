@@ -151,7 +151,7 @@ user/group names accepted by the strict rules are also accepted by the relaxed
 rules, but not vice versa.
 
 Note that this relaxed mode does not refuse a couple of very questionable
-syntaxes. For example it permits a leading or embedded period. A leading period
+syntaxes. For example, it permits a leading or embedded period. A leading period
 is problematic because the matching home directory would typically be hidden
 from the user's/administrator's view. An embedded period is problematic since
 it creates ambiguity in traditional `chown` syntax (which is still accepted

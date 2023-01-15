@@ -712,7 +712,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 ## Committing to git
 
 - Commit message subject lines should be prefixed with an appropriate component
-  name of some kind. For example "journal: ", "nspawn: " and so on.
+  name of some kind. For example, "journal: ", "nspawn: " and so on.
 
 - Do not use "Signed-Off-By:" in your commit messages. That's a kernel thing we
   don't do in the systemd project.

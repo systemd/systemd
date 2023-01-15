@@ -161,7 +161,7 @@ the OS should take possession of the backing storage as necessary, dynamically
 using available space. Specifically:
 
 1. Additional partitions should be created, that make no sense to ship
-   pre-built in the image. For example `/tmp/` or `/home/` partitions, or even
+   pre-built in the image. For example, `/tmp/` or `/home/` partitions, or even
    `/var/` or the root file system (see above).
 
 2. Additional partitions should be created that shall function as A/B
