@@ -707,6 +707,12 @@ static int dhcp6_configure(Link *link) {
                                             "DHCPv6 CLIENT: Failed to %s rapid commit: %m",
                                             enable_disable(link->network->dhcp6_use_rapid_commit));
 
+        r = sd_dhcp6_client_set_send_release(client, link->network->dhcp6_send_release);
+        if (r < 0)
+                return log_link_debug_errno(link, r,
+                                            "DHCPv6 CLIENT: Failed to %s send release message on stop: %m",
+                                            enable_disable(link->network->dhcp6_send_release));
+
         link->dhcp6_client = TAKE_PTR(client);
 
         return 0;

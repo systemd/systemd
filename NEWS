@@ -55,6 +55,10 @@ CHANGES WITH 253 in spe:
           priority for DHCPv4 initial packets. This cannot be achieved with
           netfilter mangle tables because of the raw socket bypass.
 
+        * The [DHCPv6] section in .network file gained new SendRelease=
+          setting which enables the DHCPv6 client to send release when
+          it stops. This is the analog of the [DHCPv4] SendRelease= setting.
+
         Changes in udev:
 
         * The new net naming scheme "v253" has been introduced. In the new
