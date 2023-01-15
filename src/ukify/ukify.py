@@ -22,7 +22,7 @@ import tempfile
 import typing
 
 
-__version__ = '{{GIT_VERSION}}'
+__version__ = '{{PROJECT_VERSION}} ({{GIT_VERSION}})'
 
 EFI_ARCH_MAP = {
         # host_arch glob : [efi_arch, 32_bit_efi_arch if mixed mode is supported]
