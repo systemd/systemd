@@ -41,9 +41,9 @@ See [reporting of security vulnerabilities](SECURITY.md).
 * After you have pushed a new version, add a comment explaining the latest changes. If you are a member of the systemd project on GitHub, remove the `reviewed/needs-rework`/`ci-fails/needs-rework`/`needs-rebase` labels.
 * If you are copying existing code from another source (eg: a compat header), please make sure the license is compatible with `LGPL-2.1-or-later`. If the license is not `LGPL-2.1-or-later`, please add a note to [`LICENSES/README.md`](https://github.com/systemd/systemd/blob/main/LICENSES/README.md).
 * If the pull request stalls without review, post a ping in a comment after some time has passed. We are always short on reviewer time, and pull requests which haven't seen any recent activity can be easily forgotten.
-* Github will automatically add the please-review label when a pull request is opened or updated. If you need
+* Github will automatically add the `please-review` label when a pull request is opened or updated. If you need
 more information after a review, you can comment `/please-review` on the pull request to have Github add the
-please-review to the pull request.
+`please-review` label to the pull request.
 
 ## Reviewing Pull Requests
 
