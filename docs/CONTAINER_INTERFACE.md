@@ -210,7 +210,7 @@ manager, please consider supporting the following interfaces.
    container name the external side `ve-` + the container name.
 
 3. It is recommended to configure stable MAC addresses for container `veth`
-   devices, for example hashed out of the container names. That way it is more
+   devices, for example, hashed out of the container names. That way it is more
    likely that DHCP and IPv4LL will acquire stable addresses.
 
 ## The `/run/host/` Hierarchy
@@ -389,7 +389,7 @@ everybody. However, that's a systemd-specific interface and other init systems
 are unlikely to do the same.
 
 Note that it is our intention to make systemd systems work flawlessly and
-out-of-the-box in containers. In fact we are interested to ensure that the same
+out-of-the-box in containers. In fact, we are interested to ensure that the same
 OS image can be booted on a bare system, in a VM and in a container, and behave
 correctly each time. If you notice that some component in systemd does not work
 in a container as it should, even though the container manager implements

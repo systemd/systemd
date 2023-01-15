@@ -29,7 +29,7 @@ Generally, the same rules apply for user as for group names.
   hyphen](https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap03.html#tag_03_282),
   with the restriction that hyphen is not allowed as first character of the
   user name. Interestingly no size limit is declared, i.e. in neither
-  direction, meaning that strictly speaking according to POSIX both the empty
+  direction, meaning that strictly speaking, according to POSIX, both the empty
   string is a valid user name as well as a string of gigabytes in length.
 
 * Debian/Ubuntu based systems enforce the regular expression

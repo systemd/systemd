@@ -208,7 +208,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   variables if you are sure that thread-safety doesn't matter in your
   case. Alternatively, consider using TLS, which is pretty easy to use with
   gcc's `thread_local` concept. It's also OK to store data that is inherently
-  global in global variables, for example data parsed from command lines, see
+  global in global variables, for example, data parsed from command lines, see
   below.
 
 - Our focus is on the GNU libc (glibc), not any other libcs. If other libcs are
@@ -604,7 +604,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   i.e.  file system objects that are supposed to be regular files whose paths
   were specified by the user and hence might actually refer to other types of
   file system objects. This is a good idea so that we don't end up blocking on
-  'strange' file nodes, for example if the user pointed us to a FIFO or device
+  'strange' file nodes, for example, if the user pointed us to a FIFO or device
   node which may block when opening. Moreover even for actual regular files
   `O_NONBLOCK` has a benefit: it bypasses any mandatory lock that might be in
   effect on the regular file. If in doubt consider turning off `O_NONBLOCK`

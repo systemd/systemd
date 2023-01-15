@@ -34,7 +34,7 @@ architecture.
    variable logic in `meson.build` to be set to the right architecture string
    as defined by the UEFI specification. (This ensures that `systemd-boot` will
    be built as the appropriately named `BOOT<arch>.EFI` binary.) Also, if your
-   architecture uses a special boot protocol for the Linux kernel make sure to
+   architecture uses a special boot protocol for the Linux kernel, make sure to
    implement it in `src/boot/efi/linux*.c`, so that the `systemd-stub` EFI stub
    can work.
 
@@ -54,5 +54,5 @@ architecture.
    `/usr/` mounted in.
 
 7. If your architecture supports VM virtualization and provides CPU opcodes
-   similar to x86' CPUID consider adding native support for detecting VMs this
+   similar to x86' CPUID, consider adding native support for detecting VMs this
    way to `src/basic/virt.c`.
