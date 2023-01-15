@@ -39,6 +39,7 @@ BuildPackages=
         docbook-xsl
         libxslt
         linux-api-headers
+        mingw-w64-gcc
         pahole
         perl
         python-docutils

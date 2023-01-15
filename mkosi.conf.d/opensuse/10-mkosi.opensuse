@@ -83,6 +83,7 @@ BuildPackages=
         libselinux-devel
         libxkbcommon-devel
         libxslt-tools
+        mingw64-gcc
         openssl-devel
         pam-devel
         pciutils-devel

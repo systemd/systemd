@@ -44,6 +44,7 @@ BuildPackages=
         bpftool
         docbook-xsl
         g++
+        gcc-mingw-w64-x86-64
         gcc-multilib
         libacl1-dev
         libasound-dev

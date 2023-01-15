@@ -47,6 +47,7 @@ BuildPackages=
         dwarves
         glibc-static
         libcap-static
+        mingw64-gcc
         pam-devel
         pkgconfig # pkgconf shim to provide /usr/bin/pkg-config
         pkgconfig(alsa)

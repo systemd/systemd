@@ -50,6 +50,7 @@ BuildPackages=
         glibc-static.i686
         libgcrypt-devel # CentOS Stream 8 libgcrypt-devel doesn't ship a pkg-config file.
         libxslt
+        mingw64-gcc
         pam-devel
         perl-interpreter
         pkgconfig(alsa)
