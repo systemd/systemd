@@ -3206,6 +3206,16 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
       </varlistentry>
 
       <varlistentry>
+        <term><varname>LoadCredentialGlob=</varname><replaceable>GLOB</replaceable></optional></term>
+        <term><varname>LoadCredentialEncryptedGlob=</varname><replaceable>GLOB</replaceable></term>
+
+        <listitem><para>These are like <varname>LoadCredential=</varname> and
+        <varname>LoadCredentialEncrypted=</varname>, but they take a glob that is used to lookup credentials
+        that should be made available to the service. When using these settings, the ID of each credential
+        is always the filename of the file containing the credential.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SetCredential=</varname><replaceable>ID</replaceable>:<replaceable>VALUE</replaceable></term>
         <term><varname>SetCredentialEncrypted=</varname><replaceable>ID</replaceable>:<replaceable>VALUE</replaceable></term>
 

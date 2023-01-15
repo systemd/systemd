@@ -2641,12 +2641,156 @@ static char **credential_search_path(
         return TAKE_PTR(l);
 }
 
+static int maybe_decrypt_and_write_credential(
+                int dir_fd,
+                const char *id,
+                bool encrypted,
+                uid_t uid,
+                bool ownership_ok,
+                const char *data,
+                size_t size,
+                uint64_t *left) {
+
+        _cleanup_free_ void *plaintext = NULL;
+        size_t add;
+        int r;
+
+        if (encrypted) {
+                size_t plaintext_size = 0;
+
+                r = decrypt_credential_and_warn(id, now(CLOCK_REALTIME), NULL, NULL, data, size,
+                                                &plaintext, &plaintext_size);
+                if (r < 0)
+                        return r;
+
+                data = plaintext;
+                size = plaintext_size;
+        }
+
+        add = strlen(id) + size;
+        if (add > *left)
+                return -E2BIG;
+
+        r = write_credential(dir_fd, id, data, size, uid, ownership_ok);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write credential '%s': %m", id);
+
+        *left -= add;
+        return 0;
+}
+
+static int load_credential_one(
+                const char *id,
+                const char *path,
+                bool encrypted,
+                char **search_path,
+                ReadFullFileFlags flags,
+                int write_dfd,
+                uid_t uid,
+                bool ownership_ok,
+                uint64_t *left) {
+
+        _cleanup_(erase_and_freep) char *data = NULL;
+        size_t size;
+        int r;
+
+        STRV_FOREACH(d, search_path) {
+                _cleanup_free_ char *j = NULL;
+
+                j = path_join(*d, path);
+                if (!j)
+                        return -ENOMEM;
+
+                /* path is absolute, hence pass AT_FDCWD as nop dir fd here */
+                r = read_full_file_full(
+                        AT_FDCWD,
+                        j,
+                        UINT64_MAX,
+                        encrypted ? CREDENTIAL_ENCRYPTED_SIZE_MAX : CREDENTIAL_SIZE_MAX,
+                        flags,
+                        NULL,
+                        &data, &size);
+                if (r != -ENOENT)
+                        break;
+        }
+        if (r < 0)
+                return r;
+
+        return maybe_decrypt_and_write_credential(write_dfd, id, encrypted, uid, ownership_ok, data, size, left);
+}
+
+static int load_credential_glob(
+                const char *glob,
+                bool encrypted,
+                char **search_path,
+                ReadFullFileFlags flags,
+                int write_dfd,
+                uid_t uid,
+                bool ownership_ok,
+                uint64_t *left) {
+
+        int r;
+
+        STRV_FOREACH(d, search_path) {
+                _cleanup_globfree_ glob_t pglob = {};
+                _cleanup_free_ char *j = NULL;
+
+                j = path_join(*d, glob);
+                if (!j)
+                        return -ENOMEM;
+
+                r = safe_glob(j, 0, &pglob);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return r;
+
+                for (unsigned n = 0; n < pglob.gl_pathc; n++) {
+                        _cleanup_free_ char *fn = NULL;
+                        _cleanup_(erase_and_freep) char *data = NULL;
+                        size_t size;
+
+                        /* path is absolute, hence pass AT_FDCWD as nop dir fd here */
+                        r = read_full_file_full(
+                                AT_FDCWD,
+                                pglob.gl_pathv[n],
+                                UINT64_MAX,
+                                encrypted ? CREDENTIAL_ENCRYPTED_SIZE_MAX : CREDENTIAL_SIZE_MAX,
+                                flags,
+                                NULL,
+                                &data, &size);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to read credential '%s': %m",
+                                                        pglob.gl_pathv[n]);
+
+                        r = path_extract_filename(pglob.gl_pathv[n], &fn);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to extract filename from '%s': %m",
+                                                        pglob.gl_pathv[n]);
+
+                        r = maybe_decrypt_and_write_credential(
+                                write_dfd,
+                                fn,
+                                encrypted,
+                                uid,
+                                ownership_ok,
+                                data, size,
+                                left);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
+}
+
 static int load_credential(
                 const ExecContext *context,
                 const ExecParameters *params,
                 const char *id,
                 const char *path,
                 bool encrypted,
+                bool glob,
                 const char *unit,
                 int read_dfd,
                 int write_dfd,
@@ -2656,11 +2800,9 @@ static int load_credential(
 
         ReadFullFileFlags flags = READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER;
         _cleanup_strv_free_ char **search_path = NULL;
-        _cleanup_(erase_and_freep) char *data = NULL;
         _cleanup_free_ char *bindname = NULL;
         const char *source = NULL;
         bool missing_ok = true;
-        size_t size, add, maxsz;
         int r;
 
         assert(context);
@@ -2717,35 +2859,36 @@ static int load_credential(
         if (encrypted)
                 flags |= READ_FULL_FILE_UNBASE64;
 
-        maxsz = encrypted ? CREDENTIAL_ENCRYPTED_SIZE_MAX : CREDENTIAL_SIZE_MAX;
-
         if (search_path) {
-                STRV_FOREACH(d, search_path) {
-                        _cleanup_free_ char *j = NULL;
+                if (glob)
+                        r = load_credential_glob(path, encrypted, search_path, flags, write_dfd, uid, ownership_ok, left);
+                else
+                        r = load_credential_one(id, path, encrypted, search_path, flags, write_dfd, uid, ownership_ok, left);
+        } else if (source) {
+                _cleanup_(erase_and_freep) char *data = NULL;
+                size_t size;
 
-                        j = path_join(*d, path);
-                        if (!j)
-                                return -ENOMEM;
-
-                        r = read_full_file_full(
-                                        AT_FDCWD, j, /* path is absolute, hence pass AT_FDCWD as nop dir fd here */
-                                        UINT64_MAX,
-                                        maxsz,
-                                        flags,
-                                        NULL,
-                                        &data, &size);
-                        if (r != -ENOENT)
-                                break;
-                }
-        } else if (source)
                 r = read_full_file_full(
                                 read_dfd, source,
                                 UINT64_MAX,
-                                maxsz,
+                                encrypted ? CREDENTIAL_ENCRYPTED_SIZE_MAX : CREDENTIAL_SIZE_MAX,
                                 flags,
                                 bindname,
                                 &data, &size);
-        else
+
+                if (r >= 0) {
+                        r = maybe_decrypt_and_write_credential(
+                                write_dfd,
+                                id,
+                                encrypted,
+                                uid,
+                                ownership_ok,
+                                data, size,
+                                left);
+                        if (r < 0)
+                                return r;
+                }
+        } else
                 r = -ENOENT;
 
         if (r == -ENOENT && (missing_ok || hashmap_contains(context->set_credentials, id))) {
@@ -2762,27 +2905,6 @@ static int load_credential(
         if (r < 0)
                 return log_debug_errno(r, "Failed to read credential '%s': %m", path);
 
-        if (encrypted) {
-                _cleanup_free_ void *plaintext = NULL;
-                size_t plaintext_size = 0;
-
-                r = decrypt_credential_and_warn(id, now(CLOCK_REALTIME), NULL, NULL, data, size, &plaintext, &plaintext_size);
-                if (r < 0)
-                        return r;
-
-                free_and_replace(data, plaintext);
-                size = plaintext_size;
-        }
-
-        add = strlen(id) + size;
-        if (add > *left)
-                return -E2BIG;
-
-        r = write_credential(write_dfd, id, data, size, uid, ownership_ok);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to write credential '%s': %m", id);
-
-        *left -= add;
         return 0;
 }
 
@@ -2836,6 +2958,7 @@ static int load_cred_recurse_dir_cb(
                         sub_id,
                         de->d_name,
                         args->encrypted,
+                        /* glob= */ false,
                         args->unit,
                         dir_fd,
                         args->dfd,
@@ -2894,6 +3017,7 @@ static int acquire_credentials(
                                         lc->id,
                                         lc->path,
                                         lc->encrypted,
+                                        lc->glob,
                                         unit,
                                         AT_FDCWD,
                                         dfd,
