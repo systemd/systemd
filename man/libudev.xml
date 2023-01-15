@@ -43,7 +43,7 @@
     equivalent replacement with a more modern API.</para>
 
     <para>All functions require a libudev context to operate. This
-    context can be create via
+    context can be created via
     <citerefentry><refentrytitle>udev_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     It is used to track library state and link objects together. No
     global state is used by libudev, everything is always linked to
