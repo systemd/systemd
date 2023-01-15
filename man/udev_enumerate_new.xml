@@ -59,7 +59,7 @@
     <title>Return Value</title>
 
     <para>On success, <function>udev_enumerate_new()</function> returns a
-    pointer to the allocated udev monitor. On failure,
+    pointer to the allocated enumeration object. On failure,
     <constant>NULL</constant> is returned.
     <function>udev_enumerate_ref()</function> returns the argument
     that it was passed, unmodified.
