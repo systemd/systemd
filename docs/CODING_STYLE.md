@@ -730,7 +730,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   hard. Moreover, while we rely heavily on GitHub's project management
   infrastructure we'd like to keep everything that can reasonably be kept in
   the git repository itself in the git repository, so that we can theoretically
-  move things elswhere with the least effort possible.
+  move things elsewhere with the least effort possible.
 
 - It's OK to reference GitHub PRs, GitHub issues and git commits from code
   comments. Cross-referencing code, issues, and documentation is a good thing.

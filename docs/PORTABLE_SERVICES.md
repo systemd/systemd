@@ -95,7 +95,7 @@ This command does the following:
    image, and looks for all included unit files.
 
 2. It copies out all unit files with a suffix of `.service`, `.socket`,
-   `.target`, `.timer` and `.path`. whose name begins with the image's name
+   `.target`, `.timer` and `.path`, whose name begins with the image's name
    (with `.raw` removed), truncated at the first underscore if there is one.
    This prefix name generated from the image name must be followed by a ".",
    "-" or "@" character in the unit name. Or in other words, given the image

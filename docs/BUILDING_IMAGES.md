@@ -117,7 +117,7 @@ Specifically, the following mechanisms are in place:
 
 4. The
    [`systemd-sysusers(8)`](https://www.freedesktop.org/software/systemd/man/systemd-sysusers.service.html)
-   will component automatically populate `/etc/passwd` and `/etc/group` on
+   component will automatically populate `/etc/passwd` and `/etc/group` on
    first boot with further necessary system users.
 
 5. The
