@@ -2007,7 +2007,9 @@ RestrictFileSystems=ext4</programlisting>
 
         <para>Note that this setting might not be supported on some systems (for example if the LSM eBPF hook is
         not enabled in the underlying kernel or if not using the unified control group hierarchy). In that case this setting
-        has no effect.</para></listitem>
+        has no effect.</para>
+
+        <xi:include href="cgroup-sandboxing.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>

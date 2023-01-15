@@ -638,6 +638,8 @@
           support is not enabled in the underlying kernel or container manager). These settings will have no effect in
           that case. If compatibility with such systems is desired it is hence recommended to not exclusively rely on
           them for IP security.</para>
+
+          <xi:include href="cgroup-sandboxing.xml" xpointer="singular"/>
         </listitem>
       </varlistentry>
 
@@ -814,6 +816,8 @@ SocketBindDeny=any
 SocketBindAllow=ipv4:udp:10000-65535
 SocketBindDeny=any
 …</programlisting></para>
+
+          <xi:include href="cgroup-sandboxing.xml" xpointer="singular"/>
         </listitem>
       </varlistentry>
 
@@ -860,6 +864,8 @@ RestrictNetworkInterfaces=eth1 eth2
 RestrictNetworkInterfaces=~eth1</programlisting>
           Programs in the unit will be only able to use the eth2 network interface.
           </para>
+
+          <xi:include href="cgroup-sandboxing.xml" xpointer="singular"/>
         </listitem>
       </varlistentry>
 
@@ -912,6 +918,7 @@ DeviceAllow=block-loop
 DeviceAllow=/dev/loop-control
 …</programlisting></para>
 
+          <xi:include href="cgroup-sandboxing.xml" xpointer="singular"/>
         </listitem>
       </varlistentry>
 
@@ -956,6 +963,8 @@ DeviceAllow=/dev/loop-control
               </listitem>
             </varlistentry>
           </variablelist>
+
+          <xi:include href="cgroup-sandboxing.xml" xpointer="singular"/>
         </listitem>
       </varlistentry>
 
