@@ -27,9 +27,9 @@ jobs:
         env:
           - { COMPILER: "gcc",   COMPILER_VERSION: "11", LINKER: "bfd",  CRYPTOLIB: "gcrypt",  EFI_ARCH: "x86_64 x86" }
           - { COMPILER: "gcc",   COMPILER_VERSION: "12", LINKER: "gold", CRYPTOLIB: "openssl", EFI_ARCH: "" } # Only one mingw-gcc version available.
-          - { COMPILER: "clang", COMPILER_VERSION: "13", LINKER: "mold", CRYPTOLIB: "gcrypt",  EFI_ARCH: "x86_64 x86" }
-          - { COMPILER: "clang", COMPILER_VERSION: "14", LINKER: "lld",  CRYPTOLIB: "openssl", EFI_ARCH: "x86_64 x86" }
-          - { COMPILER: "clang", COMPILER_VERSION: "15", LINKER: "bfd",  CRYPTOLIB: "auto",    EFI_ARCH: "x86_64 x86" }
+          - { COMPILER: "clang", COMPILER_VERSION: "13", LINKER: "mold", CRYPTOLIB: "gcrypt",  EFI_ARCH: "x86_64 x86 aarch64" }
+          - { COMPILER: "clang", COMPILER_VERSION: "14", LINKER: "lld",  CRYPTOLIB: "openssl", EFI_ARCH: "x86_64 x86 aarch64" }
+          - { COMPILER: "clang", COMPILER_VERSION: "15", LINKER: "bfd",  CRYPTOLIB: "auto",    EFI_ARCH: "x86_64 x86 aarch64" }
     env: ${{ matrix.env }}
     steps:
       - name: Repository checkout

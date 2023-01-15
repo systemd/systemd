@@ -136,6 +136,13 @@ fi
 
 for arch in ${EFI_ARCH}; do
     for args in "${ARGS_BOOT[@]}"; do
+        if [[ "${arch}" == "aarch64" ]]; then
+            # For aarch64 we can get by without compiler-rt by disabling stack probes
+            # and linking against a dummy compiler-rt.
+            llvm-ar csrDT dummy-compiler-rt.a
+            args+=" -Dc_args=-mno-stack-arg-probe -Dcompiler-rt=dummy-compiler-rt.a"
+        fi
+
         info "Checking systemd-boot for ${arch} build with $args"
 
         if ! meson setup --cross-file "src/boot/efi/cross-${cross_compiler}-${arch}.ini" \
