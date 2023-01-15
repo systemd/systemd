@@ -122,6 +122,11 @@ TEST(strv_find_startswith) {
         assert_se(!strv_find_startswith((char **)input_table_multiple, "onee"));
 }
 
+TEST(strv_contains_one) {
+        assert_se(STRV_CONTAINS_ONE((char **)input_table_multiple, "three", "four"));
+        assert_se(!STRV_CONTAINS_ONE((char **)input_table_multiple, "four", "five"));
+}
+
 TEST(strv_join) {
         _cleanup_free_ char *p = strv_join((char **)input_table_multiple, ", ");
         assert_se(p);

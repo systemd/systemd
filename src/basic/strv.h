@@ -20,6 +20,16 @@ char* strv_find_startswith(char * const *l, const char *name) _pure_;
 
 #define strv_contains(l, s) (!!strv_find((l), (s)))
 #define strv_contains_case(l, s) (!!strv_find_case((l), (s)))
+#define STRV_CONTAINS_ONE(s, first, ...)                        \
+        ({                                                      \
+                bool _found = false;                            \
+                FOREACH_STRING(l, first, __VA_ARGS__) {         \
+                        _found = strv_contains(s, l);           \
+                        if (_found)                             \
+                                break;                          \
+                }                                               \
+                _found;                                         \
+        })
 
 char** strv_free(char **l);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char**, strv_free);
