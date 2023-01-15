@@ -198,15 +198,6 @@ efi_cflags = [
         ]
 )
 
-# Our code size has increased enough to possibly create overlapping PE sections
-# at sd-stub runtime, which will often enough prevent the image from booting.
-# This only happens because the usual instructions for assembling a unified
-# kernel image contain hardcoded addresses for section VMAs added in. Until a
-# proper solution is in place, we can at least compile with as least -O1 to
-# reduce the likelihood of this happening.
-# https://github.com/systemd/systemd/issues/24202
-efi_cflags += '-O1'
-
 efi_cflags += cc.get_supported_arguments({
         'ia32':   ['-mno-sse', '-mno-mmx'],
         'x86_64': ['-mno-red-zone', '-mno-sse', '-mno-mmx'],
