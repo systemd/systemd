@@ -406,7 +406,7 @@
 
               <row>
                 <entry><literal>+</literal></entry>
-                <entry>If the executable path is prefixed with <literal>+</literal> then the process is executed with full privileges. In this mode privilege restrictions configured with <varname>User=</varname>, <varname>Group=</varname>, <varname>CapabilityBoundingSet=</varname> or the various file system namespacing options (such as <varname>PrivateDevices=</varname>, <varname>PrivateTmp=</varname>) are not applied to the invoked command line (but still affect any other <varname>ExecStart=</varname>, <varname>ExecStop=</varname>, … lines).</entry>
+                <entry>If the executable path is prefixed with <literal>+</literal> then the process is executed with full privileges. In this mode privilege restrictions configured with <varname>User=</varname>, <varname>Group=</varname>, <varname>CapabilityBoundingSet=</varname> or the various file system namespacing options (such as <varname>PrivateDevices=</varname>, <varname>PrivateTmp=</varname>) are not applied to the invoked command line (but still affect any other <varname>ExecStart=</varname>, <varname>ExecStop=</varname>, … lines). However, note that this will not bypass options that apply to the whole cgroup, such as <varname>DevicePolicy=</varname>, see <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry> for the full list.</entry>
               </row>
 
               <row>
