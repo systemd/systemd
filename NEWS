@@ -48,13 +48,6 @@ CHANGES WITH 253 in spe:
         * systemd-fstab-generator now supports x-systemd.makefs option for
           /sysroot (in the initrd).
 
-        * The [DHCPv4] section in .network file gained new SocketPriority=
-          setting that assigns the Linux socket priority used by the DHCPv4
-          raw socket. Can be used in conjuntion with the EgressQOSMaps=setting in
-          [VLAN] section of .netdev file to send the desired ethernet 802.1Q frame
-          priority for DHCPv4 initial packets. This cannot be achieved with
-          netfilter mangle tables because of the raw socket bypass.
-
         Changes in udev:
 
         * The new net naming scheme "v253" has been introduced. In the new
@@ -119,6 +112,18 @@ CHANGES WITH 253 in spe:
         * 'systemctl kexec' now supports XEN.
 
         Changes in systemd-networkd and related tools:
+
+        * The [DHCPv4] section in .network file gained new SocketPriority=
+          setting that assigns the Linux socket priority used by the DHCPv4
+          raw socket. Can be used in conjuntion with the EgressQOSMaps=setting
+          in [VLAN] section of .netdev file to send the desired ethernet 802.1Q
+          frame priority for DHCPv4 initial packets. This cannot be achieved
+          with netfilter mangle tables because of the raw socket bypass.
+
+        * The [DHCPv4] and [IPv6AcceptRA] sections in .network file gained new
+          QuickAck= boolean setting that enables the TCP quick ACK mode for the
+          routes configured by the aquired DHCPv4 lease or received router
+          advertisements (RAs).
 
         * The RouteMetric= option (for DHCPv4, DHCPv6, and IPv6 advertised
           routes) now accepts three values, for high, medium, and low preference
