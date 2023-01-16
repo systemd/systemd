@@ -44,34 +44,36 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path) {
 
         clear_screen(COLOR_NORMAL);
 
-        Print(L"Enrolling secure boot keys from directory: %s\n"
-              L"Warning: Enrolling custom Secure Boot keys might soft-brick your machine!\n",
-              path);
+        Print(u"Enrolling secure boot keys from directory: %s\n");
 
-        unsigned timeout_sec = 15;
-        for(;;) {
-                /* Enrolling secure boot keys is safe to do in virtualized environments as there is nothing
-                 * we can brick there. */
-                if (in_hypervisor())
-                        break;
+        /* Enrolling secure boot keys is safe to do in virtualized environments as there is nothing
+         * we can brick there. */
+        if (!in_hypervisor()) {
+                Print(u"Warning: Enrolling custom Secure Boot keys might soft-brick your machine!\n", path);
 
-                PrintAt(0, ST->ConOut->Mode->CursorRow, L"Enrolling in %2u s, press any key to abort.", timeout_sec);
+                unsigned timeout_sec = 15;
+                for (;;) {
+                        Print(u"\rEnrolling in %2u s, press any key to abort.", timeout_sec);
 
-                uint64_t key;
-                err = console_key_read(&key, 1000 * 1000);
-                if (err == EFI_NOT_READY)
-                        continue;
-                if (err == EFI_TIMEOUT) {
-                        if (timeout_sec == 0) /* continue enrolling keys */
-                                break;
-                        timeout_sec--;
-                        continue;
+                        uint64_t key;
+                        err = console_key_read(&key, 1000 * 1000);
+                        if (err == EFI_NOT_READY)
+                                continue;
+                        if (err == EFI_TIMEOUT) {
+                                if (timeout_sec == 0) /* continue enrolling keys */
+                                        break;
+                                timeout_sec--;
+                                continue;
+                        }
+                        if (err != EFI_SUCCESS)
+                                return log_error_status_stall(
+                                                err,
+                                                L"Error waiting for user input to enroll Secure Boot keys: %r",
+                                                err);
+
+                        /* user aborted, returning EFI_SUCCESS here allows the user to go back to the menu */
+                        return EFI_SUCCESS;
                 }
-                if (err != EFI_SUCCESS)
-                        return log_error_status_stall(err, L"Error waiting for user input to enroll Secure Boot keys: %r", err);
-
-                /* user aborted, returning EFI_SUCCESS here allows the user to go back to the menu */
-                return EFI_SUCCESS;
         }
 
         _cleanup_(file_closep) EFI_FILE *dir = NULL;
