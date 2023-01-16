@@ -495,13 +495,18 @@ int dhcp6_option_parse(
 }
 
 int dhcp6_option_parse_status(const uint8_t *data, size_t data_len, char **ret_status_message) {
+        DHCP6Status status;
+
         assert(data || data_len == 0);
 
         if (data_len < sizeof(uint16_t))
                 return -EBADMSG;
 
+        status = unaligned_read_be16(data);
+
         if (ret_status_message) {
-                char *msg;
+                _cleanup_free_ char *msg = NULL;
+                const char *s;
 
                 /* The status message MUST NOT be null-terminated. See section 21.13 of RFC8415.
                  * Let's escape unsafe characters for safety. */
@@ -509,10 +514,14 @@ int dhcp6_option_parse_status(const uint8_t *data, size_t data_len, char **ret_s
                 if (!msg)
                         return -ENOMEM;
 
-                *ret_status_message = msg;
+                s = dhcp6_message_status_to_string(status);
+                if (s && !strextend_with_separator(&msg, ": ", s))
+                        return -ENOMEM;
+
+                *ret_status_message = TAKE_PTR(msg);
         }
 
-        return unaligned_read_be16(data);
+        return status;
 }
 
 static int dhcp6_option_parse_ia_options(sd_dhcp6_client *client, const uint8_t *buf, size_t buflen) {
@@ -538,9 +547,8 @@ static int dhcp6_option_parse_ia_options(sd_dhcp6_client *client, const uint8_t 
                                 return r;
                         if (r > 0)
                                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
-                                                              "Received an IA address or PD prefix option with non-zero status: %s%s%s",
-                                                              strempty(msg), isempty(msg) ? "" : ": ",
-                                                              dhcp6_message_status_to_string(r));
+                                                              "Received an IA address or PD prefix option with non-zero status%s%s",
+                                                              isempty(msg) ? "." : ": ", strempty(msg));
                         if (r < 0)
                                 /* Let's log but ignore the invalid status option. */
                                 log_dhcp6_client_errno(client, r,
@@ -746,9 +754,8 @@ int dhcp6_option_parse_ia(
                                 return r;
                         if (r > 0)
                                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
-                                                              "Received an IA option with non-zero status: %s%s%s",
-                                                              strempty(msg), isempty(msg) ? "" : ": ",
-                                                              dhcp6_message_status_to_string(r));
+                                                              "Received an IA option with non-zero status%s%s",
+                                                              isempty(msg) ? "." : ": ", strempty(msg));
                         if (r < 0)
                                 log_dhcp6_client_errno(client, r,
                                                        "Received an IA option with an invalid status sub option, ignoring: %m");
