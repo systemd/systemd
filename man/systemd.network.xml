@@ -2284,6 +2284,7 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <term><varname>UseHostname=</varname></term>
         <term><varname>UseDomains=</varname></term>
         <term><varname>NetLabel=</varname></term>
+        <term><varname>SendRelease=</varname></term>
         <listitem>
           <para>As in the [DHCPv4] section.</para>
         </listitem>
