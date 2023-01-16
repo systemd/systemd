@@ -195,35 +195,33 @@ int sd_dhcp_client_id_to_string(const void *data, size_t len, char **ret) {
                         r = asprintf(&t, "DATA");
                 break;
         case 1:
-                if (len != sizeof_field(sd_dhcp_client_id, eth))
-                        return -EINVAL;
-
-                r = asprintf(&t, "%02x:%02x:%02x:%02x:%02x:%02x",
-                             client_id->eth.haddr[0],
-                             client_id->eth.haddr[1],
-                             client_id->eth.haddr[2],
-                             client_id->eth.haddr[3],
-                             client_id->eth.haddr[4],
-                             client_id->eth.haddr[5]);
+                if (len == sizeof_field(sd_dhcp_client_id, eth))
+                        r = asprintf(&t, "%02x:%02x:%02x:%02x:%02x:%02x",
+                                     client_id->eth.haddr[0],
+                                     client_id->eth.haddr[1],
+                                     client_id->eth.haddr[2],
+                                     client_id->eth.haddr[3],
+                                     client_id->eth.haddr[4],
+                                     client_id->eth.haddr[5]);
+                else
+                        r = asprintf(&t, "ETHER");
                 break;
         case 2 ... 254:
                 r = asprintf(&t, "ARP/LL");
                 break;
         case 255:
-                if (len < 6)
-                        return -EINVAL;
-
-                uint32_t iaid = be32toh(client_id->ns.iaid);
-                uint16_t duid_type = be16toh(client_id->ns.duid.type);
-                if (dhcp_validate_duid_len(duid_type, len - 6, true) < 0)
-                        return -EINVAL;
-
-                r = asprintf(&t, "IAID:0x%x/DUID", iaid);
+                if (len < sizeof(uint32_t))
+                        r = asprintf(&t, "IAID/DUID");
+                else {
+                        uint32_t iaid = be32toh(client_id->ns.iaid);
+                        /* TODO: check and stringify DUID */
+                        r = asprintf(&t, "IAID:0x%x/DUID", iaid);
+                }
                 break;
         }
-
         if (r < 0)
                 return -ENOMEM;
+
         *ret = TAKE_PTR(t);
         return 0;
 }
