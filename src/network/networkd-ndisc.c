@@ -173,6 +173,7 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
 
         assert(route);
         assert(link);
+        assert(link->network);
         assert(rt);
 
         r = sd_ndisc_router_get_address(rt, &router);
@@ -186,6 +187,8 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
         ndisc_set_route_priority(link, route);
         if (!route->protocol_set)
                 route->protocol = RTPROT_RA;
+        if (route->quickack < 0)
+                route->quickack = link->network->ipv6_accept_ra_quickack;
 
         is_new = route_get(NULL, link, route, NULL) < 0;
 
