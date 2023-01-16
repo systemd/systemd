@@ -1022,17 +1022,16 @@ static int introspect(int argc, char **argv, void *userdata) {
                         return bus_log_parse_error(r);
 
                 for (;;) {
-                        Member *z;
-                        _cleanup_free_ char *buf = NULL, *signature = NULL;
                         _cleanup_fclose_ FILE *mf = NULL;
-                        size_t sz = 0;
+                        _cleanup_free_ char *buf = NULL;
                         const char *name, *contents;
+                        size_t sz = 0;
+                        Member *z;
                         char type;
 
                         r = sd_bus_message_enter_container(reply, 'e', "sv");
                         if (r < 0)
                                 return bus_log_parse_error(r);
-
                         if (r == 0)
                                 break;
 
@@ -1040,24 +1039,15 @@ static int introspect(int argc, char **argv, void *userdata) {
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        r = sd_bus_message_enter_container(reply, 'v', NULL);
+                        r = sd_bus_message_peek_type(reply, &type, &contents);
                         if (r < 0)
                                 return bus_log_parse_error(r);
+                        if (type != 'v')
+                                return bus_log_parse_error(EINVAL);
 
-                        r = sd_bus_message_peek_type(reply, &type, &contents);
-                        if (r <= 0)
-                                return bus_log_parse_error(r == 0 ? EINVAL : r);
-
-                        if (type == SD_BUS_TYPE_STRUCT_BEGIN)
-                                signature = strjoin(CHAR_TO_STR(SD_BUS_TYPE_STRUCT_BEGIN), contents, CHAR_TO_STR(SD_BUS_TYPE_STRUCT_END));
-                        else if (type == SD_BUS_TYPE_DICT_ENTRY_BEGIN)
-                                signature = strjoin(CHAR_TO_STR(SD_BUS_TYPE_DICT_ENTRY_BEGIN), contents, CHAR_TO_STR(SD_BUS_TYPE_DICT_ENTRY_END));
-                        else if (contents)
-                                signature = strjoin(CHAR_TO_STR(type), contents);
-                        else
-                                signature = strdup(CHAR_TO_STR(type));
-                        if (!signature)
-                                return log_oom();
+                        r = sd_bus_message_enter_container(reply, 'v', contents);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
 
                         mf = open_memstream_unlocked(&buf, &sz);
                         if (!mf)
@@ -1072,7 +1062,7 @@ static int introspect(int argc, char **argv, void *userdata) {
                         z = set_get(members, &((Member) {
                                                 .type = "property",
                                                 .interface = m->interface,
-                                                .signature = signature,
+                                                .signature = (char*) contents,
                                                 .name = (char*) name }));
                         if (z)
                                 free_and_replace(z->value, buf);
