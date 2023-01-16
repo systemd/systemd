@@ -510,13 +510,11 @@ static int dhcp6_lease_parse_message(
                         r = dhcp6_option_parse_status(optval, optlen, &msg);
                         if (r < 0)
                                 return log_dhcp6_client_errno(client, r, "Failed to parse status code: %m");
-
                         if (r > 0)
                                 return log_dhcp6_client_errno(client, dhcp6_message_status_to_errno(r),
-                                                              "Received %s message with non-zero status: %s%s%s",
+                                                              "Received %s message with non-zero status%s%s",
                                                               dhcp6_message_type_to_string(message->type),
-                                                              strempty(msg), isempty(msg) ? "" : ": ",
-                                                              dhcp6_message_status_to_string(r));
+                                                              isempty(msg) ? "." : ": ", strempty(msg));
                         break;
                 }
                 case SD_DHCP6_OPTION_IA_NA: {
