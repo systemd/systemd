@@ -659,16 +659,13 @@ int encrypt_credential_and_warn(
 #if HAVE_TPM2
         bool try_tpm2;
         if (sd_id128_equal(with_key, _CRED_AUTO)) {
-                /* If automatic mode is selected and we are running in a container, let's not try TPM2. OTOH
-                 * if user picks TPM2 explicitly, let's always honour the request and try. */
+                /* If automatic mode is selected lets see if a TPM2 it is present. If we are running in a
+                 * container tpm2_support will detect this, and will return a different flag combination of
+                 * TPM2_SUPPORT_FULL, effectively skipping the use of TPM2 when inside one. */
 
-                r = detect_container();
-                if (r < 0)
-                        log_debug_errno(r, "Failed to determine whether we are running in a container, ignoring: %m");
-                else if (r > 0)
-                        log_debug("Running in container, not attempting to use TPM2.");
-
-                try_tpm2 = r <= 0;
+                try_tpm2 = tpm2_support() == TPM2_SUPPORT_FULL;
+                if (!try_tpm2)
+                        log_debug("System lacks TPM2 support or running in a container, not attempting to use TPM2.");
         } else if (sd_id128_equal(with_key, _CRED_AUTO_INITRD)) {
                 /* If automatic mode for initrds is selected, we'll use the TPM2 key if the firmware does it,
                  * otherwise we'll use a fixed key */
