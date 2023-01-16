@@ -120,6 +120,11 @@ CHANGES WITH 253 in spe:
           frame priority for DHCPv4 initial packets. This cannot be achieved
           with netfilter mangle tables because of the raw socket bypass.
 
+        * The [DHCPv4] and [IPv6AcceptRA] sections in .network file gained new
+          QuickAck= boolean setting that enables the TCP quick ACK mode for the
+          routes configured by the aquired DHCPv4 lease or received router
+          advertisements (RAs).
+
         * The RouteMetric= option (for DHCPv4, DHCPv6, and IPv6 advertised
           routes) now accepts three values, for high, medium, and low preference
           of the router (which can be set with the RouterPreference=) setting.
