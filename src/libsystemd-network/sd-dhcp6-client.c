@@ -498,6 +498,14 @@ int sd_dhcp6_client_set_rapid_commit(sd_dhcp6_client *client, int enable) {
         return 0;
 }
 
+int sd_dhcp6_client_set_send_release(sd_dhcp6_client *client, int enable) {
+        assert_return(client, -EINVAL);
+        assert_return(!sd_dhcp6_client_is_running(client), -EBUSY);
+
+        client->send_release = enable;
+        return 0;
+}
+
 int sd_dhcp6_client_get_lease(sd_dhcp6_client *client, sd_dhcp6_lease **ret) {
         assert_return(client, -EINVAL);
 
@@ -586,7 +594,8 @@ static int client_append_common_options_in_managed_mode(
                       DHCP6_STATE_SOLICITATION,
                       DHCP6_STATE_REQUEST,
                       DHCP6_STATE_RENEW,
-                      DHCP6_STATE_REBIND));
+                      DHCP6_STATE_REBIND,
+                      DHCP6_STATE_STOPPING));
         assert(buf);
         assert(*buf);
         assert(offset);
@@ -603,9 +612,11 @@ static int client_append_common_options_in_managed_mode(
                         return r;
         }
 
-        r = dhcp6_option_append_fqdn(buf, offset, client->fqdn);
-        if (r < 0)
-                return r;
+        if (client->state != DHCP6_STATE_STOPPING) {
+                r = dhcp6_option_append_fqdn(buf, offset, client->fqdn);
+                if (r < 0)
+                        return r;
+        }
 
         r = dhcp6_option_append_user_class(buf, offset, client->user_class);
         if (r < 0)
@@ -636,6 +647,8 @@ static DHCP6MessageType client_message_type_from_state(sd_dhcp6_client *client) 
                 return DHCP6_MESSAGE_RENEW;
         case DHCP6_STATE_REBIND:
                 return DHCP6_MESSAGE_REBIND;
+        case DHCP6_STATE_STOPPING:
+                return DHCP6_MESSAGE_RELEASE;
         default:
                 assert_not_reached();
         }
@@ -679,6 +692,9 @@ static int client_append_oro(sd_dhcp6_client *client, uint8_t **buf, size_t *off
                 req_opts = p;
                 break;
 
+        case DHCP6_STATE_STOPPING:
+                return 0;
+
         default:
                 n = client->n_req_opts;
                 req_opts = client->req_opts;
@@ -688,6 +704,27 @@ static int client_append_oro(sd_dhcp6_client *client, uint8_t **buf, size_t *off
                 return 0;
 
         return dhcp6_option_append(buf, offset, SD_DHCP6_OPTION_ORO, n * sizeof(be16_t), req_opts);
+}
+
+static int client_append_mudurl(sd_dhcp6_client *client, uint8_t **buf, size_t *offset) {
+        int r;
+
+        assert(client);
+        assert(buf);
+        assert(*buf);
+        assert(offset);
+
+        if (!client->mudurl)
+                return 0;
+
+        if (client->state != DHCP6_STATE_STOPPING) {
+                r = dhcp6_option_append(buf, offset, SD_DHCP6_OPTION_MUD_URL_V6,
+                                        strlen(client->mudurl), client->mudurl);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 int dhcp6_client_send_message(sd_dhcp6_client *client) {
@@ -735,7 +772,7 @@ int dhcp6_client_send_message(sd_dhcp6_client *client) {
 
         case DHCP6_STATE_REQUEST:
         case DHCP6_STATE_RENEW:
-
+        case DHCP6_STATE_STOPPING:
                 r = dhcp6_option_append(&buf, &offset, SD_DHCP6_OPTION_SERVERID,
                                         client->lease->serverid_len,
                                         client->lease->serverid);
@@ -753,18 +790,15 @@ int dhcp6_client_send_message(sd_dhcp6_client *client) {
                         return r;
                 break;
 
-        case DHCP6_STATE_STOPPED:
         case DHCP6_STATE_BOUND:
+        case DHCP6_STATE_STOPPED:
         default:
                 assert_not_reached();
         }
 
-        if (client->mudurl) {
-                r = dhcp6_option_append(&buf, &offset, SD_DHCP6_OPTION_MUD_URL_V6,
-                                        strlen(client->mudurl), client->mudurl);
-                if (r < 0)
-                        return r;
-        }
+        r = client_append_mudurl(client, &buf, &offset);
+        if (r < 0)
+                return r;
 
         r = client_append_oro(client, &buf, &offset);
         if (r < 0)
@@ -856,6 +890,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
                 break;
 
         case DHCP6_STATE_STOPPED:
+        case DHCP6_STATE_STOPPING:
         case DHCP6_STATE_BOUND:
         default:
                 assert_not_reached();
@@ -911,6 +946,7 @@ static int client_start_transaction(sd_dhcp6_client *client, DHCP6State state) {
                 assert(IN_SET(client->state, DHCP6_STATE_BOUND, DHCP6_STATE_RENEW));
                 break;
         case DHCP6_STATE_STOPPED:
+        case DHCP6_STATE_STOPPING:
         case DHCP6_STATE_BOUND:
         default:
                 assert_not_reached();
@@ -1319,6 +1355,7 @@ static int client_receive_message(
 
         case DHCP6_STATE_BOUND:
         case DHCP6_STATE_STOPPED:
+        case DHCP6_STATE_STOPPING:
         default:
                 assert_not_reached();
         }
@@ -1326,9 +1363,35 @@ static int client_receive_message(
         return 0;
 }
 
+static int client_send_release(sd_dhcp6_client *client) {
+        sd_dhcp6_lease *lease;
+        int r;
+
+        assert(client);
+
+        if (!client->send_release)
+                return 0;
+
+        if (sd_dhcp6_client_get_lease(client, &lease) < 0)
+                return 0;
+
+        if (!lease->ia_na && !lease->ia_pd)
+                return 0;
+
+        client_set_state(client, DHCP6_STATE_STOPPING);
+        r = dhcp6_client_send_message(client);
+        if (r < 0)
+                log_dhcp6_client_errno(client, r,
+                                       "Failed to send to DHCP6 release message: %m");
+
+        return r;
+}
+
 int sd_dhcp6_client_stop(sd_dhcp6_client *client) {
         if (!client)
                 return 0;
+
+        client_send_release(client);
 
         client_stop(client, SD_DHCP6_CLIENT_EVENT_STOP);
 
