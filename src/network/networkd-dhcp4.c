@@ -183,6 +183,7 @@ static int dhcp4_request_route(Route *in, Link *link) {
 
         assert(route);
         assert(link);
+        assert(link->network);
         assert(link->dhcp_lease);
 
         r = sd_dhcp_lease_get_server_identifier(link->dhcp_lease, &server);
@@ -200,6 +201,8 @@ static int dhcp4_request_route(Route *in, Link *link) {
                 route->table = link_get_dhcp4_route_table(link);
         if (route->mtu == 0)
                 route->mtu = link->network->dhcp_route_mtu;
+        if (route->quickack < 0)
+                route->quickack = link->network->dhcp_quickack;
 
         if (route_get(NULL, link, route, &existing) < 0) /* This is a new route. */
                 link->dhcp4_configured = false;

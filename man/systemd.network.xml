@@ -1645,8 +1645,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
       <varlistentry>
         <term><varname>QuickAck=</varname></term>
         <listitem>
-          <para>Takes a boolean. When true enables TCP quick ack mode for the route. When unset, the
-          kernel's default will be used.</para>
+          <para>Takes a boolean. When true, the TCP quick ACK mode for the route is enabled. When unset,
+          the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
 
@@ -2043,6 +2043,14 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>Specifies the MTU for the DHCP routes. Please see the [Route] section for further
           details.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>QuickAck=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, the TCP quick ACK mode is enabled for the routes configured by
+          the acquired DHCPv4 lease. When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
 
@@ -2543,6 +2551,14 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           preference, and the last is for low preference
           (<literal><replaceable>high</replaceable>:<replaceable>medium</replaceable>:<replaceable>low</replaceable></literal>).
           Defaults to <literal>512:1024:2048</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>QuickAck=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, the TCP quick ACK mode is enabled for the routes configured by
+          the received RAs. When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
 

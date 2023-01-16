@@ -221,6 +221,7 @@ DHCPv4.UseHostname,                          config_parse_bool,                 
 DHCPv4.UseDomains,                           config_parse_dhcp_use_domains,                            AF_INET,                       0
 DHCPv4.UseRoutes,                            config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_routes)
 DHCPv4.UseGateway,                           config_parse_tristate,                                    0,                             offsetof(Network, dhcp_use_gateway)
+DHCPv4.QuickAck,                             config_parse_bool,                                        0,                             offsetof(Network, dhcp_quickack)
 DHCPv4.RequestOptions,                       config_parse_dhcp_request_options,                        AF_INET,                       0
 DHCPv4.Anonymize,                            config_parse_bool,                                        0,                             offsetof(Network, dhcp_anonymize)
 DHCPv4.SendHostname,                         config_parse_bool,                                        0,                             offsetof(Network, dhcp_send_hostname)
@@ -279,6 +280,7 @@ IPv6AcceptRA.UseMTU,                         config_parse_bool,                 
 IPv6AcceptRA.DHCPv6Client,                   config_parse_ipv6_accept_ra_start_dhcp6_client,           0,                             offsetof(Network, ipv6_accept_ra_start_dhcp6_client)
 IPv6AcceptRA.RouteTable,                     config_parse_dhcp_or_ra_route_table,                      AF_INET6,                      0
 IPv6AcceptRA.RouteMetric,                    config_parse_ipv6_accept_ra_route_metric,                 0,                             0
+IPv6AcceptRA.QuickAck,                       config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_quickack)
 IPv6AcceptRA.RouterAllowList,                config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_allow_listed_router)
 IPv6AcceptRA.RouterDenyList,                 config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_deny_listed_router)
 IPv6AcceptRA.PrefixAllowList,                config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_allow_listed_prefix)
