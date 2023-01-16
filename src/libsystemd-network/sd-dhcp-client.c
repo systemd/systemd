@@ -195,16 +195,16 @@ int sd_dhcp_client_id_to_string(const void *data, size_t len, char **ret) {
                         r = asprintf(&t, "DATA");
                 break;
         case 1:
-                if (len != sizeof_field(sd_dhcp_client_id, eth))
-                        return -EINVAL;
-
-                r = asprintf(&t, "%02x:%02x:%02x:%02x:%02x:%02x",
-                             client_id->eth.haddr[0],
-                             client_id->eth.haddr[1],
-                             client_id->eth.haddr[2],
-                             client_id->eth.haddr[3],
-                             client_id->eth.haddr[4],
-                             client_id->eth.haddr[5]);
+                if (len == sizeof_field(sd_dhcp_client_id, eth))
+                        r = asprintf(&t, "%02x:%02x:%02x:%02x:%02x:%02x",
+                                     client_id->eth.haddr[0],
+                                     client_id->eth.haddr[1],
+                                     client_id->eth.haddr[2],
+                                     client_id->eth.haddr[3],
+                                     client_id->eth.haddr[4],
+                                     client_id->eth.haddr[5]);
+                else
+                        r = asprintf(&t, "ETHER");
                 break;
         case 2 ... 254:
                 r = asprintf(&t, "ARP/LL");
