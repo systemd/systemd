@@ -126,6 +126,17 @@ Deprecations and removals:
 
 Features:
 
+* split out execute.c into new "systemd-executor" binary. Then make PID 1 fork
+  that off via vfork(), and then let that executor do the hard work. Ultimately
+  the executor then gets replaced by the real binary sooner or later. Reason:
+  currently the intermediary "stub" process is a CoW trap that doubles memory
+  usage of PID 1 on each service start. Also, strictly speaking we are not
+  allowd to do NSS from the stub process yet we do anyway. Next steps would
+  then be maybe use CLONE_INTO_CGROUP for the executor, given that we don't
+  need glibc anymore in the stub process then. Then, switch nspawn to just be a
+  frontend for this too, so that we have to ways into the executor: via unit
+  files/dbus/varlin through PID1 and via cmdline/OCI through nspawn.
+
 * sd-stub: detect if we are running with uefi console output on serial, and if so
   automatically add console= to kernel cmdline matching the same port.
 
