@@ -9,6 +9,7 @@
 #include "sd-id128.h"
 
 #include "blockdev-util.h"
+#include "capability-util.h"
 #include "chattr-util.h"
 #include "constants.h"
 #include "creds-util.h"
@@ -223,7 +224,11 @@ static int make_credential_host_secret(
         assert(dfd >= 0);
         assert(fn);
 
-        fd = openat(dfd, ".", O_CLOEXEC|O_WRONLY|O_TMPFILE, 0400);
+        /* For non-root users creating a temporary file using the openat(2) over "." will fail later, in the
+         * linkat(2) step at the end.  The reason is that linkat(2) requires the CAP_DAC_READ_SEARCH
+         * capability when it uses the AT_EMPTY_PATH flag. */
+        if (have_effective_cap(CAP_DAC_READ_SEARCH))
+                fd = openat(dfd, ".", O_CLOEXEC|O_WRONLY|O_TMPFILE, 0400);
         if (fd < 0) {
                 log_debug_errno(errno, "Failed to create temporary credential file with O_TMPFILE, proceeding without: %m");
 
@@ -654,7 +659,10 @@ int encrypt_credential_and_warn(
         bool try_tpm2;
         if (sd_id128_equal(with_key, _CRED_AUTO)) {
                 /* If automatic mode is selected and we are running in a container, let's not try TPM2. OTOH
-                 * if user picks TPM2 explicitly, let's always honour the request and try. */
+                 * if user picks TPM2 explicitly, let's always honour the request and try it if a TPM2 is
+                 * detected. */
+
+                Tpm2Support support;
 
                 r = detect_container();
                 if (r < 0)
@@ -663,6 +671,12 @@ int encrypt_credential_and_warn(
                         log_debug("Running in container, not attempting to use TPM2.");
 
                 try_tpm2 = r <= 0;
+
+                support = tpm2_support();
+                if (support != TPM2_SUPPORT_FULL) {
+                        log_debug("System lacks TPM2 support, not attempting to use TPM2.");
+                        try_tpm2 = false;
+                }
         } else if (sd_id128_equal(with_key, _CRED_AUTO_INITRD)) {
                 /* If automatic mode for initrds is selected, we'll use the TPM2 key if the firmware does it,
                  * otherwise we'll use a fixed key */
