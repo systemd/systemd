@@ -1874,15 +1874,17 @@ static int allocate_inotify(sd_journal *j) {
 static sd_journal *journal_new(int flags, const char *path, const char *namespace) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
 
-        j = new0(sd_journal, 1);
+        j = new(sd_journal, 1);
         if (!j)
                 return NULL;
 
-        j->original_pid = getpid_cached();
-        j->toplevel_fd = -EBADF;
-        j->inotify_fd = -EBADF;
-        j->flags = flags;
-        j->data_threshold = DEFAULT_DATA_THRESHOLD;
+        *j = (sd_journal) {
+                .original_pid = getpid_cached(),
+                .toplevel_fd = -EBADF,
+                .inotify_fd = -EBADF,
+                .flags = flags,
+                .data_threshold = DEFAULT_DATA_THRESHOLD,
+        };
 
         if (path) {
                 char *t;
