@@ -81,11 +81,14 @@
 
         <listitem><para>Configures the operating system's root filesystem to mount when running in the
         initrd. This accepts a device node path (usually <filename>/dev/disk/by-uuid/…</filename> or
-        <filename>/dev/disk/by-label/…</filename> or similar), or the special values <literal>gpt-auto</literal>
-        and <literal>tmpfs</literal>.</para>
+        <filename>/dev/disk/by-label/…</filename> or similar), or the special values <literal>gpt-auto</literal>,
+        <literal>fstab</literal>, and <literal>tmpfs</literal>.</para>
 
         <para>Use <literal>gpt-auto</literal> to explicitly request automatic root file system discovery via
         <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <para>Use <literal>fstab</literal> to explicitly request automatic root file system discovery via
+        the initrd <filename>/etc/fstab</filename> rather than via kernel command line.</para>
 
         <para>Use <literal>tmpfs</literal> in order to mount a <citerefentry
         project='man-pages'><refentrytitle>tmpfs</refentrytitle><manvolnum>5</manvolnum></citerefentry> file
