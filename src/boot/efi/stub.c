@@ -114,14 +114,14 @@ static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
         /* if LoaderFirmwareInfo is not set, let's set it */
         if (efivar_get_raw(LOADER_GUID, L"LoaderFirmwareInfo", NULL, NULL) != EFI_SUCCESS) {
                 _cleanup_free_ char16_t *s = NULL;
-                s = xpool_print(L"%s %u.%02u", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
+                s = xasprintf("%ls %u.%02u", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
                 efivar_set(LOADER_GUID, L"LoaderFirmwareInfo", s, 0);
         }
 
         /* ditto for LoaderFirmwareType */
         if (efivar_get_raw(LOADER_GUID, L"LoaderFirmwareType", NULL, NULL) != EFI_SUCCESS) {
                 _cleanup_free_ char16_t *s = NULL;
-                s = xpool_print(L"UEFI %u.%02u", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
+                s = xasprintf("UEFI %u.%02u", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
                 efivar_set(LOADER_GUID, L"LoaderFirmwareType", s, 0);
         }
 
@@ -173,14 +173,14 @@ static bool use_load_options(
         *ret = xstrdup16(shell->Argv[1]);
         for (size_t i = 2; i < shell->Argc; i++) {
                 _cleanup_free_ char16_t *old = *ret;
-                *ret = xpool_print(u"%s %s", old, shell->Argv[i]);
+                *ret = xasprintf("%ls %ls", old, shell->Argv[i]);
         }
 
         mangle_stub_cmdline(*ret);
         return true;
 }
 
-EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
+static EFI_STATUS real_main(EFI_HANDLE image) {
         _cleanup_free_ void *credential_initrd = NULL, *global_credential_initrd = NULL, *sysext_initrd = NULL, *pcrsig_initrd = NULL, *pcrpkey_initrd = NULL;
         size_t credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0, pcrsig_initrd_size = 0, pcrpkey_initrd_size = 0;
         size_t linux_size, initrd_size, dt_size;
@@ -194,11 +194,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         uint64_t loader_features = 0;
         EFI_STATUS err;
 
-        InitializeLib(image, sys_table);
-        debug_hook(L"systemd-stub");
-        /* Uncomment the next line if you need to wait for debugger. */
-        // debug_break();
-
         err = BS->OpenProtocol(
                         image,
                         &LoadedImageProtocol,
@@ -207,7 +202,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                         NULL,
                         EFI_OPEN_PROTOCOL_GET_PROTOCOL);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Error getting a LoadedImageProtocol handle: %r", err);
+                return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");
 
         if (efivar_get_uint64_le(LOADER_GUID, L"LoaderFeatures", &loader_features) != EFI_SUCCESS ||
             !FLAGS_SET(loader_features, EFI_LOADER_FEATURE_RANDOM_SEED)) {
@@ -222,7 +217,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (err != EFI_SUCCESS || szs[UNIFIED_SECTION_LINUX] == 0) {
                 if (err == EFI_SUCCESS)
                         err = EFI_NOT_FOUND;
-                return log_error_status_stall(err, L"Unable to locate embedded .linux section: %r", err);
+                return log_error_status(err, "Unable to locate embedded .linux section: %m");
         }
 
         /* Measure all "payload" of this PE image into a separate PCR (i.e. where nothing else is written
@@ -412,12 +407,24 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 err = devicetree_install_from_memory(
                                 &dt_state, PHYSICAL_ADDRESS_TO_POINTER(dt_base), dt_size);
                 if (err != EFI_SUCCESS)
-                        log_error_stall(L"Error loading embedded devicetree: %r", err);
+                        log_error_status(err, "Error loading embedded devicetree: %m");
         }
 
         err = linux_exec(image, cmdline,
                          PHYSICAL_ADDRESS_TO_POINTER(linux_base), linux_size,
                          PHYSICAL_ADDRESS_TO_POINTER(initrd_base), initrd_size);
         graphics_mode(false);
+        return err;
+}
+
+EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
+        InitializeLib(image, sys_table);
+
+        debug_hook("systemd-stub");
+        /* Uncomment the next line if you need to wait for debugger. */
+        // debug_break();
+
+        EFI_STATUS err = real_main(image);
+        log_wait();
         return err;
 }

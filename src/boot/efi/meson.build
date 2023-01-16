@@ -348,6 +348,7 @@ efi_headers = files(
         'graphics.h',
         'initrd.h',
         'linux.h',
+        'log.h',
         'measure.h',
         'missing_efi.h',
         'part-discovery.h',
@@ -361,13 +362,13 @@ efi_headers = files(
 )
 
 common_sources = files(
-        'assert.c',
         'console.c',
         'devicetree.c',
         'disk.c',
         'efi-string.c',
         'graphics.c',
         'initrd.c',
+        'log.c',
         'measure.c',
         'part-discovery.c',
         'pe.c',
@@ -412,6 +413,7 @@ if efi_arch[1] in ['ia32', 'x86_64', 'arm', 'aarch64']
         fuzzers += [
                 [files('fuzz-bcd.c', 'bcd.c', 'efi-string.c')],
                 [files('fuzz-efi-string.c', 'efi-string.c')],
+                [files('fuzz-efi-printf.c', 'efi-string.c')],
         ]
 endif
 
