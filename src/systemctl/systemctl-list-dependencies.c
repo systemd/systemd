@@ -80,23 +80,43 @@ static int list_dependencies_one(
         typesafe_qsort(deps, strv_length(deps), list_dependencies_compare);
 
         STRV_FOREACH(c, deps) {
+                _cleanup_free_ char *load_state = NULL, *sub_state = NULL;
+                UnitActiveState active_state;
+
                 if (strv_contains(*units, *c)) {
                         if (!arg_plain) {
                                 printf("  ");
-                                r = list_dependencies_print("...", level + 1, (branches << 1) | (c[1] == NULL ? 0 : 1), 1);
+                                r = list_dependencies_print("...", level + 1, (branches << 1) | (c[1] == NULL ? 0 : 1), /* last = */ true);
                                 if (r < 0)
                                         return r;
                         }
                         continue;
                 }
 
+                if (arg_types && !strv_contains(arg_types, unit_type_suffix(*c)))
+                        continue;
+
+                r = get_state_one_unit(bus, *c, &active_state);
+                if (r < 0)
+                        return r;
+
+                if (arg_states) {
+                        r = unit_load_state(bus, *c, &load_state);
+                        if (r < 0)
+                                return r;
+
+                        r = get_sub_state_one_unit(bus, *c, &sub_state);
+                        if (r < 0)
+                                return r;
+
+                        if (!strv_overlap(arg_states, STRV_MAKE(unit_active_state_to_string(active_state), load_state, sub_state)))
+                                continue;
+                }
+
                 if (arg_plain)
                         printf("  ");
                 else {
-                        UnitActiveState active_state = _UNIT_ACTIVE_STATE_INVALID;
                         const char *on;
-
-                        (void) get_state_one_unit(bus, *c, &active_state);
 
                         switch (active_state) {
                         case UNIT_ACTIVE:
@@ -140,6 +160,9 @@ int verb_list_dependencies(int argc, char *argv[], void *userdata) {
         char **patterns;
         sd_bus *bus;
         int r;
+
+        /* We won't be able to preserve the tree structure if --type= or --state= is used */
+        arg_plain = arg_plain || arg_types || arg_states;
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
