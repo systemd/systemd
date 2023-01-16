@@ -9,6 +9,7 @@
 #include "sd-id128.h"
 
 #include "blockdev-util.h"
+#include "capability-util.h"
 #include "chattr-util.h"
 #include "constants.h"
 #include "creds-util.h"
@@ -223,10 +224,15 @@ static int make_credential_host_secret(
         assert(dfd >= 0);
         assert(fn);
 
-        fd = openat(dfd, ".", O_CLOEXEC|O_WRONLY|O_TMPFILE, 0400);
+        /* For non-root users creating a temporary file using the openat(2) over "." will fail later, in the
+         * linkat(2) step at the end.  The reason is that linkat(2) requires the CAP_DAC_READ_SEARCH
+         * capability when it uses the AT_EMPTY_PATH flag. */
+        if (have_effective_cap(CAP_DAC_READ_SEARCH) > 0) {
+                fd = openat(dfd, ".", O_CLOEXEC|O_WRONLY|O_TMPFILE, 0400);
+                if (fd < 0)
+                        log_debug_errno(errno, "Failed to create temporary credential file with O_TMPFILE, proceeding without: %m");
+        }
         if (fd < 0) {
-                log_debug_errno(errno, "Failed to create temporary credential file with O_TMPFILE, proceeding without: %m");
-
                 if (asprintf(&t, "credential.secret.%016" PRIx64, random_u64()) < 0)
                         return -ENOMEM;
 
@@ -652,24 +658,14 @@ int encrypt_credential_and_warn(
 
 #if HAVE_TPM2
         bool try_tpm2;
-        if (sd_id128_equal(with_key, _CRED_AUTO)) {
-                /* If automatic mode is selected and we are running in a container, let's not try TPM2. OTOH
-                 * if user picks TPM2 explicitly, let's always honour the request and try. */
+        if (sd_id128_equal(with_key, _CRED_AUTO, _CRED_AUTO_INITRD)) {
+                /* If automatic mode is selected lets see if a TPM2 it is present. If we are running in a
+                 * container tpm2_support will detect this, and will return a different flag combination of
+                 * TPM2_SUPPORT_FULL, effectively skipping the use of TPM2 when inside one. */
 
-                r = detect_container();
-                if (r < 0)
-                        log_debug_errno(r, "Failed to determine whether we are running in a container, ignoring: %m");
-                else if (r > 0)
-                        log_debug("Running in container, not attempting to use TPM2.");
-
-                try_tpm2 = r <= 0;
-        } else if (sd_id128_equal(with_key, _CRED_AUTO_INITRD)) {
-                /* If automatic mode for initrds is selected, we'll use the TPM2 key if the firmware does it,
-                 * otherwise we'll use a fixed key */
-
-                try_tpm2 = efi_has_tpm2();
+                try_tpm2 = tpm2_support() == TPM2_SUPPORT_FULL;
                 if (!try_tpm2)
-                        log_debug("Firmware lacks TPM2 support, not attempting to use TPM2.");
+                        log_debug("System lacks TPM2 support or running in a container, not attempting to use TPM2.");
         } else
                 try_tpm2 = sd_id128_in_set(with_key,
                                            CRED_AES256_GCM_BY_TPM2_HMAC,
@@ -710,7 +706,7 @@ int encrypt_credential_and_warn(
                               &tpm2_primary_alg);
                 if (r < 0) {
                         if (sd_id128_equal(with_key, _CRED_AUTO_INITRD))
-                                log_warning("Firmware reported a TPM2 being present and used, but we didn't manage to talk to it. Credential will be refused if SecureBoot is enabled.");
+                                log_warning("TPM2 present and used, but we didn't manage to talk to it. Credential will be refused if SecureBoot is enabled.");
                         else if (!sd_id128_equal(with_key, _CRED_AUTO))
                                 return r;
 
