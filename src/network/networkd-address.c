@@ -1216,9 +1216,13 @@ int link_request_address(
 
         (void) address_get(link, address, &existing);
 
-        if (address->lifetime_valid_usec == 0)
+        if (address->lifetime_valid_usec == 0) {
+                if (consume_object)
+                        address_free(address);
+
                 /* The requested address is outdated. Let's remove it. */
                 return address_remove_and_drop(existing);
+        }
 
         if (!existing) {
                 _cleanup_(address_freep) Address *tmp = NULL;
