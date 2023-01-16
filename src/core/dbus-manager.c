@@ -653,6 +653,63 @@ static int method_get_unit_by_control_group(sd_bus_message *message, void *userd
         return reply_unit_path(u, message, error);
 }
 
+static int method_get_unit_by_pidfd(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        Manager *m = ASSERT_PTR(userdata);
+        _cleanup_free_ char *path = NULL;
+        int r, pidfd;
+        pid_t pid_early, pid_late;
+        Unit *u;
+
+        assert(message);
+
+        r = sd_bus_message_read(message, "h", &pidfd);
+        if (r < 0)
+                return r;
+
+        r = pidfd_get_pid(pidfd, &pid_early);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to get PID from PIDFD: %m");
+
+        u = manager_get_unit_by_pid(m, pid_early);
+        if (!u)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_UNIT_FOR_PID, "PID "PID_FMT" does not belong to any loaded unit.", pid_early);
+
+        r = mac_selinux_unit_access_check(u, message, "status", error);
+        if (r < 0)
+                return r;
+
+        path = unit_dbus_path(u);
+        if (!path)
+                return log_oom();
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "os", path, u->id);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append_array(reply, 'y', u->invocation_id.bytes, sizeof(u->invocation_id.bytes));
+        if (r < 0)
+                return r;
+
+        /* Double-check that the process is still alive and that the PID did not change before returning the
+         * answer. */
+        r = pidfd_get_pid(pidfd, &pid_late);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to get PID from PIDFD: %m");
+        if (pid_early != pid_late)
+                return sd_bus_error_setf(error,
+                                         BUS_ERROR_NO_SUCH_PROCESS,
+                                         "The PIDFD's PID "PID_FMT" changed to "PID_FMT" during the lookup operation.",
+                                         pid_early,
+                                         pid_late);
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
 static int method_load_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = ASSERT_PTR(userdata);
         const char *name;
@@ -2910,6 +2967,11 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                 SD_BUS_ARGS("s", cgroup),
                                 SD_BUS_RESULT("o", unit),
                                 method_get_unit_by_control_group,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("GetUnitByPIDFD",
+                                SD_BUS_ARGS("h", pidfd),
+                                SD_BUS_RESULT("o", unit, "s", unit_id, "ay", invocation_id),
+                                method_get_unit_by_pidfd,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("LoadUnit",
                                 SD_BUS_ARGS("s", name),
