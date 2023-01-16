@@ -658,7 +658,7 @@ int encrypt_credential_and_warn(
 
 #if HAVE_TPM2
         bool try_tpm2;
-        if (sd_id128_equal(with_key, _CRED_AUTO)) {
+        if (sd_id128_equal(with_key, _CRED_AUTO, _CRED_AUTO_INITRD)) {
                 /* If automatic mode is selected lets see if a TPM2 it is present. If we are running in a
                  * container tpm2_support will detect this, and will return a different flag combination of
                  * TPM2_SUPPORT_FULL, effectively skipping the use of TPM2 when inside one. */
@@ -666,13 +666,6 @@ int encrypt_credential_and_warn(
                 try_tpm2 = tpm2_support() == TPM2_SUPPORT_FULL;
                 if (!try_tpm2)
                         log_debug("System lacks TPM2 support or running in a container, not attempting to use TPM2.");
-        } else if (sd_id128_equal(with_key, _CRED_AUTO_INITRD)) {
-                /* If automatic mode for initrds is selected, we'll use the TPM2 key if the firmware does it,
-                 * otherwise we'll use a fixed key */
-
-                try_tpm2 = efi_has_tpm2();
-                if (!try_tpm2)
-                        log_debug("Firmware lacks TPM2 support, not attempting to use TPM2.");
         } else
                 try_tpm2 = sd_id128_in_set(with_key,
                                            CRED_AES256_GCM_BY_TPM2_HMAC,
@@ -713,7 +706,7 @@ int encrypt_credential_and_warn(
                               &tpm2_primary_alg);
                 if (r < 0) {
                         if (sd_id128_equal(with_key, _CRED_AUTO_INITRD))
-                                log_warning("Firmware reported a TPM2 being present and used, but we didn't manage to talk to it. Credential will be refused if SecureBoot is enabled.");
+                                log_warning("TPM2 present and used, but we didn't manage to talk to it. Credential will be refused if SecureBoot is enabled.");
                         else if (!sd_id128_equal(with_key, _CRED_AUTO))
                                 return r;
 
