@@ -1437,9 +1437,13 @@ int link_request_route(
 
         (void) route_get(link->manager, link, route, &existing);
 
-        if (route->lifetime_usec == 0)
+        if (route->lifetime_usec == 0) {
+                if (consume_object)
+                        route_free(route);
+
                 /* The requested route is outdated. Let's remove it. */
                 return route_remove_and_drop(existing);
+        }
 
         if (!existing) {
                 _cleanup_(route_freep) Route *tmp = NULL;
