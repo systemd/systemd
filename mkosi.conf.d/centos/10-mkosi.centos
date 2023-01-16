@@ -4,11 +4,8 @@
 # Symlink this file to mkosi.default in the project root directory and invoke "mkosi" to build an OS image.
 
 [Distribution]
-Distribution=centos_epel
-
-[Output]
-Format=gpt_xfs
-HostonlyInitrd=no
+Distribution=centos
+Repositories=epel
 
 [Content]
 Packages=
