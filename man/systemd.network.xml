@@ -737,7 +737,7 @@ Table=1234</programlisting></para>
           may trigger the start of the DHCPv6 client if the relevant flags are set in the RA data, or
           if no routers are found on the link. The default is to disable RA reception for bridge
           devices or when IP forwarding is enabled, and to enable it otherwise. Cannot be enabled on
-          bond devices and when link-local addressing is disabled.</para>
+          devices aggregated in a bond device or when link-local addressing is disabled.</para>
 
           <para>Further settings for the IPv6 RA support may be configured in the [IPv6AcceptRA]
           section, see below.</para>
