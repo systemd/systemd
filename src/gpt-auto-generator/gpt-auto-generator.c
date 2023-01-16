@@ -424,14 +424,14 @@ static int add_automount(
 static const char *esp_or_xbootldr_options(const DissectedPartition *p) {
         assert(p);
 
-        /* if we probed vfat or have no idea about the file system then assume these file systems are vfat
-         * and thus understand "umask=0077". If we detected something else then don't specify any options and
-         * use kernel defaults. */
+        /* Discoveried ESP and XBOOTLDR partition are always hardened with "noexec,nosuid,nodev".
+         * If we probed vfat or have no idea about the file system then assume these file systems are vfat
+         * and thus understand "umask=0077". */
 
         if (!p->fstype || streq(p->fstype, "vfat"))
-                return "umask=0077";
+                return "umask=0077,noexec,nosuid,nodev";
 
-        return NULL;
+        return "noexec,nosuid,nodev";
 }
 
 static int add_partition_xbootldr(DissectedPartition *p) {
