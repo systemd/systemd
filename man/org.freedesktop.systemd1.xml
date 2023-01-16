@@ -65,6 +65,10 @@ node /org/freedesktop/systemd1 {
                             out o unit);
       GetUnitByControlGroup(in  s cgroup,
                             out o unit);
+      GetUnitByPIDFD(in  h pidfd,
+                     out o unit,
+                     out s unit_id,
+                     out ay invocation_id);
       LoadUnit(in  s name,
                out o unit);
       StartUnit(in  s name,
@@ -796,6 +800,8 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="GetUnitByControlGroup()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="GetUnitByPIDFD()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="LoadUnit()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="StartUnit()"/>
@@ -1219,7 +1225,11 @@ node /org/freedesktop/systemd1 {
       will fail.</para>
 
       <para><function>GetUnitByPID()</function> may be used to get the unit object path of the unit a process
-      ID belongs to. It takes a UNIX PID and returns the object path. The PID must refer to an existing system process.</para>
+      ID belongs to. It takes a UNIX PID and returns the object path. The PID must refer to an existing system process.
+      <function>GetUnitByPIDFD()</function> may be used to query with a Linux PIDFD (see:
+      <citerefentry><refentrytitle>pidfd_open</refentrytitle><manvolnum>2</manvolnum></citerefentry>) instead
+      of a PID, which is safer as UNIX PIDs can be recycled. The latter method returns the unit id and the
+      invocation id together with the unit object path.</para>
 
       <para><function>LoadUnit()</function> is similar to <function>GetUnit()</function> but will load the
       unit from disk if possible.</para>
