@@ -245,6 +245,7 @@ systemctl status "systemd-*.timer"
 systemctl status "systemd-journald*.socket"
 systemctl status "sys-devices-*-ttyS0.device"
 systemctl status -- -.mount
+systemctl status 1
 
 # --marked
 systemctl restart "$UNIT_NAME"
