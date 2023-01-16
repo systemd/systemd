@@ -636,6 +636,7 @@ static int parse_timestamp_impl(const char *t, usec_t *usec, bool with_tz) {
          *   2012-09-22 16:34:22
          *   2012-09-22 16:34     (seconds will be set to 0)
          *   2012-09-22           (time will be set to 00:00:00)
+         *   22-09-2012           (time will be set to 00:00:00)
          *   16:34:22             (date will be set to today)
          *   16:34                (date will be set to today, seconds to 0)
          *   now
@@ -824,6 +825,13 @@ static int parse_timestamp_impl(const char *t, usec_t *usec, bool with_tz) {
 
         tm = copy;
         k = strptime(t, "%Y-%m-%d", &tm);
+        if (k && *k == 0) {
+                tm.tm_sec = tm.tm_min = tm.tm_hour = 0;
+                goto from_tm;
+        }
+
+        tm = copy;
+        k = strptime(t, "%m-%d-%Y", &tm);
         if (k && *k == 0) {
                 tm.tm_sec = tm.tm_min = tm.tm_hour = 0;
                 goto from_tm;
