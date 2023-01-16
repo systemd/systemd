@@ -31,6 +31,7 @@ EOF
 export KERNEL_INSTALL_CONF_ROOT="$D/sources"
 export KERNEL_INSTALL_PLUGINS="$plugin"
 export BOOT_ROOT="$D/boot"
+export BOOT_MNT="$D/boot"
 export MACHINE_ID='3e0484f3634a418b8e6a39e8828b03e3'
 
 "$kernel_install" -v add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
@@ -82,3 +83,31 @@ grep -qE '^initrd .*/the-token/1.1.1/initrd' "$entry"
 
 grep -qE 'image' "$BOOT_ROOT/the-token/1.1.1/linux"
 grep -qE 'initrd' "$BOOT_ROOT/the-token/1.1.1/initrd"
+
+if which bootctl >/dev/null; then
+    e2="${entry%+*}_2.conf"
+    cp "$entry" "$e2"
+    export SYSTEMD_ESP_PATH=/
+
+    # create file that is not referenced. Check if cleanup removes
+    # it but leaves the rest alone
+    :> "$BOOT_ROOT/the-token/1.1.2/initrd"
+    bootctl --root="$BOOT_ROOT" cleanup
+    test ! -e "$BOOT_ROOT/the-token/1.1.2/initrd"
+    test -e "$BOOT_ROOT/the-token/1.1.2/linux"
+    test -e "$BOOT_ROOT/the-token/1.1.1/linux"
+    test -e "$BOOT_ROOT/the-token/1.1.1/initrd"
+    # now remove duplicated entry and make sure files are left over
+    bootctl --root="$BOOT_ROOT" unlink "${e2##*/}"
+    test -e "$BOOT_ROOT/the-token/1.1.1/linux"
+    test -e "$BOOT_ROOT/the-token/1.1.1/initrd"
+    test -e "$entry"
+    test ! -e "$e2"
+    # remove last entry referencing those files
+    entry_id="${entry##*/}"
+    entry_id="${entry_id%+*}.conf"
+    bootctl --root="$BOOT_ROOT" unlink "$entry_id"
+    test ! -e "$entry"
+    test ! -e "$BOOT_ROOT/the-token/1.1.1/linux"
+    test ! -e "$BOOT_ROOT/the-token/1.1.1/initrd"
+fi
