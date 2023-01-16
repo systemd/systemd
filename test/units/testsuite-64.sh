@@ -301,7 +301,7 @@ EOF
     rm -fr "$mpoint"
 }
 
-testcase_simultaneous_events() {
+testcase_simultaneous_events_1() {
     local disk expected i iterations key link num_part part partscript rule target timeout
     local -a devices symlinks
     local -A running
@@ -392,6 +392,73 @@ EOF
     rm -f "$rule" "$partscript"
 
     udevadm control --reload
+}
+
+testcase_simultaneous_events_2() {
+    local disk expected i iterations key link num_part part partscript target timeout
+    local -a devices symlinks
+    local -A running
+
+    if [[ -v ASAN_OPTIONS || "$(systemd-detect-virt -v)" == "qemu" ]]; then
+        num_part=20
+        iterations=1
+        timeout=2400
+    else
+        num_part=100
+        iterations=3
+        timeout=300
+    fi
+
+    for disk in {0..9}; do
+        link="/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_deadbeeftest${disk}"
+        target="$(readlink -f "$link")"
+        if [[ ! -b "$target" ]]; then
+            echo "ERROR: failed to find the test SCSI block device $link"
+            return 1
+        fi
+
+        devices+=("$target")
+    done
+
+    symlinks=("/dev/disk/by-partlabel/testlabel")
+
+    partscript="$(mktemp)"
+
+    cat >"$partscript" <<EOF
+$(for ((part = 1; part <= num_part; part++)); do printf 'name="testlabel", size=1M\n'; done)
+EOF
+
+    echo "## $iterations iterations start: $(date '+%H:%M:%S.%N')"
+    for ((i = 1; i <= iterations; i++)); do
+
+        for disk in {0..9}; do
+            udevadm lock --device="${devices[$disk]}" sfdisk -q --delete "${devices[$disk]}" &
+            running[$disk]=$!
+        done
+
+        for key in "${!running[@]}"; do
+            wait "${running[$key]}"
+            unset "running[$key]"
+        done
+
+        for disk in {0..9}; do
+            udevadm lock --device="${devices[$disk]}" sfdisk -q -X gpt "${devices[$disk]}" <"$partscript" &
+            running[$disk]=$!
+        done
+
+        for key in "${!running[@]}"; do
+            wait "${running[$key]}"
+            unset "running[$key]"
+        done
+
+        udevadm wait --settle --timeout="$timeout" "${devices[@]}" "${symlinks[@]}"
+    done
+    echo "## $iterations iterations end: $(date '+%H:%M:%S.%N')"
+}
+
+testcase_simultaneous_events() {
+    testcase_simultaneous_events_1
+    testcase_simultaneous_events_2
 }
 
 testcase_lvm_basic() {
