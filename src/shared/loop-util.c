@@ -131,8 +131,10 @@ static int loop_configure_verify(int fd, const struct loop_config *c) {
                 if (r < 0)
                         return r;
 
-                if (ssz != c->block_size)
+                if (ssz != c->block_size) {
                         log_debug("LOOP_CONFIGURE didn't honour requested block size %" PRIu32 ", got %" PRIu32 " instead. Ignoring.", c->block_size, ssz);
+                        broken = true;
+                }
         }
 
         if (c->info.lo_sizelimit != 0) {
@@ -173,6 +175,7 @@ static int loop_configure_verify(int fd, const struct loop_config *c) {
 
 static int loop_configure_fallback(int fd, const struct loop_config *c) {
         struct loop_info64 info_copy;
+        int r;
 
         assert(fd >= 0);
         assert(c);
@@ -219,6 +222,21 @@ static int loop_configure_fallback(int fd, const struct loop_config *c) {
         if (c->info.lo_offset != 0 || c->info.lo_sizelimit != 0)
                 if (ioctl(fd, BLKFLSBUF, 0) < 0)
                         log_debug_errno(errno, "Failed to issue BLKFLSBUF ioctl, ignoring: %m");
+
+        /* If a block size is requested then try to configure it. If that doesn't work, ignore errors, but
+         * afterwards, let's validate what is in effect, and if it doesn't match what we want, fail */
+        if (c->block_size != 0) {
+                uint32_t ssz;
+
+                if (ioctl(fd, LOOP_SET_BLOCK_SIZE, (unsigned long) c->block_size) < 0)
+                        log_debug_errno(errno, "Failed to set sector size, ignoring: %m");
+
+                r = blockdev_get_sector_size(fd, &ssz);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to read sector size: %m");
+                if (ssz != c->block_size)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Sector size of loopback device doesn't match what we requested, refusing.");
+        }
 
         /* LO_FLAGS_DIRECT_IO is a flags we need to configure via explicit ioctls. */
         if (FLAGS_SET(c->info.lo_flags, LO_FLAGS_DIRECT_IO))
