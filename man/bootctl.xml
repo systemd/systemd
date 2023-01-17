@@ -218,6 +218,19 @@
   </refsect1>
 
   <refsect1>
+    <title><command>uki</command> Commands</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>is-uki</option> <replaceable>kernel</replaceable></term>
+
+        <listitem><para>Takes a kernel image as argument. Checks whenever it is a unified kernel
+        image. </para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>Options</title>
     <para>The following options are understood:</para>
 
