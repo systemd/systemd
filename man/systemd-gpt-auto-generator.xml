@@ -221,6 +221,13 @@
     systems, make sure to set the correct default subvolumes on them,
     using <command>btrfs subvolume set-default</command>.</para>
 
+    <para>If the system was booted via
+    <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> and the
+    stub reported to userspace that the kernel image was measured to a TPM2 PCR, then any discovered root and
+    <filename>/var/</filename> volume identifiers (and volume encryption key in case it is encrypted) will be
+    automatically measured into PCR 15 on activation, via
+    <citerefentry><refentrytitle>systemd-pcrfs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
     <para><filename>systemd-gpt-auto-generator</filename> implements
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
   </refsect1>
@@ -278,6 +285,7 @@
       <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-pcrfs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
