@@ -44,12 +44,12 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path) {
 
         clear_screen(COLOR_NORMAL);
 
-        Print(u"Enrolling secure boot keys from directory: %s\n");
+        Print(u"Enrolling secure boot keys from directory: %s\n", path);
 
         /* Enrolling secure boot keys is safe to do in virtualized environments as there is nothing
          * we can brick there. */
         if (!in_hypervisor()) {
-                Print(u"Warning: Enrolling custom Secure Boot keys might soft-brick your machine!\n", path);
+                Print(u"Warning: Enrolling custom Secure Boot keys might soft-brick your machine!\n");
 
                 unsigned timeout_sec = 15;
                 for (;;) {
