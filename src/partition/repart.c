@@ -1978,11 +1978,26 @@ static int context_load_partition_table(Context *context) {
         if (!c)
                 return log_oom();
 
-        if (arg_sector_size > 0) {
+        if (arg_sector_size > 0)
                 r = fdisk_save_user_sector_size(c, /* phy= */ 0, arg_sector_size);
+        else {
+                uint32_t ssz;
+
+                if (context->backing_fd < 0) {
+                        context->backing_fd = open(context->node, O_RDONLY|O_CLOEXEC);
+                        if (context->backing_fd < 0)
+                                return log_error_errno(errno, "Failed to open device '%s': %m", context->node);
+                }
+
+                /* Auto-detect sector size if not specified. */
+                r = probe_sector_size_prefer_ioctl(context->backing_fd, &ssz);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to set sector size: %m");
+                        return log_error_errno(r, "Failed to probe sector size of '%s': %m", context->node);
+
+                r = fdisk_save_user_sector_size(c, /* phy= */ 0, ssz);
         }
+        if (r < 0)
+                return log_error_errno(r, "Failed to set sector size: %m");
 
         /* libfdisk doesn't have an API to operate on arbitrary fds, hence reopen the fd going via the
          * /proc/self/fd/ magic path if we have an existing fd. Open the original file otherwise. */
@@ -1990,7 +2005,6 @@ static int context_load_partition_table(Context *context) {
                         c,
                         context->backing_fd >= 0 ? FORMAT_PROC_FD_PATH(context->backing_fd) : context->node,
                         arg_dry_run);
-
         if (r == -EINVAL && arg_size_auto) {
                 struct stat st;
 
