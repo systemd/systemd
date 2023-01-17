@@ -175,13 +175,11 @@ static int do_mcopy(const char *node, const char *root) {
                         continue;
                 }
 
-                r = strv_consume(&argv, TAKE_PTR(p));
-                if (r < 0)
+                if (strv_consume(&argv, TAKE_PTR(p)) < 0)
                         return log_oom();
         }
 
-        r = strv_extend(&argv, "::");
-        if (r < 0)
+        if (strv_extend(&argv, "::") < 0)
                 return log_oom();
 
         if (fstat(rfd, &st) < 0)
@@ -403,11 +401,8 @@ int make_filesystem(
                 if (!argv)
                         return log_oom();
 
-                if (root) {
-                        r = strv_extend_strv(&argv, STRV_MAKE("-d", root), false);
-                        if (r < 0)
-                                return log_oom();
-                }
+                if (root && strv_extend_strv(&argv, STRV_MAKE("-d", root), false) < 0)
+                        return log_oom();
 
         } else if (STR_IN_SET(fstype, "ext3", "ext4")) {
                 argv = strv_new(mkfs,
@@ -420,11 +415,8 @@ int make_filesystem(
                                 "-E", discard ? "discard,lazy_itable_init=1" : "nodiscard,lazy_itable_init=1",
                                 node);
 
-                if (root) {
-                        r = strv_extend_strv(&argv, STRV_MAKE("-d", root), false);
-                        if (r < 0)
-                                return log_oom();
-                }
+                if (root && strv_extend_strv(&argv, STRV_MAKE("-d", root), false) < 0)
+                        return log_oom();
 
         } else if (streq(fstype, "btrfs")) {
                 argv = strv_new(mkfs,
@@ -435,17 +427,11 @@ int make_filesystem(
                 if (!argv)
                         return log_oom();
 
-                if (!discard) {
-                        r = strv_extend(&argv, "--nodiscard");
-                        if (r < 0)
-                                return log_oom();
-                }
+                if (!discard && strv_extend(&argv, "--nodiscard") < 0)
+                        return log_oom();
 
-                if (root) {
-                        r = strv_extend_strv(&argv, STRV_MAKE("-r", root), false);
-                        if (r < 0)
-                                return log_oom();
-                }
+                if (root && strv_extend_strv(&argv, STRV_MAKE("-r", root), false) < 0)
+                        return log_oom();
 
         } else if (streq(fstype, "f2fs")) {
                 argv = strv_new(mkfs,
@@ -471,19 +457,15 @@ int make_filesystem(
                 if (!argv)
                         return log_oom();
 
-                if (!discard) {
-                        r = strv_extend(&argv, "-K");
-                        if (r < 0)
-                                return log_oom();
-                }
+                if (!discard && strv_extend(&argv, "-K") < 0)
+                        return log_oom();
 
                 if (root) {
                         r = make_protofile(root, &protofile);
                         if (r < 0)
                                 return r;
 
-                        r = strv_extend_strv(&argv, STRV_MAKE("-p", protofile), false);
-                        if (r < 0)
+                        if (strv_extend_strv(&argv, STRV_MAKE("-p", protofile), false) < 0)
                                 return log_oom();
                 }
 
@@ -523,11 +505,8 @@ int make_filesystem(
         if (!argv)
                 return log_oom();
 
-        if (extra_mkfs_args) {
-                r = strv_extend_strv(&argv, extra_mkfs_args, false);
-                if (r < 0)
-                        return log_oom();
-        }
+        if (extra_mkfs_args && strv_extend_strv(&argv, extra_mkfs_args, false) < 0)
+                return log_oom();
 
         if (root && stat(root, &st) < 0)
                 return log_error_errno(errno, "Failed to stat %s: %m", root);
