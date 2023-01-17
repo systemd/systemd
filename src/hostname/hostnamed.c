@@ -251,7 +251,7 @@ static int get_firmware_vendor(char **ret) {
 }
 
 static int get_firmware_date(usec_t *ret) {
-         _cleanup_free_ char *bios_date = NULL;
+         _cleanup_free_ char *bios_date = NULL, *month = NULL, *day = NULL, *year = NULL;
          int r;
 
          r = get_hardware_firmware_data("bios_date", &bios_date);
@@ -262,16 +262,48 @@ static int get_firmware_date(usec_t *ret) {
                  return 0;
          }
 
-         for (size_t i = 0; i <= strlen(bios_date); i++) {
-                 if (bios_date[i] == '/')
-                         bios_date[i] = '-';
-         }
-
-        r = parse_timestamp(bios_date, ret);
-        if (r < 0) {
-                *ret = USEC_INFINITY;
+        const char *p = bios_date;
+        r = extract_many_words(&p, "/", EXTRACT_DONT_COALESCE_SEPARATORS, &month, &day, &year, NULL);
+        if (r < 0)
                 return r;
-        }
+        if (r != 3) /* less than three args read? */
+                return -EINVAL;
+        if (!isempty(p)) /* more left in the string? */
+                return -EINVAL;
+
+        unsigned m, d, y;
+        r = safe_atou(month, &m);
+        if (r < 0)
+                return r;
+        if (m < 1 || m > 12)
+                return -EINVAL;
+        m -= 1;
+
+        r = safe_atou(day, &d);
+        if (r < 0)
+                return r;
+        if (d < 1 || d > 31)
+                return -EINVAL;
+
+        r = safe_atou(year, &y);
+        if (r < 0)
+                return r;
+        if (y < 1970 || y > (unsigned) INT_MAX)
+                return -EINVAL;
+        y -= 1900;
+
+        struct tm tm = (struct tm) {
+                .tm_mday = d,
+                .tm_mon = m,
+                .tm_year = y,
+        };
+        time_t v = timegm(&tm);
+        if (v == (time_t) -1)
+                return -errno;
+        if (tm.tm_mday != (int) d || tm.tm_mon != (int) m || tm.tm_year != (int) y)
+                return -EINVAL; /* date was not normalized? (e.g. "30th of feb") */
+
+        *ret = (usec_t) v * USEC_PER_MSEC;
 
         return 0;
 }

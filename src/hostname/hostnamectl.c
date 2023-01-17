@@ -241,7 +241,7 @@ static int print_status_info(StatusInfo *i) {
                         return table_log_add_error(r);
         }
 
-        if (i->firmware_date != 0) {
+        if (i->firmware_date != 0 && i->firmware_date != USEC_INFINITY) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Firmware Date",
                                    TABLE_TIMESTAMP, i->firmware_date);
@@ -314,7 +314,7 @@ static int show_all_names(sd_bus *bus) {
                 { "HardwareVendor",            "s", NULL, offsetof(StatusInfo, hardware_vendor)  },
                 { "HardwareModel",             "s", NULL, offsetof(StatusInfo, hardware_model)   },
                 { "FirmwareVersion",           "s", NULL, offsetof(StatusInfo, firmware_version) },
-                { "FirmwareDate",              "t", NULL, offsetof(StatusInfo, firmware_date) },
+                { "FirmwareDate",              "t", NULL, offsetof(StatusInfo, firmware_date)    },
                 {}
         };
 
