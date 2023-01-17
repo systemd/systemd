@@ -62,6 +62,7 @@
 #include "raw-clone.h"
 #include "resize-fs.h"
 #include "signal-util.h"
+#include "sparse-endian.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -105,6 +106,110 @@ int dissect_fstype_ok(const char *fstype) {
 
         log_debug("File system type '%s' is not allowed to be mounted as result of automatic dissection.", fstype);
         return false;
+}
+
+int probe_sector_size(int fd, uint32_t *ret) {
+
+        struct gpt_header {
+                char signature[8];
+                le32_t revision;
+                le32_t header_size;
+                le32_t crc32;
+                le32_t reserved;
+                le64_t my_lba;
+                le64_t alternate_lba;
+                le64_t first_usable_lba;
+                le64_t last_usable_lba;
+                sd_id128_t disk_guid;
+                le64_t partition_entry_lba;
+                le32_t number_of_partition_entries;
+                le32_t size_of_partition_entry;
+                le32_t partition_entry_array_crc32;
+        } _packed_;
+
+        /* Disk images might be for 512B or for 4096 sector sizes, let's try to auto-detect that by searching
+         * for the GPT headers at the relevant byte offsets */
+
+        assert_cc(sizeof(struct gpt_header) == 92);
+
+        /* We expect a sector size in the range 512…4096. The GPT header is located in the second
+         * sector. Hence it could be at byte 512 at the earliest, and at byte 4096 at the latest. And we must
+         * read with granularity of the largest sector size we care about. Which means 8K. */
+        uint8_t sectors[2 * 4096];
+        ssize_t n;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        n = pread(fd, sectors, sizeof(sectors), 0);
+        if (n < 0)
+                return -errno;
+        if (n != sizeof(sectors)) /* too short? */
+                goto not_found;
+
+        /* Let's see if we find the GPT partition header with various expected sector sizes */
+        for (uint32_t sz = 512; sz <= 4096; sz <<= 1) {
+                struct gpt_header *p;
+
+                assert(sizeof(sectors) >= sz * 2);
+                p = (struct gpt_header*) (sectors + sz);
+
+                if (memcmp(p->signature, (const char[8]) { 'E', 'F', 'I', ' ', 'P', 'A', 'R', 'T' }, 8) != 0)
+                        continue;
+
+                if (le32toh(p->revision) != UINT32_C(0x00010000))
+                        continue;
+
+                if (le32toh(p->header_size) < sizeof(struct gpt_header))
+                        continue;
+
+                if (le32toh(p->header_size) > 4096) /* larger than a sector? something is off… */
+                        continue;
+
+                if (le64toh(p->my_lba) != 1) /* this sector must claim to be at sector offset 1 */
+                        continue;
+
+                log_debug("Determined sector size %" PRIu32 " based on discovered partition table.", sz);
+                *ret = sz;
+                return 1; /* indicate we *did* find it */
+        }
+
+not_found:
+        log_debug("Couldn't find any partition table to derive sector size of.");
+        *ret = 512; /* pick the traditional default */
+        return 0;   /* indicate we didn't find it */
+}
+
+int probe_sector_size_prefer_ioctl(int fd, uint32_t *ret) {
+        struct stat st;
+        int r;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        /* Just like probe_sector_size_prefer_ioctl(), but if we are looking at a block device, will use the
+         * already configured sector size rather than probing by contents */
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if (S_ISBLK(st.st_mode)) {
+                int z;
+
+                if (ioctl(fd, BLKSSZGET, &z) < 0)
+                        return -errno;
+                if (z <= 0)
+                        return -EIO;
+
+                *ret = z;
+                return 1;
+        }
+
+        r = stat_verify_regular(&st);
+        if (r < 0)
+                return r;
+
+        return probe_sector_size(fd, ret);
 }
 
 int probe_filesystem_full(
@@ -464,6 +569,7 @@ static int dissect_image(
         assert(!verity || verity->root_hash_sig || verity->root_hash_sig_size == 0);
         assert(!verity || (verity->root_hash || !verity->root_hash_sig));
         assert(!((flags & DISSECT_IMAGE_GPT_ONLY) && (flags & DISSECT_IMAGE_NO_PARTITION_TABLE)));
+        assert(m->sector_size > 0);
 
         /* Probes a disk image, and returns information about what it found in *ret.
          *
@@ -511,6 +617,11 @@ static int dissect_image(
         r = blkid_probe_set_device(b, fd, 0, 0);
         if (r != 0)
                 return errno_or_else(ENOMEM);
+
+        errno = 0;
+        r = blkid_probe_set_sectorsize(b, m->sector_size);
+        if (r != 0)
+                return errno_or_else(EIO);
 
         if ((flags & DISSECT_IMAGE_GPT_ONLY) == 0) {
                 /* Look for file system superblocks, unless we only shall look for GPT partition tables */
@@ -1241,6 +1352,10 @@ int dissect_image_file(
                 return r;
 
         r = dissected_image_new(path, &m);
+        if (r < 0)
+                return r;
+
+        r = probe_sector_size(fd, &m->sector_size);
         if (r < 0)
                 return r;
 
@@ -3061,6 +3176,7 @@ int dissect_loop_device(
                 return r;
 
         m->loop = loop_device_ref(loop);
+        m->sector_size = m->loop->sector_size;
 
         r = dissect_image(m, loop->fd, loop->node, verity, mount_options, flags);
         if (r < 0)
@@ -3236,6 +3352,7 @@ int mount_image_privately_interactively(
         r = loop_device_make_by_path(
                         image,
                         FLAGS_SET(flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : O_RDWR,
+                        /* sector_size= */ UINT32_MAX,
                         FLAGS_SET(flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
                         LOCK_SH,
                         &d);
@@ -3327,7 +3444,8 @@ int verity_dissect_and_mount(
          * accepted by LOOP_CONFIGURE, so just let loop_device_make_by_path reopen it as a regular FD. */
         r = loop_device_make_by_path(
                         src_fd >= 0 ? FORMAT_PROC_FD_PATH(src_fd) : src,
-                        -1,
+                        /* open_flags= */ -1,
+                        /* sector_size= */ UINT32_MAX,
                         verity.data_path ? 0 : LO_FLAGS_PARTSCAN,
                         LOCK_SH,
                         &loop_device);
