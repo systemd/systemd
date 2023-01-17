@@ -1932,6 +1932,18 @@ install_dbus() {
     </policy>
 </busconfig>
 EOF
+
+    # If we run without KVM, bump the service start timeout
+    if ! get_bool "$QEMU_KVM"; then
+        cat >"$initdir/etc/dbus-1/system.d/service.timeout.conf" <<EOF
+<?xml version="1.0"?>
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+        "https://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+    <limit name="service_start_timeout">60000</limit>
+</busconfig>
+EOF
+    fi
 }
 
 install_user_dbus() {
