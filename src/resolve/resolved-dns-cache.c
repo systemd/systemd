@@ -11,9 +11,6 @@
 #include "resolved-dns-packet.h"
 #include "string-util.h"
 
-/* Never cache more than 4K entries. RFC 1536, Section 5 suggests to
- * leave DNS caches unbounded, but that's crazy. */
-#define CACHE_MAX 4096
 
 /* We never keep any item longer than 2h in our cache */
 #define CACHE_TTL_MAX_USEC (2 * USEC_PER_HOUR)
@@ -185,7 +182,7 @@ static void dns_cache_make_space(DnsCache *c, unsigned add) {
                 if (prioq_size(c->by_expiry) <= 0)
                         break;
 
-                if (prioq_size(c->by_expiry) + add < CACHE_MAX)
+                if  (prioq_size(c->by_expiry) + add < c->cache_size)
                         break;
 
                 i = prioq_peek(c->by_expiry);
@@ -670,6 +667,7 @@ static bool rr_eligible(DnsResourceRecord *rr) {
 int dns_cache_put(
                 DnsCache *c,
                 DnsCacheMode cache_mode,
+                int cache_size,
                 DnsProtocol protocol,
                 DnsResourceKey *key,
                 int rcode,

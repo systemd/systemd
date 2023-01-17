@@ -599,3 +599,37 @@ int manager_parse_config_file(Manager *m) {
         return 0;
 
 }
+
+int config_parse_dns_cache_size(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Manager *m = ASSERT_PTR(userdata);
+        int ret, val;
+
+        assert(filename);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                m->cache_size = CACHE_MAX_DEFAULT;
+                return 0;
+        }
+
+        ret = safe_atoi(rvalue, &val);
+
+        if (ret < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 1,
+                        "Failed to parse cache size '%s', ignoring, setting value to %d", rvalue, CACHE_MAX_DEFAULT);
+                return 0;
+        } else
+                m->cache_size = val;
+        return 0;
+}
