@@ -179,14 +179,14 @@ int sd_dhcp_client_id_to_string(const void *data, size_t len, char **ret) {
         _cleanup_free_ char *t = NULL;
         int r = 0;
 
-        assert_return(data, -EINVAL);
-        assert_return(len >= 1, -EINVAL);
+        assert_return(data || len == 0, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        len -= 1;
-        if (len > MAX_CLIENT_ID_LEN)
+        /* RFC 2132, section 9.14: "its minimum length is 2" */
+        if (len <= 1)
                 return -EINVAL;
 
+        len -= 1;
         switch (client_id->type) {
         case 0:
                 if (utf8_is_printable((char *) client_id->gen.data, len))
