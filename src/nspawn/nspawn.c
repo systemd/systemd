@@ -5726,6 +5726,7 @@ static int run(int argc, char *argv[]) {
                 r = loop_device_make_by_path(
                                 arg_image,
                                 arg_read_only ? O_RDONLY : O_RDWR,
+                                /* sector_size= */ UINT32_MAX,
                                 FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
                                 LOCK_SH,
                                 &loop);

@@ -335,7 +335,7 @@ static int portable_extract_by_path(
 
         assert(path);
 
-        r = loop_device_make_by_path(path, O_RDONLY, LO_FLAGS_PARTSCAN, LOCK_SH, &d);
+        r = loop_device_make_by_path(path, O_RDONLY, /* sector_size= */ UINT32_MAX, LO_FLAGS_PARTSCAN, LOCK_SH, &d);
         if (r == -EISDIR) {
                 _cleanup_free_ char *image_name = NULL;
 

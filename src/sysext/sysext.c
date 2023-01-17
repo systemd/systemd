@@ -540,6 +540,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                         r = loop_device_make_by_path(
                                         img->path,
                                         O_RDONLY,
+                                        /* sector_size= */ UINT32_MAX,
                                         FLAGS_SET(flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
                                         LOCK_SH,
                                         &d);
