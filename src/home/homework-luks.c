@@ -1840,6 +1840,7 @@ static int luks_format(
 
 static int make_partition_table(
                 int fd,
+                uint32_t sector_size,
                 const char *label,
                 sd_id128_t uuid,
                 uint64_t *ret_offset,
@@ -1867,7 +1868,7 @@ static int make_partition_table(
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize partition type: %m");
 
-        r = fdisk_new_context_fd(fd, /* read_only= */ false, &c);
+        r = fdisk_new_context_fd(fd, /* read_only= */ false, sector_size, &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to open device: %m");
 
@@ -2317,6 +2318,7 @@ int home_create_luks(
 
         r = make_partition_table(
                         setup->image_fd,
+                        user_record_luks_sector_size(h),
                         user_record_user_name_and_realm(h),
                         partition_uuid,
                         &partition_offset,
@@ -2704,7 +2706,7 @@ static int prepare_resize_partition(
                 return 0;
         }
 
-        r = fdisk_new_context_fd(fd, /* read_only= */ false, &c);
+        r = fdisk_new_context_fd(fd, /* read_only= */ false, UINT32_MAX, &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to open device: %m");
 
@@ -2788,6 +2790,7 @@ static int apply_resize_partition(
 
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         _cleanup_free_ void *two_zero_lbas = NULL;
+        uint32_t ssz;
         ssize_t n;
         int r;
 
@@ -2808,18 +2811,22 @@ static int apply_resize_partition(
         if (r < 0)
                 return log_error_errno(r, "Failed to change partition size: %m");
 
-        two_zero_lbas = malloc0(1024U);
+        r = probe_sector_size(fd, &ssz);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine current sector size: %m");
+
+        two_zero_lbas = malloc0(ssz * 2);
         if (!two_zero_lbas)
                 return log_oom();
 
         /* libfdisk appears to get confused by the existing PMBR. Let's explicitly flush it out. */
-        n = pwrite(fd, two_zero_lbas, 1024U, 0);
+        n = pwrite(fd, two_zero_lbas, ssz * 2, 0);
         if (n < 0)
                 return log_error_errno(errno, "Failed to wipe partition table: %m");
-        if (n != 1024)
+        if (n != ssz * 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write while wiping partition table.");
 
-        r = fdisk_new_context_fd(fd, /* read_only= */ false, &c);
+        r = fdisk_new_context_fd(fd, /* read_only= */ false, ssz, &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to open device: %m");
 

@@ -1982,7 +1982,7 @@ static int context_load_partition_table(Context *context) {
 
                 r = fdisk_assign_device(c, context->node, arg_dry_run);
         } else
-                r = fdisk_new_context_fd(context->backing_fd, arg_dry_run, &c);
+                r = fdisk_new_context_fd(context->backing_fd, arg_dry_run, UINT32_MAX, &c);
 
         if (r == -EINVAL && arg_size_auto) {
                 struct stat st;
@@ -6149,7 +6149,7 @@ static int resize_pt(int fd) {
          * possession of the enlarged backing file. For this it suffices to open the device with libfdisk and
          * immediately write it again, with no changes. */
 
-        r = fdisk_new_context_fd(fd, /* read_only= */ false, &c);
+        r = fdisk_new_context_fd(fd, /* read_only= */ false, UINT32_MAX, &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to open device '%s': %m", FORMAT_PROC_FD_PATH(fd));
 
