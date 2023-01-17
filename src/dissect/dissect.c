@@ -601,8 +601,12 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
         else if (arg_json_format_flags & JSON_FORMAT_OFF)
                 printf("      Size: %s\n", FORMAT_BYTES(size));
 
+        printf(" Sec. Size: %" PRIu32 "\n", m->sector_size);
+
         if (arg_json_format_flags & JSON_FORMAT_OFF)
                 putc('\n', stdout);
+
+        fflush(stdout);
 
         r = dissected_image_acquire_metadata(m, 0);
         if (r == -ENXIO)
@@ -704,6 +708,7 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                                                JSON_BUILD_PAIR("name", JSON_BUILD_STRING(bn)),
                                                JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(m->image_uuid), "imageUuid", JSON_BUILD_UUID(m->image_uuid)),
                                                JSON_BUILD_PAIR("size", JSON_BUILD_INTEGER(size)),
+                                               JSON_BUILD_PAIR("sectorSize", JSON_BUILD_INTEGER(m->sector_size)),
                                                JSON_BUILD_PAIR_CONDITION(m->hostname, "hostname", JSON_BUILD_STRING(m->hostname)),
                                                JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(m->machine_id), "machineId", JSON_BUILD_ID128(m->machine_id)),
                                                JSON_BUILD_PAIR_CONDITION(mi, "machineInfo", JSON_BUILD_VARIANT(mi)),
