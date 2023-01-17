@@ -20,6 +20,9 @@
 
 set -e
 
+# internal for testsuite to override
+: "${_KERNEL_INSTALL_BOOTCTL:=/usr/bin/bootctl}"
+
 COMMAND="${1:?}"
 KERNEL_VERSION="${2:?}"
 ENTRY_DIR_ABS="${3:?}"
@@ -71,8 +74,8 @@ plugin_init
 case "$COMMAND" in
     remove)
         plugin_remove_entry
-        if [ -x "/usr/bin/bootctl" ]; then
-            bootctl ${BOOTCTL_ROOT:+"$BOOTCTL_ROOT"} unlink "${LOADER_ENTRY##*/}"
+        if [ -x "$_KERNEL_INSTALL_BOOTCTL" ]; then
+            "$_KERNEL_INSTALL_BOOTCTL" ${BOOTCTL_ROOT:+"$BOOTCTL_ROOT"} unlink "${LOADER_ENTRY##*/}"
             exit 0
         else
             [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
