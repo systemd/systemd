@@ -70,7 +70,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to extract file name from '%s': %m", device);
 
-        return make_filesystem(device, fstype, label, NULL, uuid, true, NULL);
+        return make_filesystem(device, fstype, label, NULL, uuid, true, 0, NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);
