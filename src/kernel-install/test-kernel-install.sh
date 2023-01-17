@@ -9,6 +9,8 @@ plugin="${2:?}"
 
 D="$(mktemp --tmpdir --directory "test-kernel-install.XXXXXXXXXX")"
 
+export _KERNEL_INSTALL_BOOTCTL="$PROJECT_BUILD_ROOT/bootctl"
+
 # shellcheck disable=SC2064
 trap "rm -rf '$D'" EXIT INT QUIT PIPE
 mkdir -p "$D/boot"
@@ -84,7 +86,7 @@ grep -qE '^initrd .*/the-token/1.1.1/initrd' "$entry"
 grep -qE 'image' "$BOOT_ROOT/the-token/1.1.1/linux"
 grep -qE 'initrd' "$BOOT_ROOT/the-token/1.1.1/initrd"
 
-if test -x "$PROJECT_BUILD_ROOT/bootctl"; then
+if test -x "$_KERNEL_INSTALL_BOOTCTL"; then
     echo "Testing bootctl"
     e2="${entry%+*}_2.conf"
     cp "$entry" "$e2"
@@ -93,13 +95,13 @@ if test -x "$PROJECT_BUILD_ROOT/bootctl"; then
     # create file that is not referenced. Check if cleanup removes
     # it but leaves the rest alone
     :> "$BOOT_ROOT/the-token/1.1.2/initrd"
-    bootctl --root="$BOOT_ROOT" cleanup
+    "$_KERNEL_INSTALL_BOOTCTL" --root="$BOOT_ROOT" cleanup
     test ! -e "$BOOT_ROOT/the-token/1.1.2/initrd"
     test -e "$BOOT_ROOT/the-token/1.1.2/linux"
     test -e "$BOOT_ROOT/the-token/1.1.1/linux"
     test -e "$BOOT_ROOT/the-token/1.1.1/initrd"
     # now remove duplicated entry and make sure files are left over
-    bootctl --root="$BOOT_ROOT" unlink "${e2##*/}"
+    "$_KERNEL_INSTALL_BOOTCTL" --root="$BOOT_ROOT" unlink "${e2##*/}"
     test -e "$BOOT_ROOT/the-token/1.1.1/linux"
     test -e "$BOOT_ROOT/the-token/1.1.1/initrd"
     test -e "$entry"
@@ -107,7 +109,7 @@ if test -x "$PROJECT_BUILD_ROOT/bootctl"; then
     # remove last entry referencing those files
     entry_id="${entry##*/}"
     entry_id="${entry_id%+*}.conf"
-    bootctl --root="$BOOT_ROOT" unlink "$entry_id"
+    "$_KERNEL_INSTALL_BOOTCTL" --root="$BOOT_ROOT" unlink "$entry_id"
     test ! -e "$entry"
     test ! -e "$BOOT_ROOT/the-token/1.1.1/linux"
     test ! -e "$BOOT_ROOT/the-token/1.1.1/initrd"
