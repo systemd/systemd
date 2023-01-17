@@ -180,6 +180,24 @@ not_found:
         return 0;   /* indicate we didn't find it */
 }
 
+int probe_sector_size_prefer_ioctl(int fd, uint32_t *ret) {
+        struct stat st;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        /* Just like probe_sector_size_prefer_ioctl(), but if we are looking at a block device, will use the
+         * already configured sector size rather than probing by contents */
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if (S_ISBLK(st.st_mode))
+                return blockdev_get_sector_size(fd, ret);
+
+        return probe_sector_size(fd, ret);
+}
+
 int probe_filesystem_full(
                 int fd,
                 const char *path,
