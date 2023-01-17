@@ -13,20 +13,10 @@
 #include "secure-boot.h"
 #include "shim.h"
 
-#if defined(__x86_64__) || defined(__i386__)
-#define __sysv_abi__ __attribute__((sysv_abi))
-#else
-#define __sysv_abi__
-#endif
-
 struct ShimLock {
-        EFI_STATUS __sysv_abi__ (*shim_verify) (const void *buffer, uint32_t size);
-
-        /* context is actually a struct for the PE header, but it isn't needed so void is sufficient just do define the interface
-         * see shim.c/shim.h and PeHeader.h in the github shim repo */
-        EFI_STATUS __sysv_abi__ (*generate_hash) (void *data, uint32_t datasize, void *context, uint8_t *sha256hash, uint8_t *sha1hash);
-
-        EFI_STATUS __sysv_abi__ (*read_header) (void *data, uint32_t datasize, void *context);
+        EFI_STATUS _sysv_abi_ (*shim_verify)(const void *buffer, uint32_t size);
+        void *generate_hash;
+        void *read_header;
 };
 
 #define SHIM_LOCK_GUID GUID_DEF(0x605dab50, 0xe046, 0x4300, 0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23)

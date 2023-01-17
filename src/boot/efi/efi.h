@@ -47,6 +47,20 @@ typedef uint64_t EFI_PHYSICAL_ADDRESS;
 #  define EFIAPI
 #endif
 
+#if defined(__x86_64__)
+#  define _sysv_abi_ __attribute__((sysv_abi))
+#elif defined(__i386__)
+/* clang complains that the sysv_abi calling convention is not supported on x86 if in mingw mode. So use
+ * cdecl instead. Both *should* be the same on x86 anyways… */
+#  if defined(__clang__) && defined(__MINGW32__)
+#    define _sysv_abi_ __attribute__((cdecl))
+#  else
+#    define _sysv_abi_ __attribute__((sysv_abi))
+#  endif
+#else
+#  define _sysv_abi_
+#endif
+
 #if __SIZEOF_POINTER__ == 8
 #  define EFI_ERROR_MASK 0x8000000000000000ull
 #elif __SIZEOF_POINTER__ == 4
