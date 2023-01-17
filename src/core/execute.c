@@ -2605,19 +2605,26 @@ static int write_credential(
         return 0;
 }
 
-static char **credential_search_path(
-                const ExecParameters *params,
-                bool encrypted) {
+typedef enum CredentialSearchPath {
+        CREDENTIAL_SEARCH_PATH_TRUSTED,
+        CREDENTIAL_SEARCH_PATH_ENCRYPTED,
+        CREDENTIAL_SEARCH_PATH_ALL,
+        _CREDENTIAL_SEARCH_PATH_MAX,
+        _CREDENTIAL_SEARCH_PATH_INVALID = -EINVAL,
+} CredentialSearchPath;
+
+static char **credential_search_path(const ExecParameters *params, CredentialSearchPath path) {
 
         _cleanup_strv_free_ char **l = NULL;
 
         assert(params);
+        assert(path >= 0 && path < _CREDENTIAL_SEARCH_PATH_MAX);
 
-        /* Assemble a search path to find credentials in. We'll look in /etc/credstore/ (and similar
-         * directories in /usr/lib/ + /run/) for all types of credentials. If we are looking for encrypted
-         * credentials, also look in /etc/credstore.encrypted/ (and similar dirs). */
+        /* Assemble a search path to find credentials in. For non-encrypted credentials, We'll look in
+         * /etc/credstore/ (and similar directories in /usr/lib/ + /run/). If we're looking for encrypted
+         * credentials, we'll look in /etc/credstore.encrypted/ (and similar dirs). */
 
-        if (encrypted) {
+        if (IN_SET(path, CREDENTIAL_SEARCH_PATH_ENCRYPTED, CREDENTIAL_SEARCH_PATH_ALL)) {
                 if (strv_extend(&l, params->received_encrypted_credentials_directory) < 0)
                         return NULL;
 
@@ -2625,12 +2632,14 @@ static char **credential_search_path(
                         return NULL;
         }
 
-        if (params->received_credentials_directory)
-                if (strv_extend(&l, params->received_credentials_directory) < 0)
-                        return NULL;
+        if (IN_SET(path, CREDENTIAL_SEARCH_PATH_TRUSTED, CREDENTIAL_SEARCH_PATH_ALL)) {
+                if (params->received_credentials_directory)
+                        if (strv_extend(&l, params->received_credentials_directory) < 0)
+                                return NULL;
 
-        if (strv_extend_strv(&l, CONF_PATHS_STRV("credstore"), /* filter_duplicates= */ true) < 0)
-                return NULL;
+                if (strv_extend_strv(&l, CONF_PATHS_STRV("credstore"), /* filter_duplicates= */ true) < 0)
+                        return NULL;
+        }
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *t = strv_join(l, ":");
@@ -2706,7 +2715,7 @@ static int load_credential(
                  * directory we received ourselves. We don't support the AF_UNIX stuff in this mode, since we
                  * are operating on a credential store, i.e. this is guaranteed to be regular files. */
 
-                search_path = credential_search_path(params, encrypted);
+                search_path = credential_search_path(params, CREDENTIAL_SEARCH_PATH_ALL);
                 if (!search_path)
                         return -ENOMEM;
 
