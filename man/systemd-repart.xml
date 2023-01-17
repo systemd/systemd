@@ -387,6 +387,15 @@
         <command>systemd-repart</command> was executed.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--sector-size=</option><arg>BYTES</arg></term>
+
+        <listitem><para>This option allows configuring the sector size of the image produced by
+        <command>systemd-repart</command>. It takes a value that is a power of <literal>2</literal> between
+        <literal>512</literal> and <literal>4096</literal>. This option is useful when building images for
+        disks that use a different sector size as the disk on which the image is produced.</para></listitem>.
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
