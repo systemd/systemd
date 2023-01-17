@@ -2613,9 +2613,9 @@ static char **credential_search_path(
 
         assert(params);
 
-        /* Assemble a search path to find credentials in. We'll look in /etc/credstore/ (and similar
-         * directories in /usr/lib/ + /run/) for all types of credentials. If we are looking for encrypted
-         * credentials, also look in /etc/credstore.encrypted/ (and similar dirs). */
+        /* Assemble a search path to find credentials in. For non-encrypted credentials, We'll look in
+         * /etc/credstore/ (and similar directories in /usr/lib/ + /run/). If we're looking for encrypted
+         * credentials, we'll look in /etc/credstore.encrypted/ (and similar dirs). */
 
         if (encrypted) {
                 if (strv_extend(&l, params->received_encrypted_credentials_directory) < 0)
@@ -2623,14 +2623,14 @@ static char **credential_search_path(
 
                 if (strv_extend_strv(&l, CONF_PATHS_STRV("credstore.encrypted"), /* filter_duplicates= */ true) < 0)
                         return NULL;
-        }
+        } else {
+                if (params->received_credentials_directory)
+                        if (strv_extend(&l, params->received_credentials_directory) < 0)
+                                return NULL;
 
-        if (params->received_credentials_directory)
-                if (strv_extend(&l, params->received_credentials_directory) < 0)
+                if (strv_extend_strv(&l, CONF_PATHS_STRV("credstore"), /* filter_duplicates= */ true) < 0)
                         return NULL;
-
-        if (strv_extend_strv(&l, CONF_PATHS_STRV("credstore"), /* filter_duplicates= */ true) < 0)
-                return NULL;
+        }
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *t = strv_join(l, ":");
@@ -2655,12 +2655,11 @@ static int load_credential(
                 uint64_t *left) {
 
         ReadFullFileFlags flags = READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER;
-        _cleanup_strv_free_ char **search_path = NULL;
         _cleanup_(erase_and_freep) char *data = NULL;
         _cleanup_free_ char *bindname = NULL;
         const char *source = NULL;
-        bool missing_ok = true;
-        size_t size, add, maxsz;
+        bool missing_ok = true, search = false;
+        size_t size, add;
         int r;
 
         assert(context);
@@ -2706,20 +2705,19 @@ static int load_credential(
                  * directory we received ourselves. We don't support the AF_UNIX stuff in this mode, since we
                  * are operating on a credential store, i.e. this is guaranteed to be regular files. */
 
-                search_path = credential_search_path(params, encrypted);
-                if (!search_path)
-                        return -ENOMEM;
-
+                search = true;
                 missing_ok = true;
         } else
                 source = NULL;
 
-        if (encrypted)
-                flags |= READ_FULL_FILE_UNBASE64;
+        if (search) {
+                _cleanup_strv_free_ char **search_path = NULL;
 
-        maxsz = encrypted ? CREDENTIAL_ENCRYPTED_SIZE_MAX : CREDENTIAL_SIZE_MAX;
+                search_path = credential_search_path(params, /* encrypted = */ false);
+                if (!search_path)
+                        return -ENOMEM;
 
-        if (search_path) {
+                /* First, try to find an trusted credential. */
                 STRV_FOREACH(d, search_path) {
                         _cleanup_free_ char *j = NULL;
 
@@ -2728,21 +2726,48 @@ static int load_credential(
                                 return -ENOMEM;
 
                         r = read_full_file_full(
-                                        AT_FDCWD, j, /* path is absolute, hence pass AT_FDCWD as nop dir fd here */
+                                        AT_FDCWD, j,
                                         UINT64_MAX,
-                                        maxsz,
+                                        CREDENTIAL_SIZE_MAX,
                                         flags,
                                         NULL,
                                         &data, &size);
                         if (r != -ENOENT)
                                 break;
                 }
+
+                /* Second, if we didn't find a trusted credential and the user requested it, try to find an
+                 * encrypted credential. */
+                if (r == -ENOENT && encrypted) {
+                        search_path = strv_free(search_path);
+                        search_path = credential_search_path(params, /* encrypted = */ true);
+                        if (!search_path)
+                                return -ENOMEM;
+
+                        STRV_FOREACH(d, search_path) {
+                                _cleanup_free_ char *j = NULL;
+
+                                j = path_join(*d, path);
+                                if (!j)
+                                        return -ENOMEM;
+
+                                r = read_full_file_full(
+                                                AT_FDCWD, j,
+                                                UINT64_MAX,
+                                                CREDENTIAL_ENCRYPTED_SIZE_MAX,
+                                                flags|READ_FULL_FILE_UNBASE64,
+                                                NULL,
+                                                &data, &size);
+                                if (r != -ENOENT)
+                                        break;
+                        }
+                }
         } else if (source)
                 r = read_full_file_full(
                                 read_dfd, source,
                                 UINT64_MAX,
-                                maxsz,
-                                flags,
+                                encrypted ? CREDENTIAL_ENCRYPTED_SIZE_MAX : CREDENTIAL_SIZE_MAX,
+                                flags|(encrypted ? READ_FULL_FILE_UNBASE64 : 0),
                                 bindname,
                                 &data, &size);
         else
