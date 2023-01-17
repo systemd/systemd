@@ -20,6 +20,7 @@
 #include "data-fd-util.h"
 #include "device-util.h"
 #include "devnum-util.h"
+#include "dissect-image.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -409,6 +410,7 @@ static int loop_configure(
                 .diskseq = diskseq,
                 .uevent_seqnum_not_before = seqnum,
                 .timestamp_not_before = timestamp,
+                .sector_size = c->block_size,
         };
 
         *ret = TAKE_PTR(d);
@@ -421,7 +423,7 @@ static int loop_device_make_internal(
                 int open_flags,
                 uint64_t offset,
                 uint64_t size,
-                uint32_t block_size,
+                uint32_t sector_size,
                 uint32_t loop_flags,
                 int lock_op,
                 LoopDevice **ret) {
@@ -492,9 +494,30 @@ static int loop_device_make_internal(
         if (control < 0)
                 return -errno;
 
+        if (sector_size == 0)
+                /* If no sector size is specified, default to the classic default */
+                sector_size = 512;
+        else if (sector_size == UINT32_MAX) {
+
+                if (S_ISBLK(st.st_mode))
+                        /* If the sector size is specified as UINT32_MAX we'll propagate the sector size of
+                         * the underlying block device. */
+                        r = blockdev_get_sector_size(fd, &sector_size);
+                else {
+                        assert(S_ISREG(st.st_mode));
+
+                        /* If sector size is specified as UINT32_MAX, we'll try to probe the right sector
+                         * size of the image in question by looking for the GPT partition header at various
+                         * offsets. This of course only works if the image already has a disk label. */
+                        r = probe_sector_size(fd, &sector_size);
+                }
+                if (r < 0)
+                        return r;
+        }
+
         config = (struct loop_config) {
                 .fd = fd,
-                .block_size = block_size,
+                .block_size = sector_size,
                 .info = {
                         /* Use the specified flags, but configure the read-only flag from the open flags, and force autoclear */
                         .lo_flags = (loop_flags & ~LO_FLAGS_READ_ONLY) | ((open_flags & O_ACCMODE) == O_RDONLY ? LO_FLAGS_READ_ONLY : 0) | LO_FLAGS_AUTOCLEAR,
@@ -578,7 +601,7 @@ int loop_device_make(
                 int open_flags,
                 uint64_t offset,
                 uint64_t size,
-                uint32_t block_size,
+                uint32_t sector_size,
                 uint32_t loop_flags,
                 int lock_op,
                 LoopDevice **ret) {
@@ -592,7 +615,7 @@ int loop_device_make(
                         open_flags,
                         offset,
                         size,
-                        block_size,
+                        sector_size,
                         loop_flags_mangle(loop_flags),
                         lock_op,
                         ret);
@@ -601,6 +624,7 @@ int loop_device_make(
 int loop_device_make_by_path(
                 const char *path,
                 int open_flags,
+                uint32_t sector_size,
                 uint32_t loop_flags,
                 int lock_op,
                 LoopDevice **ret) {
@@ -656,12 +680,13 @@ int loop_device_make_by_path(
                   direct ? "enabled" : "disabled",
                   direct != (direct_flags != 0) ? " (O_DIRECT was requested but not supported)" : "");
 
-        return loop_device_make_internal(path, fd, open_flags, 0, 0, 0, loop_flags, lock_op, ret);
+        return loop_device_make_internal(path, fd, open_flags, 0, 0, sector_size, loop_flags, lock_op, ret);
 }
 
 int loop_device_make_by_path_memory(
                 const char *path,
                 int open_flags,
+                uint32_t sector_size,
                 uint32_t loop_flags,
                 int lock_op,
                 LoopDevice **ret) {
@@ -697,7 +722,7 @@ int loop_device_make_by_path_memory(
 
         fd = safe_close(fd); /* Let's close the original early */
 
-        return loop_device_make_internal(NULL, mfd, open_flags, 0, 0, 0, loop_flags, lock_op, ret);
+        return loop_device_make_internal(NULL, mfd, open_flags, 0, 0, sector_size, loop_flags, lock_op, ret);
 }
 
 static LoopDevice* loop_device_free(LoopDevice *d) {
@@ -839,6 +864,11 @@ int loop_device_open(
         if (r < 0 && r != -EOPNOTSUPP)
                 return r;
 
+        uint32_t sector_size;
+        r = blockdev_get_sector_size(fd, &sector_size);
+        if (r < 0)
+                return r;
+
         r = sd_device_get_devnum(dev, &devnum);
         if (r < 0)
                 return r;
@@ -868,6 +898,7 @@ int loop_device_open(
                 .diskseq = diskseq,
                 .uevent_seqnum_not_before = UINT64_MAX,
                 .timestamp_not_before = USEC_INFINITY,
+                .sector_size = sector_size,
         };
 
         *ret = d;
