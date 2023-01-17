@@ -34,5 +34,6 @@ int chase_symlinks_and_opendir(const char *path, const char *root, ChaseSymlinks
 int chase_symlinks_and_stat(const char *path, const char *root, ChaseSymlinksFlags chase_flags, char **ret_path, struct stat *ret_stat, int *ret_fd);
 int chase_symlinks_and_access(const char *path, const char *root, ChaseSymlinksFlags chase_flags, int access_mode, char **ret_path, int *ret_fd);
 int chase_symlinks_and_fopen_unlocked(const char *path, const char *root, ChaseSymlinksFlags chase_flags, const char *open_flags, char **ret_path, FILE **ret_file);
+int chase_symlinks_and_unlink(const char *path, const char *root, ChaseSymlinksFlags chase_flags, int unlink_flags, char **ret_path);
 
 int chase_symlinks_at(int dir_fd, const char *path, ChaseSymlinksFlags flags, char **ret_path, int *ret_fd);
