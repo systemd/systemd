@@ -190,3 +190,4 @@ int verity_dissect_and_mount(int src_fd, const char *src, const char *dest, cons
 int dissect_fstype_ok(const char *fstype);
 
 int probe_sector_size(int fd, uint32_t *ret);
+int probe_sector_size_prefer_ioctl(int fd, uint32_t *ret);

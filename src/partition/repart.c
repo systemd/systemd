@@ -6160,7 +6160,7 @@ static int find_root(Context *context) {
         return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "Failed to discover root block device.");
 }
 
-static int resize_pt(int fd) {
+static int resize_pt(int fd, uint64_t sector_size) {
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         int r;
 
@@ -6168,7 +6168,7 @@ static int resize_pt(int fd) {
          * possession of the enlarged backing file. For this it suffices to open the device with libfdisk and
          * immediately write it again, with no changes. */
 
-        r = fdisk_new_context_fd(fd, /* read_only= */ false, &c);
+        r = fdisk_new_context_fd(fd, /* read_only= */ false, sector_size, &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to open device '%s': %m", FORMAT_PROC_FD_PATH(fd));
 
@@ -6192,7 +6192,8 @@ static int resize_backing_fd(
                 const char *node,           /* The primary way we access the disk image to operate on */
                 int *fd,                    /* An O_RDONLY fd referring to that inode */
                 const char *backing_file,   /* If the above refers to a loopback device, the backing regular file for that, which we can grow */
-                LoopDevice *loop_device) {
+                LoopDevice *loop_device,
+                uint64_t sector_size) {
 
         _cleanup_close_ int writable_fd = -EBADF;
         uint64_t current_size;
@@ -6304,7 +6305,7 @@ static int resize_backing_fd(
                          node, FORMAT_BYTES(current_size), FORMAT_BYTES(arg_size));
 
 done:
-        r = resize_pt(writable_fd);
+        r = resize_pt(writable_fd, sector_size);
         if (r < 0)
                 return r;
 
@@ -6429,7 +6430,8 @@ static int run(int argc, char *argv[]) {
                                 context->node,
                                 &context->backing_fd,
                                 node_is_our_loop ? arg_image : NULL,
-                                node_is_our_loop ? loop_device : NULL);
+                                node_is_our_loop ? loop_device : NULL,
+                                context->sector_size);
                 if (r < 0)
                         return r;
         }
@@ -6503,7 +6505,8 @@ static int run(int argc, char *argv[]) {
                                 context->node,
                                 &context->backing_fd,
                                 node_is_our_loop ? arg_image : NULL,
-                                node_is_our_loop ? loop_device : NULL);
+                                node_is_our_loop ? loop_device : NULL,
+                                context->sector_size);
                 if (r < 0)
                         return r;
 
