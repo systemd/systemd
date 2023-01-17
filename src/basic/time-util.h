@@ -215,3 +215,6 @@ int time_change_fd(void);
 
 const char* timestamp_style_to_string(TimestampStyle t) _const_;
 TimestampStyle timestamp_style_from_string(const char *s) _pure_;
+
+usec_t init_stuck_time(void);
+bool stuck_time_over(usec_t *stuck_time, usec_t timeout);
