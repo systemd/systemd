@@ -13,6 +13,7 @@
 #include "errno-util.h"
 #include "exec-util.h"
 #include "exit-status.h"
+#include "fd-util.h"
 #include "format-util.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
@@ -2103,26 +2104,85 @@ static int show_one(
 static int get_unit_dbus_path_by_pid(
                 sd_bus *bus,
                 uint32_t pid,
-                char **unit) {
+                char **ret_path,
+                char **ret_unit) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        char *u;
+        _cleanup_free_ char *path = NULL, *unit = NULL;
+        char *p;
         int r;
+
+        assert(bus);
+        assert(ret_path);
+        assert(ret_unit);
 
         r = bus_call_method(bus, bus_systemd_mgr, "GetUnitByPID", &error, &reply, "u", pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to get unit for PID %"PRIu32": %s", pid, bus_error_message(&error, r));
 
-        r = sd_bus_message_read(reply, "o", &u);
+        r = sd_bus_message_read(reply, "o", &p);
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        u = strdup(u);
-        if (!u)
+        path = strdup(p);
+        if (!path)
                 return log_oom();
 
-        *unit = u;
+        r = unit_name_from_dbus_path(path, &unit);
+        if (r < 0)
+                return log_oom();
+
+        *ret_unit = TAKE_PTR(unit);
+        *ret_path = TAKE_PTR(path);
+
+        return 0;
+}
+
+static int get_unit_dbus_path_by_pidfd(
+                sd_bus *bus,
+                uint32_t pid,
+                char **ret_path,
+                char **ret_unit) {
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_free_ char *path = NULL, *unit = NULL;
+        _cleanup_close_ int pidfd = -EBADFD;
+        char *p, *u;
+        int r;
+
+        assert(bus);
+        assert(ret_path);
+        assert(ret_unit);
+
+        pidfd = pidfd_open(pid, 0);
+        if (pidfd < 0 && errno == ENOSYS)
+                return get_unit_dbus_path_by_pid(bus, pid, ret_path, ret_unit);
+        if (pidfd < 0)
+                return log_error_errno(errno, "Failed to open PID %"PRIu32": %m", pid);
+
+        r = bus_call_method(bus, bus_systemd_mgr, "GetUnitByPIDFD", &error, &reply, "h", pidfd);
+        if (r < 0 && sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD))
+                return get_unit_dbus_path_by_pid(bus, pid, ret_path, ret_unit);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get unit for PID %"PRIu32": %s", pid, bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "os", &p, &u);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        path = strdup(p);
+        if (!path)
+                return log_oom();
+
+        unit = strdup(u);
+        if (!unit)
+                return log_oom();
+
+        *ret_unit = TAKE_PTR(unit);
+        *ret_path = TAKE_PTR(path);
+
         return 0;
 }
 
@@ -2297,15 +2357,11 @@ int verb_show(int argc, char *argv[], void *userdata) {
 
                         } else {
                                 /* Interpret as PID */
-                                r = get_unit_dbus_path_by_pid(bus, id, &path);
+                                r = get_unit_dbus_path_by_pidfd(bus, id, &path, &unit);
                                 if (r < 0) {
                                         ret = r;
                                         continue;
                                 }
-
-                                r = unit_name_from_dbus_path(path, &unit);
-                                if (r < 0)
-                                        return log_oom();
                         }
 
                         r = show_one(bus, path, unit, show_mode, &new_line, &ellipsized);
