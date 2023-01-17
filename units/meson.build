@@ -267,8 +267,8 @@ in_units = [
          'sysinit.target.wants/'],
         ['systemd-pcrmachine.service',           'HAVE_GNU_EFI HAVE_OPENSSL HAVE_TPM2',
          'sysinit.target.wants/'],
-        ['systemd-pcrfs-root.service',           ''],
-        ['systemd-pcrfs@.service',               ''],
+        ['systemd-pcrfs-root.service',           'HAVE_GNU_EFI HAVE_OPENSSL HAVE_TPM2'],
+        ['systemd-pcrfs@.service',               'HAVE_GNU_EFI HAVE_OPENSSL HAVE_TPM2'],
         ['systemd-growfs-root.service',          ''],
         ['systemd-growfs@.service',              ''],
 ]
