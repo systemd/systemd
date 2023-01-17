@@ -131,8 +131,10 @@ static int loop_configure_verify(int fd, const struct loop_config *c) {
                         return -errno;
 
                 assert(z >= 0);
-                if ((uint32_t) z != c->block_size)
-                        log_debug("LOOP_CONFIGURE didn't honour requested block size %u, got %i instead. Ignoring.", c->block_size, z);
+                if ((uint32_t) z != c->block_size) {
+                        log_debug("LOOP_CONFIGURE didn't honour requested block size %u, got %i instead. Falling back to LOOP_SET_BLOCK_SIZE.", c->block_size, z);
+                        broken = true;
+                }
         }
 
         if (c->info.lo_sizelimit != 0) {
@@ -219,6 +221,21 @@ static int loop_configure_fallback(int fd, const struct loop_config *c) {
         if (c->info.lo_offset != 0 || c->info.lo_sizelimit != 0)
                 if (ioctl(fd, BLKFLSBUF, 0) < 0)
                         log_debug_errno(errno, "Failed to issue BLKFLSBUF ioctl, ignoring: %m");
+
+        /* If a block size is requested then try to configure it. If that doesn't work, ignore errors, but
+         * afterrwards, let's validate what is in effect, and if it doesn't match what we want, fail */
+        if (c->block_size != 0) {
+                int z;
+
+                if (ioctl(fd, LOOP_SET_BLOCK_SIZE, (unsigned long) c->block_size) < 0)
+                        log_debug_errno(errno, "Failed to set sector size, ignoring: %m");
+
+                if (ioctl(fd, BLKSSZGET, &z) < 0)
+                        log_debug_errno(errno, "Failed to read sector size: %m");
+
+                if (z < 0 || (unsigned long) z != c->block_size)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Sector size of loopback device doesn't match what we requested, refusing.");
+        }
 
         /* LO_FLAGS_DIRECT_IO is a flags we need to configure via explicit ioctls. */
         if (FLAGS_SET(c->info.lo_flags, LO_FLAGS_DIRECT_IO))
