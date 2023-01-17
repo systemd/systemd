@@ -13,6 +13,7 @@ typedef struct DnsCache {
         Prioq *by_expiry;
         unsigned n_hit;
         unsigned n_miss;
+        unsigned cache_size;
 } DnsCache;
 
 #include "resolved-dns-answer.h"
@@ -26,6 +27,7 @@ void dns_cache_prune(DnsCache *c);
 int dns_cache_put(
                 DnsCache *c,
                 DnsCacheMode cache_mode,
+                int cache_size,
                 DnsProtocol protocol,
                 DnsResourceKey *key,
                 int rcode,

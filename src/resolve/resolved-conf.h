@@ -5,6 +5,8 @@
 
 #include "resolved-dns-server.h"
 
+#define CACHE_MAX_DEFAULT 4096
+
 int manager_parse_config_file(Manager *m);
 
 int manager_parse_search_domains_and_warn(Manager *m, const char *string);
