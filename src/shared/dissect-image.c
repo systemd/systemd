@@ -537,6 +537,7 @@ static int dissect_image(
         assert(!verity || verity->root_hash_sig || verity->root_hash_sig_size == 0);
         assert(!verity || (verity->root_hash || !verity->root_hash_sig));
         assert(!((flags & DISSECT_IMAGE_GPT_ONLY) && (flags & DISSECT_IMAGE_NO_PARTITION_TABLE)));
+        assert(m->sector_size > 0);
 
         /* Probes a disk image, and returns information about what it found in *ret.
          *
@@ -584,6 +585,11 @@ static int dissect_image(
         r = blkid_probe_set_device(b, fd, 0, 0);
         if (r != 0)
                 return errno_or_else(ENOMEM);
+
+        errno = 0;
+        r = blkid_probe_set_sectorsize(b, m->sector_size);
+        if (r != 0)
+                return errno_or_else(EIO);
 
         if ((flags & DISSECT_IMAGE_GPT_ONLY) == 0) {
                 /* Look for file system superblocks, unless we only shall look for GPT partition tables */
@@ -1314,6 +1320,10 @@ int dissect_image_file(
                 return r;
 
         r = dissected_image_new(path, &m);
+        if (r < 0)
+                return r;
+
+        r = probe_sector_size(fd, &m->sector_size);
         if (r < 0)
                 return r;
 
@@ -3134,6 +3144,7 @@ int dissect_loop_device(
                 return r;
 
         m->loop = loop_device_ref(loop);
+        m->sector_size = m->loop->sector_size;
 
         r = dissect_image(m, loop->fd, loop->node, verity, mount_options, flags);
         if (r < 0)
@@ -3309,6 +3320,7 @@ int mount_image_privately_interactively(
         r = loop_device_make_by_path(
                         image,
                         FLAGS_SET(flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : O_RDWR,
+                        /* sector_size= */ UINT32_MAX,
                         FLAGS_SET(flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
                         LOCK_SH,
                         &d);
@@ -3400,7 +3412,8 @@ int verity_dissect_and_mount(
          * accepted by LOOP_CONFIGURE, so just let loop_device_make_by_path reopen it as a regular FD. */
         r = loop_device_make_by_path(
                         src_fd >= 0 ? FORMAT_PROC_FD_PATH(src_fd) : src,
-                        -1,
+                        /* open_flags= */ -1,
+                        /* sector_size= */ UINT32_MAX,
                         verity.data_path ? 0 : LO_FLAGS_PARTSCAN,
                         LOCK_SH,
                         &loop_device);
