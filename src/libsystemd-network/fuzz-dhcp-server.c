@@ -4,6 +4,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "sd-dhcp-client.h"
+
 #include "fuzz.h"
 
 #include "sd-dhcp-server.c"
@@ -49,6 +51,22 @@ static void add_static_lease(sd_dhcp_server *server, uint8_t i) {
                                                   id, ELEMENTSOF(id)) >= 0);
 }
 
+static void test_dhcp_client_id_to_string(const uint8_t *data, size_t size) {
+        _cleanup_(dhcp_request_freep) DHCPRequest *req = NULL;
+        _cleanup_free_ uint8_t *duped = NULL;
+        _cleanup_free_ char *str = NULL;
+
+        assert_se(duped = memdup(data, size));
+        assert_se(req = new0(DHCPRequest, 1));
+        if (dhcp_option_parse((DHCPMessage*) duped, size, parse_request, req, NULL) < 0)
+                return;
+        if (!req->client_id.data)
+                return;
+        assert_se(sd_dhcp_client_id_to_string(req->client_id.data, req->client_id.length, &str) >= 0);
+        if (str)
+                log_debug("Client ID: %s", str);
+}
+
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
         struct in_addr address = { .s_addr = htobe32(UINT32_C(10) << 24 | UINT32_C(1))};
@@ -56,6 +74,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         if (size < sizeof(DHCPMessage))
                 return 0;
+
+        test_dhcp_client_id_to_string(data, size);
 
         assert_se(duped = memdup(data, size));
 
