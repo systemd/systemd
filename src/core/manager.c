@@ -3033,6 +3033,7 @@ int manager_loop(Manager *m) {
         while (m->objective == MANAGER_OK) {
 
                 (void) watchdog_ping();
+                usec_t stuck_time = init_stuck_time();
 
                 if (!ratelimit_below(&rl)) {
                         /* Yay, something is going seriously wrong, pause a little */
@@ -3040,31 +3041,58 @@ int manager_loop(Manager *m) {
                         sleep(1);
                 }
 
-                if (manager_dispatch_load_queue(m) > 0)
+                r = manager_dispatch_load_queue(m);
+                if (stuck_time_over(&stuck_time, 0))
+                        log_warning("systemd stucked in the main loop while dispatching load queue");
+                if (r > 0)
                         continue;
 
-                if (manager_dispatch_gc_job_queue(m) > 0)
+                r = manager_dispatch_gc_job_queue(m);
+                if (stuck_time_over(&stuck_time, 0))
+                        log_warning("systemd stucked in the main loop while dispatching gc_job queue");
+                if (r > 0)
                         continue;
 
-                if (manager_dispatch_gc_unit_queue(m) > 0)
+                r = manager_dispatch_gc_unit_queue(m);
+                if (stuck_time_over(&stuck_time, 0))
+                        log_warning("systemd stucked in the main loop while dispatching gc_unit queue");
+                if (r > 0)
                         continue;
 
-                if (manager_dispatch_cleanup_queue(m) > 0)
+                r = manager_dispatch_cleanup_queue(m);
+                if (stuck_time_over(&stuck_time, 0))
+                        log_warning("systemd stucked in the main loop while dispatching cleanup queue");
+                if (r > 0)
                         continue;
 
-                if (manager_dispatch_cgroup_realize_queue(m) > 0)
+                r = manager_dispatch_cgroup_realize_queue(m);
+                if (stuck_time_over(&stuck_time, 0))
+                        log_warning("systemd stucked in the main loop while dispatching cgroup realize queue");
+                if (r > 0)
                         continue;
 
-                if (manager_dispatch_start_when_upheld_queue(m) > 0)
+                r = manager_dispatch_start_when_upheld_queue(m);
+                if (stuck_time_over(&stuck_time, 0))
+                        log_warning("systemd stucked in the main loop while dispatching upheld queue");
+                if (r > 0)
                         continue;
 
-                if (manager_dispatch_stop_when_bound_queue(m) > 0)
+                r = manager_dispatch_stop_when_bound_queue(m);
+                if (stuck_time_over(&stuck_time, 0))
+                        log_warning("systemd stucked in the main loop while dispatching stop_when_bound queue");
+                if (r > 0)
                         continue;
 
-                if (manager_dispatch_stop_when_unneeded_queue(m) > 0)
+                r = manager_dispatch_stop_when_unneeded_queue(m);
+                if (stuck_time_over(&stuck_time, 0))
+                        log_warning("systemd stucked in the main loop while dispatching stop_when_unneeded queue");
+                if (r > 0)
                         continue;
 
-                if (manager_dispatch_dbus_queue(m) > 0)
+                r = manager_dispatch_dbus_queue(m);
+                if (stuck_time_over(&stuck_time, 0))
+                        log_warning("systemd stucked in the main loop while dispatching dbus queue");
+                if (r > 0)
                         continue;
 
                 /* Sleep for watchdog runtime wait time */
@@ -3336,6 +3364,7 @@ int manager_reload(Manager *m) {
         _cleanup_fdset_free_ FDSet *fds = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
+        usec_t stuck_time = init_stuck_time();
 
         assert(m);
 
@@ -3353,6 +3382,8 @@ int manager_reload(Manager *m) {
         r = manager_serialize(m, f, fds, false);
         if (r < 0)
                 return r;
+        if (stuck_time_over(&stuck_time, 0))
+                log_warning("systemd stucked while serializing the manager.");
 
         if (fseeko(f, 0, SEEK_SET) < 0)
                 return log_error_errno(errno, "Failed to seek to beginning of serialization: %m");
@@ -3374,6 +3405,9 @@ int manager_reload(Manager *m) {
         m->uid_refs = hashmap_free(m->uid_refs);
         m->gid_refs = hashmap_free(m->gid_refs);
 
+        if (stuck_time_over(&stuck_time, 0))
+                log_warning("systemd stucked while flushing out.");
+
         r = lookup_paths_init_or_warn(&m->lookup_paths, m->unit_file_scope, 0, NULL);
         if (r < 0)
                 return r;
@@ -3390,10 +3424,16 @@ int manager_reload(Manager *m) {
         manager_enumerate_perpetual(m);
         manager_enumerate(m);
 
+        if (stuck_time_over(&stuck_time, 0))
+                log_warning("systemd stucked while parsing the new configuration.");
+
         /* Second, deserialize our stored data */
         r = manager_deserialize(m, f, fds);
         if (r < 0)
                 log_warning_errno(r, "Deserialization failed, proceeding anyway: %m");
+
+        if (stuck_time_over(&stuck_time, 0))
+                log_warning("systemd stucked while deserializing the manager.");
 
         /* We don't need the serialization anymore */
         f = safe_fclose(f);
@@ -3406,8 +3446,14 @@ int manager_reload(Manager *m) {
         /* Third, fire things up! */
         manager_coldplug(m);
 
+        if (stuck_time_over(&stuck_time, 0))
+                log_warning("systemd stucked while doing coldplug.");
+
         /* Clean up runtime objects no longer referenced */
         manager_vacuum(m);
+
+        if (stuck_time_over(&stuck_time, 0))
+                log_warning("systemd stucked while cleaning up unneeded runtime objects.");
 
         /* Clean up deserialized tracked clients */
         m->deserialized_subscribed = strv_free(m->deserialized_subscribed);
@@ -3418,7 +3464,11 @@ int manager_reload(Manager *m) {
 
         manager_ready(m);
 
+        if (stuck_time_over(&stuck_time, 0))
+                log_warning("systemd stucked while changing to ready.");
+
         m->send_reloading_done = true;
+        log_info("Reload over.");
         return 0;
 }
 

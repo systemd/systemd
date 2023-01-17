@@ -1630,3 +1630,23 @@ TimestampStyle timestamp_style_from_string(const char *s) {
                 return TIMESTAMP_US_UTC;
         return t;
 }
+
+usec_t init_stuck_time(void) {
+        return now(CLOCK_MONOTONIC);
+}
+
+bool stuck_time_over(usec_t *stuck_time, usec_t timeout) {
+        if (stuck_time == NULL || *stuck_time == 0)
+                return false;
+
+        if (timeout == 0)
+                timeout = 10 * USEC_PER_SEC;
+
+        usec_t current_time = now(CLOCK_MONOTONIC);
+        if (current_time > *stuck_time && current_time - *stuck_time > timeout) {
+                *stuck_time = current_time;
+                return true;
+        }
+        *stuck_time = current_time;
+        return false;
+}
