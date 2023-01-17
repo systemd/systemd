@@ -14,6 +14,7 @@ t /etc/mtab - - - - security.SMACK64=_
 {% endif %}
 C! /etc/locale.conf - - - -
 C! /etc/nsswitch.conf - - - -
+C! /etc/vconsole.conf - - - -
 {% if HAVE_PAM %}
 C! /etc/pam.d - - - -
 {% endif %}
