@@ -74,6 +74,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_resolve_support);
 CONFIG_PARSER_PROTOTYPE(config_parse_dnssec_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_dns_over_tls_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_dns_cache_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_dns_cache_size);
 
 const char* resolve_support_to_string(ResolveSupport p) _const_;
 ResolveSupport resolve_support_from_string(const char *s) _pure_;
