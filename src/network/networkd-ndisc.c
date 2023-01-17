@@ -817,31 +817,24 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
                         return log_link_error_errno(link, r, "Failed to get RA option type: %m");
 
                 switch (type) {
-
                 case SD_NDISC_OPTION_PREFIX_INFORMATION:
                         r = ndisc_router_process_prefix(link, rt);
-                        if (r < 0)
-                                return r;
                         break;
 
                 case SD_NDISC_OPTION_ROUTE_INFORMATION:
                         r = ndisc_router_process_route(link, rt);
-                        if (r < 0)
-                                return r;
                         break;
 
                 case SD_NDISC_OPTION_RDNSS:
                         r = ndisc_router_process_rdnss(link, rt);
-                        if (r < 0)
-                                return r;
                         break;
 
                 case SD_NDISC_OPTION_DNSSL:
                         r = ndisc_router_process_dnssl(link, rt);
-                        if (r < 0)
-                                return r;
                         break;
                 }
+                if (r < 0 && r != -EBADMSG)
+                        return r;
         }
 }
 
@@ -1024,6 +1017,10 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         assert(rt);
 
         r = sd_ndisc_router_get_address(rt, &router);
+        if (r == -ENODATA) {
+                log_link_debug(link, "Received RA without router address, ignoring.");
+                return 0;
+        }
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get router address from RA: %m");
 
@@ -1038,6 +1035,10 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         }
 
         r = sd_ndisc_router_get_timestamp(rt, CLOCK_BOOTTIME, &timestamp_usec);
+        if (r == -ENODATA) {
+                log_link_debug(link, "Received RA without timestamp, ignoring.");
+                return 0;
+        }
         if (r < 0)
                 return r;
 
@@ -1084,7 +1085,7 @@ static void ndisc_handler(sd_ndisc *nd, sd_ndisc_event_t event, sd_ndisc_router 
 
         case SD_NDISC_EVENT_ROUTER:
                 r = ndisc_router_handler(link, rt);
-                if (r < 0) {
+                if (r < 0 && r != -EBADMSG) {
                         link_enter_failed(link);
                         return;
                 }
