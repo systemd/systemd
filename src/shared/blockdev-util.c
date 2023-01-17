@@ -762,3 +762,15 @@ int blockdev_reread_partition_table(sd_device *dev) {
 
         return 0;
 }
+
+int blockdev_get_sector_size(int fd, uint32_t *ret) {
+        int ssz = 0;
+
+        if (ioctl(fd, BLKSSZGET, &ssz) < 0)
+                return -errno;
+        if (ssz <= 0) /* make sure the field is initialized */
+                return -EIO;
+
+        *ret = ssz;
+        return 0;
+}
