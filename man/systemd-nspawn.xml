@@ -1386,7 +1386,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         </itemizedlist></para>
 
         <para>Whichever ID mapping option is used, the same mapping will be used for users and groups IDs. If
-        <option>rootidmap</option> is used, the group owning the bind mounted directory will have no effect</para>
+        <option>rootidmap</option> is used, the group owning the bind mounted directory will have no effect.</para>
 
         <para>Note that when this option is used in combination with <option>--private-users</option>, the resulting
         mount points will be owned by the <constant>nobody</constant> user. That's because the mount and its files and
