@@ -18,6 +18,8 @@ int efi_loader_get_entries(char ***ret);
 int efi_loader_get_features(uint64_t *ret);
 int efi_stub_get_features(uint64_t *ret);
 
+int efi_stub_measured(void);
+
 int efi_loader_get_config_timeout_one_shot(usec_t *ret);
 int efi_loader_update_entry_one_shot_cache(char **cache, struct stat *cache_stat);
 

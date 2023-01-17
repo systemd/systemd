@@ -146,6 +146,7 @@ struct Network {
         bool dhcp_use_mtu;
         bool dhcp_use_routes;
         int dhcp_use_gateway;
+        bool dhcp_quickack;
         bool dhcp_use_timezone;
         bool dhcp_use_hostname;
         bool dhcp_use_6rd;
@@ -185,6 +186,7 @@ struct Network {
         OrderedHashmap *dhcp6_client_send_vendor_options;
         Set *dhcp6_request_options;
         char *dhcp6_netlabel;
+        bool dhcp6_send_release;
 
         /* DHCP Server Support */
         bool dhcp_server;
@@ -312,6 +314,7 @@ struct Network {
         bool ipv6_accept_ra_use_autonomous_prefix;
         bool ipv6_accept_ra_use_onlink_prefix;
         bool ipv6_accept_ra_use_mtu;
+        bool ipv6_accept_ra_quickack;
         bool active_slave;
         bool primary_slave;
         DHCPUseDomains ipv6_accept_ra_use_domains;

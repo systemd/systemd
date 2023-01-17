@@ -737,7 +737,7 @@ Table=1234</programlisting></para>
           may trigger the start of the DHCPv6 client if the relevant flags are set in the RA data, or
           if no routers are found on the link. The default is to disable RA reception for bridge
           devices or when IP forwarding is enabled, and to enable it otherwise. Cannot be enabled on
-          bond devices and when link-local addressing is disabled.</para>
+          devices aggregated in a bond device or when link-local addressing is disabled.</para>
 
           <para>Further settings for the IPv6 RA support may be configured in the [IPv6AcceptRA]
           section, see below.</para>
@@ -1645,8 +1645,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
       <varlistentry>
         <term><varname>QuickAck=</varname></term>
         <listitem>
-          <para>Takes a boolean. When true enables TCP quick ack mode for the route. When unset, the
-          kernel's default will be used.</para>
+          <para>Takes a boolean. When true, the TCP quick ACK mode for the route is enabled. When unset,
+          the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
 
@@ -2047,6 +2047,14 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>QuickAck=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, the TCP quick ACK mode is enabled for the routes configured by
+          the acquired DHCPv4 lease. When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>UseGateway=</varname></term>
         <listitem>
           <para>When true, the gateway will be requested from the DHCP server and added to the routing
@@ -2284,6 +2292,7 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <term><varname>UseHostname=</varname></term>
         <term><varname>UseDomains=</varname></term>
         <term><varname>NetLabel=</varname></term>
+        <term><varname>SendRelease=</varname></term>
         <listitem>
           <para>As in the [DHCPv4] section.</para>
         </listitem>
@@ -2543,6 +2552,14 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           preference, and the last is for low preference
           (<literal><replaceable>high</replaceable>:<replaceable>medium</replaceable>:<replaceable>low</replaceable></literal>).
           Defaults to <literal>512:1024:2048</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>QuickAck=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, the TCP quick ACK mode is enabled for the routes configured by
+          the received RAs. When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
 

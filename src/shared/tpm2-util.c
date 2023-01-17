@@ -730,18 +730,62 @@ int tpm2_get_good_pcr_banks(
         return 0;
 }
 
+int tpm2_get_good_pcr_banks_strv(
+                ESYS_CONTEXT *c,
+                uint32_t pcr_mask,
+                char ***ret) {
+
+        _cleanup_free_ TPMI_ALG_HASH *algs = NULL;
+        _cleanup_strv_free_ char **l = NULL;
+        int n_algs;
+
+        assert(c);
+        assert(ret);
+
+        n_algs = tpm2_get_good_pcr_banks(c, pcr_mask, &algs);
+        if (n_algs < 0)
+                return n_algs;
+
+        for (int i = 0; i < n_algs; i++) {
+                _cleanup_free_ char *n = NULL;
+                const EVP_MD *implementation;
+                const char *salg;
+
+                salg = tpm2_pcr_bank_to_string(algs[i]);
+                if (!salg)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM2 operates with unknown PCR algorithm, can't measure.");
+
+                implementation = EVP_get_digestbyname(salg);
+                if (!implementation)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM2 operates with unsupported PCR algorithm, can't measure.");
+
+                n = strdup(ASSERT_PTR(EVP_MD_name(implementation)));
+                if (!n)
+                        return log_oom();
+
+                ascii_strlower(n); /* OpenSSL uses uppercase digest names, we prefer them lower case. */
+
+                if (strv_consume(&l, TAKE_PTR(n)) < 0)
+                        return log_oom();
+        }
+
+        *ret = TAKE_PTR(l);
+        return 0;
+}
+
 static void hash_pin(const char *pin, size_t len, TPM2B_AUTH *auth) {
         struct sha256_ctx hash;
 
         assert(auth);
         assert(pin);
+
         auth->size = SHA256_DIGEST_SIZE;
+
+        CLEANUP_ERASE(hash);
 
         sha256_init_ctx(&hash);
         sha256_process_bytes(pin, len, &hash);
         sha256_finish_ctx(&hash, auth->buffer);
-
-        explicit_bzero_safe(&hash, sizeof(hash));
 }
 
 static int tpm2_make_encryption_session(
@@ -773,11 +817,11 @@ static int tpm2_make_encryption_session(
         if (pin) {
                 TPM2B_AUTH auth = {};
 
+                CLEANUP_ERASE(auth);
+
                 hash_pin(pin, strlen(pin), &auth);
 
                 rc = sym_Esys_TR_SetAuth(c, bind_key, &auth);
-                /* ESAPI knows about it, so clear it from our memory */
-                explicit_bzero_safe(&auth, sizeof(auth));
                 if (rc != TSS2_RC_SUCCESS)
                         return log_error_errno(
                                                SYNTHETIC_ERRNO(ENOTRECOVERABLE),
@@ -1369,8 +1413,8 @@ int tpm2_seal(const char *device,
         static const TPML_PCR_SELECTION creation_pcr = {};
         _cleanup_(erase_and_freep) void *secret = NULL;
         _cleanup_free_ void *blob = NULL, *hash = NULL;
-        TPM2B_SENSITIVE_CREATE hmac_sensitive;
         ESYS_TR primary = ESYS_TR_NONE, session = ESYS_TR_NONE;
+        TPM2B_SENSITIVE_CREATE hmac_sensitive;
         TPMI_ALG_PUBLIC primary_alg;
         TPM2B_PUBLIC hmac_template;
         TPMI_ALG_HASH pcr_bank;
@@ -1409,6 +1453,8 @@ int tpm2_seal(const char *device,
          * binding the unlocking to the TPM2 chip. */
 
         start = now(CLOCK_MONOTONIC);
+
+        CLEANUP_ERASE(hmac_sensitive);
 
         r = tpm2_context_init(device, &c);
         if (r < 0)
@@ -1450,7 +1496,7 @@ int tpm2_seal(const char *device,
                         .nameAlg = TPM2_ALG_SHA256,
                         .objectAttributes = TPMA_OBJECT_FIXEDTPM | TPMA_OBJECT_FIXEDPARENT,
                         .parameters.keyedHashDetail.scheme.scheme = TPM2_ALG_NULL,
-                        .unique.keyedHash.size = 32,
+                        .unique.keyedHash.size = SHA256_DIGEST_SIZE,
                         .authPolicy = *policy_digest,
                 },
         };
@@ -1498,7 +1544,6 @@ int tpm2_seal(const char *device,
         }
 
         secret = memdup(hmac_sensitive.sensitive.data.buffer, hmac_sensitive.sensitive.data.size);
-        explicit_bzero_safe(hmac_sensitive.sensitive.data.buffer, hmac_sensitive.sensitive.data.size);
         if (!secret) {
                 r = log_oom();
                 goto finish;
@@ -1559,7 +1604,6 @@ int tpm2_seal(const char *device,
         r = 0;
 
 finish:
-        explicit_bzero_safe(&hmac_sensitive, sizeof(hmac_sensitive));
         primary = tpm2_flush_context_verbose(c.esys_context, primary);
         session = tpm2_flush_context_verbose(c.esys_context, session);
         return r;
@@ -1874,6 +1918,90 @@ int tpm2_find_device_auto(
                                "TPM2 not supported on this build.");
 #endif
 }
+
+#if HAVE_TPM2
+int tpm2_extend_bytes(
+                ESYS_CONTEXT *c,
+                char **banks,
+                unsigned pcr_index,
+                const void *data,
+                size_t data_size,
+                const void *secret,
+                size_t secret_size) {
+
+#if HAVE_OPENSSL
+        TPML_DIGEST_VALUES values = {};
+        TSS2_RC rc;
+
+        assert(c);
+        assert(data || data_size == 0);
+        assert(secret || secret_size == 0);
+
+        if (data_size == SIZE_MAX)
+                data_size = strlen(data);
+        if (secret_size == SIZE_MAX)
+                secret_size = strlen(secret);
+
+        if (pcr_index >= TPM2_PCRS_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Can't measure into unsupported PCR %u, refusing.", pcr_index);
+
+        if (strv_isempty(banks))
+                return 0;
+
+        STRV_FOREACH(bank, banks) {
+                const EVP_MD *implementation;
+                int id;
+
+                assert_se(implementation = EVP_get_digestbyname(*bank));
+
+                if (values.count >= ELEMENTSOF(values.digests))
+                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "Too many banks selected.");
+
+                if ((size_t) EVP_MD_size(implementation) > sizeof(values.digests[values.count].digest))
+                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "Hash result too large for TPM2.");
+
+                id = tpm2_pcr_bank_from_string(EVP_MD_name(implementation));
+                if (id < 0)
+                        return log_error_errno(id, "Can't map hash name to TPM2.");
+
+                values.digests[values.count].hashAlg = id;
+
+                /* So here's a twist: sometimes we want to measure secrets (e.g. root file system volume
+                 * key), but we'd rather not leak a literal hash of the secret to the TPM (given that the
+                 * wire is unprotected, and some other subsystem might use the simple, literal hash of the
+                 * secret for other purposes, maybe because it needs a shorter secret derived from it for
+                 * some unrelated purpose, who knows). Hence we instead measure an HMAC signature of a
+                 * private non-secret string instead. */
+                if (secret_size > 0) {
+                        if (!HMAC(implementation, secret, secret_size, data, data_size, (unsigned char*) &values.digests[values.count].digest, NULL))
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to calculate HMAC of data to measure.");
+                } else if (EVP_Digest(data, data_size, (unsigned char*) &values.digests[values.count].digest, NULL, implementation, NULL) != 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to hash data to measure.");
+
+                values.count++;
+        }
+
+        rc = sym_Esys_PCR_Extend(
+                        c,
+                        ESYS_TR_PCR0 + pcr_index,
+                        ESYS_TR_PASSWORD,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        &values);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(
+                                SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                "Failed to measure into PCR %u: %s",
+                                pcr_index,
+                                sym_Tss2_RC_Decode(rc));
+
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "OpenSSL not supported on this build.");
+#endif
+}
+#endif
 
 int tpm2_parse_pcrs(const char *s, uint32_t *ret) {
         const char *p = ASSERT_PTR(s);
