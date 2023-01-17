@@ -147,6 +147,7 @@ static size_t arg_n_filter_partitions = 0;
 static FilterPartitionsType arg_filter_partitions_type = FILTER_PARTITIONS_NONE;
 static sd_id128_t *arg_defer_partitions = NULL;
 static size_t arg_n_defer_partitions = 0;
+static uint64_t arg_sector_size = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -1973,16 +1974,22 @@ static int context_load_partition_table(Context *context) {
         assert(context->end == UINT64_MAX);
         assert(context->total == UINT64_MAX);
 
+        c = fdisk_new_context();
+        if (!c)
+                return log_oom();
+
+        if (arg_sector_size > 0) {
+                r = fdisk_save_user_sector_size(c, /* phy= */ 0, arg_sector_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set sector size: %m");
+        }
+
         /* libfdisk doesn't have an API to operate on arbitrary fds, hence reopen the fd going via the
          * /proc/self/fd/ magic path if we have an existing fd. Open the original file otherwise. */
-        if (context->backing_fd < 0) {
-                c = fdisk_new_context();
-                if (!c)
-                        return log_oom();
-
-                r = fdisk_assign_device(c, context->node, arg_dry_run);
-        } else
-                r = fdisk_new_context_fd(context->backing_fd, arg_dry_run, &c);
+        r = fdisk_assign_device(
+                        c,
+                        context->backing_fd >= 0 ? FORMAT_PROC_FD_PATH(context->backing_fd) : context->node,
+                        arg_dry_run);
 
         if (r == -EINVAL && arg_size_auto) {
                 struct stat st;
@@ -1999,7 +2006,7 @@ static int context_load_partition_table(Context *context) {
 
                 if (S_ISREG(st.st_mode) && st.st_size == 0) {
                         /* User the fallback values if we have no better idea */
-                        context->sector_size = 512;
+                        context->sector_size = arg_sector_size ?: 512;
                         context->grain_size = 4096;
                         return /* from_scratch = */ true;
                 }
@@ -4031,7 +4038,7 @@ static int context_mkfs(Context *context) {
                 }
 
                 r = make_filesystem(partition_target_path(t), p->format, strempty(p->new_label), root,
-                                    p->fs_uuid, arg_discard, NULL);
+                                    p->fs_uuid, arg_discard, context->sector_size, NULL);
                 if (r < 0)
                         return r;
 
@@ -5361,7 +5368,8 @@ static int context_minimize(Context *context) {
                                 return r;
                 }
 
-                r = make_filesystem(d ? d->node : temp, p->format, strempty(p->new_label), root, fs_uuid, arg_discard, NULL);
+                r = make_filesystem(d ? d->node : temp, p->format, strempty(p->new_label), root, fs_uuid,
+                                    arg_discard, context->sector_size, NULL);
                 if (r < 0)
                         return r;
 
@@ -5414,7 +5422,8 @@ static int context_minimize(Context *context) {
                 if (r < 0 && r != -ENOENT && !ERRNO_IS_PRIVILEGE(r))
                         return log_error_errno(r, "Failed to make loopback device of %s: %m", temp);
 
-                r = make_filesystem(d ? d->node : temp, p->format, strempty(p->new_label), root, p->fs_uuid, arg_discard, NULL);
+                r = make_filesystem(d ? d->node : temp, p->format, strempty(p->new_label), root, p->fs_uuid,
+                                    arg_discard, context->sector_size, NULL);
                 if (r < 0)
                         return r;
 
@@ -5511,6 +5520,7 @@ static int help(void) {
                "     --defer-partitions=PARTITION1,PARTITION2,PARTITION3,…\n"
                "                          Take partitions of the specified types into account\n"
                "                          but don't populate them yet\n"
+               "     --sector-size=SIZE   Set the logical sector size for the image\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -5549,6 +5559,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_INCLUDE_PARTITIONS,
                 ARG_EXCLUDE_PARTITIONS,
                 ARG_DEFER_PARTITIONS,
+                ARG_SECTOR_SIZE,
         };
 
         static const struct option options[] = {
@@ -5579,6 +5590,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "include-partitions",   required_argument, NULL, ARG_INCLUDE_PARTITIONS   },
                 { "exclude-partitions",   required_argument, NULL, ARG_EXCLUDE_PARTITIONS   },
                 { "defer-partitions",     required_argument, NULL, ARG_DEFER_PARTITIONS     },
+                { "sector-size",          required_argument, NULL, ARG_SECTOR_SIZE          },
                 {}
         };
 
@@ -5861,6 +5873,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_DEFER_PARTITIONS:
                         r = parse_partition_types(optarg, &arg_defer_partitions, &arg_n_defer_partitions);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_SECTOR_SIZE:
+                        r = parse_sector_size(optarg, &arg_sector_size);
                         if (r < 0)
                                 return r;
 
