@@ -14,6 +14,8 @@ static const uint8_t pe_file_magic[4] = "PE\0\0";
 static const uint8_t name_osrel[8] = ".osrel";
 static const uint8_t name_linux[8] = ".linux";
 static const uint8_t name_initrd[8] = ".initrd";
+static const uint8_t name_cmdline[8] = ".cmdline";
+static const uint8_t name_uname[8] = ".uname";
 
 static int pe_sections(FILE *uki, struct PeSectionHeader **ret, size_t *ret_n) {
         _cleanup_free_ struct PeSectionHeader *sections = NULL;
@@ -108,5 +110,77 @@ int verb_kernel_identify(int argc, char *argv[], void *userdata) {
         }
 
         puts("unknown");
+        return EXIT_SUCCESS;
+}
+
+static int read_pe_section(FILE *uki, const struct PeSectionHeader *section,
+                           void **ret, size_t *ret_n) {
+        _cleanup_free_ void *data = NULL;
+        uint32_t size, bytes;
+        uint64_t soff;
+        int rc;
+
+        soff = le32toh(section->PointerToRawData);
+        size = le32toh(section->VirtualSize);
+
+        rc = fseek(uki, soff, SEEK_SET);
+        if (rc < 0)
+                return log_error_errno(errno, "seek to PE section");
+
+        data = malloc(size);
+        if (!data)
+                return log_oom();
+        bytes = fread(data, 1, size, uki);
+        if (bytes != size)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "PE section read error");
+
+        *ret = TAKE_PTR(data);
+        *ret_n = size;
+        return 0;
+}
+
+static void inspect_uki(FILE *uki, struct PeSectionHeader *sections, size_t scount) {
+        _cleanup_free_ char *cmdline = NULL;
+        _cleanup_free_ char *uname = NULL;
+        size_t cmdline_len, uname_len;
+        size_t idx;
+
+        if (find_pe_section(sections, scount, name_cmdline, sizeof(name_cmdline), &idx))
+                read_pe_section(uki, sections + idx, (void**)&cmdline, &cmdline_len);
+
+        if (find_pe_section(sections, scount, name_uname, sizeof(name_uname), &idx))
+                read_pe_section(uki, sections + idx, (void**)&uname, &uname_len);
+
+        if (cmdline)
+                printf("    Cmdline: %.*s\n", (int)cmdline_len, cmdline);
+        if (uname)
+                printf("    Version: %.*s\n", (int)uname_len, uname);
+}
+
+int verb_kernel_inspect(int argc, char *argv[], void *userdata) {
+        _cleanup_fclose_ FILE *uki = NULL;
+        _cleanup_free_ struct PeSectionHeader *sections = NULL;
+        size_t scount;
+        int rc;
+
+        uki = fopen(argv[1], "re");
+        if (!uki)
+                return log_error_errno(errno, "Failed to open UKI file '%s': %m", argv[1]);
+
+        rc = pe_sections(uki, &sections, &scount);
+        if (rc < 0)
+                return EXIT_FAILURE;
+
+        if (sections) {
+                if (is_uki(sections, scount)) {
+                        puts("Kernel Type: uki");
+                        inspect_uki(uki, sections, scount);
+                        return EXIT_SUCCESS;
+                }
+                puts("Kernel Type: pe");
+                return EXIT_SUCCESS;
+        }
+
+        puts("Kernel Type: unknown");
         return EXIT_SUCCESS;
 }
