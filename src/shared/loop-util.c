@@ -125,14 +125,14 @@ static int loop_configure_verify(int fd, const struct loop_config *c) {
         assert(c);
 
         if (c->block_size != 0) {
-                int z;
+                uint32_t ssz;
 
-                if (ioctl(fd, BLKSSZGET, &z) < 0)
-                        return -errno;
+                r = blockdev_get_sector_size(fd, &ssz);
+                if (r < 0)
+                        return r;
 
-                assert(z >= 0);
-                if ((uint32_t) z != c->block_size)
-                        log_debug("LOOP_CONFIGURE didn't honour requested block size %u, got %i instead. Ignoring.", c->block_size, z);
+                if (ssz != c->block_size)
+                        log_debug("LOOP_CONFIGURE didn't honour requested block size %" PRIu32 ", got %" PRIu32 " instead. Ignoring.", c->block_size, ssz);
         }
 
         if (c->info.lo_sizelimit != 0) {
