@@ -410,6 +410,7 @@ static int bootctl_main(int argc, char *argv[]) {
                 { "remove",              VERB_ANY, 1,        0,            verb_remove              },
                 { "is-installed",        VERB_ANY, 1,        0,            verb_is_installed        },
                 { "kernel-identify",     2,        2,        0,            verb_kernel_identify     },
+                { "kernel-inspect",      2,        2,        0,            verb_kernel_inspect      },
                 { "list",                VERB_ANY, 1,        0,            verb_list                },
                 { "set-default",         2,        2,        0,            verb_set_efivar          },
                 { "set-oneshot",         2,        2,        0,            verb_set_efivar          },
