@@ -93,6 +93,8 @@ struct DissectedImage {
         DissectedPartition partitions[_PARTITION_DESIGNATOR_MAX];
         DecryptedImage *decrypted_image;
 
+        uint32_t sector_size;
+
         /* Meta information extracted from /etc/os-release and similar */
         char *image_name;
         sd_id128_t image_uuid;
@@ -186,3 +188,6 @@ int mount_image_privately_interactively(const char *path, DissectImageFlags flag
 int verity_dissect_and_mount(int src_fd, const char *src, const char *dest, const MountOptions *options, const char *required_host_os_release_id, const char *required_host_os_release_version_id, const char *required_host_os_release_sysext_level, const char *required_sysext_scope);
 
 int dissect_fstype_ok(const char *fstype);
+
+int probe_sector_size(int fd, uint32_t *ret);
+int probe_sector_size_prefer_ioctl(int fd, uint32_t *ret);
