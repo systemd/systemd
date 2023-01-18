@@ -716,24 +716,6 @@ endif
 
 ############################################################
 
-python = find_program('python3')
-if run_command(python, '-c', 'import jinja2', check : false).returncode() != 0
-        error('python3 jinja2 missing')
-endif
-
-python_310 = run_command(python, '-c',
-                         'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)',
-                         check : false).returncode() == 0
-if get_option('ukify') == 'auto'
-    want_ukify = python_310
-elif get_option('ukify') == 'true' and not python310
-    error('ukify requires Python >= 3.10')
-else
-    want_ukify = get_option('ukify') == 'true'
-endif
-
-############################################################
-
 gperf = find_program('gperf')
 
 gperf_test_format = '''
@@ -1986,6 +1968,24 @@ config_h = configure_file(
 add_project_arguments('-include', 'config.h', language : 'c')
 
 jinja2_cmdline = [meson_render_jinja2, config_h, version_h]
+
+############################################################
+
+python = find_program('python3')
+if run_command(python, '-c', 'import jinja2', check : false).returncode() != 0
+        error('python3 jinja2 missing')
+endif
+
+python_310 = run_command(python, '-c',
+                         'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)',
+                         check : false).returncode() == 0
+if get_option('ukify') == 'auto'
+    want_ukify = python_310  and conf.get('HAVE_GNU_EFI') == 1
+elif get_option('ukify') == 'true' and (not python310 or conf.get('HAVE_GNU_EFI') != 1)
+    error('ukify requires Python >= 3.10 and GNU EFI')
+else
+    want_ukify = get_option('ukify') == 'true'
+endif
 
 ############################################################
 
@@ -4049,6 +4049,7 @@ public_programs += exe
 if want_tests != 'false' and want_kernel_install
         test('test-kernel-install',
              test_kernel_install_sh,
+             env : test_env,
              args : [exe.full_path(), loaderentry_install])
 endif
 
