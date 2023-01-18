@@ -29,9 +29,9 @@ TimeoutSec=90s
 # Optionally, pick up a root password and shell for the root user from a
 # credential passed to the service manager. This is useful for importing this
 # data from nspawn's --set-credential= switch.
-LoadCredential=passwd.hashed-password.root
-LoadCredential=passwd.plaintext-password.root
-LoadCredential=passwd.shell.root
+ImportCredential=passwd.hashed-password.root
+ImportCredential=passwd.plaintext-password.root
+ImportCredential=passwd.shell.root
 
 # Also, allow configuring extra sysusers lines via a credential
-LoadCredential=sysusers.extra
+ImportCredential=sysusers.*
