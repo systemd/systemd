@@ -45,7 +45,7 @@ int find_language_fallback(const char *lang, char **ret);
 
 int locale_read_data(Context *c, sd_bus_message *m);
 int vconsole_read_data(Context *c, sd_bus_message *m);
-int x11_read_data(Context *c, sd_bus_message *m);
+int x11_read_data(Context *c, sd_bus_message *m, bool force_xorg);
 
 void context_clear(Context *c);
 int vconsole_convert_to_x11(Context *c);
