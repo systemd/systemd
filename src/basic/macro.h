@@ -175,12 +175,12 @@ static inline int __coverity_check_and_return__(int condition) {
 #define assert_message_se(expr, message)                                \
         do {                                                            \
                 if (_unlikely_(!(expr)))                                \
-                        log_assert_failed(message, PROJECT_FILE, __LINE__, __PRETTY_FUNCTION__); \
+                        log_assert_failed(message, PROJECT_FILE, __LINE__, __func__); \
         } while (false)
 
 #define assert_log(expr, message) ((_likely_(expr))                     \
         ? (true)                                                        \
-        : (log_assert_failed_return(message, PROJECT_FILE, __LINE__, __PRETTY_FUNCTION__), false))
+        : (log_assert_failed_return(message, PROJECT_FILE, __LINE__, __func__), false))
 
 #endif  /* __COVERITY__ */
 
@@ -195,7 +195,7 @@ static inline int __coverity_check_and_return__(int condition) {
 #endif
 
 #define assert_not_reached()                                            \
-        log_assert_failed_unreachable(PROJECT_FILE, __LINE__, __PRETTY_FUNCTION__)
+        log_assert_failed_unreachable(PROJECT_FILE, __LINE__, __func__)
 
 #define assert_return(expr, r)                                          \
         do {                                                            \

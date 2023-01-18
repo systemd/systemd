@@ -318,7 +318,7 @@ static char16_t *get_dropin_dir(const EFI_DEVICE_PATH *file_path) {
                 return NULL;
 
         convert_efi_path(file_path_str);
-        return xpool_print(u"%s.extra.d", file_path_str);
+        return xasprintf("%ls.extra.d", file_path_str);
 }
 
 EFI_STATUS pack_cpio(
@@ -357,8 +357,7 @@ EFI_STATUS pack_cpio(
                  * its file handles. */
                 goto nothing;
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(
-                                err, L"Unable to open root directory: %r", err);
+                return log_error_status(err, "Unable to open root directory: %m");
 
         if (!dropin_dir)
                 dropin_dir = rel_dropin_dir = get_dropin_dir(loaded_image->FilePath);
@@ -368,14 +367,14 @@ EFI_STATUS pack_cpio(
                 /* No extra subdir, that's totally OK */
                 goto nothing;
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Failed to open extra directory of loaded image: %r", err);
+                return log_error_status(err, "Failed to open extra directory of loaded image: %m");
 
         for (;;) {
                 _cleanup_free_ char16_t *d = NULL;
 
                 err = readdir_harder(extra_dir, &dirent, &dirent_size);
                 if (err != EFI_SUCCESS)
-                        return log_error_status_stall(err, L"Failed to read extra directory of loaded image: %r", err);
+                        return log_error_status(err, "Failed to read extra directory of loaded image: %m");
                 if (!dirent) /* End of directory */
                         break;
 
@@ -420,7 +419,7 @@ EFI_STATUS pack_cpio(
          * archive. Otherwise the cpio archive cannot be unpacked, since the leading dirs won't exist. */
         err = pack_cpio_prefix(target_dir_prefix, dir_mode, &inode, &buffer, &buffer_size);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Failed to pack cpio prefix: %r", err);
+                return log_error_status(err, "Failed to pack cpio prefix: %m");
 
         for (UINTN i = 0; i < n_items; i++) {
                 _cleanup_free_ char *content = NULL;
@@ -428,7 +427,7 @@ EFI_STATUS pack_cpio(
 
                 err = file_read(extra_dir, items[i], 0, 0, &content, &contentsize);
                 if (err != EFI_SUCCESS) {
-                        log_error_status_stall(err, L"Failed to read %s, ignoring: %r", items[i], err);
+                        log_error_status(err, "Failed to read %ls, ignoring: %m", items[i]);
                         continue;
                 }
 
@@ -440,22 +439,21 @@ EFI_STATUS pack_cpio(
                                 &inode,
                                 &buffer, &buffer_size);
                 if (err != EFI_SUCCESS)
-                        return log_error_status_stall(err, L"Failed to pack cpio file %s: %r", dirent->FileName, err);
+                        return log_error_status(err, "Failed to pack cpio file %ls: %m", dirent->FileName);
         }
 
         err = pack_cpio_trailer(&buffer, &buffer_size);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Failed to pack cpio trailer: %r");
+                return log_error_status(err, "Failed to pack cpio trailer: %m");
 
         err = tpm_log_event(
                         tpm_pcr, POINTER_TO_PHYSICAL_ADDRESS(buffer), buffer_size, tpm_description, ret_measured);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(
+                return log_error_status(
                                 err,
-                                L"Unable to add cpio TPM measurement for PCR %u (%s), ignoring: %r",
+                                "Unable to add cpio TPM measurement for PCR %u (%ls), ignoring: %m",
                                 tpm_pcr,
-                                tpm_description,
-                                err);
+                                tpm_description);
 
         *ret_buffer = TAKE_PTR(buffer);
         *ret_buffer_size = buffer_size;
@@ -501,7 +499,7 @@ EFI_STATUS pack_cpio_literal(
 
         err = pack_cpio_prefix(target_dir_prefix, dir_mode, &inode, &buffer, &buffer_size);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Failed to pack cpio prefix: %r", err);
+                return log_error_status(err, "Failed to pack cpio prefix: %m");
 
         err = pack_cpio_one(
                         target_filename,
@@ -511,21 +509,20 @@ EFI_STATUS pack_cpio_literal(
                         &inode,
                         &buffer, &buffer_size);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Failed to pack cpio file %s: %r", target_filename, err);
+                return log_error_status(err, "Failed to pack cpio file %ls: %m", target_filename);
 
         err = pack_cpio_trailer(&buffer, &buffer_size);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Failed to pack cpio trailer: %r");
+                return log_error_status(err, "Failed to pack cpio trailer: %m");
 
         err = tpm_log_event(
                         tpm_pcr, POINTER_TO_PHYSICAL_ADDRESS(buffer), buffer_size, tpm_description, ret_measured);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(
+                return log_error_status(
                                 err,
-                                L"Unable to add cpio TPM measurement for PCR %u (%s), ignoring: %r",
+                                "Unable to add cpio TPM measurement for PCR %u (%ls), ignoring: %m",
                                 tpm_pcr,
-                                tpm_description,
-                                err);
+                                tpm_description);
 
         *ret_buffer = TAKE_PTR(buffer);
         *ret_buffer_size = buffer_size;

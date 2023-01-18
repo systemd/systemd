@@ -25,16 +25,17 @@ EFI_STATUS graphics_mode(bool on) {
                 return err == EFI_NOT_FOUND ? EFI_SUCCESS : err;
 
         /* check current mode */
-        err =ConsoleControl->GetMode(ConsoleControl, &current, &uga_exists, &stdin_locked);
+        err = ConsoleControl->GetMode(ConsoleControl, &current, &uga_exists, &stdin_locked);
         if (err != EFI_SUCCESS)
                 return err;
 
         /* do not touch the mode */
-        new  = on ? EfiConsoleControlScreenGraphics : EfiConsoleControlScreenText;
+        new = on ? EfiConsoleControlScreenGraphics : EfiConsoleControlScreenText;
         if (new == current)
                 return EFI_SUCCESS;
 
-        err =ConsoleControl->SetMode(ConsoleControl, new);
+        log_wait();
+        err = ConsoleControl->SetMode(ConsoleControl, new);
 
         /* some firmware enables the cursor when switching modes */
         ST->ConOut->EnableCursor(ST->ConOut, false);
