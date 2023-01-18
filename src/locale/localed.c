@@ -440,7 +440,7 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
 
         if (streq_ptr(keymap, c->vc_keymap) &&
             streq_ptr(keymap_toggle, c->vc_keymap_toggle))
-                return sd_bus_reply_method_return(m, NULL);
+                goto finish;
 
         r = bus_verify_polkit_async(
                         m,
@@ -477,6 +477,7 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
                         "org.freedesktop.locale1",
                         "VConsoleKeymap", "VConsoleKeymapToggle", NULL);
 
+finish:
         if (convert) {
                 r = vconsole_convert_to_x11_and_emit(c, m);
                 if (r < 0)
