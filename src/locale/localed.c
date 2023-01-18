@@ -438,10 +438,6 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
                         return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Keymap %s is not installed.", name);
         }
 
-        if (streq_ptr(keymap, c->vc_keymap) &&
-            streq_ptr(keymap_toggle, c->vc_keymap_toggle))
-                return sd_bus_reply_method_return(m, NULL);
-
         r = bus_verify_polkit_async(
                         m,
                         CAP_SYS_ADMIN,
@@ -455,6 +451,10 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
                 return r;
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        if (streq_ptr(keymap, c->vc_keymap) &&
+            streq_ptr(keymap_toggle, c->vc_keymap_toggle))
+                goto finish;
 
         if (free_and_strdup(&c->vc_keymap, keymap) < 0 ||
             free_and_strdup(&c->vc_keymap_toggle, keymap_toggle) < 0)
@@ -477,6 +477,7 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
                         "org.freedesktop.locale1",
                         "VConsoleKeymap", "VConsoleKeymapToggle", NULL);
 
+finish:
         if (convert) {
                 r = vconsole_convert_to_x11_and_emit(c, m);
                 if (r < 0)
