@@ -3390,6 +3390,7 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
                                 primary_alg,
                                 blob, blob_size,
                                 hash, hash_size,
+                                NULL, 0, /* no salt because tpm2_seal has no pin */
                                 0,
                                 &v);
                 if (r < 0)
