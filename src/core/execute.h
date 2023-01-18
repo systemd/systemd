@@ -459,6 +459,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix);
 
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_root);
 int exec_context_destroy_credentials(const ExecContext *c, const char *runtime_root, const char *unit);
+int exec_context_destroy_mount_ns_dir(const ExecContext *c, const char *unit);
 
 const char* exec_context_fdname(const ExecContext *c, int fd_index);
 

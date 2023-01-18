@@ -5626,6 +5626,22 @@ int exec_context_destroy_credentials(const ExecContext *c, const char *runtime_p
         return 0;
 }
 
+int exec_context_destroy_mount_ns_dir(_unused_ const ExecContext *c, const char *unit) {
+        _cleanup_free_ char *p = NULL;
+
+        if (!unit)
+                return 0;
+
+        p = path_join("/run/systemd/propagate/", unit);
+        if (!p)
+                return -ENOMEM;
+
+        /* This is only filled transiently (see mount_in_namespace()), should be empty or even non-existent*/
+        (void) rmdir(p);
+
+        return 0;
+}
+
 static void exec_command_done(ExecCommand *c) {
         assert(c);
 

@@ -5765,6 +5765,7 @@ void unit_destroy_runtime_data(Unit *u, const ExecContext *context) {
                 exec_context_destroy_runtime_directory(context, u->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
 
         exec_context_destroy_credentials(context, u->manager->prefix[EXEC_DIRECTORY_RUNTIME], u->id);
+        exec_context_destroy_mount_ns_dir(context, u->id);
 }
 
 int unit_clean(Unit *u, ExecCleanMask mask) {
