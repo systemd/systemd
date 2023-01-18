@@ -218,6 +218,25 @@
   </refsect1>
 
   <refsect1>
+    <title><command>kernel</command> Commands</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>kernel-identify</option> <replaceable>kernel</replaceable></term>
+
+        <listitem><para>Takes a kernel image as argument. Checks what kind of kernel the image is.  Returns
+        one of uki, pe or unknown.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>kernel-inspect</option> <replaceable>kernel</replaceable></term>
+
+        <listitem><para>Takes a kernel image as argument. Prints details about the kernel.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>Options</title>
     <para>The following options are understood:</para>
 
