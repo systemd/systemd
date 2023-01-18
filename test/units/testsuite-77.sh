@@ -16,7 +16,7 @@ read -r -u 4 text
 assert_eq "$text" "File"
 
 # Test for socket
-systemctl start testsuite-77-netcat.service
+echo "Socket" | nc -lkU /tmp/test.sock
 systemctl start testsuite-77-socket.service
 
 # Tests for D-Bus
