@@ -1658,6 +1658,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         key_file, arg_keyfile_size, arg_keyfile_offset,
                                         key_data, key_data_size,
                                         /* policy_hash= */ NULL, /* policy_hash_size= */ 0, /* we don't know the policy hash */
+                                        /* salt= */ NULL, /* salt_size= */ 0,
                                         arg_tpm2_pin ? TPM2_FLAGS_USE_PIN : 0,
                                         until,
                                         arg_headless,
@@ -1703,8 +1704,8 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                          * works. */
 
                         for (;;) {
-                                _cleanup_free_ void *pubkey = NULL;
-                                size_t pubkey_size = 0;
+                                _cleanup_free_ void *pubkey = NULL, *salt = NULL;
+                                size_t pubkey_size = 0, salt_size = 0;
                                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
                                 uint16_t pcr_bank, primary_alg;
                                 TPM2Flags tpm2_flags;
@@ -1720,6 +1721,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 &primary_alg,
                                                 &blob, &blob_size,
                                                 &policy_hash, &policy_hash_size,
+                                                &salt, &salt_size,
                                                 &tpm2_flags,
                                                 &keyslot,
                                                 &token);
@@ -1749,6 +1751,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 /* key_file= */ NULL, /* key_file_size= */ 0, /* key_file_offset= */ 0, /* no key file */
                                                 blob, blob_size,
                                                 policy_hash, policy_hash_size,
+                                                salt, salt_size,
                                                 tpm2_flags,
                                                 until,
                                                 arg_headless,
