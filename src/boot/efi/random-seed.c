@@ -48,7 +48,7 @@ static EFI_STATUS acquire_rng(void *ret, UINTN size) {
 
         err = rng->GetRNG(rng, NULL, size, ret);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Failed to acquire RNG data: %r", err);
+                return log_error_status(err, "Failed to acquire RNG data: %m");
         return EFI_SUCCESS;
 }
 
@@ -63,12 +63,12 @@ static EFI_STATUS acquire_system_token(void **ret, UINTN *ret_size) {
         err = efivar_get_raw(LOADER_GUID, L"LoaderSystemToken", &data, &size);
         if (err != EFI_SUCCESS) {
                 if (err != EFI_NOT_FOUND)
-                        log_error_stall(L"Failed to read LoaderSystemToken EFI variable: %r", err);
+                        log_error_status(err, "Failed to read LoaderSystemToken EFI variable: %m");
                 return err;
         }
 
         if (size <= 0)
-                return log_error_status_stall(EFI_NOT_FOUND, L"System token too short, ignoring.");
+                return log_error_status(EFI_NOT_FOUND, "System token too short, ignoring.");
 
         *ret = TAKE_PTR(data);
         *ret_size = size;
@@ -201,29 +201,29 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
                         0);
         if (err != EFI_SUCCESS) {
                 if (err != EFI_NOT_FOUND && err != EFI_WRITE_PROTECTED)
-                        log_error_stall(L"Failed to open random seed file: %r", err);
+                        log_error_status(err, "Failed to open random seed file: %m");
                 return err;
         }
 
         err = get_file_info_harder(handle, &info, NULL);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Failed to get file info for random seed: %r", err);
+                return log_error_status(err, "Failed to get file info for random seed: %m");
 
         size = info->FileSize;
         if (size < RANDOM_MAX_SIZE_MIN)
-                return log_error_status_stall(EFI_INVALID_PARAMETER, L"Random seed file is too short.");
+                return log_error("Random seed file is too short.");
 
         if (size > RANDOM_MAX_SIZE_MAX)
-                return log_error_status_stall(EFI_INVALID_PARAMETER, L"Random seed file is too large.");
+                return log_error("Random seed file is too large.");
 
         seed = xmalloc(size);
         rsize = size;
         err = handle->Read(handle, &rsize, seed);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Failed to read random seed file: %r", err);
+                return log_error_status(err, "Failed to read random seed file: %m");
         if (rsize != size) {
                 explicit_bzero_safe(seed, rsize);
-                return log_error_status_stall(EFI_PROTOCOL_ERROR, L"Short read on random seed file.");
+                return log_error_status(EFI_PROTOCOL_ERROR, "Short read on random seed file.");
         }
 
         sha256_process_bytes(&size, sizeof(size), &hash);
@@ -232,14 +232,14 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
 
         err = handle->SetPosition(handle, 0);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Failed to seek to beginning of random seed file: %r", err);
+                return log_error_status(err, "Failed to seek to beginning of random seed file: %m");
 
         /* Let's also include the UEFI monotonic counter (which is supposedly increasing on every single
          * boot) in the hash, so that even if the changes to the ESP for some reason should not be
          * persistent, the random seed we generate will still be different on every single boot. */
         err = BS->GetNextMonotonicCount(&uefi_monotonic_counter);
         if (err != EFI_SUCCESS && !seeded_by_efi)
-                return log_error_status_stall(err, L"Failed to acquire UEFI monotonic counter: %r", err);
+                return log_error_status(err, "Failed to acquire UEFI monotonic counter: %m");
         size = sizeof(uefi_monotonic_counter);
         sha256_process_bytes(&size, sizeof(size), &hash);
         sha256_process_bytes(&uefi_monotonic_counter, size, &hash);
@@ -264,26 +264,26 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
         if (size < info->FileSize) {
                 err = handle->SetPosition(handle, size);
                 if (err != EFI_SUCCESS)
-                        return log_error_status_stall(err, L"Failed to seek to offset of random seed file: %r", err);
+                        return log_error_status(err, "Failed to seek to offset of random seed file: %m");
                 wsize = info->FileSize - size;
                 err = handle->Write(handle, &wsize, seed /* All zeros now */);
                 if (err != EFI_SUCCESS)
-                        return log_error_status_stall(err, L"Failed to write random seed file: %r", err);
+                        return log_error_status(err, "Failed to write random seed file: %m");
                 if (wsize != info->FileSize - size)
-                        return log_error_status_stall(EFI_PROTOCOL_ERROR, L"Short write on random seed file.");
+                        return log_error_status(EFI_PROTOCOL_ERROR, "Short write on random seed file.");
                 err = handle->Flush(handle);
                 if (err != EFI_SUCCESS)
-                        return log_error_status_stall(err, L"Failed to flush random seed file: %r", err);
+                        return log_error_status(err, "Failed to flush random seed file: %m");
                 err = handle->SetPosition(handle, 0);
                 if (err != EFI_SUCCESS)
-                        return log_error_status_stall(err, L"Failed to seek to beginning of random seed file: %r", err);
+                        return log_error_status(err, "Failed to seek to beginning of random seed file: %m");
 
                 /* We could truncate the file here with something like:
                  *
                  *     info->FileSize = size;
                  *     err = handle->SetInfo(handle, &GenericFileInfo, info->Size, info);
                  *     if (err != EFI_SUCCESS)
-                 *             return log_error_status_stall(err, L"Failed to truncate random seed file: %r", err);
+                 *             return log_error_status(err, "Failed to truncate random seed file: %u");
                  *
                  * But this is considered slightly risky, because EFI filesystem drivers are a little bit
                  * flimsy. So instead we rely on userspace eventually truncating this when it writes a new
@@ -293,18 +293,18 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
         wsize = size;
         err = handle->Write(handle, &wsize, random_bytes);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Failed to write random seed file: %r", err);
+                return log_error_status(err, "Failed to write random seed file: %m");
         if (wsize != size)
-                return log_error_status_stall(EFI_PROTOCOL_ERROR, L"Short write on random seed file.");
+                return log_error_status(EFI_PROTOCOL_ERROR, "Short write on random seed file.");
         err = handle->Flush(handle);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Failed to flush random seed file: %r", err);
+                return log_error_status(err, "Failed to flush random seed file: %m");
 
         err = BS->AllocatePool(EfiACPIReclaimMemory,
                                offsetof(struct linux_efi_random_seed, seed) + DESIRED_SEED_SIZE,
                                (void **) &new_seed_table);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Failed to allocate EFI table for random seed: %r", err);
+                return log_error_status(err, "Failed to allocate EFI table for random seed: %m");
         new_seed_table->size = DESIRED_SEED_SIZE;
 
         /* hash = hash_key || 1 */
@@ -316,7 +316,7 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
 
         err = BS->InstallConfigurationTable(&(EFI_GUID)LINUX_EFI_RANDOM_SEED_TABLE_GUID, new_seed_table);
         if (err != EFI_SUCCESS)
-                return log_error_status_stall(err, L"Failed to install EFI table for random seed: %r", err);
+                return log_error_status(err, "Failed to install EFI table for random seed: %m");
         TAKE_PTR(new_seed_table);
 
         if (previous_seed_table) {
