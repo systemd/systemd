@@ -16,8 +16,11 @@ read -r -u 4 text
 assert_eq "$text" "File"
 
 # Test for socket
-systemctl start testsuite-77-netcat.service
-systemctl start testsuite-77-socket.service
+systemctl start testsuite-77-server.socket
+systemd-run -p OpenFile=/tmp/test.sock:socket:read-only \
+            --wait \
+            --pipe \
+            /usr/lib/systemd/tests/testdata/units/testsuite-77-client.sh
 
 # Tests for D-Bus
 diff <(systemctl show -p OpenFile testsuite-77) - <<EOF
