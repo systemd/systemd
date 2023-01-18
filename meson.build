@@ -4049,6 +4049,7 @@ public_programs += exe
 if want_tests != 'false' and want_kernel_install
         test('test-kernel-install',
              test_kernel_install_sh,
+             env : test_env,
              args : [exe.full_path(), loaderentry_install])
 endif
 

@@ -366,9 +366,9 @@ case "$COMMAND" in
             [ $err -ne 0 ] && exit $err
         done
 
-        if [ "$MAKE_ENTRY_DIR_ABS" -eq 0 ]; then
+        if [ "$MAKE_ENTRY_DIR_ABS" -eq 0 ] && [ -d "$ENTRY_DIR_ABS" ]; then
             log_verbose "Removing $ENTRY_DIR_ABS/"
-            rm -rf "$ENTRY_DIR_ABS"
+            rmdir --ignore-fail-on-non-empty "$ENTRY_DIR_ABS"
         fi
         ;;
 
