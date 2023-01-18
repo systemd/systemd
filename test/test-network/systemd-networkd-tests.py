@@ -1070,6 +1070,10 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         self.assertRegex(output, r'Link File: /run/systemd/network/25-default.link')
         self.assertRegex(output, r'Network File: /run/systemd/network/11-dummy.network')
 
+        # This test may be run on the system that has older udevd than 70f32a260b5ebb68c19ecadf5d69b3844896ba55 (v249).
+        # In that case, the udev DB for the loopback network interface may already have ID_NET_LINK_FILE property.
+        # Let's reprocess the interface and drop the property.
+        check_output(*udevadm_cmd, 'trigger', '--settle', '--action=add', '/sys/class/net/lo')
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'lo', env=env)
         print(output)
         self.assertRegex(output, r'Link File: n/a')
