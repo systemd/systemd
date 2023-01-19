@@ -48,6 +48,7 @@ char *arg_root = NULL;
 char *arg_image = NULL;
 InstallSource arg_install_source = ARG_INSTALL_SOURCE_AUTO;
 char *arg_efi_boot_option_description = NULL;
+bool arg_dry_run = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -145,6 +146,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  set-timeout SECONDS Set the menu timeout\n"
                "  set-timeout-oneshot SECONDS\n"
                "                      Set the menu timeout for the next boot only\n"
+               "  unlink ID           Remove boot loader entry\n"
+               "  cleanup             Remove files in ESP not referenced in any boot entry\n"
                "\n%3$ssystemd-boot Commands:%4$s\n"
                "  install             Install systemd-boot to the ESP and EFI variables\n"
                "  update              Update systemd-boot in the ESP and EFI variables\n"
@@ -179,6 +182,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "                       Install all supported EFI architectures\n"
                "     --efi-boot-option-description=DESCRIPTION\n"
                "                       Description of the entry in the boot option list\n"
+               "     --dry-run         Dry run (unlink and cleanup)\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -206,6 +210,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_JSON,
                 ARG_ARCH_ALL,
                 ARG_EFI_BOOT_OPTION_DESCRIPTION,
+                ARG_DRY_RUN,
         };
 
         static const struct option options[] = {
@@ -230,6 +235,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "json",                        required_argument, NULL, ARG_JSON                        },
                 { "all-architectures",           no_argument,       NULL, ARG_ARCH_ALL                    },
                 { "efi-boot-option-description", required_argument, NULL, ARG_EFI_BOOT_OPTION_DESCRIPTION },
+                { "dry-run",                     no_argument,       NULL, ARG_DRY_RUN                     },
                 {}
         };
 
@@ -379,6 +385,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_DRY_RUN:
+                        arg_dry_run = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -387,7 +397,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if ((arg_root || arg_image) && argv[optind] && !STR_IN_SET(argv[optind], "status", "list",
-                        "install", "update", "remove", "is-installed", "random-seed"))
+                        "install", "update", "remove", "is-installed", "random-seed", "unlink", "cleanup"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Options --root= and --image= are not supported with verb %s.",
                                        argv[optind]);
@@ -397,6 +407,9 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_install_source != ARG_INSTALL_SOURCE_AUTO && !arg_root && !arg_image)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--install-from-host is only supported with --root= or --image=.");
+
+        if (arg_dry_run && argv[optind] && !STR_IN_SET(argv[optind], "unlink", "cleanup"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--dry is only supported with --unlink or --cleanup");
 
         return 1;
 }
@@ -412,6 +425,8 @@ static int bootctl_main(int argc, char *argv[]) {
                 { "kernel-identify",     2,        2,        0,            verb_kernel_identify     },
                 { "kernel-inspect",      2,        2,        0,            verb_kernel_inspect      },
                 { "list",                VERB_ANY, 1,        0,            verb_list                },
+                { "unlink",              2,        2,        0,            verb_unlink              },
+                { "cleanup",             VERB_ANY, 1,        0,            verb_list                },
                 { "set-default",         2,        2,        0,            verb_set_efivar          },
                 { "set-oneshot",         2,        2,        0,            verb_set_efivar          },
                 { "set-timeout",         2,        2,        0,            verb_set_efivar          },
