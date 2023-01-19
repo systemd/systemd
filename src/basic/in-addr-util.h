@@ -153,7 +153,6 @@ int in_addr_prefix_from_string(const char *p, int family, union in_addr_union *r
 typedef enum InAddrPrefixLenMode {
         PREFIXLEN_FULL,   /* Default to prefixlen of address size, 32 for IPv4 or 128 for IPv6, if not specified. */
         PREFIXLEN_REFUSE, /* Fail with -ENOANO if prefixlen is not specified. */
-        PREFIXLEN_LEGACY, /* Default to legacy default prefixlen calculation from address if not specified. */
 } InAddrPrefixLenMode;
 
 int in_addr_prefix_from_string_auto_internal(const char *p, InAddrPrefixLenMode mode, int *ret_family, union in_addr_union *ret_prefix, unsigned char *ret_prefixlen);
