@@ -898,14 +898,6 @@ int in_addr_prefix_from_string_auto_internal(
                         break;
                 case PREFIXLEN_REFUSE:
                         return -ENOANO; /* To distinguish this error from others. */
-                case PREFIXLEN_LEGACY:
-                        if (family == AF_INET) {
-                                r = in4_addr_default_prefixlen(&buffer.in, &k);
-                                if (r < 0)
-                                        return r;
-                        } else
-                                k = 0;
-                        break;
                 default:
                         assert_not_reached();
                 }
