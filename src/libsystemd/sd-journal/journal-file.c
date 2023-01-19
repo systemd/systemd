@@ -2256,6 +2256,7 @@ int journal_file_append_entry(
         EntryItem *items;
         uint64_t xor_hash = 0;
         struct dual_timestamp _ts;
+        sd_id128_t _boot_id;
         int r;
 
         assert(f);
@@ -2275,6 +2276,14 @@ int journal_file_append_entry(
         } else {
                 dual_timestamp_get(&_ts);
                 ts = &_ts;
+        }
+
+        if (!boot_id) {
+                r = sd_id128_get_boot(&_boot_id);
+                if (r < 0)
+                        return r;
+
+                boot_id = &_boot_id;
         }
 
 #if HAVE_GCRYPT
