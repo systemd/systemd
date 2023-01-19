@@ -197,7 +197,7 @@ TEST(config_parse_address) {
         test_config_parse_address_one("", AF_INET, 0, NULL, 0);
         test_config_parse_address_one("/", AF_INET, 0, NULL, 0);
         test_config_parse_address_one("/8", AF_INET, 0, NULL, 0);
-        test_config_parse_address_one("1.2.3.4", AF_INET, 1, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 8);
+        test_config_parse_address_one("1.2.3.4", AF_INET, 1, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 32);
         test_config_parse_address_one("1.2.3.4/0", AF_INET, 1, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 0);
         test_config_parse_address_one("1.2.3.4/1", AF_INET, 1, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 1);
         test_config_parse_address_one("1.2.3.4/2", AF_INET, 1, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 2);
@@ -208,7 +208,7 @@ TEST(config_parse_address) {
         test_config_parse_address_one("", AF_INET6, 0, NULL, 0);
         test_config_parse_address_one("/", AF_INET6, 0, NULL, 0);
         test_config_parse_address_one("/8", AF_INET6, 0, NULL, 0);
-        test_config_parse_address_one("::1", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 0);
+        test_config_parse_address_one("::1", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 128);
         test_config_parse_address_one("::1/0", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 0);
         test_config_parse_address_one("::1/1", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 1);
         test_config_parse_address_one("::1/2", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 2);
