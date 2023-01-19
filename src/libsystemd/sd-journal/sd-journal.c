@@ -2190,8 +2190,8 @@ _public_ int sd_journal_get_realtime_usec(sd_journal *j, uint64_t *ret) {
 }
 
 _public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret, sd_id128_t *ret_boot_id) {
-        Object *o;
         JournalFile *f;
+        Object *o;
         int r;
 
         assert_return(j, -EINVAL);
@@ -2200,7 +2200,6 @@ _public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret, sd_id12
         f = j->current_file;
         if (!f)
                 return -EADDRNOTAVAIL;
-
         if (f->current_offset <= 0)
                 return -EADDRNOTAVAIL;
 
@@ -2221,8 +2220,12 @@ _public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret, sd_id12
                         return -ESTALE;
         }
 
+        uint64_t t = le64toh(o->entry.monotonic);
+        if (!VALID_MONOTONIC(t))
+                return -EBADMSG;
+
         if (ret)
-                *ret = le64toh(o->entry.monotonic);
+                *ret = t;
 
         return 0;
 }
