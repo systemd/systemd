@@ -515,10 +515,14 @@ uint64_t get_os_indications_supported(void) {
 }
 
 #ifdef EFI_DEBUG
-__attribute__((noinline)) void debug_break(void) {
+extern uint8_t _text, _data;
+__attribute__((noinline)) void notify_debugger(const char *identity, volatile bool wait) {
+        printf("%s@%p,%p\n", identity, &_text, &_data);
+        if(wait)
+                printf("Waiting for debugger to attach...\n");
+
         /* This is a poor programmer's breakpoint to wait until a debugger
          * has attached to us. Just "set variable wait = 0" or "return" to continue. */
-        volatile bool wait = true;
         while (wait)
                 /* Prefer asm based stalling so that gdb has a source location to present. */
 #if defined(__i386__) || defined(__x86_64__)
@@ -530,7 +534,6 @@ __attribute__((noinline)) void debug_break(void) {
 #endif
 }
 #endif
-
 
 #ifdef EFI_DEBUG
 void hexdump(const char16_t *prefix, const void *data, UINTN size) {

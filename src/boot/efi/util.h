@@ -171,17 +171,12 @@ static inline void *PHYSICAL_ADDRESS_TO_POINTER(EFI_PHYSICAL_ADDRESS addr) {
 uint64_t get_os_indications_supported(void);
 
 #ifdef EFI_DEBUG
-void debug_break(void);
-extern uint8_t _text, _data;
 /* Report the relocated position of text and data sections so that a debugger
  * can attach to us. See debug-sd-boot.sh for how this can be done. */
-#  define debug_hook(identity) printf(identity "@%p,%p\n", &_text, &_data)
+void notify_debugger(const char *identity, bool wait);
+void hexdump(const char16_t *prefix, const void *data, size_t size);
 #else
-#  define debug_hook(identity)
-#endif
-
-#ifdef EFI_DEBUG
-void hexdump(const char16_t *prefix, const void *data, UINTN size);
+#  define notify_debugger(i, w)
 #endif
 
 #if defined(__i386__) || defined(__x86_64__)
