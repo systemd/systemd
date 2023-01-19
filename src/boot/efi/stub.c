@@ -180,7 +180,7 @@ static bool use_load_options(
         return true;
 }
 
-static EFI_STATUS real_main(EFI_HANDLE image) {
+static EFI_STATUS run(EFI_HANDLE image) {
         _cleanup_free_ void *credential_initrd = NULL, *global_credential_initrd = NULL, *sysext_initrd = NULL, *pcrsig_initrd = NULL, *pcrpkey_initrd = NULL;
         size_t credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0, pcrsig_initrd_size = 0, pcrpkey_initrd_size = 0;
         size_t linux_size, initrd_size, dt_size;
@@ -417,12 +417,4 @@ static EFI_STATUS real_main(EFI_HANDLE image) {
         return err;
 }
 
-EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
-        InitializeLib(image, sys_table);
-
-        notify_debugger("systemd-stub", /*wait_for_debugger=*/false);
-
-        EFI_STATUS err = real_main(image);
-        log_wait();
-        return err;
-}
+DEFINE_EFI_MAIN_FUNCTION(run, "systemd-stub", /*wait_for_debugger=*/false);
