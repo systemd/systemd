@@ -73,9 +73,7 @@ static int print_catalog(FILE *f, sd_journal *j) {
                 return log_oom();
 
         fprintf(f, "%s%s %s%s", ansi_grey(), prefix, ansi_normal(), ansi_green());
-
         fputs(z, f);
-
         fprintf(f, "%s\n", ansi_normal());
 
         return 1;
@@ -123,7 +121,14 @@ notfound:
         return 0;
 }
 
-static int parse_field(const void *data, size_t length, const char *field, size_t field_len, char **target, size_t *target_len) {
+static int parse_field(
+                const void *data,
+                size_t length,
+                const char *field,
+                size_t field_len,
+                char **target,
+                size_t *target_len) {
+
         size_t nl;
         char *buf;
 
@@ -143,8 +148,7 @@ static int parse_field(const void *data, size_t length, const char *field, size_
         if (!buf)
                 return log_oom();
 
-        free(*target);
-        *target = buf;
+        free_and_replace(*target, buf);
 
         if (target_len)
                 *target_len = nl;
@@ -166,17 +170,21 @@ typedef struct ParseFieldVec {
                 .target_len = _target_len                               \
         }
 
-static int parse_fieldv(const void *data, size_t length, const ParseFieldVec *fields, unsigned n_fields) {
-        unsigned i;
+static int parse_fieldv(
+                const void *data,
+                size_t length,
+                const ParseFieldVec *fields,
+                size_t n_fields) {
 
-        for (i = 0; i < n_fields; i++) {
+        int r;
+
+        for (size_t i = 0; i < n_fields; i++) {
                 const ParseFieldVec *f = &fields[i];
-                int r;
 
                 r = parse_field(data, length, f->field, f->field_len, f->target, f->target_len);
                 if (r < 0)
                         return r;
-                else if (r > 0)
+                if (r > 0)
                         break;
         }
 
@@ -317,7 +325,8 @@ static bool print_multiline(
 }
 
 static int output_timestamp_monotonic(
-                FILE *f, OutputMode mode,
+                FILE *f,
+                OutputMode mode,
                 const dual_timestamp *ts,
                 const sd_id128_t *boot_id,
                 const dual_timestamp *previous_ts,
@@ -355,7 +364,6 @@ static int output_timestamp_monotonic(
 
 finish:
         written_chars += fprintf(f, "%s", "]");
-
         return written_chars;
 }
 
@@ -495,13 +503,11 @@ static int output_short(
         assert(previous_ts);
         assert(previous_boot_id);
 
-        /* Set the threshold to one bigger than the actual print
-         * threshold, so that if the line is actually longer than what
-         * we're willing to print, ellipsization will occur. This way
-         * we won't output a misleading line without any indication of
-         * truncation.
+        /* Set the threshold to one bigger than the actual print threshold, so that if the line is actually
+         * longer than what we're willing to print, ellipsization will occur. This way we won't output a
+         * misleading line without any indication of truncation.
          */
-        sd_journal_set_data_threshold(j, flags & (OUTPUT_SHOW_ALL|OUTPUT_FULL_WIDTH) ? 0 : PRINT_CHAR_THRESHOLD + 1);
+        (void) sd_journal_set_data_threshold(j, flags & (OUTPUT_SHOW_ALL|OUTPUT_FULL_WIDTH) ? 0 : PRINT_CHAR_THRESHOLD + 1);
 
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
                 r = parse_fieldv(data, length, fields, ELEMENTSOF(fields));
@@ -682,7 +688,7 @@ static int output_verbose(
         assert(previous_ts);
         assert(previous_boot_id);
 
-        sd_journal_set_data_threshold(j, 0);
+        (void) sd_journal_set_data_threshold(j, 0);
 
         if (!VALID_REALTIME(ts->realtime))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No valid realtime timestamp available");
@@ -783,7 +789,7 @@ static int output_export(
         assert(previous_ts);
         assert(previous_boot_id);
 
-        sd_journal_set_data_threshold(j, 0);
+        (void) sd_journal_set_data_threshold(j, 0);
 
         r = sd_journal_get_cursor(j, &cursor);
         if (r < 0)
@@ -1458,7 +1464,7 @@ int show_journal(
                         /* -ESTALE is returned if the timestamp is not from this boot */
                         if (r == -ESTALE)
                                 continue;
-                        else if (r < 0)
+                        if (r < 0)
                                 return log_error_errno(r, "Failed to get journal time: %m");
 
                         if (usec < not_before)
