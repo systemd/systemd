@@ -334,7 +334,11 @@ static bool compact_mode_requested(void) {
         return true;
 }
 
-static int journal_file_init_header(JournalFile *f, JournalFileFlags file_flags, JournalFile *template) {
+static int journal_file_init_header(
+                JournalFile *f,
+                JournalFileFlags file_flags,
+                JournalFile *template) {
+
         bool seal = false;
         ssize_t k;
         int r;
@@ -2092,11 +2096,37 @@ static int journal_file_append_entry_internal(
         assert(ts);
         assert(items || n_items == 0);
 
-        if (ts->realtime < le64toh(f->header->tail_entry_realtime))
-                return log_debug_errno(SYNTHETIC_ERRNO(EREMCHG),
-                                       "Realtime timestamp %" PRIu64 " smaller than previous realtime "
-                                       "timestamp %" PRIu64 ", refusing entry.",
-                                       ts->realtime, le64toh(f->header->tail_entry_realtime));
+        if (f->strict_order) {
+                /* If requested be stricter with ordering in this journal file, to make searching via
+                 * bisection fully deterministic. This is an optional feature, so that if desired journal
+                 * files can be written where the ordering is not strictly enforced (in which case bisection
+                 * will yield *a* result, but not the *only* result, when searching for points in
+                 * time). Strict ordering mode is enabled when journald originally writes the files, but
+                 * might not necessarily be if other tools (the remoting tools for example) write journal
+                 * files from combined sources.
+                 *
+                 * Typically, if any of the errors generated here are seen journald will just rotate the
+                 * journal files and start anew. */
+
+                if (ts->realtime < le64toh(f->header->tail_entry_realtime))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EREMCHG),
+                                               "Realtime timestamp %" PRIu64 " smaller than previous realtime "
+                                               "timestamp %" PRIu64 ", refusing entry.",
+                                               ts->realtime, le64toh(f->header->tail_entry_realtime));
+
+                if (!sd_id128_is_null(f->header->boot_id) && boot_id) {
+
+                        if (!sd_id128_equal(f->header->boot_id, *boot_id))
+                                return log_debug_errno(SYNTHETIC_ERRNO(EREMOTE),
+                                                       "Boot ID to write is different from previous boot id, refusing entry.");
+
+                        if (ts->monotonic < le64toh(f->header->tail_entry_monotonic))
+                                return log_debug_errno(SYNTHETIC_ERRNO(ENOTNAM),
+                                                       "Monotonic timestamp %" PRIu64 " smaller than previous monotonic "
+                                                       "timestamp %" PRIu64 ", refusing entry.",
+                                                       ts->monotonic, le64toh(f->header->tail_entry_monotonic));
+                }
+        }
 
         osize = offsetof(Object, entry.items) + (n_items * journal_file_entry_item_size(f));
 
@@ -3719,6 +3749,8 @@ int journal_file_open(
         int r;
 
         assert(fd >= 0 || fname);
+        assert(file_flags >= 0);
+        assert(file_flags <= _JOURNAL_FILE_FLAGS_MAX);
         assert(mmap_cache);
         assert(ret);
 
@@ -3742,6 +3774,7 @@ int journal_file_open(
                 .compress_threshold_bytes = compress_threshold_bytes == UINT64_MAX ?
                                             DEFAULT_COMPRESS_THRESHOLD :
                                             MAX(MIN_COMPRESS_THRESHOLD, compress_threshold_bytes),
+                .strict_order = FLAGS_SET(file_flags, JOURNAL_STRICT_ORDER),
         };
 
         if (fname) {
