@@ -438,6 +438,20 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>SYSCFG_LEVEL=</varname></term>
+
+          <listitem><para>A lower-case string (mostly numeric, no spaces or other characters outside of 0–9,
+          a–z, ".", "_" and "-") identifying the operating system configuration support level, to indicate which
+          configuration images are supported. See <filename>/usr/lib/configuration-release.d/configuration-release.<replaceable>IMAGE</replaceable></filename>,
+          <ulink url="https://docs.kernel.org/admin-guide/initrd.html">initrd</ulink> and
+          <citerefentry><refentrytitle>systemd-syscfg</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
+          for more information.</para>
+
+          <para>Examples: <literal>SYSCFG_LEVEL=2</literal>, <literal>SYSCFG_LEVEL=15.14</literal>.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>SYSEXT_SCOPE=</varname></term>
           <listitem><para>Takes a space-separated list of one or more of the strings
           <literal>system</literal>, <literal>initrd</literal> and <literal>portable</literal>. This field is
@@ -445,6 +459,17 @@
           the system extension is applicable to: i.e. to regular systems, to initrds, or to portable service
           images. If unspecified, <literal>SYSEXT_SCOPE=system portable</literal> is implied, i.e. any system
           extension without this field is applicable to regular systems and to portable service environments,
+          but not to initrd environments.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>SYSCFG_SCOPE=</varname></term>
+          <listitem><para>Takes a space-separated list of one or more of the strings
+          <literal>system</literal>, <literal>initrd</literal> and <literal>portable</literal>. This field is
+          only supported in <filename>configuration-release.d/</filename> files and indicates what environments
+          the system configuration is applicable to: i.e. to regular systems, to initrds, or to portable service
+          images. If unspecified, <literal>SYSCFG_SCOPE=system portable</literal> is implied, i.e. any system
+          configuration without this field is applicable to regular systems and to portable service environments,
           but not to initrd environments.</para></listitem>
         </varlistentry>
 
