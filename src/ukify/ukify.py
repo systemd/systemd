@@ -65,7 +65,7 @@ def shell_join(cmd):
     return ' '.join(shlex.quote(str(x)) for x in cmd)
 
 
-def path_is_readable(s: str | None) -> pathlib.Path | None:
+def path_is_readable(s: typing.Optional[str]) -> typing.Optional[pathlib.Path]:
     """Convert a filename string to a Path and verify access."""
     if s is None:
         return None
@@ -215,14 +215,14 @@ class Uname:
 class Section:
     name: str
     content: pathlib.Path
-    tmpfile: typing.IO | None = None
+    tmpfile: typing.Optional[typing.IO] = None
     flags: list[str] = dataclasses.field(default_factory=lambda: ['data', 'readonly'])
-    offset: int | None = None
+    offset: typing.Optional[int] = None
     measure: bool = False
 
     @classmethod
     def create(cls, name, contents, **kwargs):
-        if isinstance(contents, str | bytes):
+        if isinstance(contents, (str, bytes)):
             mode = 'wt' if isinstance(contents, str) else 'wb'
             tmp = tempfile.NamedTemporaryFile(mode=mode, prefix=f'tmp{name}')
             tmp.write(contents)
@@ -261,9 +261,9 @@ class Section:
 
 @dataclasses.dataclass
 class UKI:
-    executable: list[pathlib.Path|str]
+    executable: list[typing.Union[pathlib.Path, str]]
     sections: list[Section] = dataclasses.field(default_factory=list, init=False)
-    offset: int | None = dataclasses.field(default=None, init=False)
+    offset: typing.Optional[int] = dataclasses.field(default=None, init=False)
 
     def __post_init__(self):
         self.offset = round_up(pe_next_section_offset(self.executable))
@@ -426,21 +426,18 @@ def call_systemd_measure(uki, linux, opts):
 
 
 def join_initrds(initrds):
-    match initrds:
-        case []:
-            return None
-        case [initrd]:
-            return initrd
-        case multiple:
-            seq = []
-            for file in multiple:
-                initrd = file.read_bytes()
-                padding = b'\0' * round_up(len(initrd), 4)  # pad to 32 bit alignment
-                seq += [initrd, padding]
+    if len(initrds) == 0:
+        return None
+    elif len(initrds) == 1:
+        return initrds[0]
 
-            return b''.join(seq)
+    seq = []
+    for file in initrds:
+        initrd = file.read_bytes()
+        padding = b'\0' * round_up(len(initrd), 4)  # pad to 32 bit alignment
+        seq += [initrd, padding]
 
-    assert False
+    return b''.join(seq)
 
 
 def pe_validate(filename):
