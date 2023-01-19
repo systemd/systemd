@@ -179,6 +179,15 @@ void hexdump(const char16_t *prefix, const void *data, size_t size);
 #  define notify_debugger(i, w)
 #endif
 
+#define DEFINE_EFI_MAIN_FUNCTION(func, identity, wait_for_debugger)          \
+        EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) { \
+                InitializeLib(image, sys_table);                             \
+                notify_debugger((identity), (wait_for_debugger));            \
+                EFI_STATUS err = func(image);                                \
+                log_wait();                                                  \
+                return err;                                                  \
+        }
+
 #if defined(__i386__) || defined(__x86_64__)
 void beep(UINTN beep_count);
 #else

@@ -417,12 +417,4 @@ static EFI_STATUS real_main(EFI_HANDLE image) {
         return err;
 }
 
-EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
-        InitializeLib(image, sys_table);
-
-        notify_debugger("systemd-stub", /*wait_for_debugger=*/false);
-
-        EFI_STATUS err = real_main(image);
-        log_wait();
-        return err;
-}
+DEFINE_EFI_MAIN_FUNCTION(real_main, "systemd-stub", /*wait_for_debugger=*/false);
