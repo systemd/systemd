@@ -27,6 +27,7 @@ int id128_write(const char *p, Id128FormatFlag f, sd_id128_t id);
 void id128_hash_func(const sd_id128_t *p, struct siphash *state);
 int id128_compare_func(const sd_id128_t *a, const sd_id128_t *b) _pure_;
 extern const struct hash_ops id128_hash_ops;
+extern const struct hash_ops id128_hash_ops_free;
 
 sd_id128_t id128_make_v4_uuid(sd_id128_t id);
 
