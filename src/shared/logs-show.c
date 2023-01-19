@@ -925,6 +925,12 @@ static int update_json_data(
         struct json_data *d;
         int r;
 
+        assert(name);
+        assert(value);
+
+        if (size == SIZE_MAX)
+                size = strlen(value);
+
         if (!(flags & OUTPUT_SHOW_ALL) && strlen(name) + 1 + size >= JSON_THRESHOLD)
                 r = json_variant_new_null(&v);
         else if (utf8_is_printable(value, size))
@@ -1013,7 +1019,7 @@ static int output_json(
                 const dual_timestamp *previous_ts,
                 const sd_id128_t *previous_boot_id) {
 
-        char sid[SD_ID128_STRING_MAX], usecbuf[DECIMAL_STR_MAX(usec_t)];
+        char usecbuf[DECIMAL_STR_MAX(usec_t)];
         _cleanup_(json_variant_unrefp) JsonVariant *object = NULL;
         _cleanup_free_ char *cursor = NULL;
         JsonVariant **array = NULL;
@@ -1048,22 +1054,21 @@ static int output_json(
         if (!h)
                 return log_oom();
 
-        r = update_json_data(h, flags, "__CURSOR", cursor, strlen(cursor));
+        r = update_json_data(h, flags, "__CURSOR", cursor, SIZE_MAX);
         if (r < 0)
                 goto finish;
 
         xsprintf(usecbuf, USEC_FMT, realtime);
-        r = update_json_data(h, flags, "__REALTIME_TIMESTAMP", usecbuf, strlen(usecbuf));
+        r = update_json_data(h, flags, "__REALTIME_TIMESTAMP", usecbuf, SIZE_MAX);
         if (r < 0)
                 goto finish;
 
         xsprintf(usecbuf, USEC_FMT, monotonic);
-        r = update_json_data(h, flags, "__MONOTONIC_TIMESTAMP", usecbuf, strlen(usecbuf));
+        r = update_json_data(h, flags, "__MONOTONIC_TIMESTAMP", usecbuf, SIZE_MAX);
         if (r < 0)
                 goto finish;
 
-        sd_id128_to_string(journal_boot_id, sid);
-        r = update_json_data(h, flags, "_BOOT_ID", sid, strlen(sid));
+        r = update_json_data(h, flags, "_BOOT_ID", SD_ID128_TO_STRING(journal_boot_id), SIZE_MAX);
         if (r < 0)
                 goto finish;
 
