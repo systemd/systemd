@@ -2750,9 +2750,7 @@ out:
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         InitializeLib(image, sys_table);
 
-        debug_hook("systemd-boot");
-        /* Uncomment the next line if you need to wait for debugger. */
-        // debug_break();
+        notify_debugger("systemd-boot", /*wait_for_debugger=*/false);
 
         EFI_STATUS err = real_main(image);
         log_wait();
