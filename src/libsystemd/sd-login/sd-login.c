@@ -22,6 +22,7 @@
 #include "macro.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -131,6 +132,206 @@ _public_ int sd_pid_get_cgroup(pid_t pid, char **cgroup) {
         }
 
         *cgroup = c;
+        return 0;
+}
+
+_public_ int sd_pidfd_get_session(int pidfd, char **session) {
+        pid_t pid_early, pid_late;
+        int r;
+
+        assert_return(pidfd >= 0, -EBADF);
+        assert_return(session, -EINVAL);
+
+        r = pidfd_get_pid(pidfd, &pid_early);
+        if (r < 0)
+                return r;
+
+        r = cg_pid_get_session(pid_early, session);
+        if (r < 0)
+                return IN_SET(r, -ENXIO, -ENOMEDIUM) ? -ENODATA : r;
+
+        r = pidfd_get_pid(pidfd, &pid_late);
+        if (r < 0)
+                return r;
+
+        if (pid_early != pid_late)
+                return -ESRCH;
+
+        return 0;
+}
+
+_public_ int sd_pidfd_get_unit(int pidfd, char **unit) {
+        pid_t pid_early, pid_late;
+        int r;
+
+        assert_return(pidfd >= 0, -EBADF);
+        assert_return(unit, -EINVAL);
+
+        r = pidfd_get_pid(pidfd, &pid_early);
+        if (r < 0)
+                return r;
+
+        r = cg_pid_get_unit(pid_early, unit);
+        if (r < 0)
+                return IN_SET(r, -ENXIO, -ENOMEDIUM) ? -ENODATA : r;
+
+        r = pidfd_get_pid(pidfd, &pid_late);
+        if (r < 0)
+                return r;
+
+        if (pid_early != pid_late)
+                return -ESRCH;
+
+        return 0;
+}
+
+_public_ int sd_pidfd_get_user_unit(int pidfd, char **unit) {
+        pid_t pid_early, pid_late;
+        int r;
+
+        assert_return(pidfd >= 0, -EBADF);
+        assert_return(unit, -EINVAL);
+
+        r = pidfd_get_pid(pidfd, &pid_early);
+        if (r < 0)
+                return r;
+
+        r = cg_pid_get_user_unit(pid_early, unit);
+        if (r < 0)
+                return IN_SET(r, -ENXIO, -ENOMEDIUM) ? -ENODATA : r;
+
+        r = pidfd_get_pid(pidfd, &pid_late);
+        if (r < 0)
+                return r;
+
+        if (pid_early != pid_late)
+                return -ESRCH;
+
+        return 0;
+}
+
+_public_ int sd_pidfd_get_machine_name(int pidfd, char **name) {
+        pid_t pid_early, pid_late;
+        int r;
+
+        assert_return(pidfd >= 0, -EBADF);
+        assert_return(name, -EINVAL);
+
+        r = pidfd_get_pid(pidfd, &pid_early);
+        if (r < 0)
+                return r;
+
+        r = cg_pid_get_machine_name(pid_early, name);
+        if (r < 0)
+                return IN_SET(r, -ENXIO, -ENOMEDIUM) ? -ENODATA : r;
+
+        r = pidfd_get_pid(pidfd, &pid_late);
+        if (r < 0)
+                return r;
+
+        if (pid_early != pid_late)
+                return -ESRCH;
+
+        return 0;
+}
+
+_public_ int sd_pidfd_get_slice(int pidfd, char **slice) {
+        pid_t pid_early, pid_late;
+        int r;
+
+        assert_return(pidfd >= 0, -EBADF);
+        assert_return(slice, -EINVAL);
+
+        r = pidfd_get_pid(pidfd, &pid_early);
+        if (r < 0)
+                return r;
+
+        r = cg_pid_get_slice(pid_early, slice);
+        if (r < 0)
+                return IN_SET(r, -ENXIO, -ENOMEDIUM) ? -ENODATA : r;
+
+        r = pidfd_get_pid(pidfd, &pid_late);
+        if (r < 0)
+                return r;
+
+        if (pid_early != pid_late)
+                return -ESRCH;
+
+        return 0;
+}
+
+_public_ int sd_pidfd_get_user_slice(int pidfd, char **slice) {
+        pid_t pid_early, pid_late;
+        int r;
+
+        assert_return(pidfd >= 0, -EBADF);
+        assert_return(slice, -EINVAL);
+
+        r = pidfd_get_pid(pidfd, &pid_early);
+        if (r < 0)
+                return r;
+
+        r = cg_pid_get_user_slice(pid_early, slice);
+        if (r < 0)
+                return IN_SET(r, -ENXIO, -ENOMEDIUM) ? -ENODATA : r;
+
+        r = pidfd_get_pid(pidfd, &pid_late);
+        if (r < 0)
+                return r;
+
+        if (pid_early != pid_late)
+                return -ESRCH;
+
+        return 0;
+}
+
+_public_ int sd_pidfd_get_owner_uid(int pidfd, uid_t *uid) {
+        pid_t pid_early, pid_late;
+        int r;
+
+        assert_return(pidfd >= 0, -EBADF);
+        assert_return(uid, -EINVAL);
+
+        r = pidfd_get_pid(pidfd, &pid_early);
+        if (r < 0)
+                return r;
+
+        r = cg_pid_get_owner_uid(pid_early, uid);
+        if (r < 0)
+                return IN_SET(r, -ENXIO, -ENOMEDIUM) ? -ENODATA : r;
+
+        r = pidfd_get_pid(pidfd, &pid_late);
+        if (r < 0)
+                return r;
+
+        if (pid_early != pid_late)
+                return -ESRCH;
+
+        return 0;
+}
+
+_public_ int sd_pidfd_get_cgroup(int pidfd, char **cgroup) {
+        pid_t pid_early, pid_late;
+        int r;
+
+        assert_return(pidfd >= 0, -EBADF);
+        assert_return(cgroup, -EINVAL);
+
+        r = pidfd_get_pid(pidfd, &pid_early);
+        if (r < 0)
+                return r;
+
+        r = sd_pid_get_cgroup(pid_early, cgroup);
+        if (r < 0)
+                return r;
+
+        r = pidfd_get_pid(pidfd, &pid_late);
+        if (r < 0)
+                return r;
+
+        if (pid_early != pid_late)
+                return -ESRCH;
+
         return 0;
 }
 
