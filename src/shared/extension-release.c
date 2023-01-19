@@ -119,14 +119,131 @@ int extension_release_validate(
         return 1;
 }
 
-int parse_env_extension_hierarchies(char ***ret_hierarchies) {
+int configuration_release_validate(
+                const char *name,
+                const char *host_os_release_id,
+                const char *host_os_release_version_id,
+                const char *host_os_release_syscfg_level,
+                const char *host_syscfg_scope,
+                char **configuration_release) {
+
+        const char *configuration_release_id = NULL, *configuration_release_syscfg_level = NULL, *configuration_architecture = NULL;
+
+        assert(name);
+        assert(!isempty(host_os_release_id));
+
+        /* Now that we can look into the extension image, let's see if the OS version is compatible */
+        if (strv_isempty(configuration_release)) {
+                log_debug("Extension '%s' carries no configuration-release data, ignoring extension.", name);
+                return 0;
+        }
+
+        if (host_syscfg_scope) {
+                _cleanup_strv_free_ char **extension_syscfg_scope_list = NULL;
+                const char *extension_syscfg_scope;
+                bool valid;
+
+                extension_syscfg_scope = strv_env_pairs_get(configuration_release, "SYSCFG_SCOPE");
+                if (extension_syscfg_scope) {
+                        extension_syscfg_scope_list = strv_split(extension_syscfg_scope, WHITESPACE);
+                        if (!extension_syscfg_scope_list)
+                                return -ENOMEM;
+                }
+
+                /* by default extension are good for attachment in portable service and on the system */
+                valid = strv_contains(
+                                extension_syscfg_scope_list ?: STRV_MAKE("system", "portable"),
+                                host_syscfg_scope);
+                if (!valid) {
+                        log_debug("Extension '%s' is not suitable for scope %s, ignoring extension.", name, host_syscfg_scope);
+                        return 0;
+                }
+        }
+
+        /* When the architecture field is present and not '_any' it must match the host - for now just look at uname but in
+         * the future we could check if the kernel also supports 32 bit or binfmt has a translator set up for the architecture */
+        configuration_architecture = strv_env_pairs_get(configuration_release, "ARCHITECTURE");
+        if (!isempty(configuration_architecture) && !streq(configuration_architecture, "_any") &&
+            !streq(architecture_to_string(uname_architecture()), configuration_architecture)) {
+                log_debug("Extension '%s' is for architecture '%s', but deployed on top of '%s'.",
+                          name, configuration_architecture, architecture_to_string(uname_architecture()));
+                return 0;
+        }
+
+        configuration_release_id = strv_env_pairs_get(configuration_release, "ID");
+        if (isempty(configuration_release_id)) {
+                log_debug("Extension '%s' does not contain ID in extension-release but requested to match '%s' or be '_any'",
+                          name, host_os_release_id);
+                return 0;
+        }
+
+        /* A sysext with no host OS dependency (static binaries or scripts) can match
+         * '_any' host OS, and VERSION_ID or SYSEXT_LEVEL are not required anywhere */
+        if (streq(configuration_release_id, "_any")) {
+                log_debug("Extension '%s' matches '_any' OS.", name);
+                return 1;
+        }
+
+        if (!streq(host_os_release_id, configuration_release_id)) {
+                log_debug("Extension '%s' is for OS '%s', but deployed on top of '%s'.",
+                          name, configuration_release_id, host_os_release_id);
+                return 0;
+        }
+
+        /* Rolling releases do not typically set VERSION_ID (eg: ArchLinux) */
+        if (isempty(host_os_release_version_id) && isempty(host_os_release_syscfg_level)) {
+                log_debug("No version info on the host (rolling release?), but ID in %s matched.", name);
+                return 1;
+        }
+
+        /* If the extension has a syscfg API level declared, then it must match the host API
+         * level. Otherwise, compare OS version as a whole */
+        configuration_release_syscfg_level = strv_env_pairs_get(configuration_release, "SYSEXT_LEVEL");
+        if (!isempty(host_os_release_syscfg_level) && !isempty(configuration_release_syscfg_level)) {
+                if (!streq_ptr(host_os_release_syscfg_level, configuration_release_syscfg_level)) {
+                        log_debug("Extension '%s' is for sysext API level '%s', but running on sysext API level '%s'",
+                                  name, strna(configuration_release_syscfg_level), strna(host_os_release_syscfg_level));
+                        return 0;
+                }
+        } else if (!isempty(host_os_release_version_id)) {
+                const char *configuration_release_version_id;
+
+                configuration_release_version_id = strv_env_pairs_get(configuration_release, "VERSION_ID");
+                if (isempty(configuration_release_version_id)) {
+                        log_debug("Extension '%s' does not contain VERSION_ID in extension-release but requested to match '%s'",
+                                  name, strna(host_os_release_version_id));
+                        return 0;
+                }
+
+                if (!streq_ptr(host_os_release_version_id, configuration_release_version_id)) {
+                        log_debug("Extension '%s' is for OS '%s', but deployed on top of '%s'.",
+                                  name, strna(configuration_release_version_id), strna(host_os_release_version_id));
+                        return 0;
+                }
+        } else if (isempty(host_os_release_version_id) && isempty(host_os_release_syscfg_level)) {
+                /* Rolling releases do not typically set VERSION_ID (eg: ArchLinux) */
+                log_debug("No version info on the host (rolling release?), but ID in %s matched.", name);
+                return 1;
+        }
+
+        log_debug("Version info of extension '%s' matches host.", name);
+        return 1;
+}
+
+int parse_env_extension_hierarchies(char ***ret_hierarchies, const char *env_hierarchy) {
         _cleanup_free_ char **l = NULL;
         int r;
 
-        r = getenv_path_list("SYSTEMD_SYSEXT_HIERARCHIES", &l);
+        assert(env_hierarchy);
+
+        r = getenv_path_list(env_hierarchy, &l);
         if (r == -ENXIO) {
-                /* Default when unset */
-                l = strv_new("/usr", "/opt");
+                if (streq(env_hierarchy, "SYSTEMD_SYSCFG_HIERARCHIES"))
+                        /* Default for syscfg when unset */
+                        l = strv_new("/etc");
+                else
+                        /* Default for sysext when unset */
+                        l = strv_new("/usr", "/opt");
                 if (!l)
                         return -ENOMEM;
         } else if (r < 0)
