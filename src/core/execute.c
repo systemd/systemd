@@ -5626,6 +5626,23 @@ int exec_context_destroy_credentials(const ExecContext *c, const char *runtime_p
         return 0;
 }
 
+int exec_context_destroy_mount_ns_dir(Unit *u) {
+        _cleanup_free_ char *p = NULL;
+
+        if (!u || !MANAGER_IS_SYSTEM(u->manager))
+                return 0;
+
+        p = path_join("/run/systemd/propagate/", u->id);
+        if (!p)
+                return -ENOMEM;
+
+        /* This is only filled transiently (see mount_in_namespace()), should be empty or even non-existent*/
+        if (rmdir(p) < 0 && errno != ENOENT)
+                log_unit_debug_errno(u, errno, "Unable to remove propagation dir '%s', ignoring: %m", p);
+
+        return 0;
+}
+
 static void exec_command_done(ExecCommand *c) {
         assert(c);
 
