@@ -22,6 +22,7 @@
 #include "macro.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -131,6 +132,220 @@ _public_ int sd_pid_get_cgroup(pid_t pid, char **cgroup) {
         }
 
         *cgroup = c;
+        return 0;
+}
+
+static int pidfd_verify_pid(int pidfd, pid_t pid) {
+        pid_t current_pid;
+        int r;
+
+        assert(pidfd >= 0);
+        assert(pid > 0);
+
+        r = pidfd_get_pid(pidfd, &current_pid);
+        if (r < 0)
+                return r;
+
+        return current_pid != pid ? -ESRCH : 0;
+}
+
+_public_ int sd_pidfd_get_session(int pidfd, char **ret_session) {
+        _cleanup_free_ char *session = NULL;
+        pid_t pid;
+        int r;
+
+        assert_return(pidfd >= 0, -EBADF);
+        assert_return(ret_session, -EINVAL);
+
+        r = pidfd_get_pid(pidfd, &pid);
+        if (r < 0)
+                return r;
+
+        r = sd_pid_get_session(pid, &session);
+        if (r < 0)
+                return r;
+
+        r = pidfd_verify_pid(pidfd, pid);
+        if (r < 0)
+                return r;
+
+        *ret_session = TAKE_PTR(session);
+
+        return 0;
+}
+
+_public_ int sd_pidfd_get_unit(int pidfd, char **ret_unit) {
+        _cleanup_free_ char *unit = NULL;
+        pid_t pid;
+        int r;
+
+        assert_return(pidfd >= 0, -EBADF);
+        assert_return(ret_unit, -EINVAL);
+
+        r = pidfd_get_pid(pidfd, &pid);
+        if (r < 0)
+                return r;
+
+        r = sd_pid_get_unit(pid, &unit);
+        if (r < 0)
+                return r;
+
+        r = pidfd_verify_pid(pidfd, pid);
+        if (r < 0)
+                return r;
+
+        *ret_unit = TAKE_PTR(unit);
+
+        return 0;
+}
+
+_public_ int sd_pidfd_get_user_unit(int pidfd, char **ret_unit) {
+        _cleanup_free_ char *unit = NULL;
+        pid_t pid;
+        int r;
+
+        assert_return(pidfd >= 0, -EBADF);
+        assert_return(ret_unit, -EINVAL);
+
+        r = pidfd_get_pid(pidfd, &pid);
+        if (r < 0)
+                return r;
+
+        r = sd_pid_get_user_unit(pid, &unit);
+        if (r < 0)
+                return r;
+
+        r = pidfd_verify_pid(pidfd, pid);
+        if (r < 0)
+                return r;
+
+        *ret_unit = TAKE_PTR(unit);
+
+        return 0;
+}
+
+_public_ int sd_pidfd_get_machine_name(int pidfd, char **ret_name) {
+        _cleanup_free_ char *name = NULL;
+        pid_t pid;
+        int r;
+
+        assert_return(pidfd >= 0, -EBADF);
+        assert_return(ret_name, -EINVAL);
+
+        r = pidfd_get_pid(pidfd, &pid);
+        if (r < 0)
+                return r;
+
+        r = sd_pid_get_machine_name(pid, &name);
+        if (r < 0)
+                return r;
+
+        r = pidfd_verify_pid(pidfd, pid);
+        if (r < 0)
+                return r;
+
+        *ret_name = TAKE_PTR(name);
+
+        return 0;
+}
+
+_public_ int sd_pidfd_get_slice(int pidfd, char **ret_slice) {
+        _cleanup_free_ char *slice = NULL;
+        pid_t pid;
+        int r;
+
+        assert_return(pidfd >= 0, -EBADF);
+        assert_return(ret_slice, -EINVAL);
+
+        r = pidfd_get_pid(pidfd, &pid);
+        if (r < 0)
+                return r;
+
+        r = sd_pid_get_slice(pid, &slice);
+        if (r < 0)
+                return r;
+
+        r = pidfd_verify_pid(pidfd, pid);
+        if (r < 0)
+                return r;
+
+        *ret_slice = TAKE_PTR(slice);
+
+        return 0;
+}
+
+_public_ int sd_pidfd_get_user_slice(int pidfd, char **ret_slice) {
+        _cleanup_free_ char *slice = NULL;
+        pid_t pid;
+        int r;
+
+        assert_return(pidfd >= 0, -EBADF);
+        assert_return(ret_slice, -EINVAL);
+
+        r = pidfd_get_pid(pidfd, &pid);
+        if (r < 0)
+                return r;
+
+        r = sd_pid_get_user_slice(pid, &slice);
+        if (r < 0)
+                return r;
+
+        r = pidfd_verify_pid(pidfd, pid);
+        if (r < 0)
+                return r;
+
+        *ret_slice = TAKE_PTR(slice);
+
+        return 0;
+}
+
+_public_ int sd_pidfd_get_owner_uid(int pidfd, uid_t *ret_uid) {
+        uid_t uid;
+        pid_t pid;
+        int r;
+
+        assert_return(pidfd >= 0, -EINVAL);
+        assert_return(ret_uid, -EINVAL);
+
+        r = pidfd_get_pid(pidfd, &pid);
+        if (r < 0)
+                return r;
+
+        r = sd_pid_get_owner_uid(pid, &uid);
+        if (r < 0)
+                return r;
+
+        r = pidfd_verify_pid(pidfd, pid);
+        if (r < 0)
+                return r;
+
+        *ret_uid = uid;
+
+        return 0;
+}
+
+_public_ int sd_pidfd_get_cgroup(int pidfd, char **ret_cgroup) {
+        _cleanup_free_ char *cgroup = NULL;
+        pid_t pid;
+        int r;
+
+        assert_return(pidfd >= 0, -EBADF);
+        assert_return(ret_cgroup, -EINVAL);
+
+        r = pidfd_get_pid(pidfd, &pid);
+        if (r < 0)
+                return r;
+
+        r = sd_pid_get_cgroup(pid, &cgroup);
+        if (r < 0)
+                return r;
+
+        r = pidfd_verify_pid(pidfd, pid);
+        if (r < 0)
+                return r;
+
+        *ret_cgroup = TAKE_PTR(cgroup);
+
         return 0;
 }
 
