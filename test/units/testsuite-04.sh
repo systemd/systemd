@@ -70,7 +70,7 @@ ID=$(journalctl --new-id128 | sed -n 2p)
 printf $'foo' | systemd-cat -t "$ID" --level-prefix false
 journalctl --sync
 journalctl -b -o export --output-fields=MESSAGE,FOO --output-fields=PRIORITY,MESSAGE -t "$ID" >/output
-[[ $(grep -c . /output) -eq 6 ]]
+[[ $(grep -c . /output) -eq 8 ]]
 grep -q '^__CURSOR=' /output
 grep -q '^MESSAGE=foo$' /output
 grep -q '^PRIORITY=6$' /output
