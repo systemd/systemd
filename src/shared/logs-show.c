@@ -1130,12 +1130,8 @@ static int output_json(
 
 finish:
         while ((d = hashmap_steal_first(h))) {
-                size_t k;
-
                 json_variant_unref(d->name);
-                for (k = 0; k < d->n_values; k++)
-                        json_variant_unref(d->values[k]);
-
+                json_variant_unref_many(d->values, d->n_values);
                 free(d);
         }
 
