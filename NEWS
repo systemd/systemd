@@ -136,6 +136,10 @@ CHANGES WITH 253 in spe:
           it stops. This is the analog of the [DHCPv4] SendRelease= setting.
           It is enabled by default.
 
+        * If the Address= setting in [Network] or [Address] sections in .network
+          specified without its prefix length, then now systemd-networkd assumes
+          /32 for IPv4 or /128 for IPv6 addresses.
+
         Changes in systemd-dissect:
 
         * systemd-dissect gained a new option --list, to print the paths fo the
