@@ -22,6 +22,55 @@
 #include "timesyncd-manager.h"
 #include "user-util.h"
 
+static int advance_tstamp(int fd, const struct stat *st) {
+        assert_se(fd >= 0);
+        assert_se(st);
+
+        /* So here's the problem: whenever we read the timestamp we'd like to ensure the next time we won't
+         * restore the exact same time again, but one at least one step further (so that comparing mtimes of
+         * the timestamp file is a reliable check that timesync did its thing). But file systems have
+         * different timestamp accuracy: traditional fat has 2s granularity, and even ext2 and friends expose
+         * different granularity depending on selected inode size during formatting! Hence, to ensure the
+         * timestamp definitely is increased, here's what we'll do: we'll first try to increase the timestamp
+         * by 1µs, write that and read it back. If it was updated, great. But if it was not, we'll instead
+         * increase the timestamp by 10µs, and do the same, then 100µs, then 1ms, and so on, until it works,
+         * or we reach 10s. If it still didn't work then, the fs is just broken and we give up. */
+
+        usec_t target = MAX3(now(CLOCK_REALTIME),
+                             TIME_EPOCH * USEC_PER_SEC,
+                             timespec_load(&st->st_mtim));
+
+        for (usec_t a = 1; a <= 10 * USEC_PER_SEC; a *= 10) { /* 1µs, 10µs, 100µs, 1ms, … 10s */
+                struct timespec ts[2];
+                struct stat new_st;
+
+                /* Bump to the maximum of the old timestamp advanced by the specified unit,  */
+                usec_t c = usec_add(target, a);
+
+                timespec_store(&ts[0], c);
+                ts[1] = ts[0];
+
+                if (futimens(fd, ts) < 0) {
+                        /* If this doesn't work at all, log, don't fail but give up */
+                        log_warning_errno(errno, "Unable to update mtime of timestamp file, ignoring: %m");
+                        return 0;
+                }
+
+                if (fstat(fd, &new_st) < 0)
+                        return log_error_errno(errno, "Failed to stat timestamp file: %m");
+
+                if (timespec_load(&new_st.st_mtim) > target) {
+                        log_debug("Successfully bumped timestamp file.");
+                        return 1;
+                }
+
+                log_debug("Tried to advance timestamp file by " USEC_FMT ", but this didn't work, file system timestamp granularity too coarse?", a);
+        }
+
+        log_debug("Gave up trying to advance timestamp file.");
+        return 0;
+}
+
 static int load_clock_timestamp(uid_t uid, gid_t gid) {
         usec_t min = TIME_EPOCH * USEC_PER_SEC, ct;
         _cleanup_close_ int fd = -EBADF;
@@ -64,6 +113,8 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
                 if (r < 0)
                         log_full_errno(ERRNO_IS_PRIVILEGE(r) ? LOG_DEBUG : LOG_WARNING, r,
                                        "Failed to chmod or chown %s, ignoring: %m", CLOCK_FILE);
+
+                (void) advance_tstamp(fd, &st);
         }
 
         ct = now(CLOCK_REALTIME);
