@@ -367,7 +367,7 @@ _public_ int sd_journal_add_disjunction(sd_journal *j) {
 }
 
 static char *match_make_string(Match *m) {
-        char *p = NULL, *r;
+        _cleanup_free_ char *p = NULL;
         bool enclose = false;
 
         if (!m)
@@ -377,34 +377,25 @@ static char *match_make_string(Match *m) {
                 return cescape_length(m->data, m->size);
 
         LIST_FOREACH(matches, i, m->matches) {
-                char *t, *k;
+                _cleanup_free_ char *t = NULL;
 
                 t = match_make_string(i);
                 if (!t)
-                        return mfree(p);
+                        return NULL;
 
                 if (p) {
-                        k = strjoin(p, m->type == MATCH_OR_TERM ? " OR " : " AND ", t);
-                        free(p);
-                        free(t);
-
-                        if (!k)
+                        if (!strextend(&p, m->type == MATCH_OR_TERM ? " OR " : " AND ", t))
                                 return NULL;
-
-                        p = k;
 
                         enclose = true;
                 } else
-                        p = t;
+                        p = TAKE_PTR(t);
         }
 
-        if (enclose) {
-                r = strjoin("(", p, ")");
-                free(p);
-                return r;
-        }
+        if (enclose)
+                return strjoin("(", p, ")");
 
-        return p;
+        return TAKE_PTR(p);
 }
 
 char *journal_make_match_string(sd_journal *j) {
