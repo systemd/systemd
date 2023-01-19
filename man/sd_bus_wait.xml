@@ -46,7 +46,7 @@
     <citerefentry><refentrytitle>sd_bus_process</refentrytitle><manvolnum>3</manvolnum></citerefentry> returns zero,
     indicating that no work is pending on the connection. Internally, this call invokes <citerefentry
     project='man-pages'><refentrytitle>ppoll</refentrytitle><manvolnum>2</manvolnum></citerefentry>, to wait for I/O on
-    the bus connection. If the <parameter>timeout_sec</parameter> parameter is specified, the call will block at most
+    the bus connection. If the <parameter>timeout_usec</parameter> parameter is specified, the call will block at most
     for the specified amount of time in µs. Pass <constant>UINT64_MAX</constant> to permit it to sleep
     indefinitely.</para>
 
