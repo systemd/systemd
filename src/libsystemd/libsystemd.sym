@@ -802,4 +802,12 @@ global:
         sd_bus_emit_signal_to;
         sd_bus_emit_signal_tov;
         sd_bus_message_new_signal_to;
+        sd_pidfd_get_cgroup;
+        sd_pidfd_get_machine_name;
+        sd_pidfd_get_owner_uid;
+        sd_pidfd_get_session;
+        sd_pidfd_get_slice;
+        sd_pidfd_get_unit;
+        sd_pidfd_get_user_slice;
+        sd_pidfd_get_user_unit;
 } LIBSYSTEMD_252;
