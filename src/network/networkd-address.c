@@ -1683,12 +1683,11 @@ int config_parse_address(
         /* Address=address/prefixlen */
         r = in_addr_prefix_from_string_auto_internal(rvalue, PREFIXLEN_REFUSE, &f, &buffer, &prefixlen);
         if (r == -ENOANO) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "An address '%s' is specified without prefix length. "
-                           "The behavior of parsing addresses without prefix length will be changed in the future release. "
-                           "Please specify prefix length explicitly.", rvalue);
-
-                r = in_addr_prefix_from_string_auto_internal(rvalue, PREFIXLEN_LEGACY, &f, &buffer, &prefixlen);
+                r = in_addr_prefix_from_string_auto(rvalue, &f, &buffer, &prefixlen);
+                if (r >= 0)
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "An address '%s' is specified without prefix length. Assuming the prefix length is %u."
+                                   "Please specify the prefix length explicitly.", rvalue, prefixlen);
         }
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid address '%s', ignoring assignment: %m", rvalue);
