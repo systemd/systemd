@@ -5,6 +5,7 @@
 
 #include "sd-daemon.h"
 #include "sd-event.h"
+#include "sd-messages.h"
 
 #include "capability-util.h"
 #include "clock-util.h"
@@ -69,16 +70,22 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
 
 settime:
         ct = now(CLOCK_REALTIME);
-        if (ct < min) {
-                char date[FORMAT_TIMESTAMP_MAX];
+        if (ct > min)
+                return 0;
 
-                log_info("System clock time unset or jumped backwards, restoring from recorded timestamp: %s",
-                         format_timestamp(date, sizeof(date), min));
-
-                if (clock_settime(CLOCK_REALTIME, TIMESPEC_STORE(min)) < 0)
-                        log_error_errno(errno, "Failed to restore system clock, ignoring: %m");
+        /* Not that it matters much, but we actually restore the clock to n+1 here rather than n, simply
+         * because we read n as time previously already and we want to progress here, i.e. not report the
+         * same time again. */
+        if (clock_settime(CLOCK_REALTIME, TIMESPEC_STORE(min+1)) < 0) {
+                log_warning_errno(errno, "Failed to restore system clock, ignoring: %m");
+                return 0;
         }
 
+        log_struct(LOG_INFO,
+                   "MESSAGE_ID=" SD_MESSAGE_TIME_BUMP_STR,
+                   "REALTIME_USEC=" USEC_FMT, min+1,
+                   LOG_MESSAGE("System clock time unset or jumped backwards, restored from recorded timestamp: %s",
+                               FORMAT_TIMESTAMP(min+1)));
         return 0;
 }
 
