@@ -1355,13 +1355,12 @@ int show_journal_entry(
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
-                char **output_fields,
+                Set *output_fields,
                 const size_t highlight[2],
                 bool *ellipsized,
                 dual_timestamp *previous_ts,
                 sd_id128_t *previous_boot_id) {
 
-        _cleanup_set_free_ Set *fields = NULL;
         dual_timestamp ts = DUAL_TIMESTAMP_NULL;
         sd_id128_t boot_id = SD_ID128_NULL;
         int r;
@@ -1374,10 +1373,6 @@ int show_journal_entry(
         if (n_columns <= 0)
                 n_columns = columns();
 
-        r = set_put_strdupv(&fields, output_fields);
-        if (r < 0)
-                return r;
-
         r = get_dual_timestamp(j, &ts, &boot_id);
         if (r == -EBADMSG) {
                 log_debug_errno(r, "Skipping message we can't read: %m");
@@ -1386,7 +1381,7 @@ int show_journal_entry(
         if (r < 0)
                 return log_error_errno(r, "Failed to get journal fields: %m");
 
-        r = output_funcs[mode](f, j, mode, n_columns, flags, fields, highlight, &ts, &boot_id, previous_ts, previous_boot_id);
+        r = output_funcs[mode](f, j, mode, n_columns, flags, output_fields, highlight, &ts, &boot_id, previous_ts, previous_boot_id);
 
         /* Store timestamp and boot ID for next iteration */
         *previous_ts = ts;
