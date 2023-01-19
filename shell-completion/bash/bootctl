@@ -31,7 +31,7 @@ _bootctl() {
     local i verb comps
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
     local -A OPTS=(
-        [STANDALONE]='-h --help -p --print-esp-path -x --print-boot-path --version --no-variables --no-pager --graceful'
+        [STANDALONE]='-h --help -p --print-esp-path -x --print-boot-path --version --no-variables --no-pager --graceful --dry-run'
         [ARG]='--esp-path --boot-path --make-machine-id-directory --root --image --install-source'
     )
 
@@ -67,8 +67,8 @@ _bootctl() {
 
     local -A VERBS=(
         # systemd-efi-options takes an argument, but it is free-form, so we cannot complete it
-        [STANDALONE]='help status install update remove is-installed random-seed systemd-efi-options list set-timeout set-timeout-oneshot'
-        [BOOTENTRY]='set-default set-oneshot'
+        [STANDALONE]='help status install update remove is-installed random-seed systemd-efi-options list set-timeout set-timeout-oneshot cleanup'
+        [BOOTENTRY]='set-default set-oneshot unlink'
         [BOOLEAN]='reboot-to-firmware'
     )
 

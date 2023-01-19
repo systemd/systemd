@@ -24,6 +24,10 @@ _bootctl_set-oneshot() {
     _bootctl_comp_ids
 }
 
+_bootctl_unlink() {
+    _bootctl_comp_ids
+}
+
 _bootctl_reboot-to-firmware() {
     local -a _completions
     _completions=( yes no )
@@ -48,6 +52,8 @@ _bootctl_reboot-to-firmware() {
         "set-oneshot:Set the default boot loader entry only for the next boot"
         "set-timeout:Set the menu timeout"
         "set-timeout-oneshot:Set the menu timeout for the next boot only"
+        "unlink:Remove boot loader entry"
+        "cleanup:Remove files in ESP not referenced in any boot entry"
     )
     if (( CURRENT == 1 )); then
         _describe -t commands 'bootctl command' _bootctl_cmds || compadd "$@"
@@ -73,6 +79,7 @@ _arguments \
     '--no-variables[Do not touch EFI variables]' \
     '--no-pager[Do not pipe output into a pager]' \
     '--graceful[Do not fail when locating ESP or writing fails]' \
+    '--dry-run[Dry run (unlink and cleanup)]' \
     '--root=[Operate under the specified directory]:PATH' \
     '--image=[Operate on the specified image]:PATH' \
     '--install-source[Where to pick files when using --root=/--image=]:options:(image host auto)' \
