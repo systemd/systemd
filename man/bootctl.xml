@@ -153,6 +153,21 @@
         disables the timeout while always showing the menu. When an empty string ("") is specified the
         bootloader will revert to its default menu timeout.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>unlink</option> <replaceable>ID</replaceable></term>
+
+        <listitem><para>Removes a boot loader entry including the files it refers to. Takes a single boot
+        loader entry ID string or a glob pattern as argument. Referenced files such as kernel or initrd are
+        only removed if no other entry refers to them.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>cleanup</option></term>
+
+        <listitem><para>Removes files from the ESP and XBOOTLDR partitions that belong to the entry token but
+        are not referenced in any boot loader entries.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -407,6 +422,14 @@
         to install a branded entry in the boot option list. However in situations with multiple disks, each with
         their own ESP partition, it can be beneficial to make it easier to identify the bootloader being used in
         the firmware's boot option menu.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--dry-run</option></term>
+        <listitem><para>Dry run for <option>--unlink</option> and <option>--cleanup</option>.</para>
+
+        <para>In dry run mode, the unlink and cleanup operations only print the files that would get deleted
+        without actually deleting them.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="no-pager"/>
