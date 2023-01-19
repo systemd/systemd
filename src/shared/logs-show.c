@@ -699,16 +699,19 @@ static int output_verbose(
 
         timestamp = format_timestamp_style(buf, sizeof buf, ts->realtime,
                                            flags & OUTPUT_UTC ? TIMESTAMP_US_UTC : TIMESTAMP_US);
-        fprintf(f, "%s [%s]\n",
+        fprintf(f, "%s%s%s %s[%s]%s\n",
+                timestamp && (flags & OUTPUT_COLOR) ? ANSI_UNDERLINE : "",
                 timestamp ?: "(no timestamp)",
-                cursor);
+                timestamp && (flags & OUTPUT_COLOR) ? ANSI_NORMAL : "",
+                (flags & OUTPUT_COLOR) ? ANSI_GREY : "",
+                cursor,
+                (flags & OUTPUT_COLOR) ? ANSI_NORMAL : "");
 
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
-                const char *c, *p;
-                int fieldlen;
-                const char *on = "", *off = "";
                 _cleanup_free_ char *urlified = NULL;
-                size_t valuelen;
+                const char *on = "", *off = "";
+                const char *c, *p = NULL;
+                size_t fieldlen, valuelen;
 
                 c = memchr(data, '=', length);
                 if (!c)
@@ -725,22 +728,35 @@ static int output_verbose(
                         continue;
 
                 valuelen = length - 1 - fieldlen;
+                p = c + 1;
 
-                if ((flags & OUTPUT_COLOR) && (p = startswith(data, "MESSAGE="))) {
-                        on = ANSI_HIGHLIGHT;
-                        off = ANSI_NORMAL;
-                } else if ((p = startswith(data, "CONFIG_FILE="))) {
-                        if (terminal_urlify_path(p, NULL, &urlified) >= 0) {
-                                p = urlified;
-                                valuelen = strlen(urlified);
+                if (flags & OUTPUT_COLOR) {
+                        if (startswith(data, "MESSAGE=")) {
+                                on = ANSI_HIGHLIGHT;
+                                off = ANSI_NORMAL;
+                        } else if (startswith(data, "CONFIG_FILE=")) {
+                                _cleanup_free_ char *u = NULL;
+
+                                u = memdup_suffix0(p, valuelen);
+                                if (!u)
+                                        return log_oom();
+
+                                if (terminal_urlify_path(u, NULL, &urlified) >= 0) {
+                                        p = urlified;
+                                        valuelen = strlen(urlified);
+                                }
+
+                        } else if (startswith(data, "_")) {
+                                /* Highlight trusted data as such */
+                                on = ANSI_GREEN;
+                                off = ANSI_NORMAL;
                         }
-                } else
-                        p = c + 1;
+                }
 
                 if ((flags & OUTPUT_SHOW_ALL) ||
                     (((length < PRINT_CHAR_THRESHOLD) || flags & OUTPUT_FULL_WIDTH)
                      && utf8_is_printable(data, length))) {
-                        fprintf(f, "    %s%.*s=", on, fieldlen, (const char*)data);
+                        fprintf(f, "    %s%.*s=", on, (int) fieldlen, (const char*)data);
                         print_multiline(f, 4 + fieldlen + 1, 0, OUTPUT_FULL_WIDTH, 0, false,
                                         p, valuelen,
                                         NULL);
@@ -753,7 +769,6 @@ static int output_verbose(
                                 FORMAT_BYTES(length - (c - (const char *) data) - 1),
                                 off);
         }
-
         if (r < 0)
                 return r;
 
