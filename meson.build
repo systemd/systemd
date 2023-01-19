@@ -716,24 +716,6 @@ endif
 
 ############################################################
 
-python = find_program('python3')
-if run_command(python, '-c', 'import jinja2', check : false).returncode() != 0
-        error('python3 jinja2 missing')
-endif
-
-python_310 = run_command(python, '-c',
-                         'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)',
-                         check : false).returncode() == 0
-if get_option('ukify') == 'auto'
-    want_ukify = python_310
-elif get_option('ukify') == 'true' and not python310
-    error('ukify requires Python >= 3.10')
-else
-    want_ukify = get_option('ukify') == 'true'
-endif
-
-############################################################
-
 gperf = find_program('gperf')
 
 gperf_test_format = '''
@@ -1989,6 +1971,24 @@ jinja2_cmdline = [meson_render_jinja2, config_h, version_h]
 
 ############################################################
 
+python = find_program('python3')
+if run_command(python, '-c', 'import jinja2', check : false).returncode() != 0
+        error('python3 jinja2 missing')
+endif
+
+python_310 = run_command(python, '-c',
+                         'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)',
+                         check : false).returncode() == 0
+if get_option('ukify') == 'auto'
+    want_ukify = python_310  and conf.get('HAVE_GNU_EFI') == 1
+elif get_option('ukify') == 'true' and (not python310 or conf.get('HAVE_GNU_EFI') != 1)
+    error('ukify requires Python >= 3.10 and GNU EFI')
+else
+    want_ukify = get_option('ukify') == 'true'
+endif
+
+############################################################
+
 # binaries that have --help and are intended for use by humans,
 # usually, but not always, installed in /bin.
 public_programs = []
@@ -2622,6 +2622,8 @@ if conf.get('HAVE_BLKID') == 1 and conf.get('HAVE_GNU_EFI') == 1
                  'src/boot/bootctl-status.h',
                  'src/boot/bootctl-systemd-efi-options.c',
                  'src/boot/bootctl-systemd-efi-options.h',
+                 'src/boot/bootctl-uki.c',
+                 'src/boot/bootctl-uki.h',
                  'src/boot/bootctl-util.c',
                  'src/boot/bootctl-util.h'],
                 include_directories : includes,

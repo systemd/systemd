@@ -8,6 +8,8 @@
 #include "hexdecoct.h"
 #include "json.h"
 #include "memory-util.h"
+#include "random-util.h"
+#include "sha256.h"
 #include "tpm2-util.h"
 
 static int search_policy_hash(
@@ -148,6 +150,14 @@ int enroll_tpm2(struct crypt_device *cd,
         ssize_t base64_encoded_size;
         int r, keyslot;
         TPM2Flags flags = 0;
+        uint8_t binary_salt[SHA256_DIGEST_SIZE] = {};
+        /*
+         * erase the salt, we'd rather attempt to not have this in a coredump
+         * as an attacker would have all the parameters but pin used to create
+         * the session key. This problem goes away when we move to a trusted
+         * primary key, aka the SRK.
+         */
+        CLEANUP_ERASE(binary_salt);
 
         assert(cd);
         assert(volume_key);
@@ -161,6 +171,22 @@ int enroll_tpm2(struct crypt_device *cd,
                 r = get_pin(&pin_str, &flags);
                 if (r < 0)
                         return r;
+
+                r = crypto_random_bytes(binary_salt, sizeof(binary_salt));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to acquire random salt: %m");
+
+                uint8_t salted_pin[SHA256_DIGEST_SIZE] = {};
+                CLEANUP_ERASE(salted_pin);
+                r = tpm2_util_pbkdf2_hmac_sha256(pin_str, strlen(pin_str), binary_salt, sizeof(binary_salt), salted_pin);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to perform PBKDF2: %m");
+
+                pin_str = erase_and_free(pin_str);
+                /* re-stringify pin_str */
+                base64_encoded_size = base64mem(salted_pin, sizeof(salted_pin), &pin_str);
+                if (base64_encoded_size < 0)
+                        return log_error_errno(base64_encoded_size, "Failed to base64 encode salted pin: %m");
         }
 
         r = tpm2_load_pcr_public_key(pubkey_path, &pubkey, &pubkey_size);
@@ -258,6 +284,8 @@ int enroll_tpm2(struct crypt_device *cd,
                         primary_alg,
                         blob, blob_size,
                         hash, hash_size,
+                        use_pin ? binary_salt : NULL,
+                        use_pin ? sizeof(binary_salt) : 0,
                         flags,
                         &v);
         if (r < 0)

@@ -120,6 +120,19 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   `_SD_ENUM_FORCE_S64()` macro in the enum definition, which forces the size of
   the enum to be signed 64bit wide.
 
+- Empty lines to separate code blocks are a good thing, please add them
+  abundantly. However, please stick to one at a time, i.e. multiple empty lines
+  immediately following each other are not OK. Also, we try to keep function calls and their immediate error handling together. Hence:
+
+  ```c
+  /* → empty line here is good */
+  r = some_function(…);
+  /* → empty line here would be bad */
+  if (r < 0)
+          return log_error_errno(r, "Some function failed: %m");
+  /* → empty line here is good */
+  ```
+
 ## Code Organization and Semantics
 
 - For our codebase we intend to use ISO C11 *with* GNU extensions (aka
@@ -210,8 +223,9 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   the point where they can be initialized. Avoid huge variable declaration
   lists at the top of the function.
 
-  As an exception, `r` is typically used for a local state variable, but should
-  almost always be declared as the last variable at the top of the function.
+  As an exception, `int r` is typically used for a local state variable, but
+  should almost always be declared as the last variable at the top of the
+  function.
 
   ```c
   {

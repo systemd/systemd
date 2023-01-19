@@ -597,7 +597,7 @@ static int save_external_coredump(
                 /* tmpfs might get full quickly, so check the available space too.
                  * But don't worry about errors here, failing to access the storage
                  * location will be better logged when writing to it. */
-                if (statvfs("/var/lib/systemd/coredump/", &sv) >= 0)
+                if (fstatvfs(fd, &sv) >= 0)
                         max_size = MIN((uint64_t)sv.f_frsize * (uint64_t)sv.f_bfree, max_size);
 
                 log_debug("Limiting core file size to %" PRIu64 " bytes due to cgroup memory limits.", max_size);

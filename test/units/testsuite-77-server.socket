@@ -1,0 +1,6 @@
+[Unit]
+Description=TEST-77-OPENFILE server socket
+
+[Socket]
+ListenStream=/tmp/test.sock
+Accept=yes
