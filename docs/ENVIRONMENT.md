@@ -326,6 +326,17 @@ the journal instead of only when logging in debug mode.
   `/proc/` or `/sys/` here, or hierarchies that have them as submounts. In
   particular, do not specify the root directory `/` here.
 
+`systemd-syscfg`:
+
+* `$SYSTEMD_SYSCFG_HIERARCHIES` — this variable may be used to override which
+  hierarchies are managed by `systemd-syscfg`. By default only `/etc/` is
+  managed, and directories may be added or removed to that by setting this
+  environment variable to a colon-separated list of absolute paths. Only
+  "real" file systems and directories that only contain "real" file
+  systems as submounts should be used. Do not specify API file systems such as
+  `/proc/` or `/sys/` here, or hierarchies that have them as submounts. In
+  particular, do not specify the root directory `/` here.
+
 `systemd-tmpfiles`:
 
 * `$SYSTEMD_TMPFILES_FORCE_SUBVOL` — if unset, `v`/`q`/`Q` lines will create
