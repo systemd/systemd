@@ -280,7 +280,7 @@ EFI_STATUS graphics_splash(const uint8_t *content, size_t len) {
                 background.Blue = 0xc0;
         }
 
-        err = BS->LocateProtocol(&GraphicsOutputProtocol, NULL, (void **) &GraphicsOutput);
+        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_GRAPHICS_OUTPUT_PROTOCOL), NULL, (void **) &GraphicsOutput);
         if (err != EFI_SUCCESS)
                 return err;
 
