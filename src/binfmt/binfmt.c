@@ -40,11 +40,9 @@ static int apply_rule(const char *filename, unsigned line, const char *rule) {
         assert(rule[0]);
 
         _cleanup_free_ char *rulename = NULL;
-        const char *e;
         int r;
 
-        e = strchrnul(rule + 1, rule[0]);
-        rulename = strndup(rule + 1, e - rule - 1);
+        rulename = strdupcspn(rule + 1, CHAR_TO_STR(rule[0]));
         if (!rulename)
                 return log_oom();
 
