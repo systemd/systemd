@@ -26,12 +26,12 @@ KERNEL_VERSION="${2:?}"
 ENTRY_DIR_ABS="$3"
 KERNEL_IMAGE="$4"
 
-[ "$KERNEL_INSTALL_LAYOUT" = "uki" ] || exit 0
+[ "$KERNEL_INSTALL_IMAGE_TYPE" = "uki" ] || [ -f "$KERNEL_INSTALL_STAGING_AREA/uki.efi" ] || exit 0
 
 ENTRY_TOKEN="$KERNEL_INSTALL_ENTRY_TOKEN"
 BOOT_ROOT="$KERNEL_INSTALL_BOOT_ROOT"
 
-UKI_DIR="$BOOT_ROOT/EFI/Linux"
+UKI_DIR="$(bootctl --print-esp-path)/EFI/Linux"
 
 case "$COMMAND" in
     remove)
@@ -49,8 +49,8 @@ case "$COMMAND" in
 esac
 
 if ! [ -d "$UKI_DIR" ]; then
-    echo "Error: entry directory '$UKI_DIR' does not exist" >&2
-    exit 1
+    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "creating $UKI_DIR"
+    mkdir -p "$UKI_DIR"
 fi
 
 TRIES_FILE="${KERNEL_INSTALL_CONF_ROOT:-/etc/kernel}/tries"
