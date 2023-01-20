@@ -25,6 +25,14 @@
     <refname>sd_pid_get_slice</refname>
     <refname>sd_pid_get_user_slice</refname>
     <refname>sd_pid_get_cgroup</refname>
+    <refname>sd_pidfd_get_owner_uid</refname>
+    <refname>sd_pidfd_get_session</refname>
+    <refname>sd_pidfd_get_user_unit</refname>
+    <refname>sd_pidfd_get_unit</refname>
+    <refname>sd_pidfd_get_machine_name</refname>
+    <refname>sd_pidfd_get_slice</refname>
+    <refname>sd_pidfd_get_user_slice</refname>
+    <refname>sd_pidfd_get_cgroup</refname>
     <refname>sd_peer_get_owner_uid</refname>
     <refname>sd_peer_get_session</refname>
     <refname>sd_peer_get_user_unit</refname>
@@ -87,6 +95,54 @@
       <funcprototype>
         <funcdef>int <function>sd_pid_get_cgroup</function></funcdef>
         <paramdef>pid_t <parameter>pid</parameter></paramdef>
+        <paramdef>char **<parameter>cgroup</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_pidfd_get_owner_uid</function></funcdef>
+        <paramdef>int <parameter>pidfd</parameter></paramdef>
+        <paramdef>uid_t *<parameter>uid</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_pidfd_get_session</function></funcdef>
+        <paramdef>int <parameter>pidfd</parameter></paramdef>
+        <paramdef>char **<parameter>session</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_pidfd_get_user_unit</function></funcdef>
+        <paramdef>int <parameter>pidfd</parameter></paramdef>
+        <paramdef>char **<parameter>unit</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_pidfd_get_unit</function></funcdef>
+        <paramdef>int <parameter>pidfd</parameter></paramdef>
+        <paramdef>char **<parameter>unit</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_pidfd_get_machine_name</function></funcdef>
+        <paramdef>int <parameter>pidfd</parameter></paramdef>
+        <paramdef>char **<parameter>name</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_pidfd_get_slice</function></funcdef>
+        <paramdef>int <parameter>pidfd</parameter></paramdef>
+        <paramdef>char **<parameter>slice</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_pidfd_get_user_slice</function></funcdef>
+        <paramdef>int <parameter>pidfd</parameter></paramdef>
+        <paramdef>char **<parameter>slice</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_pidfd_get_cgroup</function></funcdef>
+        <paramdef>int <parameter>pidfd</parameter></paramdef>
         <paramdef>char **<parameter>cgroup</parameter></paramdef>
       </funcprototype>
 
@@ -221,6 +277,20 @@
     <para>If the <varname>pid</varname> parameter of any of these
     functions is passed as 0, the operation is executed for the
     calling process.</para>
+
+    <para>The <function>sd_pidfd_get_owner_uid()</function>,
+    <function>sd_pidfd_get_session()</function>,
+    <function>sd_pidfd_get_user_unit()</function>,
+    <function>sd_pidfd_get_unit()</function>,
+    <function>sd_pidfd_get_machine_name()</function>,
+    <function>sd_pidfd_get_slice()</function>,
+    <function>sd_pidfd_get_user_slice()</function> and
+    <function>sd_pidfd_get_cgroup()</function> calls operate similarly to their PID counterparts, but accept a
+    <constant>PIDFD</constant> instead of a <constant>PID</constant>, which means they are not subject to recycle
+    race conditions as the process is pinned by the file descriptor during the whole duration of the invocation.
+    Note that these require a kernel that supports <constant>PIDFD</constant>. A suitable file descriptor may be
+    acquired via
+    <citerefentry project='man-pages'><refentrytitle>pidfd_open</refentrytitle><manvolnum>2</manvolnum></citerefentry>.</para>
 
     <para>The <function>sd_peer_get_owner_uid()</function>,
     <function>sd_peer_get_session()</function>,
