@@ -31,7 +31,7 @@ KERNEL_IMAGE="$4"
 ENTRY_TOKEN="$KERNEL_INSTALL_ENTRY_TOKEN"
 BOOT_ROOT="$KERNEL_INSTALL_BOOT_ROOT"
 
-UKI_DIR="$BOOT_ROOT/EFI/Linux"
+UKI_DIR="$(bootctl --print-esp-path)/EFI/Linux"
 
 case "$COMMAND" in
     remove)
