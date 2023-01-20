@@ -365,6 +365,11 @@ TEST(format_timestamp) {
                 assert_se(parse_timestamp(buf, &y) >= 0);
                 assert_se(x == y);
 
+                assert_se(format_timestamp_style(buf, sizeof(buf), x, TIMESTAMP_DATE));
+                log_debug("%s", buf);
+                assert_se(parse_timestamp(buf, &y) >= 0);
+                assert_se(y > usec_sub_unsigned(x, 2 * USEC_PER_DAY) && y < usec_add(x, 2* USEC_PER_DAY));
+
                 assert_se(format_timestamp_relative(buf, sizeof(buf), x));
                 log_debug("%s", buf);
                 assert_se(parse_timestamp(buf, &y) >= 0);
@@ -466,28 +471,42 @@ TEST(format_timestamp_relative) {
         assert_se(streq(buf, "2 weeks 2 days ago"));
 }
 
-static void test_format_timestamp_utc_one(usec_t val, const char *result) {
+static void test_format_timestamp_one(usec_t val, TimestampStyle style, const char *result) {
         char buf[FORMAT_TIMESTAMP_MAX];
         const char *t;
 
-        t = format_timestamp_style(buf, sizeof(buf), val, TIMESTAMP_UTC);
+        t = format_timestamp_style(buf, sizeof(buf), val, style);
         assert_se(streq_ptr(t, result));
 }
 
-TEST(format_timestamp_utc) {
-        test_format_timestamp_utc_one(0, NULL);
-        test_format_timestamp_utc_one(1, "Thu 1970-01-01 00:00:00 UTC");
-        test_format_timestamp_utc_one(USEC_PER_SEC, "Thu 1970-01-01 00:00:01 UTC");
+TEST(format_timestamp_range) {
+        test_format_timestamp_one(0, TIMESTAMP_UTC, NULL);
+        test_format_timestamp_one(0, TIMESTAMP_DATE, NULL);
+        test_format_timestamp_one(0, TIMESTAMP_US_UTC, NULL);
+
+        test_format_timestamp_one(1, TIMESTAMP_UTC, "Thu 1970-01-01 00:00:00 UTC");
+        test_format_timestamp_one(1, TIMESTAMP_DATE, "Thu 1970-01-01");
+        test_format_timestamp_one(1, TIMESTAMP_US_UTC, "Thu 1970-01-01 00:00:00.000001 UTC");
+
+        test_format_timestamp_one(USEC_PER_SEC, TIMESTAMP_UTC, "Thu 1970-01-01 00:00:01 UTC");
+        test_format_timestamp_one(USEC_PER_SEC, TIMESTAMP_DATE, "Thu 1970-01-01");
+        test_format_timestamp_one(USEC_PER_SEC, TIMESTAMP_US_UTC, "Thu 1970-01-01 00:00:01.000000 UTC");
 
 #if SIZEOF_TIME_T == 8
-        test_format_timestamp_utc_one(USEC_TIMESTAMP_FORMATTABLE_MAX, "Thu 9999-12-30 23:59:59 UTC");
-        test_format_timestamp_utc_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, "--- XXXX-XX-XX XX:XX:XX UTC");
+        test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX, TIMESTAMP_UTC, "Thu 9999-12-30 23:59:59 UTC");
+        test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX, TIMESTAMP_DATE, "Thu 9999-12-30");
+        test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, TIMESTAMP_UTC, "--- XXXX-XX-XX XX:XX:XX UTC");
+        test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, TIMESTAMP_US_UTC, "--- XXXX-XX-XX XX:XX:XX.XXXXXX UTC");
+        test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, TIMESTAMP_DATE, "--- XXXX-XX-XX");
 #elif SIZEOF_TIME_T == 4
-        test_format_timestamp_utc_one(USEC_TIMESTAMP_FORMATTABLE_MAX, "Tue 2038-01-19 03:14:07 UTC");
-        test_format_timestamp_utc_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, "--- XXXX-XX-XX XX:XX:XX UTC");
+        test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX, TIMESTAMP_UTC, "Tue 2038-01-19 03:14:07 UTC");
+        test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX, TIMESTAMP_DATE, "Tue 2038-01-19");
+        test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, TIMESTAMP_UTC, "--- XXXX-XX-XX XX:XX:XX UTC");
+        test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, TIMESTAMP_US_UTC, "--- XXXX-XX-XX XX:XX:XX.XXXXXX UTC");
+        test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, TIMESTAMP_DATE, "--- XXXX-XX-XX");
 #endif
 
-        test_format_timestamp_utc_one(USEC_INFINITY, NULL);
+        test_format_timestamp_one(USEC_INFINITY, TIMESTAMP_UTC, NULL);
 }
 
 TEST(deserialize_dual_timestamp) {
