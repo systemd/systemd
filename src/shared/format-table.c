@@ -297,6 +297,7 @@ static size_t table_data_size(TableDataType type, const void *data) {
         case TABLE_TIMESTAMP:
         case TABLE_TIMESTAMP_UTC:
         case TABLE_TIMESTAMP_RELATIVE:
+        case TABLE_TIMESTAMP_DATE:
         case TABLE_TIMESPAN:
         case TABLE_TIMESPAN_MSEC:
                 return sizeof(usec_t);
@@ -894,6 +895,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                 case TABLE_TIMESTAMP:
                 case TABLE_TIMESTAMP_UTC:
                 case TABLE_TIMESTAMP_RELATIVE:
+                case TABLE_TIMESTAMP_DATE:
                 case TABLE_TIMESPAN:
                 case TABLE_TIMESPAN_MSEC:
                         buffer.usec = va_arg(ap, usec_t);
@@ -1300,6 +1302,7 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                 case TABLE_TIMESTAMP:
                 case TABLE_TIMESTAMP_UTC:
                 case TABLE_TIMESTAMP_RELATIVE:
+                case TABLE_TIMESTAMP_DATE:
                         return CMP(a->timestamp, b->timestamp);
 
                 case TABLE_TIMESPAN:
@@ -1530,7 +1533,8 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
 
         case TABLE_TIMESTAMP:
         case TABLE_TIMESTAMP_UTC:
-        case TABLE_TIMESTAMP_RELATIVE: {
+        case TABLE_TIMESTAMP_RELATIVE:
+        case TABLE_TIMESTAMP_DATE: {
                 _cleanup_free_ char *p = NULL;
                 char *ret;
 
@@ -1542,6 +1546,8 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                         ret = format_timestamp(p, FORMAT_TIMESTAMP_MAX, d->timestamp);
                 else if (d->type == TABLE_TIMESTAMP_UTC)
                         ret = format_timestamp_style(p, FORMAT_TIMESTAMP_MAX, d->timestamp, TIMESTAMP_UTC);
+                else if (d->type == TABLE_TIMESTAMP_DATE)
+                        ret = format_timestamp_style(p, FORMAT_TIMESTAMP_MAX, d->timestamp, TIMESTAMP_DATE);
                 else
                         ret = format_timestamp_relative(p, FORMAT_TIMESTAMP_RELATIVE_MAX, d->timestamp);
                 if (!ret)
@@ -2578,6 +2584,7 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
         case TABLE_TIMESTAMP:
         case TABLE_TIMESTAMP_UTC:
         case TABLE_TIMESTAMP_RELATIVE:
+        case TABLE_TIMESTAMP_DATE:
                 if (d->timestamp == USEC_INFINITY)
                         return json_variant_new_null(ret);
 
