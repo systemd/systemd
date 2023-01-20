@@ -213,6 +213,7 @@ basic_sources = files(
         'signal-util.h',
         'siphash24.c',
         'siphash24.h',
+        'slow-code.h',
         'socket-util.c',
         'socket-util.h',
         'sort-util.c',
