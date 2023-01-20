@@ -53,7 +53,6 @@ static uint8_t advertisement[] = {
 
 static bool test_stopped;
 static int test_fd[2];
-static sd_event_source *recv_router_advertisement;
 static struct {
         struct in6_addr address;
         unsigned char prefixlen;
@@ -281,9 +280,9 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
 }
 
 TEST(ra) {
-        sd_event *e;
-        sd_radv *ra;
-        unsigned i;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *recv_router_advertisement = NULL;
+        _cleanup_(sd_radv_unrefp) sd_radv *ra = NULL;
 
         assert_se(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) >= 0);
 
@@ -303,7 +302,7 @@ TEST(ra) {
         assert_se(sd_radv_set_rdnss(ra, 60, &test_rdnss, 1) >= 0);
         assert_se(sd_radv_set_dnssl(ra, 60, (char **)test_dnssl) >= 0);
 
-        for (i = 0; i < ELEMENTSOF(prefix); i++) {
+        for (unsigned i = 0; i < ELEMENTSOF(prefix); i++) {
                 sd_radv_prefix *p;
 
                 printf("Test prefix %u\n", i);
@@ -324,8 +323,8 @@ TEST(ra) {
                 assert_se(!p);
         }
 
-        assert_se(sd_event_add_io(e, &recv_router_advertisement, test_fd[0],
-                                  EPOLLIN, radv_recv, ra) >= 0);
+        assert_se(sd_event_add_io(e, &recv_router_advertisement, test_fd[0], EPOLLIN, radv_recv, ra) >= 0);
+        assert_se(sd_event_source_set_io_fd_own(recv_router_advertisement, true) >= 0);
 
         assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
                                              2 * USEC_PER_SEC, 0,
@@ -334,13 +333,6 @@ TEST(ra) {
         assert_se(sd_radv_start(ra) >= 0);
 
         assert_se(sd_event_loop(e) >= 0);
-
-        ra = sd_radv_unref(ra);
-        assert_se(!ra);
-
-        close(test_fd[0]);
-
-        sd_event_unref(e);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
