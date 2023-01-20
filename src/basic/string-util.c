@@ -1187,6 +1187,41 @@ char *string_replace_char(char *str, char old_char, char new_char) {
         return str;
 }
 
+int make_cstring(const char *s, size_t n, MakeCStringMode mode, char **ret) {
+        char *b;
+
+        assert(s || n == 0);
+
+        /* Converts a sized character buffer into a NUL-terminated NUL string, refusing if there are embedded
+         * NUL bytes. Whether to expect a trailing NUL byte can be specified via 'mode' */
+
+        if (n == 0) {
+                if (mode == MAKE_CSTRING_REQUIRE_TRAILING_NUL)
+                        return -EINVAL;
+
+                b = new0(char, 1);
+        } else {
+                const char *nul;
+
+                nul = memchr(s, 0, n);
+                if (nul) {
+                        if (nul < s + n - 1 || /* embedded NUL? */
+                            mode == MAKE_CSTRING_REFUSE_TRAILING_NUL)
+                                return -EINVAL;
+
+                        n--;
+                } else if (mode == MAKE_CSTRING_REQUIRE_TRAILING_NUL)
+                        return -EINVAL;
+
+                b = memdup_suffix0(s, n);
+        }
+        if (!b)
+                return -ENOMEM;
+
+        *ret = b;
+        return 0;
+}
+
 size_t strspn_from_end(const char *str, const char *accept) {
         size_t n = 0;
 
