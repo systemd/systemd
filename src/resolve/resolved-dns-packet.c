@@ -1371,13 +1371,13 @@ int dns_packet_read_uint32(DnsPacket *p, uint32_t *ret, size_t *start) {
 }
 
 int dns_packet_read_string(DnsPacket *p, char **ret, size_t *start) {
-        assert(p);
-
         _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = REWINDER_INIT(p);
+        _cleanup_free_ char *t = NULL;
         const void *d;
-        char *t;
         uint8_t c;
         int r;
+
+        assert(p);
 
         r = dns_packet_read_uint8(p, &c, NULL);
         if (r < 0)
@@ -1387,19 +1387,14 @@ int dns_packet_read_string(DnsPacket *p, char **ret, size_t *start) {
         if (r < 0)
                 return r;
 
-        if (memchr(d, 0, c))
+        r = make_cstring(d, c, MAKE_CSTRING_REFUSE_TRAILING_NUL, &t);
+        if (r < 0)
+                return r;
+
+        if (!utf8_is_valid(t))
                 return -EBADMSG;
 
-        t = memdup_suffix0(d, c);
-        if (!t)
-                return -ENOMEM;
-
-        if (!utf8_is_valid(t)) {
-                free(t);
-                return -EBADMSG;
-        }
-
-        *ret = t;
+        *ret = TAKE_PTR(t);
 
         if (start)
                 *start = rewinder.saved_rindex;
