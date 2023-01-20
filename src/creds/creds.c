@@ -326,16 +326,12 @@ static int write_blob(FILE *f, const void *data, size_t size) {
 
         if (arg_transcode == TRANSCODE_OFF &&
             arg_json_format_flags != JSON_FORMAT_OFF) {
-
                 _cleanup_(erase_and_freep) char *suffixed = NULL;
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
-                if (memchr(data, 0, size))
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Credential data contains embedded NUL, can't parse as JSON.");
-
-                suffixed = memdup_suffix0(data, size);
-                if (!suffixed)
-                        return log_oom();
+                r = make_cstring(data, size, MAKE_CSTRING_REFUSE_TRAILING_NUL, &suffixed);
+                if (r < 0)
+                        return log_error_errno(r, "Unable to convert binary string to C string: %m");
 
                 r = json_parse(suffixed, JSON_PARSE_SENSITIVE, &v, NULL, NULL);
                 if (r < 0)

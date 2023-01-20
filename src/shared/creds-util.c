@@ -1146,12 +1146,9 @@ int decrypt_credential_and_warn(
         if (le32toh(m->name_size) > 0) {
                 _cleanup_free_ char *embedded_name = NULL;
 
-                if (memchr(m->name, 0, le32toh(m->name_size)))
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Embedded credential name contains NUL byte, refusing.");
-
-                embedded_name = memdup_suffix0(m->name, le32toh(m->name_size));
-                if (!embedded_name)
-                        return log_oom();
+                r = make_cstring(m->name, le32toh(m->name_size), MAKE_CSTRING_REFUSE_TRAILING_NUL, &embedded_name);
+                if (r < 0)
+                        return log_error_errno(r, "Unable to convert embedded credential name to C string: %m");
 
                 if (!credential_name_valid(embedded_name))
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Embedded credential name is not valid, refusing.");

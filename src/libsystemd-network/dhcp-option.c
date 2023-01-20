@@ -279,6 +279,7 @@ static int parse_options(const uint8_t options[], size_t buflen, uint8_t *overlo
         uint8_t code, len;
         const uint8_t *option;
         size_t offset = 0;
+        int r;
 
         while (offset < buflen) {
                 code = options[offset ++];
@@ -318,13 +319,9 @@ static int parse_options(const uint8_t options[], size_t buflen, uint8_t *overlo
                         if (error_message) {
                                 _cleanup_free_ char *string = NULL;
 
-                                /* Accept a trailing NUL byte */
-                                if (memchr(option, 0, len - 1))
-                                        return -EINVAL;
-
-                                string = memdup_suffix0((const char *) option, len);
-                                if (!string)
-                                        return -ENOMEM;
+                                r = make_cstring((const char*) option, len, MAKE_CSTRING_ALLOW_TRAILING_NUL, &string);
+                                if (r < 0)
+                                        return r;
 
                                 if (!ascii_is_valid(string))
                                         return -EINVAL;
