@@ -2528,7 +2528,7 @@ static bool unit_has_mask_enables_realized(
                 ((u->cgroup_enabled_mask | enable_mask) & CGROUP_MASK_V2) == (u->cgroup_enabled_mask & CGROUP_MASK_V2);
 }
 
-static void unit_add_to_cgroup_realize_queue(Unit *u) {
+void unit_add_to_cgroup_realize_queue(Unit *u) {
         assert(u);
 
         if (u->in_cgroup_realize_queue)
