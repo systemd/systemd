@@ -131,7 +131,7 @@ static int help(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s  [OPTIONS...] COMMAND ...\n"
+        printf("%1$s [OPTIONS...] COMMAND ...\n"
                "\n%5$sControl EFI firmware boot settings and manage boot loader.%6$s\n"
                "\n%3$sGeneric EFI Firmware/Boot Loader Commands:%4$s\n"
                "  status               Show status of installed boot loader and EFI variables\n"
