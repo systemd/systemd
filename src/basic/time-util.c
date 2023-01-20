@@ -308,30 +308,17 @@ char *format_timestamp_style(
         };
 
         struct tm tm;
+        bool utc, us;
         time_t sec;
         size_t n;
-        bool utc = false, us = false;
         int r;
 
         assert(buf);
+        assert(style >= 0);
+        assert(style < _TIMESTAMP_STYLE_MAX);
 
-        switch (style) {
-                case TIMESTAMP_PRETTY:
-                case TIMESTAMP_UNIX:
-                        break;
-                case TIMESTAMP_US:
-                        us = true;
-                        break;
-                case TIMESTAMP_UTC:
-                        utc = true;
-                        break;
-                case TIMESTAMP_US_UTC:
-                        us = true;
-                        utc = true;
-                        break;
-                default:
-                        return NULL;
-        }
+        utc = IN_SET(style, TIMESTAMP_UTC, TIMESTAMP_US_UTC);
+        us = IN_SET(style, TIMESTAMP_US, TIMESTAMP_US_UTC);
 
         if (l < (size_t) (3 +                  /* week day */
                           1 + 10 +             /* space and date */
