@@ -108,7 +108,7 @@ static int url_from_catalog(sd_journal *j, char **ret) {
         weblink += strspn(weblink, " \t");
 
         /* Cut out till next whitespace/newline */
-        url = strndup(weblink, strcspn(weblink, WHITESPACE));
+        url = strdupcspn(weblink, WHITESPACE);
         if (!url)
                 return log_oom();
 

@@ -240,3 +240,6 @@ bool streq_skip_trailing_chars(const char *s1, const char *s2, const char *ok);
 char *string_replace_char(char *str, char old_char, char new_char);
 
 size_t strspn_from_end(const char *str, const char *accept);
+
+char *strdupspn(const char *a, const char *accept);
+char *strdupcspn(const char *a, const char *reject);

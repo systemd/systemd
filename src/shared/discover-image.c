@@ -175,15 +175,13 @@ static int image_new(
 static int extract_pretty(const char *path, const char *suffix, char **ret) {
         _cleanup_free_ char *name = NULL;
         const char *p;
-        size_t n;
 
         assert(path);
         assert(ret);
 
         p = last_path_component(path);
-        n = strcspn(p, "/");
 
-        name = strndup(p, n);
+        name = strdupcspn(p, "/");
         if (!name)
                 return -ENOMEM;
 
