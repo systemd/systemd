@@ -297,6 +297,9 @@ trap cleanup EXIT
 
 KERNEL_INSTALL_STAGING_AREA="$(mktemp -d -t kernel-install.staging.XXXXXXX)"
 
+export KERNEL_INSTALL_IMAGE_TYPE=""
+[ -f "$1" ] && KERNEL_INSTALL_IMAGE_TYPE="$(bootctl kernel-identify $1)"
+
 export KERNEL_INSTALL_MACHINE_ID="$MACHINE_ID"
 export KERNEL_INSTALL_ENTRY_TOKEN="$ENTRY_TOKEN"
 export KERNEL_INSTALL_BOOT_ROOT="$BOOT_ROOT"
