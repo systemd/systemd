@@ -58,27 +58,13 @@ int crypt_dump_hex_string(const char *hex_str, char **ret_dump_str) {
 }
 
 int crypt_normalize_pin(const void *pin, size_t pin_size, char **ret_pin_string) {
-
-        _cleanup_free_ char *pin_string = NULL;
-
-        assert(pin || !pin_size);
+        assert(pin || pin_size == 0);
         assert(ret_pin_string);
 
-        if (!pin) {
+        if (pin_size == 0) {
                 *ret_pin_string = NULL;
                 return 0;
         }
 
-        /* Refuse embedded NULL bytes, but allow trailing NULL */
-        if (memchr(pin, 0, pin_size - 1))
-                return -EINVAL;
-
-        /* Enforce trailing NULL byte if missing */
-        pin_string = memdup_suffix0(pin, pin_size);
-        if (!pin_string)
-                return -ENOMEM;
-
-        *ret_pin_string = TAKE_PTR(pin_string);
-
-        return 0;
+        return make_cstring(pin, pin_size, MAKE_CSTRING_ALLOW_TRAILING_NUL, ret_pin_string);
 }
