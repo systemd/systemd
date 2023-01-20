@@ -49,8 +49,8 @@ case "$COMMAND" in
 esac
 
 if ! [ -d "$UKI_DIR" ]; then
-    echo "Error: entry directory '$UKI_DIR' does not exist" >&2
-    exit 1
+    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "creating $UKI_DIR"
+    mkdir -p "$UKI_DIR"
 fi
 
 TRIES_FILE="${KERNEL_INSTALL_CONF_ROOT:-/etc/kernel}/tries"
