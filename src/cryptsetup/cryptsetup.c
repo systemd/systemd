@@ -848,7 +848,7 @@ static int measure_volume_key(
 
         _cleanup_strv_free_ char **l = NULL;
         if (strv_isempty(arg_tpm2_measure_banks)) {
-                r = tpm2_get_good_pcr_banks_strv(c.esys_context, UINT32_C(1) << arg_tpm2_measure_pcr, &l);
+                r = tpm2_get_good_pcr_banks_strv(&c, UINT32_C(1) << arg_tpm2_measure_pcr, &l);
                 if (r < 0)
                         return r;
         }
@@ -871,7 +871,7 @@ static int measure_volume_key(
         if (!s)
                 return log_oom();
 
-        r = tpm2_extend_bytes(c.esys_context, l ?: arg_tpm2_measure_banks, arg_tpm2_measure_pcr, s, SIZE_MAX, volume_key, volume_key_size);
+        r = tpm2_extend_bytes(&c, l ?: arg_tpm2_measure_banks, arg_tpm2_measure_pcr, s, SIZE_MAX, volume_key, volume_key_size);
         if (r < 0)
                 return r;
 
@@ -1655,6 +1655,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         /* pubkey_pcr_mask= */ 0,
                                         /* signature_path= */ NULL,
                                         /* primary_alg= */ 0,
+                                        /* primary_template= */ NULL, /* primary_template_size= */ 0,
                                         key_file, arg_keyfile_size, arg_keyfile_offset,
                                         key_data, key_data_size,
                                         /* policy_hash= */ NULL, /* policy_hash_size= */ 0, /* we don't know the policy hash */
@@ -1694,8 +1695,8 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                 }
 
                 if (r == -EOPNOTSUPP) { /* Plugin not available, let's process TPM2 stuff right here instead */
-                        _cleanup_free_ void *blob = NULL, *policy_hash = NULL;
-                        size_t blob_size, policy_hash_size;
+                        _cleanup_free_ void *blob = NULL, *policy_hash = NULL, *primary_template = NULL;
+                        size_t blob_size, policy_hash_size, primary_template_size = 0;
                         bool found_some = false;
                         int token = 0; /* first token to look at */
 
@@ -1719,6 +1720,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 &pubkey, &pubkey_size,
                                                 &pubkey_pcr_mask,
                                                 &primary_alg,
+                                                &primary_template, &primary_template_size,
                                                 &blob, &blob_size,
                                                 &policy_hash, &policy_hash_size,
                                                 &salt, &salt_size,
@@ -1748,6 +1750,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 pubkey_pcr_mask,
                                                 arg_tpm2_signature,
                                                 primary_alg,
+                                                primary_template, primary_template_size,
                                                 /* key_file= */ NULL, /* key_file_size= */ 0, /* key_file_offset= */ 0, /* no key file */
                                                 blob, blob_size,
                                                 policy_hash, policy_hash_size,
