@@ -23,6 +23,7 @@ typedef enum TableDataType {
         TABLE_TIMESTAMP,
         TABLE_TIMESTAMP_UTC,
         TABLE_TIMESTAMP_RELATIVE,
+        TABLE_TIMESTAMP_DATE,
         TABLE_TIMESPAN,
         TABLE_TIMESPAN_MSEC,
         TABLE_SIZE,
