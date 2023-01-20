@@ -233,7 +233,7 @@
   </refsect1>
 
   <refsect1>
-    <title><command>kernel</command> Commands</title>
+    <title>Kernel Image Commands</title>
 
     <variablelist>
       <varlistentry>
