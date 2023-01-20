@@ -333,7 +333,7 @@ char *format_timestamp_style(
                           1 + 10 +             /* space and date */
                           1 + 8 +              /* space and time */
                           (us ? 1 + 6 : 0) +   /* "." and microsecond part */
-                          1 + 1 +              /* space and shortest possible zone */
+                          1 + (utc ? 3 : 1) +  /* space and shortest possible zone */
                           1))
                 return NULL; /* Not enough space even for the shortest form. */
 
