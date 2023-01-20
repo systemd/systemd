@@ -4908,7 +4908,7 @@ static int exec_child(
 
         /* If the user namespace was not set up above, try to do it now.
          * It's preferred to set up the user namespace later (after all other namespaces) so as not to be
-         * restricted by rules pertaining to combining user namspaces with other namespaces (e.g. in the
+         * restricted by rules pertaining to combining user namespaces with other namespaces (e.g. in the
          * case of mount namespaces being less privileged when the mount point list is copied from a
          * different user namespace). */
 

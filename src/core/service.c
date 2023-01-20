@@ -3832,7 +3832,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                                 s->reload_result = f;
 
-                                /* If the last notification we received from the service process indiciates
+                                /* If the last notification we received from the service process indicates
                                  * we are still reloading, then don't leave reloading state just yet, just
                                  * transition into SERVICE_RELOAD_NOTIFY, to wait for the READY=1 coming,
                                  * too. */

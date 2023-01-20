@@ -376,7 +376,7 @@
 
         <para>Note that this option can only be used in <filename>/etc/fstab</filename>, and will be ignored
         when part of the <varname>Options=</varname> setting in a unit file. It is also implied for the root
-        and <filename>/usr/</filename> partitions dicovered by
+        and <filename>/usr/</filename> partitions discovered by
         <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
 
