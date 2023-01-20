@@ -112,7 +112,7 @@
             <listitem><para><filename>90-uki-copy.install</filename> copies a file
             <filename>uki.efi</filename> from <varname>$KERNEL_INSTALL_STAGING_AREA</varname> or if it does
             not exist the <replaceable>KERNEL-IMAGE</replaceable> argument, if it is a unified kernel image, to
-            <filename>$BOOT/EFI/Linux/<replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable>.efi</filename>.</para>
+            <filename>$ESP/EFI/Linux/<replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable>.efi</filename>.</para>
 
             <para>If <varname>$KERNEL_INSTALL_LAYOUT</varname> is not "uki", this plugin does nothing.</para></listitem>
           </itemizedlist>
