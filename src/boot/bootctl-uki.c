@@ -2,6 +2,7 @@
 
 #include "bootctl.h"
 #include "bootctl-uki.h"
+#include "env-file.h"
 #include "fd-util.h"
 #include "parse-util.h"
 #include "pe-header.h"
@@ -146,7 +147,8 @@ static int read_pe_section(FILE *uki, const struct PeSectionHeader *section,
 static void inspect_uki(FILE *uki, struct PeSectionHeader *sections, size_t scount) {
         _cleanup_free_ char *cmdline = NULL;
         _cleanup_free_ char *uname = NULL;
-        size_t idx;
+        _cleanup_free_ char *osrel = NULL;
+        size_t osrel_size, idx;
 
         if (find_pe_section(sections, scount, name_cmdline, sizeof(name_cmdline), &idx))
                 read_pe_section(uki, sections + idx, (void**)&cmdline, NULL);
@@ -154,10 +156,27 @@ static void inspect_uki(FILE *uki, struct PeSectionHeader *sections, size_t scou
         if (find_pe_section(sections, scount, name_uname, sizeof(name_uname), &idx))
                 read_pe_section(uki, sections + idx, (void**)&uname, NULL);
 
+        if (find_pe_section(sections, scount, name_osrel, sizeof(name_osrel), &idx))
+                read_pe_section(uki, sections + idx, (void**)&osrel, &osrel_size);
+
         if (cmdline)
                 printf("    Cmdline: %s\n", cmdline);
         if (uname)
                 printf("    Version: %s\n", uname);
+        if (osrel) {
+                _cleanup_fclose_ FILE *s = fmemopen(osrel, osrel_size, "r");
+                _cleanup_free_ char *pname = NULL, *name = NULL;
+                int rc;
+
+                rc = parse_env_file(s, NULL,
+                                    "PRETTY_NAME", &pname,
+                                    "NAME",        &name);
+                if (rc < 0)
+                        log_warning_errno(rc, "Failed to parse embedded os-release file, ignoring: %m");
+
+                if (pname || name)
+                        printf("         OS: %s\n", pname ?: name);
+        }
 }
 
 int verb_kernel_inspect(int argc, char *argv[], void *userdata) {
