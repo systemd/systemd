@@ -481,10 +481,10 @@ TEST(format_timestamp_utc) {
 
 #if SIZEOF_TIME_T == 8
         test_format_timestamp_utc_one(USEC_TIMESTAMP_FORMATTABLE_MAX, "Thu 9999-12-30 23:59:59 UTC");
-        test_format_timestamp_utc_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, "--- XXXX-XX-XX XX:XX:XX");
+        test_format_timestamp_utc_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, "--- XXXX-XX-XX XX:XX:XX UTC");
 #elif SIZEOF_TIME_T == 4
         test_format_timestamp_utc_one(USEC_TIMESTAMP_FORMATTABLE_MAX, "Tue 2038-01-19 03:14:07 UTC");
-        test_format_timestamp_utc_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, "--- XXXX-XX-XX XX:XX:XX");
+        test_format_timestamp_utc_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, "--- XXXX-XX-XX XX:XX:XX UTC");
 #endif
 
         test_format_timestamp_utc_one(USEC_INFINITY, NULL);

@@ -340,9 +340,15 @@ char *format_timestamp_style(
 
         /* Let's not format times with years > 9999 */
         if (t > USEC_TIMESTAMP_FORMATTABLE_MAX) {
-                assert(l >= STRLEN("--- XXXX-XX-XX XX:XX:XX") + 1);
-                strcpy(buf, "--- XXXX-XX-XX XX:XX:XX");
-                return buf;
+                static const char* const xxx[_TIMESTAMP_STYLE_MAX] = {
+                        [TIMESTAMP_PRETTY] = "--- XXXX-XX-XX XX:XX:XX",
+                        [TIMESTAMP_US]     = "--- XXXX-XX-XX XX:XX:XX.XXXXXX",
+                        [TIMESTAMP_UTC]    = "--- XXXX-XX-XX XX:XX:XX UTC",
+                        [TIMESTAMP_US_UTC] = "--- XXXX-XX-XX XX:XX:XX.XXXXXX UTC",
+                };
+
+                assert(l >= strlen(xxx[style]) + 1);
+                return strcpy(buf, xxx[style]);
         }
 
         sec = (time_t) (t / USEC_PER_SEC); /* Round down */
