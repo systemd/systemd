@@ -129,7 +129,7 @@ static const char *arg_namespace = NULL;
 static uint64_t arg_vacuum_size = 0;
 static uint64_t arg_vacuum_n_files = 0;
 static usec_t arg_vacuum_time = 0;
-static char **arg_output_fields = NULL;
+static Set *arg_output_fields = NULL;
 static const char *arg_pattern = NULL;
 static pcre2_code *arg_compiled_pattern = NULL;
 static PatternCompileCase arg_case = PATTERN_COMPILE_CASE_AUTO;
@@ -142,7 +142,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_system_units, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_user_units, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_output_fields, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_output_fields, set_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_compiled_pattern, pattern_freep);
 
 static enum {
@@ -1026,13 +1026,10 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!v)
                                 return log_oom();
 
-                        if (!arg_output_fields)
-                                arg_output_fields = TAKE_PTR(v);
-                        else {
-                                r = strv_extend_strv(&arg_output_fields, v, true);
-                                if (r < 0)
-                                        return log_oom();
-                        }
+                        r = set_put_strdupv(&arg_output_fields, v);
+                        if (r < 0)
+                                return log_oom();
+
                         break;
                 }
 
