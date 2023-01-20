@@ -85,9 +85,10 @@
   <refsect1>
     <title>Boot Loader Specification Commands</title>
 
-    <para>These commands are available for all boot loaders that implement the <ulink
-    url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink> and/or the <ulink
-    url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>, such as
+    <para>These commands are available for all boot loaders that
+    implement the <ulink
+    url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot
+    Loader Specification</ulink>, such as
     <command>systemd-boot</command>.</para>
 
     <variablelist>
@@ -104,6 +105,32 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>unlink</option> <replaceable>ID</replaceable></term>
+
+        <listitem><para>Removes a boot loader entry including the files it refers to. Takes a single boot
+        loader entry ID string or a glob pattern as argument. Referenced files such as kernel or initrd are
+        only removed if no other entry refers to them.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>cleanup</option></term>
+
+        <listitem><para>Removes files from the ESP and XBOOTLDR partitions that belong to the entry token but
+        are not referenced in any boot loader entries.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Boot Loader Interface Commands</title>
+
+    <para>These commands are available for all boot loaders that implement the <ulink
+    url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink> and the <ulink
+    url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>, such as
+    <command>systemd-boot</command>.</para>
+
+    <variablelist>
       <varlistentry>
         <term><option>set-default</option> <replaceable>ID</replaceable></term>
         <term><option>set-oneshot</option> <replaceable>ID</replaceable></term>
@@ -152,21 +179,6 @@
         the default entry will be booted immediately, while setting this to <option>menu-force</option>
         disables the timeout while always showing the menu. When an empty string ("") is specified the
         bootloader will revert to its default menu timeout.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>unlink</option> <replaceable>ID</replaceable></term>
-
-        <listitem><para>Removes a boot loader entry including the files it refers to. Takes a single boot
-        loader entry ID string or a glob pattern as argument. Referenced files such as kernel or initrd are
-        only removed if no other entry refers to them.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>cleanup</option></term>
-
-        <listitem><para>Removes files from the ESP and XBOOTLDR partitions that belong to the entry token but
-        are not referenced in any boot loader entries.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -233,7 +245,7 @@
   </refsect1>
 
   <refsect1>
-    <title><command>kernel</command> Commands</title>
+    <title>Kernel Image Commands</title>
 
     <variablelist>
       <varlistentry>
