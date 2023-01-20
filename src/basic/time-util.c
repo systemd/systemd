@@ -311,7 +311,6 @@ char *format_timestamp_style(
         bool utc, us;
         time_t sec;
         size_t n;
-        int r;
 
         assert(buf);
         assert(style >= 0);
@@ -321,11 +320,10 @@ char *format_timestamp_style(
                 return NULL; /* Timestamp is unset */
 
         if (style == TIMESTAMP_UNIX) {
-                r = snprintf(buf, l, "@" USEC_FMT, t / USEC_PER_SEC);  /* round down µs → s */
-                if (r < 0 || (size_t) r >= l)
-                        return NULL; /* Doesn't fit */
+                if (l < (size_t) (1 + 1 + 1))
+                        return NULL; /* not enough space for even the shortest of forms */
 
-                return buf;
+                return snprintf_ok(buf, l, "@" USEC_FMT, t / USEC_PER_SEC);  /* round down µs → s */
         }
 
         utc = IN_SET(style, TIMESTAMP_UTC, TIMESTAMP_US_UTC);
