@@ -242,11 +242,13 @@ TEST_RET(unit_printf, .sd_booted = true) {
                 *user, *group, *uid, *gid, *home, *shell,
                 *tmp_dir, *var_tmp_dir;
         _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_close_ int fd = -EBADF;
         Unit *u;
         int r;
 
         _cleanup_(unlink_tempfilep) char filename[] = "/tmp/test-unit_printf.XXXXXX";
-        assert_se(mkostemp_safe(filename) >= 0);
+        fd = mkostemp_safe(filename);
+        assert_se(fd >= 0);
 
         /* Using the specifier functions is admittedly a bit circular, but we don't want to reimplement the
          * logic a second time. We're at least testing that the hookup works. */
