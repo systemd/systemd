@@ -317,16 +317,6 @@ char *format_timestamp_style(
         assert(style >= 0);
         assert(style < _TIMESTAMP_STYLE_MAX);
 
-        utc = IN_SET(style, TIMESTAMP_UTC, TIMESTAMP_US_UTC);
-        us = IN_SET(style, TIMESTAMP_US, TIMESTAMP_US_UTC);
-
-        if (l < (size_t) (3 +                  /* week day */
-                          1 + 10 +             /* space and date */
-                          1 + 8 +              /* space and time */
-                          (us ? 1 + 6 : 0) +   /* "." and microsecond part */
-                          1 + 1 +              /* space and shortest possible zone */
-                          1))
-                return NULL; /* Not enough space even for the shortest form. */
         if (!timestamp_is_set(t))
                 return NULL; /* Timestamp is unset */
 
@@ -337,6 +327,17 @@ char *format_timestamp_style(
 
                 return buf;
         }
+
+        utc = IN_SET(style, TIMESTAMP_UTC, TIMESTAMP_US_UTC);
+        us = IN_SET(style, TIMESTAMP_US, TIMESTAMP_US_UTC);
+
+        if (l < (size_t) (3 +                  /* week day */
+                          1 + 10 +             /* space and date */
+                          1 + 8 +              /* space and time */
+                          (us ? 1 + 6 : 0) +   /* "." and microsecond part */
+                          1 + 1 +              /* space and shortest possible zone */
+                          1))
+                return NULL; /* Not enough space even for the shortest form. */
 
         /* Let's not format times with years > 9999 */
         if (t > USEC_TIMESTAMP_FORMATTABLE_MAX) {
