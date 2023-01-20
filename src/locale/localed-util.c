@@ -505,7 +505,9 @@ int find_legacy_keymap(Context *c, char **ret) {
 
                                 /* If that didn't work, strip off the
                                  * other layouts from the entry, too */
-                                x = strndup(a[1], strcspn(a[1], ","));
+                                x = strdupcspn(a[1], ",");
+                                if (!x)
+                                        return -ENOMEM;
                                 if (startswith_comma(c->x11_layout, x))
                                         matching = 1;
                         }
