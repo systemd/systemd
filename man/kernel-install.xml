@@ -111,9 +111,8 @@
 
             <listitem><para><filename>90-uki-copy.install</filename> copies a file
             <filename>uki.efi</filename> from <varname>$KERNEL_INSTALL_STAGING_AREA</varname> or if it does
-            not exist the <replaceable>KERNEL-IMAGE</replaceable> argument, iff it has a
-            <literal>.efi</literal> extension, to
-            <filename>$BOOT/EFI/Linux/<replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable>.efi</filename>.</para>
+            not exist the <replaceable>KERNEL-IMAGE</replaceable> argument, if it is a unified kernel image, to
+            <filename>$ESP/EFI/Linux/<replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable>.efi</filename>.</para>
 
             <para>If <varname>$KERNEL_INSTALL_LAYOUT</varname> is not "uki", this plugin does nothing.</para></listitem>
           </itemizedlist>
@@ -224,7 +223,7 @@
       (EFI System Partition) are mounted, and also conceptually referred to as <varname>$BOOT</varname>. Can
       be overridden by setting <varname>$BOOT_ROOT</varname> (see below).</para>
 
-      <para><varname>$KERNEL_INSTALL_LAYOUT=bls|uki|other|...</varname> is set for the plugins to specify the
+      <para><varname>$KERNEL_INSTALL_LAYOUT=bls|other|...</varname> is set for the plugins to specify the
       installation layout. Defaults to <option>bls</option> if
       <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable></filename> exists, or <option>other</option>
       otherwise. Additional layout names may be defined by convention. If a plugin uses a special layout,
@@ -244,18 +243,6 @@
             kernel and initrds under
             <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename></para>
             <para>Implemented by <filename>90-loaderentry.install</filename>.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term>uki</term>
-          <listitem>
-            <para>Standard <ulink
-            url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader
-            Specification</ulink> Type #2 layout, compatible with
-            <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>:
-            unified kernel images under <filename>$BOOT/EFI/Linux</filename> as
-            <filename>$BOOT/EFI/Linux/<replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable>[+<replaceable>TRIES</replaceable>].efi</filename>.</para>
-            <para>Implemented by <filename>90-uki-copy.install</filename>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
