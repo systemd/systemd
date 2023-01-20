@@ -153,6 +153,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  random-seed         Initialize random seed in ESP and EFI variables\n"
                "\n%3$skernel Commands:%4$s\n"
                "  kernel-identify     Identify kernel image type.\n"
+               "  kernel-inspect      Prints details about the kernel.\n"
                "\n%3$sOptions:%4$s\n"
                "  -h --help            Show this help\n"
                "     --version         Print version\n"
