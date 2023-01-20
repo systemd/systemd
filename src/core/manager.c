@@ -1867,6 +1867,12 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
                 /* Third, fire things up! */
                 manager_coldplug(m);
 
+                /* We might have drop-ins for init.scope, but the cgroup is created and realized before
+                 * we load them. Do it again now, after we've got all the units loaded. */
+                Unit *u = manager_get_unit(m, SPECIAL_INIT_SCOPE);
+                if (u)
+                        unit_realize_cgroup(u);
+
                 /* Clean up runtime objects */
                 manager_vacuum(m);
 
