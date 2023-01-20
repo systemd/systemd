@@ -2145,7 +2145,8 @@ int setup_namespace(
         }
 
         if (n_extension_images > 0 || !strv_isempty(extension_directories)) {
-                r = parse_env_extension_hierarchies(&hierarchies);
+                // setting this value to the original default value for now
+                r = parse_env_extension_hierarchies(&hierarchies, "SYSTEMD_SYSCFG_HIERARCHIES");
                 if (r < 0)
                         return r;
         }

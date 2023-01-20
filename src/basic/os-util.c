@@ -58,6 +58,28 @@ int path_is_extension_tree(const char *path, const char *extension, bool relax_e
         return 1;
 }
 
+int path_is_configuration_tree(const char *path, const char *configuration, bool relax_configuration_release_check) {
+        int r;
+
+        assert(path);
+
+        /* Does the path exist at all? If not, generate an error immediately. This is useful so that a missing root dir
+         * always results in -ENOENT, and we can properly distinguish the case where the whole root doesn't exist from
+         * the case where just the os-release file is missing. */
+        if (laccess(path, F_OK) < 0)
+                return -errno;
+
+        /* We use /usr/lib/configuration-release.d/configuration-release[.NAME] as flag for something being a system configuration,
+         * and {/etc|/usr/lib}/os-release as a flag for something being an OS (when not an extension). */
+        r = open_configuration_release(path, configuration, relax_configuration_release_check, NULL, NULL);
+        if (r == -ENOENT) /* We got nothing */
+                return 0;
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 static int extension_release_strict_xattr_value(int extension_release_fd, const char *extension_release_dir_path, const char *filename) {
         int r;
 
@@ -91,6 +113,44 @@ static int extension_release_strict_xattr_value(int extension_release_fd, const 
 
         log_debug("%s/%s: 'user.extension-release.strict' attribute is false%s",
                   extension_release_dir_path, filename,
+                  special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+
+        return false;
+}
+
+static int configuration_release_strict_xattr_value(int configuration_release_fd, const char *configuration_release_dir_path, const char *filename) {
+        int r;
+
+        assert(configuration_release_fd >= 0);
+        assert(configuration_release_dir_path);
+        assert(filename);
+
+        /* No xattr or cannot parse it? Then skip this. */
+        _cleanup_free_ char *configuration_release_xattr = NULL;
+        r = fgetxattr_malloc(configuration_release_fd, "user.configuration-release.strict", &configuration_release_xattr);
+        if (r < 0) {
+                if (!ERRNO_IS_XATTR_ABSENT(r))
+                        return log_debug_errno(r,
+                                               "%s/%s: Failed to read 'user.configuration-release.strict' extended attribute from file, ignoring: %m",
+                                               configuration_release_dir_path, filename);
+
+                return log_debug_errno(r, "%s/%s does not have user.extension-release.strict xattr, ignoring.", configuration_release_dir_path, filename);
+        }
+
+        /* Explicitly set to request strict matching? Skip it. */
+        r = parse_boolean(configuration_release_xattr);
+        if (r < 0)
+                return log_debug_errno(r,
+                                       "%s/%s: Failed to parse 'user.configuration-release.strict' extended attribute from file, ignoring: %m",
+                                       configuration_release_dir_path, filename);
+        if (r > 0) {
+                log_debug("%s/%s: 'user.configuration-release.strict' attribute is true, ignoring file.",
+                          configuration_release_dir_path, filename);
+                return true;
+        }
+
+        log_debug("%s/%s: 'user.configuration-release.strict' attribute is false%s",
+                  configuration_release_dir_path, filename,
                   special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
         return false;
@@ -225,6 +285,135 @@ int open_extension_release(const char *root, const char *extension, bool relax_e
         return 0;
 }
 
+int open_configuration_release(const char *root, const char *configuration, bool relax_configuration_release_check, char **ret_path, int *ret_fd) {
+        _cleanup_free_ char *q = NULL;
+        int r, fd;
+
+        if (configuration) {
+                const char *configuration_full_path;
+
+                if (!image_name_is_valid(configuration))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "The extension name %s is invalid.", configuration);
+
+                configuration_full_path = strjoina("/usr/lib/configuration-release.d/configuration-release.", configuration);
+                r = chase_symlinks(configuration_full_path, root, CHASE_PREFIX_ROOT,
+                                   ret_path ? &q : NULL,
+                                   ret_fd ? &fd : NULL);
+                log_full_errno_zerook(LOG_DEBUG, MIN(r, 0), "Checking for %s: %m", configuration_full_path);
+
+                /* Cannot find the expected configuration-release file? The image filename might have been
+                 * mangled on deployment, so fallback to checking for any file in the configuration-release.d
+                 * directory, and return the first one with a user.configuration-release xattr instead.
+                 * The user.configuration-release.strict xattr is checked to ensure the author of the image
+                 * considers it OK if names do not match. */
+                if (r == -ENOENT) {
+                        _cleanup_free_ char *configuration_release_dir_path = NULL;
+                        _cleanup_closedir_ DIR *configuration_release_dir = NULL;
+
+                        r = chase_symlinks_and_opendir("/usr/lib/configuration-release.d/", root, CHASE_PREFIX_ROOT,
+                                                       &configuration_release_dir_path, &configuration_release_dir);
+                        if (r < 0)
+                                return log_debug_errno(r, "Cannot open %s/usr/lib/configuration-release.d/, ignoring: %m", root);
+
+                        r = -ENOENT;
+                        FOREACH_DIRENT(de, configuration_release_dir, return -errno) {
+                                int k;
+
+                                if (!IN_SET(de->d_type, DT_REG, DT_UNKNOWN))
+                                        continue;
+
+                                const char *image_name = startswith(de->d_name, "configuration-release.");
+                                if (!image_name)
+                                        continue;
+
+                                if (!image_name_is_valid(image_name)) {
+                                        log_debug("%s/%s is not a valid configuration-release file name, ignoring.",
+                                                  configuration_release_dir_path, de->d_name);
+                                        continue;
+                                }
+
+                                /* We already chased the directory, and checked that
+                                 * this is a real file, so we shouldn't fail to open it. */
+                                _cleanup_close_ int configuration_release_fd = openat(dirfd(configuration_release_dir),
+                                                                                  de->d_name,
+                                                                                  O_PATH|O_CLOEXEC|O_NOFOLLOW);
+                                if (configuration_release_fd < 0)
+                                        return log_debug_errno(errno,
+                                                               "Failed to open configuration-release file %s/%s: %m",
+                                                               configuration_release_dir_path,
+                                                               de->d_name);
+
+                                /* Really ensure it is a regular file after we open it. */
+                                if (fd_verify_regular(configuration_release_fd) < 0) {
+                                        log_debug("%s/%s is not a regular file, ignoring.", configuration_release_dir_path, de->d_name);
+                                        continue;
+                                }
+
+                                if (!relax_configuration_release_check) {
+                                        k = configuration_release_strict_xattr_value(configuration_release_fd,
+                                                                                 configuration_release_dir_path,
+                                                                                 de->d_name);
+                                        if (k != 0)
+                                                continue;
+                                }
+
+                                /* We already found what we were looking for, but there's another candidate?
+                                 * We treat this as an error, as we want to enforce that there are no ambiguities
+                                 * in case we are in the fallback path.*/
+                                if (r == 0) {
+                                        r = -ENOTUNIQ;
+                                        break;
+                                }
+
+                                r = 0; /* Found it! */
+
+                                if (ret_fd)
+                                        fd = TAKE_FD(configuration_release_fd);
+
+                                if (ret_path) {
+                                        q = path_join(configuration_release_dir_path, de->d_name);
+                                        if (!q)
+                                                return -ENOMEM;
+                                }
+                        }
+                }
+        } else {
+                const char *var = secure_getenv("SYSTEMD_OS_RELEASE");
+                if (var)
+                        r = chase_symlinks(var, root, 0,
+                                           ret_path ? &q : NULL,
+                                           ret_fd ? &fd : NULL);
+                else
+                        FOREACH_STRING(path, "/etc/os-release", "/usr/lib/os-release") {
+                                r = chase_symlinks(path, root, CHASE_PREFIX_ROOT,
+                                                   ret_path ? &q : NULL,
+                                                   ret_fd ? &fd : NULL);
+                                if (r != -ENOENT)
+                                        break;
+                        }
+        }
+        if (r < 0)
+                return r;
+
+        if (ret_fd) {
+                int real_fd;
+
+                /* Convert the O_PATH fd into a proper, readable one */
+                real_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                safe_close(fd);
+                if (real_fd < 0)
+                        return real_fd;
+
+                *ret_fd = real_fd;
+        }
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(q);
+
+        return 0;
+}
+
 int fopen_extension_release(const char *root, const char *extension, bool relax_extension_release_check, char **ret_path, FILE **ret_file) {
         _cleanup_free_ char *p = NULL;
         _cleanup_close_ int fd = -EBADF;
@@ -249,7 +438,31 @@ int fopen_extension_release(const char *root, const char *extension, bool relax_
         return 0;
 }
 
-static int parse_release_internal(const char *root, bool relax_extension_release_check, const char *extension, va_list ap) {
+int fopen_configuration_release(const char *root, const char *configuration, bool relax_configuration_release_check, char **ret_path, FILE **ret_file) {
+        _cleanup_free_ char *p = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        FILE *f;
+        int r;
+
+        if (!ret_file)
+                return open_configuration_release(root, configuration, relax_configuration_release_check, ret_path, NULL);
+
+        r = open_configuration_release(root, configuration, relax_configuration_release_check, ret_path ? &p : NULL, &fd);
+        if (r < 0)
+                return r;
+
+        f = take_fdopen(&fd, "r");
+        if (!f)
+                return -errno;
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(p);
+        *ret_file = f;
+
+        return 0;
+}
+
+static int parse_extension_release_internal(const char *root, bool relax_extension_release_check, const char *extension, va_list ap) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
@@ -266,7 +479,30 @@ int _parse_extension_release(const char *root, bool relax_extension_release_chec
         int r;
 
         va_start(ap, extension);
-        r = parse_release_internal(root, relax_extension_release_check, extension, ap);
+        r = parse_extension_release_internal(root, relax_extension_release_check, extension, ap);
+        va_end(ap);
+
+        return r;
+}
+
+static int parse_configuration_release_internal(const char *root, bool relax_configuration_release_check, const char *configuration, va_list ap) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        r = fopen_configuration_release(root, configuration, relax_configuration_release_check, &p, &f);
+        if (r < 0)
+                return r;
+
+        return parse_env_filev(f, p, ap);
+}
+
+int _parse_configuration_release(const char *root, bool relax_configuration_release_check, const char *configuration, ...) {
+        va_list ap;
+        int r;
+
+        va_start(ap, configuration);
+        r = parse_configuration_release_internal(root, relax_configuration_release_check, configuration, ap);
         va_end(ap);
 
         return r;
@@ -277,7 +513,29 @@ int _parse_os_release(const char *root, ...) {
         int r;
 
         va_start(ap, root);
-        r = parse_release_internal(root, /* relax_extension_release_check= */ false, NULL, ap);
+        r = parse_extension_release_internal(root, /* relax_extension_release_check= */ false, NULL, ap);
+        va_end(ap);
+
+        return r;
+}
+
+int _parse_extension_os_release(const char *root, ...) {
+        va_list ap;
+        int r;
+
+        va_start(ap, root);
+        r = parse_extension_release_internal(root, /* relax_extension_release_check= */ false, NULL, ap);
+        va_end(ap);
+
+        return r;
+}
+
+int _parse_configuration_os_release(const char *root, ...) {
+        va_list ap;
+        int r;
+
+        va_start(ap, root);
+        r = parse_configuration_release_internal(root, /* relax_extension_release_check= */ false, NULL, ap);
         va_end(ap);
 
         return r;
@@ -330,6 +588,18 @@ int load_extension_release_pairs(const char *root, const char *extension, bool r
         int r;
 
         r = fopen_extension_release(root, extension, relax_extension_release_check, &p, &f);
+        if (r < 0)
+                return r;
+
+        return load_env_file_pairs(f, p, ret);
+}
+
+int load_configuration_release_pairs(const char *root, const char *configuration, bool relax_configuration_release_check, char ***ret) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        r = fopen_configuration_release(root, configuration, relax_configuration_release_check, &p, &f);
         if (r < 0)
                 return r;
 
