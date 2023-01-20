@@ -244,7 +244,7 @@ static int print_status_info(StatusInfo *i) {
         if (timestamp_is_set(i->firmware_date)) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Firmware Date",
-                                   TABLE_TIMESTAMP, i->firmware_date);
+                                   TABLE_TIMESTAMP_DATE, i->firmware_date);
                 if (r < 0)
                         return table_log_add_error(r);
         }
