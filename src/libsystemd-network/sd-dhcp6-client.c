@@ -1383,7 +1383,7 @@ int sd_dhcp6_client_stop(sd_dhcp6_client *client) {
                 return 0;
 
         /* Intentionally ignoring failure to send DHCP6 release. The DHCPv6 client
-           engine is about to release its UDP socket inconditionally. */
+         * engine is about to release its UDP socket unconditionally. */
         r = client_send_release(client);
         if (r < 0)
                 log_dhcp6_client_errno(client, r,

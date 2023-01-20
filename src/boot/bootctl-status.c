@@ -576,7 +576,7 @@ static void deref_unlink_file(Hashmap *known_files, const char *fn, const char *
         if (path_extract_directory(fn, &d) >= 0 && !path_equal(d, "/")) {
                 r = chase_symlinks_and_unlink(d, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, AT_REMOVEDIR, NULL);
                 if (r < 0 && !IN_SET(r, -ENOTEMPTY, -ENOENT))
-                        log_warning_errno(r, "Failed to remove directoy \"%s\", ignoring: %m", d);
+                        log_warning_errno(r, "Failed to remove directory \"%s\", ignoring: %m", d);
         }
 }
 

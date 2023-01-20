@@ -28,7 +28,7 @@
 #ifndef GNU_EFI_USE_MS_ABI
         /* We do not use uefi_call_wrapper() in systemd-boot. As such, we rely on the
          * compiler to do the calling convention conversion for us. This is check is
-         * to make sure the -DGNU_EFI_USE_MS_ABI was passed to the comiler. */
+         * to make sure the -DGNU_EFI_USE_MS_ABI was passed to the compiler. */
         #error systemd-boot requires compilation with GNU_EFI_USE_MS_ABI defined.
 #endif
 

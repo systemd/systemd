@@ -455,7 +455,7 @@ static int add_automount(
 static const char *esp_or_xbootldr_options(const DissectedPartition *p) {
         assert(p);
 
-        /* Discoveried ESP and XBOOTLDR partition are always hardened with "noexec,nosuid,nodev".
+        /* Discovered ESP and XBOOTLDR partition are always hardened with "noexec,nosuid,nodev".
          * If we probed vfat or have no idea about the file system then assume these file systems are vfat
          * and thus understand "umask=0077". */
 

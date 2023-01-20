@@ -519,7 +519,7 @@
 
         <programlisting>ExecReload=kill -HUP $MAINPID</programlisting>
 
-        <para>Note however that reloading a daemon by enqueing a signal (as with the example line above) is
+        <para>Note however that reloading a daemon by enqueuing a signal (as with the example line above) is
         usually not a good choice, because this is an asynchronous operation and hence not suitable when
         ordering reloads of multiple services against each other. It is thus strongly recommended to either
         use <varname>Type=</varname><option>notify-reload</option> in place of

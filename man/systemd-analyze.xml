@@ -1213,13 +1213,13 @@ $ systemd-analyze verify /tmp/source:alias.service
         <option>off</option> which is the default, <option>pretty</option> and <option>short</option>
         which respectively output a prettified or shorted JSON version of the security table.
 
-        With the <command>plot</command> command, genereate a JSON formatted output of the raw time data.
+        With the <command>plot</command> command, generate a JSON formatted output of the raw time data.
         The format is a JSON array with objects containing the following fields: <varname>name</varname>
         which is the unit name, <varname>activated</varname> which is the time after startup the
         service was activated, <varname>activating</varname> which is how long after startup the service
         was initially started, <varname>time</varname> which is how long the service took to activate
         from when it was initially started, <varname>deactivated</varname> which is the time after startup
-        that the service was deactivated, <varname>deactivating</varname> whcih is the time after startup
+        that the service was deactivated, <varname>deactivating</varname> which is the time after startup
         that the service was initially told to deactivate.
         </para></listitem>
       </varlistentry>

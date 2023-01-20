@@ -32,7 +32,7 @@
     refreshes the boot loader random seed stored in the EFI System Partition (ESP), from the Linux kernel
     entropy pool. The boot loader random seed is primarily consumed and updated by
     <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> from the
-    UEFI environemnt (or
+    UEFI environment (or
     <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> if the
     former is not used, but the latter is), and passed as initial RNG seed to the OS. It is an effective way
     to ensure the OS comes up with a random pool that is fully initialized.</para>
