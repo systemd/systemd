@@ -26,7 +26,7 @@ KERNEL_VERSION="${2:?}"
 ENTRY_DIR_ABS="$3"
 KERNEL_IMAGE="$4"
 
-[ "$KERNEL_INSTALL_LAYOUT" = "uki" ] || exit 0
+[ "$KERNEL_INSTALL_IMAGE_TYPE" = "uki" -o -f "$KERNEL_INSTALL_STAGING_AREA/uki.efi" ] || exit 0
 
 ENTRY_TOKEN="$KERNEL_INSTALL_ENTRY_TOKEN"
 BOOT_ROOT="$KERNEL_INSTALL_BOOT_ROOT"
@@ -77,10 +77,6 @@ if [ -f "$KERNEL_INSTALL_STAGING_AREA/uki.efi" ]; then
 elif [ -n "$KERNEL_IMAGE" ]; then
     [ -f "$KERNEL_IMAGE" ] || {
         echo "Error: UKI '$KERNEL_IMAGE' not a file." >&2
-        exit 1
-    }
-    [ "$KERNEL_IMAGE" != "${KERNEL_IMAGE%*.efi}.efi" ] && {
-        echo "Error: $KERNEL_IMAGE is missing .efi suffix." >&2
         exit 1
     }
     [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Installing $KERNEL_IMAGE"
