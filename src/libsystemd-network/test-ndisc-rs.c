@@ -10,6 +10,7 @@
 #include "sd-ndisc.h"
 
 #include "alloc-util.h"
+#include "fd-util.h"
 #include "hexdecoct.h"
 #include "icmp6-util.h"
 #include "socket-util.h"
@@ -255,8 +256,8 @@ static void test_callback(sd_ndisc *nd, sd_ndisc_event_t event, sd_ndisc_router 
 }
 
 TEST(rs) {
-        sd_event *e;
-        sd_ndisc *nd;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
 
         send_ra_function = send_ra;
 
@@ -279,17 +280,13 @@ TEST(rs) {
         assert_se(sd_ndisc_start(nd) >= 0);
         assert_se(sd_ndisc_start(nd) >= 0);
         assert_se(sd_ndisc_stop(nd) >= 0);
+        test_fd[1] = safe_close(test_fd[1]);
 
         assert_se(sd_ndisc_start(nd) >= 0);
 
         assert_se(sd_event_loop(e) >= 0);
 
-        nd = sd_ndisc_unref(nd);
-        assert_se(!nd);
-
-        close(test_fd[1]);
-
-        sd_event_unref(e);
+        test_fd[1] = safe_close(test_fd[1]);
 }
 
 static int test_timeout_value(uint8_t flags) {
@@ -342,8 +339,8 @@ static int test_timeout_value(uint8_t flags) {
 }
 
 TEST(timeout) {
-        sd_event *e;
-        sd_ndisc *nd;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
 
         send_ra_function = test_timeout_value;
 
@@ -367,9 +364,7 @@ TEST(timeout) {
 
         assert_se(sd_event_loop(e) >= 0);
 
-        nd = sd_ndisc_unref(nd);
-
-        sd_event_unref(e);
+        test_fd[1] = safe_close(test_fd[1]);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
