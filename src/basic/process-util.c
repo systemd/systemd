@@ -1456,6 +1456,20 @@ int pidfd_get_pid(int fd, pid_t *ret) {
         return parse_pid(p, ret);
 }
 
+int pidfd_verify_pid(int pidfd, pid_t pid) {
+        pid_t current_pid;
+        int r;
+
+        assert(pidfd >= 0);
+        assert(pid > 0);
+
+        r = pidfd_get_pid(pidfd, &current_pid);
+        if (r < 0)
+                return r;
+
+        return current_pid != pid ? -ESRCH : 0;
+}
+
 static int rlimit_to_nice(rlim_t limit) {
         if (limit <= 1)
                 return PRIO_MAX-1; /* i.e. 19 */
