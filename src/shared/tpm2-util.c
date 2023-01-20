@@ -1215,6 +1215,7 @@ int tpm2_get_good_pcr_banks_strv(
                 uint32_t pcr_mask,
                 char ***ret) {
 
+#if HAVE_OPENSSL
         _cleanup_free_ TPMI_ALG_HASH *algs = NULL;
         _cleanup_strv_free_ char **l = NULL;
         int n_algs;
@@ -1251,6 +1252,9 @@ int tpm2_get_good_pcr_banks_strv(
 
         *ret = TAKE_PTR(l);
         return 0;
+#else /* HAVE_OPENSSL */
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
+#endif
 }
 
 /* Currently, we hardcode our hash alg as sha256. */
@@ -3065,9 +3069,8 @@ int tpm2_extend_bytes(
                                 sym_Tss2_RC_Decode(rc));
 
         return 0;
-#else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                               "OpenSSL not supported on this build.");
+#else /* HAVE_OPENSSL */
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
 #endif
 }
 
