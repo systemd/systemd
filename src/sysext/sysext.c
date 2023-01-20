@@ -39,15 +39,35 @@
 #include "user-util.h"
 #include "verbs.h"
 
-static char **arg_hierarchies = NULL; /* "/usr" + "/opt" by default */
+static char **arg_hierarchies = NULL; /* "/usr" + "/opt" by default for sysext and /etc by default for syscfg */
 static char *arg_root = NULL;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static bool arg_force = false;
 
+/* Is set to true only when sysext is called with the syscfg functionality instead of the default */
+static bool syscfg_setting = false;
+
 STATIC_DESTRUCTOR_REGISTER(arg_hierarchies, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+
+/* Helper functions for naming simplicity and reusability */
+static const char *dot_directory_name(void) {
+        return syscfg_setting ? ".systemd-syscfg" : ".systemd-sysext";
+}
+
+static const char *systemd_syscfg_or_sysext(void) {
+        return syscfg_setting ? "systemd-syscfg" : "systemd-sysext";
+}
+
+static const char *syscfg_or_sysext(void) {
+        return syscfg_setting ? "syscfg" : "sysext";
+}
+
+static const char *syscfgs_or_extensions(void) {
+        return syscfg_setting ? "syscfgs" : "extensions";
+}
 
 static int is_our_mount_point(const char *p) {
         _cleanup_free_ char *buf = NULL, *f = NULL;
@@ -70,26 +90,26 @@ static int is_our_mount_point(const char *p) {
         /* So we know now that it's a mount point. Now let's check if it's one of ours, so that we don't
          * accidentally unmount the user's own /usr/ but just the mounts we established ourselves. We do this
          * check by looking into the metadata directory we place in merged mounts: if the file
-         * .systemd-sysext/dev contains the major/minor device pair of the mount we have a good reason to
+         * ../dev contains the major/minor device pair of the mount we have a good reason to
          * believe this is one of our mounts. This thorough check has the benefit that we aren't easily
          * confused if people tar up one of our merged trees and untar them elsewhere where we might mistake
-         * them for a live sysext tree. */
+         * them for a live tree. */
 
-        f = path_join(p, ".systemd-sysext/dev");
+        f = path_join(p, dot_directory_name(), "dev");
         if (!f)
                 return log_oom();
 
         r = read_one_line_file(f, &buf);
         if (r == -ENOENT) {
-                log_debug("Hierarchy '%s' does not carry a .systemd-sysext/dev file, not a sysext merged tree.", p);
+                log_debug("Hierarchy '%s' does not carry the corresponding a %s/dev file, not a merged tree.", p, dot_directory_name());
                 return false;
         }
         if (r < 0)
-                return log_error_errno(r, "Failed to determine whether hierarchy '%s' contains '.systemd-sysext/dev': %m", p);
+                return log_error_errno(r, "Failed to determine whether hierarchy '%s' contains the '%s/dev': %m", p, dot_directory_name());
 
         r = parse_devnum(buf, &dev);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse device major/minor stored in '.systemd-sysext/dev' file on '%s': %m", p);
+                return log_error_errno(r, "Failed to parse device major/minor stored in '%s/dev' file on '%s': %m", dot_directory_name(), p);
 
         if (lstat(p, &st) < 0)
                 return log_error_errno(r, "Failed to stat %s: %m", p);
@@ -205,7 +225,7 @@ static int verb_status(int argc, char **argv, void *userdata) {
                         continue;
                 }
 
-                f = path_join(*p, ".systemd-sysext/extensions");
+                f = path_join(*p, dot_directory_name(), syscfgs_or_extensions());
                 if (!f)
                         return log_oom();
 
@@ -272,7 +292,7 @@ static int mount_overlayfs(
         }
 
         /* Now mount the actual overlayfs */
-        r = mount_nofollow_verbose(LOG_ERR, "sysext", where, "overlay", MS_RDONLY, options);
+        r = mount_nofollow_verbose(LOG_ERR, syscfg_or_sysext(), where, "overlay", MS_RDONLY, options);
         if (r < 0)
                 return r;
 
@@ -315,7 +335,7 @@ static int merge_hierarchy(
         /* Let's generate a metadata file that lists all extensions we took into account for this
          * hierarchy. We include this in the final fs, to make things nicely discoverable and
          * recognizable. */
-        f = path_join(meta_path, ".systemd-sysext/extensions");
+        f = path_join(meta_path, dot_directory_name(), syscfgs_or_extensions());
         if (!f)
                 return log_oom();
 
@@ -383,12 +403,12 @@ static int merge_hierarchy(
         /* Now we have mounted the new file system. Let's now figure out its .st_dev field, and make that
          * available in the metadata directory. This is useful to detect whether the metadata dir actually
          * belongs to the fs it is found on: if .st_dev of the top-level mount matches it, it's pretty likely
-         * we are looking at a live sysext tree, and not an unpacked tar or so of one. */
+         * we are looking at a live sys-<cfg/ext> tree, and not an unpacked tar or so of one. */
         if (stat(overlay_path, &st) < 0)
                 return log_error_errno(r, "Failed to stat mount '%s': %m", overlay_path);
 
         free(f);
-        f = path_join(meta_path, ".systemd-sysext/dev");
+        f = path_join(meta_path, dot_directory_name(), "dev");
         if (!f)
                 return log_oom();
 
@@ -413,7 +433,8 @@ static int validate_version(
                 const Image *img,
                 const char *host_os_release_id,
                 const char *host_os_release_version_id,
-                const char *host_os_release_sysext_level) {
+                const char *host_os_release_sysext_level,
+                const char *host_os_release_syscfg_level) {
 
         int r;
 
@@ -425,7 +446,7 @@ static int validate_version(
                 return 1;
         }
 
-        /* Insist that extension images do not overwrite the underlying OS release file (it's fine if
+        /* Insist that images do not overwrite the underlying OS release file (it's fine if
          * they place one in /etc/os-release, i.e. where things don't matter, as they aren't
          * merged.) */
         r = chase_symlinks("/usr/lib/os-release", root, CHASE_PREFIX_ROOT, NULL, NULL);
@@ -436,13 +457,23 @@ static int validate_version(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Extension image contains /usr/lib/os-release file, which is not allowed (it may carry /etc/os-release), refusing.");
 
-        r = extension_release_validate(
+        if (!syscfg_setting)
+                r = extension_release_validate(
                         img->name,
                         host_os_release_id,
                         host_os_release_version_id,
                         host_os_release_sysext_level,
                         in_initrd() ? "initrd" : "system",
                         img->extension_release);
+        else
+                r = configuration_release_validate(
+                        img->name,
+                        host_os_release_id,
+                        host_os_release_version_id,
+                        host_os_release_syscfg_level,
+                        in_initrd() ? "initrd" : "system",
+                        img->configuration_release);
+
         if (r < 0)
                 return log_error_errno(r, "Failed to validate extension release information: %m");
 
@@ -451,7 +482,7 @@ static int validate_version(
 
 static int merge_subprocess(Hashmap *images, const char *workspace) {
         _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL, *host_os_release_sysext_level = NULL,
-                *buf = NULL;
+                *host_os_release_syscfg_level = NULL, *buf = NULL;
         _cleanup_strv_free_ char **extensions = NULL, **paths = NULL;
         size_t n_extensions = 0;
         unsigned n_ignored = 0;
@@ -478,11 +509,19 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                 return r;
 
         /* Acquire host OS release info, so that we can compare it with the extension's data */
-        r = parse_os_release(
-                        arg_root,
-                        "ID", &host_os_release_id,
-                        "VERSION_ID", &host_os_release_version_id,
-                        "SYSEXT_LEVEL", &host_os_release_sysext_level);
+        if (!syscfg_setting)
+                r = parse_extension_os_release(
+                                arg_root,
+                                "ID", &host_os_release_id,
+                                "VERSION_ID", &host_os_release_version_id,
+                                "SYSEXT_LEVEL", &host_os_release_sysext_level);
+        else
+                r = parse_configuration_os_release(
+                                arg_root,
+                                "ID", &host_os_release_id,
+                                "VERSION_ID", &host_os_release_version_id,
+                                "SYSCFG_LEVEL", &host_os_release_syscfg_level);
+
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire 'os-release' data of OS tree '%s': %m", empty_to_root(arg_root));
         if (isempty(host_os_release_id))
@@ -494,7 +533,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
         HASHMAP_FOREACH(img, images) {
                 _cleanup_free_ char *p = NULL;
 
-                p = path_join(workspace, "extensions", img->name);
+                p = path_join(workspace, syscfgs_or_extensions(), img->name);
                 if (!p)
                         return log_oom();
 
@@ -593,7 +632,8 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                                 img,
                                 host_os_release_id,
                                 host_os_release_version_id,
-                                host_os_release_sysext_level);
+                                host_os_release_sysext_level,
+                                host_os_release_syscfg_level);
                 if (r < 0)
                         return r;
                 if (r == 0) {
@@ -637,7 +677,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
 
                 assert_se(img = hashmap_get(images, extensions[n_extensions - 1 - k]));
 
-                p = path_join(workspace, "extensions", img->name);
+                p = path_join(workspace, syscfgs_or_extensions(), img->name);
                 if (!p)
                         return log_oom();
 
@@ -713,13 +753,18 @@ static int merge(Hashmap *images) {
         pid_t pid;
         int r;
 
-        r = safe_fork("(sd-sysext)", FORK_DEATHSIG|FORK_LOG|FORK_NEW_MOUNTNS, &pid);
+        r = safe_fork("(sd-merge)", FORK_DEATHSIG|FORK_LOG|FORK_NEW_MOUNTNS, &pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork off child: %m");
         if (r == 0) {
-                /* Child with its own mount namespace */
+                _cleanup_free_ char *f = NULL;
 
-                r = merge_subprocess(images, "/run/systemd/sysext");
+                f = path_join("/run/systemd", syscfg_or_sysext());
+                if (!f)
+                        return log_oom();
+
+                /* Child with its own mount namespace */
+                r = merge_subprocess(images, f);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
@@ -729,7 +774,7 @@ static int merge(Hashmap *images) {
                 _exit(r > 0 ? EXIT_SUCCESS : 123); /* 123 means: didn't find any extensions */
         }
 
-        r = wait_for_terminate_and_check("(sd-sysext)", pid, WAIT_LOG_ABNORMAL);
+        r = wait_for_terminate_and_check("(sd-merge)", pid, WAIT_LOG_ABNORMAL);
         if (r < 0)
                 return r;
 
@@ -749,7 +794,7 @@ static int image_discover_and_read_metadata(Hashmap **ret_images) {
 
         r = image_discover(IMAGE_EXTENSION, arg_root, images);
         if (r < 0)
-                return log_error_errno(r, "Failed to discover extension images: %m");
+                return log_error_errno(r, "Failed to discover images: %m");
 
         HASHMAP_FOREACH(img, images) {
                 r = image_read_metadata(img);
@@ -852,7 +897,7 @@ static int verb_list(int argc, char **argv, void *userdata) {
 
         r = image_discover(IMAGE_EXTENSION, arg_root, images);
         if (r < 0)
-                return log_error_errno(r, "Failed to discover extension images: %m");
+                return log_error_errno(r, "Failed to discover images: %m");
 
         if ((arg_json_format_flags & JSON_FORMAT_OFF) && hashmap_isempty(images)) {
                 log_info("No OS extensions found.");
@@ -883,16 +928,17 @@ static int verb_help(int argc, char **argv, void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
 
-        r = terminal_urlify_man("systemd-sysext", "1", &link);
+        r = terminal_urlify_man(systemd_syscfg_or_sysext(), "1", &link);
         if (r < 0)
                 return log_oom();
 
         printf("%1$s [OPTIONS...] COMMAND\n"
-               "\n%5$sMerge extension images into /usr/ and /opt/ hierarchies.%6$s\n"
+               "\n%5$sMerge extension images into /usr/ and /opt/ hierarchies for\n"
+               " sysext and into the /etc/ hierarchy for syscfg.%6$s\n"
                "\n%3$sCommands:%4$s\n"
                "  status                  Show current merge status (default)\n"
-               "  merge                   Merge extensions into /usr/ and /opt/\n"
-               "  unmerge                 Unmerge extensions from /usr/ and /opt/\n"
+               "  merge                   Merge extensions into relevant hierarchies\n"
+               "  unmerge                 Unmerge extensions from relevant hierarchies\n"
                "  refresh                 Unmerge/merge extensions again\n"
                "  list                    List installed extensions\n"
                "  -h --help               Show this help\n"
@@ -1002,8 +1048,13 @@ static int sysext_main(int argc, char *argv[]) {
         return dispatch_verb(argc, argv, verbs, NULL);
 }
 
+static const char *environment_name(void) {
+        return syscfg_setting ? "SYSTEMD_SYSCFG_HIERARCHIES" : "SYSTEMD_SYSEXT_HIERARCHIES";
+}
+
 static int run(int argc, char *argv[]) {
         int r;
+        syscfg_setting = invoked_as(argv, "systemd-syscfg");
 
         log_setup();
 
@@ -1014,9 +1065,9 @@ static int run(int argc, char *argv[]) {
         /* For debugging purposes it might make sense to do this for other hierarchies than /usr/ and
          * /opt/, but let's make that a hacker/debugging feature, i.e. env var instead of cmdline
          * switch. */
-        r = parse_env_extension_hierarchies(&arg_hierarchies);
+        r = parse_env_extension_hierarchies(&arg_hierarchies, environment_name());
         if (r < 0)
-                return log_error_errno(r, "Failed to parse $SYSTEMD_SYSEXT_HIERARCHIES environment variable: %m");
+                return log_error_errno(r, "Failed to parse environment variable: %m");
 
         return sysext_main(argc, argv);
 }
