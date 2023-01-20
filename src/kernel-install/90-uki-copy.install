@@ -66,8 +66,8 @@ else
     UKI_FILE="$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION.efi"
 fi
 
-# If there is a UKI named uki.efi on the staging area use that,
-# if not use what was passed in as $KERNEL_IMAGE
+# If there is a UKI named uki.efi on the staging area use that, if not use what
+# was passed in as $KERNEL_IMAGE but insist it has a .efi extension
 if [ -f "$KERNEL_INSTALL_STAGING_AREA/uki.efi" ]; then
     [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Installing $KERNEL_INSTALL_STAGING_AREA/uki.efi"
     install -m 0644 "$KERNEL_INSTALL_STAGING_AREA/uki.efi" "$UKI_FILE" || {
@@ -77,6 +77,10 @@ if [ -f "$KERNEL_INSTALL_STAGING_AREA/uki.efi" ]; then
 elif [ -n "$KERNEL_IMAGE" ]; then
     [ -f "$KERNEL_IMAGE" ] || {
         echo "Error: UKI '$KERNEL_IMAGE' not a file." >&2
+        exit 1
+    }
+    [ "$KERNEL_IMAGE" != "${KERNEL_IMAGE%*.efi}.efi" ] && {
+        echo "Error: $KERNEL_IMAGE is missing .efi suffix." >&2
         exit 1
     }
     [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Installing $KERNEL_IMAGE"
