@@ -658,7 +658,7 @@ static int method_get_unit_by_pidfd(sd_bus_message *message, void *userdata, sd_
         Manager *m = ASSERT_PTR(userdata);
         _cleanup_free_ char *path = NULL;
         int r, pidfd;
-        pid_t pid_early, pid_late;
+        pid_t pid;
         Unit *u;
 
         assert(message);
@@ -667,13 +667,13 @@ static int method_get_unit_by_pidfd(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return r;
 
-        r = pidfd_get_pid(pidfd, &pid_early);
+        r = pidfd_get_pid(pidfd, &pid);
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to get PID from PIDFD: %m");
 
-        u = manager_get_unit_by_pid(m, pid_early);
+        u = manager_get_unit_by_pid(m, pid);
         if (!u)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_UNIT_FOR_PID, "PID "PID_FMT" does not belong to any loaded unit.", pid_early);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_UNIT_FOR_PID, "PID "PID_FMT" does not belong to any loaded unit.", pid);
 
         r = mac_selinux_unit_access_check(u, message, "status", error);
         if (r < 0)
@@ -697,15 +697,14 @@ static int method_get_unit_by_pidfd(sd_bus_message *message, void *userdata, sd_
 
         /* Double-check that the process is still alive and that the PID did not change before returning the
          * answer. */
-        r = pidfd_get_pid(pidfd, &pid_late);
-        if (r < 0)
-                return sd_bus_error_set_errnof(error, r, "Failed to get PID from PIDFD: %m");
-        if (pid_early != pid_late)
+        r = pidfd_verify_pid(pidfd, pid);
+        if (r < 0 && r == -ESRCH)
                 return sd_bus_error_setf(error,
                                          BUS_ERROR_NO_SUCH_PROCESS,
-                                         "The PIDFD's PID "PID_FMT" changed to "PID_FMT" during the lookup operation.",
-                                         pid_early,
-                                         pid_late);
+                                         "The PIDFD's PID "PID_FMT" changed during the lookup operation.",
+                                         pid);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to get PID from PIDFD: %m");
 
         return sd_bus_send(NULL, reply, NULL);
 }
