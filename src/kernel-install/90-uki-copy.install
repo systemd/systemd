@@ -26,12 +26,12 @@ KERNEL_VERSION="${2:?}"
 ENTRY_DIR_ABS="$3"
 KERNEL_IMAGE="$4"
 
-[ "$KERNEL_INSTALL_LAYOUT" = "uki" ] || exit 0
+[ "$KERNEL_INSTALL_IMAGE_TYPE" = "uki" ] || [ -f "$KERNEL_INSTALL_STAGING_AREA/uki.efi" ] || exit 0
 
 ENTRY_TOKEN="$KERNEL_INSTALL_ENTRY_TOKEN"
 BOOT_ROOT="$KERNEL_INSTALL_BOOT_ROOT"
 
-UKI_DIR="$BOOT_ROOT/EFI/Linux"
+UKI_DIR="$(bootctl --print-esp-path)/EFI/Linux"
 
 case "$COMMAND" in
     remove)
@@ -49,8 +49,8 @@ case "$COMMAND" in
 esac
 
 if ! [ -d "$UKI_DIR" ]; then
-    echo "Error: entry directory '$UKI_DIR' does not exist" >&2
-    exit 1
+    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "creating $UKI_DIR"
+    mkdir -p "$UKI_DIR"
 fi
 
 TRIES_FILE="${KERNEL_INSTALL_CONF_ROOT:-/etc/kernel}/tries"
@@ -66,8 +66,8 @@ else
     UKI_FILE="$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION.efi"
 fi
 
-# If there is a UKI named uki.efi on the staging area use that, if not use what
-# was passed in as $KERNEL_IMAGE but insist it has a .efi extension
+# If there is a UKI named uki.efi on the staging area use that,
+# if not use what was passed in as $KERNEL_IMAGE
 if [ -f "$KERNEL_INSTALL_STAGING_AREA/uki.efi" ]; then
     [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Installing $KERNEL_INSTALL_STAGING_AREA/uki.efi"
     install -m 0644 "$KERNEL_INSTALL_STAGING_AREA/uki.efi" "$UKI_FILE" || {
@@ -77,10 +77,6 @@ if [ -f "$KERNEL_INSTALL_STAGING_AREA/uki.efi" ]; then
 elif [ -n "$KERNEL_IMAGE" ]; then
     [ -f "$KERNEL_IMAGE" ] || {
         echo "Error: UKI '$KERNEL_IMAGE' not a file." >&2
-        exit 1
-    }
-    [ "$KERNEL_IMAGE" != "${KERNEL_IMAGE%*.efi}.efi" ] && {
-        echo "Error: $KERNEL_IMAGE is missing .efi suffix." >&2
         exit 1
     }
     [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Installing $KERNEL_IMAGE"
