@@ -2,6 +2,7 @@
 
 #include "bootctl.h"
 #include "bootctl-uki.h"
+#include "env-file.h"
 #include "fd-util.h"
 #include "parse-util.h"
 #include "pe-header.h"
@@ -143,10 +144,33 @@ static int read_pe_section(FILE *uki, const struct PeSectionHeader *section,
         return 0;
 }
 
+static int inspect_osrel(char *osrel, size_t osrel_size) {
+        _cleanup_fclose_ FILE *s = NULL;
+        _cleanup_free_ char *pname = NULL, *name = NULL;
+        int r;
+
+        assert(osrel);
+        s = fmemopen(osrel, osrel_size, "r");
+        if (!s)
+                return log_error_errno(errno, "Failed to open embedded os-release file, ignoring: %m");
+
+        r = parse_env_file(s, NULL,
+                           "PRETTY_NAME", &pname,
+                           "NAME",        &name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse embedded os-release file, ignoring: %m");
+
+        if (pname || name)
+                printf("         OS: %s\n", pname ?: name);
+
+        return 0;
+}
+
 static void inspect_uki(FILE *uki, struct PeSectionHeader *sections, size_t scount) {
         _cleanup_free_ char *cmdline = NULL;
         _cleanup_free_ char *uname = NULL;
-        size_t idx;
+        _cleanup_free_ char *osrel = NULL;
+        size_t osrel_size, idx;
 
         if (find_pe_section(sections, scount, name_cmdline, sizeof(name_cmdline), &idx))
                 read_pe_section(uki, sections + idx, (void**)&cmdline, NULL);
@@ -154,10 +178,15 @@ static void inspect_uki(FILE *uki, struct PeSectionHeader *sections, size_t scou
         if (find_pe_section(sections, scount, name_uname, sizeof(name_uname), &idx))
                 read_pe_section(uki, sections + idx, (void**)&uname, NULL);
 
+        if (find_pe_section(sections, scount, name_osrel, sizeof(name_osrel), &idx))
+                read_pe_section(uki, sections + idx, (void**)&osrel, &osrel_size);
+
         if (cmdline)
                 printf("    Cmdline: %s\n", cmdline);
         if (uname)
                 printf("    Version: %s\n", uname);
+        if (osrel)
+                (void)inspect_osrel(osrel, osrel_size);
 }
 
 int verb_kernel_inspect(int argc, char *argv[], void *userdata) {
