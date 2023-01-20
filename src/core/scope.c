@@ -789,6 +789,7 @@ static void scope_enumerate_perpetual(Manager *m) {
 
         unit_add_to_load_queue(u);
         unit_add_to_dbus_queue(u);
+        unit_add_to_cgroup_realize_queue(u);
 }
 
 static const char* const scope_result_table[_SCOPE_RESULT_MAX] = {
