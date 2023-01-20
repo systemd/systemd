@@ -17,6 +17,12 @@ test_append_files() {
         cat >>"${initdir:?}/etc/fstab" <<EOF
 UUID=$(blkid -o value -s UUID "${LOOPDEV}p2")    none    swap    defaults 0 0
 EOF
+
+        mkdir -p "${initdir:?}/etc/systemd/system/init.scope.d/"
+        cat >>"${initdir:?}/etc/systemd/system/init.scope.d/test-55-oomd.conf" <<EOF
+[Scope]
+MemoryHigh=10G
+EOF
     )
 }
 
