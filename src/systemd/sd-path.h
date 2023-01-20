@@ -110,6 +110,12 @@ enum {
         /* systemd-networkd search paths */
         SD_PATH_SYSTEMD_SEARCH_NETWORK,
 
+        /* systemd environment generators */
+        SD_PATH_SYSTEMD_SYSTEM_ENVIRONMENT_GENERATOR,
+        SD_PATH_SYSTEMD_USER_ENVIRONMENT_GENERATOR,
+        SD_PATH_SYSTEMD_SEARCH_SYSTEM_ENVIRONMENT_GENERATOR,
+        SD_PATH_SYSTEMD_SEARCH_USER_ENVIRONMENT_GENERATOR,
+
         _SD_PATH_MAX
 };
 
