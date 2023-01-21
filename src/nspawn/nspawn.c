@@ -3435,6 +3435,12 @@ static int inner_child(
         if (arg_selinux_context)
                 if (setexeccon(arg_selinux_context) < 0)
                         return log_error_errno(errno, "setexeccon(\"%s\") failed: %m", arg_selinux_context);
+        if (arg_selinux_apifs_context) {
+                if ((setfilecon("/dev/mqueue", arg_selinux_apifs_context) < 0) && errno != ENOENT)
+                        return log_error_errno(errno, "setffilecon(\"/dev/mqueue\",\"%s\") failed: %m", arg_selinux_context);
+                if ((setfilecon("/dev/hugepages", arg_selinux_apifs_context) < 0) && errno != ENOENT)
+                        return log_error_errno(errno, "setffilecon(\"/dev/hugepages\",\"%s\") failed: %m", arg_selinux_context);
+        }
 #endif
 
         /* Make sure we keep the caps across the uid/gid dropping, so that we can retain some selected caps
@@ -5493,6 +5499,18 @@ static int run(int argc, char *argv[]) {
         * operations performed by nspawn, and is the umask that will be used for
         * the child. Functions like copy_devnodes() change the umask temporarily. */
         umask(0022);
+
+#if HAVE_SELINUX
+        /* Tell the kernel to create all content for the container with the
+           user specified label */
+        if (arg_selinux_apifs_context)
+                if (setfscreatecon(arg_selinux_apifs_context) < 0)
+                        return log_error_errno(errno, "setfscreatecon(\"%s\") failed: %m", arg_selinux_context);
+        /* Tell the kernel to create any keyrings for the container with the
+           user specified label */
+        if (setkeycreatecon(arg_selinux_context) < 0)
+                return log_error_errno(errno, "setkeycreatecon(\"%s\") failed: %m", arg_selinux_context);
+#endif
 
         if (arg_directory) {
                 assert(!arg_image);
