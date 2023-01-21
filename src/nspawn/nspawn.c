@@ -4781,6 +4781,17 @@ static int run_container(
                         return log_error_errno(etc_passwd_lock, "Failed to take /etc/passwd lock: %m");
         }
 
+#if HAVE_SELINUX
+        /* Tell the kernel to create all content for the container with the
+           user specified label */
+        if (arg_selinux_apifs_context)
+                if (setfscreatecon(arg_selinux_apifs_context) < 0)
+                        return log_error_errno(errno, "setfscreatecon(\"%s\") failed: %m", arg_selinux_context);
+        /* Tell the kernel to create any keyrings for the container with the
+           user specified label */
+        if (setkeycreatecon(arg_selinux_context) < 0)
+                return log_error_errno(errno, "setkeycreatecon(\"%s\") failed: %m", arg_selinux_context);
+#endif
         r = barrier_create(&barrier);
         if (r < 0)
                 return log_error_errno(r, "Cannot initialize IPC barrier: %m");
