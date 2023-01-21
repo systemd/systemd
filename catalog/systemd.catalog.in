@@ -528,6 +528,15 @@ Support: %SUPPORT_URL%
 For the first time during the current boot an NTP synchronization has been
 acquired and the local system clock adjustment has been initiated.
 
+-- 7db73c8af0d94eeb822ae04323fe6ab6
+Subject: Initial clock bump
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The system clock has been advanced based on a timestamp file on disk, in order
+to ensure it remains roughly monotonic – even across reboots – if an RTC is not
+available or is unreliable.
+
 -- 3f7d5ef3e54f4302b4f0b143bb270cab
 Subject: TPM PCR Extended
 Defined-By: systemd
