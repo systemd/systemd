@@ -1008,7 +1008,6 @@ TEST(unit_is_recursive_template_dependency) {
 
 TEST(config_parse_log_filter_patterns) {
         ExecContext c = {};
-        int r;
 
         static const struct {
                 const char *regex;
@@ -1033,9 +1032,8 @@ TEST(config_parse_log_filter_patterns) {
                 return (void) log_tests_skipped("PCRE2 support is not available");
 
         for (size_t i = 0; i < ELEMENTSOF(regex_tests); i++) {
-                r = config_parse_log_filter_patterns(NULL, "fake", 1, "section", 1, "LogFilterPatterns", 1,
-                                                     regex_tests[i].regex, &c, NULL);
-                assert_se(r >= 0);
+                assert_se(config_parse_log_filter_patterns(NULL, "fake", 1, "section", 1, "LogFilterPatterns", 1,
+                                                           regex_tests[i].regex, &c, NULL) >= 0);
 
                 assert_se(set_size(c.log_filter_allowed_patterns) == regex_tests[i].allowed_patterns_count);
                 assert_se(set_size(c.log_filter_denied_patterns) == regex_tests[i].denied_patterns_count);
@@ -1047,6 +1045,8 @@ TEST(config_parse_log_filter_patterns) {
                 SET_FOREACH(p, c.log_filter_denied_patterns)
                         assert_se(p && p[0] != '~');
         }
+
+        exec_context_done(&c);
 }
 
 TEST(config_parse_open_file) {
