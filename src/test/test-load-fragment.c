@@ -1047,6 +1047,8 @@ TEST(config_parse_log_filter_patterns) {
                 SET_FOREACH(p, c.log_filter_denied_patterns)
                         assert_se(p && p[0] != '~');
         }
+
+        exec_context_done(&c);
 }
 
 TEST(config_parse_open_file) {
