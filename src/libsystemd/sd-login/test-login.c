@@ -46,7 +46,7 @@ TEST(login) {
                 *type = NULL, *class = NULL, *state = NULL, *state2 = NULL,
                 *seat = NULL, *session = NULL,
                 *unit = NULL, *user_unit = NULL, *slice = NULL;
-        _cleanup_close_ int pidfd = -EBADFD;
+        _cleanup_close_ int pidfd = -EBADF;
         int r;
         uid_t u, u2 = UID_INVALID;
         char *t, **seats = NULL, **sessions = NULL;
