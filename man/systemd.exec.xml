@@ -1088,9 +1088,15 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <listitem><para>Controls which kernel architecture <citerefentry
         project='man-pages'><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry> shall report,
         when invoked by unit processes. Takes one of the architecture identifiers <constant>x86</constant>,
-        <constant>x86-64</constant>, <constant>ppc</constant>, <constant>ppc-le</constant>, <constant>ppc64</constant>,
-        <constant>ppc64-le</constant>, <constant>s390</constant> or <constant>s390x</constant>. Which personality
-        architectures are supported depends on the system architecture. Usually the 64bit versions of the various
+        <constant>x86-64</constant>, <constant>arm64</constant>, <constant>arm64-be</constant>, <constant>arm</constant>,
+        <constant>arm-be</constant>, <constant>alpha</constant>, <constant>arc</constant>, <constant>arc-be</constant>,
+        <constant>cris</constant>, <constant>ia64</constant>, <constant>loongarch64</constant>, <constant>m68k</constant>,
+        <constant>mips64-le</constant>, <constant>mips64</constant>, <constant>mips-le</constant>, <constant>mips</constant>,
+        <constant>nios2</constant>, <constant>parisc64</constant>, <constant>parisc</constant>, <constant>ppc64-le</constant>,
+        <constant>ppc64</constant>, <constant>ppc</constant>, <constant>ppc-le</constant>, <constant>riscv32</constant>,
+        <constant>riscv64</constant>, <constant>s390x</constant>, <constant>s390</constant>, <constant>sh64</constant>,
+        <constant>sh</constant>, <constant>sparc64</constant>, <constant>sparc</constant> or <constant>tilegx</constant>.
+        Which personality architectures are supported depends on the system architecture. Usually the 64bit versions of the various
         system architectures support their immediate 32bit personality architecture counterpart, but no others. For
         example, <constant>x86-64</constant> systems support the <constant>x86-64</constant> and
         <constant>x86</constant> personalities but no others. The personality feature is useful when running 32-bit
