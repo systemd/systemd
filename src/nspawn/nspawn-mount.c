@@ -18,6 +18,9 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#if HAVE_SELINUX
+#include <selinux/selinux.h>
+#endif
 #include "set.h"
 #include "sort-util.h"
 #include "stat-util.h"
@@ -573,7 +576,7 @@ int mount_all(const char *dest,
                 PROC_READ_ONLY("/proc/scsi"),
 
                 { "mqueue",                 "/dev/mqueue",                  "mqueue", NULL,                            MS_NOSUID|MS_NOEXEC|MS_NODEV,
-                  MOUNT_IN_USERNS|MOUNT_MKDIR },
+                  MOUNT_IN_USERNS|MOUNT_MKDIR|MOUNT_RELABEL_APIFS },
 
                 /* Then we list outer child mounts (i.e. mounts applied *before* entering user namespacing) */
                 { "tmpfs",                  "/tmp",                         "tmpfs", "mode=01777" NESTED_TMPFS_LIMITS, MS_NOSUID|MS_NODEV|MS_STRICTATIME,
@@ -706,8 +709,13 @@ int mount_all(const char *dest,
                                 FLAGS_SET(mount_table[k].mount_settings, MOUNT_FOLLOW_SYMLINKS));
                 if (r < 0 && fatal)
                         return r;
-        }
 
+#if HAVE_SELINUX
+                if (FLAGS_SET(mount_table[k].mount_settings, MOUNT_RELABEL_APIFS) && selinux_apifs_context)
+                        if ((setfilecon(where, selinux_apifs_context) < 0) && errno != ENOENT)
+                                return log_error_errno(errno, "setfilecon(\"%s\",\"%s\") failed: %m", where, selinux_apifs_context);
+#endif
+        }
         return 0;
 }
 
