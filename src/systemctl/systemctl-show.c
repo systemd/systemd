@@ -2148,7 +2148,7 @@ static int get_unit_dbus_path_by_pid(
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *path = NULL, *unit = NULL;
-        _cleanup_close_ int pidfd = -EBADFD;
+        _cleanup_close_ int pidfd = -EBADF;
         char *p, *u;
         int r;
 
