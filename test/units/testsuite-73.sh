@@ -131,9 +131,7 @@ LC_CTYPE=$i"
 
         assert_rc 0 localectl set-locale "$i"
         if [[ -f /etc/default/locale ]]; then
-            # Debian/Ubuntu patch is buggy, and LC_CTYPE= still exists.
-            assert_eq "$(cat /etc/default/locale)" "LANG=$i
-LC_CTYPE=$i"
+            assert_eq "$(cat /etc/default/locale)" "LANG=$i"
         else
             assert_eq "$(cat /etc/locale.conf)" "LANG=$i"
         fi
