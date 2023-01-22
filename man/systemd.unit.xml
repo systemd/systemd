@@ -1245,7 +1245,7 @@
             </para></listitem>
 
             <listitem><para><literal>device-tree-compatible(<replaceable>value</replaceable>)</literal>
-            matches systems with a device tree that is compatible with <literal>value</literal>.
+            matches systems with a device tree that are compatible with <literal>value</literal>.
             </para></listitem>
 
             <listitem><para><literal>smbios-field(<replaceable>field</replaceable>
