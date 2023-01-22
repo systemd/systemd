@@ -284,6 +284,9 @@ InstallChangeType install_changes_add(
         assert(!changes == !n_changes);
         assert(INSTALL_CHANGE_TYPE_VALID(type));
 
+        /* Message formatting requires <path> to be set. */
+        assert(path);
+
         /* Register a change or error. Note that the return value may be the error
          * that was passed in, or -ENOMEM generated internally. */
 
@@ -340,6 +343,7 @@ void install_changes_dump(int r, const char *verb, const InstallChange *changes,
 
         for (size_t i = 0; i < n_changes; i++) {
                 assert(verb || changes[i].type >= 0);
+                assert(changes[i].path);
 
                 /* When making changes here, make sure to also change install_error() in dbus-manager.c. */
 
@@ -376,7 +380,7 @@ void install_changes_dump(int r, const char *verb, const InstallChange *changes,
                         break;
                 case INSTALL_CHANGE_AUXILIARY_FAILED:
                         if (!quiet)
-                                log_warning("Failed to enable auxiliary unit %s, ignoring.", changes[i].source);
+                                log_warning("Failed to enable auxiliary unit %s, ignoring.", changes[i].path);
                         break;
                 case -EEXIST:
                         if (changes[i].source)
@@ -2134,7 +2138,7 @@ static int install_context_apply(
                 q = install_info_traverse(ctx, lp, i, flags, NULL);
                 if (q < 0) {
                         if (i->auxiliary) {
-                                q = install_changes_add(changes, n_changes, INSTALL_CHANGE_AUXILIARY_FAILED, NULL, i->name);
+                                q = install_changes_add(changes, n_changes, INSTALL_CHANGE_AUXILIARY_FAILED, i->name, NULL);
                                 if (q < 0)
                                         return q;
                                 continue;
