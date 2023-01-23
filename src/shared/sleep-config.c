@@ -116,7 +116,7 @@ int parse_sleep_config(SleepConfig **ret_sleep_config) {
         if (sc->hibernate_delay_sec == 0)
                 sc->hibernate_delay_sec = 2 * USEC_PER_HOUR;
 
-        /* ensure values set for all required fields */
+        /* Ensure values set for all required fields */
         if (!sc->states[SLEEP_SUSPEND] || !sc->modes[SLEEP_HIBERNATE]
             || !sc->states[SLEEP_HIBERNATE] || !sc->modes[SLEEP_HYBRID_SLEEP] || !sc->states[SLEEP_HYBRID_SLEEP])
                 return log_oom();
@@ -172,11 +172,11 @@ static int read_battery_capacity_percentage(sd_device *dev) {
 
         r = sd_device_get_property_value(dev, "POWER_SUPPLY_CAPACITY", &power_supply_capacity);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to read battery capacity: %m");
+                return log_device_debug_errno(dev, r, "Failed to get property POWER_SUPPLY_CAPACITY: %m");
 
         r = safe_atoi(power_supply_capacity, &battery_capacity);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to parse battery capacity: %m");
+                return log_device_debug_errno(dev, r, "Failed to parse property POWER_SUPPLY_CAPACITY: %m");
 
         if (battery_capacity < 0 || battery_capacity > 100)
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ERANGE), "Invalid battery capacity");
@@ -184,14 +184,14 @@ static int read_battery_capacity_percentage(sd_device *dev) {
         return battery_capacity;
 }
 
-/* If battery percentage capacity is less than equal to 5% return success */
+/* If battery percentage capacity is <= 5%, return success */
 int battery_is_low(void) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         sd_device *dev;
         int r;
 
          /* We have not used battery capacity_level since value is set to full
-         * or Normal in case acpi is not working properly. In case of no battery
+         * or Normal in case ACPI is not working properly. In case of no battery
          * 0 will be returned and system will be suspended for 1st cycle then hibernated */
 
         r = battery_enumerator_new(&e);
@@ -234,14 +234,12 @@ int fetch_batteries_capacity_by_name(Hashmap **ret) {
                 int battery_capacity;
 
                 battery_capacity = r = read_battery_capacity_percentage(dev);
-                if (r < 0) {
-                        log_device_debug_errno(dev, r, "Failed to get battery capacity, ignoring: %m");
+                if (r < 0)
                         continue;
-                }
 
                 r = sd_device_get_property_value(dev, "POWER_SUPPLY_NAME", &battery_name);
                 if (r < 0) {
-                        log_device_debug_errno(dev, r, "Failed to read battery name, ignoring: %m");
+                        log_device_debug_errno(dev, r, "Failed to get POWER_SUPPLY_NAME property, ignoring: %m");
                         continue;
                 }
 
@@ -272,11 +270,11 @@ static int get_battery_identifier(sd_device *dev, const char *property, struct s
 
         r = sd_device_get_property_value(dev, property, &x);
         if (r == -ENOENT)
-               log_device_debug_errno(dev, r, "battery device property %s is unavailable, ignoring: %m", property);
+               log_device_debug_errno(dev, r, "Battery device property %s is unavailable, ignoring: %m", property);
         else if (r < 0)
-               return log_device_debug_errno(dev, r, "Failed to read battery device property %s: %m", property);
+               return log_device_debug_errno(dev, r, "Failed to get battery device property %s: %m", property);
         else if (isempty(x))
-               log_device_debug(dev, "battery device property '%s' is null.", property);
+               log_device_debug(dev, "Battery device property '%s' is empty.", property);
         else
                siphash24_compress_string(x, state);
 
@@ -319,7 +317,7 @@ static int get_system_battery_identifier_hash(sd_device *dev, uint64_t *ret) {
         return 0;
 }
 
-/* battery percentage discharge rate per hour is in range 1-199 then return success */
+/* Return success if battery percentage discharge rate per hour is in the range 1–199 */
 static bool battery_discharge_rate_is_valid(int battery_discharge_rate) {
         return battery_discharge_rate > 0 && battery_discharge_rate < 200;
 }
@@ -470,7 +468,7 @@ int estimate_battery_discharge_rate_per_hour(
         return 0;
 }
 
-/* calculate the suspend interval for each battery and then return the sum of it */
+/* Calculate the suspend interval for each battery and then return their sum */
 int get_total_suspend_interval(Hashmap *last_capacity, usec_t *ret) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         usec_t total_suspend_interval = 0;
@@ -516,8 +514,8 @@ int get_total_suspend_interval(Hashmap *last_capacity, usec_t *ret) {
 
                 total_suspend_interval = usec_add(total_suspend_interval, suspend_interval);
         }
-        /* The previous discharge rate is stored in per hour basis so converted to minutes.
-         * Subtracted 30 minutes from the result to keep a buffer of 30 minutes before battery gets critical */
+        /* Previous discharge rate is stored in per hour basis converted to usec.
+         * Subtract 30 minutes from the result to keep a buffer of 30 minutes before battery gets critical */
         total_suspend_interval = usec_sub_unsigned(total_suspend_interval, 30 * USEC_PER_MINUTE);
         if (total_suspend_interval == 0)
                 return -ENOENT;

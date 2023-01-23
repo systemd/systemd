@@ -327,7 +327,8 @@ static int custom_timer_suspend(const SleepConfig *sleep_config) {
                 }
 
                 after_timestamp = now(CLOCK_BOOTTIME);
-                log_debug("Attempting to estimate battery discharge rate after wakeup from %s sleep", FORMAT_TIMESPAN(after_timestamp - before_timestamp, USEC_PER_HOUR));
+                log_debug("Attempting to estimate battery discharge rate after wakeup from %s sleep",
+                          FORMAT_TIMESPAN(after_timestamp - before_timestamp, USEC_PER_HOUR));
 
                 if (after_timestamp != before_timestamp) {
                         r = estimate_battery_discharge_rate_per_hour(last_capacity, current_capacity, before_timestamp, after_timestamp);
