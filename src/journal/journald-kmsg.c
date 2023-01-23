@@ -423,9 +423,6 @@ finish:
 }
 
 int server_open_kernel_seqnum(Server *s) {
-        _cleanup_close_ int fd = -EBADF;
-        const char *fn;
-        uint64_t *p;
         int r;
 
         assert(s);
@@ -436,26 +433,9 @@ int server_open_kernel_seqnum(Server *s) {
         if (!s->dev_kmsg_readable)
                 return 0;
 
-        fn = strjoina(s->runtime_directory, "/kernel-seqnum");
-        fd = open(fn, O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0644);
-        if (fd < 0) {
-                log_error_errno(errno, "Failed to open %s, ignoring: %m", fn);
-                return 0;
-        }
-
-        r = posix_fallocate_loop(fd, 0, sizeof(uint64_t));
-        if (r < 0) {
-                log_error_errno(r, "Failed to allocate sequential number file, ignoring: %m");
-                return 0;
-        }
-
-        p = mmap(NULL, sizeof(uint64_t), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
-        if (p == MAP_FAILED) {
-                log_error_errno(errno, "Failed to map sequential number file, ignoring: %m");
-                return 0;
-        }
-
-        s->kernel_seqnum = p;
+        r = server_map_seqnum_file(s, "kernel-seqnum", sizeof(uint64_t), (void**) &s->kernel_seqnum);
+        if (r < 0)
+                return log_error_errno(r, "Failed to map kernel seqnum file: %m");
 
         return 0;
 }
