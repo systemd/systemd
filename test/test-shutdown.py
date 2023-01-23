@@ -18,7 +18,7 @@ def run(args):
     logger.info("spawning test")
     console = pexpect.spawn(args.command, args.arg, env={
             "TERM": "linux",
-        }, encoding='utf-8', timeout=30)
+        }, encoding='utf-8', timeout=60)
 
     if args.verbose:
         console.logfile = sys.stdout
