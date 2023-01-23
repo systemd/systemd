@@ -61,9 +61,7 @@ EOF
 
 udevadm control --log-priority=debug --reload --timeout=30
 
-# FIXME(?): the 'add' uevent is broadcast as for 'foobar', instead of 'hoge'. Hence, we cannot use --settle here.
-# See issue #25115.
-udevadm trigger --action=add /sys/devices/virtual/net/hoge
+udevadm trigger --action=add --settle /sys/devices/virtual/net/hoge
 udevadm wait --timeout=30 --settle /sys/devices/virtual/net/foobar
 assert_not_in "ID_RENAMING=" "$(udevadm info /sys/devices/virtual/net/foobar)"
 timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /sys/devices/virtual/net/hoge)" != "inactive" ]]; do sleep .5; done'
@@ -71,7 +69,7 @@ timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /s
 timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /sys/devices/virtual/net/foobar)" != "active" ]]; do sleep .5; done'
 timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /sys/subsystem/net/devices/foobar)" != "active" ]]; do sleep .5; done'
 
-udevadm trigger --action=add /sys/devices/virtual/net/foobar
+udevadm trigger --action=add --settle /sys/devices/virtual/net/foobar
 udevadm wait --timeout=30 --settle /sys/devices/virtual/net/hoge
 assert_not_in "ID_RENAMING=" "$(udevadm info /sys/devices/virtual/net/hoge)"
 timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /sys/devices/virtual/net/hoge)" != "active" ]]; do sleep .5; done'
