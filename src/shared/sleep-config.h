@@ -60,6 +60,7 @@ int can_sleep_state(char **types);
 int battery_is_low(void);
 int get_total_suspend_interval(Hashmap *last_capacity, usec_t *ret);
 int fetch_batteries_capacity_by_name(Hashmap **ret_current_capacity);
+int get_capacity_by_name(Hashmap *capacities_by_name, const char *name);
 int estimate_battery_discharge_rate_per_hour(
                 Hashmap *last_capacity,
                 Hashmap *current_capacity,
