@@ -53,7 +53,7 @@ static void test_journal_flush(int argc, char *argv[]) {
                         log_error_errno(r, "journal_file_move_to_object failed: %m");
                 assert_se(r >= 0);
 
-                r = journal_file_copy_entry(f, new_journal->file, o, f->current_offset);
+                r = journal_file_copy_entry(f, new_journal->file, o, f->current_offset, NULL, NULL);
                 if (r < 0)
                         log_warning_errno(r, "journal_file_copy_entry failed: %m");
                 assert_se(r >= 0 ||
