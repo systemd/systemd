@@ -234,7 +234,11 @@
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
         This enables or disables <filename>systemd-nspawn@.service</filename>, instantiated for the specified
         machine name, similarly to the effect of <command>systemctl enable</command> or <command>systemctl
-        disable</command> on the service name.</para></listitem>
+        disable</command> on the service name.</para>
+
+        <para>This command implicitly reloads the system manager configuration after completing the operation.
+        Note that this command does not implicitly start or power off the containers that are being operated on.
+        If this is desired, combine the command with the <option>--now</option> switch.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -774,6 +778,17 @@
         <literal>signature</literal> if the server and protocol
         support this. Defaults to
         <literal>signature</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--now</option></term>
+
+        <listitem>
+          <para>When used with <command>enable</command> or <command>disable</command>,
+          the containers will also be started or powered off. The start or poweroff
+          operation is only carried out when the respective enable or disable
+          operation has been successful.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
