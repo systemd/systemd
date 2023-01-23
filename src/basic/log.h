@@ -298,6 +298,7 @@ int log_emergency_level(void);
 
 #define log_oom() log_oom_internal(LOG_ERR, PROJECT_FILE, __LINE__, __func__)
 #define log_oom_debug() log_oom_internal(LOG_DEBUG, PROJECT_FILE, __LINE__, __func__)
+#define log_oom_warning() log_oom_internal(LOG_WARNING, PROJECT_FILE, __LINE__, __func__)
 
 bool log_on_console(void) _pure_;
 
