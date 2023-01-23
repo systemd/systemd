@@ -349,14 +349,14 @@ int os_release_support_ended(const char *support_end, bool quiet) {
                 if (r < 0 && r != -ENOENT)
                         return log_full_errno(quiet ? LOG_DEBUG : LOG_WARNING, r,
                                               "Failed to read os-release file, ignoring: %m");
-                if (!_support_end_alloc)
-                        return false;  /* no end date defined */
 
                 support_end = _support_end_alloc;
         }
 
-        struct tm tm = {};
+        if (isempty(support_end)) /* An empty string is a explicit way to say "no EOL exists" */
+                return false;  /* no end date defined */
 
+        struct tm tm = {};
         const char *k = strptime(support_end, "%Y-%m-%d", &tm);
         if (!k || *k)
                 return log_full_errno(quiet ? LOG_DEBUG : LOG_WARNING, SYNTHETIC_ERRNO(EINVAL),
