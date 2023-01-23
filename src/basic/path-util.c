@@ -1164,31 +1164,35 @@ bool path_is_normalized(const char *p) {
         return true;
 }
 
-char *file_in_same_dir(const char *path, const char *filename) {
-        char *e, *ret;
-        size_t k;
+int file_in_same_dir(const char *path, const char *filename, char **ret) {
+        _cleanup_free_ char *b = NULL;
+        int r;
 
         assert(path);
         assert(filename);
+        assert(ret);
 
-        /* This removes the last component of path and appends
-         * filename, unless the latter is absolute anyway or the
-         * former isn't */
+        /* This removes the last component of path and appends filename, unless the latter is absolute anyway
+         * or the former isn't */
 
         if (path_is_absolute(filename))
-                return strdup(filename);
+                b = strdup(filename);
+        else {
+                _cleanup_free_ char *dn = NULL;
 
-        e = strrchr(path, '/');
-        if (!e)
-                return strdup(filename);
+                r = path_extract_directory(path, &dn);
+                if (r == -EDESTADDRREQ) /* no path prefix */
+                        b = strdup(filename);
+                else if (r < 0)
+                        return r;
+                else
+                        b = path_join(dn, filename);
+        }
+        if (!b)
+                return -ENOMEM;
 
-        k = strlen(filename);
-        ret = new(char, (e + 1 - path) + k + 1);
-        if (!ret)
-                return NULL;
-
-        memcpy(mempcpy(ret, path, e + 1 - path), filename, k + 1);
-        return ret;
+        *ret = TAKE_PTR(b);
+        return 0;
 }
 
 bool hidden_or_backup_file(const char *filename) {

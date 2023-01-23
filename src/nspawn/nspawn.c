@@ -4681,13 +4681,13 @@ static int load_settings(void) {
                  * actual image we shall boot. */
 
                 if (arg_image) {
-                        p = file_in_same_dir(arg_image, arg_settings_filename);
-                        if (!p)
-                                return log_oom();
-                } else if (arg_directory && !path_equal(arg_directory, "/")) {
-                        p = file_in_same_dir(arg_directory, arg_settings_filename);
-                        if (!p)
-                                return log_oom();
+                        r = file_in_same_dir(arg_image, arg_settings_filename, &p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to generate settings path from image path: %m");
+                } else if (arg_directory) {
+                        r = file_in_same_dir(arg_directory, arg_settings_filename, &p);
+                        if (r < 0 && r != -EADDRNOTAVAIL) /* if directory is root fs, don't complain */
+                                return log_error_errno(r, "Failed to generate settings path from directory path: %m");
                 }
 
                 if (p) {

@@ -600,23 +600,19 @@ TEST(prefix_root) {
 TEST(file_in_same_dir) {
         char *t;
 
-        t = file_in_same_dir("/", "a");
+        assert_se(file_in_same_dir("/", "a", &t) == -EADDRNOTAVAIL);
+
+        assert_se(file_in_same_dir("/", "/a", &t) >= 0);
         assert_se(streq(t, "/a"));
         free(t);
 
-        t = file_in_same_dir("/", "/a");
-        assert_se(streq(t, "/a"));
+        assert_se(file_in_same_dir("", "a", &t) == -EINVAL);
+
+        assert_se(file_in_same_dir("a/", "x", &t) >= 0);
+        assert_se(streq(t, "x"));
         free(t);
 
-        t = file_in_same_dir("", "a");
-        assert_se(streq(t, "a"));
-        free(t);
-
-        t = file_in_same_dir("a/", "a");
-        assert_se(streq(t, "a/a"));
-        free(t);
-
-        t = file_in_same_dir("bar/foo", "bar");
+        assert_se(file_in_same_dir("bar/foo", "bar", &t) >= 0);
         assert_se(streq(t, "bar/bar"));
         free(t);
 }
