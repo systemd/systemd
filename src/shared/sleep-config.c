@@ -153,7 +153,7 @@ static int battery_enumerator_new(sd_device_enumerator **ret) {
         return 0;
 }
 
-static int get_capacity_by_name(Hashmap *capacities_by_name, const char *name) {
+int get_capacity_by_name(Hashmap *capacities_by_name, const char *name) {
         void *p;
 
         assert(capacities_by_name);
