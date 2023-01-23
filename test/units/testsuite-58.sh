@@ -119,21 +119,21 @@ last-lba: 2097118"
 
     # 2. Testing with root, root2, home, and swap
 
-    cat >"$defs/root.conf" <<EOF
+    runas testuser tee "$defs/root.conf" <<EOF
 [Partition]
 Type=root
 EOF
 
     ln -s root.conf "$defs/root2.conf"
 
-    cat >"$defs/home.conf" <<EOF
+    runas testuser tee "$defs/home.conf" <<EOF
 [Partition]
 Type=home
 Label=home-first
 Label=home-always-too-long-xxxxxxxxxxxxxx-%v
 EOF
 
-    cat >"$defs/swap.conf" <<EOF
+    runas testuser tee "$defs/swap.conf" <<EOF
 [Partition]
 Type=swap
 SizeMaxBytes=64M
@@ -194,13 +194,13 @@ $imgs/zzz4 : start=     1777624, size=      131072, type=0657FD6D-A4AB-43C4-84E5
 
     # 3. Testing with root, root2, home, swap, and another partition
 
-    cat >"$defs/swap.conf" <<EOF
+    runas testuser tee "$defs/swap.conf" <<EOF
 [Partition]
 Type=swap
 SizeMaxBytes=64M
 EOF
 
-    cat >"$defs/extra.conf" <<EOF
+    runas testuser tee "$defs/extra.conf" <<EOF
 [Partition]
 Type=linux-generic
 Label=custom_label
@@ -255,7 +255,7 @@ $imgs/zzz5 : start=     1908696, size=     2285568, type=0FC63DAF-8483-4772-8E79
 
     dd if=/dev/urandom of="$imgs/block-copy" bs=4096 count=10240
 
-    cat >"$defs/extra2.conf" <<EOF
+    runas testuser tee "$defs/extra2.conf" <<EOF
 [Partition]
 Type=linux-generic
 Label=block-copy
@@ -288,7 +288,7 @@ $imgs/zzz6 : start=     4194264, size=     2097152, type=0FC63DAF-8483-4772-8E79
 
     # 6. Testing Format=/Encrypt=/CopyFiles=
 
-    cat >"$defs/extra3.conf" <<EOF
+    runas testuser tee "$defs/extra3.conf" <<EOF
 [Partition]
 Type=linux-generic
 Label=luks-format-copy
@@ -350,21 +350,21 @@ test_dropin() {
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
 
-    cat >"$defs/root.conf" <<EOF
+    runas testuser tee "$defs/root.conf" <<EOF
 [Partition]
 Type=swap
 SizeMaxBytes=64M
 UUID=837c3d67-21b3-478e-be82-7e7f83bf96d3
 EOF
 
-    mkdir -p "$defs/root.conf.d"
-    cat >"$defs/root.conf.d/override1.conf" <<EOF
+    runas testuser mkdir -p "$defs/root.conf.d"
+    runas testuser tee "$defs/root.conf.d/override1.conf" <<EOF
 [Partition]
 Label=label1
 SizeMaxBytes=32M
 EOF
 
-    cat >"$defs/root.conf.d/override2.conf" <<EOF
+    runas testuser tee "$defs/root.conf.d/override2.conf" <<EOF
 [Partition]
 Label=label2
 EOF
@@ -408,9 +408,9 @@ test_multiple_definitions() {
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
 
-    mkdir -p "$defs/1"
+    runas testuser mkdir -p "$defs/1"
 
-    cat >"$defs/1/root1.conf" <<EOF
+    runas testuser tee "$defs/1/root1.conf" <<EOF
 [Partition]
 Type=swap
 SizeMaxBytes=32M
@@ -418,9 +418,9 @@ UUID=7b93d1f2-595d-4ce3-b0b9-837fbd9e63b0
 Label=label1
 EOF
 
-    mkdir -p "$defs/2"
+    runas testuser mkdir -p "$defs/2"
 
-    cat >"$defs/2/root2.conf" <<EOF
+    runas testuser tee "$defs/2/root2.conf" <<EOF
 [Partition]
 Type=swap
 SizeMaxBytes=32M
@@ -481,14 +481,14 @@ test_copy_blocks() {
 
     # First, create a disk image and verify its in order
 
-    cat >"$defs/esp.conf" <<EOF
+    runas testuser tee "$defs/esp.conf" <<EOF
 [Partition]
 Type=esp
 SizeMinBytes=10M
 Format=vfat
 EOF
 
-    cat >"$defs/usr.conf" <<EOF
+    runas testuser tee "$defs/usr.conf" <<EOF
 [Partition]
 Type=usr-${architecture}
 SizeMinBytes=10M
@@ -496,7 +496,7 @@ Format=ext4
 ReadOnly=yes
 EOF
 
-    cat >"$defs/root.conf" <<EOF
+    runas testuser tee "$defs/root.conf" <<EOF
 [Partition]
 Type=root-${architecture}
 SizeMinBytes=10M
@@ -523,20 +523,20 @@ EOF
 
     # Then, create another image with CopyBlocks=auto
 
-    cat >"$defs/esp.conf" <<EOF
+    runas testuser tee "$defs/esp.conf" <<EOF
 [Partition]
 Type=esp
 CopyBlocks=auto
 EOF
 
-    cat >"$defs/usr.conf" <<EOF
+    runas testuser tee "$defs/usr.conf" <<EOF
 [Partition]
 Type=usr-${architecture}
 ReadOnly=yes
 CopyBlocks=auto
 EOF
 
-    cat >"$defs/root.conf" <<EOF
+    runas testuser tee "$defs/root.conf" <<EOF
 [Partition]
 Type=root-${architecture}
 CopyBlocks=auto
@@ -563,7 +563,7 @@ test_unaligned_partition() {
 
     # Operate on an image with unaligned partition.
 
-    cat >"$defs/root.conf" <<EOF
+    runas testuser tee "$defs/root.conf" <<EOF
 [Partition]
 Type=root-${architecture}
 EOF
@@ -598,7 +598,7 @@ test_issue_21817() {
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
 
-    cat >"$defs/test.conf" <<EOF
+    runas testuser tee "$defs/test.conf" <<EOF
 [Partition]
 Type=root
 EOF
@@ -634,14 +634,14 @@ test_issue_24553() {
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
 
-    cat >"$defs/root.conf" <<EOF
+    runas testuser tee "$defs/root.conf" <<EOF
 [Partition]
 Type=root
 SizeMinBytes=10G
 SizeMaxBytes=120G
 EOF
 
-    cat >"$imgs/partscript" <<EOF
+    runas testuser tee "$imgs/partscript" <<EOF
 label: gpt
 label-id: C9FFE979-A415-C449-B729-78C7AA664B10
 unit: sectors
@@ -679,7 +679,7 @@ EOF
     assert_in "$imgs/zzz2 : start=      524328, size=    24641456, type=${root_guid}, uuid=${root_uuid}, name=\"root-${architecture}\"" "$output"
 
     # 3. Multiple partitions with Priority= (small disk)
-    cat >"$defs/root.conf" <<EOF
+    runas testuser tee "$defs/root.conf" <<EOF
 [Partition]
 Type=root
 SizeMinBytes=10G
@@ -687,7 +687,7 @@ SizeMaxBytes=120G
 Priority=100
 EOF
 
-    cat >"$defs/usr.conf" <<EOF
+    runas testuser tee "$defs/usr.conf" <<EOF
 [Partition]
 Type=usr
 SizeMinBytes=10M
@@ -734,7 +734,7 @@ test_zero_uuid() {
 
     # Test image with zero UUID.
 
-    cat >"$defs/root.conf" <<EOF
+    runas testuser tee "$defs/root.conf" <<EOF
 [Partition]
 Type=root-${architecture}
 UUID=null
@@ -760,7 +760,7 @@ test_verity() {
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
 
-    cat >"$defs/verity-data.conf" <<EOF
+    runas testuser tee "$defs/verity-data.conf" <<EOF
 [Partition]
 Type=root-${architecture}
 CopyFiles=${defs}
@@ -768,14 +768,14 @@ Verity=data
 VerityMatchKey=root
 EOF
 
-    cat >"$defs/verity-hash.conf" <<EOF
+    runas testuser tee "$defs/verity-hash.conf" <<EOF
 [Partition]
 Type=root-${architecture}-verity
 Verity=hash
 VerityMatchKey=root
 EOF
 
-    cat >"$defs/verity-sig.conf" <<EOF
+    runas testuser tee "$defs/verity-sig.conf" <<EOF
 [Partition]
 Type=root-${architecture}-verity-sig
 Verity=signature
@@ -783,7 +783,7 @@ VerityMatchKey=root
 EOF
 
     # Unfortunately OpenSSL insists on reading some config file, hence provide one with mostly placeholder contents
-    cat >> "$defs/verity.openssl.cnf" <<EOF
+    runas testuser tee > "$defs/verity.openssl.cnf" <<EOF
 [ req ]
 prompt = no
 distinguished_name = req_distinguished_name
@@ -843,17 +843,17 @@ test_issue_24786() {
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs' '$root'" RETURN
 
-    touch "$root/abc"
-    mkdir "$root/usr"
-    touch "$root/usr/def"
+    runas testuser touch "$root/abc"
+    runas testuser mkdir "$root/usr"
+    runas testuser touch "$root/usr/def"
 
-    cat >"$defs/00-root.conf" <<EOF
+    runas testuser tee "$defs/00-root.conf" <<EOF
 [Partition]
 Type=root-${architecture}
 CopyFiles=/
 EOF
 
-    cat >"$defs/10-usr.conf" <<EOF
+    runas testuser tee "$defs/10-usr.conf" <<EOF
 [Partition]
 Type=usr-${architecture}
 CopyFiles=/usr:/
@@ -906,7 +906,7 @@ test_minimize() {
             continue
         fi
 
-        cat >"$defs/root-$format.conf" <<EOF
+        tee "$defs/root-$format.conf" <<EOF
 [Partition]
 Type=root-${architecture}
 Format=${format}
@@ -916,7 +916,7 @@ EOF
     done
 
     if ! command -v mksquashfs >/dev/null; then
-        cat >"$defs/root-squashfs.conf" <<EOF
+        tee "$defs/root-squashfs.conf" <<EOF
 [Partition]
 Type=root-${architecture}
 Format=squashfs
@@ -955,19 +955,19 @@ test_sector() {
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
 
-    cat > "$defs/a.conf" <<EOF
+    tee "$defs/a.conf" <<EOF
 [Partition]
 Type=root
 SizeMaxBytes=15M
 SizeMinBytes=15M
 EOF
-    cat > "$defs/b.conf" <<EOF
+    tee "$defs/b.conf" <<EOF
 [Partition]
 Type=linux-generic
 Weight=250
 EOF
 
-    cat > "$defs/c.conf" <<EOF
+    tee "$defs/c.conf" <<EOF
 [Partition]
 Type=linux-generic
 Weight=750
