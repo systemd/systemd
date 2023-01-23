@@ -297,6 +297,14 @@ trap cleanup EXIT
 
 KERNEL_INSTALL_STAGING_AREA="$(mktemp -d -t kernel-install.staging.XXXXXXX)"
 
+export KERNEL_INSTALL_IMAGE_TYPE=""
+if [ -f "$1" ]; then
+    KERNEL_INSTALL_IMAGE_TYPE="$(bootctl kernel-identify "$1")"
+    if [ "$KERNEL_INSTALL_IMAGE_TYPE" = "uki" ] && [ "$layout" = "" ]; then
+        layout="uki"
+    fi
+fi
+
 export KERNEL_INSTALL_MACHINE_ID="$MACHINE_ID"
 export KERNEL_INSTALL_ENTRY_TOKEN="$ENTRY_TOKEN"
 export KERNEL_INSTALL_BOOT_ROOT="$BOOT_ROOT"
