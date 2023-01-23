@@ -1600,7 +1600,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         InstallChange *changes = NULL;
         size_t n_changes = 0;
-        const char *method = NULL;
+        const char *method;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
