@@ -6,6 +6,7 @@
 #include "bus-error.h"
 #include "bus-map-properties.h"
 #include "format-table.h"
+#include "os-util.h"
 #include "sort-util.h"
 #include "version.h"
 
@@ -283,7 +284,7 @@ static int produce_plot_as_svg(
         svg("<text x=\"20\" y=\"50\">%s</text>", pretty_times);
         if (host)
                 svg("<text x=\"20\" y=\"30\">%s %s (%s %s %s) %s %s</text>",
-                    isempty(host->os_pretty_name) ? "Linux" : host->os_pretty_name,
+                    os_release_pretty_name(host->os_pretty_name, NULL),
                     strempty(host->hostname),
                     strempty(host->kernel_name),
                     strempty(host->kernel_release),

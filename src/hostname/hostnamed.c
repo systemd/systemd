@@ -146,6 +146,7 @@ static void context_read_machine_info(Context *c) {
 }
 
 static void context_read_os_release(Context *c) {
+        _cleanup_free_ char *os_name = NULL, *os_pretty_name = NULL;
         struct stat current_stat = {};
         int r;
 
@@ -162,11 +163,15 @@ static void context_read_os_release(Context *c) {
                       (UINT64_C(1) << PROP_OS_HOME_URL));
 
         r = parse_os_release(NULL,
-                             "PRETTY_NAME", &c->data[PROP_OS_PRETTY_NAME],
+                             "PRETTY_NAME", &os_pretty_name,
+                             "NAME", &os_name,
                              "CPE_NAME", &c->data[PROP_OS_CPE_NAME],
                              "HOME_URL", &c->data[PROP_OS_HOME_URL]);
         if (r < 0 && r != -ENOENT)
                 log_warning_errno(r, "Failed to read os-release file, ignoring: %m");
+
+        if (free_and_strdup(&c->data[PROP_OS_PRETTY_NAME], os_release_pretty_name(os_pretty_name, os_name)) < 0)
+                log_oom();
 
         c->etc_os_release_stat = current_stat;
 }
