@@ -2,8 +2,12 @@
 
 #include <stdio.h>
 
+#include "alloc-util.h"
 #include "build.h"
+#include "extract-word.h"
 #include "macro.h"
+#include "string-util.h"
+#include "terminal-util.h"
 #include "version.h"
 
 const char* const systemd_features =
@@ -231,8 +235,48 @@ const char* const systemd_features =
         " default-hierarchy=" DEFAULT_HIERARCHY_NAME
         ;
 
+static char *systemd_features_with_color(void) {
+        const char *p = systemd_features;
+        _cleanup_free_ char *ret = NULL;
+        int r;
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                char *q;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r < 0) {
+                        log_warning_errno(r, "Cannot split features string, ignoring: %m");
+                        return NULL;
+                }
+                if (r == 0)
+                        return TAKE_PTR(ret);
+
+                if (ret && !strextend(&ret, " ")) {
+                        log_oom_warning();
+                        return NULL;
+                }
+
+                if (word[0] == '+')
+                        q = strextend(&ret, ANSI_HIGHLIGHT_GREEN, CHAR_TO_STR(word[0]), ANSI_GREEN, word+1, ANSI_NORMAL);
+                else if (word[0] == '-')
+                        q = strextend(&ret, ANSI_HIGHLIGHT_RED, CHAR_TO_STR(word[0]), ANSI_RED, word+1, ANSI_NORMAL);
+                else
+                        q = strextend(&ret, word);
+                if (!q) {
+                        log_oom_warning();
+                        return NULL;
+                }
+        }
+}
+
 int version(void) {
+        _cleanup_free_ char *b = NULL;
+
+        if (colors_enabled())
+                b = systemd_features_with_color();
+
         printf("systemd " STRINGIFY(PROJECT_VERSION) " (" GIT_VERSION ")\n%s\n",
-               systemd_features);
+               b ?: systemd_features);
         return 0;
 }
