@@ -267,12 +267,12 @@ static int execute(
 }
 
 static int custom_timer_suspend(const SleepConfig *sleep_config) {
-        _cleanup_hashmap_free_ Hashmap *last_capacity = NULL, *current_capacity = NULL;
         int r;
 
         assert(sleep_config);
 
         while (battery_is_low() == 0) {
+                _cleanup_hashmap_free_ Hashmap *last_capacity = NULL, *current_capacity = NULL;
                 _cleanup_close_ int tfd = -EBADF;
                 struct itimerspec ts = {};
                 usec_t suspend_interval = sleep_config->hibernate_delay_sec, before_timestamp = 0, after_timestamp = 0, total_suspend_interval;
