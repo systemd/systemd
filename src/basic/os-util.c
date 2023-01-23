@@ -346,8 +346,8 @@ int os_release_support_ended(const char *support_end, bool quiet) {
 
                 r = parse_os_release(NULL,
                                      "SUPPORT_END", &_support_end_alloc);
-                if (r < 0)
-                        return log_full_errno((r == -ENOENT || quiet) ? LOG_DEBUG : LOG_WARNING, r,
+                if (r < 0 && r != -ENOENT)
+                        return log_full_errno(quiet ? LOG_DEBUG : LOG_WARNING, r,
                                               "Failed to read os-release file, ignoring: %m");
                 if (!_support_end_alloc)
                         return false;  /* no end date defined */
