@@ -75,11 +75,11 @@ TEST(load_os_release_pairs) {
 TEST(os_release_support_ended) {
         int r;
 
-        assert_se(os_release_support_ended("1999-01-01", false) == true);
-        assert_se(os_release_support_ended("2037-12-31", false) == false);
-        assert_se(os_release_support_ended("-1-1-1", true) == -EINVAL);
+        assert_se(os_release_support_ended("1999-01-01", false, NULL) == true);
+        assert_se(os_release_support_ended("2037-12-31", false, NULL) == false);
+        assert_se(os_release_support_ended("-1-1-1", true, NULL) == -EINVAL);
 
-        r = os_release_support_ended(NULL, false);
+        r = os_release_support_ended(NULL, false, NULL);
         if (r < 0)
                 log_info_errno(r, "Failed to check host: %m");
         else

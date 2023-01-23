@@ -4547,7 +4547,7 @@ char* manager_taint_string(const Manager *m) {
         if (clock_is_localtime(NULL) > 0)
                 stage[n++] = "local-hwclock";
 
-        if (os_release_support_ended(NULL, true) > 0)
+        if (os_release_support_ended(NULL, /* quiet= */ true, NULL) > 0)
                 stage[n++] = "support-ended";
 
         _cleanup_free_ char *destination = NULL;

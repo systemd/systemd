@@ -1385,7 +1385,7 @@ static int os_release_status(void) {
                                       label);
         }
 
-        if (support_end && os_release_support_ended(support_end, false) > 0)
+        if (support_end && os_release_support_ended(support_end, /* quiet */ false, NULL) > 0)
                 /* pretty_name may include the version already, so we'll print the version only if we
                  * have it and we're not using pretty_name. */
                 status_printf(ANSI_HIGHLIGHT_RED "  !!  " ANSI_NORMAL, 0,
