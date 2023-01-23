@@ -85,8 +85,9 @@ DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(image_hash_ops, char, string_hash_func, st
 
 static char **image_settings_path(Image *image) {
         _cleanup_strv_free_ char **l = NULL;
-        const char *fn;
-        unsigned i = 0;
+        _cleanup_free_ char *fn = NULL;
+        size_t i = 0;
+        int r;
 
         assert(image);
 
@@ -94,7 +95,9 @@ static char **image_settings_path(Image *image) {
         if (!l)
                 return NULL;
 
-        fn = strjoina(image->name, ".nspawn");
+        fn = strjoin(image->name, ".nspawn");
+        if (!fn)
+                return NULL;
 
         FOREACH_STRING(s, "/etc/systemd/nspawn", "/run/systemd/nspawn") {
                 l[i] = path_join(s, fn);
@@ -104,21 +107,27 @@ static char **image_settings_path(Image *image) {
                 i++;
         }
 
-        l[i] = file_in_same_dir(image->path, fn);
-        if (!l[i])
+        r = file_in_same_dir(image->path, fn, l + i);
+        if (r == -ENOMEM)
                 return NULL;
+        if (r < 0)
+                log_debug_errno(r, "Failed to generate .nspawn settings path from image path, ignoring: %m");
+
+        strv_uniq(l);
 
         return TAKE_PTR(l);
 }
 
-static char *image_roothash_path(Image *image) {
-        const char *fn;
+static int image_roothash_path(Image *image, char **ret) {
+        _cleanup_free_ char *fn = NULL;
 
         assert(image);
 
-        fn = strjoina(image->name, ".roothash");
+        fn = strjoin(image->name, ".roothash");
+        if (!fn)
+                return -ENOMEM;
 
-        return file_in_same_dir(image->path, fn);
+        return file_in_same_dir(image->path, fn, ret);
 }
 
 static int image_new(
@@ -646,9 +655,9 @@ int image_remove(Image *i) {
         if (!settings)
                 return -ENOMEM;
 
-        roothash = image_roothash_path(i);
-        if (!roothash)
-                return -ENOMEM;
+        r = image_roothash_path(i, &roothash);
+        if (r < 0)
+                return r;
 
         /* Make sure we don't interfere with a running nspawn */
         r = image_path_lock(i->path, LOCK_EX|LOCK_NB, &global_lock, &local_lock);
@@ -708,14 +717,16 @@ int image_remove(Image *i) {
 }
 
 static int rename_auxiliary_file(const char *path, const char *new_name, const char *suffix) {
-        _cleanup_free_ char *rs = NULL;
-        const char *fn;
+        _cleanup_free_ char *fn = NULL, *rs = NULL;
+        int r;
 
-        fn = strjoina(new_name, suffix);
-
-        rs = file_in_same_dir(path, fn);
-        if (!rs)
+        fn = strjoin(new_name, suffix);
+        if (!fn)
                 return -ENOMEM;
+
+        r = file_in_same_dir(path, fn, &rs);
+        if (r < 0)
+                return r;
 
         return rename_noreplace(AT_FDCWD, path, AT_FDCWD, rs);
 }
@@ -739,9 +750,9 @@ int image_rename(Image *i, const char *new_name) {
         if (!settings)
                 return -ENOMEM;
 
-        roothash = image_roothash_path(i);
-        if (!roothash)
-                return -ENOMEM;
+        r = image_roothash_path(i, &roothash);
+        if (r < 0)
+                return r;
 
         /* Make sure we don't interfere with a running nspawn */
         r = image_path_lock(i->path, LOCK_EX|LOCK_NB, &global_lock, &local_lock);
@@ -772,7 +783,7 @@ int image_rename(Image *i, const char *new_name) {
 
                 _fallthrough_;
         case IMAGE_SUBVOLUME:
-                new_path = file_in_same_dir(i->path, new_name);
+                r = file_in_same_dir(i->path, new_name, &new_path);
                 break;
 
         case IMAGE_BLOCK:
@@ -781,23 +792,23 @@ int image_rename(Image *i, const char *new_name) {
                 if (path_startswith(i->path, "/dev"))
                         return -EROFS;
 
-                new_path = file_in_same_dir(i->path, new_name);
+                r = file_in_same_dir(i->path, new_name, &new_path);
                 break;
 
         case IMAGE_RAW: {
                 const char *fn;
 
                 fn = strjoina(new_name, ".raw");
-                new_path = file_in_same_dir(i->path, fn);
+
+                r = file_in_same_dir(i->path, fn, &new_path);
                 break;
         }
 
         default:
                 return -EOPNOTSUPP;
         }
-
-        if (!new_path)
-                return -ENOMEM;
+        if (r < 0)
+                return r;
 
         nn = strdup(new_name);
         if (!nn)
@@ -828,14 +839,16 @@ int image_rename(Image *i, const char *new_name) {
 }
 
 static int clone_auxiliary_file(const char *path, const char *new_name, const char *suffix) {
-        _cleanup_free_ char *rs = NULL;
-        const char *fn;
+        _cleanup_free_ char *fn = NULL, *rs = NULL;
+        int r;
 
-        fn = strjoina(new_name, suffix);
-
-        rs = file_in_same_dir(path, fn);
-        if (!rs)
+        fn = strjoin(new_name, suffix);
+        if (!fn)
                 return -ENOMEM;
+
+        r = file_in_same_dir(path, fn, &rs);
+        if (r < 0)
+                return r;
 
         return copy_file_atomic(path, rs, 0664, 0, 0, COPY_REFLINK);
 }
@@ -856,9 +869,9 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
         if (!settings)
                 return -ENOMEM;
 
-        roothash = image_roothash_path(i);
-        if (!roothash)
-                return -ENOMEM;
+        r = image_roothash_path(i, &roothash);
+        if (r < 0)
+                return r;
 
         /* Make sure nobody takes the new name, between the time we
          * checked it is currently unused in all search paths, and the
