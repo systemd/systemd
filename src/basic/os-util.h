@@ -32,4 +32,6 @@ int load_extension_release_pairs(const char *root, const char *extension, bool r
 int load_os_release_pairs(const char *root, char ***ret);
 int load_os_release_pairs_with_prefix(const char *root, const char *prefix, char ***ret);
 
-int os_release_support_ended(const char *support_end, bool quiet);
+int os_release_support_ended(const char *support_end, bool quiet, usec_t *ret_eol);
+
+const char *os_release_pretty_name(const char *pretty_name, const char *name);
