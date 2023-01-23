@@ -889,10 +889,12 @@ static bool shall_try_append_again(JournalFile *f, int r) {
                 log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Montonic clock jumped backwards relative to last journal entry, rotating.", f->path);
                 return true;
 
+        case -EILSEQ:          /* seqnum ID last used in the file doesn't match the one we'd passed when writing an entry to it */
+                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Journal file uses a different sequence number ID, rotating.", f->path);
+                return true;
+
         case -EAFNOSUPPORT:
-                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT,
-                                      "%s: underlying file system does not support memory mapping or another required file system feature.",
-                                      f->path);
+                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: underlying file system does not support memory mapping or another required file system feature.", f->path);
                 return false;
 
         default:
@@ -900,7 +902,13 @@ static bool shall_try_append_again(JournalFile *f, int r) {
         }
 }
 
-static void server_write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n, int priority) {
+static void server_write_to_journal(
+                Server *s,
+                uid_t uid,
+                const struct iovec *iovec,
+                size_t n,
+                int priority) {
+
         bool vacuumed = false, rotate = false;
         struct dual_timestamp ts;
         ManagedJournalFile *f;
@@ -950,7 +958,15 @@ static void server_write_to_journal(Server *s, uid_t uid, struct iovec *iovec, s
 
         s->last_realtime_clock = ts.realtime;
 
-        r = journal_file_append_entry(f->file, &ts, NULL, iovec, n, &s->seqnum, NULL, NULL);
+        r = journal_file_append_entry(
+                        f->file,
+                        &ts,
+                        /* boot_id= */ NULL,
+                        iovec, n,
+                        &s->seqnum->seqnum,
+                        &s->seqnum->id,
+                        /* ret_object= */ NULL,
+                        /* ret_offset= */ NULL);
         if (r >= 0) {
                 server_schedule_sync(s, priority);
                 return;
@@ -978,7 +994,15 @@ static void server_write_to_journal(Server *s, uid_t uid, struct iovec *iovec, s
                 return;
 
         log_debug_errno(r, "Retrying write.");
-        r = journal_file_append_entry(f->file, &ts, NULL, iovec, n, &s->seqnum, NULL, NULL);
+        r = journal_file_append_entry(
+                        f->file,
+                        &ts,
+                        /* boot_id= */ NULL,
+                        iovec, n,
+                        &s->seqnum->seqnum,
+                        &s->seqnum->id,
+                        /* ret_object= */ NULL,
+                        /* ret_offset= */ NULL);
         if (r < 0)
                 log_ratelimit_error_errno(r, FAILED_TO_WRITE_ENTRY_RATELIMIT,
                                           "Failed to write entry to %s (%zu items, %zu bytes) despite vacuuming, ignoring: %m",
@@ -1290,7 +1314,13 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
                         goto finish;
                 }
 
-                r = journal_file_copy_entry(f, s->system_journal->file, o, f->current_offset);
+                r = journal_file_copy_entry(
+                                f,
+                                s->system_journal->file,
+                                o,
+                                f->current_offset,
+                                &s->seqnum->seqnum,
+                                &s->seqnum->id);
                 if (r >= 0)
                         continue;
 
@@ -1312,7 +1342,13 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
                 }
 
                 log_debug("Retrying write.");
-                r = journal_file_copy_entry(f, s->system_journal->file, o, f->current_offset);
+                r = journal_file_copy_entry(
+                                f,
+                                s->system_journal->file,
+                                o,
+                                f->current_offset,
+                                &s->seqnum->seqnum,
+                                &s->seqnum->id);
                 if (r < 0) {
                         log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT, "Can't write entry: %m");
                         goto finish;
@@ -2250,6 +2286,51 @@ static int server_open_varlink(Server *s, const char *socket, int fd) {
         return 0;
 }
 
+int server_map_seqnum_file(
+                Server *s,
+                const char *fname,
+                size_t size,
+                void **ret) {
+
+        _cleanup_free_ char *fn = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        uint64_t *p;
+        int r;
+
+        assert(s);
+        assert(fname);
+        assert(size > 0);
+        assert(ret);
+
+        fn = path_join(s->runtime_directory, fname);
+        if (!fn)
+                return -ENOMEM;
+
+        fd = open(fn, O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0644);
+        if (fd < 0)
+                return -errno;
+
+        r = posix_fallocate_loop(fd, 0, size);
+        if (r < 0)
+                return r;
+
+        p = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+        if (p == MAP_FAILED)
+                return -errno;
+
+        *ret = p;
+        return 0;
+}
+
+void server_unmap_seqnum_file(void *p, size_t size) {
+        assert(size > 0);
+
+        if (!p)
+                return;
+
+        assert_se(munmap(p, size) >= 0);
+}
+
 static bool server_is_idle(Server *s) {
         assert(s);
 
@@ -2562,6 +2643,10 @@ int server_init(Server *s, const char *namespace) {
         if (r < 0)
                 return r;
 
+        r = server_map_seqnum_file(s, "seqnum", sizeof(SeqnumData), (void**) &s->seqnum);
+        if (r < 0)
+                return log_error_errno(r, "Failed to map main seqnum file: %m");
+
         r = server_open_kernel_seqnum(s);
         if (r < 0)
                 return r;
@@ -2678,8 +2763,8 @@ void server_done(Server *s) {
         if (s->ratelimit)
                 journal_ratelimit_free(s->ratelimit);
 
-        if (s->kernel_seqnum)
-                munmap(s->kernel_seqnum, sizeof(uint64_t));
+        server_unmap_seqnum_file(s->seqnum, sizeof(*s->seqnum));
+        server_unmap_seqnum_file(s->kernel_seqnum, sizeof(*s->kernel_seqnum));
 
         free(s->buffer);
         free(s->tty_path);
