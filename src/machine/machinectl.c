@@ -1600,7 +1600,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         InstallChange *changes = NULL;
         size_t n_changes = 0;
-        const char *method = NULL;
+        const char *method;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -1615,6 +1615,12 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         r = sd_bus_message_open_container(m, 'a', "s");
         if (r < 0)
                 return bus_log_create_error(r);
+
+        if (streq(argv[0], "enable")) {
+                r = sd_bus_message_append(m, "s", "machines.target");
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
 
         for (int i = 1; i < argc; i++) {
                 _cleanup_free_ char *unit = NULL;
