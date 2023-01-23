@@ -2088,6 +2088,7 @@ static int journal_file_append_entry_internal(
                 const EntryItem items[],
                 size_t n_items,
                 uint64_t *seqnum,
+                sd_id128_t *seqnum_id,
                 Object **ret_object,
                 uint64_t *ret_offset) {
 
@@ -2136,6 +2137,21 @@ static int journal_file_append_entry_internal(
         if (machine_id && sd_id128_is_null(f->header->machine_id))
                 /* Initialize machine ID when not set yet */
                 f->header->machine_id = *machine_id;
+
+        if (seqnum_id) {
+                /* Settle the passed in sequence number ID */
+
+                if (sd_id128_is_null(*seqnum_id))
+                        *seqnum_id = f->header->seqnum_id; /* Caller has none assigned, then copy the one from the file */
+                else if (!sd_id128_equal(*seqnum_id, f->header->seqnum_id)) {
+                        /* Different seqnum IDs? We can't allow entries from multiple IDs end up in the same journal.*/
+                        if (le64toh(f->header->n_entries) == 0)
+                                f->header->seqnum_id = *seqnum_id; /* Caller has one, and file so far has no entries, then copy the one from the caller */
+                        else
+                                return log_debug_errno(SYNTHETIC_ERRNO(EILSEQ),
+                                                       "Sequence number IDs don't match, refusing entry.");
+                }
+        }
 
         osize = offsetof(Object, entry.items) + (n_items * journal_file_entry_item_size(f));
 
@@ -2288,6 +2304,7 @@ int journal_file_append_entry(
                 const struct iovec iovec[],
                 size_t n_iovec,
                 uint64_t *seqnum,
+                sd_id128_t *seqnum_id,
                 Object **ret_object,
                 uint64_t *ret_offset) {
 
@@ -2384,7 +2401,7 @@ int journal_file_append_entry(
         typesafe_qsort(items, n_iovec, entry_item_cmp);
         n_iovec = remove_duplicate_entry_items(items, n_iovec);
 
-        r = journal_file_append_entry_internal(f, ts, boot_id, machine_id, xor_hash, items, n_iovec, seqnum, ret_object, ret_offset);
+        r = journal_file_append_entry_internal(f, ts, boot_id, machine_id, xor_hash, items, n_iovec, seqnum, seqnum_id, ret_object, ret_offset);
 
         /* If the memory mapping triggered a SIGBUS then we return an
          * IO error and ignore the error code passed down to us, since
@@ -4102,7 +4119,14 @@ int journal_file_dispose(int dir_fd, const char *fname) {
         return 0;
 }
 
-int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p) {
+int journal_file_copy_entry(
+                JournalFile *from,
+                JournalFile *to,
+                Object *o,
+                uint64_t p,
+                uint64_t *seqnum,
+                sd_id128_t *seqnum_id) {
+
         _cleanup_free_ EntryItem *items_alloc = NULL;
         EntryItem *items;
         uint64_t q, n, xor_hash = 0;
@@ -4177,7 +4201,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                         return r;
         }
 
-        r = journal_file_append_entry_internal(to, &ts, boot_id, &from->header->machine_id, xor_hash, items, n, NULL, NULL, NULL);
+        r = journal_file_append_entry_internal(to, &ts, boot_id, &from->header->machine_id, xor_hash, items, n, seqnum, seqnum_id, NULL, NULL);
 
         if (mmap_cache_fd_got_sigbus(to->cache_fd))
                 return -EIO;
