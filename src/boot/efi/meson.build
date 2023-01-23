@@ -304,23 +304,6 @@ if efi_arch[1] == 'arm'
         efi_ldflags += ['-Wl,--no-wchar-size-warning']
 endif
 
-if run_command('grep', '-q', '__CTOR_LIST__', efi_lds, check: false).returncode() == 0
-        # fedora has a patched gnu-efi that adds support for ELF constructors.
-        # If ld is called by gcc something about these symbols breaks, resulting
-        # in sd-boot freezing when gnu-efi runs the constructors. Force defining
-        # them seems to work around this.
-        efi_ldflags += [
-                '-Wl,--defsym=_init_array=0',
-                '-Wl,--defsym=_init_array_end=0',
-                '-Wl,--defsym=_fini_array=0',
-                '-Wl,--defsym=_fini_array_end=0',
-                '-Wl,--defsym=__CTOR_LIST__=0',
-                '-Wl,--defsym=__CTOR_END__=0',
-                '-Wl,--defsym=__DTOR_LIST__=0',
-                '-Wl,--defsym=__DTOR_END__=0',
-        ]
-endif
-
 if cc.get_id() == 'clang' and cc.version().split('.')[0].to_int() <= 10
         # clang <= 10 doesn't pass -T to the linker and then even complains about it being unused
         efi_ldflags += ['-Wl,-T,' + efi_lds, '-Wno-unused-command-line-argument']
@@ -454,7 +437,6 @@ foreach tuple : [['systemd-boot@0@.@1@', systemd_boot_objects, false, 'systemd-b
                            efi_cflags,
                            efi_ldflags,
                            '@INPUT@',
-                           '-lefi',
                            '-lgnuefi',
                            '-lgcc'],
                 install : tuple[2],
