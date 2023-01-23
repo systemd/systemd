@@ -495,7 +495,7 @@ int get_total_suspend_interval(Hashmap *last_capacity, usec_t *ret) {
                         continue;
                 }
 
-                battery_last_capacity = PTR_TO_CAPACITY(hashmap_get(last_capacity, battery_name));
+                battery_last_capacity = get_capacity_by_name(last_capacity, battery_name);
                 if (battery_last_capacity <= 0)
                         continue;
 
