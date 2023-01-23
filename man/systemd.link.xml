@@ -273,7 +273,7 @@
         <term><varname>Credential=</varname></term>
         <listitem>
           <para>Checks whether the specified credential was passed to the
-          <filename>systemd-networkd.service</filename> service. See <ulink
+          <filename>systemd-udevd.service</filename> service. See <ulink
           url="https://systemd.io/CREDENTIALS">System and Service Credentials</ulink> for details. When
           prefixed with an exclamation mark (<literal>!</literal>), the result is negated.  If an empty
           string is assigned, the previously assigned value is cleared.
