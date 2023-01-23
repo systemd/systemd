@@ -362,7 +362,7 @@ int os_release_support_ended(const char *support_end, bool quiet) {
                 return log_full_errno(quiet ? LOG_DEBUG : LOG_WARNING, SYNTHETIC_ERRNO(EINVAL),
                                       "Failed to parse SUPPORT_END= in os-release file, ignoring: %m");
 
-        time_t eol = mktime(&tm);
+        time_t eol = timegm(&tm);
         if (eol == (time_t) -1)
                 return log_full_errno(quiet ? LOG_DEBUG : LOG_WARNING, SYNTHETIC_ERRNO(EINVAL),
                                       "Failed to convert SUPPORT_END= in os-release file, ignoring: %m");
