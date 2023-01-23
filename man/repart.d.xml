@@ -425,6 +425,12 @@
         target filesystem (e.g symlinks, fifos, sockets and devices on vfat). When an unsupported file type
         is encountered, repart will skip copying this file and write a log message about it.</para>
 
+        <para>Note that <command>systemd-repart</command> does not change the UIDs/GIDs of any copied files
+        and directories. When running <command>systemd-repart</command> as an unprivileged user to build an
+        image of files and directories owned by the same user, you can run <command>systemd-repart</command>
+        in a user namespace with the current user mapped to the root user to make sure the files and
+        directories in the image are owned by the root user.</para>
+
         <para>This option cannot be combined with <varname>CopyBlocks=</varname>.</para>
 
         <para>When
