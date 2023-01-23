@@ -107,7 +107,7 @@ else
 fi
 
 # These two settings are only settable via install.conf
-layout=
+layout=auto
 initrd_generator=
 # These two settings can be inherited from the environment
 _MACHINE_ID_SAVED="$MACHINE_ID"
@@ -300,10 +300,11 @@ KERNEL_INSTALL_STAGING_AREA="$(mktemp -d -t kernel-install.staging.XXXXXXX)"
 export KERNEL_INSTALL_IMAGE_TYPE=""
 if [ -f "$1" ]; then
     KERNEL_INSTALL_IMAGE_TYPE="$(bootctl kernel-identify "$1")"
-    if [ "$KERNEL_INSTALL_IMAGE_TYPE" = "uki" ] && [ "$layout" = "" ]; then
+    if [ "$KERNEL_INSTALL_IMAGE_TYPE" = "uki" ] && [ "$layout" = "auto" ]; then
         layout="uki"
     fi
 fi
+[ "$layout" = "auto" ] && layout=""
 
 export KERNEL_INSTALL_MACHINE_ID="$MACHINE_ID"
 export KERNEL_INSTALL_ENTRY_TOKEN="$ENTRY_TOKEN"
