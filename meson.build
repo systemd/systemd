@@ -1971,14 +1971,10 @@ jinja2_cmdline = [meson_render_jinja2, config_h, version_h]
 
 ############################################################
 
-python = find_program('python3')
-if run_command(python, '-c', 'import jinja2', check : false).returncode() != 0
-        error('python3 jinja2 missing')
-endif
+pymod = import('python')
+python = pymod.find_installation('python3', required : true, modules : ['jinja2'])
+python_39 = python.language_version().version_compare('>=3.9')
 
-python_39 = run_command(python, '-c',
-                        'import sys; sys.exit(0 if sys.version_info >= (3,9) else 1)',
-                        check : false).returncode() == 0
 if get_option('ukify') == 'auto'
     want_ukify = python_39  and conf.get('HAVE_GNU_EFI') == 1
 elif get_option('ukify') == 'true' and (not python_39 or conf.get('HAVE_GNU_EFI') != 1)
