@@ -54,6 +54,9 @@ static void *CAPACITY_TO_PTR(int capacity) {
 }
 
 static int PTR_TO_CAPACITY(void *p) {
+        if (!p)
+                return 0; /* A missing battery has no capacity. */
+
         int capacity = PTR_TO_INT(p) - 1;
         assert(capacity >= 0);
         assert(capacity <= 100);
