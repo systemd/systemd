@@ -1616,6 +1616,12 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
+        if (streq(argv[0], "enable")) {
+                r = sd_bus_message_append(m, "s", "machines.target");
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
         for (int i = 1; i < argc; i++) {
                 _cleanup_free_ char *unit = NULL;
 
