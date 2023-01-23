@@ -73,6 +73,7 @@
 #include "memory-util.h"
 #include "missing_fs.h"
 #include "missing_ioprio.h"
+#include "missing_prctl.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -1569,11 +1570,24 @@ static int apply_address_families(const Unit* u, const ExecContext *c) {
 }
 
 static int apply_memory_deny_write_execute(const Unit* u, const ExecContext *c) {
+        int r;
+
         assert(u);
         assert(c);
 
         if (!c->memory_deny_write_execute)
                 return 0;
+
+        /* use prctl() if kernel supports it (6.x+) */
+        r = prctl(PR_SET_MDWE, PR_MDWE_REFUSE_EXEC_GAIN, 0, 0, 0);
+        if (r == 0) {
+                log_unit_debug(u, "PR_SET_MDWE: success");
+                return 0;
+        }
+        if (r < 0 && errno != EINVAL)
+                return log_unit_debug_errno(u, errno, "PR_SET_MDWE: error");
+        /* else use seccomp */
+        log_unit_debug(u, "PR_SET_MDWE: falling back to seccomp");
 
         if (skip_seccomp_unavailable(u, "MemoryDenyWriteExecute="))
                 return 0;
