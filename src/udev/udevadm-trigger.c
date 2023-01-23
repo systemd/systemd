@@ -180,7 +180,11 @@ static int device_monitor_handler(sd_device_monitor *m, sd_device *dev, void *us
                         const char *old_sysname;
 
                         /* When the device is renamed, the new name is broadcast, and the old name is saved
-                         * in INTERFACE_OLD. */
+                         * in INTERFACE_OLD.
+                         *
+                         * TODO: remove support for INTERFACE_OLD when kernel baseline is bumped to 4.13 or
+                         * higher. See 1193448cb68e5a90cab027e16a093bbd367e9494.
+                         */
 
                         if (sd_device_get_property_value(dev, "INTERFACE_OLD", &old_sysname) >= 0) {
                                 _cleanup_free_ char *dir = NULL, *old_syspath = NULL;
