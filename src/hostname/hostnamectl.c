@@ -47,6 +47,7 @@ typedef struct StatusInfo {
         const char *kernel_release;
         const char *os_pretty_name;
         const char *os_cpe_name;
+        usec_t os_support_end;
         const char *virtualization;
         const char *architecture;
         const char *home_url;
@@ -73,6 +74,23 @@ static const char* chassis_string_to_glyph(const char *chassis) {
                 return u8"🖴"; /* Hard disk */
         if (streq_ptr(chassis, "container"))
                 return u8"☐"; /* Ballot Box  */
+        return NULL;
+}
+
+static const char *os_support_end_color(usec_t n, usec_t eol) {
+        usec_t left;
+
+        /* If the end of support is over, color output in red. If only a month is left, color output in
+         * yellow. If more than a year is left, color green. In between just show in regular color. */
+
+        if (n >= eol)
+                return ANSI_HIGHLIGHT_RED;
+        left = eol - n;
+        if (left < USEC_PER_MONTH)
+                return ANSI_HIGHLIGHT_YELLOW;
+        if (left > USEC_PER_YEAR)
+                return ANSI_HIGHLIGHT_GREEN;
+
         return NULL;
 }
 
@@ -198,6 +216,19 @@ static int print_status_info(StatusInfo *i) {
                         return table_log_add_error(r);
         }
 
+        if (i->os_support_end != USEC_INFINITY) {
+                usec_t n = now(CLOCK_REALTIME);
+
+                r = table_add_many(table,
+                                   TABLE_FIELD, "OS Support End",
+                                   TABLE_TIMESTAMP_DATE, i->os_support_end,
+                                   TABLE_FIELD, n < i->os_support_end ? "OS Support Left" : "Over OS Support",
+                                   TABLE_TIMESPAN_DAY, n < i->os_support_end ? i->os_support_end - n : n - i->os_support_end,
+                                   TABLE_SET_COLOR, os_support_end_color(n, i->os_support_end));
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
         if (!isempty(i->kernel_name) && !isempty(i->kernel_release)) {
                 const char *v;
 
@@ -310,6 +341,7 @@ static int show_all_names(sd_bus *bus) {
                 { "KernelRelease",             "s", NULL, offsetof(StatusInfo, kernel_release)   },
                 { "OperatingSystemPrettyName", "s", NULL, offsetof(StatusInfo, os_pretty_name)   },
                 { "OperatingSystemCPEName",    "s", NULL, offsetof(StatusInfo, os_cpe_name)      },
+                { "OperatingSystemSupportEnd", "t", NULL, offsetof(StatusInfo, os_support_end)   },
                 { "HomeURL",                   "s", NULL, offsetof(StatusInfo, home_url)         },
                 { "HardwareVendor",            "s", NULL, offsetof(StatusInfo, hardware_vendor)  },
                 { "HardwareModel",             "s", NULL, offsetof(StatusInfo, hardware_model)   },
