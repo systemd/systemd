@@ -97,7 +97,7 @@ static bool press_any_key(void) {
 }
 
 static void print_welcome(void) {
-        _cleanup_free_ char *pretty_name = NULL, *ansi_color = NULL;
+        _cleanup_free_ char *pretty_name = NULL, *os_name = NULL, *ansi_color = NULL;
         static bool done = false;
         const char *pn, *ac;
         int r;
@@ -111,12 +111,13 @@ static void print_welcome(void) {
         r = parse_os_release(
                         arg_root,
                         "PRETTY_NAME", &pretty_name,
+                        "NAME", &os_name,
                         "ANSI_COLOR", &ansi_color);
         if (r < 0)
                 log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to read os-release file, ignoring: %m");
 
-        pn = isempty(pretty_name) ? "Linux" : pretty_name;
+        pn = os_release_pretty_name(pretty_name, os_name);
         ac = isempty(ansi_color) ? "0" : ansi_color;
 
         if (colors_enabled())
