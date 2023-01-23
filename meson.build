@@ -1971,14 +1971,10 @@ jinja2_cmdline = [meson_render_jinja2, config_h, version_h]
 
 ############################################################
 
-python = find_program('python3')
-if run_command(python, '-c', 'import jinja2', check : false).returncode() != 0
-        error('python3 jinja2 missing')
-endif
+pymod = import('python')
+python = pymod.find_installation('python3', required : true, modules : ['jinja2'])
+python_39 = python.language_version().version_compare('>=3.9')
 
-python_39 = run_command(python, '-c',
-                        'import sys; sys.exit(0 if sys.version_info >= (3,9) else 1)',
-                        check : false).returncode() == 0
 if get_option('ukify') == 'auto'
     want_ukify = python_39  and conf.get('HAVE_GNU_EFI') == 1
 elif get_option('ukify') == 'true' and (not python_39 or conf.get('HAVE_GNU_EFI') != 1)
@@ -2173,6 +2169,7 @@ subdir('src/journal')
 subdir('src/libsystemd-network')
 
 subdir('src/analyze')
+subdir('src/boot')
 subdir('src/busctl')
 subdir('src/coredump')
 subdir('src/cryptenroll')
@@ -2608,24 +2605,7 @@ if conf.get('HAVE_BLKID') == 1 and conf.get('HAVE_GNU_EFI') == 1
 
         exe = executable(
                 'bootctl',
-                ['src/boot/bootctl.c',
-                 'src/boot/bootctl.h',
-                 'src/boot/bootctl-install.c',
-                 'src/boot/bootctl-install.h',
-                 'src/boot/bootctl-random-seed.c',
-                 'src/boot/bootctl-random-seed.h',
-                 'src/boot/bootctl-reboot-to-firmware.c',
-                 'src/boot/bootctl-reboot-to-firmware.h',
-                 'src/boot/bootctl-set-efivar.c',
-                 'src/boot/bootctl-set-efivar.h',
-                 'src/boot/bootctl-status.c',
-                 'src/boot/bootctl-status.h',
-                 'src/boot/bootctl-systemd-efi-options.c',
-                 'src/boot/bootctl-systemd-efi-options.h',
-                 'src/boot/bootctl-uki.c',
-                 'src/boot/bootctl-uki.h',
-                 'src/boot/bootctl-util.c',
-                 'src/boot/bootctl-util.h'],
+                bootctl_sources,
                 include_directories : includes,
                 link_with : [boot_link_with],
                 dependencies : [libblkid,
