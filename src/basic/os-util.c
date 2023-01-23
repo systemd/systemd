@@ -336,7 +336,7 @@ int load_extension_release_pairs(const char *root, const char *extension, bool r
         return load_env_file_pairs(f, p, ret);
 }
 
-int os_release_support_ended(const char *support_end, bool quiet) {
+int os_release_support_ended(const char *support_end, bool quiet, usec_t *ret_eol) {
         _cleanup_free_ char *_support_end_alloc = NULL;
         int r;
 
@@ -367,8 +367,10 @@ int os_release_support_ended(const char *support_end, bool quiet) {
                 return log_full_errno(quiet ? LOG_DEBUG : LOG_WARNING, SYNTHETIC_ERRNO(EINVAL),
                                       "Failed to convert SUPPORT_END= in os-release file, ignoring: %m");
 
-        usec_t ts = now(CLOCK_REALTIME);
-        return DIV_ROUND_UP(ts, USEC_PER_SEC) > (usec_t) eol;
+        if (ret_eol)
+                *ret_eol = eol * USEC_PER_SEC;
+
+        return DIV_ROUND_UP(now(CLOCK_REALTIME), USEC_PER_SEC) > (usec_t) eol;
 }
 
 const char *os_release_pretty_name(const char *pretty_name, const char *name) {
