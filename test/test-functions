@@ -1943,6 +1943,9 @@ EOF
     <limit name="service_start_timeout">60000</limit>
 </busconfig>
 EOF
+        # Bump the client-side timeout in sd-bus as well
+        mkdir -p "$initdir/etc/systemd/system.conf.d"
+        echo -e '[Manager]\nDefaultEnvironment=SYSTEMD_BUS_TIMEOUT=60' >"$initdir/etc/systemd/system.conf.d/bus-timeout.conf"
     fi
 }
 
