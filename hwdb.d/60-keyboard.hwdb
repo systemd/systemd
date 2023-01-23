@@ -609,6 +609,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPENVYx360Convertible13*:*
 
 # Spectre x360 16 2022
 evdev:name:Intel HID events:dmi:bvn*:bvr*:bd*:svnHP*:pn*HP[sS][pP][eE][cC][tT][rR][eE]*x3602-in-1*:*
+# ENVY x360
+evdev:name:Intel HID events:dmi:bvn*:bvr*:bd*:svnHP*:pnHPENVYx360Convertible*:*
  KEYBOARD_KEY_08=unknown                                #  Prevents random airplane mode activation
 
 # HP Elite x2 1013 G3
@@ -1831,6 +1833,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnSystem76*:pn*:*
  KEYBOARD_KEY_f7=f21                                    # Touchpad toggle
  KEYBOARD_KEY_f8=f21                                    # Touchpad toggle
 
+# Pangolin 12
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnSystem76*:pnPangolin*:pvrpang12*
+ KEYBOARD_KEY_76=f21                                    # Touchpad toggle
+
 ###########################################################
 # T-bao
 ###########################################################
@@ -2028,7 +2034,7 @@ evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:bd*:svnPositivoBahia-VAIO:
 ###########################################################
 # Positivo
 ###########################################################
-# Positivo MASTER-N1110 
+# Positivo MASTER-N1110
 evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:svnPositivoTecnologiaSA:pn*:pvr*:rvnPositivoTecnologiaSA:rnNP11G-E*
 # Positivo DUO (k116)
 evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:svnPositivoTecnologiaSA:pn*:pvr*:rvnPositivoTecnologiaSA:rnK116*

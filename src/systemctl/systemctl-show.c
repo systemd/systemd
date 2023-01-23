@@ -954,7 +954,7 @@ static int map_exec(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_e
         if (!info)
                 return -ENOMEM;
 
-        LIST_FIND_TAIL(exec_status_info_list, i->exec_status_info_list, last);
+        last = LIST_FIND_TAIL(exec_status_info_list, i->exec_status_info_list);
 
         while ((r = exec_status_info_deserialize(m, info, is_ex_prop)) > 0) {
 
@@ -2148,7 +2148,7 @@ static int get_unit_dbus_path_by_pid(
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *path = NULL, *unit = NULL;
-        _cleanup_close_ int pidfd = -EBADFD;
+        _cleanup_close_ int pidfd = -EBADF;
         char *p, *u;
         int r;
 

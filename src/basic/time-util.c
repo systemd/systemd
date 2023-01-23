@@ -308,54 +308,48 @@ char *format_timestamp_style(
         };
 
         struct tm tm;
+        bool utc, us;
         time_t sec;
         size_t n;
-        bool utc = false, us = false;
-        int r;
 
         assert(buf);
+        assert(style >= 0);
+        assert(style < _TIMESTAMP_STYLE_MAX);
 
-        switch (style) {
-                case TIMESTAMP_PRETTY:
-                case TIMESTAMP_UNIX:
-                        break;
-                case TIMESTAMP_US:
-                        us = true;
-                        break;
-                case TIMESTAMP_UTC:
-                        utc = true;
-                        break;
-                case TIMESTAMP_US_UTC:
-                        us = true;
-                        utc = true;
-                        break;
-                default:
-                        return NULL;
-        }
-
-        if (l < (size_t) (3 +                  /* week day */
-                          1 + 10 +             /* space and date */
-                          1 + 8 +              /* space and time */
-                          (us ? 1 + 6 : 0) +   /* "." and microsecond part */
-                          1 + 1 +              /* space and shortest possible zone */
-                          1))
-                return NULL; /* Not enough space even for the shortest form. */
         if (!timestamp_is_set(t))
                 return NULL; /* Timestamp is unset */
 
         if (style == TIMESTAMP_UNIX) {
-                r = snprintf(buf, l, "@" USEC_FMT, t / USEC_PER_SEC);  /* round down µs → s */
-                if (r < 0 || (size_t) r >= l)
-                        return NULL; /* Doesn't fit */
+                if (l < (size_t) (1 + 1 + 1))
+                        return NULL; /* not enough space for even the shortest of forms */
 
-                return buf;
+                return snprintf_ok(buf, l, "@" USEC_FMT, t / USEC_PER_SEC);  /* round down µs → s */
         }
+
+        utc = IN_SET(style, TIMESTAMP_UTC, TIMESTAMP_US_UTC, TIMESTAMP_DATE);
+        us = IN_SET(style, TIMESTAMP_US, TIMESTAMP_US_UTC);
+
+        if (l < (size_t) (3 +                   /* week day */
+                          1 + 10 +              /* space and date */
+                          style == TIMESTAMP_DATE ? 0 :
+                          (1 + 8 +              /* space and time */
+                           (us ? 1 + 6 : 0) +   /* "." and microsecond part */
+                           1 + (utc ? 3 : 1)) + /* space and shortest possible zone */
+                          1))
+                return NULL; /* Not enough space even for the shortest form. */
 
         /* Let's not format times with years > 9999 */
         if (t > USEC_TIMESTAMP_FORMATTABLE_MAX) {
-                assert(l >= STRLEN("--- XXXX-XX-XX XX:XX:XX") + 1);
-                strcpy(buf, "--- XXXX-XX-XX XX:XX:XX");
-                return buf;
+                static const char* const xxx[_TIMESTAMP_STYLE_MAX] = {
+                        [TIMESTAMP_PRETTY] = "--- XXXX-XX-XX XX:XX:XX",
+                        [TIMESTAMP_US]     = "--- XXXX-XX-XX XX:XX:XX.XXXXXX",
+                        [TIMESTAMP_UTC]    = "--- XXXX-XX-XX XX:XX:XX UTC",
+                        [TIMESTAMP_US_UTC] = "--- XXXX-XX-XX XX:XX:XX.XXXXXX UTC",
+                        [TIMESTAMP_DATE]   = "--- XXXX-XX-XX",
+                };
+
+                assert(l >= strlen(xxx[style]) + 1);
+                return strcpy(buf, xxx[style]);
         }
 
         sec = (time_t) (t / USEC_PER_SEC); /* Round down */
@@ -366,6 +360,14 @@ char *format_timestamp_style(
         /* Start with the week day */
         assert((size_t) tm.tm_wday < ELEMENTSOF(weekdays));
         memcpy(buf, weekdays[tm.tm_wday], 4);
+
+        if (style == TIMESTAMP_DATE) {
+                /* Special format string if only date should be shown. */
+                if (strftime(buf + 3, l - 3, " %Y-%m-%d", &tm) <= 0)
+                        return NULL; /* Doesn't fit */
+
+                return buf;
+        }
 
         /* Add the main components */
         if (strftime(buf + 3, l - 3, " %Y-%m-%d %H:%M:%S", &tm) <= 0)

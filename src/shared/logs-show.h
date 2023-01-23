@@ -18,7 +18,7 @@ int show_journal_entry(
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
-                char **output_fields,
+                Set *output_fields,
                 const size_t highlight[2],
                 bool *ellipsized,
                 dual_timestamp *previous_ts,

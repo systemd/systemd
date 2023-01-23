@@ -9,6 +9,8 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "log.h"
+#include "missing_syscall.h"
+#include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -44,6 +46,7 @@ TEST(login) {
                 *type = NULL, *class = NULL, *state = NULL, *state2 = NULL,
                 *seat = NULL, *session = NULL,
                 *unit = NULL, *user_unit = NULL, *slice = NULL;
+        _cleanup_close_ int pidfd = -EBADF;
         int r;
         uid_t u, u2 = UID_INVALID;
         char *t, **seats = NULL, **sessions = NULL;
@@ -70,6 +73,35 @@ TEST(login) {
         r = sd_pid_get_cgroup(0, &cgroup);
         log_info("sd_pid_get_cgroup(0, …) → %s / \"%s\"", e(r), strnull(cgroup));
         assert_se(IN_SET(r, 0, -ENOMEDIUM));
+
+        pidfd = pidfd_open(getpid_cached(), 0);
+        if (pidfd >= 0) {
+                _cleanup_free_ char *cgroup2 = NULL, *session2 = NULL,
+                        *unit2 = NULL, *user_unit2 = NULL, *slice2 = NULL;
+
+                r = sd_pidfd_get_unit(pidfd, &unit2);
+                log_info("sd_pidfd_get_unit(pidfd, …) → %s / \"%s\"", e(r), strnull(unit2));
+                assert_se(IN_SET(r, 0, -ENODATA));
+
+                r = sd_pidfd_get_user_unit(pidfd, &user_unit2);
+                log_info("sd_pidfd_get_user_unit(pidfd, …) → %s / \"%s\"", e(r), strnull(user_unit2));
+                assert_se(IN_SET(r, 0, -ENODATA));
+
+                r = sd_pidfd_get_slice(pidfd, &slice2);
+                log_info("sd_pidfd_get_slice(pidfd, …) → %s / \"%s\"", e(r), strnull(slice2));
+                assert_se(IN_SET(r, 0, -ENODATA));
+
+                r = sd_pidfd_get_owner_uid(pidfd, &u2);
+                log_info("sd_pidfd_get_owner_uid(pidfd, …) → %s / "UID_FMT, e(r), u2);
+                assert_se(IN_SET(r, 0, -ENODATA));
+
+                r = sd_pidfd_get_session(pidfd, &session2);
+                log_info("sd_pidfd_get_session(pidfd, …) → %s / \"%s\"", e(r), strnull(session2));
+
+                r = sd_pidfd_get_cgroup(pidfd, &cgroup2);
+                log_info("sd_pidfd_get_cgroup(pidfd, …) → %s / \"%s\"", e(r), strnull(cgroup2));
+                assert_se(IN_SET(r, 0, -ENOMEDIUM));
+        }
 
         r = sd_uid_get_display(u2, &display_session);
         log_info("sd_uid_get_display("UID_FMT", …) → %s / \"%s\"", u2, e(r), strnull(display_session));

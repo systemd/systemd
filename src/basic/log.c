@@ -17,6 +17,7 @@
 
 #include "alloc-util.h"
 #include "argv-util.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -33,12 +34,14 @@
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
 #include "time-util.h"
 #include "utf8.h"
 
 #define SNDBUF_SIZE (8*1024*1024)
+#define IOVEC_MAX 128U
 
 static log_syntax_callback_t log_syntax_callback = NULL;
 static void *log_syntax_callback_userdata = NULL;
@@ -67,6 +70,17 @@ static bool prohibit_ipc = false;
 /* Akin to glibc's __abort_msg; which is private and we hence cannot
  * use here. */
 static char *log_abort_msg = NULL;
+
+typedef struct LogContext {
+        /* Depending on which destructor is used (log_context_free() or log_context_detach()) the memory
+         * referenced by this is freed or not */
+        char **fields;
+        bool owned;
+        LIST_FIELDS(struct LogContext, ll);
+} LogContext;
+
+static thread_local LIST_HEAD(LogContext, _log_context) = NULL;
+static thread_local size_t _log_context_num_fields = 0;
 
 #if LOG_MESSAGE_VERIFICATION || defined(__COVERITY__)
 bool _log_message_dummy = false; /* Always false */
@@ -589,6 +603,20 @@ static int log_do_header(
         return 0;
 }
 
+static void log_do_context(struct iovec *iovec, size_t iovec_len, size_t *n) {
+        assert(iovec);
+        assert(n);
+
+        LIST_FOREACH(ll, c, _log_context)
+                STRV_FOREACH(s, c->fields) {
+                        if (*n + 2 >= iovec_len)
+                                return;
+
+                        iovec[(*n)++] = IOVEC_MAKE_STRING(*s);
+                        iovec[(*n)++] = IOVEC_MAKE_STRING("\n");
+                }
+}
+
 static int write_to_journal(
                 int level,
                 int error,
@@ -602,21 +630,27 @@ static int write_to_journal(
                 const char *buffer) {
 
         char header[LINE_MAX];
+        size_t n = 0, iovec_len;
+        struct iovec *iovec;
 
         if (journal_fd < 0)
                 return 0;
 
+        iovec_len = MIN(4 + _log_context_num_fields * 2, IOVEC_MAX);
+        iovec = newa(struct iovec, iovec_len);
+
         log_do_header(header, sizeof(header), level, error, file, line, func, object_field, object, extra_field, extra);
 
-        struct iovec iovec[4] = {
-                IOVEC_MAKE_STRING(header),
-                IOVEC_MAKE_STRING("MESSAGE="),
-                IOVEC_MAKE_STRING(buffer),
-                IOVEC_MAKE_STRING("\n"),
-        };
+        iovec[n++] = IOVEC_MAKE_STRING(header);
+        iovec[n++] = IOVEC_MAKE_STRING("MESSAGE=");
+        iovec[n++] = IOVEC_MAKE_STRING(buffer);
+        iovec[n++] = IOVEC_MAKE_STRING("\n");
+
+        log_do_context(iovec, iovec_len, &n);
+
         const struct msghdr msghdr = {
                 .msg_iov = iovec,
-                .msg_iovlen = ELEMENTSOF(iovec),
+                .msg_iovlen = n,
         };
 
         if (sendmsg(journal_fd, &msghdr, MSG_NOSIGNAL) < 0)
@@ -948,10 +982,13 @@ int log_struct_internal(
 
                 if (journal_fd >= 0) {
                         char header[LINE_MAX];
-                        struct iovec iovec[17];
-                        size_t n = 0;
+                        struct iovec *iovec;
+                        size_t n = 0, m, iovec_len;
                         int r;
                         bool fallback = false;
+
+                        iovec_len = MIN(17 + _log_context_num_fields * 2, IOVEC_MAX);
+                        iovec = newa(struct iovec, iovec_len);
 
                         /* If the journal is available do structured logging.
                          * Do not report the errno if it is synthetic. */
@@ -959,10 +996,13 @@ int log_struct_internal(
                         iovec[n++] = IOVEC_MAKE_STRING(header);
 
                         va_start(ap, format);
-                        r = log_format_iovec(iovec, ELEMENTSOF(iovec), &n, true, error, format, ap);
+                        r = log_format_iovec(iovec, iovec_len, &n, true, error, format, ap);
+                        m = n;
                         if (r < 0)
                                 fallback = true;
                         else {
+                                log_do_context(iovec, iovec_len, &n);
+
                                 const struct msghdr msghdr = {
                                         .msg_iov = iovec,
                                         .msg_iovlen = n,
@@ -972,7 +1012,7 @@ int log_struct_internal(
                         }
 
                         va_end(ap);
-                        for (size_t i = 1; i < n; i += 2)
+                        for (size_t i = 1; i < m; i += 2)
                                 free(iovec[i].iov_base);
 
                         if (!fallback) {
@@ -1041,18 +1081,25 @@ int log_struct_iovec_internal(
             journal_fd >= 0) {
 
                 char header[LINE_MAX];
+                struct iovec *iovec;
+                size_t n = 0, iovec_len;
+
+                iovec_len = MIN(1 + n_input_iovec * 2 + _log_context_num_fields * 2, IOVEC_MAX);
+                iovec = newa(struct iovec, iovec_len);
+
                 log_do_header(header, sizeof(header), level, error, file, line, func, NULL, NULL, NULL, NULL);
 
-                struct iovec iovec[1 + n_input_iovec*2];
-                iovec[0] = IOVEC_MAKE_STRING(header);
+                iovec[n++] = IOVEC_MAKE_STRING(header);
                 for (size_t i = 0; i < n_input_iovec; i++) {
-                        iovec[1+i*2] = input_iovec[i];
-                        iovec[1+i*2+1] = IOVEC_MAKE_STRING("\n");
+                        iovec[n++] = input_iovec[i];
+                        iovec[n++] = IOVEC_MAKE_STRING("\n");
                 }
+
+                log_do_context(iovec, iovec_len, &n);
 
                 const struct msghdr msghdr = {
                         .msg_iov = iovec,
-                        .msg_iovlen = 1 + n_input_iovec*2,
+                        .msg_iovlen = n,
                 };
 
                 if (sendmsg(journal_fd, &msghdr, MSG_NOSIGNAL) >= 0)
@@ -1476,4 +1523,89 @@ void log_setup(void) {
         (void) log_open();
         if (log_on_console() && show_color < 0)
                 log_show_color(true);
+}
+
+static int saved_log_context_enabled = -1;
+
+bool log_context_enabled(void) {
+        int r;
+
+        if (log_get_max_level() == LOG_DEBUG)
+                return true;
+
+        if (saved_log_context_enabled >= 0)
+                return saved_log_context_enabled;
+
+        r = getenv_bool_secure("SYSTEMD_ENABLE_LOG_CONTEXT");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_ENABLE_LOG_CONTEXT, ignoring: %m");
+
+        saved_log_context_enabled = r > 0;
+
+        return saved_log_context_enabled;
+}
+
+LogContext* log_context_attach(LogContext *c) {
+        assert(c);
+
+        _log_context_num_fields += strv_length(c->fields);
+
+        return LIST_PREPEND(ll, _log_context, c);
+}
+
+LogContext* log_context_detach(LogContext *c) {
+        if (!c)
+                return NULL;
+
+        assert(_log_context_num_fields >= strv_length(c->fields));
+        _log_context_num_fields -= strv_length(c->fields);
+
+        LIST_REMOVE(ll, _log_context, c);
+        return NULL;
+}
+
+LogContext* log_context_new(char **fields, bool owned) {
+        LogContext *c = new(LogContext, 1);
+        if (!c)
+                return NULL;
+
+        *c = (LogContext) {
+                .fields = fields,
+                .owned = owned,
+        };
+
+        return log_context_attach(c);
+}
+
+LogContext* log_context_free(LogContext *c) {
+        if (!c)
+                return NULL;
+
+        log_context_detach(c);
+
+        if (c->owned)
+                strv_free(c->fields);
+
+        return mfree(c);
+}
+
+LogContext* log_context_new_consume(char **fields) {
+        LogContext *c = log_context_new(fields, /*owned=*/ true);
+        if (!c)
+                strv_free(fields);
+
+        return c;
+}
+
+size_t log_context_num_contexts(void) {
+        size_t n = 0;
+
+        LIST_FOREACH(ll, c, _log_context)
+                n++;
+
+        return n;
+}
+
+size_t log_context_num_fields(void) {
+        return _log_context_num_fields;
 }

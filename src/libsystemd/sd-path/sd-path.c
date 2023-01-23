@@ -380,6 +380,14 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
         case SD_PATH_CATALOG:
                 *ret = "/usr/lib/systemd/catalog";
                 return 0;
+
+        case SD_PATH_SYSTEMD_SYSTEM_ENVIRONMENT_GENERATOR:
+                *ret = SYSTEM_ENV_GENERATOR_DIR;
+                return 0;
+
+        case SD_PATH_SYSTEMD_USER_ENVIRONMENT_GENERATOR:
+                *ret = USER_ENV_GENERATOR_DIR;
+                return 0;
         }
 
         return -EOPNOTSUPP;
@@ -619,6 +627,18 @@ static int get_search(uint64_t type, char ***list) {
                                                     LOOKUP_SCOPE_SYSTEM : LOOKUP_SCOPE_USER;
 
                 t = generator_binary_paths(scope);
+                if (!t)
+                        return -ENOMEM;
+
+                *list = t;
+                return 0;
+        }
+
+        case SD_PATH_SYSTEMD_SEARCH_SYSTEM_ENVIRONMENT_GENERATOR:
+        case SD_PATH_SYSTEMD_SEARCH_USER_ENVIRONMENT_GENERATOR: {
+                char **t;
+
+                t = env_generator_binary_paths(type == SD_PATH_SYSTEMD_SEARCH_SYSTEM_ENVIRONMENT_GENERATOR);
                 if (!t)
                         return -ENOMEM;
 
