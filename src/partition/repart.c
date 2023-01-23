@@ -3745,7 +3745,6 @@ static int context_copy_blocks(Context *context) {
 }
 
 static int do_copy_files(Partition *p, const char *root, const Set *denylist) {
-
         int r;
 
         assert(p);
@@ -3794,14 +3793,14 @@ static int do_copy_files(Partition *p, const char *root, const Set *denylist) {
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 pfd, fn,
-                                                getuid(), getgid(),
+                                                UID_INVALID, GID_INVALID,
                                                 COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS|COPY_GRACEFUL_WARN,
                                                 denylist);
                         } else
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 tfd, ".",
-                                                getuid(), getgid(),
+                                                UID_INVALID, GID_INVALID,
                                                 COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS|COPY_GRACEFUL_WARN,
                                                 denylist);
                         if (r < 0)
@@ -3856,7 +3855,7 @@ static int do_make_directories(Partition *p, const char *root) {
 
         STRV_FOREACH(d, p->make_directories) {
 
-                r = mkdir_p_root(root, *d, getuid(), getgid(), 0755);
+                r = mkdir_p_root(root, *d, UID_INVALID, GID_INVALID, 0755);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create directory '%s' in file system: %m", *d);
         }
