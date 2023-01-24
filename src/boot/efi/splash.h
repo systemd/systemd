@@ -2,5 +2,6 @@
 #pragma once
 
 #include <efi.h>
+#include <stddef.h>
 
-EFI_STATUS graphics_splash(const uint8_t *content, UINTN len);
+EFI_STATUS graphics_splash(const uint8_t *content, size_t len);

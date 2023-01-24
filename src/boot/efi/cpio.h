@@ -15,7 +15,7 @@ EFI_STATUS pack_cpio(
                 uint32_t tpm_pcr,
                 const char16_t *tpm_description,
                 void **ret_buffer,
-                UINTN *ret_buffer_size,
+                size_t *ret_buffer_size,
                 bool *ret_measured);
 
 EFI_STATUS pack_cpio_literal(
@@ -28,5 +28,5 @@ EFI_STATUS pack_cpio_literal(
                 uint32_t tpm_pcr,
                 const char16_t *tpm_description,
                 void **ret_buffer,
-                UINTN *ret_buffer_size,
+                size_t *ret_buffer_size,
                 bool *ret_measured);
