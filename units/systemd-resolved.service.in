@@ -50,8 +50,8 @@ SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
 Type=notify
 User=systemd-resolve
-LoadCredential=network.dns
-LoadCredential=network.search_domains
+ImportCredential=network.dns
+ImportCredential=network.search_domains
 {{SERVICE_WATCHDOG}}
 
 [Install]
