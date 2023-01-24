@@ -25,11 +25,16 @@ static int pe_sections(FILE *uki, struct PeSectionHeader **ret, size_t *ret_n) {
         uint64_t soff, items;
         int rc;
 
+        items = fread(&dos, 1, sizeof(dos.Magic), uki);
+        if (items != sizeof(dos.Magic))
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "DOS magic read error");
+        if (memcmp(dos.Magic, dos_file_magic, sizeof(dos_file_magic)) != 0)
+                goto no_sections;
+
+        rewind(uki);
         items = fread(&dos, 1, sizeof(dos), uki);
         if (items != sizeof(dos))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "DOS header read error");
-        if (memcmp(dos.Magic, dos_file_magic, sizeof(dos_file_magic)) != 0)
-                goto no_sections;
 
         rc = fseek(uki, le32toh(dos.ExeHeader), SEEK_SET);
         if (rc < 0)
