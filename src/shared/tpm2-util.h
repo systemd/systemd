@@ -67,7 +67,18 @@ Tpm2Context *tpm2_context_unref(Tpm2Context *context);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Tpm2Context*, tpm2_context_unref);
 #define _cleanup_tpm2_context_ _cleanup_(tpm2_context_unrefp)
 
-ESYS_TR tpm2_flush_context_verbose(Tpm2Context *c, ESYS_TR handle);
+typedef struct {
+        Tpm2Context *tpm2_context;
+        ESYS_TR esys_handle;
+} Tpm2Handle;
+
+#define _tpm2_handle(c, h) { .tpm2_context = (c), .esys_handle = (h), }
+static const Tpm2Handle TPM2_HANDLE_NONE = _tpm2_handle(NULL, ESYS_TR_NONE);
+
+int tpm2_handle_new(Tpm2Context *context, Tpm2Handle **ret_handle);
+Tpm2Handle *tpm2_handle_free(Tpm2Handle *handle);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Tpm2Handle*, tpm2_handle_free);
+#define _cleanup_tpm2_handle_ _cleanup_(tpm2_handle_freep)
 
 void tpm2_pcr_mask_to_selection(uint32_t mask, uint16_t bank, TPML_PCR_SELECTION *ret);
 
@@ -83,6 +94,7 @@ int tpm2_extend_bytes(Tpm2Context *c, char **banks, unsigned pcr_index, const vo
 
 #else /* HAVE_TPM2 */
 typedef struct {} Tpm2Context;
+typedef struct {} Tpm2Handle;
 #endif /* HAVE_TPM2 */
 
 int tpm2_list_devices(void);
