@@ -5,13 +5,7 @@
 
 #include "missing_keyctl.h"
 
-/* TAKE_FD but for key_serial_t instead of fds */
-#define TAKE_KEY_SERIAL(key_serial)                             \
-        ({                                                      \
-                key_serial_t *_key_serialp_ = &(key_serial);    \
-                key_serial_t _key_serial_ = *_key_serialp_;     \
-                *_key_serialp_ = -1;                            \
-                _key_serial_;                                   \
-        })
+/* Like TAKE_PTR() but for key_serial_t, resetting them to -1 */
+#define TAKE_KEY_SERIAL(key_serial) TAKE_GENERIC(key_serial, key_serial_t, -1)
 
 int keyring_read(key_serial_t serial, void **ret, size_t *ret_size);
