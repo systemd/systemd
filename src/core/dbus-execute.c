@@ -1156,6 +1156,30 @@ static int bus_property_get_exec_dir_symlink(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_image_policy(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ImagePolicy **pp = ASSERT_PTR(userdata);
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert(bus);
+        assert(property);
+        assert(reply);
+
+        r = image_policy_to_string(*pp ?: &image_policy_service, /* simplify= */ true, &s);
+        if (r < 0)
+                return r;
+
+        return sd_bus_message_append(reply, "s", s);
+}
+
 const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Environment", "as", NULL, offsetof(ExecContext, environment), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1324,6 +1348,9 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("ProtectHostname", "b", bus_property_get_bool, offsetof(ExecContext, protect_hostname), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NetworkNamespacePath", "s", NULL, offsetof(ExecContext, network_namespace_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IPCNamespacePath", "s", NULL, offsetof(ExecContext, ipc_namespace_path), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RootImagePolicy", "s", property_get_image_policy, offsetof(ExecContext, root_image_policy), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("MountImagePolicy", "s", property_get_image_policy, offsetof(ExecContext, mount_image_policy), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ExtensionImagePolicy", "s", property_get_image_policy, offsetof(ExecContext, extension_image_policy), SD_BUS_VTABLE_PROPERTY_CONST),
 
         /* Obsolete/redundant properties: */
         SD_BUS_PROPERTY("Capabilities", "s", property_get_empty_string, 0, SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
@@ -3900,6 +3927,40 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
+        } else if (STR_IN_SET(name, "RootImagePolicy", "MountImagePolicy", "ExtensionImagePolicy")) {
+                _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
+                const char *s;
+
+                r = sd_bus_message_read(message, "s", &s);
+                if (r < 0)
+                        return r;
+
+                r = image_policy_from_string(s, &p);
+                if (r < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Failed to parse image policy string: %s", s);
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        _cleanup_free_ char *t = NULL;
+                        ImagePolicy **pp =
+                                streq(name, "RootImagePolicy")  ? &c->root_image_policy :
+                                streq(name, "MountImagePolicy") ? &c->mount_image_policy :
+                                                                  &c->extension_image_policy;
+
+                        r = image_policy_to_string(p, /* simplify= */ true, &t);
+                        if (r < 0)
+                                return r;
+
+                        image_policy_free(*pp);
+                        *pp = TAKE_PTR(p);
+
+                        unit_write_settingf(
+                                        u, flags, name,
+                                        "%s=%s",
+                                        name,
+                                        t); /* no escaping necessary */
+                }
+
+                return 1;
         }
 
         return 0;
