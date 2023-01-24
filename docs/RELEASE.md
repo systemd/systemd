@@ -14,7 +14,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 5. Update syscall numbers (`ninja -C build update-syscall-tables update-syscall-header`).
 6. [RC1] Update version and library numbers in `meson.build`
 7. Check dbus docs with `ninja -C build update-dbus-docs`
-8. Update translation strings (`cd build`, `meson compile systemd-pot`, `meson compile systemd-update-po`) - drop the header comments from `systemd.pot` + re-add SPDX before committing.
+8. Update translation strings (`cd build`, `meson compile systemd-pot`, `meson compile systemd-update-po`) - drop the header comments from `systemd.pot` + re-add SPDX before committing. If the only change in a file is the 'POT-Creation-Date' field, then ignore that file.
 9. Tag the release: `version=vXXX-rcY && git tag -s "${version}" -m "systemd ${version}"`
 10. Do `ninja -C build`
 11. Make sure that the version string and package string match: `build/systemctl --version`
