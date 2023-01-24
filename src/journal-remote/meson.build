@@ -1,23 +1,18 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 systemd_journal_upload_sources = files(
-        'journal-upload.h',
-        'journal-upload.c',
         'journal-upload-journal.c',
+        'journal-upload.c',
 )
 
 libsystemd_journal_remote_sources = files(
-        'journal-remote-parse.h',
         'journal-remote-parse.c',
-        'journal-remote-write.h',
         'journal-remote-write.c',
-        'journal-remote.h',
         'journal-remote.c',
 )
 
 if conf.get('HAVE_MICROHTTPD') == 1
         libsystemd_journal_remote_sources += files(
-                'microhttpd-util.h',
                 'microhttpd-util.c',
         )
 endif
@@ -38,7 +33,6 @@ systemd_journal_remote_sources = files('journal-remote-main.c')
 
 systemd_journal_gatewayd_sources = files(
         'journal-gatewayd.c',
-        'microhttpd-util.h',
         'microhttpd-util.c',
 )
 

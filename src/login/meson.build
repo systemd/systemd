@@ -2,7 +2,6 @@
 
 systemd_logind_sources = files(
         'logind.c',
-        'logind.h',
 )
 
 logind_gperf_c = custom_target(
@@ -13,34 +12,20 @@ logind_gperf_c = custom_target(
 
 liblogind_core_sources = files(
         'logind-action.c',
-        'logind-action.h',
         'logind-brightness.c',
-        'logind-brightness.h',
         'logind-button.c',
-        'logind-button.h',
         'logind-core.c',
         'logind-dbus.c',
-        'logind-dbus.h',
         'logind-device.c',
-        'logind-device.h',
         'logind-inhibit.c',
-        'logind-inhibit.h',
         'logind-polkit.c',
-        'logind-polkit.h',
         'logind-seat-dbus.c',
-        'logind-seat-dbus.h',
         'logind-seat.c',
-        'logind-seat.h',
         'logind-session-dbus.c',
-        'logind-session-dbus.h',
         'logind-session-device.c',
-        'logind-session-device.h',
         'logind-session.c',
-        'logind-session.h',
         'logind-user-dbus.c',
-        'logind-user-dbus.h',
         'logind-user.c',
-        'logind-user.h',
         'logind-utmp.c',
 )
 
@@ -55,7 +40,6 @@ liblogind_core = static_library(
 
 loginctl_sources = files(
         'loginctl.c',
-        'sysfs-show.h',
         'sysfs-show.c',
 )
 
