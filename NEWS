@@ -207,6 +207,37 @@ CHANGES WITH 253 in spe:
           https://uapi-group.org/specifications/: the Boot Loader Specification
           and the Discoverable Partitions Specification.
 
+        Contributions from: 김인수, 13r0ck, Aidan Dang, Alberto Planas,
+        Alvin Šipraga, Andika Triwidada, AndyChi, angus-p, Anita Zhang,
+        Antonio Alvarez Feijoo, asavah, Benjamin Fogle, Benjamin Tissoires,
+        berenddeschouwer, BerndAdameit, Bernd Steinhauser, blutch112,
+        Callum Farmer, Carlo Teubner, Charles Hardin, chris,
+        Christian Brauner, Christian Göttsche, Cristian Rodríguez,
+        Daan De Meyer, Dan Streetman, DaPigGuy, David Tardon,
+        dependabot[bot], Dirk Su, Dmitry V. Levin, drosdeck,
+        Edson Juliano Drosdeck, edupont, Eric DeVolder, Erik Moqvist,
+        Evgeny Vereshchagin, Felix Riemann, Franck Bui, Frantisek Sumsal,
+        Gerd Hoffmann, Gio, Hannoskaj, Hans de Goede, Hugo Carvalho,
+        igo95862, Ivan Shapovalov, Jacek Migacz, Jade Lovelace,
+        Jan Engelhardt, Jan Janssen, Jan Macku, January,
+        Jason A. Donenfeld, jcg, Jelle van der Waa, Jeremy Linton,
+        Jian Zhang, Jiayi Chen, Jia Zhang, Joerg Behrmann, Jörg Thalheim,
+        Joshua Goins, joshuazivkovic, Joshua Zivkovic, Kai-Chuan Hsieh,
+        Khem Raj, Koba Ko, Lennart Poettering, lichao, Li kunyu,
+        Luca Boccassi, Luca BRUNO, Ludwig Nussel, Łukasz Stelmach,
+        Lycowolf, marcel151, Marcus Schäfer, Marek Vasut, Mark Laws,
+        Michael Biebl, Michał Kotyla, Michal Koutný, Michal Sekletár,
+        Mike Yuan, MkfsSion, msizanoen1, mvzlb, MVZ Ludwigsburg, Neil Moore,
+        Nick Rosbrook, noodlejetski, Pasha Vorobyev, Peter Cai, p-fpv,
+        Phaedrus Leeds, Philipp Jungkamp, Quentin Deslandes, Ray Strode,
+        reuben olinsky, Richard E. van der Luit, Richard Phibel,
+        Ricky Tigg, rogg, Sam James, Samuel Thibault, Siddhesh Poyarekar,
+        Space Meyer, Spindle Security, Steve Ramage, Thomas Haller,
+        Tonći Galić, Torsten Hilbrich, uerdogan, Ulrich Ölmann,
+        Valentin David, Vitaly Kuznetsov, Vito Caputo, Waltibaba,
+        Will Fancher, William Roberts, Youfu Zhang, Yu Watanabe,
+        Zbigniew Jędrzejewski-Szmek, Дамјан Георгиевски,
+        наб
 
 CHANGES WITH 252 🎃:
 
