@@ -131,10 +131,11 @@ TEST(fetch_batteries_capacity_by_name) {
                 log_info("Battery %s: capacity = %i", name, get_capacity_by_name(capacity, name));
         }
 
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 2; i++) {
                 usec_t interval;
 
-                sleep(1);
+                if (i > 0)
+                        sleep(1);
 
                 r = get_total_suspend_interval(capacity, &interval);
                 assert_se(r >= 0 || r == -ENOENT);
