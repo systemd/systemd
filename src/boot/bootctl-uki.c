@@ -24,7 +24,10 @@ static int pe_sections(FILE *uki, struct PeSectionHeader **ret, size_t *ret_n) {
         struct PeHeader pe;
         size_t scount;
         uint64_t soff, items;
-        int rc;
+
+        assert(uki);
+        assert(ret);
+        assert(ret_n);
 
         items = fread(&dos, 1, sizeof(dos), uki);
         if (items != sizeof(dos))
@@ -32,9 +35,9 @@ static int pe_sections(FILE *uki, struct PeSectionHeader **ret, size_t *ret_n) {
         if (memcmp(dos.Magic, dos_file_magic, sizeof(dos_file_magic)) != 0)
                 goto no_sections;
 
-        rc = fseek(uki, le32toh(dos.ExeHeader), SEEK_SET);
-        if (rc < 0)
+        if (fseek(uki, le32toh(dos.ExeHeader), SEEK_SET) < 0)
                 return log_error_errno(errno, "seek to PE header");
+
         items = fread(&pe, 1, sizeof(pe), uki);
         if (items != sizeof(pe))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "PE header read error");
@@ -42,8 +45,7 @@ static int pe_sections(FILE *uki, struct PeSectionHeader **ret, size_t *ret_n) {
                 goto no_sections;
 
         soff = le32toh(dos.ExeHeader) + sizeof(pe) + le16toh(pe.FileHeader.SizeOfOptionalHeader);
-        rc = fseek(uki, soff, SEEK_SET);
-        if (rc < 0)
+        if (fseek(uki, soff, SEEK_SET) < 0)
                 return log_error_errno(errno, "seek to PE section headers");
 
         scount = le16toh(pe.FileHeader.NumberOfSections);
@@ -66,58 +68,72 @@ no_sections:
         return 0;
 }
 
-static int find_pe_section(struct PeSectionHeader *sections, size_t scount,
-                           const uint8_t *name, size_t namelen, size_t *ret) {
-        for (size_t s = 0; s < scount; s++) {
-                if (memcmp_nn(sections[s].Name, sizeof(sections[s].Name),
-                              name, namelen) == 0) {
+static bool find_pe_section(
+                struct PeSectionHeader *sections,
+                size_t scount,
+                const uint8_t *name,
+                size_t namelen,
+                size_t *ret) {
+
+        assert(sections || scount == 0);
+        assert(name || namelen == 0);
+
+        for (size_t s = 0; s < scount; s++)
+                if (memcmp_nn(sections[s].Name, sizeof(sections[s].Name), name, namelen) == 0) {
                         if (ret)
                                 *ret = s;
-                        return 1;
+                        return true;
                 }
-        }
-        return 0;
+
+        return false;
 }
 
 static bool is_uki(struct PeSectionHeader *sections, size_t scount) {
-        return (find_pe_section(sections, scount, name_osrel, sizeof(name_osrel), NULL) &&
+        assert(sections || scount == 0);
+
+        return
+                find_pe_section(sections, scount, name_osrel, sizeof(name_osrel), NULL) &&
                 find_pe_section(sections, scount, name_linux, sizeof(name_linux), NULL) &&
-                find_pe_section(sections, scount, name_initrd, sizeof(name_initrd), NULL));
+                find_pe_section(sections, scount, name_initrd, sizeof(name_initrd), NULL);
 }
 
 int verb_kernel_identify(int argc, char *argv[], void *userdata) {
         _cleanup_fclose_ FILE *uki = NULL;
         _cleanup_free_ struct PeSectionHeader *sections = NULL;
         size_t scount;
-        int rc;
+        int r;
 
         uki = fopen(argv[1], "re");
         if (!uki)
                 return log_error_errno(errno, "Failed to open UKI file '%s': %m", argv[1]);
 
-        rc = pe_sections(uki, &sections, &scount);
-        if (rc < 0)
-                return EXIT_FAILURE;
+        r = pe_sections(uki, &sections, &scount);
+        if (r < 0)
+                return r;
 
-        if (sections) {
-                if (is_uki(sections, scount)) {
-                        puts("uki");
-                        return EXIT_SUCCESS;
-                }
+        if (!sections)
+                puts("unknown");
+        else if (is_uki(sections, scount))
+                puts("uki");
+        else
                 puts("pe");
-                return EXIT_SUCCESS;
-        }
 
-        puts("unknown");
         return EXIT_SUCCESS;
 }
 
-static int read_pe_section(FILE *uki, const struct PeSectionHeader *section,
-                           void **ret, size_t *ret_n) {
+static int read_pe_section(
+                FILE *uki,
+                const struct PeSectionHeader *section,
+                void **ret,
+                size_t *ret_n) {
+
         _cleanup_free_ void *data = NULL;
         uint32_t size, bytes;
         uint64_t soff;
-        int rc;
+
+        assert(uki);
+        assert(section);
+        assert(ret);
 
         soff = le32toh(section->PointerToRawData);
         size = le32toh(section->VirtualSize);
@@ -125,8 +141,7 @@ static int read_pe_section(FILE *uki, const struct PeSectionHeader *section,
         if (size > 16 * 1024)
                 return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "PE section too big");
 
-        rc = fseek(uki, soff, SEEK_SET);
-        if (rc < 0)
+        if (fseek(uki, soff, SEEK_SET) < 0)
                 return log_error_errno(errno, "seek to PE section");
 
         data = malloc(size+1);
@@ -170,6 +185,9 @@ static void inspect_uki(FILE *uki, struct PeSectionHeader *sections, size_t scou
         _cleanup_free_ char *osrel = NULL;
         size_t osrel_size, idx;
 
+        assert(uki);
+        assert(sections || scount == 0);
+
         if (find_pe_section(sections, scount, name_cmdline, sizeof(name_cmdline), &idx))
                 read_pe_section(uki, sections + idx, (void**)&cmdline, NULL);
 
@@ -191,26 +209,23 @@ int verb_kernel_inspect(int argc, char *argv[], void *userdata) {
         _cleanup_fclose_ FILE *uki = NULL;
         _cleanup_free_ struct PeSectionHeader *sections = NULL;
         size_t scount;
-        int rc;
+        int r;
 
         uki = fopen(argv[1], "re");
         if (!uki)
                 return log_error_errno(errno, "Failed to open UKI file '%s': %m", argv[1]);
 
-        rc = pe_sections(uki, &sections, &scount);
-        if (rc < 0)
-                return EXIT_FAILURE;
+        r = pe_sections(uki, &sections, &scount);
+        if (r < 0)
+                return r;
 
-        if (sections) {
-                if (is_uki(sections, scount)) {
-                        puts("Kernel Type: uki");
-                        inspect_uki(uki, sections, scount);
-                        return EXIT_SUCCESS;
-                }
+        if (!sections)
+                puts("Kernel Type: unknown");
+        else if (is_uki(sections, scount)) {
+                puts("Kernel Type: uki");
+                inspect_uki(uki, sections, scount);
+        } else
                 puts("Kernel Type: pe");
-                return EXIT_SUCCESS;
-        }
 
-        puts("Kernel Type: unknown");
         return EXIT_SUCCESS;
 }
