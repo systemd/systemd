@@ -978,6 +978,9 @@ conf.set_quoted('SYSTEMD_DEFAULT_LOCALE', default_locale)
 nspawn_locale = get_option('nspawn-locale')
 conf.set_quoted('SYSTEMD_NSPAWN_LOCALE', nspawn_locale)
 
+default_keymap = get_option('default-keymap')
+conf.set_quoted('SYSTEMD_DEFAULT_KEYMAP', default_keymap)
+
 localegen_path = get_option('localegen-path')
 if localegen_path != ''
         conf.set_quoted('LOCALEGEN_PATH', localegen_path)

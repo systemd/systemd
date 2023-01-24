@@ -249,7 +249,7 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
                                  "XKB_OPTIONS",   &c->x11_from_vc.options);
 }
 
-int x11_read_data(Context *c, sd_bus_message *m) {
+int x11_read_data(Context *c, sd_bus_message *m, bool force_xorg) {
         _cleanup_close_ int fd = -EBADF, fd_ro = -EBADF;
         _cleanup_fclose_ FILE *f = NULL;
         bool in_section = false;
@@ -258,13 +258,15 @@ int x11_read_data(Context *c, sd_bus_message *m) {
 
         assert(c);
 
-        r = vconsole_read_data(c, m);
-        if (r < 0)
-                return r;
+        if (!force_xorg) {
+                r = vconsole_read_data(c, m);
+                if (r < 0)
+                        return r;
 
-        if (!x11_context_isempty(&c->x11_from_vc)) {
-                log_debug("XKB settings loaded from vconsole.conf, not reading xorg.conf.d/00-keyboard.conf.");
-                return 0;
+                if (!x11_context_isempty(&c->x11_from_vc)) {
+                        log_debug("XKB settings loaded from vconsole.conf, not reading xorg.conf.d/00-keyboard.conf.");
+                        return 0;
+                }
         }
 
         /* Do not try to re-read the file within single bus operation. */
