@@ -78,7 +78,8 @@ CHANGES WITH 253 in spe:
 
         * The manager has a new
           org.freedesktop.systemd1.Manager.GetUnitByPIDFD() method to query
-          process ownership via a PIDFD.
+          process ownership via a PIDFD, which is more resilient against PID
+          recycling issues.
 
         * Scope units now support OOMPolicy=. Login session scopes default to
           OOMPolicy=continue, allowing login scopes to survive the OOM killer
@@ -116,6 +117,13 @@ CHANGES WITH 253 in spe:
           includes a call to pam_namespace. This puts children of user@.service
           in the expected namespace. (Many distributions replace their file
           with something custom, so this change has limited effect.)
+
+        * A new environment variable $SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST can
+          can be used to override the mount units burst late limit for parsing
+          '/proc/self/mountinfo', which was introduced in v249. Defaults to 5.
+
+        * Drop-ins for init.scope changing control cgroup resource limits are
+          now applied, while they were previously ignored.
 
         Changes in udev:
 
@@ -412,6 +420,9 @@ CHANGES WITH 253 in spe:
           SD_PATH_SYSTEMD_USER_ENVIRONMENT_GENERATOR,
           SD_PATH_SYSTEMD_SEARCH_SYSTEM_ENVIRONMENT_GENERATOR, and
           SD_PATH_SYSTEMD_SEARCH_USER_ENVIRONMENT_GENERATOR,
+
+        * sd-notify now supports AF_VSOCK, in the "vsock:CID:port" format, for
+          the notify_socket parameter/environment variable/credential.
 
         * Detection of chroot environments now works if /proc/ is not mounted.
           This affects systemd-detect-virt --chroot, but also means that systemd
