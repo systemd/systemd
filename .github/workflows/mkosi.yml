@@ -73,13 +73,11 @@ jobs:
           - distro: opensuse
             release: tumbleweed
           - distro: centos
-            release: 9-stream
-          - distro: centos
-            release: 8-stream
+            release: "9"
 
     steps:
     - uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b
-    - uses: systemd/mkosi@ab2aff830096e681da1950a7d29f277caa89516c
+    - uses: systemd/mkosi@37c0524360ee460174f83081fa14e0dc9bc6ee0d
 
     - name: Configure
       run: |
