@@ -2,7 +2,6 @@
 
 systemd_localed_sources = files(
         'localed-util.c',
-        'localed-util.h',
         'localed.c',
 )
 
@@ -31,6 +30,5 @@ endif
 
 tests += [
         [files('test-localed-util.c',
-               'localed-util.c',
-               'localed-util.h')],
+               'localed-util.c')],
 ]

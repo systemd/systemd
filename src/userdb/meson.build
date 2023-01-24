@@ -4,7 +4,6 @@ systemd_userwork_sources = files('userwork.c')
 
 systemd_userdbd_sources = files(
         'userdbd-manager.c',
-        'userdbd-manager.h',
         'userdbd.c',
 )
 

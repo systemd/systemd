@@ -2,29 +2,17 @@
 
 sources = files(
         'journald-audit.c',
-        'journald-audit.h',
         'journald-client.c',
-        'journald-client.h',
         'journald-console.c',
-        'journald-console.h',
         'journald-context.c',
-        'journald-context.h',
         'journald-kmsg.c',
-        'journald-kmsg.h',
         'journald-native.c',
-        'journald-native.h',
         'journald-rate-limit.c',
-        'journald-rate-limit.h',
         'journald-server.c',
-        'journald-server.h',
         'journald-stream.c',
-        'journald-stream.h',
         'journald-syslog.c',
-        'journald-syslog.h',
         'journald-wall.c',
-        'journald-wall.h',
         'managed-journal-file.c',
-        'managed-journal-file.h',
 )
 
 sources += custom_target(
@@ -44,7 +32,6 @@ journal_includes = [includes, include_directories('.')]
 
 systemd_journald_sources = files(
         'journald.c',
-        'journald-server.h',
 )
 
 systemd_cat_sources = files('cat.c')
