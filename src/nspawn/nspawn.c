@@ -5494,6 +5494,19 @@ static int run(int argc, char *argv[]) {
         * the child. Functions like copy_devnodes() change the umask temporarily. */
         umask(0022);
 
+#if HAVE_SELINUX
+        /* Tell the kernel to create all content for the container with the
+           user specified label */
+        if (arg_selinux_apifs_context)
+                if (setfscreatecon(arg_selinux_apifs_context) < 0)
+                        return log_error_errno(errno, "setfscreatecon(\"%s\") failed: %m", arg_selinux_apifs_context);
+        /* Tell the kernel to create any keyrings for the container with the
+           user specified label */
+        if (arg_selinux_context)
+                if (setkeycreatecon(arg_selinux_context) < 0)
+                        return log_error_errno(errno, "setkeycreatecon(\"%s\") failed: %m", arg_selinux_context);
+#endif
+
         if (arg_directory) {
                 assert(!arg_image);
 
