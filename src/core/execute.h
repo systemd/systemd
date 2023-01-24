@@ -352,6 +352,8 @@ struct ExecContext {
 
         Hashmap *set_credentials; /* output id → ExecSetCredential */
         Hashmap *load_credentials; /* output id → ExecLoadCredential */
+
+        ImagePolicy *root_image_policy, *mount_image_policy, *extension_image_policy;
 };
 
 static inline bool exec_context_restrict_namespaces_set(const ExecContext *c) {
