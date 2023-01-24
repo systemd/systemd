@@ -6,4 +6,5 @@ endif
 
 libc_wrapper_sources += files(
         'stdio.c',
+        'string.c',
 )
