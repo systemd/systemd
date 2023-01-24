@@ -240,7 +240,6 @@ static int get_file_system_word(
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(tpm2_context_destroy) struct tpm2_context c = {};
         _cleanup_free_ char *joined = NULL, *word = NULL;
         unsigned target_pcr_nr;
         size_t length;
@@ -346,11 +345,12 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to load TPM2 libraries: %m");
 
-        r = tpm2_context_init(arg_tpm2_device, &c);
+        _cleanup_(tpm2_context_freep) struct tpm2_context *c = NULL;
+        r = tpm2_context_alloc(arg_tpm2_device, &c);
         if (r < 0)
                 return r;
 
-        r = determine_banks(&c, target_pcr_nr);
+        r = determine_banks(c, target_pcr_nr);
         if (r < 0)
                 return r;
         if (strv_isempty(arg_banks)) /* Still none? */
@@ -362,7 +362,7 @@ static int run(int argc, char *argv[]) {
 
         log_debug("Measuring '%s' into PCR index %u, banks %s.", word, target_pcr_nr, joined);
 
-        r = tpm2_extend_bytes(c.esys_context, arg_banks, target_pcr_nr, word, length, NULL, 0);
+        r = tpm2_extend_bytes(c->esys_context, arg_banks, target_pcr_nr, word, length, NULL, 0);
         if (r < 0)
                 return r;
 

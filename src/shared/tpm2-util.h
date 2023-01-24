@@ -59,8 +59,12 @@ struct tpm2_context {
         ESYS_CONTEXT *esys_context;
 };
 
-int tpm2_context_init(const char *device, struct tpm2_context *ret_context);
-void tpm2_context_destroy(struct tpm2_context *c);
+int tpm2_context_alloc(const char *device, struct tpm2_context **ret_context);
+struct tpm2_context *tpm2_context_free(struct tpm2_context *c);
+static inline void tpm2_context_freep(struct tpm2_context **c) {
+        if (c)
+                *c = tpm2_context_free(*c);
+}
 
 ESYS_TR tpm2_flush_context_verbose(ESYS_CONTEXT *c, ESYS_TR handle);
 
@@ -86,8 +90,10 @@ struct tpm2_context;
 static inline int tpm2_not_supported(void) {
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 not supported on this build.");
 }
-#define tpm2_context_init(...) tpm2_not_supported()
-#define tpm2_context_destroy(...) tpm2_not_supported()
+
+#define tpm2_context_alloc(...) tpm2_not_supported()
+#define tpm2_context_free(...) ({ tpm2_not_supported(); NULL; })
+static inline void tpm2_context_freep(struct tpm2_context **c) { tpm2_not_supported(); }
 
 #define tpm2_extend_bytes(...) tpm2_not_supported()
 
