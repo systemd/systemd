@@ -334,9 +334,9 @@ static int run(int argc, char *argv[]) {
         length = strlen(word);
 
         /* Skip logic if sd-stub is not used, after all PCR 11 might have a very different purpose then. */
-        r = efi_stub_measured();
+        r = efi_stub_measured(LOG_ERR);
         if (r < 0)
-                return log_error_errno(r, "Failed to detect if we are running on a kernel image with TPM measurement enabled: %m");
+                return r;
         if (r == 0) {
                 log_info("Kernel stub did not measure kernel image into PCR %u, skipping userspace measurement, too.", TPM_PCR_INDEX_KERNEL_IMAGE);
                 return EXIT_SUCCESS;
