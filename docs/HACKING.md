@@ -35,13 +35,14 @@ possible, however. In order to simplify testing for cases like this we provide
 a set of `mkosi` build files directly in the source tree.
 [mkosi](https://github.com/systemd/mkosi) is a tool for building clean OS images
 from an upstream distribution in combination with a fresh build of the project
-in the local working directory. To make use of this, please install the
-`mkosi` package (if not packaged for your distro, it can be downloaded from
+in the local working directory. To make use of this, please install `mkosi` from
 the [GitHub repository](https://github.com/systemd/mkosi). `mkosi` will build an
-image for the host distro by default. mkosi-13 or newer version is required.
-It is sufficient to type `mkosi` in the systemd project directory to generate
-a disk image `image.raw` you can boot either in `systemd-nspawn` or
-in an UEFI-capable VM:
+image for the host distro by default. Currently, the latest github commit is
+required. `mkosi` also requires systemd v253 (unreleased) or newer. If systemd v253
+is not available, `mkosi` will automatically use executables from the systemd build
+directory if it's executed from the systemd repository root directory. It is
+sufficient to type `mkosi` in the systemd project directory to generate a disk image
+you can boot either in `systemd-nspawn` or in a UEFI-capable VM:
 
 ```sh
 $ mkosi boot
@@ -92,8 +93,7 @@ for systemd:
 
 ```sh
 # Install build dependencies (see above)
-# Install a recent version of mkosi (either via your distro's package manager if
-# available there or from the github repository otherwise)
+# Install mkosi from the github repository
 $ git clone https://github.com/systemd/systemd.git
 $ cd systemd
 $ git checkout -b <BRANCH>        # where BRANCH is the name of the branch
@@ -101,8 +101,11 @@ $ vim src/core/main.c             # or wherever you'd like to make your changes
 $ meson build                     # configure the build
 $ ninja -C build                  # build it locally, see if everything compiles fine
 $ meson test -C build             # run some simple regression tests
-$ sudo mkosi                      # mkosi-13 or newer required to build a test image
-$ sudo mkosi boot                 # boot up the test image
+$ cd ..
+$ git clone https://github.com/systemd/mkosi.git
+$ cd systemd
+$ sudo ../mkosi/bin/mkosi         # build the test image
+$ sudo ../mkosi/bin/mkosi boot    # boot up the test image
 $ git add -p                      # interactively put together your patch
 $ git commit                      # commit it
 $ git push -u <REMOTE>            # where REMOTE is your "fork" on GitHub
