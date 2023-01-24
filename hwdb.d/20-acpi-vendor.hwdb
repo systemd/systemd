@@ -66,6 +66,9 @@ acpi:BOSC*:
 acpi:BRCM*:
  ID_VENDOR_FROM_DATABASE=Broadcom Corporation
 
+acpi:CIXH*:
+ ID_VENDOR_FROM_DATABASE=Cix Technology (Shanghai) Co., Ltd.
+
 acpi:CMHR*:
  ID_VENDOR_FROM_DATABASE=COMHEAR, INC.
 
@@ -104,6 +107,9 @@ acpi:ELAS*:
 
 acpi:ESSX*:
  ID_VENDOR_FROM_DATABASE=Everest Semiconductor Co., Ltd.
+
+acpi:ETDS*:
+ ID_VENDOR_FROM_DATABASE=EyeTech Digital Systems
 
 acpi:EXAR*:
  ID_VENDOR_FROM_DATABASE=Exar Corporation
@@ -212,6 +218,9 @@ acpi:LTSC*:
 
 acpi:MCHP*:
  ID_VENDOR_FROM_DATABASE=Microchip Technology Inc
+
+acpi:MCRY*:
+ ID_VENDOR_FROM_DATABASE=Micro Crystal AG
 
 acpi:MIPI*:
  ID_VENDOR_FROM_DATABASE=MIPI Alliance
@@ -6263,6 +6272,9 @@ acpi:SGL*:
 
 acpi:SGM*:
  ID_VENDOR_FROM_DATABASE=SAGEM
+
+acpi:SGN*:
+ ID_VENDOR_FROM_DATABASE=Shenzhen Soogeen Electronics Co., LTD.
 
 acpi:SGO*:
  ID_VENDOR_FROM_DATABASE=Logos Design A/S
