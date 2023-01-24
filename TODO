@@ -639,9 +639,6 @@ Features:
      forked-but-not-exec'ed children
   4. Add varlink API to run transient units based on provided JSON definitions
 
-* show SUPPORT_END= data in "hostnamectl" output (and thus also expose a prop
-  for this on dbus)
-
 * Add SUPPORT_END_URL= field to os-release with more *actionable* information
   what to do if support ended
 

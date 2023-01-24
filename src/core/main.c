@@ -1371,7 +1371,7 @@ static int os_release_status(void) {
                 return log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                       "Failed to read os-release file, ignoring: %m");
 
-        const char *label = empty_to_null(pretty_name) ?: empty_to_null(name) ?: "Linux";
+        const char *label = os_release_pretty_name(pretty_name, name);
 
         if (show_status_on(arg_show_status)) {
                 if (log_get_show_color())
@@ -1385,7 +1385,7 @@ static int os_release_status(void) {
                                       label);
         }
 
-        if (support_end && os_release_support_ended(support_end, false) > 0)
+        if (support_end && os_release_support_ended(support_end, /* quiet */ false, NULL) > 0)
                 /* pretty_name may include the version already, so we'll print the version only if we
                  * have it and we're not using pretty_name. */
                 status_printf(ANSI_HIGHLIGHT_RED "  !!  " ANSI_NORMAL, 0,
