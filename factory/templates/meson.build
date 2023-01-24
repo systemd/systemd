@@ -9,3 +9,11 @@ custom_target(
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : true,
         install_dir : factory_etc_dir)
+
+custom_target(
+        'vconsole.conf',
+        input : 'vconsole.conf.in',
+        output : 'vconsole.conf',
+        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
+        install : true,
+        install_dir : factory_etc_dir)
