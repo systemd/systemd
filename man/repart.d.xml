@@ -431,6 +431,10 @@
         in a user namespace with the current user mapped to the root user to make sure the files and
         directories in the image are owned by the root user.</para>
 
+        <para>Note that when populating XFS filesystems with <command>systemd-repart</command> and loop
+        devices are not available, populating XFS filesystems with files containing spaces will fail due to a
+        limitation of mkfs.xfs's protofile format.</para>
+
         <para>This option cannot be combined with <varname>CopyBlocks=</varname>.</para>
 
         <para>When
