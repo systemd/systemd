@@ -726,7 +726,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_(pcr_state_free_all) PcrState *pcr_states = NULL;
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *privkey = NULL, *pubkey = NULL;
-        _cleanup_(tpm2_context_destroy) struct tpm2_context c = {};
+        _cleanup_(tpm2_context_destroy) Tpm2Context c = {};
         _cleanup_fclose_ FILE *privkeyf = NULL;
         ESYS_TR session_handle = ESYS_TR_NONE;
         TSS2_RC rc;
