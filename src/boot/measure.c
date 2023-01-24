@@ -727,7 +727,6 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         _cleanup_(pcr_state_free_all) PcrState *pcr_states = NULL;
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *privkey = NULL, *pubkey = NULL;
         _cleanup_fclose_ FILE *privkeyf = NULL;
-        ESYS_TR session_handle = ESYS_TR_NONE;
         TSS2_RC rc;
         size_t n;
         int r;
@@ -829,6 +828,11 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                         };
                         PcrState *p = pcr_states + i;
 
+                        _cleanup_tpm2_handle_ Tpm2Handle *session = NULL;
+                        r = tpm2_handle_new(c, &session);
+                        if (r < 0)
+                                return r;
+
                         rc = sym_Esys_StartAuthSession(
                                         c->esys_context,
                                         ESYS_TR_NONE,
@@ -840,12 +844,10 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                                         TPM2_SE_TRIAL,
                                         &symmetric,
                                         TPM2_ALG_SHA256,
-                                        &session_handle);
-                        if (rc != TSS2_RC_SUCCESS) {
-                                r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                                    "Failed to open session in TPM: %s", sym_Tss2_RC_Decode(rc));
-                                goto finish;
-                        }
+                                        &session->esys_handle);
+                        if (rc != TSS2_RC_SUCCESS)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                                       "Failed to open session in TPM: %s", sym_Tss2_RC_Decode(rc));
 
                         /* Generate a single hash value from the PCRs included in our policy. Given that that's
                          * exactly one, the calculation is trivial. */
@@ -856,94 +858,72 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                         sha256_direct(p->value, p->value_size, intermediate_digest.buffer);
 
                         int tpmalg = tpm2_pcr_bank_from_string(EVP_MD_name(p->md));
-                        if (tpmalg < 0) {
-                                log_error_errno(tpmalg, "Unsupported PCR bank");
-                                goto finish;
-                        }
+                        if (tpmalg < 0)
+                                return log_error_errno(tpmalg, "Unsupported PCR bank");
 
                         TPML_PCR_SELECTION pcr_selection;
                         tpm2_pcr_mask_to_selection(1 << TPM_PCR_INDEX_KERNEL_IMAGE, tpmalg, &pcr_selection);
 
                         rc = sym_Esys_PolicyPCR(
                                         c->esys_context,
-                                        session_handle,
+                                        session->esys_handle,
                                         ESYS_TR_NONE,
                                         ESYS_TR_NONE,
                                         ESYS_TR_NONE,
                                         &intermediate_digest,
                                         &pcr_selection);
-                        if (rc != TSS2_RC_SUCCESS) {
-                                r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                                    "Failed to push PCR policy into TPM: %s", sym_Tss2_RC_Decode(rc));
-                                goto finish;
-                        }
+                        if (rc != TSS2_RC_SUCCESS)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                                       "Failed to push PCR policy into TPM: %s", sym_Tss2_RC_Decode(rc));
 
                         _cleanup_(Esys_Freep) TPM2B_DIGEST *pcr_policy_digest = NULL;
                         rc = sym_Esys_PolicyGetDigest(
                                         c->esys_context,
-                                        session_handle,
+                                        session->esys_handle,
                                         ESYS_TR_NONE,
                                         ESYS_TR_NONE,
                                         ESYS_TR_NONE,
                                         &pcr_policy_digest);
-                        if (rc != TSS2_RC_SUCCESS) {
-                                r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                                    "Failed to get policy digest from TPM: %s", sym_Tss2_RC_Decode(rc));
-                                goto finish;
-                        }
-
-                        session_handle = tpm2_flush_context_verbose(c, session_handle);
+                        if (rc != TSS2_RC_SUCCESS)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                                       "Failed to get policy digest from TPM: %s", sym_Tss2_RC_Decode(rc));
 
                         _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX* mdctx = NULL;
                         mdctx = EVP_MD_CTX_new();
-                        if (!mdctx) {
-                                r = log_oom();
-                                goto finish;
-                        }
+                        if (!mdctx)
+                                return log_oom();
 
-                        if (EVP_DigestSignInit(mdctx, NULL, p->md, NULL, privkey) != 1) {
-                                r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                                    "Failed to initialize signature context.");
-                                goto finish;
-                        }
+                        if (EVP_DigestSignInit(mdctx, NULL, p->md, NULL, privkey) != 1)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                                       "Failed to initialize signature context.");
 
-                        if (EVP_DigestSignUpdate(mdctx, pcr_policy_digest->buffer, pcr_policy_digest->size) != 1) {
-                                r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                                    "Failed to sign data.");
-                                goto finish;
-                        }
+                        if (EVP_DigestSignUpdate(mdctx, pcr_policy_digest->buffer, pcr_policy_digest->size) != 1)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                                       "Failed to sign data.");
 
                         size_t ss;
-                        if (EVP_DigestSignFinal(mdctx, NULL, &ss) != 1) {
-                                r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                                    "Failed to finalize signature");
-                                goto finish;
-                        }
+                        if (EVP_DigestSignFinal(mdctx, NULL, &ss) != 1)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                                       "Failed to finalize signature");
 
                         _cleanup_free_ void *sig = malloc(ss);
-                        if (!sig) {
-                                r = log_oom();
-                                goto finish;
-                        }
+                        if (!sig)
+                                return log_oom();
 
-                        if (EVP_DigestSignFinal(mdctx, sig, &ss) != 1) {
-                                r = log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                                    "Failed to acquire signature data");
-                                goto finish;
-                        }
+                        if (EVP_DigestSignFinal(mdctx, sig, &ss) != 1)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                                       "Failed to acquire signature data");
 
                         _cleanup_free_ void *pubkey_fp = NULL;
                         size_t pubkey_fp_size = 0;
                         r = pubkey_fingerprint(pubkey, EVP_sha256(), &pubkey_fp, &pubkey_fp_size);
                         if (r < 0)
-                                goto finish;
+                                return r;
 
                         _cleanup_(json_variant_unrefp) JsonVariant *a = NULL;
                         r = tpm2_make_pcr_json_array(UINT64_C(1) << TPM_PCR_INDEX_KERNEL_IMAGE, &a);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to build JSON PCR mask array: %m");
-                                goto finish;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to build JSON PCR mask array: %m");
 
                         _cleanup_(json_variant_unrefp) JsonVariant *bv = NULL;
                         r = json_build(&bv, JSON_BUILD_OBJECT(
@@ -951,25 +931,19 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                                                        JSON_BUILD_PAIR("pkfp", JSON_BUILD_HEX(pubkey_fp, pubkey_fp_size)),                         /* SHA256 fingerprint of public key (DER) used for the signature */
                                                        JSON_BUILD_PAIR("pol", JSON_BUILD_HEX(pcr_policy_digest->buffer, pcr_policy_digest->size)), /* TPM2 policy hash that is signed */
                                                        JSON_BUILD_PAIR("sig", JSON_BUILD_BASE64(sig, ss))));                                       /* signature data */
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to build JSON object: %m");
-                                goto finish;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to build JSON object: %m");
 
                         _cleanup_(json_variant_unrefp) JsonVariant *av = NULL;
                         av = json_variant_ref(json_variant_by_key(v, p->bank));
 
                         r = json_variant_append_array_nodup(&av, bv);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to append JSON object: %m");
-                                goto finish;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to append JSON object: %m");
 
                         r = json_variant_set_field(&v, p->bank, av);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to add JSON field: %m");
-                                goto finish;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add JSON field: %m");
                 }
 
                 /* Return to the original kernel measurement for the next phase calculation */
@@ -980,11 +954,8 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                 pager_open(arg_pager_flags);
 
         json_variant_dump(v, arg_json_format_flags, stdout, NULL);
-        r = 0;
 
-finish:
-        session_handle = tpm2_flush_context_verbose(c, session_handle);
-        return r;
+        return 0;
 }
 
 static int compare_reported_pcr_nr(uint32_t pcr, const char *varname, const char *description) {
