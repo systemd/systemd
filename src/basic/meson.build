@@ -30,6 +30,7 @@ basic_sources = files(
         'env-file.c',
         'env-util.c',
         'errno-list.c',
+        'errno-util.c',
         'escape.c',
         'ether-addr-util.c',
         'extract-word.c',

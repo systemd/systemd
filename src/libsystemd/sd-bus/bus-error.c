@@ -398,7 +398,7 @@ static void bus_error_strerror(sd_bus_error *e, int error) {
                         return;
 
                 errno = 0;
-                x = strerror_r(error, m, k);
+                x = strerror_r_gnu(error, m, k);
                 if (errno == ERANGE || strlen(x) >= k - 1) {
                         free(m);
                         k *= 2;
@@ -584,7 +584,7 @@ const char* _bus_error_message(const sd_bus_error *e, int error, char buf[static
         if (e && e->message)
                 return e->message;
 
-        return strerror_r(ABS(error), buf, ERRNO_BUF_LEN);
+        return strerror_r_gnu(ABS(error), buf, ERRNO_BUF_LEN);
 }
 
 static bool map_ok(const sd_bus_error_map *map) {
