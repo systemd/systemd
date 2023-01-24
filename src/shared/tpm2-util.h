@@ -66,7 +66,25 @@ static inline void tpm2_context_freep(struct tpm2_context **c) {
                 *c = tpm2_context_free(*c);
 }
 
-ESYS_TR tpm2_flush_context_verbose(struct tpm2_context *c, ESYS_TR handle);
+struct tpm2_handle {
+        struct tpm2_context *context;
+        ESYS_TR handle;
+};
+
+#define _tpm2_handle_init(c, h) (struct tpm2_handle) { .context = (c), .handle = (h), }
+#define tpm2_handle_init(c) _tpm2_handle_init(c, ESYS_TR_NONE)
+struct tpm2_handle tpm2_handle_release(struct tpm2_handle h);
+static inline void tpm2_handle_releasep(struct tpm2_handle *h) {
+        if (h)
+                *h = tpm2_handle_release(*h);
+}
+
+#define HANDLE_NONE tpm2_handle_init(NULL)
+#define HANDLE_RH_OWNER _tpm2_handle_init(NULL, ESYS_TR_RH_OWNER)
+#define HANDLE_PASSWORD _tpm2_handle_init(NULL, ESYS_TR_PASSWORD)
+
+/* Like TAKE_PTR() but for struct tpm2_handle, resetting them to HANDLE_NONE */
+#define TAKE_HANDLE(handle) TAKE_GENERIC(handle, struct tpm2_handle, HANDLE_NONE)
 
 void tpm2_pcr_mask_to_selection(uint32_t mask, uint16_t bank, TPML_PCR_SELECTION *ret);
 
@@ -86,6 +104,7 @@ int tpm2_find_device_auto(int log_level, char **ret);
 #else /* HAVE_TPM2 */
 
 struct tpm2_context;
+struct tpm2_handle;
 
 static inline int tpm2_not_supported(void) {
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 not supported on this build.");
@@ -94,6 +113,10 @@ static inline int tpm2_not_supported(void) {
 #define tpm2_context_alloc(...) tpm2_not_supported()
 #define tpm2_context_free(...) ({ tpm2_not_supported(); NULL; })
 static inline void tpm2_context_freep(struct tpm2_context **c) { tpm2_not_supported(); }
+
+#define tpm2_handle_init(...) (struct tpm2_handle) {}
+#define tpm2_handle_release(...) ({ tpm2_not_supported(); NULL; })
+static inline void tpm2_handle_releasep(struct tpm2_handle *h) { tpm2_not_supported(); }
 
 #define tpm2_extend_bytes(...) tpm2_not_supported()
 
