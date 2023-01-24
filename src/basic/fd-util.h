@@ -2,12 +2,16 @@
 #pragma once
 
 #include <dirent.h>
+#include <fcntl.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <sys/socket.h>
+#include <sys/unistd.h>
 
+#include "fs-util.h"
 #include "macro.h"
 #include "stdio-util.h"
+#include "string-util.h"
 
 /* maximum length of fdname */
 #define FDNAME_MAX 255
@@ -126,3 +130,21 @@ static inline char *format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int f
 
 #define FORMAT_PROC_FD_PATH(fd) \
         format_proc_fd_path((char[PROC_FD_PATH_MAX]) {}, (fd))
+
+/* Determining a file descriptor's path via /proc is not reliable. Only use this function to provide better
+ * log messages when doing fd based path handling! */
+static inline const char *FORMAT_FD_PATH(int fd, char **buf) {
+        assert(buf);
+
+        if (fd == AT_FDCWD)
+                return "";
+
+        *buf = mfree(*buf);
+
+        if (readlink_malloc(FORMAT_PROC_FD_PATH(fd), buf) < 0)
+                return "(unknown)";
+
+        /* Avoid double "/" in log messages when working on the host filesystem by translating "/" to the
+         * empty string. */
+        return streq(*buf, "/") ? "" : *buf;
+}
