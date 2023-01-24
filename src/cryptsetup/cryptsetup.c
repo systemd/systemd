@@ -841,7 +841,7 @@ static int measure_volume_key(
         if (r < 0)
                 return log_error_errno(r, "Failed to load TPM2 libraries: %m");
 
-        _cleanup_(tpm2_context_destroy) struct tpm2_context c = {};
+        _cleanup_(tpm2_context_destroy) Tpm2Context c = {};
         r = tpm2_context_init(arg_tpm2_device, &c);
         if (r < 0)
                 return r;
