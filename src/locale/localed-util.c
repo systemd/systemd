@@ -176,18 +176,18 @@ void context_clear(Context *c) {
 static X11Context *context_get_x11_context(Context *c) {
         assert(c);
 
-        if (!x11_context_isempty(&c->x11_from_vc))
-                return &c->x11_from_vc;
-
         if (!x11_context_isempty(&c->x11_from_xorg))
                 return &c->x11_from_xorg;
+
+        if (!x11_context_isempty(&c->x11_from_vc))
+                return &c->x11_from_vc;
 
         return NULL;
 }
 
 X11Context *context_get_x11_context_safe(Context *c) {
         assert(c);
-        return context_get_x11_context(c) ?: &c->x11_from_vc;
+        return context_get_x11_context(c) ?: &c->x11_from_xorg;
 }
 
 int locale_read_data(Context *c, sd_bus_message *m) {
@@ -210,6 +210,13 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
         struct stat st;
 
         assert(c);
+
+        r = vconsole_read_data(c, m);
+        if (r < 0)
+                return r;
+
+        if (!x11_context_isempty(&c->x11_from_vc))
+                log_debug("XKB settings loaded from vconsole.conf.");
 
         /* Do not try to re-read the file within single bus operation. */
         if (m) {
@@ -257,15 +264,6 @@ int x11_read_data(Context *c, sd_bus_message *m) {
         int r;
 
         assert(c);
-
-        r = vconsole_read_data(c, m);
-        if (r < 0)
-                return r;
-
-        if (!x11_context_isempty(&c->x11_from_vc)) {
-                log_debug("XKB settings loaded from vconsole.conf, not reading xorg.conf.d/00-keyboard.conf.");
-                return 0;
-        }
 
         /* Do not try to re-read the file within single bus operation. */
         if (m) {
@@ -358,6 +356,11 @@ int x11_read_data(Context *c, sd_bus_message *m) {
 
         if (!x11_context_isempty(&c->x11_from_xorg))
                 log_debug("XKB settings loaded from xorg.conf.d/00-keyboard.conf.");
+        else {
+                r = x11_context_copy(&c->x11_from_xorg, &c->x11_from_vc);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
