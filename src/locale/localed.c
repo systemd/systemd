@@ -140,7 +140,7 @@ static int property_get_xkb(
 
         assert(property);
 
-        r = x11_read_data(c, reply);
+        r = x11_read_data(c, reply, /* force_xorg = */ false);
         if (r < 0)
                 return r;
 
@@ -369,6 +369,7 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
         Context *c = ASSERT_PTR(userdata);
         const char *keymap, *keymap_toggle;
         int convert, interactive, r;
+        bool vc_modified, x11_modified = false;
 
         assert(m);
 
@@ -395,8 +396,25 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
                         return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Keymap %s is not installed.", name);
         }
 
-        if (streq_ptr(keymap, c->vc_keymap) &&
-            streq_ptr(keymap_toggle, c->vc_keymap_toggle))
+        vc_modified = !streq_ptr(keymap, c->vc_keymap) || !streq_ptr(keymap_toggle, c->vc_keymap_toggle);
+
+        if (convert) {
+                r = x11_read_data(c, m, /* force_xorg = */ true);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to read X11 keyboard layout data: %m");
+                        return sd_bus_error_set_errnof(error, r, "Failed to read X11 keyboard layout data: %m");
+                }
+
+                r = vconsole_convert_to_x11(c);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to convert keymap data: %m");
+                        return sd_bus_error_set_errnof(error, r, "Failed to convert keymap data: %m");
+                }
+
+                x11_modified = r > 0; /* save the result of conversion to emit changed properties later. */
+        }
+
+        if (!vc_modified && !x11_modified) /* We don't need to save anything, thus returning early */
                 return sd_bus_reply_method_return(m, NULL);
 
         r = bus_verify_polkit_async(
@@ -417,28 +435,13 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
             free_and_strdup(&c->vc_keymap_toggle, keymap_toggle) < 0)
                 return -ENOMEM;
 
-        if (convert) {
-                r = x11_read_data(c, m);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to read X11 keyboard layout data: %m");
-                        return sd_bus_error_set_errnof(error, r, "Failed to read X11 keyboard layout data: %m");
-                }
-
-                r = vconsole_convert_to_x11(c);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to convert keymap data: %m");
-                        return sd_bus_error_set_errnof(error, r, "Failed to convert keymap data: %m");
-                }
-
-                /* save the result of conversion to emit changed properties later. */
-                convert = r > 0;
-        }
-
+        /* Always write vconsole data even if vc_modified is false, because
+         * the stored X11 data may need updating. */
         r = vconsole_write_data(c);
         if (r < 0)
                 log_warning_errno(r, "Failed to write virtual console keymap, ignoring: %m");
 
-        if (convert) {
+        if (x11_modified) {
                 r = x11_write_data(c);
                 if (r < 0)
                         log_warning_errno(r, "Failed to write X11 keyboard layout, ignoring: %m");
@@ -454,10 +457,10 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
                         "/org/freedesktop/locale1",
                         "org.freedesktop.locale1",
                         "VConsoleKeymap", "VConsoleKeymapToggle",
-                        convert ? "X11Layout" : NULL,
-                        convert ? "X11Model" : NULL,
-                        convert ? "X11Variant" : NULL,
-                        convert ? "X11Options" : NULL,
+                        x11_modified ? "X11Layout" : NULL,
+                        x11_modified ? "X11Model" : NULL,
+                        x11_modified ? "X11Variant" : NULL,
+                        x11_modified ? "X11Options" : NULL,
                         NULL);
 
         return sd_bus_reply_method_return(m, NULL);
@@ -577,7 +580,7 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
 
         x11_context_empty_to_null(&in);
 
-        r = x11_read_data(c, m);
+        r = x11_read_data(c, m, /* force_xorg = */ false);
         if (r < 0) {
                 log_error_errno(r, "Failed to read x11 keyboard layout data: %m");
                 return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Failed to read x11 keyboard layout data");
