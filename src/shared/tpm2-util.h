@@ -53,11 +53,11 @@ int dlopen_tpm2(void);
 int tpm2_seal(const char *device, uint32_t hash_pcr_mask, const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, const char *pin, void **ret_secret, size_t *ret_secret_size, void **ret_blob, size_t *ret_blob_size, void **ret_pcr_hash, size_t *ret_pcr_hash_size, uint16_t *ret_pcr_bank, uint16_t *ret_primary_alg);
 int tpm2_unseal(const char *device, uint32_t hash_pcr_mask, uint16_t pcr_bank, const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, JsonVariant *signature, const char *pin, uint16_t primary_alg, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, void **ret_secret, size_t *ret_secret_size);
 
-struct tpm2_context {
+typedef struct {
         void *tcti_dl;
         TSS2_TCTI_CONTEXT *tcti_context;
         ESYS_CONTEXT *esys_context;
-};
+} Tpm2Context;
 
 ESYS_TR tpm2_flush_context_verbose(ESYS_CONTEXT *c, ESYS_TR handle);
 
@@ -73,12 +73,12 @@ int tpm2_get_good_pcr_banks_strv(ESYS_CONTEXT *c, uint32_t pcr_mask, char ***ret
 
 int tpm2_extend_bytes(ESYS_CONTEXT *c, char **banks, unsigned pcr_index, const void *data, size_t data_size, const void *secret, size_t secret_size);
 
-#else
-struct tpm2_context;
-#endif
+#else /* HAVE_TPM2 */
+typedef struct {} Tpm2Context;
+#endif /* HAVE_TPM2 */
 
-int tpm2_context_init(const char *device, struct tpm2_context *ret);
-void tpm2_context_destroy(struct tpm2_context *c);
+int tpm2_context_init(const char *device, Tpm2Context *ret);
+void tpm2_context_destroy(Tpm2Context *c);
 
 int tpm2_list_devices(void);
 int tpm2_find_device_auto(int log_level, char **ret);

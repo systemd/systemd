@@ -104,7 +104,7 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Tss2_MU_TPM2B_PUBLIC_Unmarshal));
 }
 
-void tpm2_context_destroy(struct tpm2_context *c) {
+void tpm2_context_destroy(Tpm2Context *c) {
         assert(c);
 
         if (c->esys_context)
@@ -138,7 +138,7 @@ ESYS_TR tpm2_flush_context_verbose(ESYS_CONTEXT *c, ESYS_TR handle) {
         return ESYS_TR_NONE;
 }
 
-int tpm2_context_init(const char *device, struct tpm2_context *ret) {
+int tpm2_context_init(const char *device, Tpm2Context *ret) {
         _cleanup_(Esys_Finalize_wrapper) ESYS_CONTEXT *c = NULL;
         _cleanup_free_ TSS2_TCTI_CONTEXT *tcti = NULL;
         _cleanup_(dlclosep) void *dl = NULL;
@@ -238,7 +238,7 @@ int tpm2_context_init(const char *device, struct tpm2_context *ret) {
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to start up TPM: %s", sym_Tss2_RC_Decode(rc));
 
-        *ret = (struct tpm2_context) {
+        *ret = (Tpm2Context) {
                 .esys_context = TAKE_PTR(c),
                 .tcti_context = TAKE_PTR(tcti),
                 .tcti_dl = TAKE_PTR(dl),
@@ -1403,7 +1403,7 @@ int tpm2_seal(const char *device,
               uint16_t *ret_pcr_bank,
               uint16_t *ret_primary_alg) {
 
-        _cleanup_(tpm2_context_destroy) struct tpm2_context c = {};
+        _cleanup_(tpm2_context_destroy) Tpm2Context c = {};
         _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
         _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
         _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
@@ -1624,7 +1624,7 @@ int tpm2_unseal(const char *device,
                 void **ret_secret,
                 size_t *ret_secret_size) {
 
-        _cleanup_(tpm2_context_destroy) struct tpm2_context c = {};
+        _cleanup_(tpm2_context_destroy) Tpm2Context c = {};
         ESYS_TR primary = ESYS_TR_NONE, session = ESYS_TR_NONE, hmac_session = ESYS_TR_NONE,
                 hmac_key = ESYS_TR_NONE;
         _cleanup_(Esys_Freep) TPM2B_SENSITIVE_DATA* unsealed = NULL;

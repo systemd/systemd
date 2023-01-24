@@ -155,7 +155,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int determine_banks(struct tpm2_context *c, unsigned target_pcr_nr) {
+static int determine_banks(Tpm2Context *c, unsigned target_pcr_nr) {
         _cleanup_strv_free_ char **l = NULL;
         int r;
 
@@ -240,7 +240,7 @@ static int get_file_system_word(
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(tpm2_context_destroy) struct tpm2_context c = {};
+        _cleanup_(tpm2_context_destroy) Tpm2Context c = {};
         _cleanup_free_ char *joined = NULL, *word = NULL;
         unsigned target_pcr_nr;
         size_t length;
