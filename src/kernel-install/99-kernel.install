@@ -1,0 +1,95 @@
+#!/bin/sh
+# -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
+# ex: ts=8 sw=4 sts=4 et filetype=sh
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# This file is part of systemd.
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
+
+set -e
+
+COMMAND="${1:?}"
+#KERNEL_VERSION="${2:?}"
+ENTRY_DIR_ABS="${3:?}"
+#KERNEL_IMAGE="$4"
+INITRD_OPTIONS_SHIFT=4
+
+[ "$COMMAND" = "add" ] || exit 0
+shift "$INITRD_OPTIONS_SHIFT"
+
+[ "$KERNEL_INSTALL_LAYOUT" = "bls" ] || exit 0
+
+BOOT_ROOT="$KERNEL_INSTALL_BOOT_ROOT"
+LOADER_ENTRY_DIR="$BOOT_ROOT/loader/entries/"
+STAGING_KERNEL="$KERNEL_INSTALL_STAGING_AREA/linux"
+
+mkdir -p "${LOADER_ENTRY_DIR}" || {
+    echo "Error: could not create loader entry directory '$LOADER_ENTRY_DIR'." >&2
+    exit 1
+}
+
+TRIES=
+TRIES_FILE="${KERNEL_INSTALL_CONF_ROOT:-/etc/kernel}/tries"
+if [ -f "$TRIES_FILE" ]; then
+    read -r TRIES <"$TRIES_FILE"
+    if ! echo "$TRIES" | grep -q '^[0-9][0-9]*$'; then
+        echo "$TRIES_FILE does not contain an integer, ignoring" >&2
+	TRIES=
+    fi
+fi
+
+for entry in "$KERNEL_INSTALL_STAGING_AREA"/*.conf; do
+    dst="$LOADER_ENTRY_DIR/${entry##*/}"
+    [ -z "$TRIES" ] || dst="${dst%.conf}+$TRIES.conf"
+    [ "$KERNEL_INSTALL_VERBOSE" = 0 ] || echo "installing $dst"
+    install -m 0644 "$entry" "$dst"
+    chown root:root "$dst" || :
+done
+
+if [ -e "$STAGING_KERNEL" ]; then
+    if [ -L "$STAGING_KERNEL" ]; then
+        STAGING_KERNEL=$(readlink -f "$STAGING_KERNEL")
+        [ -n "$STAGING_KERNEL" ] || { echo "failed to resolve kernel symlink." >&2; exit 1; }
+        [ "${STAGING_KERNEL#"$ENTRY_DIR_ABS"}" = "$STAGING_KERNEL" ] || STAGING_KERNEL=
+    fi
+fi
+if [ -e "$STAGING_KERNEL" ]; then
+    if ! install -m 0644 "$STAGING_KERNEL" "$ENTRY_DIR_ABS/${STAGING_KERNEL##*/}"; then
+        echo "Error: could not copy '$STAGING_KERNEL' to '$ENTRY_DIR_ABS'." >&2
+        exit 1
+    fi
+    chown root:root "$ENTRY_DIR_ABS/${STAGING_KERNEL##*/}" || :
+fi
+
+# All files listed as arguments, and staged files starting with "initrd" are installed as initrds.
+for initrd in "$@" "${KERNEL_INSTALL_STAGING_AREA}"/initrd*; do
+    if [ -L "$initrd" ]; then
+        echo "$initrd is a link, skip"
+        continue
+    fi
+    [ -f "$initrd" ] || {
+        [ "$initrd" = "${KERNEL_INSTALL_STAGING_AREA}/initrd*" ] && continue
+        echo "Error: initrd '$initrd' not a file." >&2
+        exit 1
+    }
+
+    initrd_basename="${initrd##*/}"
+    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Installing $ENTRY_DIR_ABS/$initrd_basename"
+    install -m 0644 "$initrd" "$ENTRY_DIR_ABS/$initrd_basename" || {
+        echo "Error: could not copy '$initrd' to '$ENTRY_DIR_ABS/$initrd_basename'." >&2
+        exit 1
+    }
+    chown root:root "$ENTRY_DIR_ABS/$initrd_basename" || :
+done
