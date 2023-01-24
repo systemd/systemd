@@ -104,22 +104,20 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Tss2_MU_TPM2B_PUBLIC_Unmarshal));
 }
 
-void tpm2_context_destroy(Tpm2Context *c) {
-        assert(c);
+static Tpm2Context *tpm2_context_free(Tpm2Context *c) {
+        if (!c)
+                return NULL;
 
         if (c->esys_context)
                 sym_Esys_Finalize(&c->esys_context);
 
         c->tcti_context = mfree(c->tcti_context);
         c->tcti_dl = safe_dlclose(c->tcti_dl);
+
+        return mfree(c);
 }
 
-static inline void Esys_Finalize_wrapper(ESYS_CONTEXT **c) {
-        /* A wrapper around Esys_Finalize() for use with _cleanup_(). Only reasons we need this wrapper is
-         * because the function itself warn logs if we'd pass a pointer to NULL, and we don't want that. */
-        if (*c)
-                sym_Esys_Finalize(c);
-}
+DEFINE_TRIVIAL_REF_UNREF_FUNC(Tpm2Context, tpm2_context, tpm2_context_free);
 
 ESYS_TR tpm2_flush_context_verbose(ESYS_CONTEXT *c, ESYS_TR handle) {
         TSS2_RC rc;
@@ -138,12 +136,18 @@ ESYS_TR tpm2_flush_context_verbose(ESYS_CONTEXT *c, ESYS_TR handle) {
         return ESYS_TR_NONE;
 }
 
-int tpm2_context_init(const char *device, Tpm2Context *ret) {
-        _cleanup_(Esys_Finalize_wrapper) ESYS_CONTEXT *c = NULL;
-        _cleanup_free_ TSS2_TCTI_CONTEXT *tcti = NULL;
-        _cleanup_(dlclosep) void *dl = NULL;
+int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
+        _cleanup_tpm2_context_ Tpm2Context *context = NULL;
         TSS2_RC rc;
         int r;
+
+        assert(ret_context);
+
+        context = new0(Tpm2Context, 1);
+        if (!context)
+                return log_oom();
+
+        context->n_ref = 1;
 
         r = dlopen_tpm2();
         if (r < 0)
@@ -192,11 +196,11 @@ int tpm2_context_init(const char *device, Tpm2Context *ret) {
                 if (!filename_is_valid(fn))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 driver name '%s' not valid, refusing.", driver);
 
-                dl = dlopen(fn, RTLD_NOW);
-                if (!dl)
+                context->tcti_dl = dlopen(fn, RTLD_NOW);
+                if (!context->tcti_dl)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to load %s: %s", fn, dlerror());
 
-                func = dlsym(dl, TSS2_TCTI_INFO_SYMBOL);
+                func = dlsym(context->tcti_dl, TSS2_TCTI_INFO_SYMBOL);
                 if (!func)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "Failed to find TCTI info symbol " TSS2_TCTI_INFO_SYMBOL ": %s",
@@ -206,7 +210,6 @@ int tpm2_context_init(const char *device, Tpm2Context *ret) {
                 if (!info)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Unable to get TCTI info data.");
 
-
                 log_debug("Loaded TCTI module '%s' (%s) [Version %" PRIu32 "]", info->name, info->description, info->version);
 
                 rc = info->init(NULL, &sz, NULL);
@@ -214,22 +217,22 @@ int tpm2_context_init(const char *device, Tpm2Context *ret) {
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "Failed to initialize TCTI context: %s", sym_Tss2_RC_Decode(rc));
 
-                tcti = malloc0(sz);
-                if (!tcti)
+                context->tcti_context = malloc0(sz);
+                if (!context->tcti_context)
                         return log_oom();
 
-                rc = info->init(tcti, &sz, param);
+                rc = info->init(context->tcti_context, &sz, param);
                 if (rc != TPM2_RC_SUCCESS)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "Failed to initialize TCTI context: %s", sym_Tss2_RC_Decode(rc));
         }
 
-        rc = sym_Esys_Initialize(&c, tcti, NULL);
+        rc = sym_Esys_Initialize(&context->esys_context, context->tcti_context, NULL);
         if (rc != TSS2_RC_SUCCESS)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to initialize TPM context: %s", sym_Tss2_RC_Decode(rc));
 
-        rc = sym_Esys_Startup(c, TPM2_SU_CLEAR);
+        rc = sym_Esys_Startup(context->esys_context, TPM2_SU_CLEAR);
         if (rc == TPM2_RC_INITIALIZE)
                 log_debug("TPM already started up.");
         else if (rc == TSS2_RC_SUCCESS)
@@ -238,11 +241,7 @@ int tpm2_context_init(const char *device, Tpm2Context *ret) {
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to start up TPM: %s", sym_Tss2_RC_Decode(rc));
 
-        *ret = (Tpm2Context) {
-                .esys_context = TAKE_PTR(c),
-                .tcti_context = TAKE_PTR(tcti),
-                .tcti_dl = TAKE_PTR(dl),
-        };
+        *ret_context = TAKE_PTR(context);
 
         return 0;
 }
@@ -1403,7 +1402,6 @@ int tpm2_seal(const char *device,
               uint16_t *ret_pcr_bank,
               uint16_t *ret_primary_alg) {
 
-        _cleanup_(tpm2_context_destroy) Tpm2Context c = {};
         _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
         _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
         _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
@@ -1453,21 +1451,22 @@ int tpm2_seal(const char *device,
 
         CLEANUP_ERASE(hmac_sensitive);
 
-        r = tpm2_context_init(device, &c);
+        _cleanup_tpm2_context_ Tpm2Context *c = NULL;
+        r = tpm2_context_new(device, &c);
         if (r < 0)
                 return r;
 
-        r = tpm2_make_primary(c.esys_context, &primary, 0, &primary_alg);
+        r = tpm2_make_primary(c->esys_context, &primary, 0, &primary_alg);
         if (r < 0)
                 return r;
 
         /* we cannot use the bind key before its created */
-        r = tpm2_make_encryption_session(c.esys_context, primary, ESYS_TR_NONE, NULL, &session);
+        r = tpm2_make_encryption_session(c->esys_context, primary, ESYS_TR_NONE, NULL, &session);
         if (r < 0)
                 goto finish;
 
         r = tpm2_make_policy_session(
-                        c.esys_context,
+                        c->esys_context,
                         primary,
                         session,
                         TPM2_SE_TRIAL,
@@ -1507,7 +1506,7 @@ int tpm2_seal(const char *device,
 
         assert(sizeof(hmac_sensitive.sensitive.data.buffer) >= hmac_sensitive.sensitive.data.size);
 
-        (void) tpm2_credit_random(c.esys_context);
+        (void) tpm2_credit_random(c->esys_context);
 
         log_debug("Generating secret key data.");
 
@@ -1520,7 +1519,7 @@ int tpm2_seal(const char *device,
         log_debug("Creating HMAC key.");
 
         rc = sym_Esys_Create(
-                        c.esys_context,
+                        c->esys_context,
                         primary,
                         session, /* use HMAC session to enable parameter encryption */
                         ESYS_TR_NONE,
@@ -1601,8 +1600,8 @@ int tpm2_seal(const char *device,
         r = 0;
 
 finish:
-        primary = tpm2_flush_context_verbose(c.esys_context, primary);
-        session = tpm2_flush_context_verbose(c.esys_context, session);
+        primary = tpm2_flush_context_verbose(c->esys_context, primary);
+        session = tpm2_flush_context_verbose(c->esys_context, session);
         return r;
 }
 
@@ -1624,7 +1623,6 @@ int tpm2_unseal(const char *device,
                 void **ret_secret,
                 size_t *ret_secret_size) {
 
-        _cleanup_(tpm2_context_destroy) Tpm2Context c = {};
         ESYS_TR primary = ESYS_TR_NONE, session = ESYS_TR_NONE, hmac_session = ESYS_TR_NONE,
                 hmac_key = ESYS_TR_NONE;
         _cleanup_(Esys_Freep) TPM2B_SENSITIVE_DATA* unsealed = NULL;
@@ -1675,11 +1673,12 @@ int tpm2_unseal(const char *device,
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to unmarshal public key: %s", sym_Tss2_RC_Decode(rc));
 
-        r = tpm2_context_init(device, &c);
+        _cleanup_tpm2_context_ Tpm2Context *c = NULL;
+        r = tpm2_context_new(device, &c);
         if (r < 0)
                 return r;
 
-        r = tpm2_make_primary(c.esys_context, &primary, primary_alg, NULL);
+        r = tpm2_make_primary(c->esys_context, &primary, primary_alg, NULL);
         if (r < 0)
                 return r;
 
@@ -1692,7 +1691,7 @@ int tpm2_unseal(const char *device,
          * primary key is not verified and they could attack there as well.
          */
         rc = sym_Esys_Load(
-                        c.esys_context,
+                        c->esys_context,
                         primary,
                         ESYS_TR_PASSWORD,
                         ESYS_TR_NONE,
@@ -1715,13 +1714,13 @@ int tpm2_unseal(const char *device,
                 goto finish;
         }
 
-        r = tpm2_make_encryption_session(c.esys_context, primary, hmac_key, pin, &hmac_session);
+        r = tpm2_make_encryption_session(c->esys_context, primary, hmac_key, pin, &hmac_session);
         if (r < 0)
                 goto finish;
 
         for (unsigned i = RETRY_UNSEAL_MAX;; i--) {
                 r = tpm2_make_policy_session(
-                                c.esys_context,
+                                c->esys_context,
                                 primary,
                                 hmac_session,
                                 TPM2_SE_POLICY,
@@ -1748,7 +1747,7 @@ int tpm2_unseal(const char *device,
                 log_debug("Unsealing HMAC key.");
 
                 rc = sym_Esys_Unseal(
-                                c.esys_context,
+                                c->esys_context,
                                 hmac_key,
                                 session,
                                 hmac_session, /* use HMAC session to enable parameter encryption */
@@ -1756,7 +1755,7 @@ int tpm2_unseal(const char *device,
                                 &unsealed);
                 if (rc == TPM2_RC_PCR_CHANGED && i > 0) {
                         log_debug("A PCR value changed during the TPM2 policy session, restarting HMAC key unsealing (%u tries left).", i);
-                        session = tpm2_flush_context_verbose(c.esys_context, session);
+                        session = tpm2_flush_context_verbose(c->esys_context, session);
                         continue;
                 }
                 if (rc != TSS2_RC_SUCCESS) {
@@ -1784,9 +1783,9 @@ int tpm2_unseal(const char *device,
         r = 0;
 
 finish:
-        primary = tpm2_flush_context_verbose(c.esys_context, primary);
-        session = tpm2_flush_context_verbose(c.esys_context, session);
-        hmac_key = tpm2_flush_context_verbose(c.esys_context, hmac_key);
+        primary = tpm2_flush_context_verbose(c->esys_context, primary);
+        session = tpm2_flush_context_verbose(c->esys_context, session);
+        hmac_key = tpm2_flush_context_verbose(c->esys_context, hmac_key);
         return r;
 }
 
