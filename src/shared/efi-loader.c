@@ -238,7 +238,7 @@ int efi_stub_get_features(uint64_t *ret) {
         return 0;
 }
 
-int efi_stub_measured(void) {
+int efi_stub_measured(int log_level) {
         _cleanup_free_ char *pcr_string = NULL;
         unsigned pcr_nr;
         int r;
@@ -264,13 +264,17 @@ int efi_stub_measured(void) {
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
-                return r;
+                return log_full_errno(log_level, r,
+                                      "Failed to get StubPcrKernelImage EFI variable: %m");
 
         r = safe_atou(pcr_string, &pcr_nr);
         if (r < 0)
-                return log_debug_errno(r, "Failed to parse StubPcrKernelImage EFI variable: %s", pcr_string);
+                return log_full_errno(log_level, r,
+                                      "Failed to parse StubPcrKernelImage EFI variable: %s", pcr_string);
         if (pcr_nr != TPM_PCR_INDEX_KERNEL_IMAGE)
-                return log_debug_errno(SYNTHETIC_ERRNO(EREMOTE), "Kernel stub measured kernel image into PCR %u, which is different than expected %u.", pcr_nr, TPM_PCR_INDEX_KERNEL_IMAGE);
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(EREMOTE),
+                                      "Kernel stub measured kernel image into PCR %u, which is different than expected %u.",
+                                      pcr_nr, TPM_PCR_INDEX_KERNEL_IMAGE);
 
         return 1;
 }
