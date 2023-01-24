@@ -828,9 +828,9 @@ static int measure_volume_key(
                 return 0;
         }
 
-        r = efi_stub_measured();
+        r = efi_stub_measured(LOG_WARNING);
         if (r < 0)
-                return log_warning_errno(r, "Failed to detect if we are running on a kernel image with TPM measurement enabled: %m");
+                return r;
         if (r == 0) {
                 log_debug("Kernel stub did not measure kernel image into the expected PCR, skipping userspace measurement, too.");
                 return 0;
