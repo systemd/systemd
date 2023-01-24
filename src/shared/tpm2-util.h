@@ -54,10 +54,18 @@ int tpm2_seal(const char *device, uint32_t hash_pcr_mask, const void *pubkey, si
 int tpm2_unseal(const char *device, uint32_t hash_pcr_mask, uint16_t pcr_bank, const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, JsonVariant *signature, const char *pin, uint16_t primary_alg, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, void **ret_secret, size_t *ret_secret_size);
 
 typedef struct {
+        unsigned n_ref;
+
         void *tcti_dl;
         TSS2_TCTI_CONTEXT *tcti_context;
         ESYS_CONTEXT *esys_context;
 } Tpm2Context;
+
+int tpm2_context_new(const char *device, Tpm2Context **ret_context);
+Tpm2Context *tpm2_context_ref(Tpm2Context *context);
+Tpm2Context *tpm2_context_unref(Tpm2Context *context);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Tpm2Context*, tpm2_context_unref);
+#define _cleanup_tpm2_context_ _cleanup_(tpm2_context_unrefp)
 
 ESYS_TR tpm2_flush_context_verbose(ESYS_CONTEXT *c, ESYS_TR handle);
 
@@ -81,10 +89,10 @@ int tpm2_not_supported(void) {
 
 typedef struct {} Tpm2Context;
 
-#endif /* HAVE_TPM2 */
+static int tpm2_context_new(const char *device, Tpm2Context **ret_context) { return tpm2_not_supported(); }
+#define _cleanup_tpm2_context_
 
-int tpm2_context_init(const char *device, Tpm2Context *ret);
-void tpm2_context_destroy(Tpm2Context *c);
+#endif /* HAVE_TPM2 */
 
 int tpm2_list_devices(void);
 int tpm2_find_device_auto(int log_level, char **ret);
