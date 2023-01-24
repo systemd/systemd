@@ -30,11 +30,18 @@ static int pe_sections(FILE *uki, struct PeSectionHeader **ret, size_t *ret_n) {
         assert(ret);
         assert(ret_n);
 
-        items = fread(&dos, 1, sizeof(dos), uki);
-        if (items != sizeof(dos))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "DOS header read error");
+        items = fread(&dos, 1, sizeof(dos.Magic), uki);
+        if (items != sizeof(dos.Magic))
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "File is smaller than DOS magic (got %"PRIu64" of %zu bytes)",
+                                       items, sizeof(dos.Magic));
         if (memcmp(dos.Magic, dos_file_magic, sizeof(dos_file_magic)) != 0)
                 goto no_sections;
+
+        rewind(uki);
+        items = fread(&dos, 1, sizeof(dos), uki);
+        if (items != sizeof(dos))
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "File is smaller than DOS header (got %"PRIu64" of %zu bytes)",
+                                       items, sizeof(dos));
 
         if (fseek(uki, le32toh(dos.ExeHeader), SEEK_SET) < 0)
                 return log_error_errno(errno, "seek to PE header");
