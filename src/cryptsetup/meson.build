@@ -2,10 +2,8 @@
 
 systemd_cryptsetup_sources = files(
         'cryptsetup-keyfile.c',
-        'cryptsetup-keyfile.h',
-        'cryptsetup-pkcs11.h',
-        'cryptsetup-tpm2.h',
-        'cryptsetup.c')
+        'cryptsetup.c',
+)
 
 if conf.get('HAVE_P11KIT') == 1
         systemd_cryptsetup_sources += files('cryptsetup-pkcs11.c')

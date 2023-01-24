@@ -3,7 +3,7 @@
 systemd_coredump_sources = files(
         'coredump.c',
         'coredump-vacuum.c',
-        'coredump-vacuum.h')
+)
 
 coredumpctl_sources = files('coredumpctl.c')
 
@@ -14,7 +14,6 @@ endif
 
 tests += [
         [files('test-coredump-vacuum.c',
-               'coredump-vacuum.c',
-               'coredump-vacuum.h'),
+               'coredump-vacuum.c'),
          [], [], [], '', 'manual'],
 ]

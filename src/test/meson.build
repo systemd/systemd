@@ -661,15 +661,13 @@ tests += [
          [], 'HAVE_OPENSSL_OR_GCRYPT'],
 
         [files('test-nss-hosts.c',
-               'nss-test-util.c',
-               'nss-test-util.h'),
+               'nss-test-util.c'),
          [],
          [libdl],
          [], 'ENABLE_NSS', 'timeout=120'],
 
         [files('test-nss-users.c',
-               'nss-test-util.c',
-               'nss-test-util.h'),
+               'nss-test-util.c'),
          [],
          [libdl],
          [], 'ENABLE_NSS'],

@@ -3,16 +3,14 @@
 systemd_xdg_autostart_generator_sources = files(
         'xdg-autostart-generator.c',
         'xdg-autostart-service.c',
-        'xdg-autostart-service.h')
+)
 
 tests += [
         [files('test-xdg-autostart.c',
-               'xdg-autostart-service.c',
-               'xdg-autostart-service.h')],
+               'xdg-autostart-service.c')],
 ]
 
 fuzzers += [
         [files('fuzz-xdg-desktop.c',
-               'xdg-autostart-service.c',
-               'xdg-autostart-service.h')],
+               'xdg-autostart-service.c')],
 ]

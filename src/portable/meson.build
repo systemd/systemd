@@ -2,16 +2,11 @@
 
 systemd_portabled_sources = files(
         'portable.c',
-        'portable.h',
         'portabled-bus.c',
         'portabled-image-bus.c',
-        'portabled-image-bus.h',
         'portabled-image.c',
-        'portabled-image.h',
         'portabled-operation.c',
-        'portabled-operation.h',
         'portabled.c',
-        'portabled.h',
 )
 
 if conf.get('ENABLE_PORTABLED') == 1
