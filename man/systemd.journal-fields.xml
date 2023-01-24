@@ -25,11 +25,15 @@
 
     <para>Entries in the journal (as written by
     <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
-    resemble a UNIX process environment block in syntax but with fields that may include binary data.
-    Primarily, fields are formatted UTF-8 text strings, and binary encoding is used only where formatting as
-    UTF-8 text strings makes little sense. New fields may freely be defined by applications, but a few fields
-    have special meanings. All fields with special meanings are optional. In some cases, fields may appear
-    more than once per entry.</para>
+    resemble a UNIX process environment block in syntax but with field values that may include binary data,
+    and with non-unique field names permitted. Primarily, field values are formatted UTF-8 text strings —
+    binary encoding is used only where formatting as UTF-8 text strings makes little sense. New fields may
+    freely be defined by applications, but a few fields have special meanings, which are listed
+    below. Typically, fields may only appear once per log entry, however there are special exceptions: some
+    fields may appear more than once per entry, in which case this is explicitly mentioned below. Even though
+    the logging subsystem makes no restrictions on which fields to accept non-unique values for, it is
+    strongly recommended to avoid relying on this for the fields listed below (except where listed otherwise,
+    as mentioned) in order to avoid unnecessary incompatibilities with other applications.</para>
   </refsect1>
 
   <refsect1>
@@ -42,10 +46,13 @@
       <varlistentry>
         <term><varname>MESSAGE=</varname></term>
         <listitem>
-          <para>The human-readable message string for this entry. This
-          is supposed to be the primary text shown to the user. It is
-          usually not translated (but might be in some cases), and is
-          not supposed to be parsed for metadata.</para>
+          <para>The human-readable message string for this entry. This is supposed to be the primary text
+          shown to the user. It is usually not translated (but might be in some cases), and is not supposed
+          to be parsed for metadata. In order to encode multiple lines in a single log entry, separate them
+          by newline characters (ASCII code 10), but encode them as a single <varname>MESSAGE=</varname>
+          field. Do not add multiple values of this field type to the same entry (also see above), as
+          consuming applications generally do not expect this and are unlikely to show all values in that
+          case.</para>
         </listitem>
       </varlistentry>
 
