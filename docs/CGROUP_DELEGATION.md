@@ -78,7 +78,7 @@ Note that cgroup v1 is currently the most deployed implementation, even though
 it's semantically broken in many ways, and in many cases doesn't actually do
 what people think it does. cgroup v2 is where things are going, and most new
 kernel features in this area are only added to cgroup v2, and not cgroup v1
-anymore. For example cgroup v2 provides proper cgroup-empty notifications, has
+anymore. For example, cgroup v2 provides proper cgroup-empty notifications, has
 support for all kinds of per-cgroup BPF magic, supports secure delegation of
 cgroup trees to less privileged processes and so on, which all are not
 available on cgroup v1.

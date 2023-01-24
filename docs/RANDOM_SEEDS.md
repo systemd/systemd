@@ -26,23 +26,23 @@ The Linux kernel provides three relevant userspace APIs to request random data
 from the kernel's entropy pool:
 
 * The [`getrandom()`](https://man7.org/linux/man-pages/man2/getrandom.2.html)
-  system call with its `flags` parameter set to 0. If invoked the calling
+  system call with its `flags` parameter set to 0. If invoked, the calling
   program will synchronously block until the random pool is fully initialized
   and the requested bytes can be provided.
 
 * The `getrandom()` system call with its `flags` parameter set to
-  `GRND_NONBLOCK`. If invoked the request for random bytes will fail if the
+  `GRND_NONBLOCK`. If invoked, the request for random bytes will fail if the
   pool is not initialized yet.
 
 * Reading from the
   [`/dev/urandom`](https://man7.org/linux/man-pages/man4/urandom.4.html)
   pseudo-device will always return random bytes immediately, even if the pool
   is not initialized. The provided random bytes will be of low quality in this
-  case however. Moreover the kernel will log about all programs using this
+  case however. Moreover, the kernel will log about all programs using this
   interface in this state, and which thus potentially rely on an uninitialized
   entropy pool.
 
-(Strictly speaking there are more APIs, for example `/dev/random`, but these
+(Strictly speaking, there are more APIs, for example `/dev/random`, but these
 should not be used by almost any application and hence aren't mentioned here.)
 
 Note that the time it takes to initialize the random pool may differ between
@@ -107,7 +107,7 @@ encrypted storage which might need random numbers. systemd itself requires
 random numbers as well, including for the following uses:
 
 * systemd assigns 'invocation' UUIDs to all services it invokes that uniquely
-  identify each invocation. This is useful retain a global handle on a specific
+  identify each invocation. This is useful to retain a global handle on a specific
   service invocation and relate it to other data. For example, log data
   collected by the journal usually includes the invocation UUID and thus the
   runtime context the service manager maintains can be neatly matched up with
