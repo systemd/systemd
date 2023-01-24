@@ -1,0 +1,82 @@
+#!/bin/sh
+# -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
+# ex: ts=8 sw=4 sts=4 et filetype=sh
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# This file is part of systemd.
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
+
+set -e
+
+COMMAND="${1:?}"
+KERNEL_VERSION="${2:?}"
+#ENTRY_DIR_ABS="${3:?}"
+#KERNEL_IMAGE="$4"
+INITRD_OPTIONS_SHIFT=4
+
+[ "$KERNEL_INSTALL_LAYOUT" = "bls" ] || exit 0
+
+# snapper snapshot support
+[ -d /.snapshots ] && [ -x /sbin/btrfs ] && [ "$(stat -f -c %T /)" = "btrfs" ] || exit 0
+
+detect_snapshot() {
+    # when called by eg. transactional-update it passes us that information
+    if [ -z "$SNAPSHOT" ] && [ -z "$SUBVOL" ]; then
+        SUBVOL="$(/sbin/btrfs subvol show / | head -1)"
+        SNAPSHOT="${SUBVOL#@/.snapshots/}"
+        if [ "$SUBVOL" = "$SNAPSHOT" ]; then
+            unset SUBVOL SNAPSHOT
+            return 1
+        fi
+        SNAPSHOT="${SNAPSHOT%/snapshot}"
+    fi
+    PARENT_UUID="$(btrfs subvol show / | sed -ne 's/\s*Parent UUID:\s*//p')"
+    if [ -n "$PARENT_UUID" ]; then
+        PARENT_SUBVOL="$(/sbin/btrfs subvol show -u "$PARENT_UUID" / | head -1)"
+        PARENT_SNAPSHOT="${PARENT_SUBVOL#@/.snapshots/}"
+        if [ "$PARENT_SUBVOL" = "$PARENT_SNAPSHOT" ]; then
+            unset PARENT_SUBVOL PARENT_SNAPSHOT
+        else
+            PARENT_SNAPSHOT="${PARENT_SNAPSHOT%/snapshot}"
+        fi
+    fi
+}
+
+detect_snapshot
+
+[ -n "$SUBVOL" ] || exit 0
+
+if [ "$COMMAND" = "remove" ]; then
+	rm -f "/.snapshots/$SNAPSHOT/bls-$KERNEL_INSTALL_ENTRY_TOKEN-$KERNEL_VERSION-$SNAPSHOT.conf"
+	exit 0
+fi
+
+[ "$COMMAND" = "add" ] || exit 0
+shift "$INITRD_OPTIONS_SHIFT"
+
+for file in "$KERNEL_INSTALL_STAGING_AREA"/*.conf; do
+    test -e "$file" || continue
+    dst="${file%.conf}"
+    if [ "${dst%+*}" != "$dst" ]; then
+	sdst="${dst%+*}-${SNAPSHOT}.conf"
+	dst="${dst%+*}-${SNAPSHOT}+${dst##*+}.conf"
+    else
+	dst="$dst-${SNAPSHOT}.conf"
+	sdst="$dst"
+    fi
+    sed -e "/^options/{s,rootflags=subvol=[^ ]*,rootflags=subvol=$SUBVOL,;tx; s,\$, rootflags=subvol=$SUBVOL,;:x};/^title/s,\$,@$SNAPSHOT," < "$file" > "$dst"
+    cp "$dst" "/.snapshots/$SNAPSHOT/bls-${sdst##*/}"
+    rm -f "$file"
+done
