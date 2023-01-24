@@ -258,30 +258,30 @@ test_vc_keymap() {
             assert_not_in "X11 Variant:" "$output"
             assert_in "X11 Options: terminate:ctrl_alt_bksp" "$output"
 
-            assert_in "XKB_LAYOUT=us" "$vc"
-            assert_in "XKB_MODEL=pc105\+inet" "$vc"
-            assert_not_in "XKB_VARIANT" "$vc"
-            assert_in "XKB_OPTIONS=terminate:ctrl_alt_bksp" "$vc"
+            assert_in "XKBLAYOUT=us" "$vc"
+            assert_in "XKBMODEL=pc105\+inet" "$vc"
+            assert_not_in "XKBVARIANT" "$vc"
+            assert_in "XKBOPTIONS=terminate:ctrl_alt_bksp" "$vc"
         elif [[ "$i" == "us-acentos" ]]; then
             assert_in "X11 Layout: us" "$output"
             assert_in 'X11 Model: pc105$' "$output"
             assert_in "X11 Variant: intl" "$output"
             assert_in "X11 Options: terminate:ctrl_alt_bksp" "$output"
 
-            assert_in "XKB_LAYOUT=us" "$vc"
-            assert_in "XKB_MODEL=pc105$" "$vc"
-            assert_in "XKB_VARIANT=intl" "$vc"
-            assert_in "XKB_OPTIONS=terminate:ctrl_alt_bksp" "$vc"
+            assert_in "XKBLAYOUT=us" "$vc"
+            assert_in "XKBMODEL=pc105$" "$vc"
+            assert_in "XKBVARIANT=intl" "$vc"
+            assert_in "XKBOPTIONS=terminate:ctrl_alt_bksp" "$vc"
         elif [[ "$i" =~ ^us-.* ]]; then
             assert_in "X11 Layout: .unset." "$output"
             assert_not_in "X11 Model:" "$output"
             assert_not_in "X11 Variant:" "$output"
             assert_not_in "X11 Options:" "$output"
 
-            assert_not_in "XKB_LAYOUT" "$vc"
-            assert_not_in "XKB_MODEL" "$vc"
-            assert_not_in "XKB_VARIANT" "$vc"
-            assert_not_in "XKB_OPTIONS" "$vc"
+            assert_not_in "XKBLAYOUT" "$vc"
+            assert_not_in "XKBMODEL" "$vc"
+            assert_not_in "XKBVARIANT" "$vc"
+            assert_not_in "XKBOPTIONS" "$vc"
         fi
     done
 
@@ -322,10 +322,10 @@ XKBOPTIONS=terminate:ctrl_alt_bksp"
         assert_in 'Option "XkbOptions" "terminate:ctrl_alt_bksp"' "$output"
 
         output=$(cat /etc/vconsole.conf)
-        assert_in 'XKB_LAYOUT=us' "$output"
-        assert_in 'XKB_MODEL=pc105\+inet' "$output"
-        assert_in 'XKB_VARIANT=intl' "$output"
-        assert_in 'XKB_OPTIONS=terminate:ctrl_alt_bksp' "$output"
+        assert_in 'XKBLAYOUT=us' "$output"
+        assert_in 'XKBMODEL=pc105\+inet' "$output"
+        assert_in 'XKBVARIANT=intl' "$output"
+        assert_in 'XKBOPTIONS=terminate:ctrl_alt_bksp' "$output"
     fi
 
     output=$(localectl)
@@ -352,10 +352,10 @@ XKBVARIANT=intl"
         assert_not_in 'Option "XkbOptions"' "$output"
 
         output=$(cat /etc/vconsole.conf)
-        assert_in 'XKB_LAYOUT=us' "$output"
-        assert_in 'XKB_MODEL=pc105\+inet' "$output"
-        assert_in 'XKB_VARIANT=intl' "$output"
-        assert_not_in 'XKB_OPTIONS' "$output"
+        assert_in 'XKBLAYOUT=us' "$output"
+        assert_in 'XKBMODEL=pc105\+inet' "$output"
+        assert_in 'XKBVARIANT=intl' "$output"
+        assert_not_in 'XKBOPTIONS' "$output"
     fi
 
     output=$(localectl)
@@ -381,10 +381,10 @@ XKBMODEL=pc105+inet"
         assert_not_in 'Option "XkbOptions"' "$output"
 
         output=$(cat /etc/vconsole.conf)
-        assert_in 'XKB_LAYOUT=us' "$output"
-        assert_in 'XKB_MODEL=pc105\+inet' "$output"
-        assert_not_in 'XKB_VARIANT' "$output"
-        assert_not_in 'XKB_OPTIONS' "$output"
+        assert_in 'XKBLAYOUT=us' "$output"
+        assert_in 'XKBMODEL=pc105\+inet' "$output"
+        assert_not_in 'XKBVARIANT' "$output"
+        assert_not_in 'XKBOPTIONS' "$output"
     fi
 
     output=$(localectl)
@@ -409,10 +409,10 @@ XKBMODEL=pc105+inet"
         assert_not_in 'Option "XkbOptions"' "$output"
 
         output=$(cat /etc/vconsole.conf)
-        assert_in 'XKB_LAYOUT=us' "$output"
-        assert_not_in 'XKB_MODEL' "$output"
-        assert_not_in 'XKB_VARIANT' "$output"
-        assert_not_in 'XKB_OPTIONS' "$output"
+        assert_in 'XKBLAYOUT=us' "$output"
+        assert_not_in 'XKBMODEL' "$output"
+        assert_not_in 'XKBVARIANT' "$output"
+        assert_not_in 'XKBOPTIONS' "$output"
     fi
 
     output=$(localectl)
