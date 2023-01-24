@@ -59,6 +59,7 @@ typedef enum {
         PROP_OS_PRETTY_NAME,
         PROP_OS_CPE_NAME,
         PROP_OS_HOME_URL,
+        PROP_OS_SUPPORT_END,
         _PROP_MAX,
         _PROP_INVALID = -EINVAL,
 } HostProperty;
@@ -146,6 +147,7 @@ static void context_read_machine_info(Context *c) {
 }
 
 static void context_read_os_release(Context *c) {
+        _cleanup_free_ char *os_name = NULL, *os_pretty_name = NULL;
         struct stat current_stat = {};
         int r;
 
@@ -159,14 +161,20 @@ static void context_read_os_release(Context *c) {
         context_reset(c,
                       (UINT64_C(1) << PROP_OS_PRETTY_NAME) |
                       (UINT64_C(1) << PROP_OS_CPE_NAME) |
-                      (UINT64_C(1) << PROP_OS_HOME_URL));
+                      (UINT64_C(1) << PROP_OS_HOME_URL) |
+                      (UINT64_C(1) << PROP_OS_SUPPORT_END));
 
         r = parse_os_release(NULL,
-                             "PRETTY_NAME", &c->data[PROP_OS_PRETTY_NAME],
-                             "CPE_NAME", &c->data[PROP_OS_CPE_NAME],
-                             "HOME_URL", &c->data[PROP_OS_HOME_URL]);
+                             "PRETTY_NAME", &os_pretty_name,
+                             "NAME",        &os_name,
+                             "CPE_NAME",    &c->data[PROP_OS_CPE_NAME],
+                             "HOME_URL",    &c->data[PROP_OS_HOME_URL],
+                             "SUPPORT_END", &c->data[PROP_OS_SUPPORT_END]);
         if (r < 0 && r != -ENOENT)
                 log_warning_errno(r, "Failed to read os-release file, ignoring: %m");
+
+        if (free_and_strdup(&c->data[PROP_OS_PRETTY_NAME], os_release_pretty_name(os_pretty_name, os_name)) < 0)
+                log_oom();
 
         c->etc_os_release_stat = current_stat;
 }
@@ -881,6 +889,26 @@ static int property_get_os_release_field(
         return sd_bus_message_append(reply, "s", *(char**) userdata);
 }
 
+static int property_get_os_support_end(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Context *c = userdata;
+        usec_t eol = USEC_INFINITY;
+
+        context_read_os_release(c);
+
+        if (c->data[PROP_OS_SUPPORT_END])
+                (void) os_release_support_ended(c->data[PROP_OS_SUPPORT_END], /* quiet= */ false, &eol);
+
+        return sd_bus_message_append(reply, "t", eol);
+}
+
 static int property_get_icon_name(
                 sd_bus *bus,
                 const char *path,
@@ -1246,7 +1274,7 @@ static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *erro
         _cleanup_free_ char *hn = NULL, *dhn = NULL, *in = NULL, *text = NULL,
                 *chassis = NULL, *vendor = NULL, *model = NULL, *serial = NULL, *firmware_version = NULL,
                 *firmware_vendor = NULL;
-        usec_t firmware_date = USEC_INFINITY;
+        usec_t firmware_date = USEC_INFINITY, eol = USEC_INFINITY;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         sd_id128_t product_uuid = SD_ID128_NULL;
@@ -1313,6 +1341,9 @@ static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *erro
         (void) get_firmware_vendor(&firmware_vendor);
         (void) get_firmware_date(&firmware_date);
 
+        if (c->data[PROP_OS_SUPPORT_END])
+                (void) os_release_support_ended(c->data[PROP_OS_SUPPORT_END], /* quiet= */ false, &eol);
+
         r = json_build(&v, JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR("Hostname", JSON_BUILD_STRING(hn)),
                                        JSON_BUILD_PAIR("StaticHostname", JSON_BUILD_STRING(c->data[PROP_STATIC_HOSTNAME])),
@@ -1329,6 +1360,7 @@ static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *erro
                                        JSON_BUILD_PAIR("OperatingSystemPrettyName", JSON_BUILD_STRING(c->data[PROP_OS_PRETTY_NAME])),
                                        JSON_BUILD_PAIR("OperatingSystemCPEName", JSON_BUILD_STRING(c->data[PROP_OS_CPE_NAME])),
                                        JSON_BUILD_PAIR("OperatingSystemHomeURL", JSON_BUILD_STRING(c->data[PROP_OS_HOME_URL])),
+                                       JSON_BUILD_PAIR_FINITE_USEC("OperatingSystemSupportEnd", eol),
                                        JSON_BUILD_PAIR("HardwareVendor", JSON_BUILD_STRING(vendor ?: c->data[PROP_HARDWARE_VENDOR])),
                                        JSON_BUILD_PAIR("HardwareModel", JSON_BUILD_STRING(model ?: c->data[PROP_HARDWARE_MODEL])),
                                        JSON_BUILD_PAIR("HardwareSerial", JSON_BUILD_STRING(serial)),
@@ -1372,6 +1404,7 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_PROPERTY("KernelVersion", "s", property_get_uname_field, offsetof(struct utsname, version), SD_BUS_VTABLE_ABSOLUTE_OFFSET|SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OperatingSystemPrettyName", "s", property_get_os_release_field, offsetof(Context, data) + sizeof(char*) * PROP_OS_PRETTY_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OperatingSystemCPEName", "s", property_get_os_release_field, offsetof(Context, data) + sizeof(char*) * PROP_OS_CPE_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OperatingSystemSupportEnd", "t", property_get_os_support_end, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("HomeURL", "s", property_get_os_release_field, offsetof(Context, data) + sizeof(char*) * PROP_OS_HOME_URL, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("HardwareVendor", "s", property_get_hardware_vendor, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("HardwareModel", "s", property_get_hardware_model, 0, SD_BUS_VTABLE_PROPERTY_CONST),

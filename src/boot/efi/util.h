@@ -116,14 +116,23 @@ static inline void unload_imagep(EFI_HANDLE *image) {
                 (void) BS->UnloadImage(*image);
 }
 
+/* Creates a EFI_GUID pointer suitable for EFI APIs. Use of const allows the compiler to merge multiple
+ * uses (although, currently compilers do that regardless). Most EFI APIs declare their EFI_GUID input
+ * as non-const, but almost all of them are in fact const. */
+#define MAKE_GUID_PTR(name) ((EFI_GUID *) &(const EFI_GUID) name##_GUID)
+
+/* These allow MAKE_GUID_PTR() to work without requiring an extra _GUID in the passed name. We want to
+ * keep the GUID definitions in line with the UEFI spec. */
+#define EFI_GLOBAL_VARIABLE_GUID EFI_GLOBAL_VARIABLE
+#define EFI_FILE_INFO_GUID EFI_FILE_INFO_ID
+
 /*
  * Allocated random UUID, intended to be shared across tools that implement
  * the (ESP)\loader\entries\<vendor>-<revision>.conf convention and the
  * associated EFI variables.
  */
 #define LOADER_GUID \
-        &(const EFI_GUID) { 0x4a67b082, 0x0a4c, 0x41cf, { 0xb6, 0xc7, 0x44, 0x0b, 0x29, 0xbb, 0x8c, 0x4f } }
-#define EFI_GLOBAL_GUID &(const EFI_GUID) EFI_GLOBAL_VARIABLE
+        { 0x4a67b082, 0x0a4c, 0x41cf, { 0xb6, 0xc7, 0x44, 0x0b, 0x29, 0xbb, 0x8c, 0x4f } }
 
 void print_at(UINTN x, UINTN y, UINTN attr, const char16_t *str);
 void clear_screen(UINTN attr);
@@ -162,18 +171,27 @@ static inline void *PHYSICAL_ADDRESS_TO_POINTER(EFI_PHYSICAL_ADDRESS addr) {
 uint64_t get_os_indications_supported(void);
 
 #ifdef EFI_DEBUG
-void debug_break(void);
-extern uint8_t _text, _data;
 /* Report the relocated position of text and data sections so that a debugger
  * can attach to us. See debug-sd-boot.sh for how this can be done. */
-#  define debug_hook(identity) printf(identity "@%p,%p\n", &_text, &_data)
+void notify_debugger(const char *identity, bool wait);
+void hexdump(const char16_t *prefix, const void *data, size_t size);
 #else
-#  define debug_hook(identity)
+#  define notify_debugger(i, w)
 #endif
 
-#ifdef EFI_DEBUG
-void hexdump(const char16_t *prefix, const void *data, UINTN size);
-#endif
+#define DEFINE_EFI_MAIN_FUNCTION(func, identity, wait_for_debugger)             \
+        EFI_SYSTEM_TABLE *ST;                                                   \
+        EFI_BOOT_SERVICES *BS;                                                  \
+        EFI_RUNTIME_SERVICES *RT;                                               \
+        EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *system_table) { \
+                ST = system_table;                                              \
+                BS = system_table->BootServices;                                \
+                RT = system_table->RuntimeServices;                             \
+                notify_debugger((identity), (wait_for_debugger));               \
+                EFI_STATUS err = func(image);                                   \
+                log_wait();                                                     \
+                return err;                                                     \
+        }
 
 #if defined(__i386__) || defined(__x86_64__)
 void beep(UINTN beep_count);

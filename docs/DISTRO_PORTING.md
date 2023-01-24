@@ -85,7 +85,7 @@ instead install your own.
 
 ## Contributing Upstream
 
-We generally do no longer accept distribution-specific patches to
+We generally no longer accept distribution-specific patches to
 systemd upstream. If you have to make changes to systemd's source code
 to make it work on your distribution, unless your code is generic
 enough to be generally useful, we are unlikely to merge it. Please

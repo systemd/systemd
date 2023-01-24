@@ -55,6 +55,7 @@ if not cc.has_header_symbol('efi.h', 'EFI_IMAGE_MACHINE_X64',
 endif
 
 objcopy = run_command(cc.cmd_array(), '-print-prog-name=objcopy', check: true).stdout().strip()
+objcopy_2_38 = find_program('objcopy', version: '>=2.38', required: false)
 
 efi_ld = get_option('efi-ld')
 if efi_ld == 'auto'
@@ -273,9 +274,17 @@ foreach arg : ['-Wl,--no-warn-execstack',
         endif
 endforeach
 
-if efi_arch[1] in ['aarch64', 'arm', 'riscv64']
+# If using objcopy, crt0 must not include the PE/COFF header
+if run_command('grep', '-q', 'coff_header', efi_crt0, check: false).returncode() == 0
+        coff_header_in_crt0 = true
+else
+        coff_header_in_crt0 = false
+endif
+
+if efi_arch[1] in ['arm', 'riscv64'] or (efi_arch[1] == 'aarch64' and (not objcopy_2_38.found() or coff_header_in_crt0))
         efi_ldflags += ['-shared']
-        # Aarch64, ARM32 and 64bit RISC-V don't have an EFI capable objcopy.
+        # ARM32 and 64bit RISC-V don't have an EFI capable objcopy.
+        # Older objcopy doesn't support Aarch64 either.
         # Use 'binary' instead, and add required symbols manually.
         efi_ldflags += ['-Wl,--defsym=EFI_SUBSYSTEM=0xa']
         efi_format = ['-O', 'binary']
@@ -293,23 +302,6 @@ if efi_arch[1] == 'arm'
         # have any occurrences of wchar_t in its sources or the documentation, so
         # it is safe to assume that we can ignore this warning.
         efi_ldflags += ['-Wl,--no-wchar-size-warning']
-endif
-
-if run_command('grep', '-q', '__CTOR_LIST__', efi_lds, check: false).returncode() == 0
-        # fedora has a patched gnu-efi that adds support for ELF constructors.
-        # If ld is called by gcc something about these symbols breaks, resulting
-        # in sd-boot freezing when gnu-efi runs the constructors. Force defining
-        # them seems to work around this.
-        efi_ldflags += [
-                '-Wl,--defsym=_init_array=0',
-                '-Wl,--defsym=_init_array_end=0',
-                '-Wl,--defsym=_fini_array=0',
-                '-Wl,--defsym=_fini_array_end=0',
-                '-Wl,--defsym=__CTOR_LIST__=0',
-                '-Wl,--defsym=__CTOR_END__=0',
-                '-Wl,--defsym=__DTOR_LIST__=0',
-                '-Wl,--defsym=__DTOR_END__=0',
-        ]
 endif
 
 if cc.get_id() == 'clang' and cc.version().split('.')[0].to_int() <= 10
@@ -445,7 +437,6 @@ foreach tuple : [['systemd-boot@0@.@1@', systemd_boot_objects, false, 'systemd-b
                            efi_cflags,
                            efi_ldflags,
                            '@INPUT@',
-                           '-lefi',
                            '-lgnuefi',
                            '-lgcc'],
                 install : tuple[2],

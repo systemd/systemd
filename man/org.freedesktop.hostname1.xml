@@ -82,6 +82,8 @@ node /org/freedesktop/hostname1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s OperatingSystemCPEName = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t OperatingSystemSupportEnd = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s HomeURL = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s HardwareVendor = '...';
@@ -101,6 +103,8 @@ node /org/freedesktop/hostname1 {
     </programlisting>
 
     <!--method GetHardwareSerial is not documented!-->
+
+    <!--property OperatingSystemSupportEnd is not documented!-->
 
     <!--property HardwareVendor is not documented!-->
 
@@ -165,6 +169,8 @@ node /org/freedesktop/hostname1 {
     <variablelist class="dbus-property" generated="True" extra-ref="OperatingSystemPrettyName"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="OperatingSystemCPEName"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OperatingSystemSupportEnd"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="HomeURL"/>
 

@@ -23,7 +23,7 @@ available functionality:
 
 2. Use `./test/run-integration-tests.sh` to run the full integration test
    suite. This will build OS images with a number of integration tests and run
-   them in nspawn and qemu. Requires root.
+   them using `systemd-nspawn` and `qemu`. Requires root.
 
 3. Use `./coccinelle/run-coccinelle.sh` to run all
    [Coccinelle](http://coccinelle.lip6.fr/) semantic patch scripts we ship. The

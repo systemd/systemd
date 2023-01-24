@@ -2,6 +2,7 @@
 
 #include <efi.h>
 #include <efilib.h>
+#include <inttypes.h>
 
 #include "ticks.h"
 #include "util.h"
@@ -44,15 +45,10 @@ EFI_STATUS efivar_set(const EFI_GUID *vendor, const char16_t *name, const char16
 }
 
 EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const char16_t *name, UINTN i, uint32_t flags) {
-        char16_t str[32];
-
         assert(vendor);
         assert(name);
 
-        /* Note that SPrint has no native sized length specifier and will always use ValueToString()
-         * regardless of what sign we tell it to use. Therefore, UINTN_MAX will come out as -1 on
-         * 64bit machines. */
-        ValueToString(str, false, i);
+        _cleanup_free_ char16_t *str = xasprintf("%zu", i);
         return efivar_set(vendor, name, str, flags);
 }
 
@@ -231,8 +227,6 @@ EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const char16_t *name, b
 }
 
 void efivar_set_time_usec(const EFI_GUID *vendor, const char16_t *name, uint64_t usec) {
-        char16_t str[32];
-
         assert(vendor);
         assert(name);
 
@@ -241,8 +235,7 @@ void efivar_set_time_usec(const EFI_GUID *vendor, const char16_t *name, uint64_t
         if (usec == 0)
                 return;
 
-        /* See comment on ValueToString in efivar_set_uint_string(). */
-        ValueToString(str, false, usec);
+        _cleanup_free_ char16_t *str = xasprintf("%" PRIu64, usec);
         efivar_set(vendor, name, str, 0);
 }
 
@@ -393,11 +386,11 @@ EFI_STATUS get_file_info_harder(
         /* A lot like LibFileInfo() but with useful error propagation */
 
         fi = xmalloc(size);
-        err = handle->GetInfo(handle, &GenericFileInfo, &size, fi);
+        err = handle->GetInfo(handle, MAKE_GUID_PTR(EFI_FILE_INFO), &size, fi);
         if (err == EFI_BUFFER_TOO_SMALL) {
                 free(fi);
                 fi = xmalloc(size);  /* GetInfo tells us the required size, let's use that now */
-                err = handle->GetInfo(handle, &GenericFileInfo, &size, fi);
+                err = handle->GetInfo(handle, MAKE_GUID_PTR(EFI_FILE_INFO), &size, fi);
         }
 
         if (err != EFI_SUCCESS)
@@ -514,7 +507,7 @@ uint64_t get_os_indications_supported(void) {
         /* Returns the supported OS indications. If we can't acquire it, returns a zeroed out mask, i.e. no
          * supported features. */
 
-        err = efivar_get_uint64_le(EFI_GLOBAL_GUID, L"OsIndicationsSupported", &osind);
+        err = efivar_get_uint64_le(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"OsIndicationsSupported", &osind);
         if (err != EFI_SUCCESS)
                 return 0;
 
@@ -522,10 +515,14 @@ uint64_t get_os_indications_supported(void) {
 }
 
 #ifdef EFI_DEBUG
-__attribute__((noinline)) void debug_break(void) {
+extern uint8_t _text, _data;
+__attribute__((noinline)) void notify_debugger(const char *identity, volatile bool wait) {
+        printf("%s@%p,%p\n", identity, &_text, &_data);
+        if (wait)
+                printf("Waiting for debugger to attach...\n");
+
         /* This is a poor programmer's breakpoint to wait until a debugger
          * has attached to us. Just "set variable wait = 0" or "return" to continue. */
-        volatile bool wait = true;
         while (wait)
                 /* Prefer asm based stalling so that gdb has a source location to present. */
 #if defined(__i386__) || defined(__x86_64__)
@@ -537,7 +534,6 @@ __attribute__((noinline)) void debug_break(void) {
 #endif
 }
 #endif
-
 
 #ifdef EFI_DEBUG
 void hexdump(const char16_t *prefix, const void *data, UINTN size) {
@@ -621,7 +617,7 @@ EFI_STATUS open_volume(EFI_HANDLE device, EFI_FILE **ret_file) {
 
         assert(ret_file);
 
-        err = BS->HandleProtocol(device, &FileSystemProtocol, (void **) &volume);
+        err = BS->HandleProtocol(device, MAKE_GUID_PTR(EFI_SIMPLE_FILE_SYSTEM_PROTOCOL), (void **) &volume);
         if (err != EFI_SUCCESS)
                 return err;
 
@@ -640,7 +636,7 @@ EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DE
         assert(file);
         assert(ret_dp);
 
-        err = BS->HandleProtocol(device, &DevicePathProtocol, (void **) &dp);
+        err = BS->HandleProtocol(device, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), (void **) &dp);
         if (err != EFI_SUCCESS)
                 return err;
 
@@ -675,7 +671,7 @@ EFI_STATUS device_path_to_str(const EFI_DEVICE_PATH *dp, char16_t **ret) {
         assert(dp);
         assert(ret);
 
-        err = BS->LocateProtocol(&(EFI_GUID) EFI_DEVICE_PATH_TO_TEXT_PROTOCOL_GUID, NULL, (void **) &dp_to_text);
+        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_DEVICE_PATH_TO_TEXT_PROTOCOL), NULL, (void **) &dp_to_text);
         if (err != EFI_SUCCESS) {
                 /* If the device path to text protocol is not available we can still do a best-effort attempt
                  * to convert it ourselves if we are given filepath-only device path. */
