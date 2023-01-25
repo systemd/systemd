@@ -111,40 +111,52 @@ tests += [
         },
 ]
 
+fuzzer_journald_base = {
+        'link_with' : [libjournal_core, libshared],
+        'dependencies' : [libselinux],
+}
+
 fuzzers += [
-        [files('fuzz-journald-audit.c',
-               'fuzz-journald.c'),
-         [libjournal_core,
-          libshared],
-         [libselinux]],
-
-        [files('fuzz-journald-kmsg.c',
-               'fuzz-journald.c'),
-         [libjournal_core,
-          libshared],
-         [libselinux]],
-
-        [files('fuzz-journald-native.c',
-               'fuzz-journald.c'),
-         [libjournal_core,
-          libshared],
-         [libselinux]],
-
-        [files('fuzz-journald-native-fd.c',
-               'fuzz-journald.c'),
-         [libjournal_core,
-          libshared],
-         [libselinux]],
-
-        [files('fuzz-journald-stream.c',
-               'fuzz-journald.c'),
-         [libjournal_core,
-          libshared],
-         [libselinux]],
-
-        [files('fuzz-journald-syslog.c',
-               'fuzz-journald.c'),
-         [libjournal_core,
-          libshared],
-         [libselinux]],
+        {
+                'sources' : files(
+                        'fuzz-journald-audit.c',
+                        'fuzz-journald.c',
+                ),
+                'base' : fuzzer_journald_base,
+        },
+        {
+                'sources' : files(
+                        'fuzz-journald-kmsg.c',
+                        'fuzz-journald.c',
+                ),
+                'base' : fuzzer_journald_base,
+        },
+        {
+                'sources' : files(
+                        'fuzz-journald-native.c',
+                        'fuzz-journald.c',
+                ),
+                'base' : fuzzer_journald_base,
+        },
+        {
+                'sources' : files(
+                        'fuzz-journald-native-fd.c',
+                        'fuzz-journald.c',
+                ),
+                'base' : fuzzer_journald_base,
+        },
+        {
+                'sources' : files(
+                        'fuzz-journald-stream.c',
+                        'fuzz-journald.c',
+                ),
+                'base' : fuzzer_journald_base,
+        },
+        {
+                'sources' : files(
+                        'fuzz-journald-syslog.c',
+                        'fuzz-journald.c',
+                ),
+                'base' : fuzzer_journald_base,
+        },
 ]

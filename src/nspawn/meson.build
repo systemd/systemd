@@ -66,14 +66,18 @@ tests += [
         },
 ]
 
-fuzzers += [
-        [files('fuzz-nspawn-settings.c'),
-         [libshared,
-          libnspawn_core],
-         [libseccomp]],
+fuzzer_nspawn_base = {
+        'link_with' : [libshared, libnspawn_core],
+        'dependencies' : libseccomp
+}
 
-        [files('fuzz-nspawn-oci.c'),
-         [libshared,
-          libnspawn_core],
-         [libseccomp]],
+fuzzers += [
+        {
+                'sources' : files('fuzz-nspawn-settings.c'),
+                'base' : fuzzer_nspawn_base,
+        },
+        {
+                'sources' : files('fuzz-nspawn-oci.c'),
+                'base' : fuzzer_nspawn_base,
+        },
 ]
