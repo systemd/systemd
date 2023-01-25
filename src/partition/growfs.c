@@ -3,12 +3,17 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
-#include <linux/btrfs.h>
 #include <linux/magic.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <sys/types.h>
 #include <sys/vfs.h>
+/* This needs to be included after sys/mount.h, as since [0] linux/btrfs.h
+ * includes linux/fs.h causing build errors
+ * See: https://github.com/systemd/systemd/issues/8507
+ * [0] https://github.com/torvalds/linux/commit/a28135303a669917002f569aecebd5758263e4aa
+ */
+#include <linux/btrfs.h>
 
 #include "sd-device.h"
 
