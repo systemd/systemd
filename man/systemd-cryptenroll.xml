@@ -110,6 +110,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--unlock-fido2-device=</option><replaceable>PATH</replaceable></term>
+
+        <listitem><para>Use a FIDO2 device instead of a password/passphrase read from stdin to unlock the
+        volume. Expects a <filename>hidraw</filename> device referring to the FIDO2 device (e.g.
+        <filename>/dev/hidraw1</filename>). Alternatively the special value <literal>auto</literal> may be
+        specified, in order to automatically determine the device node of a currently plugged in security
+        token (of which there must be exactly one). This automatic discovery is unsupported if
+        <option>--fido2-device=</option> option is also specified.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--pkcs11-token-uri=</option><replaceable>URI</replaceable></term>
 
         <listitem><para>Enroll a PKCS#11 security token or smartcard (e.g. a YubiKey). Expects a PKCS#11
@@ -151,7 +162,8 @@
         extension (e.g. a YubiKey). Expects a <filename>hidraw</filename> device referring to the FIDO2
         device (e.g. <filename>/dev/hidraw1</filename>). Alternatively the special value
         <literal>auto</literal> may be specified, in order to automatically determine the device node of a
-        currently plugged in security token (of which there must be exactly one). The special value
+        currently plugged in security token (of which there must be exactly one). This automatic discovery
+        is unsupported if <option>--unlock-fido2-device=</option> option is also specified. The special value
         <literal>list</literal> may be used to enumerate all suitable FIDO2 tokens currently plugged in. Note
         that many hardware security tokens that implement FIDO2 also implement the older PKCS#11
         standard. Typically FIDO2 is preferable, given it's simpler to use and more modern.</para>
