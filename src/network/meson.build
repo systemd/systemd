@@ -187,37 +187,40 @@ fuzzers += [
          network_includes],
 ]
 
+test_network_base = {
+        'link_with' : [libnetworkd_core, libsystemd_network],
+        'includes' : network_includes,
+}
+
 tests += [
-        [files('test-networkd-address.c'),
-         [libnetworkd_core,
-          libsystemd_network],
-         [libatomic],
-         network_includes],
-
-        [files('test-networkd-conf.c'),
-         [libnetworkd_core,
-          libsystemd_network],
-         [libatomic],
-         network_includes],
-
-        [files('test-networkd-util.c'),
-         [libnetworkd_core,
-          libsystemd_network],
-         [],
-         network_includes],
-
-        [files('test-network.c'),
-         [libnetworkd_core,
-          libsystemd_network],
-         [threads],
-         network_includes],
-
-        [files('test-network-tables.c'),
-         [libnetworkd_core,
-          libsystemd_network],
-         [threads],
-         network_includes],
-
-        [files('generator/test-network-generator.c',
-               'generator/network-generator.c')],
+        {
+                'sources' : files(
+                        'generator/network-generator.c',
+                        'generator/test-network-generator.c'
+                )
+        },
+        {
+                'sources' : files('test-network-tables.c'),
+                'dependencies' : threads,
+                'base' : test_network_base,
+        },
+        {
+                'sources' : files('test-network.c'),
+                'dependencies' : threads,
+                'base' : test_network_base,
+        },
+        {
+                'sources' : files('test-networkd-address.c'),
+                'dependencies' : libatomic,
+                'base' : test_network_base,
+        },
+        {
+                'sources' : files('test-networkd-conf.c'),
+                'dependencies' : libatomic,
+                'base' : test_network_base,
+        },
+        {
+                'sources' : files('test-networkd-util.c'),
+                'base' : test_network_base,
+        },
 ]
