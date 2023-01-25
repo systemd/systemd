@@ -233,7 +233,7 @@ endif
 ############################################################
 
 fuzzers += [
-        [files('sd-bus/fuzz-bus-message.c')],
+        { 'sources' : files('sd-bus/fuzz-bus-message.c') },
 
-        [files('sd-bus/fuzz-bus-match.c')],
+        { 'sources' : files('sd-bus/fuzz-bus-match.c') },
 ]

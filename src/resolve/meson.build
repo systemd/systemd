@@ -170,22 +170,17 @@ tests += [
 ]
 
 fuzzers += [
-        [files('fuzz-dns-packet.c'),
-         [libsystemd_resolve_core,
-          libshared],
-         [lib_openssl_or_gcrypt,
-          libm]],
-        [files('fuzz-etc-hosts.c',
-          'resolved-etc-hosts.c'),
-         [libsystemd_resolve_core,
-          libshared],
-         [lib_openssl_or_gcrypt,
-          libm]],
-        [files('fuzz-resource-record.c'),
-         [libsystemd_resolve_core,
-          libshared],
-         [lib_openssl_or_gcrypt,
-          libm]],
+        { 'sources' : files('fuzz-dns-packet.c'),
+          'link_with' : [libsystemd_resolve_core, libshared],
+          'dependencies' : [lib_openssl_or_gcrypt, libm] },
+
+        { 'sources' : files('fuzz-etc-hosts.c', 'resolved-etc-hosts.c'),
+          'link_with' : [libsystemd_resolve_core, libshared],
+          'dependencies' : [lib_openssl_or_gcrypt, libm] },
+
+        { 'sources' : files('fuzz-resource-record.c'),
+          'link_with' : [libsystemd_resolve_core, libshared],
+          'dependencies' : [lib_openssl_or_gcrypt, libm] },
 ]
 
 systemd_resolved_sources += files('resolved.c')

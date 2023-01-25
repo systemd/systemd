@@ -76,27 +76,21 @@ tests += [
 ]
 
 fuzzers += [
-        [files('fuzz-dhcp-client.c'),
-         [libshared,
-          libsystemd_network]],
+        { 'sources' : files('fuzz-dhcp-client.c'),
+          'link_with' : [libshared, libsystemd_network] },
 
-        [files('fuzz-dhcp6-client.c'),
-         [libshared,
-          libsystemd_network]],
+        { 'sources' : files('fuzz-dhcp6-client.c'),
+          'link_with' : [libshared, libsystemd_network] },
 
-        [files('fuzz-dhcp-server.c'),
-         [libsystemd_network,
-          libshared]],
+        { 'sources' : files('fuzz-dhcp-server.c'),
+          'link_with' : [libsystemd_network, libshared] },
 
-        [files('fuzz-dhcp-server-relay.c'),
-         [libsystemd_network,
-          libshared]],
+        { 'sources' : files('fuzz-dhcp-server-relay.c'),
+          'link_with' : [libsystemd_network, libshared] },
 
-        [files('fuzz-lldp-rx.c'),
-         [libshared,
-          libsystemd_network]],
+        { 'sources' : files('fuzz-lldp-rx.c'),
+          'link_with' : [libshared, libsystemd_network] },
 
-        [files('fuzz-ndisc-rs.c'),
-         [libshared,
-          libsystemd_network]],
+        { 'sources' : files('fuzz-ndisc-rs.c'),
+          'link_with' : [libshared, libsystemd_network] },
 ]

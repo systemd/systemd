@@ -48,8 +48,7 @@ else
 endif
 
 fuzzers += [
-        [files('fuzz-systemctl-parse-argv.c') +
-         systemctl_sources,
-         systemctl_link_with,
-         [], [], ['-DFUZZ_SYSTEMCTL_PARSE_ARGV']]
+        { 'sources' : files('fuzz-systemctl-parse-argv.c') + systemctl_sources,
+          'link_with' : systemctl_link_with,
+          'c_args' : '-DFUZZ_SYSTEMCTL_PARSE_ARGV' },
 ]

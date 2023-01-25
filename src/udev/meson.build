@@ -161,23 +161,18 @@ if install_sysconfdir
 endif
 
 fuzzers += [
-        [files('net/fuzz-link-parser.c'),
-         [libudevd_core,
-          libshared],
-         [threads,
-          libacl],
-         udev_includes],
+        { 'sources' : files('net/fuzz-link-parser.c'),
+          'link_with' : [libudevd_core, libshared],
+          'dependencies' : [threads, libacl],
+          'includes' : udev_includes },
 
-        [files('fuzz-udev-rules.c'),
-         [libudevd_core,
-          libshared],
-         [threads,
-          libacl]],
+        { 'sources' : files('fuzz-udev-rules.c'),
+          'link_with' : [libudevd_core, libshared],
+          'dependencies' : [threads, libacl] },
 
-        [files('fuzz-udev-rule-parse-value.c')],
+        { 'sources' : files('fuzz-udev-rule-parse-value.c') },
 
-        [files('fido_id/fuzz-fido-id-desc.c',
-               'fido_id/fido_id_desc.c')],
+        { 'sources' : files('fido_id/fuzz-fido-id-desc.c', 'fido_id/fido_id_desc.c') },
 ]
 
 tests += [
