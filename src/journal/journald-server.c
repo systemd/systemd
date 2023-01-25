@@ -278,7 +278,10 @@ static int open_journal(
         assert(fname);
         assert(ret);
 
-        file_flags = (s->compress.enabled ? JOURNAL_COMPRESS : 0) | (seal ? JOURNAL_SEAL : 0);
+        file_flags =
+                (s->compress.enabled ? JOURNAL_COMPRESS : 0) |
+                (seal ? JOURNAL_SEAL : 0) |
+                JOURNAL_STRICT_ORDER;
 
         if (reliably)
                 r = managed_journal_file_open_reliably(
@@ -290,11 +293,11 @@ static int open_journal(
                                 metrics,
                                 s->mmap,
                                 s->deferred_closes,
-                                NULL,
+                                /* template= */ NULL,
                                 &f);
         else
                 r = managed_journal_file_open(
-                                -1,
+                                /* fd= */ -1,
                                 fname,
                                 open_flags,
                                 file_flags,
@@ -303,9 +306,8 @@ static int open_journal(
                                 metrics,
                                 s->mmap,
                                 s->deferred_closes,
-                                NULL,
+                                /* template= */ NULL,
                                 &f);
-
         if (r < 0)
                 return r;
 
@@ -350,7 +352,14 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
                 (void) mkdir(s->system_storage.path, 0755);
 
                 fn = strjoina(s->system_storage.path, "/system.journal");
-                r = open_journal(s, true, fn, O_RDWR|O_CREAT, s->seal, &s->system_storage.metrics, &s->system_journal);
+                r = open_journal(
+                                s,
+                                /* reliably= */ true,
+                                fn,
+                                O_RDWR|O_CREAT,
+                                s->seal,
+                                &s->system_storage.metrics,
+                                &s->system_journal);
                 if (r >= 0) {
                         server_add_acls(s->system_journal, 0);
                         (void) cache_space_refresh(s, &s->system_storage);
@@ -380,11 +389,17 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
 
                 if (s->system_journal && !relinquish_requested) {
 
-                        /* Try to open the runtime journal, but only
-                         * if it already exists, so that we can flush
-                         * it into the system journal */
+                        /* Try to open the runtime journal, but only if it already exists, so that we can
+                         * flush it into the system journal */
 
-                        r = open_journal(s, false, fn, O_RDWR, false, &s->runtime_storage.metrics, &s->runtime_journal);
+                        r = open_journal(
+                                        s,
+                                        /* reliably= */ false,
+                                        fn,
+                                        O_RDWR,
+                                        /* seal= */ false,
+                                        &s->runtime_storage.metrics,
+                                        &s->runtime_journal);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
@@ -400,7 +415,14 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
                         (void) mkdir_parents(s->runtime_storage.path, 0755);
                         (void) mkdir(s->runtime_storage.path, 0750);
 
-                        r = open_journal(s, true, fn, O_RDWR|O_CREAT, false, &s->runtime_storage.metrics, &s->runtime_journal);
+                        r = open_journal(
+                                        s,
+                                        /* reliably= */ true,
+                                        fn,
+                                        O_RDWR|O_CREAT,
+                                        /* seal= */ false,
+                                        &s->runtime_storage.metrics,
+                                        &s->runtime_journal);
                         if (r < 0)
                                 return log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
                                                                    "Failed to open runtime journal: %m");
@@ -438,7 +460,14 @@ static int find_user_journal(Server *s, uid_t uid, ManagedJournalFile **ret) {
                 (void) managed_journal_file_close(first);
         }
 
-        r = open_journal(s, true, p, O_RDWR|O_CREAT, s->seal, &s->system_storage.metrics, &f);
+        r = open_journal(
+                        s,
+                        /* reliably= */ true,
+                        p,
+                        O_RDWR|O_CREAT,
+                        s->seal,
+                        &s->system_storage.metrics,
+                        &f);
         if (r < 0)
                 return r;
 
@@ -511,7 +540,8 @@ static int do_rotate(
 
         file_flags =
                 (s->compress.enabled ? JOURNAL_COMPRESS : 0)|
-                (seal ? JOURNAL_SEAL : 0);
+                (seal ? JOURNAL_SEAL : 0) |
+                JOURNAL_STRICT_ORDER;
 
         r = managed_journal_file_rotate(f, s->mmap, file_flags, s->compress.threshold_bytes, s->deferred_closes);
         if (r < 0) {
@@ -624,13 +654,13 @@ static int server_archive_offline_user_journals(Server *s) {
                                 full,
                                 O_RDWR,
                                 (s->compress.enabled ? JOURNAL_COMPRESS : 0) |
-                                (s->seal ? JOURNAL_SEAL : 0),
+                                (s->seal ? JOURNAL_SEAL : 0), /* strict order does not matter here */
                                 0640,
                                 s->compress.threshold_bytes,
                                 &s->system_storage.metrics,
                                 s->mmap,
                                 s->deferred_closes,
-                                NULL,
+                                /* template= */ NULL,
                                 &f);
                 if (r < 0) {
                         log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
@@ -844,8 +874,16 @@ static bool shall_try_append_again(JournalFile *f, int r) {
                 log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Journal file is from the future, rotating.", f->path);
                 return true;
 
-        case -EREMCHG:         /* Time jumped backwards relative to last journal entry */
-                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Time jumped backwards relative to last journal entry, rotating.", f->path);
+        case -EREMCHG:         /* Wallclock time (CLOCK_REALTIME) jumped backwards relative to last journal entry */
+                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Realtime clock jumped backwards relative to last journal entry, rotating.", f->path);
+                return true;
+
+        case -EREMOTE:         /* Boot ID different from the one of the last entry */
+                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Boot ID changed since last record, rotating.", f->path);
+                return true;
+
+        case -ENOTNAM:         /* Monotonic time (CLOCK_MONOTONIC) jumped backwards relative to last journal entry */
+                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Montonic clock jumped backwards relative to last journal entry, rotating.", f->path);
                 return true;
 
         case -EAFNOSUPPORT:
