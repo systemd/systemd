@@ -1227,6 +1227,9 @@ int main(int argc, char *argv[]) {
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
+        if (path_is_read_only_fs("/sys") > 0)
+                return log_tests_skipped("/sys is mounted read-only");
+
         _cleanup_free_ char *unit_dir = NULL, *unit_paths = NULL;
         assert_se(get_testdata_dir("test-execute/", &unit_dir) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
