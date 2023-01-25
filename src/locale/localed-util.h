@@ -15,6 +15,11 @@ typedef struct X11Context {
         char *options;
 } X11Context;
 
+typedef struct VCContext {
+        char *keymap;
+        char *toggle;
+} VCContext;
+
 typedef struct Context {
         sd_bus_message *locale_cache;
         LocaleContext locale_context;
@@ -26,8 +31,7 @@ typedef struct Context {
 
         sd_bus_message *vc_cache;
         struct stat vc_stat;
-        char *vc_keymap;
-        char *vc_keymap_toggle;
+        VCContext vc;
 
         Hashmap *polkit_registry;
 } Context;
@@ -38,6 +42,10 @@ bool x11_context_equal(const X11Context *a, const X11Context *b);
 int x11_context_copy(X11Context *dest, const X11Context *src);
 
 X11Context *context_get_x11_context_safe(Context *c);
+
+void vc_context_empty_to_null(VCContext *vc);
+bool vc_context_equal(const VCContext *a, const VCContext *b);
+int vc_context_copy(VCContext *dest, const VCContext *src);
 
 int find_converted_keymap(const X11Context *xc, char **ret);
 int find_legacy_keymap(const X11Context *xc, char **ret);
