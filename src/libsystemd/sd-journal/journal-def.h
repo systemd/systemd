@@ -195,7 +195,7 @@ enum {
 #endif
 
 #define HEADER_SIGNATURE                                                \
-        ((const char[]) { 'L', 'P', 'K', 'S', 'H', 'H', 'R', 'H' })
+        ((const uint8_t[]) { 'L', 'P', 'K', 'S', 'H', 'H', 'R', 'H' })
 
 #define struct_Header__contents {                       \
         uint8_t signature[8]; /* "LPKSHHRH" */          \
