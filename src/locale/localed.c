@@ -416,20 +416,25 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
                 return log_oom();
 
         if (convert) {
+                _cleanup_(x11_context_clear) X11Context converted = {};
+                X11Context *xc;
+
                 r = x11_read_data(c, m);
                 if (r < 0) {
                         log_error_errno(r, "Failed to read X11 keyboard layout data: %m");
                         return sd_bus_error_set_errnof(error, r, "Failed to read X11 keyboard layout data: %m");
                 }
 
-                r = vconsole_convert_to_x11(c);
+                r = vconsole_convert_to_x11(&in, &converted);
                 if (r < 0) {
                         log_error_errno(r, "Failed to convert keymap data: %m");
                         return sd_bus_error_set_errnof(error, r, "Failed to convert keymap data: %m");
                 }
 
                 /* save the result of conversion to emit changed properties later. */
-                convert = r > 0;
+                xc = context_get_x11_context_safe(c);
+                convert = !x11_context_equal(xc, &converted);
+                x11_context_replace(xc, &converted);
         }
 
         r = vconsole_write_data(c);
@@ -619,14 +624,17 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
                 return log_oom();
 
         if (convert) {
-                r = x11_convert_to_vconsole(c);
+                _cleanup_(vc_context_clear) VCContext converted = {};
+
+                r = x11_convert_to_vconsole(&in, &converted);
                 if (r < 0) {
                         log_error_errno(r, "Failed to convert keymap data: %m");
                         return sd_bus_error_set_errnof(error, r, "Failed to convert keymap data: %m");
                 }
 
                 /* save the result of conversion to emit changed properties later. */
-                convert = r > 0;
+                convert = !vc_context_equal(&c->vc, &converted);
+                vc_context_replace(&c->vc, &converted);
         }
 
         r = vconsole_write_data(c);

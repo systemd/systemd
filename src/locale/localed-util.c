@@ -56,7 +56,7 @@ static const char* systemd_language_fallback_map(void) {
         return SYSTEMD_LANGUAGE_FALLBACK_MAP;
 }
 
-static void x11_context_clear(X11Context *xc) {
+void x11_context_clear(X11Context *xc) {
         assert(xc);
 
         xc->layout  = mfree(xc->layout);
@@ -65,7 +65,16 @@ static void x11_context_clear(X11Context *xc) {
         xc->variant = mfree(xc->variant);
 }
 
-static bool x11_context_isempty(const X11Context *xc) {
+void x11_context_replace(X11Context *dest, X11Context *src) {
+        assert(dest);
+        assert(src);
+
+        x11_context_clear(dest);
+        *dest = *src;
+        *src = (X11Context) {};
+}
+
+bool x11_context_isempty(const X11Context *xc) {
         assert(xc);
 
         return
@@ -152,14 +161,23 @@ static void context_clear_x11(Context *c) {
         x11_context_clear(&c->x11_from_vc);
 }
 
-static void vc_context_clear(VCContext *vc) {
+void vc_context_clear(VCContext *vc) {
         assert(vc);
 
         vc->keymap = mfree(vc->keymap);
         vc->toggle = mfree(vc->toggle);
 }
 
-static bool vc_context_isempty(const VCContext *vc) {
+void vc_context_replace(VCContext *dest, VCContext *src) {
+        assert(dest);
+        assert(src);
+
+        vc_context_clear(dest);
+        *dest = *src;
+        *src = (VCContext) {};
+}
+
+bool vc_context_isempty(const VCContext *vc) {
         assert(vc);
 
         return
@@ -584,70 +602,53 @@ static int read_next_mapping(
         return 0;
 }
 
-int vconsole_convert_to_x11(Context *c) {
-        int r, modified = -1;
-        X11Context *xc;
+int vconsole_convert_to_x11(const VCContext *vc, X11Context *ret) {
+        _cleanup_fclose_ FILE *f = NULL;
+        const char *map;
+        int r;
 
-        assert(c);
+        assert(vc);
+        assert(ret);
 
-        /* If Context.x11_from_vc is empty, then here we update Context.x11_from_xorg, as the caller may
-         * already have been called context_get_x11_context() or _safe(), and otherwise the caller's
-         * X11Context may be outdated. The updated context will be copied to Context.x11_from_vc in
-         * vconsole_write_data() if necessary. */
-        xc = context_get_x11_context_safe(c);
-
-        if (isempty(c->vc.keymap)) {
-                modified = !x11_context_isempty(xc);
-                context_clear_x11(c);
-        } else {
-                _cleanup_fclose_ FILE *f = NULL;
-                const char *map;
-
-                map = systemd_kbd_model_map();
-                f = fopen(map, "re");
-                if (!f)
-                        return -errno;
-
-                for (unsigned n = 0;;) {
-                        _cleanup_strv_free_ char **a = NULL;
-
-                        r = read_next_mapping(map, 5, UINT_MAX, f, &n, &a);
-                        if (r < 0)
-                                return r;
-                        if (r == 0)
-                                break;
-
-                        if (!streq(c->vc.keymap, a[0]))
-                                continue;
-
-                        r = x11_context_copy(xc,
-                                             &(X11Context) {
-                                                     .layout  = empty_or_dash_to_null(a[1]),
-                                                     .model   = empty_or_dash_to_null(a[2]),
-                                                     .variant = empty_or_dash_to_null(a[3]),
-                                                     .options = empty_or_dash_to_null(a[4]),
-                                             });
-                        if (r < 0)
-                                return r;
-                        modified = r > 0;
-
-                        break;
-                }
+        if (isempty(vc->keymap)) {
+                *ret = (X11Context) {};
+                return 0;
         }
 
-        if (modified > 0)
-                log_info("Changing X11 keyboard layout to '%s' model '%s' variant '%s' options '%s'",
-                         strempty(xc->layout),
-                         strempty(xc->model),
-                         strempty(xc->variant),
-                         strempty(xc->options));
-        else if (modified < 0)
-                log_notice("X11 keyboard layout was not modified: no conversion found for \"%s\".",
-                           c->vc.keymap);
-        else
-                log_debug("X11 keyboard layout did not need to be modified.");
+        map = systemd_kbd_model_map();
+        f = fopen(map, "re");
+        if (!f)
+                return -errno;
 
-        return modified > 0;
+        for (unsigned n = 0;;) {
+                _cleanup_strv_free_ char **a = NULL;
+
+                r = read_next_mapping(map, 5, UINT_MAX, f, &n, &a);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        log_notice("No conversion found for virtual console keymap \"%s\".", vc->keymap);
+                        *ret = (X11Context) {};
+                        return 0;
+                }
+
+                if (!streq(vc->keymap, a[0]))
+                        continue;
+
+                r = x11_context_copy(ret,
+                                     &(X11Context) {
+                                             .layout  = empty_or_dash_to_null(a[1]),
+                                             .model   = empty_or_dash_to_null(a[2]),
+                                             .variant = empty_or_dash_to_null(a[3]),
+                                             .options = empty_or_dash_to_null(a[4]),
+                                     });
+                if (r < 0)
+                        return r;
+
+                log_info("The virtual console keymap '%s' is converted to X11 keyboard layout '%s' model '%s' variant '%s' options '%s'",
+                         vc->keymap, strempty(ret->layout), strempty(ret->model), strempty(ret->variant), strempty(ret->options));
+                return 0;
+        }
 }
 
 int find_converted_keymap(const X11Context *xc, char **ret) {
@@ -823,46 +824,36 @@ int find_language_fallback(const char *lang, char **ret) {
         }
 }
 
-int x11_convert_to_vconsole(Context *c) {
-        bool modified = false;
-        const X11Context *xc;
+int x11_convert_to_vconsole(const X11Context *xc, VCContext *ret) {
+        _cleanup_free_ char *keymap = NULL;
+        int r;
 
-        assert(c);
-
-        xc = context_get_x11_context_safe(c);
+        assert(xc);
+        assert(ret);
 
         if (isempty(xc->layout)) {
-                modified = !vc_context_isempty(&c->vc);
-                vc_context_clear(&c->vc);
-        } else {
-                _cleanup_free_ char *new_keymap = NULL;
-                int r;
-
-                r = find_converted_keymap(xc, &new_keymap);
-                if (r == 0)
-                        r = find_legacy_keymap(xc, &new_keymap);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        /* We search for layout-variant match first, but then we also look
-                         * for anything which matches just the layout. So it's accurate to say
-                         * that we couldn't find anything which matches the layout. */
-                        log_notice("No conversion to virtual console map found for \"%s\".", xc->layout);
-
-                if (!streq_ptr(c->vc.keymap, new_keymap)) {
-                        vc_context_clear(&c->vc);
-                        c->vc.keymap = TAKE_PTR(new_keymap);
-                        modified = true;
-                }
+                *ret = (VCContext) {};
+                return 0;
         }
 
-        if (modified)
-                log_info("Changing virtual console keymap to '%s' toggle '%s'",
-                         strempty(c->vc.keymap), strempty(c->vc.toggle));
+        r = find_converted_keymap(xc, &keymap);
+        if (r == 0)
+                r = find_legacy_keymap(xc, &keymap);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                /* We search for layout-variant match first, but then we also look
+                 * for anything which matches just the layout. So it's accurate to say
+                 * that we couldn't find anything which matches the layout. */
+                log_notice("No conversion to virtual console map found for \"%s\".", xc->layout);
         else
-                log_debug("Virtual console keymap was not modified.");
+                log_info("The X11 keyboard layout '%s' is converted to virtual console keymap '%s'",
+                         xc->layout, strempty(keymap));
 
-        return modified;
+        *ret = (VCContext) {
+                .keymap = TAKE_PTR(keymap),
+        };
+        return 0;
 }
 
 bool locale_gen_check_available(void) {
