@@ -546,6 +546,8 @@ static void deref_unlink_file(Hashmap *known_files, const char *fn, const char *
         _cleanup_free_ char *path = NULL;
         int r;
 
+        assert(known_files);
+
         /* just gracefully ignore this. This way the caller doesn't
            have to verify whether the bootloader entry is relevant */
         if (!fn || !root)
@@ -560,17 +562,17 @@ static void deref_unlink_file(Hashmap *known_files, const char *fn, const char *
         if (arg_dry_run) {
                 r = chase_symlinks_and_access(fn, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, F_OK, &path, NULL);
                 if (r < 0)
-                        log_info("Unable to determine whether \"%s\" exists, ignoring: %m", fn);
+                        log_info_errno(r, "Unable to determine whether \"%s\" exists, ignoring: %m", fn);
                 else
-                        log_info("Would remove %s", path);
+                        log_info("Would remove \"%s\"", path);
                 return;
         }
 
         r = chase_symlinks_and_unlink(fn, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, 0, &path);
         if (r >= 0)
-                log_info("Removed %s", path);
+                log_info("Removed \"%s\"", path);
         else if (r != -ENOENT)
-                return (void) log_warning_errno(r, "Failed to remove \"%s\", ignoring: %m", path ?: fn);
+                return (void) log_warning_errno(r, "Failed to remove \"%s\", ignoring: %m", fn);
 
         _cleanup_free_ char *d = NULL;
         if (path_extract_directory(fn, &d) >= 0 && !path_equal(d, "/")) {
@@ -582,7 +584,7 @@ static void deref_unlink_file(Hashmap *known_files, const char *fn, const char *
 
 static int count_known_files(const BootConfig *config, const char* root, Hashmap **ret_known_files) {
         _cleanup_(hashmap_free_free_keyp) Hashmap *known_files = NULL;
-        int r = 0;
+        int r;
 
         assert(config);
         assert(ret_known_files);
@@ -627,14 +629,14 @@ static int boot_config_find_in(const BootConfig *config, const char *root, const
         assert(config);
 
         if (!root || !id)
-                return -1;
+                return -ENOENT;
 
         for (size_t i = 0; i < config->n_entries; i++)
-                if (path_equal(config->entries[i].root, root)
-                        && fnmatch(id, config->entries[i].id, FNM_CASEFOLD) == 0)
+                if (path_equal(config->entries[i].root, root) &&
+                    fnmatch(id, config->entries[i].id, FNM_CASEFOLD) == 0)
                         return i;
 
-        return -1;
+        return -ENOENT;
 }
 
 static int unlink_entry(const BootConfig *config, const char *root, const char *id) {
@@ -650,7 +652,7 @@ static int unlink_entry(const BootConfig *config, const char *root, const char *
 
         r = boot_config_find_in(config, root, id);
         if (r < 0)
-                return -ENOENT;
+                return r;
 
         if (r == config->default_entry)
                 log_warning("%s is the default boot entry", id);
@@ -668,7 +670,7 @@ static int unlink_entry(const BootConfig *config, const char *root, const char *
                 deref_unlink_file(known_files, *s, e->root);
 
         if (arg_dry_run)
-                log_info("Would remove %s", e->path);
+                log_info("Would remove \"%s\"", e->path);
         else {
                 r = chase_symlinks_and_unlink(e->path, root, CHASE_PROHIBIT_SYMLINKS, 0, NULL);
                 if (r < 0)
@@ -688,6 +690,7 @@ static int list_remove_orphaned_file(
                 const struct dirent *de,
                 const struct statx *sx,
                 void *userdata) {
+
         Hashmap *known_files = userdata;
 
         assert(path);
@@ -712,6 +715,7 @@ static int list_remove_orphaned_file(
 static int cleanup_orphaned_files(
                 const BootConfig *config,
                 const char *root) {
+
         _cleanup_(hashmap_free_free_keyp) Hashmap *known_files = NULL;
         _cleanup_free_ char *full = NULL, *p = NULL;
         _cleanup_close_ int dir_fd = -1;
