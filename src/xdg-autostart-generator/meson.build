@@ -10,6 +10,5 @@ tests += [
 ]
 
 fuzzers += [
-        [files('fuzz-xdg-desktop.c',
-               'xdg-autostart-service.c')],
+        { 'sources' : files('fuzz-xdg-desktop.c', 'xdg-autostart-service.c') },
 ]

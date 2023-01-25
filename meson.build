@@ -4167,12 +4167,9 @@ endif
 
 fuzzer_exes = []
 
-foreach tuple : fuzzers
-        sources = tuple[0]
-        link_with = tuple.length() > 1 and tuple[1].length() > 0 ? tuple[1] : [libshared]
-        dependencies = tuple.length() > 2 ? tuple[2] : []
-        incs = tuple.length() > 3 and tuple[3].length() > 0 ? tuple[3] : includes
-        defs = tuple.length() > 4 ? tuple[4] : []
+foreach fuzzer : fuzzers
+        sources = fuzzer.get('sources')
+        dependencies = [fuzzer.get('dependencies', [])]
         link_args = []
 
         if want_ossfuzz
@@ -4184,7 +4181,7 @@ foreach tuple : fuzzers
                         link_args += ['-fsanitize=fuzzer']
                 endif
         else
-                sources += 'src/fuzz/fuzz-main.c'
+                sources += files('src/fuzz/fuzz-main.c')
         endif
         sources += fuzz_generated_directives
 
@@ -4194,11 +4191,10 @@ foreach tuple : fuzzers
         exe = executable(
                 name,
                 sources,
-                include_directories : [incs, include_directories('src/fuzz')],
-                link_with : link_with,
-                dependencies : [dependencies,
-                                versiondep],
-                c_args : defs + test_cflags,
+                include_directories : [fuzzer.get('includes', includes), include_directories('src/fuzz')],
+                link_with : fuzzer.get('link_with', libshared),
+                dependencies : [dependencies, versiondep],
+                c_args : [test_cflags, fuzzer.get('c_args', [])],
                 link_args: link_args,
                 install : false,
                 build_by_default : fuzzer_build)

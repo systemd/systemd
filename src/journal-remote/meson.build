@@ -69,9 +69,7 @@ endif
 ############################################################
 
 fuzzers += [
-        [files('fuzz-journal-remote.c'),
-         [libsystemd_journal_remote,
-          libshared],
-         [],
-         [journal_includes]],
+        { 'sources' : files('fuzz-journal-remote.c'),
+          'link_with' : [libsystemd_journal_remote, libshared],
+          'includes' : journal_includes },
 ]
