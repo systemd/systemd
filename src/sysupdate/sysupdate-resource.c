@@ -553,7 +553,7 @@ int resource_resolve_path(
 
                 r = stat("/run/systemd/volatile-root", &orig_root_stats);
                 if (r < 0) {
-                        if (errno == -ENOENT) /* volatile-root not found */
+                        if (errno == ENOENT) /* volatile-root not found */
                                 r = get_block_device_harder("/usr/", &d);
                         else
                                 return log_error_errno(r, "Failed to stat /run/systemd/volatile-root: %m");
