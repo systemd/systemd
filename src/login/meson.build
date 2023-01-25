@@ -78,16 +78,15 @@ endif
 ############################################################
 
 tests += [
-        [files('test-login-shared.c')],
+        { 'sources' : files('test-login-shared.c') },
 
-        [files('test-inhibit.c'),
-         [], [], [], '', 'manual'],
+        { 'sources' : files('test-inhibit.c'),
+          'type' : 'manual' },
 
-        [files('test-login-tables.c'),
-         [liblogind_core,
-          libshared],
-         [threads]],
+        { 'sources' : files('test-login-tables.c'),
+          'link_with' : [liblogind_core, libshared],
+          'dependencies' : threads },
 
-        [files('test-session-properties.c'),
-         [], [], [], '', 'manual'],
+        { 'sources' : files('test-session-properties.c'),
+          'type' : 'manual' },
 ]

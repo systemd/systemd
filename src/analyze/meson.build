@@ -30,11 +30,10 @@ systemd_analyze_sources = files(
 )
 
 tests += [
-        [files('test-verify.c',
-               'analyze-verify-util.c',
-               'analyze-verify-util.h'),
-         [libcore,
-          libshared],
-         [],
-         core_includes],
+        { 'sources' : files(
+                'test-verify.c',
+                'analyze-verify-util.c',
+                'analyze-verify-util.h'),
+          'link_with' : [libcore, libshared],
+          'includes' : core_includes },
 ]

@@ -188,36 +188,31 @@ fuzzers += [
 ]
 
 tests += [
-        [files('test-networkd-address.c'),
-         [libnetworkd_core,
-          libsystemd_network],
-         [libatomic],
-         network_includes],
+        { 'sources' : files('test-networkd-address.c'),
+          'link_with' : [libnetworkd_core, libsystemd_network],
+          'dependencies' : libatomic,
+          'includes' : network_includes },
 
-        [files('test-networkd-conf.c'),
-         [libnetworkd_core,
-          libsystemd_network],
-         [libatomic],
-         network_includes],
+        { 'sources' : files('test-networkd-conf.c'),
+          'link_with' : [libnetworkd_core, libsystemd_network],
+          'dependencies' : libatomic,
+          'includes' : network_includes },
 
-        [files('test-networkd-util.c'),
-         [libnetworkd_core,
-          libsystemd_network],
-         [],
-         network_includes],
+        { 'sources' : files('test-networkd-util.c'),
+          'link_with' : [libnetworkd_core, libsystemd_network],
+          'includes' : network_includes },
 
-        [files('test-network.c'),
-         [libnetworkd_core,
-          libsystemd_network],
-         [threads],
-         network_includes],
+        { 'sources' : files('test-network.c'),
+          'link_with' : [libnetworkd_core, libsystemd_network],
+          'dependencies' : threads,
+          'includes' : network_includes },
 
-        [files('test-network-tables.c'),
-         [libnetworkd_core,
-          libsystemd_network],
-         [threads],
-         network_includes],
+        { 'sources' : files('test-network-tables.c'),
+          'link_with' : [libnetworkd_core, libsystemd_network],
+          'dependencies' : threads,
+          'includes' : network_includes },
 
-        [files('generator/test-network-generator.c',
-               'generator/network-generator.c')],
+        { 'sources' : files(
+                'generator/test-network-generator.c',
+                'generator/network-generator.c') },
 ]

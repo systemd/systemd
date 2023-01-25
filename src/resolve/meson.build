@@ -138,52 +138,35 @@ custom_target(
 ############################################################
 
 tests += [
-        [files('test-resolve-tables.c'),
-         [libsystemd_resolve_core,
-          libshared],
-         [lib_openssl_or_gcrypt,
-          libm]],
+        { 'sources' : files('test-resolve-tables.c'),
+          'link_with' : [libsystemd_resolve_core, libshared],
+          'dependencies' : [lib_openssl_or_gcrypt, libm] },
 
-        [files('test-dns-packet.c'),
-         [libsystemd_resolve_core,
-          libshared],
-         [lib_openssl_or_gcrypt,
-          libm]],
+        { 'sources' : files('test-dns-packet.c'),
+          'link_with' : [libsystemd_resolve_core, libshared],
+          'dependencies' : [lib_openssl_or_gcrypt, libm] },
 
-        [files('test-resolved-etc-hosts.c',
-               'resolved-etc-hosts.c'),
-         [libsystemd_resolve_core,
-          libshared],
-         [lib_openssl_or_gcrypt,
-          libm]],
+        { 'sources' : files('test-resolved-etc-hosts.c', 'resolved-etc-hosts.c'),
+          'link_with' : [libsystemd_resolve_core, libshared],
+          'dependencies' : [lib_openssl_or_gcrypt, libm] },
 
-        [files('test-resolved-packet.c'),
-         [libsystemd_resolve_core,
-          libshared],
-         [lib_openssl_or_gcrypt,
-          libm]],
+        { 'sources' : files('test-resolved-packet.c'),
+          'link_with' : [libsystemd_resolve_core, libshared],
+          'dependencies' : [lib_openssl_or_gcrypt, libm] },
 
-        [files('test-resolved-stream.c')
-         + basic_dns_sources + systemd_resolved_sources,
-         [libshared],
-         [lib_openssl_or_gcrypt,
-          libm]
-         + systemd_resolved_dependencies,
-         resolve_includes],
+        { 'sources' : files('test-resolved-stream.c') + basic_dns_sources + systemd_resolved_sources,
+          'dependencies' : [lib_openssl_or_gcrypt, libm] + systemd_resolved_dependencies,
+          'includes' : resolve_includes },
 
-        [files('test-dnssec.c'),
-         [libsystemd_resolve_core,
-          libshared],
-         [lib_openssl_or_gcrypt,
-          libm],
-         [], 'HAVE_OPENSSL_OR_GCRYPT'],
+        { 'sources' : files('test-dnssec.c'),
+          'link_with' : [libsystemd_resolve_core, libshared],
+          'dependencies' : [lib_openssl_or_gcrypt, libm],
+          'condition' : 'HAVE_OPENSSL_OR_GCRYPT' },
 
-        [files('test-dnssec-complex.c'),
-         [libsystemd_resolve_core,
-          libshared],
-         [lib_openssl_or_gcrypt,
-          libm],
-         [], '', 'manual'],
+        { 'sources' : files('test-dnssec-complex.c'),
+          'link_with' : [libsystemd_resolve_core, libshared],
+          'dependencies' : [lib_openssl_or_gcrypt, libm],
+          'type' : 'manual' },
 ]
 
 fuzzers += [

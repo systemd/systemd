@@ -6,6 +6,7 @@ busctl_sources = files(
 )
 
 tests += [
-        [files('test-busctl-introspect.c',
-               'busctl-introspect.c')],
+        { 'sources' : files(
+                'test-busctl-introspect.c',
+                'busctl-introspect.c') },
 ]

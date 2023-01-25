@@ -389,18 +389,16 @@ if efi_arch[1] in ['ia32', 'x86_64']
 endif
 
 tests += [
-        [files('test-efi-string.c', 'efi-string.c')],
+        { 'sources' : files('test-efi-string.c', 'efi-string.c') },
 ]
 
 # BCD parser only makes sense on arches that Windows supports.
 if efi_arch[1] in ['ia32', 'x86_64', 'arm', 'aarch64']
         systemd_boot_sources += files('bcd.c')
         tests += [
-                [files('test-bcd.c', 'efi-string.c'),
-                 [],
-                 [libzstd],
-                 [],
-                 'HAVE_ZSTD'],
+                { 'sources' : files('test-bcd.c', 'efi-string.c'),
+                  'dependencies' : libzstd,
+                  'condition' : 'HAVE_ZSTD' },
         ]
         fuzzers += [
                 [files('fuzz-bcd.c', 'bcd.c', 'efi-string.c')],

@@ -66,40 +66,28 @@ endif
 ############################################################
 
 tests += [
-        [files('test-journal-syslog.c'),
-         [libjournal_core,
-          libshared],
-         [threads,
-          libxz,
-          liblz4,
-          libselinux]],
+        { 'sources' : files('test-journal-syslog.c'),
+          'link_with' : [libjournal_core, libshared],
+          'dependencies' : [threads, libxz, liblz4, libselinux] },
 
-        [files('test-journal-config.c'),
-         [libjournal_core,
-          libshared],
-         [libxz,
-          liblz4,
-          libselinux]],
+        { 'sources' : files('test-journal-config.c'),
+          'link_with' : [libjournal_core, libshared],
+          'dependencies' : [libxz, liblz4, libselinux] },
 
-        [files('test-journal.c'),
-         [libjournal_core,
-          libshared]],
+        { 'sources' : files('test-journal.c'),
+          'link_with' : [libjournal_core, libshared] },
 
-        [files('test-journal-stream.c'),
-         [libjournal_core,
-          libshared]],
+        { 'sources' : files('test-journal-stream.c'),
+          'link_with' : [libjournal_core, libshared] },
 
-         [files('test-journal-flush.c'),
-          [libjournal_core,
-           libshared]],
+        { 'sources' : files('test-journal-flush.c'),
+          'link_with' : [libjournal_core, libshared] },
 
-        [files('test-journal-verify.c'),
-         [libjournal_core,
-          libshared]],
+        { 'sources' : files('test-journal-verify.c'),
+          'link_with' : [libjournal_core, libshared] },
 
-        [files('test-journal-interleaving.c'),
-         [libjournal_core,
-          libshared]],
+        { 'sources' : files('test-journal-interleaving.c'),
+          'link_with' : [libjournal_core, libshared] },
 ]
 
 fuzzers += [

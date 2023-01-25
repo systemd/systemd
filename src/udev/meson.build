@@ -181,24 +181,17 @@ fuzzers += [
 ]
 
 tests += [
-        [files('test-udev-event.c'),
-         [libudevd_core,
-          libshared],
-         [threads,
-          libacl]],
+        { 'sources' : files('test-udev-event.c'),
+          'link_with' : [libudevd_core, libshared],
+          'dependencies' : [threads, libacl] },
 
-        [files('test-udev-node.c'),
-         [libudevd_core,
-          libshared],
-         [threads,
-          libacl]],
+        { 'sources' : files('test-udev-node.c'),
+          'link_with' : [libudevd_core, libshared],
+          'dependencies' : [threads, libacl] },
 
-        [files('test-udev-builtin.c'),
-         [libudevd_core,
-          libshared],
-         [threads,
-          libacl]],
+        { 'sources' : files('test-udev-builtin.c'),
+          'link_with' : [libudevd_core, libshared],
+          'dependencies' : [threads, libacl] },
 
-        [files('fido_id/test-fido-id-desc.c',
-               'fido_id/fido_id_desc.c')],
+        { 'sources' : files('fido_id/test-fido-id-desc.c', 'fido_id/fido_id_desc.c') },
 ]

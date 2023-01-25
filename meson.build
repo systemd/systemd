@@ -4068,57 +4068,46 @@ if '-O2' in c_args and '-flto=auto' in c_args
         test_cflags += cc.first_supported_argument('-Wno-maybe-uninitialized')
 endif
 
-foreach tuple : tests
-        sources = tuple[0]
-        link_with = tuple.length() > 1 and tuple[1].length() > 0 ? tuple[1] : [libshared]
-        dependencies = tuple.length() > 2 ? tuple[2] : []
-        incs = tuple.length() > 3 and tuple[3].length() > 0 ? tuple[3] : includes
-        condition = tuple.length() > 4 ? tuple[4] : ''
-        type = tuple.length() > 5 ? tuple[5] : ''
-        defs = tuple.length() > 6 ? tuple[6] : []
-        defs += test_cflags
-        parallel = tuple.length() > 7 ? tuple[7] : true
-        timeout = 30
+foreach test : tests
+        sources = test.get('sources')
+        condition = test.get('condition', '')
+        type = test.get('type', '')
 
         # FIXME: Use fs.stem() with meson >= 0.54.0
         name = '@0@'.format(sources[0]).split('/')[-1].split('.')[0]
-        if type.startswith('timeout=')
-                timeout = type.split('=')[1].to_int()
-                type = ''
-        endif
 
         suite = fs.name(fs.parent('@0@'.format(sources[0])))
         # FIXME: Use str.replace() with meson >= 0.58.0
         suite = suite.split('sd-')[-1]
 
-        if condition == '' or conf.get(condition) == 1
-                exe = executable(
-                        name,
-                        sources,
-                        include_directories : incs,
-                        link_with : link_with,
-                        dependencies : [versiondep,
-                                        dependencies],
-                        c_args : defs,
-                        build_by_default : want_tests != 'false',
-                        install_rpath : rootpkglibdir,
-                        install : install_tests,
-                        install_dir : testsdir / type,
-                        link_depends : runtest_env)
-
-                if type == 'manual'
-                        message('@0@ is a manual test'.format(name))
-                elif type == 'unsafe' and want_tests != 'unsafe'
-                        message('@0@ is an unsafe test'.format(name))
-                elif want_tests != 'false'
-                        test(name, exe,
-                             env : test_env,
-                             timeout : timeout,
-                             suite : suite,
-                             is_parallel : parallel)
-                endif
-        else
+        if condition != '' and conf.get(condition) == 0
                 message('Not compiling @0@ because @1@ is not true'.format(name, condition))
+                continue
+        endif
+
+        exe = executable(
+                name,
+                sources,
+                include_directories : test.get('includes', includes),
+                link_with : test.get('link_with', libshared),
+                dependencies : [versiondep, test.get('dependencies', [])],
+                c_args : [test_cflags, test.get('c_args', [])],
+                build_by_default : want_tests != 'false',
+                install_rpath : rootpkglibdir,
+                install : install_tests,
+                install_dir : testsdir / type,
+                link_depends : runtest_env)
+
+        if type == 'manual'
+                message('@0@ is a manual test'.format(name))
+        elif type == 'unsafe' and want_tests != 'unsafe'
+                message('@0@ is an unsafe test'.format(name))
+        elif want_tests != 'false'
+                test(name, exe,
+                        env : test_env,
+                        timeout : test.get('timeout', 30),
+                        suite : suite,
+                        is_parallel : test.get('parallel', true))
         endif
 endforeach
 
