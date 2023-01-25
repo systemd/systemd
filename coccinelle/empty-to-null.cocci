@@ -1,7 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 @@
-/* Avoid running this transformation on the empty_to_null function itself */
-position p : script:python() { p[0].current_element != "empty_to_null" };
+/* Avoid running this transformation on the empty_to_null macro itself.
+ * See the note in strempty.cocci to understand the weird magic below.
+*/
+position p : script:python() {
+        not (p[0].file == "src/basic/string-util.h" and p[0].current_element == "something_else")
+};
 expression s;
 @@
 
