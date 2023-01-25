@@ -148,8 +148,14 @@ touch "$ROOT/bin/fooshell" "$ROOT/bin/barshell"
 echo -ne "\nfoo\nbar\n" | systemd-firstboot --root="$ROOT" --prompt-locale
 grep -q "LANG=foo" "$ROOT$LOCALE_PATH"
 grep -q "LC_MESSAGES=bar" "$ROOT$LOCALE_PATH"
-echo -ne "\nfoo\n" | systemd-firstboot --root="$ROOT" --prompt-keymap
-grep -q "KEYMAP=foo" "$ROOT/etc/vconsole.conf"
+# systemd-firstboot in prompt-keymap mode requires keymaps to be installed so
+# it can present them as a list to the user. As Debian does not ship/provide
+# compatible keymaps (from the kbd package), skip this test if the keymaps are
+# missing.
+if [ -d "/usr/share/keymaps/" ] || [ -d "/usr/share/kbd/keymaps/" ] || [ -d "/usr/lib/kbd/keymaps/" ] ; then
+   echo -ne "\nfoo\n" | systemd-firstboot --root="$ROOT" --prompt-keymap
+   grep -q "KEYMAP=foo" "$ROOT/etc/vconsole.conf"
+fi
 echo -ne "\nEurope/Berlin\n" | systemd-firstboot --root="$ROOT" --prompt-timezone
 readlink "$ROOT/etc/localtime" | grep -q "Europe/Berlin$"
 echo -ne "\nfoobar\n" | systemd-firstboot --root="$ROOT" --prompt-hostname
