@@ -819,7 +819,12 @@ EOF
                                            --certificate="$defs/verity.crt" \
                                            "$imgs/verity")
 
-    roothash=$(jq -r ".[] | select(.type == \"root-${architecture}-verity\") | .roothash" <<< "$output")
+    drh=$(jq -r ".[] | select(.type == \"root-${architecture}\") | .roothash" <<< "$output")
+    hrh=$(jq -r ".[] | select(.type == \"root-${architecture}-verity\") | .roothash" <<< "$output")
+    srh=$(jq -r ".[] | select(.type == \"root-${architecture}-verity-sig\") | .roothash" <<< "$output")
+
+    assert_eq $drh $hrh
+    assert_eq $hrh $srh
 
     # Check that we can dissect, mount and unmount a repart verity image. (and that the image UUID is deterministic)
 
@@ -828,9 +833,9 @@ EOF
         return
     fi
 
-    systemd-dissect "$imgs/verity" --root-hash "$roothash"
-    systemd-dissect "$imgs/verity" --root-hash "$roothash" --json=short | grep -q '"imageUuid":"1d2ce291-7cce-4f7d-bc83-fdb49ad74ebd"'
-    systemd-dissect "$imgs/verity" --root-hash "$roothash" -M "$imgs/mnt"
+    systemd-dissect "$imgs/verity" --root-hash "$drh"
+    systemd-dissect "$imgs/verity" --root-hash "$drh" --json=short | grep -q '"imageUuid":"1d2ce291-7cce-4f7d-bc83-fdb49ad74ebd"'
+    systemd-dissect "$imgs/verity" --root-hash "$drh" -M "$imgs/mnt"
     systemd-dissect -U "$imgs/mnt"
 }
 
