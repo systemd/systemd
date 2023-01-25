@@ -369,6 +369,7 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
         Context *c = ASSERT_PTR(userdata);
         const char *keymap, *keymap_toggle;
         int convert, interactive, r;
+        bool vc_modified, x11_modified = false;
 
         assert(m);
 
@@ -395,23 +396,7 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
                         return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Keymap %s is not installed.", name);
         }
 
-        if (streq_ptr(keymap, c->vc_keymap) &&
-            streq_ptr(keymap_toggle, c->vc_keymap_toggle))
-                return sd_bus_reply_method_return(m, NULL);
-
-        r = bus_verify_polkit_async(
-                        m,
-                        CAP_SYS_ADMIN,
-                        "org.freedesktop.locale1.set-keyboard",
-                        NULL,
-                        interactive,
-                        UID_INVALID,
-                        &c->polkit_registry,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+        vc_modified = !streq_ptr(keymap, c->vc_keymap) || !streq_ptr(keymap_toggle, c->vc_keymap_toggle);
 
         if (free_and_strdup(&c->vc_keymap, keymap) < 0 ||
             free_and_strdup(&c->vc_keymap_toggle, keymap_toggle) < 0)
@@ -430,15 +415,33 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
                         return sd_bus_error_set_errnof(error, r, "Failed to convert keymap data: %m");
                 }
 
-                /* save the result of conversion to emit changed properties later. */
-                convert = r > 0;
+                x11_modified = r > 0; /* save the result of conversion to emit changed properties later. */
         }
 
+        if (!vc_modified && !x11_modified) /* We don't need to save anything, thus returning early */
+                return sd_bus_reply_method_return(m, NULL);
+
+        r = bus_verify_polkit_async(
+                        m,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.locale1.set-keyboard",
+                        NULL,
+                        interactive,
+                        UID_INVALID,
+                        &c->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        /* Always write vconsole data even if vc_modified is false, because
+         * the stored X11 data may need updating. */
         r = vconsole_write_data(c);
         if (r < 0)
                 log_warning_errno(r, "Failed to write virtual console keymap, ignoring: %m");
 
-        if (convert) {
+        if (x11_modified) {
                 r = x11_write_data(c);
                 if (r < 0)
                         log_warning_errno(r, "Failed to write X11 keyboard layout, ignoring: %m");
@@ -454,10 +457,10 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
                         "/org/freedesktop/locale1",
                         "org.freedesktop.locale1",
                         "VConsoleKeymap", "VConsoleKeymapToggle",
-                        convert ? "X11Layout" : NULL,
-                        convert ? "X11Model" : NULL,
-                        convert ? "X11Variant" : NULL,
-                        convert ? "X11Options" : NULL,
+                        x11_modified ? "X11Layout" : NULL,
+                        x11_modified ? "X11Model" : NULL,
+                        x11_modified ? "X11Variant" : NULL,
+                        x11_modified ? "X11Options" : NULL,
                         NULL);
 
         return sd_bus_reply_method_return(m, NULL);
@@ -568,6 +571,7 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
         Context *c = ASSERT_PTR(userdata);
         int convert, interactive, r;
         X11Context *xc, in;
+        bool x11_modified, vc_modified = false;
 
         assert(m);
 
@@ -585,8 +589,7 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
 
         xc = context_get_x11_context_safe(c);
 
-        if (x11_context_equal(xc, &in))
-                return sd_bus_reply_method_return(m, NULL);
+        x11_modified = !x11_context_equal(xc, &in);
 
         if (!x11_context_is_safe(&in))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Received invalid keyboard data");
@@ -602,6 +605,24 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Specified keymap cannot be compiled, refusing as invalid.");
         }
 
+        r = x11_context_copy(xc, &in);
+        if (r < 0)
+                return log_oom();
+
+        if (convert) {
+                r = x11_convert_to_vconsole(c);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to convert keymap data: %m");
+                        return sd_bus_error_set_errnof(error, r, "Failed to convert keymap data: %m");
+                }
+
+                /* save the result of conversion to emit changed properties later. */
+                vc_modified = r > 0;
+        }
+
+        if (!vc_modified && !x11_modified) /* We don't need to save anything, thus returning early */
+                return sd_bus_reply_method_return(m, NULL);
+
         r = bus_verify_polkit_async(
                         m,
                         CAP_SYS_ADMIN,
@@ -615,21 +636,6 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
                 return r;
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
-
-        r = x11_context_copy(xc, &in);
-        if (r < 0)
-                return log_oom();
-
-        if (convert) {
-                r = x11_convert_to_vconsole(c);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to convert keymap data: %m");
-                        return sd_bus_error_set_errnof(error, r, "Failed to convert keymap data: %m");
-                }
-
-                /* save the result of conversion to emit changed properties later. */
-                convert = r > 0;
-        }
 
         r = vconsole_write_data(c);
         if (r < 0)
@@ -650,11 +656,11 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
                         "/org/freedesktop/locale1",
                         "org.freedesktop.locale1",
                         "X11Layout", "X11Model", "X11Variant", "X11Options",
-                        convert ? "VConsoleKeymap" : NULL,
-                        convert ? "VConsoleKeymapToggle" : NULL,
+                        vc_modified ? "VConsoleKeymap" : NULL,
+                        vc_modified ? "VConsoleKeymapToggle" : NULL,
                         NULL);
 
-        if (convert)
+        if (vc_modified)
                 (void) vconsole_reload(sd_bus_message_get_bus(m));
 
         return sd_bus_reply_method_return(m, NULL);
