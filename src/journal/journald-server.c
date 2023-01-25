@@ -293,11 +293,11 @@ static int open_journal(
                                 metrics,
                                 s->mmap,
                                 s->deferred_closes,
-                                NULL,
+                                /* template= */ NULL,
                                 &f);
         else
                 r = managed_journal_file_open(
-                                -1,
+                                /* fd= */ -1,
                                 fname,
                                 open_flags,
                                 file_flags,
@@ -306,9 +306,8 @@ static int open_journal(
                                 metrics,
                                 s->mmap,
                                 s->deferred_closes,
-                                NULL,
+                                /* template= */ NULL,
                                 &f);
-
         if (r < 0)
                 return r;
 
@@ -353,7 +352,14 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
                 (void) mkdir(s->system_storage.path, 0755);
 
                 fn = strjoina(s->system_storage.path, "/system.journal");
-                r = open_journal(s, true, fn, O_RDWR|O_CREAT, s->seal, &s->system_storage.metrics, &s->system_journal);
+                r = open_journal(
+                                s,
+                                /* reliably= */ true,
+                                fn,
+                                O_RDWR|O_CREAT,
+                                s->seal,
+                                &s->system_storage.metrics,
+                                &s->system_journal);
                 if (r >= 0) {
                         server_add_acls(s->system_journal, 0);
                         (void) cache_space_refresh(s, &s->system_storage);
@@ -383,11 +389,17 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
 
                 if (s->system_journal && !relinquish_requested) {
 
-                        /* Try to open the runtime journal, but only
-                         * if it already exists, so that we can flush
-                         * it into the system journal */
+                        /* Try to open the runtime journal, but only if it already exists, so that we can
+                         * flush it into the system journal */
 
-                        r = open_journal(s, false, fn, O_RDWR, false, &s->runtime_storage.metrics, &s->runtime_journal);
+                        r = open_journal(
+                                        s,
+                                        /* reliably= */ false,
+                                        fn,
+                                        O_RDWR,
+                                        /* seal= */ false,
+                                        &s->runtime_storage.metrics,
+                                        &s->runtime_journal);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
@@ -403,7 +415,14 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
                         (void) mkdir_parents(s->runtime_storage.path, 0755);
                         (void) mkdir(s->runtime_storage.path, 0750);
 
-                        r = open_journal(s, true, fn, O_RDWR|O_CREAT, false, &s->runtime_storage.metrics, &s->runtime_journal);
+                        r = open_journal(
+                                        s,
+                                        /* reliably= */ true,
+                                        fn,
+                                        O_RDWR|O_CREAT,
+                                        /* seal= */ false,
+                                        &s->runtime_storage.metrics,
+                                        &s->runtime_journal);
                         if (r < 0)
                                 return log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
                                                                    "Failed to open runtime journal: %m");
@@ -441,7 +460,14 @@ static int find_user_journal(Server *s, uid_t uid, ManagedJournalFile **ret) {
                 (void) managed_journal_file_close(first);
         }
 
-        r = open_journal(s, true, p, O_RDWR|O_CREAT, s->seal, &s->system_storage.metrics, &f);
+        r = open_journal(
+                        s,
+                        /* reliably= */ true,
+                        p,
+                        O_RDWR|O_CREAT,
+                        s->seal,
+                        &s->system_storage.metrics,
+                        &f);
         if (r < 0)
                 return r;
 
@@ -634,7 +660,7 @@ static int server_archive_offline_user_journals(Server *s) {
                                 &s->system_storage.metrics,
                                 s->mmap,
                                 s->deferred_closes,
-                                NULL,
+                                /* template= */ NULL,
                                 &f);
                 if (r < 0) {
                         log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
