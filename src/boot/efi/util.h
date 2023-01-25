@@ -191,9 +191,9 @@ void hexdump(const char16_t *prefix, const void *data, size_t size);
         }
 
 #if defined(__i386__) || defined(__x86_64__)
-void beep(UINTN beep_count);
+void beep(unsigned beep_count);
 #else
-static inline void beep(UINTN beep_count) {}
+static inline void beep(unsigned beep_count) {}
 #endif
 
 EFI_STATUS open_volume(EFI_HANDLE device, EFI_FILE **ret_file);
