@@ -153,8 +153,10 @@ simple_tests += files(
 )
 
 tests += [
-        [files('sd-journal/test-journal-enum.c'),
-         [], [], [], '', 'timeout=360'],
+        {
+                'sources' : files('sd-journal/test-journal-enum.c'),
+                'timeout' : 360,
+        },
 ]
 
 ############################################################
@@ -173,62 +175,64 @@ simple_tests += files(
 )
 
 tests += [
-        [files('sd-bus/test-bus-address.c'),
-         [],
-         [threads]],
-
-        [files('sd-bus/test-bus-marshal.c'),
-         [],
-         [threads,
-          libglib,
-          libgobject,
-          libgio,
-          libdbus,
-          libm]],
-
-        [files('sd-bus/test-bus-signature.c'),
-         [],
-         [threads]],
-
-        [files('sd-bus/test-bus-queue-ref-cycle.c'),
-         [],
-         [threads]],
-
-        [files('sd-bus/test-bus-watch-bind.c'),
-         [],
-         [threads],
-         [], '', 'timeout=120'],
-
-        [files('sd-bus/test-bus-chat.c'),
-         [],
-         [threads]],
-
-        [files('sd-bus/test-bus-cleanup.c'),
-         [],
-         [threads,
-          libseccomp]],
-
-        [files('sd-bus/test-bus-track.c'),
-         [],
-         [libseccomp]],
-
-        [files('sd-bus/test-bus-server.c'),
-         [],
-         [threads]],
-
-        [files('sd-bus/test-bus-objects.c'),
-         [],
-         [threads]],
-
-        [files('sd-bus/test-bus-benchmark.c'),
-         [],
-         [threads],
-         [], '', 'manual'],
-
-        [files('sd-resolve/test-resolve.c'),
-         [],
-         [threads],
-         [], '', 'timeout=120'],
+        {
+                'sources' : files('sd-bus/test-bus-address.c'),
+                'dependencies' : threads
+        },
+        {
+                'sources' : files('sd-bus/test-bus-benchmark.c'),
+                'dependencies' : threads,
+                'type' : 'manual',
+        },
+        {
+                'sources' : files('sd-bus/test-bus-chat.c'),
+                'dependencies' : threads,
+        },
+        {
+                'sources' : files('sd-bus/test-bus-cleanup.c'),
+                'dependencies' : [threads, libseccomp],
+        },
+        {
+                'sources' : files('sd-bus/test-bus-marshal.c'),
+                'dependencies' : [
+                        libdbus,
+                        libgio,
+                        libglib,
+                        libgobject,
+                        libm,
+                        threads,
+                ],
+        },
+        {
+                'sources' : files('sd-bus/test-bus-objects.c'),
+                'dependencies' : threads,
+        },
+        {
+                'sources' : files('sd-bus/test-bus-queue-ref-cycle.c'),
+                'dependencies' : threads,
+        },
+        {
+                'sources' : files('sd-bus/test-bus-server.c'),
+                'dependencies' : threads,
+        },
+        {
+                'sources' : files('sd-bus/test-bus-signature.c'),
+                'dependencies' : threads,
+        },
+        {
+                'sources' : files('sd-bus/test-bus-track.c'),
+                'dependencies' : libseccomp,
+        },
+        {
+                'sources' : files('sd-bus/test-bus-watch-bind.c'),
+                'dependencies' : threads,
+                'timeout' : 120,
+        },
+        {
+                'sources' : files('sd-resolve/test-resolve.c'),
+                'dependencies' : threads,
+                'timeout' : 120,
+        },
 ]
 
 if cxx_cmd != ''

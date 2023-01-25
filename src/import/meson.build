@@ -52,9 +52,13 @@ if conf.get('ENABLE_IMPORTD') == 1
 endif
 
 tests += [
-        [files('test-qcow2.c',
-               'qcow2-util.c'),
-         [],
-         [libz],
-         [], 'HAVE_ZLIB', 'manual'],
+        {
+                'sources' : files(
+                        'test-qcow2.c',
+                        'qcow2-util.c',
+                ),
+                'dependencies' : libz,
+                'condition' : 'HAVE_ZLIB',
+                'type' : 'manual',
+        },
 ]
