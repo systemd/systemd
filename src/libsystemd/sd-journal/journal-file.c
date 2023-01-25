@@ -335,9 +335,8 @@ static bool compact_mode_requested(void) {
 }
 
 static int journal_file_init_header(JournalFile *f, JournalFileFlags file_flags, JournalFile *template) {
-        Header h = {};
-        ssize_t k;
         bool seal = false;
+        ssize_t k;
         int r;
 
         assert(f);
@@ -347,16 +346,17 @@ static int journal_file_init_header(JournalFile *f, JournalFileFlags file_flags,
         seal = FLAGS_SET(file_flags, JOURNAL_SEAL) && journal_file_fss_load(f) >= 0;
 #endif
 
-        memcpy(h.signature, HEADER_SIGNATURE, 8);
-        h.header_size = htole64(ALIGN64(sizeof(h)));
+        Header h = {
+                .header_size = htole64(ALIGN64(sizeof(h))),
+                .incompatible_flags = htole32(
+                                FLAGS_SET(file_flags, JOURNAL_COMPRESS) * COMPRESSION_TO_HEADER_INCOMPATIBLE_FLAG(DEFAULT_COMPRESSION) |
+                                keyed_hash_requested() * HEADER_INCOMPATIBLE_KEYED_HASH |
+                                compact_mode_requested() * HEADER_INCOMPATIBLE_COMPACT),
+                .compatible_flags = htole32(seal * HEADER_COMPATIBLE_SEALED),
+        };
 
-        h.incompatible_flags |= htole32(
-                        FLAGS_SET(file_flags, JOURNAL_COMPRESS) *
-                        COMPRESSION_TO_HEADER_INCOMPATIBLE_FLAG(DEFAULT_COMPRESSION) |
-                        keyed_hash_requested() * HEADER_INCOMPATIBLE_KEYED_HASH |
-                        compact_mode_requested() * HEADER_INCOMPATIBLE_COMPACT);
-
-        h.compatible_flags = htole32(seal * HEADER_COMPATIBLE_SEALED);
+        assert_cc(sizeof(h.signature) == sizeof(HEADER_SIGNATURE));
+        memcpy(h.signature, HEADER_SIGNATURE, sizeof(HEADER_SIGNATURE));
 
         r = sd_id128_randomize(&h.file_id);
         if (r < 0)
@@ -371,7 +371,6 @@ static int journal_file_init_header(JournalFile *f, JournalFileFlags file_flags,
         k = pwrite(f->fd, &h, sizeof(h), 0);
         if (k < 0)
                 return -errno;
-
         if (k != sizeof(h))
                 return -EIO;
 
