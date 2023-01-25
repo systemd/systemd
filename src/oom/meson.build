@@ -23,8 +23,6 @@ if conf.get('ENABLE_OOMD') == 1
 endif
 
 tests += [
-        [files('test-oomd-util.c',
-               'oomd-util.c'),
-	 [],
-	 [libatomic]]
+        { 'sources' : files('test-oomd-util.c', 'oomd-util.c'),
+          'dependencies' : libatomic },
 ]

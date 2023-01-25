@@ -180,8 +180,7 @@ endif
 ############################################################
 
 fuzzers += [
-        [files('fuzz-unit-file.c'),
-         [libcore,
-          libshared],
-         [libmount]],
+        { 'sources' : files('fuzz-unit-file.c'),
+          'link_with' : [libcore, libshared],
+          'dependencies' : libmount },
 ]
