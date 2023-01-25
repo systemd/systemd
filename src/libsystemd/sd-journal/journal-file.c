@@ -2248,7 +2248,7 @@ int journal_file_append_entry(
                 const dual_timestamp *ts,
                 const sd_id128_t *boot_id,
                 const struct iovec iovec[],
-                unsigned n_iovec,
+                size_t n_iovec,
                 uint64_t *seqnum,
                 Object **ret_object,
                 uint64_t *ret_offset) {
@@ -4226,12 +4226,12 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int log
                 if (le64toh(f->header->n_data) * 4ULL > (le64toh(f->header->data_hash_table_size) / sizeof(HashItem)) * 3ULL) {
                         log_ratelimit_full(
                                 log_level, JOURNAL_LOG_RATELIMIT,
-                                "Data hash table of %s has a fill level at %.1f (%"PRIu64" of %"PRIu64" items, %llu file size, %"PRIu64" bytes per hash table item), suggesting rotation.",
+                                "Data hash table of %s has a fill level at %.1f (%"PRIu64" of %"PRIu64" items, %"PRIu64" file size, %"PRIu64" bytes per hash table item), suggesting rotation.",
                                 f->path,
                                 100.0 * (double) le64toh(f->header->n_data) / ((double) (le64toh(f->header->data_hash_table_size) / sizeof(HashItem))),
                                 le64toh(f->header->n_data),
                                 le64toh(f->header->data_hash_table_size) / sizeof(HashItem),
-                                (unsigned long long) f->last_stat.st_size,
+                                (uint64_t) f->last_stat.st_size,
                                 f->last_stat.st_size / le64toh(f->header->n_data));
                         return true;
                 }
