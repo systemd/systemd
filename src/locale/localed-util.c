@@ -152,11 +152,65 @@ static void context_clear_x11(Context *c) {
         x11_context_clear(&c->x11_from_vc);
 }
 
-static void context_clear_vconsole(Context *c) {
-        assert(c);
+static void vc_context_clear(VCContext *vc) {
+        assert(vc);
 
-        c->vc_keymap = mfree(c->vc_keymap);
-        c->vc_keymap_toggle = mfree(c->vc_keymap_toggle);
+        vc->keymap = mfree(vc->keymap);
+        vc->toggle = mfree(vc->toggle);
+}
+
+static bool vc_context_isempty(const VCContext *vc) {
+        assert(vc);
+
+        return
+                isempty(vc->keymap) &&
+                isempty(vc->toggle);
+}
+
+void vc_context_empty_to_null(VCContext *vc) {
+        assert(vc);
+
+        /* Do not call vc_context_clear() for the passed object. */
+
+        vc->keymap = empty_to_null(vc->keymap);
+        vc->toggle = empty_to_null(vc->toggle);
+}
+
+bool vc_context_equal(const VCContext *a, const VCContext *b) {
+        assert(a);
+        assert(b);
+
+        return
+                streq_ptr(a->keymap, b->keymap) &&
+                streq_ptr(a->toggle, b->toggle);
+}
+
+int vc_context_copy(VCContext *dest, const VCContext *src) {
+        bool modified;
+        int r;
+
+        assert(dest);
+
+        if (dest == src)
+                return 0;
+
+        if (!src) {
+                modified = !vc_context_isempty(dest);
+                vc_context_clear(dest);
+                return modified;
+        }
+
+        r = free_and_strdup(&dest->keymap, src->keymap);
+        if (r < 0)
+                return r;
+        modified = r > 0;
+
+        r = free_and_strdup(&dest->toggle, src->toggle);
+        if (r < 0)
+                return r;
+        modified = modified || r > 0;
+
+        return modified;
 }
 
 void context_clear(Context *c) {
@@ -164,7 +218,7 @@ void context_clear(Context *c) {
 
         locale_context_clear(&c->locale_context);
         context_clear_x11(c);
-        context_clear_vconsole(c);
+        vc_context_clear(&c->vc);
 
         c->locale_cache = sd_bus_message_unref(c->locale_cache);
         c->x11_cache = sd_bus_message_unref(c->x11_cache);
@@ -223,7 +277,7 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
         fd = RET_NERRNO(open("/etc/vconsole.conf", O_CLOEXEC | O_PATH));
         if (fd == -ENOENT) {
                 c->vc_stat = (struct stat) {};
-                context_clear_vconsole(c);
+                vc_context_clear(&c->vc);
                 return 0;
         }
         if (fd < 0)
@@ -237,12 +291,12 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
                 return 0;
 
         c->vc_stat = st;
-        context_clear_vconsole(c);
+        vc_context_clear(&c->vc);
         x11_context_clear(&c->x11_from_vc);
 
         return parse_env_file_fd(fd, "/etc/vconsole.conf",
-                                 "KEYMAP",        &c->vc_keymap,
-                                 "KEYMAP_TOGGLE", &c->vc_keymap_toggle,
+                                 "KEYMAP",        &c->vc.keymap,
+                                 "KEYMAP_TOGGLE", &c->vc.toggle,
                                  "XKBLAYOUT",     &c->x11_from_vc.layout,
                                  "XKBMODEL",      &c->x11_from_vc.model,
                                  "XKBVARIANT",    &c->x11_from_vc.variant,
@@ -380,11 +434,11 @@ int vconsole_write_data(Context *c) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        r = strv_env_assign(&l, "KEYMAP", empty_to_null(c->vc_keymap));
+        r = strv_env_assign(&l, "KEYMAP", empty_to_null(c->vc.keymap));
         if (r < 0)
                 return r;
 
-        r = strv_env_assign(&l, "KEYMAP_TOGGLE", empty_to_null(c->vc_keymap_toggle));
+        r = strv_env_assign(&l, "KEYMAP_TOGGLE", empty_to_null(c->vc.toggle));
         if (r < 0)
                 return r;
 
@@ -542,7 +596,7 @@ int vconsole_convert_to_x11(Context *c) {
          * vconsole_write_data() if necessary. */
         xc = context_get_x11_context_safe(c);
 
-        if (isempty(c->vc_keymap)) {
+        if (isempty(c->vc.keymap)) {
                 modified = !x11_context_isempty(xc);
                 context_clear_x11(c);
         } else {
@@ -563,7 +617,7 @@ int vconsole_convert_to_x11(Context *c) {
                         if (r == 0)
                                 break;
 
-                        if (!streq(c->vc_keymap, a[0]))
+                        if (!streq(c->vc.keymap, a[0]))
                                 continue;
 
                         r = x11_context_copy(xc,
@@ -589,7 +643,7 @@ int vconsole_convert_to_x11(Context *c) {
                          strempty(xc->options));
         else if (modified < 0)
                 log_notice("X11 keyboard layout was not modified: no conversion found for \"%s\".",
-                           c->vc_keymap);
+                           c->vc.keymap);
         else
                 log_debug("X11 keyboard layout did not need to be modified.");
 
@@ -778,11 +832,8 @@ int x11_convert_to_vconsole(Context *c) {
         xc = context_get_x11_context_safe(c);
 
         if (isempty(xc->layout)) {
-                modified =
-                        !isempty(c->vc_keymap) ||
-                        !isempty(c->vc_keymap_toggle);
-
-                context_clear_vconsole(c);
+                modified = !vc_context_isempty(&c->vc);
+                vc_context_clear(&c->vc);
         } else {
                 _cleanup_free_ char *new_keymap = NULL;
                 int r;
@@ -798,16 +849,16 @@ int x11_convert_to_vconsole(Context *c) {
                          * that we couldn't find anything which matches the layout. */
                         log_notice("No conversion to virtual console map found for \"%s\".", xc->layout);
 
-                if (!streq_ptr(c->vc_keymap, new_keymap)) {
-                        context_clear_vconsole(c);
-                        c->vc_keymap = TAKE_PTR(new_keymap);
+                if (!streq_ptr(c->vc.keymap, new_keymap)) {
+                        vc_context_clear(&c->vc);
+                        c->vc.keymap = TAKE_PTR(new_keymap);
                         modified = true;
                 }
         }
 
         if (modified)
                 log_info("Changing virtual console keymap to '%s' toggle '%s'",
-                         strempty(c->vc_keymap), strempty(c->vc_keymap_toggle));
+                         strempty(c->vc.keymap), strempty(c->vc.toggle));
         else
                 log_debug("Virtual console keymap was not modified.");
 

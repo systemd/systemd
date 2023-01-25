@@ -118,9 +118,9 @@ static int property_get_vconsole(
                 return r;
 
         if (streq(property, "VConsoleKeymap"))
-                return sd_bus_message_append_basic(reply, 's', c->vc_keymap);
+                return sd_bus_message_append_basic(reply, 's', c->vc.keymap);
         if (streq(property, "VConsoleKeymapToggle"))
-                return sd_bus_message_append_basic(reply, 's', c->vc_keymap_toggle);
+                return sd_bus_message_append_basic(reply, 's', c->vc.toggle);
 
         return -EINVAL;
 }
@@ -367,17 +367,16 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
 
 static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = ASSERT_PTR(userdata);
-        const char *keymap, *keymap_toggle;
         int convert, interactive, r;
+        VCContext in;
 
         assert(m);
 
-        r = sd_bus_message_read(m, "ssbb", &keymap, &keymap_toggle, &convert, &interactive);
+        r = sd_bus_message_read(m, "ssbb", &in.keymap, &in.toggle, &convert, &interactive);
         if (r < 0)
                 return r;
 
-        keymap = empty_to_null(keymap);
-        keymap_toggle = empty_to_null(keymap_toggle);
+        vc_context_empty_to_null(&in);
 
         r = vconsole_read_data(c, m);
         if (r < 0) {
@@ -385,7 +384,7 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
                 return sd_bus_error_set_errnof(error, r, "Failed to read virtual console keymap data: %m");
         }
 
-        FOREACH_STRING(name, keymap ?: keymap_toggle, keymap ? keymap_toggle : NULL) {
+        FOREACH_STRING(name, in.keymap ?: in.toggle, in.keymap ? in.toggle : NULL) {
                 r = keymap_exists(name); /* This also verifies that the keymap name is kosher. */
                 if (r < 0) {
                         log_error_errno(r, "Failed to check keymap %s: %m", name);
@@ -395,8 +394,7 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
                         return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Keymap %s is not installed.", name);
         }
 
-        if (streq_ptr(keymap, c->vc_keymap) &&
-            streq_ptr(keymap_toggle, c->vc_keymap_toggle))
+        if (vc_context_equal(&c->vc, &in))
                 return sd_bus_reply_method_return(m, NULL);
 
         r = bus_verify_polkit_async(
@@ -413,9 +411,9 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        if (free_and_strdup(&c->vc_keymap, keymap) < 0 ||
-            free_and_strdup(&c->vc_keymap_toggle, keymap_toggle) < 0)
-                return -ENOMEM;
+        r = vc_context_copy(&c->vc, &in);
+        if (r < 0)
+                return r;
 
         if (convert) {
                 r = x11_read_data(c, m);
@@ -445,7 +443,7 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
         }
 
         log_info("Changed virtual console keymap to '%s' toggle '%s'",
-                 strempty(c->vc_keymap), strempty(c->vc_keymap_toggle));
+                 strempty(c->vc.keymap), strempty(c->vc.toggle));
 
         (void) vconsole_reload(sd_bus_message_get_bus(m));
 
