@@ -21,11 +21,11 @@
 _used_ _section_(".sdmagic") static const char magic[] = "#### LoaderInfo: systemd-stub " GIT_VERSION " ####";
 
 static EFI_STATUS combine_initrd(
-                EFI_PHYSICAL_ADDRESS initrd_base, UINTN initrd_size,
+                EFI_PHYSICAL_ADDRESS initrd_base, size_t initrd_size,
                 const void * const extra_initrds[], const size_t extra_initrd_sizes[], size_t n_extra_initrds,
-                Pages *ret_initr_pages, UINTN *ret_initrd_size) {
+                Pages *ret_initr_pages, size_t *ret_initrd_size) {
 
-        UINTN n;
+        size_t n;
 
         assert(ret_initr_pages);
         assert(ret_initrd_size);
@@ -38,7 +38,7 @@ static EFI_STATUS combine_initrd(
                 if (!extra_initrds[i])
                         continue;
 
-                if (n > UINTN_MAX - extra_initrd_sizes[i])
+                if (n > SIZE_MAX - extra_initrd_sizes[i])
                         return EFI_OUT_OF_RESOURCES;
 
                 n += extra_initrd_sizes[i];
@@ -51,7 +51,7 @@ static EFI_STATUS combine_initrd(
                         UINT32_MAX /* Below 4G boundary. */);
         uint8_t *p = PHYSICAL_ADDRESS_TO_POINTER(pages.addr);
         if (initrd_base != 0) {
-                UINTN pad;
+                size_t pad;
 
                 /* Order matters, the real initrd must come first, since it might include microcode updates
                  * which the kernel only looks for in the first cpio archive */
@@ -281,25 +281,25 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         if (pack_cpio(loaded_image,
                       NULL,
-                      L".cred",
+                      u".cred",
                       ".extra/credentials",
                       /* dir_mode= */ 0500,
                       /* access_mode= */ 0400,
                       /* tpm_pcr= */ TPM_PCR_INDEX_KERNEL_PARAMETERS,
-                      L"Credentials initrd",
+                      u"Credentials initrd",
                       &credential_initrd,
                       &credential_initrd_size,
                       &m) == EFI_SUCCESS)
                 parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
 
         if (pack_cpio(loaded_image,
-                      L"\\loader\\credentials",
-                      L".cred",
+                      u"\\loader\\credentials",
+                      u".cred",
                       ".extra/global_credentials",
                       /* dir_mode= */ 0500,
                       /* access_mode= */ 0400,
                       /* tpm_pcr= */ TPM_PCR_INDEX_KERNEL_PARAMETERS,
-                      L"Global credentials initrd",
+                      u"Global credentials initrd",
                       &global_credential_initrd,
                       &global_credential_initrd_size,
                       &m) == EFI_SUCCESS)
@@ -307,12 +307,12 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         if (pack_cpio(loaded_image,
                       NULL,
-                      L".raw",
+                      u".raw",
                       ".extra/sysext",
                       /* dir_mode= */ 0555,
                       /* access_mode= */ 0444,
                       /* tpm_pcr= */ TPM_PCR_INDEX_INITRD_SYSEXTS,
-                      L"System extension initrd",
+                      u"System extension initrd",
                       &sysext_initrd,
                       &sysext_initrd_size,
                       &m) == EFI_SUCCESS)
@@ -333,7 +333,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                                 (uint8_t*) loaded_image->ImageBase + addrs[UNIFIED_SECTION_PCRSIG],
                                 szs[UNIFIED_SECTION_PCRSIG],
                                 ".extra",
-                                L"tpm2-pcr-signature.json",
+                                u"tpm2-pcr-signature.json",
                                 /* dir_mode= */ 0555,
                                 /* access_mode= */ 0444,
                                 /* tpm_pcr= */ UINT32_MAX,
@@ -351,7 +351,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                                 (uint8_t*) loaded_image->ImageBase + addrs[UNIFIED_SECTION_PCRPKEY],
                                 szs[UNIFIED_SECTION_PCRPKEY],
                                 ".extra",
-                                L"tpm2-pcr-public-key.pem",
+                                u"tpm2-pcr-public-key.pem",
                                 /* dir_mode= */ 0555,
                                 /* access_mode= */ 0444,
                                 /* tpm_pcr= */ UINT32_MAX,

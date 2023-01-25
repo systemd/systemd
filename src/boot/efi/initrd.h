@@ -2,10 +2,11 @@
 #pragma once
 
 #include <efi.h>
+#include <stddef.h>
 
 EFI_STATUS initrd_register(
                 const void *initrd_address,
-                UINTN initrd_length,
+                size_t initrd_length,
                 EFI_HANDLE *ret_initrd_handle);
 
 EFI_STATUS initrd_unregister(EFI_HANDLE initrd_handle);
