@@ -2471,8 +2471,10 @@ static int context_dump_partitions(Context *context) {
                 if (p->new_padding != UINT64_MAX)
                         sum_padding += p->new_padding;
 
-                if (p->verity == VERITY_HASH) {
-                        rh = p->roothash ? hexmem(p->roothash, p->roothash_size) : strdup("TBD");
+                if (p->verity != VERITY_OFF) {
+                        Partition *hp = p->verity == VERITY_HASH ? p : p->siblings[VERITY_HASH];
+
+                        rh = hp->roothash ? hexmem(hp->roothash, hp->roothash_size) : strdup("TBD");
                         if (!rh)
                                 return log_oom();
                 }
