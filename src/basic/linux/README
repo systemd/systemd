@@ -4,3 +4,4 @@ The files in this directory are copied from current kernel master
 modifications are applied:
 - btrfs.h: drop '__user' attributes
 - if.h: drop '#include <linux/compiler.h>' and '__user' attributes
+- stddef.h: drop '#include <linux/compiler_types.h>'
