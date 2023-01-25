@@ -29,6 +29,5 @@ if conf.get('ENABLE_LOCALED') == 1
 endif
 
 tests += [
-        [files('test-localed-util.c',
-               'localed-util.c')],
+        { 'sources' : files('test-localed-util.c', 'localed-util.c') },
 ]
