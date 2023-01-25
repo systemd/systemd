@@ -1377,11 +1377,11 @@ fail:
         if (show_progress)
                 flush_progress();
 
-        log_error("File corruption detected at %s:"OFSfmt" (of %llu bytes, %"PRIu64"%%).",
+        log_error("File corruption detected at %s:%"PRIu64" (of %"PRIu64" bytes, %"PRIu64"%%).",
                   f->path,
                   p,
-                  (unsigned long long) f->last_stat.st_size,
-                  100 * p / f->last_stat.st_size);
+                  (uint64_t) f->last_stat.st_size,
+                  100U * p / (uint64_t) f->last_stat.st_size);
 
         if (cache_data_fd)
                 mmap_cache_fd_free(cache_data_fd);
