@@ -82,14 +82,20 @@ simple_tests += files(
 )
 
 tests += [
-        [files('test-inhibit.c'),
-         [], [], [], '', 'manual'],
-
-        [files('test-login-tables.c'),
-         [liblogind_core,
-          libshared],
-         [threads]],
-
-        [files('test-session-properties.c'),
-         [], [], [], '', 'manual'],
+        {
+                'sources' : files('test-inhibit.c'),
+                'type' : 'manual',
+        },
+        {
+                'sources' : files('test-login-tables.c'),
+                'link_with' : [
+                        liblogind_core,
+                        libshared,
+                ],
+                'dependencies' : threads,
+        },
+        {
+                'sources' : files('test-session-properties.c'),
+                'type' : 'manual',
+        },
 ]
