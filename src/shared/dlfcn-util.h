@@ -24,3 +24,11 @@ int dlopen_many_sym_or_warn_sentinel(void **dlp, const char *filename, int log_l
 /* libbpf is a bit confused about type-safety and API compatibility. Provide a macro that can tape over that mess. Sad. */
 #define DLSYM_ARG_FORCE(arg) \
         &sym_##arg, STRINGIFY(arg)
+
+static inline void *safe_dlclose(void *p) {
+        if (!p)
+                return NULL;
+
+        assert_se(dlclose(p) == 0);
+        return NULL;
+}

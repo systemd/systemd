@@ -111,11 +111,7 @@ void tpm2_context_destroy(struct tpm2_context *c) {
                 sym_Esys_Finalize(&c->esys_context);
 
         c->tcti_context = mfree(c->tcti_context);
-
-        if (c->tcti_dl) {
-                dlclose(c->tcti_dl);
-                c->tcti_dl = NULL;
-        }
+        c->tcti_dl = safe_dlclose(c->tcti_dl);
 }
 
 static inline void Esys_Finalize_wrapper(ESYS_CONTEXT **c) {
