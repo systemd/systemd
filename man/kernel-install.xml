@@ -111,7 +111,7 @@
 
             <listitem><para><filename>90-uki-copy.install</filename> copies a file
             <filename>uki.efi</filename> from <varname>$KERNEL_INSTALL_STAGING_AREA</varname> or if it does
-            not exist the <replaceable>KERNEL-IMAGE</replaceable> argument, iff it has a
+            not exist the <replaceable>KERNEL-IMAGE</replaceable> argument, if it has a
             <literal>.efi</literal> extension, to
             <filename>$BOOT/EFI/Linux/<replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable>.efi</filename>.</para>
 
@@ -224,7 +224,7 @@
       (EFI System Partition) are mounted, and also conceptually referred to as <varname>$BOOT</varname>. Can
       be overridden by setting <varname>$BOOT_ROOT</varname> (see below).</para>
 
-      <para><varname>$KERNEL_INSTALL_LAYOUT=bls|uki|other|...</varname> is set for the plugins to specify the
+      <para><varname>$KERNEL_INSTALL_LAYOUT=auto|bls|uki|other|...</varname> is set for the plugins to specify the
       installation layout. Defaults to <option>bls</option> if
       <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable></filename> exists, or <option>other</option>
       otherwise. Additional layout names may be defined by convention. If a plugin uses a special layout,
@@ -262,6 +262,14 @@
           <term>other</term>
           <listitem>
             <para>Some other layout not understood natively by <command>kernel-install</command>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>auto</term>
+          <listitem>
+            <para>Pick layout automatically.  This inspect the kernel image and <filename>$BOOT</filename>
+            and will choose a layout based on what it finds.  Leaving layout blank has the same effect.  This
+            is the default.</para>
           </listitem>
         </varlistentry>
       </variablelist>

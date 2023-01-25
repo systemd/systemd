@@ -250,10 +250,18 @@ if [ -z "$ENTRY_TOKEN" ]; then
         echo "No entry-token candidate matched, using \"$ENTRY_TOKEN\" from machine-id"
 fi
 
-if [ -z "$layout" ]; then
+export KERNEL_INSTALL_IMAGE_TYPE=""
+if [ -f "$1" ]; then
+    KERNEL_INSTALL_IMAGE_TYPE="$(bootctl kernel-identify "$1")"
+fi
+
+if [ "$layout" = "auto" ] || [ -z "$layout" ]; then
     # No layout configured by the administrator. Let's try to figure it out
     # automatically from metadata already contained in $BOOT_ROOT.
-    if [ -e "$BOOT_ROOT/loader/entries.srel" ]; then
+    if [ "$KERNEL_INSTALL_IMAGE_TYPE" = "uki" ]; then
+        layout="uki"
+        log_verbose "kernel image is UKI, using layout=$layout"
+    elif [ -e "$BOOT_ROOT/loader/entries.srel" ]; then
         read -r ENTRIES_SREL <"$BOOT_ROOT/loader/entries.srel"
         if [ "$ENTRIES_SREL" = "type1" ]; then
             # The loader/entries.srel file clearly indicates that the installed
