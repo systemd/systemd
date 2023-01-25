@@ -179,6 +179,11 @@ endif
 
 ############################################################
 
+test_core_base = {
+        'link_with' : [libcore, libshared],
+        'includes' : core_includes,
+}
+
 fuzzers += [
         [files('fuzz-unit-file.c'),
          [libcore,
