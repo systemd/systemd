@@ -20,6 +20,9 @@
 
 set -e
 
+# internal for testsuite to override
+: "${_KERNEL_INSTALL_BOOTCTL:=/usr/bin/bootctl}"
+
 COMMAND="${1:?}"
 KERNEL_VERSION="${2:?}"
 ENTRY_DIR_ABS="${3:?}"
@@ -32,24 +35,49 @@ MACHINE_ID="$KERNEL_INSTALL_MACHINE_ID"
 ENTRY_TOKEN="$KERNEL_INSTALL_ENTRY_TOKEN"
 BOOT_ROOT="$KERNEL_INSTALL_BOOT_ROOT"
 
-[ -n "$BOOT_MNT" ] || BOOT_MNT="$(stat -c %m "$BOOT_ROOT")"
+# XXX: kernel-install has no way of passing a root dir but bootctl does. We
+# need that for the test suite. So use an externally provided $BOOT_MNT as
+# trigger when calling bootctl.
+if [ -n "$BOOT_MNT" ]; then
+    BOOTCTL_ROOT="--root=$BOOT_MNT"
+    SYSTEMD_ESP_PATH="/"
+    export SYSTEMD_ESP_PATH
+else
+    BOOT_MNT="$(stat -c %m "$BOOT_ROOT")"
+fi
 if [ "$BOOT_MNT" = '/' ]; then
     ENTRY_DIR="$ENTRY_DIR_ABS"
 else
     ENTRY_DIR="${ENTRY_DIR_ABS#"$BOOT_MNT"}"
 fi
 
-KERNEL_DEST="$ENTRY_DIR_ABS/linux"
+LOADER_ENTRY="$ENTRY_TOKEN-$KERNEL_VERSION.conf"
 KERNEL_ENTRY="$ENTRY_DIR/linux"
-LOADER_ENTRY="$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION.conf"
+STAGING_KERNEL="$KERNEL_INSTALL_STAGING_AREA/linux"
 
 case "$COMMAND" in
     remove)
-        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-            echo "Removing ${LOADER_ENTRY%.conf}*.conf"
-        exec rm -f \
-            "$LOADER_ENTRY" \
-            "${LOADER_ENTRY%.conf}"*".conf"
+	# FIXME: LOADER_ENTRY may have been renamed by snapshot feature and not exist anymore
+        if [ -x "$_KERNEL_INSTALL_BOOTCTL" ]; then
+            "$_KERNEL_INSTALL_BOOTCTL" ${BOOTCTL_ROOT:+"$BOOTCTL_ROOT"} unlink "$LOADER_ENTRY" || :
+            exit 0
+        else
+            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+                echo "Removing ${LOADER_ENTRY%.conf}*.conf"
+            for file in "$ENTRY_DIR_ABS/$LOADER_ENTRY" \ "$ENTRY_DIR_ABS/${LOADER_ENTRY%.conf}"*".conf"; do
+                test -e "$file" || continue
+                while read -r k v; do
+                    case "$k" in
+                        linux|initrd|devicetree|devicetree_overlay)
+                            [ "${v#"$ENTRY_DIR"}" != "$v" ] || continue
+                            rm -f "$ENTRY_DIR_ABS${v#"$ENTRY_DIR"}"
+                            ;;
+                    esac
+                done < "$file"
+                rm -f "$file"
+            done
+        fi
+        exit 0
         ;;
     add)
         ;;
@@ -93,55 +121,29 @@ if [ "$ENTRY_TOKEN" = "$MACHINE_ID" ] && ! echo "$BOOT_OPTIONS" | grep -q "syste
     BOOT_OPTIONS="$BOOT_OPTIONS systemd.machine_id=$MACHINE_ID"
 fi
 
-TRIES_FILE="${KERNEL_INSTALL_CONF_ROOT:-/etc/kernel}/tries"
-
-if [ -f "$TRIES_FILE" ]; then
-    read -r TRIES <"$TRIES_FILE"
-    if ! echo "$TRIES" | grep -q '^[0-9][0-9]*$'; then
-        echo "$TRIES_FILE does not contain an integer." >&2
-        exit 1
-    fi
-    LOADER_ENTRY="${LOADER_ENTRY%.conf}+$TRIES.conf"
-fi
-
 if ! [ -d "$ENTRY_DIR_ABS" ]; then
     echo "Error: entry directory '$ENTRY_DIR_ABS' does not exist" >&2
     exit 1
 fi
 
-install -m 0644 "$KERNEL_IMAGE" "$KERNEL_DEST" || {
-    echo "Error: could not copy '$KERNEL_IMAGE' to '$KERNEL_DEST'." >&2
-    exit 1
-}
-chown root:root "$KERNEL_DEST" || :
-
 shift "$INITRD_OPTIONS_SHIFT"
-# All files listed as arguments, and staged files starting with "initrd" are installed as initrds.
-for initrd in "$@" "${KERNEL_INSTALL_STAGING_AREA}"/initrd*; do
-    [ -f "$initrd" ] || {
-        [ "$initrd" = "${KERNEL_INSTALL_STAGING_AREA}/initrd*" ] && continue
-        echo "Error: initrd '$initrd' not a file." >&2
+
+# check if something already copied the kernel
+if ! [ -e "$STAGING_KERNEL" ]; then
+    install -m 0644 "$KERNEL_IMAGE" "$STAGING_KERNEL" || {
+        echo "Error: could not copy '$KERNEL_IMAGE' to '$STAGING_KERNEL'." >&2
         exit 1
     }
-
-    initrd_basename="${initrd##*/}"
-    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Installing $ENTRY_DIR_ABS/$initrd_basename"
-    install -m 0644 "$initrd" "$ENTRY_DIR_ABS/$initrd_basename" || {
-        echo "Error: could not copy '$initrd' to '$ENTRY_DIR_ABS/$initrd_basename'." >&2
-        exit 1
-    }
-    chown root:root "$ENTRY_DIR_ABS/$initrd_basename" || :
-done
-
-mkdir -p "${LOADER_ENTRY%/*}" || {
-    echo "Error: could not create loader entry directory '${LOADER_ENTRY%/*}'." >&2
-    exit 1
-}
+elif [ -L "$STAGING_KERNEL" ]; then
+    STAGING_KERNEL=$(readlink -f "$STAGING_KERNEL")
+    [ -n "$STAGING_KERNEL" ] || { echo "failed to resolve kernel symlink." >&2; exit 1; }
+    KERNEL_ENTRY="$ENTRY_DIR/${STAGING_KERNEL##*/}"
+fi
 
 [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Creating $LOADER_ENTRY"
 {
     echo "# Boot Loader Specification type#1 entry"
-    echo "# File created by $0 (systemd {{GIT_VERSION}})"
+    echo "# File created by $0 ({{GIT_VERSION}})"
     echo "title      $PRETTY_NAME"
     echo "version    $KERNEL_VERSION"
     if [ "$ENTRY_TOKEN" = "$MACHINE_ID" ]; then
@@ -162,8 +164,9 @@ mkdir -p "${LOADER_ENTRY%/*}" || {
     # Try "initrd", generated by dracut in its kernel-install hook, if no initrds were supplied
     [ -z "$have_initrd" ] && [ -f "$ENTRY_DIR_ABS/initrd" ] && echo "initrd     $ENTRY_DIR/initrd"
     :
-} >"$LOADER_ENTRY" || {
+} >"$KERNEL_INSTALL_STAGING_AREA/$LOADER_ENTRY" || {
     echo "Error: could not create loader entry '$LOADER_ENTRY'." >&2
     exit 1
 }
+
 exit 0
