@@ -570,7 +570,7 @@ static inline void outb(uint16_t port, uint8_t value) {
         asm volatile("outb %0, %1" : : "a"(value), "Nd"(port));
 }
 
-void beep(UINTN beep_count) {
+void beep(unsigned beep_count) {
         enum {
                 PITCH                = 500,
                 BEEP_DURATION_USEC   = 100 * 1000,
