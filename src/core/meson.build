@@ -91,14 +91,16 @@ endif
 load_fragment_gperf_gperf = custom_target(
         'load-fragment-gperf.gperf',
         input : 'load-fragment-gperf.gperf.in',
-        output: 'load-fragment-gperf.gperf',
-        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'])
+        output : 'load-fragment-gperf.gperf',
+        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
+)
 
 load_fragment_gperf_c = custom_target(
         'load-fragment-gperf.c',
         input : load_fragment_gperf_gperf,
         output : 'load-fragment-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'],
+)
 
 awkscript = 'load-fragment-gperf-nulstr.awk'
 load_fragment_gperf_nulstr_c = custom_target(
@@ -106,7 +108,8 @@ load_fragment_gperf_nulstr_c = custom_target(
         input : [awkscript, load_fragment_gperf_gperf],
         output : 'load-fragment-gperf-nulstr.c',
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
-        capture : true)
+        capture : true,
+)
 
 libcore_name = 'systemd-core-@0@'.format(shared_lib_tag)
 
@@ -117,36 +120,40 @@ libcore = shared_library(
         load_fragment_gperf_nulstr_c,
         include_directories : includes,
         c_args : ['-fvisibility=default'],
-        link_args : ['-shared',
-                     '-Wl,--version-script=' + libshared_sym_path],
+        link_args : ['-shared', '-Wl,--version-script=' + libshared_sym_path],
         link_with : libshared,
-        dependencies : [versiondep,
-                        threads,
-                        libdl,
-                        librt,
-                        libseccomp,
-                        libpam,
-                        libaudit,
-                        libkmod,
-                        libapparmor,
-                        libselinux,
-                        libmount,
-                        libblkid,
-                        libacl],
+        dependencies : [
+                versiondep,
+                threads,
+                libdl,
+                librt,
+                libseccomp,
+                libpam,
+                libaudit,
+                libkmod,
+                libapparmor,
+                libselinux,
+                libmount,
+                libblkid,
+                libacl,
+        ],
         install : true,
-        install_dir : rootpkglibdir)
+        install_dir : rootpkglibdir,
+)
 
 core_includes = [includes, include_directories('.')]
 
 systemd_sources = files(
-        'main.c',
         'crash-handler.c',
+        'main.c',
 )
 
-in_files = [['system.conf',                     pkgsysconfdir],
-            ['user.conf',                       pkgsysconfdir],
-            ['systemd.pc',                      pkgconfigdatadir],
-            ['org.freedesktop.systemd1.policy', polkitpolicydir]]
+in_files = [
+        ['system.conf', pkgsysconfdir],
+        ['user.conf', pkgsysconfdir],
+        ['systemd.pc', pkgconfigdatadir],
+        ['org.freedesktop.systemd1.policy', polkitpolicydir],
+]
 
 foreach item : in_files
         file = item[0]
@@ -155,16 +162,15 @@ foreach item : in_files
         custom_target(
                 file,
                 input : file + '.in',
-                output: file,
+                output : file,
                 command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
                 install : (dir == pkgsysconfdir) ? install_sysconfdir_samples : (dir != 'no'),
-                install_dir : dir)
+                install_dir : dir,
+        )
 endforeach
 
-install_data('org.freedesktop.systemd1.conf',
-             install_dir : dbuspolicydir)
-install_data('org.freedesktop.systemd1.service',
-             install_dir : dbussystemservicedir)
+install_data('org.freedesktop.systemd1.conf', install_dir : dbuspolicydir)
+install_data('org.freedesktop.systemd1.service', install_dir : dbussystemservicedir)
 
 meson.add_install_script('sh', '-c', mkdir_p.format(systemshutdowndir))
 meson.add_install_script('sh', '-c', mkdir_p.format(systemsleepdir))
@@ -180,8 +186,5 @@ endif
 ############################################################
 
 fuzzers += [
-        [files('fuzz-unit-file.c'),
-         [libcore,
-          libshared],
-         [libmount]],
+        [files('fuzz-unit-file.c'), [libcore, libshared], [libmount]],
 ]

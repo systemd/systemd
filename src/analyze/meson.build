@@ -18,23 +18,22 @@ systemd_analyze_sources = files(
         'analyze-security.c',
         'analyze-service-watchdogs.c',
         'analyze-syscall-filter.c',
-        'analyze-time.c',
         'analyze-time-data.c',
+        'analyze-time.c',
         'analyze-timespan.c',
         'analyze-timestamp.c',
         'analyze-unit-files.c',
         'analyze-unit-paths.c',
-        'analyze-verify.c',
         'analyze-verify-util.c',
+        'analyze-verify.c',
         'analyze.c',
 )
 
 tests += [
-        [files('test-verify.c',
-               'analyze-verify-util.c',
-               'analyze-verify-util.h'),
-         [libcore,
-          libshared],
-         [],
-         core_includes],
+        [
+                files('analyze-verify-util.c', 'analyze-verify-util.h', 'test-verify.c'),
+                [libcore, libshared],
+                [],
+                core_includes,
+        ],
 ]

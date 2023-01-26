@@ -19,20 +19,15 @@ libmachine_core = static_library(
         libmachine_core_sources,
         include_directories : includes,
         dependencies : threads,
-        build_by_default : false)
+        build_by_default : false,
+)
 
 if conf.get('ENABLE_MACHINED') == 1
-        install_data('org.freedesktop.machine1.conf',
-                     install_dir : dbuspolicydir)
-        install_data('org.freedesktop.machine1.service',
-                     install_dir : dbussystemservicedir)
-        install_data('org.freedesktop.machine1.policy',
-                     install_dir : polkitpolicydir)
+        install_data('org.freedesktop.machine1.conf', install_dir : dbuspolicydir)
+        install_data('org.freedesktop.machine1.service', install_dir : dbussystemservicedir)
+        install_data('org.freedesktop.machine1.policy', install_dir : polkitpolicydir)
 endif
 
 tests += [
-        [files('test-machine-tables.c'),
-         [libmachine_core,
-          libshared],
-         [threads]],
+        [files('test-machine-tables.c'), [libmachine_core, libshared], [threads]],
 ]

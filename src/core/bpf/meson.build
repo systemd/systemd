@@ -33,18 +33,20 @@ bpf_gcc_flags = [
 # C.f. https://mesonbuild.com/Reference-tables.html#cpu-families
 # and src/basic/missing_syscall_def.h.
 cpu_arch_defines = {
-        'ppc'     : ['-D__powerpc__'],
-        'ppc64'   : ['-D__powerpc64__', '-D_CALL_ELF=2'],
+        'ppc' : ['-D__powerpc__'],
+        'ppc64' : ['-D__powerpc64__', '-D_CALL_ELF=2'],
         'riscv32' : ['-D__riscv', '-D__riscv_xlen=32'],
         'riscv64' : ['-D__riscv', '-D__riscv_xlen=64'],
-        'x86'     : ['-D__i386__'],
+        'x86' : ['-D__i386__'],
 
         # For arm, assume hardware fp is available.
-        'arm'     : ['-D__arm__', '-D__ARM_PCS_VFP'],
+        'arm' : ['-D__arm__', '-D__ARM_PCS_VFP'],
 }
 
-bpf_arch_flags = cpu_arch_defines.get(host_machine.cpu_family(),
-                                      ['-D__@0@__'.format(host_machine.cpu_family())])
+bpf_arch_flags = cpu_arch_defines.get(
+        host_machine.cpu_family(),
+        ['-D__@0@__'.format(host_machine.cpu_family())],
+)
 if bpf_compiler == 'gcc'
         bpf_arch_flags += ['-m' + host_machine.endian() + '-endian']
 endif
@@ -69,45 +71,19 @@ endif
 bpf_o_unstripped_cmd += ['-I.']
 
 if not meson.is_cross_build() and bpf_compiler == 'clang'
-        target_triplet_cmd = run_command('gcc', '-dumpmachine', check: false)
+        target_triplet_cmd = run_command('gcc', '-dumpmachine', check : false)
         if target_triplet_cmd.returncode() == 0
                 target_triplet = target_triplet_cmd.stdout().strip()
-                bpf_o_unstripped_cmd += [
-                        '-isystem',
-                        '/usr/include/@0@'.format(target_triplet)
-                ]
+                bpf_o_unstripped_cmd += ['-isystem', '/usr/include/@0@'.format(target_triplet)]
         endif
 endif
 
-bpf_o_unstripped_cmd += [
-        '-idirafter',
-        libbpf_include_dir,
-        '@INPUT@',
-        '-o',
-        '@OUTPUT@'
-]
+bpf_o_unstripped_cmd += ['-idirafter', libbpf_include_dir, '@INPUT@', '-o', '@OUTPUT@']
 
 if bpftool_strip
-        bpf_o_cmd = [
-                bpftool,
-                'gen',
-                'object',
-                '@OUTPUT@',
-                '@INPUT@'
-        ]
+        bpf_o_cmd = [bpftool, 'gen', 'object', '@OUTPUT@', '@INPUT@']
 elif bpf_compiler == 'clang'
-        bpf_o_cmd = [
-                llvm_strip,
-                '-g',
-                '@INPUT@',
-                '-o',
-                '@OUTPUT@'
-        ]
+        bpf_o_cmd = [llvm_strip, '-g', '@INPUT@', '-o', '@OUTPUT@']
 endif
 
-skel_h_cmd = [
-        bpftool,
-        'gen',
-        'skeleton',
-        '@INPUT@'
-]
+skel_h_cmd = [bpftool, 'gen', 'skeleton', '@INPUT@']

@@ -8,7 +8,8 @@ lib_cryptsetup_token_common = static_library(
         'cryptsetup-token-util.c',
         include_directories : includes,
         link_with : libshared,
-        build_by_default : false)
+        build_by_default : false,
+)
 
 cryptsetup_token_systemd_tpm2_sources = files(
         'cryptsetup-token-systemd-tpm2.c',

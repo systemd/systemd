@@ -6,6 +6,5 @@ busctl_sources = files(
 )
 
 tests += [
-        [files('test-busctl-introspect.c',
-               'busctl-introspect.c')],
+        [files('busctl-introspect.c', 'test-busctl-introspect.c')],
 ]

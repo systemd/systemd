@@ -39,10 +39,7 @@ _not_installed_headers = [
         'sd-resolve.h',
 ]
 
-install_headers(
-        systemd_headers,
-        '_sd-common.h',
-        subdir : 'systemd')
+install_headers(systemd_headers, '_sd-common.h', subdir : 'systemd')
 
 ############################################################
 
@@ -50,19 +47,14 @@ if want_tests == 'false'
         subdir_done()
 endif
 
-opts = [['c'],
-        ['c', '-ansi'],
-        ['c', '-std=iso9899:1990'],
-        ['c', '-std=iso9899:2011']]
+opts = [['c'], ['c', '-ansi'], ['c', '-std=iso9899:1990'], ['c', '-std=iso9899:2011']]
 
 if cc.has_argument('-std=iso9899:2017')
         opts += [['c', '-std=iso9899:2017']]
 endif
 
 if cxx_cmd != ''
-        opts += [['c++'],
-                 ['c++', '-std=c++98'],
-                 ['c++', '-std=c++11']]
+        opts += [['c++'], ['c++', '-std=c++98'], ['c++', '-std=c++11']]
         if cxx.has_argument('-std=c++14')
                 opts += [['c++', '-std=c++14']]
         endif
@@ -77,20 +69,26 @@ endif
 foreach header : _systemd_headers + _not_installed_headers + [libudev_h_path]
         foreach opt : opts
                 std_name = opt.length() == 2 ? '_'.join(opt[1].split(':')) : ''
-                test('cc-' + header.split('/')[-1] + '_' + opt[0] + std_name,
-                     env,
-                     suite : 'headers',
-                     args : [cc.cmd_array(),
-                             '-c',
-                             '-x', opt,
-                             '-Wall',
-                             '-Wextra',
-                             '-Werror',
-                             '-pedantic',
-                             '-Wno-long-long',
-                             '-Wno-variadic-macros',
-                             '-include', meson.current_source_dir() / header,
-                             '-o/dev/null',
-                             '/dev/null'])
+                test(
+                        'cc-' + header.split('/')[-1] + '_' + opt[0] + std_name,
+                        env,
+                        suite : 'headers',
+                        args : [
+                                cc.cmd_array(),
+                                '-c',
+                                '-x',
+                                opt,
+                                '-Wall',
+                                '-Wextra',
+                                '-Werror',
+                                '-pedantic',
+                                '-Wno-long-long',
+                                '-Wno-variadic-macros',
+                                '-include',
+                                meson.current_source_dir() / header,
+                                '-o/dev/null',
+                                '/dev/null',
+                        ],
+                )
         endforeach
 endforeach

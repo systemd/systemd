@@ -109,34 +109,40 @@ af_list_txt = custom_target(
         'af-list.txt',
         output : 'af-list.txt',
         command : [generate_af_list, cpp, config_h, missing_socket_h],
-        capture : true)
+        capture : true,
+)
 
 generate_arphrd_list = find_program('generate-arphrd-list.sh')
 arphrd_list_txt = custom_target(
         'arphrd-list.txt',
         output : 'arphrd-list.txt',
         command : [generate_arphrd_list, cpp, config_h],
-        capture : true)
+        capture : true,
+)
 
 generate_cap_list = find_program('generate-cap-list.sh')
 cap_list_txt = custom_target(
         'cap-list.txt',
         output : 'cap-list.txt',
         command : [generate_cap_list, cpp, config_h, missing_capability_h],
-        capture : true)
+        capture : true,
+)
 
 generate_errno_list = find_program('generate-errno-list.sh')
 errno_list_txt = custom_target(
         'errno-list.txt',
         output : 'errno-list.txt',
         command : [generate_errno_list, cpp],
-        capture : true)
+        capture : true,
+)
 
 generated_gperf_headers = []
-foreach item : [['af',     af_list_txt,     'af',         ''],
-                ['arphrd', arphrd_list_txt, 'arphrd',     'ARPHRD_'],
-                ['cap',    cap_list_txt,    'capability', ''],
-                ['errno',  errno_list_txt,  'errno',      '']]
+foreach item : [
+        ['af', af_list_txt, 'af', ''],
+        ['arphrd', arphrd_list_txt, 'arphrd', 'ARPHRD_'],
+        ['cap', cap_list_txt, 'capability', ''],
+        ['errno', errno_list_txt, 'errno', ''],
+]
 
         fname = '@0@-from-name.gperf'.format(item[0])
         gperf_file = custom_target(
@@ -144,20 +150,26 @@ foreach item : [['af',     af_list_txt,     'af',         ''],
                 input : item[1],
                 output : fname,
                 command : [generate_gperfs, item[2], item[3], '@INPUT@'],
-                capture : true)
+                capture : true,
+        )
 
         fname = '@0@-from-name.h'.format(item[0])
         target1 = custom_target(
                 fname,
                 input : gperf_file,
                 output : fname,
-                command : [gperf,
-                           '-L', 'ANSI-C', '-t', '--ignore-case',
-                           '-N', 'lookup_@0@'.format(item[2]),
-                           '-H', 'hash_@0@_name'.format(item[2]),
-                           '-p', '-C',
-                           '@INPUT@'],
-                capture : true)
+                command : [
+                        gperf,
+                        '-L', 'ANSI-C',
+                        '-t',
+                        '--ignore-case',
+                        '-N', 'lookup_@0@'.format(item[2]),
+                        '-H', 'hash_@0@_name'.format(item[2]),
+                        '-p',
+                        '-C', '@INPUT@',
+                ],
+                capture : true,
+        )
 
         fname = '@0@-to-name.h'.format(item[0])
         awkscript = '@0@-to-name.awk'.format(item[0])
@@ -166,7 +178,8 @@ foreach item : [['af',     af_list_txt,     'af',         ''],
                 input : [awkscript, item[1]],
                 output : fname,
                 command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
-                capture : true)
+                capture : true,
+        )
 
         generated_gperf_headers += [target1, target2]
 endforeach
@@ -195,35 +208,34 @@ arch_list = [
         's390',
         's390x',
         'sparc',
-        'x86_64'
+        'x86_64',
 ]
 
 run_target(
         'update-syscall-tables',
-        command : [update_syscall_tables_sh, meson.current_source_dir()] + arch_list)
+        command : [update_syscall_tables_sh, meson.current_source_dir()] + arch_list,
+)
 
 syscall_list_txt = files('syscall-list.txt')
 
 syscall_lists = []
-foreach arch: arch_list
+foreach arch : arch_list
         syscall_lists += files('syscalls-@0@.txt'.format(arch))
 endforeach
 
 missing_syscalls_py = find_program('missing_syscalls.py')
 
-run_target(
-        'update-syscall-header',
-        command : [missing_syscalls_py,
-                   missing_syscall_def_h,
-                   syscall_lists])
+run_target('update-syscall-header', command : [missing_syscalls_py, missing_syscall_def_h, syscall_lists])
 
 ############################################################
 
-filesystem_includes = ['linux/magic.h',
-                       'linux/gfs2_ondisk.h']
+filesystem_includes = ['linux/magic.h', 'linux/gfs2_ondisk.h']
 
 check_filesystems = find_program('check-filesystems.sh')
-r = run_command([check_filesystems, cpp, files('filesystems-gperf.gperf')] + filesystem_includes, check: false)
+r = run_command(
+        [check_filesystems, cpp, files('filesystems-gperf.gperf')] + filesystem_includes,
+        check : false,
+)
 if r.returncode() != 0
         error('Unknown filesystems defined in kernel headers:\n\n' + r.stdout())
 endif
@@ -232,7 +244,8 @@ filesystems_gperf_h = custom_target(
         'filesystems-gperf.h',
         input : 'filesystems-gperf.gperf',
         output : 'filesystems-gperf.h',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'],
+)
 
 generate_filesystem_list = find_program('generate-filesystem-list.py')
 fname = 'filesystem-list.h'
@@ -240,9 +253,9 @@ filesystem_list_h = custom_target(
         fname,
         input : 'filesystems-gperf.gperf',
         output : fname,
-        command : [generate_filesystem_list,
-                   '@INPUT@'],
-        capture : true)
+        command : [generate_filesystem_list, '@INPUT@'],
+        capture : true,
+)
 
 generate_filesystem_switch_case_h = find_program('generate-filesystem-switch-case.py')
 fname = 'filesystem-switch-case.h'
@@ -250,9 +263,9 @@ filesystem_switch_case_h = custom_target(
         fname,
         input : 'filesystems-gperf.gperf',
         output : 'filesystem-switch-case.h',
-        command : [generate_filesystem_switch_case_h,
-                   '@INPUT@'],
-        capture : true)
+        command : [generate_filesystem_switch_case_h, '@INPUT@'],
+        capture : true,
+)
 
 basic_sources += [filesystem_list_h, filesystem_switch_case_h, filesystems_gperf_h]
 
@@ -261,12 +274,10 @@ libbasic = static_library(
         basic_sources,
         fundamental_sources,
         include_directories : basic_includes,
-        dependencies : [versiondep,
-                        threads,
-                        libcap,
-                        libm],
+        dependencies : [versiondep, threads, libcap, libm],
         c_args : ['-fvisibility=default'],
-        build_by_default : false)
+        build_by_default : false,
+)
 
 ############################################################
 
@@ -282,7 +293,8 @@ libbasic_gcrypt = static_library(
         include_directories : basic_includes,
         dependencies : [libgcrypt],
         c_args : ['-fvisibility=default'],
-        build_by_default : false)
+        build_by_default : false,
+)
 
 ############################################################
 
@@ -296,8 +308,7 @@ libbasic_compress = static_library(
         'basic-compress',
         basic_compress_sources,
         include_directories : basic_includes,
-        dependencies : [libxz,
-                        libzstd,
-                        liblz4],
+        dependencies : [libxz, libzstd, liblz4],
         c_args : ['-fvisibility=default'],
-        build_by_default : false)
+        build_by_default : false,
+)

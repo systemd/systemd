@@ -178,9 +178,9 @@ syscall_list_h = custom_target(
         fname,
         input : syscall_list_txt,
         output : fname,
-        command : [generate_syscall_list,
-                   '@INPUT@'],
-        capture : true)
+        command : [generate_syscall_list, '@INPUT@'],
+        capture : true,
+)
 
 if conf.get('HAVE_ACL') == 1
         shared_sources += files(
@@ -231,7 +231,8 @@ ip_protocol_list_txt = custom_target(
         'ip-protocol-list.txt',
         output : 'ip-protocol-list.txt',
         command : [generate_ip_protocol_list, cpp],
-        capture : true)
+        capture : true,
+)
 
 fname = 'ip-protocol-from-name.gperf'
 gperf_file = custom_target(
@@ -239,20 +240,26 @@ gperf_file = custom_target(
         input : ip_protocol_list_txt,
         output : fname,
         command : [generate_gperfs, 'ip_protocol', 'IPPROTO_', '@INPUT@'],
-        capture : true)
+        capture : true,
+)
 
 fname = 'ip-protocol-from-name.h'
 target1 = custom_target(
         fname,
         input : gperf_file,
         output : fname,
-        command : [gperf,
-                   '-L', 'ANSI-C', '-t', '--ignore-case',
-                   '-N', 'lookup_ip_protocol',
-                   '-H', 'hash_ip_protocol_name',
-                   '-p', '-C',
-                   '@INPUT@'],
-        capture : true)
+        command : [
+                gperf,
+                '-L', 'ANSI-C',
+                '-t',
+                '--ignore-case',
+                '-N', 'lookup_ip_protocol',
+                '-H', 'hash_ip_protocol_name',
+                '-p',
+                '-C', '@INPUT@',
+        ],
+        capture : true,
+)
 
 fname = 'ip-protocol-to-name.h'
 awkscript = 'ip-protocol-to-name.awk'
@@ -261,34 +268,37 @@ target2 = custom_target(
         input : [awkscript, ip_protocol_list_txt],
         output : fname,
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
-        capture : true)
+        capture : true,
+)
 
 shared_generated_gperf_headers = [target1, target2]
 shared_sources += shared_generated_gperf_headers
 
 libshared_name = 'systemd-shared-@0@'.format(shared_lib_tag)
 
-libshared_deps = [threads,
-                  libacl,
-                  libblkid,
-                  libcap,
-                  libcrypt,
-                  libdl,
-                  libgcrypt,
-                  libiptc,
-                  libkmod,
-                  liblz4,
-                  libmount,
-                  libopenssl,
-                  libp11kit_cflags,
-                  libpam,
-                  librt,
-                  libseccomp,
-                  libselinux,
-                  libxenctrl,
-                  libxz,
-                  libzstd,
-                  versiondep]
+libshared_deps = [
+        threads,
+        libacl,
+        libblkid,
+        libcap,
+        libcrypt,
+        libdl,
+        libgcrypt,
+        libiptc,
+        libkmod,
+        liblz4,
+        libmount,
+        libopenssl,
+        libp11kit_cflags,
+        libpam,
+        librt,
+        libseccomp,
+        libselinux,
+        libxenctrl,
+        libxz,
+        libzstd,
+        versiondep,
+]
 
 libshared_sym_path = '@0@/libshared.sym'.format(meson.current_source_dir())
 
@@ -298,21 +308,19 @@ libshared_static = static_library(
         include_directories : includes,
         dependencies : libshared_deps,
         c_args : ['-fvisibility=default'],
-        build_by_default : false)
+        build_by_default : false,
+)
 
 libshared = shared_library(
         libshared_name,
         include_directories : includes,
         c_args : ['-fvisibility=default'],
-        link_args : ['-shared',
-                     '-Wl,--version-script=' + libshared_sym_path],
-        link_whole : [libshared_static,
-                      libbasic,
-                      libbasic_gcrypt,
-                      libsystemd_static],
+        link_args : ['-shared', '-Wl,--version-script=' + libshared_sym_path],
+        link_whole : [libshared_static, libbasic, libbasic_gcrypt, libsystemd_static],
         dependencies : libshared_deps,
         install : true,
-        install_dir : rootpkglibdir)
+        install_dir : rootpkglibdir,
+)
 
 shared_fdisk_sources = files(
         'fdisk-util.c',
@@ -325,5 +333,6 @@ if get_option('fdisk') != 'false'
                 include_directories : includes,
                 dependencies : [libfdisk],
                 c_args : ['-fvisibility=default'],
-                build_by_default : false)
+                build_by_default : false,
+        )
 endif
