@@ -84,6 +84,9 @@ option('log-trace', type : 'boolean', value : false,
 option('user-path', type : 'string',
        description : '$PATH to use for user sessions')
 
+option('parse-main-config-files', type : 'boolean', value : true,
+       description : 'do not parse main configuration files')
+
 option('utmp', type : 'boolean',
        description : 'support for utmp/wtmp log handling')
 option('hibernate', type : 'boolean',
