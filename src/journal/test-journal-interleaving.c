@@ -230,7 +230,7 @@ static void test_sequence_numbers_one(void) {
 
         assert_se(one->file->header->state == STATE_ONLINE);
         assert_se(!sd_id128_equal(one->file->header->file_id, one->file->header->machine_id));
-        assert_se(!sd_id128_equal(one->file->header->file_id, one->file->header->boot_id));
+        assert_se(!sd_id128_equal(one->file->header->file_id, one->file->header->tail_entry_boot_id));
         assert_se(sd_id128_equal(one->file->header->file_id, one->file->header->seqnum_id));
 
         memcpy(&seqnum_id, &one->file->header->seqnum_id, sizeof(sd_id128_t));
@@ -241,7 +241,7 @@ static void test_sequence_numbers_one(void) {
         assert_se(two->file->header->state == STATE_ONLINE);
         assert_se(!sd_id128_equal(two->file->header->file_id, one->file->header->file_id));
         assert_se(sd_id128_equal(one->file->header->machine_id, one->file->header->machine_id));
-        assert_se(sd_id128_equal(one->file->header->boot_id, one->file->header->boot_id));
+        assert_se(sd_id128_equal(one->file->header->tail_entry_boot_id, one->file->header->tail_entry_boot_id));
         assert_se(sd_id128_equal(one->file->header->seqnum_id, one->file->header->seqnum_id));
 
         append_number(two, 3, &seqnum);

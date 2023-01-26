@@ -180,6 +180,9 @@ static inline bool VALID_EPOCH(uint64_t u) {
 #define JOURNAL_HEADER_SEALED(h) \
         FLAGS_SET(le32toh((h)->compatible_flags), HEADER_COMPATIBLE_SEALED)
 
+#define JOURNAL_HEADER_TAIL_ENTRY_BOOT_ID(h) \
+        FLAGS_SET(le32toh((h)->compatible_flags), HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID)
+
 #define JOURNAL_HEADER_COMPRESSED_XZ(h) \
         FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_COMPRESSED_XZ)
 
