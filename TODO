@@ -129,6 +129,8 @@ Deprecations and removals:
 
 Features:
 
+* tmpfiles snippet that locks down /etc/credstore/ and friends, just in case.
+
 * split out execute.c into new "systemd-executor" binary. Then make PID 1 fork
   that off via vfork(), and then let that executor do the hard work. Ultimately
   the executor then gets replaced by the real binary sooner or later. Reason:
