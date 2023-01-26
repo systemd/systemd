@@ -44,17 +44,32 @@ static int dump_fd_reply(sd_bus_message *message) {
         return 1;  /* Success */
 }
 
+static int dump_memory(sd_bus *bus) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        int r;
+
+        assert(bus);
+
+        r = bus_call_method(bus, bus_systemd_mgr, "DumpMemoryStateByFileDescriptor", &error, &reply, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to call DumpMemoryStateByFileDescriptor: %s",
+                                       bus_error_message(&error, r));
+
+        return dump_fd_reply(reply);
+}
+
 static int dump(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
 
-        r = bus_call_method(bus, bus_systemd_mgr, "DumpByFileDescriptor", &error, &reply, NULL);
+        r = bus_call_method(bus, bus_systemd_mgr, "DumpMemoryStateByFileDescriptor", &error, &reply, NULL);
         if (IN_SET(r, -EACCES, -EBADR))
                 return 0;  /* Fall back to non-fd method. We need to do this even if the bus supports sending
                             * fds to cater to very old managers which didn't have the fd-based method. */
         if (r < 0)
-                return log_error_errno(r, "Failed to call DumpByFileDescriptor: %s",
+                return log_error_errno(r, "Failed to call DumpMemoryStateByFileDescriptor: %s",
                                        bus_error_message(&error, r));
 
         return dump_fd_reply(reply);
@@ -87,7 +102,7 @@ static int dump_patterns_fallback(sd_bus *bus, char **patterns) {
         return 0;
 }
 
-static int dump_patterns(sd_bus *bus, char **patterns) {
+static int dump_patterns(sd_bus *bus, char **patterns, bool dump_memory_requested) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
         int r;
@@ -105,15 +120,31 @@ static int dump_patterns(sd_bus *bus, char **patterns) {
                 return log_error_errno(r, "Failed to call DumpUnitsMatchingPatternsByFileDescriptor: %s",
                                        bus_error_message(&error, r));
 
-        return dump_fd_reply(reply);
+        r = dump_fd_reply(reply);
+        if (r < 0)
+                return r;
+
+        if (dump_memory_requested)
+                r = dump_memory(bus);
+
+        return r;
 }
 
-static int mangle_patterns(char **args, char ***ret) {
+static int mangle_patterns(char **args, bool *ret_dump_memory, char ***ret) {
         _cleanup_strv_free_ char **mangled = NULL;
+        bool dump_memory_requested = false;
         int r;
+
+        assert(ret_dump_memory);
+        assert(ret);
 
         STRV_FOREACH(arg, args) {
                 char *t;
+
+                if (streq_ptr(*arg, "memory")) {
+                        dump_memory_requested = true;
+                        continue;
+                }
 
                 r = unit_name_mangle_with_suffix(*arg, NULL, UNIT_NAME_MANGLE_GLOB, ".service", &t);
                 if (r < 0)
@@ -128,12 +159,14 @@ static int mangle_patterns(char **args, char ***ret) {
                 mangled = strv_free(mangled);
 
         *ret = TAKE_PTR(mangled);
+        *ret_dump_memory = dump_memory_requested;
         return 0;
 }
 
 int verb_dump(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_strv_free_ char **patterns = NULL;
+        bool dump_memory_requested;
         int r;
 
         r = acquire_bus(&bus, NULL);
@@ -142,7 +175,7 @@ int verb_dump(int argc, char *argv[], void *userdata) {
 
         pager_open(arg_pager_flags);
 
-        r = mangle_patterns(strv_skip(argv, 1), &patterns);
+        r = mangle_patterns(strv_skip(argv, 1), &dump_memory_requested, &patterns);
         if (r < 0)
                 return r;
 
@@ -150,7 +183,7 @@ int verb_dump(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Unable to determine if bus connection supports fd passing: %m");
         if (r > 0)
-                r = patterns ? dump_patterns(bus, patterns) : dump(bus);
+                r = patterns ? dump_patterns(bus, patterns, dump_memory_requested) : dump(bus);
         if (r == 0) /* wasn't supported */
                 r = patterns ? dump_patterns_fallback(bus, patterns) : dump_fallback(bus);
         if (r < 0)
