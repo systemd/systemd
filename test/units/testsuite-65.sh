@@ -56,6 +56,7 @@ systemd-analyze dump "*" >/dev/null
 systemd-analyze dump "*.socket" >/dev/null
 systemd-analyze dump "*.socket" "*.service" aaaaaaa ... >/dev/null
 systemd-analyze dump systemd-journald.service >/dev/null
+systemd-analyze dump memory >/dev/null
 (! systemd-analyze dump "")
 # unit-files
 systemd-analyze unit-files >/dev/null
