@@ -46,16 +46,20 @@ static int client_parse_log_filter_nulstr(const char *nulstr, size_t len, Set **
 
 int client_context_read_log_filter_patterns(ClientContext *c, const char *cgroup) {
         char *deny_list_xattr, *xattr_end;
-        _cleanup_free_ char *xattr = NULL;
+        _cleanup_free_ char *xattr = NULL, *unit_cgroup = NULL;
         _cleanup_set_free_ Set *allow_list = NULL, *deny_list = NULL;
         int r;
 
         assert(c);
 
-        r = cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.journald_log_filter_patterns", &xattr);
+        r = cg_path_get_unit_path(cgroup, &unit_cgroup);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get the unit's cgroup path for %s: %m", cgroup);
+
+        r = cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, unit_cgroup, "user.journald_log_filter_patterns", &xattr);
         if (r < 0) {
                 if (!ERRNO_IS_XATTR_ABSENT(r))
-                        return log_debug_errno(r, "Failed to get user.journald_log_filter_patterns xattr for %s: %m", cgroup);
+                        return log_debug_errno(r, "Failed to get user.journald_log_filter_patterns xattr for %s: %m", unit_cgroup);
 
                 client_set_filtering_patterns(c, NULL, NULL);
                 return 0;

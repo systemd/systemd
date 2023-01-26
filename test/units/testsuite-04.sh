@@ -185,8 +185,8 @@ function add_logs_filtering_override() {
     LOG_FILTER=${3:-""}
 
     mkdir -p /etc/systemd/system/"$UNIT".d/
-    echo "[Service]" >/etc/systemd/system/logs-filtering.service.d/"${OVERRIDE_NAME}".conf
-    echo "LogFilterPatterns=$LOG_FILTER" >>/etc/systemd/system/logs-filtering.service.d/"${OVERRIDE_NAME}".conf
+    echo "[Service]" >/etc/systemd/system/"$UNIT".d/"${OVERRIDE_NAME}".conf
+    echo "LogFilterPatterns=$LOG_FILTER" >>/etc/systemd/system/"$UNIT".d/"${OVERRIDE_NAME}".conf
     systemctl daemon-reload
 }
 
@@ -256,7 +256,14 @@ if is_xattr_supported; then
     add_logs_filtering_override "logs-filtering.service" "10-allow-with-escape-char" "\x7emore~"
     [[ -n $(run_service_and_fetch_logs "logs-filtering.service") ]]
 
+    add_logs_filtering_override "delegated-cgroup-filtering.service" "00-allow-all" ".*"
+    [[ -n $(run_service_and_fetch_logs "delegated-cgroup-filtering.service") ]]
+
+    add_logs_filtering_override "delegated-cgroup-filtering.service" "01-discard-hello" "~hello"
+    [[ -z $(run_service_and_fetch_logs "delegated-cgroup-filtering.service") ]]
+
     rm -rf /etc/systemd/system/logs-filtering.service.d
+    rm -rf /etc/systemd/system/delegated-cgroup-filtering.service.d
 fi
 
 touch /testok
