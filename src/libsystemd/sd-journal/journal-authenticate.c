@@ -300,7 +300,7 @@ int journal_file_hmac_put_header(JournalFile *f) {
          * n_entry_arrays. */
 
         gcry_md_write(f->hmac, f->header->signature, offsetof(Header, state) - offsetof(Header, signature));
-        gcry_md_write(f->hmac, &f->header->file_id, offsetof(Header, boot_id) - offsetof(Header, file_id));
+        gcry_md_write(f->hmac, &f->header->file_id, offsetof(Header, tail_entry_boot_id) - offsetof(Header, file_id));
         gcry_md_write(f->hmac, &f->header->seqnum_id, offsetof(Header, arena_size) - offsetof(Header, seqnum_id));
         gcry_md_write(f->hmac, &f->header->data_hash_table_offset, offsetof(Header, tail_object_offset) - offsetof(Header, data_hash_table_offset));
 
