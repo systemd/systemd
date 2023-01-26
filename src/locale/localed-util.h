@@ -44,7 +44,7 @@ bool x11_context_is_safe(const X11Context *xc);
 bool x11_context_equal(const X11Context *a, const X11Context *b);
 int x11_context_copy(X11Context *dest, const X11Context *src);
 
-X11Context *context_get_x11_context_safe(Context *c);
+X11Context *context_get_x11_context(Context *c);
 
 void vc_context_clear(VCContext *vc);
 void vc_context_replace(VCContext *dest, VCContext *src);
