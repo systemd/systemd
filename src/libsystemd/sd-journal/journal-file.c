@@ -524,14 +524,6 @@ static int journal_file_verify_header(JournalFile *f) {
 
                 if (f->header->field_hash_table_size == 0 || f->header->data_hash_table_size == 0)
                         return -EBADMSG;
-
-                /* Don't permit appending to files from the future. Because otherwise the realtime timestamps wouldn't
-                 * be strictly ordered in the entries in the file anymore, and we can't have that since it breaks
-                 * bisection. */
-                if (le64toh(f->header->tail_entry_realtime) > now(CLOCK_REALTIME))
-                        return log_debug_errno(SYNTHETIC_ERRNO(ETXTBSY),
-                                               "Journal file %s is from the future, refusing to append new data to it that'd be older.",
-                                               f->path);
         }
 
         return 0;
