@@ -32,7 +32,7 @@ def argument_parser():
 
 opts = argument_parser().parse_args()
 
-unittestdir = pathlib.Path(__file__).parent.absolute()
+unittestdir = pathlib.Path(__file__).parent.absolute() / 'unit-tests'
 
 tests = list(unittestdir.glob('test-*'))
 if opts.unsafe:

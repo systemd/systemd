@@ -1188,9 +1188,8 @@ install_suse_systemd() {
     # long as it runs an equivalent version of systemd) getting rid of the
     # hassles of fetching, configuring, building the source code.
     dinfo "Install the files needed by the tests at runtime"
-    image_install "${SOURCE_DIR}"/test-*
     inst_recursive "${SOURCE_DIR}/testdata"
-    inst_recursive "${SOURCE_DIR}/manual"
+    inst_recursive "${SOURCE_DIR}/unit-tests"
 
     # On openSUSE, this directory is not created at package install, at least
     # for now.
@@ -1272,7 +1271,7 @@ get_ldpath() {
 install_missing_libraries() {
     dinfo "Install missing libraries"
     # install possible missing libraries
-    for i in "${initdir:?}"{,/usr}/{sbin,bin}/* "$initdir"{,/usr}/lib/systemd/{,tests/{,manual/,unsafe/}}*; do
+    for i in "${initdir:?}"{,/usr}/{sbin,bin}/* "$initdir"{,/usr}/lib/systemd/{,tests/unit-tests/{,manual/,unsafe/}}*; do
         LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}$(get_ldpath "$i")" inst_libs "$i"
     done
 
