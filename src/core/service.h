@@ -195,6 +195,9 @@ struct Service {
         PathSpec *pid_file_pathspec;
 
         NotifyAccess notify_access;
+        NotifyAccess notify_access_original;
+        bool notify_access_override_enable;
+        NotifyAccess notify_access_override;
         NotifyState notify_state;
 
         sd_bus_slot *bus_name_pid_lookup_slot;
@@ -227,6 +230,11 @@ struct Service {
 static inline usec_t service_timeout_abort_usec(Service *s) {
         assert(s);
         return s->timeout_abort_set ? s->timeout_abort_usec : s->timeout_stop_usec;
+}
+
+static inline usec_t service_get_notify_access(Service *s) {
+        assert(s);
+        return s->notify_access_override_enable ? s->notify_access_override : s->notify_access_original;
 }
 
 static inline usec_t service_get_watchdog_usec(Service *s) {
