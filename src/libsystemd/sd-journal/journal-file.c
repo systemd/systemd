@@ -394,10 +394,6 @@ static int journal_file_refresh_header(JournalFile *f) {
         else if (r < 0)
                 return r;
 
-        r = sd_id128_get_boot(&f->header->boot_id);
-        if (r < 0)
-                return r;
-
         r = journal_file_set_online(f);
 
         /* Sync the online state to disk; likely just created a new file, also sync the directory this file
