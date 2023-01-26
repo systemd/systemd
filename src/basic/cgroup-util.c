@@ -1198,6 +1198,28 @@ int cg_path_get_unit(const char *path, char **ret) {
         return 0;
 }
 
+int cg_path_get_unit_path(const char *path, char **ret) {
+        _cleanup_free_ char *path_copy = NULL;
+        char *unit_name;
+
+        assert(path);
+        assert(ret);
+
+        path_copy = strdup(path);
+        if (!path_copy)
+                return -ENOMEM;
+
+        unit_name = (char *)skip_slices(path_copy);
+        unit_name[strcspn(unit_name, "/")] = 0;
+
+        if (!unit_name_is_valid(cg_unescape(unit_name), UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
+                return -ENXIO;
+
+        *ret = TAKE_PTR(path_copy);
+
+        return 0;
+}
+
 int cg_pid_get_unit(pid_t pid, char **unit) {
         _cleanup_free_ char *cgroup = NULL;
         int r;
