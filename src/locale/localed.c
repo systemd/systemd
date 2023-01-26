@@ -366,6 +366,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
 }
 
 static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        _cleanup_(x11_context_clear) X11Context converted = {};
         Context *c = ASSERT_PTR(userdata);
         int convert, interactive, r;
         bool x_needs_update;
@@ -395,7 +396,25 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
                 return sd_bus_error_set_errnof(error, r, "Failed to read virtual console keymap data: %m");
         }
 
-        if (vc_context_equal(&c->vc, &in))
+        r = x11_read_data(c, m);
+        if (r < 0) {
+                log_error_errno(r, "Failed to read X11 keyboard layout data: %m");
+                return sd_bus_error_set_errnof(error, r, "Failed to read X11 keyboard layout data: %m");
+        }
+
+        if (convert) {
+                r = vconsole_convert_to_x11(&in, &converted);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to convert keymap data: %m");
+                        return sd_bus_error_set_errnof(error, r, "Failed to convert keymap data: %m");
+                }
+
+                /* save the result of conversion to emit changed properties later. */
+                x_needs_update = !x11_context_equal(&c->x11_from_vc, &converted) || !x11_context_equal(&c->x11_from_xorg, &converted);
+        } else
+                x_needs_update = !x11_context_equal(&c->x11_from_vc, &c->x11_from_xorg);
+
+        if (vc_context_equal(&c->vc, &in) && !x_needs_update)
                 return sd_bus_reply_method_return(m, NULL);
 
         r = bus_verify_polkit_async(
@@ -416,40 +435,24 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
         if (r < 0)
                 return log_oom();
 
-        r = x11_read_data(c, m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to read X11 keyboard layout data: %m");
-                return sd_bus_error_set_errnof(error, r, "Failed to read X11 keyboard layout data: %m");
-        }
+        if (x_needs_update) {
+                if (convert) {
+                        r = x11_context_copy(&c->x11_from_vc, &converted);
+                        if (r < 0)
+                                return log_oom();
+                        x11_context_replace(&c->x11_from_xorg, &converted);
+                } else {
+                        const X11Context *xc = context_get_x11_context(c);
 
-        if (convert) {
-                _cleanup_(x11_context_clear) X11Context converted = {};
+                        /* Even if the conversion is not requested, sync the two X11 contexts. */
+                        r = x11_context_copy(&c->x11_from_vc, xc);
+                        if (r < 0)
+                                return log_oom();
 
-                r = vconsole_convert_to_x11(&in, &converted);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to convert keymap data: %m");
-                        return sd_bus_error_set_errnof(error, r, "Failed to convert keymap data: %m");
+                        r = x11_context_copy(&c->x11_from_xorg, xc);
+                        if (r < 0)
+                                return log_oom();
                 }
-
-                x_needs_update = !x11_context_equal(&c->x11_from_vc, &converted) || !x11_context_equal(&c->x11_from_xorg, &converted);
-
-                r = x11_context_copy(&c->x11_from_vc, &converted);
-                if (r < 0)
-                        return log_oom();
-                x11_context_replace(&c->x11_from_xorg, &converted);
-        } else {
-                const X11Context *xc = context_get_x11_context(c);
-
-                /* Even if the conversion is not requested, sync the two X11 contexts. */
-                x_needs_update = !x11_context_equal(&c->x11_from_vc, &c->x11_from_xorg);
-
-                r = x11_context_copy(&c->x11_from_vc, xc);
-                if (r < 0)
-                        return log_oom();
-
-                r = x11_context_copy(&c->x11_from_xorg, xc);
-                if (r < 0)
-                        return log_oom();
         }
 
         r = vconsole_write_data(c);
@@ -583,6 +586,7 @@ static int verify_xkb_rmlvo(const char *model, const char *layout, const char *v
 #endif
 
 static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        _cleanup_(vc_context_clear) VCContext converted = {};
         Context *c = ASSERT_PTR(userdata);
         int convert, interactive, r;
         X11Context in;
@@ -615,7 +619,18 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
                 return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Failed to read x11 keyboard layout data");
         }
 
-        if (x11_context_equal(&c->x11_from_vc, &in) && x11_context_equal(&c->x11_from_xorg, &in))
+        if (convert) {
+                r = x11_convert_to_vconsole(&in, &converted);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to convert keymap data: %m");
+                        return sd_bus_error_set_errnof(error, r, "Failed to convert keymap data: %m");
+                }
+
+                /* save the result of conversion to emit changed properties later. */
+                convert = !vc_context_equal(&c->vc, &converted);
+        }
+
+        if (x11_context_equal(&c->x11_from_vc, &in) && x11_context_equal(&c->x11_from_xorg, &in) && !convert)
                 return sd_bus_reply_method_return(m, NULL);
 
         r = bus_verify_polkit_async(
@@ -640,19 +655,8 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
         if (r < 0)
                 return log_oom();
 
-        if (convert) {
-                _cleanup_(vc_context_clear) VCContext converted = {};
-
-                r = x11_convert_to_vconsole(&in, &converted);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to convert keymap data: %m");
-                        return sd_bus_error_set_errnof(error, r, "Failed to convert keymap data: %m");
-                }
-
-                /* save the result of conversion to emit changed properties later. */
-                convert = !vc_context_equal(&c->vc, &converted);
+        if (convert)
                 vc_context_replace(&c->vc, &converted);
-        }
 
         r = vconsole_write_data(c);
         if (r < 0)
