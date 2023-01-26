@@ -378,12 +378,6 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
 
         vc_context_empty_to_null(&in);
 
-        r = vconsole_read_data(c, m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to read virtual console keymap data: %m");
-                return sd_bus_error_set_errnof(error, r, "Failed to read virtual console keymap data: %m");
-        }
-
         FOREACH_STRING(name, in.keymap ?: in.toggle, in.keymap ? in.toggle : NULL) {
                 r = keymap_exists(name); /* This also verifies that the keymap name is kosher. */
                 if (r < 0) {
@@ -392,6 +386,12 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
                 }
                 if (r == 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Keymap %s is not installed.", name);
+        }
+
+        r = vconsole_read_data(c, m);
+        if (r < 0) {
+                log_error_errno(r, "Failed to read virtual console keymap data: %m");
+                return sd_bus_error_set_errnof(error, r, "Failed to read virtual console keymap data: %m");
         }
 
         if (vc_context_equal(&c->vc, &in))
@@ -580,17 +580,6 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
 
         x11_context_empty_to_null(&in);
 
-        r = x11_read_data(c, m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to read x11 keyboard layout data: %m");
-                return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Failed to read x11 keyboard layout data");
-        }
-
-        xc = context_get_x11_context(c);
-
-        if (x11_context_equal(xc, &in))
-                return sd_bus_reply_method_return(m, NULL);
-
         if (!x11_context_is_safe(&in))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Received invalid keyboard data");
 
@@ -604,6 +593,17 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
 
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Specified keymap cannot be compiled, refusing as invalid.");
         }
+
+        r = x11_read_data(c, m);
+        if (r < 0) {
+                log_error_errno(r, "Failed to read x11 keyboard layout data: %m");
+                return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Failed to read x11 keyboard layout data");
+        }
+
+        xc = context_get_x11_context(c);
+
+        if (x11_context_equal(xc, &in))
+                return sd_bus_reply_method_return(m, NULL);
 
         r = bus_verify_polkit_async(
                         m,
