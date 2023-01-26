@@ -272,6 +272,16 @@ Timestamp units-load-finish: Thu 2019-03-14 23:28:07 CET
     </refsect2>
 
     <refsect2>
+      <title><command>systemd-analyze memory [<replaceable>D-Bus service</replaceable>…]</command></title>
+
+      <para>This command can be used to request the output of the internal memory state (as returned by
+      <citerefentry><refentrytitle>malloc_info</refentrytitle><manvolnum>3</manvolnum></citerefentry>) of
+      a D-Bus service implementing this pattern. If no service is specified, the command will be sent to
+      <filename>org.freedesktop.systemd1</filename> (the system or user service manager). The output format
+      is subject to change without notice and should not be parsed by applications.</para>
+    </refsect2>
+
+    <refsect2>
       <title><command>systemd-analyze plot</command></title>
 
       <para>This command prints either an SVG graphic, detailing which system services have been started at what
