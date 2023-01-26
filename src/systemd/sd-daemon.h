@@ -195,6 +195,10 @@ int sd_is_mq(int fd, const char *path);
                   readable error message. Example: "STATUS=Completed
                   66% of file system check..."
 
+     NOTIFYACCESS=...
+                  Reset the access to the service status notification socket.
+                  Example: "NOTIFYACCESS=main"
+
      ERRNO=...    If a daemon fails, the errno-style error code,
                   formatted as string. Example: "ERRNO=2" for ENOENT.
 
