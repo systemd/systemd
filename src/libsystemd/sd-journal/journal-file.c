@@ -334,7 +334,11 @@ static bool compact_mode_requested(void) {
         return true;
 }
 
-static int journal_file_init_header(JournalFile *f, JournalFileFlags file_flags, JournalFile *template) {
+static int journal_file_init_header(
+                JournalFile *f,
+                JournalFileFlags file_flags,
+                JournalFile *template) {
+
         bool seal = false;
         ssize_t k;
         int r;
@@ -987,35 +991,37 @@ int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t of
         return 0;
 }
 
+static uint64_t inc_seqnum(uint64_t seqnum) {
+        if (seqnum < UINT64_MAX-1)
+                return seqnum + 1;
+
+        return 1; /* skip over UINT64_MAX and 0 when we run out of seqnums and start again */
+}
+
 static uint64_t journal_file_entry_seqnum(
                 JournalFile *f,
                 uint64_t *seqnum) {
 
-        uint64_t ret;
+        uint64_t next_seqnum;
 
         assert(f);
         assert(f->header);
 
         /* Picks a new sequence number for the entry we are about to add and returns it. */
 
-        ret = le64toh(f->header->tail_entry_seqnum) + 1;
+        next_seqnum = inc_seqnum(le64toh(f->header->tail_entry_seqnum));
 
-        if (seqnum) {
-                /* If an external seqnum counter was passed, we update both the local and the external one,
-                 * and set it to the maximum of both */
+        /* If an external seqnum counter was passed, we update both the local and the external one, and set
+         * it to the maximum of both */
+        if (seqnum)
+                *seqnum = next_seqnum = MAX(inc_seqnum(*seqnum), next_seqnum);
 
-                if (*seqnum + 1 > ret)
-                        ret = *seqnum + 1;
-
-                *seqnum = ret;
-        }
-
-        f->header->tail_entry_seqnum = htole64(ret);
+        f->header->tail_entry_seqnum = htole64(next_seqnum);
 
         if (f->header->head_entry_seqnum == 0)
-                f->header->head_entry_seqnum = htole64(ret);
+                f->header->head_entry_seqnum = htole64(next_seqnum);
 
-        return ret;
+        return next_seqnum;
 }
 
 int journal_file_append_object(
@@ -2092,11 +2098,37 @@ static int journal_file_append_entry_internal(
         assert(ts);
         assert(items || n_items == 0);
 
-        if (ts->realtime < le64toh(f->header->tail_entry_realtime))
-                return log_debug_errno(SYNTHETIC_ERRNO(EREMCHG),
-                                       "Realtime timestamp %" PRIu64 " smaller than previous realtime "
-                                       "timestamp %" PRIu64 ", refusing entry.",
-                                       ts->realtime, le64toh(f->header->tail_entry_realtime));
+        if (f->strict_order) {
+                /* If requested be stricter with ordering in this journal file, to make searching via
+                 * bisection fully deterministic. This is an optional feature, so that if desired journal
+                 * files can be written where the ordering is not strictly enforced (in which case bisection
+                 * will yield *a* result, but not the *only* result, when searching for points in
+                 * time). Strict ordering mode is enabled when journald originally writes the files, but
+                 * might not necessarily be if other tools (the remoting tools for example) write journal
+                 * files from combined sources.
+                 *
+                 * Typically, if any of the errors generated here are seen journald will just rotate the
+                 * journal files and start anew. */
+
+                if (ts->realtime < le64toh(f->header->tail_entry_realtime))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EREMCHG),
+                                               "Realtime timestamp %" PRIu64 " smaller than previous realtime "
+                                               "timestamp %" PRIu64 ", refusing entry.",
+                                               ts->realtime, le64toh(f->header->tail_entry_realtime));
+
+                if (!sd_id128_is_null(f->header->boot_id) && boot_id) {
+
+                        if (!sd_id128_equal(f->header->boot_id, *boot_id))
+                                return log_debug_errno(SYNTHETIC_ERRNO(EREMOTE),
+                                                       "Boot ID to write is different from previous boot id, refusing entry.");
+
+                        if (ts->monotonic < le64toh(f->header->tail_entry_monotonic))
+                                return log_debug_errno(SYNTHETIC_ERRNO(ENOTNAM),
+                                                       "Monotonic timestamp %" PRIu64 " smaller than previous monotonic "
+                                                       "timestamp %" PRIu64 ", refusing entry.",
+                                                       ts->monotonic, le64toh(f->header->tail_entry_monotonic));
+                }
+        }
 
         osize = offsetof(Object, entry.items) + (n_items * journal_file_entry_item_size(f));
 
@@ -2256,6 +2288,7 @@ int journal_file_append_entry(
         EntryItem *items;
         uint64_t xor_hash = 0;
         struct dual_timestamp _ts;
+        sd_id128_t _boot_id;
         int r;
 
         assert(f);
@@ -2275,6 +2308,14 @@ int journal_file_append_entry(
         } else {
                 dual_timestamp_get(&_ts);
                 ts = &_ts;
+        }
+
+        if (!boot_id) {
+                r = sd_id128_get_boot(&_boot_id);
+                if (r < 0)
+                        return r;
+
+                boot_id = &_boot_id;
         }
 
 #if HAVE_GCRYPT
@@ -3710,6 +3751,8 @@ int journal_file_open(
         int r;
 
         assert(fd >= 0 || fname);
+        assert(file_flags >= 0);
+        assert(file_flags <= _JOURNAL_FILE_FLAGS_MAX);
         assert(mmap_cache);
         assert(ret);
 
@@ -3733,6 +3776,7 @@ int journal_file_open(
                 .compress_threshold_bytes = compress_threshold_bytes == UINT64_MAX ?
                                             DEFAULT_COMPRESS_THRESHOLD :
                                             MAX(MIN_COMPRESS_THRESHOLD, compress_threshold_bytes),
+                .strict_order = FLAGS_SET(file_flags, JOURNAL_STRICT_ORDER),
         };
 
         if (fname) {

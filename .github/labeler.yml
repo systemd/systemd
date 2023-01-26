@@ -1,40 +1,134 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-hwdb:
-  - hwdb.d/**/*
-units:
-  - units/**/*
-documentation:
-  - NEWS
-  - docs/*
-network:
-  - src/libsystemd-network/**/*
-  - src/network/**/*
-udev:
-  - src/udev/**/*
-  - src/libudev/*
-selinux:
-  - '**/*selinux*'
 apparmor:
   - '**/*apparmor*'
-meson:
-  - meson_option.txt
-mkosi:
-  - .mkosi/*
-  - mkosi.build
+binfmt:
+  - '**/*binfmt*'
+btrfs:
+  - '**/*btrfs*'
 busctl:
-  - src/busctl/*
-systemctl:
-  - src/systemctl/*
+  - '**/*busctl*'
+cgls:
+  - '**/*cgls*'
+cgtop:
+  - '**/*cgtop*'
+ci:
+  - '.github/*'
+coccinelle:
+  - coccinelle/*
+coredump:
+  - '**/*coredump*'
+documentation:
+  - NEWS
+  - README*
+  - docs/*
+  - man/*
+env-generator:
+  - '**/*environment*generator*'
+debug-generator:
+  - '**/debug-generator*'
+fstab-generator:
+  - '**/*fstab-generator*'
+growfs:
+  - '**/*growfs*'
+hwdb:
+  - hwdb.d/**/*
 journal:
   - src/journal/*
 journal-remote:
   - src/journal-remote/*
+meson:
+  - meson_options.txt
+  - '**/meson.build'
+mkosi:
+  - .mkosi/*
+  - mkosi.build
+network:
+  - src/libsystemd-network/**/*
+  - src/network/**/*
 portable:
   - src/portable/**/*
+rc-local-generator:
+  - src/rc-local-generator/*
+repart:
+  - '**/*repart*'
 resolve:
-  - src/resolve/*
+  - '**/*resolve*'
+rfkill:
+  - '**/*rfkill*'
+rpm:
+  - src/rpm/*
+run:
+  - src/run/*
+  - man/systemd-run*
+sd-boot/sd-stub/bootctl:
+  - src/boot/**/*
+  - man/bootctl*
+  - man/systemd-boot.xml
+sd-bus:
+  - '**/sd-bus*/**'
+sd-daemon:
+  - '**/sd-daemon*/**'
+sd-device:
+  - '**/sd-device*/**'
+sd-event:
+  - '**/sd-event*/**'
+sd-hwdb:
+  - '**/sd-hwdb*/**'
+sd-id128:
+  - '**/sd-id128*/**'
+sd-netlink:
+  - '**/sd-netlink*/**'
+sd-path:
+  - '**/sd-path*/**'
+sd-resolve:
+  - '**/sd-resolve*/**'
+selinux:
+  - '**/*selinux*'
+sleep:
+  - '**/*sleep*'
+smack:
+  - '**/*smack*'
+socket-proxy:
+  - '**/*socket-proxy*'
+sysv-generator:
+  - '**/*sysv-generator*'
+systemctl:
+  - '**/systemctl*'
+sysupdate:
+  - '**/*sysupdate*'
+sysvcompat:
+  - '**/*sysv*'
+sysctl:
+  - '**/*sysctl*'
 timedate:
-  - src/timedate/*
+  - '**/*timedate*'
 timesync:
-  - src/timesync/*
+  - '**/*timesync*'
+tests:
+  - src/test/**/*
+  - src/fuzz/**/*
+  - test/**/*
+  - '**/test-*'
+  - .github/workflows/*
+tpm2:
+  - '**/*tpm2*'
+  - '**/*tpm-*'
+udev:
+  - src/udev/**/*
+  - src/libudev/*
+  - man/*udev*
+uki:
+  - '**/ukify*'
+units:
+  - units/**/*
+userdb:
+  - '**/*userdb*'
+util-lib:
+  - src/fundamental/**/*
+  - src/basic/**/*
+  - src/shared/**/*
+vconsole:
+  - '**/*vconsole*'
+xdg-autostart:
+  - '**/**xdg-autostart-generator*'
