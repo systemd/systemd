@@ -33,9 +33,11 @@ def argument_parser():
 
 opts = argument_parser().parse_args()
 
-tests = glob.glob('/usr/lib/systemd/tests/test-*')
+unittestsdir = os.path.abspath(os.path.dirname(__file__))
+
+tests = glob.glob(os.path.join(unittestsdir, 'test-*'))
 if opts.unsafe:
-    tests += glob.glob('/usr/lib/systemd/tests/unsafe/test-*')
+    tests += glob.glob(os.path.join(unittestsdir, 'unsafe/test-*'))
 
 if not opts.artifact_directory and os.getenv('ARTIFACT_DIRECTORY'):
     opts.artifact_directory = os.getenv('ARTIFACT_DIRECTORY')
