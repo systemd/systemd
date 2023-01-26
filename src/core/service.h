@@ -195,7 +195,6 @@ struct Service {
         PathSpec *pid_file_pathspec;
 
         NotifyAccess notify_access;
-        NotifyAccess notify_access_original;
         bool notify_access_override_enable;
         NotifyAccess notify_access_override;
         NotifyState notify_state;
@@ -234,7 +233,7 @@ static inline usec_t service_timeout_abort_usec(Service *s) {
 
 static inline NotifyAccess service_get_notify_access(Service *s) {
         assert(s);
-        return s->notify_access_override_enable ? s->notify_access_override : s->notify_access_original;
+        return s->notify_access_override_enable ? s->notify_access_override : s->notify_access;
 }
 
 static inline usec_t service_get_watchdog_usec(Service *s) {

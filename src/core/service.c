@@ -125,8 +125,6 @@ static void service_init(Unit *u) {
         s->exec_context.keyring_mode = MANAGER_IS_SYSTEM(u->manager) ?
                 EXEC_KEYRING_PRIVATE : EXEC_KEYRING_INHERIT;
 
-        s->notify_access_original = _NOTIFY_ACCESS_INVALID;
-
         s->watchdog_original_usec = USEC_INFINITY;
 
         s->oom_policy = _OOM_POLICY_INVALID;
@@ -782,6 +780,8 @@ static int service_add_extras(Service *s) {
         r = unit_set_default_slice(UNIT(s));
         if (r < 0)
                 return r;
+
+        s->notify_access_override_enable = false;
 
         /* If the service needs the notify socket, let's enable it automatically. */
         if (s->notify_access == NOTIFY_NONE &&
@@ -2624,7 +2624,6 @@ static int service_start(Unit *u) {
         s->status_text = mfree(s->status_text);
         s->status_errno = 0;
 
-        s->notify_access_original = s->notify_access;
         s->notify_access_override_enable = false;
         s->notify_access_override = _NOTIFY_ACCESS_INVALID;
         s->notify_state = NOTIFY_UNKNOWN;
@@ -2872,9 +2871,6 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
 
         if (s->notify_access_override_enable)
                 (void) serialize_item(f, "notify-access-override", notify_access_to_string(s->notify_access_override));
-
-        if (s->notify_access_original != _NOTIFY_ACCESS_INVALID)
-                (void) serialize_item(f, "notify-access-original", notify_access_to_string(s->notify_access_original));
 
         (void) serialize_dual_timestamp(f, "watchdog-timestamp", &s->watchdog_timestamp);
         (void) serialize_bool(f, "forbid-restart", s->forbid_restart);
@@ -3158,14 +3154,6 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         s->notify_access_override_enable = true;
                         s->notify_access_override = notify_access;
                 }
-        } else if (streq(key, "notify-access-original")) {
-                NotifyAccess notify_access;
-
-                notify_access = notify_access_from_string(value);
-                if (notify_access < 0)
-                        log_unit_debug(u, "Failed to parse notify-access-original value: %s", value);
-                else
-                        s->notify_access_original = notify_access;
         } else if (streq(key, "watchdog-timestamp"))
                 deserialize_dual_timestamp(value, &s->watchdog_timestamp);
         else if (streq(key, "forbid-restart")) {
