@@ -524,8 +524,7 @@ int managed_journal_file_open_reliably(
                     -ESHUTDOWN,         /* Already archived */
                     -EIO,               /* IO error, including SIGBUS on mmap */
                     -EIDRM,             /* File has been deleted */
-                    -ETXTBSY,           /* File is from the future */
-                    -EREMCHG))          /* Clock rolled back */
+                    -ETXTBSY))          /* File is from the future */
                 return r;
 
         if ((open_flags & O_ACCMODE) == O_RDONLY)
