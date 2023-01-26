@@ -369,6 +369,11 @@ static int journal_file_init_header(
         if (r < 0)
                 return r;
 
+        r = sd_id128_get_machine(&h.machine_id);
+        if (r < 0 && !ERRNO_IS_MACHINE_ID_UNSET(r))
+                return r; /* If we have no valid machine ID (test environment?), let's simply leave the
+                           * machine ID field all zeroes. */
+
         if (template) {
                 h.seqnum_id = template->header->seqnum_id;
                 h.tail_entry_seqnum = template->header->tail_entry_seqnum;
@@ -389,15 +394,6 @@ static int journal_file_refresh_header(JournalFile *f) {
 
         assert(f);
         assert(f->header);
-
-        r = sd_id128_get_machine(&f->header->machine_id);
-        if (r < 0) {
-                if (!ERRNO_IS_MACHINE_ID_UNSET(r))
-                        return r;
-
-                /* don't have a machine-id, let's continue without */
-                f->header->machine_id = SD_ID128_NULL;
-        }
 
         /* We used to update the header's boot ID field here, but we don't do that anymore, as per
          * HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID */
