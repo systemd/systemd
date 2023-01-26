@@ -85,7 +85,7 @@
 
 #define FAILED_TO_WRITE_ENTRY_RATELIMIT ((const RateLimit) { .interval = 1 * USEC_PER_SEC, .burst = 1 })
 
-static int determine_path_usage(
+static int server_determine_path_usage(
                 Server *s,
                 const char *path,
                 uint64_t *ret_used,
@@ -152,7 +152,7 @@ static int cache_space_refresh(Server *s, JournalStorage *storage) {
         if (space->timestamp != 0 && usec_add(space->timestamp, RECHECK_SPACE_USEC) > ts)
                 return 0;
 
-        r = determine_path_usage(s, storage->path, &vfs_used, &vfs_avail);
+        r = server_determine_path_usage(s, storage->path, &vfs_used, &vfs_avail);
         if (r < 0)
                 return r;
 
@@ -185,7 +185,7 @@ static JournalStorage* server_current_storage(Server *s) {
         return s->system_journal ? &s->system_storage : &s->runtime_storage;
 }
 
-static int determine_space(Server *s, uint64_t *available, uint64_t *limit) {
+static int server_determine_space(Server *s, uint64_t *available, uint64_t *limit) {
         JournalStorage *js;
         int r;
 
@@ -261,7 +261,7 @@ static void server_add_acls(ManagedJournalFile *f, uid_t uid) {
 #endif
 }
 
-static int open_journal(
+static int server_open_journal(
                 Server *s,
                 bool reliably,
                 const char *fname,
@@ -319,7 +319,7 @@ static int open_journal(
         return r;
 }
 
-static bool flushed_flag_is_set(Server *s) {
+static bool server_flushed_flag_is_set(Server *s) {
         const char *fn;
 
         assert(s);
@@ -333,13 +333,17 @@ static bool flushed_flag_is_set(Server *s) {
         return access(fn, F_OK) >= 0;
 }
 
-static int system_journal_open(Server *s, bool flush_requested, bool relinquish_requested) {
+static int server_system_journal_open(
+                Server *s,
+                bool flush_requested,
+                bool relinquish_requested) {
+
         const char *fn;
         int r = 0;
 
         if (!s->system_journal &&
             IN_SET(s->storage, STORAGE_PERSISTENT, STORAGE_AUTO) &&
-            (flush_requested || flushed_flag_is_set(s)) &&
+            (flush_requested || server_flushed_flag_is_set(s)) &&
             !relinquish_requested) {
 
                 /* If in auto mode: first try to create the machine path, but not the prefix.
@@ -352,7 +356,7 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
                 (void) mkdir(s->system_storage.path, 0755);
 
                 fn = strjoina(s->system_storage.path, "/system.journal");
-                r = open_journal(
+                r = server_open_journal(
                                 s,
                                 /* reliably= */ true,
                                 fn,
@@ -392,7 +396,7 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
                         /* Try to open the runtime journal, but only if it already exists, so that we can
                          * flush it into the system journal */
 
-                        r = open_journal(
+                        r = server_open_journal(
                                         s,
                                         /* reliably= */ false,
                                         fn,
@@ -415,7 +419,7 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
                         (void) mkdir_parents(s->runtime_storage.path, 0755);
                         (void) mkdir(s->runtime_storage.path, 0750);
 
-                        r = open_journal(
+                        r = server_open_journal(
                                         s,
                                         /* reliably= */ true,
                                         fn,
@@ -438,7 +442,7 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
         return r;
 }
 
-static int find_user_journal(Server *s, uid_t uid, ManagedJournalFile **ret) {
+static int server_find_user_journal(Server *s, uid_t uid, ManagedJournalFile **ret) {
         _cleanup_(managed_journal_file_closep) ManagedJournalFile *f = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
@@ -460,7 +464,7 @@ static int find_user_journal(Server *s, uid_t uid, ManagedJournalFile **ret) {
                 (void) managed_journal_file_close(first);
         }
 
-        r = open_journal(
+        r = server_open_journal(
                         s,
                         /* reliably= */ true,
                         p,
@@ -482,7 +486,7 @@ found:
         return 0;
 }
 
-static ManagedJournalFile* find_journal(Server *s, uid_t uid) {
+static ManagedJournalFile* server_find_journal(Server *s, uid_t uid) {
         int r;
 
         assert(s);
@@ -494,7 +498,7 @@ static ManagedJournalFile* find_journal(Server *s, uid_t uid) {
          * recover from failed rotates (or anything else that's left the journals as NULL).
          *
          * Fixes https://github.com/systemd/systemd/issues/3968 */
-        (void) system_journal_open(s, false, false);
+        (void) server_system_journal_open(s, /* flush_requested= */ false, /* relinquish_requested= */ false);
 
         /* We split up user logs only on /var, not on /run. If the runtime file is open, we write to it
          * exclusively, in order to guarantee proper order as soon as we flush /run to /var and close the
@@ -513,7 +517,7 @@ static ManagedJournalFile* find_journal(Server *s, uid_t uid) {
         if (!uid_for_system_journal(uid)) {
                 ManagedJournalFile *f = NULL;
 
-                r = find_user_journal(s, uid, &f);
+                r = server_find_user_journal(s, uid, &f);
                 if (r >= 0)
                         return ASSERT_PTR(f);
 
@@ -523,7 +527,7 @@ static ManagedJournalFile* find_journal(Server *s, uid_t uid) {
         return s->system_journal;
 }
 
-static int do_rotate(
+static int server_do_rotate(
                 Server *s,
                 ManagedJournalFile **f,
                 const char* name,
@@ -699,12 +703,12 @@ void server_rotate(Server *s) {
         log_debug("Rotating...");
 
         /* First, rotate the system journal (either in its runtime flavour or in its runtime flavour) */
-        (void) do_rotate(s, &s->runtime_journal, "runtime", false, 0);
-        (void) do_rotate(s, &s->system_journal, "system", s->seal, 0);
+        (void) server_do_rotate(s, &s->runtime_journal, "runtime", /* seal= */ false, /* uid= */ 0);
+        (void) server_do_rotate(s, &s->system_journal, "system", s->seal, /* uid= */ 0);
 
         /* Then, rotate all user journals we have open (keeping them open) */
         ORDERED_HASHMAP_FOREACH_KEY(f, k, s->user_journals) {
-                r = do_rotate(s, &f, "user", s->seal, PTR_TO_UID(k));
+                r = server_do_rotate(s, &f, "user", s->seal, PTR_TO_UID(k));
                 if (r >= 0)
                         ordered_hashmap_replace(s->user_journals, k, f);
                 else if (!f)
@@ -748,7 +752,7 @@ void server_sync(Server *s) {
         s->sync_scheduled = false;
 }
 
-static void do_vacuum(Server *s, JournalStorage *storage, bool verbose) {
+static void server_do_vacuum(Server *s, JournalStorage *storage, bool verbose) {
 
         int r;
 
@@ -778,9 +782,9 @@ void server_vacuum(Server *s, bool verbose) {
         s->oldest_file_usec = 0;
 
         if (s->system_journal)
-                do_vacuum(s, &s->system_storage, verbose);
+                server_do_vacuum(s, &s->system_storage, verbose);
         if (s->runtime_journal)
-                do_vacuum(s, &s->runtime_storage, verbose);
+                server_do_vacuum(s, &s->runtime_storage, verbose);
 }
 
 static void server_cache_machine_id(Server *s) {
@@ -897,7 +901,7 @@ static bool shall_try_append_again(JournalFile *f, int r) {
         }
 }
 
-static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n, int priority) {
+static void server_write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n, int priority) {
         bool vacuumed = false, rotate = false;
         struct dual_timestamp ts;
         ManagedJournalFile *f;
@@ -923,7 +927,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n
                 rotate = true;
         } else {
 
-                f = find_journal(s, uid);
+                f = server_find_journal(s, uid);
                 if (!f)
                         return;
 
@@ -940,7 +944,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n
                 server_vacuum(s, false);
                 vacuumed = true;
 
-                f = find_journal(s, uid);
+                f = server_find_journal(s, uid);
                 if (!f)
                         return;
         }
@@ -970,7 +974,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n
         server_rotate(s);
         server_vacuum(s, false);
 
-        f = find_journal(s, uid);
+        f = server_find_journal(s, uid);
         if (!f)
                 return;
 
@@ -1015,7 +1019,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n
                 iovec[n++] = IOVEC_MAKE_STRING(k);                      \
         }                                                               \
 
-static void dispatch_message_real(
+static void server_dispatch_message_real(
                 Server *s,
                 struct iovec *iovec, size_t n, size_t m,
                 const ClientContext *c,
@@ -1138,7 +1142,7 @@ static void dispatch_message_real(
         else
                 journal_uid = 0;
 
-        write_to_journal(s, journal_uid, iovec, n, priority);
+        server_write_to_journal(s, journal_uid, iovec, n, priority);
 }
 
 void server_driver_message(Server *s, pid_t object_pid, const char *message_id, const char *format, ...) {
@@ -1172,7 +1176,7 @@ void server_driver_message(Server *s, pid_t object_pid, const char *message_id, 
         va_end(ap);
 
         if (r >= 0)
-                dispatch_message_real(s, iovec, n, m, s->my_context, NULL, LOG_INFO, object_pid);
+                server_dispatch_message_real(s, iovec, n, m, s->my_context, /* tv= */ NULL, LOG_INFO, object_pid);
 
         while (k < n)
                 free(iovec[k++].iov_base);
@@ -1187,7 +1191,7 @@ void server_driver_message(Server *s, pid_t object_pid, const char *message_id, 
                 n = 3;
                 iovec[n++] = IOVEC_MAKE_STRING("PRIORITY=4");
                 iovec[n++] = IOVEC_MAKE_STRING(buf);
-                dispatch_message_real(s, iovec, n, m, s->my_context, NULL, LOG_INFO, object_pid);
+                server_dispatch_message_real(s, iovec, n, m, s->my_context, /* tv= */ NULL, LOG_INFO, object_pid);
         }
 }
 
@@ -1217,7 +1221,7 @@ void server_dispatch_message(
                 return;
 
         if (c && c->unit) {
-                (void) determine_space(s, &available, NULL);
+                (void) server_determine_space(s, &available, /* limit= */ NULL);
 
                 rl = journal_ratelimit_test(s->ratelimit, c->unit, c->log_ratelimit_interval, c->log_ratelimit_burst, priority & LOG_PRIMASK, available);
                 if (rl == 0)
@@ -1232,7 +1236,7 @@ void server_dispatch_message(
                                               NULL);
         }
 
-        dispatch_message_real(s, iovec, n, m, c, tv, priority, object_pid);
+        server_dispatch_message_real(s, iovec, n, m, c, tv, priority, object_pid);
 }
 
 int server_flush_to_var(Server *s, bool require_flag_file) {
@@ -1253,10 +1257,10 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
         if (!s->runtime_journal) /* Nothing to flush? */
                 return 0;
 
-        if (require_flag_file && !flushed_flag_is_set(s))
+        if (require_flag_file && !server_flushed_flag_is_set(s))
                 return 0;
 
-        (void) system_journal_open(s, true, false);
+        (void) server_system_journal_open(s, /* flush_requested=*/ true, /* relinquish_requested= */ false);
 
         if (!s->system_journal)
                 return 0;
@@ -1361,7 +1365,7 @@ static int server_relinquish_var(Server *s) {
 
         log_debug("Relinquishing %s...", s->system_storage.path);
 
-        (void) system_journal_open(s, false, true);
+        (void) server_system_journal_open(s, /* flush_requested */ false, /* relinquish_requested=*/ true);
 
         s->system_journal = managed_journal_file_close(s->system_journal);
         ordered_hashmap_clear_with_destructor(s->user_journals, managed_journal_file_close);
@@ -1670,7 +1674,7 @@ static int dispatch_sigrtmin1(sd_event_source *es, const struct signalfd_siginfo
         return 0;
 }
 
-static int setup_signals(Server *s) {
+static int server_setup_signals(Server *s) {
         int r;
 
         assert(s);
@@ -2323,7 +2327,7 @@ int server_refresh_idle_timer(Server *s) {
         return 1;
 }
 
-static int set_namespace(Server *s, const char *namespace) {
+static int server_set_namespace(Server *s, const char *namespace) {
         assert(s);
 
         if (!namespace)
@@ -2395,7 +2399,7 @@ int server_init(Server *s, const char *namespace) {
                 },
         };
 
-        r = set_namespace(s, namespace);
+        r = server_set_namespace(s, namespace);
         if (r < 0)
                 return r;
 
@@ -2567,7 +2571,7 @@ int server_init(Server *s, const char *namespace) {
         if (r < 0)
                 return r;
 
-        r = setup_signals(s);
+        r = server_setup_signals(s);
         if (r < 0)
                 return r;
 
@@ -2604,7 +2608,7 @@ int server_init(Server *s, const char *namespace) {
 
         (void) client_context_acquire_default(s);
 
-        r = system_journal_open(s, false, false);
+        r = server_system_journal_open(s, /* flush_requested= */ false, /* relinquish_requested= */ false);
         if (r < 0)
                 return r;
 
