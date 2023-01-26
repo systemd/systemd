@@ -42,14 +42,15 @@ systemctl_sources = files(
 if get_option('link-systemctl-shared')
         systemctl_link_with = [libshared]
 else
-        systemctl_link_with = [libsystemd_static,
-                               libshared_static,
-                               libbasic_gcrypt]
+        systemctl_link_with = [libsystemd_static, libshared_static, libbasic_gcrypt]
 endif
 
 fuzzers += [
-        [files('fuzz-systemctl-parse-argv.c') +
-         systemctl_sources,
-         systemctl_link_with,
-         [], [], ['-DFUZZ_SYSTEMCTL_PARSE_ARGV']]
+        [
+                files('fuzz-systemctl-parse-argv.c') + systemctl_sources,
+                systemctl_link_with,
+                [],
+                [],
+                ['-DFUZZ_SYSTEMCTL_PARSE_ARGV'],
+        ],
 ]

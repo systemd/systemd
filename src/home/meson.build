@@ -42,7 +42,8 @@ homed_gperf_c = custom_target(
         'homed_gperf.c',
         input : 'homed-gperf.gperf',
         output : 'homed-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'],
+)
 
 systemd_homed_sources += [homed_gperf_c]
 
@@ -64,15 +65,11 @@ pam_systemd_home_c = files(
 )
 
 if conf.get('ENABLE_HOMED') == 1
-        install_data('org.freedesktop.home1.conf',
-                     install_dir : dbuspolicydir)
-        install_data('org.freedesktop.home1.service',
-                     install_dir : dbussystemservicedir)
-        install_data('org.freedesktop.home1.policy',
-                     install_dir : polkitpolicydir)
+        install_data('org.freedesktop.home1.conf', install_dir : dbuspolicydir)
+        install_data('org.freedesktop.home1.service', install_dir : dbussystemservicedir)
+        install_data('org.freedesktop.home1.policy', install_dir : polkitpolicydir)
 
         if install_sysconfdir_samples
-                install_data('homed.conf',
-                             install_dir : pkgsysconfdir)
+                install_data('homed.conf', install_dir : pkgsysconfdir)
         endif
 endif

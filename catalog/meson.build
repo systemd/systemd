@@ -12,7 +12,8 @@ in_files = [
         'systemd.ru.catalog',
         'systemd.zh_CN.catalog',
         'systemd.zh_TW.catalog',
-        'systemd.catalog']
+        'systemd.catalog',
+]
 
 support_url = get_option('support-url')
 support_sed = 's~%SUPPORT_URL%~@0@~'.format(support_url)
@@ -21,12 +22,16 @@ foreach file : in_files
         catalogs += custom_target(
                 file,
                 input : file + '.in',
-                output: file,
+                output : file,
                 command : [sed, support_sed, '@INPUT@'],
                 capture : true,
                 install : true,
-                install_dir : catalogdir)
+                install_dir : catalogdir,
+        )
 endforeach
 
-meson.add_install_script('sh', '-c',
-                         'test -n "$DESTDIR" || @0@/journalctl --update-catalog'.format(rootbindir))
+meson.add_install_script(
+        'sh',
+        '-c',
+        'test -n "$DESTDIR" || @0@/journalctl --update-catalog'.format(rootbindir),
+)

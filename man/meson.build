@@ -5,22 +5,33 @@ subdir('rules')
 
 want_man = get_option('man')
 want_html = get_option('html')
-xsltproc = find_program('xsltproc',
-                        required : want_man == 'true' or want_html == 'true')
+xsltproc = find_program('xsltproc', required : want_man == 'true' or want_html == 'true')
 want_man = want_man != 'false' and xsltproc.found()
 want_html = want_html != 'false' and xsltproc.found()
 
 xsltproc_flags = [
         '--nonet',
         '--xinclude',
-        '--maxdepth', '9000',
-        '--stringparam', 'man.output.quietly', '1',
-        '--stringparam', 'funcsynopsis.style', 'ansi',
-        '--stringparam', 'man.authors.section.enabled', '0',
-        '--stringparam', 'man.copyright.section.enabled', '0',
-        '--stringparam', 'systemd.version', '@0@'.format(meson.project_version()),
+        '--maxdepth',
+        '9000',
+        '--stringparam',
+        'man.output.quietly',
+        '1',
+        '--stringparam',
+        'funcsynopsis.style',
+        'ansi',
+        '--stringparam',
+        'man.authors.section.enabled',
+        '0',
+        '--stringparam',
+        'man.copyright.section.enabled',
+        '0',
+        '--stringparam',
+        'systemd.version',
+        '@0@'.format(meson.project_version()),
         '--path',
-        '@0@:@1@'.format(meson.current_build_dir(), meson.current_source_dir())]
+        '@0@:@1@'.format(meson.current_build_dir(), meson.current_source_dir()),
+]
 
 custom_man_xsl = files('custom-man.xsl')
 custom_html_xsl = files('custom-html.xsl')
@@ -30,7 +41,8 @@ custom_entities_ent = custom_target(
         'custom-entities.ent',
         input : 'custom-entities.ent.in',
         output : 'custom-entities.ent',
-        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'])
+        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
+)
 
 man_pages = []
 html_pages = []
@@ -70,7 +82,8 @@ foreach tuple : manpages
                                 command : xslt_cmd + [custom_man_xsl, '@INPUT@'],
                                 depends : custom_entities_ent,
                                 install : want_man,
-                                install_dir : mandirn)
+                                install_dir : mandirn,
+                        )
                         man_pages += p1
 
                         p2 = []
@@ -78,7 +91,8 @@ foreach tuple : manpages
                                 link = custom_target(
                                         htmlalias,
                                         output : htmlalias,
-                                        command : [ln, '-fs', html, '@OUTPUT@'])
+                                        command : [ln, '-fs', html, '@OUTPUT@'],
+                                )
                                 if want_html
                                         dst = docdir / 'html' / htmlalias
                                         cmd = 'ln -fs @0@ $DESTDIR@1@'.format(html, dst)
@@ -95,7 +109,8 @@ foreach tuple : manpages
                                 command : xslt_cmd + [custom_html_xsl, '@INPUT@'],
                                 depends : [custom_entities_ent, p2],
                                 install : want_html,
-                                install_dir : docdir / 'html')
+                                install_dir : docdir / 'html',
+                        )
                         html_pages += p3
                 endif
         else
@@ -105,7 +120,7 @@ endforeach
 
 ############################################################
 
-have_lxml = run_command(xml_helper_py, check: false).returncode() == 0
+have_lxml = run_command(xml_helper_py, check : false).returncode() == 0
 if not have_lxml
         message('python-lxml not available, not making man page indices')
 endif
@@ -115,17 +130,23 @@ systemd_directives_xml = custom_target(
         input : ['directives-template.xml', source_xml_files],
         output : 'systemd.directives.xml',
         depends : custom_entities_ent,
-        command : [make_directive_index_py, '@OUTPUT@', '@INPUT@'])
+        command : [make_directive_index_py, '@OUTPUT@', '@INPUT@'],
+)
 
 nonindex_xml_files = source_xml_files + [systemd_directives_xml]
 systemd_index_xml = custom_target(
         'systemd.index.xml',
         input : nonindex_xml_files,
         output : 'systemd.index.xml',
-        command : [make_man_index_py, '@OUTPUT@'] + nonindex_xml_files)
+        command : [make_man_index_py, '@OUTPUT@'] + nonindex_xml_files,
+)
 
-foreach tuple : xsltproc.found() ? [['systemd.directives', '7', systemd_directives_xml],
-                                    ['systemd.index',      '7', systemd_index_xml]] : []
+foreach tuple : (
+        xsltproc.found() ? [
+                ['systemd.directives', '7', systemd_directives_xml],
+                ['systemd.index', '7', systemd_index_xml],
+        ] : []
+)
         stem = tuple[0]
         section = tuple[1]
         xml = tuple[2]
@@ -141,7 +162,8 @@ foreach tuple : xsltproc.found() ? [['systemd.directives', '7', systemd_directiv
                 output : man,
                 command : xslt_cmd + [custom_man_xsl, '@INPUT@'],
                 install : want_man and have_lxml,
-                install_dir : mandirn)
+                install_dir : mandirn,
+        )
         man_pages += p1
 
         p2 = []
@@ -151,7 +173,8 @@ foreach tuple : xsltproc.found() ? [['systemd.directives', '7', systemd_directiv
                         htmlalias,
                         input : p2,
                         output : htmlalias,
-                        command : [ln, '-fs', html, '@OUTPUT@'])
+                        command : [ln, '-fs', html, '@OUTPUT@'],
+                )
                 if want_html
                         dst = docdir / 'html' / htmlalias
                         cmd = 'ln -fs @0@ $DESTDIR@1@'.format(html, dst)
@@ -168,36 +191,32 @@ foreach tuple : xsltproc.found() ? [['systemd.directives', '7', systemd_directiv
                 command : xslt_cmd + [custom_html_xsl, '@INPUT@'],
                 depends : [custom_entities_ent, p2],
                 install : want_html and have_lxml,
-                install_dir : docdir / 'html')
+                install_dir : docdir / 'html',
+        )
         html_pages += p3
 endforeach
 
 # Cannot use run_target because those targets are used in depends
 # Also see https://github.com/mesonbuild/meson/issues/368.
-man = custom_target(
-        'man',
-        output : 'man',
-        depends : man_pages,
-        command : [echo])
+man = custom_target('man', output : 'man', depends : man_pages, command : [echo])
 
-html = custom_target(
-        'html',
-        output : 'html',
-        depends : html_pages,
-        command : [echo])
+html = custom_target('html', output : 'html', depends : html_pages, command : [echo])
 
 if rsync.found()
         run_target(
                 'doc-sync',
                 depends : man_pages + html_pages,
-                command : [rsync, '-rlv',
-                           '--delete-excluded',
-                           '--include=man',
-                           '--include=*.html',
-                           '--exclude=*',
-                           '--omit-dir-times',
-                           meson.current_build_dir(),
-                           get_option('www-target')])
+                command : [
+                        rsync,
+                        '-rlv',
+                        '--delete-excluded',
+                        '--include=man',
+                        '--include=*.html',
+                        '--exclude=*',
+                        '--omit-dir-times', meson.current_build_dir(),
+                        get_option('www-target'),
+                ],
+        )
 endif
 
 ############################################################
@@ -205,15 +224,9 @@ endif
 buildroot_substs = configuration_data()
 buildroot_substs.set_quoted('BUILD_ROOT', project_build_root)
 
-configure_file(
-        input : 'man.in',
-        output : 'man',
-        configuration : buildroot_substs)
+configure_file(input : 'man.in', output : 'man', configuration : buildroot_substs)
 
-configure_file(
-        input : 'html.in',
-        output : 'html',
-        configuration : buildroot_substs)
+configure_file(input : 'html.in', output : 'html', configuration : buildroot_substs)
 
 ############################################################
 
@@ -221,20 +234,26 @@ update_dbus_docs = custom_target(
         'update-dbus-docs',
         output : 'update-dbus-docs',
         command : [update_dbus_docs_py, '--build-dir', project_build_root, '@INPUT@'],
-        input : dbus_docs)
+        input : dbus_docs,
+)
 
 if conf.get('BUILD_MODE_DEVELOPER') == 1
-        test('dbus-docs-fresh',
-             update_dbus_docs_py,
-             suite : 'dist-check',
-             args : ['--build-dir', project_build_root, '--test', dbus_docs],
-             depends : dbus_programs)
+        test(
+                'dbus-docs-fresh',
+                update_dbus_docs_py,
+                suite : 'dist-check',
+                args : ['--build-dir', project_build_root, '--test', dbus_docs],
+                depends : dbus_programs,
+        )
 endif
 
 update_man_rules = custom_target(
         'update-man-rules',
         output : 'update-man-rules',
-        command : [update_man_rules_py,
-                   '@0@/man/*.xml'.format(project_source_root),
-                   '@0@/rules/meson.build'.format(meson.current_source_dir())],
-        depends : custom_entities_ent)
+        command : [
+                update_man_rules_py,
+                '@0@/man/*.xml'.format(project_source_root),
+                '@0@/rules/meson.build'.format(meson.current_source_dir()),
+        ],
+        depends : custom_entities_ent,
+)

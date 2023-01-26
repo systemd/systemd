@@ -1,28 +1,23 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 udevadm_sources = files(
-        'udevadm.c',
         'udevadm-control.c',
         'udevadm-hwdb.c',
         'udevadm-info.c',
         'udevadm-lock.c',
         'udevadm-monitor.c',
         'udevadm-settle.c',
-        'udevadm-test.c',
         'udevadm-test-builtin.c',
+        'udevadm-test.c',
         'udevadm-trigger.c',
         'udevadm-util.c',
         'udevadm-wait.c',
+        'udevadm.c',
         'udevd.c',
 )
 
 libudevd_core_sources = files(
-        'udev-ctrl.c',
-        'udev-event.c',
-        'udev-node.c',
-        'udev-rules.c',
-        'udev-watch.c',
-        'udev-builtin.c',
+        'net/link-config.c',
         'udev-builtin-btrfs.c',
         'udev-builtin-hwdb.c',
         'udev-builtin-input_id.c',
@@ -31,7 +26,12 @@ libudevd_core_sources = files(
         'udev-builtin-net_setup_link.c',
         'udev-builtin-path_id.c',
         'udev-builtin-usb_id.c',
-        'net/link-config.c',
+        'udev-builtin.c',
+        'udev-ctrl.c',
+        'udev-event.c',
+        'udev-node.c',
+        'udev-rules.c',
+        'udev-watch.c',
 )
 
 if conf.get('HAVE_KMOD') == 1
@@ -53,7 +53,8 @@ keyboard_keys_list_txt = custom_target(
         'keyboard-keys-list.txt',
         output : 'keyboard-keys-list.txt',
         command : [generate_keyboard_keys_list, cpp],
-        capture : true)
+        capture : true,
+)
 
 generate_keyboard_keys_gperf = find_program('generate-keyboard-keys-gperf.sh')
 fname = 'keyboard-keys-from-name.gperf'
@@ -62,20 +63,25 @@ gperf_file = custom_target(
         input : keyboard_keys_list_txt,
         output : fname,
         command : [generate_keyboard_keys_gperf, '@INPUT@'],
-        capture : true)
+        capture : true,
+)
 
 fname = 'keyboard-keys-from-name.h'
 keyboard_keys_from_name_h = custom_target(
         fname,
         input : gperf_file,
         output : fname,
-        command : [gperf,
-                   '-L', 'ANSI-C', '-t',
-                   '-N', 'keyboard_lookup_key',
-                   '-H', 'hash_key_name',
-                   '-p', '-C',
-                   '@INPUT@'],
-        capture : true)
+        command : [
+                gperf,
+                '-L', 'ANSI-C',
+                '-t',
+                '-N', 'keyboard_lookup_key',
+                '-H', 'hash_key_name',
+                '-p',
+                '-C', '@INPUT@',
+        ],
+        capture : true,
+)
 
 ############################################################
 
@@ -83,7 +89,8 @@ link_config_gperf_c = custom_target(
         'link-config-gperf.c',
         input : 'net/link-config-gperf.gperf',
         output : 'link-config-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'],
+)
 
 ############################################################
 
@@ -91,8 +98,7 @@ if get_option('link-udev-shared')
         udev_link_with = [libshared]
         udev_rpath = rootpkglibdir
 else
-        udev_link_with = [libshared_static,
-                          libsystemd_static]
+        udev_link_with = [libshared_static, libsystemd_static]
         udev_rpath = ''
 endif
 
@@ -106,19 +112,18 @@ libudevd_core = static_library(
         keyboard_keys_from_name_h,
         include_directories : udev_includes,
         link_with : udev_link_with,
-        dependencies : [libblkid,
-                        libkmod],
-        build_by_default : false)
+        dependencies : [libblkid, libkmod],
+        build_by_default : false,
+)
 
-udev_progs = [['ata_id/ata_id.c'],
-              ['cdrom_id/cdrom_id.c'],
-              ['fido_id/fido_id.c',
-               'fido_id/fido_id_desc.c'],
-              ['scsi_id/scsi_id.c',
-               'scsi_id/scsi_serial.c'],
-              ['v4l_id/v4l_id.c'],
-              ['mtd_probe/mtd_probe.c',
-               'mtd_probe/probe_smartmedia.c']]
+udev_progs = [
+        ['ata_id/ata_id.c'],
+        ['cdrom_id/cdrom_id.c'],
+        ['fido_id/fido_id.c', 'fido_id/fido_id_desc.c'],
+        ['scsi_id/scsi_id.c', 'scsi_id/scsi_serial.c'],
+        ['v4l_id/v4l_id.c'],
+        ['mtd_probe/mtd_probe.c', 'mtd_probe/probe_smartmedia.c'],
+]
 
 dmi_arches = ['x86', 'x86_64', 'aarch64', 'arm', 'ia64', 'loongarch64', 'mips']
 if dmi_arches.contains(host_machine.cpu_family())
@@ -137,14 +142,14 @@ foreach prog : udev_progs
                 link_with : udev_link_with,
                 install_rpath : udev_rpath,
                 install : true,
-                install_dir : udevlibexecdir)
+                install_dir : udevlibexecdir,
+        )
 
         udev_prog_paths += {name : exe}
 endforeach
 
 if install_sysconfdir_samples
-        install_data('udev.conf',
-                     install_dir : sysconfdir / 'udev')
+        install_data('udev.conf', install_dir : sysconfdir / 'udev')
 endif
 
 custom_target(
@@ -153,52 +158,29 @@ custom_target(
         output : 'udev.pc',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : pkgconfigdatadir != 'no',
-        install_dir : pkgconfigdatadir)
+        install_dir : pkgconfigdatadir,
+)
 
 if install_sysconfdir
-        meson.add_install_script('sh', '-c',
-                                 mkdir_p.format(sysconfdir / 'udev/rules.d'))
+        meson.add_install_script('sh', '-c', mkdir_p.format(sysconfdir / 'udev/rules.d'))
 endif
 
 fuzzers += [
-        [files('net/fuzz-link-parser.c'),
-         [libudevd_core,
-          libshared],
-         [threads,
-          libacl],
-         udev_includes],
+        [files('net/fuzz-link-parser.c'), [libudevd_core, libshared], [threads, libacl], udev_includes],
 
-        [files('fuzz-udev-rules.c'),
-         [libudevd_core,
-          libshared],
-         [threads,
-          libacl]],
+        [files('fuzz-udev-rules.c'), [libudevd_core, libshared], [threads, libacl]],
 
         [files('fuzz-udev-rule-parse-value.c')],
 
-        [files('fido_id/fuzz-fido-id-desc.c',
-               'fido_id/fido_id_desc.c')],
+        [files('fido_id/fido_id_desc.c', 'fido_id/fuzz-fido-id-desc.c')],
 ]
 
 tests += [
-        [files('test-udev-event.c'),
-         [libudevd_core,
-          libshared],
-         [threads,
-          libacl]],
+        [files('test-udev-event.c'), [libudevd_core, libshared], [threads, libacl]],
 
-        [files('test-udev-node.c'),
-         [libudevd_core,
-          libshared],
-         [threads,
-          libacl]],
+        [files('test-udev-node.c'), [libudevd_core, libshared], [threads, libacl]],
 
-        [files('test-udev-builtin.c'),
-         [libudevd_core,
-          libshared],
-         [threads,
-          libacl]],
+        [files('test-udev-builtin.c'), [libudevd_core, libshared], [threads, libacl]],
 
-        [files('fido_id/test-fido-id-desc.c',
-               'fido_id/fido_id_desc.c')],
+        [files('fido_id/fido_id_desc.c', 'fido_id/test-fido-id-desc.c')],
 ]

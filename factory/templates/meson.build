@@ -8,4 +8,5 @@ custom_target(
         output : 'locale.conf',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : true,
-        install_dir : factory_etc_dir)
+        install_dir : factory_etc_dir,
+)

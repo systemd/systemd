@@ -26,7 +26,8 @@ libudev_basic = static_library(
         libudev_sources,
         include_directories : includes,
         c_args : ['-fvisibility=default'],
-        build_by_default : false)
+        build_by_default : false,
+)
 
 static_libudev = get_option('static-libudev')
 static_libudev_pic = static_libudev == 'true' or static_libudev == 'pic'
@@ -38,12 +39,11 @@ libudev_pc = custom_target(
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : pkgconfiglibdir != 'no',
         install_tag : 'devel',
-        install_dir : pkgconfiglibdir)
+        install_dir : pkgconfiglibdir,
+)
 
 ############################################################
 
 tests += [
-        [files('test-libudev.c'),
-         [libshared,
-          libudev_basic]],
+        [files('test-libudev.c'), [libshared, libudev_basic]],
 ]

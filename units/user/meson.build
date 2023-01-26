@@ -28,6 +28,5 @@ if conf.get('ENABLE_XDG_AUTOSTART') == 1
 endif
 
 foreach file : units
-        install_data(file,
-                     install_dir : userunitdir)
+        install_data(file, install_dir : userunitdir)
 endforeach

@@ -10,21 +10,13 @@ systemd_oomd_sources = files(
 oomctl_sources = files('oomctl.c')
 
 if conf.get('ENABLE_OOMD') == 1
-        install_data('org.freedesktop.oom1.conf',
-                     install_dir : dbuspolicydir)
+        install_data('org.freedesktop.oom1.conf', install_dir : dbuspolicydir)
 
-        install_data('org.freedesktop.oom1.service',
-                     install_dir : dbussystemservicedir)
+        install_data('org.freedesktop.oom1.service', install_dir : dbussystemservicedir)
 
         if install_sysconfdir_samples
-                install_data('oomd.conf',
-                             install_dir : pkgsysconfdir)
+                install_data('oomd.conf', install_dir : pkgsysconfdir)
         endif
 endif
 
-tests += [
-        [files('test-oomd-util.c',
-               'oomd-util.c'),
-	 [],
-	 [libatomic]]
-]
+tests += [[files('oomd-util.c', 'test-oomd-util.c'), [], [libatomic]]]

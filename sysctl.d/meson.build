@@ -1,9 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-install_data(
-        'README',
-        '50-default.conf',
-        install_dir : sysctldir)
+install_data('README', '50-default.conf', install_dir : sysctldir)
 
 # Kernel determines PID_MAX_LIMIT by
 # #define PID_MAX_LIMIT (CONFIG_BASE_SMALL ? PAGE_SIZE * 8 : \
@@ -18,9 +15,9 @@ custom_target(
         output : '50-coredump.conf',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : conf.get('ENABLE_COREDUMP') == 1,
-        install_dir : sysctldir)
+        install_dir : sysctldir,
+)
 
 if install_sysconfdir
-        meson.add_install_script('sh', '-c',
-                                 mkdir_p.format(sysconfdir / 'sysctl.d'))
+        meson.add_install_script('sh', '-c', mkdir_p.format(sysconfdir / 'sysctl.d'))
 endif

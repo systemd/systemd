@@ -8,7 +8,8 @@ logind_gperf_c = custom_target(
         'logind_gperf.c',
         input : 'logind-gperf.gperf',
         output : 'logind-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'],
+)
 
 liblogind_core_sources = files(
         'logind-action.c',
@@ -36,7 +37,8 @@ liblogind_core = static_library(
         liblogind_core_sources,
         include_directories : includes,
         dependencies : libacl,
-        build_by_default : false)
+        build_by_default : false,
+)
 
 loginctl_sources = files(
         'loginctl.c',
@@ -56,7 +58,8 @@ custom_target(
         output : 'logind.conf',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : enable_logind and install_sysconfdir_samples and pkgsysconfdir != 'no',
-        install_dir : pkgsysconfdir)
+        install_dir : pkgsysconfdir,
+)
 
 custom_target(
         'systemd-user',
@@ -64,15 +67,13 @@ custom_target(
         output : 'systemd-user',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : enable_logind and pamconfdir != 'no',
-        install_dir : pamconfdir)
+        install_dir : pamconfdir,
+)
 
 if enable_logind
-        install_data('org.freedesktop.login1.conf',
-                     install_dir : dbuspolicydir)
-        install_data('org.freedesktop.login1.service',
-                     install_dir : dbussystemservicedir)
-        install_data('org.freedesktop.login1.policy',
-                     install_dir : polkitpolicydir)
+        install_data('org.freedesktop.login1.conf', install_dir : dbuspolicydir)
+        install_data('org.freedesktop.login1.service', install_dir : dbussystemservicedir)
+        install_data('org.freedesktop.login1.policy', install_dir : polkitpolicydir)
 endif
 
 ############################################################
@@ -80,14 +81,9 @@ endif
 tests += [
         [files('test-login-shared.c')],
 
-        [files('test-inhibit.c'),
-         [], [], [], '', 'manual'],
+        [files('test-inhibit.c'), [], [], [], '', 'manual'],
 
-        [files('test-login-tables.c'),
-         [liblogind_core,
-          libshared],
-         [threads]],
+        [files('test-login-tables.c'), [liblogind_core, libshared], [threads]],
 
-        [files('test-session-properties.c'),
-         [], [], [], '', 'manual'],
+        [files('test-session-properties.c'), [], [], [], '', 'manual'],
 ]

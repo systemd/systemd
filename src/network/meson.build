@@ -29,6 +29,28 @@ sources = files(
         'netdev/wireguard.c',
         'netdev/wlan.c',
         'netdev/xfrm.c',
+        'tc/cake.c',
+        'tc/codel.c',
+        'tc/drr.c',
+        'tc/ets.c',
+        'tc/fifo.c',
+        'tc/fq-codel.c',
+        'tc/fq-pie.c',
+        'tc/fq.c',
+        'tc/gred.c',
+        'tc/hhf.c',
+        'tc/htb.c',
+        'tc/netem.c',
+        'tc/pie.c',
+        'tc/qdisc.c',
+        'tc/qfq.c',
+        'tc/sfb.c',
+        'tc/sfq.c',
+        'tc/tbf.c',
+        'tc/tc-util.c',
+        'tc/tc.c',
+        'tc/tclass.c',
+        'tc/teql.c',
         'networkd-address-generation.c',
         'networkd-address-label.c',
         'networkd-address-pool.c',
@@ -75,28 +97,6 @@ sources = files(
         'networkd-util.c',
         'networkd-wifi.c',
         'networkd-wiphy.c',
-        'tc/cake.c',
-        'tc/codel.c',
-        'tc/drr.c',
-        'tc/ets.c',
-        'tc/fifo.c',
-        'tc/fq-codel.c',
-        'tc/fq-pie.c',
-        'tc/fq.c',
-        'tc/gred.c',
-        'tc/hhf.c',
-        'tc/htb.c',
-        'tc/netem.c',
-        'tc/pie.c',
-        'tc/qdisc.c',
-        'tc/qfq.c',
-        'tc/sfb.c',
-        'tc/sfq.c',
-        'tc/tbf.c',
-        'tc/tc-util.c',
-        'tc/tc.c',
-        'tc/tclass.c',
-        'tc/teql.c',
 )
 
 systemd_networkd_sources = files('networkd.c')
@@ -118,26 +118,27 @@ sources += custom_target(
         'networkd-gperf.c',
         input : 'networkd-gperf.gperf',
         output : 'networkd-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'],
+)
 
 sources += custom_target(
         'networkd-network-gperf.c',
         input : 'networkd-network-gperf.gperf',
         output : 'networkd-network-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'],
+)
 
 sources += custom_target(
         'netdev-gperf.c',
         input : 'netdev/netdev-gperf.gperf',
         output : 'netdev-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'],
+)
 
 if get_option('link-networkd-shared')
         networkd_link_with = [libshared]
 else
-        networkd_link_with = [libsystemd_static,
-                              libshared_static,
-                              libbasic_gcrypt]
+        networkd_link_with = [libsystemd_static, libshared_static, libbasic_gcrypt]
 endif
 
 network_includes = [libsystemd_network_includes, include_directories(['.', 'netdev', 'tc'])]
@@ -147,77 +148,61 @@ libnetworkd_core = static_library(
         sources,
         include_directories : network_includes,
         link_with : networkd_link_with,
-        build_by_default : false)
+        build_by_default : false,
+)
 
 if conf.get('ENABLE_NETWORKD') == 1
-        install_data('org.freedesktop.network1.conf',
-                     install_dir : dbuspolicydir)
-        install_data('org.freedesktop.network1.service',
-                     install_dir : dbussystemservicedir)
-        install_data('org.freedesktop.network1.policy',
-                     install_dir : polkitpolicydir)
+        install_data('org.freedesktop.network1.conf', install_dir : dbuspolicydir)
+        install_data('org.freedesktop.network1.service', install_dir : dbussystemservicedir)
+        install_data('org.freedesktop.network1.policy', install_dir : polkitpolicydir)
         if install_polkit
-                install_data('systemd-networkd.rules',
-                             install_dir : polkitrulesdir)
+                install_data('systemd-networkd.rules', install_dir : polkitrulesdir)
         endif
         if install_polkit_pkla
-                install_data('systemd-networkd.pkla',
-                             install_dir : polkitpkladir)
+                install_data('systemd-networkd.pkla', install_dir : polkitpkladir)
         endif
 
         if install_sysconfdir_samples
-                install_data('networkd.conf',
-                             install_dir : pkgsysconfdir)
+                install_data('networkd.conf', install_dir : pkgsysconfdir)
         endif
 endif
 
 fuzzers += [
-        [files('fuzz-netdev-parser.c'),
-         [libnetworkd_core,
-          libsystemd_network,
-          networkd_link_with],
-         [threads],
-         network_includes],
+        [
+                files('fuzz-netdev-parser.c'),
+                [libnetworkd_core, libsystemd_network, networkd_link_with],
+                [threads],
+                network_includes,
+        ],
 
-        [files('fuzz-network-parser.c'),
-         [libnetworkd_core,
-          libsystemd_network,
-          networkd_link_with],
-         [threads],
-         network_includes],
+        [
+                files('fuzz-network-parser.c'),
+                [libnetworkd_core, libsystemd_network, networkd_link_with],
+                [threads],
+                network_includes,
+        ],
 ]
 
 tests += [
-        [files('test-networkd-address.c'),
-         [libnetworkd_core,
-          libsystemd_network],
-         [libatomic],
-         network_includes],
+        [
+                files('test-networkd-address.c'),
+                [libnetworkd_core, libsystemd_network],
+                [libatomic],
+                network_includes,
+        ],
 
-        [files('test-networkd-conf.c'),
-         [libnetworkd_core,
-          libsystemd_network],
-         [libatomic],
-         network_includes],
+        [
+                files('test-networkd-conf.c'),
+                [libnetworkd_core, libsystemd_network],
+                [libatomic],
+                network_includes,
+        ],
 
-        [files('test-networkd-util.c'),
-         [libnetworkd_core,
-          libsystemd_network],
-         [],
-         network_includes],
+        [files('test-networkd-util.c'), [libnetworkd_core, libsystemd_network], [], network_includes],
 
-        [files('test-network.c'),
-         [libnetworkd_core,
-          libsystemd_network],
-         [threads],
-         network_includes],
+        [files('test-network.c'), [libnetworkd_core, libsystemd_network], [threads], network_includes],
 
-        [files('test-network-tables.c'),
-         [libnetworkd_core,
-          libsystemd_network],
-         [threads],
-         network_includes],
+        [files('test-network-tables.c'), [libnetworkd_core, libsystemd_network], [threads], network_includes],
 
-        [files('generator/test-network-generator.c',
-               'generator/network-generator.c')],
+        [files('generator/network-generator.c', 'generator/test-network-generator.c')],
 ]

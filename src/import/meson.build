@@ -1,30 +1,28 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-systemd_importd_sources = files(
-        'importd.c')
+systemd_importd_sources = files('importd.c')
 
 systemd_pull_sources = files(
-        'pull.c',
+        'curl-util.c',
+        'pull-common.c',
+        'pull-job.c',
         'pull-raw.c',
         'pull-tar.c',
-        'pull-job.c',
-        'pull-common.c',
-        'curl-util.c',
+        'pull.c',
 )
 
 systemd_import_sources = files(
-        'import.c',
         'import-raw.c',
         'import-tar.c',
+        'import.c',
 )
 
-systemd_import_fs_sources = files(
-        'import-fs.c')
+systemd_import_fs_sources = files('import-fs.c')
 
 systemd_export_sources = files(
-        'export.c',
-        'export-tar.c',
         'export-raw.c',
+        'export-tar.c',
+        'export.c',
 )
 
 if conf.get('ENABLE_IMPORTD') == 1
@@ -34,27 +32,18 @@ if conf.get('ENABLE_IMPORTD') == 1
                 'import-compress.c',
                 'qcow2-util.c',
                 include_directories : includes,
-                dependencies : [libbzip2,
-                                libxz,
-                                libz],
-                build_by_default : false)
+                dependencies : [libbzip2, libxz, libz],
+                build_by_default : false,
+        )
 
-        install_data('org.freedesktop.import1.conf',
-                     install_dir : dbuspolicydir)
-        install_data('org.freedesktop.import1.service',
-                     install_dir : dbussystemservicedir)
-        install_data('org.freedesktop.import1.policy',
-                     install_dir : polkitpolicydir)
+        install_data('org.freedesktop.import1.conf', install_dir : dbuspolicydir)
+        install_data('org.freedesktop.import1.service', install_dir : dbussystemservicedir)
+        install_data('org.freedesktop.import1.policy', install_dir : polkitpolicydir)
 
-        install_data('import-pubring.gpg',
-                     install_dir : rootlibexecdir)
+        install_data('import-pubring.gpg', install_dir : rootlibexecdir)
         # TODO: shouldn't this be in pkgdatadir?
 endif
 
 tests += [
-        [files('test-qcow2.c',
-               'qcow2-util.c'),
-         [],
-         [libz],
-         [], 'HAVE_ZLIB', 'manual'],
+        [files('qcow2-util.c', 'test-qcow2.c'), [], [libz], [], 'HAVE_ZLIB', 'manual'],
 ]

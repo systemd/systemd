@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-systemd_sysupdate_sources = files('''
+systemd_sysupdate_sources = files(
+        '''
         sysupdate-instance.c
         sysupdate-instance.h
         sysupdate-partition.c
@@ -19,4 +20,5 @@ systemd_sysupdate_sources = files('''
         sysupdate-cache.h
         sysupdate.c
         sysupdate.h
-'''.split())
+'''.split(),
+)

@@ -10,12 +10,9 @@ systemd_portabled_sources = files(
 )
 
 if conf.get('ENABLE_PORTABLED') == 1
-        install_data('org.freedesktop.portable1.conf',
-                     install_dir : dbuspolicydir)
-        install_data('org.freedesktop.portable1.service',
-                     install_dir : dbussystemservicedir)
-        install_data('org.freedesktop.portable1.policy',
-                     install_dir : polkitpolicydir)
+        install_data('org.freedesktop.portable1.conf', install_dir : dbuspolicydir)
+        install_data('org.freedesktop.portable1.service', install_dir : dbussystemservicedir)
+        install_data('org.freedesktop.portable1.policy', install_dir : polkitpolicydir)
 
         install_data('profile/default/service.conf', install_dir : profiledir / 'default')
         install_data('profile/nonetwork/service.conf', install_dir : profiledir / 'nonetwork')
