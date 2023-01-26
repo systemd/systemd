@@ -567,7 +567,7 @@ static int read_next_mapping(
 
                 length = strv_length(b);
                 if (length < min_fields || length > max_fields) {
-                        log_warning("Invalid line %s:%u, ignoring.", strna(filename), *n);
+                        log_debug("Invalid line %s:%u, ignoring.", strna(filename), *n);
                         continue;
 
                 }
