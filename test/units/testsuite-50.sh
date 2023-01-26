@@ -415,7 +415,7 @@ systemd-sysext unmerge
 rmdir /etc/extensions/app-nodistro
 rm /var/lib/extensions/app-nodistro.raw
 
-mkdir -p /run/machines /run/portables /run/extensions
+mkdir -p /run/machines /run/portables /run/extensions /run/syscfgs
 touch /run/machines/a.raw /run/portables/b.raw /run/extensions/c.raw
 
 systemd-dissect --discover --json=short > /tmp/discover.json
@@ -423,6 +423,14 @@ grep -q -F '{"name":"a","type":"raw","class":"machine","ro":false,"path":"/run/m
 grep -q -F '{"name":"b","type":"raw","class":"portable","ro":false,"path":"/run/portables/b.raw"' /tmp/discover.json
 grep -q -F '{"name":"c","type":"raw","class":"extension","ro":false,"path":"/run/extensions/c.raw"' /tmp/discover.json
 rm /tmp/discover.json /run/machines/a.raw /run/portables/b.raw /run/extensions/c.raw
+
+mkdir -p /tmp/syscfg-test/etc/syscfgs
+touch /tmp/syscfg-test/etc/syscfg-testfile
+echo "MARKER_SYSCFG_123" > /tmp/syscfg-test/etc/syscfg-testfile
+mksquashfs /tmp/syscfg-test/ /run/syscfgs/unittest.raw
+systemd-syscfg merge
+grep -q -F "MARKER_SYSCFG_123" /etc/syscfg-testfile
+systemd-syscfg unmerge
 
 echo OK >/testok
 
