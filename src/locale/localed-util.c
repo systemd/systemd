@@ -605,7 +605,6 @@ int vconsole_convert_to_x11(const VCContext *vc, X11Context *ret) {
                 if (r < 0)
                         return r;
                 if (r == 0) {
-                        log_notice("No conversion found for virtual console keymap \"%s\".", vc->keymap);
                         *ret = (X11Context) {};
                         return 0;
                 }
@@ -613,19 +612,13 @@ int vconsole_convert_to_x11(const VCContext *vc, X11Context *ret) {
                 if (!streq(vc->keymap, a[0]))
                         continue;
 
-                r = x11_context_copy(ret,
+                return x11_context_copy(ret,
                                      &(X11Context) {
                                              .layout  = empty_or_dash_to_null(a[1]),
                                              .model   = empty_or_dash_to_null(a[2]),
                                              .variant = empty_or_dash_to_null(a[3]),
                                              .options = empty_or_dash_to_null(a[4]),
                                      });
-                if (r < 0)
-                        return r;
-
-                log_info("The virtual console keymap '%s' is converted to X11 keyboard layout '%s' model '%s' variant '%s' options '%s'",
-                         vc->keymap, strempty(ret->layout), strempty(ret->model), strempty(ret->variant), strempty(ret->options));
-                return 0;
         }
 }
 
@@ -819,14 +812,6 @@ int x11_convert_to_vconsole(const X11Context *xc, VCContext *ret) {
                 r = find_legacy_keymap(xc, &keymap);
         if (r < 0)
                 return r;
-        if (r == 0)
-                /* We search for layout-variant match first, but then we also look
-                 * for anything which matches just the layout. So it's accurate to say
-                 * that we couldn't find anything which matches the layout. */
-                log_notice("No conversion to virtual console map found for \"%s\".", xc->layout);
-        else
-                log_info("The X11 keyboard layout '%s' is converted to virtual console keymap '%s'",
-                         xc->layout, strempty(keymap));
 
         *ret = (VCContext) {
                 .keymap = TAKE_PTR(keymap),
