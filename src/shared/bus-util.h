@@ -63,4 +63,7 @@ static inline int bus_open_system_watch_bind(sd_bus **ret) {
 
 int bus_reply_pair_array(sd_bus_message *m, char **l);
 
+/* Listen to GetMallocInfo() calls to 'destination' and return malloc_info() via FD */
+int bus_register_malloc_status(sd_bus *bus, const char *destination);
+
 extern const struct hash_ops bus_message_hash_ops;
