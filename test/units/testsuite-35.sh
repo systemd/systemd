@@ -517,7 +517,7 @@ test_session_properties() {
     create_session
 
     s=$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $1 }')
-    /usr/lib/systemd/tests/manual/test-session-properties "/org/freedesktop/login1/session/_3${s?}"
+    /usr/lib/systemd/tests/unit-tests/manual/test-session-properties "/org/freedesktop/login1/session/_3${s?}"
 }
 
 test_list_users() {
