@@ -118,9 +118,9 @@ static int property_get_vconsole(
                 return r;
 
         if (streq(property, "VConsoleKeymap"))
-                return sd_bus_message_append_basic(reply, 's', c->vc_keymap);
+                return sd_bus_message_append_basic(reply, 's', c->vc.keymap);
         if (streq(property, "VConsoleKeymapToggle"))
-                return sd_bus_message_append_basic(reply, 's', c->vc_keymap_toggle);
+                return sd_bus_message_append_basic(reply, 's', c->vc.toggle);
 
         return -EINVAL;
 }
@@ -144,7 +144,7 @@ static int property_get_xkb(
         if (r < 0)
                 return r;
 
-        xc = context_get_x11_context_safe(c);
+        xc = context_get_x11_context(c);
 
         if (streq(property, "X11Layout"))
                 return sd_bus_message_append_basic(reply, 's', xc->layout);
@@ -366,26 +366,20 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
 }
 
 static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        _cleanup_(x11_context_clear) X11Context converted = {};
         Context *c = ASSERT_PTR(userdata);
-        const char *keymap, *keymap_toggle;
         int convert, interactive, r;
+        VCContext in;
 
         assert(m);
 
-        r = sd_bus_message_read(m, "ssbb", &keymap, &keymap_toggle, &convert, &interactive);
+        r = sd_bus_message_read(m, "ssbb", &in.keymap, &in.toggle, &convert, &interactive);
         if (r < 0)
                 return r;
 
-        keymap = empty_to_null(keymap);
-        keymap_toggle = empty_to_null(keymap_toggle);
+        vc_context_empty_to_null(&in);
 
-        r = vconsole_read_data(c, m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to read virtual console keymap data: %m");
-                return sd_bus_error_set_errnof(error, r, "Failed to read virtual console keymap data: %m");
-        }
-
-        FOREACH_STRING(name, keymap ?: keymap_toggle, keymap ? keymap_toggle : NULL) {
+        FOREACH_STRING(name, in.keymap ?: in.toggle, in.keymap ? in.toggle : NULL) {
                 r = keymap_exists(name); /* This also verifies that the keymap name is kosher. */
                 if (r < 0) {
                         log_error_errno(r, "Failed to check keymap %s: %m", name);
@@ -395,8 +389,36 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
                         return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Keymap %s is not installed.", name);
         }
 
-        if (streq_ptr(keymap, c->vc_keymap) &&
-            streq_ptr(keymap_toggle, c->vc_keymap_toggle))
+        r = vconsole_read_data(c, m);
+        if (r < 0) {
+                log_error_errno(r, "Failed to read virtual console keymap data: %m");
+                return sd_bus_error_set_errnof(error, r, "Failed to read virtual console keymap data: %m");
+        }
+
+        if (convert) {
+                r = x11_read_data(c, m);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to read X11 keyboard layout data: %m");
+                        return sd_bus_error_set_errnof(error, r, "Failed to read X11 keyboard layout data: %m");
+                }
+
+                r = vconsole_convert_to_x11(&in, &converted);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to convert keymap data: %m");
+                        return sd_bus_error_set_errnof(error, r, "Failed to convert keymap data: %m");
+                }
+
+                if (x11_context_isempty(&converted))
+                        log_notice("No conversion found for virtual console keymap \"%s\".", strempty(in.keymap));
+                else
+                        log_info("The virtual console keymap '%s' is converted to X11 keyboard layout '%s' model '%s' variant '%s' options '%s'",
+                                 in.keymap, strempty(converted.layout), strempty(converted.model), strempty(converted.variant), strempty(converted.options));
+
+                /* save the result of conversion to emit changed properties later. */
+                convert = !x11_context_equal(&c->x11_from_vc, &converted) || !x11_context_equal(&c->x11_from_xorg, &converted);
+        }
+
+        if (vc_context_equal(&c->vc, &in) && !convert)
                 return sd_bus_reply_method_return(m, NULL);
 
         r = bus_verify_polkit_async(
@@ -413,25 +435,15 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        if (free_and_strdup(&c->vc_keymap, keymap) < 0 ||
-            free_and_strdup(&c->vc_keymap_toggle, keymap_toggle) < 0)
-                return -ENOMEM;
+        r = vc_context_copy(&c->vc, &in);
+        if (r < 0)
+                return r;
 
         if (convert) {
-                r = x11_read_data(c, m);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to read X11 keyboard layout data: %m");
-                        return sd_bus_error_set_errnof(error, r, "Failed to read X11 keyboard layout data: %m");
-                }
-
-                r = vconsole_convert_to_x11(c);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to convert keymap data: %m");
-                        return sd_bus_error_set_errnof(error, r, "Failed to convert keymap data: %m");
-                }
-
-                /* save the result of conversion to emit changed properties later. */
-                convert = r > 0;
+                r = x11_context_copy(&c->x11_from_vc, &converted);
+                if (r < 0)
+                        return log_oom();
+                x11_context_replace(&c->x11_from_xorg, &converted);
         }
 
         r = vconsole_write_data(c);
@@ -445,7 +457,7 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
         }
 
         log_info("Changed virtual console keymap to '%s' toggle '%s'",
-                 strempty(c->vc_keymap), strempty(c->vc_keymap_toggle));
+                 strempty(c->vc.keymap), strempty(c->vc.toggle));
 
         (void) vconsole_reload(sd_bus_message_get_bus(m));
 
@@ -565,9 +577,10 @@ static int verify_xkb_rmlvo(const char *model, const char *layout, const char *v
 #endif
 
 static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        _cleanup_(vc_context_clear) VCContext converted = {};
         Context *c = ASSERT_PTR(userdata);
         int convert, interactive, r;
-        X11Context *xc, in;
+        X11Context in;
 
         assert(m);
 
@@ -576,17 +589,6 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
                 return r;
 
         x11_context_empty_to_null(&in);
-
-        r = x11_read_data(c, m);
-        if (r < 0) {
-                log_error_errno(r, "Failed to read x11 keyboard layout data: %m");
-                return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Failed to read x11 keyboard layout data");
-        }
-
-        xc = context_get_x11_context_safe(c);
-
-        if (x11_context_equal(xc, &in))
-                return sd_bus_reply_method_return(m, NULL);
 
         if (!x11_context_is_safe(&in))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Received invalid keyboard data");
@@ -602,6 +604,35 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Specified keymap cannot be compiled, refusing as invalid.");
         }
 
+        r = x11_read_data(c, m);
+        if (r < 0) {
+                log_error_errno(r, "Failed to read x11 keyboard layout data: %m");
+                return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Failed to read x11 keyboard layout data");
+        }
+
+        if (convert) {
+                r = x11_convert_to_vconsole(&in, &converted);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to convert keymap data: %m");
+                        return sd_bus_error_set_errnof(error, r, "Failed to convert keymap data: %m");
+                }
+
+                if (vc_context_isempty(&converted))
+                        /* We search for layout-variant match first, but then we also look
+                         * for anything which matches just the layout. So it's accurate to say
+                         * that we couldn't find anything which matches the layout. */
+                        log_notice("No conversion to virtual console map found for \"%s\".", strempty(in.layout));
+                else
+                        log_info("The X11 keyboard layout '%s' is converted to virtual console keymap '%s'",
+                                 in.layout, converted.keymap);
+
+                /* save the result of conversion to emit changed properties later. */
+                convert = !vc_context_equal(&c->vc, &converted);
+        }
+
+        if (x11_context_equal(&c->x11_from_vc, &in) && x11_context_equal(&c->x11_from_xorg, &in) && !convert)
+                return sd_bus_reply_method_return(m, NULL);
+
         r = bus_verify_polkit_async(
                         m,
                         CAP_SYS_ADMIN,
@@ -616,20 +647,16 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = x11_context_copy(xc, &in);
+        r = x11_context_copy(&c->x11_from_vc, &in);
         if (r < 0)
                 return log_oom();
 
-        if (convert) {
-                r = x11_convert_to_vconsole(c);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to convert keymap data: %m");
-                        return sd_bus_error_set_errnof(error, r, "Failed to convert keymap data: %m");
-                }
+        r = x11_context_copy(&c->x11_from_xorg, &in);
+        if (r < 0)
+                return log_oom();
 
-                /* save the result of conversion to emit changed properties later. */
-                convert = r > 0;
-        }
+        if (convert)
+                vc_context_replace(&c->vc, &converted);
 
         r = vconsole_write_data(c);
         if (r < 0)
