@@ -76,7 +76,7 @@ test_sysusers_sh = configure_file(
         configuration : conf)
 if install_tests and conf.get('ENABLE_SYSUSERS') == 1
         install_data(test_sysusers_sh,
-                     install_dir : testsdir)
+                     install_dir : unittestsdir)
         install_subdir('test-sysusers',
                        exclude_files : '.gitattributes',
                        install_dir : testdata_dir)
@@ -87,7 +87,7 @@ endif
 test_compare_versions_sh = files('test-compare-versions.sh')
 if install_tests
         install_data(test_compare_versions_sh,
-                     install_dir : testsdir)
+                     install_dir : unittestsdir)
 endif
 
 ############################################################
@@ -109,11 +109,11 @@ if install_tests
 
         install_data('test-fstab-generator.sh',
                      install_mode : 'rwxr-xr-x',
-                     install_dir : testsdir)
+                     install_dir : unittestsdir)
 
         install_data('test-network-generator-conversion.sh',
                      install_mode : 'rwxr-xr-x',
-                     install_dir : testsdir)
+                     install_dir : unittestsdir)
 endif
 
 ############################################################
