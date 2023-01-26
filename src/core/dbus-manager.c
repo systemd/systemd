@@ -1471,6 +1471,36 @@ static int method_dump_units_matching_patterns_by_fd(sd_bus_message *message, vo
         return dump_units_matching_patterns(message, userdata, error, reply_dump_by_fd);
 }
 
+static int method_dump_memory_state_by_fd(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_free_ char *dump = NULL; /* keep this above dump_file, so that it's freed after */
+        _cleanup_fclose_ FILE *dump_file = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        size_t dump_size;
+        int r;
+
+        assert(message);
+
+        r = mac_selinux_access_check(message, "status", error);
+        if (r < 0)
+                return r;
+
+        dump_file = open_memstream(&dump, &dump_size);
+        if (!dump_file)
+                return -ENOMEM;
+
+        r = malloc_info(0, dump_file);
+        if (r < 0)
+                return r;
+
+        dump_file = safe_fclose(dump_file);
+
+        fd = acquire_data_fd(dump, dump_size, 0);
+        if (fd < 0)
+                return fd;
+
+        return sd_bus_reply_method_return(message, "h", fd);
+}
+
 static int method_refuse_snapshot(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Support for snapshots has been removed.");
 }
@@ -3186,6 +3216,11 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                 SD_BUS_ARGS("as", patterns),
                                 SD_BUS_RESULT("h", fd),
                                 method_dump_units_matching_patterns_by_fd,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("DumpMemoryStateByFileDescriptor",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_RESULT("h", fd),
+                                method_dump_memory_state_by_fd,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("CreateSnapshot",
                                 SD_BUS_ARGS("s", name, "b", cleanup),
