@@ -1198,6 +1198,37 @@ int cg_path_get_unit(const char *path, char **ret) {
         return 0;
 }
 
+int cg_path_get_unit_path(const char *path, char **ret) {
+        char *path_copy, *unit_name;
+        size_t unit_name_len;
+
+        assert(path);
+        assert(ret);
+
+        path_copy = strdupa_safe(path);
+
+        unit_name = (char *)skip_slices(path_copy);
+        unit_name_len = strcspn(unit_name, "/");
+        if (unit_name_len < 3)
+                return -ENXIO;
+
+        unit_name[unit_name_len] = '\0';
+
+        if (unit_name[0] == '_')
+                /* Move unit_name one byte left to override '_'. This will
+                 * also move the NUL character. */
+                memmove(unit_name, &unit_name[1], unit_name_len);
+
+        if (!unit_name_is_valid(unit_name, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
+                return -ENXIO;
+
+        *ret = strdup(path_copy);
+        if (!ret)
+                return log_oom();
+
+        return 0;
+}
+
 int cg_pid_get_unit(pid_t pid, char **unit) {
         _cleanup_free_ char *cgroup = NULL;
         int r;
