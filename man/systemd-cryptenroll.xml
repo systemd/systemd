@@ -64,16 +64,17 @@
     <title>Limitations</title>
 
     <para>Note that currently when enrolling a new key of one of the five supported types listed above, it is
-    required to first provide a passphrase or recovery key (i.e. one of the latter two key types). For
-    example, it's currently not possible to unlock a device with a FIDO2 key in order to enroll a new FIDO2
-    key. Instead, in order to enroll a new FIDO2 key, it is necessary to provide an already enrolled regular
-    passphrase or recovery key. Thus, if in future key roll-over is desired it's generally recommended to
-    combine TPM2, FIDO2, PKCS#11 key enrollment with enrolling a regular passphrase or recovery key.</para>
+    required to first provide a passphrase, a recovery key or a FIDO2 token. It's currently not supported to
+    unlock a device with a TPM2/PKCS#11 key in order to enroll a new TPM2/PKCS#11 key. Thus, if in future key
+    roll-over is desired it's generally recommended to ensure a passphrase, a recovery key or a FIDO2 token
+    is always enrolled.</para>
 
-    <para>Also note that support for enrolling multiple FIDO2 tokens is currently not too useful, as while
-    unlocking <command>systemd-cryptsetup</command> cannot identify which token is currently plugged in and
-    thus does not know which authentication request to send to the device. This limitation does not apply to
-    tokens enrolled via PKCS#11 — because tokens of this type may be identified immediately, before
+    <para>Also note that support for enrolling multiple FIDO2 tokens is currently limited, as while unlocking
+    <command>systemd-cryptsetup</command> cannot always identify which token is currently plugged in and thus
+    does not always know which authentication request to send to the device. In the case where it cannot do so,
+    multiple unlock attempts will be made, resulting in failure messages and potentially multiple prompts for
+    PIN and/or user verification (UV). This limitation does not apply to tokens enrolled via PKCS#11 or FIDO2
+    without user verification (UV) — because tokens of these types may be identified immediately, before
     authentication.</para>
   </refsect1>
 
