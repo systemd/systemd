@@ -2902,20 +2902,20 @@ int main(int argc, char *argv[]) {
         (void) reset_all_signal_handlers();
         (void) ignore_signals(SIGNALS_IGNORE);
 
-        (void) parse_configuration(&saved_rlimit_nofile, &saved_rlimit_memlock);
-
         r = parse_argv(argc, argv);
         if (r < 0) {
                 error_message = "Failed to parse commandline arguments";
                 goto finish;
         }
 
+        if (IN_SET(arg_action, ACTION_TEST, ACTION_HELP, ACTION_DUMP_CONFIGURATION_ITEMS, ACTION_DUMP_BUS_PROPERTIES, ACTION_BUS_INTROSPECT))
+                pager_open(arg_pager_flags);
+        else
+                (void) parse_configuration(&saved_rlimit_nofile, &saved_rlimit_memlock);
+
         r = safety_checks();
         if (r < 0)
                 goto finish;
-
-        if (IN_SET(arg_action, ACTION_TEST, ACTION_HELP, ACTION_DUMP_CONFIGURATION_ITEMS, ACTION_DUMP_BUS_PROPERTIES, ACTION_BUS_INTROSPECT))
-                pager_open(arg_pager_flags);
 
         if (arg_action != ACTION_RUN)
                 skip_setup = true;
