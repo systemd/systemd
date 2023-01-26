@@ -408,6 +408,12 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
                         return sd_bus_error_set_errnof(error, r, "Failed to convert keymap data: %m");
                 }
 
+                if (x11_context_isempty(&converted))
+                        log_notice("No conversion found for virtual console keymap \"%s\".", strempty(in.keymap));
+                else
+                        log_info("The virtual console keymap '%s' is converted to X11 keyboard layout '%s' model '%s' variant '%s' options '%s'",
+                                 in.keymap, strempty(converted.layout), strempty(converted.model), strempty(converted.variant), strempty(converted.options));
+
                 /* save the result of conversion to emit changed properties later. */
                 convert = !x11_context_equal(&c->x11_from_vc, &converted) || !x11_context_equal(&c->x11_from_xorg, &converted);
         }
@@ -610,6 +616,15 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
                         log_error_errno(r, "Failed to convert keymap data: %m");
                         return sd_bus_error_set_errnof(error, r, "Failed to convert keymap data: %m");
                 }
+
+                if (vc_context_isempty(&converted))
+                        /* We search for layout-variant match first, but then we also look
+                         * for anything which matches just the layout. So it's accurate to say
+                         * that we couldn't find anything which matches the layout. */
+                        log_notice("No conversion to virtual console map found for \"%s\".", strempty(in.layout));
+                else
+                        log_info("The X11 keyboard layout '%s' is converted to virtual console keymap '%s'",
+                                 in.layout, converted.keymap);
 
                 /* save the result of conversion to emit changed properties later. */
                 convert = !vc_context_equal(&c->vc, &converted);
