@@ -368,6 +368,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
 static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = ASSERT_PTR(userdata);
         int convert, interactive, r;
+        bool x_needs_update;
         VCContext in;
 
         assert(m);
@@ -415,15 +416,14 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
         if (r < 0)
                 return log_oom();
 
+        r = x11_read_data(c, m);
+        if (r < 0) {
+                log_error_errno(r, "Failed to read X11 keyboard layout data: %m");
+                return sd_bus_error_set_errnof(error, r, "Failed to read X11 keyboard layout data: %m");
+        }
+
         if (convert) {
                 _cleanup_(x11_context_clear) X11Context converted = {};
-                X11Context *xc;
-
-                r = x11_read_data(c, m);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to read X11 keyboard layout data: %m");
-                        return sd_bus_error_set_errnof(error, r, "Failed to read X11 keyboard layout data: %m");
-                }
 
                 r = vconsole_convert_to_x11(&in, &converted);
                 if (r < 0) {
@@ -431,17 +431,32 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
                         return sd_bus_error_set_errnof(error, r, "Failed to convert keymap data: %m");
                 }
 
-                /* save the result of conversion to emit changed properties later. */
-                xc = context_get_x11_context(c);
-                convert = !x11_context_equal(xc, &converted);
-                x11_context_replace(xc, &converted);
+                x_needs_update = !x11_context_equal(&c->x11_from_vc, &converted) || !x11_context_equal(&c->x11_from_xorg, &converted);
+
+                r = x11_context_copy(&c->x11_from_vc, &converted);
+                if (r < 0)
+                        return log_oom();
+                x11_context_replace(&c->x11_from_xorg, &converted);
+        } else {
+                const X11Context *xc = context_get_x11_context(c);
+
+                /* Even if the conversion is not requested, sync the two X11 contexts. */
+                x_needs_update = !x11_context_equal(&c->x11_from_vc, &c->x11_from_xorg);
+
+                r = x11_context_copy(&c->x11_from_vc, xc);
+                if (r < 0)
+                        return log_oom();
+
+                r = x11_context_copy(&c->x11_from_xorg, xc);
+                if (r < 0)
+                        return log_oom();
         }
 
         r = vconsole_write_data(c);
         if (r < 0)
                 log_warning_errno(r, "Failed to write virtual console keymap, ignoring: %m");
 
-        if (convert) {
+        if (x_needs_update) {
                 r = x11_write_data(c);
                 if (r < 0)
                         log_warning_errno(r, "Failed to write X11 keyboard layout, ignoring: %m");
@@ -457,10 +472,10 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
                         "/org/freedesktop/locale1",
                         "org.freedesktop.locale1",
                         "VConsoleKeymap", "VConsoleKeymapToggle",
-                        convert ? "X11Layout" : NULL,
-                        convert ? "X11Model" : NULL,
-                        convert ? "X11Variant" : NULL,
-                        convert ? "X11Options" : NULL,
+                        x_needs_update ? "X11Layout"  : NULL,
+                        x_needs_update ? "X11Model"   : NULL,
+                        x_needs_update ? "X11Variant" : NULL,
+                        x_needs_update ? "X11Options" : NULL,
                         NULL);
 
         return sd_bus_reply_method_return(m, NULL);
@@ -570,7 +585,7 @@ static int verify_xkb_rmlvo(const char *model, const char *layout, const char *v
 static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = ASSERT_PTR(userdata);
         int convert, interactive, r;
-        X11Context *xc, in;
+        X11Context in;
 
         assert(m);
 
@@ -600,9 +615,7 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
                 return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Failed to read x11 keyboard layout data");
         }
 
-        xc = context_get_x11_context(c);
-
-        if (x11_context_equal(xc, &in))
+        if (x11_context_equal(&c->x11_from_vc, &in) && x11_context_equal(&c->x11_from_xorg, &in))
                 return sd_bus_reply_method_return(m, NULL);
 
         r = bus_verify_polkit_async(
@@ -619,7 +632,11 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = x11_context_copy(xc, &in);
+        r = x11_context_copy(&c->x11_from_vc, &in);
+        if (r < 0)
+                return log_oom();
+
+        r = x11_context_copy(&c->x11_from_xorg, &in);
         if (r < 0)
                 return log_oom();
 

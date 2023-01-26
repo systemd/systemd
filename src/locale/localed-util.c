@@ -329,11 +329,6 @@ int x11_read_data(Context *c, sd_bus_message *m) {
         if (r < 0)
                 return r;
 
-        if (!x11_context_isempty(&c->x11_from_vc)) {
-                log_debug("XKB settings loaded from vconsole.conf, not reading xorg.conf.d/00-keyboard.conf.");
-                return 0;
-        }
-
         /* Do not try to re-read the file within single bus operation. */
         if (m) {
                 if (m == c->x11_cache)
@@ -423,9 +418,6 @@ int x11_read_data(Context *c, sd_bus_message *m) {
                         in_section = false;
         }
 
-        if (!x11_context_isempty(&c->x11_from_xorg))
-                log_debug("XKB settings loaded from xorg.conf.d/00-keyboard.conf.");
-
         return 0;
 }
 
@@ -437,11 +429,6 @@ int vconsole_write_data(Context *c) {
         assert(c);
 
         xc = context_get_x11_context(c);
-
-        /* If the X11 context is from xorg.conf, then sync one from vconsole.conf with it. */
-        r = x11_context_copy(&c->x11_from_vc, xc);
-        if (r < 0)
-                return r;
 
         r = load_env_file(NULL, "/etc/vconsole.conf", &l);
         if (r < 0 && r != -ENOENT)
