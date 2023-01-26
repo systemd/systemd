@@ -3,6 +3,7 @@
 #include <net/if_arp.h>
 #include <netinet/tcp.h>
 
+#include "capability-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "missing_network.h"
@@ -1237,6 +1238,12 @@ static int manager_dns_stub_fd_extra(Manager *m, DnsStubListenerExtra *l, int ty
         if (*event_source)
                 return sd_event_source_get_io_fd(*event_source);
 
+        if (!have_effective_cap(CAP_NET_BIND_SERVICE) && dns_stub_listener_extra_port(l) < 1024) {
+                log_warning("Missing CAP_NET_BIND_SERVICE capability, not creating extra stub listener on port %hu.",
+                            dns_stub_listener_extra_port(l));
+                return 0;
+        }
+
         if (l->family == AF_INET)
                 sa = (union sockaddr_union) {
                         .in.sin_family = l->family,
@@ -1332,6 +1339,8 @@ int manager_dns_stub_start(Manager *m) {
 
         if (m->dns_stub_listener_mode == DNS_STUB_LISTENER_NO)
                 log_debug("Not creating stub listener.");
+        else if (!have_effective_cap(CAP_NET_BIND_SERVICE))
+                log_warning("Missing CAP_NET_BIND_SERVICE capability, not creating stub listener on port 53.");
         else {
                 static const struct {
                         uint32_t addr;
