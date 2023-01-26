@@ -299,8 +299,10 @@ CHANGES WITH 253 in spe:
           about devices when sd-device is used, e.g. DEVNAME= and DRIVER=.
           Details of what is logged and when are subject to change.
 
-        * The systemd-journald-audit.socket can now be normally disabled
-          to stop collection of audit messages.
+        * The systemd-journald-audit.socket can now be normally disabled to stop
+          collection of audit messages. Please note that it is not enabled
+          statically anymore and must be handled by the preset/enablement logic
+          in package installation scripts.
 
         * New options MaxUse=, KeepFree=, MaxFileSize=, and MaxFiles= can
           be used to curtail disk use by systemd-journal-remote. This is
