@@ -171,6 +171,7 @@ node /org/freedesktop/systemd1 {
       DumpByFileDescriptor(out h fd);
       DumpUnitsMatchingPatternsByFileDescriptor(in  as patterns,
                                                 out h fd);
+      DumpMemoryStateByFileDescriptor(out h fd);
       Reload();
       @org.freedesktop.DBus.Method.NoReply("true")
       Reexecute();
@@ -888,6 +889,8 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="DumpUnitsMatchingPatternsByFileDescriptor()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="DumpMemoryStateByFileDescriptor()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="Reload()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="Reexecute()"/>
@@ -1373,7 +1376,10 @@ node /org/freedesktop/systemd1 {
       <function>DumpByFileDescriptor()</function>/<function>DumpUnitsMatchingPatternsByFileDescriptor()</function>
       are usually the preferred interface, since it ensures the data can be passed reliably from the service
       manager to the client. Note though that they cannot work when communicating with the service manager
-      remotely, as file descriptors are strictly local to a system.</para>
+      remotely, as file descriptors are strictly local to a system.
+      <function>DumpMemoryStateByFileDescriptor</function> returns the output of the manager's
+      <citerefentry><refentrytitle>malloc_info</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      serialized into a file descriptor (the client should read the text data from it until hitting EOF).</para>
 
       <para><function>Reload()</function> may be invoked to reload all unit files.</para>
 
