@@ -144,7 +144,7 @@ static int property_get_xkb(
         if (r < 0)
                 return r;
 
-        xc = context_get_x11_context_safe(c);
+        xc = context_get_x11_context(c);
 
         if (streq(property, "X11Layout"))
                 return sd_bus_message_append_basic(reply, 's', xc->layout);
@@ -432,7 +432,7 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
                 }
 
                 /* save the result of conversion to emit changed properties later. */
-                xc = context_get_x11_context_safe(c);
+                xc = context_get_x11_context(c);
                 convert = !x11_context_equal(xc, &converted);
                 x11_context_replace(xc, &converted);
         }
@@ -586,7 +586,7 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
                 return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Failed to read x11 keyboard layout data");
         }
 
-        xc = context_get_x11_context_safe(c);
+        xc = context_get_x11_context(c);
 
         if (x11_context_equal(xc, &in))
                 return sd_bus_reply_method_return(m, NULL);
