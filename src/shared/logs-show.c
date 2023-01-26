@@ -791,11 +791,12 @@ static int output_export(
                 const dual_timestamp *previous_ts,
                 const sd_id128_t *previous_boot_id) {
 
+        sd_id128_t journal_boot_id, seqnum_id;
         _cleanup_free_ char *cursor = NULL;
-        const void *data;
-        size_t length;
         usec_t monotonic, realtime;
-        sd_id128_t journal_boot_id;
+        const void *data;
+        uint64_t seqnum;
+        size_t length;
         int r;
 
         assert(j);
@@ -818,14 +819,22 @@ static int output_export(
         if (r < 0)
                 return log_error_errno(r, "Failed to get monotonic timestamp: %m");
 
+        r = sd_journal_get_seqnum(j, &seqnum, &seqnum_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get seqnum: %m");
+
         fprintf(f,
                 "__CURSOR=%s\n"
-                "__REALTIME_TIMESTAMP="USEC_FMT"\n"
-                "__MONOTONIC_TIMESTAMP="USEC_FMT"\n"
+                "__REALTIME_TIMESTAMP=" USEC_FMT "\n"
+                "__MONOTONIC_TIMESTAMP=" USEC_FMT "\n"
+                "__SEQNUM=%" PRIu64 "\n"
+                "__SEQNUM_ID=%s\n"
                 "_BOOT_ID=%s\n",
                 cursor,
                 realtime,
                 monotonic,
+                seqnum,
+                SD_ID128_TO_STRING(seqnum_id),
                 SD_ID128_TO_STRING(journal_boot_id));
 
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
@@ -1040,15 +1049,16 @@ static int output_json(
                 const dual_timestamp *previous_ts,
                 const sd_id128_t *previous_boot_id) {
 
-        char usecbuf[DECIMAL_STR_MAX(usec_t)];
+        char usecbuf[CONST_MAX(DECIMAL_STR_MAX(usec_t), DECIMAL_STR_MAX(uint64_t))];
         _cleanup_(json_variant_unrefp) JsonVariant *object = NULL;
+        sd_id128_t journal_boot_id, seqnum_id;
         _cleanup_free_ char *cursor = NULL;
+        usec_t realtime, monotonic;
         JsonVariant **array = NULL;
         struct json_data *d;
         Hashmap *h = NULL;
+        uint64_t seqnum;
         size_t n = 0;
-        usec_t realtime, monotonic;
-        sd_id128_t journal_boot_id;
         int r;
 
         assert(j);
@@ -1071,6 +1081,10 @@ static int output_json(
         if (r < 0)
                 return log_error_errno(r, "Failed to get monotonic timestamp: %m");
 
+        r = sd_journal_get_seqnum(j, &seqnum, &seqnum_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get seqnum: %m");
+
         h = hashmap_new(&string_hash_ops);
         if (!h)
                 return log_oom();
@@ -1090,6 +1104,15 @@ static int output_json(
                 goto finish;
 
         r = update_json_data(h, flags, "_BOOT_ID", SD_ID128_TO_STRING(journal_boot_id), SIZE_MAX);
+        if (r < 0)
+                goto finish;
+
+        xsprintf(usecbuf, USEC_FMT, seqnum);
+        r = update_json_data(h, flags, "__SEQNUM", usecbuf, SIZE_MAX);
+        if (r < 0)
+                goto finish;
+
+        r = update_json_data(h, flags, "__SEQNUM_ID", SD_ID128_TO_STRING(seqnum_id), SIZE_MAX);
         if (r < 0)
                 goto finish;
 
