@@ -44,3 +44,5 @@ int acquire_bus(sd_bus **bus, bool *use_full_bus);
 int bus_get_unit_property_strv(sd_bus *bus, const char *path, const char *property, char ***strv);
 
 void time_parsing_hint(const char *p, bool calendar, bool timestamp, bool timespan);
+
+int dump_fd_reply(sd_bus_message *message);

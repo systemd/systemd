@@ -25,6 +25,7 @@
 #include "analyze-filesystems.h"
 #include "analyze-inspect-elf.h"
 #include "analyze-log-control.h"
+#include "analyze-malloc.h"
 #include "analyze-plot.h"
 #include "analyze-security.h"
 #include "analyze-service-watchdogs.h"
@@ -166,6 +167,23 @@ void time_parsing_hint(const char *p, bool calendar, bool timestamp, bool timesp
                            "Use 'systemd-analyze timespan \"%s\"' instead?", p);
 }
 
+int dump_fd_reply(sd_bus_message *message) {
+        int fd, r;
+
+        assert(message);
+
+        r = sd_bus_message_read(message, "h", &fd);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        fflush(stdout);
+        r = copy_bytes(fd, STDOUT_FILENO, UINT64_MAX, 0);
+        if (r < 0)
+                return r;
+
+        return 1;  /* Success */
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL, *dot_link = NULL;
         int r;
@@ -211,6 +229,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  timespan SPAN...           Validate a time span\n"
                "  security [UNIT...]         Analyze security of unit\n"
                "  inspect-elf FILE...        Parse and print ELF package metadata\n"
+               "  malloc [D-BUS SERVICE...]  Dump malloc stats of a D-Bus service\n"
                "\nOptions:\n"
                "     --recursive-errors=MODE Control which units are verified\n"
                "     --offline=BOOL          Perform a security review on unit file(s)\n"
@@ -601,6 +620,7 @@ static int run(int argc, char *argv[]) {
                 { "timespan",          2,        VERB_ANY, 0,            verb_timespan          },
                 { "security",          VERB_ANY, VERB_ANY, 0,            verb_security          },
                 { "inspect-elf",       2,        VERB_ANY, 0,            verb_elf_inspection    },
+                { "malloc",            VERB_ANY, VERB_ANY, 0,            verb_malloc            },
                 {}
         };
 
