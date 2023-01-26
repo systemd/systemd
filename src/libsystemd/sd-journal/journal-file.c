@@ -366,6 +366,11 @@ static int journal_file_init_header(
         if (r < 0)
                 return r;
 
+        r = sd_id128_get_machine(&h.machine_id);
+        if (r < 0 && !IN_SET(r, -ENOENT, -ENOMEDIUM, -ENOPKG))
+                return r; /* If we have no valid machine ID (test environment?), let's simply leave the
+                           * machine ID field all zeroes. */
+
         if (template) {
                 h.seqnum_id = template->header->seqnum_id;
                 h.tail_entry_seqnum = template->header->tail_entry_seqnum;
@@ -386,13 +391,6 @@ static int journal_file_refresh_header(JournalFile *f) {
 
         assert(f);
         assert(f->header);
-
-        r = sd_id128_get_machine(&f->header->machine_id);
-        if (IN_SET(r, -ENOENT, -ENOMEDIUM, -ENOPKG))
-                /* We don't have a machine-id, let's continue without */
-                zero(f->header->machine_id);
-        else if (r < 0)
-                return r;
 
         r = journal_file_set_online(f);
 
