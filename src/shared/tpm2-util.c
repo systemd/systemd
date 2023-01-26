@@ -1861,10 +1861,9 @@ int tpm2_list_devices(void) {
                 return log_error_errno(r, "Failed to show device table: %m");
 
         return 0;
-#else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                               "TPM2 not supported on this build.");
-#endif
+#else /* HAVE_TPM2 */
+        return tpm2_not_supported();
+#endif /* HAVE_TPM2 */
 }
 
 int tpm2_find_device_auto(
@@ -1910,10 +1909,9 @@ int tpm2_find_device_auto(
         }
 
         return log_full_errno(log_level, SYNTHETIC_ERRNO(ENODEV), "No TPM2 (tpmrm) device found.");
-#else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                               "TPM2 not supported on this build.");
-#endif
+#else /* HAVE_TPM2 */
+        return tpm2_not_supported();
+#endif /* HAVE_TPM2 */
 }
 
 #if HAVE_TPM2
@@ -1998,7 +1996,7 @@ int tpm2_extend_bytes(
                                "OpenSSL not supported on this build.");
 #endif
 }
-#endif
+#endif /* HAVE_TPM2 */
 
 int tpm2_parse_pcrs(const char *s, uint32_t *ret) {
         const char *p = ASSERT_PTR(s);
