@@ -688,8 +688,7 @@ static int server_archive_offline_user_journals(Server *s) {
                 if (r < 0)
                         log_debug_errno(r, "Failed to archive journal file '%s', ignoring: %m", full);
 
-                managed_journal_file_initiate_close(f, s->deferred_closes);
-                f = NULL;
+                managed_journal_file_initiate_close(TAKE_PTR(f), s->deferred_closes);
         }
 
         return 0;
