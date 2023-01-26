@@ -417,7 +417,6 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
 
         if (convert) {
                 _cleanup_(x11_context_clear) X11Context converted = {};
-                X11Context *xc;
 
                 r = x11_read_data(c, m);
                 if (r < 0) {
@@ -432,9 +431,11 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
                 }
 
                 /* save the result of conversion to emit changed properties later. */
-                xc = context_get_x11_context(c);
-                convert = !x11_context_equal(xc, &converted);
-                x11_context_replace(xc, &converted);
+                convert = !x11_context_equal(&c->x11_from_vc, &converted) || !x11_context_equal(&c->x11_from_xorg, &converted);
+                r = x11_context_copy(&c->x11_from_vc, &converted);
+                if (r < 0)
+                        return log_oom();
+                x11_context_replace(&c->x11_from_xorg, &converted);
         }
 
         r = vconsole_write_data(c);
@@ -570,7 +571,7 @@ static int verify_xkb_rmlvo(const char *model, const char *layout, const char *v
 static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = ASSERT_PTR(userdata);
         int convert, interactive, r;
-        X11Context *xc, in;
+        X11Context in;
 
         assert(m);
 
@@ -600,9 +601,7 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
                 return sd_bus_error_set(error, SD_BUS_ERROR_FAILED, "Failed to read x11 keyboard layout data");
         }
 
-        xc = context_get_x11_context(c);
-
-        if (x11_context_equal(xc, &in))
+        if (x11_context_equal(&c->x11_from_vc, &in) && x11_context_equal(&c->x11_from_xorg, &in))
                 return sd_bus_reply_method_return(m, NULL);
 
         r = bus_verify_polkit_async(
@@ -619,7 +618,11 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = x11_context_copy(xc, &in);
+        r = x11_context_copy(&c->x11_from_vc, &in);
+        if (r < 0)
+                return log_oom();
+
+        r = x11_context_copy(&c->x11_from_xorg, &in);
         if (r < 0)
                 return log_oom();
 

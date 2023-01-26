@@ -438,11 +438,6 @@ int vconsole_write_data(Context *c) {
 
         xc = context_get_x11_context(c);
 
-        /* If the X11 context is from xorg.conf, then sync one from vconsole.conf with it. */
-        r = x11_context_copy(&c->x11_from_vc, xc);
-        if (r < 0)
-                return r;
-
         r = load_env_file(NULL, "/etc/vconsole.conf", &l);
         if (r < 0 && r != -ENOENT)
                 return r;
