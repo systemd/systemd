@@ -32,6 +32,7 @@ test_append_files() {
         fi
         install_verity_minimal
     )
+    image_install -o mksquashfs
 }
 
 do_test "$@"
