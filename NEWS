@@ -312,6 +312,12 @@ CHANGES WITH 253 in spe:
         * systemd-cryptenroll now supports unlocking via FIDO2 tokens (option
           --unlock-fido2-device=).
 
+        * systemd-cryptsetup now supports pre-flight requests for FIDO2 tokens
+          (except for tokens with user verification, UV) to identify tokens
+          before authentication. Multiple FIDO2 tokens can now be enrolled at
+          the same time, and systemd-cryptsetup will automatically select one
+          that corresponds to one of the available LUKS key slots.
+
         * systemd-cryptsetup now supports new options tpm2-measure-pcr= and
           tpm2-measure-bank= in crypttab(5). These allow specifying the
           PCR bank and number into which the volume key should be measured.
