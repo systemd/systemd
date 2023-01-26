@@ -8,7 +8,7 @@
 
 #include "log.h"
 
-#define INOTIFY_EVENT_MAX (offsetof(struct inotify_event, name) + NAME_MAX + 1)
+#define INOTIFY_EVENT_MAX (sizeof(struct inotify_event) + NAME_MAX + 1)
 
 #define _FOREACH_INOTIFY_EVENT(e, buffer, sz, log_level, start, end)    \
         for (struct inotify_event                                       \
@@ -31,7 +31,7 @@
 
 union inotify_event_buffer {
         struct inotify_event ev;
-        uint8_t raw[INOTIFY_EVENT_MAX];
+        uint8_t raw[INOTIFY_EVENT_MAX] _alignas_(struct inotify_event);
 };
 
 int inotify_add_watch_fd(int fd, int what, uint32_t mask);
