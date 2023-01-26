@@ -2,17 +2,14 @@
 
 sources = files(
         'timesyncd-conf.c',
-        'timesyncd-conf.h',
         'timesyncd-manager.c',
-        'timesyncd-manager.h',
-        'timesyncd-ntp-message.h',
         'timesyncd-server.c',
-        'timesyncd-server.h')
+)
 
 systemd_timesyncd_sources = files(
         'timesyncd.c',
         'timesyncd-bus.c',
-        'timesyncd-bus.h')
+)
 
 sources += custom_target(
         'timesyncd-gperf.c',

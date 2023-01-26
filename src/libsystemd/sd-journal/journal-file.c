@@ -335,9 +335,8 @@ static bool compact_mode_requested(void) {
 }
 
 static int journal_file_init_header(JournalFile *f, JournalFileFlags file_flags, JournalFile *template) {
-        Header h = {};
-        ssize_t k;
         bool seal = false;
+        ssize_t k;
         int r;
 
         assert(f);
@@ -347,16 +346,17 @@ static int journal_file_init_header(JournalFile *f, JournalFileFlags file_flags,
         seal = FLAGS_SET(file_flags, JOURNAL_SEAL) && journal_file_fss_load(f) >= 0;
 #endif
 
-        memcpy(h.signature, HEADER_SIGNATURE, 8);
-        h.header_size = htole64(ALIGN64(sizeof(h)));
+        Header h = {
+                .header_size = htole64(ALIGN64(sizeof(h))),
+                .incompatible_flags = htole32(
+                                FLAGS_SET(file_flags, JOURNAL_COMPRESS) * COMPRESSION_TO_HEADER_INCOMPATIBLE_FLAG(DEFAULT_COMPRESSION) |
+                                keyed_hash_requested() * HEADER_INCOMPATIBLE_KEYED_HASH |
+                                compact_mode_requested() * HEADER_INCOMPATIBLE_COMPACT),
+                .compatible_flags = htole32(seal * HEADER_COMPATIBLE_SEALED),
+        };
 
-        h.incompatible_flags |= htole32(
-                        FLAGS_SET(file_flags, JOURNAL_COMPRESS) *
-                        COMPRESSION_TO_HEADER_INCOMPATIBLE_FLAG(DEFAULT_COMPRESSION) |
-                        keyed_hash_requested() * HEADER_INCOMPATIBLE_KEYED_HASH |
-                        compact_mode_requested() * HEADER_INCOMPATIBLE_COMPACT);
-
-        h.compatible_flags = htole32(seal * HEADER_COMPATIBLE_SEALED);
+        assert_cc(sizeof(h.signature) == sizeof(HEADER_SIGNATURE));
+        memcpy(h.signature, HEADER_SIGNATURE, sizeof(HEADER_SIGNATURE));
 
         r = sd_id128_randomize(&h.file_id);
         if (r < 0)
@@ -371,7 +371,6 @@ static int journal_file_init_header(JournalFile *f, JournalFileFlags file_flags,
         k = pwrite(f->fd, &h, sizeof(h), 0);
         if (k < 0)
                 return -errno;
-
         if (k != sizeof(h))
                 return -EIO;
 
@@ -2248,7 +2247,7 @@ int journal_file_append_entry(
                 const dual_timestamp *ts,
                 const sd_id128_t *boot_id,
                 const struct iovec iovec[],
-                unsigned n_iovec,
+                size_t n_iovec,
                 uint64_t *seqnum,
                 Object **ret_object,
                 uint64_t *ret_offset) {
@@ -4226,12 +4225,12 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int log
                 if (le64toh(f->header->n_data) * 4ULL > (le64toh(f->header->data_hash_table_size) / sizeof(HashItem)) * 3ULL) {
                         log_ratelimit_full(
                                 log_level, JOURNAL_LOG_RATELIMIT,
-                                "Data hash table of %s has a fill level at %.1f (%"PRIu64" of %"PRIu64" items, %llu file size, %"PRIu64" bytes per hash table item), suggesting rotation.",
+                                "Data hash table of %s has a fill level at %.1f (%"PRIu64" of %"PRIu64" items, %"PRIu64" file size, %"PRIu64" bytes per hash table item), suggesting rotation.",
                                 f->path,
                                 100.0 * (double) le64toh(f->header->n_data) / ((double) (le64toh(f->header->data_hash_table_size) / sizeof(HashItem))),
                                 le64toh(f->header->n_data),
                                 le64toh(f->header->data_hash_table_size) / sizeof(HashItem),
-                                (unsigned long long) f->last_stat.st_size,
+                                (uint64_t) f->last_stat.st_size,
                                 f->last_stat.st_size / le64toh(f->header->n_data));
                         return true;
                 }

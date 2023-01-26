@@ -254,7 +254,8 @@ int journal_file_append_entry(
                 JournalFile *f,
                 const dual_timestamp *ts,
                 const sd_id128_t *boot_id,
-                const struct iovec iovec[], unsigned n_iovec,
+                const struct iovec iovec[],
+                size_t n_iovec,
                 uint64_t *seqno,
                 Object **ret_object,
                 uint64_t *ret_offset);

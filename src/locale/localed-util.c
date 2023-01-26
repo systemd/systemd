@@ -243,10 +243,10 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
         return parse_env_file_fd(fd, "/etc/vconsole.conf",
                                  "KEYMAP",        &c->vc_keymap,
                                  "KEYMAP_TOGGLE", &c->vc_keymap_toggle,
-                                 "XKB_LAYOUT",    &c->x11_from_vc.layout,
-                                 "XKB_MODEL",     &c->x11_from_vc.model,
-                                 "XKB_VARIANT",   &c->x11_from_vc.variant,
-                                 "XKB_OPTIONS",   &c->x11_from_vc.options);
+                                 "XKBLAYOUT",     &c->x11_from_vc.layout,
+                                 "XKBMODEL",      &c->x11_from_vc.model,
+                                 "XKBVARIANT",    &c->x11_from_vc.variant,
+                                 "XKBOPTIONS",    &c->x11_from_vc.options);
 }
 
 int x11_read_data(Context *c, sd_bus_message *m) {
@@ -388,19 +388,19 @@ int vconsole_write_data(Context *c) {
         if (r < 0)
                 return r;
 
-        r = strv_env_assign(&l, "XKB_LAYOUT", xc ? empty_to_null(xc->layout) : NULL);
+        r = strv_env_assign(&l, "XKBLAYOUT", xc ? empty_to_null(xc->layout) : NULL);
         if (r < 0)
                 return r;
 
-        r = strv_env_assign(&l, "XKB_MODEL", xc ? empty_to_null(xc->model) : NULL);
+        r = strv_env_assign(&l, "XKBMODEL", xc ? empty_to_null(xc->model) : NULL);
         if (r < 0)
                 return r;
 
-        r = strv_env_assign(&l, "XKB_VARIANT", xc ? empty_to_null(xc->variant) : NULL);
+        r = strv_env_assign(&l, "XKBVARIANT", xc ? empty_to_null(xc->variant) : NULL);
         if (r < 0)
                 return r;
 
-        r = strv_env_assign(&l, "XKB_OPTIONS", xc ? empty_to_null(xc->options) : NULL);
+        r = strv_env_assign(&l, "XKBOPTIONS", xc ? empty_to_null(xc->options) : NULL);
         if (r < 0)
                 return r;
 
