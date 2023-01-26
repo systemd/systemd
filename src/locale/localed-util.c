@@ -245,7 +245,7 @@ void context_clear(Context *c) {
         c->polkit_registry = bus_verify_polkit_async_registry_free(c->polkit_registry);
 };
 
-static X11Context *context_get_x11_context(Context *c) {
+X11Context *context_get_x11_context(Context *c) {
         assert(c);
 
         if (!x11_context_isempty(&c->x11_from_vc))
@@ -254,12 +254,7 @@ static X11Context *context_get_x11_context(Context *c) {
         if (!x11_context_isempty(&c->x11_from_xorg))
                 return &c->x11_from_xorg;
 
-        return NULL;
-}
-
-X11Context *context_get_x11_context_safe(Context *c) {
-        assert(c);
-        return context_get_x11_context(c) ?: &c->x11_from_vc;
+        return &c->x11_from_vc;
 }
 
 int locale_read_data(Context *c, sd_bus_message *m) {
@@ -460,19 +455,19 @@ int vconsole_write_data(Context *c) {
         if (r < 0)
                 return r;
 
-        r = strv_env_assign(&l, "XKBLAYOUT", xc ? empty_to_null(xc->layout) : NULL);
+        r = strv_env_assign(&l, "XKBLAYOUT", empty_to_null(xc->layout));
         if (r < 0)
                 return r;
 
-        r = strv_env_assign(&l, "XKBMODEL", xc ? empty_to_null(xc->model) : NULL);
+        r = strv_env_assign(&l, "XKBMODEL", empty_to_null(xc->model));
         if (r < 0)
                 return r;
 
-        r = strv_env_assign(&l, "XKBVARIANT", xc ? empty_to_null(xc->variant) : NULL);
+        r = strv_env_assign(&l, "XKBVARIANT", empty_to_null(xc->variant));
         if (r < 0)
                 return r;
 
-        r = strv_env_assign(&l, "XKBOPTIONS", xc ? empty_to_null(xc->options) : NULL);
+        r = strv_env_assign(&l, "XKBOPTIONS", empty_to_null(xc->options));
         if (r < 0)
                 return r;
 
@@ -503,7 +498,7 @@ int x11_write_data(Context *c) {
         assert(c);
 
         xc = context_get_x11_context(c);
-        if (!xc) {
+        if (x11_context_isempty(xc)) {
                 if (unlink("/etc/X11/xorg.conf.d/00-keyboard.conf") < 0)
                         return errno == ENOENT ? 0 : -errno;
 
