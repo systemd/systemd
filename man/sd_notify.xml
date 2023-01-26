@@ -155,6 +155,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term>NOTIFYACCESS=…</term>
+
+        <listitem><para>Reset the access to the service status notification
+        socket during runtime, overriding <varname>NotifyAccess=</varname> setting
+        in the service unit file. See <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details, specifically <literal>NotifyAccess=</literal> for a list of
+        accepted values.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term>ERRNO=…</term>
 
         <listitem><para>If a service fails, the errno-style error

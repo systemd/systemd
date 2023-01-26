@@ -125,6 +125,8 @@ static void service_init(Unit *u) {
         s->exec_context.keyring_mode = MANAGER_IS_SYSTEM(u->manager) ?
                 EXEC_KEYRING_PRIVATE : EXEC_KEYRING_INHERIT;
 
+        s->notify_access_override = _NOTIFY_ACCESS_INVALID;
+
         s->watchdog_original_usec = USEC_INFINITY;
 
         s->oom_policy = _OOM_POLICY_INVALID;
@@ -200,6 +202,15 @@ void service_close_socket_fd(Service *s) {
         }
 
         s->socket_peer = socket_peer_unref(s->socket_peer);
+}
+
+static void service_override_notify_access(Service *s, NotifyAccess notify_access_override) {
+        assert(s);
+
+        s->notify_access_override = notify_access_override;
+
+        log_unit_debug(UNIT(s), "notify_access=%s", notify_access_to_string(s->notify_access));
+        log_unit_debug(UNIT(s), "notify_access_override=%s", notify_access_to_string(s->notify_access_override));
 }
 
 static void service_stop_watchdog(Service *s) {
@@ -1465,11 +1476,11 @@ static bool service_exec_needs_notify_socket(Service *s, ExecFlags flags) {
 
         if (flags & EXEC_IS_CONTROL)
                 /* A control process */
-                return IN_SET(s->notify_access, NOTIFY_EXEC, NOTIFY_ALL);
+                return IN_SET(service_get_notify_access(s), NOTIFY_EXEC, NOTIFY_ALL);
 
         /* We only spawn main processes and control processes, so any
          * process that is not a control process is a main process */
-        return s->notify_access != NOTIFY_NONE;
+        return service_get_notify_access(s) != NOTIFY_NONE;
 }
 
 static Service *service_get_triggering_service(Service *s) {
@@ -1909,6 +1920,9 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
 
         /* The next restart might not be a manual stop, hence reset the flag indicating manual stops */
         s->forbid_restart = false;
+
+        /* Reset NotifyAccess override */
+        s->notify_access_override = _NOTIFY_ACCESS_INVALID;
 
         /* We want fresh tmpdirs in case service is started again immediately */
         s->exec_runtime = exec_runtime_unref(s->exec_runtime, true);
@@ -2404,6 +2418,8 @@ static void service_enter_restart(Service *s) {
         s->n_restarts ++;
         s->flush_n_restarts = false;
 
+        s->notify_access_override = _NOTIFY_ACCESS_INVALID;
+
         log_unit_struct(UNIT(s), LOG_INFO,
                         "MESSAGE_ID=" SD_MESSAGE_UNIT_RESTART_SCHEDULED_STR,
                         LOG_UNIT_INVOCATION_ID(UNIT(s)),
@@ -2613,6 +2629,7 @@ static int service_start(Unit *u) {
         s->status_text = mfree(s->status_text);
         s->status_errno = 0;
 
+        s->notify_access_override = _NOTIFY_ACCESS_INVALID;
         s->notify_state = NOTIFY_UNKNOWN;
 
         s->watchdog_original_usec = s->watchdog_usec;
@@ -2863,6 +2880,9 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
                         (void) serialize_item_format(f, "main-exec-status-status", "%i", s->main_exec_status.status);
                 }
         }
+
+        if (s->notify_access_override >= 0)
+                (void) serialize_item(f, "notify-access-override", notify_access_to_string(s->notify_access_override));
 
         (void) serialize_dual_timestamp(f, "watchdog-timestamp", &s->watchdog_timestamp);
         (void) serialize_bool(f, "forbid-restart", s->forbid_restart);
@@ -3144,7 +3164,15 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 deserialize_dual_timestamp(value, &s->main_exec_status.start_timestamp);
         else if (streq(key, "main-exec-status-exit"))
                 deserialize_dual_timestamp(value, &s->main_exec_status.exit_timestamp);
-        else if (streq(key, "watchdog-timestamp"))
+        else if (streq(key, "notify-access-override")) {
+                NotifyAccess notify_access;
+
+                notify_access = notify_access_from_string(value);
+                if (notify_access < 0)
+                        log_unit_debug(u, "Failed to parse notify-access-override value: %s", value);
+                else
+                        s->notify_access_override = notify_access;
+        } else if (streq(key, "watchdog-timestamp"))
                 deserialize_dual_timestamp(value, &s->watchdog_timestamp);
         else if (streq(key, "forbid-restart")) {
                 int b;
@@ -3670,7 +3698,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                                  * has been received */
                                                 if (f != SERVICE_SUCCESS)
                                                         service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
-                                                else if (!s->remain_after_exit || s->notify_access == NOTIFY_MAIN)
+                                                else if (!s->remain_after_exit || service_get_notify_access(s) == NOTIFY_MAIN)
                                                         /* The service has never been and will never be active */
                                                         service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_PROTOCOL);
                                                 break;
@@ -4137,12 +4165,14 @@ static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void 
 static bool service_notify_message_authorized(Service *s, pid_t pid, FDSet *fds) {
         assert(s);
 
-        if (s->notify_access == NOTIFY_NONE) {
+        NotifyAccess notify_access = service_get_notify_access(s);
+
+        if (notify_access == NOTIFY_NONE) {
                 log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception is disabled.", pid);
                 return false;
         }
 
-        if (s->notify_access == NOTIFY_MAIN && pid != s->main_pid) {
+        if (notify_access == NOTIFY_MAIN && pid != s->main_pid) {
                 if (s->main_pid != 0)
                         log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, pid, s->main_pid);
                 else
@@ -4151,7 +4181,7 @@ static bool service_notify_message_authorized(Service *s, pid_t pid, FDSet *fds)
                 return false;
         }
 
-        if (s->notify_access == NOTIFY_EXEC && pid != s->main_pid && pid != s->control_pid) {
+        if (notify_access == NOTIFY_EXEC && pid != s->main_pid && pid != s->control_pid) {
                 if (s->main_pid != 0 && s->control_pid != 0)
                         log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT" and control PID "PID_FMT,
                                          pid, s->main_pid, s->control_pid);
@@ -4193,7 +4223,7 @@ static void service_notify_message(
         assert(u);
         assert(ucred);
 
-        if (!service_notify_message_authorized(SERVICE(u), ucred->pid, fds))
+        if (!service_notify_message_authorized(s, ucred->pid, fds))
                 return;
 
         if (DEBUG_LOGGING) {
@@ -4324,6 +4354,25 @@ static void service_notify_message(
 
                 if (!streq_ptr(s->status_text, t)) {
                         free_and_replace(s->status_text, t);
+                        notify_dbus = true;
+                }
+        }
+
+        /* Interpret NOTIFYACCESS= */
+        e = strv_find_startswith(tags, "NOTIFYACCESS=");
+        if (e) {
+                NotifyAccess notify_access;
+
+                notify_access = notify_access_from_string(e);
+                if (notify_access < 0)
+                        log_unit_warning_errno(u, notify_access,
+                                               "Failed to parse NOTIFYACCESS= field value '%s' in notification message, ignoring: %m", e);
+
+                /* We don't need to check whether the new access mode is more strict than what is
+                 * already in use, since only the privileged process is allowed to change it
+                 * in the first place. */
+                if (service_get_notify_access(s) != notify_access) {
+                        service_override_notify_access(s, notify_access);
                         notify_dbus = true;
                 }
         }
