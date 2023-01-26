@@ -1188,9 +1188,8 @@ install_suse_systemd() {
     # long as it runs an equivalent version of systemd) getting rid of the
     # hassles of fetching, configuring, building the source code.
     dinfo "Install the files needed by the tests at runtime"
-    image_install "${SOURCE_DIR}"/test-*
     inst_recursive "${SOURCE_DIR}/testdata"
-    inst_recursive "${SOURCE_DIR}/manual"
+    inst_recursive "${SOURCE_DIR}/unit-tests"
 
     # On openSUSE, this directory is not created at package install, at least
     # for now.
