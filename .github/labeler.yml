@@ -48,7 +48,7 @@ network:
   - src/network/**/*
 portable:
   - src/portable/**/*
-rc-local-generator
+rc-local-generator:
   - src/rc-local-generator/*
 repart:
   - '**/*repart*'
