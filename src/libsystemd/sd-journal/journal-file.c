@@ -366,6 +366,10 @@ static int journal_file_init_header(
         if (r < 0)
                 return r;
 
+        r = sd_id128_get_machine(&h.machine_id);
+        if (r < 0)
+                return r;
+
         if (template) {
                 h.seqnum_id = template->header->seqnum_id;
                 h.tail_entry_seqnum = template->header->tail_entry_seqnum;
@@ -386,17 +390,6 @@ static int journal_file_refresh_header(JournalFile *f) {
 
         assert(f);
         assert(f->header);
-
-        r = sd_id128_get_machine(&f->header->machine_id);
-        if (IN_SET(r, -ENOENT, -ENOMEDIUM, -ENOPKG))
-                /* We don't have a machine-id, let's continue without */
-                zero(f->header->machine_id);
-        else if (r < 0)
-                return r;
-
-        r = sd_id128_get_boot(&f->header->boot_id);
-        if (r < 0)
-                return r;
 
         r = journal_file_set_online(f);
 
@@ -516,25 +509,17 @@ static int journal_file_verify_header(JournalFile *f) {
 
                 if (state == STATE_ARCHIVED)
                         return -ESHUTDOWN; /* Already archived */
-                else if (state == STATE_ONLINE)
+                if (state == STATE_ONLINE)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBUSY),
                                                "Journal file %s is already online. Assuming unclean closing.",
                                                f->path);
-                else if (state != STATE_OFFLINE)
+                if (state != STATE_OFFLINE)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBUSY),
                                                "Journal file %s has unknown state %i.",
                                                f->path, state);
 
                 if (f->header->field_hash_table_size == 0 || f->header->data_hash_table_size == 0)
                         return -EBADMSG;
-
-                /* Don't permit appending to files from the future. Because otherwise the realtime timestamps wouldn't
-                 * be strictly ordered in the entries in the file anymore, and we can't have that since it breaks
-                 * bisection. */
-                if (le64toh(f->header->tail_entry_realtime) > now(CLOCK_REALTIME))
-                        return log_debug_errno(SYNTHETIC_ERRNO(ETXTBSY),
-                                               "Journal file %s is from the future, refusing to append new data to it that'd be older.",
-                                               f->path);
         }
 
         return 0;
@@ -2085,6 +2070,7 @@ static int journal_file_append_entry_internal(
                 const EntryItem items[],
                 size_t n_items,
                 uint64_t *seqnum,
+                sd_id128_t *seqnum_id,
                 Object **ret_object,
                 uint64_t *ret_offset) {
 
@@ -2127,6 +2113,21 @@ static int journal_file_append_entry_internal(
                                                        "Monotonic timestamp %" PRIu64 " smaller than previous monotonic "
                                                        "timestamp %" PRIu64 ", refusing entry.",
                                                        ts->monotonic, le64toh(f->header->tail_entry_monotonic));
+                }
+        }
+
+        if (seqnum_id) {
+                /* Settle the passed in sequence number ID */
+
+                if (sd_id128_is_null(*seqnum_id))
+                        *seqnum_id = f->header->seqnum_id; /* Caller has none assigned, then copy the one from the file */
+                else if (!sd_id128_equal(*seqnum_id, f->header->seqnum_id)) {
+                        /* Different seqnum IDs? We can't allow entries from multiple IDs end up in the same journal.*/
+                        if (le64toh(f->header->n_entries) == 0)
+                                f->header->seqnum_id = *seqnum_id; /* Caller has one, and file so far has no entries, then copy the one from the caller */
+                        else
+                                return log_debug_errno(SYNTHETIC_ERRNO(EILSEQ),
+                                                       "Sequence number IDs don't match, refusing entry.");
                 }
         }
 
@@ -2281,6 +2282,7 @@ int journal_file_append_entry(
                 const struct iovec iovec[],
                 size_t n_iovec,
                 uint64_t *seqnum,
+                sd_id128_t *seqnum_id,
                 Object **ret_object,
                 uint64_t *ret_offset) {
 
@@ -2367,7 +2369,7 @@ int journal_file_append_entry(
         typesafe_qsort(items, n_iovec, entry_item_cmp);
         n_iovec = remove_duplicate_entry_items(items, n_iovec);
 
-        r = journal_file_append_entry_internal(f, ts, boot_id, xor_hash, items, n_iovec, seqnum, ret_object, ret_offset);
+        r = journal_file_append_entry_internal(f, ts, boot_id, xor_hash, items, n_iovec, seqnum, seqnum_id, ret_object, ret_offset);
 
         /* If the memory mapping triggered a SIGBUS then we return an
          * IO error and ignore the error code passed down to us, since
@@ -4084,7 +4086,14 @@ int journal_file_dispose(int dir_fd, const char *fname) {
         return 0;
 }
 
-int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p) {
+int journal_file_copy_entry(
+                JournalFile *from,
+                JournalFile *to,
+                Object *o,
+                uint64_t p,
+                uint64_t *seqnum,
+                sd_id128_t *seqnum_id) {
+
         _cleanup_free_ EntryItem *items_alloc = NULL;
         EntryItem *items;
         uint64_t q, n, xor_hash = 0;
@@ -4159,7 +4168,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                         return r;
         }
 
-        r = journal_file_append_entry_internal(to, &ts, boot_id, xor_hash, items, n, NULL, NULL, NULL);
+        r = journal_file_append_entry_internal(to, &ts, boot_id, xor_hash, items, n, seqnum, seqnum_id, NULL, NULL);
 
         if (mmap_cache_fd_got_sigbus(to->cache_fd))
                 return -EIO;

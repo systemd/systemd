@@ -94,7 +94,7 @@ static int run_test(int argc, char *argv[]) {
 
                 iovec = IOVEC_MAKE_STRING(test);
 
-                assert_se(journal_file_append_entry(df->file, &ts, NULL, &iovec, 1, NULL, NULL, NULL) == 0);
+                assert_se(journal_file_append_entry(df->file, &ts, NULL, &iovec, 1, NULL, NULL, NULL, NULL) == 0);
 
                 free(test);
         }

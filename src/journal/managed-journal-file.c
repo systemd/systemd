@@ -423,6 +423,7 @@ int managed_journal_file_open(
                 Set *deferred_closes,
                 ManagedJournalFile *template,
                 ManagedJournalFile **ret) {
+
         _cleanup_free_ ManagedJournalFile *f = NULL;
         int r;
 
@@ -432,8 +433,17 @@ int managed_journal_file_open(
         if (!f)
                 return -ENOMEM;
 
-        r = journal_file_open(fd, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics,
-                              mmap_cache, template ? template->file : NULL, &f->file);
+        r = journal_file_open(
+                        fd,
+                        fname,
+                        open_flags,
+                        file_flags,
+                        mode,
+                        compress_threshold_bytes,
+                        metrics,
+                        mmap_cache,
+                        template ? template->file : NULL,
+                        &f->file);
         if (r < 0)
                 return r;
 
@@ -441,7 +451,6 @@ int managed_journal_file_open(
 
         return 0;
 }
-
 
 ManagedJournalFile* managed_journal_file_initiate_close(ManagedJournalFile *f, Set *deferred_closes) {
         int r;
@@ -480,16 +489,16 @@ int managed_journal_file_rotate(
                 return r;
 
         r = managed_journal_file_open(
-                        -1,
+                        /* fd= */ -1,
                         path,
                         (*f)->file->open_flags,
                         file_flags,
                         (*f)->file->mode,
                         compress_threshold_bytes,
-                        NULL,            /* metrics */
+                        /* metrics= */ NULL,
                         mmap_cache,
                         deferred_closes,
-                        *f,              /* template */
+                        /* template= */ *f,
                         &new_file);
 
         managed_journal_file_initiate_close(*f, deferred_closes);
@@ -513,8 +522,18 @@ int managed_journal_file_open_reliably(
         _cleanup_(managed_journal_file_closep) ManagedJournalFile *old_file = NULL;
         int r;
 
-        r = managed_journal_file_open(-1, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics,
-                                      mmap_cache, deferred_closes, template, ret);
+        r = managed_journal_file_open(
+                        /* fd= */ -1,
+                        fname,
+                        open_flags,
+                        file_flags,
+                        mode,
+                        compress_threshold_bytes,
+                        metrics,
+                        mmap_cache,
+                        deferred_closes,
+                        template,
+                        ret);
         if (!IN_SET(r,
                     -EBADMSG,           /* Corrupted */
                     -ENODATA,           /* Truncated */
@@ -523,9 +542,7 @@ int managed_journal_file_open_reliably(
                     -EBUSY,             /* Unclean shutdown */
                     -ESHUTDOWN,         /* Already archived */
                     -EIO,               /* IO error, including SIGBUS on mmap */
-                    -EIDRM,             /* File has been deleted */
-                    -ETXTBSY,           /* File is from the future */
-                    -EREMCHG))          /* Clock rolled back */
+                    -EIDRM))            /* File has been deleted */
                 return r;
 
         if ((open_flags & O_ACCMODE) == O_RDONLY)
