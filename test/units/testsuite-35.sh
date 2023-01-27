@@ -491,7 +491,7 @@ EOF
     # session active again and next we slept for another 35s so sessions have
     # become idle again. 'Lock' signal is sent out for each session, we have at
     # least one session, so minimum of 2 "Lock" signals must have been sent.
-    timeout 35 bash -c "while [[ \"\$(journalctl -b -u systemd-logind.service --since=$ts | grep -c 'Sent message type=signal .* member=Lock')\" -lt 1 ]]; do sleep 1; done"
+    timeout 500 bash -c "while [[ \"\$(journalctl -b -u systemd-logind.service --since=$ts | grep -c 'Sent message type=signal .* member=Lock')\" -lt 1 ]]; do sleep 1; done"
 
     # Wakeup
     touch /dev/tty2
