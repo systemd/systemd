@@ -440,6 +440,12 @@ def join_initrds(initrds):
     return b''.join(seq)
 
 
+def pairwise(iterable):
+    a, b = itertools.tee(iterable)
+    next(b, None)
+    return zip(a, b)
+
+
 def pe_validate(filename):
     import pefile
 
@@ -447,7 +453,7 @@ def pe_validate(filename):
 
     sections = sorted(pe.sections, key=lambda s: (s.VirtualAddress, s.Misc_VirtualSize))
 
-    for l, r in itertools.pairwise(sections):
+    for l, r in pairwise(sections):
         if l.VirtualAddress + l.Misc_VirtualSize > r.VirtualAddress + r.Misc_VirtualSize:
             raise ValueError(f'Section "{l.Name.decode()}" ({l.VirtualAddress}, {l.Misc_VirtualSize}) overlaps with section "{r.Name.decode()}" ({r.VirtualAddress}, {r.Misc_VirtualSize})')
 
