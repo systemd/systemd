@@ -17,10 +17,10 @@ udevadm_sources = files(
 )
 
 libudevd_core_sources = files(
-        'udev-ctrl.c',
         'udev-event.c',
         'udev-node.c',
         'udev-rules.c',
+        'udev-varlink.c',
         'udev-watch.c',
         'udev-builtin.c',
         'udev-builtin-btrfs.c',

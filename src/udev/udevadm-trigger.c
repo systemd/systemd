@@ -21,7 +21,7 @@
 #include "strv.h"
 #include "udevadm.h"
 #include "udevadm-util.h"
-#include "udev-ctrl.h"
+#include "udev-varlink.h"
 #include "virt.h"
 
 static bool arg_verbose = false;
@@ -488,19 +488,19 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         }
 
         if (ping) {
-                _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
+                _cleanup_(varlink_close_unrefp) Varlink *link = NULL;
 
-                r = udev_ctrl_new(&uctrl);
+                r = udev_varlink_connect(&link);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to initialize udev control: %m");
+                        return log_error_errno(r, "Failed to initialize varlink connection: %m");
 
-                r = udev_ctrl_send_ping(uctrl);
+                r = varlink_set_relative_timeout(link, ping_timeout_usec);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to apply timeout: %m");
+
+                r = udev_varlink_call(link, "io.systemd.udev.Ping", NULL, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to connect to udev daemon: %m");
-
-                r = udev_ctrl_wait(uctrl, ping_timeout_usec);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to wait for daemon to reply: %m");
         }
 
         for (; optind < argc; optind++) {

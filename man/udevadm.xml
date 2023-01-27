@@ -555,9 +555,9 @@
         </varlistentry>
         <varlistentry>
           <term><option>-l</option></term>
-          <term><option>--log-level=<replaceable>value</replaceable></option></term>
+          <term><option>--log-level<optional>=<replaceable>value</replaceable></optional></option></term>
           <listitem>
-            <para>Set the internal log level of
+            <para>If an argument is given, set the internal log level of
             <filename>systemd-udevd</filename>. Valid values are the
             numerical syslog priorities or their textual
             representations: <option>emerg</option>,
@@ -565,6 +565,9 @@
             <option>err</option>, <option>warning</option>,
             <option>notice</option>, <option>info</option>, and
             <option>debug</option>.</para>
+            If used without any argument, print textual representation
+            of the current log level of
+            <filename>systemd-udevd</filename>.
           </listitem>
         </varlistentry>
         <varlistentry>
