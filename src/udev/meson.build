@@ -160,6 +160,10 @@ if install_sysconfdir
                                  mkdir_p.format(sysconfdir / 'udev/rules.d'))
 endif
 
+simple_fuzzers += files(
+        'fuzz-udev-rule-parse-value.c',
+)
+
 fuzzers += [
         [files('net/fuzz-link-parser.c'),
          [libudevd_core,
@@ -173,8 +177,6 @@ fuzzers += [
           libshared],
          [threads,
           libacl]],
-
-        [files('fuzz-udev-rule-parse-value.c')],
 
         [files('fido_id/fuzz-fido-id-desc.c',
                'fido_id/fido_id_desc.c')],
