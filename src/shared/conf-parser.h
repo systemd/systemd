@@ -93,15 +93,13 @@ int config_parse(
                 void *userdata,
                 struct stat *ret_stat);     /* possibly NULL */
 
-int config_parse_many_nulstr(
-                const char *conf_file,      /* possibly NULL */
-                const char *conf_file_dirs, /* nulstr */
+int config_parse_config_file(
+                const char *conf_file,
                 const char *sections,       /* nulstr */
                 ConfigItemLookup lookup,
                 const void *table,
                 ConfigParseFlags flags,
-                void *userdata,
-                Hashmap **ret_stats_by_path);   /* possibly NULL */
+                void *userdata);
 
 int config_parse_many(
                 const char* const* conf_files,  /* possibly empty */

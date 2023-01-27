@@ -14,17 +14,14 @@ int manager_parse_config_file(Manager *m) {
 
         assert(m);
 
-        r = config_parse_many_nulstr(
-                        PKGSYSCONFDIR "/networkd.conf",
-                        CONF_PATHS_NULSTR("systemd/networkd.conf.d"),
-                        "Network\0"
-                        "DHCPv4\0"
-                        "DHCPv6\0"
-                        "DHCP\0",
-                        config_item_perf_lookup, networkd_gperf_lookup,
-                        CONFIG_PARSE_WARN,
-                        m,
-                        NULL);
+        r = config_parse_config_file("networkd.conf",
+                                     "Network\0"
+                                     "DHCPv4\0"
+                                     "DHCPv6\0"
+                                     "DHCP\0",
+                                     config_item_perf_lookup, networkd_gperf_lookup,
+                                     CONFIG_PARSE_WARN,
+                                     m);
         if (r < 0)
                 return r;
 
