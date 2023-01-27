@@ -1931,6 +1931,7 @@ conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', slow_tests)
 tests = []
 simple_tests = []
 fuzzers = []
+simple_fuzzers = []
 catalogs = []
 
 ############################################################
@@ -4170,6 +4171,10 @@ if want_tests != 'false' and static_libudev_pic
 endif
 
 ############################################################
+
+foreach fuzzer : simple_fuzzers
+        fuzzers += [ [[fuzzer]] ]
+endforeach
 
 fuzzer_exes = []
 
