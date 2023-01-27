@@ -15,6 +15,7 @@ files = [['README',               ''],
          ['tmp.conf',             ''],
          ['x11.conf',             ''],
          ['provision.conf',       ''],
+         ['credstore.conf',       ''],
         ]
 
 foreach pair : files
