@@ -1929,6 +1929,7 @@ conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', slow_tests)
 ############################################################
 
 tests = []
+simple_tests = []
 fuzzers = []
 catalogs = []
 
@@ -4067,6 +4068,10 @@ test_cflags = ['-DTEST_CODE=1']
 if '-O2' in c_args and '-flto=auto' in c_args
         test_cflags += cc.first_supported_argument('-Wno-maybe-uninitialized')
 endif
+
+foreach test : simple_tests
+        tests += [ [[test]] ]
+endforeach
 
 foreach tuple : tests
         sources = tuple[0]

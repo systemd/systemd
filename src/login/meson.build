@@ -77,9 +77,11 @@ endif
 
 ############################################################
 
-tests += [
-        [files('test-login-shared.c')],
+simple_tests += files(
+        'test-login-shared.c'
+)
 
+tests += [
         [files('test-inhibit.c'),
          [], [], [], '', 'manual'],
 
