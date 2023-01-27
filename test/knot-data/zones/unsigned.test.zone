@@ -11,10 +11,12 @@ $ORIGIN unsigned.test.
 )
 
 ; NS info
-@                     NS ns1.unsigned.test.
-ns1                   A  10.0.0.1
+@                     NS   ns1
+ns1                   A    10.0.0.1
+ns1                   AAAA fd00:dead:beef:cafe::1
 
-@                     MX 15 mail.unsigned.test.
+@                     MX   15 mail.unsigned.test.
 
-                      A 10.0.0.101
-mail                  A 10.0.0.111
+                      A    10.0.0.101
+                      AAAA fd00:dead:beef:cafe::101
+mail                  A    10.0.0.111
