@@ -6,6 +6,10 @@ systemd_tmpfiles_sources = files(
 )
 
 tests += [
-        [files('test-offline-passwd.c',
-               'offline-passwd.c')],
+        {
+                'sources' : files(
+                        'test-offline-passwd.c',
+                        'offline-passwd.c',
+                ),
+        },
 ]
