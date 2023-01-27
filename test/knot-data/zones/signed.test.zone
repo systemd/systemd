@@ -11,18 +11,27 @@ $ORIGIN signed.test.
 )
 
 ; NS info
-                      NS ns1.unsigned.test.
+                      NS    ns1.unsigned.test.
 
-*.wild                TXT "this is a wildcard"
+*.wild                TXT   "this is a wildcard"
 
-@                     MX 10 mail.signed.test.
+@                     MX    10 mail.signed.test.
 
-                      A 10.0.0.10
-mail                  A 10.0.0.11
+                      A     10.0.0.10
+mail                  A     10.0.0.11
+mail                  AAAA  fd00:dead:beef:cafe::11
 
 ; https://github.com/systemd/systemd/issues/22002
-dupe                  A 10.0.0.12
-dupe                  A 10.0.0.13
+dupe                  A     10.0.0.12
+dupe                  A     10.0.0.13
+dupe-ipv6             AAAA  fd00:dead:beef:cafe::12
+dupe-ipv6             AAAA  fd00:dead:beef:cafe::13
+dupe-mixed            A     10.0.0.15
+dupe-mixed            A     10.0.0.16
+dupe-mixed            A     10.0.0.17
+dupe-mixed            AAAA  fd00:dead:beef:cafe::15
+dupe-mixed            AAAA  fd00:dead:beef:cafe::16
+dupe-mixed            AAAA  fd00:dead:beef:cafe::17
 
 ; CNAME_REDIRECTS_MAX is 16, so let's test something close to that
 cname-chain           CNAME follow1.signed.test.
@@ -40,3 +49,25 @@ follow11.yet.so.far   CNAME follow12.getting.hot.signed.test.
 follow12.getting.hot  CNAME follow13.almost.final.signed.test.
 follow13.almost.final CNAME follow14.final.signed.test.
 follow14.final        A     10.0.0.14
+
+myservice             A     10.0.0.20
+myservice             AAAA  fd00:dead:beef:cafe::17
+_mysvc._tcp           SRV   10 5 1234 myservice
+
+_invalidsvc._udp      SRV   5 5 1111 invalidservice
+
+_untrustedsvc._udp    SRV   5 5 1111 myservice.untrusted.test.
+
+; OPENPGPKEY RR for mr.smith@signed.test
+; The hash was generated using `echo -ne mr.smith | sha256sum | head -c56`
+; and exported via `gpg --export mr.smith | base64`
+5a786cdc59c161cdafd818143705026636962198c66ed4c5b3da321e._openpgpkey OPENPGPKEY (
+    mDMEYshhzhYJKwYBBAHaRw8BAQdAuU2RxKaycSdaR5YZ/q+/yoHeil/1WNRDVbpjPSd6QBa0GW1y
+    LnNtaXRoQHNpZ25lZC50ZXN0LnpvbmWImQQTFggAQRYhBIOXLJwlwowvXQVeJ3d9yvMKUDBWBQJi
+    yGHOAhsDBQkDwmcABQsJCAcCAiICBhUKCQgLAgQWAgMBAh4HAheAAAoJEHd9yvMKUDBWo6MA/2oC
+    zdnzMlK9gM5bNCFfPyagJfFfv7fW1l7WXTve6FJtAP0faW24ahE1okjmrsTUwqZHvDThysW5zTSt
+    j49S3JQDA7g4BGLIYc4SCisGAQQBl1UBBQEBB0CuNcTAt5AUE3seFN/Gm2euC+8dgtztyzoO/78K
+    ictFLAMBCAeIeAQYFggAIBYhBIOXLJwlwowvXQVeJ3d9yvMKUDBWBQJiyGHOAhsMAAoJEHd9yvMK
+    UDBWtxkA/jlbUgHpSoTKFNNTeXYbTz9jnoupe9eT4O3tU55ofwO7AQCa5ntSIuzDJ1E2iy7oOLOZ
+    m2ocNqpC7SULHhSKYfUWDg==
+)
