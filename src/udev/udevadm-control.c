@@ -87,6 +87,19 @@ int control_main(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to initialize udev control: %m");
 
         while ((c = getopt_long(argc, argv, "el:sSRp:m:t:Vh", options, NULL)) >= 0)
+                if (c == 't') {
+                        r = parse_sec(optarg, &timeout);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse timeout value '%s': %m", optarg);
+                        break;
+                }
+        optind = 0;
+
+        r = varlink_set_relative_timeout(link, timeout);
+        if (r < 0)
+                return log_error_errno(r, "Failed to apply timeout: %m");
+
+        while ((c = getopt_long(argc, argv, "el:sSRp:m:t:Vh", options, NULL)) >= 0)
                 switch (c) {
                 case 'e':
                         r = udev_ctrl_send_exit(uctrl);
@@ -158,10 +171,7 @@ int control_main(int argc, char *argv[], void *userdata) {
                         else if (r < 0)
                                 return log_error_errno(r, "Failed to send a ping message: %m");
                         break;
-                case 't':
-                        r = parse_sec(optarg, &timeout);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse timeout value '%s': %m", optarg);
+                case 't': /* Already handled, ignore */
                         break;
                 case 'V':
                         return print_version();
