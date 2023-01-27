@@ -6,23 +6,12 @@
 #include "homed-conf.h"
 
 int manager_parse_config_file(Manager *m) {
-        int r;
 
         assert(m);
 
-        r = config_parse_many_nulstr(
-                        PKGSYSCONFDIR "/homed.conf",
-                        CONF_PATHS_NULSTR("systemd/homed.conf.d"),
-                        "Home\0",
-                        config_item_perf_lookup, homed_gperf_lookup,
-                        CONFIG_PARSE_WARN,
-                        m,
-                        NULL);
-        if (r < 0)
-                return r;
-
-        return 0;
-
+        return config_parse_config_file("homed.conf", "Home\0",
+                                        config_item_perf_lookup, homed_gperf_lookup,
+                                        CONFIG_PARSE_WARN, m);
 }
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_default_storage, user_storage, UserStorage, "Failed to parse default storage setting");

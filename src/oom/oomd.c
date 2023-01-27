@@ -31,14 +31,9 @@ static int parse_config(void) {
                 {}
         };
 
-        return config_parse_many_nulstr(PKGSYSCONFDIR "/oomd.conf",
-                                        CONF_PATHS_NULSTR("systemd/oomd.conf.d"),
-                                        "OOM\0",
-                                        config_item_table_lookup,
-                                        items,
-                                        CONFIG_PARSE_WARN,
-                                        NULL,
-                                        NULL);
+        return config_parse_config_file("oomd.conf", "OOM\0",
+                                        config_item_table_lookup, items,
+                                        CONFIG_PARSE_WARN, NULL);
 }
 
 static int help(void) {
