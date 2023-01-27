@@ -11,6 +11,7 @@ rules = [
                '60-drm.rules',
                '60-evdev.rules',
                '60-fido-id.rules',
+               '60-infiniband.rules',
                '60-input-id.rules',
                '60-persistent-alsa.rules',
                '60-persistent-input.rules',
