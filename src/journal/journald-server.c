@@ -1779,36 +1779,16 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 }
 
 static int server_parse_config_file(Server *s) {
-        int r;
+        const char *conf_file = "journald.conf";
 
         assert(s);
 
-        if (s->namespace) {
-                const char *namespaced, *dropin_dirname;
+        if (s->namespace)
+                conf_file = strjoina("journald@", s->namespace, ".conf");
 
-                /* If we are running in namespace mode, load the namespace specific configuration file, and nothing else */
-                namespaced = strjoina(PKGSYSCONFDIR "/journald@", s->namespace, ".conf");
-                dropin_dirname = strjoina("journald@", s->namespace, ".conf.d");
-
-                r = config_parse_many(
-                                STRV_MAKE_CONST(namespaced),
-                                (const char* const*) CONF_PATHS_STRV("systemd"),
-                                dropin_dirname,
-                                "Journal\0",
-                                config_item_perf_lookup, journald_gperf_lookup,
-                                CONFIG_PARSE_WARN, s, NULL, NULL);
-                if (r < 0)
-                        return r;
-
-                return 0;
-        }
-
-        return config_parse_many_nulstr(
-                        PKGSYSCONFDIR "/journald.conf",
-                        CONF_PATHS_NULSTR("systemd/journald.conf.d"),
-                        "Journal\0",
-                        config_item_perf_lookup, journald_gperf_lookup,
-                        CONFIG_PARSE_WARN, s, NULL);
+        return config_parse_config_file(conf_file, "Journal\0",
+                                        config_item_perf_lookup, journald_gperf_lookup,
+                                        CONFIG_PARSE_WARN, s);
 }
 
 static int server_dispatch_sync(sd_event_source *es, usec_t t, void *userdata) {
