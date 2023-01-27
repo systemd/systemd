@@ -41,7 +41,7 @@ monitor_check_rr() (
     # displayed. We turn off pipefail for this, since we don't care about the
     # lhs of this pipe expression, we only care about the rhs' result to be
     # clean
-    journalctl -u resmontest.service --since "$since" -f --full | grep -m1 "$match"
+    timeout -v 30s journalctl -u resmontest.service --since "$since" -f --full | grep -m1 "$match"
 )
 
 # Test for resolvectl, resolvconf
