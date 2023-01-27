@@ -720,6 +720,7 @@ manpages = [
    'sd_journal_wait'],
   ''],
  ['sd_journal_get_realtime_usec', '3', ['sd_journal_get_monotonic_usec'], ''],
+ ['sd_journal_get_seqnum', '3', [], ''],
  ['sd_journal_get_usage', '3', [], ''],
  ['sd_journal_has_runtime_files', '3', ['sd_journal_has_persistent_files'], ''],
  ['sd_journal_next',
