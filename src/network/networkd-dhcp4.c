@@ -337,15 +337,18 @@ static int dhcp4_request_route_auto(
                 route->gw = IN_ADDR_NULL;
                 route->prefsrc.in = address;
 
-        } else {
-                if (in4_addr_is_null(gw)) {
-                        log_link_debug(link, "DHCP: requested route destination "IPV4_ADDRESS_FMT_STR"/%u is not in the assigned network "
-                                       IPV4_ADDRESS_FMT_STR"/%u, but no gateway is specified, ignoring.",
-                                       IPV4_ADDRESS_FMT_VAL(route->dst.in), route->dst_prefixlen,
-                                       IPV4_ADDRESS_FMT_VAL(prefix), prefixlen);
-                        return 0;
-                }
+        } else if (in4_addr_is_null(gw)) {
+                log_link_debug(link, "DHCP: requested route destination "IPV4_ADDRESS_FMT_STR"/%u is not in the assigned network "
+                               IPV4_ADDRESS_FMT_STR"/%u, but no gateway is specified, using 'link' scope.",
+                               IPV4_ADDRESS_FMT_VAL(route->dst.in), route->dst_prefixlen,
+                               IPV4_ADDRESS_FMT_VAL(prefix), prefixlen);
 
+                route->scope = RT_SCOPE_LINK;
+                route->gw_family = AF_UNSPEC;
+                route->gw = IN_ADDR_NULL;
+                route->prefsrc.in = address;
+
+        } else {
                 r = dhcp4_request_route_to_gateway(link, gw);
                 if (r < 0)
                         return r;
