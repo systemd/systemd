@@ -295,7 +295,6 @@ conf.set_quoted('USER_TMPFILES_DIR',                          usertmpfilesdir)
 conf.set_quoted('UDEVLIBEXECDIR',                             udevlibexecdir)
 conf.set_quoted('UDEV_HWDB_DIR',                              udevhwdbdir)
 conf.set_quoted('UDEV_RULES_DIR',                             udevrulesdir)
-conf.set_quoted('UPDATE_HELPER_USER_TIMEOUT',                 get_option('update-helper-user-timeout'))
 conf.set_quoted('USER_CONFIG_UNIT_DIR',                       pkgsysconfdir / 'user')
 conf.set_quoted('USER_DATA_UNIT_DIR',                         userunitdir)
 conf.set_quoted('USER_ENV_GENERATOR_DIR',                     userenvgeneratordir)
@@ -310,6 +309,10 @@ conf.set10('ENABLE_FEXECVE',                                  get_option('fexecv
 conf.set10('MEMORY_ACCOUNTING_DEFAULT',                       memory_accounting_default)
 conf.set('STATUS_UNIT_FORMAT_DEFAULT',                        'STATUS_UNIT_FORMAT_' + status_unit_format_default.to_upper())
 conf.set_quoted('STATUS_UNIT_FORMAT_DEFAULT_STR',             status_unit_format_default)
+
+conf.set('DEFAULT_TIMEOUT_SEC',                               get_option('default-timeout-sec'))
+conf.set('DEFAULT_USER_TIMEOUT_SEC',                          get_option('default-user-timeout-sec'))
+conf.set('UPDATE_HELPER_USER_TIMEOUT_SEC',                    get_option('update-helper-user-timeout-sec'))
 
 conf.set10('FIRST_BOOT_FULL_PRESET',                          get_option('first-boot-full-preset'))
 

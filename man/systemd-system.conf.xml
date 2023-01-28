@@ -349,25 +349,20 @@
         <term><varname>DefaultTimeoutAbortSec=</varname></term>
         <term><varname>DefaultRestartSec=</varname></term>
 
-        <listitem><para>Configures the default timeouts for starting,
-        stopping and aborting of units, as well as the default time to sleep
-        between automatic restarts of units, as configured per-unit in
-        <varname>TimeoutStartSec=</varname>,
-        <varname>TimeoutStopSec=</varname>,
-        <varname>TimeoutAbortSec=</varname> and
-        <varname>RestartSec=</varname> (for services, see
+        <listitem><para>Configures the default timeouts for starting, stopping and aborting of units, as well
+        as the default time to sleep between automatic restarts of units, as configured per-unit in
+        <varname>TimeoutStartSec=</varname>, <varname>TimeoutStopSec=</varname>,
+        <varname>TimeoutAbortSec=</varname> and <varname>RestartSec=</varname> (for services, see
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details on the per-unit settings). Disabled by default, when
-        service with <varname>Type=oneshot</varname> is used.
-        For non-service units,
-        <varname>DefaultTimeoutStartSec=</varname> sets the default
-        <varname>TimeoutSec=</varname>
-        value. <varname>DefaultTimeoutStartSec=</varname> and
-        <varname>DefaultTimeoutStopSec=</varname> default to
-        90s. <varname>DefaultTimeoutAbortSec=</varname> is not set by default
-        so that all units fall back to <varname>TimeoutStopSec=</varname>.
-        <varname>DefaultRestartSec=</varname> defaults to
-        100ms.</para></listitem>
+        for details on the per-unit settings). For non-service units,
+        <varname>DefaultTimeoutStartSec=</varname> sets the default <varname>TimeoutSec=</varname> value.
+        </para>
+
+        <para><varname>DefaultTimeoutStartSec=</varname> and <varname>DefaultTimeoutStopSec=</varname>
+        default to &DEFAULT_TIMEOUT; in the system manager and &DEFAULT_USER_TIMEOUT; in the user manager.
+        <varname>DefaultTimeoutAbortSec=</varname> is not set by default so that all units fall back to
+        <varname>TimeoutStopSec=</varname>. <varname>DefaultRestartSec=</varname> defaults to 100 ms.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
