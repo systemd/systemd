@@ -390,7 +390,7 @@ static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
         assert(server);
         assert(server->fd >= 0);
         assert(message);
-        assert(len > sizeof(DHCPMessage));
+        assert(len >= sizeof(DHCPMessage));
 
         if (server->bind_to_interface) {
                 msg.msg_control = &control;
