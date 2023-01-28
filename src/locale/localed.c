@@ -140,6 +140,10 @@ static int property_get_xkb(
 
         assert(property);
 
+        r = vconsole_read_data(c, reply);
+        if (r < 0)
+                return r;
+
         r = x11_read_data(c, reply);
         if (r < 0)
                 return r;
@@ -611,6 +615,12 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
                         return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Local keyboard configuration not supported on this system.");
 
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Specified keymap cannot be compiled, refusing as invalid.");
+        }
+
+        r = vconsole_read_data(c, m);
+        if (r < 0) {
+                log_error_errno(r, "Failed to read virtual console keymap data: %m");
+                return sd_bus_error_set_errnof(error, r, "Failed to read virtual console keymap data: %m");
         }
 
         r = x11_read_data(c, m);
