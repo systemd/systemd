@@ -33,6 +33,10 @@ int mkdirat_parents_label(int dir_fd, const char *path, mode_t mode) {
         return mkdirat_parents_internal(dir_fd, path, mode, UID_INVALID, UID_INVALID, 0, mkdirat_label);
 }
 
+int mkdir_parents_safe_label(const char *prefix, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags) {
+        return mkdir_parents_internal(prefix, path, mode, uid, gid, flags, mkdirat_label);
+}
+
 int mkdir_p_label(const char *path, mode_t mode) {
         return mkdir_p_internal(NULL, path, mode, UID_INVALID, UID_INVALID, 0, mkdirat_label);
 }

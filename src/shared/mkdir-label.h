@@ -20,4 +20,7 @@ int mkdirat_parents_label(int dir_fd, const char *path, mode_t mod);
 static inline int mkdir_parents_label(const char *path, mode_t mod) {
         return mkdirat_parents_label(AT_FDCWD, path, mod);
 }
+
+int mkdir_parents_safe_label(const char *prefix, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags);
+
 int mkdir_p_label(const char *path, mode_t mode);
