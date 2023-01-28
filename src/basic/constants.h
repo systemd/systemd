@@ -25,8 +25,11 @@
 #  endif
 #endif
 
-#define DEFAULT_TIMEOUT_USEC (90*USEC_PER_SEC)
-#define DEFAULT_RESTART_USEC (100*USEC_PER_MSEC)
+/* Many different things, but also system unit start/stop */
+#define DEFAULT_TIMEOUT_USEC (DEFAULT_TIMEOUT_SEC*USEC_PER_SEC)
+/* User unit start/stop */
+#define DEFAULT_USER_TIMEOUT_USEC (DEFAULT_USER_TIMEOUT_SEC*USEC_PER_SEC)
+/* Timeout for user confirmation on the console */
 #define DEFAULT_CONFIRM_USEC (30*USEC_PER_SEC)
 
 /* We use an extra-long timeout for the reload. This is because a reload or reexec means generators are rerun
