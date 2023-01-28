@@ -252,11 +252,11 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
 
         r = sd_bus_message_read_strv(m, &l);
         if (r < 0)
-                return r;
+                return bus_log_parse_error(r);
 
         r = sd_bus_message_read_basic(m, 'b', &interactive);
         if (r < 0)
-                return r;
+                return bus_log_parse_error(r);
 
         use_localegen = locale_gen_check_available();
 
@@ -269,7 +269,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
 
                 new_locale[VARIABLE_LANG] = strdup(l[0]);
                 if (!new_locale[VARIABLE_LANG])
-                        return -ENOMEM;
+                        return log_oom();
 
                 l = strv_free(l);
         }
@@ -303,7 +303,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
         /* Merge with the current settings */
         r = locale_context_merge(&c->locale_context, new_locale);
         if (r < 0)
-                return r;
+                return log_oom();
 
         locale_variables_simplify(new_locale);
 
@@ -374,7 +374,7 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
 
         r = sd_bus_message_read(m, "ssbb", &keymap, &keymap_toggle, &convert, &interactive);
         if (r < 0)
-                return r;
+                return bus_log_parse_error(r);
 
         keymap = empty_to_null(keymap);
         keymap_toggle = empty_to_null(keymap_toggle);
@@ -573,7 +573,7 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
 
         r = sd_bus_message_read(m, "ssssbb", &in.layout, &in.model, &in.variant, &in.options, &convert, &interactive);
         if (r < 0)
-                return r;
+                return bus_log_parse_error(r);
 
         x11_context_empty_to_null(&in);
 
