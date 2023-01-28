@@ -155,7 +155,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int determine_banks(struct tpm2_context *c, unsigned target_pcr_nr) {
+static int determine_banks(Tpm2Context *c, unsigned target_pcr_nr) {
         _cleanup_strv_free_ char **l = NULL;
         int r;
 
@@ -164,7 +164,7 @@ static int determine_banks(struct tpm2_context *c, unsigned target_pcr_nr) {
         if (!strv_isempty(arg_banks)) /* Explicitly configured? Then use that */
                 return 0;
 
-        r = tpm2_get_good_pcr_banks_strv(c->esys_context, UINT32_C(1) << target_pcr_nr, &l);
+        r = tpm2_get_good_pcr_banks_strv(c, UINT32_C(1) << target_pcr_nr, &l);
         if (r < 0)
                 return r;
 
@@ -240,7 +240,6 @@ static int get_file_system_word(
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(tpm2_context_destroy) struct tpm2_context c = {};
         _cleanup_free_ char *joined = NULL, *word = NULL;
         unsigned target_pcr_nr;
         size_t length;
@@ -346,11 +345,12 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to load TPM2 libraries: %m");
 
-        r = tpm2_context_init(arg_tpm2_device, &c);
+        _cleanup_tpm2_context_ Tpm2Context *c = NULL;
+        r = tpm2_context_new(arg_tpm2_device, &c);
         if (r < 0)
                 return r;
 
-        r = determine_banks(&c, target_pcr_nr);
+        r = determine_banks(c, target_pcr_nr);
         if (r < 0)
                 return r;
         if (strv_isempty(arg_banks)) /* Still none? */
@@ -362,7 +362,7 @@ static int run(int argc, char *argv[]) {
 
         log_debug("Measuring '%s' into PCR index %u, banks %s.", word, target_pcr_nr, joined);
 
-        r = tpm2_extend_bytes(c.esys_context, arg_banks, target_pcr_nr, word, length, NULL, 0);
+        r = tpm2_extend_bytes(c, arg_banks, target_pcr_nr, word, length, NULL, 0);
         if (r < 0)
                 return r;
 
