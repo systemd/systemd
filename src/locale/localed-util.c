@@ -325,10 +325,6 @@ int x11_read_data(Context *c, sd_bus_message *m) {
 
         assert(c);
 
-        r = vconsole_read_data(c, m);
-        if (r < 0)
-                return r;
-
         /* Do not try to re-read the file within single bus operation. */
         if (m) {
                 if (m == c->x11_cache)
