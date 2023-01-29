@@ -12,6 +12,7 @@
 #include "manager.h"
 #include "parse-util.h"
 #include "serialize.h"
+#include "slow-code.h"
 #include "syslog-util.h"
 #include "unit-serialize.h"
 #include "user-util.h"
@@ -91,6 +92,7 @@ int manager_serialize(
         const char *t;
         Unit *u;
         int r;
+        PROFILE_SLOW_CODE(10 * USEC_PER_SEC);
 
         assert(m);
         assert(f);
@@ -299,6 +301,7 @@ static void manager_deserialize_gid_refs_one(Manager *m, const char *value) {
 int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
         bool deserialize_varlink_sockets = false;
         int r = 0;
+        PROFILE_SLOW_CODE(10 * USEC_PER_SEC);
 
         assert(m);
         assert(f);
