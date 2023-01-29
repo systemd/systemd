@@ -72,7 +72,7 @@ def test_uninitialized_t():
         return
 
     test_line('w /foo - - - - "specifier for --user %t"',
-              user=True, returncode=0, extra={'env':{}})
+              user=True, returncode=0, extra={'env':{'HOME': os.getenv('HOME')}})
 
 def test_content(line, expected, *, user, extra={}, subpath='/arg', path_cb=None):
     d = tempfile.TemporaryDirectory(prefix='test-systemd-tmpfiles.')
@@ -101,11 +101,21 @@ def test_valid_specifiers(*, user):
     test_content('f {} - - - - %U', '{}'.format(os.getuid() if user else 0), user=user)
     test_content('f {} - - - - %G', '{}'.format(os.getgid() if user else 0), user=user)
 
-    puser = pwd.getpwuid(os.getuid() if user else 0)
-    test_content('f {} - - - - %u', '{}'.format(puser.pw_name), user=user)
+    try:
+        puser = pwd.getpwuid(os.getuid() if user else 0)
+    except KeyError:
+        puser = None
 
-    pgroup = grp.getgrgid(os.getgid() if user else 0)
-    test_content('f {} - - - - %g', '{}'.format(pgroup.gr_name), user=user)
+    if puser:
+        test_content('f {} - - - - %u', '{}'.format(puser.pw_name), user=user)
+
+    try:
+        pgroup = grp.getgrgid(os.getgid() if user else 0)
+    except KeyError:
+        pgroup = None
+
+    if pgroup:
+        test_content('f {} - - - - %g', '{}'.format(pgroup.gr_name), user=user)
 
     # Note that %h is the only specifier in which we look the environment,
     # because we check $HOME. Should we even be doing that?
