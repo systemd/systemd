@@ -32,6 +32,7 @@
 #include "process-util.h"
 #include "procfs-util.h"
 #include "restrict-ifaces.h"
+#include "slow-code.h"
 #include "special.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -2708,6 +2709,7 @@ unsigned manager_dispatch_cgroup_realize_queue(Manager *m) {
         unsigned n = 0;
         Unit *i;
         int r;
+        PROFILE_SLOW_CODE(10 * USEC_PER_SEC);
 
         assert(m);
 
