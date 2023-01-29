@@ -102,7 +102,7 @@ jobs:
       run: sudo mkosi summary
 
     - name: Boot ${{ matrix.distro }} systemd-nspawn
-      run: sudo mkosi boot ${{ env.KERNEL_CMDLINE }}
+      run: sudo mkosi boot ${{ env.KERNEL_CMDLINE }} audit=0
 
     - name: Check ${{ matrix.distro }} systemd-nspawn
       run: sudo mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
