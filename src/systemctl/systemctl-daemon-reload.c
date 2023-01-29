@@ -37,7 +37,6 @@ int daemon_reload(enum action action, bool graceful) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        /* Reloading the daemon may take long, hence set a longer timeout here */
         r = sd_bus_call(bus, m, DAEMON_RELOAD_TIMEOUT_SEC, &error, NULL);
 
         /* On reexecution, we expect a disconnect, not a reply */

@@ -835,9 +835,9 @@ int manager_new(LookupScope scope, ManagerTestRunFlags test_run_flags, Manager *
                 .default_memory_accounting = MEMORY_ACCOUNTING_DEFAULT,
                 .default_tasks_accounting = true,
                 .default_tasks_max = TASKS_MAX_UNSET,
-                .default_timeout_start_usec = DEFAULT_TIMEOUT_USEC,
-                .default_timeout_stop_usec = DEFAULT_TIMEOUT_USEC,
-                .default_restart_usec = DEFAULT_RESTART_USEC,
+                .default_timeout_start_usec = manager_default_timeout(scope == LOOKUP_SCOPE_SYSTEM),
+                .default_timeout_stop_usec = manager_default_timeout(scope == LOOKUP_SCOPE_SYSTEM),
+                .default_restart_usec = RESTART_TIMEOUT_USEC,
                 .default_device_timeout_usec = DEFAULT_TIMEOUT_USEC,
 
                 .original_log_level = -1,
@@ -3682,7 +3682,6 @@ static int manager_run_environment_generators(Manager *m) {
                 [STDOUT_COLLECT] = &tmp,
                 [STDOUT_CONSUME] = &m->transient_environment,
         };
-        int r;
 
         if (MANAGER_IS_TEST_RUN(m) && !(m->test_run_flags & MANAGER_TEST_RUN_ENV_GENERATORS))
                 return 0;
@@ -3694,11 +3693,14 @@ static int manager_run_environment_generators(Manager *m) {
         if (!generator_path_any((const char* const*) paths))
                 return 0;
 
-        WITH_UMASK(0022)
-                r = execute_directories((const char* const*) paths, DEFAULT_TIMEOUT_USEC, gather_environment,
-                                        args, NULL, m->transient_environment,
-                                        EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS | EXEC_DIR_SET_SYSTEMD_EXEC_PID);
-        return r;
+        BLOCK_WITH_UMASK(0022);
+        return execute_directories(
+                        (const char* const*) paths,
+                        GENERATOR_TIMEOUT_USEC,
+                        /* callbacks= */ gather_environment, /* callback_args= */ args,
+                        NULL,
+                        m->transient_environment,
+                        EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS | EXEC_DIR_SET_SYSTEMD_EXEC_PID);
 }
 
 static int build_generator_environment(Manager *m, char ***ret) {
@@ -3790,7 +3792,7 @@ static int manager_execute_generators(Manager *m, char **paths, bool remount_ro)
         BLOCK_WITH_UMASK(0022);
         return execute_directories(
                         (const char* const*) paths,
-                        DEFAULT_TIMEOUT_USEC,
+                        GENERATOR_TIMEOUT_USEC,
                         /* callbacks= */ NULL, /* callback_args= */ NULL,
                         (char**) argv,
                         ge,
