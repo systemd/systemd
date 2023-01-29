@@ -74,6 +74,7 @@
 #include "rm-rf.h"
 #include "selinux-util.h"
 #include "signal-util.h"
+#include "slow-code.h"
 #include "socket-util.h"
 #include "special.h"
 #include "stat-util.h"
@@ -1189,6 +1190,7 @@ static int manager_setup_user_lookup_fd(Manager *m) {
 static unsigned manager_dispatch_cleanup_queue(Manager *m) {
         Unit *u;
         unsigned n = 0;
+        PROFILE_SLOW_CODE(10 * USEC_PER_SEC);
 
         assert(m);
 
@@ -1284,6 +1286,7 @@ good:
 static unsigned manager_dispatch_gc_unit_queue(Manager *m) {
         unsigned n = 0, gc_marker;
         Unit *u;
+        PROFILE_SLOW_CODE(10 * USEC_PER_SEC);
 
         assert(m);
 
@@ -1320,6 +1323,7 @@ static unsigned manager_dispatch_gc_unit_queue(Manager *m) {
 static unsigned manager_dispatch_gc_job_queue(Manager *m) {
         unsigned n = 0;
         Job *j;
+        PROFILE_SLOW_CODE(10 * USEC_PER_SEC);
 
         assert(m);
 
@@ -1602,6 +1606,7 @@ static void manager_enumerate_perpetual(Manager *m) {
 
 static void manager_enumerate(Manager *m) {
         assert(m);
+        PROFILE_SLOW_CODE(10 * USEC_PER_SEC);
 
         if (FLAGS_SET(m->test_run_flags, MANAGER_TEST_RUN_MINIMAL))
                 return;
@@ -1624,6 +1629,7 @@ static void manager_coldplug(Manager *m) {
         Unit *u;
         char *k;
         int r;
+        PROFILE_SLOW_CODE(10 * USEC_PER_SEC);
 
         assert(m);
 
@@ -1751,6 +1757,7 @@ static void manager_preset_all(Manager *m) {
 
 static void manager_ready(Manager *m) {
         assert(m);
+        PROFILE_SLOW_CODE(10 * USEC_PER_SEC);
 
         /* After having loaded everything, do the final round of catching up with what might have changed */
 
@@ -2070,6 +2077,7 @@ static int manager_dispatch_target_deps_queue(Manager *m) {
 unsigned manager_dispatch_load_queue(Manager *m) {
         Unit *u;
         unsigned n = 0;
+        PROFILE_SLOW_CODE(10 * USEC_PER_SEC);
 
         assert(m);
 
@@ -2305,6 +2313,7 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
         unsigned n = 0, budget;
         Unit *u;
         Job *j;
+        PROFILE_SLOW_CODE(10 * USEC_PER_SEC);
 
         assert(m);
 
@@ -3336,6 +3345,7 @@ int manager_reload(Manager *m) {
         _cleanup_fdset_free_ FDSet *fds = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
+        PROFILE_SLOW_CODE(10 * USEC_PER_SEC);
 
         assert(m);
 
