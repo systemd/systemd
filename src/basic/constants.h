@@ -25,14 +25,14 @@
 #  endif
 #endif
 
-#define DEFAULT_RESTART_USEC (100*USEC_PER_MSEC)
+#define RESTART_TIMEOUT_USEC (100*USEC_PER_MSEC)
 
 /* Many different things, but also system unit start/stop */
 #define DEFAULT_TIMEOUT_USEC (DEFAULT_TIMEOUT_SEC*USEC_PER_SEC)
 /* User unit start/stop */
 #define DEFAULT_USER_TIMEOUT_USEC (DEFAULT_USER_TIMEOUT_SEC*USEC_PER_SEC)
 /* Timeout for user confirmation on the console */
-#define DEFAULT_CONFIRM_USEC (30*USEC_PER_SEC)
+#define CONFIRM_TIMEOUT_USEC (30*USEC_PER_SEC)
 /* Generator execution */
 #define GENERATOR_TIMEOUT_USEC (1*USEC_PER_SEC)
 /* Shutdown and sleep callouts */
