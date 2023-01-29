@@ -191,12 +191,7 @@ if [ "$WITH_TESTS" = 1 ] ; then
 fi
 cd "$SRCDIR"
 
-# Ubuntu Focal is stuck with meson 0.53.0.
-if [ "$(meson -v | cut -d . -f 2)" -gt 53 ] ; then
-        meson install -C "$BUILDDIR" --quiet --no-rebuild --only-changed
-else
-        meson install -C "$BUILDDIR" --no-rebuild --only-changed
-fi
+meson install -C "$BUILDDIR" --quiet --no-rebuild --only-changed
 
 mkdir -p "$DESTDIR"/etc
 
