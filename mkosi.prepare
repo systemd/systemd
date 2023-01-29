@@ -1,0 +1,19 @@
+#!/bin/sh
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+if [ "$(grep '^ID=' /etc/os-release)" = "ID=\"centos\"" ] && [ "$(grep '^VERSION=' /etc/os-release)" = "VERSION=\"8\"" ]; then
+    # python39-pluggy is a pytest dependency that's not installed for some reason.
+    dnf \
+        -y \
+        --enablerepo=powertools \
+         --setopt=powertools.module_hotfixes=true \
+         install \
+         python39 \
+         python39-pefile \
+         python39-jinja2 \
+         python39-pytest \
+         python39-pluggy
+    alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1
+    alternatives --set python3 /usr/bin/python3.9
+fi
