@@ -235,7 +235,7 @@ if [ -n "$CI_BUILD" ]; then
 fi
 
 if [ -n "$SANITIZERS" ]; then
-        LD_PRELOAD=$(ldd $BUILDDIR/systemd | grep libasan.so | awk '{print $3}')
+        LD_PRELOAD=$(ldd "$BUILDDIR"/systemd | grep libasan.so | awk '{print $3}')
 
         mkdir -p "$DESTDIR/etc/systemd/system.conf.d"
 
@@ -292,7 +292,7 @@ if [ -d mkosi.kernel/ ]; then
 
         make O="$BUILDDIR/mkosi.kernel" -j "$(nproc)"
 
-        KERNEL_RELEASE="$(make O=$BUILDDIR/mkosi.kernel -s kernelrelease)"
+        KERNEL_RELEASE=$(make O="$BUILDDIR"/mkosi.kernel -s kernelrelease)
         mkdir -p "$DESTDIR/usr/lib/modules/$KERNEL_RELEASE"
         make O="$BUILDDIR/mkosi.kernel" INSTALL_HDR_PATH=/usr headers_install
         make O="$BUILDDIR/mkosi.kernel" INSTALL_MOD_PATH="$DESTDIR/usr" modules_install
