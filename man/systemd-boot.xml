@@ -518,6 +518,15 @@
     <para>systemd-boot will detect that it was started directly instead of being loaded from ESP and will
     search for the ESP in that case, taking into account boot order information from the hypervisor (if
     available).</para>
+
+    <para>Extra kernel command line arguments can be supplied via the
+    <literal>io.systemd.boot.kernel-cmdline-extra</literal> SMBIOS Type 11 string. Example command line for
+    setting this string using qemu:</para>
+
+    <para>
+      <command>qemu <replaceable>[ ... ]</replaceable>
+      -smbios type=11,value=io.systemd.boot.kernel-cmdline-extra=debug</command>
+    </para>
   </refsect1>
 
   <refsect1>
