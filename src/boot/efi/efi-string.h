@@ -105,6 +105,8 @@ static inline char16_t *xstr8_to_16(const char *str8) {
         return xstrn8_to_16(str8, strlen8(str8));
 }
 
+char *startswith8(const char *s, const char *prefix);
+
 bool efi_fnmatch(const char16_t *pattern, const char16_t *haystack);
 
 bool parse_number8(const char *s, uint64_t *ret_u, const char **ret_tail);
@@ -131,6 +133,9 @@ _gnu_printf_(2, 3) void printf_status(EFI_STATUS status, const char *format, ...
 _gnu_printf_(2, 0) void vprintf_status(EFI_STATUS status, const char *format, va_list ap);
 _gnu_printf_(2, 3) _warn_unused_result_ char16_t *xasprintf_status(EFI_STATUS status, const char *format, ...);
 _gnu_printf_(2, 0) _warn_unused_result_ char16_t *xvasprintf_status(EFI_STATUS status, const char *format, va_list ap);
+
+#define NULSTR_FOREACH8(i, l)                                    \
+        for (typeof(*(l)) *(i) = (l); (i) && *(i); (i) = strchr8((i), 0)+1)
 
 #if SD_BOOT
 #  define printf(...) printf_status(EFI_SUCCESS, __VA_ARGS__)
