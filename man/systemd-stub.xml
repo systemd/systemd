@@ -380,6 +380,23 @@
   </refsect1>
 
   <refsect1>
+    <title>Credentials</title>
+
+    <para><command>systemd-stub</command> will read unencrypted non-binary credentials from the SMBIOS Type
+    11 table. The following credentials are used when passed in:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>boot.kernel-cmdline-extra</varname></term>
+
+        <listitem><para>May contain a space separated list of extra kernel command line arguments. If set,
+        the kernel command line arguments will be appended to any kernel command line arguments bundled with
+        the UKI.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>Assembling Kernel Images</title>
 
     <para>In order to assemble a bootable Unified Kernel Image from various components as described above, use
