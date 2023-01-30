@@ -105,6 +105,8 @@ static inline char16_t *xstr8_to_16(const char *str8) {
         return xstrn8_to_16(str8, strlen8(str8));
 }
 
+char *startswith8(const char *s, const char *prefix);
+
 bool efi_fnmatch(const char16_t *pattern, const char16_t *haystack);
 
 bool parse_number8(const char *s, uint64_t *ret_u, const char **ret_tail);
