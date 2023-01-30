@@ -16,6 +16,7 @@
 #include "splash.h"
 #include "tpm-pcr.h"
 #include "util.h"
+#include "vmm.h"
 
 /* magic string to find in the binary image */
 _used_ _section_(".sdmagic") static const char magic[] = "#### LoaderInfo: systemd-stub " GIT_VERSION " ####";
@@ -275,6 +276,12 @@ static EFI_STATUS run(EFI_HANDLE image) {
                                 (char *) loaded_image->ImageBase + addrs[UNIFIED_SECTION_CMDLINE],
                                 szs[UNIFIED_SECTION_CMDLINE]);
                 mangle_stub_cmdline(cmdline);
+        }
+
+        const char *extra = smbios_find_credential("stub.kernel-cmdline-extra");
+        if (extra) {
+                _cleanup_free_ char16_t *tmp = cmdline, *extra16 = xstr8_to_16(extra)
+                cmdline = xasprintf("%ls %ls", tmp, extra16);
         }
 
         export_variables(loaded_image);
