@@ -116,7 +116,7 @@ DEFINE_STRCPY(char16_t, strcpy16);
                         s++;                       \
                 }                                  \
                                                    \
-                return NULL;                       \
+                return c ? NULL : (type *) s;      \
         }
 
 DEFINE_STRCHR(char, strchr8);
