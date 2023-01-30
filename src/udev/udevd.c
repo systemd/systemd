@@ -1473,6 +1473,29 @@ static int listen_fds(int *ret_ctrl, int *ret_netlink) {
         return 0;
 }
 
+static int open_control_socket(int *ret_fd) {
+        _cleanup_close_ int fd = -EBADF;
+        struct sockaddr_un sa = {
+                .sun_family = AF_UNIX,
+                .sun_path = "/run/udev/control"
+        };
+        int r;
+
+        assert(ret_fd);
+
+        fd = socket(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0);
+        if (fd < 0)
+                return -errno;
+
+        r = RET_NERRNO(bind(fd, &sa, SOCKADDR_UN_LEN(sa)));
+        if (r < 0)
+                return r;
+
+        *ret_fd = fd;
+
+        return 0;
+}
+
 /*
  * read the kernel command line, in case we need to get into debug mode
  *   udev.log_level=<level>                    syslog priority
@@ -1940,6 +1963,12 @@ int run_udevd(int argc, char *argv[]) {
         r = listen_fds(&fd_ctrl, &fd_uevent);
         if (r < 0)
                 return log_error_errno(r, "Failed to listen on fds: %m");
+
+        if (fd_ctrl < 0) {
+                r = open_control_socket(&fd_ctrl);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open control socket: %m");
+        }
 
         r = manager_new(&manager, fd_ctrl, fd_uevent);
         if (r < 0)
