@@ -303,21 +303,10 @@ const char* smbios_find_oem_string(const char *name) {
         if (!type11 || type11->header.length < sizeof(SmbiosTableType11))
                 return NULL;
 
-        const char *s = type11->contents;
-        size_t l = type11->header.length - offsetof(SmbiosTableType11, contents);
-
-        for (const char *p = s; p < s + l; ) {
-                const char *e;
-
-                e = memchr(p, 0, s + l - p);
-                if (!e)
-                        break;
-
+        NULSTR_FOREACH8(s, type11->contents) {
                 const char *eq = startswith8(s, name);
                 if (eq && *eq == '=')
                         return eq + 1;
-
-                p = e + 1;
         }
 
         return NULL;
