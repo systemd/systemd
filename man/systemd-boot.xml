@@ -504,6 +504,22 @@
   </refsect1>
 
   <refsect1>
+    <title>SMBIOS Type 11 Strings</title>
+
+    <para>The following SMBIOS Type 11 string are defined, read by <command>systemd-boot</command>, for
+    communication between the virtual machine manager and the bootloader. The expected format is
+    <literal>[name]=[value]</para>.
+
+    <variablelist class='smbios-type-11-strings'>
+      <varlistentry>
+        <term><varname>io.systemd.boot.kernel-cmdline-extra</varname></term>
+        <listitem><para>If set, the value of this string is added to the list of kernel command line
+        arguments that are passed to the kernel.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>Using systemd-boot in virtual machines.</title>
 
     <para>When using qemu with OVMF (UEFI Firmware for virtual machines) the <option>-kernel</option> switch
@@ -518,6 +534,13 @@
     <para>systemd-boot will detect that it was started directly instead of being loaded from ESP and will
     search for the ESP in that case, taking into account boot order information from the hypervisor (if
     available).</para>
+
+    <para>When using qemu, SMBIOS Type 11 strings can be configured as follows:</para>
+
+    <para>
+      <command>qemu <replaceable>[ ... ]</replaceable>
+      -smbios type=11,value=io.systemd.boot.kernel-cmdline-extra=debug</command>
+    </para>
   </refsect1>
 
   <refsect1>
