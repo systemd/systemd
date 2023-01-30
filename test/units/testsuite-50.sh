@@ -424,6 +424,18 @@ grep -q -F '{"name":"b","type":"raw","class":"portable","ro":false,"path":"/run/
 grep -q -F '{"name":"c","type":"raw","class":"extension","ro":false,"path":"/run/extensions/c.raw"' /tmp/discover.json
 rm /tmp/discover.json /run/machines/a.raw /run/portables/b.raw /run/extensions/c.raw
 
+mkdir -p /tmp/syscfg-test/etc/syscfgs /run/syscfgs/
+touch /tmp/syscfg-test/etc/syscfg-testfile
+echo "MARKER_SYSCFG_123" > /tmp/syscfg-test/etc/syscfg-testfile
+mkdir -p /tmp/syscfg-test/etc/syscfg-release.d/
+( echo "ID=_any"
+  echo "ARCHITECTURE=_any" ) > /tmp/syscfg-test/etc/syscfg-release.d/syscfg-release.unittest
+mksquashfs /tmp/syscfg-test/ /run/syscfgs/unittest.raw -noappend
+systemd-syscfg merge
+grep -q -F "MARKER_SYSCFG_123" /etc/syscfg-testfile
+systemd-syscfg unmerge
+rmdir /tmp/syscfg-test/etc/syscfgs /run/syscfgs/
+
 echo OK >/testok
 
 exit 0
