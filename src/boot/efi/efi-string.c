@@ -216,6 +216,21 @@ char16_t *xstrn8_to_16(const char *str8, size_t n) {
         return str16;
 }
 
+char *startswith8(const char *s, const char *prefix) {
+        size_t l;
+
+        assert(prefix);
+
+        if (!s)
+                return NULL;
+
+        l = strlen8(prefix);
+        if (!strneq8(s, prefix, l))
+                return NULL;
+
+        return (char*) s + l;
+}
+
 static bool efi_fnmatch_prefix(const char16_t *p, const char16_t *h, const char16_t **ret_p, const char16_t **ret_h) {
         assert(p);
         assert(h);
