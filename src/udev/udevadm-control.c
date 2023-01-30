@@ -24,7 +24,8 @@
 #include "syslog-util.h"
 #include "time-util.h"
 #include "udevadm.h"
-#include "udev-ctrl.h"
+#include "udev-varlink.h"
+#include "varlink.h"
 #include "virt.h"
 
 static int help(void) {
@@ -47,9 +48,10 @@ static int help(void) {
 }
 
 int control_main(int argc, char *argv[], void *userdata) {
-        _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
+        _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
         usec_t timeout = 60 * USEC_PER_SEC;
         int c, r;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
         enum {
                 ARG_PING = 0x100,
@@ -82,17 +84,28 @@ int control_main(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "This command expects one or more options.");
 
-        r = udev_ctrl_new(&uctrl);
+        r = udev_varlink_connect(&link);
         if (r < 0)
-                return log_error_errno(r, "Failed to initialize udev control: %m");
+                return log_error_errno(r, "Failed to initialize varlink connection: %m");
+
+        while ((c = getopt_long(argc, argv, "el:sSRp:m:t:Vh", options, NULL)) >= 0)
+                if (c == 't') {
+                        r = parse_sec(optarg, &timeout);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse timeout value '%s': %m", optarg);
+                        break;
+                }
+        optind = 0;
+
+        r = varlink_set_relative_timeout(link, timeout);
+        if (r < 0)
+                return log_error_errno(r, "Failed to apply timeout: %m");
 
         while ((c = getopt_long(argc, argv, "el:sSRp:m:t:Vh", options, NULL)) >= 0)
                 switch (c) {
                 case 'e':
-                        r = udev_ctrl_send_exit(uctrl);
-                        if (r == -ENOANO)
-                                log_warning("Cannot specify --exit after --exit, ignoring.");
-                        else if (r < 0)
+                        r = udev_varlink_call(link, "io.systemd.udev.Exit", NULL, NULL);
+                        if (r < 0)
                                 return log_error_errno(r, "Failed to send exit request: %m");
                         break;
                 case 'l':
@@ -100,41 +113,39 @@ int control_main(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse log level '%s': %m", optarg);
 
-                        r = udev_ctrl_send_set_log_level(uctrl, r);
-                        if (r == -ENOANO)
-                                log_warning("Cannot specify --log-level after --exit, ignoring.");
-                        else if (r < 0)
+                        r = json_build(&v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("log-level", JSON_BUILD_INTEGER(r))));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to build json object: %m");
+
+                        r = udev_varlink_call(link, "io.systemd.udev.SetLogLevel", v, NULL);
+                        if (r < 0)
                                 return log_error_errno(r, "Failed to send request to set log level: %m");
                         break;
                 case 's':
-                        r = udev_ctrl_send_stop_exec_queue(uctrl);
-                        if (r == -ENOANO)
-                                log_warning("Cannot specify --stop-exec-queue after --exit, ignoring.");
-                        else if (r < 0)
+                        r = udev_varlink_call(link, "io.systemd.udev.StopExecQueue", NULL, NULL);
+                        if (r < 0)
                                 return log_error_errno(r, "Failed to send request to stop exec queue: %m");
                         break;
                 case 'S':
-                        r = udev_ctrl_send_start_exec_queue(uctrl);
-                        if (r == -ENOANO)
-                                log_warning("Cannot specify --start-exec-queue after --exit, ignoring.");
-                        else if (r < 0)
+                        r = udev_varlink_call(link, "io.systemd.udev.StartExecQueue", NULL, NULL);
+                        if (r < 0)
                                 return log_error_errno(r, "Failed to send request to start exec queue: %m");
                         break;
                 case 'R':
-                        r = udev_ctrl_send_reload(uctrl);
-                        if (r == -ENOANO)
-                                log_warning("Cannot specify --reload after --exit, ignoring.");
-                        else if (r < 0)
+                        r = udev_varlink_call(link, "io.systemd.udev.Reload", NULL, NULL);
+                        if (r < 0)
                                 return log_error_errno(r, "Failed to send reload request: %m");
                         break;
                 case 'p':
                         if (!strchr(optarg, '='))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "expect <KEY>=<value> instead of '%s'", optarg);
 
-                        r = udev_ctrl_send_set_env(uctrl, optarg);
-                        if (r == -ENOANO)
-                                log_warning("Cannot specify --property after --exit, ignoring.");
-                        else if (r < 0)
+                        r = json_build(&v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("assignment", JSON_BUILD_STRING(optarg))));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to build json object: %m");
+
+                        r = udev_varlink_call(link, "io.systemd.udev.SetEnvironment", v, NULL);
+                        if (r < 0)
                                 return log_error_errno(r, "Failed to send request to update environment: %m");
                         break;
                 case 'm': {
@@ -142,26 +153,23 @@ int control_main(int argc, char *argv[], void *userdata) {
 
                         r = safe_atou(optarg, &i);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse maximum number of events '%s': %m", optarg);
+                                return log_error_errno(r, "Failed to parse maximum number of children '%s': %m", optarg);
 
-                        r = udev_ctrl_send_set_children_max(uctrl, i);
-                        if (r == -ENOANO)
-                                log_warning("Cannot specify --children-max after --exit, ignoring.");
-                        else if (r < 0)
+                        r = json_build(&v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("n", JSON_BUILD_UNSIGNED(i))));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to build json object: %m");
+
+                        r = udev_varlink_call(link, "io.systemd.udev.SetChildrenMax", v, NULL);
+                        if (r < 0)
                                 return log_error_errno(r, "Failed to send request to set number of children: %m");
                         break;
                 }
                 case ARG_PING:
-                        r = udev_ctrl_send_ping(uctrl);
-                        if (r == -ENOANO)
-                                log_error("Cannot specify --ping after --exit, ignoring.");
-                        else if (r < 0)
+                        r = udev_varlink_call(link, "io.systemd.udev.Ping", NULL, NULL);
+                        if (r < 0)
                                 return log_error_errno(r, "Failed to send a ping message: %m");
                         break;
-                case 't':
-                        r = parse_sec(optarg, &timeout);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse timeout value '%s': %m", optarg);
+                case 't': /* Already handled, ignore */
                         break;
                 case 'V':
                         return print_version();
@@ -176,10 +184,6 @@ int control_main(int argc, char *argv[], void *userdata) {
         if (optind < argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Extraneous argument: %s", argv[optind]);
-
-        r = udev_ctrl_wait(uctrl, timeout);
-        if (r < 0)
-                return log_error_errno(r, "Failed to wait for daemon to reply: %m");
 
         return 0;
 }

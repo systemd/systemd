@@ -151,6 +151,8 @@ units = [
          'sysinit.target.wants/'],
         ['systemd-udevd-control.socket',        '',
          'sockets.target.wants/'],
+        ['systemd-udevd-varlink.socket',        '',
+         'sockets.target.wants/'],
         ['systemd-udev-settle.service',         ''],
         ['systemd-udev-trigger.service',        '',
          'sysinit.target.wants/'],
