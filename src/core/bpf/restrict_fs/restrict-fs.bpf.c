@@ -39,16 +39,20 @@ struct {
 SEC("lsm/file_open")
 int BPF_PROG(restrict_filesystems, struct file *file, int ret)
 {
-        unsigned long magic_number;
+        unsigned long raw_magic_number;
         uint64_t cgroup_id;
-        uint32_t *value, *magic_map, zero = 0, *is_allow;
+        uint32_t *value, *magic_map, magic_number, zero = 0, *is_allow;
 
         /* ret is the return value from the previous BPF program or 0 if it's
          * the first hook */
         if (ret != 0)
                 return ret;
 
-        BPF_CORE_READ_INTO(&magic_number, file, f_inode, i_sb, s_magic);
+        BPF_CORE_READ_INTO(&raw_magic_number, file, f_inode, i_sb, s_magic);
+        /* super_block.s_magic is unsigned long, but magic_map keys are
+         * uint32_t. Using s_magic as-is would fail on big-endian systems,
+         * which have 64-bit unsigned long. So cast it. */
+        magic_number = (uint32_t)raw_magic_number;
 
         cgroup_id = bpf_get_current_cgroup_id();
 
