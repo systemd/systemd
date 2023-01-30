@@ -3314,12 +3314,6 @@ static int parse_line(
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "base64 decoding not supported for symlink targets.");
                 }
-
-                if (!i.argument) {
-                        i.argument = path_join("/usr/share/factory", i.path);
-                        if (!i.argument)
-                                return log_oom();
-                }
                 break;
 
         case WRITE_FILE:
@@ -3334,34 +3328,6 @@ static int parse_line(
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "base64 decoding not supported for copy sources.");
                 }
-
-                if (!i.argument) {
-                        i.argument = path_join("/usr/share/factory", i.path);
-                        if (!i.argument)
-                                return log_oom();
-                } else if (!path_is_absolute(i.argument)) {
-                        *invalid_config = true;
-                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "Source path '%s' is not absolute.", i.argument);
-
-                }
-
-                if (!empty_or_root(arg_root)) {
-                        char *p;
-
-                        p = path_join(arg_root, i.argument);
-                        if (!p)
-                                return log_oom();
-                        free_and_replace(i.argument, p);
-                }
-
-                path_simplify(i.argument);
-
-                if (laccess(i.argument, F_OK) == -ENOENT) {
-                        /* Silently skip over lines where the source file is missing. */
-                        log_syntax(NULL, LOG_DEBUG, fname, line, 0, "Copy source path '%s' does not exist, skipping line.", i.argument);
-                        return 0;
-                }
-
                 break;
 
         case CREATE_CHAR_DEVICE:
@@ -3453,6 +3419,49 @@ static int parse_line(
                                 *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to substitute specifiers in argument: %m");
                 }
+        }
+
+        switch (i.type) {
+        case CREATE_SYMLINK:
+                if (!i.argument) {
+                        i.argument = path_join("/usr/share/factory", i.path);
+                        if (!i.argument)
+                                return log_oom();
+                }
+                break;
+
+        case COPY_FILES:
+                if (!i.argument) {
+                        i.argument = path_join("/usr/share/factory", i.path);
+                        if (!i.argument)
+                                return log_oom();
+                } else if (!path_is_absolute(i.argument)) {
+                        *invalid_config = true;
+                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "Source path '%s' is not absolute.", i.argument);
+
+                }
+
+                if (!empty_or_root(arg_root)) {
+                        char *p;
+
+                        p = path_join(arg_root, i.argument);
+                        if (!p)
+                                return log_oom();
+                        free_and_replace(i.argument, p);
+                }
+
+                path_simplify(i.argument);
+
+                if (laccess(i.argument, F_OK) == -ENOENT) {
+                        /* Silently skip over lines where the source file is missing. */
+                        log_syntax(NULL, LOG_DEBUG, fname, line, 0, "Copy source path '%s' does not exist, skipping line.", i.argument);
+                        return 0;
+                }
+
+                break;
+
+        default:
+                break;
         }
 
         if (from_cred) {
