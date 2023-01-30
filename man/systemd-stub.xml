@@ -380,6 +380,23 @@
   </refsect1>
 
   <refsect1>
+    <title>SMBIOS Type 11 Strings</title>
+
+    <para><command>systemd-stub</command> can be configured using SMBIOS Type 11 strings. Applicable strings
+    consist of a name, followed by <literal>=</literal>, followed by the value.
+    <command>systemd-stub</command> will search the table for a string with a specific name, and if found,
+    use its value. The following strings are read:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>io.systemd.stub.kernel-cmdline-extra</varname></term>
+        <listitem><para>If set, the value of this string is added to the list of kernel command line
+        arguments that are passed to the kernel.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>Assembling Kernel Images</title>
 
     <para>In order to assemble a bootable Unified Kernel Image from various components as described above, use
