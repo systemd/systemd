@@ -63,6 +63,30 @@ TEST(path_get_unit) {
         check_p_g_u("/user.slice/user-1000.slice/user@.service/server.service", -ENXIO, NULL);
 }
 
+static void check_p_g_u_p(const char *path, int code, const char *result) {
+        _cleanup_free_ char *unit = NULL;
+        int r;
+
+        r = cg_path_get_unit_path(path, &unit);
+        printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit, r, strnull(result), code);
+        assert_se(r == code);
+        assert_se(streq_ptr(unit, result));
+}
+
+TEST(path_get_unit_path) {
+        check_p_g_u_p("/system.slice/foobar.service/sdfdsaf", 0, "/system.slice/foobar.service");
+        check_p_g_u_p("/system.slice/getty@tty5.service", 0, "/system.slice/getty@tty5.service");
+        check_p_g_u_p("/system.slice/getty@tty5.service/aaa/bbb", 0, "/system.slice/getty@tty5.service");
+        check_p_g_u_p("/system.slice/getty@tty5.service/", 0, "/system.slice/getty@tty5.service");
+        check_p_g_u_p("/system.slice/getty@tty6.service/tty5", 0, "/system.slice/getty@tty6.service");
+        check_p_g_u_p("sadfdsafsda", -ENXIO, NULL);
+        check_p_g_u_p("/system.slice/getty####@tty6.service/xxx", -ENXIO, NULL);
+        check_p_g_u_p("/system.slice/system-waldo.slice/foobar.service/sdfdsaf", 0, "/system.slice/system-waldo.slice/foobar.service");
+        check_p_g_u_p("/system.slice/system-waldo.slice/_cpu.service/sdfdsaf", 0, "/system.slice/system-waldo.slice/cpu.service");
+        check_p_g_u_p("/user.slice/user-1000.slice/user@1000.service/server.service", 0, "/user.slice/user-1000.slice/user@1000.service");
+        check_p_g_u_p("/user.slice/user-1000.slice/user@.service/server.service", -ENXIO, NULL);
+}
+
 static void check_p_g_u_u(const char *path, int code, const char *result) {
         _cleanup_free_ char *unit = NULL;
         int r;
