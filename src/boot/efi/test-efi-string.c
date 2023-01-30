@@ -229,6 +229,8 @@ TEST(strchr8) {
         assert_se(strchr8(str, 'a') == &str[0]);
         assert_se(strchr8(str, 'c') == &str[2]);
         assert_se(strchr8(str, 'B') == &str[4]);
+
+        assert_se(strchr8(str, 0) == str + strlen8(str));
 }
 
 TEST(strchr16) {
@@ -240,6 +242,8 @@ TEST(strchr16) {
         assert_se(strchr16(str, 'a') == &str[0]);
         assert_se(strchr16(str, 'c') == &str[2]);
         assert_se(strchr16(str, 'B') == &str[4]);
+
+        assert_se(strchr16(str, 0) == str + strlen16(str));
 }
 
 TEST(xstrndup8) {
