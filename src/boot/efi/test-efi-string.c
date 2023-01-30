@@ -355,6 +355,18 @@ TEST(xstrn8_to_16) {
         free(s);
 }
 
+TEST(startswith8) {
+        assert_se(streq8(startswith8("", ""), ""));
+        assert_se(streq8(startswith8("x", ""), "x"));
+        assert_se(!startswith8("", "x"));
+        assert_se(!startswith8("", "xxxxxxxx"));
+        assert_se(streq8(startswith8("xxx", "x"), "xx"));
+        assert_se(streq8(startswith8("xxx", "xx"), "x"));
+        assert_se(streq8(startswith8("xxx", "xxx"), ""));
+        assert_se(!startswith8("xxx", "xxxx"));
+        assert_se(!startswith8(NULL, ""));
+}
+
 #define TEST_FNMATCH_ONE(pattern, haystack, expect)                                     \
         ({                                                                              \
                 assert_se(fnmatch(pattern, haystack, 0) == (expect ? 0 : FNM_NOMATCH)); \
