@@ -201,6 +201,12 @@ typedef struct {
         uint8_t bios_characteristics_ext[2];
 } _packed_ SmbiosTableType0;
 
+typedef struct {
+        SmbiosHeader header;
+        uint8_t count;
+        char contents[];
+} _packed_ SmbiosTableType11;
+
 static const void *find_smbios_configuration_table(uint64_t *ret_size) {
         assert(ret_size);
 
@@ -288,4 +294,31 @@ bool in_hypervisor(void) {
 
         cache = cpuid_in_hypervisor() || smbios_in_hypervisor();
         return cache;
+}
+
+const char* smbios_find_oem_string(const char *name) {
+        assert(name);
+
+        const SmbiosTableType11 *type11 = (const SmbiosTableType11 *) get_smbios_table(11);
+        if (!type11 || type11->header.length < sizeof(SmbiosTableType11))
+                return NULL;
+
+        const char *s = type11->contents;
+        size_t l = type11->header.length - offsetof(SmbiosTableType11, contents);
+
+        for (const char *p = s; p < s + l; ) {
+                const char *e;
+
+                e = memchr(p, 0, s + l - p);
+                if (!e)
+                        break;
+
+                const char *eq = startswith8(s, name);
+                if (eq && *eq == '=')
+                        return eq + 1;
+
+                p = e + 1;
+        }
+
+        return NULL;
 }
