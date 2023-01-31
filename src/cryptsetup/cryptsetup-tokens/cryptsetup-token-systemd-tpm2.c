@@ -226,10 +226,10 @@ _public_ void cryptsetup_token_dump(
                 return (void) crypt_log_debug_errno(cd, r, "Can not dump " TOKEN_NAME " content: %m");
 
         crypt_log(cd, "\ttpm2-hash-pcrs:   %s\n", strna(hash_pcrs_str));
-        crypt_log(cd, "\ttpm2-pcr-bank:    %s\n", strna(tpm2_pcr_bank_to_string(pcr_bank)));
+        crypt_log(cd, "\ttpm2-pcr-bank:    %s\n", strna(tpm2_hash_alg_to_string(pcr_bank)));
         crypt_log(cd, "\ttpm2-pubkey:" CRYPT_DUMP_LINE_SEP "%s\n", pubkey_str);
         crypt_log(cd, "\ttpm2-pubkey-pcrs: %s\n", strna(pubkey_pcrs_str));
-        crypt_log(cd, "\ttpm2-primary-alg: %s\n", strna(tpm2_primary_alg_to_string(primary_alg)));
+        crypt_log(cd, "\ttpm2-primary-alg: %s\n", strna(tpm2_asym_alg_to_string(primary_alg)));
         crypt_log(cd, "\ttpm2-blob:        %s\n", blob_str);
         crypt_log(cd, "\ttpm2-policy-hash:" CRYPT_DUMP_LINE_SEP "%s\n", policy_hash_str);
         crypt_log(cd, "\ttpm2-pin:         %s\n", true_false(flags & TPM2_FLAGS_USE_PIN));
@@ -288,7 +288,7 @@ _public_ int cryptsetup_token_validate(
                         return 1;
                 }
 
-                if (tpm2_pcr_bank_from_string(json_variant_string(w)) < 0) {
+                if (tpm2_hash_alg_from_string(json_variant_string(w)) < 0) {
                         crypt_log_debug(cd, "TPM2 PCR bank invalid or not supported: %s.", json_variant_string(w));
                         return 1;
                 }
@@ -305,7 +305,7 @@ _public_ int cryptsetup_token_validate(
                         return 1;
                 }
 
-                if (tpm2_primary_alg_from_string(json_variant_string(w)) < 0) {
+                if (tpm2_asym_alg_from_string(json_variant_string(w)) < 0) {
                         crypt_log_debug(cd, "TPM2 primary key algorithm invalid or not supported: %s", json_variant_string(w));
                         return 1;
                 }
