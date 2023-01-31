@@ -16,6 +16,8 @@ int acquire_luks2_key(
                 const char *signature_path,
                 const char *pin,
                 uint16_t primary_alg,
+                const void *primary_template,
+                size_t primary_template_size,
                 const void *key_data,
                 size_t key_data_size,
                 const void *policy_hash,
