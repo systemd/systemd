@@ -105,6 +105,8 @@ static inline char16_t *xstr8_to_16(const char *str8) {
         return xstrn8_to_16(str8, strlen8(str8));
 }
 
+char *startswith8(const char *s, const char *prefix);
+
 bool efi_fnmatch(const char16_t *pattern, const char16_t *haystack);
 
 bool parse_number8(const char *s, uint64_t *ret_u, const char **ret_tail);
@@ -132,6 +134,9 @@ _gnu_printf_(2, 0) void vprintf_status(EFI_STATUS status, const char *format, va
 _gnu_printf_(2, 3) _warn_unused_result_ char16_t *xasprintf_status(EFI_STATUS status, const char *format, ...);
 _gnu_printf_(2, 0) _warn_unused_result_ char16_t *xvasprintf_status(EFI_STATUS status, const char *format, va_list ap);
 
+#define NULSTR_FOREACH8(i, l)                                    \
+        for (typeof(*(l)) *(i) = (l); (i) && *(i); (i) = strchr8((i), 0)+1)
+
 #if SD_BOOT
 #  define printf(...) printf_status(EFI_SUCCESS, __VA_ARGS__)
 #  define xasprintf(...) xasprintf_status(EFI_SUCCESS, __VA_ARGS__)
@@ -143,6 +148,7 @@ _gnu_printf_(2, 0) _warn_unused_result_ char16_t *xvasprintf_status(EFI_STATUS s
 #  define memcmp __builtin_memcmp
 #  define memcpy __builtin_memcpy
 #  define memset __builtin_memset
+#  define memchr __builtin_memchr
 
 static inline void *mempcpy(void * restrict dest, const void * restrict src, size_t n) {
         if (!dest || !src || n == 0)
@@ -156,4 +162,5 @@ static inline void *mempcpy(void * restrict dest, const void * restrict src, siz
 int efi_memcmp(const void *p1, const void *p2, size_t n);
 void *efi_memcpy(void * restrict dest, const void * restrict src, size_t n);
 void *efi_memset(void *p, int c, size_t n);
+void *efi_memchr(const void *p, int c, size_t n);
 #endif
