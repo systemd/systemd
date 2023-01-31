@@ -680,4 +680,15 @@ TEST(efi_memset) {
         assert_se(memcmp(buf, "aaaaaaaaaa", 10) == 0);
 }
 
+TEST(efi_memchr) {
+        assert_se(streq8(efi_memchr("abcde", 'c', 5), "cde"));
+        assert_se(streq8(efi_memchr("abcde", 'c', 3), "cde"));
+        assert_se(streq8(efi_memchr("abcde", 'c', 2), NULL));
+        assert_se(streq8(efi_memchr("abcde", 'c', 7), "cde"));
+        assert_se(streq8(efi_memchr("abcde", 'q', 5), NULL));
+        assert_se(streq8(efi_memchr("abcde", 'q', 0), NULL));
+        assert_se(streq8(efi_memchr("abcde", 0, 6), ""));
+        assert_se(efi_memchr(NULL, 0, 0) == NULL);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);

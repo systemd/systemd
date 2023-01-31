@@ -884,11 +884,13 @@ char16_t *xvasprintf_status(EFI_STATUS status, const char *format, va_list ap) {
 #  undef memcmp
 #  undef memcpy
 #  undef memset
+#  undef memchr
 #else
 /* And for userspace unit testing we need to give them an efi_ prefix. */
 #  define memcmp efi_memcmp
 #  define memcpy efi_memcpy
 #  define memset efi_memset
+#  define memchr efi_memchr
 #endif
 
 _used_ int memcmp(const void *p1, const void *p2, size_t n) {
@@ -958,4 +960,17 @@ _used_ void *memset(void *p, int c, size_t n) {
         }
 
         return p;
+}
+
+_used_ void *memchr(const void *p, int c, size_t n) {
+        if (!p || n == 0)
+                return NULL;
+
+        const uint8_t *q = p;
+        for (size_t i = 0; i < n; i++) {
+                if (q[i] == c)
+                        return (void *) (q + i);
+        }
+
+        return NULL;
 }
