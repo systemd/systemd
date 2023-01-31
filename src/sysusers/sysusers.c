@@ -135,6 +135,14 @@ static int errno_is_not_exists(int code) {
         return IN_SET(code, 0, ENOENT, ESRCH, EBADF, EPERM);
 }
 
+/* Note: the lifetime of the compound literal is the immediately surrounding block,
+ * see C11 §6.5.2.5, and
+ * https://stackoverflow.com/questions/34880638/compound-literal-lifetime-and-if-blocks */
+#define FORMAT_UID(is_set, uid) \
+        (is_set ? snprintf_ok((char[DECIMAL_STR_MAX(uid_t)]){}, DECIMAL_STR_MAX(uid_t), UID_FMT, uid) : "(unset)")
+#define FORMAT_GID(is_set, gid) \
+        (is_set ? snprintf_ok((char[DECIMAL_STR_MAX(gid_t)]){}, DECIMAL_STR_MAX(gid_t), GID_FMT, gid) : "(unset)")
+
 static void maybe_emit_login_defs_warning(void) {
         if (!login_defs_need_warning)
                 return;
@@ -1494,36 +1502,63 @@ static int item_equivalent(Item *a, Item *b) {
         assert(a);
         assert(b);
 
-        if (a->type != b->type)
+        if (a->type != b->type) {
+                log_syntax(NULL, LOG_DEBUG, a->filename, a->line, 0,
+                           "Item not equivalent because types differ");
                 return false;
+        }
 
-        if (!streq_ptr(a->name, b->name))
+        if (!streq_ptr(a->name, b->name)) {
+                log_syntax(NULL, LOG_DEBUG, a->filename, a->line, 0,
+                           "Item not equivalent because names differ ('%s' vs. '%s')",
+                           a->name, b->name);
                 return false;
+        }
 
         /* Paths were simplified previously, so we can use streq. */
-        if (!streq_ptr(a->uid_path, b->uid_path))
+        if (!streq_ptr(a->uid_path, b->uid_path)) {
+                log_syntax(NULL, LOG_DEBUG, a->filename, a->line, 0,
+                           "Item not equivalent because UID paths differ (%s vs. %s)",
+                           a->uid_path ?: "(unset)", b->uid_path ?: "(unset)");
                 return false;
+        }
 
-        if (!streq_ptr(a->gid_path, b->gid_path))
+        if (!streq_ptr(a->gid_path, b->gid_path)) {
+                log_syntax(NULL, LOG_DEBUG, a->filename, a->line, 0,
+                           "Item not equivalent because GID paths differ (%s vs. %s)",
+                           a->gid_path ?: "(unset)", b->gid_path ?: "(unset)");
                 return false;
+        }
 
-        if (!streq_ptr(a->description, b->description))
+        if (!streq_ptr(a->description, b->description))  {
+                log_syntax(NULL, LOG_DEBUG, a->filename, a->line, 0,
+                           "Item not equivalent because descriptions differ ('%s' vs. '%s')",
+                           strempty(a->description), strempty(b->description));
                 return false;
+        }
 
-        if (a->uid_set != b->uid_set)
+        if ((a->uid_set != b->uid_set) ||
+            (a->uid_set && a->uid != b->uid)) {
+                log_syntax(NULL, LOG_DEBUG, a->filename, a->line, 0,
+                           "Item not equivalent because UIDs differ (%s vs. %s)",
+                           FORMAT_UID(a->uid_set, a->uid), FORMAT_UID(b->uid_set, b->uid));
                 return false;
+        }
 
-        if (a->uid_set && a->uid != b->uid)
+        if ((a->gid_set != b->gid_set) ||
+            (a->gid_set && a->gid != b->gid)) {
+                log_syntax(NULL, LOG_DEBUG, a->filename, a->line, 0,
+                           "Item not equivalent because GIDs differ (%s vs. %s)",
+                           FORMAT_GID(a->gid_set, a->gid), FORMAT_GID(b->gid_set, b->gid));
                 return false;
+        }
 
-        if (a->gid_set != b->gid_set)
+        if (!streq_ptr(a->home, b->home)) {
+                log_syntax(NULL, LOG_DEBUG, a->filename, a->line, 0,
+                           "Item not equivalent because home directories differ ('%s' vs. '%s')",
+                           strempty(a->description), strempty(b->description));
                 return false;
-
-        if (a->gid_set && a->gid != b->gid)
-                return false;
-
-        if (!streq_ptr(a->home, b->home))
-                return false;
+        }
 
         /* Check if the two paths refer to the same file.
          * If the paths are equal (after normalization), it's obviously the same file.
@@ -1554,8 +1589,12 @@ static int item_equivalent(Item *a, Item *b) {
                         return ERRNO_IS_RESOURCE(r) ? r : false;
                 }
 
-                if (!path_equal(pa, pb))
+                if (!path_equal(pa, pb)) {
+                        log_syntax(NULL, LOG_DEBUG, a->filename, a->line, 0,
+                                   "Item not equivalent because shells differ ('%s' vs. '%s')",
+                                   pa, pb);
                         return false;
+                }
         }
 
         return true;
@@ -1816,7 +1855,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         existing = ordered_hashmap_get(h, i->name);
         if (existing) {
                 /* Two functionally-equivalent items are fine */
-                r = item_equivalent(existing, i);
+                r = item_equivalent(i, existing);
                 if (r < 0)
                         return r;
                 if (r == 0)
