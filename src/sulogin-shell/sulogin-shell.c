@@ -17,6 +17,7 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "special.h"
+#include "unit-def.h"
 
 static int reload_manager(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -93,6 +94,8 @@ int main(int argc, char *argv[]) {
                 NULL
         };
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *path = NULL, *state = NULL;
         int r;
 
         log_setup();
@@ -103,17 +106,33 @@ int main(int argc, char *argv[]) {
                 /* allows passwordless logins if root account is locked. */
                 sulogin_cmdline[1] = "--force";
 
-        (void) fork_wait(sulogin_cmdline);
-
         r = bus_connect_system_systemd(&bus);
         if (r < 0) {
                 log_warning_errno(r, "Failed to get D-Bus connection: %m");
                 r = 0;
-        } else {
+        }
+
+        path = unit_dbus_path_from_name(SPECIAL_DEFAULT_TARGET);
+        if (!path)
+                return log_oom();
+
+        do {
+                (void) fork_wait(sulogin_cmdline);
+
                 (void) reload_manager(bus);
 
-                r = start_default_target(bus);
-        }
+                r = sd_bus_get_property_string(bus,
+                                               "org.freedesktop.systemd1",
+                                               path,
+                                               "org.freedesktop.systemd1.Unit",
+                                               "ActiveState",
+                                               &error,
+                                               &state);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get state of "SPECIAL_DEFAULT_TARGET": %s", bus_error_message(&error, r));
+        } while (!streq_ptr(state, "inactive"));
+
+        r = start_default_target(bus);
 
         return r >= 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }
