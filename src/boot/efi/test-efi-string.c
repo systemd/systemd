@@ -229,6 +229,8 @@ TEST(strchr8) {
         assert_se(strchr8(str, 'a') == &str[0]);
         assert_se(strchr8(str, 'c') == &str[2]);
         assert_se(strchr8(str, 'B') == &str[4]);
+
+        assert_se(strchr8(str, 0) == str + strlen8(str));
 }
 
 TEST(strchr16) {
@@ -240,6 +242,8 @@ TEST(strchr16) {
         assert_se(strchr16(str, 'a') == &str[0]);
         assert_se(strchr16(str, 'c') == &str[2]);
         assert_se(strchr16(str, 'B') == &str[4]);
+
+        assert_se(strchr16(str, 0) == str + strlen16(str));
 }
 
 TEST(xstrndup8) {
@@ -349,6 +353,20 @@ TEST(xstrn8_to_16) {
         assert_se(s = xstrn8_to_16("¶¶", 3));
         assert_se(streq16(s, u"¶"));
         free(s);
+}
+
+TEST(startswith8) {
+        assert_se(streq8(startswith8("", ""), ""));
+        assert_se(streq8(startswith8("x", ""), "x"));
+        assert_se(!startswith8("", "x"));
+        assert_se(!startswith8("", "xxxxxxxx"));
+        assert_se(streq8(startswith8("xxx", "x"), "xx"));
+        assert_se(streq8(startswith8("xxx", "xx"), "x"));
+        assert_se(streq8(startswith8("xxx", "xxx"), ""));
+        assert_se(!startswith8("xxx", "xxxx"));
+        assert_se(!startswith8("", NULL));
+        assert_se(!startswith8(NULL, ""));
+        assert_se(!startswith8(NULL, NULL));
 }
 
 #define TEST_FNMATCH_ONE(pattern, haystack, expect)                                     \
@@ -608,6 +626,17 @@ TEST(xvasprintf_status) {
         assert_se(s = xasprintf_status(0x42, "%m"));
         assert_se(streq16(s, u"0x42"));
         s = mfree(s);
+}
+
+TEST(efi_memchr) {
+        assert_se(streq8(efi_memchr("abcde", 'c', 5), "cde"));
+        assert_se(streq8(efi_memchr("abcde", 'c', 3), "cde"));
+        assert_se(streq8(efi_memchr("abcde", 'c', 2), NULL));
+        assert_se(streq8(efi_memchr("abcde", 'c', 7), "cde"));
+        assert_se(streq8(efi_memchr("abcde", 'q', 5), NULL));
+        assert_se(streq8(efi_memchr("abcde", 'q', 0), NULL));
+        assert_se(streq8(efi_memchr("abcde", 0, 6), ""));
+        assert_se(efi_memchr(NULL, 0, 0) == NULL);
 }
 
 TEST(efi_memcmp) {
