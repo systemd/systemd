@@ -509,7 +509,8 @@ static int journal_file_verify_header(JournalFile *f) {
                         return r;
 
                 if (!sd_id128_equal(machine_id, f->header->machine_id))
-                        return -EHOSTDOWN;
+                        return log_debug_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
+                                               "Trying to open journal file from different host for writing, refusing.");
 
                 state = f->header->state;
 
