@@ -1940,6 +1940,21 @@ subdir('src/boot/efi')
 
 ############################################################
 
+pymod = import('python')
+python = pymod.find_installation('python3', required : true, modules : ['jinja2'])
+python_39 = python.language_version().version_compare('>=3.9')
+
+if get_option('ukify') == 'auto'
+    want_ukify = python_39  and conf.get('HAVE_GNU_EFI') == 1
+elif get_option('ukify') == 'true' and (not python_39 or conf.get('HAVE_GNU_EFI') != 1)
+    error('ukify requires Python >= 3.9 and GNU EFI')
+else
+    want_ukify = get_option('ukify') == 'true'
+endif
+conf.set10('ENABLE_UKIFY', want_ukify)
+
+############################################################
+#
 generate_gperfs = find_program('tools/generate-gperfs.py')
 make_autosuspend_rules_py = find_program('tools/make-autosuspend-rules.py')
 make_directive_index_py = find_program('tools/make-directive-index.py')
@@ -1968,20 +1983,6 @@ config_h = configure_file(
 add_project_arguments('-include', 'config.h', language : 'c')
 
 jinja2_cmdline = [meson_render_jinja2, config_h, version_h]
-
-############################################################
-
-pymod = import('python')
-python = pymod.find_installation('python3', required : true, modules : ['jinja2'])
-python_39 = python.language_version().version_compare('>=3.9')
-
-if get_option('ukify') == 'auto'
-    want_ukify = python_39  and conf.get('HAVE_GNU_EFI') == 1
-elif get_option('ukify') == 'true' and (not python_39 or conf.get('HAVE_GNU_EFI') != 1)
-    error('ukify requires Python >= 3.9 and GNU EFI')
-else
-    want_ukify = get_option('ukify') == 'true'
-endif
 
 ############################################################
 
