@@ -628,6 +628,17 @@ TEST(xvasprintf_status) {
         s = mfree(s);
 }
 
+TEST(efi_memchr) {
+        assert_se(streq8(efi_memchr("abcde", 'c', 5), "cde"));
+        assert_se(streq8(efi_memchr("abcde", 'c', 3), "cde"));
+        assert_se(streq8(efi_memchr("abcde", 'c', 2), NULL));
+        assert_se(streq8(efi_memchr("abcde", 'c', 7), "cde"));
+        assert_se(streq8(efi_memchr("abcde", 'q', 5), NULL));
+        assert_se(streq8(efi_memchr("abcde", 'q', 0), NULL));
+        assert_se(streq8(efi_memchr("abcde", 0, 6), ""));
+        assert_se(efi_memchr(NULL, 0, 0) == NULL);
+}
+
 TEST(efi_memcmp) {
         assert_se(efi_memcmp(NULL, NULL, 0) == 0);
         assert_se(efi_memcmp(NULL, NULL, 1) == 0);

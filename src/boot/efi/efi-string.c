@@ -881,15 +881,30 @@ char16_t *xvasprintf_status(EFI_STATUS status, const char *format, va_list ap) {
 
 #if SD_BOOT
 /* To provide the actual implementation for these we need to remove the redirection to the builtins. */
+#  undef memchr
 #  undef memcmp
 #  undef memcpy
 #  undef memset
 #else
 /* And for userspace unit testing we need to give them an efi_ prefix. */
+#  define memchr efi_memchr
 #  define memcmp efi_memcmp
 #  define memcpy efi_memcpy
 #  define memset efi_memset
 #endif
+
+_used_ void *memchr(const void *p, int c, size_t n) {
+        if (!p || n == 0)
+                return NULL;
+
+        const uint8_t *q = p;
+        for (size_t i = 0; i < n; i++) {
+                if (q[i] == c)
+                        return (void *) (q + i);
+        }
+
+        return NULL;
+}
 
 _used_ int memcmp(const void *p1, const void *p2, size_t n) {
         const uint8_t *up1 = p1, *up2 = p2;
