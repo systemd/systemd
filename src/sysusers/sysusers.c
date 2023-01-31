@@ -76,6 +76,9 @@ typedef struct Item {
         gid_t gid;
         uid_t uid;
 
+        char *filename;
+        unsigned line;
+
         bool gid_set;
 
         /* When set the group with the specified GID must exist
@@ -1412,14 +1415,16 @@ static Item* item_free(Item *i) {
         free(i->description);
         free(i->home);
         free(i->shell);
+        free(i->filename);
         return mfree(i);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Item*, item_free);
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(item_hash_ops, char, string_hash_func, string_compare_func, Item, item_free);
 
-static Item* item_new(ItemType type, const char *name) {
+static Item* item_new(ItemType type, const char *name, const char *filename, unsigned line) {
         assert(name);
+        assert(!!filename == (line > 0));
 
         _cleanup_(item_freep) Item *new = new(Item, 1);
         if (!new) {
@@ -1429,9 +1434,11 @@ static Item* item_new(ItemType type, const char *name) {
 
         *new = (Item) {
                 .type = type,
+                .line = line,
         };
 
-        if (free_and_strdup(&new->name, name) < 0) {
+        if (free_and_strdup(&new->name, name) < 0 ||
+            free_and_strdup(&new->filename, filename) < 0) {
                 log_oom();
                 return NULL;
         }
@@ -1447,7 +1454,7 @@ static int add_implicit(void) {
         ORDERED_HASHMAP_FOREACH_KEY(l, g, members) {
                 STRV_FOREACH(m, l)
                         if (!ordered_hashmap_get(users, *m)) {
-                                _cleanup_(item_freep) Item *j = item_new(ADD_USER, *m);
+                                _cleanup_(item_freep) Item *j = item_new(ADD_USER, *m, NULL, 0);
                                 if (!j)
                                         return log_oom();
 
@@ -1463,7 +1470,7 @@ static int add_implicit(void) {
 
                 if (!(ordered_hashmap_get(users, g) ||
                       ordered_hashmap_get(groups, g))) {
-                        _cleanup_(item_freep) Item *j = item_new(ADD_GROUP, g);
+                        _cleanup_(item_freep) Item *j = item_new(ADD_GROUP, g, NULL, 0);
                         if (!j)
                                 return log_oom();
 
@@ -1727,7 +1734,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 if (r < 0)
                         return log_oom();
 
-                i = item_new(action[0], resolved_name);
+                i = item_new(action[0], resolved_name, fname, line);
                 if (!i)
                         return log_oom();
 
@@ -1782,7 +1789,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 if (r < 0)
                         return log_oom();
 
-                i = item_new(action[0], resolved_name);
+                i = item_new(action[0], resolved_name, fname, line);
                 if (!i)
                         return log_oom();
 
@@ -1814,9 +1821,12 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         return r;
                 if (r == 0)
                         log_syntax(NULL, LOG_WARNING, fname, line, 0,
-                                   "Conflict with earlier configuration for %s '%s', ignoring line.",
-                                   item_type_to_string(i->type), i->name);
-
+                                   "Conflict with earlier configuration for %s '%s' %s%s%s%.0u, ignoring line.",
+                                   item_type_to_string(i->type), i->name,
+                                   existing->filename ? "in " : "",
+                                   existing->filename ?: "",
+                                   existing->filename ? ":" : "",
+                                   existing->filename ? existing->line : 0);
                 return 0;
         }
 
