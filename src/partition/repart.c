@@ -6400,6 +6400,7 @@ static int run(int argc, char *argv[]) {
                                 DISSECT_IMAGE_USR_NO_ROOT |
                                 DISSECT_IMAGE_REQUIRE_ROOT,
                                 &mounted_dir,
+                                NULL,
                                 &loop_device);
                 if (r < 0)
                         return r;

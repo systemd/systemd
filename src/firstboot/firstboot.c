@@ -17,6 +17,7 @@
 #include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "find-esp.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "hostname-util.h"
@@ -71,6 +72,7 @@ static bool arg_force = false;
 static bool arg_delete_root_password = false;
 static bool arg_root_password_is_hashed = false;
 static bool arg_welcome = true;
+static bool arg_reset = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -309,28 +311,33 @@ static int prompt_locale(void) {
         return 0;
 }
 
-static int process_locale(void) {
-        const char *etc_localeconf;
+static int process_locale(int rfd) {
+        _cleanup_free_ char *p = NULL, *buf = NULL;
+        _cleanup_close_ int pfd = -EBADF;
         char* locales[3];
         unsigned i = 0;
         int r;
 
-        etc_localeconf = prefix_roota(arg_root, "/etc/locale.conf");
-        if (laccess(etc_localeconf, F_OK) >= 0 && !arg_force) {
-                log_debug("Found %s, assuming locale information has been configured.",
-                          etc_localeconf);
+        pfd = chase_symlinks_at_and_open(rfd, "etc",
+                                         CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755,
+                                         O_CLOEXEC|O_PATH,
+                                         &p);
+        if (pfd < 0)
+                return log_error_errno(pfd, "Failed to create %s/etc: %m", FORMAT_FD_PATH(rfd, &buf));
+
+        if (faccessat(pfd, "locale.conf", F_OK, AT_SYMLINK_NOFOLLOW) >= 0 && !arg_force) {
+                log_debug("Found %s/%s/locale.conf, assuming locale information has been configured.",
+                          FORMAT_FD_PATH(rfd, &buf), p);
                 return 0;
         }
 
-        if (arg_copy_locale && arg_root) {
-
-                (void) mkdir_parents(etc_localeconf, 0755);
-                r = copy_file("/etc/locale.conf", etc_localeconf, 0, 0644, 0, 0, COPY_REFLINK);
+        if (arg_copy_locale && rfd >= 0) {
+                r = copy_file_at(AT_FDCWD, "/etc/locale.conf", pfd, "locale.conf", 0, 0644, 0, 0, COPY_REFLINK);
                 if (r != -ENOENT) {
                         if (r < 0)
-                                return log_error_errno(r, "Failed to copy %s: %m", etc_localeconf);
+                                return log_error_errno(r, "Failed to copy host's locale.conf: %m");
 
-                        log_info("%s copied.", etc_localeconf);
+                        log_info("Copied host's locale.conf.");
                         return 0;
                 }
         }
@@ -349,12 +356,12 @@ static int process_locale(void) {
 
         locales[i] = NULL;
 
-        (void) mkdir_parents(etc_localeconf, 0755);
-        r = write_env_file(etc_localeconf, locales);
+        r = write_env_file_at(pfd, "locale.conf", locales);
         if (r < 0)
-                return log_error_errno(r, "Failed to write %s: %m", etc_localeconf);
+                return log_error_errno(r, "Failed to write %s/%s/locale.conf: %m",
+                                       FORMAT_FD_PATH(rfd, &buf), p);
 
-        log_info("%s written.", etc_localeconf);
+        log_info("%s/%s/locale.conf written.", FORMAT_FD_PATH(rfd, &buf), p);
         return 0;
 }
 
@@ -390,27 +397,32 @@ static int prompt_keymap(void) {
                            kmaps, 60, keymap_is_valid, &arg_keymap);
 }
 
-static int process_keymap(void) {
-        const char *etc_vconsoleconf;
+static int process_keymap(int rfd) {
+        _cleanup_free_ char *p = NULL, *buf = NULL;
+        _cleanup_close_ int pfd = -EBADF;
         char **keymap;
         int r;
 
-        etc_vconsoleconf = prefix_roota(arg_root, "/etc/vconsole.conf");
-        if (laccess(etc_vconsoleconf, F_OK) >= 0 && !arg_force) {
-                log_debug("Found %s, assuming console has been configured.",
-                          etc_vconsoleconf);
+        pfd = chase_symlinks_at_and_open(rfd, "etc",
+                                         CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755,
+                                         O_CLOEXEC|O_PATH,
+                                         &p);
+        if (pfd < 0)
+                return log_error_errno(pfd, "Failed to create %s/etc: %m", FORMAT_FD_PATH(rfd, &buf));
+
+        if (faccessat(pfd, "vconsole.conf", F_OK, AT_SYMLINK_NOFOLLOW) >= 0 && !arg_force) {
+                log_debug("Found %s/%s/vconsole.conf, assuming console has been configured.",
+                          FORMAT_FD_PATH(rfd, &buf), p);
                 return 0;
         }
 
-        if (arg_copy_keymap && arg_root) {
-
-                (void) mkdir_parents(etc_vconsoleconf, 0755);
-                r = copy_file("/etc/vconsole.conf", etc_vconsoleconf, 0, 0644, 0, 0, COPY_REFLINK);
+        if (arg_copy_keymap && rfd >= 0) {
+                r = copy_file_at(AT_FDCWD, "/etc/vconsole.conf", pfd, "vconsole.conf", 0, 0644, 0, 0, COPY_REFLINK);
                 if (r != -ENOENT) {
                         if (r < 0)
-                                return log_error_errno(r, "Failed to copy %s: %m", etc_vconsoleconf);
+                                return log_error_errno(r, "Failed to copy host's vconsole.conf: %m");
 
-                        log_info("%s copied.", etc_vconsoleconf);
+                        log_info("Copied host's vconsole.conf.");
                         return 0;
                 }
         }
@@ -426,15 +438,12 @@ static int process_keymap(void) {
 
         keymap = STRV_MAKE(strjoina("KEYMAP=", arg_keymap));
 
-        r = mkdir_parents(etc_vconsoleconf, 0755);
+        r = write_env_file_at(pfd, "vconsole.conf", keymap);
         if (r < 0)
-                return log_error_errno(r, "Failed to create the parent directory of %s: %m", etc_vconsoleconf);
+                return log_error_errno(r, "Failed to write %s/%s/vconsole.conf: %m",
+                                       FORMAT_FD_PATH(rfd, &buf), p);
 
-        r = write_env_file(etc_vconsoleconf, keymap);
-        if (r < 0)
-                return log_error_errno(r, "Failed to write %s: %m", etc_vconsoleconf);
-
-        log_info("%s written.", etc_vconsoleconf);
+        log_info("%s/%s/vconsole.conf written.", FORMAT_FD_PATH(rfd, &buf), p);
         return 0;
 }
 
@@ -476,31 +485,39 @@ static int prompt_timezone(void) {
         return 0;
 }
 
-static int process_timezone(void) {
-        const char *etc_localtime, *e;
+static int process_timezone(int rfd) {
+        _cleanup_free_ char *p = NULL, *buf = NULL;
+        _cleanup_close_ int pfd = -EBADF;
+        const char *e;
         int r;
 
-        etc_localtime = prefix_roota(arg_root, "/etc/localtime");
-        if (laccess(etc_localtime, F_OK) >= 0 && !arg_force) {
-                log_debug("Found %s, assuming timezone has been configured.",
-                          etc_localtime);
+        pfd = chase_symlinks_at_and_open(rfd, "etc",
+                                         CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755,
+                                         O_CLOEXEC|O_PATH,
+                                         &p);
+        if (pfd < 0)
+                return log_error_errno(pfd, "Failed to create %s/etc: %m", FORMAT_FD_PATH(rfd, &buf));
+
+        if (faccessat(pfd, "localtime", F_OK, AT_SYMLINK_NOFOLLOW) >= 0 && !arg_force) {
+                log_debug("Found %s/%s/localtime, assuming timezone has been configured.",
+                          FORMAT_FD_PATH(rfd, &buf), p);
                 return 0;
         }
 
-        if (arg_copy_timezone && arg_root) {
-                _cleanup_free_ char *p = NULL;
+        if (arg_copy_timezone && rfd >= 0) {
+                _cleanup_free_ char *s = NULL;
 
-                r = readlink_malloc("/etc/localtime", &p);
+                r = readlink_malloc("/etc/localtime", &s);
                 if (r != -ENOENT) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read host timezone: %m");
 
-                        (void) mkdir_parents(etc_localtime, 0755);
-                        r = symlink_atomic(p, etc_localtime);
+                        r = symlinkat_atomic_full(s, pfd, "localtime", /* make_relative= */ false);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to create %s symlink: %m", etc_localtime);
+                                return log_error_errno(r, "Failed to create %s/%s/localtime symlink: %m",
+                                                       FORMAT_FD_PATH(rfd, &buf), p);
 
-                        log_info("%s copied.", etc_localtime);
+                        log_info("Copied host's /etc/localtime.");
                         return 0;
                 }
         }
@@ -514,12 +531,12 @@ static int process_timezone(void) {
 
         e = strjoina("../usr/share/zoneinfo/", arg_timezone);
 
-        (void) mkdir_parents(etc_localtime, 0755);
-        r = symlink_atomic(e, etc_localtime);
+        r = symlinkat_atomic_full(e, pfd, "localtime", /* make_relative= */ false);
         if (r < 0)
-                return log_error_errno(r, "Failed to create %s symlink: %m", etc_localtime);
+                return log_error_errno(r, "Failed to create %s/%s/localtime symlink: %m",
+                                       FORMAT_FD_PATH(rfd, &buf), p);
 
-        log_info("%s written", etc_localtime);
+        log_info("%s/%s/localtime written", FORMAT_FD_PATH(rfd, &buf), p);
         return 0;
 }
 
@@ -563,14 +580,21 @@ static int prompt_hostname(void) {
         return 0;
 }
 
-static int process_hostname(void) {
-        const char *etc_hostname;
+static int process_hostname(int rfd) {
+        _cleanup_free_ char *p = NULL, *buf = NULL;
+        _cleanup_close_ int pfd = -EBADF;
         int r;
 
-        etc_hostname = prefix_roota(arg_root, "/etc/hostname");
-        if (laccess(etc_hostname, F_OK) >= 0 && !arg_force) {
-                log_debug("Found %s, assuming hostname has been configured.",
-                          etc_hostname);
+        pfd = chase_symlinks_at_and_open(rfd, "etc",
+                                         CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755,
+                                         O_CLOEXEC|O_PATH,
+                                         &p);
+        if (pfd < 0)
+                return log_error_errno(pfd, "Failed to create %s/etc: %m", FORMAT_FD_PATH(rfd, &buf));
+
+        if (faccessat(pfd, "hostname", F_OK, AT_SYMLINK_NOFOLLOW) >= 0 && !arg_force) {
+                log_debug("Found %s/%s/hostname, assuming hostname has been configured.",
+                          FORMAT_FD_PATH(rfd, &buf), p);
                 return 0;
         }
 
@@ -581,24 +605,31 @@ static int process_hostname(void) {
         if (isempty(arg_hostname))
                 return 0;
 
-        r = write_string_file(etc_hostname, arg_hostname,
-                              WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_SYNC | WRITE_STRING_FILE_MKDIR_0755 |
-                              (arg_force ? WRITE_STRING_FILE_ATOMIC : 0));
+        r = write_string_file_at(pfd, "hostname", arg_hostname,
+                                 WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_SYNC |
+                                 (arg_force ? WRITE_STRING_FILE_ATOMIC : 0));
         if (r < 0)
-                return log_error_errno(r, "Failed to write %s: %m", etc_hostname);
+                return log_error_errno(r, "Failed to write %s/%s/hostname: %m", FORMAT_FD_PATH(pfd, &buf), p);
 
-        log_info("%s written.", etc_hostname);
+        log_info("%s/%s/hostname written.", FORMAT_FD_PATH(rfd, &buf), p);
         return 0;
 }
 
-static int process_machine_id(void) {
-        const char *etc_machine_id;
+static int process_machine_id(int rfd) {
+        _cleanup_free_ char *p = NULL, *buf = NULL;
+        _cleanup_close_ int pfd = -EBADF;
         int r;
 
-        etc_machine_id = prefix_roota(arg_root, "/etc/machine-id");
-        if (laccess(etc_machine_id, F_OK) >= 0 && !arg_force) {
-                log_debug("Found %s, assuming machine-id has been configured.",
-                          etc_machine_id);
+        pfd = chase_symlinks_at_and_open(rfd, "etc",
+                                         CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755,
+                                         O_CLOEXEC|O_PATH,
+                                         &p);
+        if (pfd < 0)
+                return log_error_errno(pfd, "Failed to create %s/etc: %m", FORMAT_FD_PATH(rfd, &buf));
+
+        if (faccessat(pfd, "machine-id", F_OK, AT_SYMLINK_NOFOLLOW) >= 0 && !arg_force) {
+                log_debug("Found %s/%s/machine-id, assuming machine-id has been configured.",
+                          FORMAT_FD_PATH(rfd, &buf), p);
                 return 0;
         }
 
@@ -607,13 +638,14 @@ static int process_machine_id(void) {
                 return 0;
         }
 
-        r = write_string_file(etc_machine_id, SD_ID128_TO_STRING(arg_machine_id),
-                              WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_SYNC | WRITE_STRING_FILE_MKDIR_0755 |
-                              (arg_force ? WRITE_STRING_FILE_ATOMIC : 0));
+        r = write_string_file_at(pfd, "machine-id", SD_ID128_TO_STRING(arg_machine_id),
+                                 WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_SYNC |
+                                 (arg_force ? WRITE_STRING_FILE_ATOMIC : 0));
         if (r < 0)
-                return log_error_errno(r, "Failed to write machine id: %m");
+                return log_error_errno(r, "Failed to write %s/%s/machine id: %m",
+                                       FORMAT_FD_PATH(rfd, &buf), p);
 
-        log_info("%s written.", etc_machine_id);
+        log_info("%s/%s/machine-id written.", FORMAT_FD_PATH(rfd, &buf), p);
         return 0;
 }
 
@@ -681,7 +713,7 @@ static int prompt_root_password(void) {
         return 0;
 }
 
-static int find_shell(const char *path, const char *root) {
+static int find_shell(int rfd, const char *path) {
         int r;
 
         assert(path);
@@ -689,17 +721,14 @@ static int find_shell(const char *path, const char *root) {
         if (!valid_shell(path))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s is not a valid shell", path);
 
-        r = chase_symlinks(path, root, CHASE_PREFIX_ROOT, NULL, NULL);
-        if (r < 0) {
-                const char *p;
-                p = prefix_roota(root, path);
-                return log_error_errno(r, "Failed to resolve shell %s: %m", p);
-        }
+        r = chase_symlinks_at(rfd, path, CHASE_AT_RESOLVE_IN_ROOT, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve shell %s: %m", path);
 
         return 0;
 }
 
-static int prompt_root_shell(void) {
+static int prompt_root_shell(int rfd) {
         int r;
 
         if (arg_root_shell)
@@ -733,7 +762,7 @@ static int prompt_root_shell(void) {
                         break;
                 }
 
-                r = find_shell(s, arg_root);
+                r = find_shell(rfd, s);
                 if (r < 0)
                         continue;
 
@@ -744,18 +773,21 @@ static int prompt_root_shell(void) {
         return 0;
 }
 
-static int write_root_passwd(const char *passwd_path, const char *password, const char *shell) {
+static int write_root_passwd(int etc_fd, const char *password, const char *shell) {
         _cleanup_fclose_ FILE *original = NULL, *passwd = NULL;
         _cleanup_(unlink_and_freep) char *passwd_tmp = NULL;
         int r;
 
         assert(password);
 
-        r = fopen_temporary_label("/etc/passwd", passwd_path, &passwd, &passwd_tmp);
+        r = fopen_temporary_at_label(etc_fd, "passwd", "passwd", &passwd, &passwd_tmp);
         if (r < 0)
                 return r;
 
-        original = fopen(passwd_path, "re");
+        r = xfopenat(etc_fd, "passwd", "re", 0, &original);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
         if (original) {
                 struct passwd *i;
 
@@ -805,25 +837,28 @@ static int write_root_passwd(const char *passwd_path, const char *password, cons
         if (r < 0)
                 return r;
 
-        r = rename_and_apply_smack_floor_label(passwd_tmp, passwd_path);
+        r = renameat_and_apply_smack_floor_label(etc_fd, passwd_tmp, etc_fd, "passwd");
         if (r < 0)
                 return r;
 
         return 0;
 }
 
-static int write_root_shadow(const char *shadow_path, const char *hashed_password) {
+static int write_root_shadow(int efd, const char *hashed_password) {
         _cleanup_fclose_ FILE *original = NULL, *shadow = NULL;
         _cleanup_(unlink_and_freep) char *shadow_tmp = NULL;
         int r;
 
         assert(hashed_password);
 
-        r = fopen_temporary_label("/etc/shadow", shadow_path, &shadow, &shadow_tmp);
+        r = fopen_temporary_at_label(efd, "shadow", "shadow", &shadow, &shadow_tmp);
         if (r < 0)
                 return r;
 
-        original = fopen(shadow_path, "re");
+        r = xfopenat(efd, "shadow", "re", 0, &original);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
         if (original) {
                 struct spwd *i;
 
@@ -874,26 +909,32 @@ static int write_root_shadow(const char *shadow_path, const char *hashed_passwor
         if (r < 0)
                 return r;
 
-        r = rename_and_apply_smack_floor_label(shadow_tmp, shadow_path);
+        r = renameat_and_apply_smack_floor_label(efd, shadow_tmp, efd, "shadow");
         if (r < 0)
                 return r;
 
         return 0;
 }
 
-static int process_root_account(void) {
-        _cleanup_close_ int lock = -EBADF;
+static int process_root_account(int rfd) {
+        _cleanup_free_ char *p = NULL, *buf = NULL;
+        _cleanup_close_ int pfd = -EBADF, lock = -EBADF;
         _cleanup_(erase_and_freep) char *_hashed_password = NULL;
         const char *password, *hashed_password;
-        const char *etc_passwd, *etc_shadow;
         int r;
 
-        etc_passwd = prefix_roota(arg_root, "/etc/passwd");
-        etc_shadow = prefix_roota(arg_root, "/etc/shadow");
+        pfd = chase_symlinks_at_and_open(rfd, "etc",
+                                         CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755,
+                                         O_CLOEXEC|O_PATH,
+                                         &p);
+        if (pfd < 0)
+                return log_error_errno(pfd, "Failed to create %s/etc: %m", FORMAT_FD_PATH(rfd, &buf));
 
-        if (laccess(etc_passwd, F_OK) >= 0 && laccess(etc_shadow, F_OK) >= 0 && !arg_force) {
-                log_debug("Found %s and %s, assuming root account has been initialized.",
-                          etc_passwd, etc_shadow);
+        if (faccessat(pfd, "passwd", F_OK, AT_SYMLINK_NOFOLLOW) >= 0 &&
+            faccessat(pfd, "shadow", F_OK, AT_SYMLINK_NOFOLLOW) >= 0 && !arg_force) {
+                const char *root = FORMAT_FD_PATH(rfd, &buf);
+                log_debug("Found %s/%s/passwd and %s/%s/shadow, assuming root account has been initialized.",
+                          root, p, root, p);
                 return 0;
         }
 
@@ -904,38 +945,38 @@ static int process_root_account(void) {
                 return 0;
         }
 
-        (void) mkdir_parents(etc_passwd, 0755);
+        if (rfd == AT_FDCWD) {
+                lock = take_etc_passwd_lock(NULL);
+                if (lock < 0)
+                        return log_error_errno(lock, "Failed to take a lock on /etc/passwd: %m");
+        }
 
-        lock = take_etc_passwd_lock(arg_root);
-        if (lock < 0)
-                return log_error_errno(lock, "Failed to take a lock on %s: %m", etc_passwd);
-
-        if (arg_copy_root_shell && arg_root) {
-                struct passwd *p;
+        if (arg_copy_root_shell && rfd >= 0) {
+                struct passwd *passwd;
 
                 errno = 0;
-                p = getpwnam("root");
+                passwd = getpwnam("root");
                 if (!p)
                         return log_error_errno(errno_or_else(EIO), "Failed to find passwd entry for root: %m");
 
-                r = free_and_strdup(&arg_root_shell, p->pw_shell);
+                r = free_and_strdup(&arg_root_shell, passwd->pw_shell);
                 if (r < 0)
                         return log_oom();
         }
 
-        r = prompt_root_shell();
+        r = prompt_root_shell(rfd);
         if (r < 0)
                 return r;
 
-        if (arg_copy_root_password && arg_root) {
-                struct spwd *p;
+        if (arg_copy_root_password && rfd >= 0) {
+                struct spwd *spwd;
 
                 errno = 0;
-                p = getspnam("root");
+                spwd = getspnam("root");
                 if (!p)
                         return log_error_errno(errno_or_else(EIO), "Failed to find shadow entry for root: %m");
 
-                r = free_and_strdup(&arg_root_password, p->sp_pwdp);
+                r = free_and_strdup(&arg_root_password, spwd->sp_pwdp);
                 if (r < 0)
                         return log_oom();
 
@@ -962,28 +1003,35 @@ static int process_root_account(void) {
         else
                 password = hashed_password = PASSWORD_LOCKED_AND_INVALID;
 
-        r = write_root_passwd(etc_passwd, password, arg_root_shell);
+        r = write_root_passwd(pfd, password, arg_root_shell);
         if (r < 0)
-                return log_error_errno(r, "Failed to write %s: %m", etc_passwd);
+                return log_error_errno(r, "Failed to write %s/%s/passwd: %m", FORMAT_FD_PATH(rfd, &buf), p);
 
-        log_info("%s written", etc_passwd);
+        log_info("%s/%s/passwd written.", FORMAT_FD_PATH(rfd, &buf), p);
 
-        r = write_root_shadow(etc_shadow, hashed_password);
+        r = write_root_shadow(pfd, hashed_password);
         if (r < 0)
-                return log_error_errno(r, "Failed to write %s: %m", etc_shadow);
+                return log_error_errno(r, "Failed to write %s/%s/shadow: %m", FORMAT_FD_PATH(rfd, &buf), p);
 
-        log_info("%s written.", etc_shadow);
+        log_info("%s/%s/shadow written.", FORMAT_FD_PATH(rfd, &buf), p);
         return 0;
 }
 
-static int process_kernel_cmdline(void) {
-        const char *etc_kernel_cmdline;
+static int process_kernel_cmdline(int rfd) {
+        _cleanup_free_ char *p = NULL, *buf = NULL;
+        _cleanup_close_ int pfd = -EBADF;
         int r;
 
-        etc_kernel_cmdline = prefix_roota(arg_root, "/etc/kernel/cmdline");
-        if (laccess(etc_kernel_cmdline, F_OK) >= 0 && !arg_force) {
-                log_debug("Found %s, assuming kernel has been configured.",
-                          etc_kernel_cmdline);
+        pfd = chase_symlinks_at_and_open(rfd, "etc/kernel",
+                                         CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755,
+                                         O_CLOEXEC|O_PATH,
+                                         &p);
+        if (pfd < 0)
+                return log_error_errno(pfd, "Failed to create %s/etc/kernel: %m", FORMAT_FD_PATH(rfd, &buf));
+
+        if (faccessat(pfd, "cmdline", F_OK, AT_SYMLINK_NOFOLLOW) >= 0 && !arg_force) {
+                log_debug("Found %s/%s/cmdline, assuming kernel has been configured.",
+                          FORMAT_FD_PATH(rfd, &buf), p);
                 return 0;
         }
 
@@ -992,13 +1040,83 @@ static int process_kernel_cmdline(void) {
                 return 0;
         }
 
-        r = write_string_file(etc_kernel_cmdline, arg_kernel_cmdline,
-                              WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_SYNC | WRITE_STRING_FILE_MKDIR_0755 |
-                              (arg_force ? WRITE_STRING_FILE_ATOMIC : 0));
+        r = write_string_file_at(pfd, "cmdline", arg_kernel_cmdline,
+                                 WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_SYNC |
+                                 (arg_force ? WRITE_STRING_FILE_ATOMIC : 0));
         if (r < 0)
-                return log_error_errno(r, "Failed to write %s: %m", etc_kernel_cmdline);
+                return log_error_errno(r, "Failed to write %s/%s/cmdline: %m",
+                                       FORMAT_FD_PATH(rfd, &buf), p);
 
-        log_info("%s written.", etc_kernel_cmdline);
+        log_info("%s/%s/cmdline written.", FORMAT_FD_PATH(rfd, &buf), p);
+        return 0;
+}
+
+static int process_reset(int rfd) {
+        _cleanup_free_ char *buf = NULL;
+        _cleanup_close_ int esp_fd = -EBADF, loader_fd = -EBADF;
+        int r;
+
+        if (!arg_reset)
+                return 0;
+
+        FOREACH_STRING(s,
+                       "etc/locale.conf",
+                       "etc/vconsole.conf",
+                       "etc/localtime",
+                       "etc/hostname",
+                       "etc/machine-id",
+                       "etc/kernel/cmdline",
+                       "etc/machine-info",
+                       "var/lib/systemd/random-seed",
+                       "var/lib/systemd/credential.secret") {
+                _cleanup_free_ char *bn = NULL;
+                _cleanup_close_ int pfd = -EBADF;
+
+                r = chase_symlinks_at(rfd, s, CHASE_AT_RESOLVE_IN_ROOT|CHASE_PARENT, NULL, &pfd);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve %s/%s: %m", FORMAT_FD_PATH(rfd, &buf), s);
+
+                r = path_extract_filename(s, &bn);
+                if (r < 0)
+                        return r;
+
+                r = RET_NERRNO(unlinkat(pfd, bn, 0));
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to remove %s/%s: %m", FORMAT_FD_PATH(rfd, &buf), s);
+
+                log_info("Removed %s/%s.", FORMAT_FD_PATH(pfd, &buf), bn);
+        }
+
+        r = find_esp_at_and_warn(rfd, NULL, /* unprivileged_mode= */ false, NULL,
+                                 &esp_fd, NULL, NULL, NULL, NULL, NULL);
+        if (r < 0) {
+                if (r != -ENOKEY)
+                        return r; /* find_esp_and_warn() already logged */
+
+                log_debug_errno(r, "Couldn't find any ESP, so not removing ESP random seed.");
+                return 0;
+        }
+
+        r = chase_symlinks_at(esp_fd, "loader", CHASE_AT_RESOLVE_IN_ROOT|CHASE_PROHIBIT_SYMLINKS,
+                              NULL, &loader_fd);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve %s/loader: %m", FORMAT_FD_PATH(esp_fd, &buf));
+
+        r = RET_NERRNO(unlinkat(loader_fd, "random-seed", 0));
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to remove %s/loader/random-seed: %m",
+                                       FORMAT_FD_PATH(esp_fd, &buf));
+
+        log_info("Removed %s/random-seed.", FORMAT_FD_PATH(loader_fd, &buf));
+
         return 0;
 }
 
@@ -1043,6 +1161,7 @@ static int help(void) {
                "     --force                      Overwrite existing files\n"
                "     --delete-root-password       Delete root password\n"
                "     --welcome=no                 Disable the welcome text\n"
+               "     --reset                      Remove existing files\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                link);
@@ -1084,6 +1203,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FORCE,
                 ARG_DELETE_ROOT_PASSWORD,
                 ARG_WELCOME,
+                ARG_RESET,
         };
 
         static const struct option options[] = {
@@ -1119,6 +1239,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "force",                   no_argument,       NULL, ARG_FORCE                   },
                 { "delete-root-password",    no_argument,       NULL, ARG_DELETE_ROOT_PASSWORD    },
                 { "welcome",                 required_argument, NULL, ARG_WELCOME                 },
+                { "reset",                   no_argument,       NULL, ARG_RESET                   },
                 {}
         };
 
@@ -1212,10 +1333,6 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT_SHELL:
-                        r = find_shell(optarg, arg_root);
-                        if (r < 0)
-                                return r;
-
                         r = free_and_strdup(&arg_root_shell, optarg);
                         if (r < 0)
                                 return log_oom();
@@ -1325,6 +1442,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_welcome = r;
                         break;
 
+                case ARG_RESET:
+                        arg_reset = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1353,6 +1474,7 @@ static int parse_argv(int argc, char *argv[]) {
 static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *unlink_dir = NULL;
+        _cleanup_close_ int rfd = -EBADF;
         int r;
 
         r = parse_argv(argc, argv);
@@ -1391,6 +1513,7 @@ static int run(int argc, char *argv[]) {
                                 DISSECT_IMAGE_FSCK |
                                 DISSECT_IMAGE_GROWFS,
                                 &unlink_dir,
+                                &rfd,
                                 &loop_device);
                 if (r < 0)
                         return r;
@@ -1398,33 +1521,47 @@ static int run(int argc, char *argv[]) {
                 arg_root = strdup(unlink_dir);
                 if (!arg_root)
                         return log_oom();
+        } else {
+                rfd = open(empty_to_root(arg_root), O_DIRECTORY|O_PATH|O_CLOEXEC);
+                if (rfd < 0)
+                        return log_error_errno(errno, "Failed to open %s: %m", arg_root);
         }
 
-        r = process_locale();
+        if (arg_root_shell) {
+                r = find_shell(rfd, arg_root_shell);
+                if (r < 0)
+                        return r;
+        }
+
+        r = process_reset(rfd);
         if (r < 0)
                 return r;
 
-        r = process_keymap();
+        r = process_locale(rfd);
         if (r < 0)
                 return r;
 
-        r = process_timezone();
+        r = process_keymap(rfd);
         if (r < 0)
                 return r;
 
-        r = process_hostname();
+        r = process_timezone(rfd);
         if (r < 0)
                 return r;
 
-        r = process_machine_id();
+        r = process_hostname(rfd);
         if (r < 0)
                 return r;
 
-        r = process_root_account();
+        r = process_machine_id(rfd);
         if (r < 0)
                 return r;
 
-        r = process_kernel_cmdline();
+        r = process_root_account(rfd);
+        if (r < 0)
+                return r;
+
+        r = process_kernel_cmdline(rfd);
         if (r < 0)
                 return r;
 
