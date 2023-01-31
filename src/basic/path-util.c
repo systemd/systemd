@@ -519,17 +519,17 @@ char* path_extend_internal(char **x, ...) {
         va_list ap;
         bool slash;
 
-        /* Joins all listed strings until the sentinel and places a "/" between them unless the strings end/begin
-         * already with one so that it is unnecessary. Note that slashes which are already duplicate won't be
-         * removed. The string returned is hence always equal to or longer than the sum of the lengths of each
-         * individual string.
+        /* Joins all listed strings until the sentinel and places a "/" between them unless the strings
+         * end/begin already with one so that it is unnecessary. Note that slashes which are already
+         * duplicate won't be removed. The string returned is hence always equal to or longer than the sum of
+         * the lengths of the individual strings.
          *
          * The first argument may be an already allocated string that is extended via realloc() if
          * non-NULL. path_extend() and path_join() are macro wrappers around this function, making use of the
          * first parameter to distinguish the two operations.
          *
-         * Note: any listed empty string is simply skipped. This can be useful for concatenating strings of which some
-         * are optional.
+         * Note: any listed empty string is simply skipped. This can be useful for concatenating strings of
+         * which some are optional.
          *
          * Examples:
          *

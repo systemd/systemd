@@ -681,15 +681,12 @@ int take_etc_passwd_lock(const char *root) {
         const char *path;
         int fd, r;
 
-        /* This is roughly the same as lckpwdf(), but not as awful. We
-         * don't want to use alarm() and signals, hence we implement
-         * our own trivial version of this.
+        /* This is roughly the same as lckpwdf(), but not as awful. We don't want to use alarm() and signals,
+         * hence we implement our own trivial version of this.
          *
-         * Note that shadow-utils also takes per-database locks in
-         * addition to lckpwdf(). However, we don't given that they
-         * are redundant as they invoke lckpwdf() first and keep
-         * it during everything they do. The per-database locks are
-         * awfully racy, and thus we just won't do them. */
+         * Note that shadow-utils also takes per-database locks in addition to lckpwdf(). However, we don't,
+         * given that they are redundant: they invoke lckpwdf() first and keep it during everything they do.
+         * The per-database locks are awfully racy, and thus we just won't do them. */
 
         if (root)
                 path = prefix_roota(root, ETC_PASSWD_LOCK_PATH);
