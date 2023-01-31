@@ -696,30 +696,29 @@ static int parse_config_file(void) {
                 {}
         };
 
-        _cleanup_strv_free_ char **files = NULL, **dirs = NULL;
-        const char *suffix;
-        int r;
+        if (arg_system) {
+                (void) config_parse_config_file("system.conf",
+                                                "Manager\0",
+                                                config_item_table_lookup, items,
+                                                CONFIG_PARSE_WARN,
+                                                NULL);
+        } else {
+                _cleanup_strv_free_ char **files = NULL, **dirs = NULL;
+                int r;
 
-        if (arg_system)
-                suffix = "system.conf.d";
-        else {
                 r = manager_find_user_config_paths(&files, &dirs);
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine config file paths: %m");
 
-                suffix = "user.conf.d";
+                (void) config_parse_many(
+                                (const char* const*) files,
+                                (const char* const*) dirs,
+                                "user.conf.d",
+                                "Manager\0",
+                                config_item_table_lookup, items,
+                                CONFIG_PARSE_WARN,
+                                NULL, NULL, NULL);
         }
-
-        (void) config_parse_many(
-                        (const char* const*) (files ?: STRV_MAKE(PKGSYSCONFDIR "/system.conf")),
-                        (const char* const*) (dirs ?: CONF_PATHS_STRV("systemd")),
-                        suffix,
-                        "Manager\0",
-                        config_item_table_lookup, items,
-                        CONFIG_PARSE_WARN,
-                        NULL,
-                        NULL,
-                        NULL);
 
         /* Traditionally "0" was used to turn off the default unit timeouts. Fix this up so that we use
          * USEC_INFINITY like everywhere else. */

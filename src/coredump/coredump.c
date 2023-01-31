@@ -171,14 +171,9 @@ static int parse_config(void) {
                 {}
         };
 
-        return config_parse_many_nulstr(
-                        PKGSYSCONFDIR "/coredump.conf",
-                        CONF_PATHS_NULSTR("systemd/coredump.conf.d"),
-                        "Coredump\0",
-                        config_item_table_lookup, items,
-                        CONFIG_PARSE_WARN,
-                        NULL,
-                        NULL);
+        return config_parse_config_file("coredump.conf", "Coredump\0",
+                                        config_item_table_lookup, items,
+                                        CONFIG_PARSE_WARN, NULL);
 }
 
 static uint64_t storage_size_max(void) {
