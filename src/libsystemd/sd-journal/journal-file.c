@@ -486,6 +486,11 @@ static int journal_file_verify_header(JournalFile *f) {
         if (JOURNAL_HEADER_SEALED(f->header) && !JOURNAL_HEADER_CONTAINS(f->header, n_entry_arrays))
                 return -EBADMSG;
 
+        /* When open for writing we refuse to open files with a mismatch of the header size, i.e. writing to
+         * files implementing older or new header structures. */
+        if (journal_file_writable(f) && header_size != sizeof(Header))
+                return -EPROTONOSUPPORT;
+
         arena_size = le64toh(READ_NOW(f->header->arena_size));
 
         if (UINT64_MAX - header_size < arena_size || header_size + arena_size > (uint64_t) f->last_stat.st_size)
