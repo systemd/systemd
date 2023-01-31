@@ -670,16 +670,12 @@ int reset_uid_gid(void) {
 }
 
 int take_etc_passwd_lock(const char *root) {
-
         struct flock flock = {
                 .l_type = F_WRLCK,
                 .l_whence = SEEK_SET,
                 .l_start = 0,
                 .l_len = 0,
         };
-
-        const char *path;
-        int fd, r;
 
         /* This is roughly the same as lckpwdf(), but not as awful. We don't want to use alarm() and signals,
          * hence we implement our own trivial version of this.
@@ -688,22 +684,18 @@ int take_etc_passwd_lock(const char *root) {
          * given that they are redundant: they invoke lckpwdf() first and keep it during everything they do.
          * The per-database locks are awfully racy, and thus we just won't do them. */
 
-        if (root)
-                path = prefix_roota(root, ETC_PASSWD_LOCK_PATH);
-        else
-                path = ETC_PASSWD_LOCK_PATH;
+        _cleanup_free_ char *path = path_join(root, ETC_PASSWD_LOCK_PATH);
+        if (!path)
+                return log_oom_debug();
 
-        fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
+        _cleanup_close_ int fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
         if (fd < 0)
                 return log_debug_errno(errno, "Cannot open %s: %m", path);
 
-        r = fcntl(fd, F_SETLKW, &flock);
-        if (r < 0) {
-                safe_close(fd);
+        if (fcntl(fd, F_SETLKW, &flock) < 0)
                 return log_debug_errno(errno, "Locking %s failed: %m", path);
-        }
 
-        return fd;
+        return TAKE_FD(fd);
 }
 
 bool valid_user_group_name(const char *u, ValidUserFlags flags) {
