@@ -505,6 +505,11 @@ static int journal_file_verify_header(JournalFile *f) {
             !VALID64(le64toh(f->header->entry_array_offset)))
                 return -ENODATA;
 
+        if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_offset) &&
+            le64toh(f->header->tail_entry_offset) != 0 &&
+            !VALID64(le64toh(f->header->tail_entry_offset)))
+                return -ENODATA;
+
         if (journal_file_writable(f)) {
                 sd_id128_t machine_id;
                 uint8_t state;
@@ -2053,6 +2058,7 @@ static int journal_file_link_entry(
 
         f->header->tail_entry_realtime = o->entry.realtime;
         f->header->tail_entry_monotonic = o->entry.monotonic;
+        f->header->tail_entry_offset = offset;
 
         /* Link up the items */
         for (uint64_t i = 0; i < n_items; i++) {
