@@ -76,17 +76,17 @@ typedef struct Item {
         gid_t gid;
         uid_t uid;
 
-        bool gid_set:1;
+        bool gid_set;
 
         /* When set the group with the specified GID must exist
          * and the check if a UID clashes with the GID is skipped.
          */
-        bool id_set_strict:1;
+        bool id_set_strict;
 
-        bool uid_set:1;
+        bool uid_set;
 
-        bool todo_user:1;
-        bool todo_group:1;
+        bool todo_user;
+        bool todo_group;
 } Item;
 
 static char *arg_root = NULL;
