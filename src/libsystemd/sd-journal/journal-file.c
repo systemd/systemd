@@ -2105,9 +2105,9 @@ static int journal_file_append_entry_internal(
                                                "timestamp %" PRIu64 ", refusing entry.",
                                                ts->realtime, le64toh(f->header->tail_entry_realtime));
 
-                if (!sd_id128_is_null(f->header->boot_id) && boot_id) {
+                if (!sd_id128_is_null(f->header->tail_entry_boot_id) && boot_id) {
 
-                        if (!sd_id128_equal(f->header->boot_id, *boot_id))
+                        if (!sd_id128_equal(f->header->tail_entry_boot_id, *boot_id))
                                 return log_debug_errno(SYNTHETIC_ERRNO(EREMOTE),
                                                        "Boot ID to write is different from previous boot id, refusing entry.");
 
@@ -2149,8 +2149,8 @@ static int journal_file_append_entry_internal(
         o->entry.monotonic = htole64(ts->monotonic);
         o->entry.xor_hash = htole64(xor_hash);
         if (boot_id)
-                f->header->boot_id = *boot_id;
-        o->entry.boot_id = f->header->boot_id;
+                f->header->tail_entry_boot_id = *boot_id;
+        o->entry.boot_id = f->header->tail_entry_boot_id;
 
         for (size_t i = 0; i < n_items; i++)
                 write_entry_item(f, o, i, &items[i]);
@@ -3560,7 +3560,7 @@ void journal_file_print_header(JournalFile *f) {
                "Boot ID: %s\n"
                "Sequential number ID: %s\n"
                "State: %s\n"
-               "Compatible flags:%s%s\n"
+               "Compatible flags:%s%s%s\n"
                "Incompatible flags:%s%s%s%s%s%s\n"
                "Header size: %"PRIu64"\n"
                "Arena size: %"PRIu64"\n"
@@ -3577,12 +3577,13 @@ void journal_file_print_header(JournalFile *f) {
                f->path,
                SD_ID128_TO_STRING(f->header->file_id),
                SD_ID128_TO_STRING(f->header->machine_id),
-               SD_ID128_TO_STRING(f->header->boot_id),
+               SD_ID128_TO_STRING(f->header->tail_entry_boot_id),
                SD_ID128_TO_STRING(f->header->seqnum_id),
                f->header->state == STATE_OFFLINE ? "OFFLINE" :
                f->header->state == STATE_ONLINE ? "ONLINE" :
                f->header->state == STATE_ARCHIVED ? "ARCHIVED" : "UNKNOWN",
                JOURNAL_HEADER_SEALED(f->header) ? " SEALED" : "",
+               JOURNAL_HEADER_TAIL_ENTRY_BOOT_ID(f->header) ? "TAIL_ENTRY_BOOT_ID" : "",
                (le32toh(f->header->compatible_flags) & ~HEADER_COMPATIBLE_ANY) ? " ???" : "",
                JOURNAL_HEADER_COMPRESSED_XZ(f->header) ? " COMPRESSED-XZ" : "",
                JOURNAL_HEADER_COMPRESSED_LZ4(f->header) ? " COMPRESSED-LZ4" : "",
