@@ -116,7 +116,7 @@ DEFINE_STRCPY(char16_t, strcpy16);
                         s++;                       \
                 }                                  \
                                                    \
-                return NULL;                       \
+                return c ? NULL : (type *) s;      \
         }
 
 DEFINE_STRCHR(char, strchr8);
@@ -214,6 +214,16 @@ char16_t *xstrn8_to_16(const char *str8, size_t n) {
 
         str16[i] = '\0';
         return str16;
+}
+
+char *startswith8(const char *s, const char *prefix) {
+        size_t l;
+
+        l = strlen8(prefix);
+        if (!strneq8(s, prefix, l))
+                return NULL;
+
+        return (char*) s + l;
 }
 
 static bool efi_fnmatch_prefix(const char16_t *p, const char16_t *h, const char16_t **ret_p, const char16_t **ret_h) {
@@ -871,15 +881,30 @@ char16_t *xvasprintf_status(EFI_STATUS status, const char *format, va_list ap) {
 
 #if SD_BOOT
 /* To provide the actual implementation for these we need to remove the redirection to the builtins. */
+#  undef memchr
 #  undef memcmp
 #  undef memcpy
 #  undef memset
 #else
 /* And for userspace unit testing we need to give them an efi_ prefix. */
+#  define memchr efi_memchr
 #  define memcmp efi_memcmp
 #  define memcpy efi_memcpy
 #  define memset efi_memset
 #endif
+
+_used_ void *memchr(const void *p, int c, size_t n) {
+        if (!p || n == 0)
+                return NULL;
+
+        const uint8_t *q = p;
+        for (size_t i = 0; i < n; i++) {
+                if (q[i] == c)
+                        return (void *) (q + i);
+        }
+
+        return NULL;
+}
 
 _used_ int memcmp(const void *p1, const void *p2, size_t n) {
         const uint8_t *up1 = p1, *up2 = p2;
