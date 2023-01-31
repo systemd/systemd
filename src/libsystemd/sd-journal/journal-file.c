@@ -483,6 +483,11 @@ static int journal_file_verify_header(JournalFile *f) {
         if (header_size < HEADER_SIZE_MIN)
                 return -EBADMSG;
 
+        /* When open for writing we refuse to open files with a mismatch of the header size, i.e. writing to
+         * files implementing older or new header structures. */
+        if (journal_file_writable(f) && header_size != sizeof(Header))
+                return -EPROTONOSUPPORT;
+
         if (JOURNAL_HEADER_SEALED(f->header) && !JOURNAL_HEADER_CONTAINS(f->header, n_entry_arrays))
                 return -EBADMSG;
 
