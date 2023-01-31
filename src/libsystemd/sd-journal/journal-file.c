@@ -522,11 +522,11 @@ static int journal_file_verify_header(JournalFile *f) {
 
                 if (state == STATE_ARCHIVED)
                         return -ESHUTDOWN; /* Already archived */
-                else if (state == STATE_ONLINE)
+                if (state == STATE_ONLINE)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBUSY),
                                                "Journal file %s is already online. Assuming unclean closing.",
                                                f->path);
-                else if (state != STATE_OFFLINE)
+                if (state != STATE_OFFLINE)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBUSY),
                                                "Journal file %s has unknown state %i.",
                                                f->path, state);
