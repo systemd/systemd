@@ -1418,6 +1418,27 @@ static Item* item_free(Item *i) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(Item*, item_free);
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(item_hash_ops, char, string_hash_func, string_compare_func, Item, item_free);
 
+static Item* item_new(ItemType type, const char *name) {
+        assert(name);
+
+        _cleanup_(item_freep) Item *new = new(Item, 1);
+        if (!new) {
+                log_oom();
+                return NULL;
+        }
+
+        *new = (Item) {
+                .type = type,
+        };
+
+        if (free_and_strdup(&new->name, name) < 0) {
+                log_oom();
+                return NULL;
+        }
+
+        return TAKE_PTR(new);
+}
+
 static int add_implicit(void) {
         char *g, **l;
         int r;
@@ -1426,15 +1447,8 @@ static int add_implicit(void) {
         ORDERED_HASHMAP_FOREACH_KEY(l, g, members) {
                 STRV_FOREACH(m, l)
                         if (!ordered_hashmap_get(users, *m)) {
-                                _cleanup_(item_freep) Item *j = NULL;
-
-                                j = new0(Item, 1);
+                                _cleanup_(item_freep) Item *j = item_new(ADD_USER, *m);
                                 if (!j)
-                                        return log_oom();
-
-                                j->type = ADD_USER;
-                                j->name = strdup(*m);
-                                if (!j->name)
                                         return log_oom();
 
                                 r = ordered_hashmap_ensure_put(&users, &item_hash_ops, j->name, j);
@@ -1449,15 +1463,8 @@ static int add_implicit(void) {
 
                 if (!(ordered_hashmap_get(users, g) ||
                       ordered_hashmap_get(groups, g))) {
-                        _cleanup_(item_freep) Item *j = NULL;
-
-                        j = new0(Item, 1);
+                        _cleanup_(item_freep) Item *j = item_new(ADD_GROUP, g);
                         if (!j)
-                                return log_oom();
-
-                        j->type = ADD_GROUP;
-                        j->name = strdup(g);
-                        if (!j->name)
                                 return log_oom();
 
                         r = ordered_hashmap_ensure_put(&groups, &item_hash_ops, j->name, j);
@@ -1720,15 +1727,14 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 if (r < 0)
                         return log_oom();
 
-                i = new0(Item, 1);
+                i = item_new(action[0], resolved_name);
                 if (!i)
                         return log_oom();
 
                 if (resolved_id) {
-                        if (path_is_absolute(resolved_id)) {
-                                i->uid_path = TAKE_PTR(resolved_id);
-                                path_simplify(i->uid_path);
-                        } else {
+                        if (path_is_absolute(resolved_id))
+                                i->uid_path = path_simplify(TAKE_PTR(resolved_id));
+                        else {
                                 _cleanup_free_ char *uid = NULL, *gid = NULL;
                                 if (split_pair(resolved_id, ":", &uid, &gid) == 0) {
                                         r = parse_gid(gid, &i->gid);
@@ -1776,15 +1782,14 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 if (r < 0)
                         return log_oom();
 
-                i = new0(Item, 1);
+                i = item_new(action[0], resolved_name);
                 if (!i)
                         return log_oom();
 
                 if (resolved_id) {
-                        if (path_is_absolute(resolved_id)) {
-                                i->gid_path = TAKE_PTR(resolved_id);
-                                path_simplify(i->gid_path);
-                        } else {
+                        if (path_is_absolute(resolved_id))
+                                i->gid_path = path_simplify(TAKE_PTR(resolved_id));
+                        else {
                                 r = parse_gid(resolved_id, &i->gid);
                                 if (r < 0)
                                         return log_syntax(NULL, LOG_ERR, fname, line, r,
@@ -1798,11 +1803,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 break;
 
         default:
-                return -EBADMSG;
+                assert_not_reached();
         }
-
-        i->type = action[0];
-        i->name = TAKE_PTR(resolved_name);
 
         existing = ordered_hashmap_get(h, i->name);
         if (existing) {
