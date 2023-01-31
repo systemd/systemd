@@ -2086,6 +2086,7 @@ static int journal_file_append_entry_internal(
                 JournalFile *f,
                 const dual_timestamp *ts,
                 const sd_id128_t *boot_id,
+                const sd_id128_t *machine_id,
                 uint64_t xor_hash,
                 const EntryItem items[],
                 size_t n_items,
@@ -2134,6 +2135,10 @@ static int journal_file_append_entry_internal(
                                                        ts->monotonic, le64toh(f->header->tail_entry_monotonic));
                 }
         }
+
+        if (machine_id && sd_id128_is_null(f->header->machine_id))
+                /* Initialize machine ID when not set yet */
+                f->header->machine_id = *machine_id;
 
         osize = offsetof(Object, entry.items) + (n_items * journal_file_entry_item_size(f));
 
@@ -2293,7 +2298,7 @@ int journal_file_append_entry(
         EntryItem *items;
         uint64_t xor_hash = 0;
         struct dual_timestamp _ts;
-        sd_id128_t _boot_id;
+        sd_id128_t _boot_id, _machine_id, *machine_id;
         int r;
 
         assert(f);
@@ -2322,6 +2327,16 @@ int journal_file_append_entry(
 
                 boot_id = &_boot_id;
         }
+
+        r = sd_id128_get_machine(&_machine_id);
+        if (r < 0) {
+                /* If the machine ID is not initialized yet, handle gracefully */
+                if (!IN_SET(r, -ENOENT, -ENOMEDIUM, -ENOPKG))
+                        return r;
+
+                machine_id = NULL;
+        } else
+                machine_id = &_machine_id;
 
 #if HAVE_GCRYPT
         r = journal_file_maybe_append_tag(f, ts->realtime);
@@ -2372,7 +2387,7 @@ int journal_file_append_entry(
         typesafe_qsort(items, n_iovec, entry_item_cmp);
         n_iovec = remove_duplicate_entry_items(items, n_iovec);
 
-        r = journal_file_append_entry_internal(f, ts, boot_id, xor_hash, items, n_iovec, seqnum, ret_object, ret_offset);
+        r = journal_file_append_entry_internal(f, ts, boot_id, machine_id, xor_hash, items, n_iovec, seqnum, ret_object, ret_offset);
 
         /* If the memory mapping triggered a SIGBUS then we return an
          * IO error and ignore the error code passed down to us, since
@@ -4165,7 +4180,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                         return r;
         }
 
-        r = journal_file_append_entry_internal(to, &ts, boot_id, xor_hash, items, n, NULL, NULL, NULL);
+        r = journal_file_append_entry_internal(to, &ts, boot_id, &from->header->machine_id, xor_hash, items, n, NULL, NULL, NULL);
 
         if (mmap_cache_fd_got_sigbus(to->cache_fd))
                 return -EIO;
