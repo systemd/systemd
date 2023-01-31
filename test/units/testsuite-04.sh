@@ -259,4 +259,11 @@ if is_xattr_supported; then
     rm -rf /etc/systemd/system/logs-filtering.service.d
 fi
 
+# Check that the seqnum field at least superficially works
+SEQNUM1=$(journalctl -o export -n 1 | grep _SEQNUM= | cut -d= -f2)
+systemd-cat echo "yo"
+journalctl --sync
+SEQNUM2=$(journalctl -o export -n 1 | grep _SEQNUM= | cut -d= -f2)
+test "$SEQNUM2" -gt "$SEQNUM1"
+
 touch /testok
