@@ -19,6 +19,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "macro.h"
+#include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "path-util.h"
@@ -687,6 +688,8 @@ int take_etc_passwd_lock(const char *root) {
         _cleanup_free_ char *path = path_join(root, ETC_PASSWD_LOCK_PATH);
         if (!path)
                 return log_oom_debug();
+
+        (void) mkdir_parents(path, 0755);
 
         _cleanup_close_ int fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
         if (fd < 0)
