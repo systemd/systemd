@@ -1811,7 +1811,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 if (r < 0)
                         return r;
                 if (r == 0)
-                        log_syntax(NULL, LOG_WARNING, fname, line, SYNTHETIC_ERRNO(EUCLEAN),
+                        log_syntax(NULL, LOG_WARNING, fname, line, 0,
                                    "Conflict with earlier configuration for %s '%s', ignoring line.",
                                    item_type_to_string(i->type), i->name);
 
