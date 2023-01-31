@@ -99,9 +99,16 @@ int writer_write(Writer *w,
                         return r;
         }
 
-        r = journal_file_append_entry(w->journal->file, ts, boot_id,
-                                      iovw->iovec, iovw->count,
-                                      &w->seqnum, NULL, NULL);
+        r = journal_file_append_entry(
+                        w->journal->file,
+                        ts,
+                        boot_id,
+                        iovw->iovec,
+                        iovw->count,
+                        &w->seqnum,
+                        /* seqnum_id= */ NULL,
+                        /* ret_object= */ NULL,
+                        /* ret_offset= */ NULL);
         if (r >= 0) {
                 if (w->server)
                         w->server->event_count += 1;
@@ -120,9 +127,15 @@ int writer_write(Writer *w,
                 return r;
 
         log_debug("Retrying write.");
-        r = journal_file_append_entry(w->journal->file, ts, boot_id,
-                                      iovw->iovec, iovw->count,
-                                      &w->seqnum, NULL, NULL);
+        r = journal_file_append_entry(
+                        w->journal->file,
+                        ts,
+                        boot_id,
+                        iovw->iovec, iovw->count,
+                        &w->seqnum,
+                        /* seqnum_id= */ NULL,
+                        /* ret_object= */ NULL,
+                        /* ret_offset= */ NULL);
         if (r < 0)
                 return r;
 

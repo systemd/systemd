@@ -11,23 +11,24 @@
 #include "macro.h"
 #include "managed-journal-file.h"
 #include "path-util.h"
+#include "rm-rf.h"
 #include "string-util.h"
+#include "tmpfile-util.h"
 
 static void test_journal_flush(int argc, char *argv[]) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         _cleanup_free_ char *fn = NULL;
-        char dn[] = "/var/tmp/test-journal-flush.XXXXXX";
+        _cleanup_(rm_rf_physical_and_freep) char *dn = NULL;
         ManagedJournalFile *new_journal = NULL;
         sd_journal *j = NULL;
         unsigned n = 0;
         int r;
 
-        m = mmap_cache_new();
-        assert_se(m != NULL);
-        assert_se(mkdtemp(dn));
+        assert_se(m = mmap_cache_new());
+        assert_se(mkdtemp_malloc("/var/tmp/test-journal-flush.XXXXXX", &dn) >= 0);
         (void) chattr_path(dn, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
 
-        fn = path_join(dn, "test.journal");
+        assert_se(fn = path_join(dn, "test.journal"));
 
         r = managed_journal_file_open(-1, fn, O_CREAT|O_RDWR, 0, 0644, 0, NULL, m, NULL, NULL, &new_journal);
         assert_se(r >= 0);
@@ -52,7 +53,7 @@ static void test_journal_flush(int argc, char *argv[]) {
                         log_error_errno(r, "journal_file_move_to_object failed: %m");
                 assert_se(r >= 0);
 
-                r = journal_file_copy_entry(f, new_journal->file, o, f->current_offset);
+                r = journal_file_copy_entry(f, new_journal->file, o, f->current_offset, NULL, NULL);
                 if (r < 0)
                         log_warning_errno(r, "journal_file_copy_entry failed: %m");
                 assert_se(r >= 0 ||
@@ -68,9 +69,6 @@ static void test_journal_flush(int argc, char *argv[]) {
         sd_journal_close(j);
 
         (void) managed_journal_file_close(new_journal);
-
-        unlink(fn);
-        assert_se(rmdir(dn) == 0);
 }
 
 int main(int argc, char *argv[]) {

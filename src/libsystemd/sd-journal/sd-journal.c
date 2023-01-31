@@ -2230,6 +2230,37 @@ _public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret, sd_id12
         return 0;
 }
 
+_public_ int sd_journal_get_seqnum(
+                sd_journal *j,
+                uint64_t *ret_seqnum,
+                sd_id128_t *ret_seqnum_id) {
+
+        JournalFile *f;
+        Object *o;
+        int r;
+
+        assert_return(j, -EINVAL);
+        assert_return(!journal_pid_changed(j), -ECHILD);
+
+        f = j->current_file;
+        if (!f)
+                return -EADDRNOTAVAIL;
+
+        if (f->current_offset <= 0)
+                return -EADDRNOTAVAIL;
+
+        r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
+        if (r < 0)
+                return r;
+
+        if (ret_seqnum_id)
+                *ret_seqnum_id = f->header->seqnum_id;
+        if (ret_seqnum)
+                *ret_seqnum = le64toh(o->entry.seqnum);
+
+        return 0;
+}
+
 static bool field_is_valid(const char *field) {
         assert(field);
 

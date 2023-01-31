@@ -1297,7 +1297,7 @@ int journal_file_verify(
         }
 
         if (entry_monotonic_set &&
-            (sd_id128_equal(entry_boot_id, f->header->boot_id) &&
+            (sd_id128_equal(entry_boot_id, f->header->tail_entry_boot_id) &&
              entry_monotonic != le64toh(f->header->tail_entry_monotonic))) {
                 error(0,
                       "Invalid tail monotonic timestamp (%"PRIu64" != %"PRIu64")",

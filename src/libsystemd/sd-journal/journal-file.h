@@ -180,6 +180,9 @@ static inline bool VALID_EPOCH(uint64_t u) {
 #define JOURNAL_HEADER_SEALED(h) \
         FLAGS_SET(le32toh((h)->compatible_flags), HEADER_COMPATIBLE_SEALED)
 
+#define JOURNAL_HEADER_TAIL_ENTRY_BOOT_ID(h) \
+        FLAGS_SET(le32toh((h)->compatible_flags), HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID)
+
 #define JOURNAL_HEADER_COMPRESSED_XZ(h) \
         FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_COMPRESSED_XZ)
 
@@ -259,7 +262,8 @@ int journal_file_append_entry(
                 const sd_id128_t *boot_id,
                 const struct iovec iovec[],
                 size_t n_iovec,
-                uint64_t *seqno,
+                uint64_t *seqnum,
+                sd_id128_t *seqnum_id,
                 Object **ret_object,
                 uint64_t *ret_offset);
 
@@ -286,7 +290,7 @@ int journal_file_move_to_entry_by_seqnum_for_data(JournalFile *f, Object *d, uin
 int journal_file_move_to_entry_by_realtime_for_data(JournalFile *f, Object *d, uint64_t realtime, direction_t direction, Object **ret_object, uint64_t *ret_offset);
 int journal_file_move_to_entry_by_monotonic_for_data(JournalFile *f, Object *d, sd_id128_t boot_id, uint64_t monotonic, direction_t direction, Object **ret_object, uint64_t *ret_offset);
 
-int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p);
+int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p, uint64_t *seqnum, sd_id128_t *seqnum_id);
 
 void journal_file_dump(JournalFile *f);
 void journal_file_print_header(JournalFile *f);
