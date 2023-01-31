@@ -95,8 +95,11 @@ jobs:
         KernelCommandLine=${{ env.KERNEL_CMDLINE }}
         EOF
 
+    - name: Generate secure boot key
+      run: sudo mkosi genkey
+
     - name: Build ${{ matrix.distro }}
-      run: sudo mkosi --idmap no
+      run: sudo mkosi --idmap no --secure-boot
 
     - name: Show ${{ matrix.distro }} image summary
       run: sudo mkosi summary
