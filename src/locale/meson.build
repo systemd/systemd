@@ -3,6 +3,7 @@
 systemd_localed_sources = files(
         'localed-util.c',
         'localed.c',
+        'xkbcommon-util.c',
 )
 
 localectl_sources = files('localectl.c')
@@ -30,5 +31,6 @@ endif
 
 tests += [
         [files('test-localed-util.c',
-               'localed-util.c')],
+               'localed-util.c',
+               'xkbcommon-util.c')],
 ]
