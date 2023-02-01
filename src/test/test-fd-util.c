@@ -569,4 +569,16 @@ TEST(take_fd) {
         assert_se(array[1] == -EBADF);
 }
 
+TEST(dir_fd_is_root) {
+        _cleanup_close_ int fd = -EBADF;
+
+        assert_se((fd = open("/", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
+        assert_se(dir_fd_is_root(fd) > 0);
+
+        fd = safe_close(fd);
+
+        assert_se((fd = open("/usr", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
+        assert_se(dir_fd_is_root(fd) == 0);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
