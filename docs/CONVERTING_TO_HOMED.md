@@ -114,7 +114,7 @@ Here's the step-by-step guide:
    home directory temporarily and copy the data in.
 
     ```
-    homectl with foobar -- rsync -aHAXv --remove-source-files /home/foobar.saved/ .
+    homectl with foobar -- rsync -aHANUXv --remove-source-files /home/foobar.saved/ .
     ```
 
    This mounts the home directory of the user, and then runs the specified
