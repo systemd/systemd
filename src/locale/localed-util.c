@@ -291,6 +291,7 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
         if (fd == -ENOENT) {
                 c->vc_stat = (struct stat) {};
                 vc_context_clear(&c->vc);
+                x11_context_clear(&c->x11_from_vc);
                 return 0;
         }
         if (fd < 0)
@@ -337,7 +338,7 @@ int x11_read_data(Context *c, sd_bus_message *m) {
         fd = RET_NERRNO(open("/etc/X11/xorg.conf.d/00-keyboard.conf", O_CLOEXEC | O_PATH));
         if (fd == -ENOENT) {
                 c->x11_stat = (struct stat) {};
-                context_clear_x11(c);
+                x11_context_clear(&c->x11_from_xorg);
                 return 0;
         }
         if (fd < 0)
