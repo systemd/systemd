@@ -3181,24 +3181,14 @@ if conf.get('ENABLE_HOSTNAMED') == 1
 endif
 
 if conf.get('ENABLE_LOCALED') == 1
-        if conf.get('HAVE_XKBCOMMON') == 1
-                # logind will load libxkbcommon.so dynamically on its own, but we still
-                # need to specify where the headers are
-                deps = [libdl,
-                        libxkbcommon.partial_dependency(compile_args: true),
-                        userspace,
-                        versiondep]
-        else
-                deps = [userspace,
-                        versiondep]
-        endif
-
         dbus_programs += executable(
                 'systemd-localed',
                 systemd_localed_sources,
                 include_directories : includes,
                 link_with : [libshared],
-                dependencies : deps,
+                dependencies : libxkbcommon_deps +
+                               [userspace,
+                                versiondep],
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootlibexecdir)
