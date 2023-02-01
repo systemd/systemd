@@ -511,8 +511,12 @@ static int journal_file_verify_header(JournalFile *f) {
                 int r;
 
                 r = sd_id128_get_machine(&machine_id);
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        if (!ERRNO_IS_MACHINE_ID_UNSET(r)) /* handle graceful if machine ID is not initialized yet */
+                                return r;
+
+                        machine_id = SD_ID128_NULL;
+                }
 
                 if (!sd_id128_equal(machine_id, f->header->machine_id))
                         return log_debug_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
