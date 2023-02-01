@@ -184,7 +184,6 @@ sysctldir = prefixdir / 'lib/sysctl.d'
 binfmtdir = prefixdir / 'lib/binfmt.d'
 modulesloaddir = prefixdir / 'lib/modules-load.d'
 networkdir = rootprefixdir / 'lib/systemd/network'
-pkgincludedir = includedir / 'systemd'
 systemgeneratordir = rootlibexecdir / 'system-generators'
 usergeneratordir = prefixdir / 'lib/systemd/user-generators'
 systemenvgeneratordir = prefixdir / 'lib/systemd/system-environment-generators'
@@ -316,7 +315,6 @@ conf.set10('FIRST_BOOT_FULL_PRESET',                          get_option('first-
 #####################################################################
 
 cc = meson.get_compiler('c')
-pkgconfig = import('pkgconfig')
 meson_build_sh = find_program('tools/meson-build.sh')
 
 want_tests = get_option('tests')
@@ -1091,12 +1089,9 @@ else
                         if clang_found
                                 clang = r.path()
                         endif
-                        # Assume that the required flags are supported by the found clang.
-                        clang_supports_flags = clang_found
                 else
                         clang_found = true
                         clang = cc.cmd_array()
-                        clang_supports_flags = cc.has_argument('-Wno-compare-distinct-pointer-types')
                 endif
 
                 if clang_found
@@ -2107,7 +2102,7 @@ install_libudev_static = static_library(
 
 if conf.get('HAVE_LIBCRYPTSETUP_PLUGINS') == 1
         if conf.get('HAVE_TPM2') == 1
-                cryptsetup_token_systemd_tpm2 = shared_library(
+                shared_library(
                         'cryptsetup-token-systemd-tpm2',
                         cryptsetup_token_systemd_tpm2_sources,
                         include_directories : includes,
@@ -2125,7 +2120,7 @@ if conf.get('HAVE_LIBCRYPTSETUP_PLUGINS') == 1
         endif
 
         if conf.get('HAVE_LIBFIDO2') == 1
-                cryptsetup_token_systemd_fido2 = shared_library(
+                shared_library(
                         'cryptsetup-token-systemd-fido2',
                         cryptsetup_token_systemd_fido2_sources,
                         include_directories : includes,
@@ -2143,7 +2138,7 @@ if conf.get('HAVE_LIBCRYPTSETUP_PLUGINS') == 1
         endif
 
         if conf.get('HAVE_P11KIT') == 1
-                cryptsetup_token_systemd_pkcs11 = shared_library(
+                shared_library(
                         'cryptsetup-token-systemd-pkcs11',
                         cryptsetup_token_systemd_pkcs11_sources,
                         include_directories : includes,

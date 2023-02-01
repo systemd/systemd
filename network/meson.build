@@ -3,6 +3,7 @@
 if conf.get('ENABLE_NETWORKD') == 1
         install_data('80-6rd-tunnel.network',
                      '80-container-host0.network',
+                     '80-container-vb.network',
                      '80-container-ve.network',
                      '80-container-vz.network',
                      '80-ethernet.network.example',
