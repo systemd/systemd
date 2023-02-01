@@ -89,6 +89,8 @@ check_device_unit() {(
     path="${2?}"
     unit=$(systemd-escape --path --suffix=device "$path")
 
+    [[ "$log_level" == 1 ]] && echo "INFO: check_device_unit($unit)"
+
     syspath=$(systemctl show --value --property SysFSPath "$unit" 2>/dev/null)
     if [[ -z "$syspath" ]]; then
         [[ "$log_level" == 1 ]] && echo >&2 "ERROR: $unit not found."
@@ -156,12 +158,11 @@ helper_check_device_units() {(
 
     local i
 
-    for ((i = 0; i < 20; i++)); do
-        (( i == 0 )) || sleep .5
-
+    for (( i = 0; i < 20; i++ )); do
         if check_device_units 0 "$@"; then
             return 0
         fi
+        sleep .5
     done
 
     check_device_units 1 "$@"
