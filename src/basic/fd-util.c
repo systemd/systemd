@@ -21,6 +21,7 @@
 #include "missing_fcntl.h"
 #include "missing_fs.h"
 #include "missing_syscall.h"
+#include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -863,4 +864,16 @@ int fd_get_diskseq(int fd, uint64_t *ret) {
         *ret = diskseq;
 
         return 0;
+}
+
+int dir_fd_is_root(int dir_fd) {
+        struct stat st, pst;
+
+        assert(dir_fd >= 0);
+
+        if (fstatat(dir_fd, "", &st, AT_EMPTY_PATH) < 0 || fstatat(dir_fd, "..", &pst, 0) < 0)
+                return -errno;
+
+        /* If the parent directory is the same inode, the fd points to the root directory "/". */
+        return stat_inode_same(&st, &pst);
 }
