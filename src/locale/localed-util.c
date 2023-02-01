@@ -24,6 +24,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
+#include "xkbcommon-util.h"
 
 static bool startswith_comma(const char *s, const char *prefix) {
         assert(s);
@@ -152,6 +153,32 @@ int x11_context_copy(X11Context *dest, const X11Context *src) {
         modified = modified || r > 0;
 
         return modified;
+}
+
+int x11_context_verify_and_warn(const X11Context *xc, int log_level, sd_bus_error *error) {
+        int r;
+
+        assert(xc);
+
+        if (!x11_context_is_safe(xc)) {
+                if (error)
+                        sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid X11 keyboard layout.");
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(EINVAL), "Invalid X11 keyboard layout.");
+        }
+
+        r = verify_xkb_rmlvo(xc->model, xc->layout, xc->variant, xc->options);
+        if (r < 0) {
+                if (error) {
+                        if (r == -EOPNOTSUPP)
+                                sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Local keyboard configuration not supported on this system.");
+                        else
+                                sd_bus_error_set_errnof(error, r, "Specified X11 keyboard layout cannot be compiled, refusing as invalid: %m");
+                }
+                return log_full_errno(log_level, r, "Cannot compile XKB keymap for X11 keyboard layout (model='%s' / layout='%s' / variant='%s' / options='%s'): %m",
+                                      strempty(xc->model), strempty(xc->layout), strempty(xc->variant), strempty(xc->options));
+        }
+
+        return 0;
 }
 
 void vc_context_clear(VCContext *vc) {
