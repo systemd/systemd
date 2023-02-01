@@ -20,6 +20,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "id128-util.h"
 #include "journal-authenticate.h"
 #include "journal-def.h"
 #include "journal-file.h"
@@ -356,7 +357,9 @@ static int journal_file_init_header(
                                 FLAGS_SET(file_flags, JOURNAL_COMPRESS) * COMPRESSION_TO_HEADER_INCOMPATIBLE_FLAG(DEFAULT_COMPRESSION) |
                                 keyed_hash_requested() * HEADER_INCOMPATIBLE_KEYED_HASH |
                                 compact_mode_requested() * HEADER_INCOMPATIBLE_COMPACT),
-                .compatible_flags = htole32(seal * HEADER_COMPATIBLE_SEALED),
+                .compatible_flags = htole32(
+                                (seal * HEADER_COMPATIBLE_SEALED) |
+                                HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID),
         };
 
         assert_cc(sizeof(h.signature) == sizeof(HEADER_SIGNATURE));
@@ -365,6 +368,11 @@ static int journal_file_init_header(
         r = sd_id128_randomize(&h.file_id);
         if (r < 0)
                 return r;
+
+        r = sd_id128_get_machine(&h.machine_id);
+        if (r < 0 && !ERRNO_IS_MACHINE_ID_UNSET(r))
+                return r; /* If we have no valid machine ID (test environment?), let's simply leave the
+                           * machine ID field all zeroes. */
 
         if (template) {
                 h.seqnum_id = template->header->seqnum_id;
@@ -387,16 +395,8 @@ static int journal_file_refresh_header(JournalFile *f) {
         assert(f);
         assert(f->header);
 
-        r = sd_id128_get_machine(&f->header->machine_id);
-        if (IN_SET(r, -ENOENT, -ENOMEDIUM, -ENOPKG))
-                /* We don't have a machine-id, let's continue without */
-                zero(f->header->machine_id);
-        else if (r < 0)
-                return r;
-
-        r = sd_id128_get_boot(&f->header->boot_id);
-        if (r < 0)
-                return r;
+        /* We used to update the header's boot ID field here, but we don't do that anymore, as per
+         * HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID */
 
         r = journal_file_set_online(f);
 
@@ -511,8 +511,12 @@ static int journal_file_verify_header(JournalFile *f) {
                 int r;
 
                 r = sd_id128_get_machine(&machine_id);
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        if (!ERRNO_IS_MACHINE_ID_UNSET(r)) /* handle graceful if machine ID is not initialized yet */
+                                return r;
+
+                        machine_id = SD_ID128_NULL;
+                }
 
                 if (!sd_id128_equal(machine_id, f->header->machine_id))
                         return log_debug_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
@@ -533,14 +537,6 @@ static int journal_file_verify_header(JournalFile *f) {
 
                 if (f->header->field_hash_table_size == 0 || f->header->data_hash_table_size == 0)
                         return -EBADMSG;
-
-                /* Don't permit appending to files from the future. Because otherwise the realtime timestamps wouldn't
-                 * be strictly ordered in the entries in the file anymore, and we can't have that since it breaks
-                 * bisection. */
-                if (le64toh(f->header->tail_entry_realtime) > now(CLOCK_REALTIME))
-                        return log_debug_errno(SYNTHETIC_ERRNO(ETXTBSY),
-                                               "Journal file %s is from the future, refusing to append new data to it that'd be older.",
-                                               f->path);
         }
 
         return 0;
@@ -2087,6 +2083,7 @@ static int journal_file_append_entry_internal(
                 JournalFile *f,
                 const dual_timestamp *ts,
                 const sd_id128_t *boot_id,
+                const sd_id128_t *machine_id,
                 uint64_t xor_hash,
                 const EntryItem items[],
                 size_t n_items,
@@ -2122,9 +2119,9 @@ static int journal_file_append_entry_internal(
                                                "timestamp %" PRIu64 ", refusing entry.",
                                                ts->realtime, le64toh(f->header->tail_entry_realtime));
 
-                if (!sd_id128_is_null(f->header->boot_id) && boot_id) {
+                if (!sd_id128_is_null(f->header->tail_entry_boot_id) && boot_id) {
 
-                        if (!sd_id128_equal(f->header->boot_id, *boot_id))
+                        if (!sd_id128_equal(f->header->tail_entry_boot_id, *boot_id))
                                 return log_debug_errno(SYNTHETIC_ERRNO(EREMOTE),
                                                        "Boot ID to write is different from previous boot id, refusing entry.");
 
@@ -2135,6 +2132,10 @@ static int journal_file_append_entry_internal(
                                                        ts->monotonic, le64toh(f->header->tail_entry_monotonic));
                 }
         }
+
+        if (machine_id && sd_id128_is_null(f->header->machine_id))
+                /* Initialize machine ID when not set yet */
+                f->header->machine_id = *machine_id;
 
         osize = offsetof(Object, entry.items) + (n_items * journal_file_entry_item_size(f));
 
@@ -2147,8 +2148,8 @@ static int journal_file_append_entry_internal(
         o->entry.monotonic = htole64(ts->monotonic);
         o->entry.xor_hash = htole64(xor_hash);
         if (boot_id)
-                f->header->boot_id = *boot_id;
-        o->entry.boot_id = f->header->boot_id;
+                f->header->tail_entry_boot_id = *boot_id;
+        o->entry.boot_id = f->header->tail_entry_boot_id;
 
         for (size_t i = 0; i < n_items; i++)
                 write_entry_item(f, o, i, &items[i]);
@@ -2294,7 +2295,7 @@ int journal_file_append_entry(
         EntryItem *items;
         uint64_t xor_hash = 0;
         struct dual_timestamp _ts;
-        sd_id128_t _boot_id;
+        sd_id128_t _boot_id, _machine_id, *machine_id;
         int r;
 
         assert(f);
@@ -2323,6 +2324,16 @@ int journal_file_append_entry(
 
                 boot_id = &_boot_id;
         }
+
+        r = sd_id128_get_machine(&_machine_id);
+        if (r < 0) {
+                if (!ERRNO_IS_MACHINE_ID_UNSET(r))
+                        return r;
+
+                /* If the machine ID is not initialized yet, handle gracefully */
+                machine_id = NULL;
+        } else
+                machine_id = &_machine_id;
 
 #if HAVE_GCRYPT
         r = journal_file_maybe_append_tag(f, ts->realtime);
@@ -2373,7 +2384,7 @@ int journal_file_append_entry(
         typesafe_qsort(items, n_iovec, entry_item_cmp);
         n_iovec = remove_duplicate_entry_items(items, n_iovec);
 
-        r = journal_file_append_entry_internal(f, ts, boot_id, xor_hash, items, n_iovec, seqnum, ret_object, ret_offset);
+        r = journal_file_append_entry_internal(f, ts, boot_id, machine_id, xor_hash, items, n_iovec, seqnum, ret_object, ret_offset);
 
         /* If the memory mapping triggered a SIGBUS then we return an
          * IO error and ignore the error code passed down to us, since
@@ -3547,7 +3558,7 @@ void journal_file_print_header(JournalFile *f) {
                "Boot ID: %s\n"
                "Sequential number ID: %s\n"
                "State: %s\n"
-               "Compatible flags:%s%s\n"
+               "Compatible flags:%s%s%s\n"
                "Incompatible flags:%s%s%s%s%s%s\n"
                "Header size: %"PRIu64"\n"
                "Arena size: %"PRIu64"\n"
@@ -3564,12 +3575,13 @@ void journal_file_print_header(JournalFile *f) {
                f->path,
                SD_ID128_TO_STRING(f->header->file_id),
                SD_ID128_TO_STRING(f->header->machine_id),
-               SD_ID128_TO_STRING(f->header->boot_id),
+               SD_ID128_TO_STRING(f->header->tail_entry_boot_id),
                SD_ID128_TO_STRING(f->header->seqnum_id),
                f->header->state == STATE_OFFLINE ? "OFFLINE" :
                f->header->state == STATE_ONLINE ? "ONLINE" :
                f->header->state == STATE_ARCHIVED ? "ARCHIVED" : "UNKNOWN",
                JOURNAL_HEADER_SEALED(f->header) ? " SEALED" : "",
+               JOURNAL_HEADER_TAIL_ENTRY_BOOT_ID(f->header) ? " TAIL_ENTRY_BOOT_ID" : "",
                (le32toh(f->header->compatible_flags) & ~HEADER_COMPATIBLE_ANY) ? " ???" : "",
                JOURNAL_HEADER_COMPRESSED_XZ(f->header) ? " COMPRESSED-XZ" : "",
                JOURNAL_HEADER_COMPRESSED_LZ4(f->header) ? " COMPRESSED-LZ4" : "",
@@ -4165,7 +4177,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                         return r;
         }
 
-        r = journal_file_append_entry_internal(to, &ts, boot_id, xor_hash, items, n, NULL, NULL, NULL);
+        r = journal_file_append_entry_internal(to, &ts, boot_id, &from->header->machine_id, xor_hash, items, n, NULL, NULL, NULL);
 
         if (mmap_cache_fd_got_sigbus(to->cache_fd))
                 return -EIO;
