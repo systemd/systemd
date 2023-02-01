@@ -224,6 +224,46 @@ int vc_context_copy(VCContext *dest, const VCContext *src) {
         return modified;
 }
 
+static int verify_keymap(const char *keymap, int log_level, sd_bus_error *error) {
+        int r;
+
+        assert(keymap);
+
+        r = keymap_exists(keymap); /* This also verifies that the keymap name is kosher. */
+        if (r < 0) {
+                if (error)
+                        sd_bus_error_set_errnof(error, r, "Failed to check keymap %s: %m", keymap);
+                return log_full_errno(log_level, r, "Failed to check keymap %s: %m", keymap);
+        }
+        if (r == 0) {
+                if (error)
+                        sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Keymap %s is not installed.", keymap);
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(ENOENT), "Keymap %s is not installed.", keymap);
+        }
+
+        return 0;
+}
+
+int vc_context_verify_and_warn(const VCContext *vc, int log_level, sd_bus_error *error) {
+        int r;
+
+        assert(vc);
+
+        if (vc->keymap) {
+                r = verify_keymap(vc->keymap, log_level, error);
+                if (r < 0)
+                        return r;
+        }
+
+        if (vc->toggle) {
+                r = verify_keymap(vc->toggle, log_level, error);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 void context_clear(Context *c) {
         assert(c);
 

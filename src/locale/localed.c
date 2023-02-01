@@ -378,15 +378,9 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
 
         vc_context_empty_to_null(&in);
 
-        FOREACH_STRING(name, in.keymap ?: in.toggle, in.keymap ? in.toggle : NULL) {
-                r = keymap_exists(name); /* This also verifies that the keymap name is kosher. */
-                if (r < 0) {
-                        log_error_errno(r, "Failed to check keymap %s: %m", name);
-                        return sd_bus_error_set_errnof(error, r, "Failed to check keymap %s: %m", name);
-                }
-                if (r == 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Keymap %s is not installed.", name);
-        }
+        r = vc_context_verify_and_warn(&in, LOG_ERR, error);
+        if (r < 0)
+                return r;
 
         r = vconsole_read_data(c, m);
         if (r < 0) {
