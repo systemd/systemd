@@ -21,6 +21,7 @@
 #include "missing_fcntl.h"
 #include "missing_fs.h"
 #include "missing_syscall.h"
+#include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -863,4 +864,20 @@ int fd_get_diskseq(int fd, uint64_t *ret) {
         *ret = diskseq;
 
         return 0;
+}
+
+int dir_fd_is_root(int dir_fd) {
+        int a, b, r;
+
+        assert(dir_fd >= 0);
+
+        r = path_get_mnt_id_at(dir_fd, ".", &a);
+        if (r < 0)
+                return r;
+
+        r = path_get_mnt_id_at(dir_fd, "..", &b);
+        if (r < 0)
+                return r;
+
+        return a == b;
 }
