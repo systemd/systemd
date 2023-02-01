@@ -27,7 +27,7 @@ jobs:
         configuration-path: .github/labeler.yml
         sync-labels: "" # This is a workaround for issue 18671
 
-    - uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0
+    - uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975
       if: github.event_name == 'pull_request_target' && github.event.action != 'closed' && !github.event.pull_request.draft
       with:
         script: |
@@ -71,7 +71,7 @@ jobs:
             }
           }
 
-    - uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0
+    - uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975
       if: github.event_name == 'issue_comment' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/please-review')
       with:
         script: |
@@ -82,7 +82,7 @@ jobs:
             labels: ["please-review"]
           })
 
-    - uses: actions/github-script@d556feaca394842dc55e4734bf3bb9f685482fa0
+    - uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975
       if: github.event_name == 'pull_request_target' && github.event.action == 'closed' && github.event.issue.pull_request
       with:
         script: |
