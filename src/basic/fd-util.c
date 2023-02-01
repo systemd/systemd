@@ -880,3 +880,20 @@ const char *format_fd_path(int fd, char **buf) {
          * empty string. */
         return path_equal(*buf, "/") ? "" : *buf;
 }
+
+int dir_fd_is_root(int dir_fd) {
+        _cleanup_close_ int rfd = -EBADF;
+        struct stat st, rst;
+
+        assert(dir_fd >= 0);
+
+        rfd = openat(dir_fd, "/", O_CLOEXEC|O_NOFOLLOW|O_PATH|O_DIRECTORY);
+        if (rfd < 0)
+                return -errno;
+
+        if (fstat(dir_fd, &st) < 0 || fstat(rfd, &rst) < 0)
+                return -errno;
+
+        /* If we opened the same directory, that means the directory fd points to the host root directory */
+        return stat_inode_same(&st, &rst);
+}
