@@ -25,7 +25,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
-#include "xkbcommon-util.h"
 
 static int reload_system_manager(sd_bus *bus) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
@@ -497,19 +496,9 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
 
         x11_context_empty_to_null(&in);
 
-        if (!x11_context_is_safe(&in))
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Received invalid keyboard data");
-
-        r = verify_xkb_rmlvo(in.model, in.layout, in.variant, in.options);
-        if (r < 0) {
-                log_error_errno(r, "Cannot compile XKB keymap for new x11 keyboard layout ('%s' / '%s' / '%s' / '%s'): %m",
-                                strempty(in.model), strempty(in.layout), strempty(in.variant), strempty(in.options));
-
-                if (r == -EOPNOTSUPP)
-                        return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Local keyboard configuration not supported on this system.");
-
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Specified keymap cannot be compiled, refusing as invalid.");
-        }
+        r = x11_context_verify_and_warn(&in, LOG_ERR, error);
+        if (r < 0)
+                return r;
 
         r = vconsole_read_data(c, m);
         if (r < 0) {
