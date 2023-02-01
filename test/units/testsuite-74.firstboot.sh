@@ -143,6 +143,8 @@ diff <(awk -F: '/^root/ { print $2; }' /etc/shadow) <(awk -F: '/^root/ { print $
 rm -fr "$ROOT"
 mkdir -p "$ROOT/bin"
 touch "$ROOT/bin/fooshell" "$ROOT/bin/barshell"
+# Temporarily disable pipefail to avoid `echo: write error: Broken pipe
+set +o pipefail
 # We can do only limited testing here, since it's all an interactive stuff,
 # so --prompt and --prompt-root-password are skipped on purpose
 echo -ne "\nfoo\nbar\n" | systemd-firstboot --root="$ROOT" --prompt-locale
@@ -168,6 +170,8 @@ grep -q "^root:.*:0:0:.*:/bin/fooshell$" "$ROOT/etc/passwd"
 # Now without the welcome screen but with force
 echo -ne "/bin/barshell\n" | systemd-firstboot --root="$ROOT" --force --prompt-root-shell --welcome=no
 grep -q "^root:.*:0:0:.*:/bin/barshell$" "$ROOT/etc/passwd"
+# Re-enable pipefail
+set -o pipefail
 
 # Assorted tests
 rm -fr "$ROOT"
