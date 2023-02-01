@@ -20,6 +20,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "id128-util.h"
 #include "journal-authenticate.h"
 #include "journal-def.h"
 #include "journal-file.h"
@@ -388,11 +389,13 @@ static int journal_file_refresh_header(JournalFile *f) {
         assert(f->header);
 
         r = sd_id128_get_machine(&f->header->machine_id);
-        if (IN_SET(r, -ENOENT, -ENOMEDIUM, -ENOPKG))
-                /* We don't have a machine-id, let's continue without */
-                zero(f->header->machine_id);
-        else if (r < 0)
-                return r;
+        if (r < 0) {
+                if (!ERRNO_IS_MACHINE_ID_UNSET(r))
+                        return r;
+
+                /* don't have a machine-id, let's continue without */
+                f->header->machine_id = SD_ID128_NULL;
+        }
 
         r = sd_id128_get_boot(&f->header->boot_id);
         if (r < 0)
