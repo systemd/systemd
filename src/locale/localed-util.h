@@ -43,6 +43,10 @@ void x11_context_empty_to_null(X11Context *xc);
 bool x11_context_is_safe(const X11Context *xc);
 bool x11_context_equal(const X11Context *a, const X11Context *b);
 int x11_context_copy(X11Context *dest, const X11Context *src);
+int x11_context_verify_and_warn(const X11Context *xc, int log_level, sd_bus_error *error);
+static inline int x11_context_verify(const X11Context *xc) {
+        return x11_context_verify_and_warn(xc, LOG_DEBUG, NULL);
+}
 
 X11Context *context_get_x11_context(Context *c);
 
