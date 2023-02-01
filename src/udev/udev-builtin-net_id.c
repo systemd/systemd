@@ -144,7 +144,7 @@ static int get_virtfn_info(sd_device *pcidev, sd_device **ret_physfn_pcidev, cha
                         if (!suffix)
                                 return -ENOMEM;
 
-                        *ret_physfn_pcidev = sd_device_ref(child);
+                        *ret_physfn_pcidev = sd_device_ref(physfn_pcidev);
                         *ret_suffix = suffix;
                         return 0;
                 }
