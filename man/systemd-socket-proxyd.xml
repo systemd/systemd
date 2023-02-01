@@ -104,6 +104,7 @@ Requires=proxy-to-nginx.socket
 After=proxy-to-nginx.socket
 
 [Service]
+Type=notify
 ExecStart=/usr/lib/systemd/systemd-socket-proxyd /run/nginx/socket
 PrivateTmp=yes
 PrivateNetwork=yes]]></programlisting>
@@ -151,6 +152,7 @@ After=proxy-to-nginx.socket
 JoinsNamespaceOf=nginx.service
 
 [Service]
+Type=notify
 ExecStart=/usr/lib/systemd/systemd-socket-proxyd 127.0.0.1:8080
 PrivateTmp=yes
 PrivateNetwork=yes]]></programlisting>
