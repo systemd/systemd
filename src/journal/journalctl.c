@@ -2123,6 +2123,7 @@ int main(int argc, char *argv[]) {
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |
                                 (arg_action == ACTION_UPDATE_CATALOG ? DISSECT_IMAGE_FSCK|DISSECT_IMAGE_GROWFS : DISSECT_IMAGE_READ_ONLY),
                                 &unlink_dir,
+                                NULL,
                                 &loop_device);
                 if (r < 0)
                         return r;
