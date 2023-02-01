@@ -1658,7 +1658,7 @@ static int install_info_traverse(
                 r = install_info_follow(ctx, i, lp, flags,
                                         /* If linked, don't look at the target name */
                                         /* ignore_different_name= */ i->install_mode == INSTALL_MODE_LINKED);
-                if (r == -EXDEV) {
+                if (r == -EXDEV && i->symlink_target) {
                         _cleanup_free_ char *buffer = NULL;
                         const char *bn;
 
