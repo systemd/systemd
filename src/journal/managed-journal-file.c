@@ -542,8 +542,7 @@ int managed_journal_file_open_reliably(
                     -EBUSY,             /* Unclean shutdown */
                     -ESHUTDOWN,         /* Already archived */
                     -EIO,               /* IO error, including SIGBUS on mmap */
-                    -EIDRM,             /* File has been deleted */
-                    -ETXTBSY))          /* File is from the future */
+                    -EIDRM))            /* File has been deleted */
                 return r;
 
         if ((open_flags & O_ACCMODE) == O_RDONLY)
