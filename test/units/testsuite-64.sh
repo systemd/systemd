@@ -426,6 +426,26 @@ testcase_lvm_basic() {
     helper_check_device_symlinks "/dev/disk" "/dev/$vgroup"
     helper_check_device_units
 
+    # Mount mypart1 through by-label devlink
+    mkdir -p /tmp/mypart1-mount-point
+    mount /dev/disk/by-label/mylvpart1 /tmp/mypart1-mount-point
+    timeout 30 bash -c "while ! systemctl -q is-active /tmp/mypart1-mount-point; do sleep .2; done"
+    # Extend the partition and check if the device and mount units are still active.
+    # See https://bugzilla.redhat.com/show_bug.cgi?id=2158628
+    # Note, the test below may be unstable with LVM2 older than v2.03.15, especially, without
+    # https://github.com/lvmteam/lvm2/commit/e10f67e91728f1e576803df884049ecbd92874d0
+    # But, to reproduce the issue, udevd must start to process the first 'change' uevent
+    # earlier than extending the volume has been finished, and in most case, the extension
+    # is hopefully fast.
+    lvm lvextend -y --size 8M "/dev/$vgroup/mypart1"
+    udevadm wait --settle --timeout="$timeout" "/dev/disk/by-label/mylvpart1"
+    timeout 30 bash -c "while ! systemctl -q is-active '/dev/$vgroup/mypart1'; do sleep .2; done"
+    timeout 30 bash -c "while ! systemctl -q is-active /tmp/mypart1-mount-point; do sleep .2; done"
+    # Umount the partition, otherwise the underlying device unit will stay in
+    # the inactive state and not be collected, and helper_check_device_units() will fail.
+    systemctl show /tmp/mypart1-mount-point
+    umount /tmp/mypart1-mount-point
+
     # Rename partitions (see issue #24518)
     lvm lvrename "/dev/$vgroup/mypart1" renamed1
     lvm lvrename "/dev/$vgroup/mypart2" renamed2
