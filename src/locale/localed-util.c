@@ -339,6 +339,7 @@ int locale_read_data(Context *c, sd_bus_message *m) {
 int vconsole_read_data(Context *c, sd_bus_message *m) {
         _cleanup_close_ int fd = -EBADF;
         struct stat st;
+        int r;
 
         assert(c);
 
@@ -372,13 +373,24 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
         vc_context_clear(&c->vc);
         x11_context_clear(&c->x11_from_vc);
 
-        return parse_env_file_fd(fd, "/etc/vconsole.conf",
-                                 "KEYMAP",        &c->vc.keymap,
-                                 "KEYMAP_TOGGLE", &c->vc.toggle,
-                                 "XKBLAYOUT",     &c->x11_from_vc.layout,
-                                 "XKBMODEL",      &c->x11_from_vc.model,
-                                 "XKBVARIANT",    &c->x11_from_vc.variant,
-                                 "XKBOPTIONS",    &c->x11_from_vc.options);
+        r = parse_env_file_fd(
+                        fd, "/etc/vconsole.conf",
+                        "KEYMAP",        &c->vc.keymap,
+                        "KEYMAP_TOGGLE", &c->vc.toggle,
+                        "XKBLAYOUT",     &c->x11_from_vc.layout,
+                        "XKBMODEL",      &c->x11_from_vc.model,
+                        "XKBVARIANT",    &c->x11_from_vc.variant,
+                        "XKBOPTIONS",    &c->x11_from_vc.options);
+        if (r < 0)
+                return r;
+
+        if (vc_context_verify(&c->vc) < 0)
+                vc_context_clear(&c->vc);
+
+        if (x11_context_verify(&c->x11_from_vc) < 0)
+                x11_context_clear(&c->x11_from_vc);
+
+        return 0;
 }
 
 int x11_read_data(Context *c, sd_bus_message *m) {
@@ -472,6 +484,9 @@ int x11_read_data(Context *c, sd_bus_message *m) {
                 } else if (in_section && first_word(l, "EndSection"))
                         in_section = false;
         }
+
+        if (x11_context_verify(&c->x11_from_xorg) < 0)
+                x11_context_clear(&c->x11_from_xorg);
 
         return 0;
 }
@@ -659,6 +674,7 @@ int vconsole_convert_to_x11(const VCContext *vc, X11Context *ret) {
 
         for (unsigned n = 0;;) {
                 _cleanup_strv_free_ char **a = NULL;
+                X11Context xc;
 
                 r = read_next_mapping(map, 5, UINT_MAX, f, &n, &a);
                 if (r < 0)
@@ -671,13 +687,17 @@ int vconsole_convert_to_x11(const VCContext *vc, X11Context *ret) {
                 if (!streq(vc->keymap, a[0]))
                         continue;
 
-                return x11_context_copy(ret,
-                                     &(X11Context) {
-                                             .layout  = empty_or_dash_to_null(a[1]),
-                                             .model   = empty_or_dash_to_null(a[2]),
-                                             .variant = empty_or_dash_to_null(a[3]),
-                                             .options = empty_or_dash_to_null(a[4]),
-                                     });
+                xc = (X11Context) {
+                        .layout  = empty_or_dash_to_null(a[1]),
+                        .model   = empty_or_dash_to_null(a[2]),
+                        .variant = empty_or_dash_to_null(a[3]),
+                        .options = empty_or_dash_to_null(a[4]),
+                };
+
+                if (x11_context_verify(&xc) < 0)
+                        continue;
+
+                return x11_context_copy(ret, &xc);
         }
 }
 
