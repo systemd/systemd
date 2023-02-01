@@ -4789,10 +4789,12 @@ static int context_read_seed(Context *context, const char *root) {
                         return log_error_errno(fd, "Failed to determine machine ID of image: %m");
                 else {
                         r = id128_read_fd(fd, ID128_FORMAT_PLAIN, &context->seed);
-                        if (IN_SET(r, -ENOMEDIUM, -ENOPKG))
+                        if (r < 0) {
+                                if (!ERRNO_IS_MACHINE_ID_UNSET(r))
+                                        return log_error_errno(r, "Failed to parse machine ID of image: %m");
+
                                 log_info("No machine ID set, using randomized partition UUIDs.");
-                        else if (r < 0)
-                                return log_error_errno(r, "Failed to parse machine ID of image: %m");
+                        }
 
                         return 0;
                 }

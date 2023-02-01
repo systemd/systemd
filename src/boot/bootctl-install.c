@@ -6,30 +6,33 @@
 #include "bootctl-util.h"
 #include "chase-symlinks.h"
 #include "copy.h"
+#include "dirent-util.h"
+#include "efi-api.h"
 #include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "glyph-util.h"
+#include "id128-util.h"
 #include "os-util.h"
 #include "path-util.h"
+#include "rm-rf.h"
 #include "stat-util.h"
 #include "sync-util.h"
 #include "tmpfile-util.h"
 #include "umask-util.h"
 #include "utf8.h"
-#include "dirent-util.h"
-#include "efi-api.h"
-#include "rm-rf.h"
 
 static int load_etc_machine_id(void) {
         int r;
 
         r = sd_id128_get_machine(&arg_machine_id);
-        if (IN_SET(r, -ENOENT, -ENOMEDIUM, -ENOPKG)) /* Not set or empty */
-                return 0;
-        if (r < 0)
+        if (r < 0) {
+                if (ERRNO_IS_MACHINE_ID_UNSET(r)) /* Not set or empty */
+                        return 0;
+
                 return log_error_errno(r, "Failed to get machine-id: %m");
+        }
 
         log_debug("Loaded machine ID %s from /etc/machine-id.", SD_ID128_TO_STRING(arg_machine_id));
         return 0;
