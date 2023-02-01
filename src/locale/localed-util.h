@@ -52,6 +52,10 @@ bool vc_context_isempty(const VCContext *vc);
 void vc_context_empty_to_null(VCContext *vc);
 bool vc_context_equal(const VCContext *a, const VCContext *b);
 int vc_context_copy(VCContext *dest, const VCContext *src);
+int vc_context_verify_and_warn(const VCContext *vc, int log_level, sd_bus_error *error);
+static inline int vc_context_verify(const VCContext *vc) {
+        return vc_context_verify_and_warn(vc, LOG_DEBUG, NULL);
+}
 
 int find_converted_keymap(const X11Context *xc, char **ret);
 int find_legacy_keymap(const X11Context *xc, char **ret);
