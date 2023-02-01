@@ -227,12 +227,33 @@
 
         <listitem><para>Danger: this feature might soft-brick your device if used improperly.</para>
 
-        <para>Takes one of <literal>off</literal>, <literal>manual</literal> or <literal>force</literal>.
-        Controls the enrollment of Secure Boot keys. If set to <literal>off</literal>, no action whatsoever
-        is taken. If set to <literal>manual</literal> (the default) and the UEFI firmware is in setup-mode
-        then entries to manually enroll Secure Boot variables are created in the boot menu. If set to
-        <literal>force</literal>, in addition, if a directory named <filename>/loader/keys/auto/</filename>
-        exists on the ESP then the keys in that directory are enrolled automatically.</para>
+        <para>Controls enrollment of secure boot keys found on the ESP if the system is in setup mode:
+        <variablelist>
+          <varlistentry>
+            <term><option>off</option></term>
+            <listitem><para>No action is taken.</para></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>manual</option></term>
+            <listitem><para>Boot entries for found secure boot keys are created that allow manual
+            enrollment.</para></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>if-safe</option></term>
+            <listitem><para>Same behavior as <option>manual</option>, but will try to automatically
+            enroll the key <literal>auto</literal> if it is considered to be safe. Currently, this is only
+            the case if the system is running inside a virtual machine.</para></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>force</option></term>
+            <listitem><para>Always enroll the <literal>auto</literal> key if found. Note that a warning
+            message with a timeout will still be shown if this operation is unknown to be safe.</para></listitem>
+          </varlistentry>
+        </variablelist>
+        </para>
 
         <para>The different sets of variables can be set up under
         <filename>/loader/keys/<replaceable>NAME</replaceable></filename> where

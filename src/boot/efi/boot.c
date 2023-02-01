@@ -526,6 +526,9 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         case ENROLL_MANUAL:
                 printf("    secure-boot-enroll: manual\n");
                 break;
+        case ENROLL_IF_SAFE:
+                printf("    secure-boot-enroll: if-safe\n");
+                break;
         case ENROLL_FORCE:
                 printf("    secure-boot-enroll: force\n");
                 break;
@@ -1259,6 +1262,8 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                                 config->secure_boot_enroll = ENROLL_MANUAL;
                         else if (streq8(value, "force"))
                                 config->secure_boot_enroll = ENROLL_FORCE;
+                        else if (streq8(value, "if-safe"))
+                                config->secure_boot_enroll = ENROLL_IF_SAFE;
                         else if (streq8(value, "off"))
                                 config->secure_boot_enroll = ENROLL_OFF;
                         else
@@ -1572,7 +1577,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .auto_entries = true,
                 .auto_firmware = true,
                 .reboot_for_bitlocker = false,
-                .secure_boot_enroll = ENROLL_MANUAL,
+                .secure_boot_enroll = ENROLL_IF_SAFE,
                 .idx_default_efivar = IDX_INVALID,
                 .console_mode = CONSOLE_MODE_KEEP,
                 .console_mode_efivar = CONSOLE_MODE_KEEP,
@@ -2511,10 +2516,11 @@ static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) 
                 };
                 config_add_entry(config, entry);
 
-                if (config->secure_boot_enroll == ENROLL_FORCE && strcaseeq16(dirent->FileName, u"auto"))
+                if (IN_SET(config->secure_boot_enroll, ENROLL_IF_SAFE, ENROLL_FORCE) &&
+                    strcaseeq16(dirent->FileName, u"auto"))
                         /* if we auto enroll successfully this call does not return, if it fails we still
                          * want to add other potential entries to the menu */
-                        secure_boot_enroll_at(root_dir, entry->path);
+                        secure_boot_enroll_at(root_dir, entry->path, config->secure_boot_enroll == ENROLL_FORCE);
         }
 
         return EFI_SUCCESS;
@@ -2700,7 +2706,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
                 /* if auto enrollment is activated, we try to load keys for the given entry. */
                 if (entry->type == LOADER_SECURE_BOOT_KEYS && config.secure_boot_enroll != ENROLL_OFF) {
-                        err = secure_boot_enroll_at(root_dir, entry->path);
+                        err = secure_boot_enroll_at(root_dir, entry->path, /*force=*/ true);
                         if (err != EFI_SUCCESS)
                                 return err;
                         continue;
