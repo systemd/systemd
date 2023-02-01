@@ -3,6 +3,7 @@
 systemd_localed_sources = files(
         'localed-util.c',
         'localed.c',
+        'xkbcommon-util.c',
 )
 
 localectl_sources = files('localectl.c')
@@ -28,11 +29,21 @@ if conf.get('ENABLE_LOCALED') == 1
                      install_dir : pkgdatadir)
 endif
 
+# logind will load libxkbcommon.so dynamically on its own, but we still need to
+# specify where the headers are.
+if conf.get('HAVE_XKBCOMMON') == 1
+        libxkbcommon_deps = [libdl,
+                             libxkbcommon.partial_dependency(compile_args: true)]
+else
+        libxkbcommon_deps = []
+endif
+
 tests += [
         {
                 'sources' : files(
                         'test-localed-util.c',
                         'localed-util.c',
+                        'xkbcommon-util.c',
                 ),
         },
 ]
