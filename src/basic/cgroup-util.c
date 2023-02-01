@@ -1198,6 +1198,38 @@ int cg_path_get_unit(const char *path, char **ret) {
         return 0;
 }
 
+int cg_path_get_unit_path(const char *path, char **ret) {
+        char *path_copy, *unit_name, *unit_path;
+        size_t unit_name_len;
+
+        assert(path);
+        assert(ret);
+
+        path_copy = strdupa_safe(path);
+
+        unit_name = (char *)skip_slices(path_copy);
+        unit_name_len = strcspn(unit_name, "/");
+        if (unit_name_len < 3)
+                return -ENXIO;
+
+        unit_name[unit_name_len] = '\0';
+
+        /* If unit_name is escaped, overwrite it in place with the unespaced
+         * version. memmove() doesn't mind overlapping memory areas. */
+        memmove(unit_name, cg_unescape(unit_name), unit_name_len);
+
+        if (!unit_name_is_valid(unit_name, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
+                return -ENXIO;
+
+        unit_path = strdup(path_copy);
+        if (!unit_path)
+                return -ENOMEM;
+
+        *ret = unit_path;
+
+        return 0;
+}
+
 int cg_pid_get_unit(pid_t pid, char **unit) {
         _cleanup_free_ char *cgroup = NULL;
         int r;
