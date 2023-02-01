@@ -73,13 +73,13 @@ jobs:
           - distro: opensuse
             release: tumbleweed
           - distro: centos
-            release: 9-stream
+            release: "9"
           - distro: centos
-            release: 8-stream
+            release: "8"
 
     steps:
     - uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b
-    - uses: systemd/mkosi@ab2aff830096e681da1950a7d29f277caa89516c
+    - uses: systemd/mkosi@500f93a36cc3d5bf1d06848a0a8870bf1424625f
 
     - name: Configure
       run: |
@@ -102,7 +102,7 @@ jobs:
       run: sudo mkosi summary
 
     - name: Boot ${{ matrix.distro }} systemd-nspawn
-      run: sudo mkosi boot ${{ env.KERNEL_CMDLINE }}
+      run: sudo mkosi boot ${{ env.KERNEL_CMDLINE }} audit=0
 
     - name: Check ${{ matrix.distro }} systemd-nspawn
       run: sudo mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"

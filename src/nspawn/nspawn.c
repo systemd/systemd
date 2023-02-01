@@ -1717,7 +1717,16 @@ static int parse_argv(int argc, char *argv[]) {
                  * --directory=". */
                 arg_directory = TAKE_PTR(arg_template);
 
-        arg_caps_retain = (arg_caps_retain | plus | (arg_private_network ? UINT64_C(1) << CAP_NET_ADMIN : 0)) & ~minus;
+        arg_caps_retain |= plus;
+        arg_caps_retain |= arg_private_network ? UINT64_C(1) << CAP_NET_ADMIN : 0;
+
+        /* If we're not unsharing the network namespace and are unsharing the user namespace, we won't have
+         * permissions to bind ports in the container, so let's drop the CAP_NET_BIND_SERVICE capability to
+         * indicate that. */
+        if (!arg_private_network && arg_userns_mode != USER_NAMESPACE_NO && arg_uid_shift > 0)
+                arg_caps_retain &= ~(UINT64_C(1) << CAP_NET_BIND_SERVICE);
+
+        arg_caps_retain &= ~minus;
 
         /* Make sure to parse environment before we reset the settings mask below */
         r = parse_environment();
@@ -2832,7 +2841,7 @@ static int setup_machine_id(const char *directory) {
 
         r = id128_read(etc_machine_id, ID128_FORMAT_PLAIN, &id);
         if (r < 0) {
-                if (!IN_SET(r, -ENOENT, -ENOMEDIUM, -ENOPKG)) /* If the file is missing, empty, or uninitialized, we don't mind */
+                if (!ERRNO_IS_MACHINE_ID_UNSET(r)) /* If the file is missing, empty, or uninitialized, we don't mind */
                         return log_error_errno(r, "Failed to read machine ID from container image: %m");
 
                 if (sd_id128_is_null(arg_uuid)) {

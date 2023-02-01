@@ -2641,8 +2641,9 @@ inst_binary() {
     # chown, getent, login, su, useradd, userdel - dlopen()s (not only) systemd's PAM modules
     # ls, stat - pulls in nss_systemd with certain options (like ls -l) when
     #            nsswitch.conf uses [SUCCESS=merge] (like on Arch Linux)
+    # delv, dig - pulls in nss_resolve if `resolve` is in nsswitch.conf
     # tar - called by machinectl in TEST-25
-    if get_bool "$IS_BUILT_WITH_ASAN" && [[ "$bin" =~ /(chown|getent|login|ls|stat|su|tar|useradd|userdel)$ ]]; then
+    if get_bool "$IS_BUILT_WITH_ASAN" && [[ "$bin" =~ /(chown|delv|dig|getent|login|ls|stat|su|tar|useradd|userdel)$ ]]; then
         wrap_binary=1
     fi
 

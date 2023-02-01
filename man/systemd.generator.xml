@@ -127,6 +127,11 @@
         precedence.</para>
       </listitem>
     </orderedlist>
+
+    <para>Note: generators <emphasis>must not</emphasis> write to other locations or otherwise make changes
+    to system state. Generator output is supposed to last only until the next
+    <command>daemon-reload</command> or <command>daemon-reexec</command>; if the generator is replaced
+    or masked, its effects should vanish.</para>
   </refsect1>
 
   <refsect1>

@@ -22,7 +22,11 @@ fi
 
 # If mkosi.builddir/ exists mkosi will set $BUILDDIR to it, let's then use it
 # as out-of-tree build dir. Otherwise, let's make up our own builddir.
-[ -z "$BUILDDIR" ] && BUILDDIR=build
+[ -z "$BUILDDIR" ] && BUILDDIR="$PWD"/build
+
+# Let's make sure we're using stuff from the build directory first if available there.
+PATH="$BUILDDIR:$PATH"
+export PATH
 
 # Meson uses Python 3 and requires a locale with an UTF-8 character map.
 # Not running under UTF-8 makes the `ninja test` step break with a CodecError.
@@ -52,7 +56,7 @@ fi
 # the ubuntu script with a symlink to the first bpftool program we can find.
 for bpftool in /usr/lib/linux-tools/*/bpftool; do
         [ -x "$bpftool" ] || continue
-        ln -sf "$bpftool" /usr/sbin/bpftool
+        ln -sf "$bpftool" "$BUILDDIR"/bpftool
         break
 done
 
@@ -60,16 +64,15 @@ done
 # specific feature we need ("gen skeleton") to this version, so we replace bpftool with a script that reports
 # version 5.6.0 to satisfy meson which makes bpf work on CentOS Stream 8 as well.
 if [ "$(grep '^ID=' /etc/os-release)" = "ID=\"centos\"" ] && [ "$(grep '^VERSION=' /etc/os-release)" = "VERSION=\"8\"" ]; then
-        cp /usr/sbin/bpftool /usr/sbin/bpftool.real
-        cat >/usr/sbin/bpftool <<EOF
+        cat >"$BUILDDIR"/bpftool <<EOF
 #!/bin/sh
 if [ "\$1" = --version ]; then
         echo 5.6.0
 else
-        exec /usr/sbin/bpftool.real \$@
+        exec /usr/sbin/bpftool \$@
 fi
 EOF
-        chmod +x /usr/sbin/bpftool
+        chmod +x "$BUILDDIR"/bpftool
 fi
 
 if [ ! -f "$BUILDDIR"/build.ninja ] ; then
@@ -165,7 +168,8 @@ if [ ! -f "$BUILDDIR"/build.ninja ] ; then
                 -D gnu-efi=true \
                 -D kernel-install=true \
                 -D analyze=true \
-                -D bpf-framework=true
+                -D bpf-framework=true \
+                -D ukify=true
 fi
 
 cd "$BUILDDIR"
@@ -187,12 +191,7 @@ if [ "$WITH_TESTS" = 1 ] ; then
 fi
 cd "$SRCDIR"
 
-# Ubuntu Focal is stuck with meson 0.53.0.
-if [ "$(meson -v | cut -d . -f 2)" -gt 53 ] ; then
-        meson install -C "$BUILDDIR" --quiet --no-rebuild --only-changed
-else
-        meson install -C "$BUILDDIR" --no-rebuild --only-changed
-fi
+meson install -C "$BUILDDIR" --quiet --no-rebuild --only-changed
 
 mkdir -p "$DESTDIR"/etc
 
@@ -234,7 +233,7 @@ if [ -n "$CI_BUILD" ]; then
 fi
 
 if [ -n "$SANITIZERS" ]; then
-        LD_PRELOAD=$(ldd $BUILDDIR/systemd | grep libasan.so | awk '{print $3}')
+        LD_PRELOAD=$(ldd "$BUILDDIR"/systemd | grep libasan.so | awk '{print $3}')
 
         mkdir -p "$DESTDIR/etc/systemd/system.conf.d"
 
@@ -291,7 +290,7 @@ if [ -d mkosi.kernel/ ]; then
 
         make O="$BUILDDIR/mkosi.kernel" -j "$(nproc)"
 
-        KERNEL_RELEASE="$(make O=$BUILDDIR/mkosi.kernel -s kernelrelease)"
+        KERNEL_RELEASE=$(make O="$BUILDDIR"/mkosi.kernel -s kernelrelease)
         mkdir -p "$DESTDIR/usr/lib/modules/$KERNEL_RELEASE"
         make O="$BUILDDIR/mkosi.kernel" INSTALL_HDR_PATH=/usr headers_install
         make O="$BUILDDIR/mkosi.kernel" INSTALL_MOD_PATH="$DESTDIR/usr" modules_install

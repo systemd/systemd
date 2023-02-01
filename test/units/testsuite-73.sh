@@ -431,12 +431,134 @@ XKBMODEL=pc105+inet"
     assert_not_in "X11 Options:" "$output"
 }
 
+test_convert() {
+    if [[ -z "$(localectl list-keymaps)" ]]; then
+        echo "No vconsole keymap installed, skipping test."
+        return
+    fi
+
+    if [[ -z "$(localectl list-x11-keymap-layouts)" ]]; then
+        echo "No x11 keymap installed, skipping test."
+        return
+    fi
+
+    backup_keymap
+    trap restore_keymap RETURN
+
+    # clear previous settings
+    systemctl stop systemd-localed.service
+    wait_vconsole_setup
+    rm -f /etc/vconsole.conf /etc/X11/xorg.conf.d/00-keyboard.conf /etc/default/keyboard
+
+    # set VC keymap without conversion
+    assert_rc 0 localectl --no-convert set-keymap us
+    output=$(localectl)
+
+    # check VC keymap
+    vc=$(cat /etc/vconsole.conf)
+    assert_in "KEYMAP=us" "$vc"
+    assert_in "VC Keymap: us" "$output"
+
+    # check VC -> X11 keymap conversion (nothing set)
+    assert_in     "X11 Layout: .unset."  "$output"
+    assert_not_in "X11 Model:"           "$output"
+    assert_not_in "X11 Variant:"         "$output"
+    assert_not_in "X11 Options:"         "$output"
+
+    assert_not_in "XKBLAYOUT="  "$vc"
+    assert_not_in "XKBMODEL="   "$vc"
+    assert_not_in "XKBVARIANT=" "$vc"
+    assert_not_in "XKBOPTIONS=" "$vc"
+
+    # set VC keymap with conversion
+    assert_rc 0 localectl set-keymap us
+    output=$(localectl)
+
+    # check VC keymap
+    vc=$(cat /etc/vconsole.conf)
+    assert_in "KEYMAP=us" "$vc"
+    assert_in "VC Keymap: us" "$output"
+
+    # check VC -> X11 keymap conversion
+    assert_in     "X11 Layout: us"                       "$output"
+    assert_in     "X11 Model: pc105\+inet"               "$output"
+    assert_not_in "X11 Variant:"                         "$output"
+    assert_in     "X11 Options: terminate:ctrl_alt_bksp" "$output"
+
+    assert_in     "XKBLAYOUT=us"                       "$vc"
+    assert_in     "XKBMODEL=pc105\+inet"               "$vc"
+    assert_not_in "XKBVARIANT"                         "$vc"
+    assert_in     "XKBOPTIONS=terminate:ctrl_alt_bksp" "$vc"
+
+    # clear previous settings
+    systemctl stop systemd-localed.service
+    wait_vconsole_setup
+    rm -f /etc/vconsole.conf /etc/X11/xorg.conf.d/00-keyboard.conf /etc/default/keyboard
+
+    # set x11 keymap (layout) without conversion
+    assert_rc 0 localectl --no-convert set-x11-keymap us
+
+    assert_not_in "KEYMAP=" "$(cat /etc/vconsole.conf)"
+    assert_in "VC Keymap: .unset." "$(localectl)"
+
+    if [[ -f /etc/default/keyboard ]]; then
+        assert_eq "$(cat /etc/default/keyboard)" "XKBLAYOUT=us"
+    else
+        output=$(cat /etc/X11/xorg.conf.d/00-keyboard.conf)
+        assert_in     'Option "XkbLayout" "us"' "$output"
+        assert_not_in 'Option "XkbModel"'       "$output"
+        assert_not_in 'Option "XkbVariant"'     "$output"
+        assert_not_in 'Option "XkbOptions"'     "$output"
+
+        output=$(cat /etc/vconsole.conf)
+        assert_in     'XKBLAYOUT=us' "$output"
+        assert_not_in 'XKBMODEL='    "$output"
+        assert_not_in 'XKBVARIANT='  "$output"
+        assert_not_in 'XKBOPTIONS='  "$output"
+    fi
+
+    output=$(localectl)
+    assert_in     "X11 Layout: us" "$output"
+    assert_not_in "X11 Model:"     "$output"
+    assert_not_in "X11 Variant:"   "$output"
+    assert_not_in "X11 Options:"   "$output"
+
+    # set x11 keymap (layout, model) with conversion
+    assert_rc 0 localectl set-x11-keymap us
+
+    assert_in "KEYMAP=us" "$(cat /etc/vconsole.conf)"
+    assert_in "VC Keymap: us" "$(localectl)"
+
+    if [[ -f /etc/default/keyboard ]]; then
+        assert_eq "$(cat /etc/default/keyboard)" "XKBLAYOUT=us"
+    else
+        output=$(cat /etc/X11/xorg.conf.d/00-keyboard.conf)
+        assert_in     'Option "XkbLayout" "us"' "$output"
+        assert_not_in 'Option "XkbModel"'       "$output"
+        assert_not_in 'Option "XkbVariant"'     "$output"
+        assert_not_in 'Option "XkbOptions"'     "$output"
+
+        output=$(cat /etc/vconsole.conf)
+        assert_in     'XKBLAYOUT=us' "$output"
+        assert_not_in 'XKBMODEL='    "$output"
+        assert_not_in 'XKBVARIANT='  "$output"
+        assert_not_in 'XKBOPTIONS='  "$output"
+    fi
+
+    output=$(localectl)
+    assert_in     "X11 Layout: us" "$output"
+    assert_not_in "X11 Model:"     "$output"
+    assert_not_in "X11 Variant:"   "$output"
+    assert_not_in "X11 Options:"   "$output"
+}
+
 : >/failed
 
 enable_debug
 test_locale
 test_vc_keymap
 test_x11_keymap
+test_convert
 
 touch /testok
 rm /failed

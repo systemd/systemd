@@ -794,7 +794,7 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
                                                m->source, where);
 
         } else { /* Path doesn't exist yet? */
-                r = mkdir_parents_label(where, 0755);
+                r = mkdir_parents_safe_label(dest, where, 0755, uid_shift, uid_shift, MKDIR_IGNORE_EXISTING);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make parents of %s: %m", where);
 
@@ -808,6 +808,9 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
                         r = touch(where);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create mount point %s: %m", where);
+
+                if (chown(where, uid_shift, uid_shift) < 0)
+                        return log_error_errno(errno, "Failed to chown %s: %m", where);
         }
 
         r = mount_nofollow_verbose(LOG_ERR, m->source, where, NULL, mount_flags, mount_opts);
