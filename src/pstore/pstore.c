@@ -77,14 +77,9 @@ static int parse_config(void) {
                 {}
         };
 
-        return config_parse_many_nulstr(
-                        PKGSYSCONFDIR "/pstore.conf",
-                        CONF_PATHS_NULSTR("systemd/pstore.conf.d"),
-                        "PStore\0",
-                        config_item_table_lookup, items,
-                        CONFIG_PARSE_WARN,
-                        NULL,
-                        NULL);
+        return config_parse_config_file("pstore.conf", "PStore\0",
+                                        config_item_table_lookup, items,
+                                        CONFIG_PARSE_WARN, NULL);
 }
 
 /* File list handling - PStoreEntry is the struct and
