@@ -9,13 +9,14 @@
 typedef enum {
         ENROLL_OFF,         /* no Secure Boot key enrollment whatsoever, even manual entries are not generated */
         ENROLL_MANUAL,      /* Secure Boot key enrollment is strictly manual: manual entries are generated and need to be selected by the user */
+        ENROLL_IF_SAFE,     /* Automatically enroll if it is safe (if we are running inside a VM, for example). */
         ENROLL_FORCE,       /* Secure Boot key enrollment may be automatic if it is available but might not be safe */
 } secure_boot_enroll;
 
 bool secure_boot_enabled(void);
 SecureBootMode secure_boot_mode(void);
 
-EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path);
+EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool force);
 
 typedef bool (*security_validator_t)(
                 const void *ctx,
