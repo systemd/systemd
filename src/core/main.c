@@ -2435,10 +2435,10 @@ static void reset_arguments(void) {
         arg_service_watchdogs = true;
         arg_default_std_output = EXEC_OUTPUT_JOURNAL;
         arg_default_std_error = EXEC_OUTPUT_INHERIT;
-        arg_default_restart_usec = DEFAULT_RESTART_USEC;
-        arg_default_timeout_start_usec = DEFAULT_TIMEOUT_USEC;
-        arg_default_timeout_stop_usec = DEFAULT_TIMEOUT_USEC;
-        arg_default_timeout_abort_usec = DEFAULT_TIMEOUT_USEC;
+        arg_default_restart_usec = RESTART_TIMEOUT_USEC;
+        arg_default_timeout_start_usec = manager_default_timeout(arg_system);
+        arg_default_timeout_stop_usec = manager_default_timeout(arg_system);
+        arg_default_timeout_abort_usec = manager_default_timeout(arg_system);
         arg_default_timeout_abort_set = false;
         arg_default_device_timeout_usec = DEFAULT_TIMEOUT_USEC;
         arg_default_start_limit_interval = DEFAULT_START_LIMIT_INTERVAL;

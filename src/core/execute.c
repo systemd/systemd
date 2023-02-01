@@ -783,7 +783,7 @@ static int setup_confirm_stdio(
         if (saved_stdout < 0)
                 return -errno;
 
-        fd = acquire_terminal(vc, ACQUIRE_TERMINAL_WAIT, DEFAULT_CONFIRM_USEC);
+        fd = acquire_terminal(vc, ACQUIRE_TERMINAL_WAIT, CONFIRM_TIMEOUT_USEC);
         if (fd < 0)
                 return fd;
 
