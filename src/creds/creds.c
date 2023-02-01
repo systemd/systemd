@@ -527,7 +527,7 @@ static int verb_encrypt(int argc, char **argv, void *userdata) {
         }
 
         if (output_path)
-                r = write_string_file(output_path, base64_buf, WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE);
+                r = write_string_file(output_path, base64_buf, WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MODE_0600);
         else
                 r = write_string_stream(stdout, base64_buf, 0);
         if (r < 0)
