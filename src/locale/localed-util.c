@@ -154,13 +154,6 @@ int x11_context_copy(X11Context *dest, const X11Context *src) {
         return modified;
 }
 
-static void context_clear_x11(Context *c) {
-        assert(c);
-
-        x11_context_clear(&c->x11_from_xorg);
-        x11_context_clear(&c->x11_from_vc);
-}
-
 void vc_context_clear(VCContext *vc) {
         assert(vc);
 
@@ -235,7 +228,8 @@ void context_clear(Context *c) {
         assert(c);
 
         locale_context_clear(&c->locale_context);
-        context_clear_x11(c);
+        x11_context_clear(&c->x11_from_xorg);
+        x11_context_clear(&c->x11_from_vc);
         vc_context_clear(&c->vc);
 
         c->locale_cache = sd_bus_message_unref(c->locale_cache);
@@ -291,6 +285,7 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
         if (fd == -ENOENT) {
                 c->vc_stat = (struct stat) {};
                 vc_context_clear(&c->vc);
+                x11_context_clear(&c->x11_from_vc);
                 return 0;
         }
         if (fd < 0)
@@ -337,7 +332,7 @@ int x11_read_data(Context *c, sd_bus_message *m) {
         fd = RET_NERRNO(open("/etc/X11/xorg.conf.d/00-keyboard.conf", O_CLOEXEC | O_PATH));
         if (fd == -ENOENT) {
                 c->x11_stat = (struct stat) {};
-                context_clear_x11(c);
+                x11_context_clear(&c->x11_from_xorg);
                 return 0;
         }
         if (fd < 0)
