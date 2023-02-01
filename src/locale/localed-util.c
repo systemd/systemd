@@ -755,6 +755,30 @@ int find_legacy_keymap(const X11Context *xc, char **ret) {
         return !!*ret;
 }
 
+int x11_convert_to_vconsole(const X11Context *xc, VCContext *ret) {
+        _cleanup_free_ char *keymap = NULL;
+        int r;
+
+        assert(xc);
+        assert(ret);
+
+        if (isempty(xc->layout)) {
+                *ret = (VCContext) {};
+                return 0;
+        }
+
+        r = find_converted_keymap(xc, &keymap);
+        if (r == 0)
+                r = find_legacy_keymap(xc, &keymap);
+        if (r < 0)
+                return r;
+
+        *ret = (VCContext) {
+                .keymap = TAKE_PTR(keymap),
+        };
+        return 0;
+}
+
 int find_language_fallback(const char *lang, char **ret) {
         const char *map;
         _cleanup_fclose_ FILE *f = NULL;
@@ -782,30 +806,6 @@ int find_language_fallback(const char *lang, char **ret) {
                         return 1;
                 }
         }
-}
-
-int x11_convert_to_vconsole(const X11Context *xc, VCContext *ret) {
-        _cleanup_free_ char *keymap = NULL;
-        int r;
-
-        assert(xc);
-        assert(ret);
-
-        if (isempty(xc->layout)) {
-                *ret = (VCContext) {};
-                return 0;
-        }
-
-        r = find_converted_keymap(xc, &keymap);
-        if (r == 0)
-                r = find_legacy_keymap(xc, &keymap);
-        if (r < 0)
-                return r;
-
-        *ret = (VCContext) {
-                .keymap = TAKE_PTR(keymap),
-        };
-        return 0;
 }
 
 bool locale_gen_check_available(void) {
