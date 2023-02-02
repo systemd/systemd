@@ -56,7 +56,7 @@ CHANGES WITH 253 in spe:
 
           user@.service, systemd-networkd.service, systemd-udevd.service, and
           systemd-logind have been updated to this type; their reloads are now
-          synchronuous.
+          synchronous.
 
         * Initrd environments which are not on a temporary file system (for
           example an overlayfs combination) are now supported. Systemd will only
@@ -327,7 +327,7 @@ CHANGES WITH 253 in spe:
         * When measuring data into a PCR, an authenticated hash (HMAC) is used
           on the CPU, to further protect the data before it leaves the CPU.
 
-        * systemd-gpt-auto-generator mounts the ESP and XBOOTLDR partions with
+        * systemd-gpt-auto-generator mounts the ESP and XBOOTLDR partitions with
           "noexec,nosuid,nodev".
 
         * systemd-pcrphase gained new options --machine-id and --file-system=
