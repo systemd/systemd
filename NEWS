@@ -47,7 +47,7 @@ CHANGES WITH 253 in spe:
           unit files, the --image= switch in various tools such as
           systemd-nspawn, as well as systemd-dissect) will now only mount file
           systems of types btrfs, ext4, xfs, erofs, squashfs, vfat. This list
-          can be overriden via the $SYSTEMD_DISSECT_FILE_SYSTEMS environment
+          can be overridden via the $SYSTEMD_DISSECT_FILE_SYSTEMS environment
           variable. These file systems are fairly well supported and maintained
           in current kernels, while others are usually more niche, exotic or
           legacy and thus typically do not receive the same level of security
@@ -247,7 +247,7 @@ CHANGES WITH 253 in spe:
         * bootctl also gained a new verb "cleanup" that automatically removes
           all files from the ESP's and XBOOTLDR's "entry-token" directory, that
           is not referenced anymore by any installed Type #1 boot loader
-          specification entry. This is particulary useful in environments where
+          specification entry. This is particularly useful in environments where
           a large number of entries reference the same or partly the same
           resources (for example, for snapshot-based setups).
 
