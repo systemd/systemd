@@ -434,4 +434,19 @@ assert_cc(sizeof(dummy_t) == 0);
                 _q && _q > (base) ? &_q[-1] : NULL;      \
         })
 
+/* Iterate through each variadic arg. All must be the type provided, or must be implicitly convertable. */
+#define VA_ARGS_FOREACH(entry, type, ...) _VA_ARGS_FOREACH(entry, type, UNIQ_T(_entries_, UNIQ), UNIQ_T(_current_, UNIQ), UNIQ_T(_b_, UNIQ), ##__VA_ARGS__)
+#define _VA_ARGS_FOREACH(entry, type, _entries_, _current_, _b_, ...) \
+        for (type _entries_[] = { __VA_ARGS__ }, *_current_ = _entries_, entry; \
+             _VA_ARGS_FOREACH_CHECK(_entries_, _current_, _b_) && ({ entry = *_current_; true; }); \
+             _current_++)
+#define _VA_ARGS_FOREACH_CHECK(_entries_, _current_, _b_)               \
+        ({                                                              \
+                assert(_entries_ <= _current_);                         \
+                DISABLE_WARNING_TYPE_LIMITS;                            \
+                bool _b_ = (size_t)(_current_ - _entries_) < ELEMENTSOF(_entries_); \
+                REENABLE_WARNING;                                       \
+                _b_;                                                    \
+        })
+
 #include "log.h"
