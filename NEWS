@@ -276,7 +276,7 @@ CHANGES WITH 253 in spe:
 
         Changes in systemd-dissect:
 
-        * systemd-dissect gained a new option --list, to print the paths off
+        * systemd-dissect gained a new option --list, to print the paths of
           all files and directories in a DDI.
 
         * systemd-dissect gained a new option --mtree, to generate a file
