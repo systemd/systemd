@@ -42,6 +42,9 @@
 #define DEFAULT_START_LIMIT_INTERVAL (10*USEC_PER_SEC)
 #define DEFAULT_START_LIMIT_BURST 5
 
+/* Wait for 1.5 seconds at maximum for freeze operation */
+#define FREEZE_TIMEOUT (1500 * USEC_PER_MSEC)
+
 /* The default time after which exit-on-idle services exit. This
  * should be kept lower than the watchdog timeout, because otherwise
  * the watchdog pings will keep the loop busy. */
