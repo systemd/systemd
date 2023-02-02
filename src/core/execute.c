@@ -3024,7 +3024,7 @@ static int setup_credentials_internal(
                 final_mounted = true;
 
                 if (workspace_mounted < 0) {
-                        /* If the final place is mounted, but the workspace we isn't, then let's bind mount
+                        /* If the final place is mounted, but the workspace isn't, then let's bind mount
                          * the final version to the workspace, and make it writable, so that we can make
                          * changes */
 
