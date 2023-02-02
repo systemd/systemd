@@ -43,6 +43,16 @@ CHANGES WITH 253 in spe:
           renamed to '-Dupdate-helper-user-timeout-sec=', and now takes an
           integer as parameter instead of a string.
 
+        * The DDI image dissection logic (which backs RootImage= in service
+          unit files, the --image= switch in various tools such as
+          systemd-nspawn, as well as systemd-dissect) will now only mount file
+          systems of types btrfs, ext4, xfs, erofs, squashfs, vfat. This list
+          can be overriden via the $SYSTEMD_DISSECT_FILE_SYSTEMS environment
+          variable. These file systems are fairly well supported and maintained
+          in current kernels, while others are usually more niche, exotic or
+          legacy and thus typically do not receive the same level of security
+          support and fixes.
+
         New components:
 
         * A tool 'ukify' tool to build, measure, and sign Unified Kernel Images
@@ -57,10 +67,12 @@ CHANGES WITH 253 in spe:
         Changes in systemd and units:
 
         * A new service type Type=notify-reload is defined. When such a unit is
-          reloaded a signal (typically SIGHUP) is sent to the main service
-          process. The manager will then wait until it receives a "RELOADING=1"
-          followed by a "READY=1" notification from the unit as response (via
-          sd_notify()). Otherwise, this type is the same as Type=notify.
+          reloaded a UNIX process signal (typically SIGHUP) is sent to the main
+          service process. The manager will then wait until it receives a
+          "RELOADING=1" followed by a "READY=1" notification from the unit as
+          response (via sd_notify()). Otherwise, this type is the same as
+          Type=notify. A new setting ReloadSignal= may be used to change the
+          signal to send from the default of SIGHUP.
 
           user@.service, systemd-networkd.service, systemd-udevd.service, and
           systemd-logind have been updated to this type.
@@ -138,6 +150,17 @@ CHANGES WITH 253 in spe:
           choose the default timeout for starting/stopping/aborting system and
           user units respectively.
 
+        * Service units gained a new setting OpenFile= which may be used to
+          open arbitrary files in the file system (or connect to arbitrary
+          AF_UNIX sockets in the file system), and pass the open file
+          descriptor to the invoked process via the usual file descriptor
+          passing protocol. This is useful to give unprivileged services access
+          to select files which have restrictive access modes that would
+          normally not allow this. It's also useful in case RootDirectory= or
+          RootImage= is used to allow access to files from the host environment
+          (which is after all not visible from the service if these two options
+          are used.)
+
         Changes in udev:
 
         * The new net naming scheme "v253" has been introduced. In the new
@@ -214,6 +237,20 @@ CHANGES WITH 253 in spe:
         * bootctl now honours $KERNEL_INSTALL_CONF_ROOT with the same meaning
           as for kernel-install.
 
+        * The JSON output of "bootctl list" will now contain two more fields:
+          isDefault and isSelected are boolean fields set to true on the
+          default and currently booted boot menu entries.
+
+        * bootctl gained a new verb "unlink" for removing a boot loader entry
+          type #1 file from disk in a safe and robust way.
+
+        * bootctl also gained a new verb "cleanup" that automatically removes
+          all files from the ESP's and XBOOTLDR's "entry-token" directory, that
+          is not referenced anymore by any installed Type #1 boot loader
+          specification entry. This is particulary useful in environments where
+          a large number of entries reference the same or partly the same
+          resources (for example, for snapshot-based setups).
+
         Changes in kernel-install:
 
         * A new "installation layout" can be configured as layout=uki. With
@@ -240,6 +277,10 @@ CHANGES WITH 253 in spe:
         * 'systemctl list-dependencies' now respects --type= and --state=.
 
         * 'systemctl kexec' now supports XEN VMM environments.
+
+        * 'systemctl edit' will now tell the invoked editor to jump into the
+          first line with actual unit file data, skipping over synthesized
+          comments.
 
         Changes in systemd-networkd and related tools:
 
@@ -295,6 +336,23 @@ CHANGES WITH 253 in spe:
         * systemd-dissect now understands 2nd stage initrd images stored as a
           Discoverable Disk Image (DDI).
 
+        * systemd-dissect will now display the main UUID of GPT DDIs (i.e. the
+          disk UUID stored in the GPT header) among the other data it can show.
+
+        * systemd-dissect gained a new --in-memory switch to operate on an
+          in-memory copy of the specified DDI file. This is useful to access a
+          DDI with write access without persisting any changes. It's also
+          useful for accessing a DDI without keeping the originating file
+          system busy.
+
+        * The DDI dissection logic will now automatically detect the intended
+          sector size of disk images stored in files, based on the GPT
+          partition table arrangement. Loopback block devices for such DDIs
+          will then be configured automatically for the right sector size. This
+          is useful to make dealing with modern 4K sector size DDIs fully
+          automatic. The systemd-dissect tool will now show the detected sector
+          size among the other DDI information in its output.
+
         Changes in systemd-repart:
 
         * systemd-repart gained new options --include-partitions= and
@@ -318,6 +376,12 @@ CHANGES WITH 253 in spe:
         * The Minimize= option was extended to accept "best" (which means the
           most minimal image possible, but may require multiple attempts) and
           "guess" (which means a reasonably small image).
+
+        * The systemd-growfs binary now comes with a regular unit file template
+          systemd-growfs@.service which can be instantiated directly for any
+          desired file system. (Previously, the unit was generated dynamically
+          by various generators, but no regular unit file template was
+          available.)
 
         Changes in journal tools:
 
@@ -353,16 +417,26 @@ CHANGES WITH 253 in spe:
 
         * systemd-cryptsetup now supports new options tpm2-measure-bank= and
           tpm2-measure-pcr= in crypttab(5). These allow specifying the TPM2 PCR
-          bank and number into which the volume key should be measured.
+          bank and number into which the volume key should be measured. This is
+          automatically enabled for the encrypted root volume discovered and
+          activated by systemd-gpt-auto-generator.
 
         * systemd-gpt-auto-generator mounts the ESP and XBOOTLDR partitions with
           "noexec,nosuid,nodev".
+
+        * systemd-gpt-auto-generator will now honour the rootfstype= and
+          rootflags= kernel command line switches for root file systems it
+          discovers, to match behaviour in case an explicit root fs is
+          specified via root=.
 
         * systemd-pcrphase gained new options --machine-id and --file-system=
           to measure the machine-id and mount point information into PCR 15. New
           service unit files systemd-pcrmachine.service and
           systemd-pcrfs@.service have been added that invoke the tool with
           these switches during early boot.
+
+        * systemd-pcrphase gained a --graceful switch will make it exit cleanly
+          with a success exit code even if no TPM device is detected.
 
         * systemd-cryptenroll now stores the user-supplied PIN with a salt,
           making it harder to brute-force.
@@ -417,13 +491,19 @@ CHANGES WITH 253 in spe:
           search domains via kernel command line (nameserver=, domain=) and
           credentials (network.dns, network.search_domains).
 
+        * systemd-resolved will now synthesize host names for the DNS stub
+          addresses it supports. Specifically when "_localdnsstub" is resolved,
+          127.0.0.53 is returned, and if "_localdnsproxy" is resolved
+          127.0.0.54 is returned.
+
         * systemd-notify will now send a "RELOADING=1" notification when called
           with --reloading, and "STOPPING=1" when called with --stopping. This
           can be used to implement notifications from units where it's easier
           to call a program than to use the sd-daemon library.
 
-        * systemd-analyze gained new --json=, --table, and --no-legend options
-          that affect the output of 'plot'.
+        * systemd-analyze's 'plot' command can now output its information in
+          JSON, controlled via the --json= switch. Also, new --table, and
+          --no-legend options have been added.
 
         * 'machinectl enable' will now automatically enable machines.target
           unit in addition to adding the machine unit to the target.
@@ -469,8 +549,9 @@ CHANGES WITH 253 in spe:
           SD_PATH_SYSTEMD_SEARCH_SYSTEM_ENVIRONMENT_GENERATOR, and
           SD_PATH_SYSTEMD_SEARCH_USER_ENVIRONMENT_GENERATOR,
 
-        * sd-notify now supports AF_VSOCK, in the "vsock:CID:port" format, for
-          the $NOTIFY_SOCKET parameter/environment variable/credential.
+        * sd_notify() now supports AF_VSOCK as transport for notification
+          messages (in addition to the existing AF_UNIX support). This is
+          enabled if $NOTIFY_SOCKET is set in a "vsock:CID:port" format.
 
         * Detection of chroot() environments now works if /proc/ is not
           mounted.  This affects systemd-detect-virt --chroot, but also means
@@ -482,8 +563,8 @@ CHANGES WITH 253 in spe:
 
         Changes in the build system:
 
-        * A standalone variant of systemd-repart may now be built (if
-          -Dstandalone=true).
+        * Standalone variants of systemd-repart and systemd-shutdown may now be
+          built (if -Dstandalone=true).
 
         * systemd-ac-power has been moved from /usr/lib/ to /usr/bin/, to, for
           example, allow scripts to conditionalize execution on AC power
