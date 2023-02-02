@@ -37,6 +37,10 @@ CHANGES WITH 253 in spe:
           manager, measuring kernel command line into PCR 8 along with the
           -Defi-tpm-pcr-compat compile-time option.
 
+        * The '-Dupdate-helper-user-timeout=' build-time option has been renamed
+          to '-Dupdate-helper-user-timeout-sec=', and now takes an integer as
+          parameter instead of a string.
+
         New components:
 
         * A tool 'ukify' tool to build, measure, and sign Unified Kernel Images
@@ -125,6 +129,11 @@ CHANGES WITH 253 in spe:
         * Drop-ins for init.scope changing control cgroup resource limits are
           now applied, while they were previously ignored.
 
+        * New build-time configuration options '-Ddefault-timeout-sec=' and
+          '-Ddefault-user-timeout-sec=' have been added, to let distributions
+          choose the default timeout for starting/stopping/aborting system and
+          user units respectively.
+
         Changes in udev:
 
         * The new net naming scheme "v253" has been introduced. In the new
@@ -177,6 +186,11 @@ CHANGES WITH 253 in spe:
         * systemd-boot now parses SMBIOS info to detect virtualization. This
           information is used to skip some warnings which are not useful in a
           VM and to conditionalize other aspects of behaviour.
+
+        * systemd-boot now supports a new 'if-safe' mode that will perform UEFI
+          Secure Boot automated certificate enrollment from the ESP only if it
+          is considered 'safe' to do so. At the moment 'safe' means running in a
+          virtual machine.
 
         * systemd-stub now processes random seeds in the same way as
           systemd-boot, in case a unified kernel image is being used from a
@@ -405,6 +419,20 @@ CHANGES WITH 253 in spe:
 
           Similarly, 'machinectl start|stop' gained a --now option to enable or
           disable the machine unit when starting or stopping it.
+
+        * systemd-sysusers will now create /etc if it is missing.
+
+        * systemd-sleep 'HibernateDelaySec=' setting is changed back to
+          pre-v252's behaviour, and a new 'SuspendEstimationSec=' setting is
+          added to provide the new initial value for the new automated battery
+          estimation functionality. If 'HibernateDelaySec=' is set to any value,
+          the automated estimate (and thus the automated hibernation on low
+          battery to avoid data loss) functionality will be disabled.
+
+        * Default tmpfiles.d/ configuration will now automatically create
+          credentials storage directory '/etc/credstore/' with the appropriate,
+          secure permissions. If '/run/credstore/' exists, its permissions will
+          be fixed too in case they are not correct.
 
         Changes in libsystemd and shared code:
 
