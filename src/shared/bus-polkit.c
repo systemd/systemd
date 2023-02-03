@@ -185,7 +185,7 @@ static void async_polkit_query_free(AsyncPolkitQuery *q) {
 }
 
 static int async_polkit_defer(sd_event_source *s, void *userdata) {
-        AsyncPolkitQuery *q = userdata;
+        AsyncPolkitQuery *q = ASSERT_PTR(userdata);
 
         assert(s);
 
