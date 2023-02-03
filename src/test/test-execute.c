@@ -261,6 +261,11 @@ static void test_exec_cpuaffinity(Manager *m) {
         test(m, "exec-cpuaffinity3.service", 0, CLD_EXITED);
 }
 
+static void test_exec_credentials(Manager *m) {
+        test(m, "exec-set-credential.service", 0, CLD_EXITED);
+        test(m, "exec-credentials-dir-specifier.service", 0, CLD_EXITED);
+}
+
 static void test_exec_workingdirectory(Manager *m) {
         assert_se(mkdir_p("/tmp/test-exec_workingdirectory", 0755) >= 0);
 
@@ -1079,7 +1084,6 @@ static void test_exec_specifier(Manager *m) {
         test(m, "exec-specifier.service", 0, CLD_EXITED);
         test(m, "exec-specifier@foo-bar.service", 0, CLD_EXITED);
         test(m, "exec-specifier-interpolation.service", 0, CLD_EXITED);
-        test(m, "exec-specifier-credentials-dir.service", 0, CLD_EXITED);
 }
 
 static void test_exec_standardinput(Manager *m) {
@@ -1154,6 +1158,7 @@ int main(int argc, char *argv[]) {
                 entry(test_exec_capabilityboundingset),
                 entry(test_exec_condition),
                 entry(test_exec_cpuaffinity),
+                entry(test_exec_credentials),
                 entry(test_exec_environment),
                 entry(test_exec_environmentfile),
                 entry(test_exec_group),
