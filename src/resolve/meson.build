@@ -8,6 +8,7 @@ basic_dns_sources = files(
         'resolved-dns-rr.c',
         'resolved-dns-answer.c',
         'resolved-dns-question.c',
+        'resolved-mdns-browse-services.c',
         'resolved-util.c',
         'dns-type.c',
 )
@@ -42,6 +43,10 @@ systemd_resolved_sources = files(
 resolvectl_sources = files(
         'resolvconf-compat.c',
         'resolvectl.c',
+)
+
+mdns_browse_services_sources = files(
+         'test-mdns-browse-services.c',
 )
 
 ############################################################
