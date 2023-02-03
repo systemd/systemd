@@ -154,6 +154,8 @@ int bus_test_polkit(
 
 #if ENABLE_POLKIT
 
+struct AsyncPolkitQueries;
+
 typedef struct AsyncPolkitQuery {
         char *action;
         char **details;
@@ -161,18 +163,74 @@ typedef struct AsyncPolkitQuery {
         sd_bus_message *request, *reply;
         sd_bus_slot *slot;
 
-        Hashmap *registry;
         sd_event_source *defer_event_source;
+
+        struct AsyncPolkitQueries *parent;
+        LIST_FIELDS(struct AsyncPolkitQuery, item);
 } AsyncPolkitQuery;
+
+static AsyncPolkitQuery *async_polkit_query_free(AsyncPolkitQuery *q);
+
+typedef struct AsyncPolkitQueries {
+        unsigned n_ref;
+
+        Hashmap *registry;
+        sd_bus_message *request;
+
+        LIST_HEAD(AsyncPolkitQuery, items);
+} AsyncPolkitQueries;
+
+static int async_polkit_queries_new(sd_bus_message *request, AsyncPolkitQueries **ret) {
+        AsyncPolkitQueries *qs;
+
+        assert(request);
+        assert(ret);
+
+        qs = new(AsyncPolkitQueries, 1);
+        if (!qs)
+                return -ENOMEM;
+
+        *qs = (AsyncPolkitQueries) {
+                .n_ref = 1,
+                .request = sd_bus_message_ref(request),
+        };
+
+        *ret = qs;
+        return 0;
+}
+
+static AsyncPolkitQueries* async_polkit_queries_free(AsyncPolkitQueries *qs) {
+        AsyncPolkitQuery *q;
+
+        if (!qs)
+                return NULL;
+
+        if (qs->registry && qs->request)
+                hashmap_remove(qs->registry, qs->request);
+
+        sd_bus_message_unref(qs->request);
+
+        while ((q = qs->items)) {
+                LIST_REMOVE(item, qs->items, q);
+                q->parent = NULL;
+                async_polkit_query_free(q);
+        }
+
+        return mfree(qs);
+}
+
+DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(AsyncPolkitQueries, async_polkit_queries, async_polkit_queries_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(AsyncPolkitQueries*, async_polkit_queries_unref);
 
 static AsyncPolkitQuery *async_polkit_query_free(AsyncPolkitQuery *q) {
         if (!q)
                 return NULL;
 
-        sd_bus_slot_unref(q->slot);
+        /* Once initialized, an AsyncPolkitQuery is a part of its parent AsyncPolkitQueries object. Hence
+         * calling this is only allowed during initialization and from async_polkit_queries_free(). */
+        assert(!q->parent);
 
-        if (q->registry && q->request)
-                hashmap_remove(q->registry, q->request);
+        sd_bus_slot_unref(q->slot);
 
         sd_bus_message_unref(q->request);
         sd_bus_message_unref(q->reply);
@@ -185,15 +243,18 @@ static AsyncPolkitQuery *async_polkit_query_free(AsyncPolkitQuery *q) {
         return mfree(q);
 }
 
+DEFINE_TRIVIAL_CLEANUP_FUNC(AsyncPolkitQuery*, async_polkit_query_free);
+
 static int async_polkit_defer(sd_event_source *s, void *userdata) {
-        AsyncPolkitQuery *q = ASSERT_PTR(userdata);
+        AsyncPolkitQueries *qs = ASSERT_PTR(userdata);
 
         assert(s);
 
         /* This is called as idle event source after we processed the async polkit reply, hopefully after the
          * method call we re-enqueued has been properly processed. */
 
-        async_polkit_query_free(q);
+        async_polkit_queries_unref(qs);
+
         return 0;
 }
 
@@ -214,10 +275,11 @@ static int async_polkit_callback(sd_bus_message *reply, void *userdata, sd_bus_e
          * again.
          *
          * We install an idle event loop event to clean-up the PolicyKit request data when we are idle again,
-         * i.e. after the second time the message is processed is complete. */
+         * i.e. after the last time the message is processed is complete. */
 
+        assert(q->parent);
         assert(!q->defer_event_source);
-        r = sd_event_add_defer(sd_bus_get_event(sd_bus_message_get_bus(reply)), &q->defer_event_source, async_polkit_defer, q);
+        r = sd_event_add_defer(sd_bus_get_event(sd_bus_message_get_bus(reply)), &q->defer_event_source, async_polkit_defer, q->parent);
         if (r < 0)
                 goto fail;
 
@@ -233,6 +295,11 @@ static int async_polkit_callback(sd_bus_message *reply, void *userdata, sd_bus_e
         if (r < 0)
                 goto fail;
 
+        assert(q->parent->items); /* There must be at least one query on the list */
+        LIST_FOREACH(item, i, q->parent->items)
+                if (i != q)
+                        sd_bus_message_rewind(i->reply, true);
+
         r = sd_bus_enqueue_for_read(sd_bus_message_get_bus(q->request), q->request);
         if (r < 0)
                 goto fail;
@@ -242,7 +309,7 @@ static int async_polkit_callback(sd_bus_message *reply, void *userdata, sd_bus_e
 fail:
         log_debug_errno(r, "Processing asynchronous PolicyKit reply failed, ignoring: %m");
         (void) sd_bus_reply_method_errno(q->request, r, NULL);
-        async_polkit_query_free(q);
+        async_polkit_queries_unref(q->parent);
         return r;
 }
 
@@ -263,12 +330,12 @@ static int process_polkit_response(
 
         assert(q->action);
         assert(q->reply);
+        assert(streq(q->action, action));
 
-        /* If the operation we want to authenticate changed between the first and the second time,
+        /* If the details of operation we want to authenticate changed since the previous call(s),
          * let's not use this authentication, it might be out of date as the object and context we
          * operate on might have changed. */
-        if (!streq(q->action, action) ||
-                !strv_equal(q->details, (char**) details))
+        if (!strv_equal(q->details, (char**) details))
                 return -ESTALE;
 
         if (sd_bus_message_is_method_error(q->reply, NULL)) {
@@ -300,6 +367,29 @@ static int process_polkit_response(
         return -EACCES;
 }
 
+static AsyncPolkitQuery *find_query(Hashmap *registry, sd_bus_message *call, const char *action, AsyncPolkitQueries **ret_queries) {
+        AsyncPolkitQueries *qs;
+        AsyncPolkitQuery *q = NULL;
+
+        assert(call);
+        assert(action);
+        assert(ret_queries);
+
+        qs = hashmap_get(registry, call);
+        if (!qs)
+                return NULL;
+
+        LIST_FOREACH(item, i, qs->items)
+                if (streq(i->action, action)) {
+                        q = i;
+                        break;
+                }
+
+        *ret_queries = qs;
+
+        return q;
+}
+
 #endif
 
 /* bus_verify_polkit_async() handles verification of D-Bus calls with polkit. Because the polkit API
@@ -327,53 +417,66 @@ static int process_polkit_response(
  *
  * A step-by-step description how it works:
  *
- * 1. A D-Bus method handler calls bus_verify_polkit_async(), passing it the D-Bus message being
- *    processed and the polkit action to verify.
- * 2. bus_verify_polkit_async() checks registry for the message and action combination. Let's assume
- *    this is the first call, so it finds nothing.
- * 3. A new AsyncPolkitQuery object is created and an async. D-Bus call to polkit is made. The
- *    function then returns 0. The method handler returns 1 to tell sd-bus that the processing of
- *    the message has been interrupted.
- * 4. (Later) A reply from polkit is received and async_polkit_callback() is called.
- * 5. async_polkit_callback() reads the reply and stores result into the passed query.
- * 6. async_polkit_callback() enqueues the original message again.
- * 7. (Later) The same D-Bus method handler is called for the same message. It calls
- *    bus_verify_polkit_async() again.
- * 8. bus_verify_polkit_async() checks registry for the message and action combination. It finds
- *    an existing query and returns its result.
- * 9. The method handler continues processing of the message.
+ *  1. A D-Bus method handler calls bus_verify_polkit_async(), passing it the D-Bus message being
+ *     processed and the polkit action to verify.
+ *  2. bus_verify_polkit_async() checks registry for the message and action combination. Let's assume
+ *     this is the first call, so it finds nothing.
+ *  3. A new AsyncPolkitQueries container is created and inserted into the registry for the message.
+ *  4. A new AsyncPolkitQuery object is inserted into the container and an async. D-Bus call to
+ *     polkit is made. The function then returns 0. The method handler returns 1 to tell sd-bus that
+ *     the processing of the message has been interrupted.
+ *  5. (Later) A reply from polkit is received and async_polkit_callback() is called.
+ *  6. async_polkit_callback() reads the reply and stores result into the passed query.
+ *  7. async_polkit_callback() enqueues the original message again.
+ *  8. (Later) The same D-Bus method handler is called for the same message. It calls
+ *     bus_verify_polkit_async() again.
+ *  9. bus_verify_polkit_async() checks registry for the message and action combination. It finds
+ *     an existing query and returns its result.
+ * 10. The method handler continues processing of the message. If there's another action that needs to be verified:
+ * 11. bus_verify_polkit_async() is called again for the new action. The registry already contains an
+ *     AsyncPolkitQueries object for the message, but it doesn't contain a query for the action yet,
+ *     hence steps 4-8 are repeated.
+ * 12. (In the method handler again.) bus_verify_polkit_async() returns query results for both
+ *     actions and the processing continues as in step 10.
  *
  * Memory handling:
  *
- * async_polkit_callback() registers a deferred call of async_polkit_defer() for the query, which
- * causes the query to be removed from the registry and freed. Deferred events are run with idle
- * priority, so this will happen after processing of the D-Bus message, when the query is no longer
- * needed.
+ * Use of bus_verify_polkit_async() from a method handler results in creation of an AsyncPolkitQueries
+ * object (container) and one or more AsyncPolkitQuery objects (query); the number of the latter
+ * depends on the number of actions the hanler needs to verify (typically just one). The container is
+ * kept in registry; the queries form a linked list and are owned by the container. The container is
+ * refcounted: the refcount goes up every time a new query is created and sent to polkit, and down
+ * after each async_polkit_callback() call which processes a reply from polkit for a query. For this,
+ * async_polkit_callback() registers a deferred call of async_polkit_defer() for the query's parent
+ * container. At the last unref the container is removed from the registry. Deferred events are run
+ * with idle priority, hence this will happen after processing of the D-Bus message, when the queries
+ * are no longer needed.
  *
  * Schematically:
  *
- * (m - D-Bus message, a - polkit action, q - polkit query)
+ * (m - D-Bus message, a - polkit action, q - polkit query, qs - parent container of the query)
  *
  * -> foo_method(m)
  *    -> bus_verify_polkit_async(m, a)
+ *       -> async_polkit_queries_ref(qs)
  *       -> bus_call_method_async(q)
  *    <- bus_verify_polkit_async(m, a) = 0
  * <- foo_method(m) = 1
  * ...
  * -> async_polkit_callback(q)
- *    -> sd_event_add_defer(async_polkit_defer, q)
+ *    -> sd_event_add_defer(async_polkit_defer, qs)
  *    -> sd_bus_enqueue_for_read(m)
  * <- async_polkit_callback(q)
  * ...
  * -> foo_method(m)
  *    -> bus_verify_polkit_async(m, a)
  *    <- bus_verify_polkit_async(m, a) = 1/-EACCES/error
- *    ...
+ *    // possibly another call to bus_verify_polkit_async with action a2
  * <- foo_method(m)
  * ...
- * -> async_polkit_defer(q)
- *    -> async_polkit_query_free(q)
- * <- async_polkit_defer(q)
+ * -> async_polkit_defer(qs)
+ *    -> async_polkit_queries_unref(qs)
+ * <- async_polkit_defer(qs)
  */
 
 int bus_verify_polkit_async(
@@ -398,8 +501,11 @@ int bus_verify_polkit_async(
                 return r;
 
 #if ENABLE_POLKIT
-        AsyncPolkitQuery *q = hashmap_get(*registry, call);
-        /* This is the second invocation of this function, and there's already a response from
+        AsyncPolkitQueries *qs = NULL;
+        AsyncPolkitQuery *q;
+
+        q = find_query(*registry, call, action, &qs);
+        /* This is a repeated invocation of this function, and there's already a response from
          * polkit, let's process it */
         if (q)
                 return process_polkit_response(q, call, action, details, registry, ret_error);
@@ -417,6 +523,7 @@ int bus_verify_polkit_async(
 
 #if ENABLE_POLKIT
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *pk = NULL;
+        _cleanup_(async_polkit_queries_unrefp) AsyncPolkitQueries *qs_new = NULL;
 
         int c = sd_bus_message_get_allow_interactive_authorization(call);
         if (c < 0)
@@ -454,6 +561,20 @@ int bus_verify_polkit_async(
         if (r < 0)
                 return r;
 
+        if (!qs) {
+                r = async_polkit_queries_new(call, &qs_new);
+                if (r < 0)
+                        return r;
+
+                qs = qs_new;
+
+                r = hashmap_put(*registry, call, qs);
+                if (r < 0)
+                        return r;
+
+                qs->registry = *registry;
+        }
+
         q = new(AsyncPolkitQuery, 1);
         if (!q)
                 return -ENOMEM;
@@ -474,19 +595,13 @@ int bus_verify_polkit_async(
                 return -ENOMEM;
         }
 
-        r = hashmap_put(*registry, call, q);
-        if (r < 0) {
-                async_polkit_query_free(q);
-                return r;
-        }
-
-        q->registry = *registry;
+        LIST_PREPEND(item, qs->items, q);
 
         r = sd_bus_call_async(call->bus, &q->slot, pk, async_polkit_callback, q, 0);
-        if (r < 0) {
-                async_polkit_query_free(q);
+        if (r < 0)
                 return r;
-        }
+
+        q->parent = async_polkit_queries_ref(qs);
 
         return 0;
 #endif
@@ -496,7 +611,7 @@ int bus_verify_polkit_async(
 
 Hashmap *bus_verify_polkit_async_registry_free(Hashmap *registry) {
 #if ENABLE_POLKIT
-        return hashmap_free_with_destructor(registry, async_polkit_query_free);
+        return hashmap_free_with_destructor(registry, async_polkit_queries_free);
 #else
         assert(hashmap_isempty(registry));
         return hashmap_free(registry);
