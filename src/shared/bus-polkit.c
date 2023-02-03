@@ -246,6 +246,60 @@ fail:
         return r;
 }
 
+static int process_polkit_response(
+                AsyncPolkitQuery *q,
+                sd_bus_message *call,
+                const char *action,
+                const char **details,
+                Hashmap **registry,
+                sd_bus_error *ret_error) {
+
+        int authorized, challenge, r;
+
+        assert(q);
+        assert(call);
+        assert(action);
+        assert(registry);
+        assert(ret_error);
+
+        assert(q->action);
+        assert(q->reply);
+
+        /* If the operation we want to authenticate changed between the first and the second time,
+         * let's not use this authentication, it might be out of date as the object and context we
+         * operate on might have changed. */
+        if (!streq(q->action, action) || !strv_equal(q->details, (char**) details))
+                return -ESTALE;
+
+        if (sd_bus_message_is_method_error(q->reply, NULL)) {
+                const sd_bus_error *e;
+
+                e = sd_bus_message_get_error(q->reply);
+
+                /* Treat no PK available as access denied */
+                if (bus_error_is_unknown_service(e))
+                        return -EACCES;
+
+                /* Copy error from polkit reply */
+                sd_bus_error_copy(ret_error, e);
+                return -sd_bus_error_get_errno(e);
+        }
+
+        r = sd_bus_message_enter_container(q->reply, 'r', "bba{ss}");
+        if (r >= 0)
+                r = sd_bus_message_read(q->reply, "bb", &authorized, &challenge);
+        if (r < 0)
+                return r;
+
+        if (authorized)
+                return 1;
+
+        if (challenge)
+                return sd_bus_error_set(ret_error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED, "Interactive authentication required.");
+
+        return -EACCES;
+}
+
 #endif
 
 int bus_verify_polkit_async(
@@ -271,48 +325,10 @@ int bus_verify_polkit_async(
 
 #if ENABLE_POLKIT
         AsyncPolkitQuery *q = hashmap_get(*registry, call);
-        if (q) {
-                int authorized, challenge;
-
-                /* This is the second invocation of this function, and there's already a response from
-                 * polkit, let's process it */
-                assert(q->reply);
-
-                /* If the operation we want to authenticate changed between the first and the second time,
-                 * let's not use this authentication, it might be out of date as the object and context we
-                 * operate on might have changed. */
-                if (!streq(q->action, action) ||
-                    !strv_equal(q->details, (char**) details))
-                        return -ESTALE;
-
-                if (sd_bus_message_is_method_error(q->reply, NULL)) {
-                        const sd_bus_error *e;
-
-                        e = sd_bus_message_get_error(q->reply);
-
-                        /* Treat no PK available as access denied */
-                        if (bus_error_is_unknown_service(e))
-                                return -EACCES;
-
-                        /* Copy error from polkit reply */
-                        sd_bus_error_copy(ret_error, e);
-                        return -sd_bus_error_get_errno(e);
-                }
-
-                r = sd_bus_message_enter_container(q->reply, 'r', "bba{ss}");
-                if (r >= 0)
-                        r = sd_bus_message_read(q->reply, "bb", &authorized, &challenge);
-                if (r < 0)
-                        return r;
-
-                if (authorized)
-                        return 1;
-
-                if (challenge)
-                        return sd_bus_error_set(ret_error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED, "Interactive authentication required.");
-
-                return -EACCES;
-        }
+        /* This is the second invocation of this function, and there's already a response from
+         * polkit, let's process it */
+        if (q)
+                return process_polkit_response(q, call, action, details, registry, ret_error);
 #endif
 
         r = sd_bus_query_sender_privilege(call, capability);
