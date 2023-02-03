@@ -3,27 +3,72 @@
 
 name: Development Freeze
 on:
-  pull_request:
-    types: [ opened, reopened, synchronize ]
-    branches: [ main ]
+  workflow_run:
+    workflows: [ Gather Pull Request Metadata ]
+    types:
+      - completed
+
+env:
+  PULL_REQUEST_METADATA_DIR: pull_request
+  PULL_REQUEST_METADATA_FILE: metadata
 
 permissions:
   contents: read
 
 jobs:
   freezer:
+    if: >
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.repository == 'systemd/systemd'
     runs-on: ubuntu-22.04
-    if: github.repository == 'systemd/systemd'
 
     permissions:
       pull-requests: write
 
     steps:
-      - uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b
+      - name: Download Pull Request Metadata artifact
+        uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975
+        with:
+          script: |
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               run_id: ${{ github.event.workflow_run.id }},
+            });
+
+            const matchArtifact = artifacts.data.artifacts.filter((artifact) => {
+              return artifact.name == "${{ env.PULL_REQUEST_METADATA_FILE }}"
+            })[0];
+
+            const download = await github.rest.actions.downloadArtifact({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               artifact_id: matchArtifact.id,
+               archive_format: 'zip',
+            });
+
+            const fs = require('fs');
+            fs.writeFileSync('${{ github.workspace }}/${{ env.PULL_REQUEST_METADATA_FILE }}.zip', Buffer.from(download.data));
+
+      - run: unzip ${{ env.PULL_REQUEST_METADATA_FILE }}.zip
+
+      - name: 'Get Pull Request number'
+        uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const pr_number = Number(fs.readFileSync('./${{ env.PULL_REQUEST_METADATA_FILE }}'));
+            core.exportVariable('pr_number', pr_number);
+
+      - name: Repository checkout
+        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b
         with:
           fetch-depth: 0
 
       - name: Development Freezer
-        uses: redhat-plumbers-in-action/devel-freezer@1bce2d1d64db1a22f13cd6e4bff0b4f3847236c7
+        uses: redhat-plumbers-in-action/devel-freezer@13b6551f19ade74ca79be4cab06b815a4ffffa64
         with:
+          pr-number: ${{ env.pr_number }}
           token: ${{ secrets.GITHUB_TOKEN }}
