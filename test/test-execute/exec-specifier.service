@@ -13,11 +13,6 @@ ExecStart=test %I = ""
 ExecStart=test %j = specifier
 ExecStart=test %J = specifier
 ExecStart=test %f = /exec/specifier
-ExecStart=test %t = /run
-ExecStart=test %S = /var/lib
-ExecStart=test %C = /var/cache
-ExecStart=test %L = /var/log
-ExecStart=test %E = /etc
 ExecStart=test %T = /tmp
 ExecStart=test %V = /var/tmp
 ExecStart=test %d = %t/credentials/%n

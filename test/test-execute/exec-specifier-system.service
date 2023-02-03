@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for specifiers (system)
+
+[Service]
+Type=oneshot
+ExecStart=test %t = /run
+ExecStart=test %S = /var/lib
+ExecStart=test %C = /var/cache
+ExecStart=test %L = /var/log
+ExecStart=test %E = /etc
