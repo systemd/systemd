@@ -199,7 +199,7 @@ function run_service_and_fetch_logs() {
     journalctl --sync
     END=$(date '+%Y-%m-%d %T.%6N')
 
-    journalctl -q -u "$UNIT" -S "$START" -U "$END" | grep -Pv "systemd\[[0-9]+\]"
+    journalctl -q -u "$UNIT" -S "$START" -U "$END" -p info | grep -Pv "systemd\[[0-9]+\]"
     systemctl stop "$UNIT"
 }
 
