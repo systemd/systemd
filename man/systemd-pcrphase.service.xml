@@ -34,7 +34,7 @@
     <para><filename>systemd-pcrmachine.service</filename></para>
     <para><filename>systemd-pcrfs-root.service</filename></para>
     <para><filename>systemd-pcrfs@.service</filename></para>
-    <para><filename>/usr/lib/systemd/system-pcrphase</filename> <optional><replaceable>STRING</replaceable></optional></para>
+    <para><filename>/usr/lib/systemd/systemd-pcrphase</filename> <optional><replaceable>STRING</replaceable></optional></para>
   </refsynopsisdiv>
 
   <refsect1>
