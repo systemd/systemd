@@ -192,6 +192,10 @@ int rename_process(const char name[]) {
                 strncpy(program_invocation_name, name, k);
                 if (l > k)
                         truncated = true;
+
+                /* Also update the short name. */
+                char *p = strrchr(program_invocation_name, '/');
+                program_invocation_short_name = p ? p + 1 : program_invocation_name;
         }
 
         /* Third step, completely replace the argv[] array the kernel maintains for us. This requires privileges, but
