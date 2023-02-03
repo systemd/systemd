@@ -165,9 +165,9 @@ typedef struct AsyncPolkitQuery {
         sd_event_source *defer_event_source;
 } AsyncPolkitQuery;
 
-static void async_polkit_query_free(AsyncPolkitQuery *q) {
+static AsyncPolkitQuery *async_polkit_query_free(AsyncPolkitQuery *q) {
         if (!q)
-                return;
+                return NULL;
 
         sd_bus_slot_unref(q->slot);
 
@@ -181,7 +181,8 @@ static void async_polkit_query_free(AsyncPolkitQuery *q) {
         strv_free(q->details);
 
         sd_event_source_disable_unref(q->defer_event_source);
-        free(q);
+
+        return mfree(q);
 }
 
 static int async_polkit_defer(sd_event_source *s, void *userdata) {
