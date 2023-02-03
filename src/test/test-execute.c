@@ -417,7 +417,7 @@ static void test_exec_privatedevices(Manager *m) {
         test(m, "exec-privatedevices-yes.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
         test(m, "exec-privatedevices-no.service", 0, CLD_EXITED);
         test(m, "exec-privatedevices-disabled-by-prefix.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
-        test(m, "exec-privatedevices-yes-with-group.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
+        test(m, "exec-privatedevices-yes-with-group.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_GROUP, CLD_EXITED);
 
         /* We use capsh to test if the capabilities are
          * properly set, so be sure that it exists */
@@ -428,9 +428,9 @@ static void test_exec_privatedevices(Manager *m) {
         }
 
         test(m, "exec-privatedevices-yes-capability-mknod.service", 0, CLD_EXITED);
-        test(m, "exec-privatedevices-no-capability-mknod.service", 0, CLD_EXITED);
+        test(m, "exec-privatedevices-no-capability-mknod.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
         test(m, "exec-privatedevices-yes-capability-sys-rawio.service", 0, CLD_EXITED);
-        test(m, "exec-privatedevices-no-capability-sys-rawio.service", 0, CLD_EXITED);
+        test(m, "exec-privatedevices-no-capability-sys-rawio.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
 }
 
 static void test_exec_protecthome(Manager *m) {
@@ -460,7 +460,7 @@ static void test_exec_protectkernelmodules(Manager *m) {
                 return;
         }
 
-        test(m, "exec-protectkernelmodules-no-capabilities.service", 0, CLD_EXITED);
+        test(m, "exec-protectkernelmodules-no-capabilities.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
         test(m, "exec-protectkernelmodules-yes-capabilities.service", 0, CLD_EXITED);
         test(m, "exec-protectkernelmodules-yes-mount-propagation.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
 }
@@ -781,7 +781,7 @@ static void test_exec_systemcallfilter_system(Manager *m) {
                 return;
         }
 
-        test(m, "exec-systemcallfilter-system-user.service", 0, CLD_EXITED);
+        test(m, "exec-systemcallfilter-system-user.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 
         if (!check_nobody_user_and_group()) {
                 log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
@@ -793,12 +793,12 @@ static void test_exec_systemcallfilter_system(Manager *m) {
                 return;
         }
 
-        test(m, "exec-systemcallfilter-system-user-" NOBODY_USER_NAME ".service", 0, CLD_EXITED);
+        test(m, "exec-systemcallfilter-system-user-" NOBODY_USER_NAME ".service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 #endif
 }
 
 static void test_exec_user(Manager *m) {
-        test(m, "exec-user.service", 0, CLD_EXITED);
+        test(m, "exec-user.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 
         if (!check_nobody_user_and_group()) {
                 log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
@@ -810,11 +810,11 @@ static void test_exec_user(Manager *m) {
                 return;
         }
 
-        test(m, "exec-user-" NOBODY_USER_NAME ".service", 0, CLD_EXITED);
+        test(m, "exec-user-" NOBODY_USER_NAME ".service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 }
 
 static void test_exec_group(Manager *m) {
-        test(m, "exec-group.service", 0, CLD_EXITED);
+        test(m, "exec-group.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 
         if (!check_nobody_user_and_group()) {
                 log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
@@ -826,16 +826,16 @@ static void test_exec_group(Manager *m) {
                 return;
         }
 
-        test(m, "exec-group-" NOBODY_GROUP_NAME ".service", 0, CLD_EXITED);
+        test(m, "exec-group-" NOBODY_GROUP_NAME ".service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 }
 
 static void test_exec_supplementarygroups(Manager *m) {
-        test(m, "exec-supplementarygroups.service", 0, CLD_EXITED);
-        test(m, "exec-supplementarygroups-single-group.service", 0, CLD_EXITED);
-        test(m, "exec-supplementarygroups-single-group-user.service", 0, CLD_EXITED);
-        test(m, "exec-supplementarygroups-multiple-groups-default-group-user.service", 0, CLD_EXITED);
-        test(m, "exec-supplementarygroups-multiple-groups-withgid.service", 0, CLD_EXITED);
-        test(m, "exec-supplementarygroups-multiple-groups-withuid.service", 0, CLD_EXITED);
+        test(m, "exec-supplementarygroups.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
+        test(m, "exec-supplementarygroups-single-group.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
+        test(m, "exec-supplementarygroups-single-group-user.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
+        test(m, "exec-supplementarygroups-multiple-groups-default-group-user.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
+        test(m, "exec-supplementarygroups-multiple-groups-withgid.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
+        test(m, "exec-supplementarygroups-multiple-groups-withuid.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 }
 
 static char* private_directory_bad(Manager *m) {
@@ -867,14 +867,16 @@ static void test_exec_dynamicuser(Manager *m) {
                 return;
         }
 
-        test(m, "exec-dynamicuser-fixeduser.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+        int status = can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_NAMESPACE : EXIT_GROUP;
+
+        test(m, "exec-dynamicuser-fixeduser.service", status, CLD_EXITED);
         if (check_user_has_group_with_same_name("adm"))
-                test(m, "exec-dynamicuser-fixeduser-adm.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+                test(m, "exec-dynamicuser-fixeduser-adm.service", status, CLD_EXITED);
         if (check_user_has_group_with_same_name("games"))
-                test(m, "exec-dynamicuser-fixeduser-games.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
-        test(m, "exec-dynamicuser-fixeduser-one-supplementarygroup.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
-        test(m, "exec-dynamicuser-supplementarygroups.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
-        test(m, "exec-dynamicuser-statedir.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+                test(m, "exec-dynamicuser-fixeduser-games.service", status, CLD_EXITED);
+        test(m, "exec-dynamicuser-fixeduser-one-supplementarygroup.service", status, CLD_EXITED);
+        test(m, "exec-dynamicuser-supplementarygroups.service", status, CLD_EXITED);
+        test(m, "exec-dynamicuser-statedir.service", status, CLD_EXITED);
 
         (void) rm_rf("/var/lib/quux", REMOVE_ROOT|REMOVE_PHYSICAL);
         (void) rm_rf("/var/lib/test-dynamicuser-migrate", REMOVE_ROOT|REMOVE_PHYSICAL);
@@ -885,18 +887,18 @@ static void test_exec_dynamicuser(Manager *m) {
         (void) rm_rf("/var/lib/private/test-dynamicuser-migrate2", REMOVE_ROOT|REMOVE_PHYSICAL);
         (void) rm_rf("/var/lib/private/waldo", REMOVE_ROOT|REMOVE_PHYSICAL);
 
-        test(m, "exec-dynamicuser-statedir-migrate-step1.service", 0, CLD_EXITED);
-        test(m, "exec-dynamicuser-statedir-migrate-step2.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
-        test(m, "exec-dynamicuser-statedir-migrate-step1.service", 0, CLD_EXITED);
+        test(m, "exec-dynamicuser-statedir-migrate-step1.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_STATE_DIRECTORY, CLD_EXITED);
+        test(m, "exec-dynamicuser-statedir-migrate-step2.service", status, CLD_EXITED);
+        test(m, "exec-dynamicuser-statedir-migrate-step1.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_STATE_DIRECTORY, CLD_EXITED);
 
         (void) rm_rf("/var/lib/test-dynamicuser-migrate", REMOVE_ROOT|REMOVE_PHYSICAL);
         (void) rm_rf("/var/lib/test-dynamicuser-migrate2", REMOVE_ROOT|REMOVE_PHYSICAL);
         (void) rm_rf("/var/lib/private/test-dynamicuser-migrate", REMOVE_ROOT|REMOVE_PHYSICAL);
         (void) rm_rf("/var/lib/private/test-dynamicuser-migrate2", REMOVE_ROOT|REMOVE_PHYSICAL);
 
-        test(m, "exec-dynamicuser-runtimedirectory1.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
-        test(m, "exec-dynamicuser-runtimedirectory2.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
-        test(m, "exec-dynamicuser-runtimedirectory3.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+        test(m, "exec-dynamicuser-runtimedirectory1.service", status, CLD_EXITED);
+        test(m, "exec-dynamicuser-runtimedirectory2.service", status, CLD_EXITED);
+        test(m, "exec-dynamicuser-runtimedirectory3.service", status, CLD_EXITED);
 }
 
 static void test_exec_environment(Manager *m) {
@@ -964,7 +966,7 @@ static void test_exec_umask(Manager *m) {
 static void test_exec_runtimedirectory(Manager *m) {
         test(m, "exec-runtimedirectory.service", 0, CLD_EXITED);
         test(m, "exec-runtimedirectory-mode.service", 0, CLD_EXITED);
-        test(m, "exec-runtimedirectory-owner.service", 0, CLD_EXITED);
+        test(m, "exec-runtimedirectory-owner.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 
         if (!check_nobody_user_and_group()) {
                 log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
@@ -976,7 +978,7 @@ static void test_exec_runtimedirectory(Manager *m) {
                 return;
         }
 
-        test(m, "exec-runtimedirectory-owner-" NOBODY_GROUP_NAME ".service", 0, CLD_EXITED);
+        test(m, "exec-runtimedirectory-owner-" NOBODY_GROUP_NAME ".service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 }
 
 static void test_exec_capabilityboundingset(Manager *m) {
@@ -1050,7 +1052,7 @@ static void test_exec_privatenetwork(Manager *m) {
                 return;
         }
 
-        test(m, "exec-privatenetwork-yes.service", can_unshare ? 0 : EXIT_NETWORK, CLD_EXITED);
+        test(m, "exec-privatenetwork-yes.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_NETWORK : EXIT_FAILURE, CLD_EXITED);
 }
 
 static void test_exec_oomscoreadjust(Manager *m) {
@@ -1060,7 +1062,7 @@ static void test_exec_oomscoreadjust(Manager *m) {
                 log_notice("Testing in container, skipping remaining tests in %s", __func__);
                 return;
         }
-        test(m, "exec-oomscoreadjust-negative.service", 0, CLD_EXITED);
+        test(m, "exec-oomscoreadjust-negative.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
 }
 
 static void test_exec_ioschedulingclass(Manager *m) {
@@ -1072,7 +1074,7 @@ static void test_exec_ioschedulingclass(Manager *m) {
                 log_notice("Testing in container, skipping remaining tests in %s", __func__);
                 return;
         }
-        test(m, "exec-ioschedulingclass-realtime.service", 0, CLD_EXITED);
+        test(m, "exec-ioschedulingclass-realtime.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_IOPRIO, CLD_EXITED);
 }
 
 static void test_exec_unsetenvironment(Manager *m) {
@@ -1081,6 +1083,10 @@ static void test_exec_unsetenvironment(Manager *m) {
 
 static void test_exec_specifier(Manager *m) {
         test(m, "exec-specifier.service", 0, CLD_EXITED);
+        if (MANAGER_IS_SYSTEM(m))
+                test(m, "exec-specifier-system.service", 0, CLD_EXITED);
+        else
+                test(m, "exec-specifier-user.service", 0, CLD_EXITED);
         test(m, "exec-specifier@foo-bar.service", 0, CLD_EXITED);
         test(m, "exec-specifier-interpolation.service", 0, CLD_EXITED);
         test(m, "exec-specifier-credentials-dir.service", 0, CLD_EXITED);
@@ -1116,7 +1122,7 @@ static void test_exec_umask_namespace(Manager *m) {
                 log_notice("Testing without inaccessible, skipping %s", __func__);
                 return;
         }
-        test(m, "exec-umask-namespace.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+        test(m, "exec-umask-namespace.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_NAMESPACE : EXIT_GROUP, CLD_EXITED);
 }
 
 typedef struct test_entry {
@@ -1126,32 +1132,13 @@ typedef struct test_entry {
 
 #define entry(x) {x, #x}
 
-static int run_tests(LookupScope scope, const test_entry tests[], char **patterns) {
+static void run_tests(LookupScope scope) {
+        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
+        _cleanup_free_ char *unit_dir = NULL, *unit_paths = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
-        assert_se(tests);
-
-        r = manager_new(scope, MANAGER_TEST_RUN_BASIC, &m);
-        m->default_std_output = EXEC_OUTPUT_NULL; /* don't rely on host journald */
-        if (manager_errno_skip_test(r))
-                return log_tests_skipped_errno(r, "manager_new");
-        assert_se(r >= 0);
-        assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
-
-        for (const test_entry *test = tests; test->f; test++)
-                if (strv_fnmatch_or_empty(patterns, test->name, FNM_NOESCAPE))
-                        test->f(m);
-                else
-                        log_info("Skipping %s because it does not match any pattern.", test->name);
-
-        return 0;
-}
-
-int main(int argc, char *argv[]) {
-        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
-
-        static const test_entry user_tests[] = {
+        static const test_entry tests[] = {
                 entry(test_exec_basic),
                 entry(test_exec_ambientcapabilities),
                 entry(test_exec_bindpaths),
@@ -1159,8 +1146,14 @@ int main(int argc, char *argv[]) {
                 entry(test_exec_condition),
                 entry(test_exec_cpuaffinity),
                 entry(test_exec_credentials),
+                entry(test_exec_dynamicuser),
                 entry(test_exec_environment),
                 entry(test_exec_environmentfile),
+                entry(test_exec_execsearchpath),
+                entry(test_exec_execsearchpath_environment),
+                entry(test_exec_execsearchpath_environment_files),
+                entry(test_exec_execsearchpath_passenvironment),
+                entry(test_exec_execsearchpath_specifier),
                 entry(test_exec_group),
                 entry(test_exec_ignoresigpipe),
                 entry(test_exec_inaccessiblepaths),
@@ -1179,6 +1172,7 @@ int main(int argc, char *argv[]) {
                 entry(test_exec_readwritepaths),
                 entry(test_exec_restrictnamespaces),
                 entry(test_exec_runtimedirectory),
+                entry(test_exec_specifier),
                 entry(test_exec_standardinput),
                 entry(test_exec_standardoutput),
                 entry(test_exec_standardoutput_append),
@@ -1186,35 +1180,21 @@ int main(int argc, char *argv[]) {
                 entry(test_exec_supplementarygroups),
                 entry(test_exec_systemcallerrornumber),
                 entry(test_exec_systemcallfilter),
+                entry(test_exec_systemcallfilter_system),
                 entry(test_exec_temporaryfilesystem),
                 entry(test_exec_umask),
+                entry(test_exec_umask_namespace),
                 entry(test_exec_unsetenvironment),
                 entry(test_exec_user),
                 entry(test_exec_workingdirectory),
-                entry(test_exec_execsearchpath),
-                entry(test_exec_execsearchpath_environment),
-                entry(test_exec_execsearchpath_environment_files),
-                entry(test_exec_execsearchpath_passenvironment),
                 {},
         };
-        static const test_entry system_tests[] = {
-                entry(test_exec_dynamicuser),
-                entry(test_exec_specifier),
-                entry(test_exec_execsearchpath_specifier),
-                entry(test_exec_systemcallfilter_system),
-                entry(test_exec_umask_namespace),
-                {},
-        };
-        int r;
 
-        test_setup_logging(LOG_DEBUG);
-
-#if HAS_FEATURE_ADDRESS_SANITIZER
-        if (strstr_ptr(ci_environment(), "travis") || strstr_ptr(ci_environment(), "github-actions")) {
-                log_notice("Running on Travis CI/GH Actions under ASan, skipping, see https://github.com/systemd/systemd/issues/10696");
-                return EXIT_TEST_SKIP;
-        }
-#endif
+        assert_se(get_testdata_dir("test-execute/", &unit_dir) >= 0);
+        assert_se(runtime_dir = setup_fake_runtime_dir());
+        assert_se(user_runtime_unit_dir = path_join(runtime_dir, "systemd/user"));
+        assert_se(unit_paths = strjoin(unit_dir, ":", user_runtime_unit_dir));
+        assert_se(set_unit_path(unit_paths) >= 0);
 
         assert_se(unsetenv("USER") == 0);
         assert_se(unsetenv("LOGNAME") == 0);
@@ -1222,68 +1202,123 @@ int main(int argc, char *argv[]) {
         assert_se(unsetenv("HOME") == 0);
         assert_se(unsetenv("TMPDIR") == 0);
 
-        can_unshare = have_namespaces();
+        /* Unset VAR1, VAR2 and VAR3 which are used in the PassEnvironment test cases, otherwise (and if they
+         * are present in the environment), `manager_default_environment` will copy them into the default
+         * environment which is passed to each created job, which will make the tests that expect those not
+         * to be present to fail. */
+        assert_se(unsetenv("VAR1") == 0);
+        assert_se(unsetenv("VAR2") == 0);
+        assert_se(unsetenv("VAR3") == 0);
 
+        r = manager_new(scope, MANAGER_TEST_RUN_BASIC, &m);
+        if (manager_errno_skip_test(r))
+                return (void) log_tests_skipped_errno(r, "manager_new");
+        assert_se(r >= 0);
+
+        m->default_std_output = EXEC_OUTPUT_NULL; /* don't rely on host journald */
+        assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
+
+        /* Uncomment below if you want to make debugging logs stored to journal.
+         * manager_override_log_target(m, LOG_TARGET_JOURNAL);
+         * manager_override_log_level(m, LOG_DEBUG);
+         */
+
+        for (const test_entry *test = tests; test->f; test++)
+                if (strv_fnmatch_or_empty(saved_argv + 1, test->name, FNM_NOESCAPE))
+                        test->f(m);
+                else
+                        log_info("Skipping %s because it does not match any pattern.", test->name);
+}
+
+TEST(run_tests_root) {
+        int r;
+
+        if (!have_namespaces())
+                return (void) log_tests_skipped("unshare() is disabled");
+
+        r = safe_fork("(test-execute-root)",
+                      FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_WAIT|FORK_REOPEN_LOG|FORK_LOG|FORK_NEW_MOUNTNS, NULL);
+        assert_se(r >= 0);
+        if (r == 0) {
+                can_unshare = true;
+                run_tests(LOOKUP_SCOPE_SYSTEM);
+                _exit(EXIT_SUCCESS);
+        }
+}
+
+TEST(run_tests_without_unshare) {
+        if (!have_namespaces()) {
+                /* unshare() is already filtered. */
+                can_unshare = false;
+                run_tests(LOOKUP_SCOPE_SYSTEM);
+                return;
+        }
+
+#if HAVE_SECCOMP
+        int r;
+
+        /* The following tests are for 1beab8b0d0ff2d7d1436b52d4a0c3d56dc908962. */
+        if (!is_seccomp_available())
+                return (void) log_tests_skipped("Seccomp not available, cannot run unshare() filtered tests");
+
+        r = safe_fork("(test-execute-without-unshare)",
+                      FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_WAIT|FORK_REOPEN_LOG|FORK_LOG|FORK_NEW_MOUNTNS, NULL);
+        assert_se(r >= 0);
+        if (r == 0) {
+                _cleanup_hashmap_free_ Hashmap *s = NULL;
+
+                r = seccomp_syscall_resolve_name("unshare");
+                assert_se(r != __NR_SCMP_ERROR);
+                assert_se(hashmap_ensure_put(&s, NULL, UINT32_TO_PTR(r + 1), INT_TO_PTR(-1)) >= 0);
+                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EOPNOTSUPP), true) >= 0);
+
+                /* Check unshare() is actually filtered. */
+                assert_se(unshare(CLONE_NEWNS) < 0);
+                assert_se(errno == EOPNOTSUPP);
+
+                can_unshare = false;
+                run_tests(LOOKUP_SCOPE_SYSTEM);
+                _exit(EXIT_SUCCESS);
+        }
+#else
+        log_tests_skipped("Built without seccomp support, cannot run unshare() filtered tests");
+#endif
+}
+
+TEST(run_tests_unprivileged) {
+        int r;
+
+        if (!have_namespaces())
+                return (void) log_tests_skipped("unshare() is disabled");
+
+        r = safe_fork("(test-execute-unprivileged)",
+                      FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_WAIT|FORK_REOPEN_LOG|FORK_LOG|FORK_NEW_MOUNTNS, NULL);
+        assert_se(r >= 0);
+        if (r == 0) {
+                assert_se(capability_bounding_set_drop(0, /* right_now = */ true) >= 0);
+
+                can_unshare = false;
+                run_tests(LOOKUP_SCOPE_USER);
+                _exit(EXIT_SUCCESS);
+        }
+}
+
+static int intro(void) {
+#if HAS_FEATURE_ADDRESS_SANITIZER
+        if (strstr_ptr(ci_environment(), "travis") || strstr_ptr(ci_environment(), "github-actions"))
+                return log_tests_skipped("Running on Travis CI/GH Actions under ASan, see https://github.com/systemd/systemd/issues/10696");
+#endif
         /* It is needed otherwise cgroup creation fails */
         if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0)
                 return log_tests_skipped("not privileged");
 
-        r = enter_cgroup_subroot(NULL);
-        if (r == -ENOMEDIUM)
+        if (enter_cgroup_subroot(NULL) == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
         if (path_is_read_only_fs("/sys") > 0)
                 return log_tests_skipped("/sys is mounted read-only");
 
-        _cleanup_free_ char *unit_dir = NULL, *unit_paths = NULL;
-        assert_se(get_testdata_dir("test-execute/", &unit_dir) >= 0);
-        assert_se(runtime_dir = setup_fake_runtime_dir());
-        assert_se(user_runtime_unit_dir = path_join(runtime_dir, "systemd/user"));
-        assert_se(unit_paths = strjoin(unit_dir, ":", user_runtime_unit_dir));
-        assert_se(set_unit_path(unit_paths) >= 0);
-
-        /* Unset VAR1, VAR2 and VAR3 which are used in the PassEnvironment test
-         * cases, otherwise (and if they are present in the environment),
-         * `manager_default_environment` will copy them into the default
-         * environment which is passed to each created job, which will make the
-         * tests that expect those not to be present to fail.
-         */
-        assert_se(unsetenv("VAR1") == 0);
-        assert_se(unsetenv("VAR2") == 0);
-        assert_se(unsetenv("VAR3") == 0);
-
-        r = run_tests(LOOKUP_SCOPE_USER, user_tests, argv + 1);
-        if (r != 0)
-                return r;
-
-        r = run_tests(LOOKUP_SCOPE_SYSTEM, system_tests, argv + 1);
-        if (r != 0)
-                return r;
-
-#if HAVE_SECCOMP
-        /* The following tests are for 1beab8b0d0ff2d7d1436b52d4a0c3d56dc908962. */
-        if (!is_seccomp_available()) {
-                log_notice("Seccomp not available, skipping unshare() filtered tests.");
-                return 0;
-        }
-
-        _cleanup_hashmap_free_ Hashmap *s = NULL;
-        assert_se(s = hashmap_new(NULL));
-        r = seccomp_syscall_resolve_name("unshare");
-        assert_se(r != __NR_SCMP_ERROR);
-        assert_se(hashmap_put(s, UINT32_TO_PTR(r + 1), INT_TO_PTR(-1)) >= 0);
-        assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EOPNOTSUPP), true) >= 0);
-        assert_se(unshare(CLONE_NEWNS) < 0);
-        assert_se(errno == EOPNOTSUPP);
-
-        can_unshare = false;
-
-        r = run_tests(LOOKUP_SCOPE_USER, user_tests, argv + 1);
-        if (r != 0)
-                return r;
-
-        return run_tests(LOOKUP_SCOPE_SYSTEM, system_tests, argv + 1);
-#else
-        return 0;
-#endif
+        return EXIT_SUCCESS;
 }
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);
