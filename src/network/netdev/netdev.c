@@ -17,6 +17,7 @@
 #include "fd-util.h"
 #include "fou-tunnel.h"
 #include "geneve.h"
+#include "hsr.h"
 #include "ifb.h"
 #include "ipoib.h"
 #include "ipvlan.h"
@@ -62,6 +63,7 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_GENEVE]    = &geneve_vtable,
         [NETDEV_KIND_GRE]       = &gre_vtable,
         [NETDEV_KIND_GRETAP]    = &gretap_vtable,
+        [NETDEV_KIND_HSR]       = &hsr_vtable,
         [NETDEV_KIND_IFB]       = &ifb_vtable,
         [NETDEV_KIND_IP6GRE]    = &ip6gre_vtable,
         [NETDEV_KIND_IP6GRETAP] = &ip6gretap_vtable,
@@ -103,6 +105,7 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_GENEVE]    = "geneve",
         [NETDEV_KIND_GRE]       = "gre",
         [NETDEV_KIND_GRETAP]    = "gretap",
+        [NETDEV_KIND_HSR]       = "hsr",
         [NETDEV_KIND_IFB]       = "ifb",
         [NETDEV_KIND_IP6GRE]    = "ip6gre",
         [NETDEV_KIND_IP6GRETAP] = "ip6gretap",
