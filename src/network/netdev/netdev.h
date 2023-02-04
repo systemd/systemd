@@ -22,6 +22,7 @@
         "-Bridge\0"                               \
         "-FooOverUDP\0"                           \
         "-GENEVE\0"                               \
+        "-HSR\0"                                  \
         "-IPoIB\0"                                \
         "-IPVLAN\0"                               \
         "-IPVTAP\0"                               \
@@ -57,6 +58,7 @@ typedef enum NetDevKind {
         NETDEV_KIND_GENEVE,
         NETDEV_KIND_GRE,
         NETDEV_KIND_GRETAP,
+        NETDEV_KIND_HSR,
         NETDEV_KIND_IFB,
         NETDEV_KIND_IP6GRE,
         NETDEV_KIND_IP6GRETAP,
