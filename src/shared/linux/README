@@ -1,4 +1,4 @@
-The files in this directory are copied from kernel-5.2, and the following modifications are applied:
+The files in this directory are copied from kernel-6.2, and the following modifications are applied:
 - auto_dev-ioctl.h: set AUTOFS_DEV_IOCTL_VERSION_MINOR to 0
 - auto_dev-ioctl.h: define AUTOFS_IOCTL if not defined
 - bpf_insn.h: This is imported from samples/bpf/bpf_insn.h
