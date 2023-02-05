@@ -9,4 +9,4 @@ sudo /usr/lib/systemd/systemd-cryptsetup attach mytest /dev/sdXn - tpm2-device=a
 
 # If that worked, let's now add the same line persistently to /etc/crypttab,
 # for the future.
-sudo bash -c 'echo "mytest /dev/sdXn - tpm2-device=auto" >> /etc/crypttab'
+sudo bash -c 'echo "mytest /dev/sdXn - tpm2-device=auto" >>/etc/crypttab'

@@ -27,7 +27,7 @@ jobs:
       - name: Store PR number in file
         run: |
           mkdir -p ./${{ env.PULL_REQUEST_METADATA_DIR }}
-          echo ${{ github.event.number }} > ./${{ env.PULL_REQUEST_METADATA_DIR }}/${{ env.PULL_REQUEST_METADATA_FILE }}
+          echo ${{ github.event.number }} >./${{ env.PULL_REQUEST_METADATA_DIR }}/${{ env.PULL_REQUEST_METADATA_FILE }}
 
       - name: Upload Pull Request Metadata artifact
         uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce

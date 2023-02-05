@@ -163,7 +163,7 @@ mount /usr/share/minimal_0.raw /tmp/rootdir
 # Fix up os-release to drop the valid PORTABLE_SERVICES field (because we are
 # bypassing the sysext logic in portabled here it will otherwise not see the
 # extensions additional valid prefix)
-grep -v "^PORTABLE_PREFIXES=" /tmp/rootdir/etc/os-release > /tmp/os-release-fix/etc/os-release
+grep -v "^PORTABLE_PREFIXES=" /tmp/rootdir/etc/os-release >/tmp/os-release-fix/etc/os-release
 
 mount -t overlay overlay -o lowerdir=/tmp/os-release-fix:/tmp/app1:/tmp/rootdir /tmp/overlay
 

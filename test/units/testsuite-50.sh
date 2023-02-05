@@ -158,7 +158,7 @@ if systemctl --version | grep -q -- +OPENSSL ; then
     fi
     HAVE_OPENSSL=1
     # Unfortunately OpenSSL insists on reading some config file, hence provide one with mostly placeholder contents
-    cat >> "${image}.openssl.cnf" <<EOF
+    cat >>"${image}.openssl.cnf" <<EOF
 [ req ]
 prompt = no
 distinguished_name = req_distinguished_name
@@ -178,7 +178,7 @@ EOF
     # Sign Verity root hash with it
     openssl smime -sign -nocerts -noattr -binary -in "${image}.roothash" -inkey "${image}.key" -signer "${image}.crt" -outform der -out "${image}.roothash.p7s"
     # Generate signature partition JSON data
-    echo '{"rootHash":"'"${roothash}"'","signature":"'"$(base64 -w 0 < "${image}.roothash.p7s")"'"}' > "${image}.verity-sig"
+    echo '{"rootHash":"'"${roothash}"'","signature":"'"$(base64 -w 0 <"${image}.roothash.p7s")"'"}' >"${image}.verity-sig"
     # Pad it
     truncate -s "${signature_size}" "${image}.verity-sig"
     # Register certificate in the (userspace) verity key ring
@@ -418,7 +418,7 @@ rm /var/lib/extensions/app-nodistro.raw
 mkdir -p /run/machines /run/portables /run/extensions
 touch /run/machines/a.raw /run/portables/b.raw /run/extensions/c.raw
 
-systemd-dissect --discover --json=short > /tmp/discover.json
+systemd-dissect --discover --json=short >/tmp/discover.json
 grep -q -F '{"name":"a","type":"raw","class":"machine","ro":false,"path":"/run/machines/a.raw"' /tmp/discover.json
 grep -q -F '{"name":"b","type":"raw","class":"portable","ro":false,"path":"/run/portables/b.raw"' /tmp/discover.json
 grep -q -F '{"name":"c","type":"raw","class":"extension","ro":false,"path":"/run/extensions/c.raw"' /tmp/discover.json

@@ -285,17 +285,17 @@ for key in MicWinProPCA2011_2011-10-19.crt MicCorUEFCA2011_2011-06-27.crt MicCor
 done
 
 # Optionally add Microsoft Windows Production CA 2011 (needed to boot into Windows).
-cat MicWinProPCA2011_2011-10-19.esl >> db.esl
+cat MicWinProPCA2011_2011-10-19.esl >>db.esl
 
 # Optionally add Microsoft Corporation UEFI CA 2011 for firmware drivers / option ROMs
 # and third-party boot loaders (including shim). This is highly recommended on real
 # hardware as not including this may soft-brick your device (see next paragraph).
-cat MicCorUEFCA2011_2011-06-27.esl >> db.esl
+cat MicCorUEFCA2011_2011-06-27.esl >>db.esl
 
 # Optionally add Microsoft Corporation KEK CA 2011. Recommended if either of the
 # Microsoft keys is used as the official UEFI revocation database is signed with this
 # key. The revocation database can be updated with <citerefentry><refentrytitle>fwupdmgr</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-cat MicCorKEKCA2011_2011-06-24.esl >> KEK.esl
+cat MicCorKEKCA2011_2011-06-24.esl >>KEK.esl
 
 attr=NON_VOLATILE,RUNTIME_ACCESS,BOOTSERVICE_ACCESS,TIME_BASED_AUTHENTICATED_WRITE_ACCESS
 sbvarsign --attr ${attr} --key PK.key --cert PK.crt --output PK.auth PK PK.esl
