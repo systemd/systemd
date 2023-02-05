@@ -29,8 +29,8 @@ CHANGES WITH 253 in spe:
         * systemd-networkd-wait-online exits successfully when all interfaces
           are ready or unmanaged. Previously, if neither '--any' nor
           '--interface=' options were used, at least one interface had to be in
-          configured state. This change allows the case, where systemd-networkd
-          is enabled but no interfaces are configured, to be handled
+          configured state. This change allows the case where systemd-networkd
+          is enabled, but no interfaces are configured, to be handled
           gracefully. It may occur in particular when a different network
           manager is also enabled and used.
 
@@ -80,7 +80,7 @@ CHANGES WITH 253 in spe:
         * Initrd environments which are not on a pure memory file system (e.g.
           overlayfs combination as opposed to tmpfs) are now supported. With
           this change, during the initrd → host transition ("switch root")
-          systemd will no longer erase all files of the initrd unless it's
+          systemd will erase all files of the initrd only when the initrd is
           backed by a memory file system such as tmpfs.
 
         * New per-unit MemoryZSwapMax= option has been added to configure
@@ -109,7 +109,7 @@ CHANGES WITH 253 in spe:
         * The maximum rate at which daemon reloads are executed can now be
           limited with the new ReloadLimitIntervalSec=/ReloadLimitBurst=
           options. (Or the equivalent on the kernel command line:
-          systemd.reload_limit_interval_sec=/systemd.reload_limit_burst=).  In
+          systemd.reload_limit_interval_sec=/systemd.reload_limit_burst=). In
           addition, systemd now logs the originating unit and PID when a reload
           request is received over D-Bus.
 
@@ -128,9 +128,10 @@ CHANGES WITH 253 in spe:
 
         * The system manager manager will now parse a new "vmm.notify_socket"
           system credential, which may be supplied to a VM via SMBIOS. If
-          found, it will send a "READY=1" notification on the specified socket
-          after boot is complete. This allows readiness notification to be sent
-          from a VM guest to the VM host over a VSOCK socket.
+          found, the manager will send a "READY=1" notification on the
+          specified socket after boot is complete. This allows readiness
+          notification to be sent from a VM guest to the VM host over a VSOCK
+          socket.
 
         * The sample PAM configuration file for systemd-user@.service now
           includes a call to pam_namespace. This puts children of user@.service
@@ -139,8 +140,8 @@ CHANGES WITH 253 in spe:
 
         * A new environment variable $SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST
           can can be used to override the mount units burst late limit for
-          parsing '/proc/self/mountinfo', which was introduced in
-          v249. Defaults to 5.
+          parsing '/proc/self/mountinfo', which was introduced in v249.
+          Defaults to 5.
 
         * Drop-ins for init.scope changing control group resource limits are
           now applied, while they were previously ignored.
