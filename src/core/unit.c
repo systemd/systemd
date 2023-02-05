@@ -4626,18 +4626,6 @@ int unit_kill_context(
                                 log_unit_warning_errno(u, r, "Failed to kill control group %s, ignoring: %m", empty_to_root(u->cgroup_path));
 
                 } else if (r > 0) {
-
-                        /* FIXME: For now, on the legacy hierarchy, we will not wait for the cgroup members to die if
-                         * we are running in a container or if this is a delegation unit, simply because cgroup
-                         * notification is unreliable in these cases. It doesn't work at all in containers, and outside
-                         * of containers it can be confused easily by left-over directories in the cgroup — which
-                         * however should not exist in non-delegated units. On the unified hierarchy that's different,
-                         * there we get proper events. Hence rely on them. */
-
-                        if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0 ||
-                            (detect_container() == 0 && !unit_cgroup_delegate(u)))
-                                wait_for_exit = true;
-
                         if (send_sighup) {
                                 set_free(pid_set);
 
@@ -4652,6 +4640,18 @@ int unit_kill_context(
                                                          NULL, NULL);
                         }
                 }
+
+                /* FIXME: For now, on the legacy hierarchy, we will not wait for the cgroup members to die if
+                 * we are running in a container or if this is a delegation unit, simply because cgroup
+                 * notification is unreliable in these cases. It doesn't work at all in containers, and
+                 * outside of containers it can be confused easily by left-over directories in the cgroup —
+                 * which however should not exist in non-delegated units. On the unified hierarchy that's
+                 * different, there we get proper events. Hence rely on them. */
+
+                if ((cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0 ||
+                     (detect_container() == 0 && !unit_cgroup_delegate(u))) &&
+                    cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path) == 0)
+                        wait_for_exit = true;
         }
 
         return wait_for_exit;
