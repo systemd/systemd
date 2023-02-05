@@ -11,6 +11,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "conf-parser.h"
 #include "fou-tunnel.h"
 #include "geneve.h"
+#include "hsr.h"
 #include "ipoib.h"
 #include "ipvlan.h"
 #include "l2tp-tunnel.h"
@@ -268,3 +269,8 @@ IPoIB.IgnoreUserspaceMulticastGroups,     config_parse_tristate,                
 WLAN.PhysicalDevice,                      config_parse_wiphy,                        0,                             0
 WLAN.Type,                                config_parse_wlan_iftype,                  0,                             offsetof(WLan, iftype)
 WLAN.WDS,                                 config_parse_tristate,                     0,                             offsetof(WLan, wds)
+HSR.SlaveInterface1,                      config_parse_ifname,                       0,                             offsetof(Hsr, slave_ifaces[NETDEV_HSR_SLAVE1])
+HSR.SlaveInterface2,                      config_parse_ifname,                       0,                             offsetof(Hsr, slave_ifaces[NETDEV_HSR_SLAVE2])
+HSR.SupervisionTag,                       config_parse_uint8,                        0,                             offsetof(Hsr, multicast_spec)
+HSR.Version,                              config_parse_uint8,                        0,                             offsetof(Hsr, version)
+HSR.Protocol,                             config_parse_hsr_protocol,                 0,                             offsetof(Hsr, protocol)

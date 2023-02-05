@@ -200,6 +200,9 @@
 
           <row><entry><varname>wlan</varname></entry>
           <entry>A virtual wireless network (WLAN) interface.</entry></row>
+
+          <row><entry><varname>hsr</varname></entry>
+          <entry>IEC 62439 defined High-availability Seamless Redundancy (HSR) and Parallel Redundancy Protocol (PRP).</entry></row>
         </tbody>
       </tgroup>
     </table>
@@ -2253,6 +2256,56 @@
           <para>Enables the Wireless Distribution System (WDS) mode on the interface. The mode is also
           known as the <literal>4 address mode</literal>. Takes a boolean value. Defaults to unset, and
           the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[HSR] Section Options</title>
+    <para>The [HSR] section only applies for netdevs of kind <literal>hsr</literal> and accepts the
+    following keys:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>SlaveInterface1=</varname></term>
+        <listitem>
+          <para>Name of the first interface bound to the HSR device.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SlaveInterface2=</varname></term>
+        <listitem>
+          <para>Name of the second interface bound to the HSR device. Must be a different network
+          interface than the one specified in <varname>SlaveInterface1</varname>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SupervisionTag=</varname></term>
+        <listitem>
+          <para>The last byte of the multicast address used for HSR supervision frames.
+          Takes an integer in the range 0…255. The default value is 0.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Version=</varname></term>
+        <listitem>
+          <para>The version of the underlying protocol. The default value is 0.
+          This parameter should only be used when <varname>Protocol=HSR</varname>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Protocol=</varname></term>
+        <listitem>
+          <para>The underlying protocol to use. Possible values are
+          <literal>HSR</literal> (High-availability Seamless Redundancy) and
+          <literal>PRP</literal> (Parallel Redundancy Protocol).
+          The default value is <literal>HSR</literal>.
+          </para>
         </listitem>
       </varlistentry>
     </variablelist>
