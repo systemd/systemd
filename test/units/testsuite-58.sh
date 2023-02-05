@@ -783,7 +783,7 @@ VerityMatchKey=root
 EOF
 
     # Unfortunately OpenSSL insists on reading some config file, hence provide one with mostly placeholder contents
-    runas testuser tee > "$defs/verity.openssl.cnf" <<EOF
+    runas testuser tee >"$defs/verity.openssl.cnf" <<EOF
 [ req ]
 prompt = no
 distinguished_name = req_distinguished_name

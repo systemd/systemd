@@ -60,7 +60,7 @@ while read -r line; do
         data="${BASH_REMATCH[2]}"
         break
     fi
-done < "${2}"
+done <"${2}"
 
 if [[ -z "${text}" || -z "${data}" ]]; then
     echo "Could not determine text and data location."

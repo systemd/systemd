@@ -206,7 +206,7 @@ achieve this, create a script with the following contents in systemd's project d
 
 ```sh
 #!/usr/bin/env sh
-tee mkosi-clangd.build > /dev/null << EOF
+tee mkosi-clangd.build >/dev/null <<EOF
 #!/usr/bin/env sh
 exec clangd \\
         --compile-commands-dir=/root/build \\

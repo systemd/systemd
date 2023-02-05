@@ -25,4 +25,4 @@ sudo /usr/lib/systemd/systemd-cryptsetup attach mytest /dev/sdXn - pkcs11-uri=au
 
 # If that worked, let's now add the same line persistently to /etc/crypttab,
 # for the future.
-sudo bash -c 'echo "mytest /dev/sdXn - pkcs11-uri=auto" >> /etc/crypttab'
+sudo bash -c 'echo "mytest /dev/sdXn - pkcs11-uri=auto" >>/etc/crypttab'

@@ -106,7 +106,7 @@ runas testuser systemd-run --wait --user --unit=test-clock \
 
 runas testuser systemd-run --wait --user --unit=test-kernel-tunable \
     -p PrivateUsers=yes -p ProtectKernelTunables=yes \
-    sh -c "echo 0 > /proc/sys/user/max_user_namespaces" \
+    sh -c "echo 0 >/proc/sys/user/max_user_namespaces" \
     && { echo 'unexpected success'; exit 1; }
 
 runas testuser systemd-run --wait --user --unit=test-kernel-mod \

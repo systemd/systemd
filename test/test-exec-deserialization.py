@@ -36,14 +36,14 @@ class ExecutionResumeTest(unittest.TestCase):
         [Service]
         Type=oneshot
         ExecStart=/bin/sleep 3
-        ExecStart=/bin/bash -c "echo foo >> {self.output_file}"
+        ExecStart=/bin/bash -c "echo foo >>{self.output_file}"
         '''
         self.unit_files[InstallChange.NO_CHANGE] = unit_file_content
 
         unit_file_content = f'''
         [Service]
         Type=oneshot
-        ExecStart=/bin/bash -c "echo foo >> {self.output_file}"
+        ExecStart=/bin/bash -c "echo foo >>{self.output_file}"
         ExecStart=/bin/sleep 3
         '''
         self.unit_files[InstallChange.LINES_SWAPPED] = unit_file_content
@@ -51,9 +51,9 @@ class ExecutionResumeTest(unittest.TestCase):
         unit_file_content = f'''
         [Service]
         Type=oneshot
-        ExecStart=/bin/bash -c "echo bar >> {self.output_file}"
+        ExecStart=/bin/bash -c "echo bar >>{self.output_file}"
         ExecStart=/bin/sleep 3
-        ExecStart=/bin/bash -c "echo foo >> {self.output_file}"
+        ExecStart=/bin/bash -c "echo foo >>{self.output_file}"
         '''
         self.unit_files[InstallChange.COMMAND_ADDED_BEFORE] = unit_file_content
 
@@ -61,26 +61,26 @@ class ExecutionResumeTest(unittest.TestCase):
         [Service]
         Type=oneshot
         ExecStart=/bin/sleep 3
-        ExecStart=/bin/bash -c "echo foo >> {self.output_file}"
-        ExecStart=/bin/bash -c "echo bar >> {self.output_file}"
+        ExecStart=/bin/bash -c "echo foo >>{self.output_file}"
+        ExecStart=/bin/bash -c "echo bar >>{self.output_file}"
         '''
         self.unit_files[InstallChange.COMMAND_ADDED_AFTER] = unit_file_content
 
         unit_file_content = f'''
         [Service]
         Type=oneshot
-        ExecStart=/bin/bash -c "echo baz >> {self.output_file}"
+        ExecStart=/bin/bash -c "echo baz >>{self.output_file}"
         ExecStart=/bin/sleep 3
-        ExecStart=/bin/bash -c "echo foo >> {self.output_file}"
-        ExecStart=/bin/bash -c "echo bar >> {self.output_file}"
+        ExecStart=/bin/bash -c "echo foo >>{self.output_file}"
+        ExecStart=/bin/bash -c "echo bar >>{self.output_file}"
         '''
         self.unit_files[InstallChange.COMMAND_INTERLEAVED] = unit_file_content
 
         unit_file_content = f'''
         [Service]
         Type=oneshot
-        ExecStart=/bin/bash -c "echo bar >> {self.output_file}"
-        ExecStart=/bin/bash -c "echo baz >> {self.output_file}"
+        ExecStart=/bin/bash -c "echo bar >>{self.output_file}"
+        ExecStart=/bin/bash -c "echo baz >>{self.output_file}"
         '''
         self.unit_files[InstallChange.REMOVAL] = unit_file_content
 

@@ -9,8 +9,8 @@ TEST_DESCRIPTION="Openfile tests"
 
 test_append_files() {
     local workspace="${1:?}"
-    echo "Open" > "$workspace/test-77-open.dat"
-    echo "File" > "$workspace/test-77-file.dat"
+    echo "Open" >"$workspace/test-77-open.dat"
+    echo "File" >"$workspace/test-77-file.dat"
 }
 
 do_test "$@"

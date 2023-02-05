@@ -61,8 +61,8 @@ tpm2_pcrextend 0:sha256=00000000000000000000000000000000000000000000000000000000
 rm $img
 
 if [[ -e /usr/lib/systemd/systemd-measure ]]; then
-    echo HALLO > /tmp/tpmdata1
-    echo foobar > /tmp/tpmdata2
+    echo HALLO >/tmp/tpmdata1
+    echo foobar >/tmp/tpmdata2
 
     cat >/tmp/result <<EOF
 11:sha1=5177e4ad69db92192c10e5f80402bf81bfec8a81
@@ -119,10 +119,10 @@ if [ -e /usr/lib/systemd/systemd-measure ] && \
 
     # Invalidate PCR, decrypting should fail now
     tpm2_pcrextend 11:sha256=0000000000000000000000000000000000000000000000000000000000000000
-    systemd-creds decrypt /tmp/pcrtestdata.encrypted - --tpm2-signature="/tmp/pcrsign.sig" > /dev/null && { echo 'unexpected success'; exit 1; }
+    systemd-creds decrypt /tmp/pcrtestdata.encrypted - --tpm2-signature="/tmp/pcrsign.sig" >/dev/null && { echo 'unexpected success'; exit 1; }
 
     # Sign new PCR state, decrypting should work now.
-    /usr/lib/systemd/systemd-measure sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: > "/tmp/pcrsign.sig2"
+    /usr/lib/systemd/systemd-measure sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: >"/tmp/pcrsign.sig2"
     systemd-creds decrypt /tmp/pcrtestdata.encrypted - --tpm2-signature="/tmp/pcrsign.sig2" | cmp - /tmp/pcrtestdata
 
     # Now, do the same, but with a cryptsetup binding
@@ -144,18 +144,18 @@ if [ -e /usr/lib/systemd/systemd-measure ] && \
     SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 /usr/lib/systemd/systemd-cryptsetup attach test-volume2 $img - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1 && { echo 'unexpected success'; exit 1; }
 
     # But once we sign the current PCRs, we should be able to unlock again
-    /usr/lib/systemd/systemd-measure sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: > "/tmp/pcrsign.sig3"
+    /usr/lib/systemd/systemd-measure sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: >"/tmp/pcrsign.sig3"
     SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 /usr/lib/systemd/systemd-cryptsetup attach test-volume2 $img - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig3",headless=1
     /usr/lib/systemd/systemd-cryptsetup detach test-volume2
     SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 /usr/lib/systemd/systemd-cryptsetup attach test-volume2 $img - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig3",headless=1
     /usr/lib/systemd/systemd-cryptsetup detach test-volume2
 
     # Test --append mode and de-duplication. With the same parameters signing should not add a new entry
-    /usr/lib/systemd/systemd-measure sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --append="/tmp/pcrsign.sig3" > "/tmp/pcrsign.sig4"
+    /usr/lib/systemd/systemd-measure sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --append="/tmp/pcrsign.sig3" >"/tmp/pcrsign.sig4"
     cmp "/tmp/pcrsign.sig3" "/tmp/pcrsign.sig4"
 
     # Sign one more phase, this should
-    /usr/lib/systemd/systemd-measure sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=quux:waldo --append="/tmp/pcrsign.sig4" > "/tmp/pcrsign.sig5"
+    /usr/lib/systemd/systemd-measure sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=quux:waldo --append="/tmp/pcrsign.sig4" >"/tmp/pcrsign.sig5"
     ( ! cmp "/tmp/pcrsign.sig4" "/tmp/pcrsign.sig5" )
 
     # Should still be good to unlock, given the old entry still exists
@@ -163,8 +163,8 @@ if [ -e /usr/lib/systemd/systemd-measure ] && \
     /usr/lib/systemd/systemd-cryptsetup detach test-volume2
 
     # Adding both signatures once more should not change anything, due to the deduplication
-    /usr/lib/systemd/systemd-measure sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --append="/tmp/pcrsign.sig5" > "/tmp/pcrsign.sig6"
-    /usr/lib/systemd/systemd-measure sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=quux:waldo --append="/tmp/pcrsign.sig6" > "/tmp/pcrsign.sig7"
+    /usr/lib/systemd/systemd-measure sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --append="/tmp/pcrsign.sig5" >"/tmp/pcrsign.sig6"
+    /usr/lib/systemd/systemd-measure sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=quux:waldo --append="/tmp/pcrsign.sig6" >"/tmp/pcrsign.sig7"
     cmp "/tmp/pcrsign.sig5" "/tmp/pcrsign.sig7"
 
     rm $img

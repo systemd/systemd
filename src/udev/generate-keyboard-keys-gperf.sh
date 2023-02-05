@@ -17,4 +17,4 @@ _Pragma(\"GCC diagnostic ignored \\\"-Wimplicit-fallthrough\\\"\")\n\
 
     /^KEY_/ { print tolower(substr($1 ,5)) ", " $1 }
     { print tolower($1) ", " $1 }
-' < "${1:?}"
+' <"${1:?}"

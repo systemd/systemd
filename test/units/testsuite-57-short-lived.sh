@@ -9,7 +9,7 @@ else
     counter=0
 fi
 
-echo "$counter" > /tmp/testsuite-57.counter
+echo "$counter" >/tmp/testsuite-57.counter
 
 if [ "$counter" -eq 5 ] ; then
     systemctl kill --kill-whom=main -sUSR1 testsuite-57.service

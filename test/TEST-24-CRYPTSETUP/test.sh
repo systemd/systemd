@@ -69,7 +69,7 @@ EOF
 
     # Forward journal messages to the console, so we have something
     # to investigate even if we fail to mount the encrypted /var
-    echo ForwardToConsole=yes >> "$initdir/etc/systemd/journald.conf"
+    echo ForwardToConsole=yes >>"$initdir/etc/systemd/journald.conf"
 
     # If $INITRD wasn't provided explicitly, generate a custom one with dm-crypt
     # support
