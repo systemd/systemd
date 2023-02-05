@@ -74,9 +74,11 @@ else
     gdb_script="${3}"
 fi
 
-echo "file ${binary}
+cat >"${gdb_script}" <<EOF
+file ${binary}
 add-symbol-file ${symbols} ${text} -s .data ${data}
-set architecture ${arch}" > "${gdb_script}"
+set architecture ${arch}"
+EOF
 
 if [[ -z "${3}" ]]; then
     gdb -x "${gdb_script}" -ex "target remote :1234"
