@@ -366,20 +366,29 @@ int cg_kill(
 
         ret = r;
 
-        /* Only in case of killing with SIGKILL and when using cgroupsv2, kill remaining threads manually as
-           a workaround for kernel bug. It was fixed in 5.2-rc5 (c03cd7738a83), backported to 4.19.66
-           (4340d175b898) and 4.14.138 (feb6b123b7dd). */
+        /* Return now if the controller is cgroupsv1 */
         r = cg_unified_controller(controller);
         if (r < 0)
                 return r;
         if (r == 0)
                 return ret;
 
+        /* Only in case of killing with SIGKILL and when using cgroupsv2, kill remaining threads manually as
+           a workaround for kernel bug. It was fixed in 5.2-rc5 (c03cd7738a83), backported to 4.19.66
+           (4340d175b898) and 4.14.138 (feb6b123b7dd). */
         r = cg_kill_items(controller, path, sig, flags, s, log_kill, userdata, "cgroup.threads");
         if (r < 0)
                 return r;
 
-        return r > 0 || ret > 0;
+        if (r > 0 || ret > 0)
+                return 1;
+
+        /* When using cgroupsv2 and killing with SIGKILL, do not assume that the cgroup is empty unless the kernel says it is. */
+        r = cg_is_empty_recursive(controller, path);
+        if (r < 0)
+                return r;
+
+        return r == 0;
 }
 
 int cg_kill_kernel_sigkill(const char *controller, const char *path) {
