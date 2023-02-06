@@ -870,7 +870,9 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(tpmalg, "Unsupported PCR bank");
 
                         TPML_PCR_SELECTION pcr_selection;
-                        tpm2_pcr_mask_to_selection(1 << TPM_PCR_INDEX_KERNEL_IMAGE, tpmalg, &pcr_selection);
+                        tpm2_tpml_pcr_selection_from_mask(1 << TPM_PCR_INDEX_KERNEL_IMAGE,
+                                                          tpmalg,
+                                                          &pcr_selection);
 
                         rc = sym_Esys_PolicyPCR(
                                         c->esys_context,
