@@ -8,8 +8,10 @@
 
 import argparse
 import collections
+import contextlib
 import dataclasses
 import fnmatch
+import fcntl
 import itertools
 import json
 import os
@@ -33,6 +35,8 @@ EFI_ARCH_MAP = {
         'riscv64'      : ['riscv64'],
 }
 EFI_ARCHES: list[str] = sum(EFI_ARCH_MAP.values(), [])
+
+FICLONE = 1074041865
 
 def guess_efi_arch():
     arch = os.uname().machine
@@ -425,19 +429,34 @@ def call_systemd_measure(uki, linux, opts):
         uki.add_section(Section.create('.pcrsig', combined))
 
 
+@contextlib.contextmanager
 def join_initrds(initrds):
     if len(initrds) == 0:
-        return None
+        yield None
+        return
     elif len(initrds) == 1:
-        return initrds[0]
+        yield initrds[0]
+        return
 
-    seq = []
-    for file in initrds:
-        initrd = file.read_bytes()
-        padding = b'\0' * round_up(len(initrd), 4)  # pad to 32 bit alignment
-        seq += [initrd, padding]
+    with tempfile.NamedTemporaryFile(dir=os.getcwd(), mode="wb", prefix=".ukify-initrd") as tmp:
+        off = 0
 
-    return b''.join(seq)
+        for i in initrds:
+            with open(i, "rb") as f:
+                try:
+                    fcntl.fcntl(tmp.fileno(), FICLONE, f.fileno())
+                except OSError:
+                    shutil.copyfileobj(f, tmp)
+
+                off += os.stat(f.fileno()).st_size
+
+                # Add padding if needed
+                off = round_up(off, 4)
+
+                tmp.truncate(off)
+                tmp.seek(off)
+
+        yield pathlib.Path(tmp.name)
 
 
 def pairwise(iterable):
@@ -458,7 +477,7 @@ def pe_validate(filename):
             raise ValueError(f'Section "{l.Name.decode()}" ({l.VirtualAddress}, {l.Misc_VirtualSize}) overlaps with section "{r.Name.decode()}" ({r.VirtualAddress}, {r.Misc_VirtualSize})')
 
 
-def make_uki(opts):
+def make_uki(opts, initrd):
     # kernel payload signing
 
     sbsign_tool = find_tool('sbsign', opts=opts)
@@ -509,7 +528,6 @@ def make_uki(opts):
         opts.uname = Uname.scrape(opts.linux, opts=opts)
 
     uki = UKI(opts.stub)
-    initrd = join_initrds(opts.initrd)
 
     # TODO: derive public key from from opts.pcr_private_keys?
     pcrpkey = opts.pcrpkey
@@ -769,7 +787,8 @@ usage: ukify [options…] linux initrd…
 def main():
     opts = parse_args()
     check_inputs(opts)
-    make_uki(opts)
+    with join_initrds(opts.initrd) as initrd:
+        make_uki(opts, initrd)
 
 
 if __name__ == '__main__':
