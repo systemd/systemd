@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 
+#include "bitfield.h"
 #include "json.h"
 #include "macro.h"
 #include "sha256.h"
@@ -91,8 +92,6 @@ Tpm2Handle *tpm2_handle_free(Tpm2Handle *handle);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Tpm2Handle*, tpm2_handle_free);
 #define _cleanup_tpm2_handle_ _cleanup_(tpm2_handle_freep)
 
-void tpm2_pcr_mask_to_selection(uint32_t mask, uint16_t bank, TPML_PCR_SELECTION *ret);
-
 static inline void Esys_Freep(void *p) {
         if (*(void**) p)
                 sym_Esys_Free(*(void**) p);
@@ -103,6 +102,40 @@ int tpm2_get_good_pcr_banks_strv(Tpm2Context *c, uint32_t pcr_mask, char ***ret)
 
 int tpm2_extend_bytes(Tpm2Context *c, char **banks, unsigned pcr_index, const void *data, size_t data_size, const void *secret, size_t secret_size);
 
+#define FOREACH_PCR_IN_MASK(pcr, mask) BIT_FOREACH(pcr, mask)
+
+uint32_t tpm2_tpms_pcr_selection_to_mask(const TPMS_PCR_SELECTION *s);
+static inline TPMS_PCR_SELECTION tpm2_tpms_pcr_selection_from_mask(uint32_t mask, uint32_t hash) {
+        /* This is currently hardcoded at 24 PCRs, above. */
+        if (mask > 0xffffff)
+                log_warning("PCR mask selections (%x) out of range, ignoring.",
+                            mask & ~UINT32_C(0xffffff));
+
+        return (TPMS_PCR_SELECTION){
+                .hash = hash,
+                .sizeofSelect = TPM2_PCRS_MAX / 8,
+                .pcrSelect[0] = mask & 0xff,
+                .pcrSelect[1] = (mask >> 8) & 0xff,
+                .pcrSelect[2] = (mask >> 16) & 0xff,
+        };
+}
+void tpm2_tpms_pcr_selection_add(TPMS_PCR_SELECTION *a, const TPMS_PCR_SELECTION *b);
+void tpm2_tpms_pcr_selection_sub(TPMS_PCR_SELECTION *a, const TPMS_PCR_SELECTION *b);
+void tpm2_tpms_pcr_selection_move(TPMS_PCR_SELECTION *a, TPMS_PCR_SELECTION *b);
+char *tpm2_tpms_pcr_selection_to_string(const TPMS_PCR_SELECTION *s);
+static inline size_t tpm2_tpms_pcr_selection_weight(const TPMS_PCR_SELECTION *s) {
+        return (size_t)__builtin_popcount(tpm2_tpms_pcr_selection_to_mask(s));
+}
+#define tpm2_tpms_pcr_selection_is_empty(s) (tpm2_tpms_pcr_selection_weight(s) == 0)
+
+uint32_t tpm2_tpml_pcr_selection_to_mask(const TPML_PCR_SELECTION *l, TPMI_ALG_HASH hash);
+static inline TPML_PCR_SELECTION tpm2_tpml_pcr_selection_from_mask(uint32_t mask, TPMI_ALG_HASH hash) {
+        return (TPML_PCR_SELECTION){
+                .count = 1,
+                .pcrSelections[0] = tpm2_tpms_pcr_selection_from_mask(mask, hash),
+        };
+}
+
 #else /* HAVE_TPM2 */
 typedef struct {} Tpm2Context;
 typedef struct {} Tpm2Handle;
@@ -110,8 +143,6 @@ typedef struct {} Tpm2Handle;
 
 int tpm2_list_devices(void);
 int tpm2_find_device_auto(int log_level, char **ret);
-
-int tpm2_parse_pcrs(const char *s, uint32_t *ret);
 
 int tpm2_make_pcr_json_array(uint32_t pcr_mask, JsonVariant **ret);
 int tpm2_parse_pcr_json_array(JsonVariant *v, uint32_t *ret);
@@ -154,6 +185,9 @@ int tpm2_hash_alg_from_string(const char *alg);
 const char *tpm2_asym_alg_to_string(uint16_t alg);
 int tpm2_asym_alg_from_string(const char *alg);
 
+char *tpm2_pcr_mask_to_string(uint32_t mask);
+int tpm2_pcr_mask_from_string(const char *arg, uint32_t *mask);
+
 typedef struct {
         uint32_t search_pcr_mask;
         const char *device;
@@ -177,8 +211,6 @@ int tpm2_parse_pcr_argument(const char *arg, uint32_t *mask);
 
 int tpm2_load_pcr_signature(const char *path, JsonVariant **ret);
 int tpm2_load_pcr_public_key(const char *path, void **ret_pubkey, size_t *ret_pubkey_size);
-
-int pcr_mask_to_string(uint32_t mask, char **ret);
 
 int tpm2_util_pbkdf2_hmac_sha256(const void *pass,
                     size_t passlen,
