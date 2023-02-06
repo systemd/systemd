@@ -3,29 +3,29 @@
 #include "tpm2-util.h"
 #include "tests.h"
 
-static void test_tpm2_parse_pcrs_one(const char *s, uint32_t mask, int ret) {
+static void test_tpm2_pcr_mask_from_string_one(const char *s, uint32_t mask, int ret) {
         uint32_t m;
 
-        assert_se(tpm2_parse_pcrs(s, &m) == ret);
+        assert_se(tpm2_pcr_mask_from_string(s, &m) == ret);
 
         if (ret >= 0)
                 assert_se(m == mask);
 }
 
-TEST(tpm2_parse_pcrs) {
-        test_tpm2_parse_pcrs_one("", 0, 0);
-        test_tpm2_parse_pcrs_one("0", 1, 0);
-        test_tpm2_parse_pcrs_one("1", 2, 0);
-        test_tpm2_parse_pcrs_one("0,1", 3, 0);
-        test_tpm2_parse_pcrs_one("0+1", 3, 0);
-        test_tpm2_parse_pcrs_one("0-1", 0, -EINVAL);
-        test_tpm2_parse_pcrs_one("0,1,2", 7, 0);
-        test_tpm2_parse_pcrs_one("0+1+2", 7, 0);
-        test_tpm2_parse_pcrs_one("0+1,2", 7, 0);
-        test_tpm2_parse_pcrs_one("0,1+2", 7, 0);
-        test_tpm2_parse_pcrs_one("0,2", 5, 0);
-        test_tpm2_parse_pcrs_one("0+2", 5, 0);
-        test_tpm2_parse_pcrs_one("foo", 0, -EINVAL);
+TEST(tpm2_mask_from_string) {
+        test_tpm2_pcr_mask_from_string_one("", 0, 0);
+        test_tpm2_pcr_mask_from_string_one("0", 1, 0);
+        test_tpm2_pcr_mask_from_string_one("1", 2, 0);
+        test_tpm2_pcr_mask_from_string_one("0,1", 3, 0);
+        test_tpm2_pcr_mask_from_string_one("0+1", 3, 0);
+        test_tpm2_pcr_mask_from_string_one("0-1", 0, -EINVAL);
+        test_tpm2_pcr_mask_from_string_one("0,1,2", 7, 0);
+        test_tpm2_pcr_mask_from_string_one("0+1+2", 7, 0);
+        test_tpm2_pcr_mask_from_string_one("0+1,2", 7, 0);
+        test_tpm2_pcr_mask_from_string_one("0,1+2", 7, 0);
+        test_tpm2_pcr_mask_from_string_one("0,2", 5, 0);
+        test_tpm2_pcr_mask_from_string_one("0+2", 5, 0);
+        test_tpm2_pcr_mask_from_string_one("foo", 0, -EINVAL);
 }
 
 TEST(tpm2_util_pbkdf2_hmac_sha256) {
