@@ -559,7 +559,7 @@ CHANGES WITH 253 in spe:
           that systemd tools will silently skip various operations in such an
           environment.
 
-        * "Lockheed Matrin Hardened Security for Intel Processors" (HS SRE)
+        * "Lockheed Martin Hardened Security for Intel Processors" (HS SRE)
           virtualization is now detected.
 
         Changes in the build system:
