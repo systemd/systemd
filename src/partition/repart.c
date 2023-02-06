@@ -5183,11 +5183,12 @@ static int context_open_copy_block_paths(
                                                        "Copying from block device node is not permitted in --image=/--root= mode, refusing.");
 
                 } else if (p->copy_blocks_auto) {
-                        dev_t devno;
+                        dev_t devno = 0;  /* Fake initialization to appease gcc. */
 
                         r = resolve_copy_blocks_auto(p->type, p->copy_blocks_root, restrict_devno, &devno, &uuid);
                         if (r < 0)
                                 return r;
+                        assert(devno != 0);
 
                         source_fd = r = device_open_from_devnum(S_IFBLK, devno, O_RDONLY|O_CLOEXEC|O_NONBLOCK, &opened);
                         if (r < 0)
