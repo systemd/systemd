@@ -462,22 +462,290 @@ static int tpm2_make_primary(
         return 0;
 }
 
-void tpm2_pcr_mask_to_selection(uint32_t mask, uint16_t bank, TPML_PCR_SELECTION *ret) {
+/* Utility functions for TPMS_PCR_SELECTION. */
+
+/* Convert a TPMS_PCR_SELECTION object to a mask. */
+void tpm2_tpms_pcr_selection_to_mask(const TPMS_PCR_SELECTION *s, uint32_t *ret) {
+        assert(s);
+        assert(s->sizeofSelect <= sizeof(s->pcrSelect));
         assert(ret);
 
-        /* We only do 24bit here, as that's what PC TPMs are supposed to support */
-        assert(TPM2_PCR_MASK_VALID(mask));
+        uint32_t mask = 0;
+        for (unsigned i = 0; i < s->sizeofSelect; i++)
+                SET_FLAG(mask, (uint32_t)s->pcrSelect[i] << (i * 8), true);
+        *ret = mask;
+}
 
-        *ret = (TPML_PCR_SELECTION) {
-                .count = 1,
-                .pcrSelections[0] = {
-                        .hash = bank,
-                        .sizeofSelect = 3,
-                        .pcrSelect[0] = mask & 0xFF,
-                        .pcrSelect[1] = (mask >> 8) & 0xFF,
-                        .pcrSelect[2] = (mask >> 16) & 0xFF,
-                }
+/* Convert a mask and hash alg to a TPMS_PCR_SELECTION object. */
+void tpm2_tpms_pcr_selection_from_mask(uint32_t mask, TPMI_ALG_HASH hash_alg, TPMS_PCR_SELECTION *ret) {
+        assert(ret);
+
+        /* This is currently hardcoded at 24 PCRs, above. */
+        if (!TPM2_PCR_MASK_VALID(mask))
+                log_warning("PCR mask selections (%x) out of range, ignoring.",
+                            mask & ~((uint32_t)TPM2_PCRS_MASK));
+
+        *ret = (TPMS_PCR_SELECTION){
+                .hash = hash_alg,
+                .sizeofSelect = TPM2_PCRS_MAX / 8,
+                .pcrSelect[0] = mask & 0xff,
+                .pcrSelect[1] = (mask >> 8) & 0xff,
+                .pcrSelect[2] = (mask >> 16) & 0xff,
         };
+}
+
+/* Add all PCR selections in 'b' to 'a'. Both must have the same hash alg. */
+void tpm2_tpms_pcr_selection_add(TPMS_PCR_SELECTION *a, const TPMS_PCR_SELECTION *b) {
+        assert(a);
+        assert(b);
+        assert(a->hash == b->hash);
+
+        uint32_t maska, maskb;
+        tpm2_tpms_pcr_selection_to_mask(a, &maska);
+        tpm2_tpms_pcr_selection_to_mask(b, &maskb);
+        tpm2_tpms_pcr_selection_from_mask(maska | maskb, a->hash, a);
+}
+
+/* Remove all PCR selections in 'b' from 'a'. Both must have the same hash alg. */
+void tpm2_tpms_pcr_selection_sub(TPMS_PCR_SELECTION *a, const TPMS_PCR_SELECTION *b) {
+        assert(a);
+        assert(b);
+        assert(a->hash == b->hash);
+
+        uint32_t maska, maskb;
+        tpm2_tpms_pcr_selection_to_mask(a, &maska);
+        tpm2_tpms_pcr_selection_to_mask(b, &maskb);
+        tpm2_tpms_pcr_selection_from_mask(maska & ~maskb, a->hash, a);
+}
+
+/* Move all PCR selections in 'b' to 'a'. Both must have the same hash alg. */
+void tpm2_tpms_pcr_selection_move(TPMS_PCR_SELECTION *a, TPMS_PCR_SELECTION *b) {
+        if (a == b)
+                return;
+
+        tpm2_tpms_pcr_selection_add(a, b);
+        tpm2_tpms_pcr_selection_from_mask(0, b->hash, b);
+}
+
+#define FOREACH_PCR_IN_TPMS_PCR_SELECTION(pcr, tpms)                    \
+        _FOREACH_PCR_IN_TPMS_PCR_SELECTION(pcr, tpms, UNIQ)
+#define _FOREACH_PCR_IN_TPMS_PCR_SELECTION(pcr, tpms, uniq)             \
+        FOREACH_PCR_IN_MASK(pcr,                                        \
+                            ({ uint32_t UNIQ_T(_mask, uniq);            \
+                                    tpm2_tpms_pcr_selection_to_mask(tpms, &UNIQ_T(_mask, uniq)); \
+                                    UNIQ_T(_mask, uniq);                \
+                            }))
+
+#define FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(tpms, tpml)    \
+        UNIQ_FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(tpms, tpml, UNIQ)
+#define UNIQ_FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(tpms, tpml, uniq) \
+        for (TPML_PCR_SELECTION *UNIQ_T(_tpml, uniq) = (TPML_PCR_SELECTION*)(tpml); \
+             UNIQ_T(_tpml, uniq); UNIQ_T(_tpml, uniq) = NULL)           \
+                _FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(tpms, UNIQ_T(_tpml, uniq))
+#define _FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(tpms, tpml)   \
+        for (TPMS_PCR_SELECTION *tpms = tpml->pcrSelections;            \
+             (uint32_t)(tpms - tpml->pcrSelections) < tpml->count;      \
+             tpms++)
+
+#define FOREACH_PCR_IN_TPML_PCR_SELECTION(pcr, tpms, tpml)              \
+        FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(tpms, tpml)    \
+                FOREACH_PCR_IN_TPMS_PCR_SELECTION(pcr, tpms)
+
+char *tpm2_tpms_pcr_selection_to_string(const TPMS_PCR_SELECTION *s) {
+        assert(s);
+
+        const char *algstr = strna(tpm2_hash_alg_to_string(s->hash));
+
+        uint32_t mask;
+        tpm2_tpms_pcr_selection_to_mask(s, &mask);
+        _cleanup_free_ char *maskstr = tpm2_pcr_mask_to_string(mask);
+        if (!maskstr)
+                return NULL;
+
+        return strjoin(algstr, "(", maskstr, ")");
+}
+
+size_t tpm2_tpms_pcr_selection_weight(const TPMS_PCR_SELECTION *s) {
+        assert(s);
+
+        uint32_t mask;
+        tpm2_tpms_pcr_selection_to_mask(s, &mask);
+        return (size_t)__builtin_popcount(mask);
+}
+
+/* Utility functions for TPML_PCR_SELECTION. */
+
+/* Remove the (0-based) index entry from 'l', shift all following entries, and update the count. */
+static void tpm2_tpml_pcr_selection_remove_index(TPML_PCR_SELECTION *l, uint32_t index) {
+        assert(l);
+        assert(l->count <= sizeof(l->pcrSelections));
+        assert(index < l->count);
+
+        size_t s = l->count - (index + 1);
+        memmove(&l->pcrSelections[index], &l->pcrSelections[index + 1], s * sizeof(l->pcrSelections[0]));
+        l->count--;
+}
+
+/* Get a TPMS_PCR_SELECTION from a TPML_PCR_SELECTION for the given hash alg. Returns NULL if there is no
+ * entry for the hash alg. This guarantees the returned entry contains all the PCR selections for the given
+ * hash alg, which may require modifying the TPML_PCR_SELECTION by removing duplicate entries. */
+static TPMS_PCR_SELECTION *tpm2_tpml_pcr_selection_get_tpms_pcr_selection(
+                TPML_PCR_SELECTION *l,
+                TPMI_ALG_HASH hash_alg) {
+
+        assert(l);
+
+        TPMS_PCR_SELECTION *selection = NULL;
+        FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(s, l)
+                if (s->hash == hash_alg) {
+                        selection = s;
+                        break;
+                }
+
+        if (!selection)
+                return NULL;
+
+        /* Iterate backwards through the entries, removing any other entries for the hash alg. */
+        for (uint32_t i = l->count - 1; i > 0; i--) {
+                TPMS_PCR_SELECTION *s = &l->pcrSelections[i];
+
+                if (selection == s)
+                        break;
+
+                if (s->hash == hash_alg) {
+                        tpm2_tpms_pcr_selection_move(selection, s);
+                        tpm2_tpml_pcr_selection_remove_index(l, i);
+                }
+        }
+
+        return selection;
+}
+
+/* Convert a TPML_PCR_SELECTION object to a mask. Returns -ENOENT if 'hash_alg' is not in the object. */
+int tpm2_tpml_pcr_selection_to_mask(const TPML_PCR_SELECTION *l, TPMI_ALG_HASH hash_alg, uint32_t *ret) {
+        assert(l);
+        assert(ret);
+
+        /* Make a copy, as tpm2_tpml_pcr_selection_get_tpms_pcr_selection() will modify the object if there
+         * are multiple entries with the requested hash alg. */
+        TPML_PCR_SELECTION lcopy = *l;
+
+        TPMS_PCR_SELECTION *s;
+        s = tpm2_tpml_pcr_selection_get_tpms_pcr_selection(&lcopy, hash_alg);
+        if (!s)
+                return SYNTHETIC_ERRNO(ENOENT);
+
+        tpm2_tpms_pcr_selection_to_mask(s, ret);
+        return 0;
+}
+
+/* Convert a mask and hash alg to a TPML_PCR_SELECTION object. */
+void tpm2_tpml_pcr_selection_from_mask(uint32_t mask, TPMI_ALG_HASH hash_alg, TPML_PCR_SELECTION *ret) {
+        assert(ret);
+
+        TPMS_PCR_SELECTION s;
+        tpm2_tpms_pcr_selection_from_mask(mask, hash_alg, &s);
+
+        *ret = (TPML_PCR_SELECTION){
+                .count = 1,
+                .pcrSelections[0] = s,
+        };
+}
+
+/* Combine all duplicate (same hash alg) TPMS_PCR_SELECTION entries in 'l'. */
+static void tpm2_tpml_pcr_selection_cleanup(TPML_PCR_SELECTION *l) {
+        FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(s, l)
+                /* This removes all duplicates for s->hash. */
+                (void) tpm2_tpml_pcr_selection_get_tpms_pcr_selection(l, s->hash);
+}
+
+/* Add the PCR selections in 's' to the corresponding hash alg TPMS_PCR_SELECTION entry in 'l'. Adds a new
+ * TPMS_PCR_SELECTION entry for the hash alg if needed. This may modify the TPML_PCR_SELECTION by combining
+ * entries with the same hash alg. */
+void tpm2_tpml_pcr_selection_add_tpms_pcr_selection(TPML_PCR_SELECTION *l, const TPMS_PCR_SELECTION *s) {
+        assert(l);
+        assert(s);
+
+        if (tpm2_tpms_pcr_selection_is_empty(s))
+                return;
+
+        TPMS_PCR_SELECTION *selection = tpm2_tpml_pcr_selection_get_tpms_pcr_selection(l, s->hash);
+        if (selection) {
+                tpm2_tpms_pcr_selection_add(selection, s);
+                return;
+        }
+
+        /* It's already broken if the count is higher than the array has size for. */
+        assert(!(l->count > sizeof(l->pcrSelections)));
+
+        /* If full, the cleanup should result in at least one available entry. */
+        if (l->count == sizeof(l->pcrSelections))
+                tpm2_tpml_pcr_selection_cleanup(l);
+
+        assert(l->count < sizeof(l->pcrSelections));
+        l->pcrSelections[l->count++] = *s;
+}
+
+/* Remove the PCR selections in 's' from the corresponding hash alg TPMS_PCR_SELECTION entry in 'l'. This
+ * will combine all entries for 's->hash' in 'l'. */
+void tpm2_tpml_pcr_selection_sub_tpms_pcr_selection(TPML_PCR_SELECTION *l, const TPMS_PCR_SELECTION *s) {
+        assert(l);
+        assert(s);
+
+        if (tpm2_tpms_pcr_selection_is_empty(s))
+                return;
+
+        TPMS_PCR_SELECTION *selection = tpm2_tpml_pcr_selection_get_tpms_pcr_selection(l, s->hash);
+        if (selection)
+                tpm2_tpms_pcr_selection_sub(selection, s);
+}
+
+/* Add all PCR selections in 'b' to 'a'. */
+void tpm2_tpml_pcr_selection_add(TPML_PCR_SELECTION *a, const TPML_PCR_SELECTION *b) {
+        assert(a);
+        assert(b);
+
+        FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(selection_b, (TPML_PCR_SELECTION*) b)
+                tpm2_tpml_pcr_selection_add_tpms_pcr_selection(a, selection_b);
+}
+
+/* Remove all PCR selections in 'b' from 'a'. */
+void tpm2_tpml_pcr_selection_sub(TPML_PCR_SELECTION *a, const TPML_PCR_SELECTION *b) {
+        assert(a);
+        assert(b);
+
+        FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(selection_b, (TPML_PCR_SELECTION*) b)
+                tpm2_tpml_pcr_selection_sub_tpms_pcr_selection(a, selection_b);
+}
+
+char *tpm2_tpml_pcr_selection_to_string(const TPML_PCR_SELECTION *l) {
+        assert(l);
+
+        _cleanup_free_ char *banks = NULL;
+        FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(s, (TPML_PCR_SELECTION*) l) {
+                if (tpm2_tpms_pcr_selection_is_empty(s))
+                        continue;
+
+                _cleanup_free_ char *str = tpm2_tpms_pcr_selection_to_string(s);
+                if (!str || !strextend_with_separator(&banks, ",", str))
+                        return NULL;
+        }
+
+        return strjoin("[", strempty(banks), "]");
+}
+
+size_t tpm2_tpml_pcr_selection_weight(const TPML_PCR_SELECTION *l) {
+        assert(l);
+        assert(l->count <= sizeof(l->pcrSelections));
+
+        size_t weight = 0;
+        FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(s, l) {
+                size_t w = tpm2_tpms_pcr_selection_weight(s);
+                assert(weight <= SIZE_MAX - w);
+                weight += w;
+        }
+
+        return weight;
 }
 
 static void tpm2_log_debug_buffer(const void *buffer, size_t size, const char *msg) {
@@ -566,7 +834,7 @@ static int tpm2_pcr_mask_good(
          * actually measure into them, or only into a suboptimal bank. If so, the PCRs should be all zero or
          * all 0xFF. Detect that, so that we can warn and maybe pick a better bank. */
 
-        tpm2_pcr_mask_to_selection(mask, bank, &selection);
+        tpm2_tpml_pcr_selection_from_mask(mask, bank, &selection);
 
         rc = sym_Esys_PCR_Read(
                         c->esys_context,
@@ -1277,7 +1545,7 @@ static int tpm2_make_policy_session(
 
                 /* Put together the PCR policy we want to use */
                 TPML_PCR_SELECTION pcr_selection;
-                tpm2_pcr_mask_to_selection(pubkey_pcr_mask, pcr_bank, &pcr_selection);
+                tpm2_tpml_pcr_selection_from_mask(pubkey_pcr_mask, (TPMI_ALG_HASH)pcr_bank, &pcr_selection);
                 rc = sym_Esys_PolicyPCR(
                                 c->esys_context,
                                 session->esys_handle,
@@ -1380,7 +1648,7 @@ static int tpm2_make_policy_session(
                 log_debug("Configuring hash-based PCR policy.");
 
                 TPML_PCR_SELECTION pcr_selection;
-                tpm2_pcr_mask_to_selection(hash_pcr_mask, pcr_bank, &pcr_selection);
+                tpm2_tpml_pcr_selection_from_mask(hash_pcr_mask, (TPMI_ALG_HASH)pcr_bank, &pcr_selection);
                 rc = sym_Esys_PolicyPCR(
                                 c->esys_context,
                                 session->esys_handle,
@@ -1996,13 +2264,28 @@ int tpm2_extend_bytes(
 }
 #endif
 
-int tpm2_parse_pcrs(const char *s, uint32_t *ret) {
-        const char *p = ASSERT_PTR(s);
+char *tpm2_pcr_mask_to_string(uint32_t mask) {
+        _cleanup_free_ char *s = NULL;
+
+        FOREACH_PCR_IN_MASK(n, mask)
+                if (strextendf_with_separator(&s, "+", "%d", n) < 0)
+                        return NULL;
+
+        if (!s)
+                return strdup("");
+
+        return TAKE_PTR(s);
+}
+
+int tpm2_pcr_mask_from_string(const char *arg, uint32_t *ret_mask) {
         uint32_t mask = 0;
         int r;
 
-        if (isempty(s)) {
-                *ret = 0;
+        assert(arg);
+        assert(ret_mask);
+
+        if (isempty(arg)) {
+                *ret_mask = 0;
                 return 0;
         }
 
@@ -2011,6 +2294,7 @@ int tpm2_parse_pcrs(const char *s, uint32_t *ret) {
          * /etc/crypttab the "," is already used to separate options, hence a different separator is nice to
          * avoid escaping. */
 
+        const char *p = arg;
         for (;;) {
                 _cleanup_free_ char *pcr = NULL;
                 unsigned n;
@@ -2019,19 +2303,20 @@ int tpm2_parse_pcrs(const char *s, uint32_t *ret) {
                 if (r == 0)
                         break;
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse PCR list: %s", s);
+                        return log_error_errno(r, "Failed to parse PCR list: %s", arg);
 
                 r = safe_atou(pcr, &n);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse PCR number: %s", pcr);
                 if (n >= TPM2_PCRS_MAX)
                         return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
-                                               "PCR number out of range (valid range 0…23): %u", n);
+                                               "PCR number out of range (valid range 0…%u): %u",
+                                               TPM2_PCRS_MAX - 1, n);
 
-                mask |= UINT32_C(1) << n;
+                SET_BIT(mask, n);;
         }
 
-        *ret = mask;
+        *ret_mask = mask;
         return 0;
 }
 
@@ -2396,7 +2681,7 @@ int tpm2_parse_pcr_argument(const char *arg, uint32_t *mask) {
                 return 0;
         }
 
-        r = tpm2_parse_pcrs(arg, &m);
+        r = tpm2_pcr_mask_from_string(arg, &m);
         if (r < 0)
                 return r;
 
@@ -2449,25 +2734,6 @@ int tpm2_load_pcr_public_key(const char *path, void **ret_pubkey, size_t *ret_pu
         if (r < 0)
                 return log_debug_errno(r, "Failed to load TPM PCR public key PEM file '%s': %m", discovered_path);
 
-        return 0;
-}
-
-int pcr_mask_to_string(uint32_t mask, char **ret) {
-        _cleanup_free_ char *buf = NULL;
-        int r;
-
-        assert(ret);
-
-        for (unsigned i = 0; i < TPM2_PCRS_MAX; i++) {
-                if (!(mask & (UINT32_C(1) << i)))
-                        continue;
-
-                r = strextendf_with_separator(&buf, "+", "%u", i);
-                if (r < 0)
-                        return r;
-        }
-
-        *ret = TAKE_PTR(buf);
         return 0;
 }
 
