@@ -5108,7 +5108,7 @@ static int resolve_copy_blocks_auto(
                                 continue;
                         }
                         if (major(sl) == 0) {
-                                log_debug_errno(r, "Device backing %s is special, ignoring: %m", q);
+                                log_debug("Device backing %s is special, ignoring.", q);
                                 continue;
                         }
 
