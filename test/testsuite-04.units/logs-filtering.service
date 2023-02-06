@@ -3,3 +3,4 @@ Description=Log filtering unit
 
 [Service]
 ExecStart=sh -c 'while true; do echo "Logging from the service, and ~more~"; sleep .25; done'
+SyslogLevel=notice
