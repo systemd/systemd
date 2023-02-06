@@ -8,8 +8,10 @@
 
 import argparse
 import collections
+import contextlib
 import dataclasses
 import fnmatch
+import fcntl
 import itertools
 import json
 import os
@@ -17,6 +19,7 @@ import pathlib
 import re
 import shlex
 import shutil
+import struct
 import subprocess
 import tempfile
 import typing
@@ -33,6 +36,8 @@ EFI_ARCH_MAP = {
         'riscv64'      : ['riscv64'],
 }
 EFI_ARCHES: list[str] = sum(EFI_ARCH_MAP.values(), [])
+
+FICLONERANGE = 1075876877
 
 def guess_efi_arch():
     arch = os.uname().machine
@@ -425,19 +430,33 @@ def call_systemd_measure(uki, linux, opts):
         uki.add_section(Section.create('.pcrsig', combined))
 
 
+@contextlib.contextmanager
 def join_initrds(initrds):
     if len(initrds) == 0:
-        return None
+        yield None
+        return
     elif len(initrds) == 1:
-        return initrds[0]
+        yield initrds[0]
+        return
 
-    seq = []
-    for file in initrds:
-        initrd = file.read_bytes()
-        padding = b'\0' * round_up(len(initrd), 4)  # pad to 32 bit alignment
-        seq += [initrd, padding]
+    with tempfile.NamedTemporaryFile(dir=os.getcwd(), mode="wb", prefix=".ukify-initrd") as tmp:
+        off = 0
 
-    return b''.join(seq)
+        for i in initrds:
+            with open(i, "rb") as f:
+                sz = os.stat(f.fileno()).st_size
+
+                try:
+                    fcntl.fcntl(tmp.fileno(), FICLONERANGE, struct.pack("qQQQ", f.fileno(), 0, sz, off))
+                except OSError:
+                    shutil.copyfileobj(f, tmp)
+
+                # Add padding if needed
+                off = round_up(off + sz, 4)
+
+        tmp.truncate(off)
+
+        yield pathlib.Path(tmp.name)
 
 
 def pairwise(iterable):
@@ -508,71 +527,70 @@ def make_uki(opts):
         print('Kernel version not specified, starting autodetection 😖.')
         opts.uname = Uname.scrape(opts.linux, opts=opts)
 
-    uki = UKI(opts.stub)
-    initrd = join_initrds(opts.initrd)
-
     # TODO: derive public key from from opts.pcr_private_keys?
     pcrpkey = opts.pcrpkey
     if pcrpkey is None:
         if opts.pcr_public_keys and len(opts.pcr_public_keys) == 1:
             pcrpkey = opts.pcr_public_keys[0]
 
-    sections = [
-        # name,      content,         measure?
-        ('.osrel',   opts.os_release, True ),
-        ('.cmdline', opts.cmdline,    True ),
-        ('.dtb',     opts.devicetree, True ),
-        ('.splash',  opts.splash,     True ),
-        ('.pcrpkey', pcrpkey,         True ),
-        ('.initrd',  initrd,          True ),
-        ('.uname',   opts.uname,      False),
+    uki = UKI(opts.stub)
+    with join_initrds(opts.initrd) as initrd:
+        sections = [
+            # name,      content,         measure?
+            ('.osrel',   opts.os_release, True ),
+            ('.cmdline', opts.cmdline,    True ),
+            ('.dtb',     opts.devicetree, True ),
+            ('.splash',  opts.splash,     True ),
+            ('.pcrpkey', pcrpkey,         True ),
+            ('.initrd',  initrd,          True ),
+            ('.uname',   opts.uname,      False),
 
-        # linux shall be last to leave breathing room for decompression.
-        # We'll add it later.
-    ]
+            # linux shall be last to leave breathing room for decompression.
+            # We'll add it later.
+        ]
 
-    for name, content, measure in sections:
-        if content:
-            uki.add_section(Section.create(name, content, measure=measure))
+        for name, content, measure in sections:
+            if content:
+                uki.add_section(Section.create(name, content, measure=measure))
 
-    # systemd-measure doesn't know about those extra sections
-    for section in opts.sections:
-        uki.add_section(section)
+        # systemd-measure doesn't know about those extra sections
+        for section in opts.sections:
+            uki.add_section(section)
 
-    # PCR measurement and signing
+        # PCR measurement and signing
 
-    call_systemd_measure(uki, linux, opts=opts)
+        call_systemd_measure(uki, linux, opts=opts)
 
-    # UKI creation
+        # UKI creation
 
-    uki.add_section(
-        Section.create('.linux', linux, measure=True,
-                       flags=['code', 'readonly']))
+        uki.add_section(
+            Section.create('.linux', linux, measure=True,
+                        flags=['code', 'readonly']))
 
-    if opts.sb_key:
-        unsigned = tempfile.NamedTemporaryFile(prefix='uki')
-        output = unsigned.name
-    else:
-        output = opts.output
+        if opts.sb_key:
+            unsigned = tempfile.NamedTemporaryFile(prefix='uki')
+            output = unsigned.name
+        else:
+            output = opts.output
 
-    objcopy_tool = find_tool('llvm-objcopy', 'objcopy', opts=opts)
+        objcopy_tool = find_tool('llvm-objcopy', 'objcopy', opts=opts)
 
-    cmd = [
-        objcopy_tool,
-        opts.stub,
-        *itertools.chain.from_iterable(
-            ('--add-section',       f'{s.name}={s.content}',
-             '--set-section-flags', f"{s.name}={','.join(s.flags)}")
-            for s in uki.sections),
-        output,
-    ]
+        cmd = [
+            objcopy_tool,
+            opts.stub,
+            *itertools.chain.from_iterable(
+                ('--add-section',       f'{s.name}={s.content}',
+                '--set-section-flags', f"{s.name}={','.join(s.flags)}")
+                for s in uki.sections),
+            output,
+        ]
 
-    if pathlib.Path(objcopy_tool).name != 'llvm-objcopy':
-        cmd += itertools.chain.from_iterable(
-            ('--change-section-vma', f'{s.name}=0x{s.offset:x}') for s in uki.sections)
+        if pathlib.Path(objcopy_tool).name != 'llvm-objcopy':
+            cmd += itertools.chain.from_iterable(
+                ('--change-section-vma', f'{s.name}=0x{s.offset:x}') for s in uki.sections)
 
-    print('+', shell_join(cmd))
-    subprocess.check_call(cmd)
+        print('+', shell_join(cmd))
+        subprocess.check_call(cmd)
 
     pe_validate(output)
 
