@@ -462,13 +462,19 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("BlockIOWriteBandwidth", "a(st)", property_get_blockio_device_bandwidths, 0, 0),
         SD_BUS_PROPERTY("MemoryAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, memory_accounting), 0),
         SD_BUS_PROPERTY("DefaultMemoryLow", "t", NULL, offsetof(CGroupContext, default_memory_low), 0),
+        SD_BUS_PROPERTY("DefaultStartupMemoryLow", "t", NULL, offsetof(CGroupContext, default_startup_memory_low), 0),
         SD_BUS_PROPERTY("DefaultMemoryMin", "t", NULL, offsetof(CGroupContext, default_memory_min), 0),
         SD_BUS_PROPERTY("MemoryMin", "t", NULL, offsetof(CGroupContext, memory_min), 0),
         SD_BUS_PROPERTY("MemoryLow", "t", NULL, offsetof(CGroupContext, memory_low), 0),
+        SD_BUS_PROPERTY("StartupMemoryLow", "t", NULL, offsetof(CGroupContext, startup_memory_low), 0),
         SD_BUS_PROPERTY("MemoryHigh", "t", NULL, offsetof(CGroupContext, memory_high), 0),
+        SD_BUS_PROPERTY("StartupMemoryHigh", "t", NULL, offsetof(CGroupContext, startup_memory_high), 0),
         SD_BUS_PROPERTY("MemoryMax", "t", NULL, offsetof(CGroupContext, memory_max), 0),
+        SD_BUS_PROPERTY("StartupMemoryMax", "t", NULL, offsetof(CGroupContext, startup_memory_max), 0),
         SD_BUS_PROPERTY("MemorySwapMax", "t", NULL, offsetof(CGroupContext, memory_swap_max), 0),
+        SD_BUS_PROPERTY("StartupMemorySwapMax", "t", NULL, offsetof(CGroupContext, startup_memory_swap_max), 0),
         SD_BUS_PROPERTY("MemoryZSwapMax", "t", NULL, offsetof(CGroupContext, memory_zswap_max), 0),
+        SD_BUS_PROPERTY("StartupMemoryZSwapMax", "t", NULL, offsetof(CGroupContext, startup_memory_zswap_max), 0),
         SD_BUS_PROPERTY("MemoryLimit", "t", NULL, offsetof(CGroupContext, memory_limit), 0),
         SD_BUS_PROPERTY("DevicePolicy", "s", property_get_cgroup_device_policy, offsetof(CGroupContext, device_policy), 0),
         SD_BUS_PROPERTY("DeviceAllow", "a(ss)", property_get_device_allow, 0, 0),
@@ -1057,6 +1063,13 @@ int bus_cgroup_set_property(
                 return r;
         }
 
+        if (streq(name, "StartupMemoryLow")) {
+                r = bus_cgroup_set_memory_protection(u, name, &c->startup_memory_low, message, flags, error);
+                if (r > 0)
+                        c->startup_memory_low_set = true;
+                return r;
+        }
+
         if (streq(name, "DefaultMemoryMin")) {
                 r = bus_cgroup_set_memory_protection(u, name, &c->default_memory_min, message, flags, error);
                 if (r > 0)
@@ -1071,17 +1084,52 @@ int bus_cgroup_set_property(
                 return r;
         }
 
+        if (streq(name, "DefaultStartupMemoryLow")) {
+                r = bus_cgroup_set_memory_protection(u, name, &c->default_startup_memory_low, message, flags, error);
+                if (r > 0)
+                        c->default_startup_memory_low_set = true;
+                return r;
+        }
+
         if (streq(name, "MemoryHigh"))
                 return bus_cgroup_set_memory(u, name, &c->memory_high, message, flags, error);
+
+        if (streq(name, "StartupMemoryHigh")) {
+                r = bus_cgroup_set_memory(u, name, &c->startup_memory_high, message, flags, error);
+                if (r > 0)
+                        c->startup_memory_high_set = true;
+                return r;
+        }
 
         if (streq(name, "MemorySwapMax"))
                 return bus_cgroup_set_swap(u, name, &c->memory_swap_max, message, flags, error);
 
+        if (streq(name, "StartupMemorySwapMax")) {
+                r = bus_cgroup_set_swap(u, name, &c->startup_memory_swap_max, message, flags, error);
+                if (r > 0)
+                        c->startup_memory_swap_max_set = true;
+                return r;
+        }
+
         if (streq(name, "MemoryZSwapMax"))
                 return bus_cgroup_set_zswap(u, name, &c->memory_zswap_max, message, flags, error);
 
+        if (streq(name, "StartupMemoryZSwapMax")) {
+                r = bus_cgroup_set_zswap(u, name, &c->startup_memory_zswap_max, message, flags, error);
+                if (r > 0)
+                        c->startup_memory_zswap_max_set = true;
+                return r;
+        }
+
         if (streq(name, "MemoryMax"))
                 return bus_cgroup_set_memory(u, name, &c->memory_max, message, flags, error);
+
+        if (streq(name, "StartupMemoryMax")) {
+                r = bus_cgroup_set_memory(u, name, &c->startup_memory_max, message, flags, error);
+                if (r > 0)
+                        c->startup_memory_max_set = true;
+                return r;
+        }
 
         if (streq(name, "MemoryLimit"))
                 return bus_cgroup_set_memory(u, name, &c->memory_limit, message, flags, error);

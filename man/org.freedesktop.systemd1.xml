@@ -2720,19 +2720,31 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t DefaultMemoryLow = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t DefaultStartupMemoryLow = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t DefaultMemoryMin = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryMin = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLow = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemoryLow = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryHigh = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemoryHigh = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemoryMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemorySwapMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemorySwapMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryZSwapMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemoryZSwapMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -3299,19 +3311,31 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property DefaultMemoryLow is not documented!-->
 
+    <!--property DefaultStartupMemoryLow is not documented!-->
+
     <!--property DefaultMemoryMin is not documented!-->
 
     <!--property MemoryMin is not documented!-->
 
     <!--property MemoryLow is not documented!-->
 
+    <!--property StartupMemoryLow is not documented!-->
+
     <!--property MemoryHigh is not documented!-->
+
+    <!--property StartupMemoryHigh is not documented!-->
 
     <!--property MemoryMax is not documented!-->
 
+    <!--property StartupMemoryMax is not documented!-->
+
     <!--property MemorySwapMax is not documented!-->
 
+    <!--property StartupMemorySwapMax is not documented!-->
+
     <!--property MemoryZSwapMax is not documented!-->
+
+    <!--property StartupMemoryZSwapMax is not documented!-->
 
     <!--property MemoryLimit is not documented!-->
 
@@ -3887,19 +3911,31 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryLow"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="DefaultStartupMemoryLow"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryMin"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMin"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryLow"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryLow"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryHigh"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryHigh"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMax"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryMax"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="MemorySwapMax"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemorySwapMax"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryZSwapMax"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryZSwapMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryLimit"/>
 
@@ -4628,19 +4664,31 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t DefaultMemoryLow = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t DefaultStartupMemoryLow = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t DefaultMemoryMin = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryMin = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLow = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemoryLow = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryHigh = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemoryHigh = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemoryMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemorySwapMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemorySwapMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryZSwapMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemoryZSwapMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -5227,19 +5275,31 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property DefaultMemoryLow is not documented!-->
 
+    <!--property DefaultStartupMemoryLow is not documented!-->
+
     <!--property DefaultMemoryMin is not documented!-->
 
     <!--property MemoryMin is not documented!-->
 
     <!--property MemoryLow is not documented!-->
 
+    <!--property StartupMemoryLow is not documented!-->
+
     <!--property MemoryHigh is not documented!-->
+
+    <!--property StartupMemoryHigh is not documented!-->
 
     <!--property MemoryMax is not documented!-->
 
+    <!--property StartupMemoryMax is not documented!-->
+
     <!--property MemorySwapMax is not documented!-->
 
+    <!--property StartupMemorySwapMax is not documented!-->
+
     <!--property MemoryZSwapMax is not documented!-->
+
+    <!--property StartupMemoryZSwapMax is not documented!-->
 
     <!--property MemoryLimit is not documented!-->
 
@@ -5805,19 +5865,31 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryLow"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="DefaultStartupMemoryLow"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryMin"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMin"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryLow"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryLow"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryHigh"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryHigh"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMax"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryMax"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="MemorySwapMax"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemorySwapMax"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryZSwapMax"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryZSwapMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryLimit"/>
 
@@ -6435,19 +6507,31 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t DefaultMemoryLow = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t DefaultStartupMemoryLow = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t DefaultMemoryMin = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryMin = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLow = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemoryLow = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryHigh = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemoryHigh = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemoryMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemorySwapMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemorySwapMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryZSwapMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemoryZSwapMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -6962,19 +7046,31 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property DefaultMemoryLow is not documented!-->
 
+    <!--property DefaultStartupMemoryLow is not documented!-->
+
     <!--property DefaultMemoryMin is not documented!-->
 
     <!--property MemoryMin is not documented!-->
 
     <!--property MemoryLow is not documented!-->
 
+    <!--property StartupMemoryLow is not documented!-->
+
     <!--property MemoryHigh is not documented!-->
+
+    <!--property StartupMemoryHigh is not documented!-->
 
     <!--property MemoryMax is not documented!-->
 
+    <!--property StartupMemoryMax is not documented!-->
+
     <!--property MemorySwapMax is not documented!-->
 
+    <!--property StartupMemorySwapMax is not documented!-->
+
     <!--property MemoryZSwapMax is not documented!-->
+
+    <!--property StartupMemoryZSwapMax is not documented!-->
 
     <!--property MemoryLimit is not documented!-->
 
@@ -7458,19 +7554,31 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryLow"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="DefaultStartupMemoryLow"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryMin"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMin"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryLow"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryLow"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryHigh"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryHigh"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMax"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryMax"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="MemorySwapMax"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemorySwapMax"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryZSwapMax"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryZSwapMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryLimit"/>
 
@@ -8215,19 +8323,31 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t DefaultMemoryLow = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t DefaultStartupMemoryLow = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t DefaultMemoryMin = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryMin = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLow = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemoryLow = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryHigh = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemoryHigh = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemoryMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemorySwapMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemorySwapMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryZSwapMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemoryZSwapMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -8728,19 +8848,31 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property DefaultMemoryLow is not documented!-->
 
+    <!--property DefaultStartupMemoryLow is not documented!-->
+
     <!--property DefaultMemoryMin is not documented!-->
 
     <!--property MemoryMin is not documented!-->
 
     <!--property MemoryLow is not documented!-->
 
+    <!--property StartupMemoryLow is not documented!-->
+
     <!--property MemoryHigh is not documented!-->
+
+    <!--property StartupMemoryHigh is not documented!-->
 
     <!--property MemoryMax is not documented!-->
 
+    <!--property StartupMemoryMax is not documented!-->
+
     <!--property MemorySwapMax is not documented!-->
 
+    <!--property StartupMemorySwapMax is not documented!-->
+
     <!--property MemoryZSwapMax is not documented!-->
+
+    <!--property StartupMemoryZSwapMax is not documented!-->
 
     <!--property MemoryLimit is not documented!-->
 
@@ -9210,19 +9342,31 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryLow"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="DefaultStartupMemoryLow"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryMin"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMin"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryLow"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryLow"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryHigh"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryHigh"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMax"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryMax"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="MemorySwapMax"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemorySwapMax"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryZSwapMax"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryZSwapMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryLimit"/>
 
@@ -9826,19 +9970,31 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t DefaultMemoryLow = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t DefaultStartupMemoryLow = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t DefaultMemoryMin = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryMin = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLow = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemoryLow = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryHigh = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemoryHigh = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemoryMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemorySwapMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemorySwapMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryZSwapMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemoryZSwapMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -9979,19 +10135,31 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
 
     <!--property DefaultMemoryLow is not documented!-->
 
+    <!--property DefaultStartupMemoryLow is not documented!-->
+
     <!--property DefaultMemoryMin is not documented!-->
 
     <!--property MemoryMin is not documented!-->
 
     <!--property MemoryLow is not documented!-->
 
+    <!--property StartupMemoryLow is not documented!-->
+
     <!--property MemoryHigh is not documented!-->
+
+    <!--property StartupMemoryHigh is not documented!-->
 
     <!--property MemoryMax is not documented!-->
 
+    <!--property StartupMemoryMax is not documented!-->
+
     <!--property MemorySwapMax is not documented!-->
 
+    <!--property StartupMemorySwapMax is not documented!-->
+
     <!--property MemoryZSwapMax is not documented!-->
+
+    <!--property StartupMemoryZSwapMax is not documented!-->
 
     <!--property MemoryLimit is not documented!-->
 
@@ -10139,19 +10307,31 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryLow"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="DefaultStartupMemoryLow"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryMin"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMin"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryLow"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryLow"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryHigh"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryHigh"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMax"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryMax"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="MemorySwapMax"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemorySwapMax"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryZSwapMax"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryZSwapMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryLimit"/>
 
@@ -10323,19 +10503,31 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t DefaultMemoryLow = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t DefaultStartupMemoryLow = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t DefaultMemoryMin = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryMin = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLow = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemoryLow = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryHigh = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemoryHigh = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemoryMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemorySwapMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemorySwapMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryZSwapMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t StartupMemoryZSwapMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLimit = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -10496,19 +10688,31 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
 
     <!--property DefaultMemoryLow is not documented!-->
 
+    <!--property DefaultStartupMemoryLow is not documented!-->
+
     <!--property DefaultMemoryMin is not documented!-->
 
     <!--property MemoryMin is not documented!-->
 
     <!--property MemoryLow is not documented!-->
 
+    <!--property StartupMemoryLow is not documented!-->
+
     <!--property MemoryHigh is not documented!-->
+
+    <!--property StartupMemoryHigh is not documented!-->
 
     <!--property MemoryMax is not documented!-->
 
+    <!--property StartupMemoryMax is not documented!-->
+
     <!--property MemorySwapMax is not documented!-->
 
+    <!--property StartupMemorySwapMax is not documented!-->
+
     <!--property MemoryZSwapMax is not documented!-->
+
+    <!--property StartupMemoryZSwapMax is not documented!-->
 
     <!--property MemoryLimit is not documented!-->
 
@@ -10686,19 +10890,31 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryLow"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="DefaultStartupMemoryLow"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryMin"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMin"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryLow"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryLow"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryHigh"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryHigh"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMax"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryMax"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="MemorySwapMax"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemorySwapMax"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryZSwapMax"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="StartupMemoryZSwapMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryLimit"/>
 

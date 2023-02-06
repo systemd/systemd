@@ -252,6 +252,7 @@
 
       <varlistentry>
         <term><varname>MemoryMin=<replaceable>bytes</replaceable></varname>, <varname>MemoryLow=<replaceable>bytes</replaceable></varname></term>
+        <term><varname>StartupMemoryLow=<replaceable>bytes</replaceable></varname></term>
 
         <listitem>
           <para>Specify the memory usage protection of the executed processes in this unit.
@@ -284,11 +285,17 @@
           in the unit itself.
           Using it to set a default child allocation is only useful on kernels older than 5.7,
           which do not support the <literal>memory_recursiveprot</literal> cgroup2 mount option.</para>
+
+          <para>While <varname>StartupMemoryLow=</varname> applies to the startup and shutdown phases of the system,
+          <varname>MemoryMin=</varname> applies to normal runtime of the system, and if the former is not set also to
+          the startup and shutdown phases. Using <varname>StartupMemoryLow=</varname> allows prioritizing specific services at
+          boot-up and shutdown differently than during normal runtime.</para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>MemoryHigh=<replaceable>bytes</replaceable></varname></term>
+        <term><varname>StartupMemoryHigh=<replaceable>bytes</replaceable></varname></term>
 
         <listitem>
           <para>Specify the throttling limit on memory usage of the executed processes in this unit. Memory usage may go
@@ -302,11 +309,17 @@
           special value <literal>infinity</literal>, no memory throttling is applied. This controls the
           <literal>memory.high</literal> control group attribute. For details about this control group attribute, see
           <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html#memory-interface-files">Memory Interface Files</ulink>.</para>
+
+          <para>While <varname>StartupMemoryHigh=</varname> applies to the startup and shutdown phases of the system,
+          <varname>MemoryHigh=</varname> applies to normal runtime of the system, and if the former is not set also to
+          the startup and shutdown phases. Using <varname>StartupMemoryHigh=</varname> allows prioritizing specific services at
+          boot-up and shutdown differently than during normal runtime.</para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>MemoryMax=<replaceable>bytes</replaceable></varname></term>
+        <term><varname>StartupMemoryMax=<replaceable>bytes</replaceable></varname></term>
 
         <listitem>
           <para>Specify the absolute limit on memory usage of the executed processes in this unit. If memory usage
@@ -320,11 +333,17 @@
           assigned the special value <literal>infinity</literal>, no memory limit is applied. This controls the
           <literal>memory.max</literal> control group attribute. For details about this control group attribute, see
           <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html#memory-interface-files">Memory Interface Files</ulink>.</para>
+
+          <para>While <varname>StartupMemoryMax=</varname> applies to the startup and shutdown phases of the system,
+          <varname>MemoryMax=</varname> applies to normal runtime of the system, and if the former is not set also to
+          the startup and shutdown phases. Using <varname>StartupMemoryMax=</varname> allows prioritizing specific services at
+          boot-up and shutdown differently than during normal runtime.</para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>MemorySwapMax=<replaceable>bytes</replaceable></varname></term>
+        <term><varname>StartupMemorySwapMax=<replaceable>bytes</replaceable></varname></term>
 
         <listitem>
           <para>Specify the absolute limit on swap usage of the executed processes in this unit.</para>
@@ -334,11 +353,17 @@
           special value <literal>infinity</literal>, no swap limit is applied. These settings control the
           <literal>memory.swap.max</literal> control group attribute. For details about this control group attribute,
           see <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html#memory-interface-files">Memory Interface Files</ulink>.</para>
+
+          <para>While <varname>StartupMemorySwapMax=</varname> applies to the startup and shutdown phases of the system,
+          <varname>MemorySwapMax=</varname> applies to normal runtime of the system, and if the former is not set also to
+          the startup and shutdown phases. Using <varname>StartupMemorySwapMax=</varname> allows prioritizing specific services at
+          boot-up and shutdown differently than during normal runtime.</para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>MemoryZSwapMax=<replaceable>bytes</replaceable></varname></term>
+        <term><varname>StartupMemoryZSwapMax=<replaceable>bytes</replaceable></varname></term>
 
         <listitem>
           <para>Specify the absolute limit on zswap usage of the processes in this unit. Zswap is a lightweight compressed
@@ -352,6 +377,11 @@
           special value <literal>infinity</literal>, no limit is applied. These settings control the
           <literal>memory.zswap.max</literal> control group attribute. For details about this control group attribute,
           see <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html#memory-interface-files">Memory Interface Files</ulink>.</para>
+
+          <para>While <varname>StartupMemoryZSwapMax=</varname> applies to the startup and shutdown phases of the system,
+          <varname>MemoryZSwapMax=</varname> applies to normal runtime of the system, and if the former is not set also to
+          the startup and shutdown phases. Using <varname>StartupMemoryZSwapMax=</varname> allows prioritizing specific services at
+          boot-up and shutdown differently than during normal runtime.</para>
         </listitem>
       </varlistentry>
 
