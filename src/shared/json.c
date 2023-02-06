@@ -101,17 +101,12 @@ struct JsonVariant {
                 /* If is_reference as indicated above is set, this is where the reference object is actually stored. */
                 JsonVariant *reference;
 
-                /* Strings are placed immediately after the structure. Note that when this is a JsonVariant embedded
-                 * into an array we might encode strings up to INLINE_STRING_LENGTH characters directly inside the
-                 * element, while longer strings are stored as references. When this object is not embedded into an
-                 * array, but stand-alone we allocate the right size for the whole structure, i.e. the array might be
-                 * much larger than INLINE_STRING_LENGTH.
-                 *
-                 * Note that because we want to allocate arrays of the JsonVariant structure we specify [0] here,
-                 * rather than the prettier []. If we wouldn't, then this char array would have undefined size, and so
-                 * would the union and then the struct this is included in. And of structures with undefined size we
-                 * can't allocate arrays (at least not easily). */
-                char string[0];
+                /* Strings are placed immediately after the structure. Note that when this is a JsonVariant
+                 * embedded into an array we might encode strings up to INLINE_STRING_LENGTH characters
+                 * directly inside the element, while longer strings are stored as references. When this
+                 * object is not embedded into an array, but stand-alone, we allocate the right size for the
+                 * whole structure, i.e. the array might be much larger than INLINE_STRING_LENGTH. */
+                DECLARE_FLEX_ARRAY(char, string);
         };
 };
 
