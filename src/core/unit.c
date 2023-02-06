@@ -4655,6 +4655,14 @@ int unit_kill_context(
                                                          pid_set,
                                                          NULL, NULL);
                         }
+                } else if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0) {
+
+                        /* On the unified hierarchy, we should rely on the kernel to determine if a cgroup empty event will be
+                         * emitted. This also ensures that there are no invisible threads or kernel references to the cgroup
+                         * preventing it from being completely released. */
+
+                        if (cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path) == 0)
+                                wait_for_exit = true;
                 }
         }
 
