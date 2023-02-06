@@ -4655,6 +4655,9 @@ int unit_kill_context(
                                                          pid_set,
                                                          NULL, NULL);
                         }
+                } else if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0) {
+                        if (cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path) == 0)
+                                wait_for_exit = true;
                 }
         }
 
