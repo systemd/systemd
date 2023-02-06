@@ -389,6 +389,7 @@ possible_common_cc_flags = [
         '-Wsuggest-attribute=noreturn',
         '-Wunused-function',
         '-Wwrite-strings',
+        '-Wzero-length-bounds',
 
         # negative arguments are correctly detected starting with meson 0.46.
         '-Wno-error=#warnings',  # clang
