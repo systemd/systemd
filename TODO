@@ -129,7 +129,43 @@ Deprecations and removals:
 
 Features:
 
-* tmpfiles snippet that locks down /etc/credstore/ and friends, just in case.
+* in order to make binding to PCR 4 realistic:
+  - generate one keypair "U" and store it in a tpm2 nvindex.
+  - Generate another keypair "P" and store it in a second tpm2 nvindex.
+  - allocate a persistent counter object "C" in the tpm2
+  - Enroll all user objects (i.e. luks volumes, creds, …) to a tpm2 policy
+    signed by U.
+  - Lock both U and P down with a tpm2 policy signed by P (yes, P can only be
+    used if a signature by P itself can be provided)
+  - For regular reboots generate a signature for a restrictive PCR4 + counter C
+    based policy with key P. Place signature in EFI var, so it can be found on
+    next boot
+  - For reboots where a firmware update is expected generate a signature with a
+    more open policy against just counter C. Place signature in same EFI var.
+  - Increase C whenever switching between these two signature types.
+  - During early boot, use the signature from the EFI var to unlock U and P.
+    Use it to generate a signature for unlocking user objects given the current
+    PCR 4 value, store that away into /run somewhere, for user during the whole
+    later boot.
+  - When booting up automatically update the mentioned efi var so that it
+    contains the restrictive signature. But also generate a signature ahead of
+    time that could be used in case during the current boot we later detect we might
+    need to reboot for a firmware update. Store that in /run somewhere, so that
+    it can be placed in the EFI var, if needed.
+
+* repart/gpt-auto/DDIs: maybe introduce a concept of "extension" partitions,
+  that have a new type uuid and can "extend" earlier partitions, to work around
+  the fact that systemd-repart can only grow the last partition defined. During
+  activation we'd simply set up a dm-linear mapping to merge them again. A
+  partition that is to be extended would just set a bit in the partition flags
+  field to indicate that there's another extension partition to look for. The
+  identifiying UUID of the extension partition would be hashed in counter mode
+  from the uuid of the original partition it extends. Inspiration for this is
+  the "dynamic partitions" concept of new Android. This would be a minimalistic
+  concept of a volume manager, with the extents it manages being exposes as GPT
+  partitions. I a partition is extended multiple times they should probably
+  grow exponentially in size to ensure O(log(n)) time for finding them on
+  access.
 
 * split out execute.c into new "systemd-executor" binary. Then make PID 1 fork
   that off via vfork(), and then let that executor do the hard work. Ultimately
@@ -198,7 +234,7 @@ Features:
   See discussion at https://github.com/authselect/authselect/pull/311
 
 * sd-boot: make boot loader spec type #1 accept http urls in "linux"
-  lines. THen, do the uefi http dance to download kernels and boot them. This
+  lines. Then, do the uefi http dance to download kernels and boot them. This
   is then useful for network boot, by embdedding a cpio with type #1 snippets
   in sd-boot, which reference remote kernels.
 
@@ -320,14 +356,6 @@ Features:
   and in cryptsetup simply the empty list? Also, PCR 14 almost certainly should
   be included as much as PCR 7 (as it contains shim's policy, which is
   certainly as relevant as PCR 7 on many systems)
-
-* move discoverable partition spec and boot loader spec over to uapi group
-
-* maybe measure UUIDs of important mounted file systems (after mount, via the
-  new ioctls to query them) into PCR 15? Add "x-systemd.measure-pcr=" or so for
-  this that pulls in a per mount service?
-
-* measure /etc/machine-id during early boot into PCR 15?
 
 * To mimic the new tpm2-measure-pcr= crypttab option add the same to veritytab
   (measuring the root hash) and integritytab (measuring the HMAC key if one is
@@ -598,12 +626,6 @@ Features:
 * building on top of the above, the pub/priv key pair generated on the TPM2
   should probably also one you can use to get a remote attestation quote.
 
-* bootctl: add "gc" verb that loads all type #1 .conf files, and then removes
-  all files from the set of files from the ESP/XBOOTLDR matching the entry
-  token that are not referenced by any. Then, change kernel-install to use only
-  this to remove auxiliary files, and never remove them explicitly. Benefit:
-  resources such as initrds/kernels/dtb can be shared between entries.
-
 * Process credentials in:
   • networkd/udevd: add a way to define additional .link, .network, .netdev files
     via the credentials logic.
@@ -676,7 +698,7 @@ Features:
 
 * sd-event: add ability to "chain" event sources. Specifically, add a call
   sd_event_source_chain(x, y), which will automatically enable event source y
-  in oneshit mode once x is triggered. Use case: in src/core/mount.c implement
+  in oneshot mode once x is triggered. Use case: in src/core/mount.c implement
   the /proc/self/mountinfo rescan on SIGCHLD with this: whenever a SIGCHLD is
   seen, trigger the rescan defer event source automatically, and allow it to be
   dispatched *before* the SIGCHLD is handled (based on priorities). Benefit:
@@ -1091,12 +1113,7 @@ Features:
 * whenever we receive fds via SCM_RIGHTS make sure none got dropped due to the
   reception limit the kernel silently enforces.
 
-* add an Open= setting to service unit files that can open arbitrary file
-  system paths at service startup time and pass them to the service process via
-  our usual socket activation protocol. If passed path refers to AF_UNIX
-  socket: connect() to it.
-
-* Similar, ConnectStream= which takes IP addresses and connects to them.
+* Add service unit setting ConnectStream= which takes IP addresses and connects to them.
 
 * Similar, Load= which takes literal data in text or base64 format, and puts it
   into a memfd, and passes that. This enables some fun stuff, such as embedding
