@@ -365,7 +365,10 @@ static int transfer_start(Transfer *t) {
         if (pipe2(pipefd, O_CLOEXEC) < 0)
                 return -errno;
 
-        r = safe_fork("(sd-transfer)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &t->pid);
+        r = safe_fork_full("(sd-transfer)",
+                           (int[]) { t->stdin_fd, t->stdout_fd < 0 ? pipefd[1] : t->stdout_fd, pipefd[1] },
+                           NULL, 0,
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_REARRANGE_STDIO, &t->pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -386,17 +389,6 @@ static int transfer_start(Transfer *t) {
                 unsigned k = 0;
 
                 /* Child */
-
-                pipefd[0] = safe_close(pipefd[0]);
-
-                r = rearrange_stdio(TAKE_FD(t->stdin_fd),
-                                    t->stdout_fd < 0 ? pipefd[1] : TAKE_FD(t->stdout_fd),
-                                    pipefd[1]);
-                TAKE_FD(pipefd[1]);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to set stdin/stdout/stderr: %m");
-                        _exit(EXIT_FAILURE);
-                }
 
                 if (setenv("SYSTEMD_LOG_TARGET", "console-prefixed", 1) < 0 ||
                     setenv("NOTIFY_SOCKET", "/run/systemd/import/notify", 1) < 0) {

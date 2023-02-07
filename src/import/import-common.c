@@ -36,7 +36,10 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
 
         use_selinux = mac_selinux_use();
 
-        r = safe_fork("(tar)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        r = safe_fork_full("(tar)",
+                           (int[]) { pipefd[0], -EBADF, STDERR_FILENO },
+                           NULL, 0,
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_REARRANGE_STDIO|FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -62,14 +65,6 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
                         (1ULL << CAP_DAC_OVERRIDE);
 
                 /* Child */
-
-                pipefd[1] = safe_close(pipefd[1]);
-
-                r = rearrange_stdio(TAKE_FD(pipefd[0]), -EBADF, STDERR_FILENO);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to rearrange stdin/stdout: %m");
-                        _exit(EXIT_FAILURE);
-                }
 
                 if (unshare(CLONE_NEWNET) < 0)
                         log_warning_errno(errno, "Failed to lock tar into network namespace, ignoring: %m");
@@ -110,7 +105,10 @@ int import_fork_tar_c(const char *path, pid_t *ret) {
 
         use_selinux = mac_selinux_use();
 
-        r = safe_fork("(tar)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        r = safe_fork_full("(tar)",
+                           (int[]) { -EBADF, pipefd[1], STDERR_FILENO },
+                           NULL, 0,
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_REARRANGE_STDIO|FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -128,14 +126,6 @@ int import_fork_tar_c(const char *path, pid_t *ret) {
                 uint64_t retain = (1ULL << CAP_DAC_OVERRIDE);
 
                 /* Child */
-
-                pipefd[0] = safe_close(pipefd[0]);
-
-                r = rearrange_stdio(-EBADF, TAKE_FD(pipefd[1]), STDERR_FILENO);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to rearrange stdin/stdout: %m");
-                        _exit(EXIT_FAILURE);
-                }
 
                 if (unshare(CLONE_NEWNET) < 0)
                         log_error_errno(errno, "Failed to lock tar into network namespace, ignoring: %m");

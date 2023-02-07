@@ -810,18 +810,16 @@ int udev_event_spawn(
 
         log_device_debug(event->dev, "Starting '%s'", cmd);
 
-        r = safe_fork("(spawn)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE, &pid);
+        r = safe_fork_full("(spawn)",
+                           (int[]) { -EBADF, outpipe[WRITE_END], errpipe[WRITE_END] },
+                           NULL, 0,
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_REARRANGE_STDIO|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
+                           &pid);
         if (r < 0)
                 return log_device_error_errno(event->dev, r,
                                               "Failed to fork() to execute command '%s': %m", cmd);
         if (r == 0) {
-                if (rearrange_stdio(-EBADF, TAKE_FD(outpipe[WRITE_END]), TAKE_FD(errpipe[WRITE_END])) < 0)
-                        _exit(EXIT_FAILURE);
-
-                (void) close_all_fds(NULL, 0);
-
                 DEVICE_TRACE_POINT(spawn_exec, event->dev, cmd);
-
                 execve(argv[0], argv, envp);
                 _exit(EXIT_FAILURE);
         }

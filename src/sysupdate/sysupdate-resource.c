@@ -264,7 +264,11 @@ static int download_manifest(
         log_info("%s Acquiring manifest file %s%s", special_glyph(SPECIAL_GLYPH_DOWNLOAD),
                  suffixed_url, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
-        r = safe_fork("(sd-pull)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        r = safe_fork_full("(sd-pull)",
+                           (int[]) { -EBADF, pfd[1], STDERR_FILENO },
+                           NULL, 0,
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_REARRANGE_STDIO|FORK_LOG,
+                           &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -279,14 +283,6 @@ static int download_manifest(
                         "-",                               /* write to stdout */
                         NULL
                 };
-
-                pfd[0] = safe_close(pfd[0]);
-
-                r = rearrange_stdio(-EBADF, pfd[1], STDERR_FILENO);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to rearrange stdin/stdout: %m");
-                        _exit(EXIT_FAILURE);
-                }
 
                 (void) unsetenv("NOTIFY_SOCKET");
                 execv(pull_binary_path(), (char *const*) cmdline);
