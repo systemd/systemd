@@ -32,3 +32,4 @@ Resolve.ReadEtcHosts,              config_parse_bool,                    0,     
 Resolve.ResolveUnicastSingleLabel, config_parse_bool,                    0,                   offsetof(Manager, resolve_unicast_single_label)
 Resolve.DNSStubListenerExtra,      config_parse_dns_stub_listener_extra, 0,                   offsetof(Manager, dns_extra_stub_listeners)
 Resolve.CacheFromLocalhost,        config_parse_bool,                    0,                   offsetof(Manager, cache_from_localhost)
+Resolve.DNSStreamTimeout,          config_parse_sec,                     0,                   offsetof(Manager, dns_stream_timeout_usec)
