@@ -128,6 +128,10 @@ int journal_access_check_and_warn(sd_journal *j, bool quiet, bool want_other_use
                         log_warning_errno(err, "Journal file %s corrupted, ignoring file.", path);
                         break;
 
+                case ETOOMANYREFS:
+                        log_warning_errno(err, "Too many journal files (limit is at %u) in scope, ignoring file '%s'.", JOURNAL_FILES_MAX, path);
+                        break;
+
                 default:
                         log_warning_errno(err, "An error was encountered while opening journal file or directory %s, ignoring file: %m", path);
                         break;
