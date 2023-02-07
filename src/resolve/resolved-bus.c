@@ -159,7 +159,7 @@ static int reply_query_state(DnsQuery *q) {
         case DNS_TRANSACTION_NOT_FOUND:
                 /* We return this as NXDOMAIN. This is only generated when a host doesn't implement LLMNR/TCP, and we
                  * thus quickly know that we cannot resolve an in-addr.arpa or ip6.arpa address. */
-                return reply_method_errorf(q, _BUS_ERROR_DNS "NXDOMAIN", "'%s' not found", dns_query_string(q));
+                return reply_method_errorf(q, BUS_ERROR_DNS_NXDOMAIN, "'%s' not found", dns_query_string(q));
 
         case DNS_TRANSACTION_NO_SOURCE:
                 return reply_method_errorf(q, BUS_ERROR_NO_SOURCE, "All suitable resolution sources turned off");
@@ -176,7 +176,7 @@ static int reply_query_state(DnsQuery *q) {
                         return 0;
 
                 if (q->answer_rcode == DNS_RCODE_NXDOMAIN)
-                        sd_bus_error_setf(&error, _BUS_ERROR_DNS "NXDOMAIN", "'%s' not found", dns_query_string(q));
+                        sd_bus_error_setf(&error, BUS_ERROR_DNS_NXDOMAIN, "'%s' not found", dns_query_string(q));
                 else {
                         const char *rc, *n;
 
