@@ -995,20 +995,15 @@ int bus_socket_exec(sd_bus *b) {
                 return -errno;
 
         r = safe_fork_full("(sd-busexec)",
-                           NULL,
-                           s+1, 1,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE, &b->busexec_pid);
+                           (int[]) { s[1], s[1], STDERR_FILENO },
+                           NULL, 0,
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO|FORK_RLIMIT_NOFILE_SAFE, &b->busexec_pid);
         if (r < 0) {
                 safe_close_pair(s);
                 return r;
         }
         if (r == 0) {
                 /* Child */
-
-                r = rearrange_stdio(s[1], s[1], STDERR_FILENO);
-                TAKE_FD(s[1]);
-                if (r < 0)
-                        _exit(EXIT_FAILURE);
 
                 if (b->exec_argv)
                         execvp(b->exec_path, b->exec_argv);
