@@ -53,11 +53,11 @@ echo "disable $UNIT_NAME" >/run/systemd/system-preset/99-systemd-test.preset
 EDITOR='true' script -ec 'systemctl edit "$UNIT_NAME"' /dev/null
 [ ! -e "/etc/systemd/system/$UNIT_NAME.d/override.conf" ]
 
-printf '%s\n' '[Service]' 'ExecStart=' 'ExecStart=sleep 10d' > "+4"
+printf '%s\n' '[Service]' 'ExecStart=' 'ExecStart=sleep 10d' >"+4"
 EDITOR='mv' script -ec 'systemctl edit "$UNIT_NAME"' /dev/null
 printf '%s\n' '[Service]' 'ExecStart=' 'ExecStart=sleep 10d' | cmp - "/etc/systemd/system/$UNIT_NAME.d/override.conf"
 
-printf '%b'   '[Service]\n' 'ExecStart=\n' 'ExecStart=sleep 10d' > "+4"
+printf '%b'   '[Service]\n' 'ExecStart=\n' 'ExecStart=sleep 10d' >"+4"
 EDITOR='mv' script -ec 'systemctl edit "$UNIT_NAME"' /dev/null
 printf '%s\n' '[Service]'   'ExecStart='   'ExecStart=sleep 10d' | cmp - "/etc/systemd/system/$UNIT_NAME.d/override.conf"
 

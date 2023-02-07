@@ -114,17 +114,17 @@ EOF
     systemctl daemon-reload
 
     mount -t tmpfs none /sys/class/dmi/id
-    echo '1' > /sys/class/dmi/id/uevent
+    echo '1' >/sys/class/dmi/id/uevent
 
-    echo '01/01/2000' > /sys/class/dmi/id/bios_date
+    echo '01/01/2000' >/sys/class/dmi/id/bios_date
     systemctl stop systemd-hostnamed
     assert_in '2000-01-01' "$(hostnamectl)"
 
-    echo '2022' > /sys/class/dmi/id/bios_date
+    echo '2022' >/sys/class/dmi/id/bios_date
     systemctl stop systemd-hostnamed
     assert_not_in 'Firmware Date' "$(hostnamectl)"
 
-    echo 'garbage' > /sys/class/dmi/id/bios_date
+    echo 'garbage' >/sys/class/dmi/id/bios_date
     systemctl stop systemd-hostnamed
     assert_not_in 'Firmware Date' "$(hostnamectl)"
 }

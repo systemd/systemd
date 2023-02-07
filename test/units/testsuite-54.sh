@@ -17,7 +17,7 @@ systemd-run -p LoadCredential=passwd:/etc/passwd \
 rm /tmp/ts54-concat
 
 # Test that SetCredential= acts as fallback for LoadCredential=
-echo piff > /tmp/ts54-fallback
+echo piff >/tmp/ts54-fallback
 [ "$(systemd-run -p LoadCredential=paff:/tmp/ts54-fallback -p SetCredential=paff:poff --pipe --wait systemd-creds cat paff)" = "piff" ]
 rm /tmp/ts54-fallback
 [ "$(systemd-run -p LoadCredential=paff:/tmp/ts54-fallback -p SetCredential=paff:poff --pipe --wait systemd-creds cat paff)" = "poff" ]

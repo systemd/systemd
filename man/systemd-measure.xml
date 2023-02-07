@@ -240,7 +240,7 @@
      --bank=sha1 \
      --bank=sha256 \
      --private-key=tpm2-pcr-private.pem \
-     --public-key=tpm2-pcr-public.pem > tpm2-pcr-signature.json
+     --public-key=tpm2-pcr-public.pem >tpm2-pcr-signature.json
 # ukify --output foo.efi \
      --os-release @os-release.txt \
      --cmdline @cmdline.txt \

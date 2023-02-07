@@ -122,7 +122,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - Empty lines to separate code blocks are a good thing, please add them
   abundantly. However, please stick to one at a time, i.e. multiple empty lines
-  immediately following each other are not OK. Also, we try to keep function calls and their immediate error handling together. Hence:
+  immediately following each other are not OK. Also, we try to keep function
+  calls and their immediate error handling together. Hence:
 
   ```c
   /* → empty line here is good */
@@ -131,7 +132,9 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   if (r < 0)
           return log_error_errno(r, "Some function failed: %m");
   /* → empty line here is good */
-  ```
+
+- In shell scripts, do not use whitespace after the redirection operator
+  (`>some/file` instead of `> some/file`, `<<EOF` instead of `<< EOF`).
 
 ## Code Organization and Semantics
 
