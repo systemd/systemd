@@ -83,7 +83,7 @@ jobs:
           })
 
     - uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975
-      if: github.event_name == 'pull_request_target' && github.event.action == 'closed' && github.event.issue.pull_request
+      if: github.event_name == 'pull_request_target' && github.event.action == 'closed'
       with:
         script: |
           for (const label of ["please-review",
