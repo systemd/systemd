@@ -327,32 +327,32 @@ static bool print_multiline(
 static int output_timestamp_monotonic(
                 FILE *f,
                 OutputMode mode,
-                const dual_timestamp *ts,
+                const dual_timestamp *display_ts,
                 const sd_id128_t *boot_id,
-                const dual_timestamp *previous_ts,
+                const dual_timestamp *previous_display_ts,
                 const sd_id128_t *previous_boot_id) {
 
         int written_chars = 0;
 
         assert(f);
-        assert(ts);
+        assert(display_ts);
         assert(boot_id);
-        assert(previous_ts);
+        assert(previous_display_ts);
         assert(previous_boot_id);
 
-        if (!VALID_MONOTONIC(ts->monotonic))
+        if (!VALID_MONOTONIC(display_ts->monotonic))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No valid monotonic timestamp available");
 
-        written_chars += fprintf(f, "[%5"PRI_USEC".%06"PRI_USEC, ts->monotonic / USEC_PER_SEC, ts->monotonic % USEC_PER_SEC);
+        written_chars += fprintf(f, "[%5"PRI_USEC".%06"PRI_USEC, display_ts->monotonic / USEC_PER_SEC, display_ts->monotonic % USEC_PER_SEC);
 
         if (mode == OUTPUT_SHORT_DELTA) {
                 uint64_t delta;
                 bool reliable_ts = true;
 
-                if (VALID_MONOTONIC(previous_ts->monotonic) && sd_id128_equal(*boot_id, *previous_boot_id))
-                        delta = usec_sub_unsigned(ts->monotonic, previous_ts->monotonic);
-                else if (VALID_REALTIME(ts->realtime) && VALID_REALTIME(previous_ts->realtime)) {
-                        delta = usec_sub_unsigned(ts->realtime, previous_ts->realtime);
+                if (VALID_MONOTONIC(previous_display_ts->monotonic) && sd_id128_equal(*boot_id, *previous_boot_id))
+                        delta = usec_sub_unsigned(display_ts->monotonic, previous_display_ts->monotonic);
+                else if (VALID_REALTIME(display_ts->realtime) && VALID_REALTIME(previous_display_ts->realtime)) {
+                        delta = usec_sub_unsigned(display_ts->realtime, previous_display_ts->realtime);
                         reliable_ts = false;
                 } else {
                         written_chars += fprintf(f, "%16s", "");
@@ -372,39 +372,39 @@ static int output_timestamp_realtime(
                 sd_journal *j,
                 OutputMode mode,
                 OutputFlags flags,
-                const dual_timestamp *ts) {
+                const dual_timestamp *display_ts) {
 
         char buf[CONST_MAX(FORMAT_TIMESTAMP_MAX, 64U)];
         int r;
 
         assert(f);
         assert(j);
-        assert(ts);
+        assert(display_ts);
 
-        if (!VALID_REALTIME(ts->realtime))
+        if (!VALID_REALTIME(display_ts->realtime))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No valid realtime timestamp available");
 
         if (IN_SET(mode, OUTPUT_SHORT_FULL, OUTPUT_WITH_UNIT)) {
                 const char *k;
 
                 if (flags & OUTPUT_UTC)
-                        k = format_timestamp_style(buf, sizeof(buf), ts->realtime, TIMESTAMP_UTC);
+                        k = format_timestamp_style(buf, sizeof(buf), display_ts->realtime, TIMESTAMP_UTC);
                 else
-                        k = format_timestamp(buf, sizeof(buf), ts->realtime);
+                        k = format_timestamp(buf, sizeof(buf), display_ts->realtime);
                 if (!k)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Failed to format timestamp: %" PRIu64, ts->realtime);
+                                               "Failed to format timestamp: %" PRIu64, display_ts->realtime);
 
         } else {
                 struct tm tm;
                 time_t t;
 
-                t = (time_t) (ts->realtime / USEC_PER_SEC);
+                t = (time_t) (display_ts->realtime / USEC_PER_SEC);
 
                 switch (mode) {
 
                 case OUTPUT_SHORT_UNIX:
-                        xsprintf(buf, "%10"PRI_TIME".%06"PRIu64, t, ts->realtime % USEC_PER_SEC);
+                        xsprintf(buf, "%10"PRI_TIME".%06"PRIu64, t, display_ts->realtime % USEC_PER_SEC);
                         break;
 
                 case OUTPUT_SHORT_ISO:
@@ -422,7 +422,7 @@ static int output_timestamp_realtime(
                                      localtime_or_gmtime_r(&t, &tm, flags & OUTPUT_UTC)) <= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Failed to format ISO-precise time");
-                        xsprintf(usec, "%06"PRI_USEC, ts->realtime % USEC_PER_SEC);
+                        xsprintf(usec, "%06"PRI_USEC, display_ts->realtime % USEC_PER_SEC);
                         memcpy(buf + 20, usec, 6);
                         break;
                 }
@@ -440,7 +440,7 @@ static int output_timestamp_realtime(
                                 assert(sizeof(buf) > strlen(buf));
                                 k = sizeof(buf) - strlen(buf);
 
-                                r = snprintf(buf + strlen(buf), k, ".%06"PRIu64, ts->realtime % USEC_PER_SEC);
+                                r = snprintf(buf + strlen(buf), k, ".%06"PRIu64, display_ts->realtime % USEC_PER_SEC);
                                 if (r <= 0 || (size_t) r >= k) /* too long? */
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                                "Failed to format precise time");
@@ -464,9 +464,9 @@ static int output_short(
                 OutputFlags flags,
                 const Set *output_fields,
                 const size_t highlight[2],
-                const dual_timestamp *ts,
+                const dual_timestamp *display_ts,
                 const sd_id128_t *boot_id,
-                const dual_timestamp *previous_ts,
+                const dual_timestamp *previous_display_ts,
                 const sd_id128_t *previous_boot_id) {
 
         int r;
@@ -498,9 +498,9 @@ static int output_short(
 
         assert(f);
         assert(j);
-        assert(ts);
+        assert(display_ts);
         assert(boot_id);
-        assert(previous_ts);
+        assert(previous_display_ts);
         assert(previous_boot_id);
 
         /* Set the threshold to one bigger than the actual print threshold, so that if the line is actually
@@ -535,9 +535,9 @@ static int output_short(
         audit = streq_ptr(transport, "audit");
 
         if (IN_SET(mode, OUTPUT_SHORT_MONOTONIC, OUTPUT_SHORT_DELTA))
-                r = output_timestamp_monotonic(f, mode, ts, boot_id, previous_ts, previous_boot_id);
+                r = output_timestamp_monotonic(f, mode, display_ts, boot_id, previous_display_ts, previous_boot_id);
         else
-                r = output_timestamp_realtime(f, j, mode, flags, ts);
+                r = output_timestamp_realtime(f, j, mode, flags, display_ts);
         if (r < 0)
                 return r;
         n += r;
@@ -669,9 +669,9 @@ static int output_verbose(
                 OutputFlags flags,
                 const Set *output_fields,
                 const size_t highlight[2],
-                const dual_timestamp *ts,
+                const dual_timestamp *display_ts,
                 const sd_id128_t *boot_id,
-                const dual_timestamp *previous_ts,
+                const dual_timestamp *previous_display_ts,
                 const sd_id128_t *previous_boot_id) {
 
         const void *data;
@@ -683,21 +683,21 @@ static int output_verbose(
 
         assert(f);
         assert(j);
-        assert(ts);
+        assert(display_ts);
         assert(boot_id);
-        assert(previous_ts);
+        assert(previous_display_ts);
         assert(previous_boot_id);
 
         (void) sd_journal_set_data_threshold(j, 0);
 
-        if (!VALID_REALTIME(ts->realtime))
+        if (!VALID_REALTIME(display_ts->realtime))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No valid realtime timestamp available");
 
         r = sd_journal_get_cursor(j, &cursor);
         if (r < 0)
                 return log_error_errno(r, "Failed to get cursor: %m");
 
-        timestamp = format_timestamp_style(buf, sizeof buf, ts->realtime,
+        timestamp = format_timestamp_style(buf, sizeof buf, display_ts->realtime,
                                            flags & OUTPUT_UTC ? TIMESTAMP_US_UTC : TIMESTAMP_US);
         fprintf(f, "%s%s%s %s[%s]%s\n",
                 timestamp && (flags & OUTPUT_COLOR) ? ANSI_UNDERLINE : "",
@@ -786,9 +786,9 @@ static int output_export(
                 OutputFlags flags,
                 const Set *output_fields,
                 const size_t highlight[2],
-                const dual_timestamp *ts,
+                const dual_timestamp *display_ts,
                 const sd_id128_t *boot_id,
-                const dual_timestamp *previous_ts,
+                const dual_timestamp *previous_display_ts,
                 const sd_id128_t *previous_boot_id) {
 
         _cleanup_free_ char *cursor = NULL;
@@ -799,9 +799,9 @@ static int output_export(
         int r;
 
         assert(j);
-        assert(ts);
+        assert(display_ts);
         assert(boot_id);
-        assert(previous_ts);
+        assert(previous_display_ts);
         assert(previous_boot_id);
 
         (void) sd_journal_set_data_threshold(j, 0);
@@ -1035,9 +1035,9 @@ static int output_json(
                 OutputFlags flags,
                 const Set *output_fields,
                 const size_t highlight[2],
-                const dual_timestamp *ts,
+                const dual_timestamp *display_ts,
                 const sd_id128_t *boot_id,
-                const dual_timestamp *previous_ts,
+                const dual_timestamp *previous_display_ts,
                 const sd_id128_t *previous_boot_id) {
 
         char usecbuf[DECIMAL_STR_MAX(usec_t)];
@@ -1052,9 +1052,9 @@ static int output_json(
         int r;
 
         assert(j);
-        assert(ts);
+        assert(display_ts);
         assert(boot_id);
-        assert(previous_ts);
+        assert(previous_display_ts);
         assert(previous_boot_id);
 
         (void) sd_journal_set_data_threshold(j, flags & OUTPUT_SHOW_ALL ? 0 : JSON_THRESHOLD);
@@ -1234,9 +1234,9 @@ static int output_cat(
                 OutputFlags flags,
                 const Set *output_fields,
                 const size_t highlight[2],
-                const dual_timestamp *ts,
+                const dual_timestamp *display_ts,
                 const sd_id128_t *boot_id,
-                const dual_timestamp *previous_ts,
+                const dual_timestamp *previous_display_ts,
                 const sd_id128_t *previous_boot_id) {
 
         int r, prio = LOG_INFO;
@@ -1244,9 +1244,9 @@ static int output_cat(
 
         assert(j);
         assert(f);
-        assert(ts);
+        assert(display_ts);
         assert(boot_id);
-        assert(previous_ts);
+        assert(previous_display_ts);
         assert(previous_boot_id);
 
         (void) sd_journal_set_data_threshold(j, 0);
@@ -1287,7 +1287,11 @@ static int output_cat(
         return 0;
 }
 
-static int get_dual_timestamp(sd_journal *j, dual_timestamp *ret_ts, sd_id128_t *ret_boot_id) {
+static int get_display_timestamp(
+                sd_journal *j,
+                dual_timestamp *ret_display_ts,
+                sd_id128_t *ret_boot_id) {
+
         const void *data;
         _cleanup_free_ char *realtime = NULL, *monotonic = NULL;
         size_t length = 0, realtime_len = 0, monotonic_len = 0;
@@ -1299,7 +1303,7 @@ static int get_dual_timestamp(sd_journal *j, dual_timestamp *ret_ts, sd_id128_t 
         bool realtime_good = false, monotonic_good = false, boot_id_good = false;
 
         assert(j);
-        assert(ret_ts);
+        assert(ret_display_ts);
         assert(ret_boot_id);
 
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
@@ -1314,18 +1318,18 @@ static int get_dual_timestamp(sd_journal *j, dual_timestamp *ret_ts, sd_id128_t 
                 return r;
 
         if (realtime)
-                realtime_good = safe_atou64(realtime, &ret_ts->realtime) >= 0;
-        if (!realtime_good || !VALID_REALTIME(ret_ts->realtime))
-                realtime_good = sd_journal_get_realtime_usec(j, &ret_ts->realtime) >= 0;
+                realtime_good = safe_atou64(realtime, &ret_display_ts->realtime) >= 0;
+        if (!realtime_good || !VALID_REALTIME(ret_display_ts->realtime))
+                realtime_good = sd_journal_get_realtime_usec(j, &ret_display_ts->realtime) >= 0;
         if (!realtime_good)
-                ret_ts->realtime = USEC_INFINITY;
+                ret_display_ts->realtime = USEC_INFINITY;
 
         if (monotonic)
-                monotonic_good = safe_atou64(monotonic, &ret_ts->monotonic) >= 0;
-        if (!monotonic_good || !VALID_MONOTONIC(ret_ts->monotonic))
-                monotonic_good = boot_id_good = sd_journal_get_monotonic_usec(j, &ret_ts->monotonic, ret_boot_id) >= 0;
+                monotonic_good = safe_atou64(monotonic, &ret_display_ts->monotonic) >= 0;
+        if (!monotonic_good || !VALID_MONOTONIC(ret_display_ts->monotonic))
+                monotonic_good = boot_id_good = sd_journal_get_monotonic_usec(j, &ret_display_ts->monotonic, ret_boot_id) >= 0;
         if (!monotonic_good)
-                ret_ts->monotonic = USEC_INFINITY;
+                ret_display_ts->monotonic = USEC_INFINITY;
 
         if (!boot_id_good)
                 boot_id_good = sd_journal_get_monotonic_usec(j, NULL, ret_boot_id) >= 0;
@@ -1340,7 +1344,7 @@ static int get_dual_timestamp(sd_journal *j, dual_timestamp *ret_ts, sd_id128_t 
         return 0;
 }
 
-static int (*output_funcs[_OUTPUT_MODE_MAX])(
+typedef int (*output_func_t)(
                 FILE *f,
                 sd_journal *j,
                 OutputMode mode,
@@ -1348,11 +1352,13 @@ static int (*output_funcs[_OUTPUT_MODE_MAX])(
                 OutputFlags flags,
                 const Set *output_fields,
                 const size_t highlight[2],
-                const dual_timestamp *ts,
+                const dual_timestamp *display_ts,
                 const sd_id128_t *boot_id,
-                const dual_timestamp *previous_ts,
-                const sd_id128_t *previous_boot_id) = {
+                const dual_timestamp *previous_display_ts,
+                const sd_id128_t *previous_boot_id);
 
+
+static output_func_t output_funcs[_OUTPUT_MODE_MAX] = {
         [OUTPUT_SHORT]             = output_short,
         [OUTPUT_SHORT_ISO]         = output_short,
         [OUTPUT_SHORT_ISO_PRECISE] = output_short,
@@ -1380,22 +1386,22 @@ int show_journal_entry(
                 Set *output_fields,
                 const size_t highlight[2],
                 bool *ellipsized,
-                dual_timestamp *previous_ts,
+                dual_timestamp *previous_display_ts,
                 sd_id128_t *previous_boot_id) {
 
-        dual_timestamp ts = DUAL_TIMESTAMP_NULL;
+        dual_timestamp display_ts = DUAL_TIMESTAMP_NULL;
         sd_id128_t boot_id = SD_ID128_NULL;
         int r;
 
         assert(mode >= 0);
         assert(mode < _OUTPUT_MODE_MAX);
-        assert(previous_ts);
+        assert(previous_display_ts);
         assert(previous_boot_id);
 
         if (n_columns <= 0)
                 n_columns = columns();
 
-        r = get_dual_timestamp(j, &ts, &boot_id);
+        r = get_display_timestamp(j, &display_ts, &boot_id);
         if (r == -EBADMSG) {
                 log_debug_errno(r, "Skipping message we can't read: %m");
                 return 0;
@@ -1403,10 +1409,21 @@ int show_journal_entry(
         if (r < 0)
                 return log_error_errno(r, "Failed to get journal fields: %m");
 
-        r = output_funcs[mode](f, j, mode, n_columns, flags, output_fields, highlight, &ts, &boot_id, previous_ts, previous_boot_id);
+        r = output_funcs[mode](
+                        f,
+                        j,
+                        mode,
+                        n_columns,
+                        flags,
+                        output_fields,
+                        highlight,
+                        &display_ts,
+                        &boot_id,
+                        previous_display_ts,
+                        previous_boot_id);
 
         /* Store timestamp and boot ID for next iteration */
-        *previous_ts = ts;
+        *previous_display_ts = display_ts;
         *previous_boot_id = boot_id;
 
         if (ellipsized && r > 0)
@@ -1444,7 +1461,7 @@ int show_journal(
         unsigned line = 0;
         bool need_seek = false;
         int warn_cutoff = flags & OUTPUT_WARN_CUTOFF;
-        dual_timestamp previous_ts = DUAL_TIMESTAMP_NULL;
+        dual_timestamp previous_display_ts = DUAL_TIMESTAMP_NULL;
         sd_id128_t previous_boot_id = SD_ID128_NULL;
 
         assert(j);
@@ -1494,8 +1511,17 @@ int show_journal(
                 line++;
                 maybe_print_begin_newline(f, &flags);
 
-                r = show_journal_entry(f, j, mode, n_columns, flags, NULL, NULL, ellipsized,
-                                       &previous_ts, &previous_boot_id);
+                r = show_journal_entry(
+                                f,
+                                j,
+                                mode,
+                                n_columns,
+                                flags,
+                                /* output_fields= */ NULL,
+                                /* highlight= */ NULL,
+                                ellipsized,
+                                &previous_display_ts,
+                                &previous_boot_id);
                 if (r < 0)
                         return r;
         }
