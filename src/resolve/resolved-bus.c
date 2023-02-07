@@ -176,7 +176,7 @@ static int reply_query_state(DnsQuery *q) {
                         return 0;
 
                 if (q->answer_rcode == DNS_RCODE_NXDOMAIN)
-                        sd_bus_error_setf(&error, BUS_ERROR_DNS_NXDOMAIN, "'%s' not found", dns_query_string(q));
+                        sd_bus_error_setf(&error, BUS_ERROR_DNS_NXDOMAIN, "Name '%s' not found", dns_query_string(q));
                 else {
                         const char *rc, *n;
 
