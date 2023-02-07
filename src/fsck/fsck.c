@@ -27,7 +27,6 @@
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
-#include "rlimit-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "special.h"
@@ -346,7 +345,7 @@ static int run(int argc, char *argv[]) {
             pipe(progress_pipe) < 0)
                 return log_error_errno(errno, "pipe(): %m");
 
-        r = safe_fork("(fsck)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        r = safe_fork("(fsck)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -394,8 +393,6 @@ static int run(int argc, char *argv[]) {
 
                 cmdline[i++] = device;
                 cmdline[i++] = NULL;
-
-                (void) rlimit_nofile_safe();
 
                 execv(cmdline[0], (char**) cmdline);
                 _exit(FSCK_OPERATIONAL_ERROR);

@@ -85,7 +85,7 @@ static int spawn_child(const char* child, char** argv) {
         if (pipe(fd) < 0)
                 return log_error_errno(errno, "Failed to create pager pipe: %m");
 
-        r = safe_fork("(remote)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &child_pid);
+        r = safe_fork("(remote)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE, &child_pid);
         if (r < 0) {
                 safe_close_pair(fd);
                 return r;
@@ -100,8 +100,6 @@ static int spawn_child(const char* child, char** argv) {
                         log_error_errno(r, "Failed to dup pipe to stdout: %m");
                         _exit(EXIT_FAILURE);
                 }
-
-                (void) rlimit_nofile_safe();
 
                 execvp(child, argv);
                 log_error_errno(errno, "Failed to exec child %s: %m", child);
