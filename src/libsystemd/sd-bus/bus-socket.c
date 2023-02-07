@@ -22,7 +22,6 @@
 #include "memory-util.h"
 #include "path-util.h"
 #include "process-util.h"
-#include "rlimit-util.h"
 #include "signal-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -995,7 +994,7 @@ int bus_socket_exec(sd_bus *b) {
         if (r < 0)
                 return -errno;
 
-        r = safe_fork_full("(sd-busexec)", s+1, 1, FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS, &b->busexec_pid);
+        r = safe_fork_full("(sd-busexec)", s+1, 1, FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE, &b->busexec_pid);
         if (r < 0) {
                 safe_close_pair(s);
                 return r;
@@ -1007,8 +1006,6 @@ int bus_socket_exec(sd_bus *b) {
                 TAKE_FD(s[1]);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
-
-                (void) rlimit_nofile_safe();
 
                 if (b->exec_argv)
                         execvp(b->exec_path, b->exec_argv);
