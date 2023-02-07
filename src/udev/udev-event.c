@@ -23,7 +23,6 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
-#include "rlimit-util.h"
 #include "signal-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -811,7 +810,7 @@ int udev_event_spawn(
 
         log_device_debug(event->dev, "Starting '%s'", cmd);
 
-        r = safe_fork("(spawn)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        r = safe_fork("(spawn)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE, &pid);
         if (r < 0)
                 return log_device_error_errno(event->dev, r,
                                               "Failed to fork() to execute command '%s': %m", cmd);
@@ -820,7 +819,6 @@ int udev_event_spawn(
                         _exit(EXIT_FAILURE);
 
                 (void) close_all_fds(NULL, 0);
-                (void) rlimit_nofile_safe();
 
                 DEVICE_TRACE_POINT(spawn_exec, event->dev, cmd);
 
