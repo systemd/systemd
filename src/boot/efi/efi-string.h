@@ -105,6 +105,8 @@ static inline char16_t *xstr8_to_16(const char *str8) {
         return xstrn8_to_16(str8, strlen8(str8));
 }
 
+char *startswith8(const char *s, const char *prefix);
+
 bool efi_fnmatch(const char16_t *pattern, const char16_t *haystack);
 
 bool parse_number8(const char *s, uint64_t *ret_u, const char **ret_tail);
@@ -140,6 +142,7 @@ _gnu_printf_(2, 0) _warn_unused_result_ char16_t *xvasprintf_status(EFI_STATUS s
  * compiling with -ffreestanding. By referring to builtins, the compiler can check arguments and do
  * optimizations again. Note that we still need to provide implementations as the compiler is free to not
  * inline its own implementation and instead issue a library call. */
+#  define memchr __builtin_memchr
 #  define memcmp __builtin_memcmp
 #  define memcpy __builtin_memcpy
 #  define memset __builtin_memset
@@ -153,6 +156,7 @@ static inline void *mempcpy(void * restrict dest, const void * restrict src, siz
 
 #else
 /* For unit testing. */
+void *efi_memchr(const void *p, int c, size_t n);
 int efi_memcmp(const void *p1, const void *p2, size_t n);
 void *efi_memcpy(void * restrict dest, const void * restrict src, size_t n);
 void *efi_memset(void *p, int c, size_t n);
