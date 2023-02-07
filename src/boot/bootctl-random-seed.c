@@ -178,7 +178,7 @@ fail:
 int verb_random_seed(int argc, char *argv[], void *userdata) {
         int r;
 
-        r = find_esp_and_warn(arg_root, arg_esp_path, false, &arg_esp_path, NULL, NULL, NULL, NULL, NULL);
+        r = find_esp_and_warn(arg_root, arg_esp_path, false, &arg_esp_path, NULL, NULL, NULL, NULL, NULL, NULL);
         if (r == -ENOKEY) {
                 /* find_esp_and_warn() doesn't warn about ENOKEY, so let's do that on our own */
                 if (!arg_graceful)
