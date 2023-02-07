@@ -2608,28 +2608,23 @@ _public_ int sd_journal_wait(sd_journal *j, uint64_t timeout_usec) {
         if (j->inotify_fd < 0) {
                 JournalFile *f;
 
-                /* This is the first invocation, hence create the
-                 * inotify watch */
+                /* This is the first invocation, hence create the inotify watch */
                 r = sd_journal_get_fd(j);
                 if (r < 0)
                         return r;
 
-                /* Server might have done some vacuuming while we weren't watching.
-                   Get rid of the deleted files now so they don't stay around indefinitely. */
+                /* Server might have done some vacuuming while we weren't watching. Get rid of the deleted
+                 * files now so they don't stay around indefinitely. */
                 ORDERED_HASHMAP_FOREACH(f, j->files) {
                         r = journal_file_fstat(f);
                         if (r == -EIDRM)
                                 remove_file_real(j, f);
-                        else if (r < 0) {
-                                log_debug_errno(r,"Failed to fstat() journal file '%s' : %m", f->path);
-                                continue;
-                        }
+                        else if (r < 0)
+                                log_debug_errno(r, "Failed to fstat() journal file '%s', ignoring: %m", f->path);
                 }
 
-                /* The journal might have changed since the context
-                 * object was created and we weren't watching before,
-                 * hence don't wait for anything, and return
-                 * immediately. */
+                /* The journal might have changed since the context object was created and we weren't
+                 * watching before, hence don't wait for anything, and return immediately. */
                 return determine_change(j);
         }
 
