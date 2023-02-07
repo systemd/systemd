@@ -232,6 +232,13 @@ static void print_ifindex_comment(int printed_so_far, int ifindex) {
                ansi_grey(), ifname, ansi_normal());
 }
 
+static int resolve_host_error(const char *name, int r, const sd_bus_error *error) {
+        if (sd_bus_error_has_name(error, BUS_ERROR_DNS_NXDOMAIN))
+                return log_error_errno(r, "%s: %s", name, bus_error_message(error, r));
+
+        return log_error_errno(r, "%s: resolve call failed: %s", name, bus_error_message(error, r));
+}
+
 static int resolve_host(sd_bus *bus, const char *name) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -257,7 +264,7 @@ static int resolve_host(sd_bus *bus, const char *name) {
 
         r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
         if (r < 0)
-                return log_error_errno(r, "%s: resolve call failed: %s", name, bus_error_message(&error, r));
+                return resolve_host_error(name, r, &error);
 
         ts = now(CLOCK_MONOTONIC) - ts;
 
