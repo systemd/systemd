@@ -618,7 +618,10 @@ static int remount_with_timeout(MountPoint *m, bool last_try) {
 
         /* Due to the possibility of a remount operation hanging, we fork a child process and set a
          * timeout. If the timeout lapses, the assumption is that the particular remount failed. */
-        r = safe_fork_full("(sd-remount)", pfd, ELEMENTSOF(pfd), FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_REOPEN_LOG, &pid);
+        r = safe_fork_full("(sd-remount)",
+                           NULL,
+                           pfd, ELEMENTSOF(pfd),
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_REOPEN_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -671,7 +674,10 @@ static int umount_with_timeout(MountPoint *m, bool last_try) {
 
         /* Due to the possibility of a umount operation hanging, we fork a child process and set a
          * timeout. If the timeout lapses, the assumption is that the particular umount failed. */
-        r = safe_fork_full("(sd-umount)", pfd, ELEMENTSOF(pfd), FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_REOPEN_LOG, &pid);
+        r = safe_fork_full("(sd-umount)",
+                           NULL,
+                           pfd, ELEMENTSOF(pfd),
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_REOPEN_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {

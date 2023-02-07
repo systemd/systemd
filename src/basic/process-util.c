@@ -1134,6 +1134,7 @@ static void restore_sigsetp(sigset_t **ssp) {
 
 int safe_fork_full(
                 const char *name,
+                const int stdio_fds[3],
                 const int except_fds[],
                 size_t n_except_fds,
                 ForkFlags flags,
@@ -1292,6 +1293,27 @@ int safe_fork_full(
                 }
         }
 
+        if (flags & FORK_REARRANGE_STDIO) {
+                if (stdio_fds) {
+                        r = rearrange_stdio(stdio_fds[0], stdio_fds[1], stdio_fds[2]);
+                        if (r < 0) {
+                                log_full_errno(prio, r, "Failed to rearrange stdio fds: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+                } else {
+                        r = make_null_stdio();
+                        if (r < 0) {
+                                log_full_errno(prio, r, "Failed to connect stdin/stdout to /dev/null: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+                }
+        } else if (flags & FORK_STDOUT_TO_STDERR) {
+                if (dup2(STDERR_FILENO, STDOUT_FILENO) < 0) {
+                        log_full_errno(prio, errno, "Failed to connect stdout to stderr: %m");
+                        _exit(EXIT_FAILURE);
+                }
+        }
+
         if (flags & FORK_CLOSE_ALL_FDS) {
                 /* Close the logs here in case it got reopened above, as close_all_fds() would close them for us */
                 log_close();
@@ -1315,20 +1337,6 @@ int safe_fork_full(
         if (flags & FORK_REOPEN_LOG) {
                 log_open();
                 log_set_open_when_needed(false);
-        }
-
-        if (flags & FORK_NULL_STDIO) {
-                r = make_null_stdio();
-                if (r < 0) {
-                        log_full_errno(prio, r, "Failed to connect stdin/stdout to /dev/null: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-        } else if (flags & FORK_STDOUT_TO_STDERR) {
-                if (dup2(STDERR_FILENO, STDOUT_FILENO) < 0) {
-                        log_full_errno(prio, errno, "Failed to connect stdout to stderr: %m");
-                        _exit(EXIT_FAILURE);
-                }
         }
 
         if (flags & FORK_RLIMIT_NOFILE_SAFE) {
@@ -1364,7 +1372,10 @@ int namespace_fork(
          * process. This ensures that we are fully a member of the destination namespace, with pidns an all, so that
          * /proc/self/fd works correctly. */
 
-        r = safe_fork_full(outer_name, except_fds, n_except_fds, (flags|FORK_DEATHSIG) & ~(FORK_REOPEN_LOG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE), ret_pid);
+        r = safe_fork_full(outer_name,
+                           NULL,
+                           except_fds, n_except_fds,
+                           (flags|FORK_DEATHSIG) & ~(FORK_REOPEN_LOG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE), ret_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -1379,7 +1390,10 @@ int namespace_fork(
                 }
 
                 /* We mask a few flags here that either make no sense for the grandchild, or that we don't have to do again */
-                r = safe_fork_full(inner_name, except_fds, n_except_fds, flags & ~(FORK_WAIT|FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_NULL_STDIO), &pid);
+                r = safe_fork_full(inner_name,
+                                   NULL,
+                                   except_fds, n_except_fds,
+                                   flags & ~(FORK_WAIT|FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO), &pid);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
                 if (r == 0) {

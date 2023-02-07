@@ -994,7 +994,10 @@ int bus_socket_exec(sd_bus *b) {
         if (r < 0)
                 return -errno;
 
-        r = safe_fork_full("(sd-busexec)", s+1, 1, FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE, &b->busexec_pid);
+        r = safe_fork_full("(sd-busexec)",
+                           NULL,
+                           s+1, 1,
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE, &b->busexec_pid);
         if (r < 0) {
                 safe_close_pair(s);
                 return r;

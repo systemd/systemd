@@ -136,7 +136,7 @@ static int brightness_writer_fork(BrightnessWriter *w) {
         assert(w->child == 0);
         assert(!w->child_event_source);
 
-        r = safe_fork("(sd-bright)", FORK_DEATHSIG|FORK_NULL_STDIO|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_REOPEN_LOG, &w->child);
+        r = safe_fork("(sd-bright)", FORK_DEATHSIG|FORK_REARRANGE_STDIO|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_REOPEN_LOG, &w->child);
         if (r < 0)
                 return r;
         if (r == 0) {
