@@ -129,6 +129,10 @@ Deprecations and removals:
 
 Features:
 
+* sd-journal puts a limit on parallel journal files to view at once. journald
+  should probably honour that same limit (JOURNAL_FILES_MAX) when vacuuming to
+  ensure we never generate more files than we can actually view.
+
 * in order to make binding to PCR 4 realistic:
   - generate one keypair "U" and store it in a tpm2 nvindex.
   - Generate another keypair "P" and store it in a second tpm2 nvindex.
