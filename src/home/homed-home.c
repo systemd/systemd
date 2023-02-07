@@ -1180,6 +1180,7 @@ static int home_start_work(Home *h, const char *verb, UserRecord *hr, UserRecord
                 return -errno;
 
         r = safe_fork_full("(sd-homework)",
+                           NULL,
                            (int[]) { stdin_fd, stdout_fd }, 2,
                            FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_LOG|FORK_REOPEN_LOG, &pid);
         if (r < 0)
