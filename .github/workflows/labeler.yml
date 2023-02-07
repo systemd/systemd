@@ -97,7 +97,7 @@ jobs:
                                "needs-discussion 🤔",
                                "needs-reporter-feedback ❓",
                                "dont-merge",
-                               "squash-on-merge,
+                               "squash-on-merge",
                                "quick-review"]) {
             try {
               await github.rest.issues.removeLabel({
