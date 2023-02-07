@@ -1729,6 +1729,9 @@ static void manager_preset_all(Manager *m) {
 
         assert(m);
 
+        if (in_initrd())
+                return;
+
         if (m->first_boot <= 0)
                 return;
 
