@@ -304,6 +304,13 @@ if efi_arch[1] == 'arm'
         efi_ldflags += ['-Wl,--no-wchar-size-warning']
 endif
 
+if efi_arch[1] == 'aarch64'
+        # Newer binutils use a 64k alignment for aarch64 by default.
+        # Use 4k to save space in the .elf file. UEFI uses 4k for aarch64 anyway:
+        #   MMU configuration: Implementations must use only 4k pages [...].
+        efi_ldflags += ['-Wl,-z,max-page-size=4096']
+endif
+
 if cc.get_id() == 'clang' and cc.version().split('.')[0].to_int() <= 10
         # clang <= 10 doesn't pass -T to the linker and then even complains about it being unused
         efi_ldflags += ['-Wl,-T,' + efi_lds, '-Wno-unused-command-line-argument']
