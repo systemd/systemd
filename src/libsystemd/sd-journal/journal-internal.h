@@ -14,6 +14,8 @@
 #include "list.h"
 #include "set.h"
 
+#define JOURNAL_FILES_MAX 7168u
+
 #define JOURNAL_LOG_RATELIMIT ((const RateLimit) { .interval = 60 * USEC_PER_SEC, .burst = 3 })
 
 typedef struct Match Match;
