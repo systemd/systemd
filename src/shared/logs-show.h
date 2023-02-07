@@ -21,7 +21,7 @@ int show_journal_entry(
                 Set *output_fields,
                 const size_t highlight[2],
                 bool *ellipsized,
-                dual_timestamp *previous_ts,
+                dual_timestamp *previous_display_ts,
                 sd_id128_t *previous_boot_id);
 int show_journal(
                 FILE *f,
