@@ -60,6 +60,13 @@ typedef struct JournalStorage {
         JournalStorageSpace space;
 } JournalStorage;
 
+/* This structure will be kept in $RUNTIME_DIRECTORY/seqnum and is mapped by journald, and is used to
+ * maintain the sequence number counter with its seqnum ID */
+typedef struct SeqnumData {
+        sd_id128_t id;
+        uint64_t seqnum;
+} SeqnumData;
+
 struct Server {
         char *namespace;
 
@@ -93,7 +100,7 @@ struct Server {
         ManagedJournalFile *system_journal;
         OrderedHashmap *user_journals;
 
-        uint64_t seqnum;
+        SeqnumData *seqnum;
 
         char *buffer;
 
@@ -227,3 +234,6 @@ void server_space_usage_message(Server *s, JournalStorage *storage);
 
 int server_start_or_stop_idle_timer(Server *s);
 int server_refresh_idle_timer(Server *s);
+
+int server_map_seqnum_file(Server *s, const char *fname, size_t size, void **ret);
+void server_unmap_seqnum_file(void *p, size_t size);
