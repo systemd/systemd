@@ -252,7 +252,7 @@ static int async_polkit_query_new(
                 const char **details,
                 AsyncPolkitQuery **ret)
 {
-        AsyncPolkitQuery *q;
+        _cleanup_(async_polkit_query_freep) AsyncPolkitQuery *q = NULL;
 
         assert(parent);
         assert(request);
@@ -268,20 +268,16 @@ static int async_polkit_query_new(
         };
 
         q->action = strdup(action);
-        if (!q->action) {
-                async_polkit_query_free(q);
+        if (!q->action)
                 return -ENOMEM;
-        }
 
         q->details = strv_copy((char**) details);
-        if (!q->details) {
-                async_polkit_query_free(q);
+        if (!q->details)
                 return -ENOMEM;
-        }
 
         LIST_PREPEND(item, parent->items, q);
 
-        *ret = q;
+        *ret = TAKE_PTR(q);
 
         return 0;
 }
