@@ -461,7 +461,7 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
         } else {
                 assert(af == AF_INET6);
 
-                if (socket_ipv6_is_enabled())
+                if (!socket_ipv6_is_enabled())
                         goto not_found;
 
                 if (memcmp(addr, LOCALADDRESS_IPV6, 16) == 0) {
