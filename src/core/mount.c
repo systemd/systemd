@@ -487,7 +487,7 @@ static int mount_add_default_ordering_dependencies(Mount *m, MountParameters *p,
                  * it's not technically part of the basic initrd filesystem itself, and so
                  * shouldn't inherit the default Before=local-fs.target dependency. */
 
-                after = NULL;
+                after = SPECIAL_LOCAL_FS_PRE_TARGET;
                 before = isempty(e) ? SPECIAL_INITRD_ROOT_FS_TARGET : SPECIAL_INITRD_FS_TARGET;
 
         } else if (mount_is_network(p)) {
@@ -505,11 +505,9 @@ static int mount_add_default_ordering_dependencies(Mount *m, MountParameters *p,
                         return r;
         }
 
-        if (after) {
-                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after, /* add_reference= */ true, mask);
-                if (r < 0)
-                        return r;
-        }
+        r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after, /* add_reference= */ true, mask);
+        if (r < 0)
+                return r;
 
         return unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET,
                                                  /* add_reference= */ true, mask);
