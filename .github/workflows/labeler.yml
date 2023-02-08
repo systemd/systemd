@@ -19,15 +19,18 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
+
     steps:
-    - uses: actions/labeler@e54e5b338fbd6e6cdb5d60f51c22335fc57c401e
+    - name: Label PR based on policy in labeler.yml
+      uses: actions/labeler@e54e5b338fbd6e6cdb5d60f51c22335fc57c401e
       if: github.event_name == 'pull_request_target' && github.event.action != 'closed'
       with:
         repo-token: "${{ secrets.GITHUB_TOKEN }}"
         configuration-path: .github/labeler.yml
         sync-labels: "" # This is a workaround for issue 18671
 
-    - uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975
+    - name: Set or remove labels based on systemd development workflow
+      uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975
       if: github.event_name == 'pull_request_target' && github.event.action != 'closed' && !github.event.pull_request.draft
       with:
         script: |
@@ -71,7 +74,8 @@ jobs:
             }
           }
 
-    - uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975
+    - name: Add please-review label on command in issue comment
+      uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975
       if: github.event_name == 'issue_comment' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/please-review')
       with:
         script: |
@@ -82,7 +86,8 @@ jobs:
             labels: ["please-review"]
           })
 
-    - uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975
+    - name: Remove specific labels when PR is closed or merged
+      uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975
       if: github.event_name == 'pull_request_target' && github.event.action == 'closed'
       with:
         script: |
