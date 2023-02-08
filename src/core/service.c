@@ -2691,25 +2691,24 @@ _pure_ static bool service_can_reload(Unit *u) {
                 s->type == SERVICE_NOTIFY_RELOAD;
 }
 
-static unsigned service_exec_command_index(Unit *u, ServiceExecCommand id, ExecCommand *current) {
+static unsigned service_exec_command_index(Unit *u, ServiceExecCommand id, const ExecCommand *current) {
         Service *s = SERVICE(u);
         unsigned idx = 0;
-        ExecCommand *first, *c;
 
         assert(s);
         assert(id >= 0);
         assert(id < _SERVICE_EXEC_COMMAND_MAX);
 
-        first = s->exec_command[id];
+        const ExecCommand *first = s->exec_command[id];
 
         /* Figure out where we are in the list by walking back to the beginning */
-        for (c = current; c != first; c = c->command_prev)
+        for (const ExecCommand *c = current; c != first; c = c->command_prev)
                 idx++;
 
         return idx;
 }
 
-static int service_serialize_exec_command(Unit *u, FILE *f, ExecCommand *command) {
+static int service_serialize_exec_command(Unit *u, FILE *f, const ExecCommand *command) {
         _cleanup_free_ char *args = NULL, *p = NULL;
         Service *s = SERVICE(u);
         const char *type, *key;
