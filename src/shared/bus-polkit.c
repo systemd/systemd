@@ -154,6 +154,8 @@ int bus_test_polkit(
 
 #if ENABLE_POLKIT
 
+struct AsyncPolkitQueries;
+
 typedef struct AsyncPolkitQuery {
         char *action;
         char **details;
@@ -161,18 +163,69 @@ typedef struct AsyncPolkitQuery {
         sd_bus_message *request, *reply;
         sd_bus_slot *slot;
 
-        Hashmap *registry;
         sd_event_source *defer_event_source;
+
+        struct AsyncPolkitQueries *parent;
+        LIST_FIELDS(struct AsyncPolkitQuery, item);
 } AsyncPolkitQuery;
 
-static void async_polkit_query_free(AsyncPolkitQuery *q) {
+static AsyncPolkitQuery *async_polkit_query_free(AsyncPolkitQuery *q);
+
+typedef struct AsyncPolkitQueries {
+        unsigned n_ref;
+
+        Hashmap *registry;
+        sd_bus_message *request;
+
+        LIST_HEAD(AsyncPolkitQuery, items);
+} AsyncPolkitQueries;
+
+static int async_polkit_queries_new(sd_bus_message *request, AsyncPolkitQueries **ret) {
+        AsyncPolkitQueries *qs;
+
+        assert(request);
+        assert(ret);
+
+        qs = new(AsyncPolkitQueries, 1);
+        if (!qs)
+                return -ENOMEM;
+
+        *qs = (AsyncPolkitQueries) {
+                .n_ref = 1,
+                .request = sd_bus_message_ref(request),
+        };
+
+        *ret = qs;
+        return 0;
+}
+
+static AsyncPolkitQueries* async_polkit_queries_free(AsyncPolkitQueries *qs) {
+        AsyncPolkitQuery *q;
+
+        if (!qs)
+                return NULL;
+
+        if (qs->registry && qs->request)
+                hashmap_remove(qs->registry, qs->request);
+
+        sd_bus_message_unref(qs->request);
+
+        while ((q = qs->items)) {
+                LIST_REMOVE(item, qs->items, q);
+                async_polkit_query_free(q);
+        }
+
+        return mfree(qs);
+}
+
+DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(AsyncPolkitQueries, async_polkit_queries, async_polkit_queries_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(AsyncPolkitQueries*, async_polkit_queries_unref);
+
+static AsyncPolkitQuery *async_polkit_query_free(AsyncPolkitQuery *q) {
         if (!q)
-                return;
+                return NULL;
 
         sd_bus_slot_unref(q->slot);
-
-        if (q->registry && q->request)
-                hashmap_remove(q->registry, q->request);
 
         sd_bus_message_unref(q->request);
         sd_bus_message_unref(q->reply);
@@ -181,18 +234,59 @@ static void async_polkit_query_free(AsyncPolkitQuery *q) {
         strv_free(q->details);
 
         sd_event_source_disable_unref(q->defer_event_source);
-        free(q);
+
+        return mfree(q);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(AsyncPolkitQuery*, async_polkit_query_free);
+
+static int async_polkit_query_new(
+                AsyncPolkitQueries *parent,
+                sd_bus_message *request,
+                const char *action,
+                const char **details,
+                AsyncPolkitQuery **ret)
+{
+        _cleanup_(async_polkit_query_freep) AsyncPolkitQuery *q = NULL;
+
+        assert(parent);
+        assert(request);
+        assert(action);
+        assert(ret);
+
+        q = new(AsyncPolkitQuery, 1);
+        if (!q)
+                return -ENOMEM;
+
+        *q = (AsyncPolkitQuery) {
+                .request = sd_bus_message_ref(request),
+        };
+
+        q->action = strdup(action);
+        if (!q->action)
+                return -ENOMEM;
+
+        q->details = strv_copy((char**) details);
+        if (!q->details)
+                return -ENOMEM;
+
+        LIST_PREPEND(item, parent->items, q);
+
+        *ret = TAKE_PTR(q);
+
+        return 0;
 }
 
 static int async_polkit_defer(sd_event_source *s, void *userdata) {
-        AsyncPolkitQuery *q = userdata;
+        AsyncPolkitQuery *q = ASSERT_PTR(userdata);
 
         assert(s);
 
         /* This is called as idle event source after we processed the async polkit reply, hopefully after the
          * method call we re-enqueued has been properly processed. */
 
-        async_polkit_query_free(q);
+        q->parent = async_polkit_queries_unref(ASSERT_PTR(q->parent));
+
         return 0;
 }
 
@@ -201,6 +295,7 @@ static int async_polkit_callback(sd_bus_message *reply, void *userdata, sd_bus_e
         int r;
 
         assert(reply);
+        assert(q->parent);
 
         assert(q->slot);
         q->slot = sd_bus_slot_unref(q->slot);
@@ -213,7 +308,7 @@ static int async_polkit_callback(sd_bus_message *reply, void *userdata, sd_bus_e
          * again.
          *
          * We install an idle event loop event to clean-up the PolicyKit request data when we are idle again,
-         * i.e. after the second time the message is processed is complete. */
+         * i.e. after the last time the message is processed is complete. */
 
         assert(!q->defer_event_source);
         r = sd_event_add_defer(sd_bus_get_event(sd_bus_message_get_bus(reply)), &q->defer_event_source, async_polkit_defer, q);
@@ -232,6 +327,11 @@ static int async_polkit_callback(sd_bus_message *reply, void *userdata, sd_bus_e
         if (r < 0)
                 goto fail;
 
+        assert(q->parent->items); /* There must be at least one query on the list */
+        LIST_FOREACH(item, i, q->parent->items)
+                if (i != q)
+                        sd_bus_message_rewind(i->reply, true);
+
         r = sd_bus_enqueue_for_read(sd_bus_message_get_bus(q->request), q->request);
         if (r < 0)
                 goto fail;
@@ -241,8 +341,84 @@ static int async_polkit_callback(sd_bus_message *reply, void *userdata, sd_bus_e
 fail:
         log_debug_errno(r, "Processing asynchronous PolicyKit reply failed, ignoring: %m");
         (void) sd_bus_reply_method_errno(q->request, r, NULL);
-        async_polkit_query_free(q);
+        q->parent = async_polkit_queries_unref(q->parent);
         return r;
+}
+
+static int process_polkit_response(
+                AsyncPolkitQuery *q,
+                sd_bus_message *call,
+                const char *action,
+                const char **details,
+                Hashmap **registry,
+                sd_bus_error *ret_error) {
+        int authorized, challenge, r;
+
+        assert(q);
+        assert(call);
+        assert(action);
+        assert(registry);
+        assert(ret_error);
+
+        assert(q->reply);
+        assert(streq(q->action, action));
+
+        /* If the details of operation we want to authenticate changed since the previous call(s),
+         * let's not use this authentication, it might be out of date as the object and context we
+         * operate on might have changed. */
+        if (!strv_equal(q->details, (char**) details))
+                return -ESTALE;
+
+        if (sd_bus_message_is_method_error(q->reply, NULL)) {
+                const sd_bus_error *e;
+
+                e = sd_bus_message_get_error(q->reply);
+
+                /* Treat no PK available as access denied */
+                if (bus_error_is_unknown_service(e))
+                        return -EACCES;
+
+                /* Copy error from polkit reply */
+                sd_bus_error_copy(ret_error, e);
+                return -sd_bus_error_get_errno(e);
+        }
+
+        r = sd_bus_message_enter_container(q->reply, 'r', "bba{ss}");
+        if (r >= 0)
+                r = sd_bus_message_read(q->reply, "bb", &authorized, &challenge);
+        if (r < 0)
+                return r;
+
+        if (authorized)
+                return 1;
+
+        if (challenge)
+                return sd_bus_error_set(ret_error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED, "Interactive authentication required.");
+
+        return -EACCES;
+}
+
+static AsyncPolkitQuery *find_query(Hashmap *registry, sd_bus_message *call, const char *action, AsyncPolkitQueries **ret_queries) {
+        AsyncPolkitQueries *qs;
+        AsyncPolkitQuery *q = NULL;
+
+        assert(call);
+        assert(action);
+        assert(ret_queries);
+
+        qs = hashmap_get(registry, call);
+        if (!qs)
+                return NULL;
+
+        LIST_FOREACH(item, i, qs->items)
+                if (streq(i->action, action)) {
+                        q = i;
+                        break;
+                }
+
+        *ret_queries = qs;
+
+        return q;
 }
 
 #endif
@@ -269,49 +445,14 @@ int bus_verify_polkit_async(
                 return r;
 
 #if ENABLE_POLKIT
-        AsyncPolkitQuery *q = hashmap_get(*registry, call);
-        if (q) {
-                int authorized, challenge;
+        AsyncPolkitQueries *qs = NULL;
+        AsyncPolkitQuery *q;
 
-                /* This is the second invocation of this function, and there's already a response from
-                 * polkit, let's process it */
-                assert(q->reply);
-
-                /* If the operation we want to authenticate changed between the first and the second time,
-                 * let's not use this authentication, it might be out of date as the object and context we
-                 * operate on might have changed. */
-                if (!streq(q->action, action) ||
-                    !strv_equal(q->details, (char**) details))
-                        return -ESTALE;
-
-                if (sd_bus_message_is_method_error(q->reply, NULL)) {
-                        const sd_bus_error *e;
-
-                        e = sd_bus_message_get_error(q->reply);
-
-                        /* Treat no PK available as access denied */
-                        if (bus_error_is_unknown_service(e))
-                                return -EACCES;
-
-                        /* Copy error from polkit reply */
-                        sd_bus_error_copy(ret_error, e);
-                        return -sd_bus_error_get_errno(e);
-                }
-
-                r = sd_bus_message_enter_container(q->reply, 'r', "bba{ss}");
-                if (r >= 0)
-                        r = sd_bus_message_read(q->reply, "bb", &authorized, &challenge);
-                if (r < 0)
-                        return r;
-
-                if (authorized)
-                        return 1;
-
-                if (challenge)
-                        return sd_bus_error_set(ret_error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED, "Interactive authentication required.");
-
-                return -EACCES;
-        }
+        q = find_query(*registry, call, action, &qs);
+        /* This is a repeated invocation of this function, and there's already a response from
+         * polkit, let's process it */
+        if (q)
+                return process_polkit_response(q, call, action, details, registry, ret_error);
 #endif
 
         r = sd_bus_query_sender_privilege(call, capability);
@@ -326,6 +467,7 @@ int bus_verify_polkit_async(
 
 #if ENABLE_POLKIT
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *pk = NULL;
+        _cleanup_(async_polkit_queries_unrefp) AsyncPolkitQueries *qs_new = NULL;
 
         int c = sd_bus_message_get_allow_interactive_authorization(call);
         if (c < 0)
@@ -363,39 +505,30 @@ int bus_verify_polkit_async(
         if (r < 0)
                 return r;
 
-        q = new(AsyncPolkitQuery, 1);
-        if (!q)
-                return -ENOMEM;
+        if (!qs) {
+                r = async_polkit_queries_new(call, &qs_new);
+                if (r < 0)
+                        return r;
 
-        *q = (AsyncPolkitQuery) {
-                .request = sd_bus_message_ref(call),
-        };
+                qs = qs_new;
 
-        q->action = strdup(action);
-        if (!q->action) {
-                async_polkit_query_free(q);
-                return -ENOMEM;
+                r = hashmap_put(*registry, call, qs);
+                if (r < 0)
+                        return r;
+
+                qs->registry = *registry;
         }
 
-        q->details = strv_copy((char**) details);
-        if (!q->details) {
-                async_polkit_query_free(q);
-                return -ENOMEM;
-        }
-
-        r = hashmap_put(*registry, call, q);
-        if (r < 0) {
-                async_polkit_query_free(q);
+        /* Note: lifetime of the created AsyncPolkitQuery object is bound to its parent AsyncPolkitQueries. */
+        r = async_polkit_query_new(qs, call, action, details, &q);
+        if (r < 0)
                 return r;
-        }
-
-        q->registry = *registry;
 
         r = sd_bus_call_async(call->bus, &q->slot, pk, async_polkit_callback, q, 0);
-        if (r < 0) {
-                async_polkit_query_free(q);
+        if (r < 0)
                 return r;
-        }
+
+        q->parent = async_polkit_queries_ref(qs);
 
         return 0;
 #endif
@@ -405,7 +538,7 @@ int bus_verify_polkit_async(
 
 Hashmap *bus_verify_polkit_async_registry_free(Hashmap *registry) {
 #if ENABLE_POLKIT
-        return hashmap_free_with_destructor(registry, async_polkit_query_free);
+        return hashmap_free_with_destructor(registry, async_polkit_queries_free);
 #else
         assert(hashmap_isempty(registry));
         return hashmap_free(registry);
