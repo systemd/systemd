@@ -286,7 +286,8 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_current)
                 for (UnifiedSection us = 0; us < _UNIFIED_SECTION_MAX; us++)
                         if (arg_sections[us])
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --current switch cannot be used in combination with --linux= and related switches.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "The --current switch cannot be used in combination with --linux= and related switches.");
 
         if (strv_isempty(arg_phase)) {
                 /* If no phases are specifically selected, pick everything from the beginning of the initrd
@@ -448,7 +449,8 @@ static int measure_kernel(PcrState *pcr_states, size_t n) {
                                 return log_oom();
 
                         if (EVP_DigestInit_ex(mdctx[i], pcr_states[i].md, NULL) != 1)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize data %s context.", pcr_states[i].bank);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to initialize data %s context.", pcr_states[i].bank);
                 }
 
                 for (;;) {
@@ -630,13 +632,14 @@ static void pcr_states_restore(PcrState *pcr_states, size_t n) {
 static int verb_calculate(int argc, char *argv[], void *userdata) {
         _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
         _cleanup_(pcr_state_free_all) PcrState *pcr_states = NULL;
-        size_t n;
         int r;
 
         if (!arg_sections[UNIFIED_SECTION_LINUX] && !arg_current)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Either --linux= or --current must be specified, refusing.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Either --linux= or --current must be specified, refusing.");
         if (arg_append)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --append= switch is only supported for 'sign', not 'calculate'.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "The --append= switch is only supported for 'sign', not 'calculate'.");
 
         assert(!strv_isempty(arg_banks));
         assert(!strv_isempty(arg_phase));
@@ -645,7 +648,7 @@ static int verb_calculate(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        n = (size_t) r;
+        size_t n = r;
 
         r = measure_kernel(pcr_states, n);
         if (r < 0)
@@ -732,10 +735,12 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         int r;
 
         if (!arg_sections[UNIFIED_SECTION_LINUX] && !arg_current)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Either --linux= or --current must be specified, refusing.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Either --linux= or --current must be specified, refusing.");
 
         if (!arg_private_key)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No private key specified, use --private-key=.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "No private key specified, use --private-key=.");
 
         assert(!strv_isempty(arg_banks));
         assert(!strv_isempty(arg_phase));
@@ -746,7 +751,8 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Failed to parse '%s': %m", arg_append);
 
                 if (!json_variant_is_object(v))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File '%s' is not a valid JSON object, refusing.", arg_append);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "File '%s' is not a valid JSON object, refusing.", arg_append);
         }
 
         /* When signing we only support JSON output */
@@ -782,13 +788,15 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                         return log_oom();
 
                 if (i2d_PUBKEY_fp(tf, privkey) != 1)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to extract public key from private key file '%s'.", arg_private_key);
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Failed to extract public key from private key file '%s'.", arg_private_key);
 
                 fflush(tf);
                 rewind(tf);
 
                 if (!d2i_PUBKEY_fp(tf, &pubkey))
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse extracted public key of private key file '%s'.", arg_private_key);
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Failed to parse extracted public key of private key file '%s'.", arg_private_key);
         }
 
         r = pcr_states_allocate(&pcr_states);
