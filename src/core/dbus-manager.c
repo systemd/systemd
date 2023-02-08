@@ -1527,8 +1527,10 @@ static void log_caller(sd_bus_message *message, Manager *manager, const char *me
         (void) sd_bus_creds_get_comm(creds, &comm);
         caller = manager_get_unit_by_pid(manager, pid);
 
-        log_info("%s requested from client PID " PID_FMT " ('%s') (from unit '%s')...",
-                 method, pid, strna(comm), strna(caller ? caller->id : NULL));
+        log_info("%s requested from client PID " PID_FMT "%s%s%s%s%s%s...",
+                 method, pid,
+                 comm ? " ('" : "", strempty(comm), comm ? "')" : "",
+                 caller ? " (unit " : "", caller ? caller->id : NULL, caller ? ")" : "");
 }
 
 static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
