@@ -78,7 +78,7 @@ static EFI_STATUS tpm2_measure_to_pcr_and_event_log(
                         tcg_event);
 }
 
-static EFI_TCG *tcg1_interface_check(void) {
+static EFI_TCG* tcg1_interface_check(void) {
         EFI_PHYSICAL_ADDRESS event_log_location, event_log_last_entry;
         TCG_BOOT_SERVICE_CAPABILITY capability = {
                 .Size = sizeof(capability),
@@ -109,7 +109,7 @@ static EFI_TCG *tcg1_interface_check(void) {
         return tcg;
 }
 
-static EFI_TCG2 * tcg2_interface_check(void) {
+static EFI_TCG2* tcg2_interface_check(void) {
         EFI_TCG2_BOOT_SERVICE_CAPABILITY capability = {
                 .Size = sizeof(capability),
         };
