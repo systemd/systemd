@@ -70,7 +70,7 @@ ID=$(journalctl --new-id128 | sed -n 2p)
 printf $'foo' | systemd-cat -t "$ID" --level-prefix false
 journalctl --sync
 journalctl -b -o export --output-fields=MESSAGE,FOO --output-fields=PRIORITY,MESSAGE -t "$ID" >/output
-[[ $(grep -c . /output) -eq 6 ]]
+[[ $(grep -c . /output) -eq 8 ]]
 grep -q '^__CURSOR=' /output
 grep -q '^MESSAGE=foo$' /output
 grep -q '^PRIORITY=6$' /output
@@ -258,5 +258,22 @@ if is_xattr_supported; then
 
     rm -rf /etc/systemd/system/logs-filtering.service.d
 fi
+
+# Check that the seqnum field at least superficially works
+systemd-cat echo "ya"
+journalctl --sync
+SEQNUM1=$(journalctl -o export -n 1 | grep -a __SEQNUM= | cut -d= -f2)
+systemd-cat echo "yo"
+journalctl --sync
+SEQNUM2=$(journalctl -o export -n 1 | grep -a __SEQNUM= | cut -d= -f2)
+test "$SEQNUM2" -gt "$SEQNUM1"
+
+journalctl --directory=/test-journals/1 --list-boots --output=json > /tmp/lb1
+
+diff -u /tmp/lb1 - <<'EOF'
+[{"index":-3,"boot_id":"5ea5fc4f82a14186b5332a788ef9435e","first_entry":1666569600994371,"last_entry":1666584266223608},{"index":-2,"boot_id":"bea6864f21ad4c9594c04a99d89948b0","first_entry":1666584266731785,"last_entry":1666584347230411},{"index":-1,"boot_id":"4c708e1fd0744336be16f3931aa861fb","first_entry":1666584348378271,"last_entry":1666584354649355},{"index":0,"boot_id":"35e8501129134edd9df5267c49f744a4","first_entry":1666584356661527,"last_entry":1666584438086856}]
+EOF
+
+rm /tmp/lb1
 
 touch /testok

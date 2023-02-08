@@ -596,6 +596,16 @@
           </para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>__SEQNUM=</varname></term>
+        <term><varname>__SEQNUM_ID=</varname></term>
+
+        <listitem><para>The sequence number (and associated sequence number ID) of this journal entry in the
+        journal file it originates from. See
+        <citerefentry><refentrytitle>sd_journal_get_seqnum</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        for details.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

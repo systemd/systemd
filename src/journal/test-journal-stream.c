@@ -103,12 +103,12 @@ static void run_test(void) {
                 iovec[1] = IOVEC_MAKE(q, strlen(q));
 
                 if (i % 10 == 0)
-                        assert_se(journal_file_append_entry(three->file, &ts, NULL, iovec, 2, NULL, NULL, NULL) == 0);
+                        assert_se(journal_file_append_entry(three->file, &ts, NULL, iovec, 2, NULL, NULL, NULL, NULL) == 0);
                 else {
                         if (i % 3 == 0)
-                                assert_se(journal_file_append_entry(two->file, &ts, NULL, iovec, 2, NULL, NULL, NULL) == 0);
+                                assert_se(journal_file_append_entry(two->file, &ts, NULL, iovec, 2, NULL, NULL, NULL, NULL) == 0);
 
-                        assert_se(journal_file_append_entry(one->file, &ts, NULL, iovec, 2, NULL, NULL, NULL) == 0);
+                        assert_se(journal_file_append_entry(one->file, &ts, NULL, iovec, 2, NULL, NULL, NULL, NULL) == 0);
                 }
 
                 free(p);
