@@ -417,9 +417,76 @@ _public_ void sd_journal_flush_matches(sd_journal *j) {
         detach_location(j);
 }
 
-_pure_ static int compare_with_location(const JournalFile *f, const Location *l, const JournalFile *current_file) {
+static int journal_file_find_newest_for_boot_id(
+                sd_journal *j,
+                sd_id128_t id,
+                JournalFile **ret) {
+
+        JournalFile *prev = NULL;
         int r;
 
+        assert(j);
+        assert(ret);
+
+        /* Before we use it, let's refresh the timestamp from the header, and reshuffle our prioq
+         * accordingly. We do this only a bunch of times, to not be caught in some update loop. */
+        for (unsigned n_tries = 0;; n_tries++) {
+                JournalFile *f;
+                Prioq *q;
+
+                q = hashmap_get(j->newest_by_boot_id, &id);
+                if (!q)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENODATA),
+                                               "Requested delta for boot ID %s, but we have no information about that boot ID.", SD_ID128_TO_STRING(id));
+
+                assert_se(f = prioq_peek(q)); /* we delete hashmap entries once the prioq is empty, so this must hold */
+
+                if (f == prev || n_tries >= 5) {
+                        /* This was already the best answer in the previous run, or we tried too often, use it */
+                        *ret = f;
+                        return 0;
+                }
+
+                prev = f;
+
+                /* Let's read the journal file's current timestamp once, before we return it, maybe it has changed. */
+                r = journal_file_read_tail_timestamp(j, f);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to read tail timestamp while trying to find newest journal file for boot ID %s.", SD_ID128_TO_STRING(id));
+
+                /* Refreshing the timestamp we read might have reshuffled the prioq, hence let's check the
+                 * prioq again and only use the the information once we reached an equilibrium or hit a
+                 * limit */
+        }
+}
+
+static int compare_boot_ids(sd_journal *j, sd_id128_t a, sd_id128_t b) {
+        JournalFile *x, *y;
+
+        assert(j);
+
+        /* Try to find the newest open journal file for the two boot ids */
+        if (journal_file_find_newest_for_boot_id(j, a, &x) < 0 ||
+            journal_file_find_newest_for_boot_id(j, b, &y) < 0)
+                return 0;
+
+        /* Only compare the boot id timestamps if they originate from the same machine. If they are from
+         * different machines, then we timestamps of the boot ids might be as off as the timestamps on the
+         * entries and hence not useful for comparing. */
+        if (!sd_id128_equal(x->newest_machine_id, y->newest_machine_id))
+                return 0;
+
+        return CMP(x->newest_realtime_usec, y->newest_realtime_usec);
+}
+
+static int compare_with_location(
+                sd_journal *j,
+                const JournalFile *f,
+                const Location *l,
+                const JournalFile *current_file) {
+        int r;
+
+        assert(j);
         assert(f);
         assert(l);
         assert(f->location_type == LOCATION_SEEK);
@@ -439,29 +506,30 @@ _pure_ static int compare_with_location(const JournalFile *f, const Location *l,
 
         if (l->seqnum_set &&
             sd_id128_equal(f->header->seqnum_id, l->seqnum_id)) {
-
                 r = CMP(f->current_seqnum, l->seqnum);
                 if (r != 0)
                         return r;
         }
 
-        if (l->monotonic_set &&
-            sd_id128_equal(f->current_boot_id, l->boot_id)) {
-
-                r = CMP(f->current_monotonic, l->monotonic);
+        if (l->monotonic_set) {
+                /* If both arguments have the same boot ID, then we can compare the monotonic timestamps. If
+                 * they are distinct, then we might able to lookup the timestamps of those boot IDs (if they
+                 * are from the same machine) and order by that. */
+                if (sd_id128_equal(f->current_boot_id, l->boot_id))
+                        r = CMP(f->current_monotonic, l->monotonic);
+                else
+                        r = compare_boot_ids(j, f->current_boot_id, l->boot_id);
                 if (r != 0)
                         return r;
         }
 
         if (l->realtime_set) {
-
                 r = CMP(f->current_realtime, l->realtime);
                 if (r != 0)
                         return r;
         }
 
         if (l->xor_hash_set) {
-
                 r = CMP(f->current_xor_hash, l->xor_hash);
                 if (r != 0)
                         return r;
@@ -789,7 +857,7 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
                 if (j->current_location.type == LOCATION_DISCRETE) {
                         int k;
 
-                        k = compare_with_location(f, &j->current_location, j->current_file);
+                        k = compare_with_location(j, f, &j->current_location, j->current_file);
 
                         found = direction == DIRECTION_DOWN ? k > 0 : k < 0;
                 } else
@@ -806,9 +874,10 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
         }
 }
 
-static int compare_locations(JournalFile *af, JournalFile *bf) {
+static int compare_locations(sd_journal *j, JournalFile *af, JournalFile *bf) {
         int r;
 
+        assert(j);
         assert(af);
         assert(af->header);
         assert(bf);
@@ -835,12 +904,14 @@ static int compare_locations(JournalFile *af, JournalFile *bf) {
                  * make the best of it and compare by time. */
         }
 
-        if (sd_id128_equal(af->current_boot_id, bf->current_boot_id)) {
+        if (sd_id128_equal(af->current_boot_id, bf->current_boot_id))
                 /* If the boot id matches, compare monotonic time */
                 r = CMP(af->current_monotonic, bf->current_monotonic);
-                if (r != 0)
-                        return r;
-        }
+        else
+                /* If they don't match try to compare boot IDs */
+                r = compare_boot_ids(j, af->current_boot_id, bf->current_boot_id);
+        if (r != 0)
+                return r;
 
         /* Otherwise, compare UTC time */
         r = CMP(af->current_realtime, bf->current_realtime);
@@ -884,7 +955,7 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
                 else {
                         int k;
 
-                        k = compare_locations(f, new_file);
+                        k = compare_locations(j, f, new_file);
 
                         found = direction == DIRECTION_DOWN ? k < 0 : k > 0;
                 }
