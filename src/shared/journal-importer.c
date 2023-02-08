@@ -14,6 +14,7 @@
 #include "journal-util.h"
 #include "parse-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "unaligned.h"
 
 enum {
@@ -217,9 +218,8 @@ static int process_special_field(JournalImporter *imp, char *line) {
 
         assert(line);
 
-        value = startswith(line, "__CURSOR=");
-        if (value)
-                /* ignore __CURSOR */
+        if (STARTSWITH_SET(line, "__CURSOR=", "__SEQNUM=", "__SEQNUM_ID="))
+                /* ignore __CURSOR=, __SEQNUM=, __SEQNUM_ID= which we cannot replicate */
                 return 1;
 
         value = startswith(line, "__REALTIME_TIMESTAMP=");
