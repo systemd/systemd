@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <linux/oom.h>
+#include <pthread.h>
 #include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
@@ -791,6 +792,29 @@ TEST(set_oom_score_adjust) {
         assert_se(set_oom_score_adjust(a) >= 0);
         assert_se(get_oom_score_adjust(&b) >= 0);
         assert_se(b == a);
+}
+
+static void* dummy_thread(void *p) {
+        char x;
+
+        assert_se(read(PTR_TO_FD(p), &x, 1) == 1);
+        return NULL;
+}
+
+TEST(get_process_threads) {
+        _cleanup_close_pair_ int pfd[2] = PIPE_EBADF;
+        pthread_t t;
+
+        assert_se(pipe2(pfd, O_CLOEXEC) >= 0);
+
+        assert_se(get_process_threads(0) == 1);
+        assert_se(pthread_create(&t, NULL, &dummy_thread, FD_TO_PTR(pfd[0])) == 0);
+        assert_se(get_process_threads(0) == 2);
+
+        assert_se(write(pfd[1], &(const char) { 'x' }, 1) == 1);
+        assert_se(pthread_join(t, NULL) == 0);
+
+        assert_se(get_process_threads(0) == 1);
 }
 
 static int intro(void) {
