@@ -434,4 +434,76 @@ assert_cc(sizeof(dummy_t) == 0);
                 _q && _q > (base) ? &_q[-1] : NULL;      \
         })
 
+/* Iterate through each variadic arg. All must be the type provided, or must be implicitly convertable. */
+#define VA_ARGS_FOREACH(entry, type, ...) _VA_ARGS_FOREACH(entry, type, UNIQ_T(_entries_, UNIQ), UNIQ_T(_current_, UNIQ), UNIQ_T(_b_, UNIQ), ##__VA_ARGS__)
+#define _VA_ARGS_FOREACH(entry, type, _entries_, _current_, _b_, ...) \
+        for (type _entries_[] = { __VA_ARGS__ }, *_current_ = _entries_, entry; \
+             _VA_ARGS_FOREACH_CHECK(_entries_, _current_, _b_) && ({ entry = *_current_; true; }); \
+             _current_++)
+#define _VA_ARGS_FOREACH_CHECK(_entries_, _current_, _b_)               \
+        ({                                                              \
+                assert(_entries_ <= _current_);                         \
+                DISABLE_WARNING_TYPE_LIMITS;                            \
+                bool _b_ = (size_t)(_current_ - _entries_) < ELEMENTSOF(_entries_); \
+                REENABLE_WARNING;                                       \
+                _b_;                                                    \
+        })
+
+/* Bit index(es) (0-based) to mask (of specified type). Assertion failure if (any) index is out of range. */
+#define INDEXES_TO_MASK(type, ...) _INDEXES_TO_MASK(type, UNIQ_T(_mask_, UNIQ), UNIQ_T(_indexes_, UNIQ), UNIQ_T(_i_, UNIQ), ##__VA_ARGS__)
+#define __INDEXES_TO_MASK(type, _mask_, _indexes_, _i_, ...)             \
+        ({                                                              \
+                type _mask_ = 0;                                        \
+                size_t _indexes_[] = { __VA_ARGS__ };                   \
+                for (size_t _i_ = 0; _i_ < ELEMENTSOF(_indexes_); _i_++) \
+                        _mask_ |= INDEX_TO_MASK(type, _indexes_[_i_];   \
+                _mask_;                                                 \
+        })
+#define _INDEXES_TO_MASK(type, _mask_, _indexes_, _i_, ...)             \
+        ({                                                              \
+                type _mask_ = 0;                                        \
+                VA_ARGS_FOREACH(_i_, size_t, __VA_ARGS__)               \
+                        _mask_ |= INDEX_TO_MASK(type, _i_);             \
+                _mask_;                                                 \
+        })
+#define INDEX_TO_MASK(type, index) _INDEX_TO_MASK(type, index, UNIQ_T(_index_, UNIQ))
+#define _INDEX_TO_MASK(type, index, _index_)                            \
+        ({                                                              \
+                size_t _index_ = (index);                               \
+                assert(sizeof(type) <= sizeof(unsigned long long));     \
+                assert(_index_ < sizeof(type) * 8);                     \
+                ((type)1) << _index_;                                   \
+        })
+
+/* Set, clear, or check bit. Index is 0-based. Assertion failure if index is out of range. */
+#define SET_BIT(bits, index) ((bits) |= INDEX_TO_MASK(typeof(bits), index))
+#define CLEAR_BIT(bits, index) ((bits) &= ~INDEX_TO_MASK(typeof(bits), index))
+#define IS_BIT_SET(bits, index) (!!((bits) & INDEX_TO_MASK(typeof(bits), index)))
+#define SET_BITS(bits, ...) ((bits) |= INDEXES_TO_MASK(typeof(bits), ##__VA_ARGS__))
+#define CLEAR_BITS(bits, ...) ((bits) &= ~INDEXES_TO_MASK(typeof(bits), ##__VA_ARGS__))
+#define ARE_BITS_SET(bits, ...) ((~(bits) & INDEXES_TO_MASK(typeof(bits), ##__VA_ARGS__)) == 0)
+
+/* Iterate through each set bit. Index is 0-based and type int. */
+#define BIT_FOREACH(index, bits) _BIT_FOREACH(index, bits, UNIQ_T(_last_, UNIQ))
+#define _BIT_FOREACH(index, bits, _last_)                               \
+        for (int _last_ = -1, index; (index = BIT_NEXT(bits, _last_)) >= 0; _last_ = index)
+
+/* Find the next set bit after 0-based index 'last'. Result is 0-based index of next set bit, or -1 if no
+   more bits are set. */
+#define BIT_NEXT(bits, last) _BIT_NEXT(bits, last, UNIQ_T(_last_, UNIQ), UNIQ_T(_next_, UNIQ))
+#define _BIT_NEXT(bits, last, _last_, _next_)                           \
+        ({                                                              \
+                int _last_ = (last);                                    \
+                _last_ + 1 == (int)sizeof(bits) * 8                     \
+                        ? -1 /* Last index was msb. */                  \
+                        : __BIT_NEXT(bits, _last_, _next_);             \
+        })
+#define __BIT_NEXT(bits, _last_, _next_)                                \
+        ({                                                              \
+                int _next_ = __builtin_ffsll(((unsigned long long)(bits)) >> (_last_ + 1)); \
+                _next_ == 0                                             \
+                        ? -1 /* No more bits set. */                    \
+                        : _last_ + _next_;                              \
+        })
+
 #include "log.h"
