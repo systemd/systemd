@@ -3193,56 +3193,6 @@ void journal_file_save_location(JournalFile *f, Object *o, uint64_t offset) {
         f->current_xor_hash = le64toh(o->entry.xor_hash);
 }
 
-int journal_file_compare_locations(JournalFile *af, JournalFile *bf) {
-        int r;
-
-        assert(af);
-        assert(af->header);
-        assert(bf);
-        assert(bf->header);
-        assert(af->location_type == LOCATION_SEEK);
-        assert(bf->location_type == LOCATION_SEEK);
-
-        /* If contents, timestamps and seqnum match, these entries are
-         * identical. */
-        if (sd_id128_equal(af->current_boot_id, bf->current_boot_id) &&
-            af->current_monotonic == bf->current_monotonic &&
-            af->current_realtime == bf->current_realtime &&
-            af->current_xor_hash == bf->current_xor_hash &&
-            sd_id128_equal(af->header->seqnum_id, bf->header->seqnum_id) &&
-            af->current_seqnum == bf->current_seqnum)
-                return 0;
-
-        if (sd_id128_equal(af->header->seqnum_id, bf->header->seqnum_id)) {
-
-                /* If this is from the same seqnum source, compare
-                 * seqnums */
-                r = CMP(af->current_seqnum, bf->current_seqnum);
-                if (r != 0)
-                        return r;
-
-                /* Wow! This is weird, different data but the same
-                 * seqnums? Something is borked, but let's make the
-                 * best of it and compare by time. */
-        }
-
-        if (sd_id128_equal(af->current_boot_id, bf->current_boot_id)) {
-
-                /* If the boot id matches, compare monotonic time */
-                r = CMP(af->current_monotonic, bf->current_monotonic);
-                if (r != 0)
-                        return r;
-        }
-
-        /* Otherwise, compare UTC time */
-        r = CMP(af->current_realtime, bf->current_realtime);
-        if (r != 0)
-                return r;
-
-        /* Finally, compare by contents */
-        return CMP(af->current_xor_hash, bf->current_xor_hash);
-}
-
 static bool check_properly_ordered(uint64_t new_offset, uint64_t old_offset, direction_t direction) {
 
         /* Consider it an error if any of the two offsets is uninitialized */

@@ -275,7 +275,6 @@ int journal_file_find_field_object_with_hash(JournalFile *f, const void *field, 
 
 void journal_file_reset_location(JournalFile *f);
 void journal_file_save_location(JournalFile *f, Object *o, uint64_t offset);
-int journal_file_compare_locations(JournalFile *af, JournalFile *bf);
 int journal_file_next_entry(JournalFile *f, uint64_t p, direction_t direction, Object **ret_object, uint64_t *ret_offset);
 
 int journal_file_next_entry_for_data(JournalFile *f, Object *d, direction_t direction, Object **ret_object, uint64_t *ret_offset);
