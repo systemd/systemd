@@ -291,8 +291,8 @@ _destructor_ static void cleanup_pools(void) {
         if (getpid() != gettid())
                 return;
 
-        r = get_proc_field("/proc/self/status", "Threads", WHITESPACE, &t);
-        if (r < 0 || !streq(t, "1"))
+        r = get_process_threads(0);
+        if (r != 1)
                 return;
 
         mempool_drop(&hashmap_pool);
