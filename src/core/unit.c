@@ -4169,6 +4169,16 @@ int unit_patch_contexts(Unit *u) {
                                 if (r < 0)
                                         return r;
                         }
+
+                        /* If there are encrypted credentials we might need to access the TPM. */
+                        ExecLoadCredential *cred;
+                        HASHMAP_FOREACH(cred, ec->load_credentials)
+                                if (cred->encrypted) {
+                                        r = cgroup_add_device_allow(cc, "/dev/tpmrm0", "rw");
+                                        if (r < 0)
+                                                return r;
+                                        break;
+                                }
                 }
         }
 
