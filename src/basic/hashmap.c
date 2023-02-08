@@ -277,7 +277,6 @@ static _used_ const struct hashmap_type_info hashmap_type_info[_HASHMAP_TYPE_MAX
 #if VALGRIND
 _destructor_ static void cleanup_pools(void) {
         _cleanup_free_ char *t = NULL;
-        int r;
 
         /* Be nice to valgrind */
 
@@ -291,8 +290,7 @@ _destructor_ static void cleanup_pools(void) {
         if (getpid() != gettid())
                 return;
 
-        r = get_proc_field("/proc/self/status", "Threads", WHITESPACE, &t);
-        if (r < 0 || !streq(t, "1"))
+        if (get_process_threads(0) != 1)
                 return;
 
         mempool_drop(&hashmap_pool);
