@@ -245,6 +245,47 @@ static AsyncPolkitQuery *async_polkit_query_free(AsyncPolkitQuery *q) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(AsyncPolkitQuery*, async_polkit_query_free);
 
+static int async_polkit_query_new(
+                AsyncPolkitQueries *parent,
+                sd_bus_message *request,
+                const char *action,
+                const char **details,
+                AsyncPolkitQuery **ret)
+{
+        AsyncPolkitQuery *q;
+
+        assert(parent);
+        assert(request);
+        assert(action);
+        assert(ret);
+
+        q = new(AsyncPolkitQuery, 1);
+        if (!q)
+                return -ENOMEM;
+
+        *q = (AsyncPolkitQuery) {
+                .request = sd_bus_message_ref(request),
+        };
+
+        q->action = strdup(action);
+        if (!q->action) {
+                async_polkit_query_free(q);
+                return -ENOMEM;
+        }
+
+        q->details = strv_copy((char**) details);
+        if (!q->details) {
+                async_polkit_query_free(q);
+                return -ENOMEM;
+        }
+
+        LIST_PREPEND(item, parent->items, q);
+
+        *ret = q;
+
+        return 0;
+}
+
 static int async_polkit_defer(sd_event_source *s, void *userdata) {
         AsyncPolkitQuery *q = ASSERT_PTR(userdata);
 
@@ -487,27 +528,10 @@ int bus_verify_polkit_async(
                 qs->registry = *registry;
         }
 
-        q = new(AsyncPolkitQuery, 1);
-        if (!q)
-                return -ENOMEM;
-
-        *q = (AsyncPolkitQuery) {
-                .request = sd_bus_message_ref(call),
-        };
-
-        q->action = strdup(action);
-        if (!q->action) {
-                async_polkit_query_free(q);
-                return -ENOMEM;
-        }
-
-        q->details = strv_copy((char**) details);
-        if (!q->details) {
-                async_polkit_query_free(q);
-                return -ENOMEM;
-        }
-
-        LIST_PREPEND(item, qs->items, q);
+        /* Note: lifetime of the created AsyncPolkitQuery object is bound to its parent AsyncPolkitQueries. */
+        r = async_polkit_query_new(qs, call, action, details, &q);
+        if (r < 0)
+                return r;
 
         r = sd_bus_call_async(call->bus, &q->slot, pk, async_polkit_callback, q, 0);
         if (r < 0)
