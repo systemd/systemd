@@ -562,9 +562,23 @@ int xdg_autostart_service_generate_unit(
         }
 
         if (service->gnome_autostart_phase) {
-                /* There is no explicit value for the "Application" phase. */
-                log_debug("%s: not generating unit, startup phases are not supported.", service->path);
-                return 0;
+                /* There is no explicit value for the "Application" phase.
+                 *
+                 * On gnome and gnome derived platforms a secondary startup mechanism handles desktop files
+                 * with startup phases set. These might not have XDG_CURRENT_DESKTOP=gnome. We want to ignore it
+                 *
+                 * On KDE the desktop file would previously have got executed. We want the unit
+                 * Therefore map to an autostart condition of being KDE only
+                 */
+                log_debug("%s: Gnome startup phases are not supported", service->path);
+                const bool is_visible_in_kde = (strv_isempty(service->only_show_in) || strv_contains(service->only_show_in, "kde")) &&
+                        (strv_isempty(service->not_show_in) || !strv_contains(service->not_show_in, "kde"));
+
+                if (!is_visible_in_kde) {
+                        return 0;
+                } else {
+                }
+
         }
 
         path_escaped = specifier_escape(service->path);
@@ -621,8 +635,13 @@ int xdg_autostart_service_generate_unit(
                 fprintf(f, "WorkingDirectory=-%s\n", e_working_directory);
         }
 
-        /* Generate an ExecCondition to check $XDG_CURRENT_DESKTOP */
-        if (!strv_isempty(service->only_show_in) || !strv_isempty(service->not_show_in)) {
+        /* Generate an ExecCondition to check $XDG_CURRENT_DESKTOP
+         * If gnome_autostart_phase is set we will be KDE only or skipped entirely (see above)
+         */
+        if (service->gnome_autostart_phase) {
+                        fprintf(f,
+                "ExecCondition=" ROOTLIBEXECDIR "/systemd-xdg-autostart-condition \"kde\" \"\"\n");
+        } else if (!strv_isempty(service->only_show_in) || !strv_isempty(service->not_show_in)) {
                 _cleanup_free_ char *only_show_in = NULL, *not_show_in = NULL, *e_only_show_in = NULL, *e_not_show_in = NULL;
 
                 only_show_in = strv_join(service->only_show_in, ":");
