@@ -128,6 +128,12 @@ if [ -e /usr/lib/systemd/systemd-measure ] && \
     # Now, do the same, but with a cryptsetup binding
     truncate -s 20M $img
     cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom $img /tmp/passphrase
+    # Ensure that an unrelated signature, when not requested, is not used
+    touch /run/systemd/tpm2-pcr-signature.json
+    systemd-cryptenroll --unlock-key-file=/tmp/passphrase --tpm2-device=auto --tpm2-public-key="/tmp/pcrsign-public.pem" $img
+    # Reset and use the signature now
+    rm -f /run/systemd/tpm2-pcr-signature.json
+    systemd-cryptenroll --wipe-slot=tpm2 $img
     systemd-cryptenroll --unlock-key-file=/tmp/passphrase --tpm2-device=auto --tpm2-public-key="/tmp/pcrsign-public.pem" --tpm2-signature="/tmp/pcrsign.sig2" $img
 
     # Check if we can activate that (without the token module stuff)
