@@ -2,6 +2,22 @@ systemd System and Service Manager
 
 CHANGES WITH 253 in spe:
 
+        Announcements of Future Feature Removals and Incompatible Changes:
+
+        * We intend to remove cgroup v1 support from systemd release after the
+          end of 2023. If you run services that make explicit use of cgroup v1
+          features (i.e. the "legacy hierarchy" with separate hierarchies for
+          each controller), please implement compatibility with cgroup v2 (i.e.
+          the "unified hierarchy") sooner rather than later. Most of Linux
+          userspace has been ported over already.
+
+        * We intend to remove support for split-usr (/usr mounted separately
+          during boot) and unmerged-usr (parallel directories /bin and
+          /usr/bin, /lib and /usr/lib, etc). This will happen in the second
+          half of 2023, in the first release that falls into that time window.
+          For more details, see:
+          https://lists.freedesktop.org/archives/systemd-devel/2022-September/048352.html
+
         Deprecations and incompatible changes:
 
         * systemctl will now warn when invoked without /proc/ mounted
