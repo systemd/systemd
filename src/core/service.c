@@ -2691,25 +2691,24 @@ _pure_ static bool service_can_reload(Unit *u) {
                 s->type == SERVICE_NOTIFY_RELOAD;
 }
 
-static unsigned service_exec_command_index(Unit *u, ServiceExecCommand id, ExecCommand *current) {
+static unsigned service_exec_command_index(Unit *u, ServiceExecCommand id, const ExecCommand *current) {
         Service *s = SERVICE(u);
         unsigned idx = 0;
-        ExecCommand *first, *c;
 
         assert(s);
         assert(id >= 0);
         assert(id < _SERVICE_EXEC_COMMAND_MAX);
 
-        first = s->exec_command[id];
+        const ExecCommand *first = s->exec_command[id];
 
         /* Figure out where we are in the list by walking back to the beginning */
-        for (c = current; c != first; c = c->command_prev)
+        for (const ExecCommand *c = current; c != first; c = c->command_prev)
                 idx++;
 
         return idx;
 }
 
-static int service_serialize_exec_command(Unit *u, FILE *f, ExecCommand *command) {
+static int service_serialize_exec_command(Unit *u, FILE *f, const ExecCommand *command) {
         _cleanup_free_ char *args = NULL, *p = NULL;
         Service *s = SERVICE(u);
         const char *type, *key;
@@ -2764,7 +2763,16 @@ static int service_serialize_exec_command(Unit *u, FILE *f, ExecCommand *command
                 return log_oom();
 
         key = strjoina(type, "-command");
-        (void) serialize_item_format(f, key, "%s %u %s %s", service_exec_command_to_string(id), idx, p, args);
+
+        /* We use '+1234' instead of '1234' to mark the last command in a sequence.
+         * This is used in service_deserialize_exec_command(). */
+        (void) serialize_item_format(
+                        f, key,
+                        "%s %s%u %s %s",
+                        service_exec_command_to_string(id),
+                        command->command_next ? "" : "+",
+                        idx,
+                        p, args);
 
         return 0;
 }
@@ -2878,7 +2886,7 @@ int service_deserialize_exec_command(
         Service *s = SERVICE(u);
         int r;
         unsigned idx = 0, i;
-        bool control, found = false;
+        bool control, found = false, last = false;
         ServiceExecCommand id = _SERVICE_EXEC_COMMAND_INVALID;
         ExecCommand *command = NULL;
         _cleanup_free_ char *path = NULL;
@@ -2919,9 +2927,15 @@ int service_deserialize_exec_command(
                         state = STATE_EXEC_COMMAND_INDEX;
                         break;
                 case STATE_EXEC_COMMAND_INDEX:
+                        /* PID 1234 is serialized as either '1234' or '+1234'. The second form is used to
+                         * mark the last command in a sequence. We warn if the deserialized command doesn't
+                         * match what we have loaded from the unit, but we don't need to warn if that is the
+                         * last command. */
+
                         r = safe_atou(arg, &idx);
                         if (r < 0)
                                 return r;
+                        last = arg[0] == '+';
 
                         state = STATE_EXEC_COMMAND_PATH;
                         break;
@@ -2966,6 +2980,8 @@ int service_deserialize_exec_command(
                 s->control_command_id = id;
         } else if (command)
                 s->main_command = command;
+        else if (last)
+                log_unit_debug(u, "Current command vanished from the unit file.");
         else
                 log_unit_warning(u, "Current command vanished from the unit file, execution of the command list won't be resumed.");
 
