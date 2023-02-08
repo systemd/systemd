@@ -89,6 +89,13 @@ def round_up(x, blocksize=4096):
     return (x + blocksize - 1) // blocksize * blocksize
 
 
+def try_import(modname, name=None):
+    try:
+        return __import__(modname)
+    except ImportError as e:
+        raise ValueError(f'Kernel is compressed with {name or modname}, but module unavailable') from e
+
+
 def maybe_decompress(filename):
     """Decompress file if compressed. Return contents."""
     f = open(filename, 'rb')
@@ -100,20 +107,20 @@ def maybe_decompress(filename):
         return f.read()
 
     if start.startswith(b'\x1f\x8b'):
-        import gzip
+        gzip = try_import('gzip')
         return gzip.open(f).read()
 
     if start.startswith(b'\x28\xb5\x2f\xfd'):
-        import zstd
+        zstd = try_import('zstd')
         return zstd.uncompress(f.read())
 
     if start.startswith(b'\x02\x21\x4c\x18'):
-        import lz4.frame
+        lz4 = try_import('lz4.frame', 'lz4')
         return lz4.frame.decompress(f.read())
 
     if start.startswith(b'\x04\x22\x4d\x18'):
         print('Newer lz4 stream format detected! This may not boot!')
-        import lz4.frame
+        lz4 = try_import('lz4.frame', 'lz4')
         return lz4.frame.decompress(f.read())
 
     if start.startswith(b'\x89LZO'):
@@ -121,11 +128,11 @@ def maybe_decompress(filename):
         raise NotImplementedError('lzo decompression not implemented')
 
     if start.startswith(b'BZh'):
-        import bz2
+        bz2 = try_import('bz2', 'bzip2')
         return bz2.open(f).read()
 
     if start.startswith(b'\x5d\x00\x00'):
-        import lzma
+        lzma = try_import('lzma')
         return lzma.open(f).read()
 
     raise NotImplementedError(f'unknown file format (starts with {start})')
