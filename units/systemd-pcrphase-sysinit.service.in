@@ -14,7 +14,7 @@ DefaultDependencies=no
 Conflicts=shutdown.target
 After=sysinit.target
 Before=basic.target shutdown.target
-AssertPathExists=!/etc/initrd-release
+ConditionPathExists=!/etc/initrd-release
 ConditionSecurity=tpm2
 ConditionPathExists=/sys/firmware/efi/efivars/StubPcrKernelImage-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
 
