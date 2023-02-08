@@ -518,6 +518,7 @@ int xdg_autostart_service_generate_unit(
 
         _cleanup_free_ char *path_escaped = NULL, *exec_start = NULL, *unit = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_strv_free_ char **only_show_in = NULL, **not_show_in = NULL;
         int r;
 
         assert(service);
@@ -544,6 +545,18 @@ int xdg_autostart_service_generate_unit(
                 return 0;
         }
 
+        if (service->only_show_in) {
+                only_show_in = strv_copy(service->only_show_in);
+                if (!only_show_in)
+                        return log_oom();
+        }
+
+        if (service->not_show_in) {
+                not_show_in = strv_copy(service->not_show_in);
+                if (!not_show_in)
+                        return log_oom();
+        }
+
         /* The TryExec key cannot be checked properly from the systemd unit, it is trivial to check using
          * find_executable though. */
         if (service->try_exec) {
@@ -563,9 +576,27 @@ int xdg_autostart_service_generate_unit(
         }
 
         if (service->gnome_autostart_phase) {
-                /* There is no explicit value for the "Application" phase. */
-                log_debug("%s: not generating unit, startup phases are not supported.", service->path);
-                return 0;
+                /* There is no explicit value for the "Application" phase.
+                 *
+                 * On GNOME secondary startup mechanism handles desktop files with startup phases set.
+                 * We want to mark these as "NotShowIn=GNOME"
+                 *
+                 * If that means no-one will load them, we can get skip it entirely.
+                 */
+                if (strv_contains(only_show_in, "GNOME")) {
+                        strv_remove(only_show_in, "GNOME");
+
+                        if (strv_isempty(only_show_in)) {
+                                log_debug("%s: GNOME startup phases are handled separately. Skipping.",
+                                          service->path);
+                                return 0;
+                        }
+                }
+                log_debug("%s: GNOME startup phases are handled seprately, marking as NotShowIn=GNOME.",
+                          service->path);
+
+                if (strv_extend(&not_show_in, "GNOME") < 0)
+                        return log_oom();
         }
 
         path_escaped = specifier_escape(service->path);
@@ -623,16 +654,16 @@ int xdg_autostart_service_generate_unit(
         }
 
         /* Generate an ExecCondition to check $XDG_CURRENT_DESKTOP */
-        if (!strv_isempty(service->only_show_in) || !strv_isempty(service->not_show_in)) {
-                _cleanup_free_ char *only_show_in = NULL, *not_show_in = NULL, *e_only_show_in = NULL, *e_not_show_in = NULL;
+        if (!strv_isempty(only_show_in) || !strv_isempty(not_show_in)) {
+                _cleanup_free_ char *only_show_in_string = NULL, *not_show_in_string = NULL, *e_only_show_in = NULL, *e_not_show_in = NULL;
 
-                only_show_in = strv_join(service->only_show_in, ":");
-                not_show_in = strv_join(service->not_show_in, ":");
-                if (!only_show_in || !not_show_in)
+                only_show_in_string = strv_join(only_show_in, ":");
+                not_show_in_string = strv_join(not_show_in, ":");
+                if (!only_show_in_string || !not_show_in_string)
                         return log_oom();
 
-                e_only_show_in = cescape(only_show_in);
-                e_not_show_in = cescape(not_show_in);
+                e_only_show_in = cescape(only_show_in_string);
+                e_not_show_in = cescape(not_show_in_string);
                 if (!e_only_show_in || !e_not_show_in)
                         return log_oom();
 
