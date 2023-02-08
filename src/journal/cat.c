@@ -5,6 +5,7 @@
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-journal.h"
@@ -12,6 +13,7 @@
 #include "alloc-util.h"
 #include "build.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "main-func.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -151,8 +153,23 @@ static int run(int argc, char *argv[]) {
 
         if (argc <= optind)
                 (void) execl("/bin/cat", "/bin/cat", NULL);
-        else
+        else {
+                _cleanup_free_ char *s = NULL;
+                struct stat st;
+
+                if (fstat(STDERR_FILENO, &st) < 0)
+                        return log_error_errno(errno,
+                                               "Failed to fstat(%s): %m",
+                                               FORMAT_PROC_FD_PATH(STDERR_FILENO));
+
+                if (asprintf(&s, DEV_FMT ":" INO_FMT, st.st_dev, st.st_ino) < 0)
+                        return log_oom();
+
+                if (setenv("JOURNAL_STREAM", s, /* overwrite = */ true) < 0)
+                        return log_error_errno(errno, "Failed to set environment variable JOURNAL_STREAM: %m");
+
                 (void) execvp(argv[optind], argv + optind);
+        }
         r = -errno;
 
         /* Let's try to restore a working stderr, so we can print the error message */
