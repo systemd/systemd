@@ -14,7 +14,7 @@ DefaultDependencies=no
 BindsTo=%i.device
 Wants=local-fs-pre.target
 After=%i.device
-Before=local-fs-pre.target
+Before=local-fs-pre.target sysroot.mount sysroot-usr.mount
 AssertPathExists=/etc/initrd-release
 
 [Service]
