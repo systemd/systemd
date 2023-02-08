@@ -28,6 +28,7 @@
 #include "lookup3.h"
 #include "memory-util.h"
 #include "path-util.h"
+#include "prioq.h"
 #include "random-util.h"
 #include "set.h"
 #include "sort-util.h"
@@ -2059,6 +2060,7 @@ static int journal_file_link_entry(
         f->header->tail_entry_realtime = o->entry.realtime;
         f->header->tail_entry_monotonic = o->entry.monotonic;
         f->header->tail_entry_offset = offset;
+        f->newest_mtime = 0; /* we have a new tail entry now, explicitly invalidate newest boot id/timestamp info */
 
         /* Link up the items */
         for (uint64_t i = 0; i < n_items; i++) {
@@ -3787,6 +3789,7 @@ int journal_file_open(
                                             DEFAULT_COMPRESS_THRESHOLD :
                                             MAX(MIN_COMPRESS_THRESHOLD, compress_threshold_bytes),
                 .strict_order = FLAGS_SET(file_flags, JOURNAL_STRICT_ORDER),
+                .newest_boot_id_prioq_idx = PRIOQ_IDX_NULL,
         };
 
         if (fname) {
