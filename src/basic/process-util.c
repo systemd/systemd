@@ -596,6 +596,8 @@ int get_process_umask(pid_t pid, mode_t *ret) {
         r = get_proc_field(p, "Umask", WHITESPACE, &m);
         if (r == -ENOENT)
                 return -ESRCH;
+        if (r < 0)
+                return r;
 
         return parse_mode(m, ret);
 }
