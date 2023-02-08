@@ -935,7 +935,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*3000*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn0769AP2:pvr3000N200:*
  KEYBOARD_KEY_b4=prog1
 
-# lenovo-ideapad
+# Lenovo IdeaPad
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*IdeaPad*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pnS10-*:*
  KEYBOARD_KEY_81=rfkill                                 # does nothing in BIOS
@@ -945,6 +945,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pnS10-*:*
  KEYBOARD_KEY_f1=camera                                 # BIOS toggles camera power
  KEYBOARD_KEY_f2=f21                                    # touchpad toggle (key alternately emits F2 and F3)
  KEYBOARD_KEY_f3=f21
+
+# Lenovo IdeaPad 5
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:pvrIdeaPad5*:*
+ KEYBOARD_KEY_81=insert
 
 # Thinkpad X200_Tablet
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:pvrThinkPad*X2*Tablet*:*
