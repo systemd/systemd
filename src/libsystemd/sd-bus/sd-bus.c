@@ -48,7 +48,9 @@
 #define log_debug_bus_message(m)                                         \
         do {                                                             \
                 sd_bus_message *_mm = (m);                               \
-                log_debug("Got message type=%s sender=%s destination=%s path=%s interface=%s member=%s cookie=%" PRIu64 " reply_cookie=%" PRIu64 " signature=%s error-name=%s error-message=%s", \
+                log_debug("Got message type=%s sender=%s destination=%s path=%s interface=%s member=%s " \
+                          " cookie=%" PRIu64 " reply_cookie=%" PRIu64   \
+                          " signature=%s error-name=%s error-message=%s", \
                           strna(bus_message_type_to_string(_mm->header->type)), \
                           strna(sd_bus_message_get_sender(_mm)),         \
                           strna(sd_bus_message_get_destination(_mm)),    \
@@ -1983,7 +1985,9 @@ static int bus_write_message(sd_bus *bus, sd_bus_message *m, size_t *idx) {
                 return r;
 
         if (*idx >= BUS_MESSAGE_SIZE(m))
-                log_debug("Sent message type=%s sender=%s destination=%s path=%s interface=%s member=%s cookie=%" PRIu64 " reply_cookie=%" PRIu64 " signature=%s error-name=%s error-message=%s",
+                log_debug("Sent message type=%s sender=%s destination=%s path=%s interface=%s member=%s"
+                          " cookie=%" PRIu64 " reply_cookie=%" PRIu64
+                          " signature=%s error-name=%s error-message=%s",
                           bus_message_type_to_string(m->header->type),
                           strna(sd_bus_message_get_sender(m)),
                           strna(sd_bus_message_get_destination(m)),
@@ -2412,7 +2416,8 @@ _public_ int sd_bus_call(
                                                 return 1;
                                         }
 
-                                        return sd_bus_error_set(error, SD_BUS_ERROR_INCONSISTENT_MESSAGE, "Reply message contained file descriptors which I couldn't accept. Sorry.");
+                                        return sd_bus_error_set(error, SD_BUS_ERROR_INCONSISTENT_MESSAGE,
+                                                                "Reply message contained file descriptors which I couldn't accept. Sorry.");
 
                                 } else if (incoming->header->type == SD_BUS_MESSAGE_METHOD_ERROR)
                                         return sd_bus_error_copy(error, &incoming->error);
@@ -2924,7 +2929,8 @@ static int process_fd_check(sd_bus *bus, sd_bus_message *m) {
         if (m->header->type != SD_BUS_MESSAGE_METHOD_CALL)
                 return 1; /* just eat it up */
 
-        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INCONSISTENT_MESSAGE, "Message contains file descriptors, which I cannot accept. Sorry.");
+        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INCONSISTENT_MESSAGE,
+                                          "Message contains file descriptors, which I cannot accept. Sorry.");
 }
 
 static int process_message(sd_bus *bus, sd_bus_message *m) {
