@@ -121,6 +121,14 @@ typedef struct JournalFile {
         void *fsprg_seed;
         size_t fsprg_seed_size;
 #endif
+
+        /* When we insert this file into the per-boot priority queue 'newest_by_boot_id' in sd_journal, then by these keys */
+        sd_id128_t newest_boot_id;
+        sd_id128_t newest_machine_id;
+        uint64_t newest_monotonic_usec;
+        uint64_t newest_realtime_usec;
+        unsigned newest_boot_id_prioq_idx;
+        usec_t newest_mtime;
 } JournalFile;
 
 typedef enum JournalFileFlags {
