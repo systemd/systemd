@@ -70,7 +70,6 @@ void mempool_free_tile(struct mempool *mp, void *p) {
         mp->freelist = p;
 }
 
-#if VALGRIND
 void mempool_drop(struct mempool *mp) {
         struct pool *p = mp->first_pool;
         while (p) {
@@ -80,4 +79,3 @@ void mempool_drop(struct mempool *mp) {
                 p = n;
         }
 }
-#endif
