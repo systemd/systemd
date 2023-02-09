@@ -62,8 +62,10 @@
     </para>
 
     <para><function>sd_bus_message_new_signal_to()</function> is a shorthand for creating a new bus message
-    to a specific destination. It's behavior is similar to calling <function>sd_bus_message_new_signal()</function>
-    followed by calling <citerefentry><refentrytitle>sd_bus_message_set_destination()</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+    to a specific destination. It's behavior is similar to calling
+    <function>sd_bus_message_new_signal()</function> followed by calling
+    <citerefentry><refentrytitle>sd_bus_message_set_destination</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    </para>
   </refsect1>
 
   <refsect1>

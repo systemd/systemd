@@ -205,7 +205,7 @@
 
         <listitem><para>An "engine" to for signing of the resulting binary. This option is currently passed
         verbatim to the <option>--engine=</option> option of
-        <citerefentry><refentrytitle>sbsign</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        <citerefentry project='archlinux'><refentrytitle>sbsign</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
 

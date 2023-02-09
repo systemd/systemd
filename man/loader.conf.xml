@@ -294,7 +294,7 @@ cat MicCorUEFCA2011_2011-06-27.esl >>db.esl
 
 # Optionally add Microsoft Corporation KEK CA 2011. Recommended if either of the
 # Microsoft keys is used as the official UEFI revocation database is signed with this
-# key. The revocation database can be updated with <citerefentry><refentrytitle>fwupdmgr</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+# key. The revocation database can be updated with <citerefentry project='man-pages'><refentrytitle>fwupdmgr</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
 cat MicCorKEKCA2011_2011-06-24.esl >>KEK.esl
 
 attr=NON_VOLATILE,RUNTIME_ACCESS,BOOTSERVICE_ACCESS,TIME_BASED_AUTHENTICATED_WRITE_ACCESS
