@@ -90,18 +90,21 @@ if test -x "$_KERNEL_INSTALL_BOOTCTL"; then
     echo "Testing bootctl"
     e2="${entry%+*}_2.conf"
     cp "$entry" "$e2"
-    export SYSTEMD_ESP_PATH=/
+    export SYSTEMD_ESP_PATH=/boot
+    # We use --root so strip the root prefix from KERNEL_INSTALL_CONF_ROOT
+    export KERNEL_INSTALL_CONF_ROOT="sources"
 
     # create file that is not referenced. Check if cleanup removes
     # it but leaves the rest alone
     :> "$BOOT_ROOT/the-token/1.1.2/initrd"
-    "$_KERNEL_INSTALL_BOOTCTL" --root="$BOOT_ROOT" cleanup
+    "$_KERNEL_INSTALL_BOOTCTL" --root="$D" cleanup
     test ! -e "$BOOT_ROOT/the-token/1.1.2/initrd"
     test -e "$BOOT_ROOT/the-token/1.1.2/linux"
     test -e "$BOOT_ROOT/the-token/1.1.1/linux"
     test -e "$BOOT_ROOT/the-token/1.1.1/initrd"
+
     # now remove duplicated entry and make sure files are left over
-    "$_KERNEL_INSTALL_BOOTCTL" --root="$BOOT_ROOT" unlink "${e2##*/}"
+    "$_KERNEL_INSTALL_BOOTCTL" --root="$D" unlink "${e2##*/}"
     test -e "$BOOT_ROOT/the-token/1.1.1/linux"
     test -e "$BOOT_ROOT/the-token/1.1.1/initrd"
     test -e "$entry"
@@ -109,7 +112,7 @@ if test -x "$_KERNEL_INSTALL_BOOTCTL"; then
     # remove last entry referencing those files
     entry_id="${entry##*/}"
     entry_id="${entry_id%+*}.conf"
-    "$_KERNEL_INSTALL_BOOTCTL" --root="$BOOT_ROOT" unlink "$entry_id"
+    "$_KERNEL_INSTALL_BOOTCTL" --root="$D" unlink "$entry_id"
     test ! -e "$entry"
     test ! -e "$BOOT_ROOT/the-token/1.1.1/linux"
     test ! -e "$BOOT_ROOT/the-token/1.1.1/initrd"
