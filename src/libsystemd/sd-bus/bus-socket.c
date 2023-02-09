@@ -123,6 +123,35 @@ bool bus_socket_auth_needs_write(sd_bus *b) {
         return false;
 }
 
+static int bus_socket_auth_write(sd_bus *b, const char *t) {
+        char *p;
+        size_t l;
+
+        assert(b);
+        assert(t);
+
+        fprintf (stderr, "AUTH WRITE: '%s'\n", t);
+
+        /* We only make use of the first iovec */
+        assert(IN_SET(b->auth_index, 0, 1));
+
+        l = strlen(t);
+        p = malloc(b->auth_iovec[0].iov_len + l);
+        if (!p)
+                return -ENOMEM;
+
+        memcpy_safe(p, b->auth_iovec[0].iov_base, b->auth_iovec[0].iov_len);
+        memcpy(p + b->auth_iovec[0].iov_len, t, l);
+
+        b->auth_iovec[0].iov_base = p;
+        b->auth_iovec[0].iov_len += l;
+
+        free(b->auth_buffer);
+        b->auth_buffer = p;
+        b->auth_index = 0;
+        return 0;
+}
+
 static int bus_socket_auth_verify_client(sd_bus *b) {
         char *l, *lines[4] = {};
         sd_id128_t peer;
@@ -157,8 +186,17 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
          * If FD negotiation was requested, we additionally expect
          * an AGREE_UNIX_FD response in all cases.
          */
-        if (n < (b->anonymous_auth ? 1U : 2U) + !!b->accept_fd)
+        if (n < (b->anonymous_auth ? 1U : 2U) + !!b->accept_fd) {
+                /* Drive the conversation forward */
+                for (i = b->auth_rbegin; i < n; i++) {
+                        if (memcmp(lines[i], "DATA", 4) == 0)
+                                bus_socket_auth_write(b, "DATA\r\n");
+                        if (memcmp(lines[i], "OK", 2) == 0 && b->accept_fd)
+                                bus_socket_auth_write(b, "NEGOTIATE_UNIX_FD\r\n");
+                }
+                b->auth_rbegin = n;
                 return 0; /* wait for more data */
+        }
 
         i = 0;
 
@@ -219,6 +257,18 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
         }
 
         assert(i == n);
+
+        /* Now send BEGIN if that hasn't happened yet.
+         */
+        if (b->auth_rbegin < n) {
+                bus_socket_auth_write(b, "BEGIN\r\n");
+                b->auth_rbegin = n;
+        }
+
+        /* And wait for all authentication protocol lines to have been sent.
+         */
+        if (bus_socket_auth_needs_write(b))
+                return 0;
 
         b->rbuffer_size -= (lines[i] - (char*) b->rbuffer);
         memmove(b->rbuffer, lines[i], b->rbuffer_size);
@@ -313,33 +363,6 @@ static int verify_external_token(sd_bus *b, const char *p, size_t l) {
                 return 0;
 
         return 1;
-}
-
-static int bus_socket_auth_write(sd_bus *b, const char *t) {
-        char *p;
-        size_t l;
-
-        assert(b);
-        assert(t);
-
-        /* We only make use of the first iovec */
-        assert(IN_SET(b->auth_index, 0, 1));
-
-        l = strlen(t);
-        p = malloc(b->auth_iovec[0].iov_len + l);
-        if (!p)
-                return -ENOMEM;
-
-        memcpy_safe(p, b->auth_iovec[0].iov_base, b->auth_iovec[0].iov_len);
-        memcpy(p + b->auth_iovec[0].iov_len, t, l);
-
-        b->auth_iovec[0].iov_base = p;
-        b->auth_iovec[0].iov_len += l;
-
-        free(b->auth_buffer);
-        b->auth_buffer = p;
-        b->auth_index = 0;
-        return 0;
 }
 
 static int bus_socket_auth_write_ok(sd_bus *b) {
@@ -665,27 +688,18 @@ static int bus_socket_start_auth_client(sd_bus *b) {
         };
         static const char sasl_auth_external[] = {
                 "\0AUTH EXTERNAL\r\n"
-                "DATA\r\n"
         };
-        static const char sasl_negotiate_unix_fd[] = {
-                "NEGOTIATE_UNIX_FD\r\n"
-        };
-        static const char sasl_begin[] = {
-                "BEGIN\r\n"
-        };
-        size_t i = 0;
 
         assert(b);
 
+        /* bus_socket_auth_verify_client uses auth_rbegin to count the lines it has replied to.
+         */
+        b->auth_rbegin = 0;
+
         if (b->anonymous_auth)
-                b->auth_iovec[i++] = IOVEC_MAKE((char*) sasl_auth_anonymous, sizeof(sasl_auth_anonymous) - 1);
+                b->auth_iovec[0] = IOVEC_MAKE((char*) sasl_auth_anonymous, sizeof(sasl_auth_anonymous) - 1);
         else
-                b->auth_iovec[i++] = IOVEC_MAKE((char*) sasl_auth_external, sizeof(sasl_auth_external) - 1);
-
-        if (b->accept_fd)
-                b->auth_iovec[i++] = IOVEC_MAKE_STRING(sasl_negotiate_unix_fd);
-
-        b->auth_iovec[i++] = IOVEC_MAKE_STRING(sasl_begin);
+                b->auth_iovec[0] = IOVEC_MAKE((char*) sasl_auth_external, sizeof(sasl_auth_external) - 1);
 
         return bus_socket_write_auth(b);
 }
