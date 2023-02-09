@@ -512,7 +512,7 @@ static int install_entry_token(void) {
 
         r = write_string_file(p, arg_entry_token, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755);
         if (r < 0)
-                return log_error_errno(r, "Failed to write entry token '%s' to %s", arg_entry_token, p);
+                return log_error_errno(r, "Failed to write entry token '%s' to %s: %m", arg_entry_token, p);
 
         return 0;
 }
