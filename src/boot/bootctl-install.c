@@ -83,7 +83,7 @@ static int load_etc_kernel_install_conf(void) {
         _cleanup_free_ char *layout = NULL, *p = NULL;
         int r;
 
-        p = path_join(etc_kernel(), "install.conf");
+        p = path_join(arg_root, etc_kernel(), "install.conf");
         if (!p)
                 return log_oom();
 
@@ -506,7 +506,7 @@ static int install_entry_token(void) {
         if (!arg_make_entry_directory && arg_entry_token_type == ARG_ENTRY_TOKEN_MACHINE_ID)
                 return 0;
 
-        p = path_join(etc_kernel(), "entry-token");
+        p = path_join(arg_root, etc_kernel(), "entry-token");
         if (!p)
                 return log_oom();
 
