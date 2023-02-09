@@ -175,10 +175,6 @@ fi
 cd "$BUILDDIR"
 ninja "$@"
 if [ "$WITH_TESTS" = 1 ] ; then
-        for id in 1 2 3; do
-                getent group $id >/dev/null || echo "g testgroup$id $id -" | ./systemd-sysusers -
-        done
-
         if [ -n "$SANITIZERS" ]; then
                 export ASAN_OPTIONS="$ASAN_OPTIONS"
                 export UBSAN_OPTIONS="$UBSAN_OPTIONS"

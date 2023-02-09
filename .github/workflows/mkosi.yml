@@ -79,7 +79,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b
-    - uses: systemd/mkosi@500f93a36cc3d5bf1d06848a0a8870bf1424625f
+    - uses: systemd/mkosi@4be912b0fa4931403fddf649aa242cd4406471c4
 
     - name: Configure
       run: |
@@ -87,6 +87,7 @@ jobs:
         [Distribution]
         Distribution=${{ matrix.distro }}
         Release=${{ matrix.release }}
+        SecureBoot=yes
 
         [Content]
         Environment=CI_BUILD=1
@@ -96,13 +97,13 @@ jobs:
         EOF
 
     - name: Generate secure boot key
-      run: sudo mkosi genkey
+      run: mkosi genkey
 
     - name: Build ${{ matrix.distro }}
-      run: sudo mkosi --idmap no --secure-boot
+      run: mkosi
 
     - name: Show ${{ matrix.distro }} image summary
-      run: sudo mkosi summary
+      run: mkosi summary
 
     - name: Boot ${{ matrix.distro }} systemd-nspawn
       run: sudo mkosi boot ${{ env.KERNEL_CMDLINE }} audit=0
@@ -111,7 +112,7 @@ jobs:
       run: sudo mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
 
     - name: Boot ${{ matrix.distro }} QEMU
-      run: sudo timeout -k 30 10m mkosi qemu
+      run: timeout -k 30 10m mkosi qemu
 
     - name: Check ${{ matrix.distro }} QEMU
       run: sudo mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
