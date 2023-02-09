@@ -13,7 +13,7 @@ Documentation=man:systemd-pcrphase-initrd.service(8)
 DefaultDependencies=no
 Conflicts=shutdown.target initrd-switch-root.target
 Before=sysinit.target cryptsetup-pre.target cryptsetup.target shutdown.target initrd-switch-root.target systemd-sysext.service
-AssertPathExists=/etc/initrd-release
+ConditionPathExists=/etc/initrd-release
 ConditionSecurity=tpm2
 ConditionPathExists=/sys/firmware/efi/efivars/StubPcrKernelImage-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
 
