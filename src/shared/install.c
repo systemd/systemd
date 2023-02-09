@@ -370,6 +370,7 @@ void install_changes_dump(int r, const char *verb, const InstallChange *changes,
                                          changes[i].path);
                         break;
                 case INSTALL_CHANGE_IS_DANGLING:
+                case -ENOLINK:
                         if (!quiet)
                                 log_info("Unit %s is an alias to a unit that is not present, ignoring.",
                                          changes[i].path);
@@ -3599,7 +3600,7 @@ int unit_file_preset_all(
 
                         r = preset_prepare_one(scope, &plus, &minus, &lp, de->d_name, &presets, changes, n_changes);
                         if (r < 0 &&
-                            !IN_SET(r, -EEXIST, -ERFKILL, -EADDRNOTAVAIL, -EBADSLT, -EIDRM, -EUCLEAN, -ELOOP, -ENOENT, -EUNATCH, -EXDEV))
+                            !IN_SET(r, -EEXIST, -ERFKILL, -EADDRNOTAVAIL, -EBADSLT, -EIDRM, -EUCLEAN, -ELOOP, -ENOENT, -EUNATCH, -EXDEV, -ENOLINK))
                                 /* Ignore generated/transient/missing/invalid units when applying preset, propagate other errors.
                                  * Coordinate with install_changes_dump() above. */
                                 return r;
