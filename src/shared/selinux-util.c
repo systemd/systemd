@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <malloc.h>
 #include <stddef.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -23,6 +22,7 @@
 #include "fd-util.h"
 #include "log.h"
 #include "macro.h"
+#include "mallinfo-util.h"
 #include "path-util.h"
 #include "selinux-util.h"
 #include "stdio-util.h"
@@ -92,26 +92,6 @@ void mac_selinux_retest(void) {
 }
 
 #if HAVE_SELINUX
-#  if HAVE_MALLINFO2
-#    define HAVE_GENERIC_MALLINFO 1
-typedef struct mallinfo2 generic_mallinfo;
-static generic_mallinfo generic_mallinfo_get(void) {
-        return mallinfo2();
-}
-#  elif HAVE_MALLINFO
-#    define HAVE_GENERIC_MALLINFO 1
-typedef struct mallinfo generic_mallinfo;
-static generic_mallinfo generic_mallinfo_get(void) {
-        /* glibc has deprecated mallinfo(), let's suppress the deprecation warning if mallinfo2() doesn't
-         * exist yet. */
-DISABLE_WARNING_DEPRECATED_DECLARATIONS
-        return mallinfo();
-REENABLE_WARNING
-}
-#  else
-#    define HAVE_GENERIC_MALLINFO 0
-#  endif
-
 static int open_label_db(void) {
         struct selabel_handle *hnd;
         usec_t before_timestamp, after_timestamp;
