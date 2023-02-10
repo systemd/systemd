@@ -2262,6 +2262,9 @@ acpi:DYN*:
 acpi:DYX*:
  ID_VENDOR_FROM_DATABASE=Dynax Electronics (HK) Ltd
 
+acpi:EAC*:
+ ID_VENDOR_FROM_DATABASE=Emotiva Audio Corp.
+
 acpi:EAG*:
  ID_VENDOR_FROM_DATABASE=ELTEC Elektronik AG
 
