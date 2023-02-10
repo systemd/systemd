@@ -147,7 +147,9 @@ CHANGES WITH 253 in spe:
 
         * When enabling a swap device systemd will now reinitialize the device
           when the page size of the swap space does not match the page size of
-          the running kernel.
+          the running kernel. Note that this requires the 'swapon' utility to
+          provide the '--fixpgsz' option, as implemented by util-linux, and it
+          is not supported by busybox at the time of writing.
 
         * systemd now executes generator programs in a mount namespace
           "sandbox" with most of the file system read-only and write access
