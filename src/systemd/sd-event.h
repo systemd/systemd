@@ -99,6 +99,7 @@ int sd_event_add_inotify_fd(sd_event *e, sd_event_source **s, int fd, uint32_t m
 int sd_event_add_defer(sd_event *e, sd_event_source **s, sd_event_handler_t callback, void *userdata);
 int sd_event_add_post(sd_event *e, sd_event_source **s, sd_event_handler_t callback, void *userdata);
 int sd_event_add_exit(sd_event *e, sd_event_source **s, sd_event_handler_t callback, void *userdata);
+int sd_event_add_memory_pressure(sd_event *e, sd_event_source **s, sd_event_handler_t callback, void *userdata);
 
 int sd_event_prepare(sd_event *e);
 int sd_event_wait(sd_event *e, uint64_t usec);
@@ -160,6 +161,8 @@ int sd_event_source_send_child_signal(sd_event_source *s, int sig, const siginfo
 int sd_event_source_send_child_signal(sd_event_source *s, int sig, const void *si, unsigned flags);
 #endif
 int sd_event_source_get_inotify_mask(sd_event_source *s, uint32_t *ret);
+int sd_event_source_set_memory_pressure_type(sd_event_source *e, const char *ty);
+int sd_event_source_set_memory_pressure_period(sd_event_source *s, uint64_t threshold_usec, uint64_t window_usec);
 int sd_event_source_set_destroy_callback(sd_event_source *s, sd_event_destroy_t callback);
 int sd_event_source_get_destroy_callback(sd_event_source *s, sd_event_destroy_t *ret);
 int sd_event_source_get_floating(sd_event_source *s);
@@ -170,6 +173,8 @@ int sd_event_source_set_ratelimit(sd_event_source *s, uint64_t interval_usec, un
 int sd_event_source_get_ratelimit(sd_event_source *s, uint64_t *ret_interval_usec, unsigned *ret_burst);
 int sd_event_source_is_ratelimited(sd_event_source *s);
 int sd_event_source_set_ratelimit_expire_callback(sd_event_source *s, sd_event_handler_t callback);
+
+int sd_event_trim_memory(void);
 
 /* Define helpers so that __attribute__((cleanup(sd_event_unrefp))) and similar may be used. */
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_event, sd_event_unref);

@@ -549,3 +549,18 @@ Whenever the system transitions to a new runtime phase, the specified PCR is
 extended with a different string, to ensure that security policies for
 TPM-bound secrets and other resources are limited to specific phases of the
 runtime.
+
+-- f9b0be465ad540d0850ad32172d57c21
+Subject: Memory Trimmed
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Memory of process @_PID@ (@_COMM@) has been trimmed.
+
+Either on user request or as result of a memory pressure event, memory of the
+process has been trimmed, returning unneded allocation caches and other
+resources back to the OS kernel, making them available for other components of
+the OS.
+
+@TRIMMED_BYTES@ of memory were returned to the OS, which took @TRIMMED_USEC@
+micro-seconds (µs).
