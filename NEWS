@@ -85,6 +85,11 @@ CHANGES WITH 253 in spe:
           legacy and thus typically do not receive the same level of security
           support and fixes.
 
+        * Using utilities from util-linux was always a requirement and busybox
+          is not explicitly supported. Starting from this release the swap units
+          require the '--fixpgsz' option to be available in the swapon utility,
+          which is not supported by busybox at the time of writing.
+
         New components:
 
         * A tool 'ukify' tool to build, measure, and sign Unified Kernel Images
