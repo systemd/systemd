@@ -563,26 +563,6 @@ static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
         if (r > 0)
                 return 0;
 
-        if (is_efi_boot()) {
-                sd_id128_t loader_uuid;
-
-                /* If this is an EFI boot, be extra careful, and only mount the ESP if it was the ESP used for booting. */
-
-                r = efi_loader_get_device_part_uuid(&loader_uuid);
-                if (r == -ENOENT) {
-                        log_debug("EFI loader partition unknown.");
-                        return 0;
-                }
-                if (r < 0)
-                        return log_error_errno(r, "Failed to read ESP partition UUID: %m");
-
-                if (!sd_id128_equal(p->uuid, loader_uuid)) {
-                        log_debug("Partition for %s does not appear to be the partition we are booted from.", p->node);
-                        return 0;
-                }
-        } else
-                log_debug("Not an EFI boot, skipping ESP check.");
-
         r = partition_pick_mount_options(
                         PARTITION_ESP,
                         dissected_partition_fstype(p),
@@ -675,10 +655,10 @@ static int add_root_mount(void) {
                            "(The boot loader did not set EFI variable LoaderDevicePartUUID.)");
                 return 0;
         } else if (r < 0)
-                return log_error_errno(r, "Failed to read ESP partition UUID: %m");
+                return log_error_errno(r, "Failed to read loader partition UUID: %m");
 
-        /* OK, we have an ESP partition, this is fantastic, so let's wait for a root device to show up. A
-         * udev rule will create the link for us under the right name. */
+        /* OK, we have an ESP/XBOOTLDR partition, this is fantastic, so let's wait for a root device to show up.
+         * A udev rule will create the link for us under the right name. */
 
         if (in_initrd()) {
                 r = generator_write_initrd_root_device_deps(arg_dest, "/dev/gpt-auto-root");
@@ -723,10 +703,43 @@ static int add_root_mount(void) {
 #endif
 }
 
+static bool esp_is_valid(DissectedPartition *p, sd_id128_t xbootldr_uuid) {
+        sd_id128_t loader_uuid;
+        int r;
+
+        if (!is_efi_boot()) {
+                log_debug("Not an EFI boot, skipping ESP check.");
+                return true;
+        }
+
+        r = efi_loader_get_device_part_uuid(&loader_uuid);
+        if (r < 0) {
+                /* Won't be able to check if this is the boot ESP, thus not mounting it */
+                if (r == -ENOENT)
+                        log_debug("EFI loader partition unknown, not mounting ESP.");
+                else
+                        log_debug_errno(r, "Failed to read loader partition UUID, ignoring: %m");
+
+                return false;
+        }
+
+        if (sd_id128_equal(p->uuid, loader_uuid))
+                return true;
+
+        if (sd_id128_equal(xbootldr_uuid, loader_uuid)) {
+                log_debug("LoaderDevicePartUUID points to XBOOTLDR partition, proceeding anyway.");
+                return true;
+        }
+
+        log_debug("ESP '%s' does not appear to be the one we are booted from, ignoring.", p->node);
+        return false;
+}
+
 static int enumerate_partitions(dev_t devnum) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
         _cleanup_free_ char *devname = NULL;
+        bool has_xbootldr;
         int r, k;
 
         r = block_get_whole_disk(devnum, &devnum);
@@ -773,16 +786,22 @@ static int enumerate_partitions(dev_t devnum) {
                         r = k;
         }
 
-        if (m->partitions[PARTITION_XBOOTLDR].found) {
+        has_xbootldr = m->partitions[PARTITION_XBOOTLDR].found;
+
+        if (has_xbootldr) {
                 k = add_partition_xbootldr(m->partitions + PARTITION_XBOOTLDR);
                 if (k < 0)
                         r = k;
         }
 
         if (m->partitions[PARTITION_ESP].found) {
-                k = add_partition_esp(m->partitions + PARTITION_ESP, m->partitions[PARTITION_XBOOTLDR].found);
-                if (k < 0)
-                        r = k;
+                DissectedPartition *esp = m->partitions + PARTITION_ESP;
+
+                if (esp_is_valid(esp, m->partitions[PARTITION_XBOOTLDR].uuid)) {
+                        k = add_partition_esp(esp, has_xbootldr);
+                        if (k < 0)
+                                r = k;
+                }
         }
 
         if (m->partitions[PARTITION_HOME].found) {
