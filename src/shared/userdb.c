@@ -294,8 +294,8 @@ static int userdb_on_query_reply(
                 } membership_data = {};
 
                 static const JsonDispatch dispatch_table[] = {
-                        { "userName",  JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(struct membership_data, user_name),  JSON_SAFE },
-                        { "groupName", JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(struct membership_data, group_name), JSON_SAFE },
+                        { "userName",  JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(struct membership_data, user_name),  0 },
+                        { "groupName", JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(struct membership_data, group_name), 0 },
                         {}
                 };
 
