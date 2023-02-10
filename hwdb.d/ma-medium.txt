@@ -5516,17 +5516,47 @@ D00000-DFFFFF     (base 16)		Sprintshield d.o.o.
 				Velika Gorica    10410
 				HR
 
+54-08-3B   (hex)		BHS Corrugated Maschinen- und Anlagenbau GmbH
+D00000-DFFFFF     (base 16)		BHS Corrugated Maschinen- und Anlagenbau GmbH
+				Paul-Engel-Strasse 1
+				Weiherhammer  Bavaria  92729
+				DE
+
+54-08-3B   (hex)		FairPhone B.V.
+C00000-CFFFFF     (base 16)		FairPhone B.V.
+				VanDiemenstraat 200
+				Amsterdam    1013 CP
+				NL
+
+54-08-3B   (hex)		Sinclair Technologies
+E00000-EFFFFF     (base 16)		Sinclair Technologies
+				85 MARY ST
+				AURORA  Ontario  L4G 6X5
+				CA
+
+E0-3C-1C   (hex)		Semic Inc.
+500000-5FFFFF     (base 16)		Semic Inc.
+				17F.-6, No. 79, Sec. 1, Xintai 5th Rd., Xizhi Dist.
+				New Taipei City    22101
+				TW
+
 54-08-3B   (hex)		Korea Bus Broadcasting
 B00000-BFFFFF     (base 16)		Korea Bus Broadcasting
 				7F, 24, Bangbaejungang-ro, Seocho-gu
 				Seoul    06684
 				KR
 
-E0-3C-1C   (hex)		Semic Inc.
-500000-5FFFFF     (base 16)		Semic Inc.
-				17F.-6, No. 79, Sec. 1, Xintai 5th Rd., Xizhi Dist.
-				New Taipei City  Select State  22101
-				TW
+70-06-92   (hex)		Shenzhen Lingwei Technology Co., Ltd
+900000-9FFFFF     (base 16)		Shenzhen Lingwei Technology Co., Ltd
+				No. 50-1, Minqing Road, Longhua District
+				Shenzhen  Guangdong Province  518109
+				CN
+
+70-06-92   (hex)		Fusiostor Technologies Private Limited
+400000-4FFFFF     (base 16)		Fusiostor Technologies Private Limited
+				GALA NO.7, MUNERVA IND ESTATE, BISHAN UDYOG
+				MUMBAI  Maharashtra  400080
+				IN
 
 4C-4B-F9   (hex)		Shenzhen dingsheng technology co., LTD
 400000-4FFFFF     (base 16)		Shenzhen dingsheng technology co., LTD
@@ -10712,11 +10742,23 @@ E0-3C-1C   (hex)		Shikino High-Tech Co., Ltd.
 				Uozu-shi  TOYAMA  937-0041
 				JP
 
+54-08-3B   (hex)		Unicompute Technology Co.,Ltd.
+900000-9FFFFF     (base 16)		Unicompute Technology Co.,Ltd.
+				Building 10, Tian Jian Lake AloT Industrial Park, No.173 Feng Xiang West Street? High-Tech Industrial Development Zone, 
+				ZhengZhou City    450066
+				CN
+
 54-08-3B   (hex)		NAVITUS LT
 200000-2FFFFF     (base 16)		NAVITUS LT
 				Visoriu g. 2
 				Vilnius    08300
 				LT
+
+70-06-92   (hex)		Munters
+A00000-AFFFFF     (base 16)		Munters
+				Hasivim 18
+				Pethch Tikva  Israel  4959376
+				IL
 
 20-85-93   (hex)		UNILUMIN GROUP CO.,LTD
 300000-3FFFFF     (base 16)		UNILUMIN GROUP CO.,LTD
@@ -10981,9 +11023,6 @@ B0-FD-0B   (hex)		Vista Manufacturing
 				53345 Columbia Drive
 				Elkhart  IN  46514
 				US
-
-8C-14-7D   (hex)		Private
-100000-1FFFFF     (base 16)		Private
 
 C8-2C-2B   (hex)		RF Engineering and Energy Resource
 300000-3FFFFF     (base 16)		RF Engineering and Energy Resource
@@ -16426,6 +16465,24 @@ E0-3C-1C   (hex)		Scangrip
 				405-65,Ashitaka
 				Numazu  Shizuoka  410-0001
 				JP
+
+54-08-3B   (hex)		shenzhen HAIOT technology co.,ltd
+500000-5FFFFF     (base 16)		shenzhen HAIOT technology co.,ltd
+				No 407 Building E zhongshan load, nanshan district,shenzhen city 
+				shenzhen  guangdong  518057
+				CN
+
+8C-14-7D   (hex)		Schneider Electric - Triconex
+100000-1FFFFF     (base 16)		Schneider Electric - Triconex
+				26561 Rancho Pkwy S
+				LAKE FOREST  CA  92630
+				US
+
+70-06-92   (hex)		Beijing Fortech Microsystems., Co., Ltd.
+100000-1FFFFF     (base 16)		Beijing Fortech Microsystems., Co., Ltd.
+				Suite A3 502, Zhongguancun No. 1, No. 81 Beiqing Road, Haidian District
+				Beijing    100084
+				CN
 
 4C-4B-F9   (hex)		Shandong Linkotech Electronic Co., Ltd.
 600000-6FFFFF     (base 16)		Shandong Linkotech Electronic Co., Ltd.
@@ -21874,6 +21931,18 @@ A00000-AFFFFF     (base 16)		Silex Ipari Automatizálási Zrt.
 				Soroksári út.150.
 				Budapest, IX.    1095
 				HU
+
+54-08-3B   (hex)		ASCS Sp. z o.o.
+700000-7FFFFF     (base 16)		ASCS Sp. z o.o.
+				Zwirki i Wigury 65A
+				Mikolow  Slask  43-190 Mikolow
+				PL
+
+70-06-92   (hex)		ScoreBird, LLC
+C00000-CFFFFF     (base 16)		ScoreBird, LLC
+				6001 Kenwood Drive
+				Nashville  TN  37215
+				US
 
 20-85-93   (hex)		Great Lite International
 700000-7FFFFF     (base 16)		Great Lite International
@@ -27448,3 +27517,15 @@ E0-3C-1C   (hex)		Ocamar Technologies (Shanghai) Co.,Ltd.
 				1307, building A4, workshop 2, LiLang International Jewelry Industrial Park, 31 Bulan Road, xialilang community, Nanwan street, Longgang District
 				Shenzhen  Guangdong  518112
 				CN
+
+70-06-92   (hex)		BOSSCCTV CO., LTD
+300000-3FFFFF     (base 16)		BOSSCCTV CO., LTD
+				6F.-6, No. 22, Sec. 2, Keelung Rd., Xinyi Dist.
+				Taipei City  Taiwan (R.O.C.)  11052
+				TW
+
+70-06-92   (hex)		Techology, LLC
+000000-0FFFFF     (base 16)		Techology, LLC
+				2335 S Ellis St
+				Lakewood  CO  80228
+				US
