@@ -1075,22 +1075,46 @@ static int source_set_pending(sd_event_source *s, bool b) {
 }
 
 static sd_event_source *source_new(sd_event *e, bool floating, EventSourceType type) {
+
+        /* Let's allocate exactly what we need. Note that the difference of the smallest event source
+         * structure to the largest is 144 bytes on x86-64 at the time of writing, i.e. more than two cache
+         * lines. */
+        static const size_t size_table[_SOURCE_EVENT_SOURCE_TYPE_MAX] = {
+                [SOURCE_IO]                  = endoffsetof_field(sd_event_source, io),
+                [SOURCE_TIME_REALTIME]       = endoffsetof_field(sd_event_source, time),
+                [SOURCE_TIME_BOOTTIME]       = endoffsetof_field(sd_event_source, time),
+                [SOURCE_TIME_MONOTONIC]      = endoffsetof_field(sd_event_source, time),
+                [SOURCE_TIME_REALTIME_ALARM] = endoffsetof_field(sd_event_source, time),
+                [SOURCE_TIME_BOOTTIME_ALARM] = endoffsetof_field(sd_event_source, time),
+                [SOURCE_SIGNAL]              = endoffsetof_field(sd_event_source, signal),
+                [SOURCE_CHILD]               = endoffsetof_field(sd_event_source, child),
+                [SOURCE_DEFER]               = endoffsetof_field(sd_event_source, defer),
+                [SOURCE_POST]                = endoffsetof_field(sd_event_source, post),
+                [SOURCE_EXIT]                = endoffsetof_field(sd_event_source, exit),
+                [SOURCE_INOTIFY]             = endoffsetof_field(sd_event_source, inotify),
+        };
+
         sd_event_source *s;
 
         assert(e);
+        assert(type >= 0);
+        assert(type < _SOURCE_EVENT_SOURCE_TYPE_MAX);
+        assert(size_table[type] > 0);
 
-        s = new(sd_event_source, 1);
+        /* We use expand_to_usable() here to tell gcc that it should consider this an object of the full
+         * size, even if we only allocate the initial part we need. */
+        s = expand_to_usable(malloc0(size_table[type]), sizeof(sd_event_source));
         if (!s)
                 return NULL;
 
-        *s = (struct sd_event_source) {
-                .n_ref = 1,
-                .event = e,
-                .floating = floating,
-                .type = type,
-                .pending_index = PRIOQ_IDX_NULL,
-                .prepare_index = PRIOQ_IDX_NULL,
-        };
+        /* Note: we cannot use compound initialization here, because sizeof(sd_event_source) is likely larger
+         * than what we allocated here. */
+        s->n_ref = 1;
+        s->event = e;
+        s->floating = floating;
+        s->type = type;
+        s->pending_index = PRIOQ_IDX_NULL;
+        s->prepare_index = PRIOQ_IDX_NULL;
 
         if (!floating)
                 sd_event_ref(e);
