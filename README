@@ -221,7 +221,9 @@ REQUIREMENTS:
         During runtime, you need the following additional
         dependencies:
 
-        util-linux >= v2.27.1 required
+        util-linux >= v2.27.1 required (including but not limited to: mount,
+                                        umount, swapon, swapoff, sulogin,
+                                        agetty, fsck)
         dbus >= 1.4.0 (strictly speaking optional, but recommended)
                 NOTE: If using dbus < 1.9.18, you should override the default
                 policy directory (--with-dbuspolicydir=/etc/dbus-1/system.d).
