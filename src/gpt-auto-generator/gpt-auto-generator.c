@@ -559,26 +559,6 @@ static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
         if (r > 0)
                 return 0;
 
-        if (is_efi_boot()) {
-                sd_id128_t loader_uuid;
-
-                /* If this is an EFI boot, be extra careful, and only mount the ESP if it was the ESP used for booting. */
-
-                r = efi_loader_get_device_part_uuid(&loader_uuid);
-                if (r == -ENOENT) {
-                        log_debug("EFI loader partition unknown.");
-                        return 0;
-                }
-                if (r < 0)
-                        return log_error_errno(r, "Failed to read ESP partition UUID: %m");
-
-                if (!sd_id128_equal(p->uuid, loader_uuid)) {
-                        log_debug("Partition for %s does not appear to be the partition we are booted from.", p->node);
-                        return 0;
-                }
-        } else
-                log_debug("Not an EFI boot, skipping ESP check.");
-
         r = partition_pick_mount_options(
                         PARTITION_ESP,
                         dissected_partition_fstype(p),
@@ -671,10 +651,10 @@ static int add_root_mount(void) {
                            "(The boot loader did not set EFI variable LoaderDevicePartUUID.)");
                 return 0;
         } else if (r < 0)
-                return log_error_errno(r, "Failed to read ESP partition UUID: %m");
+                return log_error_errno(r, "Failed to read loader partition UUID: %m");
 
-        /* OK, we have an ESP partition, this is fantastic, so let's wait for a root device to show up. A
-         * udev rule will create the link for us under the right name. */
+        /* OK, we have an ESP/XBOOTLDR partition, this is fantastic, so let's wait for a root device to show up.
+         * A udev rule will create the link for us under the right name. */
 
         if (in_initrd()) {
                 r = generator_write_initrd_root_device_deps(arg_dest, "/dev/gpt-auto-root");
@@ -720,10 +700,17 @@ static int add_root_mount(void) {
 }
 
 static int enumerate_partitions(dev_t devnum) {
+        enum {
+                ESP_DONT_MOUNT,
+                ESP_NEEDS_CHECK,
+                ESP_OK,
+        };
+
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
         _cleanup_free_ char *devname = NULL;
-        int r, k;
+        bool has_xbootldr;
+        int r, k, esp_state;
 
         r = block_get_whole_disk(devnum, &devnum);
         if (r < 0)
@@ -767,14 +754,52 @@ static int enumerate_partitions(dev_t devnum) {
                         r = k;
         }
 
-        if (m->partitions[PARTITION_XBOOTLDR].found) {
+        esp_state = m->partitions[PARTITION_ESP].found ? ESP_NEEDS_CHECK : ESP_DONT_MOUNT;
+        has_xbootldr = m->partitions[PARTITION_XBOOTLDR].found;
+
+        if (is_efi_boot()) {
+                sd_id128_t loader_uuid;
+
+                r = efi_loader_get_device_part_uuid(&loader_uuid);
+                if (r < 0) {
+                        /* Won't be able to check if this is the boot ESP, thus not mounting it */
+                        esp_state = ESP_DONT_MOUNT;
+                        if (r == -ENOENT)
+                                log_debug("EFI loader partition unknown.");
+                        else
+                                log_debug_errno(r, "Failed to read loader partition UUID, ignoring: %m");
+                } else {
+                        if (has_xbootldr && sd_id128_equal(m->partitions[PARTITION_XBOOTLDR].uuid, loader_uuid)) {
+                                /* If we have XBOOTLDR and LoaderDevicePartUUID points to it, we just mount the ESP
+                                 * because further checks are impossible. */
+                                if (esp_state == ESP_NEEDS_CHECK)
+                                        esp_state = ESP_OK;
+                                log_debug("LoaderDevicePartUUID points to XBOOTLDR partition. Proceeding without checking ESP.");
+                        }
+
+                        if (esp_state == ESP_NEEDS_CHECK) {
+                                if (sd_id128_equal(m->partitions[PARTITION_ESP].uuid, loader_uuid))
+                                        esp_state = ESP_OK;
+                                else {
+                                        esp_state = ESP_DONT_MOUNT;
+                                        log_debug("ESP '%s' does not appear to be the one we are booted from, ignoring",
+                                                  m->partitions[PARTITION_ESP].node);
+                                }
+                        }
+                }
+        } else if (esp_state == ESP_NEEDS_CHECK) {
+                esp_state = ESP_OK;
+                log_debug("Not an EFI boot, skipping ESP check.");
+        }
+
+        if (has_xbootldr) {
                 k = add_partition_xbootldr(m->partitions + PARTITION_XBOOTLDR);
                 if (k < 0)
                         r = k;
         }
 
-        if (m->partitions[PARTITION_ESP].found) {
-                k = add_partition_esp(m->partitions + PARTITION_ESP, m->partitions[PARTITION_XBOOTLDR].found);
+        if (esp_state == ESP_OK) {
+                k = add_partition_esp(m->partitions + PARTITION_ESP, has_xbootldr);
                 if (k < 0)
                         r = k;
         }
