@@ -3813,6 +3813,7 @@ int config_parse_memory_limit(
         if (isempty(rvalue) && STR_IN_SET(lvalue, "DefaultMemoryLow",
                                                   "DefaultMemoryMin",
                                                   "MemoryLow",
+                                                  "StartupMemoryLow",
                                                   "MemoryMin"))
                 bytes = CGROUP_LIMIT_MIN;
         else if (!isempty(rvalue) && !streq(rvalue, "infinity")) {
@@ -3828,7 +3829,17 @@ int config_parse_memory_limit(
                         bytes = physical_memory_scale(r, 10000U);
 
                 if (bytes >= UINT64_MAX ||
-                    (bytes <= 0 && !STR_IN_SET(lvalue, "MemorySwapMax", "MemoryZSwapMax", "MemoryLow", "MemoryMin", "DefaultMemoryLow", "DefaultMemoryMin"))) {
+                    (bytes <= 0 && !STR_IN_SET(lvalue,
+                                               "MemorySwapMax",
+                                               "StartupMemorySwapMax",
+                                               "MemoryZSwapMax",
+                                               "StartupMemoryZSwapMax",
+                                               "MemoryLow",
+                                               "StartupMemoryLow",
+                                               "MemoryMin",
+                                               "DefaultMemoryLow",
+                                               "DefaultstartupMemoryLow",
+                                               "DefaultMemoryMin"))) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0, "Memory limit '%s' out of range, ignoring.", rvalue);
                         return 0;
                 }
@@ -3837,6 +3848,9 @@ int config_parse_memory_limit(
         if (streq(lvalue, "DefaultMemoryLow")) {
                 c->default_memory_low = bytes;
                 c->default_memory_low_set = true;
+        } else if (streq(lvalue, "DefaultStartupMemoryLow")) {
+                c->default_startup_memory_low = bytes;
+                c->default_startup_memory_low_set = true;
         } else if (streq(lvalue, "DefaultMemoryMin")) {
                 c->default_memory_min = bytes;
                 c->default_memory_min_set = true;
@@ -3846,15 +3860,30 @@ int config_parse_memory_limit(
         } else if (streq(lvalue, "MemoryLow")) {
                 c->memory_low = bytes;
                 c->memory_low_set = true;
+        } else if (streq(lvalue, "StartupMemoryLow")) {
+                c->startup_memory_low = bytes;
+                c->startup_memory_low_set = true;
         } else if (streq(lvalue, "MemoryHigh"))
                 c->memory_high = bytes;
-        else if (streq(lvalue, "MemoryMax"))
+        else if (streq(lvalue, "StartupMemoryHigh")) {
+                c->startup_memory_high = bytes;
+                c->startup_memory_high_set = true;
+        } else if (streq(lvalue, "MemoryMax"))
                 c->memory_max = bytes;
-        else if (streq(lvalue, "MemorySwapMax"))
+        else if (streq(lvalue, "StartupMemoryMax")) {
+                c->startup_memory_max = bytes;
+                c->startup_memory_max_set = true;
+        } else if (streq(lvalue, "MemorySwapMax"))
                 c->memory_swap_max = bytes;
-        else if (streq(lvalue, "MemoryZSwapMax"))
+        else if (streq(lvalue, "StartupMemorySwapMax")) {
+                c->startup_memory_swap_max = bytes;
+                c->startup_memory_swap_max_set = true;
+        } else if (streq(lvalue, "MemoryZSwapMax"))
                 c->memory_zswap_max = bytes;
-        else if (streq(lvalue, "MemoryLimit")) {
+        else if (streq(lvalue, "StartupMemoryZSwapMax")) {
+                c->startup_memory_zswap_max = bytes;
+                c->startup_memory_zswap_max_set = true;
+        } else if (streq(lvalue, "MemoryLimit")) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Unit uses MemoryLimit=; please use MemoryMax= instead. Support for MemoryLimit= will be removed soon.");
                 c->memory_limit = bytes;
