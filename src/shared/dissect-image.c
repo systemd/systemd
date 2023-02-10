@@ -435,7 +435,7 @@ static int make_partition_devname(
         assert(nr != 0); /* zero is not a valid partition nr */
         assert(ret);
 
-        if (!FLAGS_SET(flags, DISSECT_IMAGE_DISKSEQ_DEVNODE) || diskseq == UINT64_MAX) {
+        if (!FLAGS_SET(flags, DISSECT_IMAGE_DISKSEQ_DEVNODE) || diskseq == 0) {
 
                 /* Given a whole block device node name (e.g. /dev/sda or /dev/loop7) generate a partition
                  * device name (e.g. /dev/sda7 or /dev/loop7p5). The rule the kernel uses is simple: if whole
@@ -499,7 +499,7 @@ static int open_partition(
                 return -ENXIO;
 
         /* Also check diskseq. */
-        if (loop->diskseq > 0) {
+        if (loop->diskseq != 0) {
                 uint64_t diskseq;
 
                 r = fd_get_diskseq(fd, &diskseq);
@@ -573,7 +573,7 @@ static int dissect_image(
          * Returns -ENXIO if we couldn't find any partition suitable as root or /usr partition
          * Returns -ENOTUNIQ if we only found multiple generic partitions and thus don't know what to do with that */
 
-        uint64_t diskseq = m->loop ? m->loop->diskseq : UINT64_MAX;
+        uint64_t diskseq = m->loop ? m->loop->diskseq : 0;
 
         if (verity && verity->root_hash) {
                 sd_id128_t fsuuid, vuuid;
