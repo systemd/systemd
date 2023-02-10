@@ -144,17 +144,29 @@ struct CGroupContext {
 
         uint64_t default_memory_min;
         uint64_t default_memory_low;
+        uint64_t default_startup_memory_low;
         uint64_t memory_min;
         uint64_t memory_low;
+        uint64_t startup_memory_low;
         uint64_t memory_high;
+        uint64_t startup_memory_high;
         uint64_t memory_max;
+        uint64_t startup_memory_max;
         uint64_t memory_swap_max;
+        uint64_t startup_memory_swap_max;
         uint64_t memory_zswap_max;
+        uint64_t startup_memory_zswap_max;
 
         bool default_memory_min_set:1;
         bool default_memory_low_set:1;
+        bool default_startup_memory_low_set:1;
         bool memory_min_set:1;
         bool memory_low_set:1;
+        bool startup_memory_low_set:1;
+        bool startup_memory_high_set:1;
+        bool startup_memory_max_set:1;
+        bool startup_memory_swap_max_set:1;
+        bool startup_memory_zswap_max_set:1;
 
         Set *ip_address_allow;
         Set *ip_address_deny;
@@ -288,6 +300,7 @@ Unit* manager_get_unit_by_pid(Manager *m, pid_t pid);
 
 uint64_t unit_get_ancestor_memory_min(Unit *u);
 uint64_t unit_get_ancestor_memory_low(Unit *u);
+uint64_t unit_get_ancestor_startup_memory_low(Unit *u);
 
 int unit_search_main_pid(Unit *u, pid_t *ret);
 int unit_watch_all_pids(Unit *u);
