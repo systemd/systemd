@@ -201,12 +201,8 @@ int enroll_tpm2(struct crypt_device *cd,
                  * This is optional however, skip it if it's not explicitly provided. */
 
                 r = tpm2_load_pcr_signature(signature_path, &signature_json);
-                if (r < 0) {
-                        if (signature_path || r != -ENOENT)
-                                return log_debug_errno(r, "Failed to read TPM PCR signature: %m");
-
-                        log_debug_errno(r, "Failed to read TPM2 PCR signature, proceeding without: %m");
-                }
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to read TPM PCR signature: %m");
         }
 
         r = tpm2_seal(device,
