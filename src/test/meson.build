@@ -387,6 +387,10 @@ tests += [
                 'dependencies' : libm,
         },
         {
+                'sources' : files('test-mempress.c'),
+                'dependencies' : threads,
+        },
+        {
                 'sources' : files('test-namespace.c'),
                 'dependencies' : [
                         libblkid,
