@@ -1425,20 +1425,39 @@ int socket_get_mtu(int fd, int af, size_t *ret) {
         return 0;
 }
 
-int connect_unix_path(int fd, int dir_fd, const char *path) {
-        _cleanup_close_ int inode_fd = -EBADF;
+static int connect_inode(int fd, int inode_fd) {
         union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
         };
-        size_t path_len;
+        const char *proc;
+        size_t proc_len;
         socklen_t salen;
 
         assert(fd >= 0);
+        assert(inode_fd >= 0);
+
+        proc = FORMAT_PROC_FD_PATH(inode_fd);
+        proc_len = strlen(proc);
+
+        assert(proc_len < sizeof(sa.un.sun_path));
+        memcpy(sa.un.sun_path, proc, proc_len + 1);
+        salen = offsetof(struct sockaddr_un, sun_path) + proc_len + 1;
+
+        return RET_NERRNO(connect(fd, &sa.sa, salen));
+}
+
+int connect_unix_path(int fd, int dir_fd, const char *path) {
+        union sockaddr_union sa;
+        size_t path_len;
+
+        assert(fd >= 0);
         assert(dir_fd == AT_FDCWD || dir_fd >= 0);
-        assert(path);
 
         /* Connects to the specified AF_UNIX socket in the file system. Works around the 108 byte size limit
          * in sockaddr_un, by going via O_PATH if needed. This hence works for any kind of path. */
+
+        if (!path)
+                return connect_inode(fd, dir_fd);
 
         path_len = strlen(path);
 
@@ -1448,11 +1467,15 @@ int connect_unix_path(int fd, int dir_fd, const char *path) {
                 return -EINVAL;
 
         if (dir_fd == AT_FDCWD && path_len < sizeof(sa.un.sun_path)) {
+                sa = (union sockaddr_union) {
+                        .un.sun_family = AF_UNIX,
+                };
+
                 memcpy(sa.un.sun_path, path, path_len + 1);
-                salen = offsetof(struct sockaddr_un, sun_path) + path_len + 1;
+
+                return RET_NERRNO(connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + path_len + 1));
         } else {
-                const char *proc;
-                size_t proc_len;
+                _cleanup_close_ int inode_fd = -EBADF;
 
                 /* If dir_fd is specified, then we need to go the indirect O_PATH route, because connectat()
                  * does not exist. If the path is too long, we also need to take the indirect route, since we
@@ -1462,15 +1485,8 @@ int connect_unix_path(int fd, int dir_fd, const char *path) {
                 if (inode_fd < 0)
                         return -errno;
 
-                proc = FORMAT_PROC_FD_PATH(inode_fd);
-                proc_len = strlen(proc);
-
-                assert(proc_len < sizeof(sa.un.sun_path));
-                memcpy(sa.un.sun_path, proc, proc_len + 1);
-                salen = offsetof(struct sockaddr_un, sun_path) + proc_len + 1;
+                return connect_inode(fd, inode_fd);
         }
-
-        return RET_NERRNO(connect(fd, &sa.sa, salen));
 }
 
 int socket_address_parse_unix(SocketAddress *ret_address, const char *s) {
