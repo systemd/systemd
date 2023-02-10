@@ -511,6 +511,10 @@ tests += [
 
         [files('test-mempool.c')],
 
+        [files('test-mempress.c'),
+         [],
+         [threads]],
+
         [files('test-replace-var.c')],
 
         [files('test-calendarspec.c')],
