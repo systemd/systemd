@@ -101,7 +101,7 @@ jobs:
                                "good-to-merge/waiting-for-reporter-feedback 👍",
                                "needs-discussion 🤔",
                                "needs-reporter-feedback ❓",
-                               "dont-merge",
+                               "dont-merge 💣",
                                "squash-on-merge",
                                "quick-review 🏃‍♂️"]) {
             try {
