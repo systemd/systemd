@@ -103,7 +103,7 @@ jobs:
                                "needs-reporter-feedback ❓",
                                "dont-merge",
                                "squash-on-merge",
-                               "quick-review"]) {
+                               "quick-review 🏃‍♂️"]) {
             try {
               await github.rest.issues.removeLabel({
                 issue_number: context.issue.number,
