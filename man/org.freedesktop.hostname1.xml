@@ -370,7 +370,7 @@ node /org/freedesktop/hostname1 {
       as-is to <filename>systemd-hostnamed</filename> in which case it will automatically use a suitable
       fallback.</para></listitem>
 
-      <listitem><para>Uppercase charaacters should be replaced with their lowercase equivalents.
+      <listitem><para>Uppercase characters should be replaced with their lowercase equivalents.
       </para></listitem>
     </itemizedlist></para>
 
