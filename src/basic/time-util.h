@@ -66,7 +66,6 @@ typedef enum TimestampStyle {
 /* We assume a maximum timezone length of 6. TZNAME_MAX is not defined on Linux, but glibc internally initializes this
  * to 6. Let's rely on that. */
 #define FORMAT_TIMESTAMP_MAX (3U+1U+10U+1U+8U+1U+6U+1U+6U+1U)
-#define FORMAT_TIMESTAMP_WIDTH 28U /* when outputting, assume this width */
 #define FORMAT_TIMESTAMP_RELATIVE_MAX 256U
 #define FORMAT_TIMESPAN_MAX 64U
 
