@@ -1405,7 +1405,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
         <orderedlist>
           <listitem><para>The user's home directory is bind mounted from the host into
-          <filename>/run/hosts/home/</filename>.</para></listitem>
+          <filename>/run/host/home/</filename>.</para></listitem>
 
           <listitem><para>An additional UID/GID mapping is added that maps the host user's UID/GID to a
           container UID/GID, allocated from the 60514…60577 range.</para></listitem>
