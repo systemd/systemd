@@ -18,6 +18,7 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "special.h"
+#include "unit-def.h"
 
 static int reload_manager(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -38,6 +39,32 @@ static int reload_manager(sd_bus *bus) {
         r = sd_bus_call(bus, m, DAEMON_RELOAD_TIMEOUT_SEC, &error, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to reload daemon: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int is_inactive_default_target(sd_bus *bus, bool *ret_is_inactive) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *path = NULL, *state = NULL;
+        int r = 0;
+
+        path = unit_dbus_path_from_name(SPECIAL_DEFAULT_TARGET);
+        if (!path) {
+                log_warning_errno(ENOMEM, "Failed to allocate a dbus path for "SPECIAL_DEFAULT_TARGET": %m");
+                return -ENOMEM;
+        }
+
+        r = sd_bus_get_property_string(bus,
+                                       "org.freedesktop.systemd1",
+                                       path,
+                                       "org.freedesktop.systemd1.Unit",
+                                       "ActiveState",
+                                       &error,
+                                       &state);
+        if (r < 0)
+                return log_error_errno(r, "Failed to retrieve unit state: %s", bus_error_message(&error, r));
+
+        *ret_is_inactive = streq_ptr(state, "inactive");
 
         return 0;
 }
