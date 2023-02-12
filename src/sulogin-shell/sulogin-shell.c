@@ -122,6 +122,7 @@ static int run(int argc, char *argv[]) {
         };
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
+        bool is_inactive;
 
         log_setup();
 
@@ -131,19 +132,35 @@ static int run(int argc, char *argv[]) {
                 /* allows passwordless logins if root account is locked. */
                 sulogin_cmdline[1] = "--force";
 
-        (void) fork_wait(sulogin_cmdline);
+        for (;;) {
+                (void) fork_wait(sulogin_cmdline);
 
-        r = bus_connect_system_systemd(&bus);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to get D-Bus connection: %m");
-                r = 0;
-        } else {
-                (void) reload_manager(bus);
+                r = bus_connect_system_systemd(&bus);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to get D-Bus connection: %m");
+                        continue;
+                }
 
-                r = start_default_target(bus);
+                r = reload_manager(bus);
+                if (r < 0)
+                        goto close_bus;
+
+                r = is_inactive_default_target(bus, &is_inactive);
+                if (r < 0)
+                        goto close_bus;
+
+                if (is_inactive) {
+                        r = start_default_target(bus);
+                        if (r == 0)
+                                break;
+                }
+
+        close_bus:
+                sd_bus_flush_close_unref(bus);
+                bus = NULL;
         }
 
-        return r;
+        return 0;
 }
 
 DEFINE_MAIN_FUNCTION(run);
