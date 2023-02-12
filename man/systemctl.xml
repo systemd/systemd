@@ -842,6 +842,11 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             executed. This output may be suppressed by passing <option>--quiet</option>.
             </para>
 
+            <para>When this command is used with <option>--user</option>, the units being operated on might
+            still be enabled in global scope, and thus get started automatically even after a successful
+            disablement in user scope. In this case, a warning about it is shown, which can be suppressed
+            using <option>--no-warn</option>.</para>
+
             <para>This command honors <option>--system</option>, <option>--user</option>, <option>--runtime</option>,
             <option>--global</option> and <option>--no-warn</option> in a similar way as <command>enable</command>.</para>
           </listitem>
@@ -2045,7 +2050,11 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             </listitem>
             <listitem>
               <para>when using <command>enable</command> or <command>disable</command> on units without
-              install information (i.e. don't have or have an empty [Install] section).</para>
+              install information (i.e. don't have or have an empty [Install] section),</para>
+            </listitem>
+            <listitem>
+              <para>when using <command>disable</command> combined with <option>--user</option> on units
+              that are enabled in global scope.</para>
             </listitem>
           </itemizedlist>
           </para>
