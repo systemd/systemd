@@ -161,7 +161,7 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
     <refsect2>
       <title>Type</title>
 
-      <para>The type consists of a single letter and optionally one or emore modifier characters: a plus sign
+      <para>The type consists of a single letter and optionally one or more modifier characters: a plus sign
       (<literal>+</literal>), exclamation mark (<literal>!</literal>), minus sign (<literal>-</literal>),
       equals sign (<literal>=</literal>), tilde character (<literal>~</literal>) and/or caret
       (<literal>^</literal>).</para>
@@ -533,7 +533,7 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
       <title>Mode</title>
 
       <para>The file access mode to use when creating this file or directory. If omitted or when set to
-      <literal>-</literal>, the default is used: 0755 for directories, 0644 for all other file objects.  For
+      <literal>-</literal>, the default is used: 0755 for directories, 0644 for all other file objects. For
       <varname>z</varname>, <varname>Z</varname> lines, if omitted or when set to <literal>-</literal>, the
       file access mode will not be modified. This parameter is ignored for <varname>x</varname>,
       <varname>r</varname>, <varname>R</varname>, <varname>L</varname>, <varname>t</varname>, and
