@@ -2079,7 +2079,9 @@ int dns_transaction_go(DnsTransaction *t) {
                         log_debug("Sending query via TCP since it is too large.");
                 else if (r == -EAGAIN)
                         log_debug("Sending query via TCP since UDP isn't supported or DNS-over-TLS is selected.");
-                if (IN_SET(r, -EMSGSIZE, -EAGAIN))
+                else if (r == -EPERM)
+                        log_debug("Sending query via TCP since UDP is blocked.");
+                if (IN_SET(r, -EMSGSIZE, -EAGAIN, -EPERM))
                         r = dns_transaction_emit_tcp(t);
         }
         if (r == -ELOOP) {
