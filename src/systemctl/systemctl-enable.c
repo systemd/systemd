@@ -263,6 +263,43 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                            "  instance name specified.",
                            special_glyph(SPECIAL_GLYPH_BULLET));
 
+        if (streq(verb, "disable") && arg_scope == LOOKUP_SCOPE_USER && !arg_quiet && !arg_no_warn) {
+                /* If some of the units are disabled in user scope but still enabled in global scope,
+                 * we emit a warning for that. */
+
+                _cleanup_strv_free_ char **enabled_in_global_scope = NULL;
+
+                STRV_FOREACH(name, names) {
+                        UnitFileState state;
+
+                        r = unit_file_get_state(LOOKUP_SCOPE_GLOBAL, arg_root, *name, &state);
+                        if (r == -ENOENT)
+                                continue;
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get unit file state for %s: %m", *name);
+
+                        if (IN_SET(state, UNIT_FILE_ENABLED, UNIT_FILE_ENABLED_RUNTIME)) {
+                                r = strv_extend(&enabled_in_global_scope, *name);
+                                if (r < 0)
+                                        return log_oom();
+                        }
+                }
+
+                if (!strv_isempty(enabled_in_global_scope)) {
+                        _cleanup_free_ char *units = NULL;
+
+                        units = strv_join(enabled_in_global_scope, ", ");
+                        if (!units)
+                                return log_oom();
+
+                        log_notice("The following unit files have been enabled in global scope. This means\n"
+                                   "they will still be started automatically after a successful disablement\n"
+                                   "in user scope:\n"
+                                   "%s",
+                                   units);
+                }
+        }
+
         if (arg_now && STR_IN_SET(argv[0], "enable", "disable", "mask")) {
                 sd_bus *bus;
                 size_t len, i;
