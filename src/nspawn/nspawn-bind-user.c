@@ -394,7 +394,7 @@ int bind_user_setup(
 
         r = userns_mkdir(root, "/run/host/home", 0755, 0, 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to create /run/host/userdb: %m");
+                return log_error_errno(r, "Failed to create /run/host/home: %m");
 
         r = userns_mkdir(root, "/run/host/userdb", 0755, 0, 0);
         if (r < 0)
