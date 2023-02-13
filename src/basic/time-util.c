@@ -610,7 +610,14 @@ char* format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
         return buf;
 }
 
-static int parse_timestamp_impl(const char *t, usec_t *ret, bool with_tz) {
+static int parse_timestamp_impl(
+                const char *t,
+                bool with_tz,
+                bool utc,
+                int isdst,
+                long gmtoff,
+                usec_t *ret) {
+
         static const struct {
                 const char *name;
                 const int nr;
@@ -631,11 +638,11 @@ static int parse_timestamp_impl(const char *t, usec_t *ret, bool with_tz) {
                 { "Sat",       6 },
         };
 
-        const char *k, *utc = NULL;
-        struct tm tm, copy;
         usec_t usec, plus = 0, minus = 0;
-        int r, weekday = -1, isdst = -1;
+        int r, weekday = -1;
         unsigned fractional = 0;
+        const char *k;
+        struct tm tm, copy;
         time_t sec;
 
         /* Allowed syntaxes:
@@ -707,46 +714,6 @@ static int parse_timestamp_impl(const char *t, usec_t *ret, bool with_tz) {
                                 return r;
 
                         goto finish;
-                }
-
-                /* See if the timestamp is suffixed with UTC */
-                utc = endswith_no_case(t, " UTC");
-                if (utc)
-                        t = strndupa_safe(t, utc - t);
-                else {
-                        const char *e = NULL;
-                        int j;
-
-                        tzset();
-
-                        /* See if the timestamp is suffixed by either the DST or non-DST local timezone. Note
-                         * that we only support the local timezones here, nothing else. Not because we
-                         * wouldn't want to, but simply because there are no nice APIs available to cover
-                         * this. By accepting the local time zone strings, we make sure that all timestamps
-                         * written by format_timestamp() can be parsed correctly, even though we don't
-                         * support arbitrary timezone specifications. */
-
-                        for (j = 0; j <= 1; j++) {
-
-                                if (isempty(tzname[j]))
-                                        continue;
-
-                                e = endswith_no_case(t, tzname[j]);
-                                if (!e)
-                                        continue;
-                                if (e == t)
-                                        continue;
-                                if (e[-1] != ' ')
-                                        continue;
-
-                                break;
-                        }
-
-                        if (IN_SET(j, 0, 1)) {
-                                /* Found one of the two timezones specified. */
-                                t = strndupa_safe(t, e - t - 1);
-                                isdst = j;
-                        }
                 }
         }
 
@@ -865,8 +832,31 @@ parse_usec:
                 return -EINVAL;
 
 from_tm:
+        assert(plus == 0);
+        assert(minus == 0);
+
         if (weekday >= 0 && tm.tm_wday != weekday)
                 return -EINVAL;
+
+        if (gmtoff < 0) {
+                plus = -gmtoff * USEC_PER_SEC;
+
+                /* If gmtoff is negative, the string maye be too old to be parsed as UTC.
+                 * E.g. 1969-12-31 23:00:00 -06 == 1970-01-01 05:00:00 UTC
+                 * We assumed that gmtoff is in the range of -24:00…+24:00, hence the only date we need to
+                 * handle here is 1969-12-31. So, let's shift the date with one day, then subtract the shift
+                 * later. */
+                if (tm.tm_year == 69 && tm.tm_mon == 11 && tm.tm_mday == 31) {
+                        /* Thu 1970-01-01-00:00:00 */
+                        tm.tm_year = 70;
+                        tm.tm_mon = 0;
+                        tm.tm_mday = 1;
+                        tm.tm_wday = 4;
+                        tm.tm_yday = 0;
+                        minus = USEC_PER_DAY;
+                }
+        } else
+                minus = gmtoff * USEC_PER_SEC;
 
         sec = mktime_or_timegm(&tm, utc);
         if (sec < 0)
@@ -890,24 +880,93 @@ finish:
         return 0;
 }
 
+static int parse_timestamp_with_tz(const char *t, size_t len, bool utc, int isdst, long gmtoff, usec_t *ret) {
+        _cleanup_free_ char *buf = NULL;
+
+        assert(t);
+        assert(len > 0);
+
+        buf = strndup(t, len);
+        if (!buf)
+                return -ENOMEM;
+
+        return parse_timestamp_impl(buf, /* with_tz = */ true, utc, isdst, gmtoff, ret);
+}
+
+static int parse_timestamp_maybe_with_tz(const char *t, size_t len, bool valid_tz, usec_t *ret) {
+        assert(t);
+        assert(len > 0);
+
+        tzset();
+
+        for (int j = 0; j <= 1; j++) {
+                if (isempty(tzname[j]))
+                        continue;
+
+                if (!streq(t + len + 1, tzname[j]))
+                        continue;
+
+                /* The specified timezone matches tzname[] of the local timezone. */
+                return parse_timestamp_with_tz(t, len, /* utc = */ false, /* isdst = */ j, /* gmtoff = */ 0, ret);
+        }
+
+        if (valid_tz)
+                /* We know that the specified timezone is a valid zoneinfo (e.g. Asia/Tokyo). So, simply drop
+                 * the timezone and parse the remaining string as a local time. */
+                return parse_timestamp_with_tz(t, len, /* utc = */ false, /* isdst = */ -1, /* gmtoff = */ 0, ret);
+
+        return parse_timestamp_impl(t, /* with_tz = */ false, /* utc = */ false, /* isdst = */ -1, /* gmtoff = */ 0, ret);
+}
+
 typedef struct ParseTimestampResult {
         usec_t usec;
         int return_value;
 } ParseTimestampResult;
 
 int parse_timestamp(const char *t, usec_t *ret) {
-        char *last_space, *tz = NULL;
         ParseTimestampResult *shared, tmp;
+        const char *k, *tz, *space;
+        struct tm tm;
         int r;
 
         assert(t);
 
-        last_space = strrchr(t, ' ');
-        if (last_space != NULL && timezone_is_valid(last_space + 1, LOG_DEBUG))
-                tz = last_space + 1;
+        space = strrchr(t, ' ');
+        if (!space)
+                return parse_timestamp_impl(t, /* with_tz = */ false, /* utc = */ false, /* isdst = */ -1, /* gmtoff = */ 0, ret);
 
-        if (!tz || endswith_no_case(t, " UTC"))
-                return parse_timestamp_impl(t, ret, false);
+        /* The string starts with space. */
+        if (space == t)
+                return -EINVAL;
+
+        /* Shortcut, parse the string as UTC. */
+        if (streq(space + 1, "UTC"))
+                return parse_timestamp_with_tz(t, space - t, /* utc = */ true, /* isdst = */ -1, /* gmtoff = */ 0, ret);
+
+        /* If the timezone is compatible with RFC-822/ISO 8601 (e.g. +06, or -03:00) then parse the string as
+         * UTC and shift the result. */
+        k = strptime(space + 1, "%z", &tm);
+        if (k && *k == '\0') {
+                /* glibc accepts gmtoff more than 24 hours, but we refuse it. */
+                if ((usec_t) labs(tm.tm_gmtoff) > USEC_PER_DAY / USEC_PER_SEC)
+                        return -EINVAL;
+
+                return parse_timestamp_with_tz(t, space - t, /* utc = */ true, /* isdst = */ -1, /* gmtoff = */ tm.tm_gmtoff, ret);
+        }
+
+        /* If the last word is not a timezone file (e.g. Asia/Tokyo), then let's check if it matches
+         * tzname[] of the local timezone, e.g. JST or CEST. */
+        if (!timezone_is_valid(space + 1, LOG_DEBUG))
+                return parse_timestamp_maybe_with_tz(t, space - t, /* valid_tz = */ false, ret);
+
+        /* Shortcut. If the current $TZ is equivalent to the specified timezone, it is not necessary to fork
+         * the process. */
+        tz = getenv("TZ");
+        if (tz && *tz == ':' && streq(tz + 1, space + 1))
+                return parse_timestamp_maybe_with_tz(t, space - t, /* valid_tz = */ true, ret);
+
+        /* Otherwise, to avoid polluting the current environment variables, let's fork the process and set
+         * the specified timezone in the child process. */
 
         shared = mmap(NULL, sizeof *shared, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
         if (shared == MAP_FAILED)
@@ -919,11 +978,10 @@ int parse_timestamp(const char *t, usec_t *ret) {
                 return r;
         }
         if (r == 0) {
-                bool with_tz = true;
-                char *colon_tz;
+                const char *colon_tz;
 
                 /* tzset(3) says $TZ should be prefixed with ":" if we reference timezone files */
-                colon_tz = strjoina(":", tz);
+                colon_tz = strjoina(":", space + 1);
 
                 if (setenv("TZ", colon_tz, 1) != 0) {
                         shared->return_value = negative_errno();
@@ -932,15 +990,7 @@ int parse_timestamp(const char *t, usec_t *ret) {
 
                 tzset();
 
-                /* If there is a timezone that matches the tzname fields, leave the parsing to the implementation.
-                 * Otherwise just cut it off. */
-                with_tz = !STR_IN_SET(tz, tzname[0], tzname[1]);
-
-                /* Cut off the timezone if we don't need it. */
-                if (with_tz)
-                        t = strndupa_safe(t, last_space - t);
-
-                shared->return_value = parse_timestamp_impl(t, &shared->usec, with_tz);
+                shared->return_value = parse_timestamp_maybe_with_tz(t, space - t, /* valid_tz = */ true, &shared->usec);
 
                 _exit(EXIT_SUCCESS);
         }
