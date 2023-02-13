@@ -718,6 +718,7 @@ static int parse_timestamp_impl(const char *t, usec_t *ret) {
                 { "Sat",       6 },
         };
 
+        _cleanup_free_ char *buf = NULL;
         usec_t usec, plus = 0, minus = 0;
         int r, isdst, weekday = -1;
         unsigned fractional = 0;
@@ -774,9 +775,11 @@ static int parse_timestamp_impl(const char *t, usec_t *ret) {
                 }
 
                 if ((k = endswith(t, " ago"))) {
-                        t = strndupa_safe(t, k - t);
+                        buf = strndup(t, k - t);
+                        if (!buf)
+                                return -ENOMEM;
 
-                        r = parse_sec(t, &minus);
+                        r = parse_sec(buf, &minus);
                         if (r < 0)
                                 return r;
 
@@ -784,16 +787,24 @@ static int parse_timestamp_impl(const char *t, usec_t *ret) {
                 }
 
                 if ((k = endswith(t, " left"))) {
-                        t = strndupa_safe(t, k - t);
+                        buf = strndup(t, k - t);
+                        if (!buf)
+                                return -ENOMEM;
 
-                        r = parse_sec(t, &plus);
+                        r = parse_sec(buf, &plus);
                         if (r < 0)
                                 return r;
 
                         goto finish;
                 }
+
+                buf = strdup(t);
         } else
-                t = strndupa_safe(t, space - t);
+                buf = strndup(t, space - t);
+        if (!buf)
+                return -ENOMEM;
+
+        t = buf;
 
         sec = (time_t) (usec / USEC_PER_SEC);
 
