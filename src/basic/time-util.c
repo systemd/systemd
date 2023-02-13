@@ -882,20 +882,17 @@ from_tm:
         if (x < 0)
                 return -EINVAL;
 
-        usec = (usec_t) x * USEC_PER_SEC + x_usec;
-        if (usec > USEC_TIMESTAMP_FORMATTABLE_MAX)
-                return -EINVAL;
+        usec = usec_add(x * USEC_PER_SEC, x_usec);
 
 finish:
-        if (usec + plus < usec) /* overflow? */
-                return -EINVAL;
-        usec += plus;
-        if (usec > USEC_TIMESTAMP_FORMATTABLE_MAX)
+        usec = usec_add(usec, plus);
+
+        if (usec < minus)
                 return -EINVAL;
 
-        if (usec >= minus)
-                usec -= minus;
-        else
+        usec = usec_sub_unsigned(usec, minus);
+
+        if (usec > USEC_TIMESTAMP_FORMATTABLE_MAX)
                 return -EINVAL;
 
         if (ret)
