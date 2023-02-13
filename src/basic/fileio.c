@@ -1200,9 +1200,6 @@ int read_timestamp_file(const char *fn, usec_t *ret) {
         if (r < 0)
                 return r;
 
-        if (!timestamp_is_set(t))
-                return -ERANGE;
-
         *ret = (usec_t) t;
         return 0;
 }
