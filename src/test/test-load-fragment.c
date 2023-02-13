@@ -34,6 +34,7 @@
 
 /* Nontrivial value serves as a placeholder to check that parsing function (didn't) change it */
 #define CGROUP_LIMIT_DUMMY      3
+#define DELEGATE_CG_DUMMY       "dummy"
 
 static char *runtime_dir = NULL;
 
@@ -890,7 +891,7 @@ TEST(config_parse_memory_limit) {
                 const char *rvalue,
                 void *data,
                 void *userdata) */
-        CGroupContext c;
+        CGroupContext c = {};
         struct limit_test {
                 const char *limit;
                 const char *value;
@@ -931,7 +932,56 @@ TEST(config_parse_memory_limit) {
                 assert_se(r >= 0);
                 assert_se(*limit_tests[i].result == limit_tests[i].expected);
         }
+        cgroup_context_done(&c);
+}
 
+TEST(config_parse_delegate_subcgroup) {
+        /* int config_parse_delegate_subcgroup(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) */
+        CGroupContext c = {};
+        struct limit_test {
+                const char *value;
+                const char *exp;
+        } tests[]= {
+                { "",                    NULL},
+                { ".",                   ""},
+                { "plain",               "plain"},
+                { "nest/ed/path",        "nest/ed/path"},
+                { "trail/",              "trail"},
+                { "./here",              "here"},
+
+                { "/abs",                DELEGATE_CG_DUMMY},
+                { "/abs/nested",         DELEGATE_CG_DUMMY},
+                { ":weird",              ":weird"},
+                { "weird:down/here",     "weird:down/here"},
+                { "../upper",            DELEGATE_CG_DUMMY},
+                { "abc/../../ctrl",      DELEGATE_CG_DUMMY},
+        };
+        size_t i;
+        int r;
+
+        for (i = 0; i < ELEMENTSOF(tests); i++) {
+                free_and_strdup(&c.delegate_subcgroup, DELEGATE_CG_DUMMY);
+
+                r = config_parse_delegate_subcgroup("unit.service", "fake", 1, "section", 1,
+                                                    "lvalue", 0,
+                                                    tests[i].value, &c, NULL);
+                log_info("rvalue=\"%s\", %s==%s\n",
+                         tests[i].value,
+                         c.delegate_subcgroup, tests[i].exp);
+                assert_se(r >= 0);
+                assert_se(streq_ptr(c.delegate_subcgroup, tests[i].exp));
+        }
+        cgroup_context_done(&c);
 }
 
 TEST(contains_instance_specifier_superset) {
