@@ -171,6 +171,8 @@ dual_timestamp* dual_timestamp_from_monotonic(dual_timestamp *ts, usec_t u) {
 dual_timestamp* dual_timestamp_from_boottime(dual_timestamp *ts, usec_t u) {
         usec_t nowm;
 
+        assert(ts);
+
         if (u == USEC_INFINITY) {
                 ts->realtime = ts->monotonic = USEC_INFINITY;
                 return ts;
@@ -183,6 +185,7 @@ dual_timestamp* dual_timestamp_from_boottime(dual_timestamp *ts, usec_t u) {
 }
 
 usec_t triple_timestamp_by_clock(triple_timestamp *ts, clockid_t clock) {
+        assert(ts);
 
         switch (clock) {
 
@@ -421,6 +424,8 @@ char *format_timestamp_style(
 char* format_timestamp_relative_full(char *buf, size_t l, usec_t t, bool implicit_left) {
         const char *s;
         usec_t n, d;
+
+        assert(buf);
 
         if (!timestamp_is_set(t))
                 return NULL;
@@ -903,6 +908,8 @@ int parse_timestamp(const char *t, usec_t *ret) {
         ParseTimestampResult *shared, tmp;
         int r;
 
+        assert(t);
+
         last_space = strrchr(t, ' ');
         if (last_space != NULL && timezone_is_valid(last_space + 1, LOG_DEBUG))
                 tz = last_space + 1;
@@ -991,6 +998,9 @@ static const char* extract_multiplier(const char *p, usec_t *ret) {
                 { "us",      1ULL            },
                 { "µs",      1ULL            },
         };
+
+        assert(p);
+        assert(ret);
 
         for (size_t i = 0; i < ELEMENTSOF(table); i++) {
                 char *e;
@@ -1120,6 +1130,9 @@ int parse_sec_fix_0(const char *t, usec_t *ret) {
 }
 
 int parse_sec_def_infinity(const char *t, usec_t *ret) {
+        assert(t);
+        assert(ret);
+
         t += strspn(t, WHITESPACE);
         if (isempty(t)) {
                 *ret = USEC_INFINITY;
@@ -1167,6 +1180,9 @@ static const char* extract_nsec_multiplier(const char *p, nsec_t *ret) {
                 { "",        1ULL            }, /* default is nsec */
         };
         size_t i;
+
+        assert(p);
+        assert(ret);
 
         for (i = 0; i < ELEMENTSOF(table); i++) {
                 char *e;
@@ -1320,6 +1336,8 @@ static int get_timezones_from_tzdata_zi(char ***ret) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **zones = NULL;
         int r;
+
+        assert(ret);
 
         f = fopen("/usr/share/zoneinfo/tzdata.zi", "re");
         if (!f)
@@ -1478,6 +1496,8 @@ int get_timezone(char **ret) {
         char *z;
         int r;
 
+        assert(ret);
+
         r = readlink_malloc("/etc/localtime", &t);
         if (r == -ENOENT) {
                 /* If the symlink does not exist, assume "UTC", like glibc does */
@@ -1507,10 +1527,15 @@ int get_timezone(char **ret) {
 }
 
 time_t mktime_or_timegm(struct tm *tm, bool utc) {
+        assert(tm);
+
         return utc ? timegm(tm) : mktime(tm);
 }
 
 struct tm *localtime_or_gmtime_r(const time_t *t, struct tm *tm, bool utc) {
+        assert(t);
+        assert(tm);
+
         return utc ? gmtime_r(t, tm) : localtime_r(t, tm);
 }
 
