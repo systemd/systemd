@@ -234,7 +234,7 @@ static int raw_import_finish(RawImport *i) {
 
                 if (S_ISREG(i->input_stat.st_mode)) {
                         (void) copy_times(i->input_fd, i->output_fd, COPY_CRTIME);
-                        (void) copy_xattr(i->input_fd, i->output_fd, 0);
+                        (void) copy_xattr(i->input_fd, NULL, i->output_fd, NULL, 0);
                 }
         }
 
