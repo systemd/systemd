@@ -634,8 +634,9 @@ static int parse_timestamp_impl(const char *t, usec_t *ret, bool with_tz) {
         const char *k, *utc = NULL, *tzn = NULL;
         struct tm tm, copy;
         time_t x;
-        usec_t usec, x_usec, plus = 0, minus = 0;
+        usec_t usec, plus = 0, minus = 0;
         int r, weekday = -1, dst = -1;
+        unsigned fractional = 0;
 
         /* Allowed syntaxes:
          *
@@ -751,7 +752,6 @@ static int parse_timestamp_impl(const char *t, usec_t *ret, bool with_tz) {
         }
 
         x = (time_t) (usec / USEC_PER_SEC);
-        x_usec = 0;
 
         if (!localtime_or_gmtime_r(&x, &tm, utc))
                 return -EINVAL;
@@ -860,19 +860,12 @@ static int parse_timestamp_impl(const char *t, usec_t *ret, bool with_tz) {
         return -EINVAL;
 
 parse_usec:
-        {
-                unsigned add;
-
-                k++;
-                r = parse_fractional_part_u(&k, 6, &add);
-                if (r < 0)
-                        return -EINVAL;
-
-                if (*k)
-                        return -EINVAL;
-
-                x_usec = add;
-        }
+        k++;
+        r = parse_fractional_part_u(&k, 6, &fractional);
+        if (r < 0)
+                return -EINVAL;
+        if (*k != '\0')
+                return -EINVAL;
 
 from_tm:
         if (weekday >= 0 && tm.tm_wday != weekday)
@@ -882,7 +875,7 @@ from_tm:
         if (x < 0)
                 return -EINVAL;
 
-        usec = usec_add(x * USEC_PER_SEC, x_usec);
+        usec = usec_add(x * USEC_PER_SEC, fractional);
 
 finish:
         usec = usec_add(usec, plus);
