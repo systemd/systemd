@@ -682,9 +682,13 @@ static int parse_timestamp_impl(const char *t, usec_t *ret, bool with_tz) {
                 }
 
                 if ((k = endswith(t, " ago"))) {
-                        t = strndupa_safe(t, k - t);
+                        _cleanup_free_ char *buf = NULL;
 
-                        r = parse_sec(t, &minus);
+                        buf = strndup(t, k - t);
+                        if (!buf)
+                                return -ENOMEM;
+
+                        r = parse_sec(buf, &minus);
                         if (r < 0)
                                 return r;
 
@@ -692,9 +696,13 @@ static int parse_timestamp_impl(const char *t, usec_t *ret, bool with_tz) {
                 }
 
                 if ((k = endswith(t, " left"))) {
-                        t = strndupa_safe(t, k - t);
+                        _cleanup_free_ char *buf = NULL;
 
-                        r = parse_sec(t, &plus);
+                        buf = strndup(t, k - t);
+                        if (!buf)
+                                return -ENOMEM;
+
+                        r = parse_sec(buf, &plus);
                         if (r < 0)
                                 return r;
 
