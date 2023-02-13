@@ -1617,7 +1617,7 @@ static const char* const timestamp_style_table[_TIMESTAMP_STYLE_MAX] = {
 };
 
 /* Use the macro for enum → string to allow for aliases */
-_DEFINE_STRING_TABLE_LOOKUP_TO_STRING(timestamp_style, TimestampStyle,);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(timestamp_style, TimestampStyle);
 
 /* For the string → enum mapping we use the generic implementation, but also support two aliases */
 TimestampStyle timestamp_style_from_string(const char *s) {
