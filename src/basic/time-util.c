@@ -610,7 +610,14 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
         return buf;
 }
 
-static int parse_timestamp_impl(const char *t, usec_t *ret, bool with_tz) {
+static int parse_timestamp_impl(
+                const char *t,
+                bool with_tz,
+                bool utc,
+                int isdst,
+                long gmtoff,
+                usec_t *ret) {
+
         static const struct {
                 const char *name;
                 const int nr;
@@ -631,11 +638,12 @@ static int parse_timestamp_impl(const char *t, usec_t *ret, bool with_tz) {
                 { "Sat",       6 },
         };
 
-        const char *k, *utc = NULL;
-        struct tm tm, copy;
         usec_t usec, plus = 0, minus = 0;
-        int r, weekday = -1, isdst = -1;
+        int r, weekday = -1;
         unsigned fractional = 0;
+        const char *k;
+        struct tm tm, copy;
+        bool too_old = false;
         time_t sec;
 
         /* Allowed syntaxes:
@@ -707,46 +715,6 @@ static int parse_timestamp_impl(const char *t, usec_t *ret, bool with_tz) {
                                 return r;
 
                         goto finish;
-                }
-
-                /* See if the timestamp is suffixed with UTC */
-                utc = endswith_no_case(t, " UTC");
-                if (utc)
-                        t = strndupa_safe(t, utc - t);
-                else {
-                        const char *e = NULL;
-                        int j;
-
-                        tzset();
-
-                        /* See if the timestamp is suffixed by either the DST or non-DST local timezone. Note
-                         * that we only support the local timezones here, nothing else. Not because we
-                         * wouldn't want to, but simply because there are no nice APIs available to cover
-                         * this. By accepting the local time zone strings, we make sure that all timestamps
-                         * written by format_timestamp() can be parsed correctly, even though we don't
-                         * support arbitrary timezone specifications. */
-
-                        for (j = 0; j <= 1; j++) {
-
-                                if (isempty(tzname[j]))
-                                        continue;
-
-                                e = endswith_no_case(t, tzname[j]);
-                                if (!e)
-                                        continue;
-                                if (e == t)
-                                        continue;
-                                if (e[-1] != ' ')
-                                        continue;
-
-                                break;
-                        }
-
-                        if (IN_SET(j, 0, 1)) {
-                                /* Found one of the two timezones specified. */
-                                t = strndupa_safe(t, e - t - 1);
-                                isdst = j;
-                        }
                 }
         }
 
@@ -868,11 +836,37 @@ from_tm:
         if (weekday >= 0 && tm.tm_wday != weekday)
                 return -EINVAL;
 
+        /* gmtoff may be negative, and the date maye be too old (e.g. 1969-12-31 23:00:00 -06). */
+        if (gmtoff < 0 && tm.tm_year == 69 && tm.tm_mon == 11 && tm.tm_mday == 31) {
+                /* Thu 1970-01-01-00:00:00 */
+                tm.tm_year = 70;
+                tm.tm_mon = 0;
+                tm.tm_mday = 1;
+                tm.tm_wday = 4;
+                tm.tm_yday = 0;
+                too_old = true;
+        }
+
         sec = mktime_or_timegm(&tm, utc);
         if (sec < 0)
                 return -EINVAL;
 
         usec = usec_add(sec * USEC_PER_SEC, fractional);
+
+        if (gmtoff > 0) {
+                if (usec < gmtoff * USEC_PER_SEC)
+                        return -EINVAL;
+
+                usec = usec_sub_unsigned(usec, gmtoff * USEC_PER_SEC);
+        } else
+                usec = usec_add(usec, -gmtoff * USEC_PER_SEC);
+
+        if (too_old) {
+                if (usec < USEC_PER_DAY)
+                        return -EINVAL;
+
+                usec = usec_sub_unsigned(usec, USEC_PER_DAY);
+        }
 
 finish:
         usec = usec_add(usec, plus);
@@ -890,24 +884,89 @@ finish:
         return 0;
 }
 
+static int parse_timestamp_maybe_with_tz(const char *t, const char *space, bool valid_tz, usec_t *ret) {
+        assert(t);
+        assert(space);
+        assert(space >= t);
+
+        tzset();
+
+        for (int j = 0; j <= 1; j++) {
+                _cleanup_free_ char *buf = NULL;
+
+                if (isempty(tzname[j]))
+                        continue;
+
+                if (!streq(space + 1, tzname[j]))
+                        continue;
+
+                buf = strndup(t, space - t);
+                if (!buf)
+                        return -ENOMEM;
+
+                return parse_timestamp_impl(buf, /* with_tz = */ true, /* utc = */ false, /* isdst = */ j, /* gmtoff = */ 0, ret);
+        }
+
+        if (valid_tz) {
+                _cleanup_free_ char *buf = NULL;
+
+                buf = strndup(t, space - t);
+                if (!buf)
+                        return -ENOMEM;
+
+                return parse_timestamp_impl(buf, /* with_tz = */ true, /* utc = */ false, /* isdst = */ -1, /* gmtoff = */ 0, ret);
+        }
+
+        return parse_timestamp_impl(t, /* with_tz = */ false, /* utc = */ false, /* isdst = */ -1, /* gmtoff = */ 0, ret);
+}
+
 typedef struct ParseTimestampResult {
         usec_t usec;
         int return_value;
 } ParseTimestampResult;
 
 int parse_timestamp(const char *t, usec_t *ret) {
-        char *last_space, *tz = NULL;
         ParseTimestampResult *shared, tmp;
+        const char *k, *tz, *space;
+        struct tm tm;
         int r;
 
         assert(t);
 
-        last_space = strrchr(t, ' ');
-        if (last_space != NULL && timezone_is_valid(last_space + 1, LOG_DEBUG))
-                tz = last_space + 1;
+        space = strrchr(t, ' ');
+        if (!space)
+                return parse_timestamp_impl(t, /* with_tz = */ false, /* utc = */ false, /* isdst = */ -1, /* gmtoff = */ 0, ret);
 
-        if (!tz || endswith_no_case(t, " UTC"))
-                return parse_timestamp_impl(t, ret, false);
+        if (streq(space + 1, "UTC")) {
+                _cleanup_free_ char *buf = NULL;
+
+                buf = strndup(t, space - t);
+                if (!buf)
+                        return -ENOMEM;
+
+                return parse_timestamp_impl(buf, /* with_tz = */ true, /* utc = */ true, /* isdst = */ -1, /* gmtoff = */ 0, ret);
+        }
+
+        k = strptime(space + 1, "%z", &tm);
+        if (k) {
+                _cleanup_free_ char *buf = NULL;
+
+                if (*k != '\0')
+                        return -EINVAL;
+
+                buf = strndup(t, space - t);
+                if (!buf)
+                        return -ENOMEM;
+
+                return parse_timestamp_impl(buf, /* with_tz = */ true, /* utc = */ true, /* isdst = */ -1, /* gmtoff = */ tm.tm_gmtoff, ret);
+        }
+
+        if (!timezone_is_valid(space + 1, LOG_DEBUG))
+                return parse_timestamp_maybe_with_tz(t, space, /* valid_tz = */ false, ret);
+
+        tz = getenv("TZ");
+        if (tz && *tz == ':' && streq(tz + 1, space + 1))
+                return parse_timestamp_maybe_with_tz(t, space, /* valid_tz = */ true, ret);
 
         shared = mmap(NULL, sizeof *shared, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
         if (shared == MAP_FAILED)
@@ -919,11 +978,10 @@ int parse_timestamp(const char *t, usec_t *ret) {
                 return r;
         }
         if (r == 0) {
-                bool with_tz = true;
-                char *colon_tz;
+                const char *colon_tz;
 
                 /* tzset(3) says $TZ should be prefixed with ":" if we reference timezone files */
-                colon_tz = strjoina(":", tz);
+                colon_tz = strjoina(":", space + 1);
 
                 if (setenv("TZ", colon_tz, 1) != 0) {
                         shared->return_value = negative_errno();
@@ -932,15 +990,7 @@ int parse_timestamp(const char *t, usec_t *ret) {
 
                 tzset();
 
-                /* If there is a timezone that matches the tzname fields, leave the parsing to the implementation.
-                 * Otherwise just cut it off. */
-                with_tz = !STR_IN_SET(tz, tzname[0], tzname[1]);
-
-                /* Cut off the timezone if we don't need it. */
-                if (with_tz)
-                        t = strndupa_safe(t, last_space - t);
-
-                shared->return_value = parse_timestamp_impl(t, &shared->usec, with_tz);
+                shared->return_value = parse_timestamp_maybe_with_tz(t, space, /* valid_tz = */ true, &shared->usec);
 
                 _exit(EXIT_SUCCESS);
         }
