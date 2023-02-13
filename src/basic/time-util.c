@@ -636,7 +636,6 @@ static int parse_timestamp_impl(const char *t, usec_t *ret, bool with_tz) {
         time_t x;
         usec_t usec, x_usec, plus = 0, minus = 0;
         int r, weekday = -1, dst = -1;
-        size_t i;
 
         /* Allowed syntaxes:
          *
@@ -776,18 +775,13 @@ static int parse_timestamp_impl(const char *t, usec_t *ret, bool with_tz) {
                 goto from_tm;
         }
 
-        for (i = 0; i < ELEMENTSOF(day_nr); i++) {
-                size_t skip;
-
-                if (!startswith_no_case(t, day_nr[i].name))
-                        continue;
-
-                skip = strlen(day_nr[i].name);
-                if (t[skip] != ' ')
+        for (size_t i = 0; i < ELEMENTSOF(day_nr); i++) {
+                k = startswith_no_case(t, day_nr[i].name);
+                if (!k || *k != ' ')
                         continue;
 
                 weekday = day_nr[i].nr;
-                t += skip + 1;
+                t = k + 1;
                 break;
         }
 
