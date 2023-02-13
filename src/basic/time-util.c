@@ -605,7 +605,7 @@ char* format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
         return buf;
 }
 
-static int parse_timestamp_impl(const char *t, usec_t *usec, bool with_tz) {
+static int parse_timestamp_impl(const char *t, usec_t *ret, bool with_tz) {
         static const struct {
                 const char *name;
                 const int nr;
@@ -629,7 +629,7 @@ static int parse_timestamp_impl(const char *t, usec_t *usec, bool with_tz) {
         const char *k, *utc = NULL, *tzn = NULL;
         struct tm tm, copy;
         time_t x;
-        usec_t x_usec, plus = 0, minus = 0, ret;
+        usec_t usec, x_usec, plus = 0, minus = 0;
         int r, weekday = -1, dst = -1;
         size_t i;
 
@@ -652,9 +652,9 @@ static int parse_timestamp_impl(const char *t, usec_t *usec, bool with_tz) {
         assert(t);
 
         if (t[0] == '@' && !with_tz)
-                return parse_sec(t + 1, usec);
+                return parse_sec(t + 1, ret);
 
-        ret = now(CLOCK_REALTIME);
+        usec = now(CLOCK_REALTIME);
 
         if (!with_tz) {
                 if (streq(t, "now"))
@@ -735,7 +735,7 @@ static int parse_timestamp_impl(const char *t, usec_t *usec, bool with_tz) {
                 }
         }
 
-        x = (time_t) (ret / USEC_PER_SEC);
+        x = (time_t) (usec / USEC_PER_SEC);
         x_usec = 0;
 
         if (!localtime_or_gmtime_r(&x, &tm, utc))
@@ -872,24 +872,24 @@ from_tm:
         if (x < 0)
                 return -EINVAL;
 
-        ret = (usec_t) x * USEC_PER_SEC + x_usec;
-        if (ret > USEC_TIMESTAMP_FORMATTABLE_MAX)
+        usec = (usec_t) x * USEC_PER_SEC + x_usec;
+        if (usec > USEC_TIMESTAMP_FORMATTABLE_MAX)
                 return -EINVAL;
 
 finish:
-        if (ret + plus < ret) /* overflow? */
+        if (usec + plus < usec) /* overflow? */
                 return -EINVAL;
-        ret += plus;
-        if (ret > USEC_TIMESTAMP_FORMATTABLE_MAX)
+        usec += plus;
+        if (usec > USEC_TIMESTAMP_FORMATTABLE_MAX)
                 return -EINVAL;
 
-        if (ret >= minus)
-                ret -= minus;
+        if (usec >= minus)
+                usec -= minus;
         else
                 return -EINVAL;
 
-        if (usec)
-                *usec = ret;
+        if (ret)
+                *ret = usec;
         return 0;
 }
 
@@ -898,7 +898,7 @@ typedef struct ParseTimestampResult {
         int return_value;
 } ParseTimestampResult;
 
-int parse_timestamp(const char *t, usec_t *usec) {
+int parse_timestamp(const char *t, usec_t *ret) {
         char *last_space, *tz = NULL;
         ParseTimestampResult *shared, tmp;
         int r;
@@ -908,7 +908,7 @@ int parse_timestamp(const char *t, usec_t *usec) {
                 tz = last_space + 1;
 
         if (!tz || endswith_no_case(t, " UTC"))
-                return parse_timestamp_impl(t, usec, false);
+                return parse_timestamp_impl(t, ret, false);
 
         shared = mmap(NULL, sizeof *shared, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
         if (shared == MAP_FAILED)
@@ -950,13 +950,13 @@ int parse_timestamp(const char *t, usec_t *usec) {
         if (munmap(shared, sizeof *shared) != 0)
                 return negative_errno();
 
-        if (tmp.return_value == 0 && usec)
-                *usec = tmp.usec;
+        if (tmp.return_value == 0 && ret)
+                *ret = tmp.usec;
 
         return tmp.return_value;
 }
 
-static const char* extract_multiplier(const char *p, usec_t *multiplier) {
+static const char* extract_multiplier(const char *p, usec_t *ret) {
         static const struct {
                 const char *suffix;
                 usec_t usec;
@@ -997,7 +997,7 @@ static const char* extract_multiplier(const char *p, usec_t *multiplier) {
 
                 e = startswith(p, table[i].suffix);
                 if (e) {
-                        *multiplier = table[i].usec;
+                        *ret = table[i].usec;
                         return e;
                 }
         }
@@ -1005,9 +1005,9 @@ static const char* extract_multiplier(const char *p, usec_t *multiplier) {
         return p;
 }
 
-int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
+int parse_time(const char *t, usec_t *ret, usec_t default_unit) {
         const char *p, *s;
-        usec_t r = 0;
+        usec_t usec = 0;
         bool something = false;
 
         assert(t);
@@ -1022,8 +1022,8 @@ int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
                 if (*s != 0)
                         return -EINVAL;
 
-                if (usec)
-                        *usec = USEC_INFINITY;
+                if (ret)
+                        *ret = USEC_INFINITY;
                 return 0;
         }
 
@@ -1070,10 +1070,10 @@ int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
                         return -ERANGE;
 
                 k = (usec_t) l * multiplier;
-                if (k >= USEC_INFINITY - r)
+                if (k >= USEC_INFINITY - usec)
                         return -ERANGE;
 
-                r += k;
+                usec += k;
 
                 something = true;
 
@@ -1083,10 +1083,10 @@ int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
 
                         for (b = e + 1; *b >= '0' && *b <= '9'; b++, m /= 10) {
                                 k = (usec_t) (*b - '0') * m;
-                                if (k >= USEC_INFINITY - r)
+                                if (k >= USEC_INFINITY - usec)
                                         return -ERANGE;
 
-                                r += k;
+                                usec += k;
                         }
 
                         /* Don't allow "0.-0", "3.+1", "3. 1", "3.sec" or "3.hoge" */
@@ -1095,13 +1095,13 @@ int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
                 }
         }
 
-        if (usec)
-                *usec = r;
+        if (ret)
+                *ret = usec;
         return 0;
 }
 
-int parse_sec(const char *t, usec_t *usec) {
-        return parse_time(t, usec, USEC_PER_SEC);
+int parse_sec(const char *t, usec_t *ret) {
+        return parse_time(t, ret, USEC_PER_SEC);
 }
 
 int parse_sec_fix_0(const char *t, usec_t *ret) {
@@ -1128,7 +1128,7 @@ int parse_sec_def_infinity(const char *t, usec_t *ret) {
         return parse_sec(t, ret);
 }
 
-static const char* extract_nsec_multiplier(const char *p, nsec_t *multiplier) {
+static const char* extract_nsec_multiplier(const char *p, nsec_t *ret) {
         static const struct {
                 const char *suffix;
                 nsec_t nsec;
@@ -1173,7 +1173,7 @@ static const char* extract_nsec_multiplier(const char *p, nsec_t *multiplier) {
 
                 e = startswith(p, table[i].suffix);
                 if (e) {
-                        *multiplier = table[i].nsec;
+                        *ret = table[i].nsec;
                         return e;
                 }
         }
@@ -1181,13 +1181,13 @@ static const char* extract_nsec_multiplier(const char *p, nsec_t *multiplier) {
         return p;
 }
 
-int parse_nsec(const char *t, nsec_t *nsec) {
+int parse_nsec(const char *t, nsec_t *ret) {
         const char *p, *s;
-        nsec_t r = 0;
+        nsec_t nsec = 0;
         bool something = false;
 
         assert(t);
-        assert(nsec);
+        assert(ret);
 
         p = t;
 
@@ -1198,7 +1198,7 @@ int parse_nsec(const char *t, nsec_t *nsec) {
                 if (*s != 0)
                         return -EINVAL;
 
-                *nsec = NSEC_INFINITY;
+                *ret = NSEC_INFINITY;
                 return 0;
         }
 
@@ -1245,10 +1245,10 @@ int parse_nsec(const char *t, nsec_t *nsec) {
                         return -ERANGE;
 
                 k = (nsec_t) l * multiplier;
-                if (k >= NSEC_INFINITY - r)
+                if (k >= NSEC_INFINITY - nsec)
                         return -ERANGE;
 
-                r += k;
+                nsec += k;
 
                 something = true;
 
@@ -1258,10 +1258,10 @@ int parse_nsec(const char *t, nsec_t *nsec) {
 
                         for (b = e + 1; *b >= '0' && *b <= '9'; b++, m /= 10) {
                                 k = (nsec_t) (*b - '0') * m;
-                                if (k >= NSEC_INFINITY - r)
+                                if (k >= NSEC_INFINITY - nsec)
                                         return -ERANGE;
 
-                                r += k;
+                                nsec += k;
                         }
 
                         /* Don't allow "0.-0", "3.+1", "3. 1", "3.sec" or "3.hoge" */
@@ -1270,7 +1270,7 @@ int parse_nsec(const char *t, nsec_t *nsec) {
                 }
         }
 
-        *nsec = r;
+        *ret = nsec;
 
         return 0;
 }
