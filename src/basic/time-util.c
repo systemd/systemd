@@ -1610,10 +1610,10 @@ int time_change_fd(void) {
 
 static const char* const timestamp_style_table[_TIMESTAMP_STYLE_MAX] = {
         [TIMESTAMP_PRETTY] = "pretty",
-        [TIMESTAMP_US] = "us",
-        [TIMESTAMP_UTC] = "utc",
+        [TIMESTAMP_US]     = "us",
+        [TIMESTAMP_UTC]    = "utc",
         [TIMESTAMP_US_UTC] = "us+utc",
-        [TIMESTAMP_UNIX] = "unix",
+        [TIMESTAMP_UNIX]   = "unix",
 };
 
 /* Use the macro for enum → string to allow for aliases */
