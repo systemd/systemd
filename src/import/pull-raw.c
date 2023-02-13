@@ -396,7 +396,7 @@ static int raw_pull_make_local_copy(RawPull *i) {
                 return log_error_errno(r, "Failed to make writable copy of image: %m");
 
         (void) copy_times(i->raw_job->disk_fd, dfd, COPY_CRTIME);
-        (void) copy_xattr(i->raw_job->disk_fd, dfd, 0);
+        (void) copy_xattr(i->raw_job->disk_fd, NULL, dfd, NULL, 0);
 
         dfd = safe_close(dfd);
 

@@ -216,7 +216,7 @@ static int raw_export_process(RawExport *e) {
 finish:
         if (r >= 0) {
                 (void) copy_times(e->input_fd, e->output_fd, COPY_CRTIME);
-                (void) copy_xattr(e->input_fd, e->output_fd, 0);
+                (void) copy_xattr(e->input_fd, NULL, e->output_fd, NULL, 0);
         }
 
         if (e->on_finished)

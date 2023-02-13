@@ -1105,7 +1105,7 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy bytes from %s in mage '%s' to '%s': %m", arg_source, arg_image, arg_target);
 
-                (void) copy_xattr(source_fd, target_fd, 0);
+                (void) copy_xattr(source_fd, NULL, target_fd, NULL, 0);
                 (void) copy_access(source_fd, target_fd);
                 (void) copy_times(source_fd, target_fd, 0);
 
@@ -1182,7 +1182,7 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy bytes from '%s' to '%s' in image '%s': %m", arg_source, arg_target, arg_image);
 
-                (void) copy_xattr(source_fd, target_fd, 0);
+                (void) copy_xattr(source_fd, NULL, target_fd, NULL, 0);
                 (void) copy_access(source_fd, target_fd);
                 (void) copy_times(source_fd, target_fd, 0);
 

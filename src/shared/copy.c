@@ -754,7 +754,7 @@ static int fd_copy_regular(
                 r = -errno;
 
         (void) futimens(fdt, (struct timespec[]) { st->st_atim, st->st_mtim });
-        (void) copy_xattr(fdf, fdt, copy_flags);
+        (void) copy_xattr(fdf, NULL, fdt, NULL, copy_flags);
 
         if (copy_flags & COPY_FSYNC) {
                 if (fsync(fdt) < 0) {
@@ -1058,7 +1058,7 @@ static int fd_copy_directory(
                 if (fchmod(fdt, st->st_mode & 07777) < 0)
                         r = -errno;
 
-                (void) copy_xattr(dirfd(d), fdt, copy_flags);
+                (void) copy_xattr(dirfd(d), NULL, fdt, NULL, copy_flags);
                 (void) futimens(fdt, (struct timespec[]) { st->st_atim, st->st_mtim });
         }
 
@@ -1313,7 +1313,7 @@ int copy_file_fd_full(
          * mode/ownership of that device node...) */
         if (S_ISREG(st.st_mode)) {
                 (void) copy_times(fdf, fdt, copy_flags);
-                (void) copy_xattr(fdf, fdt, copy_flags);
+                (void) copy_xattr(fdf, NULL, fdt, NULL, copy_flags);
         }
 
         if (copy_flags & COPY_FSYNC_FULL) {
@@ -1385,7 +1385,7 @@ int copy_file_full(
                 goto fail;
 
         (void) copy_times(fdf, fdt, copy_flags);
-        (void) copy_xattr(fdf, fdt, copy_flags);
+        (void) copy_xattr(fdf, NULL, fdt, NULL, copy_flags);
 
         if (chattr_mask != 0)
                 (void) chattr_fd(fdt, chattr_flags, chattr_mask & ~CHATTR_EARLY_FL, NULL);
@@ -1570,11 +1570,11 @@ int copy_rights_with_fallback(int fdf, int fdt, const char *patht) {
         return fchmod_and_chown_with_fallback(fdt, patht, st.st_mode & 07777, st.st_uid, st.st_gid);
 }
 
-int copy_xattr(int fdf, int fdt, CopyFlags copy_flags) {
+int copy_xattr(int df, const char *from, int dt, const char *to, CopyFlags copy_flags) {
         _cleanup_free_ char *names = NULL;
         int ret = 0, r;
 
-        r = flistxattr_malloc(fdf, &names);
+        r = listxattr_at_malloc(df, from, 0, &names);
         if (r < 0)
                 return r;
 
@@ -1584,13 +1584,13 @@ int copy_xattr(int fdf, int fdt, CopyFlags copy_flags) {
                 if (!FLAGS_SET(copy_flags, COPY_ALL_XATTRS) && !startswith(p, "user."))
                         continue;
 
-                r = fgetxattr_malloc(fdf, p, &value);
+                r = getxattr_at_malloc(df, from, p, 0, &value);
                 if (r == -ENODATA)
                         continue; /* gone by now */
                 if (r < 0)
                         return r;
 
-                if (fsetxattr(fdt, p, value, r, 0) < 0)
+                if (xsetxattr(dt, to, p, value, r, 0) < 0)
                         ret = -errno;
         }
 

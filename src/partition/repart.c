@@ -3840,7 +3840,7 @@ static int do_copy_files(Partition *p, const char *root, const Set *denylist) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", *source, strempty(arg_root), *target);
 
-                        (void) copy_xattr(sfd, tfd, COPY_ALL_XATTRS);
+                        (void) copy_xattr(sfd, NULL, tfd, NULL, COPY_ALL_XATTRS);
                         (void) copy_access(sfd, tfd);
                         (void) copy_times(sfd, tfd, 0);
                 }
