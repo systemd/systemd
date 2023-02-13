@@ -504,6 +504,7 @@ static int fd_copy_symlink(
                      AT_SYMLINK_NOFOLLOW) < 0)
                 r = -errno;
 
+        (void) copy_xattr(df, from, dt, to, copy_flags);
         (void) utimensat(dt, to, (struct timespec[]) { st->st_atim, st->st_mtim }, AT_SYMLINK_NOFOLLOW);
         return r;
 }
