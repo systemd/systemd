@@ -228,7 +228,7 @@ nsec_t timespec_load_nsec(const struct timespec *ts) {
         return (nsec_t) ts->tv_sec * NSEC_PER_SEC + (nsec_t) ts->tv_nsec;
 }
 
-struct timespec *timespec_store(struct timespec *ts, usec_t u)  {
+struct timespec *timespec_store(struct timespec *ts, usec_t u) {
         assert(ts);
 
         if (u == USEC_INFINITY ||
@@ -244,7 +244,7 @@ struct timespec *timespec_store(struct timespec *ts, usec_t u)  {
         return ts;
 }
 
-struct timespec *timespec_store_nsec(struct timespec *ts, nsec_t n)  {
+struct timespec *timespec_store_nsec(struct timespec *ts, nsec_t n) {
         assert(ts);
 
         if (n == NSEC_INFINITY ||
