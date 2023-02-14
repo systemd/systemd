@@ -543,6 +543,30 @@ static int manager_sigrtmin1(sd_event_source *s, const struct signalfd_siginfo *
         return 0;
 }
 
+static int manager_memory_pressure(sd_event_source *s, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+
+        log_info("Under memory pressure, flushing caches.");
+
+        manager_flush_caches(m, LOG_INFO);
+        sd_event_trim_memory();
+
+        return 0;
+}
+
+static int manager_memory_pressure_listen(Manager *m) {
+        int r;
+
+        assert(m);
+
+        r = sd_event_add_memory_pressure(m->event, &m->memory_pressure_event_source, manager_memory_pressure, m);
+        if (r < 0)
+                log_full_errno(r == -EOPNOTSUPP ? LOG_DEBUG : LOG_NOTICE, r,
+                               "Failed to install memory pressure event source, ignoring: %m");
+
+        return 0;
+}
+
 int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
@@ -572,6 +596,9 @@ int manager_new(Manager **ret) {
                 .need_builtin_fallbacks = true,
                 .etc_hosts_last = USEC_INFINITY,
                 .read_etc_hosts = true,
+
+                .sigrtmin18_info.memory_pressure_handler = manager_memory_pressure,
+                .sigrtmin18_info.memory_pressure_userdata = m,
         };
 
         r = dns_trust_anchor_load(&m->trust_anchor);
@@ -621,6 +648,10 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
+        r = manager_memory_pressure_listen(m);
+        if (r < 0)
+                return r;
+
         r = manager_connect_bus(m);
         if (r < 0)
                 return r;
@@ -628,6 +659,7 @@ int manager_new(Manager **ret) {
         (void) sd_event_add_signal(m->event, &m->sigusr1_event_source, SIGUSR1, manager_sigusr1, m);
         (void) sd_event_add_signal(m->event, &m->sigusr2_event_source, SIGUSR2, manager_sigusr2, m);
         (void) sd_event_add_signal(m->event, &m->sigrtmin1_event_source, SIGRTMIN+1, manager_sigrtmin1, m);
+        (void) sd_event_add_signal(m->event, &m->sigrtmin18_event_source, SIGRTMIN+18, sigrtmin18_handler, &m->sigrtmin18_info);
 
         manager_cleanup_saved_user(m);
 
@@ -691,6 +723,9 @@ Manager *manager_free(Manager *m) {
         sd_netlink_unref(m->rtnl);
         sd_event_source_unref(m->rtnl_event_source);
         sd_event_source_unref(m->clock_change_event_source);
+
+        sd_event_source_disable_unref(m->memory_pressure_event_source);
+        sd_event_source_disable_unref(m->sigrtmin18_event_source);
 
         manager_llmnr_stop(m);
         manager_mdns_stop(m);
