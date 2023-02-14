@@ -86,8 +86,7 @@ int bus_property_set_log_target(
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid log target '%s'", t);
 
         log_info("Setting log target to %s.", log_target_to_string(target));
-        log_set_target(target);
-        log_open();
+        log_set_target_and_open(target);
 
         return 0;
 }

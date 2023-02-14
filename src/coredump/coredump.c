@@ -1486,11 +1486,9 @@ static int process_kernel(int argc, char* argv[]) {
         if (r < 0)
                 goto finish;
 
-        if (!context.is_journald) {
+        if (!context.is_journald)
                 /* OK, now we know it's not the journal, hence we can make use of it now. */
-                log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
-                log_open();
-        }
+                log_set_target_and_open(LOG_TARGET_JOURNAL_OR_KMSG);
 
         /* If this is PID 1 disable coredump collection, we'll unlikely be able to process
          * it later on.
@@ -1589,8 +1587,7 @@ static int run(int argc, char *argv[]) {
         /* First, log to a safe place, since we don't know what crashed and it might
          * be journald which we'd rather not log to then. */
 
-        log_set_target(LOG_TARGET_KMSG);
-        log_open();
+        log_set_target_and_open(LOG_TARGET_KMSG);
 
         /* Make sure we never enter a loop */
         (void) prctl(PR_SET_DUMPABLE, 0);
