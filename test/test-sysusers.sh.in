@@ -99,6 +99,14 @@ $SYSUSERS --root=$TESTDIR \
 
 compare $SOURCE/inline "(--inline --replace=…)"
 
+echo "*** Testing --inline with no /etc"
+rm -rf $TESTDIR/etc
+$SYSUSERS --root=$TESTDIR --inline \
+          "u     u1   222 -     - /bin/zsh" \
+          "g     g1   111"
+
+compare $SOURCE/inline "(--inline)"
+
 rm -f $TESTDIR/etc/sysusers.d/* $TESTDIR/usr/lib/sysusers.d/*
 
 cat >$TESTDIR/etc/login.defs <<EOF

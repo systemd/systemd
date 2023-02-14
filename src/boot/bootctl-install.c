@@ -43,10 +43,14 @@ static int load_etc_machine_info(void) {
          * for setting up the ESP in /etc/machine-info. The newer /etc/kernel/entry-token file, as well as
          * the $layout field in /etc/kernel/install.conf are better replacements for this though, hence this
          * has been deprecated and is only returned for compatibility. */
-        _cleanup_free_ char *s = NULL, *layout = NULL;
+        _cleanup_free_ char *p = NULL, *s = NULL, *layout = NULL;
         int r;
 
-        r = parse_env_file(NULL, "/etc/machine-info",
+        p = path_join(arg_root, "etc/machine-info");
+        if (!p)
+                return log_oom();
+
+        r = parse_env_file(NULL, p,
                            "KERNEL_INSTALL_LAYOUT", &layout,
                            "KERNEL_INSTALL_MACHINE_ID", &s);
         if (r == -ENOENT)
@@ -83,7 +87,7 @@ static int load_etc_kernel_install_conf(void) {
         _cleanup_free_ char *layout = NULL, *p = NULL;
         int r;
 
-        p = path_join(etc_kernel(), "install.conf");
+        p = path_join(arg_root, etc_kernel(), "install.conf");
         if (!p)
                 return log_oom();
 
@@ -506,13 +510,13 @@ static int install_entry_token(void) {
         if (!arg_make_entry_directory && arg_entry_token_type == ARG_ENTRY_TOKEN_MACHINE_ID)
                 return 0;
 
-        p = path_join(etc_kernel(), "entry-token");
+        p = path_join(arg_root, etc_kernel(), "entry-token");
         if (!p)
                 return log_oom();
 
         r = write_string_file(p, arg_entry_token, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755);
         if (r < 0)
-                return log_error_errno(r, "Failed to write entry token '%s' to %s", arg_entry_token, p);
+                return log_error_errno(r, "Failed to write entry token '%s' to %s: %m", arg_entry_token, p);
 
         return 0;
 }

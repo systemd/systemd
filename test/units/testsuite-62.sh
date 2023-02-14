@@ -60,6 +60,6 @@ systemctl start --wait testsuite-62-3.service
 systemctl start --wait testsuite-62-4.service
 systemctl start --wait testsuite-62-5.service
 
-echo OK > /testok
+echo OK >/testok
 
 exit 0

@@ -365,10 +365,12 @@ TEST(format_timestamp) {
                 assert_se(parse_timestamp(buf, &y) >= 0);
                 assert_se(x == y);
 
-                assert_se(format_timestamp_style(buf, sizeof(buf), x, TIMESTAMP_DATE));
-                log_debug("%s", buf);
-                assert_se(parse_timestamp(buf, &y) >= 0);
-                assert_se(y > usec_sub_unsigned(x, 2 * USEC_PER_DAY) && y < usec_add(x, 2* USEC_PER_DAY));
+                if (x > 2 * USEC_PER_DAY) {
+                        assert_se(format_timestamp_style(buf, sizeof(buf), x, TIMESTAMP_DATE));
+                        log_debug("%s", buf);
+                        assert_se(parse_timestamp(buf, &y) >= 0);
+                        assert_se(y > usec_sub_unsigned(x, 2 * USEC_PER_DAY) && y < usec_add(x, 2 * USEC_PER_DAY));
+                }
 
                 assert_se(format_timestamp_relative(buf, sizeof(buf), x));
                 log_debug("%s", buf);

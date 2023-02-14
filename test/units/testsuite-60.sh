@@ -158,7 +158,7 @@ test_issue_20329() {
     unit=$(systemd-escape --suffix mount --path "$tmpdir")
 
     # Set up test mount unit
-    cat > /run/systemd/system/"$unit" <<EOF
+    cat >/run/systemd/system/"$unit" <<EOF
 [Mount]
 What=tmpfs
 Where=$tmpdir

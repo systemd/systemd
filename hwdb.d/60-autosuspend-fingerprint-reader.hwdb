@@ -71,7 +71,7 @@ usb:v08FFp5731*
  ID_PERSIST=0
 
 # Supported by libfprint driver aes4000
-usb:v5501p08FF*
+usb:v08FFp5501*
  ID_AUTOSUSPEND=1
  ID_PERSIST=0
 

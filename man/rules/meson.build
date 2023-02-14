@@ -856,6 +856,7 @@ manpages = [
  ['shutdown', '8', [], ''],
  ['sysctl.d', '5', [], ''],
  ['systemctl', '1', [], ''],
+ ['systemd-ac-power', '1', [], ''],
  ['systemd-analyze', '1', [], 'ENABLE_ANALYZE'],
  ['systemd-ask-password-console.service',
   '8',

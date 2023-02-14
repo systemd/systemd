@@ -36,7 +36,7 @@ SecureBootMode secure_boot_mode(void) {
 static const char sbat[] _used_ _section_(".sbat") = SBAT_SECTION_TEXT;
 #endif
 
-EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path) {
+EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool force) {
         assert(root_dir);
         assert(path);
 
@@ -44,11 +44,16 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path) {
 
         clear_screen(COLOR_NORMAL);
 
-        printf("Enrolling secure boot keys from directory: %ls\n", path);
-
         /* Enrolling secure boot keys is safe to do in virtualized environments as there is nothing
          * we can brick there. */
-        if (!in_hypervisor()) {
+        bool is_safe = in_hypervisor();
+
+        if (!is_safe && !force)
+                return EFI_SUCCESS;
+
+        printf("Enrolling secure boot keys from directory: %ls\n", path);
+
+        if (!is_safe) {
                 printf("Warning: Enrolling custom Secure Boot keys might soft-brick your machine!\n");
 
                 unsigned timeout_sec = 15;

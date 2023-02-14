@@ -6362,23 +6362,53 @@ A31000-A31FFF     (base 16)		Zing Communications Inc
 				Offenau  Baden-Wuerttemberg  74254
 				DE
 
-8C-1F-64   (hex)		PuS GmbH und Co. KG
-EE1000-EE1FFF     (base 16)		PuS GmbH und Co. KG
-				Hainstr. 13
-				Gera  Germany  07545
-				DE
-
 8C-1F-64   (hex)		Primalucelab isrl
 59A000-59AFFF     (base 16)		Primalucelab isrl
 				VIA BRENTELLA 53/7
 				ROVEREDO IN PIANO  PN  33080
 				IT
 
+8C-1F-64   (hex)		Cardinal Scales Manufacturing Co
+BDB000-BDBFFF     (base 16)		Cardinal Scales Manufacturing Co
+				203 East Daugherty Street
+				Webb City  MO  64870
+				US
+
+8C-1F-64   (hex)		SMITEC S.p.A.
+025000-025FFF     (base 16)		SMITEC S.p.A.
+				Via Carlo Ceresa, 10
+				San Giovanni Bianco  Bergamo  24015
+				IT
+
+8C-1F-64   (hex)		PuS GmbH und Co. KG
+EE1000-EE1FFF     (base 16)		PuS GmbH und Co. KG
+				Hainstr. 13
+				Gera  Germany  07545
+				DE
+
 8C-1F-64   (hex)		Albotronic
 F24000-F24FFF     (base 16)		Albotronic
 				Bunsenstr. 3
 				Oberkochen  BW  73447
 				DE
+
+8C-1F-64   (hex)		techone system
+408000-408FFF     (base 16)		techone system
+				716ho, SKV1 AP Tower16, Gasan digital 1-ro, Geumcheon-gu
+				seoul    08591
+				KR
+
+8C-1F-64   (hex)		TOYOGIKEN CO.,LTD.
+CC2000-CC2FFF     (base 16)		TOYOGIKEN CO.,LTD.
+				Osachi Gongencho 4-8-7
+				Okaya  Nagano  3940081
+				JP
+
+8C-1F-64   (hex)		i2s
+286000-286FFF     (base 16)		i2s
+				28 Rue Jean Perrin
+				France    33600
+				FR
 
 70-B3-D5   (hex)		EVCO SPA
 A80000-A80FFF     (base 16)		EVCO SPA
@@ -12632,11 +12662,53 @@ F5F000-F5FFFF     (base 16)		TR7 Siber Savunma A.S.
 				Austin  TX  78758
 				US
 
+8C-1F-64   (hex)		ZIGEN Lighting Solution co., ltd.
+D51000-D51FFF     (base 16)		ZIGEN Lighting Solution co., ltd.
+				1-3-10 Hachihonmatsuminami
+				Higashihiroshima  Hiroshima  7390144
+				JP
+
 8C-1F-64   (hex)		Grossenbacher Systeme AG
 8DF000-8DFFFF     (base 16)		Grossenbacher Systeme AG
 				Spinnereistrasse 10
 				St. Gallen    9008
 				CH
+
+8C-1F-64   (hex)		Shenyang Taihua Technology Co., Ltd.
+32B000-32BFFF     (base 16)		Shenyang Taihua Technology Co., Ltd.
+				No. 33-48, Quanyun Fifth Road, Hunnan District
+				Shenyang City  Liaoning Province  110179
+				CN
+
+8C-1F-64   (hex)		Sicon srl
+907000-907FFF     (base 16)		Sicon srl
+				Via Sila 1/3
+				Isola Vicentina  Vicenza  36033
+				IT
+
+8C-1F-64   (hex)		YUYAMA MFG Co.,Ltd
+D42000-D42FFF     (base 16)		YUYAMA MFG Co.,Ltd
+				1-4-30
+				MEISHINGUCHI,TOYONAKA  OSAKA  561-0841
+				JP
+
+8C-1F-64   (hex)		Hiwin Mikrosystem Corp.
+423000-423FFF     (base 16)		Hiwin Mikrosystem Corp.
+				NO 6 JINGKE CENTRAL RD  TAICHUNG CITY TAIWAN 40841
+				TAICHUNG    40841
+				TW
+
+8C-1F-64   (hex)		AMETEK CTS GMBH
+D21000-D21FFF     (base 16)		AMETEK CTS GMBH
+				Sternenhofstrasse 15
+				Reinach  BL  4153
+				CH
+
+8C-1F-64   (hex)		3D perception AS
+A81000-A81FFF     (base 16)		3D perception AS
+				Nye Vakas vei 14
+				Hvalstad    1395
+				NO
 
 70-B3-D5   (hex)		System West dba ICS Electronics
 E06000-E06FFF     (base 16)		System West dba ICS Electronics
@@ -18911,11 +18983,65 @@ C85000-C85FFF     (base 16)		Potter Electric Signal Co. LLC
 				Hazelwood  MO  63042
 				US
 
+8C-1F-64   (hex)		Scenario Automation
+E10000-E10FFF     (base 16)		Scenario Automation
+				Rua Paulo Elias, 216
+				São Carlos  São Paulo  13564400
+				BR
+
 8C-1F-64   (hex)		CubeWorks, Inc.
 88E000-88EFFF     (base 16)		CubeWorks, Inc.
 				1600 Huron ParkwayOFC 520-2364
 				Ann Arbor  MI  48109
 				US
+
+8C-1F-64   (hex)		M-Pulse GmbH & Co.KG
+18B000-18BFFF     (base 16)		M-Pulse GmbH & Co.KG
+				Haunerbusch110
+				Kierspe  NRW  58566
+				DE
+
+8C-1F-64   (hex)		Bitmapper Integration Technologies Private Limited
+84A000-84AFFF     (base 16)		Bitmapper Integration Technologies Private Limited
+				Shewale Centre A, Survey No. 22/2 CTS No 4691, 4889, 4990
+				Pune  Maharashtra  411018
+				IN
+
+8C-1F-64   (hex)		ARKRAY,Inc.Kyoto Laboratory
+CB7000-CB7FFF     (base 16)		ARKRAY,Inc.Kyoto Laboratory
+				Kamigyo-ku Gansui-cho 59 Yousuien-nai
+				Kyoto  Kyoto-fu  602-0008
+				JP
+
+8C-1F-64   (hex)		EA Elektro-Automatik
+E92000-E92FFF     (base 16)		EA Elektro-Automatik
+				Helmholtzstraße 31-37
+				Viersen  Nordrhein-Westfalen  41747
+				DE
+
+8C-1F-64   (hex)		EIDOS s.r.l.
+99E000-99EFFF     (base 16)		EIDOS s.r.l.
+				via dell'Industria, 11 Z.I. Fontaneto 
+				CHIERI   Turin  10023
+				IT
+
+8C-1F-64   (hex)		Nilfisk Food
+64E000-64EFFF     (base 16)		Nilfisk Food
+				Blytækkervej 2
+				Aalborg    9000
+				DK
+
+8C-1F-64   (hex)		Gamber-Johnson LLC
+CB5000-CB5FFF     (base 16)		Gamber-Johnson LLC
+				5001 Joerns Dr
+				Stevens Point  WI  54481
+				US
+
+8C-1F-64   (hex)		Rax-Tech International
+A77000-A77FFF     (base 16)		Rax-Tech International
+				5th floor, 5/391 Kaleeswari towerTambaram-Velachery Main road, Medavakkam
+				Chennai  Tamil Nadu  600100
+				IN
 
 70-B3-D5   (hex)		YUYAMA MFG Co.,Ltd
 BBB000-BBBFFF     (base 16)		YUYAMA MFG Co.,Ltd
@@ -25298,6 +25424,18 @@ CAB000-CABFFF     (base 16)		Spyder Controls Corp.
 				Austin  TX  78758
 				US
 
+8C-1F-64   (hex)		Packetalk LLC
+5CE000-5CEFFF     (base 16)		Packetalk LLC
+				163 Stuyvesant Avenue
+				Lyndhurst  NJ  07071
+				US
+
+8C-1F-64   (hex)		Bacancy Systems LLP
+317000-317FFF     (base 16)		Bacancy Systems LLP
+				15-16, Times Corporate Park, Near, Thaltej - Shilaj Rd, opp. COPPER STONE FLATS, Thaltej
+				Ahmedabad  Gujarat  380059
+				IN
+
 8C-1F-64   (hex)		Taiko Audio B.V.
 32C000-32CFFF     (base 16)		Taiko Audio B.V.
 				Zandbreeweg 6
@@ -30110,12 +30248,6 @@ E42000-E42FFF     (base 16)		Neusoft Reach Automotive Technology (Shenyang) Co.,
 				Shenyang  Liaoning  110000
 				CN
 
-70-B3-D5   (hex)		Private
-278000-278FFF     (base 16)		Private
-				600 Atlantis Rd
-				Melbourne  FL  32904
-				US
-
 70-B3-D5   (hex)		YUYAMA MFG Co.,Ltd
 196000-196FFF     (base 16)		YUYAMA MFG Co.,Ltd
 				1-4-30
@@ -31495,3 +31627,27 @@ EDA000-EDAFFF     (base 16)		DEUTA-WERKE GmbH
 				1029 Blairs Ferry Rd
 				Marion  IA  52302
 				US
+
+8C-1F-64   (hex)		Vishay Nobel AB
+0F5000-0F5FFF     (base 16)		Vishay Nobel AB
+				Box 423
+				Karlskoga    SE-691 27
+				SE
+
+8C-1F-64   (hex)		Liberator Pty Ltd
+BBC000-BBCFFF     (base 16)		Liberator Pty Ltd
+				265?Gilbert Street
+				Adelaide     SA 5000
+				AU
+
+70-B3-D5   (hex)		Medicomp, Inc
+278000-278FFF     (base 16)		Medicomp, Inc
+				600 Atlantis Rd
+				Melbourne  FL  32904
+				US
+
+8C-1F-64   (hex)		Vision Systems Safety Tech
+9F6000-9F6FFF     (base 16)		Vision Systems Safety Tech
+				5 Chemin de Chiradie
+				Brignais    69530
+				FR

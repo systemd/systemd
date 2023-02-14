@@ -1,8 +1,8 @@
 #
 #	List of PCI ID's
 #
-#	Version: 2023.01.18
-#	Date:    2023-01-18 03:15:02
+#	Version: 2023.01.26
+#	Date:    2023-01-26 03:15:02
 #
 #	Maintained by Albert Pool, Martin Mares, and other volunteers from
 #	the PCI ID Project at https://pci-ids.ucw.cz/.
@@ -79,6 +79,8 @@
 021b  Compaq Computer Corporation
 	8139  HNE-300 (RealTek RTL8139c) [iPaq Networking]
 025e  Solidigm
+# Solidigm SSD Product
+	0b70  NVMe DC SSD [Yorktown controller]
 0270  Hauppauge computer works Inc. (Wrong ID)
 0291  Davicom Semiconductor, Inc. (Wrong ID)
 # SpeedStream is Efficient Networks, Inc, a Siemens Company
@@ -1039,6 +1041,23 @@
 		1000 a080  PEX88080 80 lane/port PCIe Gen 4 Switch
 		1000 a096  PEX88096 98 lane/port PCIe Gen 4.0 Switch
 	c012  PEX880xx PCIe Gen 4 Switch
+# Virtual endpoint used in Broadcom synthetic PCIe switches for resource reservation
+		1000 100b  PEX88000 PCIe Gen 4 Virtual Upstream/Downstream Port
+# For secure part version of this chip
+		1000 2004  PEX88000 Virtual PCIe TWC/NT2 Endpoint
+# For secure part version of this chip
+		1000 2005  PEX88000 Virtual PCIe gDMA Endpoint
+# For secure part version of this chip
+		1000 a024  PEX88024 24 lane/port PCIe Gen 4.0 Switch
+# For secure part version of this chip
+		1000 a032  PEX88032 32 lane/port PCIe Gen 4.0 Switch
+# For secure part version of this chip
+		1000 a048  PEX88048 48 lane/port PCIe Gen 4.0 Switch
+		1000 a064  PEX88064 64 lane/port PCIe Gen 4.0 Switch
+# For secure part version of this chip
+		1000 a080  PEX88080 80 lane/port PCIe Gen 4.0 Switch
+# For secure part version of this chip
+		1000 a096  PEX88096 96 lane/port PCIe Gen 4.0 Switch
 		1d49 0003  ThinkSystem 1611-8P PCIe Gen4 NVMe Switch Adapter
 	c030  PEX890xx PCIe Gen 5 Switch
 		1000 0024  PEX89024 PCIe Gen 5 24 port/lane Switch Upstream/Downstream Port
@@ -1050,6 +1069,19 @@
 		1000 0144  PEX89144 PCIe Gen 5 72 port/144 lane Switch Upstream/Downstream Port
 		1000 100b  PEX89000 PCIe Gen 5 Virtual Upstream/Downstream Port
 		1000 2004  PEX89000 Virtual PCIe TWC/NT 2.0 Endpoint
+		1000 2005  PEX89000 Virtual PCIe gDMA Endpoint
+# Lower lane count PEX89000 switch
+	c034  PEX890xx PCIe Gen 5 Switch
+# Lower lane count PEX89000 switch
+		1000 0024  PEX89024 PCIe Gen 5 24 port/lane Switch Upstream/Downstream Port
+		1000 0032  PEX89032 PCIe Gen 5 32 port/lane Switch Upstream/Downstream Port
+# Lower lane count PEX89000 switch
+		1000 0048  PEX89048 PCIe Gen 5 48 port/lane Switch Upstream/Downstream Port
+# Lower lane count PEX89000 switch
+		1000 100b  PEX89000 PCIe Gen 5 Virtual Upstream/Downstream Port
+# Lower lane count PEX89000 switch
+		1000 2004  PEX89000 Virtual PCIe TWC/NT 2.0 Endpoint
+# Lower lane count PEX89000 switch
 		1000 2005  PEX89000 Virtual PCIe gDMA Endpoint
 1001  Kolter Electronic
 	0010  PCI 1616 Measurement card with 32 digital I/O lines
@@ -1123,7 +1155,7 @@
 		103c 8615  Pavilion Laptop 15-cw1xxx
 		ea50 ce19  mCOM10-L1900
 	15e7  Barcelo
-		103c 8b17  ProBook 445 G9/455 G9
+		103c 8b17  ProBook 445 G9/455 G9 [Ryzen 7 Integrated Radeon GPU]
 	15ff  Fenghuang [Zhongshan Subor Z+]
 	1607  Arden
 	1636  Renoir
@@ -2175,7 +2207,7 @@
 		1025 0846  Radeon HD 8570A
 		17aa 3805  Radeon HD 8570M
 	6664  Jet XT [Radeon R5 M240]
-	6665  Jet PRO [Radeon R5 M230 / R7 M260DX / Radeon 520 Mobile]
+	6665  Jet PRO [Radeon R5 M230 / R7 M260DX / Radeon 520/610 Mobile]
 		17aa 1309  Z50-75 Radeon R7 M260DX
 		17aa 368f  Radeon R5 A230
 	6667  Jet ULT [Radeon R5 M230]
@@ -3843,7 +3875,7 @@
 	73c3  Navi 22
 	73c4  Navi 22 USB
 	73ce  Navi22-XL SRIOV MxGPU
-	73df  Navi 22 [Radeon RX 6700/6700 XT/6750 XT / 6800M]
+	73df  Navi 22 [Radeon RX 6700/6700 XT/6750 XT / 6800M/6850M XT]
 		1043 16c2  Radeon RX 6800M
 		1458 2408  Radeon RX 6750 XT GAMING OC 12G
 		1849 5219  Radeon RX 6700 XT Challenger D
@@ -9808,6 +9840,7 @@
 	0091  G70 [GeForce 7800 GTX]
 	0092  G70 [GeForce 7800 GT]
 	0093  G70 [GeForce 7800 GS]
+	0094  High Definition Audio
 	0095  G70 [GeForce 7800 SLI]
 	0097  G70 [GeForce GTS 250]
 	0098  G70M [GeForce Go 7800]
@@ -12477,11 +12510,14 @@
 		10de 129e  Quadro RTX 8000
 		10de 12ba  Quadro RTX 6000
 	1e36  TU102GL [Quadro RTX 6000]
-	1e37  TU102GL [GRID RTX T10-4/T10-8/T10-16]
+	1e37  TU102GL [Tesla T10 16GB / GRID RTX T10-2/T10-4/T10-8]
+		10de 1304  Tesla T10 16GB
 		10de 1347  GRID RTX T10-8
 		10de 1348  GRID RTX T10-4
-		10de 1370  GRID RTX T10-16
-	1e38  TU102GL
+		10de 1349  GRID RTX T10-2
+		10de 1370  Tesla T10 16GB
+		10de 13a5  GRID RTX T10-8
+	1e38  TU102GL [Tesla T10 24GB]
 	1e3c  TU102GL
 	1e3d  TU102GL
 	1e3e  TU102GL
@@ -12505,6 +12541,7 @@
 	1eb6  TU104GLM [Quadro RTX 4000 Mobile / Max-Q]
 	1eb8  TU104GL [Tesla T4]
 	1eb9  TU104GL
+	1eba  TU104GL [PG189 SKU600]
 	1ebe  TU104GL
 	1ec2  TU104 [GeForce RTX 2070 SUPER]
 	1ec7  TU104 [GeForce RTX 2070 SUPER]
@@ -12639,7 +12676,7 @@
 	2322  GH100 [H800]
 	2330  GH100[H100 SXM5 80GB]
 	2331  GH100 [H100 PCIe]
-	2336  GH100 [H100 96GB]
+	2336  GH100 [H100]
 	2414  GA103 [GeForce RTX 3060 Ti]
 	2420  GA103M [GeForce RTX 3080 Ti Mobile]
 	2438  GA103GLM [RTX A5500 Laptop GPU]
@@ -12706,8 +12743,7 @@
 	25a7  GA107M [GeForce MX570]
 	25a9  GA107M [GeForce RTX 2050]
 	25aa  GA107M [GeForce MX570 A]
-# GN20-P0 Refresh
-	25ac  GN20-P0-R-K2
+	25ac  GN20-P0-R-K2 [GeForce RTX 3050 6GB Laptop GPU]
 	25ad  GA107 [GeForce RTX 2050]
 	25af  GA107 [GeForce RTX 3050 Engineering Sample]
 	25b5  GA107GLM [RTX A4 Mobile]
@@ -12720,8 +12756,8 @@
 	25e0  GA107BM [GeForce RTX 3050 Ti Mobile]
 	25e2  GA107BM [GeForce RTX 3050 Mobile]
 	25e5  GA107BM [GeForce RTX 3050 Mobile]
-# GN20-P0 Refresh
-	25ec  GN20-P0-R-K2
+	25ec  GN20-P0-R-K2 [GeForce RTX 3050 6GB Laptop GPU]
+	25ed  GA107 [GeForce RTX 2050]
 	25f9  GA107 [RTX A1000 Embedded GPU ]
 	25fa  GA107 [RTX A2000 Embedded GPU]
 	25fb  GA107 [RTX A500 Embedded GPU]
@@ -12732,10 +12768,11 @@
 	26b8  AD102GL [L40G]
 	26f5  AD102GL [L40 CNX]
 	2704  AD103 [GeForce RTX 4080]
-	2717  GN21-X11
+	2717  GN21-X11 [GeForce RTX 4090 Laptop GPU]
 	2757  GN21-X11
 	2782  AD104 [GeForce RTX 4070 Ti]
 	2785  AD104
+	2786  AD104 [GeForce RTX 4070]
 	27a0  GN21-X9
 	27b8  AD104GL [L4]
 	27e0  GN21-X9
@@ -20021,6 +20058,8 @@
 		14e4 4146  NetXtreme-E Dual-port 25G SFP28 Ethernet OCP 3.0 Adapter (BCM957414N4140C)
 		1590 020e  Ethernet 25Gb 2-port 631SFP28 Adapter
 		1590 0211  Ethernet 25Gb 2-port 631FLR-SFP28 Adapter
+# NIC-ETH630F-LP-2P SFP28 2x25GbE PCIe Network Adapter
+		193d 1033  NIC-ETH630F-LP-2P
 		1bd4 008e  ENFB2251-SP2
 		1bd4 008f  ENPB2251-SP2
 # VSE-225-31S Dual-port 10Gb/25Gb Ethernet PCIe
@@ -22076,7 +22115,17 @@
 16da  Advantech Co., Ltd.
 	0011  INES GPIB-PCI
 16df  PIKA Technologies Inc.
-16e2  Geotest-MTS
+# nee Geotest-MTS
+16e2  Marvin Test Solutions
+	1034  GX1034 Certification and Verification Module PXI Board
+	1100  GX1100 Arbitrary Waveform and Function Generator PXI Board
+	1120  GX1120 Arbitrary Waveform and Function Generator PXI Board
+	1632  GX1632e 32-Channel Arbitrary Analog Output PXIe Board
+	2065  GX2065 Digital Multimeter PXI Board
+	2200  GTX2200 High Resolution Universal Time Interval Counter PXI Board
+	2201  GC2200 High Resolution Universal Time Interval Counter PCI Board
+	5050  GC5050 Dynamic Digital I/O with Algorithmic Sequencer PCI Board
+	5641  GX5641/2 Bi-directional Differential-TTL I/O PXI Board
 16e3  European Space Agency
 	1e0f  LEON2FT Processor
 16e5  Intellon Corp.
@@ -22383,6 +22432,8 @@
 	9755  GL9755 SD Host Controller
 	e763  GL9763E eMMC Controller
 17aa  Lenovo
+# 250GB nvme ssd from lenovo, can be found in Thinkpad x380 yoga
+	0005  LENSE30256GMSP34MEAT3TA
 	3181  ThinkCentre M75n IoT
 	402b  Intel 82599ES 10Gb 2-port Server Adapter X520-2
 17ab  Phillips Components
@@ -25174,6 +25225,7 @@
 1e7c  Brainchip Inc
 	bca1  AKD1000 Neural Network Coprocessor [Akida]
 1e7e  9034 Pliops-Data Processor [XDP1.0]
+1e7f  Jiangsu Huacun Elec. Tech. Co., Ltd.
 1e81  Ramaxel Technology(Shenzhen) Limited
 	1203  NVMe SSD Controller UHXXXa series
 		1e81 a121  NVMe SSD UHXXXa series U.2 960GB
@@ -25229,6 +25281,8 @@
 	9804  Fantasy II
 		1ec8 12a2  Fantasy II Device
 1ec9  Wingtech Group(HongKong)Limited
+1eca  Lightmatter
+	0000  Envise-B
 1ed2  FuriosaAI, Inc.
 	0000  Warboy
 1ed3  Yeston
@@ -25368,6 +25422,7 @@
 	0c11  Compass C10 VF
 1fab  Unifabrix Ltd.
 	0000  Nexus Alpha IVPU
+	0100  NoX Gamma
 # nee Tumsan Oy
 1fc0  Ascom (Finland) Oy
 	0300  E2200 Dual E1/Rawpipe Card
@@ -25456,9 +25511,11 @@
 	5008  U-SNS8154P3 NVMe SSD
 	500d  OM3PDP3 NVMe SSD
 	500e  SNVS2000G [NV1 NVMe PCIe SSD 2TB]
+	5012  DC1500M U.2 Enterprise SSD
 270b  Xantel Corporation
 270f  Chaintech Computer Co. Ltd
 2711  AVID Technology Inc.
+2782  Emdoor Digital Technology Co., Ltd
 2955  Connectix Virtual PC
 	6e61  OHCI USB 1.1 controller
 2a15  3D Vision(???)
@@ -29485,6 +29542,7 @@
 		1028 00d8  Precision 530
 		103c 126f  e-pc 40
 		104d 80df  Vaio PCG-FX403
+		11d4 5340  AD1885 AC97 codec
 		1462 3370  STAC9721 AC
 		147b 0505  BL7 motherboard
 		147b 0507  TH7II-RAID

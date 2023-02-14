@@ -904,8 +904,6 @@ static int process_root_account(void) {
                 return 0;
         }
 
-        (void) mkdir_parents(etc_passwd, 0755);
-
         lock = take_etc_passwd_lock(arg_root);
         if (lock < 0)
                 return log_error_errno(lock, "Failed to take a lock on %s: %m", etc_passwd);

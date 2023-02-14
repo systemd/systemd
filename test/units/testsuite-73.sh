@@ -79,7 +79,7 @@ test_locale() {
     if command -v locale-gen >/dev/null 2>&1 &&
            ! localectl list-locales | grep -F "en_US.UTF-8"; then
         # ensure at least one utf8 locale exist
-        echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
+        echo "en_US.UTF-8 UTF-8" >/etc/locale.gen
         locale-gen en_US.UTF-8
     fi
 

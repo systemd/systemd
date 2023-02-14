@@ -462,7 +462,8 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnHP:pnHPSpectreNotebook:*
  EVDEV_ABS_36=1083:4808:65
 
 # HP Envy x360
-evdev:name:SynPS/2 Synaptics TouchPad:*svnHP:pnHPENVYx360Convertible15m-cn0xxx:*
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnHP:pnHPENVYx360Convertible15m-cn0xxx:*
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnHP:pnHPENVYx360Convertible15-cn0xxx**
  EVDEV_ABS_00=1302:5640:36
  EVDEV_ABS_01=1119:4741:61
  EVDEV_ABS_35=1302:5640:36

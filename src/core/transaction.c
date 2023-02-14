@@ -1098,6 +1098,20 @@ int transaction_add_job_and_dependencies(
         return 0;
 }
 
+static bool shall_stop_on_isolate(Transaction *tr, Unit *u) {
+        assert(tr);
+        assert(u);
+
+        if (u->ignore_on_isolate)
+                return false;
+
+        /* Is there already something listed for this? */
+        if (hashmap_get(tr->jobs, u))
+                return false;
+
+        return true;
+}
+
 int transaction_add_isolate_jobs(Transaction *tr, Manager *m) {
         Unit *u;
         char *k;
@@ -1107,20 +1121,27 @@ int transaction_add_isolate_jobs(Transaction *tr, Manager *m) {
         assert(m);
 
         HASHMAP_FOREACH_KEY(u, k, m->units) {
+                Unit *o;
 
-                /* ignore aliases */
+                /* Ignore aliases */
                 if (u->id != k)
                         continue;
 
-                if (u->ignore_on_isolate)
-                        continue;
-
-                /* No need to stop inactive jobs */
+                /* No need to stop inactive units */
                 if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(u)) && !u->job)
                         continue;
 
-                /* Is there already something listed for this? */
-                if (hashmap_get(tr->jobs, u))
+                if (!shall_stop_on_isolate(tr, u))
+                        continue;
+
+                /* Keep units that are triggered by units we want to keep around. */
+                bool keep = false;
+                UNIT_FOREACH_DEPENDENCY(o, u, UNIT_ATOM_TRIGGERED_BY)
+                        if (!shall_stop_on_isolate(tr, o)) {
+                                keep = true;
+                                break;
+                        }
+                if (keep)
                         continue;
 
                 r = transaction_add_job_and_dependencies(tr, JOB_STOP, u, tr->anchor_job, true, false, false, false, NULL);

@@ -691,7 +691,7 @@ EOF
 #!/bin/bash
 set -e
 test -e /usr/lib/os-release
-echo bar > \${STATE_DIRECTORY}/foo
+echo bar >\${STATE_DIRECTORY}/foo
 cat /usr/lib/extension-release.d/extension-release.app0
 EOF
         chmod +x "$initdir/opt/script0.sh"
@@ -717,7 +717,7 @@ EOF
 #!/bin/bash
 set -e
 test -e /usr/lib/os-release
-echo baz > \${STATE_DIRECTORY}/foo
+echo baz >\${STATE_DIRECTORY}/foo
 cat /usr/lib/extension-release.d/extension-release.app2
 EOF
         chmod +x "$initdir/opt/script1.sh"

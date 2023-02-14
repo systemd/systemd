@@ -16,7 +16,6 @@
 #include "process-util.h"
 #include "pull-common.h"
 #include "pull-job.h"
-#include "rlimit-util.h"
 #include "rm-rf.h"
 #include "signal-util.h"
 #include "siphash24.h"
@@ -415,7 +414,7 @@ static int verify_gpg(
 
         gpg_home_created = true;
 
-        r = safe_fork("(gpg)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        r = safe_fork("(gpg)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -445,8 +444,6 @@ static int verify_gpg(
                         log_error_errno(r, "Failed to rearrange stdin/stdout: %m");
                         _exit(EXIT_FAILURE);
                 }
-
-                (void) rlimit_nofile_safe();
 
                 cmd[k++] = strjoina("--homedir=", gpg_home);
 

@@ -93,22 +93,28 @@ struct FieldObject FieldObject__contents;
 struct FieldObject__packed FieldObject__contents _packed_;
 assert_cc(sizeof(struct FieldObject) == sizeof(struct FieldObject__packed));
 
-#define EntryObject__contents {                 \
-        ObjectHeader object;                    \
-        le64_t seqnum;                          \
-        le64_t realtime;                        \
-        le64_t monotonic;                       \
-        sd_id128_t boot_id;                     \
-        le64_t xor_hash;                        \
-        union {                                 \
-                struct {                        \
-                        le64_t object_offset;   \
-                        le64_t hash;            \
-                } regular[0];                   \
-                struct {                        \
-                        le32_t object_offset;   \
-                } compact[0];                   \
-        } items;                                \
+#define EntryObject__contents {                        \
+        ObjectHeader object;                           \
+        le64_t seqnum;                                 \
+        le64_t realtime;                               \
+        le64_t monotonic;                              \
+        sd_id128_t boot_id;                            \
+        le64_t xor_hash;                               \
+        union {                                        \
+                struct {                               \
+                        dummy_t __empty__regular;      \
+                        struct {                       \
+                                le64_t object_offset;  \
+                                le64_t hash;           \
+                        } regular[];                   \
+                };                                     \
+                struct {                               \
+                        dummy_t __empty_compact;       \
+                        struct {                       \
+                                le32_t object_offset;  \
+                        } compact[];                   \
+                };                                     \
+        } items;                                       \
 }
 
 struct EntryObject EntryObject__contents;
@@ -129,8 +135,8 @@ struct EntryArrayObject {
         ObjectHeader object;
         le64_t next_entry_array_offset;
         union {
-                le64_t regular[0];
-                le32_t compact[0];
+                DECLARE_FLEX_ARRAY(le64_t, regular);
+                DECLARE_FLEX_ARRAY(le32_t, compact);
         } items;
 } _packed_;
 

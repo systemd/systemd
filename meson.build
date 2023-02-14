@@ -354,6 +354,8 @@ basic_disabled_warnings = [
 ]
 
 possible_common_cc_flags = [
+        '-Warray-bounds',     # clang
+        '-Warray-bounds=2',
         '-Wdate-time',
         '-Wendif-labels',
         '-Werror=format=2',
@@ -387,10 +389,13 @@ possible_common_cc_flags = [
         '-Wsuggest-attribute=noreturn',
         '-Wunused-function',
         '-Wwrite-strings',
+        '-Wzero-length-bounds',
 
         # negative arguments are correctly detected starting with meson 0.46.
         '-Wno-error=#warnings',  # clang
         '-Wno-string-plus-int',  # clang
+
+        '-fstrict-flex-arrays',
 ]
 
 c_args = get_option('c_args')

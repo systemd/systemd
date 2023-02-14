@@ -34,7 +34,7 @@
     <para><filename>systemd-pcrmachine.service</filename></para>
     <para><filename>systemd-pcrfs-root.service</filename></para>
     <para><filename>systemd-pcrfs@.service</filename></para>
-    <para><filename>/usr/lib/systemd/system-pcrphase</filename> <optional><replaceable>STRING</replaceable></optional></para>
+    <para><filename>/usr/lib/systemd/systemd-pcrphase</filename> <optional><replaceable>STRING</replaceable></optional></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -121,7 +121,7 @@
 
     <para><filename>systemd-pcrfs-root.service</filename> and <filename>systemd-pcrfs@.service</filename> are
     automatically pulled into the initial transaction by
-    <citerefentry><refentrytitle>systemd-gpt-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     for the root and <filename>/var/</filename> file
     systems. <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     will do this for all mounts with the <option>x-systemd.pcrfs</option> mount option in
@@ -188,7 +188,7 @@
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-gpt-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>

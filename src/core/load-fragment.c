@@ -4606,7 +4606,7 @@ int config_parse_exec_directories(
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r <= 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r ?: SYNTHETIC_ERRNO(EINVAL),
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Invalid syntax in %s=, ignoring: %s", lvalue, tuple);
                         return 0;
                 }

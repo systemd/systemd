@@ -1,0 +1,37 @@
+---
+
+name: Gather Pull Request Metadata
+
+on:
+  pull_request:
+    branches: [ main ]
+
+env:
+  PULL_REQUEST_METADATA_DIR: pull_request
+  PULL_REQUEST_METADATA_FILE: metadata
+
+permissions:
+  contents: read
+
+jobs:
+  gather-metadata:
+    if: github.repository == 'systemd/systemd'
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Repository checkout
+        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b
+        with:
+          fetch-depth: 0
+
+      - name: Store PR number in file
+        run: |
+          mkdir -p ./${{ env.PULL_REQUEST_METADATA_DIR }}
+          echo ${{ github.event.number }} >./${{ env.PULL_REQUEST_METADATA_DIR }}/${{ env.PULL_REQUEST_METADATA_FILE }}
+
+      - name: Upload Pull Request Metadata artifact
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
+        with:
+          name: ${{ env.PULL_REQUEST_METADATA_FILE }}
+          path: ${{ env.PULL_REQUEST_METADATA_DIR }}
+          retention-days: 1

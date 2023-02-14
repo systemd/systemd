@@ -4169,6 +4169,16 @@ int unit_patch_contexts(Unit *u) {
                                 if (r < 0)
                                         return r;
                         }
+
+                        /* If there are encrypted credentials we might need to access the TPM. */
+                        ExecLoadCredential *cred;
+                        HASHMAP_FOREACH(cred, ec->load_credentials)
+                                if (cred->encrypted) {
+                                        r = cgroup_add_device_allow(cc, "/dev/tpmrm0", "rw");
+                                        if (r < 0)
+                                                return r;
+                                        break;
+                                }
                 }
         }
 
@@ -4500,7 +4510,9 @@ static int log_kill(pid_t pid, int sig, void *userdata) {
         /* Don't log about processes marked with brackets, under the assumption that these are temporary processes
            only, like for example systemd's own PAM stub process. */
         if (comm && comm[0] == '(')
-                return 0;
+                /* Although we didn't log anything, as this callback is used in unit_kill_context we must return 1
+                 * here to let the manager know that a process was killed. */
+                return 1;
 
         log_unit_notice(userdata,
                         "Killing process " PID_FMT " (%s) with signal SIG%s.",
