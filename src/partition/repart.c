@@ -3752,6 +3752,31 @@ static int do_copy_files(Partition *p, const char *root, const Set *denylist) {
         assert(p);
         assert(root);
 
+        /* copy_tree_at() automatically copies the permissions of source directories to target directories if
+         * it created them. However, the root directory is created by us, so we have to manually take care
+         * that it is initialized. We use the first source directory targeting "/" as the metadata source for
+         * the root directory. */
+        STRV_FOREACH_PAIR(source, target, p->copy_files) {
+                _cleanup_close_ int rfd = -EBADF, sfd = -EBADF;
+
+                if (!path_equal(*target, "/"))
+                        continue;
+
+                rfd = open(root, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+                if (rfd < 0)
+                        return rfd;
+
+                sfd = chase_symlinks_and_open(*source, arg_root, CHASE_PREFIX_ROOT, O_PATH|O_DIRECTORY|O_CLOEXEC|O_NOCTTY, NULL);
+                if (sfd < 0)
+                        return log_error_errno(sfd, "Failed to open source file '%s%s': %m", strempty(arg_root), *source);
+
+                (void) copy_xattr(sfd, NULL, rfd, NULL, COPY_ALL_XATTRS);
+                (void) copy_access(sfd, rfd);
+                (void) copy_times(sfd, rfd, 0);
+
+                break;
+        }
+
         STRV_FOREACH_PAIR(source, target, p->copy_files) {
                 _cleanup_close_ int sfd = -EBADF, pfd = -EBADF, tfd = -EBADF;
 
@@ -3840,7 +3865,7 @@ static int do_copy_files(Partition *p, const char *root, const Set *denylist) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", *source, strempty(arg_root), *target);
 
-                        (void) copy_xattr(sfd, tfd, COPY_ALL_XATTRS);
+                        (void) copy_xattr(sfd, NULL, tfd, NULL, COPY_ALL_XATTRS);
                         (void) copy_access(sfd, tfd);
                         (void) copy_times(sfd, tfd, 0);
                 }
@@ -3872,17 +3897,22 @@ static bool partition_needs_populate(Partition *p) {
 
 static int partition_populate_directory(Partition *p, const Set *denylist, char **ret) {
         _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
-        _cleanup_close_ int rfd = -EBADF;
+        const char *vt;
         int r;
 
         assert(ret);
 
-        rfd = mkdtemp_open("/var/tmp/repart-XXXXXX", 0, &root);
-        if (rfd < 0)
-                return log_error_errno(rfd, "Failed to create temporary directory: %m");
+        r = var_tmp_dir(&vt);
+        if (r < 0)
+                return log_error_errno(r, "Could not determine temporary directory: %m");
 
-        if (fchmod(rfd, 0755) < 0)
-                return log_error_errno(errno, "Failed to change mode of temporary directory: %m");
+        r = tempfn_random_child(vt, "repart", &root);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate temporary directory: %m");
+
+        r = mkdir(root, 0755);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to create temporary directory: %m");
 
         r = do_copy_files(p, root, denylist);
         if (r < 0)
