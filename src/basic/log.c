@@ -347,6 +347,11 @@ void log_set_target(LogTarget target) {
         log_target = target;
 }
 
+void log_set_target_and_open(LogTarget target) {
+        log_set_target(target);
+        log_open();
+}
+
 void log_close(void) {
         /* Do not call from library code. */
 
