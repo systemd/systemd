@@ -263,6 +263,30 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                            "  instance name specified.",
                            special_glyph(SPECIAL_GLYPH_BULLET));
 
+        if (streq(verb, "disable") && arg_scope == LOOKUP_SCOPE_USER) {
+                /* We emit the warning only if all the unit files are enabled in
+                 * global scope, so here we default to true first and see if anything
+                 * is disabled later. */
+                bool enabled_global_scope = true;
+
+                STRV_FOREACH(name, names) {
+                        UnitFileState state;
+
+                        r = unit_file_get_state(LOOKUP_SCOPE_GLOBAL, arg_root, *name, &state);
+                        if (r == -ENOENT) {
+                                enabled_global_scope = false;
+                                break;
+                        } else if (r < 0)
+                                return log_error_errno(r, "Failed to get unit file state for %s: %m", *name);
+
+                        enabled_global_scope = enabled_global_scope && IN_SET(state, UNIT_FILE_ENABLED, UNIT_FILE_ENABLED_RUNTIME);
+                }
+
+                if (enabled_global_scope && !arg_quiet && !arg_no_warn)
+                        log_notice("The unit files have been enabled in global scope. This means they will still\n"
+                                   "be started automatically after a successful disablement in user scope.\n");
+        }
+
         if (arg_now && STR_IN_SET(argv[0], "enable", "disable", "mask")) {
                 sd_bus *bus;
                 size_t len, i;
