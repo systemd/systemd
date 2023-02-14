@@ -501,7 +501,7 @@ static int add_partition_xbootldr(DissectedPartition *p) {
 }
 
 #if ENABLE_EFI
-static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
+static int add_partition_esp(DissectedPartition *p, bool has_xbootldr, bool has_root) {
         const char *esp_path = NULL, *id = NULL;
         int r;
 
@@ -547,17 +547,20 @@ static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
         if (is_efi_boot()) {
                 sd_id128_t loader_uuid;
 
-                /* If this is an EFI boot, be extra careful, and only mount the ESP if it was the ESP used for booting. */
+                /* If this is an EFI boot, be extra careful, and only mount the ESP if it's on the same disk
+                 * as the root or it was the ESP used for booting. */
 
                 r = efi_loader_get_device_part_uuid(&loader_uuid);
-                if (r == -ENOENT) {
-                        log_debug("EFI loader partition unknown.");
-                        return 0;
-                }
-                if (r < 0)
+                if (r < 0 && r != -ENOENT)
                         return log_error_errno(r, "Failed to read ESP partition UUID: %m");
-
-                if (!sd_id128_equal(p->uuid, loader_uuid)) {
+                if (r == -ENOENT) {
+                        if (has_root)
+                                log_debug("EFI loader partition unknown but ESP partition %s is on the same device as the root partition.", p->node);
+                        else {
+                                log_debug("EFI loader partition unknown and ESP partition %s is not on the same device as the root partition.", p->node);
+                                return 0;
+                        }
+                } else if (!sd_id128_equal(p->uuid, loader_uuid)) {
                         log_debug("Partition for %s does not appear to be the partition we are booted from.", p->node);
                         return 0;
                 }
@@ -734,7 +737,8 @@ static int enumerate_partitions(dev_t devnum) {
         }
 
         if (m->partitions[PARTITION_ESP].found) {
-                k = add_partition_esp(m->partitions + PARTITION_ESP, m->partitions[PARTITION_XBOOTLDR].found);
+                k = add_partition_esp(m->partitions + PARTITION_ESP, m->partitions[PARTITION_XBOOTLDR].found,
+                                      m->partitions[PARTITION_ROOT].found);
                 if (k < 0)
                         r = k;
         }
