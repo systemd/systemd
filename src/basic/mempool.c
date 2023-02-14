@@ -19,15 +19,16 @@ void* mempool_alloc_tile(struct mempool *mp) {
         /* When a tile is released we add it to the list and simply
          * place the next pointer at its offset 0. */
 
+        assert(mp);
         assert(mp->tile_size >= sizeof(void*));
         assert(mp->at_least > 0);
 
         if (mp->freelist) {
-                void *r;
+                void *t;
 
-                r = mp->freelist;
-                mp->freelist = * (void**) mp->freelist;
-                return r;
+                t = mp->freelist;
+                mp->freelist = *(void**) mp->freelist;
+                return t;
         }
 
         if (_unlikely_(!mp->first_pool) ||
