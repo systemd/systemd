@@ -35,6 +35,7 @@ shared_sources = files(
         'chown-recursive.c',
         'clean-ipc.c',
         'clock-util.c',
+        'common-signal.c',
         'compare-operator.c',
         'condition.c',
         'conf-parser.c',
