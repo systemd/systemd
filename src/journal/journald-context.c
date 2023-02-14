@@ -636,6 +636,10 @@ static void client_context_try_shrink_to(Server *s, size_t limit) {
         }
 }
 
+void client_context_flush_regular(Server *s) {
+        client_context_try_shrink_to(s, 0);
+}
+
 void client_context_flush_all(Server *s) {
         assert(s);
 
@@ -644,7 +648,7 @@ void client_context_flush_all(Server *s) {
         s->my_context = client_context_release(s, s->my_context);
         s->pid1_context = client_context_release(s, s->pid1_context);
 
-        client_context_try_shrink_to(s, 0);
+        client_context_flush_regular(s);
 
         assert(prioq_size(s->client_contexts_lru) == 0);
         assert(hashmap_size(s->client_contexts) == 0);

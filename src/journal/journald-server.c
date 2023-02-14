@@ -1707,7 +1707,7 @@ static int server_setup_signals(Server *s) {
 
         assert(s);
 
-        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM, SIGUSR1, SIGUSR2, SIGRTMIN+1, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM, SIGUSR1, SIGUSR2, SIGRTMIN+1, SIGRTMIN+18, -1) >= 0);
 
         r = sd_event_add_signal(s->event, &s->sigusr1_event_source, SIGUSR1, dispatch_sigusr1, s);
         if (r < 0)
@@ -1744,6 +1744,10 @@ static int server_setup_signals(Server *s) {
                 return r;
 
         r = sd_event_source_set_priority(s->sigrtmin1_event_source, SD_EVENT_PRIORITY_NORMAL+15);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_signal(s->event, NULL, SIGRTMIN+18, sigrtmin18_handler, &s->sigrtmin18_info);
         if (r < 0)
                 return r;
 
@@ -2420,6 +2424,42 @@ static int server_set_namespace(Server *s, const char *namespace) {
         return 1;
 }
 
+static int server_memory_pressure(sd_event_source *es, void *userdata) {
+        Server *s = ASSERT_PTR(userdata);
+
+        log_info("Under memory pressure, flushing caches.");
+
+        /* Flushed the cached info we might have about client processes */
+        client_context_flush_regular(s);
+
+        /* Let's also close all user files (but keep the system/runtime one open) */
+        for (;;) {
+                ManagedJournalFile *first = ordered_hashmap_steal_first(s->user_journals);
+
+                if (!first)
+                        break;
+
+                (void) managed_journal_file_close(first);
+        }
+
+        sd_event_trim_memory();
+
+        return 0;
+}
+
+static int server_setup_memory_pressure(Server *s) {
+        int r;
+
+        assert(s);
+
+        r = sd_event_add_memory_pressure(s->event, NULL, server_memory_pressure, s);
+        if (r < 0)
+                log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r) || (r == -EHOSTDOWN) ? LOG_DEBUG : LOG_NOTICE, r,
+                               "Failed to install memory pressure event source, ignoring: %m");
+
+        return 0;
+}
+
 int server_init(Server *s, const char *namespace) {
         const char *native_socket, *syslog_socket, *stdout_socket, *varlink_socket, *e;
         _cleanup_fdset_free_ FDSet *fds = NULL;
@@ -2470,6 +2510,9 @@ int server_init(Server *s, const char *namespace) {
                         .interval = DEFAULT_KMSG_OWN_INTERVAL,
                         .burst = DEFAULT_KMSG_OWN_BURST,
                 },
+
+                .sigrtmin18_info.memory_pressure_handler = server_memory_pressure,
+                .sigrtmin18_info.memory_pressure_userdata = s,
         };
 
         r = server_set_namespace(s, namespace);
@@ -2649,6 +2692,10 @@ int server_init(Server *s, const char *namespace) {
                 return r;
 
         r = server_setup_signals(s);
+        if (r < 0)
+                return r;
+
+        r = server_setup_memory_pressure(s);
         if (r < 0)
                 return r;
 

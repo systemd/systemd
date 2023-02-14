@@ -8,6 +8,7 @@
 
 typedef struct Server Server;
 
+#include "common-signal.h"
 #include "conf-parser.h"
 #include "hashmap.h"
 #include "journald-context.h"
@@ -95,6 +96,7 @@ struct Server {
         sd_event_source *notify_event_source;
         sd_event_source *watchdog_event_source;
         sd_event_source *idle_event_source;
+        struct sigrtmin18_info sigrtmin18_info;
 
         ManagedJournalFile *runtime_journal;
         ManagedJournalFile *system_journal;

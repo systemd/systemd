@@ -89,6 +89,7 @@ void client_context_maybe_refresh(
 
 void client_context_acquire_default(Server *s);
 void client_context_flush_all(Server *s);
+void client_context_flush_regular(Server *s);
 
 static inline size_t client_context_extra_fields_n_iovec(const ClientContext *c) {
         return c ? c->extra_fields_n_iovec : 0;
