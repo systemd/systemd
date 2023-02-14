@@ -70,9 +70,16 @@ void* mempool_alloc0_tile(struct mempool *mp) {
         return p;
 }
 
-void mempool_free_tile(struct mempool *mp, void *p) {
-        * (void**) p = mp->freelist;
+void* mempool_free_tile(struct mempool *mp, void *p) {
+        assert(mp);
+
+        if (!p)
+                return NULL;
+
+        *(void**) p = mp->freelist;
         mp->freelist = p;
+
+        return NULL;
 }
 
 void mempool_drop(struct mempool *mp) {
