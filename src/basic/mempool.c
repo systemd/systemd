@@ -13,6 +13,10 @@ struct pool {
         size_t n_used;
 };
 
+static void* pool_ptr(struct pool *p) {
+        return ((uint8_t*) ASSERT_PTR(p)) + ALIGN(sizeof(struct pool));
+}
+
 void* mempool_alloc_tile(struct mempool *mp) {
         size_t i;
 
@@ -54,7 +58,7 @@ void* mempool_alloc_tile(struct mempool *mp) {
 
         i = mp->first_pool->n_used++;
 
-        return ((uint8_t*) mp->first_pool) + ALIGN(sizeof(struct pool)) + i*mp->tile_size;
+        return (uint8_t*) pool_ptr(mp->first_pool) + i*mp->tile_size;
 }
 
 void* mempool_alloc0_tile(struct mempool *mp) {
