@@ -274,7 +274,7 @@ static _used_ const struct hashmap_type_info hashmap_type_info[_HASHMAP_TYPE_MAX
         },
 };
 
-void hashmap_cleanup_pools(void) {
+void hashmap_trim_pools(void) {
         int r;
 
         /* The pool is only allocated by the main thread, but the memory can be passed to other
@@ -291,8 +291,8 @@ void hashmap_cleanup_pools(void) {
         if (r != 1)
                 return (void) log_debug("Not cleaning up memory pools, running in multi-threaded process.");
 
-        mempool_drop(&hashmap_pool);
-        mempool_drop(&ordered_hashmap_pool);
+        mempool_trim(&hashmap_pool);
+        mempool_trim(&ordered_hashmap_pool);
 }
 
 #if VALGRIND
