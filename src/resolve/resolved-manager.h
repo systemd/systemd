@@ -156,6 +156,8 @@ struct Manager {
         LIST_HEAD(SocketGraveyard, socket_graveyard);
         SocketGraveyard *socket_graveyard_oldest;
         size_t n_socket_graveyard;
+
+        sd_event_source *memory_pressure_event_source;
 };
 
 /* Manager */
