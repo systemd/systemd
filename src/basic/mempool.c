@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "format-util.h"
 #include "macro.h"
 #include "memory-util.h"
 #include "mempool.h"
@@ -82,12 +83,91 @@ void* mempool_free_tile(struct mempool *mp, void *p) {
         return NULL;
 }
 
-void mempool_drop(struct mempool *mp) {
-        struct pool *p = mp->first_pool;
-        while (p) {
-                struct pool *n;
-                n = p->next;
-                free(p);
-                p = n;
+static bool pool_contains(struct mempool *mp, struct pool *p, void *ptr) {
+        size_t off;
+        void *a;
+
+        assert(mp);
+        assert(p);
+
+        if (!ptr)
+                return false;
+
+        a = pool_ptr(p);
+        if ((uint8_t*) ptr < (uint8_t*) a)
+                return false;
+
+        off = (uint8_t*) ptr - (uint8_t*) a;
+        assert(off % mp->tile_size == 0);
+
+        return off < mp->tile_size * p->n_tiles;
+}
+
+static bool pool_is_unused(struct mempool *mp, struct pool *p) {
+        assert(mp);
+        assert(p);
+
+        if (p->n_used == 0)
+                return true;
+
+        /* Check if all tiles in this specific pool are in the freelist. */
+        size_t n = 0;
+        void *i = mp->freelist;
+        while (i) {
+                if (pool_contains(mp, p, i))
+                        n++;
+
+                i = *(void**) i;
         }
+
+        assert(n <= p->n_used);
+
+        return n == p->n_used;
+}
+
+static void pool_unlink(struct mempool *mp, struct pool *p) {
+        size_t m = 0;
+
+        assert(mp);
+        assert(p);
+
+        if (p->n_used == 0)
+                return;
+
+        void **i = &mp->freelist;
+        while (*i) {
+                void *d = *i;
+
+                if (pool_contains(mp, p, d)) {
+                        *i = *(void**) d;
+                        m++;
+
+                        if (m == p->n_used)
+                                break;
+                } else
+                        i = (void**) d;
+        }
+}
+
+void mempool_trim(struct mempool *mp) {
+        size_t trimmed = 0, left = 0;
+
+        assert(mp);
+
+        struct pool **p = &mp->first_pool;
+        while (*p) {
+                struct pool *d = *p;
+
+                if (pool_is_unused(mp, d)) {
+                        trimmed += d->n_tiles * mp->tile_size;
+                        pool_unlink(mp, d);
+                        *p = d->next;
+                        free(d);
+                } else {
+                        left += d->n_tiles * mp->tile_size;
+                        p = &d->next;
+                }
+        }
+
+        log_debug("Trimmed %s from memory pool %p. (%s left)", FORMAT_BYTES(trimmed), mp, FORMAT_BYTES(left));
 }
