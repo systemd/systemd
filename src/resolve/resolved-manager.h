@@ -7,6 +7,7 @@
 #include "sd-netlink.h"
 #include "sd-network.h"
 
+#include "common-signal.h"
 #include "hashmap.h"
 #include "list.h"
 #include "ordered-set.h"
@@ -156,6 +157,10 @@ struct Manager {
         LIST_HEAD(SocketGraveyard, socket_graveyard);
         SocketGraveyard *socket_graveyard_oldest;
         size_t n_socket_graveyard;
+
+        sd_event_source *memory_pressure_event_source;
+        sd_event_source *sigrtmin18_event_source;
+        struct sigrtmin18_info sigrtmin18_info;
 };
 
 /* Manager */
