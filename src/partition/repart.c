@@ -3872,17 +3872,22 @@ static bool partition_needs_populate(Partition *p) {
 
 static int partition_populate_directory(Partition *p, const Set *denylist, char **ret) {
         _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
-        _cleanup_close_ int rfd = -EBADF;
+        const char *vt;
         int r;
 
         assert(ret);
 
-        rfd = mkdtemp_open("/var/tmp/repart-XXXXXX", 0, &root);
-        if (rfd < 0)
-                return log_error_errno(rfd, "Failed to create temporary directory: %m");
+        r = var_tmp_dir(&vt);
+        if (r < 0)
+                return log_error_errno(r, "Could not determine temporary directory: %m");
 
-        if (fchmod(rfd, 0755) < 0)
-                return log_error_errno(errno, "Failed to change mode of temporary directory: %m");
+        r = tempfn_random_child(vt, "repart", &root);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate temporary directory: %m");
+
+        r = mkdir(root, 0755);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to create temporary directory: %m");
 
         r = do_copy_files(p, root, denylist);
         if (r < 0)
