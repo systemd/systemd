@@ -10,7 +10,7 @@ struct mempool {
         struct pool *first_pool;
         void *freelist;
         size_t tile_size;
-        unsigned at_least;
+        size_t at_least;
 };
 
 void* mempool_alloc_tile(struct mempool *mp);
