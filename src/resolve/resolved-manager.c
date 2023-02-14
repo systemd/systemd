@@ -596,6 +596,9 @@ int manager_new(Manager **ret) {
                 .need_builtin_fallbacks = true,
                 .etc_hosts_last = USEC_INFINITY,
                 .read_etc_hosts = true,
+
+                .sigrtmin18_info.memory_pressure_handler = manager_memory_pressure,
+                .sigrtmin18_info.memory_pressure_userdata = m,
         };
 
         r = dns_trust_anchor_load(&m->trust_anchor);
@@ -656,6 +659,7 @@ int manager_new(Manager **ret) {
         (void) sd_event_add_signal(m->event, &m->sigusr1_event_source, SIGUSR1, manager_sigusr1, m);
         (void) sd_event_add_signal(m->event, &m->sigusr2_event_source, SIGUSR2, manager_sigusr2, m);
         (void) sd_event_add_signal(m->event, &m->sigrtmin1_event_source, SIGRTMIN+1, manager_sigrtmin1, m);
+        (void) sd_event_add_signal(m->event, &m->sigrtmin18_event_source, SIGRTMIN+18, sigrtmin18_handler, &m->sigrtmin18_info);
 
         manager_cleanup_saved_user(m);
 
@@ -721,6 +725,7 @@ Manager *manager_free(Manager *m) {
         sd_event_source_unref(m->clock_change_event_source);
 
         sd_event_source_disable_unref(m->memory_pressure_event_source);
+        sd_event_source_disable_unref(m->sigrtmin18_event_source);
 
         manager_llmnr_stop(m);
         manager_mdns_stop(m);
