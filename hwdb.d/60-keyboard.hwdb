@@ -611,6 +611,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPENVYx360Convertible13*:*
 evdev:name:Intel HID events:dmi:bvn*:bvr*:bd*:svnHP*:pn*HP[sS][pP][eE][cC][tT][rR][eE]*x3602-in-1*:*
 # ENVY x360
 evdev:name:Intel HID events:dmi:bvn*:bvr*:bd*:svnHP*:pnHPENVYx360Convertible*:*
+evdev:name:Intel HID events:dmi:bvn*:bvr*:bd*:svnHP*:pnHPENVYx3602-in-1*:*
  KEYBOARD_KEY_08=unknown                                #  Prevents random airplane mode activation
 
 # HP Elite x2 1013 G3
