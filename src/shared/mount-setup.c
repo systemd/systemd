@@ -529,7 +529,7 @@ int mount_setup(bool loaded_policy, bool leave_propagation) {
 
                 after_relabel = now(CLOCK_MONOTONIC);
 
-                log_info("Relabelled /dev, /dev/shm, /run, /sys/fs/cgroup%s in %s.",
+                log_info("Relabeled /dev, /dev/shm, /run, /sys/fs/cgroup%s in %s.",
                          n_extra > 0 ? ", additional files" : "",
                          FORMAT_TIMESPAN(after_relabel - before_relabel, 0));
         }
