@@ -25,4 +25,4 @@ static struct mempool pool_name = { \
 
 __attribute__((weak)) bool mempool_enabled(void);
 
-void mempool_drop(struct mempool *mp);
+void mempool_trim(struct mempool *mp);
