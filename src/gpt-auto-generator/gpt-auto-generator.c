@@ -547,17 +547,16 @@ static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
         if (is_efi_boot()) {
                 sd_id128_t loader_uuid;
 
-                /* If this is an EFI boot, be extra careful, and only mount the ESP if it was the ESP used for booting. */
+                /* If this is an EFI boot and the bootloader has set LoaderDevicePartUUID, only mount the ESP
+                 * if it was the ESP used for booting. */
 
                 r = efi_loader_get_device_part_uuid(&loader_uuid);
-                if (r == -ENOENT) {
-                        log_debug("EFI loader partition unknown.");
-                        return 0;
-                }
-                if (r < 0)
+                if (r < 0 && r != -ENOENT)
                         return log_error_errno(r, "Failed to read ESP partition UUID: %m");
 
-                if (!sd_id128_equal(p->uuid, loader_uuid)) {
+                if (r == -ENOENT)
+                        log_debug("EFI loader partition unknown, assuming %s was the booted ESP.", p->node);
+                else if (!sd_id128_equal(p->uuid, loader_uuid)) {
                         log_debug("Partition for %s does not appear to be the partition we are booted from.", p->node);
                         return 0;
                 }
