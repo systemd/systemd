@@ -77,4 +77,4 @@ int copy_rights_with_fallback(int fdf, int fdt, const char *patht);
 static inline int copy_rights(int fdf, int fdt) {
         return copy_rights_with_fallback(fdf, fdt, NULL); /* no fallback */
 }
-int copy_xattr(int fdf, int fdt, CopyFlags copy_flags);
+int copy_xattr(int df, const char *from, int dt, const char *to, CopyFlags copy_flags);
