@@ -2242,7 +2242,7 @@ static int home_get_disk_status_luks(
          * that case the image is pre-allocated and thus appears all used from the host PoV but is not used
          * up at all yet from the user's PoV.
          *
-         * That said, we use use the stat() reported loopback file size as upper boundary: our footprint can
+         * That said, we use the stat() reported loopback file size as upper boundary: our footprint can
          * never be larger than what we take up on the lowest layers. */
 
         if (disk_size != UINT64_MAX && disk_size > disk_free) {

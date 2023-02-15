@@ -351,7 +351,7 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         /* Handle each pstore file */
-        /* Sort files lexigraphically ascending, generally needed by all */
+        /* Sort files lexicographically ascending, generally needed by all */
         typesafe_qsort(list.entries, list.n_entries, compare_pstore_entries);
 
         /* Process known file types */

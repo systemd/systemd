@@ -38,7 +38,7 @@ static void test_xescape_full_one(bool eight_bits) {
                 if (i >= full_fit)
                         assert_se(streq(t, escaped));
                 else if (i >= 3) {
-                        /* We need up to four columns, so up to three three columns may be wasted */
+                        /* We need up to four columns, so up to three columns may be wasted */
                         assert_se(strlen(t) == i || strlen(t) == i - 1 || strlen(t) == i - 2 || strlen(t) == i - 3);
                         assert_se(strneq(t, escaped, i - 3) || strneq(t, escaped, i - 4) ||
                                   strneq(t, escaped, i - 5) || strneq(t, escaped, i - 6));

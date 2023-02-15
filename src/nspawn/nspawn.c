@@ -2516,7 +2516,7 @@ static int setup_kmsg(int fd_inner_socket) {
 
         BLOCK_WITH_UMASK(0000);
 
-        /* We create the kmsg FIFO as as temporary file in /run, but immediately delete it after bind mounting it to
+        /* We create the kmsg FIFO as a temporary file in /run, but immediately delete it after bind mounting it to
          * /proc/kmsg. While FIFOs on the reading side behave very similar to /proc/kmsg, their writing side behaves
          * differently from /dev/kmsg in that writing blocks when nothing is reading. In order to avoid any problems
          * with containers deadlocking due to this we simply make /dev/kmsg unavailable to the container. */

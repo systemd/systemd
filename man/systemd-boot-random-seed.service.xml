@@ -77,7 +77,7 @@
       from the kernel entropy pool.</para></listitem>
 
       <listitem><para>In userspace the <filename>systemd-boot-random-seed.service</filename> service updates
-      the boot loader random seed with a new value derived from the kernel kernel entropy pool.</para></listitem>
+      the boot loader random seed with a new value derived from the kernel entropy pool.</para></listitem>
     </orderedlist>
 
     <para>This logic should ensure that the kernel's entropy pool is seeded during earliest bool already, if

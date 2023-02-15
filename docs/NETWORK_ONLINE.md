@@ -28,7 +28,7 @@ avoiding an unnecessary synchronization point.
 ## Network management services: `network.target`
 
 `network.target` indicates that the network management stack has been started.
-Ordering after it it has little meaning during start-up: whether any network
+Ordering after it has little meaning during start-up: whether any network
 interfaces are already configured when it is reached is not defined.
 
 Its primary purpose is for ordering things properly at shutdown: since the

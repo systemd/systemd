@@ -348,7 +348,7 @@ static int dnssec_ecdsa_verify_raw(
         if (!s)
                 return -EIO;
 
-        /* TODO: We should eventually use use the EVP API once it supports ECDSA signature verification */
+        /* TODO: We should eventually use the EVP API once it supports ECDSA signature verification */
 
         sig = ECDSA_SIG_new();
         if (!sig)

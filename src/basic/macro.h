@@ -418,7 +418,7 @@ typedef struct {
 
 assert_cc(sizeof(dummy_t) == 0);
 
-/* A little helper for subtracting 1 off a pointer in a safe UB-free way. This is intended to be used for for
+/* A little helper for subtracting 1 off a pointer in a safe UB-free way. This is intended to be used for
  * loops that count down from a high pointer until some base. A naive loop would implement this like this:
  *
  * for (p = end-1; p >= base; p--) …

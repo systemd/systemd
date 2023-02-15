@@ -167,7 +167,7 @@ CHANGES WITH 253 in spe:
           yet. (This feature has no security implications, because the code is
           still privileged and can trivially exit the sandbox.)
 
-        * The system manager manager will now parse a new "vmm.notify_socket"
+        * The system manager will now parse a new "vmm.notify_socket"
           system credential, which may be supplied to a VM via SMBIOS. If
           found, the manager will send a "READY=1" notification on the
           specified socket after boot is complete. This allows readiness
@@ -180,7 +180,7 @@ CHANGES WITH 253 in spe:
           with something custom, so this change has limited effect.)
 
         * A new environment variable $SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST
-          can can be used to override the mount units burst late limit for
+          can be used to override the mount units burst late limit for
           parsing '/proc/self/mountinfo', which was introduced in v249.
           Defaults to 5.
 
@@ -1769,7 +1769,7 @@ CHANGES WITH 251:
 
         * A new build-time configuration setting default-user-shell= can be
           used to set the default shell for user records and nspawn shell
-          invocations (instead of of the default /bin/bash).
+          invocations (instead of the default /bin/bash).
 
         * systemd-timesyncd now provides a D-Bus API for receiving NTP server
           information dynamically at runtime via IPC.
@@ -2457,7 +2457,7 @@ CHANGES WITH 250:
           now also owned by the system group "sgx".
 
         * A new build-time meson option "extra-net-naming-schemes=" has been
-          added to define additional naming schemes schemes for udev's network
+          added to define additional naming schemes for udev's network
           interface naming logic. This is useful for enterprise distributions
           and similar which want to pin the schemes of certain distribution
           releases under a specific name and previously had to patch the

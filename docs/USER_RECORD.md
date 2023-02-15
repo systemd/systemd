@@ -212,7 +212,7 @@ object. The following fields are currently defined:
 
 `userName` → The UNIX user name for this record. Takes a string with a valid
 UNIX user name. This field is the only mandatory field, all others are
-optional. Corresponds with the `pw_name` field of of `struct passwd` and the
+optional. Corresponds with the `pw_name` field of `struct passwd` and the
 `sp_namp` field of `struct spwd` (i.e. the shadow user record stored in
 `/etc/shadow`). See [User/Group Name Syntax](USER_NAMES.md) for
 the (relaxed) rules the various systemd components enforce on user/group names.
