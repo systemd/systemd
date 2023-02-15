@@ -2487,6 +2487,7 @@ int tpm2_util_pbkdf2_hmac_sha256(const void *pass,
          */
         static const uint8_t block_cnt[] = { 0, 0, 0, 1 };
 
+        assert (salt);
         assert (saltlen > 0);
         assert (saltlen <= (SIZE_MAX - sizeof(block_cnt)));
         assert (passlen > 0);

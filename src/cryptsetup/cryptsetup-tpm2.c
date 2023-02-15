@@ -86,6 +86,8 @@ int acquire_tpm2_key(
         const void *blob;
         int r;
 
+        assert(salt || salt_size == 0);
+
         if (!device) {
                 r = tpm2_find_device_auto(LOG_DEBUG, &auto_device);
                 if (r == -ENODEV)
@@ -152,7 +154,7 @@ int acquire_tpm2_key(
                 if (r < 0)
                         return r;
 
-                if (salt) {
+                if (salt_size > 0) {
                         uint8_t salted_pin[SHA256_DIGEST_SIZE] = {};
                         CLEANUP_ERASE(salted_pin);
 
