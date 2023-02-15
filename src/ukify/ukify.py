@@ -518,7 +518,7 @@ def make_uki(opts):
     uki = UKI(opts.stub)
     initrd = join_initrds(opts.initrd)
 
-    # TODO: derive public key from from opts.pcr_private_keys?
+    # TODO: derive public key from opts.pcr_private_keys?
     pcrpkey = opts.pcrpkey
     if pcrpkey is None:
         if opts.pcr_public_keys and len(opts.pcr_public_keys) == 1:

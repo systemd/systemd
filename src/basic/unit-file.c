@@ -329,7 +329,7 @@ int unit_file_resolve_symlink(
 
         assert(path_is_absolute(simplified));
 
-        /* Check if the symlink remain inside of of our search path.
+        /* Check if the symlink remain inside of our search path.
          * If yes, it is an alias. Verify that it is valid.
          *
          * If no, then this is a linked unit file or mask, and we don't care about the target name
