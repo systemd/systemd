@@ -38,6 +38,7 @@ int acquire_luks2_key(
         _cleanup_(erase_and_freep) char *b64_salted_pin = NULL;
         int r;
 
+        assert(salt || salt_size == 0);
         assert(ret_decrypted_key);
         assert(ret_decrypted_key_size);
 
@@ -58,7 +59,7 @@ int acquire_luks2_key(
         if ((flags & TPM2_FLAGS_USE_PIN) && salt && !pin)
                 return -ENOANO;
 
-        if (pin) {
+        if (pin && salt_size > 0) {
                 uint8_t salted_pin[SHA256_DIGEST_SIZE] = {};
                 CLEANUP_ERASE(salted_pin);
                 r = tpm2_util_pbkdf2_hmac_sha256(pin, strlen(pin), salt, salt_size, salted_pin);
