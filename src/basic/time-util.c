@@ -631,7 +631,7 @@ static int parse_timestamp_impl(const char *t, usec_t *ret, bool with_tz) {
                 { "Sat",       6 },
         };
 
-        const char *k, *utc = NULL, *tzn = NULL;
+        const char *k, *utc = NULL;
         struct tm tm, copy;
         usec_t usec, plus = 0, minus = 0;
         int r, weekday = -1, isdst = -1;
@@ -746,7 +746,6 @@ static int parse_timestamp_impl(const char *t, usec_t *ret, bool with_tz) {
                                 /* Found one of the two timezones specified. */
                                 t = strndupa_safe(t, e - t - 1);
                                 isdst = j;
-                                tzn = tzname[j];
                         }
                 }
         }
@@ -757,8 +756,6 @@ static int parse_timestamp_impl(const char *t, usec_t *ret, bool with_tz) {
                 return -EINVAL;
 
         tm.tm_isdst = isdst;
-        if (!with_tz && tzn)
-                tm.tm_zone = tzn;
 
         if (streq(t, "today")) {
                 tm.tm_sec = tm.tm_min = tm.tm_hour = 0;
