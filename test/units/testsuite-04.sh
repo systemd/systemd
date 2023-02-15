@@ -70,7 +70,7 @@ ID=$(journalctl --new-id128 | sed -n 2p)
 printf $'foo' | systemd-cat -t "$ID" --level-prefix false
 journalctl --sync
 journalctl -b -o export --output-fields=MESSAGE,FOO --output-fields=PRIORITY,MESSAGE -t "$ID" >/output
-[[ $(grep -c . /output) -eq 6 ]]
+[[ $(grep -c . /output) -eq 8 ]]
 grep -q '^__CURSOR=' /output
 grep -q '^MESSAGE=foo$' /output
 grep -q '^PRIORITY=6$' /output
@@ -265,5 +265,14 @@ if is_xattr_supported; then
     rm -rf /etc/systemd/system/logs-filtering.service.d
     rm -rf /etc/systemd/system/delegated-cgroup-filtering.service.d
 fi
+
+# Check that the seqnum field at least superficially works
+systemd-cat echo "ya"
+journalctl --sync
+SEQNUM1=$(journalctl -o export -n 1 | grep -a __SEQNUM= | cut -d= -f2)
+systemd-cat echo "yo"
+journalctl --sync
+SEQNUM2=$(journalctl -o export -n 1 | grep -a __SEQNUM= | cut -d= -f2)
+test "$SEQNUM2" -gt "$SEQNUM1"
 
 touch /testok
