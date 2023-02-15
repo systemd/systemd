@@ -80,6 +80,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "psi-util.h"
 #include "random-util.h"
 #include "recurse-dir.h"
 #include "rlimit-util.h"
@@ -1808,6 +1809,7 @@ static int build_environment(
                 const Unit *u,
                 const ExecContext *c,
                 const ExecParameters *p,
+                const CGroupContext *cgroup_context,
                 size_t n_fds,
                 char **fdnames,
                 const char *home,
@@ -1815,6 +1817,7 @@ static int build_environment(
                 const char *shell,
                 dev_t journal_stream_dev,
                 ino_t journal_stream_ino,
+                const char *memory_pressure_path,
                 char ***ret) {
 
         _cleanup_strv_free_ char **our_env = NULL;
@@ -1826,7 +1829,7 @@ static int build_environment(
         assert(p);
         assert(ret);
 
-#define N_ENV_VARS 17
+#define N_ENV_VARS 19
         our_env = new0(char*, N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX);
         if (!our_env)
                 return -ENOMEM;
@@ -1990,8 +1993,35 @@ static int build_environment(
 
         our_env[n_env++] = x;
 
-        our_env[n_env++] = NULL;
-        assert(n_env <= N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX);
+        if (memory_pressure_path) {
+                x = strjoin("MEMORY_PRESSURE_WATCH=", memory_pressure_path);
+                if (!x)
+                        return -ENOMEM;
+
+                our_env[n_env++] = x;
+
+                if (cgroup_context && !path_equal(memory_pressure_path, "/dev/null")) {
+                        _cleanup_free_ char *b = NULL, *e = NULL;
+
+                        if (asprintf(&b, "%s " USEC_FMT " " USEC_FMT,
+                                     MEMORY_PRESSURE_DEFAULT_TYPE,
+                                     cgroup_context->memory_pressure_threshold_usec == USEC_INFINITY ? MEMORY_PRESSURE_DEFAULT_THRESHOLD_USEC :
+                                     CLAMP(cgroup_context->memory_pressure_threshold_usec, 1U, MEMORY_PRESSURE_DEFAULT_WINDOW_USEC),
+                                     MEMORY_PRESSURE_DEFAULT_WINDOW_USEC) < 0)
+                                return -ENOMEM;
+
+                        if (base64mem(b, strlen(b) + 1, &e) < 0)
+                                return -ENOMEM;
+
+                        x = strjoin("MEMORY_PRESSURE_WRITE=", e);
+                        if (!x)
+                                return -ENOMEM;
+
+                        our_env[n_env++] = x;
+                }
+        }
+
+        assert(n_env < N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX);
 #undef N_ENV_VARS
 
         *ret = TAKE_PTR(our_env);
@@ -4246,6 +4276,7 @@ static int exec_child(
                 const ExecParameters *params,
                 ExecRuntime *runtime,
                 DynamicCreds *dcreds,
+                const CGroupContext *cgroup_context,
                 int socket_fd,
                 const int named_iofds[static 3],
                 int *params_fds,
@@ -4259,7 +4290,7 @@ static int exec_child(
         int r, ngids = 0, exec_fd;
         _cleanup_free_ gid_t *supplementary_gids = NULL;
         const char *username = NULL, *groupname = NULL;
-        _cleanup_free_ char *home_buffer = NULL;
+        _cleanup_free_ char *home_buffer = NULL, *memory_pressure_path = NULL;
         const char *home = NULL, *shell = NULL;
         char **final_argv = NULL;
         dev_t journal_stream_dev = 0;
@@ -4672,15 +4703,41 @@ static int exec_child(
                 }
         }
 
-        /* If delegation is enabled we'll pass ownership of the cgroup to the user of the new process. On cgroup v1
-         * this is only about systemd's own hierarchy, i.e. not the controller hierarchies, simply because that's not
-         * safe. On cgroup v2 there's only one hierarchy anyway, and delegation is safe there, hence in that case only
-         * touch a single hierarchy too. */
-        if (params->cgroup_path && context->user && (params->flags & EXEC_CGROUP_DELEGATE)) {
-                r = cg_set_access(SYSTEMD_CGROUP_CONTROLLER, params->cgroup_path, uid, gid);
-                if (r < 0) {
-                        *exit_status = EXIT_CGROUP;
-                        return log_unit_error_errno(unit, r, "Failed to adjust control group access: %m");
+        if (params->cgroup_path) {
+                /* If delegation is enabled we'll pass ownership of the cgroup to the user of the new process. On cgroup v1
+                 * this is only about systemd's own hierarchy, i.e. not the controller hierarchies, simply because that's not
+                 * safe. On cgroup v2 there's only one hierarchy anyway, and delegation is safe there, hence in that case only
+                 * touch a single hierarchy too. */
+
+                if (params->flags & EXEC_CGROUP_DELEGATE) {
+                        r = cg_set_access(SYSTEMD_CGROUP_CONTROLLER, params->cgroup_path, uid, gid);
+                        if (r < 0) {
+                                *exit_status = EXIT_CGROUP;
+                                return log_unit_error_errno(unit, r, "Failed to adjust control group access: %m");
+                        }
+                }
+
+                if (cgroup_context && cg_unified() > 0 && is_pressure_supported() > 0) {
+                        if (cgroup_context_want_memory_pressure(cgroup_context)) {
+                                r = cg_get_path("memory", params->cgroup_path, "memory.pressure", &memory_pressure_path);
+                                if (r < 0) {
+                                        *exit_status = EXIT_MEMORY;
+                                        return log_oom();
+                                }
+
+                                r = chmod_and_chown(memory_pressure_path, 0644, uid, gid);
+                                if (r < 0) {
+                                        log_unit_full_errno(unit, r == -ENOENT || ERRNO_IS_PRIVILEGE(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                                            "Failed to adjust ownership of '%s', ignoring: %m", memory_pressure_path);
+                                        memory_pressure_path = mfree(memory_pressure_path);
+                                }
+                        } else if (cgroup_context->memory_pressure_watch == CGROUP_PRESSURE_WATCH_OFF) {
+                                memory_pressure_path = strdup("/dev/null"); /* /dev/null is explicit indicator for turning of memory pressure watch */
+                                if (!memory_pressure_path) {
+                                        *exit_status = EXIT_MEMORY;
+                                        return log_oom();
+                                }
+                        }
                 }
         }
 
@@ -4704,6 +4761,7 @@ static int exec_child(
                         unit,
                         context,
                         params,
+                        cgroup_context,
                         n_fds,
                         fdnames,
                         home,
@@ -4711,6 +4769,7 @@ static int exec_child(
                         shell,
                         journal_stream_dev,
                         journal_stream_ino,
+                        memory_pressure_path,
                         &our_env);
         if (r < 0) {
                 *exit_status = EXIT_MEMORY;
@@ -5358,6 +5417,7 @@ int exec_spawn(Unit *unit,
                const ExecParameters *params,
                ExecRuntime *runtime,
                DynamicCreds *dcreds,
+               const CGroupContext *cgroup_context,
                pid_t *ret) {
 
         int socket_fd, r, named_iofds[3] = { -1, -1, -1 }, *fds = NULL;
@@ -5445,6 +5505,7 @@ int exec_spawn(Unit *unit,
                                params,
                                runtime,
                                dcreds,
+                               cgroup_context,
                                socket_fd,
                                named_iofds,
                                fds,
