@@ -70,6 +70,7 @@
 #include "path-lookup.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "psi-util.h"
 #include "ratelimit.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
@@ -643,6 +644,8 @@ static char** sanitize_environment(char **l) {
                         "LOG_NAMESPACE",
                         "MAINPID",
                         "MANAGERPID",
+                        "MEMORY_PRESSURE_WATCH",
+                        "MEMORY_PRESSURE_WRITE",
                         "MONITOR_EXIT_CODE",
                         "MONITOR_EXIT_STATUS",
                         "MONITOR_INVOCATION_ID",
@@ -803,6 +806,16 @@ int manager_setup_memory_pressure_event_source(Manager *m) {
         if (r < 0)
                 log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r) || (r == -EHOSTDOWN) ? LOG_DEBUG : LOG_NOTICE, r,
                                "Failed to establish memory pressure event source, ignoring: %m");
+        else if (m->default_memory_pressure_threshold_usec != USEC_INFINITY) {
+
+                /* If there's a default memory pressure threshold set, also apply it to the service manager itself */
+                r = sd_event_source_set_memory_pressure_period(
+                                m->memory_pressure_event_source,
+                                m->default_memory_pressure_threshold_usec,
+                                MEMORY_PRESSURE_DEFAULT_WINDOW_USEC);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to adjust memory pressure threshold, ignoring: %m");
+        }
 
         return 0;
 }
@@ -897,6 +910,9 @@ int manager_new(LookupScope scope, ManagerTestRunFlags test_run_flags, Manager *
                 .test_run_flags = test_run_flags,
 
                 .default_oom_policy = OOM_STOP,
+
+                .default_memory_pressure_watch = CGROUP_PRESSURE_WATCH_AUTO,
+                .default_memory_pressure_threshold_usec = USEC_INFINITY,
         };
 
 #if ENABLE_EFI

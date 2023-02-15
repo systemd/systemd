@@ -556,6 +556,18 @@
         to configure the rate limit window, and <varname>ReloadLimitBurst=</varname> takes a positive integer to
         configure the maximum allowed number of reloads within the configured time window.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>DefaultMemoryPressureWatch=</varname></term>
+        <term><varname>DefaultMemoryPressureThresholdSec=</varname></term>
+
+        <listitem><para>Configures the default settings for the per-unit
+        <varname>MemoryPressureWatch=</varname> and <varname>MemoryPressureThresholdSec=</varname>
+        settings. See
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details. Defaults to <literal>auto</literal> and <literal>100ms</literal>, respectively. This
+        also sets the memory pressure monitoring threshold for the service manager itself.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

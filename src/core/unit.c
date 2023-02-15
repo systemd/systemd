@@ -184,6 +184,9 @@ static void unit_init(Unit *u) {
 
                 if (u->type != UNIT_SLICE)
                         cc->tasks_max = u->manager->default_tasks_max;
+
+                cc->memory_pressure_watch = u->manager->default_memory_pressure_watch;
+                cc->memory_pressure_threshold_usec = u->manager->default_memory_pressure_threshold_usec;
         }
 
         ec = unit_get_exec_context(u);

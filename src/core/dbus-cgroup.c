@@ -24,6 +24,7 @@
 #include "socket-util.h"
 
 BUS_DEFINE_PROPERTY_GET(bus_property_get_tasks_max, "t", TasksMax, tasks_max_resolve);
+BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_cgroup_pressure_watch, cgroup_pressure_watch, CGroupPressureWatch);
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_cgroup_device_policy, cgroup_device_policy, CGroupDevicePolicy);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_managed_oom_mode, managed_oom_mode, ManagedOOMMode);
@@ -494,6 +495,8 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("SocketBindAllow", "a(iiqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_allow), 0),
         SD_BUS_PROPERTY("SocketBindDeny", "a(iiqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_deny), 0),
         SD_BUS_PROPERTY("RestrictNetworkInterfaces", "(bas)", property_get_restrict_network_interfaces, 0, 0),
+        SD_BUS_PROPERTY("MemoryPressureWatch", "s", bus_property_get_cgroup_pressure_watch, offsetof(CGroupContext, memory_pressure_watch), 0),
+        SD_BUS_PROPERTY("MemoryPressureThresholdUSec", "t", bus_property_get_usec, offsetof(CGroupContext, memory_pressure_threshold_usec), 0),
         SD_BUS_VTABLE_END
 };
 
@@ -741,6 +744,47 @@ static int bus_cgroup_set_transient_property(
                                                  "filesystem, but the local system does not support that.\n"
                                                  "Starting this unit will fail!", u->id);
                         }
+                }
+
+                return 1;
+
+        } else if (streq(name, "MemoryPressureWatch")) {
+                CGroupPressureWatch p;
+                const char *t;
+
+                r = sd_bus_message_read(message, "s", &t);
+                if (r < 0)
+                        return r;
+
+                if (isempty(t))
+                        p = _CGROUP_PRESSURE_WATCH_INVALID;
+                else {
+                        p = cgroup_pressure_watch_from_string(t);
+                        if (p < 0)
+                                return p;
+                }
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        c->memory_pressure_watch = p;
+                        unit_write_settingf(u, flags, name, "MemoryPressureWatch=%s", strempty(cgroup_pressure_watch_to_string(p)));
+                }
+
+                return 1;
+
+        } else if (streq(name, "MemoryPressureThresholdUSec")) {
+                uint64_t t;
+
+                r = sd_bus_message_read(message, "t", &t);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        c->memory_pressure_threshold_usec = t;
+
+                        if (t == UINT64_MAX)
+                                unit_write_setting(u, flags, name, "MemoryPressureThresholdUSec=");
+                        else
+                                unit_write_settingf(u, flags, name, "MemoryPressureThresholdUSec=%" PRIu64, t);
                 }
 
                 return 1;

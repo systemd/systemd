@@ -2943,6 +2943,8 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("DefaultLimitRTTIME", "t", bus_property_get_rlimit, offsetof(Manager, rlimit[RLIMIT_RTTIME]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultLimitRTTIMESoft", "t", bus_property_get_rlimit, offsetof(Manager, rlimit[RLIMIT_RTTIME]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultTasksMax", "t", bus_property_get_tasks_max, offsetof(Manager, default_tasks_max), 0),
+        SD_BUS_PROPERTY("DefaultMemoryPressureThresholdUSec", "t", bus_property_get_usec, offsetof(Manager, default_memory_pressure_threshold_usec), 0),
+        SD_BUS_PROPERTY("DefaultMemoryPressureWatch", "s", bus_property_get_cgroup_pressure_watch, offsetof(Manager, default_memory_pressure_watch), 0),
         SD_BUS_PROPERTY("TimerSlackNSec", "t", property_get_timer_slack_nsec, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultOOMPolicy", "s", bus_property_get_oom_policy, offsetof(Manager, default_oom_policy), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultOOMScoreAdjust", "i", property_get_oom_score_adjust, 0, SD_BUS_VTABLE_PROPERTY_CONST),

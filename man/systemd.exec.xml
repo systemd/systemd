@@ -3779,6 +3779,16 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           </para></listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><varname>$MEMORY_PRESSURE_WATCH</varname></term>
+          <term><varname>$MEMORY_PRESSURE_WRITE</varname></term>
+
+          <listitem><para>If memory pressure monitoring is enabled for this service unit, the path to watch
+          and the data to write into it. See <ulink url="https://systemd.io/MEMORY_PRESSURE">Memory Pressure
+          Handling</ulink> for details about these variables and the service protocol data they
+          convey.</para></listitem>
+        </varlistentry>
+
       </variablelist>
 
       <para>For system services, when <varname>PAMName=</varname> is enabled and <command>pam_systemd</command> is part

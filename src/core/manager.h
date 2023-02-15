@@ -377,6 +377,9 @@ struct Manager {
         int default_oom_score_adjust;
         bool default_oom_score_adjust_set;
 
+        CGroupPressureWatch default_memory_pressure_watch;
+        usec_t default_memory_pressure_threshold_usec;
+
         int original_log_level;
         LogTarget original_log_target;
         bool log_level_overridden;

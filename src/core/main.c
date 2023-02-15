@@ -75,6 +75,7 @@
 #include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
+#include "psi-util.h"
 #include "random-util.h"
 #include "rlimit-util.h"
 #if HAVE_SECCOMP
@@ -162,6 +163,8 @@ static bool arg_default_blockio_accounting;
 static bool arg_default_memory_accounting;
 static bool arg_default_tasks_accounting;
 static TasksMax arg_default_tasks_max;
+static usec_t arg_default_memory_pressure_threshold_usec;
+static CGroupPressureWatch arg_default_memory_pressure_watch;
 static sd_id128_t arg_machine_id;
 static EmergencyAction arg_cad_burst_action;
 static OOMPolicy arg_default_oom_policy;
@@ -686,6 +689,8 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultMemoryAccounting",      config_parse_bool,                  0,                        &arg_default_memory_accounting    },
                 { "Manager", "DefaultTasksAccounting",       config_parse_bool,                  0,                        &arg_default_tasks_accounting     },
                 { "Manager", "DefaultTasksMax",              config_parse_tasks_max,             0,                        &arg_default_tasks_max            },
+                { "Manager", "DefaultMemoryPressureThresholdSec", config_parse_sec,              0,                        &arg_default_memory_pressure_threshold_usec },
+                { "Manager", "DefaultMemoryPressureWatch",   config_parse_cgroup_pressure_watch, 0,                        &arg_default_memory_pressure_watch },
                 { "Manager", "CtrlAltDelBurstAction",        config_parse_emergency_action,      arg_system,               &arg_cad_burst_action             },
                 { "Manager", "DefaultOOMPolicy",             config_parse_oom_policy,            0,                        &arg_default_oom_policy           },
                 { "Manager", "DefaultOOMScoreAdjust",        config_parse_oom_score_adjust,      0,                        NULL                              },
@@ -767,6 +772,8 @@ static void set_manager_defaults(Manager *m) {
         m->default_memory_accounting = arg_default_memory_accounting;
         m->default_tasks_accounting = arg_default_tasks_accounting;
         m->default_tasks_max = arg_default_tasks_max;
+        m->default_memory_pressure_watch = arg_default_memory_pressure_watch;
+        m->default_memory_pressure_threshold_usec = arg_default_memory_pressure_threshold_usec;
         m->default_oom_policy = arg_default_oom_policy;
         m->default_oom_score_adjust_set = arg_default_oom_score_adjust_set;
         m->default_oom_score_adjust = arg_default_oom_score_adjust;
@@ -2474,6 +2481,8 @@ static void reset_arguments(void) {
         arg_default_memory_accounting = MEMORY_ACCOUNTING_DEFAULT;
         arg_default_tasks_accounting = true;
         arg_default_tasks_max = DEFAULT_TASKS_MAX;
+        arg_default_memory_pressure_threshold_usec = MEMORY_PRESSURE_DEFAULT_THRESHOLD_USEC;
+        arg_default_memory_pressure_watch = CGROUP_PRESSURE_WATCH_AUTO;
         arg_machine_id = (sd_id128_t) {};
         arg_cad_burst_action = EMERGENCY_ACTION_REBOOT_FORCE;
         arg_default_oom_policy = OOM_STOP;

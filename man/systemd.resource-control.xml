@@ -1169,6 +1169,53 @@ DeviceAllow=/dev/loop-control
           </para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>MemoryPressureWatch=</varname></term>
+
+        <listitem><para>Controls memory pressure monitoring for invoked processes. Takes one of
+        <literal>off</literal>, <literal>on</literal>, <literal>auto</literal> or <literal>skip</literal>. If
+        <literal>off</literal> tells the service not to watch for memory pressure events, by setting the
+        <varname>$MEMORY_PRESSURE_WATCH</varname> environment variable to the literal string
+        <filename>/dev/null</filename>. If <literal>on</literal> tells the service to watch for memory
+        pressure events. This enables memory accounting for the service, and ensures the
+        <filename>memory.pressure</filename> cgroup attribute files is accessible for read and write to the
+        service's user. It then sets the <varname>$MEMORY_PRESSURE_WATCH</varname> environment variable for
+        processes invoked by the unit to the file system path to this file. The threshold information
+        configured with <varname>MemoryPressureThresholdSec=</varname> is encoded in the
+        <varname>$MEMORY_PRESSURE_WRITE</varname> environment variable. If the <literal>auto</literal> value
+        is set the protocol is enabled if memory accounting is anyway enabled for the unit, and disabled
+        otherwise. If set to <literal>skip</literal> the logic is neither enabled, nor disabled and the two
+        environment variables are not set.</para>
+
+        <para>Note that services are free to use the two environment variables, but it's unproblematic if
+        they ignore them. Memory pressure handling must be implemented individually in each service, and
+        usually means different things for different software. For further details on memory pressure
+        handling see <ulink url="https://systemd.io/MEMORY_PRESSURE">Memory Pressure Handling in
+        systemd</ulink>.</para>
+
+        <para>Services implemented using
+        <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry> may use
+        <citerefentry><refentrytitle>sd_event_add_memory_pressure</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        to watch for and handle memory pressure events.</para>
+
+        <para>If not explicit set, defaults to the <varname>DefaultMemoryPressureWatch=</varname> setting in
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MemoryPressureThresholdSec=</varname></term>
+
+        <listitem><para>Sets the memory pressure threshold time for memory pressure monitor as configured via
+        <varname>MemoryPressureWatch=</varname>. Specifies the maximum allocation latency before a memory
+        pressure event is signalled to the service, per 1s window. If not specified defaults to the
+        <varname>DefaultMemoryPressureThresholdSec=</varname> setting in
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        (which in turn defaults to 100ms). The specified value expects a time unit such as
+        <literal>ms</literal> or <literal>µs</literal>, see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details on the permitted syntax.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

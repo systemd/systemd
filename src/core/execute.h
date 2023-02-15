@@ -441,6 +441,7 @@ int exec_spawn(Unit *unit,
                const ExecParameters *exec_params,
                ExecRuntime *runtime,
                DynamicCreds *dynamic_creds,
+               const CGroupContext *cgroup_context,
                pid_t *ret);
 
 void exec_command_done_array(ExecCommand *c, size_t n);
