@@ -3785,15 +3785,16 @@ bool unit_will_restart(Unit *u) {
         return UNIT_VTABLE(u)->will_restart(u);
 }
 
-int unit_kill(Unit *u, KillWho w, int signo, sd_bus_error *error) {
+int unit_kill(Unit *u, KillWho w, int signo, int code, int value, sd_bus_error *error) {
         assert(u);
         assert(w >= 0 && w < _KILL_WHO_MAX);
         assert(SIGNAL_VALID(signo));
+        assert(IN_SET(code, SI_USER, SI_QUEUE));
 
         if (!UNIT_VTABLE(u)->kill)
                 return -EOPNOTSUPP;
 
-        return UNIT_VTABLE(u)->kill(u, w, signo, error);
+        return UNIT_VTABLE(u)->kill(u, w, signo, code, value, error);
 }
 
 void unit_notify_cgroup_oom(Unit *u, bool managed_oom) {
@@ -3842,6 +3843,8 @@ int unit_kill_common(
                 Unit *u,
                 KillWho who,
                 int signo,
+                int code,
+                int value,
                 pid_t main_pid,
                 pid_t control_pid,
                 sd_bus_error *error) {
@@ -3852,6 +3855,12 @@ int unit_kill_common(
         /* This is the common implementation for explicit user-requested killing of unit processes, shared by
          * various unit types. Do not confuse with unit_kill_context(), which is what we use when we want to
          * stop a service ourselves. */
+
+        assert(u);
+        assert(who >= 0);
+        assert(who < _KILL_WHO_MAX);
+        assert(SIGNAL_VALID(signo));
+        assert(IN_SET(code, SI_USER, SI_QUEUE));
 
         if (IN_SET(who, KILL_MAIN, KILL_MAIN_FAIL)) {
                 if (main_pid < 0)

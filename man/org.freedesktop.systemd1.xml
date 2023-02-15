@@ -112,6 +112,10 @@ node /org/freedesktop/systemd1 {
       KillUnit(in  s name,
                in  s whom,
                in  i signal);
+      QueueSignalUnit(in  s name,
+                      in  s whom,
+                      in  i signal,
+                      in  i value);
       CleanUnit(in  s name,
                 in  as mask);
       FreezeUnit(in  s name);
@@ -546,6 +550,8 @@ node /org/freedesktop/systemd1 {
 
     <!--method EnqueueUnitJob is not documented!-->
 
+    <!--method QueueSignalUnit is not documented!-->
+
     <!--method CleanUnit is not documented!-->
 
     <!--method FreezeUnit is not documented!-->
@@ -825,6 +831,8 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-method" generated="True" extra-ref="EnqueueUnitJob()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="KillUnit()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="QueueSignalUnit()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="CleanUnit()"/>
 
@@ -1778,6 +1786,9 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
                  out a(uosos) affected_jobs);
       Kill(in  s whom,
            in  i signal);
+      QueueSignal(in  s whom,
+                  in  i signal,
+                  in  i value);
       ResetFailed();
       SetProperties(in  b runtime,
                     in  a(sv) properties);
@@ -1970,6 +1981,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--method EnqueueJob is not documented!-->
 
+    <!--method QueueSignal is not documented!-->
+
     <!--method Ref is not documented!-->
 
     <!--method Unref is not documented!-->
@@ -2083,6 +2096,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-method" generated="True" extra-ref="EnqueueJob()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="Kill()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="QueueSignal()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ResetFailed()"/>
 
