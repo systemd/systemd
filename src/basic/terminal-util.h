@@ -111,7 +111,7 @@ typedef enum ColorMode {
         /* Only 256 colors. */
         COLOR_256,
 
-        /* For truecolor or 24bit color support.*/
+        /* For truecolor or 24bit color support. */
         COLOR_24BIT,
 
         _COLOR_INVALID = -EINVAL,

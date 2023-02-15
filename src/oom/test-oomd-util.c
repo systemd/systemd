@@ -474,7 +474,7 @@ static void test_oomd_fetch_cgroup_oom_preference(void) {
         assert_se(oomd_fetch_cgroup_oom_preference(ctx, "/herp.slice/derp.scope") == -EINVAL);
 
         /* Assert that avoid/omit are not set if the cgroup and prefix are not
-         * owned by the same user.*/
+         * owned by the same user. */
         if (test_xattrs && !empty_or_root(cgroup)) {
                 ctx = oomd_cgroup_context_free(ctx);
                 assert_se(cg_set_access(SYSTEMD_CGROUP_CONTROLLER, cgroup, 61183, 0) >= 0);

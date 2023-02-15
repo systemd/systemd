@@ -229,7 +229,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 return r; /* return existing keyslot, so that wiping won't kill it */
         }
 
-        /* Quick verification that everything is in order, we are not in a hurry after all.*/
+        /* Quick verification that everything is in order, we are not in a hurry after all. */
         if (!pubkey || signature_json) {
                 _cleanup_(erase_and_freep) void *secret2 = NULL;
                 size_t secret2_size;

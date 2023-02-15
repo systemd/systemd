@@ -848,7 +848,7 @@ CHANGES WITH 252 🎃:
           (e.g. comparisons for empty strings). Boot counting is now part of
           the main specification.
 
-        * New PCRs measurements are performed during boot: PCR 11 for the the
+        * New PCRs measurements are performed during boot: PCR 11 for the
           kernel+initrd combo, PCR 13 for any sysext images. If a measurement
           took place this is now reported to userspace via the new
           StubPcrKernelImage and StubPcrInitRDSysExts EFI variables.

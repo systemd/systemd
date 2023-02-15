@@ -1907,7 +1907,7 @@ static ConfigEntry *config_entry_add_loader_auto(
                  * but we do not want to do that if that would be us.
                  *
                  * If the default loader is not us, it might be shim. It would
-                 * chainload GRUBX64.EFI in that case, which might be us.*/
+                 * chainload GRUBX64.EFI in that case, which might be us. */
                 if (strcaseeq16(loader, loaded_image_path) ||
                     is_sd_boot(root_dir, loader) ||
                     is_sd_boot(root_dir, u"\\EFI\\BOOT\\GRUB" EFI_MACHINE_TYPE_NAME u".EFI"))

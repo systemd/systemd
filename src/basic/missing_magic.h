@@ -58,7 +58,7 @@
 #define UDF_SUPER_MAGIC 0x15013346
 #endif
 
-/* b1123ea6d3b3da25af5c8a9d843bd07ab63213f4 (4.8)*/
+/* b1123ea6d3b3da25af5c8a9d843bd07ab63213f4 (4.8) */
 #ifndef BALLOON_KVM_MAGIC
 #define BALLOON_KVM_MAGIC 0x13661366
 #endif

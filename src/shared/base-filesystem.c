@@ -45,7 +45,7 @@ static const BaseFilesystem table[] = {
          * been mounted into) it is thus necessary to create a symlink pointing to the right subdirectory of
          * /usr/ first — otherwise we couldn't invoke any dynamic binary. Let's detect this case here, and
          * create the symlink as needed should it be missing. We prefer doing this consistently with Debian's
-         * multiarch logic, but support Fedora-style multilib too.*/
+         * multiarch logic, but support Fedora-style multilib too. */
 #if defined(__aarch64__)
         /* aarch64 ELF ABI actually says dynamic loader is in /lib/, but Fedora puts it in /lib64/ anyway and
          * just symlinks /lib/ld-linux-aarch64.so.1 to ../lib64/ld-linux-aarch64.so.1. For this to work

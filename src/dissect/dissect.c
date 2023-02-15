@@ -1258,7 +1258,7 @@ static int action_umount(const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to unmount '%s': %m", canonical);
 
-        /* We managed to lock and unmount successfully? That means we can try to remove the loop device.*/
+        /* We managed to lock and unmount successfully? That means we can try to remove the loop device. */
         loop_device_unrelinquish(d);
 
         if (arg_rmdir) {
