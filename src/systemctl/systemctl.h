@@ -77,6 +77,8 @@ extern UnitFilePresetMode arg_preset_mode;
 extern char **arg_wall;
 extern const char *arg_kill_whom;
 extern int arg_signal;
+extern int arg_kill_value;
+extern bool arg_kill_value_set;
 extern char *arg_root;
 extern usec_t arg_when;
 extern const char *arg_reboot_argument;

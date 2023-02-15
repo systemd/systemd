@@ -97,6 +97,8 @@ UnitFilePresetMode arg_preset_mode = UNIT_FILE_PRESET_FULL;
 char **arg_wall = NULL;
 const char *arg_kill_whom = NULL;
 int arg_signal = SIGTERM;
+int arg_kill_value;
+bool arg_kill_value_set = false;
 char *arg_root = NULL;
 char *arg_image = NULL;
 usec_t arg_when = 0;
@@ -273,6 +275,7 @@ static int systemctl_help(void) {
                "                         sleeping, or hibernating\n"
                "  -i                     Shortcut for --check-inhibitors=no\n"
                "     --kill-whom=WHOM    Whom to send signal to\n"
+               "     --kill-value=INT    Signal value to enqueue\n"
                "  -s --signal=SIGNAL     Which signal to send\n"
                "     --what=RESOURCES    Which types of resources to remove\n"
                "     --now               Start or stop unit after enabling or disabling it\n"
@@ -419,6 +422,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_IMAGE,
                 ARG_NO_RELOAD,
                 ARG_KILL_WHOM,
+                ARG_KILL_VALUE,
                 ARG_NO_ASK_PASSWORD,
                 ARG_FAILED,
                 ARG_RUNTIME,
@@ -479,6 +483,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "force",               no_argument,       NULL, 'f'                     },
                 { "no-reload",           no_argument,       NULL, ARG_NO_RELOAD           },
                 { "kill-whom",           required_argument, NULL, ARG_KILL_WHOM           },
+                { "kill-value",          required_argument, NULL, ARG_KILL_VALUE          },
                 { "signal",              required_argument, NULL, 's'                     },
                 { "no-ask-password",     no_argument,       NULL, ARG_NO_ASK_PASSWORD     },
                 { "host",                required_argument, NULL, 'H'                     },
@@ -722,6 +727,30 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 case ARG_KILL_WHOM:
                         arg_kill_whom = optarg;
                         break;
+
+                case ARG_KILL_VALUE: {
+                        unsigned u;
+
+                        if (isempty(optarg)) {
+                                arg_kill_value_set = false;
+                                return 0;
+                        }
+
+                        /* First, try to parse unsigned, so that we can support the prefixes 0x, 0o, 0b */
+                        r = safe_atou_full(optarg, 0, &u);
+                        if (r < 0)
+                                /* If this didn't work, try as signed integer, without those prefixes */
+                                r = safe_atoi(optarg, &arg_kill_value);
+                        else if (u > INT_MAX)
+                                r = -ERANGE;
+                        else
+                                arg_kill_value = (int) u;
+                        if (r < 0)
+                                return log_error_errno(r, "Unable to parse signal queue value: %s", optarg);
+
+                        arg_kill_value_set = true;
+                        break;
+                }
 
                 case 's':
                         r = parse_signal_argument(optarg, &arg_signal);
