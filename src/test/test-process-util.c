@@ -807,6 +807,8 @@ TEST(get_process_threads) {
 
         assert_se(pipe2(pfd, O_CLOEXEC) >= 0);
 
+        log_info("%i", get_process_threads(0));
+
         assert_se(get_process_threads(0) == 1);
         assert_se(pthread_create(&t, NULL, &dummy_thread, FD_TO_PTR(pfd[0])) == 0);
         assert_se(get_process_threads(0) == 2);
