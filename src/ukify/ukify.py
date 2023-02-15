@@ -441,7 +441,8 @@ def join_initrds(initrds):
     seq = []
     for file in initrds:
         initrd = file.read_bytes()
-        padding = b'\0' * round_up(len(initrd), 4)  # pad to 32 bit alignment
+        n = len(initrd)
+        padding = b'\0' * (round_up(n, 4) - n)  # pad to 32 bit alignment
         seq += [initrd, padding]
 
     return b''.join(seq)
