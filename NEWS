@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 253 in spe:
+CHANGES WITH 253:
 
         Announcements of Future Feature Removals and Incompatible Changes:
 
@@ -656,7 +656,7 @@ CHANGES WITH 253 in spe:
         Zbigniew Jędrzejewski-Szmek, Дамјан Георгиевски,
         наб
 
-        — Warsaw, 2023-02-10
+        — Warsaw, 2023-02-15
 
 CHANGES WITH 252 🎃:
 
