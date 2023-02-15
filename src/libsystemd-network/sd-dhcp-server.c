@@ -1533,7 +1533,7 @@ int sd_dhcp_server_set_router(sd_dhcp_server *server, const struct in_addr *rout
 
         /* router is NULL: router option will not be appended.
          * router is null address (0.0.0.0): the server address will be used as the router address.
-         * otherwise: the specified address will be used as the router address.*/
+         * otherwise: the specified address will be used as the router address. */
 
         server->emit_router = router;
         if (router)

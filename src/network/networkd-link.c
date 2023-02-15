@@ -2711,7 +2711,7 @@ int link_flags_to_string_alloc(uint32_t flags, char **ret) {
         _cleanup_free_ char *str = NULL;
         static const char* map[] = {
                 [LOG2U(IFF_UP)]          = "up",             /* interface is up. */
-                [LOG2U(IFF_BROADCAST)]   = "broadcast",      /* broadcast address valid.*/
+                [LOG2U(IFF_BROADCAST)]   = "broadcast",      /* broadcast address valid. */
                 [LOG2U(IFF_DEBUG)]       = "debug",          /* turn on debugging. */
                 [LOG2U(IFF_LOOPBACK)]    = "loopback",       /* interface is a loopback net. */
                 [LOG2U(IFF_POINTOPOINT)] = "point-to-point", /* interface has p-p link. */
@@ -2722,7 +2722,7 @@ int link_flags_to_string_alloc(uint32_t flags, char **ret) {
                 [LOG2U(IFF_ALLMULTI)]    = "all-multicast",  /* receive all multicast packets. */
                 [LOG2U(IFF_MASTER)]      = "master",         /* master of a load balancer. */
                 [LOG2U(IFF_SLAVE)]       = "slave",          /* slave of a load balancer. */
-                [LOG2U(IFF_MULTICAST)]   = "multicast",      /* supports multicast.*/
+                [LOG2U(IFF_MULTICAST)]   = "multicast",      /* supports multicast. */
                 [LOG2U(IFF_PORTSEL)]     = "portsel",        /* can set media type. */
                 [LOG2U(IFF_AUTOMEDIA)]   = "auto-media",     /* auto media select active. */
                 [LOG2U(IFF_DYNAMIC)]     = "dynamic",        /* dialup device with changing addresses. */

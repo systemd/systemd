@@ -3332,7 +3332,7 @@ int mount_image_privately_interactively(
         assert(ret_directory);
         assert(ret_loop_device);
 
-        /* We intend to mount this right-away, hence add the partitions if needed and pin them*/
+        /* We intend to mount this right-away, hence add the partitions if needed and pin them. */
         flags |= DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES;
 

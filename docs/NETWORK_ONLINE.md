@@ -16,7 +16,7 @@ start to be configured. Its primary purpose is for usage with firewall services
 that want to establish a firewall *before* any network interface is up.
 
 `network-pre.target` is a passive unit: it cannot be started directly and it is
-not pulled in by the the network management service, but instead a service that
+not pulled in by the network management service, but instead a service that
 wants to run before it must pull it in. Network management services hence
 should set `After=network-pre.target`, but not `Wants=network-pre.target` or
 `Requires=network-pre.target`. Services that want to be run before the network

@@ -171,7 +171,7 @@ int open_extension_release(const char *root, const char *extension, bool relax_e
 
                                 /* We already found what we were looking for, but there's another candidate?
                                  * We treat this as an error, as we want to enforce that there are no ambiguities
-                                 * in case we are in the fallback path.*/
+                                 * in case we are in the fallback path. */
                                 if (r == 0) {
                                         r = -ENOTUNIQ;
                                         break;

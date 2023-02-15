@@ -47,7 +47,7 @@ EFI_STATUS console_key_read(uint64_t *key, uint64_t timeout_usec) {
         assert(key);
 
         if (!checked) {
-                /* Get the *first* TextInputEx device.*/
+                /* Get the *first* TextInputEx device. */
                 err = BS->LocateProtocol(
                                 MAKE_GUID_PTR(EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL), NULL, (void **) &extraInEx);
                 if (err != EFI_SUCCESS || BS->CheckEvent(extraInEx->WaitForKeyEx) == EFI_INVALID_PARAMETER)

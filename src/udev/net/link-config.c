@@ -548,7 +548,7 @@ static bool hw_addr_is_valid(Link *link, const struct hw_addr_data *hw_addr) {
                 return !ether_addr_is_null(&hw_addr->ether) && !ether_addr_is_broadcast(&hw_addr->ether);
 
         case ARPHRD_INFINIBAND:
-                /* The last 8 bytes cannot be zero*/
+                /* The last 8 bytes cannot be zero. */
                 assert(hw_addr->length == INFINIBAND_ALEN);
                 return !memeqzero(hw_addr->bytes + INFINIBAND_ALEN - 8, 8);
 

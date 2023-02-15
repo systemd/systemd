@@ -79,7 +79,7 @@ static EFI_STATUS pack_cpio_one(
         if (*inode_counter == UINT32_MAX) /* more than 2^32-1 inodes? yikes. cpio doesn't support that either */
                 return EFI_OUT_OF_RESOURCES;
 
-        l = 6 + 13*8 + 1 + 1; /* Fixed CPIO header size, slash separator, and NUL byte after the file name*/
+        l = 6 + 13*8 + 1 + 1; /* Fixed CPIO header size, slash separator, and NUL byte after the file name */
 
         target_dir_prefix_size = strlen8(target_dir_prefix);
         if (l > SIZE_MAX - target_dir_prefix_size)
@@ -177,7 +177,7 @@ static EFI_STATUS pack_cpio_dir(
         if (*inode_counter == UINT32_MAX)
                 return EFI_OUT_OF_RESOURCES;
 
-        l = 6 + 13*8 + 1; /* Fixed CPIO header size, and NUL byte after the file name*/
+        l = 6 + 13*8 + 1; /* Fixed CPIO header size, and NUL byte after the file name */
 
         path_size = strlen8(path);
         if (l > SIZE_MAX - path_size)
