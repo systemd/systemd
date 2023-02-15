@@ -12,7 +12,7 @@
       <listitem>
         <para>Configures the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
         <literal>clsact</literal>, <literal>ingress</literal> or a class identifier. The class identifier is
-        specified as the major and minor numbers in hexadecimal in the range 0x1–Oxffff separated with a
+        specified as the major and minor numbers in hexadecimal in the range 0x1–0xffff separated with a
         colon (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
       </listitem>
     </varlistentry>
@@ -30,7 +30,7 @@
       <listitem>
         <para>Configures the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>, or a
         qdisc identifier. The qdisc identifier is specified as the major and minor numbers in hexadecimal in
-        the range 0x1–Oxffff separated with a colon (<literal>major:minor</literal>). Defaults to
+        the range 0x1–0xffff separated with a colon (<literal>major:minor</literal>). Defaults to
         <literal>root</literal>.
         </para>
       </listitem>
@@ -40,7 +40,7 @@
       <term><varname>ClassId=</varname></term>
       <listitem>
         <para>Configures the unique identifier of the class. It is specified as the major and minor numbers in
-        hexadecimal in the range 0x1–Oxffff separated with a colon (<literal>major:minor</literal>).
+        hexadecimal in the range 0x1–0xffff separated with a colon (<literal>major:minor</literal>).
         Defaults to unset.</para>
       </listitem>
     </varlistentry>
