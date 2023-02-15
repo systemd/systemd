@@ -1807,7 +1807,7 @@ static int oci_seccomp_args(const char *name, JsonVariant *v, JsonDispatchFlags 
 
                 expected = p->op == SCMP_CMP_MASKED_EQ ? 4 : 3;
                 if (r != expected)
-                        json_log(e, flags|JSON_WARNING, 0, "Wrong number of system call arguments for JSON data data, ignoring.");
+                        json_log(e, flags|JSON_WARNING, 0, "Wrong number of system call arguments for JSON data, ignoring.");
 
                 /* Note that we are a bit sloppy here and do not insist that SCMP_CMP_MASKED_EQ gets two datum values,
                  * and the other only one. That's because buildah for example by default calls things with

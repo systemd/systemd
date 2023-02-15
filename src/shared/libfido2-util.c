@@ -488,7 +488,7 @@ static int fido2_use_hmac_hash_specific_token(
                          * it gracefully (also see below.) */
 
                         if (has_up && (required & (FIDO2ENROLL_UP|FIDO2ENROLL_UP_IF_NEEDED)) == FIDO2ENROLL_UP_IF_NEEDED) {
-                                log_notice("%s%sGot unsupported option error when when user presence test is turned off. Trying with user presence test turned on.",
+                                log_notice("%s%sGot unsupported option error when user presence test is turned off. Trying with user presence test turned on.",
                                            emoji_enabled() ? special_glyph(SPECIAL_GLYPH_TOUCH) : "",
                                            emoji_enabled() ? " " : "");
                                 retry_with_up = true;
@@ -957,7 +957,7 @@ int fido2_generate_hmac_hash(
                          * slightly more defensively. */
 
                         if (has_up && !FLAGS_SET(lock_with, FIDO2ENROLL_UP)) {
-                                log_notice("%s%sGot unsupported option error when when user presence test is turned off. Trying with user presence test turned on.",
+                                log_notice("%s%sGot unsupported option error when user presence test is turned off. Trying with user presence test turned on.",
                                            emoji_enabled() ? special_glyph(SPECIAL_GLYPH_TOUCH) : "",
                                            emoji_enabled() ? " " : "");
                                 retry_with_up = true;
