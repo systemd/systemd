@@ -86,7 +86,19 @@ if [ ! -f "$BUILDDIR"/build.ninja ] ; then
                 rootprefix=/${rootprefix#/}
         fi
 
+        # On debian-like systems the library directory is not /usr/lib64 but /usr/lib/<arch-triplet>/.
+        # It is important to use the right one especially for cryptsetup plugins, otherwise they will be
+        # installed in the wrong directory and not be found by cryptsetup. Assume native build.
+        if grep -q -e "ID=debian" -e "ID_LIKE=debian" /etc/os-release && command -v dpkg 2>/dev/null; then
+                LIBDIR="-Drootlibdir=/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)"
+                PAMDIR="-Dpamlibdir=/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)/security"
+        fi
+
+        # Cannot quote $LIBDIR and $PAMDIR, because they may be empty, and meson will fail.
+        # shellcheck disable=SC2086
         meson setup "$BUILDDIR" \
+                ${LIBDIR:-} \
+                ${PAMDIR:-} \
                 -D "sysvinit-path=$sysvinit_path" \
                 -D "rootprefix=$rootprefix" \
                 -D man=false \
