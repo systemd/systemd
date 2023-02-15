@@ -256,6 +256,25 @@ static bool tpm2_test_parms(Tpm2Context *c, TPMI_ALG_PUBLIC alg, const TPMU_PUBL
         return rc == TSS2_RC_SUCCESS;
 }
 
+static inline bool tpm2_supports_tpmt_sym_def_object(Tpm2Context *c, const TPMT_SYM_DEF_OBJECT *parameters) {
+        assert(parameters);
+
+        return tpm2_test_parms(c, TPM2_ALG_SYMCIPHER, &(const TPMU_PUBLIC_PARMS){ .symDetail.sym = *parameters, });
+}
+
+static inline bool tpm2_supports_tpmt_sym_def(Tpm2Context *c, const TPMT_SYM_DEF *parameters) {
+        assert(parameters);
+
+        /* Unfortunately, TPMT_SYM_DEF and TPMT_SYM_DEF_OBEJECT are separately defined, even though they are
+         * functionally identical. */
+        const TPMT_SYM_DEF_OBJECT object = {
+                .algorithm = parameters->algorithm,
+                .keyBits = parameters->keyBits,
+                .mode = parameters->mode,
+        };
+        return tpm2_supports_tpmt_sym_def_object(c, &object);
+}
+
 static Tpm2Context *tpm2_context_free(Tpm2Context *c) {
         if (!c)
                 return NULL;
@@ -381,6 +400,21 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
         r = tpm2_cache_capabilities(context);
         if (r < 0)
                 return r;
+
+        /* We require AES and CFB support for session encryption. */
+        if (!tpm2_supports_alg(context, TPM2_ALG_AES))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM does not support AES.");
+        if (!tpm2_supports_alg(context, TPM2_ALG_CFB))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM does not support CFB.");
+
+        context->session_symmetric_template = (TPMT_SYM_DEF){
+                .algorithm = TPM2_ALG_AES,
+                .keyBits.aes = 128,
+                .mode.aes = TPM2_ALG_CFB, /* The spec requires sessions to use CFB. */
+        };
+
+        if (!tpm2_supports_tpmt_sym_def(c, &context->session_symmetric_template))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM does not support AES-128-CFB.");
 
         *ret_context = TAKE_PTR(context);
 
@@ -1618,11 +1652,6 @@ static int tpm2_make_encryption_session(
                 const Tpm2Handle *bind_key,
                 Tpm2Handle **ret_session) {
 
-        static const TPMT_SYM_DEF symmetric = {
-                .algorithm = TPM2_ALG_AES,
-                .keyBits.aes = 128,
-                .mode.aes = TPM2_ALG_CFB,
-        };
         const TPMA_SESSION sessionAttributes = TPMA_SESSION_DECRYPT | TPMA_SESSION_ENCRYPT |
                         TPMA_SESSION_CONTINUESESSION;
         TSS2_RC rc;
@@ -1650,7 +1679,7 @@ static int tpm2_make_encryption_session(
                         ESYS_TR_NONE,
                         NULL,
                         TPM2_SE_HMAC,
-                        &symmetric,
+                        &c->session_symmetric_template,
                         TPM2_ALG_SHA256,
                         &session->esys_handle);
         if (rc != TSS2_RC_SUCCESS)
@@ -1679,11 +1708,6 @@ static int tpm2_make_policy_session(
                 bool trial,
                 Tpm2Handle **ret_session) {
 
-        static const TPMT_SYM_DEF symmetric = {
-                .algorithm = TPM2_ALG_AES,
-                .keyBits.aes = 128,
-                .mode.aes = TPM2_ALG_CFB,
-        };
         TPM2_SE session_type = trial ? TPM2_SE_TRIAL : TPM2_SE_POLICY;
         TSS2_RC rc;
         int r;
@@ -1713,7 +1737,7 @@ static int tpm2_make_policy_session(
                         ESYS_TR_NONE,
                         NULL,
                         session_type,
-                        &symmetric,
+                        &c->session_symmetric_template,
                         TPM2_ALG_SHA256,
                         &session->esys_handle);
         if (rc != TSS2_RC_SUCCESS)
