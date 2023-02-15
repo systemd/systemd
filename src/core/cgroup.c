@@ -2362,6 +2362,13 @@ static int unit_update_cgroup(
         cgroup_context_apply(u, target_mask, state);
         cgroup_xattr_apply(u);
 
+        /* For most units we expect that memory monitoring is set up before the unit is started and we won't
+         * touch it after. For PID 1 this is different though, because we couldn't possibly do that given
+         * that PID 1 runs before init.scope is even set up. Hence, whenever init.scope is realized, let's
+         * try to open the memory pressure interface anew. */
+        if (unit_has_name(u, SPECIAL_INIT_SCOPE))
+                (void) manager_setup_memory_pressure_event_source(u->manager);
+
         return 0;
 }
 
