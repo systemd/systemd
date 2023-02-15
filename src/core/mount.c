@@ -922,6 +922,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
                        &exec_params,
                        m->exec_runtime,
                        &m->dynamic_creds,
+                       &m->cgroup_context,
                        &pid);
         if (r < 0)
                 return r;
