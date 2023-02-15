@@ -34,6 +34,7 @@
     <filename>emergency.target</filename>,
     <filename>exit.target</filename>,
     <filename>factory-reset.target</filename>,
+    <filename>factory-reset-complete.target</filename>,
     <filename>final.target</filename>,
     <filename>first-boot-complete.target</filename>,
     <filename>getty.target</filename>,
@@ -87,6 +88,7 @@
     <filename>sysinit.target</filename>,
     <filename>system-update.target</filename>,
     <filename>system-update-pre.target</filename>,
+    <filename>systemd-factory-reset-complete.service</filename>,
     <filename>time-set.target</filename>,
     <filename>time-sync.target</filename>,
     <filename>timers.target</filename>,
@@ -286,6 +288,12 @@
           <term><filename>factory-reset.target</filename></term>
           <listitem>
             <para>A special target to trigger a factory reset.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>factory-reset-complete.target</filename></term>
+          <listitem>
+            <para>A special target that services implementing a factory reset should be ordered before.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -768,6 +776,13 @@
             <filename>system-update.target</filename> is reached,
             <filename>system-update-cleanup.service</filename> will remove this symlink and reboot
             the machine.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>systemd-factory-reset-complete.service</filename></term>
+          <listitem>
+            <para>This service performs action after a factory reset has been completed. It removes the
+            <variable>FactoryReset</variable> EFI variable, if set.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

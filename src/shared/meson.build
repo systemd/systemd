@@ -62,6 +62,7 @@ shared_sources = files(
         'exec-util.c',
         'exit-status.c',
         'extension-release.c',
+        'factory-reset.c',
         'fdset.c',
         'fileio-label.c',
         'find-esp.c',
