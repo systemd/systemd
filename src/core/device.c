@@ -892,7 +892,7 @@ static int device_setup_units(Manager *m, sd_device *dev, Set **ready_units, Set
 
         /* First, process the main (that is, points to the syspath) and (real, not symlink) devnode units. */
         if (device_for_action(dev, SD_DEVICE_REMOVE))
-                /* If the device is removed, the main and devnode units units will be removed by
+                /* If the device is removed, the main and devnode units will be removed by
                  * device_update_found_by_sysfs() in device_dispatch_io(). Hence, it is not necessary to
                  * store them to not_ready_units, and we have nothing to do here.
                  *
