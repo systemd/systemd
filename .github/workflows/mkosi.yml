@@ -107,12 +107,18 @@ jobs:
 
     - name: Boot ${{ matrix.distro }} systemd-nspawn
       run: sudo mkosi boot ${{ env.KERNEL_CMDLINE }} audit=0
+      env:
+        SYSTEMD_LOG_LEVEL: debug
 
     - name: Check ${{ matrix.distro }} systemd-nspawn
       run: sudo mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
+      env:
+        SYSTEMD_LOG_LEVEL: debug
 
     - name: Boot ${{ matrix.distro }} QEMU
       run: timeout -k 30 10m mkosi qemu
 
     - name: Check ${{ matrix.distro }} QEMU
       run: sudo mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
+      env:
+        SYSTEMD_LOG_LEVEL: debug
