@@ -633,10 +633,10 @@ static int parse_timestamp_impl(const char *t, usec_t *ret, bool with_tz) {
 
         const char *k, *utc = NULL, *tzn = NULL;
         struct tm tm, copy;
-        time_t x;
         usec_t usec, plus = 0, minus = 0;
-        int r, weekday = -1, dst = -1;
+        int r, weekday = -1, isdst = -1;
         unsigned fractional = 0;
+        time_t sec;
 
         /* Allowed syntaxes:
          *
@@ -745,18 +745,18 @@ static int parse_timestamp_impl(const char *t, usec_t *ret, bool with_tz) {
                         if (IN_SET(j, 0, 1)) {
                                 /* Found one of the two timezones specified. */
                                 t = strndupa_safe(t, e - t - 1);
-                                dst = j;
+                                isdst = j;
                                 tzn = tzname[j];
                         }
                 }
         }
 
-        x = (time_t) (usec / USEC_PER_SEC);
+        sec = (time_t) (usec / USEC_PER_SEC);
 
-        if (!localtime_or_gmtime_r(&x, &tm, utc))
+        if (!localtime_or_gmtime_r(&sec, &tm, utc))
                 return -EINVAL;
 
-        tm.tm_isdst = dst;
+        tm.tm_isdst = isdst;
         if (!with_tz && tzn)
                 tm.tm_zone = tzn;
 
@@ -871,11 +871,11 @@ from_tm:
         if (weekday >= 0 && tm.tm_wday != weekday)
                 return -EINVAL;
 
-        x = mktime_or_timegm(&tm, utc);
-        if (x < 0)
+        sec = mktime_or_timegm(&tm, utc);
+        if (sec < 0)
                 return -EINVAL;
 
-        usec = usec_add(x * USEC_PER_SEC, fractional);
+        usec = usec_add(sec * USEC_PER_SEC, fractional);
 
 finish:
         usec = usec_add(usec, plus);
