@@ -14,6 +14,7 @@
 #include "constants.h"
 #include "env-util.h"
 #include "log.h"
+#include "main-func.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "special.h"
@@ -86,7 +87,7 @@ static void print_mode(const char* mode) {
         fflush(stdout);
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         const char* sulogin_cmdline[] = {
                 SULOGIN,
                 NULL,             /* --force */
@@ -115,5 +116,7 @@ int main(int argc, char *argv[]) {
                 r = start_default_target(bus);
         }
 
-        return r >= 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+        return r;
 }
+
+DEFINE_MAIN_FUNCTION(run);
