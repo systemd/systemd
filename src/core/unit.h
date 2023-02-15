@@ -619,7 +619,7 @@ typedef struct UnitVTable {
         int (*stop)(Unit *u);
         int (*reload)(Unit *u);
 
-        int (*kill)(Unit *u, KillWho w, int signo, sd_bus_error *error);
+        int (*kill)(Unit *u, KillWho w, int signo, int code, int value, sd_bus_error *error);
 
         /* Clear out the various runtime/state/cache/logs/configuration data */
         int (*clean)(Unit *u, ExecCleanMask m);
@@ -889,8 +889,8 @@ int unit_start(Unit *u, ActivationDetails *details);
 int unit_stop(Unit *u);
 int unit_reload(Unit *u);
 
-int unit_kill(Unit *u, KillWho w, int signo, sd_bus_error *error);
-int unit_kill_common(Unit *u, KillWho who, int signo, pid_t main_pid, pid_t control_pid, sd_bus_error *error);
+int unit_kill(Unit *u, KillWho w, int signo, int code, int value, sd_bus_error *error);
+int unit_kill_common(Unit *u, KillWho who, int signo, int code, int value, pid_t main_pid, pid_t control_pid, sd_bus_error *error);
 
 void unit_notify_cgroup_oom(Unit *u, bool managed_oom);
 

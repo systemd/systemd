@@ -73,7 +73,7 @@ static void wait_for_service_finish(Manager *m, Unit *unit) {
                 n = now(CLOCK_MONOTONIC);
                 if (ts + timeout < n) {
                         log_error("Test timeout when testing %s", unit->id);
-                        r = unit_kill(unit, KILL_ALL, SIGKILL, NULL);
+                        r = unit_kill(unit, KILL_ALL, SIGKILL, SI_USER, 0, NULL);
                         if (r < 0)
                                 log_error_errno(r, "Failed to kill %s: %m", unit->id);
                         exit(EXIT_FAILURE);

@@ -530,8 +530,8 @@ static void scope_reset_failed(Unit *u) {
         s->result = SCOPE_SUCCESS;
 }
 
-static int scope_kill(Unit *u, KillWho who, int signo, sd_bus_error *error) {
-        return unit_kill_common(u, who, signo, -1, -1, error);
+static int scope_kill(Unit *u, KillWho who, int signo, int code, int value, sd_bus_error *error) {
+        return unit_kill_common(u, who, signo, code, value, -1, -1, error);
 }
 
 static int scope_get_timeout(Unit *u, usec_t *timeout) {

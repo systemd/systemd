@@ -513,10 +513,11 @@ int bus_unit_method_enqueue_job(sd_bus_message *message, void *userdata, sd_bus_
 
 int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Unit *u = ASSERT_PTR(userdata);
+        int32_t value = 0;
         const char *swho;
         int32_t signo;
         KillWho who;
-        int r;
+        int r, code;
 
         assert(message);
 
@@ -528,16 +529,29 @@ int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
         if (r < 0)
                 return r;
 
+        if (startswith(sd_bus_message_get_member(message), "QueueSignal")) {
+                r = sd_bus_message_read(message, "i", &value);
+                if (r < 0)
+                        return r;
+
+                code = SI_QUEUE;
+        } else
+                code = SI_USER;
+
         if (isempty(swho))
                 who = KILL_ALL;
         else {
                 who = kill_who_from_string(swho);
                 if (who < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid who argument %s", swho);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid who argument: %s", swho);
         }
 
         if (!SIGNAL_VALID(signo))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Signal number out of range.");
+
+        if (code == SI_QUEUE && !((signo >= SIGRTMIN) && (signo <= SIGRTMAX)))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Value parameter only accepted for realtime signals (SIGRTMIN…SIGRTMAX), refusing for signal SIG%s.", signal_to_string(signo));
 
         r = bus_verify_manage_units_async_full(
                         u,
@@ -552,7 +566,7 @@ int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_kill(u, who, signo, error);
+        r = unit_kill(u, who, signo, code, value, error);
         if (r < 0)
                 return r;
 
@@ -981,6 +995,11 @@ const sd_bus_vtable bus_unit_vtable[] = {
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("Kill",
                                 SD_BUS_ARGS("s", whom, "i", signal),
+                                SD_BUS_NO_RESULT,
+                                bus_unit_method_kill,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("QueueSignal",
+                                SD_BUS_ARGS("s", whom, "i", signal, "i", value),
                                 SD_BUS_NO_RESULT,
                                 bus_unit_method_kill,
                                 SD_BUS_VTABLE_UNPRIVILEGED),

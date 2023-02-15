@@ -3299,8 +3299,8 @@ static void socket_trigger_notify(Unit *u, Unit *other) {
                 socket_set_state(s, SOCKET_RUNNING);
 }
 
-static int socket_kill(Unit *u, KillWho who, int signo, sd_bus_error *error) {
-        return unit_kill_common(u, who, signo, -1, SOCKET(u)->control_pid, error);
+static int socket_kill(Unit *u, KillWho who, int signo, int code, int value, sd_bus_error *error) {
+        return unit_kill_common(u, who, signo, code, value, -1, SOCKET(u)->control_pid, error);
 }
 
 static int socket_get_timeout(Unit *u, usec_t *timeout) {

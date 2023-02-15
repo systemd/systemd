@@ -3785,15 +3785,16 @@ bool unit_will_restart(Unit *u) {
         return UNIT_VTABLE(u)->will_restart(u);
 }
 
-int unit_kill(Unit *u, KillWho w, int signo, sd_bus_error *error) {
+int unit_kill(Unit *u, KillWho w, int signo, int code, int value, sd_bus_error *error) {
         assert(u);
         assert(w >= 0 && w < _KILL_WHO_MAX);
         assert(SIGNAL_VALID(signo));
+        assert(IN_SET(code, SI_USER, SI_QUEUE));
 
         if (!UNIT_VTABLE(u)->kill)
                 return -EOPNOTSUPP;
 
-        return UNIT_VTABLE(u)->kill(u, w, signo, error);
+        return UNIT_VTABLE(u)->kill(u, w, signo, code, value, error);
 }
 
 void unit_notify_cgroup_oom(Unit *u, bool managed_oom) {
@@ -3838,20 +3839,47 @@ static int kill_common_log(pid_t pid, int signo, void *userdata) {
         return 1;
 }
 
+static int kill_or_sigqueue(pid_t pid, int signo, int code, int value) {
+        assert(pid > 0);
+        assert(SIGNAL_VALID(signo));
+
+        switch (code) {
+
+        case SI_USER:
+                log_debug("Killing " PID_FMT " with signal SIG%s.", pid, signal_to_string(signo));
+                return RET_NERRNO(kill(pid, signo));
+
+        case SI_QUEUE:
+                log_debug("Enqueuing value %i to " PID_FMT " on signal SIG%s.", value, pid, signal_to_string(signo));
+                return RET_NERRNO(sigqueue(pid, signo, (const union sigval) { .sival_int = value }));
+
+        default:
+                assert_not_reached();
+        }
+}
+
 int unit_kill_common(
                 Unit *u,
                 KillWho who,
                 int signo,
+                int code,
+                int value,
                 pid_t main_pid,
                 pid_t control_pid,
                 sd_bus_error *error) {
 
-        int r = 0;
         bool killed = false;
+        int ret = 0, r;
 
         /* This is the common implementation for explicit user-requested killing of unit processes, shared by
          * various unit types. Do not confuse with unit_kill_context(), which is what we use when we want to
          * stop a service ourselves. */
+
+        assert(u);
+        assert(who >= 0);
+        assert(who < _KILL_WHO_MAX);
+        assert(SIGNAL_VALID(signo));
+        assert(IN_SET(code, SI_USER, SI_QUEUE));
 
         if (IN_SET(who, KILL_MAIN, KILL_MAIN_FAIL)) {
                 if (main_pid < 0)
@@ -3867,71 +3895,85 @@ int unit_kill_common(
                         return sd_bus_error_set_const(error, BUS_ERROR_NO_SUCH_PROCESS, "No control process to kill");
         }
 
-        if (IN_SET(who, KILL_CONTROL, KILL_CONTROL_FAIL, KILL_ALL, KILL_ALL_FAIL))
-                if (control_pid > 0) {
-                        _cleanup_free_ char *comm = NULL;
-                        (void) get_process_comm(control_pid, &comm);
+        if (control_pid > 0 &&
+            IN_SET(who, KILL_CONTROL, KILL_CONTROL_FAIL, KILL_ALL, KILL_ALL_FAIL)) {
+                _cleanup_free_ char *comm = NULL;
+                (void) get_process_comm(control_pid, &comm);
 
-                        if (kill(control_pid, signo) < 0) {
-                                /* Report this failure both to the logs and to the client */
+                r = kill_or_sigqueue(control_pid, signo, code, value);
+                if (r < 0) {
+                        ret = r;
+
+                        /* Report this failure both to the logs and to the client */
+                        sd_bus_error_set_errnof(
+                                        error, r,
+                                        "Failed to send signal SIG%s to control process " PID_FMT " (%s): %m",
+                                        signal_to_string(signo), control_pid, strna(comm));
+                        log_unit_warning_errno(
+                                        u, r,
+                                        "Failed to send signal SIG%s to control process " PID_FMT " (%s) on client request: %m",
+                                        signal_to_string(signo), control_pid, strna(comm));
+                } else {
+                        log_unit_info(u, "Sent signal SIG%s to control process " PID_FMT " (%s) on client request.",
+                                      signal_to_string(signo), control_pid, strna(comm));
+                        killed = true;
+                }
+        }
+
+        if (main_pid > 0 &&
+            IN_SET(who, KILL_MAIN, KILL_MAIN_FAIL, KILL_ALL, KILL_ALL_FAIL)) {
+
+                _cleanup_free_ char *comm = NULL;
+                (void) get_process_comm(main_pid, &comm);
+
+                r = kill_or_sigqueue(main_pid, signo, code, value);
+                if (r < 0) {
+                        if (ret == 0) {
+                                ret = r;
+
                                 sd_bus_error_set_errnof(
-                                                error, errno,
-                                                "Failed to send signal SIG%s to control process " PID_FMT " (%s): %m",
-                                                signal_to_string(signo), control_pid, strna(comm));
-                                r = log_unit_warning_errno(
-                                                u, errno,
-                                                "Failed to send signal SIG%s to control process " PID_FMT " (%s) on client request: %m",
-                                                signal_to_string(signo), control_pid, strna(comm));
-                        } else {
-                                log_unit_info(u, "Sent signal SIG%s to control process " PID_FMT " (%s) on client request.",
-                                              signal_to_string(signo), control_pid, strna(comm));
-                                killed = true;
-                        }
-                }
-
-        if (IN_SET(who, KILL_MAIN, KILL_MAIN_FAIL, KILL_ALL, KILL_ALL_FAIL))
-                if (main_pid > 0) {
-                        _cleanup_free_ char *comm = NULL;
-                        (void) get_process_comm(main_pid, &comm);
-
-                        if (kill(main_pid, signo) < 0) {
-                                if (r == 0)
-                                        sd_bus_error_set_errnof(
-                                                        error, errno,
-                                                        "Failed to send signal SIG%s to main process " PID_FMT " (%s): %m",
-                                                        signal_to_string(signo), main_pid, strna(comm));
-
-                                r = log_unit_warning_errno(
-                                                u, errno,
-                                                "Failed to send signal SIG%s to main process " PID_FMT " (%s) on client request: %m",
+                                                error, r,
+                                                "Failed to send signal SIG%s to main process " PID_FMT " (%s): %m",
                                                 signal_to_string(signo), main_pid, strna(comm));
-                        } else {
-                                log_unit_info(u, "Sent signal SIG%s to main process " PID_FMT " (%s) on client request.",
-                                              signal_to_string(signo), main_pid, strna(comm));
-                                killed = true;
                         }
-                }
 
-        if (IN_SET(who, KILL_ALL, KILL_ALL_FAIL) && u->cgroup_path) {
+                        log_unit_warning_errno(
+                                        u, r,
+                                        "Failed to send signal SIG%s to main process " PID_FMT " (%s) on client request: %m",
+                                        signal_to_string(signo), main_pid, strna(comm));
+
+                } else {
+                        log_unit_info(u, "Sent signal SIG%s to main process " PID_FMT " (%s) on client request.",
+                                      signal_to_string(signo), main_pid, strna(comm));
+                        killed = true;
+                }
+        }
+
+        /* Note: if we shall enqueue rather than kill we won't do this via the cgroup mechanism, since it
+         * doesn't really make much sense (and given that enqueued values are a relatively expensive
+         * resource, and we shouldn't allow us to be subjects for such allocation sprees) */
+        if (IN_SET(who, KILL_ALL, KILL_ALL_FAIL) && u->cgroup_path && code == SI_USER) {
                 _cleanup_set_free_ Set *pid_set = NULL;
-                int q;
 
                 /* Exclude the main/control pids from being killed via the cgroup */
                 pid_set = unit_pid_set(main_pid, control_pid);
                 if (!pid_set)
                         return log_oom();
 
-                q = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, signo, 0, pid_set, kill_common_log, u);
-                if (q < 0) {
-                        if (!IN_SET(q, -ESRCH, -ENOENT)) {
-                                if (r == 0)
+                r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, signo, 0, pid_set, kill_common_log, u);
+                if (r < 0) {
+                        if (!IN_SET(r, -ESRCH, -ENOENT)) {
+                                if (ret == 0) {
+                                        ret = r;
+
                                         sd_bus_error_set_errnof(
-                                                        error, q,
+                                                        error, r,
                                                         "Failed to send signal SIG%s to auxiliary processes: %m",
                                                         signal_to_string(signo));
+                                }
 
-                                r = log_unit_warning_errno(
-                                                u, q,
+                                log_unit_warning_errno(
+                                                u, r,
                                                 "Failed to send signal SIG%s to auxiliary processes on client request: %m",
                                                 signal_to_string(signo));
                         }
@@ -3940,10 +3982,10 @@ int unit_kill_common(
         }
 
         /* If the "fail" versions of the operation are requested, then complain if the set of processes we killed is empty */
-        if (r == 0 && !killed && IN_SET(who, KILL_ALL_FAIL, KILL_CONTROL_FAIL, KILL_MAIN_FAIL))
+        if (ret == 0 && !killed && IN_SET(who, KILL_ALL_FAIL, KILL_CONTROL_FAIL, KILL_MAIN_FAIL))
                 return sd_bus_error_set_const(error, BUS_ERROR_NO_SUCH_PROCESS, "No matching processes to kill");
 
-        return r;
+        return ret;
 }
 
 int unit_following_set(Unit *u, Set **s) {

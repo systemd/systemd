@@ -112,6 +112,10 @@ node /org/freedesktop/systemd1 {
       KillUnit(in  s name,
                in  s whom,
                in  i signal);
+      QueueSignalUnit(in  s name,
+                      in  s whom,
+                      in  i signal,
+                      in  i value);
       CleanUnit(in  s name,
                 in  as mask);
       FreezeUnit(in  s name);
@@ -826,6 +830,8 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="KillUnit()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="QueueSignalUnit()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="CleanUnit()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="FreezeUnit()"/>
@@ -1286,6 +1292,13 @@ node /org/freedesktop/systemd1 {
       <varname>ExecStop=</varname> and is spawned in parallel to the main daemon process in order to shut it
       down.</para>
 
+      <para><function>QueueSignalUnit()</function> is similar to <function>KillUnit()</function> but may be
+      used to enqueue a POSIX Realtime Signal (i.e. <constant>SIGRTMIN+…</constant> and
+      <constant>SIGRTMAX-…</constant>) to the selected process(es). Takes the same paramaters as
+      <function>KillUnit()</function> with one additional argument: an integer that is passed in the
+      <varname>sival_int</varname> value accompanying the queued signal. See <citerefentry project="man-pages"><refentrytitle>sigqueue</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
+      details.</para>
+
       <para><function>GetJob()</function> returns the job object path for a specific job, identified by its
       id.</para>
 
@@ -1731,7 +1744,8 @@ node /org/freedesktop/systemd1 {
       <para>Read access is generally granted to all clients. Additionally, for unprivileged clients, some
       operations are allowed through the polkit privilege system. Operations which modify unit state
       (<function>StartUnit()</function>, <function>StopUnit()</function>, <function>KillUnit()</function>,
-      <function>RestartUnit()</function> and similar, <function>SetProperty()</function>) require
+      <function>QueueSignalUnit()</function>, <function>RestartUnit()</function> and similar,
+      <function>SetProperty()</function>) require
       <interfacename>org.freedesktop.systemd1.manage-units</interfacename>. Operations which modify unit file
       enablement state (<function>EnableUnitFiles()</function>, <function>DisableUnitFiles()</function>,
       <function>EnableUnitFilesWithFlags()</function>, <function>DisableUnitFilesWithFlags()</function>,
@@ -1778,6 +1792,9 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
                  out a(uosos) affected_jobs);
       Kill(in  s whom,
            in  i signal);
+      QueueSignal(in  s whom,
+                  in  i signal,
+                  in  i value);
       ResetFailed();
       SetProperties(in  b runtime,
                     in  a(sv) properties);
@@ -2084,6 +2101,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-method" generated="True" extra-ref="Kill()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="QueueSignal()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="ResetFailed()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetProperties()"/>
@@ -2302,12 +2321,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <para><function>Start()</function>, <function>Stop()</function>, <function>Reload()</function>,
       <function>Restart()</function>, <function>TryRestart()</function>,
       <function>ReloadOrRestart()</function>, <function>ReloadOrTryRestart()</function>,
-      <function>Kill()</function>, <function>ResetFailed()</function>, and
-      <function>SetProperties()</function> implement the same operation as the respective methods on the
+      <function>Kill()</function>, <function>QueueSignal()</function>, <function>ResetFailed()</function>,
+      and <function>SetProperties()</function> implement the same operation as the respective methods on the
       <interfacename>Manager</interfacename> object (see above). However, these methods operate on the unit
-      object and hence do not take a unit name parameter. Invoking the methods directly on the Manager
-      object has the advantage of not requiring a <function>GetUnit()</function> call to get the unit object
-      for a specific unit name. Calling the methods on the Manager object is hence a round trip
+      object and hence do not take a unit name parameter. Invoking the methods directly on the Manager object
+      has the advantage of not requiring a <function>GetUnit()</function> call to get the unit object for a
+      specific unit name. Calling the methods on the Manager object is hence a round trip
       optimization.</para>
     </refsect2>
 
