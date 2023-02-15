@@ -85,6 +85,13 @@ CHANGES WITH 253 in spe:
           legacy and thus typically do not receive the same level of security
           support and fixes.
 
+        * The default per-link multicast DNS mode is changed to "yes"
+          (that was previously "no"). As the default global multicast DNS mode
+          has been "yes" (but can be changed by the build option), now the
+          multicast DNS is enabled on all links by default. You can disable the
+          multicast DNS on all links by setting MulticastDNS= in resolved.conf,
+          or on an interface by calling "resolvectl mdns INTERFACE no".
+
         New components:
 
         * A tool 'ukify' tool to build, measure, and sign Unified Kernel Images
