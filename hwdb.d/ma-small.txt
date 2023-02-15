@@ -128,9 +128,6 @@ C7A000-C7AFFF     (base 16)		ENTEC Electric & Electronic Co., LTD.
 				Hwaseong-city  Gyungki-do  445-894
 				KR
 
-70-B3-D5   (hex)		Private
-6F4000-6F4FFF     (base 16)		Private
-
 70-B3-D5   (hex)		Guan Show Technologe Co., Ltd.
 1FC000-1FCFFF     (base 16)		Guan Show Technologe Co., Ltd.
 				No.127, Jianguo 1st Rd., Lingya Dist.
@@ -6403,6 +6400,12 @@ CC2000-CC2FFF     (base 16)		TOYOGIKEN CO.,LTD.
 				Osachi Gongencho 4-8-7
 				Okaya  Nagano  3940081
 				JP
+
+70-B3-D5   (hex)		WDI Wise Device Inc.
+6F4000-6F4FFF     (base 16)		WDI Wise Device Inc.
+				135 west beaver creek rd unit 2
+				Richmond hill   Ontario  L4B 1l2
+				CA
 
 8C-1F-64   (hex)		i2s
 286000-286FFF     (base 16)		i2s
@@ -12709,6 +12712,24 @@ A81000-A81FFF     (base 16)		3D perception AS
 				Nye Vakas vei 14
 				Hvalstad    1395
 				NO
+
+8C-1F-64   (hex)		Power Electronics Espana, S.L.
+0D8000-0D8FFF     (base 16)		Power Electronics Espana, S.L.
+				C/ Leonardo Da Vinci, 24-26
+				Paterna  Valencia  46980
+				ES
+
+8C-1F-64   (hex)		joint analytical systems GmbH
+31B000-31BFFF     (base 16)		joint analytical systems GmbH
+				Carl-Zeiss-Str. 49
+				Moers  NRW  47445
+				DE
+
+8C-1F-64   (hex)		Midlands Technical Co., Ltd.
+DD4000-DD4FFF     (base 16)		Midlands Technical Co., Ltd.
+				1-29-4 5F Takadanobaba
+				shinjyuku-ku  Tokyo  169-0075
+				JP
 
 70-B3-D5   (hex)		System West dba ICS Electronics
 E06000-E06FFF     (base 16)		System West dba ICS Electronics
@@ -23741,12 +23762,6 @@ B14000-B14FFF     (base 16)		Pantherun Technologies Pvt Ltd
 				Bangalore  Karnataka  560038
 				IN
 
-70-B3-D5   (hex)		Liberator Pty Ltd
-561000-561FFF     (base 16)		Liberator Pty Ltd
-				265?Gilbert Street
-				Adelaide     SA 5000
-				AU
-
 70-B3-D5   (hex)		EASTERN SCIENCE & TECHNOLOGY CO., LTD
 2DF000-2DFFFF     (base 16)		EASTERN SCIENCE & TECHNOLOGY CO., LTD
 				6F.,No.963, Zhongzheng Rd, Zhonghe Dist.
@@ -25441,6 +25456,12 @@ CAB000-CABFFF     (base 16)		Spyder Controls Corp.
 				Zandbreeweg 6
 				Oldenzaal  Overijssel  7577 BZ
 				NL
+
+70-B3-D5   (hex)		Liberator Pty Ltd
+561000-561FFF     (base 16)		Liberator Pty Ltd
+				265 Gilbert Street
+				Adelaide     SA 5000
+				AU
 
 70-B3-D5   (hex)		DISMUNTEL SAL
 92C000-92CFFF     (base 16)		DISMUNTEL SAL
@@ -31634,12 +31655,6 @@ EDA000-EDAFFF     (base 16)		DEUTA-WERKE GmbH
 				Karlskoga    SE-691 27
 				SE
 
-8C-1F-64   (hex)		Liberator Pty Ltd
-BBC000-BBCFFF     (base 16)		Liberator Pty Ltd
-				265?Gilbert Street
-				Adelaide     SA 5000
-				AU
-
 70-B3-D5   (hex)		Medicomp, Inc
 278000-278FFF     (base 16)		Medicomp, Inc
 				600 Atlantis Rd
@@ -31650,4 +31665,16 @@ BBC000-BBCFFF     (base 16)		Liberator Pty Ltd
 9F6000-9F6FFF     (base 16)		Vision Systems Safety Tech
 				5 Chemin de Chiradie
 				Brignais    69530
+				FR
+
+8C-1F-64   (hex)		Liberator Pty Ltd
+BBC000-BBCFFF     (base 16)		Liberator Pty Ltd
+				265 Gilbert Street
+				Adelaide     SA 5000
+				AU
+
+8C-1F-64   (hex)		COMETA SAS
+E24000-E24FFF     (base 16)		COMETA SAS
+				9 rue marcel chabloz
+				Saint martin d'Hères    38400
 				FR

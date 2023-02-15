@@ -5546,10 +5546,16 @@ B00000-BFFFFF     (base 16)		Korea Bus Broadcasting
 				Seoul    06684
 				KR
 
-70-06-92   (hex)		Shenzhen Lingwei Technology Co., Ltd
-900000-9FFFFF     (base 16)		Shenzhen Lingwei Technology Co., Ltd
-				No. 50-1, Minqing Road, Longhua District
-				Shenzhen  Guangdong Province  518109
+70-06-92   (hex)		SWIT Electronics Co.,Ltd
+B00000-BFFFFF     (base 16)		SWIT Electronics Co.,Ltd
+				10 Hengtong Rd,Nanjing Economic Technological Development Zone
+				Nanjing  Jiangsu  210038
+				CN
+
+70-06-92   (hex)		Hangzhou Clounix Technology Limited
+600000-6FFFFF     (base 16)		Hangzhou Clounix Technology Limited
+				Floor 12, Building 2, Zichen International Center, NO.39, Jincheng Road, Xiaoshan District
+				Hangzhou  Zhejiang  311202
 				CN
 
 70-06-92   (hex)		Fusiostor Technologies Private Limited
@@ -5557,6 +5563,18 @@ B00000-BFFFFF     (base 16)		Korea Bus Broadcasting
 				GALA NO.7, MUNERVA IND ESTATE, BISHAN UDYOG
 				MUMBAI  Maharashtra  400080
 				IN
+
+70-06-92   (hex)		Shenzhen Lingwei Technology Co., Ltd
+900000-9FFFFF     (base 16)		Shenzhen Lingwei Technology Co., Ltd
+				No. 50-1, Minqing Road, Longhua District
+				Shenzhen  Guangdong Province  518109
+				CN
+
+70-06-92   (hex)		Scud (Fujian) Electronics Co.,Ltd
+200000-2FFFFF     (base 16)		Scud (Fujian) Electronics Co.,Ltd
+				NO.98 ,EAST ROAD OF JIANGBIN ,MAWEI ZONE,FUZHOU
+				FUZHOU    350000
+				CN
 
 4C-4B-F9   (hex)		Shenzhen dingsheng technology co., LTD
 400000-4FFFFF     (base 16)		Shenzhen dingsheng technology co., LTD
@@ -10759,6 +10777,12 @@ A00000-AFFFFF     (base 16)		Munters
 				Hasivim 18
 				Pethch Tikva  Israel  4959376
 				IL
+
+70-06-92   (hex)		Skyware Protech Limited
+D00000-DFFFFF     (base 16)		Skyware Protech Limited
+				3806A, Cable TV Tower, 9 Hoi Sing Road, Tsuen Wan
+				Tsuen Wan    00000
+				HK
 
 20-85-93   (hex)		UNILUMIN GROUP CO.,LTD
 300000-3FFFFF     (base 16)		UNILUMIN GROUP CO.,LTD
@@ -21884,12 +21908,6 @@ E00000-EFFFFF     (base 16)		Saab Seaeye Ltd
 				Fareham  Hampshire  PO15 5SD
 				GB
 
-1C-A0-D3   (hex)		Private
-700000-7FFFFF     (base 16)		Private
-				Omonoia Avenue
-				Limassol  Cyprus  3045
-				CY
-
 D0-16-F0   (hex)		Top Guard Technologies
 D00000-DFFFFF     (base 16)		Top Guard Technologies
 				9200 Corporate BlvdSuite 250
@@ -21943,6 +21961,18 @@ C00000-CFFFFF     (base 16)		ScoreBird, LLC
 				6001 Kenwood Drive
 				Nashville  TN  37215
 				US
+
+70-06-92   (hex)		JMA Wireless
+800000-8FFFFF     (base 16)		JMA Wireless
+				140 Cortland Ave
+				Syracuse  NY  13202
+				US
+
+1C-A0-D3   (hex)		U-TX Technologies Ltd
+700000-7FFFFF     (base 16)		U-TX Technologies Ltd
+				Omonoia Avenue
+				Limassol  Cyprus  3045
+				CY
 
 20-85-93   (hex)		Great Lite International
 700000-7FFFFF     (base 16)		Great Lite International
@@ -27529,3 +27559,9 @@ E0-3C-1C   (hex)		Ocamar Technologies (Shanghai) Co.,Ltd.
 				2335 S Ellis St
 				Lakewood  CO  80228
 				US
+
+70-06-92   (hex)		CANAAN CREATIVE CO.,LTD.
+500000-5FFFFF     (base 16)		CANAAN CREATIVE CO.,LTD.
+				Building 1, Yard 1, No.81 Beiqing Road, Haidian District
+				Beijing    100144
+				CN

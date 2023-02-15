@@ -1,8 +1,8 @@
 #
 #	List of PCI ID's
 #
-#	Version: 2023.01.26
-#	Date:    2023-01-26 03:15:02
+#	Version: 2023.02.11
+#	Date:    2023-02-11 03:15:01
 #
 #	Maintained by Albert Pool, Martin Mares, and other volunteers from
 #	the PCI ID Project at https://pci-ids.ucw.cz/.
@@ -4038,7 +4038,7 @@
 		148c 3000  Radeon HD 4350 Go! Green 512MB GDDR3
 # 113-2E172001-003
 		174b 3000  Radeon HD 4350/4550 HyperMemory DDR2
-	9553  RV710/M92 [Mobility Radeon HD 4530/4570/545v]
+	9553  RV710/M92 [Mobility Radeon HD 4530/4570/5145/530v/540v/545v]
 		1025 015e  Mobility Radeon HD 4570
 		1025 017d  Mobility Radeon HD 4570
 		1025 0205  Mobility Radeon HD 4570 / 545v
@@ -4061,7 +4061,7 @@
 		17aa 2129  Mobility Radeon HD 545v
 		17aa 215b  Mobility Radeon HD 545v
 		17aa 21bb  Mobility Radeon HD 545v
-	9555  RV710/M92 [Mobility Radeon HD 4350/4550]
+	9555  RV711/M93 [Mobility Radeon HD 4350/4550/530v/540v/545v / FirePro RG220]
 		103c 1411  ProBook 4720s GPU (Mobility Radeon HD 4350)
 	9557  RV711/M93 GL [FirePro RG220]
 	955f  RV710/M92 [Mobility Radeon HD 4330]
@@ -12743,6 +12743,7 @@
 	25a7  GA107M [GeForce MX570]
 	25a9  GA107M [GeForce RTX 2050]
 	25aa  GA107M [GeForce MX570 A]
+	25ab  GA107M [GeForce RTX 3050 4GB Laptop GPU]
 	25ac  GN20-P0-R-K2 [GeForce RTX 3050 6GB Laptop GPU]
 	25ad  GA107 [GeForce RTX 2050]
 	25af  GA107 [GeForce RTX 3050 Engineering Sample]
@@ -12753,6 +12754,7 @@
 	25b9  GA107GLM [RTX A1000 Laptop GPU]
 	25ba  GA107GLM [RTX A2000 8GB Laptop GPU]
 	25bb  GA107GLM [RTX A500 Laptop GPU]
+	25bc  GA107
 	25e0  GA107BM [GeForce RTX 3050 Ti Mobile]
 	25e2  GA107BM [GeForce RTX 3050 Mobile]
 	25e5  GA107BM [GeForce RTX 3050 Mobile]
@@ -12769,17 +12771,22 @@
 	26f5  AD102GL [L40 CNX]
 	2704  AD103 [GeForce RTX 4080]
 	2717  GN21-X11 [GeForce RTX 4090 Laptop GPU]
+	2730  AD103GLM [RTX 5000 Ada Generation Laptop GPU]
 	2757  GN21-X11
 	2782  AD104 [GeForce RTX 4070 Ti]
 	2785  AD104
 	2786  AD104 [GeForce RTX 4070]
 	27a0  GN21-X9
 	27b8  AD104GL [L4]
+	27ba  AD104
+	27bb  AD104GLM [RTX 3500 Ada Generation Laptop GPU]
 	27e0  GN21-X9
 	2820  GN21-X6
+	2838  AD106GLM [RTX 3000 Ada Generation Laptop GPU]
 	2860  GN21-X6
 	28a0  GN21-X4
 	28a1  GN21-X2
+	28b8  AD107GLM [RTX 2000 Ada Generation Laptop GPU]
 	28e0  GN21-X4
 	28e1  GN21-X2
 10df  Emulex Corporation
@@ -13906,9 +13913,9 @@
 	3208  PT890 Host Bridge
 	3213  VPX/VPX2 PCI to PCI Bridge Controller
 	3218  K8T800M Host Bridge
-	3227  VT8237 ISA bridge [KT600/K8T800/K8T890 South]
+	3227  VT8237 ISA bridge [KT600/K8T800/K8T890/CN700 South]
 		1043 80ed  A7V600/K8V-X/A8V Deluxe motherboard
-		1106 3227  DFI KT600-AL / Soltek SL-B9D-FGR Motherboard
+		1106 3227  VT8237 ISA bridge
 		1458 5001  GA-7VT600 Motherboard
 		147b 1407  KV8-MAX3 motherboard
 		1849 3227  K7VT4 motherboard
@@ -19229,6 +19236,8 @@
 144d  Samsung Electronics Co Ltd
 	1600  Apple PCIe SSD
 	a544  Exynos 8890 PCIe Root Complex
+	a575  Exynos 7420 PCIe Root Complex
+	a5e3  Exynos 5433 PCIe Root Complex
 	a800  XP941 PCIe SSD
 	a802  NVMe SSD Controller SM951/PM951
 		144d a801  PM963 2.5" NVMe PCIe SSD
@@ -22120,12 +22129,62 @@
 	1034  GX1034 Certification and Verification Module PXI Board
 	1100  GX1100 Arbitrary Waveform and Function Generator PXI Board
 	1120  GX1120 Arbitrary Waveform and Function Generator PXI Board
+	1164  GX1164 Multi-Channel Programmable Resistor PXI Board
 	1632  GX1632e 32-Channel Arbitrary Analog Output PXIe Board
+	1648  GX1648 64-Channel Analog Output PXI Board
+	1649  GX1649 64-Channel Arbitrary Analog Output PXI Board
+	1838  GX1838 Precision DC Source PXI Board
 	2065  GX2065 Digital Multimeter PXI Board
 	2200  GTX2200 High Resolution Universal Time Interval Counter PXI Board
 	2201  GC2200 High Resolution Universal Time Interval Counter PCI Board
+	3104  GX3104 4-Channel 20V, 250mA Per Channel SMU PXI Board
+	3108  GX3108 4-Channel Source Measure Unit PXI Board
+	3116  GX3116e 16-Channel DUT Power Supply PXIe Board
+	3348  GX3348 Multi-Channel DC Source and Switch Matrix Board
+	3500  GX3500 Digital I/O FLEX FPGA Board
+	3700  GX3700e Digital I/O FLEX FPGA PXIe Board
+	3701  GX3700 Digital I/O FLEX FPGA PXI Board
+	3800  GX3800e Digital I/O FLEX FPGA PXIe Board
+	4943  GX4943 HellFire/Longbow Serial Communication Board
 	5050  GC5050 Dynamic Digital I/O with Algorithmic Sequencer PCI Board
+	5055  GX5055 Dynamic Digital I/O with Pin Electronics PXI Board
+	5083  GX5083 Dynamic Digital I/O with Algorithmic Sequencer PXI Board
+	5106  GX5106 High-Speed Digital I/O Cycle Timing (Master) Module PXI Board
+	5151  GX5150/1 High Speed Digital I/O (50/100MHz) PXI Board
+	5152  GX5152/3 DSR High Speed Digital Stimulus/Response PXI Board
+	5250  GX5250 Digital I/O Streaming PXI Board
+	5280  GX5280 High-Speed Digital I/O PXI Board
+	5290  GX5290 High-Speed Dynamic Digital I/O PXI Board
+	5294  GX5294 High-Speed Digital I/O PXI Board
+	5295  GX5295 Digital I/O with Pin Electronics and PMU PXI Board
+	5296  GX5296 Digital I/O with Pin Electronics and PMU PXI Board
+	5550  GX5050 Dynamic Digital I/O with Algorithmic Sequencer PXI Board
 	5641  GX5641/2 Bi-directional Differential-TTL I/O PXI Board
+	5731  GX5731 Digital I/O with 128 TTL Channels and 3x32 Customizable Channels PXI Board
+	5732  GX5732 224-Channel Static Digital I/O PXI Board
+	5733  GX5733 Digital I/O with 96 TTL Channels and 32 Customizable Channels PXI Board
+	5960  GX5961/4 Digital I/O Timing/Sync with Pin Electronics and PMU PXI Board
+	6021  GX6021 20-Channel RF Multiplexer PXI Board
+	6062  GX6062 60-Channel RF Multiplexer PXI Board
+	6115  GX6115 15-Channel High Current SPDT Form-C Relay PXI Board
+	6125  GX6125 25-Channel High-Density SPDT Form-C Relay PXI Board
+	6138  GX6138 38-Channel SPST Form-A Relay PXI Board
+	6188  GX6188 104-Channel 8x8 Multiplexer/Matrix PXI Board
+	6192  GX6192 16, 16x2 High Frequency, High Density Multiplexer PXI Board
+	6196  GX6196 96-Channel DPST Form-A Relay Carrier PXI Board
+	6256  GX6256 16, 16x2 Low Frequency, High Density Multiplexer PXI Board
+	6264  GX6264 128-Channel Scanner/Multiplexer Board
+	6315  GX6315 45-Channel High Current SPDT Form-C Relay Board
+	6325  GX6325 75-Channel High-Density SPDT Form-C Relay Board
+	6338  GX6338 114-Channel SPST Form-A Relay PXI Board
+	6377  GX6377 Multifunction Switching PXI Board
+	6384  GX6384 Configurable High-Density Switch Matrix PXI Board
+	6616  GX6616 6x2:16 Switch Matrix PXI Board
+	6864  GX6864 Video Switching PXI Board
+	7400  GX7400 Dual-Output Programmable Power Supply PXI Board
+	7404  GX7404 Prototyping and Power Interface PXI Board
+	7777  GX7777 Generic Interface PXI Board
+	7779  GX7779 Backplane Tester PXI Board
 16e3  European Space Agency
 	1e0f  LEON2FT Processor
 16e5  Intellon Corp.
@@ -23164,7 +23223,7 @@
 	000c  Qualcomm MSM6275 UMTS chip
 1932  DiBcom
 193c  MAXIM Integrated Products
-193d  Hangzhou H3C Technologies Co., Ltd.
+193d  New H3C Technologies Co., Ltd.
 193f  AHA Products Group
 	0001  AHA36x-PCIX
 	0360  AHA360-PCIe
@@ -24332,20 +24391,34 @@
 	000e  PBlaze6 6530
 		1c5f 0b20  NVMe SSD PBlaze6 6530 1920G AIC
 		1c5f 0b21  NVMe SSD PBlaze6 6530 1920G 2.5" U.2
+		1c5f 0b25  NVMe SSD PBlaze6 6530 1920G E1.S
+		1c5f 0b27  NVMe SSD PBlaze6 6630 1920G 2.5" U.2
 		1c5f 0b30  NVMe SSD PBlaze6 6530 3840G AIC
 		1c5f 0b31  NVMe SSD PBlaze6 6530 3840G 2.5" U.2
+		1c5f 0b35  NVMe SSD PBlaze6 6530 3840G E1.S
+		1c5f 0b37  NVMe SSD PBlaze6 6630 3840G 2.5" U.2
 		1c5f 0b40  NVMe SSD PBlaze6 6530 7680G AIC
 		1c5f 0b41  NVMe SSD PBlaze6 6530 7680G 2.5" U.2
+		1c5f 0b47  NVMe SSD PBlaze6 6630 7680G 2.5" U.2
 		1c5f 1331  NVMe SSD PBlaze6 6531 3840G 2.5" U.2
 		1c5f 1341  NVMe SSD PBlaze6 6531 7680G 2.5" U.2
+		1c5f 1431  NVMe SSD PBlaze6 6541 3840G 2.5" U.2
+		1c5f 1441  NVMe SSD PBlaze6 6541 7680G 2.5" U.2
 		1c5f 4b20  NVMe SSD PBlaze6 6536 1600G AIC
 		1c5f 4b21  NVMe SSD PBlaze6 6536 1600G 2.5" U.2
+		1c5f 4b25  NVMe SSD PBlaze6 6536 1600G E1.S
+		1c5f 4b27  NVMe SSD PBlaze6 6636 1600G 2.5" U.2
 		1c5f 4b30  NVMe SSD PBlaze6 6536 3200G AIC
 		1c5f 4b31  NVMe SSD PBlaze6 6536 3200G 2.5" U.2
+		1c5f 4b35  NVMe SSD PBlaze6 6536 3200G E1.S
+		1c5f 4b37  NVMe SSD PBlaze6 6636 3200G 2.5" U.2
 		1c5f 4b40  NVMe SSD PBlaze6 6536 6400G AIC
 		1c5f 4b41  NVMe SSD PBlaze6 6536 6400G 2.5" U.2
+		1c5f 4b47  NVMe SSD PBlaze6 6636 6400G 2.5" U.2
 		1c5f 5331  NVMe SSD PBlaze6 6537 3200G 2.5" U.2
 		1c5f 5341  NVMe SSD PBlaze6 6537 6400G 2.5" U.2
+		1c5f 5431  NVMe SSD PBlaze6 6547 3200G 2.5" U.2
+		1c5f 5441  NVMe SSD PBlaze6 6547 6400G 2.5" U.2
 	003d  PBlaze5 920/926
 		1c5f 0a30  NVMe SSD PBlaze5 920 3840G AIC
 		1c5f 0a31  NVMe SSD PBlaze5 920 3840G 2.5" U.2
@@ -24367,6 +24440,8 @@
 		1c5f 4b41  NVMe SSD PBlaze6 6936 6400GB 2.5" U.3
 		1c5f 4b51  NVMe SSD PBlaze6 6936 12800GB 2.5" U.3
 		1c5f 4b61  NVMe SSD PBlaze6 6936 25600GB 2.5" U.3
+# Gen5 NVMe SSD
+	003f  PBlaze7 7940/7946
 	0540  PBlaze4 NVMe SSD
 	0550  PBlaze5 700/900
 	0555  PBlaze5 510/516
@@ -24425,7 +24500,7 @@
 		1cc4 a212  NVMe SSD UHXXXa series U.2 1600GB
 		1cc4 a213  NVMe SSD UHXXXa series U.2 3200GB
 		1cc4 a214  NVMe SSD UHXXXa series U.2 6400GB
-		1cc4 e122  NVMe SSD UH711a series U.2 1920G
+		1cc4 e122  NVMe SSD UH711a series U.2 1920GB
 		1cc4 e123  NVMe SSD UH711a series U.2 3840GB
 		1cc4 e124  NVMe SSD UH711a series U.2 7680GB
 	17ab  NVMe 256G SSD device
@@ -24767,7 +24842,8 @@
 	0002  Colossus GC1 [S1]
 1d97  Shenzhen Longsys Electronics Co., Ltd.
 	2263  SM2263EN/SM2263XT-based OEM SSD
-1d9b  Facebook, Inc.
+# nee Facebook, Inc.
+1d9b  Meta Platforms, Inc.
 	0010  Networking DOM Engine
 	0011  IO Bridge
 1da1  Teko Telecom S.r.l.
@@ -25057,6 +25133,13 @@
 	0001  ml605
 	0002  alst4
 	0003  alst4x
+1df8  V&G Information System Co.,Ltd
+	c000  DC NVMe SSD
+		1df8 c600  Enterprise U.2 NVMe SSD
+	d000  PC NVMe SSD
+		1df8 d100  M.2 NVMe SSD
+		1df8 d201  M.2 NVMe SSD
+		1df8 d600  M.2 NVMe SSD
 1dfc  JSC NT-COM
 	1181  TDM 8 Port E1/T1/J1 Adapter
 1e0f  KIOXIA Corporation
@@ -25128,7 +25211,9 @@
 # https://www.medion.com/
 1e39  MEDION AG
 1e3b  DapuStor Corporation
-	0600  NVMe SSD Controller DPU600
+	0600  NVMe SSD Controller DP600
+		1e3b 0010  Enterprise NVMe SSD U.2 3.84TB (R5102)
+		1e3b 0013  Enterprise NVMe SSD U.2 3.20TB (R5302)
 		1e3b 0030  Enterprise NVMe SSD U.2 3.84TB (J5100)
 		1e3b 0031  Enterprise NVMe SSD U.2 7.68TB (J5100)
 		1e3b 0032  Enterprise NVMe SSD U.2 15.36TB (J5100)
@@ -25137,8 +25222,14 @@
 		1e3b 0035  Enterprise NVMe SSD U.2 12.80TB (J5300)
 		1e3b 0036  Enterprise NVMe SSD AIC 7.68TB (J5110)
 		1e3b 0037  Enterprise NVMe SSD AIC 6.40TB (J5310)
+		1e3b 0038  Enterprise NVMe SSD U.2 3.84TB (J5100D)
+		1e3b 0039  Enterprise NVMe SSD U.2 7.68TB (J5100D)
+		1e3b 003b  Enterprise NVMe SSD U.2 3.20TB (J5300D)
+		1e3b 003c  Enterprise NVMe SSD U.2 6.40TB (J5300D)
 		1e3b 003e  Enterprise NVMe SSD AIC 3.84TB (J5110)
 		1e3b 003f  Enterprise NVMe SSD AIC 3.20TB (J5310)
+		1e3b 004c  Enterprise NVMe SSD U.2 QDP 1.92TB (J5100)
+		1e3b 004d  Enterprise NVMe SSD U.2 QDP 1.60TB (J5300)
 		1e3b 0050  Enterprise NVMe SSD U.2 3.84TB (R5100)
 		1e3b 0051  Enterprise NVMe SSD U.2 7.68TB (R5100)
 		1e3b 0052  Enterprise NVMe SSD U.2 15.36TB (R5100)
@@ -25151,13 +25242,17 @@
 		1e3b 0061  Enterprise NVMe SSD U.2 7.68TB (R5100D)
 		1e3b 0063  Enterprise NVMe SSD U.2 3.20TB (R5300D)
 		1e3b 0064  Enterprise NVMe SSD U.2 6.40TB (R5300D)
+		1e3b 0066  Enterprise NVMe SSD U.2 3.84TB (R5101D)
+		1e3b 0069  Enterprise NVMe SSD U.2 3.20TB (R5301D)
+		1e3b 006c  Enterprise NVMe SSD U.2 1.92TB (R5101)
+		1e3b 006d  Enterprise NVMe SSD U.2 1.60TB (J5301)
 		1e3b 00f0  Enterprise NVMe SSD U.2 0.40TB (X2900)
 		1e3b 00f1  Enterprise NVMe SSD U.2 0.80TB (X2900)
 		1e3b 00f2  Enterprise NVMe SSD U.2 1.60TB (X2900)
 		1e3b 00f3  Enterprise NVMe SSD U.2 3.20TB (X2900)
 		1e3b 00f5  Enterprise NVMe SSD U.2 0.40TB (X2900P)
 		1e3b 00f6  Enterprise NVMe SSD U.2 0.80TB (X2900P)
-	1098  Haishen NVMe SSD
+	1098  Haishen3 NVMe SSD
 		1e3b 0001  Enterprise NVMe SSD U.2 0.8TB (H2100)
 		1e3b 0002  Enterprise NVMe SSD U.2 0.96TB (H2200)
 		1e3b 0004  Enterprise NVMe SSD U.2 1.6TB (H2100)
@@ -25188,6 +25283,7 @@
 		1e3b 008a  Enterprise NVMe SSD HHHL 0.8TB (H3900)
 		1e3b 008b  Enterprise NVMe SSD HHHL 1.6TB (H3900)
 		1e3b 0091  Enterprise NVMe SSD HHHL 0.75TB (H3900)
+	1333  Haishen5 NVMe SSD
 1e3d  Burlywood, Inc
 1e44  Valve Software
 1e49  Yangtze Memory Technologies Co.,Ltd
@@ -25224,7 +25320,8 @@
 1e7b  Dataland
 1e7c  Brainchip Inc
 	bca1  AKD1000 Neural Network Coprocessor [Akida]
-1e7e  9034 Pliops-Data Processor [XDP1.0]
+1e7e  Pliops
+	9034  Pliops Extreme Data Processor [XDP1.0]
 1e7f  Jiangsu Huacun Elec. Tech. Co., Ltd.
 1e81  Ramaxel Technology(Shenzhen) Limited
 	1203  NVMe SSD Controller UHXXXa series
@@ -25373,7 +25470,7 @@
 		1f2f 6116  KM560 U.2 3.84TB NVMe SSD
 		1f2f 6118  KM560 U.2 7.68TB NVMe SSD
 1f3f  3SNIC Ltd
-	2100  SSSRAID SAS/SATA HBA
+	2100  SSSHBA SAS/SATA HBA
 		1f3f 0120  HBA 32 Ports
 		1f3f 0125  HBA 40 Ports
 		1f3f 0180  HBA 16 Ports
@@ -28540,6 +28637,8 @@
 	159a  Ethernet Controller E810-XXV for QSFP
 	159b  Ethernet Controller E810-XXV for SFP
 		1137 02be  E810XXVDA2 2x25/10 GbE SFP28 PCIe NIC
+# NIC-ETH660F-3S-2P 2x25GbE SFP28 Network Adapter for OCP 3.0
+		193d 1085  NIC-ETH660F-3S-2P
 		1bd4 0057  Ethernet Network Adapter E810-XXVAM2
 		1bd4 0058  Ethernet Network Adapter E810-XXVAM2 for OCP 3.0
 		1bd4 006e  Ethernet Network Adapter E810-XXVAM2 for BD
@@ -33147,6 +33246,9 @@
 	46c0  AlderLake-M GT1
 	46c1  AlderLake-M [Iris Xe Graphics]
 	46c3  Alder Lake-UP4 GT1 [UHD Graphics]
+	46d0  Alder Lake-N [UHD Graphics]
+	46d1  Alder Lake-N [UHD Graphics]
+	46d2  Alder Lake-N [UHD Graphics]
 	4905  DG1 [Iris Xe MAX Graphics]
 	4906  DG1 [Iris Xe Pod]
 	4907  SG1 [Server GPU SG-18M]
@@ -33680,6 +33782,8 @@
 	7abc  Alder Lake-S PCH PCI Express Root Port #5
 	7abd  Alder Lake-S PCH PCI Express Root Port #6
 	7abf  Alder Lake-S PCH PCI Express Root Port #8
+# As documented in Chipset datasheet
+	7ac8  Alder Lake-S PCH PCI Express Root Port #25
 	7acc  Alder Lake-S PCH Serial IO I2C Controller #0
 	7acd  Alder Lake-S PCH Serial IO I2C Controller #1
 	7ace  Alder Lake-S PCH Serial IO I2C Controller #2
@@ -34752,6 +34856,8 @@
 	a3eb  Comet Lake PCI Express Root Port #21
 	a3f0  Comet Lake PCH-V cAVS
 	a620  6400/6402 Advanced Memory Buffer (AMB)
+	a720  Raptor Lake-P [UHD Graphics]
+	a721  Raptor Lake-P [UHD Graphics]
 	a77f  Volume Management Device NVMe RAID Controller Intel Corporation
 	a780  Raptor Lake-S GT1 [UHD Graphics 770]
 	a781  Raptor Lake-S UHD Graphics
@@ -34761,6 +34867,10 @@
 	a789  Raptor Lake-S UHD Graphics
 	a78a  Raptor Lake-S UHD Graphics
 	a78b  Raptor Lake-S UHD Graphics
+	a7a0  Raptor Lake-P [Iris Xe Graphics]
+	a7a1  Raptor Lake-P [Iris Xe Graphics]
+	a7a8  Raptor Lake-P [UHD Graphics]
+	a7a9  Raptor Lake-P [UHD Graphics]
 	abc0  Omni-Path Fabric Switch Silicon 100 Series
 	ad0b  Volume Management Device NVMe RAID Controller Intel Corporation
 	b152  21152 PCI-to-PCI Bridge
