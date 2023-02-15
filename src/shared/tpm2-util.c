@@ -373,6 +373,13 @@ bool tpm2_test_parms(Tpm2Context *c, TPMI_ALG_PUBLIC alg, const TPMU_PUBLIC_PARM
         return rc == TSS2_RC_SUCCESS;
 }
 
+static inline bool tpm2_supports_tpmt_public(Tpm2Context *c, const TPMT_PUBLIC *public) {
+        assert(c);
+        assert(public);
+
+        return tpm2_test_parms(c, public->type, &public->parameters);
+}
+
 static inline bool tpm2_supports_tpmt_sym_def_object(Tpm2Context *c, const TPMT_SYM_DEF_OBJECT *parameters) {
         assert(c);
         assert(parameters);
@@ -814,6 +821,108 @@ static int tpm2_get_legacy_template(TPMI_ALG_PUBLIC alg, TPMT_PUBLIC *ret_templa
         return 0;
 }
 
+/* Get a Storage Root Key (SRK) template.
+ *
+ * The SRK template values are recommended by the "TCG TPM v2.0 Provisioning Guidance" document in section
+ * 7.5.1 "Storage Primary Key (SRK) Templates", referencing "TCG EK Credential Profile for TPM Family 2.0".
+ * The EK Credential Profile version 2.0 provides only a single template each for RSA and ECC, while later EK
+ * Credential Profile versions provide more templates, and keep the original templates as "L-1" (for RSA) and
+ * "L-2" (for ECC).
+ *
+ * https://trustedcomputinggroup.org/resource/tcg-tpm-v2-0-provisioning-guidance
+ * https://trustedcomputinggroup.org/resource/http-trustedcomputinggroup-org-wp-content-uploads-tcg-ek-credential-profile
+ *
+ * These templates are only needed to create a new persistent SRK (or a new transient key that is
+ * SRK-compatible). Preferably, the TPM should contain a shared SRK located at the reserved shared SRK handle
+ * (see TPM2_SRK_HANDLE and tpm2_get_srk() below).
+ *
+ * The alg must be TPM2_ALG_RSA or TPM2_ALG_ECC. Returns error if the requested template is not supported on
+ * this TPM. */
+static int tpm2_get_srk_template(Tpm2Context *c, TPMI_ALG_PUBLIC alg, TPMT_PUBLIC *ret_template) {
+        /* The attributes are the same between ECC and RSA templates. This has the changes specified in the
+         * Provisioning Guidance document, specifically:
+         * TPMA_OBJECT_USERWITHAUTH is added.
+         * TPMA_OBJECT_ADMINWITHPOLICY is removed.
+         * TPMA_OBJECT_NODA is added. */
+        const TPMA_OBJECT srk_attributes = (
+                        TPMA_OBJECT_DECRYPT |
+                        TPMA_OBJECT_FIXEDPARENT |
+                        TPMA_OBJECT_FIXEDTPM |
+                        TPMA_OBJECT_NODA |
+                        TPMA_OBJECT_RESTRICTED |
+                        TPMA_OBJECT_SENSITIVEDATAORIGIN |
+                        TPMA_OBJECT_USERWITHAUTH);
+
+        /* The symmetric configuration is the same between ECC and RSA templates. */
+        const TPMT_SYM_DEF_OBJECT srk_symmetric = {
+                .algorithm = TPM2_ALG_AES,
+                .keyBits.aes = 128,
+                .mode.aes = TPM2_ALG_CFB,
+        };
+
+        /* Both templates have an empty authPolicy as specified by the Provisioning Guidance document. */
+
+        /* From the EK Credential Profile template "L-2". */
+        const TPMT_PUBLIC srk_ecc = {
+                .type = TPM2_ALG_ECC,
+                .nameAlg = TPM2_ALG_SHA256,
+                .objectAttributes = srk_attributes,
+                .parameters.eccDetail = {
+                        .symmetric = srk_symmetric,
+                        .scheme.scheme = TPM2_ALG_NULL,
+                        .curveID = TPM2_ECC_NIST_P256,
+                        .kdf.scheme = TPM2_ALG_NULL,
+                },
+        };
+
+        /* From the EK Credential Profile template "L-1". */
+        const TPMT_PUBLIC srk_rsa = {
+                .type = TPM2_ALG_RSA,
+                .nameAlg = TPM2_ALG_SHA256,
+                .objectAttributes = srk_attributes,
+                .parameters.rsaDetail = {
+                        .symmetric = srk_symmetric,
+                        .scheme.scheme = TPM2_ALG_NULL,
+                        .keyBits = 2048,
+                },
+        };
+
+        assert(c);
+        assert(ret_template);
+
+        if (alg == TPM2_ALG_ECC) {
+                if (!tpm2_supports_alg(c, TPM2_ALG_ECC))
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "TPM does not support ECC.");
+
+                if (!tpm2_supports_ecc_curve(c, srk_ecc.parameters.eccDetail.curveID))
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "TPM does not support ECC-NIST-P256 curve.");
+
+                if (!tpm2_supports_tpmt_public(c, &srk_ecc))
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "TPM does not support SRK ECC template L-2.");
+
+                *ret_template = srk_ecc;
+                return 0;
+        }
+
+        if (alg == TPM2_ALG_RSA) {
+                if (!tpm2_supports_alg(c, TPM2_ALG_RSA))
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "TPM does not support RSA.");
+
+                if (!tpm2_supports_tpmt_public(c, &srk_rsa))
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "TPM does not support SRK RSA template L-1.");
+
+                *ret_template = srk_rsa;
+                return 0;
+        }
+
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsupported SRK alg: 0x%x.", alg);
+}
+
 const TPM2B_PUBLIC *tpm2_get_primary_template(Tpm2SRKTemplateFlags flags) {
 
         /*
@@ -901,15 +1010,13 @@ const TPM2B_PUBLIC *tpm2_get_primary_template(Tpm2SRKTemplateFlags flags) {
         return &templ[flags];
 }
 
-/*
- * Why and what is an SRK?
- * TL;DR provides a working space for those without owner auth. The user enrolling
- * the disk may not have access to the TPMs owner hierarchy auth, so they need a
- * working space. This working space is at the defined address of 0x81000001.
- * Details can be found here:
- *   - https://trustedcomputinggroup.org/wp-content/uploads/TCG-TPM-v2.0-Provisioning-Guidance-Published-v1r1.pdf
- */
-#define SRK_HANDLE UINT32_C(0x81000001)
+/* The SRK handle is defined in the Provisioning Guidance document (see above) in the table "Reserved Handles
+ * for TPM Provisioning Fundamental Elements". The SRK is useful because it is "shared", meaning it has no
+ * authValue nor authPolicy set, and thus may be used by anyone on the system to generate derived keys or
+ * seal secrets. This is useful if the TPM has an auth (password) set for the 'owner hierarchy', which would
+ * prevent users from generating primary transient keys, unless they knew the owner hierarchy auth. See
+ * the Provisioning Guidance document for more details. */
+#define TPM2_SRK_HANDLE UINT32_C(0x81000001)
 
 /*
  * Retrieves the SRK handle if present. Returns 0 if SRK not present, 1 if present
@@ -928,7 +1035,7 @@ static int tpm2_get_srk(
         assert(c);
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
-        r = tpm2_esys_handle_from_tpm_handle(c, session, SRK_HANDLE, &handle);
+        r = tpm2_esys_handle_from_tpm_handle(c, session, TPM2_SRK_HANDLE, &handle);
         if (r <= 0) /* error or handle not found */
                 return r;
 
@@ -1074,7 +1181,7 @@ static int tpm2_make_primary(
 
         if (use_srk_model) {
                 rc = sym_Esys_EvictControl(c->esys_context, ESYS_TR_RH_OWNER, primary->esys_handle,
-                                ESYS_TR_PASSWORD, ESYS_TR_NONE, ESYS_TR_NONE, SRK_HANDLE, &primary->esys_handle);
+                                ESYS_TR_PASSWORD, ESYS_TR_NONE, ESYS_TR_NONE, TPM2_SRK_HANDLE, &primary->esys_handle);
                 if (rc != TSS2_RC_SUCCESS)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "Failed to persist SRK within TPM: %s", sym_Tss2_RC_Decode(rc));
