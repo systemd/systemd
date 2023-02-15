@@ -65,6 +65,7 @@ basic_sources = files(
         'proc-cmdline.c',
         'process-util.c',
         'procfs-util.c',
+        'psi-util.c',
         'random-util.c',
         'ratelimit.c',
         'recurse-dir.c',
