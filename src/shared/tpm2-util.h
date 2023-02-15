@@ -71,6 +71,8 @@ typedef struct {
         void *tcti_dl;
         TSS2_TCTI_CONTEXT *tcti_context;
         ESYS_CONTEXT *esys_context;
+
+        TPML_PCR_SELECTION capability_pcrs;
 } Tpm2Context;
 
 int tpm2_context_new(const char *device, Tpm2Context **ret_context);
