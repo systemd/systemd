@@ -6,6 +6,7 @@
 #  (at your option) any later version.
 
 # The superuser
+g root    0       -            -
 u root    0:0     "Super User" /root
 
 # The nobody user/group for NFS file systems
