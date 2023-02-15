@@ -912,7 +912,7 @@ static int tpm2_get_legacy_template(TPMI_ALG_PUBLIC alg, TPMT_PUBLIC *ret_templa
  * (see TPM2_SRK_HANDLE and tpm2_get_srk() below).
  *
  * The alg must be TPM2_ALG_RSA or TPM2_ALG_ECC. Returns error if the requested template is not supported on
- * this TPM. */
+ * this TPM. Also see tpm2_get_best_srk_template() below. */
 static int tpm2_get_srk_template(Tpm2Context *c, TPMI_ALG_PUBLIC alg, TPMT_PUBLIC *ret_template) {
         /* The attributes are the same between ECC and RSA templates. This has the changes specified in the
          * Provisioning Guidance document, specifically:
@@ -996,6 +996,16 @@ static int tpm2_get_srk_template(Tpm2Context *c, TPMI_ALG_PUBLIC alg, TPMT_PUBLI
         }
 
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsupported SRK alg: 0x%x.", alg);
+}
+
+/* Get the best supported SRK template. ECC is preferred, then RSA. */
+static int tpm2_get_best_srk_template(Tpm2Context *c, TPMT_PUBLIC *ret_template) {
+        if (tpm2_get_srk_template(c, TPM2_ALG_ECC, ret_template) == 0 ||
+            tpm2_get_srk_template(c, TPM2_ALG_RSA, ret_template) == 0)
+                return 0;
+
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "TPM does not support either SRK template L-1 (RSA) or L-2 (ECC).");
 }
 
 /* The SRK handle is defined in the Provisioning Guidance document (see above) in the table "Reserved Handles
