@@ -74,6 +74,8 @@ typedef struct {
 
         TPML_ALG_PROPERTY capability_algs;
         TPML_PCR_SELECTION capability_pcrs;
+
+        TPMT_SYM_DEF session_symmetric_template;
 } Tpm2Context;
 
 int tpm2_context_new(const char *device, Tpm2Context **ret_context);
