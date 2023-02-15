@@ -651,6 +651,8 @@ static char** sanitize_environment(char **l) {
                         "STATE_DIRECTORY",
                         "WATCHDOG_PID",
                         "WATCHDOG_USEC",
+                        "MEMORY_PRESSURE_WATCH",
+                        "MEMORY_PRESSURE_WRITE",
                         NULL);
 
         /* Let's order the environment alphabetically, just to make it pretty */
@@ -889,6 +891,9 @@ int manager_new(LookupScope scope, ManagerTestRunFlags test_run_flags, Manager *
                 .test_run_flags = test_run_flags,
 
                 .default_oom_policy = OOM_STOP,
+
+                .default_memory_pressure_watch = CGROUP_PRESSURE_WATCH_AUTO,
+                .default_memory_pressure_threshold_usec = USEC_INFINITY,
         };
 
 #if ENABLE_EFI
