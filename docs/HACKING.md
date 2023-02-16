@@ -45,7 +45,7 @@ sufficient to type `mkosi` in the systemd project directory to generate a disk i
 you can boot either in `systemd-nspawn` or in a UEFI-capable VM:
 
 ```sh
-$ mkosi boot
+$ sudo mkosi boot # nspawn still needs sudo for now
 ```
 
 or:
@@ -61,16 +61,6 @@ of cache images that make future builds a lot faster. Note that the `-i` flag
 both instructs mkosi to build cached images if they don't exist yet and to use
 cached images if they already exist so make sure to always specify `-i` if you
 want mkosi to use the cached images.
-
-If you're going to build mkosi images that use the same distribution and release
-that you're currently using, you can speed up the initial mkosi run by having it
-reuse the host's package cache. To do this, create a mkosi override file in
-mkosi.default.d/ (e.g 20-local.conf) and add the following contents:
-
-```
-[Content]
-Cache=<full-path-to-package-manager-cache> # (e.g. /var/cache/dnf)
-```
 
 If you want to do a local build without mkosi, most distributions also provide
 very simple and convenient ways to install all development packages necessary
@@ -103,9 +93,10 @@ $ ninja -C build                  # build it locally, see if everything compiles
 $ meson test -C build             # run some simple regression tests
 $ cd ..
 $ git clone https://github.com/systemd/mkosi.git
+$ ln -s mkosi/bin/mkosi ~/.local/bin/mkosi # Make sure ~/.local/bin is in $PATH
 $ cd systemd
-$ sudo ../mkosi/bin/mkosi         # build the test image
-$ sudo ../mkosi/bin/mkosi boot    # boot up the test image
+$ mkosi                           # build the test image
+$ mkosi qemu                      # boot up the test image in qemu
 $ git add -p                      # interactively put together your patch
 $ git commit                      # commit it
 $ git push -u <REMOTE>            # where REMOTE is your "fork" on GitHub
