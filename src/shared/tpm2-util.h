@@ -80,8 +80,6 @@ Tpm2Handle *tpm2_handle_free(Tpm2Handle *handle);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Tpm2Handle*, tpm2_handle_free);
 #define _cleanup_tpm2_handle_ _cleanup_(tpm2_handle_freep)
 
-void tpm2_pcr_mask_to_selection(uint32_t mask, uint16_t bank, TPML_PCR_SELECTION *ret);
-
 static inline void Esys_Freep(void *p) {
         if (*(void**) p)
                 sym_Esys_Free(*(void**) p);
@@ -92,6 +90,9 @@ int tpm2_get_good_pcr_banks_strv(Tpm2Context *c, uint32_t pcr_mask, char ***ret)
 
 int tpm2_extend_bytes(Tpm2Context *c, char **banks, unsigned pcr_index, const void *data, size_t data_size, const void *secret, size_t secret_size);
 
+TPML_PCR_SELECTION tpm2_tpml_pcr_selection_from_mask(uint32_t mask, TPMI_ALG_HASH hash);
+uint32_t tpm2_tpml_pcr_selection_to_mask(const TPML_PCR_SELECTION *l, TPMI_ALG_HASH hash);
+
 #else /* HAVE_TPM2 */
 typedef struct {} Tpm2Context;
 typedef struct {} Tpm2Handle;
@@ -100,13 +101,13 @@ typedef struct {} Tpm2Handle;
 int tpm2_list_devices(void);
 int tpm2_find_device_auto(int log_level, char **ret);
 
-int tpm2_parse_pcrs(const char *s, uint32_t *ret);
-
 int tpm2_make_pcr_json_array(uint32_t pcr_mask, JsonVariant **ret);
 int tpm2_parse_pcr_json_array(JsonVariant *v, uint32_t *ret);
 
 int tpm2_make_luks2_json(int keyslot, uint32_t hash_pcr_mask, uint16_t pcr_bank, const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, uint16_t primary_alg, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, const void *salt, size_t salt_size, TPM2Flags flags, JsonVariant **ret);
 int tpm2_parse_luks2_json(JsonVariant *v, int *ret_keyslot, uint32_t *ret_hash_pcr_mask, uint16_t *ret_pcr_bank, void **ret_pubkey, size_t *ret_pubkey_size, uint32_t *ret_pubkey_pcr_mask, uint16_t *ret_primary_alg, void **ret_blob, size_t *ret_blob_size, void **ret_policy_hash, size_t *ret_policy_hash_size, void **ret_salt, size_t *ret_salt_size, TPM2Flags *ret_flags);
+
+#define FOREACH_PCR_IN_MASK(pcr, mask) BIT_FOREACH(pcr, mask)
 
 #define TPM2_PCRS_MAX 24U
 
@@ -149,6 +150,9 @@ int tpm2_hash_alg_from_string(const char *alg);
 const char *tpm2_asym_alg_to_string(uint16_t alg);
 int tpm2_asym_alg_from_string(const char *alg);
 
+char *tpm2_pcr_mask_to_string(uint32_t mask);
+int tpm2_pcr_mask_from_string(const char *arg, uint32_t *mask);
+
 typedef struct {
         uint32_t search_pcr_mask;
         const char *device;
@@ -172,8 +176,6 @@ int tpm2_parse_pcr_argument(const char *arg, uint32_t *mask);
 
 int tpm2_load_pcr_signature(const char *path, JsonVariant **ret);
 int tpm2_load_pcr_public_key(const char *path, void **ret_pubkey, size_t *ret_pubkey_size);
-
-int pcr_mask_to_string(uint32_t mask, char **ret);
 
 int tpm2_util_pbkdf2_hmac_sha256(const void *pass,
                     size_t passlen,
