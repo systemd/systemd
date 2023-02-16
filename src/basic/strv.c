@@ -77,20 +77,26 @@ char** strv_free_erase(char **l) {
         return mfree(l);
 }
 
-char** strv_copy(char * const *l) {
+char** strv_copy_n(char * const *l, size_t m) {
         _cleanup_strv_free_ char **result = NULL;
         char **k;
 
-        result = new(char*, strv_length(l) + 1);
+        result = new(char*, MIN(strv_length(l), m) + 1);
         if (!result)
                 return NULL;
 
         k = result;
         STRV_FOREACH(i, l) {
+                if (m == 0)
+                        break;
+
                 *k = strdup(*i);
                 if (!*k)
                         return NULL;
                 k++;
+
+                if (m != SIZE_MAX)
+                        m--;
         }
 
         *k = NULL;

@@ -954,4 +954,44 @@ TEST(strv_extend_join) {
         assert_se(streq(v[1], "ABC=QER"));
 }
 
+TEST(strv_copy_n) {
+        char **x = STRV_MAKE("a", "b", "c", "d", "e");
+        _cleanup_strv_free_ char **l = NULL;
+
+        l = strv_copy_n(x, 0);
+        assert_se(strv_equal(l, NULL));
+        strv_free(l);
+
+        l = strv_copy_n(x, 0);
+        assert_se(strv_equal(l, (char**) { NULL }));
+        strv_free(l);
+
+        l = strv_copy_n(x, 1);
+        assert_se(strv_equal(l, STRV_MAKE("a")));
+        strv_free(l);
+
+        l = strv_copy_n(x, 2);
+        assert_se(strv_equal(l, STRV_MAKE("a", "b")));
+        strv_free(l);
+
+        l = strv_copy_n(x, 3);
+        assert_se(strv_equal(l, STRV_MAKE("a", "b", "c")));
+        strv_free(l);
+
+        l = strv_copy_n(x, 4);
+        assert_se(strv_equal(l, STRV_MAKE("a", "b", "c", "d")));
+        strv_free(l);
+
+        l = strv_copy_n(x, 5);
+        assert_se(strv_equal(l, STRV_MAKE("a", "b", "c", "d", "e")));
+        strv_free(l);
+
+        l = strv_copy_n(x, 6);
+        assert_se(strv_equal(l, STRV_MAKE("a", "b", "c", "d", "e")));
+        strv_free(l);
+
+        l = strv_copy_n(x, SIZE_MAX);
+        assert_se(strv_equal(l, STRV_MAKE("a", "b", "c", "d", "e")));
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
