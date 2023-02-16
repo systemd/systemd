@@ -208,6 +208,15 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
         --sync</command> command to trigger journal synchronization, and wait for the operation to
         complete.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term>SIGRTMIN+2</term>
+
+        <listitem><para>Request to stop writing to <filename>/var/log/journal</filename>. Any further log data will be
+        written to <filename>/run/log/journal</filename>. This is a reverse operation to <constant>SIGUSR1</constant>.
+        Use the <command>journalctl --relinquish-var</command> command to trigger this, and wait for the operation to
+        complete.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
