@@ -1,0 +1,216 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-syscfg"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-syscfg</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-syscfg</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-syscfg</refname>
+    <refname>systemd-syscfg.service</refname>
+    <refpurpose>Activates System Configuration Images</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-syscfg</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">COMMAND</arg>
+    </cmdsynopsis>
+
+    <para><literallayout><filename>systemd-syscfg.service</filename></literallayout></para>
+
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>The <command>systemd-syscfg</command> concept follows the same principle as the
+    <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    functionality. While <command>sysext</command> allows to extend the host filesystem (or a unit’s)
+    at runtime with signed images that add new files to <filename>/usr</filename> and <filename>/opt</filename>,
+    using OverlayFS, <command>syscfg</command> will extend only <filename>/etc</filename>.</para>
+
+    <para>And just like <command>sysext</command>, <command>syscfg</command> will be supported at
+    the host level (e.g.: to update <filename>/etc/foo</filename>), at the system service level and
+    at the portable service level. In the latter two cases, the update will happen only inside the
+    private namespace of the relevant units. A new <varname>ConfigurationImages=</varname> setting
+    will be added for this, which follows the same model as <varname>ExtensionImages=</varname>,
+    minus the <filename>extension-release</filename> detail.</para>
+
+    <para><command>syscfg</command> volumes will support signed dm-verity, as <command>sysext</command>
+    volumes already do, both with split artifacts <filename>(.raw, .verity, .roothash, .roothash.p7s)</filename>,
+    and in GPT volumes.</para>
+
+    <para>Host-wide images will be loaded from specific directories in <filename>/var</filename>,
+    <filename>/etc</filename> and <filename>/run</filename>, like <command>sysext</command>. For units
+    there will be a new unit setting that points to an individual image or to a directory containing
+    multiple images, which can be located where desired.</para>
+
+    <para>The image names will follow the same rules as the <command>sysext</command> images, with an
+    addition: <emphasis>unit-specific</emphasis> <command>syscfg</command> will need to be prefixed with
+    the unit's name. The images will contain a <filename>/etc/syscfg-release.d/syscfg-release</filename>,
+    which must match the image name (with the usual escape hatch of <literal>xattr</literal>), and with content being
+    one or more of <varname>ID</varname>, <varname>VERSION_ID</varname>, and <varname>SYSCFG_LEVEL</varname>.
+    Config images will then be checked and matched against the base OS layer.</para>
+
+    <para>The <command>systemd-sysext</command> tools will be made multi-call, and when called with
+    <command>systemd-syscfg</command>, it will work on <emphasis>syscfg</emphasis> images instead of
+    <emphasis>sysext</emphasis> images.</para>
+
+    <para>The <command>systemctl</command> <option>reload</option>, <option>try-reload-or-restart</option>,
+    etc., verbs (and equivalent D-Bus APIs) will be enhanced to set up the new overlay for each unit, if a
+    unit-specific new volume is found, before sending the <option>reload</option>/<option>restart</option> signal
+    when the image is deployed.</para>
+
+    <para>Versioning will be fully supported, following the same model used by <command>systemd-boot</command> and
+    <command>systemd-importd</command>. Following the RPM version comparison specification, the newest version of
+    each image will be loaded automatically when a directory is specified. For a rollback, it will happen automatically
+    if the service fails after a <option>try-reload-or-restart</option>. For rollback protection, we have the dm-verity
+    hash blocklist mechanism that is already used for all other verity images. The forthcoming TPM-based counter could
+    also be used for this, after it has been implemented for UKIs (Unified Kernel Images).</para>
+
+    <para>Files and directories contained in the configuration images outside of the <filename>/etc/</filename>
+    hierarchy are <emphasis>not</emphasis> merged, and hence have no effect when included in the image.</para>
+
+    <para>System configuration images may be provided in the following formats:</para>
+
+    <orderedlist>
+      <listitem><para>Plain directories or btrfs subvolumes containing the OS tree</para></listitem>
+      <listitem><para>Disk images with a GPT disk label, following the <ulink
+      url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions Specification</ulink></para></listitem>
+      <listitem><para>Disk images lacking a partition table, with a naked Linux file system (e.g. erofs,
+      squashfs or ext4)</para></listitem>
+    </orderedlist>
+
+    <para>These image formats are the same ones that
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    supports via its <option>--directory=</option>/<option>--image=</option> switches and those that the
+    service manager supports via <option>RootDirectory=</option>/<option>RootImage=</option>. Similar to
+    them they may optionally carry Verity authentication information.</para>
+
+    <para>System configurations are automatically looked for in the directories
+    <filename>/etc/syscfgs/</filename>, <filename>/run/syscfgs/</filename>,
+    <filename>/var/lib/syscfgs/</filename>, <filename>/usr/lib/syscfgs/</filename> and
+    <filename>/usr/local/lib/syscfgs/</filename>. The first two listed directories are not suitable for
+    carrying large binary images, however are still useful for carrying symlinks to them. The primary place
+    for installing system extensions is <filename>/var/lib/syscfgs/</filename>. Any directories found in
+    these search directories are considered directory based configuration images, any files with the
+    <filename>.raw</filename> suffix are considered disk image based configuration images.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Uses</title>
+
+    <para>The OSConfig project aims to perform runtime reconfiguration of OS services. Sometimes, there is a need
+    to swap certain configuration parameter values or restart only a specific service without deployment of
+    new code or a complete OS deployment. In other words, we want to be able to tie the most frequently
+    configured options to runtime updateable flags that can be changed without a system reboot. This will help
+    reduce servicing times when there is a need for changing the OS configuration.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <para>Similar to the <command>systemd-sysext></command> case, the following commands are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>status</option></term>
+
+        <listitem><para>When invoked without any command verb, or when <option>status</option> is specified
+        the current merge status is shown for <filename>/etc/</filename>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>merge</option></term>
+        <listitem><para>Merges all currently installed system configuration images into
+        <filename>/etc</filename>, by overmounting this hierarchy with an <literal>overlayfs</literal>
+        file system combining the underlying hierarchy with those included in the configuration images.
+        This command will fail if the hierarchy is already merged.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>unmerge</option></term>
+        <listitem><para>Unmerges all currently installed system configuration images from
+        <filename>/etc/</filename>, by unmounting the <literal>overlayfs</literal> file systems
+        created by <option>merge</option> prior.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>refresh</option></term>
+        <listitem><para>A combination of <option>unmerge</option> and <option>merge</option>: if already
+        mounted the existing <literal>overlayfs</literal> instance is unmounted temporarily, and then
+        replaced by a new version. This command is useful after installing/removing system configuration images,
+        in order to update the <literal>overlayfs</literal> file system accordingly. If no images are installed
+        when this command is executed, the equivalent of <option>unmerge</option> is executed, without establishing
+        any new <literal>overlayfs</literal> instance. Note that currently there's a brief moment where neither the
+        old nor the new <literal>overlayfs</literal> file system is mounted. This implies that all resources
+        supplied by a system extension will briefly disappear — even if it exists continuously during the
+        refresh operation.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>list</option></term>
+
+        <listitem><para>A brief list of installed configuraion images is shown.</para></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--root=</option></term>
+
+        <listitem><para>Operate relative to the specified root directory, i.e. establish the
+        <literal>overlayfs</literal> mount not on the top-level host <filename>/etc/</filename>
+        hierarchy, but below some specified root directory.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--force</option></term>
+
+        <listitem><para>When merging system extensions into <filename>/etc/</filename>, ignore version
+        incompatibilities, i.e. force merging regardless of whether the version information included in
+        the configuration images matches the host or not.</para></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="json" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>
