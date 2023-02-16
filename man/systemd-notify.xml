@@ -25,6 +25,9 @@
     <cmdsynopsis>
       <command>systemd-notify <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt" rep="repeat">VARIABLE=VALUE</arg></command>
     </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-notify --exec <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt" rep="repeat">VARIABLE=VALUE</arg> ; <arg rep="repeat">CMDLINE</arg></command>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
@@ -172,6 +175,20 @@
         the invoking process is directly spawned by the service manager and has enough privileges to allow
         <command>systemd-notify</command> to send the notification on its behalf. Sending notifications with
         this option set is prone to race conditions in all other cases.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--exec</option></term>
+
+        <listitem><para>If specified <command>systemd-notify</command> will execute another command line
+        after it completed its operation, replacing its own process. If used, the list of assignments to
+        include in the message sent must be followed by a <literal>;</literal> character (as separate
+        argument), followed by the command line to execute. This permits "chaining" of commands, i.e. issuing
+        one operation, followed immediately by another, without changing PIDs.</para>
+
+        <para>Note that many shells interpret <literal>;</literal> as their own separator for command lines,
+        hence when <command>systemd-notify</command> is invoked from a shell the semicolon must usually be
+        escaped as <literal>\;</literal>.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />
