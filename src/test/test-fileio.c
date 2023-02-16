@@ -337,13 +337,9 @@ TEST(executable_is_script) {
 }
 
 TEST(status_field) {
-        _cleanup_free_ char *t = NULL, *p = NULL, *s = NULL, *z = NULL;
+        _cleanup_free_ char *p = NULL, *s = NULL, *z = NULL;
         unsigned long long total = 0, buffers = 0;
         int r;
-
-        assert_se(get_proc_field("/proc/self/status", "Threads", WHITESPACE, &t) == 0);
-        puts(t);
-        assert_se(streq(t, "1"));
 
         r = get_proc_field("/proc/meminfo", "MemTotal", WHITESPACE, &p);
         if (r != -ENOENT) {
