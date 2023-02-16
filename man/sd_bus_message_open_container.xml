@@ -93,7 +93,7 @@
     <function>sd_bus_message_exit_container()</function> may only be called after iterating through all
     members of the container, i.e. reading or skipping them. Use
     <citerefentry><refentrytitle>sd_bus_message_skip</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    to skip over felds of a container in order to be able to exit the container with
+    to skip over fields of a container in order to be able to exit the container with
     <function>sd_bus_message_exit_container()</function> without reading all members.</para>
   </refsect1>
 
