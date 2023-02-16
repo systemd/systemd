@@ -226,6 +226,7 @@ typedef struct Partition {
 
         char *format;
         char **copy_files;
+        char **exclude_files;
         char **make_directories;
         EncryptMode encrypt;
         VerityMode verity;
@@ -369,6 +370,7 @@ static Partition* partition_free(Partition *p) {
 
         free(p->format);
         strv_free(p->copy_files);
+        strv_free(p->exclude_files);
         strv_free(p->make_directories);
         free(p->verity_match_key);
 
@@ -395,6 +397,7 @@ static void partition_foreignize(Partition *p) {
 
         p->format = mfree(p->format);
         p->copy_files = strv_free(p->copy_files);
+        p->exclude_files = strv_free(p->exclude_files);
         p->make_directories = strv_free(p->make_directories);
         p->verity_match_key = mfree(p->verity_match_key);
 
@@ -1386,6 +1389,43 @@ static int config_parse_copy_files(
         return 0;
 }
 
+static int config_parse_exclude_files(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        _cleanup_free_ char *resolved = NULL;
+        char ***exclude_files = ASSERT_PTR(data);
+        int r;
+
+        if (isempty(rvalue)) {
+                *exclude_files = strv_free(*exclude_files);
+                return 0;
+        }
+
+        r = specifier_printf(rvalue, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, NULL, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to expand specifiers in ExcludeFiles= path, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        r = path_simplify_and_warn(resolved, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+        if (r < 0)
+                return 0;
+
+        if (strv_consume(exclude_files, TAKE_PTR(resolved)) < 0)
+                return log_oom();
+
+        return 0;
+}
+
 static int config_parse_copy_blocks(
                 const char *unit,
                 const char *filename,
@@ -1553,30 +1593,31 @@ static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_minimize, minimize_mod
 static int partition_read_definition(Partition *p, const char *path, const char *const *conf_file_dirs) {
 
         ConfigTableItem table[] = {
-                { "Partition", "Type",            config_parse_type,        0, &p->type              },
-                { "Partition", "Label",           config_parse_label,       0, &p->new_label         },
-                { "Partition", "UUID",            config_parse_uuid,        0, p                     },
-                { "Partition", "Priority",        config_parse_int32,       0, &p->priority          },
-                { "Partition", "Weight",          config_parse_weight,      0, &p->weight            },
-                { "Partition", "PaddingWeight",   config_parse_weight,      0, &p->padding_weight    },
-                { "Partition", "SizeMinBytes",    config_parse_size4096,    1, &p->size_min          },
-                { "Partition", "SizeMaxBytes",    config_parse_size4096,   -1, &p->size_max          },
-                { "Partition", "PaddingMinBytes", config_parse_size4096,    1, &p->padding_min       },
-                { "Partition", "PaddingMaxBytes", config_parse_size4096,   -1, &p->padding_max       },
-                { "Partition", "FactoryReset",    config_parse_bool,        0, &p->factory_reset     },
-                { "Partition", "CopyBlocks",      config_parse_copy_blocks, 0, p                     },
-                { "Partition", "Format",          config_parse_fstype,      0, &p->format            },
-                { "Partition", "CopyFiles",       config_parse_copy_files,  0, &p->copy_files        },
-                { "Partition", "MakeDirectories", config_parse_make_dirs,   0, p                     },
-                { "Partition", "Encrypt",         config_parse_encrypt,     0, &p->encrypt           },
-                { "Partition", "Verity",          config_parse_verity,      0, &p->verity            },
-                { "Partition", "VerityMatchKey",  config_parse_string,      0, &p->verity_match_key  },
-                { "Partition", "Flags",           config_parse_gpt_flags,   0, &p->gpt_flags         },
-                { "Partition", "ReadOnly",        config_parse_tristate,    0, &p->read_only         },
-                { "Partition", "NoAuto",          config_parse_tristate,    0, &p->no_auto           },
-                { "Partition", "GrowFileSystem",  config_parse_tristate,    0, &p->growfs            },
-                { "Partition", "SplitName",       config_parse_string,      0, &p->split_name_format },
-                { "Partition", "Minimize",        config_parse_minimize,    0, &p->minimize          },
+                { "Partition", "Type",            config_parse_type,          0, &p->type              },
+                { "Partition", "Label",           config_parse_label,         0, &p->new_label         },
+                { "Partition", "UUID",            config_parse_uuid,          0, p                     },
+                { "Partition", "Priority",        config_parse_int32,         0, &p->priority          },
+                { "Partition", "Weight",          config_parse_weight,        0, &p->weight            },
+                { "Partition", "PaddingWeight",   config_parse_weight,        0, &p->padding_weight    },
+                { "Partition", "SizeMinBytes",    config_parse_size4096,      1, &p->size_min          },
+                { "Partition", "SizeMaxBytes",    config_parse_size4096,     -1, &p->size_max          },
+                { "Partition", "PaddingMinBytes", config_parse_size4096,      1, &p->padding_min       },
+                { "Partition", "PaddingMaxBytes", config_parse_size4096,     -1, &p->padding_max       },
+                { "Partition", "FactoryReset",    config_parse_bool,          0, &p->factory_reset     },
+                { "Partition", "CopyBlocks",      config_parse_copy_blocks,   0, p                     },
+                { "Partition", "Format",          config_parse_fstype,        0, &p->format            },
+                { "Partition", "CopyFiles",       config_parse_copy_files,    0, &p->copy_files        },
+                { "Partition", "ExcludeFiles",    config_parse_exclude_files, 0, &p->exclude_files     },
+                { "Partition", "MakeDirectories", config_parse_make_dirs,     0, p                     },
+                { "Partition", "Encrypt",         config_parse_encrypt,       0, &p->encrypt           },
+                { "Partition", "Verity",          config_parse_verity,        0, &p->verity            },
+                { "Partition", "VerityMatchKey",  config_parse_string,        0, &p->verity_match_key  },
+                { "Partition", "Flags",           config_parse_gpt_flags,     0, &p->gpt_flags         },
+                { "Partition", "ReadOnly",        config_parse_tristate,      0, &p->read_only         },
+                { "Partition", "NoAuto",          config_parse_tristate,      0, &p->no_auto           },
+                { "Partition", "GrowFileSystem",  config_parse_tristate,      0, &p->growfs            },
+                { "Partition", "SplitName",       config_parse_string,        0, &p->split_name_format },
+                { "Partition", "Minimize",        config_parse_minimize,      0, &p->minimize          },
                 {}
         };
         int r;
@@ -3969,15 +4010,16 @@ static int partition_populate_filesystem(Partition *p, const char *node, const S
         return 0;
 }
 
-static int make_copy_files_denylist(Context *context, Set **ret) {
+static int make_copy_files_denylist(Context *context, const Partition *p, Set **ret) {
         _cleanup_set_free_ Set *denylist = NULL;
         int r;
 
         assert(context);
+        assert(p);
         assert(ret);
 
-        LIST_FOREACH(partitions, p, context->partitions) {
-                const char *sources = gpt_partition_type_mountpoint_nulstr(p->type);
+        LIST_FOREACH(partitions, q, context->partitions) {
+                const char *sources = gpt_partition_type_mountpoint_nulstr(q->type);
                 if (!sources)
                         continue;
 
@@ -4005,23 +4047,42 @@ static int make_copy_files_denylist(Context *context, Set **ret) {
                 }
         }
 
+        STRV_FOREACH(e, p->exclude_files) {
+                _cleanup_free_ char *d = NULL;
+                struct stat st;
+
+                r = chase_symlinks_and_stat(*e, arg_root, CHASE_PREFIX_ROOT, NULL, &st, NULL);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to stat source file '%s%s': %m",
+                                                strempty(arg_root), *e);
+
+                if (set_contains(denylist, &st))
+                        continue;
+
+                d = memdup(&st, sizeof(st));
+                if (!d)
+                        return log_oom();
+                if (set_ensure_put(&denylist, &inode_hash_ops, d) < 0)
+                        return log_oom();
+
+                TAKE_PTR(d);
+        }
+
         *ret = TAKE_PTR(denylist);
         return 0;
 }
 
 static int context_mkfs(Context *context) {
-        _cleanup_set_free_ Set *denylist = NULL;
         int r;
 
         assert(context);
 
         /* Make a file system */
 
-        r = make_copy_files_denylist(context, &denylist);
-        if (r < 0)
-                return r;
-
         LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_set_free_ Set *denylist = NULL;
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
                 _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
 
@@ -4044,6 +4105,10 @@ static int context_mkfs(Context *context) {
                 assert(p->offset != UINT64_MAX);
                 assert(p->new_size != UINT64_MAX);
                 assert(p->new_size >= (p->encrypt != ENCRYPT_OFF ? LUKS2_METADATA_KEEP_FREE : 0));
+
+                r = make_copy_files_denylist(context, p, &denylist);
+                if (r < 0)
+                        return r;
 
                 /* If we're doing encryption, we make sure we keep free space at the end which is required
                  * for cryptsetup's offline encryption. */
@@ -5327,21 +5392,17 @@ static int fd_apparent_size(int fd, uint64_t *ret) {
 }
 
 static int context_minimize(Context *context) {
-        _cleanup_set_free_ Set *denylist = NULL;
         const char *vt;
         int r;
 
         assert(context);
-
-        r = make_copy_files_denylist(context, &denylist);
-        if (r < 0)
-                return r;
 
         r = var_tmp_dir(&vt);
         if (r < 0)
                 return log_error_errno(r, "Could not determine temporary directory: %m");
 
         LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_set_free_ Set *denylist = NULL;
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
                 _cleanup_(unlink_and_freep) char *temp = NULL;
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
@@ -5365,6 +5426,10 @@ static int context_minimize(Context *context) {
                         continue;
 
                 assert(!p->copy_blocks_path);
+
+                r = make_copy_files_denylist(context, p, &denylist);
+                if (r < 0)
+                        return r;
 
                 r = tempfn_random_child(vt, "repart", &temp);
                 if (r < 0)

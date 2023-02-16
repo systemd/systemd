@@ -839,7 +839,7 @@ EOF
     systemd-dissect -U "$imgs/mnt"
 }
 
-test_issue_24786() {
+test_exclude_files() {
     local defs imgs root output
 
     defs="$(runas testuser mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
@@ -851,6 +851,7 @@ test_issue_24786() {
     runas testuser touch "$root/abc"
     runas testuser mkdir "$root/usr"
     runas testuser touch "$root/usr/def"
+    runas testuser touch "$root/usr/qed"
 
     runas testuser tee "$defs/00-root.conf" <<EOF
 [Partition]
@@ -862,6 +863,7 @@ EOF
 [Partition]
 Type=usr-${architecture}
 CopyFiles=/usr:/
+ExcludeFiles=/usr/qed
 EOF
 
     output=$(runas testuser systemd-repart --definitions="$defs" \
@@ -881,13 +883,17 @@ EOF
     loop=$(losetup -P --show -f "$imgs/zzz")
     udevadm wait --timeout 60 --settle "${loop:?}"
 
+    # Test that the /usr directory did not end up in the root partition but other files did.
     mkdir "$imgs/mnt"
     mount -t ext4 "${loop}p1" "$imgs/mnt"
     assert_rc 0 ls "$imgs/mnt/abc"
     assert_rc 2 ls "$imgs/mnt/usr"
+
+    # Test that the qed file did not end up in the usr partition but other files did.
     mkdir "$imgs/mnt/usr"
     mount -t ext4 "${loop}p2" "$imgs/mnt/usr"
     assert_rc 0 ls "$imgs/mnt/usr/def"
+    assert_rc 2 ls "$imgs/mnt/usr/qed"
 
     umount -R "$imgs/mnt"
     losetup -d "$loop"
@@ -1015,7 +1021,7 @@ test_issue_21817
 test_issue_24553
 test_zero_uuid
 test_verity
-test_issue_24786
+test_exclude_files
 test_minimize
 
 # Valid block sizes on the Linux block layer are >= 512 and <= PAGE_SIZE, and
