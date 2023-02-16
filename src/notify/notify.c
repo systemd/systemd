@@ -31,6 +31,11 @@ static bool arg_booted = false;
 static uid_t arg_uid = UID_INVALID;
 static gid_t arg_gid = GID_INVALID;
 static bool arg_no_block = false;
+static char **arg_env = NULL;
+static char **arg_exec = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_env, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_exec, strv_freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -41,6 +46,7 @@ static int help(void) {
                 return log_oom();
 
         printf("%s [OPTIONS...] [VARIABLE=VALUE...]\n"
+               "%s [OPTIONS...] --exec [VARIABLE=VALUE...] ; CMDLINE...\n"
                "\n%sNotify the init system about service status updates.%s\n\n"
                "  -h --help            Show this help\n"
                "     --version         Show package version\n"
@@ -53,7 +59,9 @@ static int help(void) {
                "     --status=TEXT     Set status text\n"
                "     --booted          Check if the system was booted up with systemd\n"
                "     --no-block        Do not wait until operation finished\n"
+               "     --exec            Execute command line separated by ';' once done\n"
                "\nSee the %s for details.\n",
+               program_invocation_short_name,
                program_invocation_short_name,
                ansi_highlight(),
                ansi_normal(),
@@ -93,7 +101,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_STATUS,
                 ARG_BOOTED,
                 ARG_UID,
-                ARG_NO_BLOCK
+                ARG_NO_BLOCK,
+                ARG_EXEC,
         };
 
         static const struct option options[] = {
@@ -107,10 +116,12 @@ static int parse_argv(int argc, char *argv[]) {
                 { "booted",    no_argument,       NULL, ARG_BOOTED    },
                 { "uid",       required_argument, NULL, ARG_UID       },
                 { "no-block",  no_argument,       NULL, ARG_NO_BLOCK  },
+                { "exec",      no_argument,       NULL, ARG_EXEC      },
                 {}
         };
 
-        int c, r;
+        bool do_exec = false;
+        int c, r, n_env;
 
         assert(argc >= 0);
         assert(argv);
@@ -183,6 +194,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_no_block = true;
                         break;
 
+                case ARG_EXEC:
+                        do_exec = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -200,6 +215,32 @@ static int parse_argv(int argc, char *argv[]) {
             !arg_booted) {
                 help();
                 return -EINVAL;
+        }
+
+        if (do_exec) {
+                int i;
+
+                for (i = optind; i < argc; i++)
+                        if (streq(argv[i], ";"))
+                                break;
+
+                if (i >= argc)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "If --exec is used argument list must contain ';' separator, refusing.");
+                if (i+1 == argc)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Empty command line specified after ';' separator, refusing");
+
+                arg_exec = strv_copy_n(argv + i + 1, argc - i - 1);
+                if (!arg_exec)
+                        return log_oom();
+
+                n_env = i - optind;
+        } else
+                n_env = argc - optind;
+
+        if (n_env > 0) {
+                arg_env = strv_copy_n(argv + optind, n_env);
+                if (!arg_env)
+                        return log_oom();
         }
 
         return 1;
@@ -263,7 +304,7 @@ static int run(int argc, char* argv[]) {
 
         our_env[i++] = NULL;
 
-        final_env = strv_env_merge(our_env, argv + optind);
+        final_env = strv_env_merge(our_env, arg_env);
         if (!final_env)
                 return log_oom();
 
@@ -311,6 +352,18 @@ static int run(int argc, char* argv[]) {
                 if (r == 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "No status data could be sent: $NOTIFY_SOCKET was not set");
+        }
+
+        if (arg_exec) {
+                _cleanup_free_ char *cmdline = NULL;
+
+                execvp(arg_exec[0], arg_exec);
+
+                cmdline = strv_join(arg_exec, " ");
+                if (!cmdline)
+                        return log_oom();
+
+                return log_error_errno(errno, "Failed to execute command line: %s", cmdline);
         }
 
         return 0;

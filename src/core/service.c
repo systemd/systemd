@@ -4596,12 +4596,12 @@ static void service_reset_failed(Unit *u) {
         s->flush_n_restarts = false;
 }
 
-static int service_kill(Unit *u, KillWho who, int signo, sd_bus_error *error) {
+static int service_kill(Unit *u, KillWho who, int signo, int code, int value, sd_bus_error *error) {
         Service *s = SERVICE(u);
 
         assert(s);
 
-        return unit_kill_common(u, who, signo, s->main_pid, s->control_pid, error);
+        return unit_kill_common(u, who, signo, code, value, s->main_pid, s->control_pid, error);
 }
 
 static int service_main_pid(Unit *u) {
