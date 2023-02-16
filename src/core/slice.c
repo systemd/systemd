@@ -247,8 +247,8 @@ static int slice_stop(Unit *u) {
         return 1;
 }
 
-static int slice_kill(Unit *u, KillWho who, int signo, sd_bus_error *error) {
-        return unit_kill_common(u, who, signo, -1, -1, error);
+static int slice_kill(Unit *u, KillWho who, int signo, int code, int value, sd_bus_error *error) {
+        return unit_kill_common(u, who, signo, code, value, -1, -1, error);
 }
 
 static int slice_serialize(Unit *u, FILE *f, FDSet *fds) {
