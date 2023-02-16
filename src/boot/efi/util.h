@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <efi.h>
-#include <efilib.h>
-#include <stddef.h>
-
+#include "efi.h"
 #include "log.h"
+#include "proto-file-io.h"
 #include "string-util-fundamental.h"
 
 static inline void free(void *p) {
@@ -112,16 +110,6 @@ static inline void unload_imagep(EFI_HANDLE *image) {
         if (*image)
                 (void) BS->UnloadImage(*image);
 }
-
-/* Creates a EFI_GUID pointer suitable for EFI APIs. Use of const allows the compiler to merge multiple
- * uses (although, currently compilers do that regardless). Most EFI APIs declare their EFI_GUID input
- * as non-const, but almost all of them are in fact const. */
-#define MAKE_GUID_PTR(name) ((EFI_GUID *) &(const EFI_GUID) name##_GUID)
-
-/* These allow MAKE_GUID_PTR() to work without requiring an extra _GUID in the passed name. We want to
- * keep the GUID definitions in line with the UEFI spec. */
-#define EFI_GLOBAL_VARIABLE_GUID EFI_GLOBAL_VARIABLE
-#define EFI_FILE_INFO_GUID EFI_FILE_INFO_ID
 
 /*
  * Allocated random UUID, intended to be shared across tools that implement

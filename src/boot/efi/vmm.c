@@ -1,14 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <efi.h>
-#include <efilib.h>
-#include <stdbool.h>
 #if defined(__i386__) || defined(__x86_64__)
 #  include <cpuid.h>
 #endif
 
 #include "drivers.h"
 #include "efi-string.h"
+#include "proto-device-path.h"
 #include "string-util-fundamental.h"
 #include "util.h"
 
@@ -153,6 +151,11 @@ static bool cpuid_in_hypervisor(void) {
 
         return false;
 }
+
+#define SMBIOS_TABLE_GUID \
+        GUID_DEF(0xeb9d2d31, 0x2d88, 0x11d3, 0x9a, 0x16, 0x00, 0x90, 0x27, 0x3f, 0xc1, 0x4d)
+#define SMBIOS3_TABLE_GUID \
+        GUID_DEF(0xf2fd1544, 0x9794, 0x4a2c, 0x99, 0x2e, 0xe5, 0xbb, 0xcf, 0x20, 0xe3, 0x94)
 
 typedef struct {
         uint8_t anchor_string[4];

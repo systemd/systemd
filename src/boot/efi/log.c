@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <efi.h>
-#include <efilib.h>
-
 #include "log.h"
+#include "proto-simple-text-io.h"
 
 static unsigned log_count = 0;
 
@@ -20,7 +18,7 @@ EFI_STATUS log_internal(EFI_STATUS status, const char *format, ...) {
 
         if (ST->ConOut->Mode->CursorColumn > 0)
                 ST->ConOut->OutputString(ST->ConOut, (char16_t *) u"\r\n");
-        ST->ConOut->SetAttribute(ST->ConOut, EFI_LIGHTRED | EFI_BACKGROUND_BLACK);
+        ST->ConOut->SetAttribute(ST->ConOut, EFI_TEXT_ATTR(EFI_LIGHTRED, EFI_BLACK));
 
         va_list ap;
         va_start(ap, format);
