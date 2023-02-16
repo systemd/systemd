@@ -795,9 +795,14 @@ TEST(set_oom_score_adjust) {
 }
 
 static void* dummy_thread(void *p) {
+        int fd = PTR_TO_FD(p);
         char x;
 
-        assert_se(read(PTR_TO_FD(p), &x, 1) == 1);
+        /* let main thread know we are ready */
+        assert_se(write(fd, &(const char) { 'x' }, 1) == 1);
+
+        /* wait for the main thread to tell us to shut down */
+        assert_se(read(fd, &x, 1) == 1);
         return NULL;
 }
 
@@ -811,14 +816,17 @@ TEST(get_process_threads) {
         if (r == 0) {
                 _cleanup_close_pair_ int pfd[2] = PIPE_EBADF, ppfd[2] = PIPE_EBADF;
                 pthread_t t, tt;
+                char x;
 
-                assert_se(pipe2(pfd, O_CLOEXEC) >= 0);
-                assert_se(pipe2(ppfd, O_CLOEXEC) >= 0);
+                assert_se(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, pfd) >= 0);
+                assert_se(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, ppfd) >= 0);
 
                 assert_se(get_process_threads(0) == 1);
                 assert_se(pthread_create(&t, NULL, &dummy_thread, FD_TO_PTR(pfd[0])) == 0);
+                assert_se(read(pfd[1], &x, 1) == 1);
                 assert_se(get_process_threads(0) == 2);
                 assert_se(pthread_create(&tt, NULL, &dummy_thread, FD_TO_PTR(ppfd[0])) == 0);
+                assert_se(read(ppfd[1], &x, 1) == 1);
                 assert_se(get_process_threads(0) == 3);
 
                 assert_se(write(pfd[1], &(const char) { 'x' }, 1) == 1);
