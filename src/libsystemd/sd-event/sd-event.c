@@ -1101,7 +1101,9 @@ static sd_event_source *source_new(sd_event *e, bool floating, EventSourceType t
         assert(type < _SOURCE_EVENT_SOURCE_TYPE_MAX);
         assert(size_table[type] > 0);
 
-        s = malloc0(size_table[type]);
+        /* We use expand_to_usable() here to tell gcc that it should consider this an object of the full
+         * size, even if we only allocate the initial part we need. */
+        s = expand_to_usable(malloc0(size_table[type]), sizeof(sd_event_source));
         if (!s)
                 return NULL;
 
