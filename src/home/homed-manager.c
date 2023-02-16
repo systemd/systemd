@@ -18,6 +18,7 @@
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
 #include "clean-ipc.h"
+#include "common-signal.h"
 #include "conf-files.h"
 #include "device-util.h"
 #include "dirent-util.h"
@@ -225,6 +226,15 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
+        r = sd_event_add_memory_pressure(m->event, &m->memory_pressure_event_source, NULL, NULL);
+        if (r < 0)
+                log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r) || (r == -EHOSTDOWN) ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to allocate memory pressure watch, ignoring: %m");
+
+        r = sd_event_add_signal(m->event, &m->memory_pressure_event_source, SIGRTMIN+18, sigrtmin18_handler, NULL);
+        if (r < 0)
+                return r;
+
         (void) sd_event_set_watchdog(m->event, true);
 
         m->homes_by_uid = hashmap_new(&homes_by_uid_hash_ops);
@@ -266,6 +276,8 @@ Manager* manager_free(Manager *m) {
         m->deferred_gc_event_source = sd_event_source_unref(m->deferred_gc_event_source);
         m->deferred_auto_login_event_source = sd_event_source_unref(m->deferred_auto_login_event_source);
         m->rebalance_event_source = sd_event_source_unref(m->rebalance_event_source);
+        m->memory_pressure_event_source = sd_event_source_unref(m->memory_pressure_event_source);
+        m->sigrtmin18_event_source = sd_event_source_unref(m->sigrtmin18_event_source);
 
         m->event = sd_event_unref(m->event);
 
