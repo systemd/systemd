@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <efi.h>
-#include <efilib.h>
-
 #include "graphics.h"
+#include "proto-graphics-output.h"
 #include "splash.h"
 #include "util.h"
 
