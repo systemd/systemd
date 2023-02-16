@@ -28,3 +28,8 @@ int read_resource_pressure(const char *path, PressureType type, ResourcePressure
 
 /* Was the kernel compiled with CONFIG_PSI=y? 1 if yes, 0 if not, negative on error. */
 int is_pressure_supported(void);
+
+/* Default parameters for memory pressure watch logic in sd-event and PID 1 */
+#define MEMORY_PRESSURE_DEFAULT_TYPE "some"
+#define MEMORY_PRESSURE_DEFAULT_THRESHOLD_USEC (100 * USEC_PER_MSEC)
+#define MEMORY_PRESSURE_DEFAULT_WINDOW_USEC USEC_PER_SEC
