@@ -53,6 +53,7 @@ static TSS2_RC (*sym_Esys_ReadPublic)(ESYS_CONTEXT *esysContext, ESYS_TR objectH
 static TSS2_RC (*sym_Esys_StartAuthSession)(ESYS_CONTEXT *esysContext, ESYS_TR tpmKey, ESYS_TR bind, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_NONCE *nonceCaller, TPM2_SE sessionType, const TPMT_SYM_DEF *symmetric, TPMI_ALG_HASH authHash, ESYS_TR *sessionHandle) = NULL;
 static TSS2_RC (*sym_Esys_Startup)(ESYS_CONTEXT *esysContext, TPM2_SU startupType) = NULL;
 static TSS2_RC (*sym_Esys_TestParms)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPMT_PUBLIC_PARMS *parameters) = NULL;
+static TSS2_RC (*sym_Esys_TR_Close)(ESYS_CONTEXT *esys_context, ESYS_TR *rsrc_handle) = NULL;
 static TSS2_RC (*sym_Esys_TR_Deserialize)(ESYS_CONTEXT *esys_context, uint8_t const *buffer, size_t buffer_size, ESYS_TR *esys_handle) = NULL;
 static TSS2_RC (*sym_Esys_TR_FromTPMPublic)(ESYS_CONTEXT *esysContext, TPM2_HANDLE tpm_handle, ESYS_TR optionalSession1, ESYS_TR optionalSession2, ESYS_TR optionalSession3, ESYS_TR *object) = NULL;
 static TSS2_RC (*sym_Esys_TR_GetName)(ESYS_CONTEXT *esysContext, ESYS_TR handle, TPM2B_NAME **name) = NULL;
@@ -100,6 +101,7 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Esys_StartAuthSession),
                         DLSYM_ARG(Esys_Startup),
                         DLSYM_ARG(Esys_TestParms),
+                        DLSYM_ARG(Esys_TR_Close),
                         DLSYM_ARG(Esys_TR_Deserialize),
                         DLSYM_ARG(Esys_TR_FromTPMPublic),
                         DLSYM_ARG(Esys_TR_GetName),
@@ -237,6 +239,9 @@ static int tpm2_capability_alg(Tpm2Context *c, TPM2_ALG_ID alg, TPMA_ALGORITHM *
         return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "TPM does not support alg 0x%02x.", alg);
 }
 #define tpm2_supports_alg(c, alg) (tpm2_capability_alg(c, alg, NULL) == 0)
+
+#define tpm2_handle_range(h) ((TPM2_HANDLE)((h) & TPM2_HR_RANGE_MASK))
+#define tpm2_handle_type(h) ((TPM2_HT)(tpm2_handle_range(h) >> TPM2_HR_SHIFT))
 
 /* This returns an array of populated handles in the TPM, starting at the requested handle. The number of
  * handles will be no more than the 'max' number requested. This will not search past the end of the
@@ -501,17 +506,22 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
         return 0;
 }
 
-static void tpm2_handle_flush(ESYS_CONTEXT *esys_context, ESYS_TR esys_handle) {
+static void tpm2_handle_cleanup(ESYS_CONTEXT *esys_context, ESYS_TR esys_handle, bool flush) {
+        TSS2_RC rc;
+
         if (!esys_context || esys_handle == ESYS_TR_NONE)
                 return;
 
-        TSS2_RC rc = sym_Esys_FlushContext(esys_context, esys_handle);
+        if (flush)
+                rc = sym_Esys_FlushContext(esys_context, esys_handle);
+        else
+                rc = sym_Esys_TR_Close(esys_context, &esys_handle);
         if (rc != TSS2_RC_SUCCESS) /* We ignore failures here (besides debug logging), since this is called
                                     * in error paths, where we cannot do anything about failures anymore. And
                                     * when it is called in successful codepaths by this time we already did
                                     * what we wanted to do, and got the results we wanted so there's no
                                     * reason to make this fail more loudly than necessary. */
-                log_debug("Failed to flush TPM handle, ignoring: %s", sym_Tss2_RC_Decode(rc));
+                log_debug("Failed to %s TPM handle, ignoring: %s", flush ? "flush" : "close", sym_Tss2_RC_Decode(rc));
 }
 
 Tpm2Handle *tpm2_handle_free(Tpm2Handle *handle) {
@@ -519,8 +529,8 @@ Tpm2Handle *tpm2_handle_free(Tpm2Handle *handle) {
                 return NULL;
 
         _cleanup_(tpm2_context_unrefp) Tpm2Context *context = (Tpm2Context*)handle->tpm2_context;
-        if (context && !handle->keep)
-                tpm2_handle_flush(context->esys_context, handle->esys_handle);
+        if (context)
+                tpm2_handle_cleanup(context->esys_context, handle->esys_handle, !handle->no_flush);
 
         return mfree(handle);
 }
@@ -542,6 +552,80 @@ int tpm2_handle_new(Tpm2Context *context, Tpm2Handle **ret_handle) {
         *ret_handle = TAKE_PTR(handle);
 
         return 0;
+}
+
+/* Create a Tpm2Handle object that references a pre-existing handle in the TPM, at the TPM2_HANDLE address
+ * provided. This should be used only for persistent, transient, or NV handles. Returns 1 on success, 0 if
+ * the requested handle is not present in the TPM, or < 0 on error. */
+static int tpm2_esys_handle_from_tpm_handle(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                TPM2_HANDLE tpm_handle,
+                Tpm2Handle **ret_handle) {
+
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+        assert(tpm_handle > 0);
+        assert(ret_handle);
+
+        /* Let's restrict this, at least for now, to allow only some handle types. */
+        switch (tpm2_handle_type(tpm_handle)) {
+        case TPM2_HT_PERSISTENT:
+        case TPM2_HT_NV_INDEX:
+        case TPM2_HT_TRANSIENT:
+                break;
+        case TPM2_HT_PCR:
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Refusing to create ESYS handle for PCR handle 0x%08x.",
+                                       tpm_handle);
+        case TPM2_HT_HMAC_SESSION:
+        case TPM2_HT_POLICY_SESSION:
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Refusing to create ESYS handle for session handle 0x%08x.",
+                                       tpm_handle);
+        case TPM2_HT_PERMANENT: /* Permanent handles are defined, e.g. ESYS_TR_RH_OWNER. */
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Refusing to create ESYS handle for permanent handle 0x%08x.",
+                                       tpm_handle);
+        default:
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Refusing to create ESYS handle for unknown handle 0x%08x.",
+                                       tpm_handle);
+        }
+
+        r = tpm2_get_capability_handle(c, tpm_handle);
+        if (r < 0)
+                return r;
+        if (!r) {
+                log_debug("TPM handle 0x%08x not populated.", tpm_handle);
+                return 0;
+        }
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        r = tpm2_handle_new(c, &handle);
+        if (r < 0)
+                return r;
+
+        /* Since we didn't create this handle in the TPM (this is only creating an ESYS_TR handle for the
+         * pre-existing TPM handle), we shouldn't flush (or evict) it on cleanup. */
+        handle->no_flush = true;
+
+        rc = sym_Esys_TR_FromTPMPublic(
+                        c->esys_context,
+                        tpm_handle,
+                        session ? session->esys_handle : ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        &handle->esys_handle);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to read public info: %s", sym_Tss2_RC_Decode(rc));
+
+        *ret_handle = TAKE_PTR(handle);
+
+        return 1;
 }
 
 #define TPM2_CREDIT_RANDOM_FLAG_PATH "/run/systemd/tpm-rng-credited"
@@ -707,60 +791,25 @@ const TPM2B_PUBLIC *tpm2_get_primary_template(Tpm2SRKTemplateFlags flags) {
  */
 static int tpm2_get_srk(
                 Tpm2Context *c,
+                const Tpm2Handle *session,
                 TPMI_ALG_PUBLIC *ret_alg,
-                Tpm2Handle *ret_primary) {
+                Tpm2Handle **ret_handle) {
 
-        TPMI_YES_NO more_data;
-        ESYS_TR primary_tr = ESYS_TR_NONE;
-        _cleanup_(Esys_Freep) TPMS_CAPABILITY_DATA *cap_data = NULL;
+        int r;
 
         assert(c);
-        assert(ret_primary);
 
-        TSS2_RC rc = sym_Esys_GetCapability(c->esys_context,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        TPM2_CAP_HANDLES,
-                        SRK_HANDLE,
-                        1,
-                        &more_data,
-                        &cap_data);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to enumerate handles searching for SRK: %s",
-                                       sym_Tss2_RC_Decode(rc));
-
-        /* Did Not find SRK, indicate this by returning 0 */
-        if (cap_data->data.handles.count == 0 || cap_data->data.handles.handle[0] != SRK_HANDLE) {
-                ret_primary->esys_handle = ESYS_TR_NONE;
-
-                if (ret_alg)
-                        *ret_alg = 0;
-                return 0;
-        }
-
-        log_debug("Found SRK on TPM.");
-
-        /* convert the raw handle to an ESYS_TR */
-        TPM2_HANDLE handle = cap_data->data.handles.handle[0];
-        rc = sym_Esys_TR_FromTPMPublic(c->esys_context,
-                        handle,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        &primary_tr);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                        "Failed to convert ray handle to ESYS_TR for SRK: %s",
-                                        sym_Tss2_RC_Decode(rc));
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        r = tpm2_esys_handle_from_tpm_handle(c, session, SRK_HANDLE, &handle);
+        if (r <= 0) /* error or handle not found */
+                return r;
 
         /* Get the algorithm if the caller wants it */
         _cleanup_(Esys_Freep) TPM2B_PUBLIC *out_public = NULL;
         if (ret_alg) {
-                rc = sym_Esys_ReadPublic(
+                TSS2_RC rc = sym_Esys_ReadPublic(
                                 c->esys_context,
-                                primary_tr,
+                                handle->esys_handle,
                                 ESYS_TR_NONE,
                                 ESYS_TR_NONE,
                                 ESYS_TR_NONE,
@@ -773,7 +822,8 @@ static int tpm2_get_srk(
                                                 sym_Tss2_RC_Decode(rc));
         }
 
-        ret_primary->esys_handle = primary_tr;
+        if (ret_handle)
+                *ret_handle = TAKE_PTR(handle);
 
         if (ret_alg)
                  *ret_alg = out_public->publicArea.type;
@@ -806,9 +856,6 @@ static int tpm2_make_primary(
         ts = now(CLOCK_MONOTONIC);
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *primary = NULL;
-        r = tpm2_handle_new(c, &primary);
-        if (r < 0)
-                return r;
 
         /* we only need the SRK lock when making the SRK since its not atomic, transient
          * primary creations don't even matter if they stomp on each other, the TPM will
@@ -823,7 +870,7 @@ static int tpm2_make_primary(
         /* Find existing SRK and use it if present */
         if (use_srk_model) {
                 TPMI_ALG_PUBLIC got_alg = TPM2_ALG_NULL;
-                r = tpm2_get_srk(c, &got_alg, primary);
+                r = tpm2_get_srk(c, NULL, &got_alg, &primary);
                 if (r < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "Failed to establish if SRK is present");
@@ -842,6 +889,10 @@ static int tpm2_make_primary(
                 }
                 log_debug("Did not find SRK, generating...");
         }
+
+        r = tpm2_handle_new(c, &primary);
+        if (r < 0)
+                return r;
 
         if (IN_SET(alg, 0, TPM2_ALG_ECC)) {
                 primary_template = tpm2_get_primary_template(base_flags | TPM2_SRK_TEMPLATE_ECC);
@@ -913,7 +964,7 @@ static int tpm2_make_primary(
                 if (rc != TSS2_RC_SUCCESS)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "Failed to persist SRK within TPM: %s", sym_Tss2_RC_Decode(rc));
-                primary->keep = true;
+                primary->no_flush = true;
         }
 
         if (ret_primary)
@@ -2899,7 +2950,7 @@ int tpm2_unseal(const char *device,
                 if (r < 0)
                         return r;
 
-                primary->keep = true;
+                primary->no_flush = true;
 
                 log_debug("Found existing SRK key to use, deserializing ESYS_TR");
                 rc = sym_Esys_TR_Deserialize(
