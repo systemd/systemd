@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <linux/oom.h>
+#include <pthread.h>
 #include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
@@ -791,6 +792,45 @@ TEST(set_oom_score_adjust) {
         assert_se(set_oom_score_adjust(a) >= 0);
         assert_se(get_oom_score_adjust(&b) >= 0);
         assert_se(b == a);
+}
+
+static void* dummy_thread(void *p) {
+        char x;
+
+        assert_se(read(PTR_TO_FD(p), &x, 1) == 1);
+        return NULL;
+}
+
+TEST(get_process_threads) {
+        int r;
+
+        /* Run this test in a child, so that we can guarantee there's exactly one thread around in the child */
+        r = safe_fork("(nthreads)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_REOPEN_LOG|FORK_WAIT|FORK_LOG, NULL);
+        assert_se(r >= 0);
+
+        if (r == 0) {
+                _cleanup_close_pair_ int pfd[2] = PIPE_EBADF, ppfd[2] = PIPE_EBADF;
+                pthread_t t, tt;
+
+                assert_se(pipe2(pfd, O_CLOEXEC) >= 0);
+                assert_se(pipe2(ppfd, O_CLOEXEC) >= 0);
+
+                assert_se(get_process_threads(0) == 1);
+                assert_se(pthread_create(&t, NULL, &dummy_thread, FD_TO_PTR(pfd[0])) == 0);
+                assert_se(get_process_threads(0) == 2);
+                assert_se(pthread_create(&tt, NULL, &dummy_thread, FD_TO_PTR(ppfd[0])) == 0);
+                assert_se(get_process_threads(0) == 3);
+
+                assert_se(write(pfd[1], &(const char) { 'x' }, 1) == 1);
+                assert_se(pthread_join(t, NULL) == 0);
+                assert_se(get_process_threads(0) == 2);
+
+                assert_se(write(ppfd[1], &(const char) { 'x' }, 1) == 1);
+                assert_se(pthread_join(tt, NULL) == 0);
+                assert_se(get_process_threads(0) == 1);
+
+                _exit(EXIT_SUCCESS);
+        }
 }
 
 static int intro(void) {
