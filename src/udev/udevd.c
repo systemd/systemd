@@ -31,6 +31,7 @@
 #include "blockdev-util.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
+#include "common-signal.h"
 #include "cpu-set-util.h"
 #include "daemon-util.h"
 #include "dev-setup.h"
@@ -111,6 +112,9 @@ typedef struct Manager {
         sd_event_source *inotify_event;
 
         sd_event_source *kill_workers_event;
+
+        sd_event_source *memory_pressure_event_source;
+        sd_event_source *sigrtmin18_event_source;
 
         usec_t last_usec;
 
@@ -263,6 +267,9 @@ static Manager* manager_free(Manager *manager) {
 
         safe_close(manager->inotify_fd);
         safe_close_pair(manager->worker_watch);
+
+        sd_event_source_unref(manager->memory_pressure_event_source);
+        sd_event_source_unref(manager->sigrtmin18_event_source);
 
         free(manager->cgroup);
         return mfree(manager);
@@ -1918,7 +1925,7 @@ static int main_loop(Manager *manager) {
         udev_watch_restore(manager->inotify_fd);
 
         /* block and listen to all signals on signalfd */
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, SIGHUP, SIGCHLD, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, SIGHUP, SIGCHLD, SIGRTMIN+18, -1) >= 0);
 
         r = sd_event_default(&manager->event);
         if (r < 0)
@@ -1975,6 +1982,16 @@ static int main_loop(Manager *manager) {
         r = sd_event_add_post(manager->event, NULL, on_post, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to create post event source: %m");
+
+        /* Eventually, we probably want to do more here on memory pressure, for example, kill idle workers immediately */
+        r = sd_event_add_memory_pressure(manager->event, &manager->memory_pressure_event_source, NULL, NULL);
+        if (r < 0)
+                log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r) || (r == -EHOSTDOWN) ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to allocate memory pressure watch, ignoring: %m");
+
+        r = sd_event_add_signal(manager->event, &manager->memory_pressure_event_source, SIGRTMIN+18, sigrtmin18_handler, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate SIGRTMIN+18 event source, ignoring: %m");
 
         manager->last_usec = now(CLOCK_MONOTONIC);
 
