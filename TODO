@@ -129,6 +129,10 @@ Deprecations and removals:
 
 Features:
 
+* Add systemd-mount@.service which is instantiated for a block device and
+  invokes systemd-mount and exits. This is then useful to use in
+  ENV{SYSTEMD_WANTS} in udev rules, and a bit prettier than using RUN+=
+
 * sd-journal puts a limit on parallel journal files to view at once. journald
   should probably honour that same limit (JOURNAL_FILES_MAX) when vacuuming to
   ensure we never generate more files than we can actually view.
