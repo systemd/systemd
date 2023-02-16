@@ -91,6 +91,7 @@ struct Server {
         sd_event_source *sigterm_event_source;
         sd_event_source *sigint_event_source;
         sd_event_source *sigrtmin1_event_source;
+        sd_event_source *sigrtmin2_event_source;
         sd_event_source *hostname_event_source;
         sd_event_source *notify_event_source;
         sd_event_source *watchdog_event_source;

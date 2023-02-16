@@ -1709,12 +1709,21 @@ static int dispatch_sigrtmin1(sd_event_source *es, const struct signalfd_siginfo
         return 0;
 }
 
+static int dispatch_sigrtmin2(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
+        Server *s = ASSERT_PTR(userdata);
+
+        log_debug("Received SIGRTMIN2 signal from PID %u, as request to relinquish %s access.", si->ssi_pid, s->system_storage.path);
+        server_relinquish_var(s);
+
+        return 0;
+}
+
 static int server_setup_signals(Server *s) {
         int r;
 
         assert(s);
 
-        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM, SIGUSR1, SIGUSR2, SIGRTMIN+1, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM, SIGUSR1, SIGUSR2, SIGRTMIN+1, SIGRTMIN+2, -1) >= 0);
 
         r = sd_event_add_signal(s->event, &s->sigusr1_event_source, SIGUSR1, dispatch_sigusr1, s);
         if (r < 0)
@@ -1751,6 +1760,10 @@ static int server_setup_signals(Server *s) {
                 return r;
 
         r = sd_event_source_set_priority(s->sigrtmin1_event_source, SD_EVENT_PRIORITY_NORMAL+15);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_signal(s->event, &s->sigrtmin2_event_source, SIGRTMIN+2, dispatch_sigrtmin2, s);
         if (r < 0)
                 return r;
 
@@ -2746,6 +2759,7 @@ void server_done(Server *s) {
         sd_event_source_unref(s->sigterm_event_source);
         sd_event_source_unref(s->sigint_event_source);
         sd_event_source_unref(s->sigrtmin1_event_source);
+        sd_event_source_unref(s->sigrtmin2_event_source);
         sd_event_source_unref(s->hostname_event_source);
         sd_event_source_unref(s->notify_event_source);
         sd_event_source_unref(s->watchdog_event_source);
