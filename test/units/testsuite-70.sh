@@ -140,7 +140,7 @@ if [ -e /usr/lib/systemd/systemd-measure ] && \
     SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 /usr/lib/systemd/systemd-cryptsetup attach test-volume2 $img - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1
     SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 /usr/lib/systemd/systemd-cryptsetup detach test-volume2
 
-    # Check if we can activate that (and a second time with the the token module stuff enabled)
+    # Check if we can activate that (and a second time with the token module stuff enabled)
     SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 /usr/lib/systemd/systemd-cryptsetup attach test-volume2 $img - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1
     SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 /usr/lib/systemd/systemd-cryptsetup detach test-volume2
 

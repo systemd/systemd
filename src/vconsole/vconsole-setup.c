@@ -415,9 +415,10 @@ static int verify_source_vc(char **ret_path, const char *src_vc) {
 int main(int argc, char **argv) {
         _cleanup_free_ char
                 *vc = NULL,
-                *vc_keymap = NULL, *vc_keymap_toggle = NULL,
+                *vc_keymap_alloc = NULL, *vc_keymap_toggle = NULL,
                 *vc_font = NULL, *vc_font_map = NULL, *vc_font_unimap = NULL;
         _cleanup_close_ int fd = -EBADF;
+        const char *vc_keymap;
         bool utf8, keyboard_ok;
         unsigned idx = 0;
         int r;
@@ -437,7 +438,7 @@ int main(int argc, char **argv) {
 
         /* Load data from credentials (lowest priority) */
         r = read_credential_strings_many(
-                        "vconsole.keymap", &vc_keymap,
+                        "vconsole.keymap", &vc_keymap_alloc,
                         "vconsole.keymap_toggle", &vc_keymap_toggle,
                         "vconsole.font", &vc_font,
                         "vconsole.font_map", &vc_font_map,
@@ -447,7 +448,7 @@ int main(int argc, char **argv) {
 
         /* Load data from configuration file (middle priority) */
         r = parse_env_file(NULL, "/etc/vconsole.conf",
-                           "KEYMAP", &vc_keymap,
+                           "KEYMAP", &vc_keymap_alloc,
                            "KEYMAP_TOGGLE", &vc_keymap_toggle,
                            "FONT", &vc_font,
                            "FONT_MAP", &vc_font_map,
@@ -458,7 +459,7 @@ int main(int argc, char **argv) {
         /* Let the kernel command line override /etc/vconsole.conf (highest priority) */
         r = proc_cmdline_get_key_many(
                         PROC_CMDLINE_STRIP_RD_PREFIX,
-                        "vconsole.keymap", &vc_keymap,
+                        "vconsole.keymap", &vc_keymap_alloc,
                         "vconsole.keymap_toggle", &vc_keymap_toggle,
                         "vconsole.font", &vc_font,
                         "vconsole.font_map", &vc_font_map,
@@ -469,6 +470,8 @@ int main(int argc, char **argv) {
                         "vconsole.font.unimap", &vc_font_unimap);
         if (r < 0 && r != -ENOENT)
                 log_warning_errno(r, "Failed to read /proc/cmdline, ignoring: %m");
+
+        vc_keymap = isempty(vc_keymap_alloc) ? SYSTEMD_DEFAULT_KEYMAP : vc_keymap_alloc;
 
         (void) toggle_utf8_sysfs(utf8);
         (void) toggle_utf8_vc(vc, fd, utf8);

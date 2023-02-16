@@ -67,7 +67,7 @@ static int load_etc_machine_info(void) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse KERNEL_INSTALL_MACHINE_ID=%s in /etc/machine-info: %m", s);
 
-                log_debug("Loaded KERNEL_INSTALL_MACHINE_ID=%s from KERNEL_INSTALL_MACHINE_ID in /etc/machine-info.",
+                log_debug("Loaded KERNEL_INSTALL_MACHINE_ID=%s from /etc/machine-info.",
                           SD_ID128_TO_STRING(arg_machine_id));
         }
 
@@ -98,7 +98,7 @@ static int load_etc_kernel_install_conf(void) {
                 return log_error_errno(r, "Failed to parse %s: %m", p);
 
         if (!isempty(layout)) {
-                log_debug("layout=%s is specified in /etc/machine-info.", layout);
+                log_debug("layout=%s is specified in %s.", layout, p);
                 free_and_replace(arg_install_layout, layout);
         }
 

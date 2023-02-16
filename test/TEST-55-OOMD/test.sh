@@ -21,7 +21,8 @@ EOF
         mkdir -p "${initdir:?}/etc/systemd/system/init.scope.d/"
         cat >>"${initdir:?}/etc/systemd/system/init.scope.d/test-55-oomd.conf" <<EOF
 [Scope]
-MemoryHigh=10G
+MemoryHigh=infinity
+StartupMemoryHigh=10G
 EOF
     )
 }

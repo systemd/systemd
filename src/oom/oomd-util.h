@@ -109,7 +109,7 @@ static inline int compare_swap_usage(OomdCGroupContext * const *c1, OomdCGroupCo
  * Returns the number of sorted items; negative on error. */
 int oomd_sort_cgroup_contexts(Hashmap *h, oomd_compare_t compare_func, const char *prefix, OomdCGroupContext ***ret);
 
-/* If the the cgroup is owned by root, or the cgroups represented by `ctx` and
+/* If the cgroup is owned by root, or the cgroups represented by `ctx` and
  * `prefix` are owned by the same user, then set `ctx->preference` using the
  * `user.oomd_avoid` and `user.oomd_omit` xattrs. Otherwise, set
  * `ctx->preference` to MANAGED_OOM_PREFERENCE_NONE.

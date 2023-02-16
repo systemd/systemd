@@ -13,11 +13,6 @@ ExecStart=test %I = foo/bar
 ExecStart=test %j = specifier
 ExecStart=test %J = specifier
 ExecStart=test %f = /foo/bar
-ExecStart=test %t = /run
-ExecStart=test %S = /var/lib
-ExecStart=test %C = /var/cache
-ExecStart=test %L = /var/log
-ExecStart=test %E = /etc
 ExecStart=sh -c 'test %u = $$(id -un)'
 ExecStart=sh -c 'test %U = $$(id -u)'
 ExecStart=sh -c 'test %g = $$(id -gn)'

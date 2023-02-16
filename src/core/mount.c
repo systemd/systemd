@@ -490,6 +490,10 @@ static int mount_add_default_ordering_dependencies(Mount *m, MountParameters *p,
                 after = NULL;
                 before = isempty(e) ? SPECIAL_INITRD_ROOT_FS_TARGET : SPECIAL_INITRD_FS_TARGET;
 
+        } else if (in_initrd() && path_startswith(m->where, "/sysusr/usr")) {
+                after = NULL;
+                before = SPECIAL_INITRD_USR_FS_TARGET;
+
         } else if (mount_is_network(p)) {
                 after = SPECIAL_REMOTE_FS_PRE_TARGET;
                 before = SPECIAL_REMOTE_FS_TARGET;

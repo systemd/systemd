@@ -2744,5 +2744,6 @@ finish:
                  * in scripts and such */
                 r = -ENOENT;
 
+        static_destruct();
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

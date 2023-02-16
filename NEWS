@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 253 in spe:
+CHANGES WITH 253:
 
         Announcements of Future Feature Removals and Incompatible Changes:
 
@@ -85,6 +85,13 @@ CHANGES WITH 253 in spe:
           legacy and thus typically do not receive the same level of security
           support and fixes.
 
+        * The default per-link multicast DNS mode is changed to "yes"
+          (that was previously "no"). As the default global multicast DNS mode
+          has been "yes" (but can be changed by the build option), now the
+          multicast DNS is enabled on all links by default. You can disable the
+          multicast DNS on all links by setting MulticastDNS= in resolved.conf,
+          or on an interface by calling "resolvectl mdns INTERFACE no".
+
         New components:
 
         * A tool 'ukify' tool to build, measure, and sign Unified Kernel Images
@@ -160,7 +167,7 @@ CHANGES WITH 253 in spe:
           yet. (This feature has no security implications, because the code is
           still privileged and can trivially exit the sandbox.)
 
-        * The system manager manager will now parse a new "vmm.notify_socket"
+        * The system manager will now parse a new "vmm.notify_socket"
           system credential, which may be supplied to a VM via SMBIOS. If
           found, the manager will send a "READY=1" notification on the
           specified socket after boot is complete. This allows readiness
@@ -173,7 +180,7 @@ CHANGES WITH 253 in spe:
           with something custom, so this change has limited effect.)
 
         * A new environment variable $SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST
-          can can be used to override the mount units burst late limit for
+          can be used to override the mount units burst late limit for
           parsing '/proc/self/mountinfo', which was introduced in v249.
           Defaults to 5.
 
@@ -627,16 +634,17 @@ CHANGES WITH 253 in spe:
         Gerd Hoffmann, Gio, Hannoskaj, Hans de Goede, Hugo Carvalho,
         igo95862, Ilya Leoshkevich, Ivan Shapovalov, Jacek Migacz,
         Jade Lovelace, Jan Engelhardt, Jan Janssen, Jan Macku, January,
-        Jason A. Donenfeld, jcg, Jelle van der Waa, Jeremy Linton,
-        Jian Zhang, Jiayi Chen, Jia Zhang, Joerg Behrmann, Jörg Thalheim,
-        Joshua Goins, joshuazivkovic, Joshua Zivkovic, Kai-Chuan Hsieh,
-        Khem Raj, Koba Ko, Lennart Poettering, lichao, Li kunyu,
-        Luca Boccassi, Luca BRUNO, Ludwig Nussel, Łukasz Stelmach,
-        Lycowolf, marcel151, Marcus Schäfer, Marek Vasut, Mark Laws,
-        Michael Biebl, Michał Kotyla, Michal Koutný, Michal Sekletár,
-        Mike Yuan, MkfsSion, msizanoen1, mvzlb, MVZ Ludwigsburg, Neil Moore,
-        Nick Rosbrook, noodlejetski, Pasha Vorobyev, Peter Cai, p-fpv,
-        Phaedrus Leeds, Philipp Jungkamp, Quentin Deslandes, Ray Strode,
+        Jason A. Donenfeld, jcg, Jean-Tiare Le Bigot, Jelle van der Waa,
+        Jeremy Linton, Jian Zhang, Jiayi Chen, Jia Zhang, Joerg Behrmann,
+        Jörg Thalheim, Joshua Goins, joshuazivkovic, Joshua Zivkovic,
+        Kai-Chuan Hsieh, Khem Raj, Koba Ko, Lennart Poettering, lichao,
+        Li kunyu, Luca Boccassi, Luca BRUNO, Ludwig Nussel,
+        Łukasz Stelmach, Lycowolf, marcel151, Marcus Schäfer, Marek Vasut,
+        Mark Laws, Michael Biebl, Michał Kotyla, Michal Koutný,
+        Michal Sekletár, Mike Gilbert, Mike Yuan, MkfsSion, ml,
+        msizanoen1, mvzlb, MVZ Ludwigsburg, Neil Moore, Nick Rosbrook,
+        noodlejetski, Pasha Vorobyev, Peter Cai, p-fpv, Phaedrus Leeds,
+        Philipp Jungkamp, Quentin Deslandes, Raul Tambre, Ray Strode,
         reuben olinsky, Richard E. van der Luit, Richard Phibel,
         Ricky Tigg, Robin Humble, rogg, Rudi Heitbaum, Sam James,
         Samuel Cabrero, Samuel Thibault, Siddhesh Poyarekar, Simon Brand,
@@ -648,7 +656,7 @@ CHANGES WITH 253 in spe:
         Zbigniew Jędrzejewski-Szmek, Дамјан Георгиевски,
         наб
 
-        — Warsaw, 2023-02-10
+        — Warsaw, 2023-02-15
 
 CHANGES WITH 252 🎃:
 
@@ -848,7 +856,7 @@ CHANGES WITH 252 🎃:
           (e.g. comparisons for empty strings). Boot counting is now part of
           the main specification.
 
-        * New PCRs measurements are performed during boot: PCR 11 for the the
+        * New PCRs measurements are performed during boot: PCR 11 for the
           kernel+initrd combo, PCR 13 for any sysext images. If a measurement
           took place this is now reported to userspace via the new
           StubPcrKernelImage and StubPcrInitRDSysExts EFI variables.
@@ -1762,7 +1770,7 @@ CHANGES WITH 251:
 
         * A new build-time configuration setting default-user-shell= can be
           used to set the default shell for user records and nspawn shell
-          invocations (instead of of the default /bin/bash).
+          invocations (instead of the default /bin/bash).
 
         * systemd-timesyncd now provides a D-Bus API for receiving NTP server
           information dynamically at runtime via IPC.
@@ -2450,7 +2458,7 @@ CHANGES WITH 250:
           now also owned by the system group "sgx".
 
         * A new build-time meson option "extra-net-naming-schemes=" has been
-          added to define additional naming schemes schemes for udev's network
+          added to define additional naming schemes for udev's network
           interface naming logic. This is useful for enterprise distributions
           and similar which want to pin the schemes of certain distribution
           releases under a specific name and previously had to patch the

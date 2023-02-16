@@ -4318,7 +4318,7 @@ int json_log_internal(
 
 static void *dispatch_userdata(const JsonDispatch *p, void *userdata) {
 
-        /* When the the userdata pointer is passed in as NULL, then we'll just use the offset as a literal
+        /* When the userdata pointer is passed in as NULL, then we'll just use the offset as a literal
          * address, and convert it to a pointer.  Note that might as well just add the offset to the NULL
          * pointer, but UndefinedBehaviourSanitizer doesn't like pointer arithmetics based on NULL pointers,
          * hence we code this explicitly here. */

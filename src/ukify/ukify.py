@@ -441,7 +441,8 @@ def join_initrds(initrds):
     seq = []
     for file in initrds:
         initrd = file.read_bytes()
-        padding = b'\0' * round_up(len(initrd), 4)  # pad to 32 bit alignment
+        n = len(initrd)
+        padding = b'\0' * (round_up(n, 4) - n)  # pad to 32 bit alignment
         seq += [initrd, padding]
 
     return b''.join(seq)
@@ -518,7 +519,7 @@ def make_uki(opts):
     uki = UKI(opts.stub)
     initrd = join_initrds(opts.initrd)
 
-    # TODO: derive public key from from opts.pcr_private_keys?
+    # TODO: derive public key from opts.pcr_private_keys?
     pcrpkey = opts.pcrpkey
     if pcrpkey is None:
         if opts.pcr_public_keys and len(opts.pcr_public_keys) == 1:
@@ -652,7 +653,7 @@ usage: ukify [options…] linux initrd…
 
     p.add_argument('--stub',
                    type=pathlib.Path,
-                   help='path the the sd-stub file [.text,.data,… sections]')
+                   help='path to the sd-stub file [.text,.data,… sections]')
 
     p.add_argument('--section',
                    dest='sections',

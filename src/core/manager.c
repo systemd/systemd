@@ -2994,7 +2994,7 @@ static int manager_dispatch_idle_pipe_fd(sd_event_source *source, int fd, uint32
          * on services that want to own the console exclusively without our interference. */
         m->no_console_output = m->n_on_console > 0;
 
-        /* Acknowledge the child's request, and let all all other children know too that they shouldn't wait
+        /* Acknowledge the child's request, and let all other children know too that they shouldn't wait
          * any longer by closing the pipes towards them, which is what they are waiting for. */
         manager_close_idle_pipe(m);
 
