@@ -5600,7 +5600,6 @@ int exec_context_destroy_runtime_directory(const ExecContext *c, const char *run
 
                         (void) unlink(symlink_abs);
                 }
-
         }
 
         return 0;
