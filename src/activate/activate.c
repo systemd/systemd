@@ -82,10 +82,8 @@ static int open_sockets(int *epoll_fd, bool accept) {
                         return log_error_errno(r, "Failed to close all file descriptors: %m");
         }
 
-        /** Note: we leak some fd's on error here. I doesn't matter
-         *  much, since the program will exit immediately anyway, but
-         *  would be a pain to fix.
-         */
+        /* Note: we leak some fd's on error here. It doesn't matter much, since the program will exit
+         * immediately anyway, but would be a pain to fix. */
 
         STRV_FOREACH(address, arg_listen) {
                 r = make_socket_fd(LOG_DEBUG, *address, arg_socket_type, (arg_accept * SOCK_CLOEXEC));
