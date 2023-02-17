@@ -38,6 +38,22 @@ int bus_property_set_bool(
         return 0;
 }
 
+int bus_property_get_tristate(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        /* Defaults to false. */
+
+        int b = (*(int*) userdata) > 0;
+
+        return sd_bus_message_append_basic(reply, 'b', &b);
+}
+
 int bus_property_get_id128(
                 sd_bus *bus,
                 const char *path,
