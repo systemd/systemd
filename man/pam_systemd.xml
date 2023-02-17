@@ -123,6 +123,22 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>default-capability-bounding-set=</varname></term>
+        <term><varname>default-capability-ambient-set=</varname></term>
+
+        <listitem><para>Takes a comma-separated list of process capabilities
+        (e.g. <constant>CAP_WAKE_ALARM</constant>, <constant>CAP_BLOCK_SUSPEND</constant>, …) to set for the
+        invoked session's processes, if the user record does not encode appropriate sets of capabilities
+        directly. See <citerefentry
+        project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for details on the capabilities concept. If not specified, the default bounding set is left as is
+        (i.e. usually contains the full set of capabilities). The default ambient set is set to
+        <constant>CAP_WAKE_ALARM</constant> for regular users if the PAM session is associated with a local
+        seat or if it is invoked for the <literal>systemd-user</literal> service. Otherwise defaults to the
+        empty set.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>debug</varname><optional>=</optional></term>
 
         <listitem><para>Takes an optional boolean argument. If yes or without the argument, the module will log
