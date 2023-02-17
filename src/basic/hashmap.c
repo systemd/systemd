@@ -298,7 +298,7 @@ void hashmap_trim_pools(void) {
 #if VALGRIND
 _destructor_ static void cleanup_pools(void) {
         /* Be nice to valgrind */
-        hashmap_cleanup_pools();
+        hashmap_trim_pools();
 }
 #endif
 
