@@ -204,6 +204,21 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
                 log_error("TPM bug: reported more algs, ignoring.");
         c->capability_algs = capability.algorithms;
 
+        /* Cache the ECC curve capabilities. Is this safe to cache? The spec isn't clear, but it seems
+         * unlikely any TPM implementation would want to add or remove ECC curve support while running. */
+        r = tpm2_get_capability(
+                        c,
+                        TPM2_CAP_ECC_CURVES,
+                        TPM2_ECC_NONE,
+                        TPM2_MAX_ECC_CURVES,
+                        &more,
+                        &capability);
+        if (r < 0)
+                return r;
+        if (more == TPM2_YES)
+                log_error("TPM bug: reported more ecc curves, ignoring.");
+        c->capability_ecc_curves = capability.eccCurves;
+
         /* Cache the PCR capabilities, which are safe to cache, as the only way they can change is
          * TPM2_PCR_Allocate(), which changes the allocation after the next _TPM_Init(). If the TPM is
          * reinitialized while we are using it, all our context and sessions will be invalid, so we can
@@ -225,6 +240,7 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
 }
 
 #define tpm2_capability_algs(c) ((c)->capability_algs)
+#define tpm2_capability_ecc_curves(c) ((c)->capability_ecc_curves)
 #define tpm2_capability_pcrs(c) ((c)->capability_pcrs)
 
 static int tpm2_capability_alg(Tpm2Context *c, TPM2_ALG_ID alg, TPMA_ALGORITHM *ret) {
@@ -239,6 +255,16 @@ static int tpm2_capability_alg(Tpm2Context *c, TPM2_ALG_ID alg, TPMA_ALGORITHM *
         return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "TPM does not support alg 0x%02x.", alg);
 }
 #define tpm2_supports_alg(c, alg) (tpm2_capability_alg(c, alg, NULL) == 0)
+
+static int tpm2_capability_ecc_curve(Tpm2Context *c, TPM2_ECC_CURVE curve) {
+        TPML_ECC_CURVE curves = tpm2_capability_ecc_curves(c);
+        for (uint32_t i = 0; i < curves.count; i++)
+                if (curves.eccCurves[i] == curve)
+                        return 0;
+
+        return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "TPM does not support ECC curve 0x%02x.", curve);
+}
+#define tpm2_supports_ecc_curve(c, curve) (tpm2_capability_ecc_curve(c, curve) == 0)
 
 #define tpm2_handle_range(h) ((TPM2_HANDLE)((h) & TPM2_HR_RANGE_MASK))
 #define tpm2_handle_type(h) ((TPM2_HT)(tpm2_handle_range(h) >> TPM2_HR_SHIFT))
