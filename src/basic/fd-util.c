@@ -808,6 +808,18 @@ int fd_reopen_condition(
         return new_fd;
 }
 
+int fd_is_opath(int fd) {
+        int r;
+
+        assert(fd >= 0);
+
+        r = fcntl(fd, F_GETFL);
+        if (r < 0)
+                return -errno;
+
+        return FLAGS_SET(r, O_PATH);
+}
+
 int read_nr_open(void) {
         _cleanup_free_ char *nr_open = NULL;
         int r;
