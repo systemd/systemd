@@ -1494,7 +1494,7 @@ static int fork_needed(const SocketAddress *address, const ExecContext *context)
                         return true;
         }
 
-        return context->private_network || context->network_namespace_path;
+        return exec_needs_network_namespace(context);
 }
 
 static int socket_address_listen_in_cgroup(
@@ -1557,7 +1557,7 @@ static int socket_address_listen_in_cgroup(
 
                 pair[0] = safe_close(pair[0]);
 
-                if ((s->exec_context.private_network || s->exec_context.network_namespace_path) &&
+                if (exec_needs_network_namespace(&s->exec_context) &&
                     s->exec_runtime &&
                     s->exec_runtime->netns_storage_socket[0] >= 0) {
 

@@ -2023,6 +2023,12 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
         return 0;
 }
 
+bool exec_needs_network_namespace(const ExecContext *context) {
+        assert(context);
+
+        return context->private_network || context->network_namespace_path;
+}
+
 bool exec_needs_mount_namespace(
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -4822,7 +4828,7 @@ static int exec_child(
                 }
         }
 
-        if ((context->private_network || context->network_namespace_path) && runtime && runtime->netns_storage_socket[0] >= 0) {
+        if (exec_needs_network_namespace(context) && runtime && runtime->netns_storage_socket[0] >= 0) {
 
                 if (ns_type_supported(NAMESPACE_NET)) {
                         r = setup_shareable_ns(runtime->netns_storage_socket, CLONE_NEWNET);
@@ -6840,7 +6846,7 @@ static int exec_runtime_make(
         assert(id);
 
         /* It is not necessary to create ExecRuntime object. */
-        if (!c->private_network && !c->private_ipc && !c->private_tmp && !c->network_namespace_path) {
+        if (!exec_needs_network_namespace(c) && !c->private_ipc && !c->private_tmp) {
                 *ret = NULL;
                 return 0;
         }
@@ -6854,7 +6860,7 @@ static int exec_runtime_make(
                         return r;
         }
 
-        if (c->private_network || c->network_namespace_path) {
+        if (exec_needs_network_namespace(c)) {
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, netns_storage_socket) < 0)
                         return -errno;
         }
