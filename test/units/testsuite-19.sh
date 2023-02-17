@@ -121,7 +121,7 @@ test_scope_unpriv_delegation
 test_threaded
 test_subcgroup "."       ""        ""
 test_subcgroup "my/path" "my/path" "my/path"
-test_subcgroup ""        ""        ".control"
+test_subcgroup ""        ""        ""
 
 echo OK >/testok
 

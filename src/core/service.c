@@ -618,6 +618,22 @@ static int service_verify(Service *s) {
         if (s->exec_context.pam_name && !IN_SET(s->kill_context.kill_mode, KILL_CONTROL_GROUP, KILL_MIXED))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has PAM enabled. Kill mode must be set to 'control-group' or 'mixed'. Refusing.");
 
+        /* If we have a unit where cgroup delegation is on, and the payload created its own populated
+         * subcgroup, then we cannot place the control processes started after the main unit's process in the
+         * unit's main cgroup because it is now an inner one, and inner cgroups may not contain processes.
+         * Note that we do so only for ExecStartPost=, ExecReload=, ExecStop=, ExecStopPost=, i.e. for the
+         * commands where the main process is already forked. For ExecStartPre=, ExecCondition= this is not
+         * necessary, the cgroup should be still empty.
+         * This is only a debug level because effect of inner node constraint depends on whether service
+         * enables any non-threaded controllers in its subtree. We only learn that upon attempt in
+         * exec_child(). */
+        if ((s->cgroup_context.delegate && !s->cgroup_context.delegate_subcgroup) &&
+            (s->exec_command[SERVICE_EXEC_START_POST] ||
+             s->exec_command[SERVICE_EXEC_RELOAD] ||
+             s->exec_command[SERVICE_EXEC_STOP] ||
+             s->exec_command[SERVICE_EXEC_STOP_POST]))
+                log_unit_debug(UNIT(s), "Service with delegated cgroup subtree defines control commands but no DelegateSubControlGroup= is specified.");
+
         if (s->usb_function_descriptors && !s->usb_function_strings)
                 log_unit_warning(UNIT(s), "Service has USBFunctionDescriptors= setting, but no USBFunctionStrings=. Ignoring.");
 

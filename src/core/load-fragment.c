@@ -4013,7 +4013,7 @@ int config_parse_delegate_subcgroup(
                 return 0;
         }
 
-        if (isempty(rvalue)) {
+        if (isempty(rvalue) || streq(rvalue, ".")) {
                 c->delegate_subcgroup = mfree(c->delegate_subcgroup);
                 return 0;
         }
@@ -4022,9 +4022,7 @@ int config_parse_delegate_subcgroup(
         if (!subcgroup)
                 return log_oom();
 
-        if (streq(subcgroup, "."))
-                subcgroup[0] = '\0'; /* "" */
-        else if (path_simplify_and_warn(subcgroup, PATH_CHECK_RELATIVE | PATH_CHECK_FATAL, unit, filename, line, lvalue) < 0)
+        if (path_simplify_and_warn(subcgroup, PATH_CHECK_RELATIVE | PATH_CHECK_FATAL, unit, filename, line, lvalue) < 0)
                 return 0;
 
         free_and_replace(c->delegate_subcgroup, subcgroup);

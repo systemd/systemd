@@ -953,7 +953,7 @@ TEST(config_parse_delegate_subcgroup) {
                 const char *exp;
         } tests[]= {
                 { "",                    NULL},
-                { ".",                   ""},
+                { ".",                   NULL},
                 { "plain",               "plain"},
                 { "nest/ed/path",        "nest/ed/path"},
                 { "trail/",              "trail"},

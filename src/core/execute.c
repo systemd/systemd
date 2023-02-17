@@ -111,10 +111,6 @@
 
 #define SNDBUF_SIZE (8*1024*1024)
 
-/* Default delegated cgroup suffices */
-#define DELEGATE_CGROUP_CONTROL ".control"
-#define DELEGATE_CGROUP_PAYLOAD ""
-
 static int shift_fds(int fds[], size_t n_fds) {
         if (n_fds <= 0)
                 return 0;
@@ -4040,21 +4036,8 @@ static int exec_parameters_get_cgroup_path(Unit *u, const ExecParameters *params
         if (!(c = unit_get_cgroup_context(u)))
                 return -EOPNOTSUPP;
 
-        /* If we are called for a unit where cgroup delegation is on, and the payload created its own populated
-         * subcgroup, then we cannot place the control processes started after the main unit's process in the
-         * unit's main cgroup because it is now an inner one, and inner cgroups may not contain processes.
-         * Hence, if delegation is on, use a subcgroup per configuration.
-         * Note that we do so only for ExecStartPost=, ExecReload=, ExecStop=, ExecStopPost=, i.e. for the
-         * commands where the main process is already forked. For ExecStartPre=, ExecCondition= this is not necessary, the
-         * cgroup is still empty. We distinguish these cases with the EXEC_NO_SUBCGROUP flag, which is only
-         * passed for the latter statements, not for the former. */
-
-        if (!(params->flags & EXEC_NO_SUBCGROUP) && (params->flags & EXEC_CGROUP_DELEGATE)) {
-                if (params->flags & EXEC_IS_CONTROL)
-                        subcgroup = c->delegate_subcgroup ?: DELEGATE_CGROUP_CONTROL;
-                else
-                        subcgroup = c->delegate_subcgroup ?: DELEGATE_CGROUP_PAYLOAD;
-        }
+        if (!(params->flags & EXEC_NO_SUBCGROUP) && (params->flags & EXEC_CGROUP_DELEGATE))
+                subcgroup = c->delegate_subcgroup;
 
         p = path_join(params->cgroup_path, subcgroup);
         if (!p)
@@ -4258,6 +4241,7 @@ static int exec_child(
         _cleanup_free_ gid_t *supplementary_gids = NULL;
         const char *username = NULL, *groupname = NULL;
         _cleanup_free_ char *subcgroup_path = NULL;
+        CGroupContext *c;
         _cleanup_free_ char *home_buffer = NULL;
         const char *home = NULL, *shell = NULL;
         char **final_argv = NULL;
@@ -4511,8 +4495,10 @@ static int exec_child(
 
                 r = cg_attach_everywhere(params->cgroup_supported, subcgroup_path, 0, NULL, NULL);
                 if (r < 0) {
+                        c = unit_get_cgroup_context(unit);
                         *exit_status = EXIT_CGROUP;
-                        return log_unit_error_errno(unit, r, "Failed to attach to cgroup %s: %m", subcgroup_path);
+                        return log_unit_error_errno(unit, r, "Failed to attach to cgroup %s: %m%s", subcgroup_path,
+                                                    c && !c->delegate_subcgroup ? ", DelegateSubControlGroup= is not set up" : "");
                 }
         }
 
@@ -5396,13 +5382,6 @@ int exec_spawn(Unit *unit,
                         r = cg_create(SYSTEMD_CGROUP_CONTROLLER, subcgroup_path);
                         if (r < 0)
                                 return log_unit_error_errno(unit, r, "Failed to create control group '%s': %m", subcgroup_path);
-
-                        if (FLAGS_SET(params->flags, EXEC_IS_CONTROL)) {
-                                r = cg_adjust_threaded(SYSTEMD_CGROUP_CONTROLLER, subcgroup_path);
-                                if (r < 0)
-                                        return log_unit_error_errno(unit, r, "Failed to switch control group '%s' to threaded mode: %m",
-                                                                    subcgroup_path);
-                        }
                 }
         }
 
