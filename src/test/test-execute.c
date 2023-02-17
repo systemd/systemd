@@ -1052,7 +1052,7 @@ static void test_exec_ambientcapabilities(Manager *m) {
 }
 
 static void test_exec_privatenetwork(Manager *m) {
-        int r;
+        int r, status;
 
         r = find_executable("ip", NULL);
         if (r < 0) {
@@ -1060,7 +1060,9 @@ static void test_exec_privatenetwork(Manager *m) {
                 return;
         }
 
-        test(m, "exec-privatenetwork-yes.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_NETWORK : EXIT_FAILURE, CLD_EXITED);
+        status = can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_NETWORK : EXIT_FAILURE;
+        test(m, "exec-privatenetwork-yes-privatemounts-no.service", status, CLD_EXITED);
+        test(m, "exec-privatenetwork-yes-privatemounts-yes.service", status, CLD_EXITED);
 }
 
 static void test_exec_oomscoreadjust(Manager *m) {
