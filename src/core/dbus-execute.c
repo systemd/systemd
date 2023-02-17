@@ -1274,7 +1274,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("ProtectControlGroups", "b", bus_property_get_bool, offsetof(ExecContext, protect_control_groups), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateNetwork", "b", bus_property_get_bool, offsetof(ExecContext, private_network), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateUsers", "b", bus_property_get_bool, offsetof(ExecContext, private_users), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("PrivateMounts", "b", bus_property_get_bool, offsetof(ExecContext, private_mounts), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("PrivateMounts", "b", bus_property_get_tristate, offsetof(ExecContext, private_mounts), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateIPC", "b", bus_property_get_bool, offsetof(ExecContext, private_ipc), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectHome", "s", property_get_protect_home, offsetof(ExecContext, protect_home), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectSystem", "s", property_get_protect_system, offsetof(ExecContext, protect_system), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1933,7 +1933,7 @@ int bus_exec_context_set_transient_property(
                 return bus_set_transient_bool(u, name, &c->private_devices, message, flags, error);
 
         if (streq(name, "PrivateMounts"))
-                return bus_set_transient_bool(u, name, &c->private_mounts, message, flags, error);
+                return bus_set_transient_tristate(u, name, &c->private_mounts, message, flags, error);
 
         if (streq(name, "PrivateNetwork"))
                 return bus_set_transient_bool(u, name, &c->private_network, message, flags, error);

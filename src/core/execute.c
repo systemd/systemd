@@ -2074,7 +2074,7 @@ bool exec_needs_mount_namespace(
                 return true;
 
         if (context->private_devices ||
-            context->private_mounts ||
+            context->private_mounts > 0 ||
             context->protect_system != PROTECT_SYSTEM_NO ||
             context->protect_home != PROTECT_HOME_NO ||
             context->protect_kernel_tunables ||
@@ -5488,6 +5488,7 @@ void exec_context_init(ExecContext *c) {
         c->tty_rows = UINT_MAX;
         c->tty_cols = UINT_MAX;
         numa_policy_reset(&c->numa_policy);
+        c->private_mounts = -1;
 }
 
 void exec_context_done(ExecContext *c) {
