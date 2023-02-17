@@ -45,6 +45,9 @@ int bus_log_connect_error(int r, BusTransport transport);
 #define bus_log_parse_error(r)                                  \
         log_error_errno(r, "Failed to parse bus message: %m")
 
+#define bus_log_parse_error_debug(r)                            \
+        log_debug_errno(r, "Failed to parse bus message: %m")
+
 #define bus_log_create_error(r)                                 \
         log_error_errno(r, "Failed to create bus message: %m")
 
