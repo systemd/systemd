@@ -6,6 +6,7 @@
 #include "bus-locator.h"
 #include "format-table.h"
 #include "locale-util.h"
+#include "path-util.h"
 #include "set.h"
 #include "sort-util.h"
 #include "systemctl-list-units.h"
@@ -921,4 +922,216 @@ int verb_list_automounts(int argc, char *argv[], void *userdata) {
         }
 
         return r;
+}
+
+struct path_info {
+        const char *machine;
+        const char *id;
+
+        char *path;
+        char *condition;
+
+        /* Note: triggered is a list here, although it almost certainly will always be one
+         * unit. Nevertheless, dbus API allows for multiple values, so let's follow that. */
+        char** triggered;
+};
+
+struct path_infos {
+        size_t count;
+        struct path_info *items;
+};
+
+static int path_info_compare(const struct path_info *a, const struct path_info *b) {
+        int r;
+
+        assert(a);
+        assert(b);
+
+        r = strcasecmp_ptr(a->machine, b->machine);
+        if (r != 0)
+                return r;
+
+        r = path_compare(a->path, b->path);
+        if (r != 0)
+                return r;
+
+        r = strcmp(a->condition, b->condition);
+        if (r != 0)
+                return r;
+
+        return strcasecmp_ptr(a->id, b->id);
+}
+
+static void path_infos_done(struct path_infos *ps) {
+        assert(ps);
+        assert(ps->items || ps->count == 0);
+
+        for (struct path_info *p = ps->items; p < ps->items + ps->count; p++) {
+                free(p->condition);
+                free(p->path);
+                strv_free(p->triggered);
+        }
+
+        free(ps->items);
+}
+
+static int get_paths(sd_bus *bus, const char *unit_path, char ***ret_conditions, char ***ret_paths) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_strv_free_ char **conditions = NULL, **paths = NULL;
+        const char *condition, *path;
+        int r, n = 0;
+
+        assert(bus);
+        assert(unit_path);
+        assert(ret_conditions);
+        assert(ret_paths);
+
+        r = sd_bus_get_property(bus,
+                                "org.freedesktop.systemd1",
+                                unit_path,
+                                "org.freedesktop.systemd1.Path",
+                                "Paths",
+                                &error,
+                                &reply,
+                                "a(ss)");
+        if (r < 0)
+                return log_error_errno(r, "Failed to get paths: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ss)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        while ((r = sd_bus_message_read(reply, "(ss)", &condition, &path)) > 0) {
+                if (strv_extend(&conditions, condition) < 0)
+                        return log_oom();
+
+                if (strv_extend(&paths, path) < 0)
+                        return log_oom();
+
+                n++;
+        }
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        *ret_conditions = TAKE_PTR(conditions);
+        *ret_paths = TAKE_PTR(paths);
+
+        return n;
+}
+
+static int output_paths_list(struct path_infos *ps) {
+        _cleanup_(table_unrefp) Table *table = NULL;
+        int r;
+
+        assert(ps);
+        assert(ps->items || ps->count == 0);
+
+        table = table_new("path", "condition", "unit", "activates");
+        if (!table)
+                return log_oom();
+
+        table_set_header(table, arg_legend != 0);
+        if (arg_full)
+                table_set_width(table, 0);
+
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+
+        for (struct path_info *p = ps->items; p < ps->items + ps->count; p++) {
+                _cleanup_free_ char *unit = NULL;
+
+                unit = format_unit_id(p->id, p->machine);
+                if (!unit)
+                        return log_oom();
+
+                r = table_add_many(table,
+                                   TABLE_STRING, p->path,
+                                   TABLE_STRING, p->condition,
+                                   TABLE_STRING, unit);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_triggered(table, p->triggered);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        r = output_table(table);
+        if (r < 0)
+                return r;
+
+        if (arg_legend != 0)
+                output_legend("path", ps->count);
+
+        return 0;
+}
+
+int verb_list_paths(int argc, char *argv[], void *userdata) {
+        _cleanup_(message_set_freep) Set *replies = NULL;
+        _cleanup_strv_free_ char **machines = NULL, **units = NULL;
+        _cleanup_free_ UnitInfo *unit_infos = NULL;
+        _cleanup_(path_infos_done) struct path_infos path_infos = {};
+        int r, n;
+        sd_bus *bus;
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
+
+        pager_open(arg_pager_flags);
+
+        r = expand_unit_names(bus, strv_skip(argv, 1), ".path", &units, NULL);
+        if (r < 0)
+                return r;
+
+        if (argc == 1 || units) {
+                n = get_unit_list_recursive(bus, units, &unit_infos, &replies, &machines);
+                if (n < 0)
+                        return n;
+
+                for (const UnitInfo *u = unit_infos; u < unit_infos + n; u++) {
+                        _cleanup_strv_free_ char **conditions = NULL, **paths = NULL, **triggered = NULL;
+                        int c;
+
+                        if (!endswith(u->id, ".path"))
+                                continue;
+
+                        r = get_triggered_units(bus, u->unit_path, &triggered);
+                        if (r < 0)
+                                return r;
+
+                        c = get_paths(bus, u->unit_path, &conditions, &paths);
+                        if (c < 0)
+                                return c;
+
+                        if (!GREEDY_REALLOC(path_infos.items, path_infos.count + c))
+                                return log_oom();
+
+                        for (int i = c - 1; i >= 0; i--) {
+                                char **t;
+
+                                t = strv_copy(triggered);
+                                if (!t)
+                                        return log_oom();
+
+                                path_infos.items[path_infos.count++] = (struct path_info) {
+                                        .machine = u->machine,
+                                        .id = u->id,
+                                        .condition = TAKE_PTR(conditions[i]),
+                                        .path = TAKE_PTR(paths[i]),
+                                        .triggered = t,
+                                };
+                        }
+                }
+
+                typesafe_qsort(path_infos.items, path_infos.count, path_info_compare);
+        }
+
+        output_paths_list(&path_infos);
+
+        return 0;
 }

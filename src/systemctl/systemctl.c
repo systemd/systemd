@@ -152,6 +152,8 @@ static int systemctl_help(void) {
                "  list-units [PATTERN...]             List units currently in memory\n"
                "  list-automounts [PATTERN...]        List automount units currently in memory,\n"
                "                                      ordered by path\n"
+               "  list-paths [PATTERN...]             List path units currently in memory,\n"
+               "                                      ordered by path\n"
                "  list-sockets [PATTERN...]           List socket units currently in memory,\n"
                "                                      ordered by address\n"
                "  list-timers [PATTERN...]            List timer units currently in memory,\n"
@@ -1091,6 +1093,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "list-units",            VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY, verb_list_units },
                 { "list-unit-files",       VERB_ANY, VERB_ANY, 0,                verb_list_unit_files         },
                 { "list-automounts",       VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_list_automounts         },
+                { "list-paths",            VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_list_paths              },
                 { "list-sockets",          VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_list_sockets            },
                 { "list-timers",           VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_list_timers             },
                 { "list-jobs",             VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_list_jobs               },
