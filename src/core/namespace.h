@@ -55,7 +55,6 @@ typedef enum ProcSubset {
 struct NamespaceInfo {
         bool ignore_protect_paths;
         bool private_dev;
-        bool private_mounts;
         bool protect_control_groups;
         bool protect_kernel_tunables;
         bool protect_kernel_modules;
