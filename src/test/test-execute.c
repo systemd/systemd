@@ -1267,7 +1267,7 @@ static int prepare_ns(const char *process_name) {
                 assert_se(mkdir_p(PRIVATE_UNIT_DIR, 0755) >= 0);
 
                 /* Mount tmpfs on the following directories to make not StateDirectory= or friends disturb the host. */
-                FOREACH_STRING(p, "/root", "/tmp", "/var/tmp", "/var/lib", PRIVATE_UNIT_DIR)
+                FOREACH_STRING(p, "/dev/shm", "/root", "/tmp", "/var/tmp", "/var/lib", PRIVATE_UNIT_DIR)
                         assert_se(mount_nofollow_verbose(LOG_DEBUG, "tmpfs", p, "tmpfs", MS_NOSUID|MS_NODEV, NULL) >= 0);
 
                 /* Copy unit files to make them accessible even when unprivileged. */
