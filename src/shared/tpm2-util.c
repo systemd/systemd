@@ -182,6 +182,24 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
         TPMI_YES_NO more;
         int r;
 
+        /* Cache the algorithm capabilities, which *should be* safe to cache, as the only way they can change
+         * is TPM2_SetAlgorithmSet(). While the TPM2 spec is pretty vague on the exact use of this function,
+         * it does note in the example that objects and sessions "may" be flushed. The reference
+         * implementation does not support this command, and I can only hope that no real TPM would allow
+         * disabling (or enabling) algorithms while running. */
+        r = tpm2_get_capability(
+                        c,
+                        TPM2_CAP_ALGS,
+                        TPM2_ALG_FIRST,
+                        TPM2_MAX_CAP_ALGS,
+                        &more,
+                        &capability);
+        if (r < 0)
+                return r;
+        if (more == TPM2_YES)
+                log_error("TPM bug: reported more algs, ignoring.");
+        c->capability_algs = capability.algorithms;
+
         /* Cache the PCR capabilities, which are safe to cache, as the only way they can change is
          * TPM2_PCR_Allocate(), which changes the allocation after the next _TPM_Init(). If the TPM is
          * reinitialized while we are using it, all our context and sessions will be invalid, so we can
@@ -202,7 +220,21 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
         return 0;
 }
 
+#define tpm2_capability_algs(c) ((c)->capability_algs)
 #define tpm2_capability_pcrs(c) ((c)->capability_pcrs)
+
+static int tpm2_capability_alg(Tpm2Context *c, TPM2_ALG_ID alg, TPMA_ALGORITHM *ret) {
+        TPML_ALG_PROPERTY algs = tpm2_capability_algs(c);
+        for (uint32_t i = 0; i < algs.count; i++)
+                if (algs.algProperties[i].alg == alg) {
+                        if (ret)
+                                *ret = algs.algProperties[i].algProperties;
+                        return 0;
+                }
+
+        return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "TPM does not support alg 0x%02x.", alg);
+}
+#define tpm2_supports_alg(c, alg) (tpm2_capability_alg(c, alg, NULL) == 0)
 
 static Tpm2Context *tpm2_context_free(Tpm2Context *c) {
         if (!c)
