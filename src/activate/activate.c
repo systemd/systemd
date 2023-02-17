@@ -16,6 +16,7 @@
 #include "fd-util.h"
 #include "log.h"
 #include "macro.h"
+#include "main-func.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "signal-util.h"
@@ -432,7 +433,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1 /* work to do */;
 }
 
-int main(int argc, char **argv) {
+static int run(int argc, char **argv) {
         int r, n;
         int epoll_fd = -EBADF;
 
@@ -442,19 +443,17 @@ int main(int argc, char **argv) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                return r == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+                return r;
 
         r = install_chld_handler();
         if (r < 0)
-                return EXIT_FAILURE;
+                return r;
 
         n = open_sockets(&epoll_fd, arg_accept);
         if (n < 0)
-                return EXIT_FAILURE;
-        if (n == 0) {
-                log_error("No sockets to listen on specified or passed in.");
-                return EXIT_FAILURE;
-        }
+                return n;
+        if (n == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No sockets to listen on specified or passed in.");
 
         for (;;) {
                 struct epoll_event event;
@@ -463,20 +462,19 @@ int main(int argc, char **argv) {
                         if (errno == EINTR)
                                 continue;
 
-                        log_error_errno(errno, "epoll_wait() failed: %m");
-                        return EXIT_FAILURE;
+                        return log_error_errno(errno, "epoll_wait() failed: %m");
                 }
 
                 log_info("Communication attempt on fd %i.", event.data.fd);
                 if (arg_accept) {
                         r = do_accept(argv[optind], argv + optind, event.data.fd);
                         if (r < 0)
-                                return EXIT_FAILURE;
+                                return r;
                 } else
                         break;
         }
 
-        exec_process(argv[optind], argv + optind, SD_LISTEN_FDS_START, (size_t) n);
-
-        return EXIT_SUCCESS;
+        return exec_process(argv[optind], argv + optind, SD_LISTEN_FDS_START, (size_t) n);
 }
+
+DEFINE_MAIN_FUNCTION(run);
