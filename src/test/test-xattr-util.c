@@ -10,29 +10,28 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "macro.h"
+#include "rm-rf.h"
 #include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "xattr-util.h"
 
 TEST(getxattr_at_malloc) {
-        char t[] = "/var/tmp/xattrtestXXXXXX";
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_free_ char *value = NULL;
         _cleanup_close_ int fd = -EBADF;
         const char *x;
         int r;
 
-        assert_se(mkdtemp(t));
+        fd = mkdtemp_open("/var/tmp/test-xattrtestXXXXXX", O_RDONLY|O_NOCTTY, &t);
+        assert_se(fd >= 0);
         x = strjoina(t, "/test");
         assert_se(touch(x) >= 0);
 
         r = setxattr(x, "user.foo", "bar", 3, 0);
-        if (r < 0 && ERRNO_IS_NOT_SUPPORTED(errno)) /* no xattrs supported on /var/tmp... */
-                goto cleanup;
+        if (r < 0 && ERRNO_IS_NOT_SUPPORTED(errno))
+                return (void) log_tests_skipped_errno(errno, "no xattrs supported on /var/tmp");
         assert_se(r >= 0);
-
-        fd = open(t, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY);
-        assert_se(fd >= 0);
 
         assert_se(getxattr_at_malloc(fd, "test", "user.foo", 0, &value) == 3);
         assert_se(memcmp(value, "bar", 3) == 0);
@@ -53,21 +52,15 @@ TEST(getxattr_at_malloc) {
         assert_se(fd >= 0);
         assert_se(getxattr_at_malloc(fd, NULL, "user.foo", 0, &value) == 3);
         assert_se(streq(value, "bar"));
-
-cleanup:
-        assert_se(unlink(x) >= 0);
-        assert_se(rmdir(t) >= 0);
 }
 
 TEST(getcrtime) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int fd = -EBADF;
-        const char *vt;
         usec_t usec, k;
         int r;
 
-        assert_se(var_tmp_dir(&vt) >= 0);
-
-        fd = open_tmpfile_unlinkable(vt, O_RDWR);
+        fd = mkdtemp_open("/var/tmp/test-xattrtestXXXXXX", 0, &t);
         assert_se(fd >= 0);
 
         r = fd_getcrtime(fd, &usec);
