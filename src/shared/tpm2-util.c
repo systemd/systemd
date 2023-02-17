@@ -257,6 +257,25 @@ int tpm2_supports_alg(Tpm2Context *c, TPM2_ALG_ID alg) {
         return tpm2_capability_alg(c, alg, NULL);
 }
 
+/* Returns 1 if the TPM supports the ECC curve, 0 if not, or < 0 for any error. */
+static int tpm2_supports_ecc_curve(Tpm2Context *c, TPM2_ECC_CURVE curve) {
+        TPMU_CAPABILITIES capability;
+        int r;
+
+        /* The spec explicitly states the TPM2_ECC_CURVE should be cast to uint32_t. */
+        r = tpm2_get_capability(c, TPM2_CAP_ECC_CURVES, (uint32_t) curve, 1, &capability);
+        if (r < 0)
+                return r;
+
+        TPML_ECC_CURVE curves = capability.eccCurves;
+        if (eccCurves.count == 0 || eccCurves.eccCurves[0] != curve) {
+                log_debug("TPM does not support ECC curve 0x%02" PRIx16 ".", curve);
+                return 0;
+        }
+
+        return 1;
+}
+
 /* Query the TPM for populated handles.
  *
  * This provides an array of handle indexes populated in the TPM, starting at the requested handle. The array will
