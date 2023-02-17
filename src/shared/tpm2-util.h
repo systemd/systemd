@@ -13,13 +13,6 @@ typedef enum TPM2Flags {
         TPM2_FLAGS_USE_PIN = 1 << 0,
 } TPM2Flags;
 
-
-typedef enum Tpm2SRKTemplateFlags {
-        TPM2_SRK_TEMPLATE_ECC       = 1 << 0,
-        TPM2_SRK_TEMPLATE_NEW_STYLE = 1 << 1,
-        _TPM2_SRK_TEMPLATE_MAX      = TPM2_SRK_TEMPLATE_NEW_STYLE|TPM2_SRK_TEMPLATE_ECC,
-} Tpm2SRKTemplateFlags;
-
 /* As per https://trustedcomputinggroup.org/wp-content/uploads/TCG_PCClient_PFP_r1p05_v23_pub.pdf a
  * TPM2 on a Client PC must have at least 24 PCRs. This hardcodes our expectation of 24. */
 #define TPM2_PCRS_MAX 24U
@@ -118,8 +111,6 @@ void tpm2_tpml_pcr_selection_sub(TPML_PCR_SELECTION *a, const TPML_PCR_SELECTION
 char *tpm2_tpml_pcr_selection_to_string(const TPML_PCR_SELECTION *l);
 size_t tpm2_tpml_pcr_selection_weight(const TPML_PCR_SELECTION *l);
 #define tpm2_tpml_pcr_selection_is_empty(l) (tpm2_tpml_pcr_selection_weight(l) == 0)
-
-const TPM2B_PUBLIC *tpm2_get_primary_template(Tpm2SRKTemplateFlags flags);
 
 #else /* HAVE_TPM2 */
 typedef struct {} Tpm2Context;
