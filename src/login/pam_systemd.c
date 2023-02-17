@@ -390,24 +390,40 @@ static int append_session_tasks_max(pam_handle_t *handle, sd_bus_message *m, con
         return PAM_SUCCESS;
 }
 
-static int append_session_cg_weight(pam_handle_t *handle, sd_bus_message *m, const char *limit, const char *field) {
+static int append_session_cpu_weight(pam_handle_t *handle, sd_bus_message *m, const char *limit) {
         uint64_t val;
         int r;
-        bool is_cpu_weight;
 
-        is_cpu_weight = streq(field, "CPUWeight");
         if (isempty(limit))
                 return PAM_SUCCESS;
 
-        r = is_cpu_weight ? cg_cpu_weight_parse(limit, &val) : cg_weight_parse(limit, &val);
-        if (r >= 0) {
-                r = sd_bus_message_append(m, "(sv)", field, "t", val);
+        r = cg_cpu_weight_parse(limit, &val);
+        if (r < 0)
+                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.cpu_weight, ignoring: %s", limit);
+        else {
+                r = sd_bus_message_append(m, "(sv)", "CPUWeight", "t", val);
                 if (r < 0)
                         return pam_bus_log_create_error(handle, r);
-        } else if (is_cpu_weight)
-                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.cpu_weight, ignoring: %s", limit);
-        else
+        }
+
+        return PAM_SUCCESS;
+}
+
+static int append_session_io_weight(pam_handle_t *handle, sd_bus_message *m, const char *limit) {
+        uint64_t val;
+        int r;
+
+        if (isempty(limit))
+                return PAM_SUCCESS;
+
+        r = cg_weight_parse(limit, &val);
+        if (r < 0)
                 pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.io_weight, ignoring: %s", limit);
+        else {
+                r = sd_bus_message_append(m, "(sv)", "IOWeight", "t", val);
+                if (r < 0)
+                        return pam_bus_log_create_error(handle, r);
+        }
 
         return PAM_SUCCESS;
 }
@@ -869,11 +885,11 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = append_session_cg_weight(handle, m, cpu_weight, "CPUWeight");
+        r = append_session_cpu_weight(handle, m, cpu_weight);
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = append_session_cg_weight(handle, m, io_weight, "IOWeight");
+        r = append_session_io_weight(handle, m, io_weight);
         if (r != PAM_SUCCESS)
                 return r;
 
