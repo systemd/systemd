@@ -501,10 +501,11 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <term><command>kill <replaceable>PATTERN</replaceable>…</command></term>
 
           <listitem>
-            <para>Send a signal to one or more processes of the
-            unit. Use <option>--kill-whom=</option> to select which
-            process to kill. Use <option>--signal=</option> to select
-            the signal to send.</para>
+            <para>Send a UNIX process signal to one or more processes of the unit. Use
+            <option>--kill-whom=</option> to select which process to send the signal to. Use
+            <option>--signal=</option> to select the signal to send. Combine with
+            <option>--kill-value=</option> to enqueue a POSIX Realtime Signal with an associated
+            value.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -2124,38 +2125,44 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <term><option>--kill-whom=</option></term>
 
         <listitem>
-          <para>When used with <command>kill</command>, choose which
-          processes to send a signal to. Must be one of
-          <option>main</option>, <option>control</option> or
-          <option>all</option> to select whether to kill only the main
-          process, the control process or all processes of the
-          unit. The main process of the unit is the one that defines
-          the life-time of it. A control process of a unit is one that
-          is invoked by the manager to induce state changes of it. For
-          example, all processes started due to the
-          <varname>ExecStartPre=</varname>,
-          <varname>ExecStop=</varname> or
-          <varname>ExecReload=</varname> settings of service units are
-          control processes. Note that there is only one control
-          process per unit at a time, as only one state change is
-          executed at a time. For services of type
-          <varname>Type=forking</varname>, the initial process started
-          by the manager for <varname>ExecStart=</varname> is a
-          control process, while the process ultimately forked off by
-          that one is then considered the main process of the unit (if
-          it can be determined). This is different for service units
-          of other types, where the process forked off by the manager
-          for <varname>ExecStart=</varname> is always the main process
-          itself. A service unit consists of zero or one main process,
-          zero or one control process plus any number of additional
-          processes. Not all unit types manage processes of these
-          types however. For example, for mount units, control processes
-          are defined (which are the invocations of
-          <filename>&MOUNT_PATH;</filename> and
-          <filename>&UMOUNT_PATH;</filename>), but no main process
-          is defined. If omitted, defaults to
+          <para>When used with <command>kill</command>, choose which processes to send a UNIX process signal
+          to. Must be one of <option>main</option>, <option>control</option> or <option>all</option> to
+          select whether to kill only the main process, the control process or all processes of the unit. The
+          main process of the unit is the one that defines the life-time of it. A control process of a unit
+          is one that is invoked by the manager to induce state changes of it. For example, all processes
+          started due to the <varname>ExecStartPre=</varname>, <varname>ExecStop=</varname> or
+          <varname>ExecReload=</varname> settings of service units are control processes. Note that there is
+          only one control process per unit at a time, as only one state change is executed at a time. For
+          services of type <varname>Type=forking</varname>, the initial process started by the manager for
+          <varname>ExecStart=</varname> is a control process, while the process ultimately forked off by that
+          one is then considered the main process of the unit (if it can be determined). This is different
+          for service units of other types, where the process forked off by the manager for
+          <varname>ExecStart=</varname> is always the main process itself. A service unit consists of zero or
+          one main process, zero or one control process plus any number of additional processes. Not all unit
+          types manage processes of these types however. For example, for mount units, control processes are
+          defined (which are the invocations of <filename>&MOUNT_PATH;</filename> and
+          <filename>&UMOUNT_PATH;</filename>), but no main process is defined. If omitted, defaults to
           <option>all</option>.</para>
         </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--kill-value=</option><replaceable>INT</replaceable></term>
+
+        <listitem><para>If used with the <command>kill</command> command, enqueues a signal along with the
+        specified integer value parameter to the specified process(es). This operation is only available for
+        POSIX Realtime Signals (i.e. <option>--signal=SIGRTMIN+…</option> or
+        <option>--signal=SIGRTMAX-…</option>), and ensures the signals are generated via the <citerefentry
+        project='man-pages'><refentrytitle>sigqueue</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        system call, rather than <citerefentry
+        project='man-pages'><refentrytitle>kill</refentrytitle><manvolnum>3</manvolnum></citerefentry>. The
+        specified value must be a 32bit signed integer, and may be specified either in decimal, in
+        hexademical (if prefixed with <literal>0x</literal>), octal (if prefixed with <literal>0o</literal>)
+        or binary (if prefixed with <literal>0b</literal>)</para>
+
+        <para>If this option is used the signal will only be enqueued on the control or main process of the
+        unit, never on other processes belonging to the unit, i.e. <option>--kill-whom=all</option> will only
+        affect main and control processes but no other processes.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="signal" />

@@ -1480,8 +1480,8 @@ static void swap_reset_failed(Unit *u) {
         s->clean_result = SWAP_SUCCESS;
 }
 
-static int swap_kill(Unit *u, KillWho who, int signo, sd_bus_error *error) {
-        return unit_kill_common(u, who, signo, -1, SWAP(u)->control_pid, error);
+static int swap_kill(Unit *u, KillWho who, int signo, int code, int value, sd_bus_error *error) {
+        return unit_kill_common(u, who, signo, code, value, -1, SWAP(u)->control_pid, error);
 }
 
 static int swap_get_timeout(Unit *u, usec_t *timeout) {
