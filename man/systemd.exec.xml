@@ -1663,6 +1663,10 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         not available), and the unit should be written in a way that does not solely rely on this setting for
         security.</para>
 
+        <para>When this option is enabled, <varname>PrivateMounts=</varname> is implied unless it is
+        explicitly disabled, and <filename>/sys</filename> will be remounted to associate it with the new
+        network namespace.</para>
+
         <para>When this option is used on a socket unit any sockets bound on behalf of this unit will be
         bound within a private network namespace. This may be combined with
         <varname>JoinsNamespaceOf=</varname> to listen on sockets inside of network namespaces of other
@@ -1683,6 +1687,10 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         the listed units that have <varname>PrivateNetwork=</varname> or
         <varname>NetworkNamespacePath=</varname> configured, as otherwise the network namespace of those
         units is reused.</para>
+
+        <para>When this option is enabled, <varname>PrivateMounts=</varname> is implied unless it is
+        explicitly disabled, and <filename>/sys</filename> will be remounted to associate it with the new
+        network namespace.</para>
 
         <para>When this option is used on a socket unit any sockets bound on behalf of this unit will be
         bound within the specified network namespace.</para>

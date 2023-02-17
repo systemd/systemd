@@ -2075,6 +2075,7 @@ bool exec_needs_mount_namespace(
 
         if (context->private_devices ||
             context->private_mounts > 0 ||
+            (context->private_mounts < 0 && exec_needs_network_namespace(context)) ||
             context->protect_system != PROTECT_SYSTEM_NO ||
             context->protect_home != PROTECT_HOME_NO ||
             context->protect_kernel_tunables ||
@@ -3606,6 +3607,7 @@ static int apply_mount_namespace(
                         .protect_system = context->protect_system,
                         .protect_proc = context->protect_proc,
                         .proc_subset = context->proc_subset,
+                        .private_network = exec_needs_network_namespace(context),
                         .private_ipc = exec_needs_ipc_namespace(context),
                         /* If NNP is on, we can turn on MS_NOSUID, since it won't have any effect anymore. */
                         .mount_nosuid = context->no_new_privileges && !mac_selinux_use(),
