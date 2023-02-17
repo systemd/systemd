@@ -200,6 +200,19 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
 
         assert(c);
 
+        /* Cache the command capabilities. */
+        r = tpm2_get_capability(
+                        c,
+                        TPM2_CAP_COMMANDS,
+                        TPM2_CC_FIRST,
+                        TPM2_MAX_CAP_CC,
+                        &capability);
+        if (r < 0)
+                return r;
+        if (r == 1)
+                log_warning("TPM did not report all supported commands, FIXME!");
+        c->capability_commands = capability.command;
+
         /* Cache the PCR capabilities, which are safe to cache, as the only way they can change is
          * TPM2_PCR_Allocate(), which changes the allocation after the next _TPM_Init(). If the TPM is
          * reinitialized while we are using it, all our context and sessions will be invalid, so we can
@@ -223,6 +236,7 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
         return 0;
 }
 
+#define tpm2_capability_commands(c) ((c)->capability_commands)
 #define tpm2_capability_pcrs(c) ((c)->capability_pcrs)
 
 /* Get the TPMA_ALGORITHM for a TPM2_ALG_ID.
@@ -255,6 +269,27 @@ static int tpm2_get_capability_alg(Tpm2Context *c, TPM2_ALG_ID alg, TPMA_ALGORIT
 /* Returns 1 if the TPM supports the alg, 0 if the TPM does not support the alg, or < 0 for any error. */
 int tpm2_supports_alg(Tpm2Context *c, TPM2_ALG_ID alg) {
         return tpm2_get_capability_alg(c, alg, NULL);
+}
+
+/* Get the TPMA_CC for a TPM2_CC.
+ *
+ * Returns 1 if the TPM supports the command and the TPMA_CC is provided, or 0 if the TPM does not support
+ * the command, or < 0 for any errors. */
+static int tpm2_get_capability_command(Tpm2Context *c, TPM2_CC command, TPMA_CC *ret) {
+        TPML_CCA commands = tpm2_capability_commands(c);
+        for (uint32_t i = 0; i < commands.count; i++)
+                if ((commands.commandAttributes[i] & TPMA_CC_COMMANDINDEX_MASK) == command) {
+                        if (ret)
+                                *ret = commands.commandAttributes[i];
+                        return 1;
+                }
+
+        return 0;
+}
+
+/* Returns 1 if the TPM supports the command, 0 if not, or < 0 for any error. */
+int tpm2_supports_command(Tpm2Context *c, TPM2_CC command) {
+        return tpm2_get_capability_command(c, command, NULL);
 }
 
 /* Returns 1 if the TPM supports the ECC curve, 0 if not, or < 0 for any error. */
