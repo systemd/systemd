@@ -23,8 +23,8 @@ TEST(alloca) {
 }
 
 TEST(GREEDY_REALLOC) {
-        _cleanup_free_ int *a = NULL, *b = NULL;
-        size_t i, j;
+        _cleanup_free_ int *a = NULL, *b = NULL, *c = NULL;
+        size_t i, j, n_c = 0;
 
         /* Give valgrind a chance to verify our realloc() operations */
 
@@ -53,6 +53,45 @@ TEST(GREEDY_REALLOC) {
 
         for (j = 30; j < i / 2; j += 7)
                 assert_se(b[j] == (int) j);
+
+        size_t n_from = 10;
+        int from[n_from];
+        for (i = 0; i < 2048; i++) {
+                for (j = 0; j < n_from; j++)
+                        from[j] = n_from * i + j;
+
+                _cleanup_free_ int *before = NULL;
+                size_t n_before = 0;
+                assert_se(GREEDY_REALLOC_APPEND(before, n_before, c, n_c));
+                assert_se(before);
+                assert_se(n_before == n_c);
+                assert_se(memcmp_safe(c, before, n_c) == 0);
+
+                assert_se(GREEDY_REALLOC_APPEND(c, n_c, from, n_from));
+                assert_se(n_c == n_before + n_from);
+                assert_se(MALLOC_ELEMENTSOF(c) >= n_c);
+                assert_se(MALLOC_SIZEOF_SAFE(c) >= n_c * sizeof(int));
+                assert_se(memcmp_safe(c, before, n_before) == 0);
+                assert_se(memcmp_safe(&c[n_before], from, n_from) == 0);
+
+                before = mfree(before);
+                assert_se(!before);
+                n_before = 0;
+                assert_se(GREEDY_REALLOC_APPEND(before, n_before, c, n_c));
+                assert_se(before);
+                assert_se(n_before == n_c);
+                assert_se(memcmp_safe(c, before, n_c) == 0);
+
+                assert_se(GREEDY_REALLOC_APPEND(c, n_c, NULL, 0));
+                assert_se(c);
+                assert_se(n_c == n_before);
+                assert_se(MALLOC_ELEMENTSOF(c) >= n_c);
+                assert_se(MALLOC_SIZEOF_SAFE(c) >= n_c * sizeof(int));
+                assert_se(memcmp_safe(c, before, n_c) == 0);
+        }
+
+        for (j = 0; j < i * n_from; j++)
+                assert_se(c[j] == (int) j);
 }
 
 TEST(memdup_multiply_and_greedy_realloc) {
