@@ -1748,6 +1748,7 @@ static size_t namespace_calculate_mounts(
                 !!log_namespace +
                 setup_propagate + /* /run/systemd/incoming */
                 !!notify_socket +
+                ns_info->private_network + /* /sys */
                 ns_info->private_ipc; /* /dev/mqueue */
 }
 
@@ -2353,6 +2354,12 @@ int setup_namespace(
                                 .ignore = ignore_protect_proc,
                         };
                 }
+
+                if (ns_info->private_network)
+                        *(m++) = (MountEntry) {
+                                .path_const = "/sys",
+                                .mode = PRIVATE_SYSFS,
+                        };
 
                 if (ns_info->private_ipc)
                         *(m++) = (MountEntry) {
