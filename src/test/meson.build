@@ -310,7 +310,9 @@ tests += [
 
         [files('test-hostname-util.c')],
 
-        [files('test-process-util.c')],
+        [files('test-process-util.c'),
+         [],
+         [threads]],
 
         [files('test-terminal-util.c')],
 
