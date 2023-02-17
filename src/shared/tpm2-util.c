@@ -238,6 +238,86 @@ static int tpm2_capability_alg(Tpm2Context *c, TPM2_ALG_ID alg, TPMA_ALGORITHM *
 }
 #define tpm2_supports_alg(c, alg) (tpm2_capability_alg(c, alg, NULL) == 0)
 
+/* This returns an array of populated handles in the TPM, starting at the requested handle. The number of
+ * handles will be no more than the 'max' number requested. This will not search past the end of the
+ * handle range (i.e. handle & 0xff000000). */
+static int tpm2_get_capability_handles(
+                Tpm2Context *c,
+                TPM2_HANDLE start,
+                size_t max,
+                TPM2_HANDLE **ret_handles,
+                size_t *ret_n_handles) {
+
+        _cleanup_free_ TPM2_HANDLE *handles = NULL;
+        size_t n_handles = 0;
+        TPM2_HANDLE current = start;
+        TPMI_YES_NO more = TPM2_YES;
+        int r;
+
+        assert(ret_handles);
+        assert(ret_n_handles);
+
+        while (more == TPM2_YES && n_handles < max) {
+                TPML_HANDLE handle_list;
+                r = tpm2_get_capability(
+                                c,
+                                TPM2_CAP_HANDLES,
+                                (uint32_t) current,
+                                (uint32_t) max - n_handles,
+                                &more,
+                                (TPMU_CAPABILITIES*) &handle_list);
+                if (r < 0)
+                        return r;
+
+                if (!GREEDY_REALLOC(handles, n_handles + handle_list.count))
+                        return log_oom();
+
+                memcpy_safe(&handles[n_handles], handle_list.handle, sizeof(TPM2_HANDLE) * handle_list.count);
+
+                n_handles += handle_list.count;
+
+                /* Update current to the handle right after the last handle in the list. */
+                current = handles[n_handles - 1] + 1;
+
+                /* We don't need to check if the 'current' handle is into the next TPM2_HT range, because the
+                 * spec states the TPM will only return handles from the requested range, and if it gave us
+                 * the last handle in that range, it will set 'more' to no. */
+        }
+
+        *ret_handles = TAKE_PTR(handles);
+        *ret_n_handles = n_handles;
+
+        return 0;
+}
+
+#define tpm2_get_capability_range_handles(c, hr, ret_handles, ret_n_handles) \
+        tpm2_get_capability_handles(c, hr, UINT32_C(1) << TPM2_HR_SHIFT, ret_handles, ret_n_handles)
+#define tpm2_get_capability_persistent_handles(c, ret_handles, ret_n_handles) \
+        tpm2_get_capability_range_handles(c, TPM2_HR_PERSISTENT, ret_handles, ret_n_handles)
+#define tpm2_get_capability_transient_handles(c, ret_handles, ret_n_handles) \
+        tpm2_get_capability_range_handles(c, TPM2_HR_TRANSIENT, ret_handles, ret_n_handles)
+#define tpm2_get_capability_nv_index_handles(c, ret_handles, ret_n_handles) \
+        tpm2_get_capability_range_handles(c, TPM2_HR_NV_INDEX, ret_handles, ret_n_handles)
+#define tpm2_get_capability_permanent_handles(c, ret_handles, ret_n_handles) \
+        tpm2_get_capability_range_handles(c, TPM2_HR_PERMANENT, ret_handles, ret_n_handles)
+
+/* This only checks if the specified handle is populated. Returns true, false, or error. */
+static int tpm2_get_capability_handle(Tpm2Context *c, TPM2_HANDLE handle) {
+        _cleanup_free_ TPM2_HANDLE *handles = NULL;
+        size_t n_handles;
+        int r;
+
+        r = tpm2_get_capability_handles(c, handle, 1, &handles, &n_handles);
+        if (r < 0)
+                return r;
+
+        if (n_handles > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Received too many capability handles: %zu", n_handles);
+
+        return n_handles ? handles[0] == handle : false;
+}
+
 static bool tpm2_test_parms(Tpm2Context *c, TPMI_ALG_PUBLIC alg, const TPMU_PUBLIC_PARMS *parms) {
         TSS2_RC rc;
 
