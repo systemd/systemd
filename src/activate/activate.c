@@ -16,6 +16,7 @@
 #include "fd-util.h"
 #include "log.h"
 #include "macro.h"
+#include "main-func.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "signal-util.h"
@@ -48,8 +49,11 @@ static int add_epoll(int epoll_fd, int fd) {
         return 0;
 }
 
-static int open_sockets(int *epoll_fd, bool accept) {
+static int open_sockets(int *ret_epoll_fd, bool accept) {
+        _cleanup_close_ int epoll_fd = -EBADF;
         int n, r, count = 0;
+
+        assert(ret_epoll_fd);
 
         n = sd_listen_fds(true);
         if (n < 0)
@@ -76,32 +80,32 @@ static int open_sockets(int *epoll_fd, bool accept) {
                         except[i] = SD_LISTEN_FDS_START + i;
 
                 log_close();
+                log_set_open_when_needed(true);
+
                 r = close_all_fds(except, n);
                 if (r < 0)
                         return log_error_errno(r, "Failed to close all file descriptors: %m");
         }
 
-        /** Note: we leak some fd's on error here. I doesn't matter
-         *  much, since the program will exit immediately anyway, but
-         *  would be a pain to fix.
-         */
+        /* Note: we leak some fd's on error here. It doesn't matter much, since the program will exit
+         * immediately anyway, but would be a pain to fix. */
 
         STRV_FOREACH(address, arg_listen) {
                 r = make_socket_fd(LOG_DEBUG, *address, arg_socket_type, (arg_accept * SOCK_CLOEXEC));
-                if (r < 0) {
-                        log_open();
+                if (r < 0)
                         return log_error_errno(r, "Failed to open '%s': %m", *address);
-                }
 
                 assert(r == SD_LISTEN_FDS_START + count);
                 count++;
         }
 
-        if (arg_listen)
+        if (arg_listen) {
                 log_open();
+                log_set_open_when_needed(false);
+        }
 
-        *epoll_fd = epoll_create1(EPOLL_CLOEXEC);
-        if (*epoll_fd < 0)
+        epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+        if (epoll_fd < 0)
                 return log_error_errno(errno, "Failed to create epoll object: %m");
 
         for (int fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + count; fd++) {
@@ -110,11 +114,12 @@ static int open_sockets(int *epoll_fd, bool accept) {
                 getsockname_pretty(fd, &name);
                 log_info("Listening on %s as %i.", strna(name), fd);
 
-                r = add_epoll(*epoll_fd, fd);
+                r = add_epoll(epoll_fd, fd);
                 if (r < 0)
                         return r;
         }
 
+        *ret_epoll_fd = TAKE_FD(epoll_fd);
         return count;
 }
 
@@ -432,9 +437,9 @@ static int parse_argv(int argc, char *argv[]) {
         return 1 /* work to do */;
 }
 
-int main(int argc, char **argv) {
+static int run(int argc, char **argv) {
+        _cleanup_close_ int epoll_fd = -EBADF;
         int r, n;
-        int epoll_fd = -EBADF;
 
         log_show_color(true);
         log_parse_environment();
@@ -442,19 +447,17 @@ int main(int argc, char **argv) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                return r == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+                return r;
 
         r = install_chld_handler();
         if (r < 0)
-                return EXIT_FAILURE;
+                return r;
 
         n = open_sockets(&epoll_fd, arg_accept);
         if (n < 0)
-                return EXIT_FAILURE;
-        if (n == 0) {
-                log_error("No sockets to listen on specified or passed in.");
-                return EXIT_FAILURE;
-        }
+                return n;
+        if (n == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No sockets to listen on specified or passed in.");
 
         for (;;) {
                 struct epoll_event event;
@@ -463,20 +466,19 @@ int main(int argc, char **argv) {
                         if (errno == EINTR)
                                 continue;
 
-                        log_error_errno(errno, "epoll_wait() failed: %m");
-                        return EXIT_FAILURE;
+                        return log_error_errno(errno, "epoll_wait() failed: %m");
                 }
 
                 log_info("Communication attempt on fd %i.", event.data.fd);
                 if (arg_accept) {
                         r = do_accept(argv[optind], argv + optind, event.data.fd);
                         if (r < 0)
-                                return EXIT_FAILURE;
+                                return r;
                 } else
                         break;
         }
 
-        exec_process(argv[optind], argv + optind, SD_LISTEN_FDS_START, (size_t) n);
-
-        return EXIT_SUCCESS;
+        return exec_process(argv[optind], argv + optind, SD_LISTEN_FDS_START, (size_t) n);
 }
+
+DEFINE_MAIN_FUNCTION(run);
