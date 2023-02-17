@@ -49,8 +49,11 @@ static int add_epoll(int epoll_fd, int fd) {
         return 0;
 }
 
-static int open_sockets(int *epoll_fd, bool accept) {
+static int open_sockets(int *ret_epoll_fd, bool accept) {
+        _cleanup_close_ int epoll_fd = -EBADF;
         int n, r, count = 0;
+
+        assert(ret_epoll_fd);
 
         n = sd_listen_fds(true);
         if (n < 0)
@@ -101,8 +104,8 @@ static int open_sockets(int *epoll_fd, bool accept) {
                 log_set_open_when_needed(false);
         }
 
-        *epoll_fd = epoll_create1(EPOLL_CLOEXEC);
-        if (*epoll_fd < 0)
+        epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+        if (epoll_fd < 0)
                 return log_error_errno(errno, "Failed to create epoll object: %m");
 
         for (int fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + count; fd++) {
@@ -111,11 +114,12 @@ static int open_sockets(int *epoll_fd, bool accept) {
                 getsockname_pretty(fd, &name);
                 log_info("Listening on %s as %i.", strna(name), fd);
 
-                r = add_epoll(*epoll_fd, fd);
+                r = add_epoll(epoll_fd, fd);
                 if (r < 0)
                         return r;
         }
 
+        *ret_epoll_fd = TAKE_FD(epoll_fd);
         return count;
 }
 
@@ -434,8 +438,8 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char **argv) {
+        _cleanup_close_ int epoll_fd = -EBADF;
         int r, n;
-        int epoll_fd = -EBADF;
 
         log_show_color(true);
         log_parse_environment();
