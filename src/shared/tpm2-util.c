@@ -1091,152 +1091,6 @@ static int tpm2_get_or_create_srk(
         return 0;
 }
 
-static int tpm2_make_primary(
-                Tpm2Context *c,
-                TPMI_ALG_PUBLIC alg,
-                bool use_srk_model,
-                TPMI_ALG_PUBLIC *ret_alg,
-                Tpm2Handle **ret_primary) {
-
-        static const TPM2B_SENSITIVE_CREATE primary_sensitive = {};
-        static const TPML_PCR_SELECTION creation_pcr = {};
-        TPM2B_PUBLIC primary_template = { .size = sizeof(TPMT_PUBLIC), };
-        _cleanup_(release_lock_file) LockFile srk_lock = LOCK_FILE_INIT;
-        TSS2_RC rc;
-        usec_t ts;
-        int r;
-
-        log_debug("Creating %s on TPM.", use_srk_model ? "SRK" : "Transient Primary Key");
-
-        /* So apparently not all TPM2 devices support ECC. ECC is generally preferably, because it's so much
-         * faster, noticeably so (~10s vs. ~240ms on my system). Hence, unless explicitly configured let's
-         * try to use ECC first, and if that does not work, let's fall back to RSA. */
-
-        ts = now(CLOCK_MONOTONIC);
-
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *primary = NULL;
-
-        /* we only need the SRK lock when making the SRK since its not atomic, transient
-         * primary creations don't even matter if they stomp on each other, the TPM will
-         * keep kicking back the same key.
-         */
-        if (use_srk_model) {
-                r = make_lock_file("/run/systemd/tpm2-srk-init", LOCK_EX, &srk_lock);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to take TPM SRK lock: %m");
-        }
-
-        /* Find existing SRK and use it if present */
-        if (use_srk_model) {
-                _cleanup_(Esys_Freep) TPM2B_PUBLIC *primary_public = NULL;
-                r = tpm2_get_srk(c, NULL, &primary_public, NULL, NULL, &primary);
-                if (r < 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Failed to establish if SRK is present");
-                if (r == 1) {
-                        log_debug("Discovered existing SRK");
-
-                        TPMI_ALG_PUBLIC got_alg = primary_public->publicArea.type;
-                        if (alg != 0 && alg != got_alg)
-                                log_warning("Caller asked for specific algorithm %u, but existing SRK is %u, ignoring",
-                                            alg, got_alg);
-
-                        if (ret_alg)
-                                *ret_alg = alg;
-                        if (ret_primary)
-                                *ret_primary = TAKE_PTR(primary);
-                        return 0;
-                }
-                log_debug("Did not find SRK, generating...");
-        }
-
-        r = tpm2_handle_new(c, &primary);
-        if (r < 0)
-                return r;
-
-        if (IN_SET(alg, 0, TPM2_ALG_ECC)) {
-                if (use_srk_model)
-                        r = tpm2_get_srk_template(c, TPM2_ALG_ECC, &primary_template.publicArea);
-                else
-                        r = tpm2_get_legacy_template(TPM2_ALG_ECC, &primary_template.publicArea);
-
-                rc = sym_Esys_CreatePrimary(
-                                c->esys_context,
-                                ESYS_TR_RH_OWNER,
-                                ESYS_TR_PASSWORD,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                &primary_sensitive,
-                                &primary_template,
-                                NULL,
-                                &creation_pcr,
-                                &primary->esys_handle,
-                                NULL,
-                                NULL,
-                                NULL,
-                                NULL);
-
-                if (rc != TSS2_RC_SUCCESS) {
-                        if (alg != 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                                       "Failed to generate ECC primary key in TPM: %s", sym_Tss2_RC_Decode(rc));
-
-                        log_debug("Failed to generate ECC primary key in TPM, trying RSA: %s", sym_Tss2_RC_Decode(rc));
-                } else {
-                        log_debug("Successfully created ECC primary key on TPM.");
-                        alg = TPM2_ALG_ECC;
-                }
-        }
-
-        if (IN_SET(alg, 0, TPM2_ALG_RSA)) {
-                if (use_srk_model)
-                        r = tpm2_get_srk_template(c, TPM2_ALG_RSA, &primary_template.publicArea);
-                else
-                        r = tpm2_get_legacy_template(TPM2_ALG_RSA, &primary_template.publicArea);
-
-                rc = sym_Esys_CreatePrimary(
-                                c->esys_context,
-                                ESYS_TR_RH_OWNER,
-                                ESYS_TR_PASSWORD,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                &primary_sensitive,
-                                &primary_template,
-                                NULL,
-                                &creation_pcr,
-                                &primary->esys_handle,
-                                NULL,
-                                NULL,
-                                NULL,
-                                NULL);
-                if (rc != TSS2_RC_SUCCESS)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Failed to generate RSA primary key in TPM: %s", sym_Tss2_RC_Decode(rc));
-                else if (alg == 0) {
-                        log_notice("TPM2 chip apparently does not support ECC primary keys, falling back to RSA. "
-                                   "This likely means TPM2 operations will be relatively slow, please be patient.");
-                        alg = TPM2_ALG_RSA;
-                }
-
-                log_debug("Successfully created RSA primary key on TPM.");
-        }
-
-        log_debug("Generating %s on the TPM2 took %s.", use_srk_model ? "SRK" : "Transient Primary Key",
-                        FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - ts, USEC_PER_MSEC));
-
-        if (use_srk_model) {
-                r = tpm2_persist_handle(c, primary, TPM2_SRK_HANDLE, ret_primary);
-                if (r < 0)
-                        return r;
-        } else if (ret_primary)
-                        *ret_primary = TAKE_PTR(primary);
-
-        if (ret_alg)
-                *ret_alg = alg;
-
-        return 0;
-}
-
 /* Utility functions for TPMS_PCR_SELECTION. */
 
 /* Convert a TPMS_PCR_SELECTION object to a mask. */
@@ -3268,11 +3122,40 @@ int tpm2_seal(const char *device,
         if (r < 0)
                 return log_error_errno(r, "Failed to generate secret key: %m");
 
+        _cleanup_(Esys_Freep) TPM2B_PUBLIC *primary_public = NULL;
         _cleanup_(tpm2_handle_freep) Tpm2Handle *primary_handle = NULL;
-        TPMI_ALG_PUBLIC primary_alg;
-        r = tpm2_make_primary(c, /* alg = */0, !!ret_srk_buf, &primary_alg, &primary_handle);
-        if (r < 0)
-                return r;
+        if (ret_srk_buf) {
+                r = tpm2_get_or_create_srk(c, NULL, &primary_public, NULL, NULL, &primary_handle);
+                if (r < 0)
+                        return r;
+        } else {
+                TPMT_PUBLIC template;
+                r = tpm2_get_legacy_template(TPM2_ALG_ECC, &template);
+                if (r < 0)
+                        return r;
+
+                if (!tpm2_supports_tpmt_public(c, &template)) {
+                        r = tpm2_get_legacy_template(TPM2_ALG_RSA, &template);
+                        if (r < 0)
+                                return r;
+
+                        if (!tpm2_supports_tpmt_public(c, &template))
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                       "TPM does not support either ECC or RSA legacy template.");
+                }
+
+                r = tpm2_create_loaded(
+                                c,
+                                /* parent= */ NULL,
+                                /* session= */ NULL,
+                                &template,
+                                /* sensitive= */ NULL,
+                                &primary_public,
+                                /* ret_private= */ NULL,
+                                &primary_handle);
+                if (r < 0)
+                        return r;
+        }
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *encryption_session = NULL;
         r = tpm2_make_encryption_session(c, primary_handle, &TPM2_HANDLE_NONE, &encryption_session);
@@ -3352,7 +3235,7 @@ int tpm2_seal(const char *device,
         *ret_pcr_hash = TAKE_PTR(hash);
         *ret_pcr_hash_size = policy_digest.size;
         *ret_pcr_bank = pcr_bank;
-        *ret_primary_alg = primary_alg;
+        *ret_primary_alg = primary_public->publicArea.type;
 
         return 0;
 }
@@ -3377,13 +3260,8 @@ int tpm2_unseal(const char *device,
                 void **ret_secret,
                 size_t *ret_secret_size) {
 
-        _cleanup_(Esys_Freep) TPM2B_SENSITIVE_DATA* unsealed = NULL;
-        _cleanup_(erase_and_freep) char *secret = NULL;
-        TPM2B_PRIVATE private = {};
-        TPM2B_PUBLIC public = {};
-        size_t offset = 0;
-        TSS2_RC rc;
         usec_t start;
+        TSS2_RC rc;
         int r;
 
         assert(blob);
@@ -3412,6 +3290,8 @@ int tpm2_unseal(const char *device,
 
         log_debug("Unmarshalling private part of HMAC key.");
 
+        TPM2B_PRIVATE private = {};
+        size_t offset = 0;
         rc = sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal(blob, blob_size, &offset, &private);
         if (rc != TSS2_RC_SUCCESS)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
@@ -3419,6 +3299,7 @@ int tpm2_unseal(const char *device,
 
         log_debug("Unmarshalling public part of HMAC key.");
 
+        TPM2B_PUBLIC public = {};
         rc = sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal(blob, blob_size, &offset, &public);
         if (rc != TSS2_RC_SUCCESS)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
@@ -3429,31 +3310,43 @@ int tpm2_unseal(const char *device,
         if (r < 0)
                 return r;
 
-        /* If their is a primary key we trust, like an SRK, use it */
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *primary = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *primary_handle = NULL;
         if (srk_buf) {
-
-                r = tpm2_handle_new(c, &primary);
+                r = tpm2_handle_new(c, &primary_handle);
                 if (r < 0)
                         return r;
 
-                primary->no_flush = true;
+                primary_handle->no_flush = true;
 
                 log_debug("Found existing SRK key to use, deserializing ESYS_TR");
                 rc = sym_Esys_TR_Deserialize(
                                 c->esys_context,
                                 srk_buf,
                                 srk_buf_size,
-                                &primary->esys_handle);
+                                &primary_handle->esys_handle);
                 if (rc != TSS2_RC_SUCCESS)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "Failed to deserialize primary key: %s", sym_Tss2_RC_Decode(rc));
-        /* old callers without an SRK still need to create a key */
-        } else {
-                r = tpm2_make_primary(c, primary_alg, false, NULL, &primary);
+        } else if (primary_alg != 0) {
+                TPMT_PUBLIC template;
+                r = tpm2_get_legacy_template(primary_alg, &template);
                 if (r < 0)
                         return r;
-        }
+
+                r = tpm2_create_loaded(
+                                c,
+                                /* parent= */ NULL,
+                                /* session= */ NULL,
+                                &template,
+                                /* sensitive= */ NULL,
+                                /* ret_public= */ NULL,
+                                /* ret_private= */ NULL,
+                                &primary_handle);
+                if (r < 0)
+                        return r;
+        } else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "No SRK or primary alg provided.");
 
         log_debug("Loading HMAC key into TPM.");
 
@@ -3464,7 +3357,7 @@ int tpm2_unseal(const char *device,
          * provides protections.
          */
         _cleanup_(tpm2_handle_freep) Tpm2Handle *hmac_key = NULL;
-        r = tpm2_load(c, primary, NULL, &public, &private, &hmac_key);
+        r = tpm2_load(c, primary_handle, NULL, &public, &private, &hmac_key);
         if (r < 0)
                 return r;
 
@@ -3490,16 +3383,17 @@ int tpm2_unseal(const char *device,
                 return r;
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *encryption_session = NULL;
-        r = tpm2_make_encryption_session(c, primary, hmac_key, &encryption_session);
+        r = tpm2_make_encryption_session(c, primary_handle, hmac_key, &encryption_session);
         if (r < 0)
                 return r;
 
+        _cleanup_(Esys_Freep) TPM2B_SENSITIVE_DATA* unsealed = NULL;
         for (unsigned i = RETRY_UNSEAL_MAX;; i--) {
                 _cleanup_(tpm2_handle_freep) Tpm2Handle *policy_session = NULL;
                 _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
                 r = tpm2_make_policy_session(
                                 c,
-                                primary,
+                                primary_handle,
                                 encryption_session,
                                 /* trial= */ false,
                                 &policy_session);
@@ -3545,6 +3439,7 @@ int tpm2_unseal(const char *device,
                 log_debug("A PCR value changed during the TPM2 policy session, restarting HMAC key unsealing (%u tries left).", i);
         }
 
+        _cleanup_(erase_and_freep) char *secret = NULL;
         secret = memdup(unsealed->buffer, unsealed->size);
         explicit_bzero_safe(unsealed->buffer, unsealed->size);
         if (!secret)
