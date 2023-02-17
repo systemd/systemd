@@ -706,6 +706,15 @@ TEST(tpm_required_tests) {
         assert_se(tpm2_supports_alg(c, TPM2_ALG_RSA) == 1);
         assert_se(tpm2_supports_alg(c, TPM2_ALG_AES) == 1);
         assert_se(tpm2_supports_alg(c, TPM2_ALG_CFB) == 1);
+
+        /* Test invalid commands */
+        assert_se(!tpm2_supports_command(c, TPM2_CC_FIRST - 1));
+        assert_se(!tpm2_supports_command(c, TPM2_CC_LAST + 1));
+
+        /* Test valid commands */
+        assert_se(tpm2_supports_command(c, TPM2_CC_Create));
+        assert_se(tpm2_supports_command(c, TPM2_CC_CreatePrimary));
+        assert_se(tpm2_supports_command(c, TPM2_CC_Unseal));
 }
 
 #endif /* HAVE_TPM2 */
