@@ -72,6 +72,7 @@ typedef struct {
         TSS2_TCTI_CONTEXT *tcti_context;
         ESYS_CONTEXT *esys_context;
 
+        TPML_ALG_PROPERTY capability_algs;
         TPML_PCR_SELECTION capability_pcrs;
 } Tpm2Context;
 

@@ -181,6 +181,19 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
         TPMI_YES_NO more;
         int r;
 
+        /* Cache the algorithm capabilities. */
+        r = tpm2_get_capability(
+                        c,
+                        TPM2_CAP_ALGS,
+                        TPM2_ALG_FIRST,
+                        TPM2_MAX_CAP_ALGS,
+                        &more,
+                        (TPMU_CAPABILITIES*) &c->capability_algs);
+        if (r < 0)
+                return r;
+        if (more == TPM2_YES)
+                log_error("TPM bug: reported more algs, ignoring.");
+
         /* Cache the PCR capabilities. */
         r = tpm2_get_capability(
                         c,
@@ -197,7 +210,21 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
         return 0;
 }
 
+#define tpm2_capability_algs(c) ((c)->capability_algs)
 #define tpm2_capability_pcrs(c) ((c)->capability_pcrs)
+
+static int tpm2_capability_alg(Tpm2Context *c, TPM2_ALG_ID alg, TPMA_ALGORITHM *ret) {
+        TPML_ALG_PROPERTY algs = tpm2_capability_algs(c);
+        for (uint32_t i = 0; i < algs.count; i++)
+                if (algs.algProperties[i].alg == alg) {
+                        if (ret)
+                                *ret = algs.algProperties[i].algProperties;
+                        return 0;
+                }
+
+        return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "TPM does not support alg 0x%02x.", alg);
+}
+#define tpm2_supports_alg(c, alg) (tpm2_capability_alg(c, alg, NULL) == 0)
 
 static Tpm2Context *tpm2_context_free(Tpm2Context *c) {
         if (!c)
