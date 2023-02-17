@@ -9,6 +9,8 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "cap-list.h"
+#include "capability-util.h"
 #include "cgroup-util.h"
 #include "dns-domain.h"
 #include "env-util.h"
@@ -38,10 +40,10 @@
 #include "spawn-polkit-agent.h"
 #include "terminal-util.h"
 #include "uid-alloc-range.h"
+#include "user-record.h"
 #include "user-record-pwquality.h"
 #include "user-record-show.h"
 #include "user-record-util.h"
-#include "user-record.h"
 #include "user-util.h"
 #include "verbs.h"
 
@@ -76,6 +78,8 @@ static enum {
         EXPORT_FORMAT_STRIPPED,      /* strip "state" + "binding", but leave signature in place */
         EXPORT_FORMAT_MINIMAL,       /* also strip signature */
 } arg_export_format = EXPORT_FORMAT_FULL;
+static uint64_t arg_capability_bounding_set = UINT64_MAX;
+static uint64_t arg_capability_ambient_set = UINT64_MAX;
 
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra, json_variant_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_this_machine, json_variant_unrefp);
@@ -2210,6 +2214,10 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -d --home-dir=PATH           Home directory\n"
                "  -u --uid=UID                 Numeric UID for user\n"
                "  -G --member-of=GROUP         Add user to group\n"
+               "     --capability-bounding-set=CAPS\n"
+               "                               Bounding POSIX capability set\n"
+               "     --capability-ambient-set=CAPS\n"
+               "                               Ambient POSIX capability set\n"
                "     --skel=PATH               Skeleton directory to use\n"
                "     --shell=PATH              Shell for account\n"
                "     --setenv=VARIABLE[=VALUE] Set an environment variable at log-in\n"
@@ -2402,6 +2410,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_AUTO_RESIZE_MODE,
                 ARG_REBALANCE_WEIGHT,
                 ARG_FIDO2_CRED_ALG,
+                ARG_CAPABILITY_BOUNDING_SET,
+                ARG_CAPABILITY_AMBIENT_SET,
         };
 
         static const struct option options[] = {
@@ -2492,6 +2502,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "luks-extra-mount-options",    required_argument, NULL, ARG_LUKS_EXTRA_MOUNT_OPTIONS    },
                 { "auto-resize-mode",            required_argument, NULL, ARG_AUTO_RESIZE_MODE            },
                 { "rebalance-weight",            required_argument, NULL, ARG_REBALANCE_WEIGHT            },
+                { "capability-bounding-set",     required_argument, NULL, ARG_CAPABILITY_BOUNDING_SET     },
+                { "capability-ambient-set",      required_argument, NULL, ARG_CAPABILITY_AMBIENT_SET      },
                 {}
         };
 
@@ -3732,6 +3744,61 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set drop caches field: %m");
 
+                        break;
+                }
+
+                case ARG_CAPABILITY_AMBIENT_SET:
+                case ARG_CAPABILITY_BOUNDING_SET: {
+                        _cleanup_strv_free_ char **l = NULL;
+                        bool subtract = false;
+                        uint64_t parsed, *which, updated;
+                        const char *p, *field;
+
+                        if (c == ARG_CAPABILITY_AMBIENT_SET) {
+                                which = &arg_capability_ambient_set;
+                                field = "capabilityAmbientSet";
+                        } else {
+                                assert(c == ARG_CAPABILITY_BOUNDING_SET);
+                                which = &arg_capability_bounding_set;
+                                field = "capabilityBoundingSet";
+                        }
+
+                        if (isempty(optarg)) {
+                                r = drop_from_identity(field);
+                                if (r < 0)
+                                        return r;
+
+                                *which = UINT64_MAX;
+                                break;
+                        }
+
+                        p = optarg;
+                        if (*p == '~') {
+                                subtract = true;
+                                p++;
+                        }
+
+                        r = capability_set_from_string(p, &parsed);
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid capabilities in capability string '%s'.", p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse capability string '%s': %m", p);
+
+                        if (*which == UINT64_MAX)
+                                updated = subtract ? all_capabilities() & ~parsed : parsed;
+                        else if (subtract)
+                                updated = *which & ~parsed;
+                        else
+                                updated = *which | parsed;
+
+                        if (capability_set_to_strv(updated, &l) < 0)
+                                return log_oom();
+
+                        r = json_variant_set_field_strv(&arg_identity_extra, field, l);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set %s field: %m", field);
+
+                        *which = updated;
                         break;
                 }
 
