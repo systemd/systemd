@@ -310,7 +310,9 @@ tests += [
 
         [files('test-hostname-util.c')],
 
-        [files('test-process-util.c')],
+        [files('test-process-util.c'),
+         [],
+         [threads]],
 
         [files('test-terminal-util.c')],
 
@@ -506,6 +508,8 @@ tests += [
         [files('test-sleep.c')],
 
         [files('test-tpm2.c')],
+
+        [files('test-mempool.c')],
 
         [files('test-replace-var.c')],
 
