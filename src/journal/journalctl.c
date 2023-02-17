@@ -2100,6 +2100,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         sd_id128_t previous_boot_id = SD_ID128_NULL, previous_boot_id_output = SD_ID128_NULL;
         dual_timestamp previous_ts_output = DUAL_TIMESTAMP_NULL;
+        _cleanup_close_ int machine_fd = -EBADF;
         int n_shown = 0, r, poll_fd = -EBADF;
 
         setlocale(LC_ALL, "");
@@ -2240,13 +2241,11 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
-                if (fd < 0)
+                machine_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+                if (machine_fd < 0)
                         return log_error_errno(errno, "Failed to duplicate file descriptor: %m");
 
-                r = sd_journal_open_directory_fd(&j, fd, SD_JOURNAL_OS_ROOT);
-                if (r < 0)
-                        safe_close(fd);
+                r = sd_journal_open_directory_fd(&j, machine_fd, SD_JOURNAL_OS_ROOT);
         } else
                 r = sd_journal_open_namespace(
                                 &j,
