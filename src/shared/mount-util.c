@@ -34,6 +34,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "set.h"
+#include "sort-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -1165,6 +1166,190 @@ int remount_idmap(
                 return log_debug_errno(errno, "Failed to attach UID mapped mount to '%s': %m", p);
 
         return 0;
+}
+
+typedef struct SubMount {
+        char *path;
+        int mount_fd;
+} SubMount;
+
+static void sub_mount_clear(SubMount *s) {
+        assert(s);
+
+        s->path = mfree(s->path);
+        s->mount_fd = safe_close(s->mount_fd);
+}
+
+static void sub_mount_array_free(SubMount *s, size_t n) {
+        assert(s || n == 0);
+
+        for (size_t i = 0; i < n; i++)
+                sub_mount_clear(s + i);
+
+        free(s);
+}
+
+static int sub_mount_compare(const SubMount *a, const SubMount *b) {
+        assert(a);
+        assert(b);
+        assert(a->path);
+        assert(b->path);
+
+        return path_compare(a->path, b->path);
+}
+
+static void sub_mount_drop(SubMount *s, size_t n) {
+        assert(s || n == 0);
+
+        for (size_t m = 0, i = 1; i < n; i++) {
+                if (path_startswith(s[i].path, s[m].path))
+                        sub_mount_clear(s + i);
+                else
+                        m = i;
+        }
+}
+
+static int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_mounts) {
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        SubMount *mounts = NULL;
+        size_t n = 0;
+        int r;
+
+        CLEANUP_ARRAY(mounts, n, sub_mount_array_free);
+
+        assert(prefix);
+        assert(ret_mounts);
+        assert(ret_n_mounts);
+
+        r = libmount_parse("/proc/self/mountinfo", NULL, &table, &iter);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
+
+        for (;;) {
+                _cleanup_close_ int mount_fd = -EBADF;
+                _cleanup_free_ char *p = NULL;
+                struct libmnt_fs *fs;
+                const char *path;
+                int id1, id2;
+
+                r = mnt_table_next_fs(table, iter, &fs);
+                if (r == 1)
+                        break; /* EOF */
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
+
+                path = mnt_fs_get_target(fs);
+                if (!path)
+                        continue;
+
+                if (isempty(path_startswith(path, prefix)))
+                        continue;
+
+                id1 = mnt_fs_get_id(fs);
+                r = path_get_mnt_id(path, &id2);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to get mount ID of '%s', ignoring: %m", path);
+                        continue;
+                }
+                if (id1 != id2) {
+                        /* The path may be hidden by another over-mount or already remounted. */
+                        log_debug("The mount IDs of '%s' obtained by libmount and path_get_mnt_id() are different (%i vs %i), ignoring.",
+                                  path, id1, id2);
+                        continue;
+                }
+
+                mount_fd = open_tree(AT_FDCWD, path, OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC | AT_RECURSIVE);
+                if (mount_fd < 0) {
+                        if (errno == ENOENT) /* The path may be hidden by another over-mount or already unmounted. */
+                                continue;
+
+                        return log_debug_errno(errno, "Failed to open tree of mounted filesystem '%s': %m", path);
+                }
+
+                p = strdup(path);
+                if (!p)
+                        return log_oom_debug();
+
+                if (!GREEDY_REALLOC(mounts, n + 1))
+                        return log_oom_debug();
+
+                mounts[n++] = (SubMount) {
+                        .path = TAKE_PTR(p),
+                        .mount_fd = TAKE_FD(mount_fd),
+                };
+        }
+
+        typesafe_qsort(mounts, n, sub_mount_compare);
+        sub_mount_drop(mounts, n);
+
+        *ret_mounts = TAKE_PTR(mounts);
+        *ret_n_mounts = n;
+        return 0;
+}
+
+static int move_sub_mounts(SubMount *mounts, size_t n) {
+        assert(mounts || n == 0);
+
+        for (size_t i = 0; i < n; i++) {
+                if (!mounts[i].path || mounts[i].mount_fd < 0)
+                        continue;
+
+                (void) mkdir_p_label(mounts[i].path, 0755);
+
+                if (move_mount(mounts[i].mount_fd, "", AT_FDCWD, mounts[i].path, MOVE_MOUNT_F_EMPTY_PATH) < 0)
+                        return log_debug_errno(errno, "Failed to move mount_fd to '%s': %m", mounts[i].path);
+        }
+
+        return 0;
+}
+
+int remount_and_move_sub_mounts(
+                const char *what,
+                const char *where,
+                const char *type,
+                unsigned long flags,
+                const char *options) {
+
+        SubMount *mounts = NULL; /* avoid false maybe-uninitialized warning */
+        size_t n = 0; /* avoid false maybe-uninitialized warning */
+        int r;
+
+        CLEANUP_ARRAY(mounts, n, sub_mount_array_free);
+
+        assert(where);
+
+        /* This is useful when creating a new network namespace. Unlike procfs, we need to remount sysfs,
+         * otherwise properties of the network interfaces in the main network namespace are still accessible
+         * through the old sysfs, e.g. /sys/class/net/eth0. All sub-mounts previously mounted on the sysfs
+         * are moved onto the new sysfs mount. */
+
+        r = path_is_mount_point(where, NULL, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine if '%s' is a mountpoint: %m", where);
+        if (r == 0)
+                /* Shortcut. Simply mount the requested filesystem. */
+                return mount_nofollow_verbose(LOG_DEBUG, what, where, type, flags, options);
+
+        /* Get the list of sub-mounts and duplicate them. */
+        r = get_sub_mounts(where, &mounts, &n);
+        if (r < 0)
+                return r;
+
+        /* Then, remount the mount and its sub-mounts. */
+        (void) umount_recursive(where, 0);
+
+        /* Remount the target filesystem. */
+        r = mount_nofollow_verbose(LOG_DEBUG, what, where, type, flags, options);
+        if (r < 0)
+                return r;
+
+        /* Finally, move the all sub-mounts on the new target mount point. */
+        return move_sub_mounts(mounts, n);
+}
+
+int remount_sysfs(const char *where) {
+        return remount_and_move_sub_mounts("sysfs", where, "sysfs", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
 }
 
 int make_mount_point_inode_from_stat(const struct stat *st, const char *dest, mode_t mode) {
