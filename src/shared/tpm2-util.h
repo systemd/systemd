@@ -62,6 +62,7 @@ typedef struct {
         ESYS_CONTEXT *esys_context;
 
         TPML_ALG_PROPERTY capability_algs;
+        TPML_CCA capability_commands;
         TPML_ECC_CURVE capability_ecc_curves;
         TPML_PCR_SELECTION capability_pcrs;
 
