@@ -3598,6 +3598,7 @@ static int apply_mount_namespace(
                         .protect_system = context->protect_system,
                         .protect_proc = context->protect_proc,
                         .proc_subset = context->proc_subset,
+                        .private_sysfs = context->private_network || context->network_namespace_path,
                         .private_ipc = context->private_ipc || context->ipc_namespace_path,
                         /* If NNP is on, we can turn on MS_NOSUID, since it won't have any effect anymore. */
                         .mount_nosuid = context->no_new_privileges && !mac_selinux_use(),

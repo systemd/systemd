@@ -34,6 +34,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "set.h"
+#include "sort-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -1165,6 +1166,161 @@ int remount_idmap(
                 return log_debug_errno(errno, "Failed to attach UID mapped mount to '%s': %m", p);
 
         return 0;
+}
+
+typedef struct SubMount {
+        char *path;
+        int mount_fd;
+} SubMount;
+
+static void sub_mount_clear(SubMount *s) {
+        assert(s);
+
+        s->path = mfree(s->path);
+        s->mount_fd = safe_close(s->mount_fd);
+}
+
+static SubMount *sub_mount_free_n(SubMount *s, size_t n) {
+        assert(s || n == 0);
+
+        for (size_t i = 0; i < n; i++)
+                sub_mount_clear(s + i);
+
+        return mfree(s);
+}
+
+static int sub_mount_compare(const SubMount *a, const SubMount *b) {
+        assert(a);
+        assert(b);
+        assert(a->path);
+        assert(b->path);
+
+        return path_compare(a->path, b->path);
+}
+
+static void sub_mount_drop(SubMount *s, size_t n) {
+        assert(s || n == 0);
+
+        for (size_t m = 0, i = 1; i < n; i++) {
+                if (path_startswith(s[i].path, s[m].path))
+                        sub_mount_clear(s + i);
+                else
+                        m = i;
+        }
+}
+
+static int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_mounts) {
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        SubMount *mounts = NULL;
+        size_t n = 0;
+        int r;
+
+        assert(prefix);
+        assert(ret_mounts);
+        assert(ret_n_mounts);
+
+        r = libmount_parse("/proc/self/mountinfo", NULL, &table, &iter);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
+
+        for (;;) {
+                _cleanup_close_ int mount_fd = -EBADF;
+                _cleanup_free_ char *p = NULL;
+                struct libmnt_fs *fs;
+                const char *path;
+
+                r = mnt_table_next_fs(table, iter, &fs);
+                if (r == 1)
+                        break;
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
+                        goto fail;
+                }
+
+                path = mnt_fs_get_target(fs);
+                if (!path)
+                        continue;
+
+                if (isempty(path_startswith(path, prefix)))
+                        continue;
+
+                p = strdup(path);
+                if (!p) {
+                        r = log_oom_debug();
+                        goto fail;
+                }
+
+                mount_fd = open_tree(AT_FDCWD, path, OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC | AT_RECURSIVE);
+                if (mount_fd < 0) {
+                        r = log_debug_errno(errno, "Failed to open tree of mounted filesystem '%s': %m", path);
+                        goto fail;
+                }
+
+                if (!GREEDY_REALLOC(mounts, n + 1)) {
+                        r = log_oom_debug();
+                        goto fail;
+                }
+
+                mounts[n++] = (SubMount) {
+                        .path = TAKE_PTR(p),
+                        .mount_fd = TAKE_FD(mount_fd),
+                };
+        }
+
+        typesafe_qsort(mounts, n, sub_mount_compare);
+        sub_mount_drop(mounts, n);
+
+        *ret_mounts = TAKE_PTR(mounts);
+        *ret_n_mounts = n;
+        return 0;
+
+fail:
+        sub_mount_free_n(mounts, n);
+        return r;
+}
+
+static int mount_sub_mounts(SubMount *mounts, size_t n) {
+        assert(mounts || n == 0);
+
+        for (size_t i = 0; i < n; i++) {
+                if (!mounts[i].path || mounts[i].mount_fd < 0)
+                        continue;
+
+                (void) mkdir_p_label(mounts[i].path, 0755);
+
+                /* And place the cloned version in its place */
+                if (move_mount(mounts[i].mount_fd, "", AT_FDCWD, mounts[i].path, MOVE_MOUNT_F_EMPTY_PATH) < 0)
+                        return log_debug_errno(errno, "Failed to move mount_fd to '%s': %m", mounts[i].path);
+        }
+
+        return 0;
+}
+
+int remount_sysfs(const char *path) {
+        SubMount *mounts;
+        size_t n;
+        int r;
+
+        assert(path);
+
+        (void) mkdir_p_label(path, 0755);
+
+        r = get_sub_mounts(path, &mounts, &n);
+        if (r < 0)
+                return r;
+
+        (void) umount_recursive(path, 0);
+
+        r = mount_nofollow_verbose(LOG_DEBUG, "sysfs", path, "sysfs", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+        if (r < 0)
+                goto finalize;
+
+        r = mount_sub_mounts(mounts, n);
+
+finalize:
+        sub_mount_free_n(mounts, n);
+        return r;
 }
 
 int make_mount_point_inode_from_stat(const struct stat *st, const char *dest, mode_t mode) {
