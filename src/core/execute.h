@@ -301,11 +301,11 @@ struct ExecContext {
         ProtectProc protect_proc;  /* hidepid= */
         ProcSubset proc_subset;    /* subset= */
 
+        int private_mounts;
         bool private_tmp;
         bool private_network;
         bool private_devices;
         bool private_users;
-        bool private_mounts;
         bool private_ipc;
         bool protect_kernel_tunables;
         bool protect_kernel_modules;
