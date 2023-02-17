@@ -80,7 +80,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Tpm2Context*, tpm2_context_unref);
 typedef struct {
         Tpm2Context *tpm2_context;
         ESYS_TR esys_handle;
-        bool keep;
+
+        bool flush;
 } Tpm2Handle;
 
 #define _tpm2_handle(c, h) { .tpm2_context = (c), .esys_handle = (h), }
