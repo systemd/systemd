@@ -3591,7 +3591,6 @@ static int apply_mount_namespace(
                         .protect_kernel_logs = context->protect_kernel_logs,
                         .protect_hostname = context->protect_hostname,
                         .mount_apivfs = exec_context_get_effective_mount_apivfs(context),
-                        .private_mounts = context->private_mounts,
                         .protect_home = context->protect_home,
                         .protect_system = context->protect_system,
                         .protect_proc = context->protect_proc,
