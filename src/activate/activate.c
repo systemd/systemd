@@ -77,6 +77,8 @@ static int open_sockets(int *epoll_fd, bool accept) {
                         except[i] = SD_LISTEN_FDS_START + i;
 
                 log_close();
+                log_set_open_when_needed(true);
+
                 r = close_all_fds(except, n);
                 if (r < 0)
                         return log_error_errno(r, "Failed to close all file descriptors: %m");
@@ -87,17 +89,17 @@ static int open_sockets(int *epoll_fd, bool accept) {
 
         STRV_FOREACH(address, arg_listen) {
                 r = make_socket_fd(LOG_DEBUG, *address, arg_socket_type, (arg_accept * SOCK_CLOEXEC));
-                if (r < 0) {
-                        log_open();
+                if (r < 0)
                         return log_error_errno(r, "Failed to open '%s': %m", *address);
-                }
 
                 assert(r == SD_LISTEN_FDS_START + count);
                 count++;
         }
 
-        if (arg_listen)
+        if (arg_listen) {
                 log_open();
+                log_set_open_when_needed(false);
+        }
 
         *epoll_fd = epoll_create1(EPOLL_CLOEXEC);
         if (*epoll_fd < 0)
