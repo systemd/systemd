@@ -196,11 +196,46 @@ static int tpm2_get_capability(
         return more == TPM2_YES;
 }
 
+#define TPMA_CC_TO_TPM2_CC(cca) (((cca) & TPMA_CC_COMMANDINDEX_MASK) >> TPMA_CC_COMMANDINDEX_SHIFT)
+
 static int tpm2_cache_capabilities(Tpm2Context *c) {
         TPMU_CAPABILITIES capability;
         int r;
 
         assert(c);
+
+        /* Cache the command capabilities. The spec isn't actually clear if commands can be added/removed
+         * while running, but that would be crazy, so let's hope it is not possbile. */
+        TPM2_CC current_cc = TPM2_CC_FIRST;
+        for (;;) {
+                r = tpm2_get_capability(
+                                c,
+                                TPM2_CAP_COMMANDS,
+                                current_cc,
+                                TPM2_MAX_CAP_CC,
+                                &capability);
+                if (r < 0)
+                        return r;
+
+                TPML_CCA commands = capability.command;
+
+                /* We should never get 0; the TPM must support some commands, and it must not set 'more' if
+                 * there are no more. */
+                assert(commands.count > 0);
+
+                if (!GREEDY_REALLOC_APPEND(
+                                c->capability_commands,
+                                c->n_capability_commands,
+                                commands.commandAttributes,
+                                commands.count))
+                        return log_oom();
+
+                if (r == 0)
+                        break;
+
+                /* Set current_cc to index after last cc the TPM provided */
+                current_cc = TPMA_CC_TO_TPM2_CC(commands.commandAttributes[commands.count - 1]) + 1;
+        }
 
         /* Cache the PCR capabilities, which are safe to cache, as the only way they can change is
          * TPM2_PCR_Allocate(), which changes the allocation after the next _TPM_Init(). If the TPM is
@@ -255,6 +290,29 @@ static int tpm2_get_capability_alg(Tpm2Context *c, TPM2_ALG_ID alg, TPMA_ALGORIT
 /* Returns 1 if the TPM supports the alg, 0 if the TPM does not support the alg, or < 0 for any error. */
 int tpm2_supports_alg(Tpm2Context *c, TPM2_ALG_ID alg) {
         return tpm2_get_capability_alg(c, alg, NULL);
+}
+
+/* Get the TPMA_CC for a TPM2_CC. Returns true if the TPM supports the command and the TPMA_CC is provided,
+ * otherwise false. */
+static bool tpm2_get_capability_command(Tpm2Context *c, TPM2_CC command, TPMA_CC *ret) {
+        assert(c);
+
+        FOREACH_ARRAY(cca, c->capability_commands, c->n_capability_commands)
+                if (TPMA_CC_TO_TPM2_CC(*cca) == command) {
+                        if (ret)
+                                *ret = *cca;
+                        return true;
+                }
+
+        log_debug("TPM does not support command 0x%04" PRIx32 ".", command);
+        if (ret)
+                *ret = 0;
+
+        return false;
+}
+
+bool tpm2_supports_command(Tpm2Context *c, TPM2_CC command) {
+        return tpm2_get_capability_command(c, command, NULL);
 }
 
 /* Returns 1 if the TPM supports the ECC curve, 0 if not, or < 0 for any error. */
@@ -419,6 +477,8 @@ static Tpm2Context *tpm2_context_free(Tpm2Context *c) {
 
         c->tcti_context = mfree(c->tcti_context);
         c->tcti_dl = safe_dlclose(c->tcti_dl);
+
+        c->capability_commands = mfree(c->capability_commands);
 
         return mfree(c);
 }
