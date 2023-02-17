@@ -61,7 +61,8 @@ typedef enum MountMode {
         PRIVATE_DEV,
         BIND_DEV,
         EMPTY_DIR,
-        SYSFS,
+        PRIVATE_SYSFS,
+        BIND_SYSFS,
         PROCFS,
         READONLY,
         READWRITE,
@@ -103,7 +104,7 @@ typedef struct MountEntry {
 static const MountEntry apivfs_table[] = {
         { "/proc",               PROCFS,       false },
         { "/dev",                BIND_DEV,     false },
-        { "/sys",                SYSFS,        false },
+        { "/sys",                BIND_SYSFS,   false },
         { "/run",                RUN,          false, .options_const = "mode=0755" TMPFS_LIMITS_RUN, .flags = MS_NOSUID|MS_NODEV|MS_STRICTATIME },
 };
 
@@ -233,7 +234,8 @@ static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
         [PRIVATE_DEV]          = "private-dev",
         [BIND_DEV]             = "bind-dev",
         [EMPTY_DIR]            = "empty",
-        [SYSFS]                = "sysfs",
+        [PRIVATE_SYSFS]        = "private-sysfs",
+        [BIND_SYSFS]           = "bind-sysfs",
         [PROCFS]               = "procfs",
         [READONLY]             = "read-only",
         [READWRITE]            = "read-write",
@@ -288,7 +290,7 @@ static bool mount_entry_read_only(const MountEntry *p) {
 static bool mount_entry_noexec(const MountEntry *p) {
         assert(p);
 
-        return p->noexec || IN_SET(p->mode, NOEXEC, INACCESSIBLE, SYSFS, PROCFS);
+        return p->noexec || IN_SET(p->mode, NOEXEC, INACCESSIBLE, PRIVATE_SYSFS, BIND_SYSFS, PROCFS);
 }
 
 static bool mount_entry_exec(const MountEntry *p) {
@@ -1053,7 +1055,25 @@ static int mount_bind_dev(const MountEntry *m) {
         return 1;
 }
 
-static int mount_sysfs(const MountEntry *m) {
+static int mount_private_sysfs(const MountEntry *m) {
+        int r;
+
+        assert(m);
+
+        r = remount_sysfs(mount_entry_path(m));
+        if (r == -EINVAL || (r < 0 && ERRNO_IS_NOT_SUPPORTED(r))) {
+                /* The kernel seems old. Fallback to bind-mounting. */
+                (void) umount_recursive(mount_entry_path(m), 0);
+                /* Bind mount the host's version so that we get all child mounts of it, too. */
+                r = mount_nofollow_verbose(LOG_DEBUG, "/sys", mount_entry_path(m), NULL, MS_BIND|MS_REC, NULL);
+        }
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+static int mount_bind_sysfs(const MountEntry *m) {
         int r;
 
         assert(m);
@@ -1483,8 +1503,11 @@ static int apply_one_mount(
         case BIND_DEV:
                 return mount_bind_dev(m);
 
-        case SYSFS:
-                return mount_sysfs(m);
+        case PRIVATE_SYSFS:
+                return mount_private_sysfs(m);
+
+        case BIND_SYSFS:
+                return mount_bind_sysfs(m);
 
         case PROCFS:
                 return mount_procfs(m, ns_info);
@@ -1720,6 +1743,7 @@ static size_t namespace_calculate_mounts(
                 !!log_namespace +
                 setup_propagate + /* /run/systemd/incoming */
                 !!notify_socket +
+                ns_info->private_network + /* /sys */
                 ns_info->private_ipc; /* /dev/mqueue */
 }
 
@@ -2325,6 +2349,12 @@ int setup_namespace(
                                 .ignore = ignore_protect_proc,
                         };
                 }
+
+                if (ns_info->private_network)
+                        *(m++) = (MountEntry) {
+                                .path_const = "/sys",
+                                .mode = PRIVATE_SYSFS,
+                        };
 
                 if (ns_info->private_ipc)
                         *(m++) = (MountEntry) {
