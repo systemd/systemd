@@ -2491,7 +2491,7 @@ static int run(int argc, char *argv[]) {
 
                 r = sd_journal_previous(j);
 
-        } else if (arg_lines >= 0) {
+        } else if (!arg_compiled_pattern && arg_lines >= 0) {
                 r = sd_journal_seek_tail(j);
                 if (r < 0)
                         return log_error_errno(r, "Failed to seek to tail: %m");
