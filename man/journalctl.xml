@@ -363,7 +363,9 @@
 
         <para>If the pattern is all lowercase, matching is case insensitive.  Otherwise, matching is case
         sensitive. This can be overridden with the <option>--case-sensitive</option> option, see
-        below.</para></listitem>
+        below.</para>
+
+        <para>When used with <option>--lines=</option>, <option>--reverse</option> is implied.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -540,7 +542,9 @@
         <listitem><para>Show the most recent journal events and limit the number of events shown. If
         <option>--follow</option> is used, this option is implied. The argument is a positive integer or
         <literal>all</literal> to disable line limiting. The default value is 10 if no argument is
-        given.</para></listitem>
+        given.</para>
+
+        <para>When used with <option>--grep=</option>, <option>--reverse</option> is implied.</para></listitem>
       </varlistentry>
 
       <varlistentry>
