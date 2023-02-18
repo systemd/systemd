@@ -577,8 +577,8 @@ static int loop_device_make_internal(
                  * device, and called LOOP_CTL_REMOVE on it. Let's retry with a new number.
                  * -EBUSY: a file descriptor is already bound to the loopback block device.
                  * -EUCLEAN: some left-over partition devices that were cleaned up. */
-                if (!ERRNO_IS_DEVICE_ABSENT(errno) && !IN_SET(r, -EBUSY, -EUCLEAN))
-                        return -errno;
+                if (!ERRNO_IS_DEVICE_ABSENT(r) && !IN_SET(r, -EBUSY, -EUCLEAN))
+                        return r;
 
                 /* OK, this didn't work, let's try again a bit later, but first release the lock on the
                  * control device */
