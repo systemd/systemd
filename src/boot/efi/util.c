@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <efi.h>
-#include <efilib.h>
 #include <inttypes.h>
 
+#include "proto/device-path.h"
+#include "proto/simple-text-io.h"
 #include "ticks.h"
 #include "util.h"
 
@@ -186,24 +186,25 @@ EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const char16_t *name, ui
 }
 
 EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, char **ret, size_t *ret_size) {
-        _cleanup_free_ char *buf = NULL;
-        size_t l;
         EFI_STATUS err;
 
         assert(vendor);
         assert(name);
 
-        l = sizeof(char16_t *) * EFI_MAXIMUM_VARIABLE_SIZE;
-        buf = xmalloc(l);
+        size_t size = 0;
+        err = RT->GetVariable((char16_t *) name, (EFI_GUID *) vendor, NULL, &size, NULL);
+        if (err != EFI_BUFFER_TOO_SMALL)
+                return err;
 
-        err = RT->GetVariable((char16_t *) name, (EFI_GUID *) vendor, NULL, &l, buf);
+        _cleanup_free_ void *buf = xmalloc(size);
+        err = RT->GetVariable((char16_t *) name, (EFI_GUID *) vendor, NULL, &size, buf);
         if (err != EFI_SUCCESS)
                 return err;
 
         if (ret)
                 *ret = TAKE_PTR(buf);
         if (ret_size)
-                *ret_size = l;
+                *ret_size = size;
 
         return EFI_SUCCESS;
 }
@@ -648,15 +649,15 @@ EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DE
         size_t dp_size = (uint8_t *) end_node - (uint8_t *) dp;
 
         /* Make a copy that can also hold a file media device path. */
-        *ret_dp = xmalloc(dp_size + file_size + SIZE_OF_FILEPATH_DEVICE_PATH + END_DEVICE_PATH_LENGTH);
+        *ret_dp = xmalloc(dp_size + file_size + sizeof(FILEPATH_DEVICE_PATH) + sizeof(EFI_DEVICE_PATH));
         dp = mempcpy(*ret_dp, dp, dp_size);
 
         /* Replace end node with file media device path. Use memcpy() in case dp is unaligned (if accessed as
          * FILEPATH_DEVICE_PATH). */
         dp->Type = MEDIA_DEVICE_PATH;
         dp->SubType = MEDIA_FILEPATH_DP;
-        memcpy((uint8_t *) dp + offsetof(FILEPATH_DEVICE_PATH, PathName), file, file_size);
-        SetDevicePathNodeLength(dp, offsetof(FILEPATH_DEVICE_PATH, PathName) + file_size);
+        dp->Length = sizeof(FILEPATH_DEVICE_PATH) + file_size;
+        memcpy((uint8_t *) dp + sizeof(FILEPATH_DEVICE_PATH), file, file_size);
 
         dp = NextDevicePathNode(dp);
         SetDevicePathEndNode(dp);
