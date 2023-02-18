@@ -1068,7 +1068,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i) {
                          * kernels don't support that however, in that case we fall back to chmod(). Not as
                          * safe, but shouldn't be a problem, given that we don't create symlinks here. */
                         if (fchmodat(AT_FDCWD, t->temporary_path, f.mode, AT_SYMLINK_NOFOLLOW) < 0 &&
-                            (!ERRNO_IS_NOT_SUPPORTED(errno) || chmod(t->temporary_path, f.mode) < 0))
+                            (!ERRNO_IS_NOT_SUPPORTED() || chmod(t->temporary_path, f.mode) < 0))
                                 return log_error_errno(errno, "Failed to adjust mode of '%s': %m", t->temporary_path);
 
                         need_sync = true;

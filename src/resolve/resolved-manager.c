@@ -768,7 +768,7 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
 
         l = recvmsg_safe(fd, &mh, 0);
         if (l < 0) {
-                if (ERRNO_IS_TRANSIENT(l))
+                if (NERRNO_IS_TRANSIENT(l))
                         return 0;
                 return l;
         }
@@ -886,7 +886,7 @@ static int sendmsg_loop(int fd, struct msghdr *mh, int flags) {
 
                 r = fd_wait_for_event(fd, POLLOUT, LESS_BY(end, now(CLOCK_MONOTONIC)));
                 if (r < 0) {
-                        if (ERRNO_IS_TRANSIENT(r))
+                        if (NERRNO_IS_TRANSIENT(r))
                                 continue;
                         return r;
                 }
@@ -914,7 +914,7 @@ static int write_loop(int fd, void *message, size_t length) {
 
                 r = fd_wait_for_event(fd, POLLOUT, LESS_BY(end, now(CLOCK_MONOTONIC)));
                 if (r < 0) {
-                        if (ERRNO_IS_TRANSIENT(r))
+                        if (NERRNO_IS_TRANSIENT(r))
                                 continue;
                         return r;
                 }

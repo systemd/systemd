@@ -36,7 +36,7 @@ static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userd
                  * likely, and thus test some additional code paths. */
                 n = send(fd, iov->iov_base, MIN(iov->iov_len, 143U), MSG_NOSIGNAL|MSG_DONTWAIT);
                 if (n < 0) {
-                        if (ERRNO_IS_DISCONNECT(errno))
+                        if (ERRNO_IS_DISCONNECT())
                                 write_eof = true;
                         else
                                 assert_se(errno == EAGAIN);
@@ -50,7 +50,7 @@ static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userd
 
                 n = recv(fd, c, sizeof(c), MSG_DONTWAIT);
                 if (n < 0) {
-                        if (ERRNO_IS_DISCONNECT(errno))
+                        if (ERRNO_IS_DISCONNECT())
                                 read_eof = true;
                         else
                                 assert_se(errno == EAGAIN);

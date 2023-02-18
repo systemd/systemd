@@ -25,7 +25,7 @@ int user_record_quality_check_password(
         assert(secret);
 
         r = pwq_allocate_context(&pwq);
-        if (ERRNO_IS_NOT_SUPPORTED(r))
+        if (NERRNO_IS_NOT_SUPPORTED(r))
                 return 0;
         if (r < 0)
                 return log_debug_errno(r, "Failed to allocate libpwquality context: %m");

@@ -116,7 +116,7 @@ static void test_execute_directory_one(bool gather_stdout) {
         assert_se(chmod(masked2e, 0755) == 0);
         assert_se(chmod(mask2e, 0755) == 0);
 
-        if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
+        if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE())
                 return;
 
         if (gather_stdout)
@@ -189,7 +189,7 @@ TEST(execution_order) {
         assert_se(chmod(override, 0755) == 0);
         assert_se(chmod(masked, 0755) == 0);
 
-        if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
+        if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE())
                 return;
 
         execute_directories(dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
@@ -270,7 +270,7 @@ TEST(stdout_gathering) {
         assert_se(chmod(name2, 0755) == 0);
         assert_se(chmod(name3, 0755) == 0);
 
-        if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
+        if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE())
                 return;
 
         r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_stdouts, args, NULL, NULL,
@@ -337,7 +337,7 @@ TEST(environment_gathering) {
         r = setenv("PATH", "no-sh-built-in-path", 1);
         assert_se(r >= 0);
 
-        if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
+        if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE())
                 return;
 
         r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
@@ -400,7 +400,7 @@ TEST(error_catching) {
         assert_se(chmod(name2, 0755) == 0);
         assert_se(chmod(name3, 0755) == 0);
 
-        if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
+        if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE())
                 return;
 
         r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, NULL, NULL, EXEC_DIR_NONE);

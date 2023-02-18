@@ -456,7 +456,7 @@ int fexecve_or_execve(int executable_fd, const char *executable, char *const arg
 
         execveat(executable_fd, "", argv, envp, AT_EMPTY_PATH);
 
-        if (IN_SET(errno, ENOSYS, ENOENT) || ERRNO_IS_PRIVILEGE(errno))
+        if (IN_SET(errno, ENOSYS, ENOENT) || ERRNO_IS_PRIVILEGE())
                 /* Old kernel or a script or an overzealous seccomp filter? Let's fall back to execve().
                  *
                  * fexecve(3): "If fd refers to a script (i.e., it is an executable text file that names a

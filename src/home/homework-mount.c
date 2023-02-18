@@ -257,7 +257,7 @@ int home_shift_uid(int dir_fd, const char *target, uid_t stored_uid, uid_t expos
 
         mount_fd = open_tree(dir_fd, "", AT_EMPTY_PATH | OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC);
         if (mount_fd < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(errno)) {
+                if (ERRNO_IS_NOT_SUPPORTED()) {
                         log_debug_errno(errno, "The open_tree() syscall is not supported, not setting up UID shift mount: %m");
 
                         if (ret_mount_fd)
@@ -280,7 +280,7 @@ int home_shift_uid(int dir_fd, const char *target, uid_t stored_uid, uid_t expos
                                   .userns_fd = userns_fd,
                           }, MOUNT_ATTR_SIZE_VER0) < 0) {
 
-                if (ERRNO_IS_NOT_SUPPORTED(errno) || errno == EINVAL) { /* EINVAL is documented in mount_attr() as fs doesn't support idmapping */
+                if (ERRNO_IS_NOT_SUPPORTED() || errno == EINVAL) { /* EINVAL is documented in mount_attr() as fs doesn't support idmapping */
                         log_debug_errno(errno, "UID/GID mapping for shifted mount not available, not setting it up: %m");
 
                         if (ret_mount_fd)

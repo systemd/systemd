@@ -56,7 +56,7 @@ int home_update_quota_classic(UserRecord *h, const char *path) {
 
         r = quotactl_devnum(QCMD_FIXED(Q_GETQUOTA, USRQUOTA), devno, h->uid, &req);
         if (r < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(r))
+                if (NERRNO_IS_NOT_SUPPORTED(r))
                         return log_error_errno(r, "No UID quota support on %s.", path);
 
                 if (r != -ESRCH)

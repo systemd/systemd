@@ -2295,7 +2295,7 @@ static int verity_partition(
 
                 /* First, check if the device already exists. */
                 fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
-                if (fd < 0 && !ERRNO_IS_DEVICE_ABSENT(errno))
+                if (fd < 0 && !ERRNO_IS_DEVICE_ABSENT())
                         return log_debug_errno(errno, "Failed to open verity device %s: %m", node);
                 if (fd >= 0)
                         goto check; /* The device already exists. Let's check it. */
@@ -2363,7 +2363,7 @@ static int verity_partition(
                         /* Now, the device is activated and devlink is created. Let's open it. */
                         fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
                         if (fd < 0) {
-                                if (!ERRNO_IS_DEVICE_ABSENT(errno))
+                                if (!ERRNO_IS_DEVICE_ABSENT())
                                         return log_debug_errno(errno, "Failed to open verity device %s: %m", node);
 
                                 /* The device has already been removed?? */
@@ -2638,7 +2638,7 @@ int verity_settings_load(
                                 if (r < 0) {
                                         _cleanup_free_ char *p = NULL;
 
-                                        if (r != -ENOENT && !ERRNO_IS_XATTR_ABSENT(r))
+                                        if (r != -ENOENT && !NERRNO_IS_XATTR_ABSENT(r))
                                                 return r;
 
                                         p = build_auxiliary_path(image, ".roothash");
@@ -2667,7 +2667,7 @@ int verity_settings_load(
                                 if (r < 0) {
                                         _cleanup_free_ char *p = NULL;
 
-                                        if (r != -ENOENT && !ERRNO_IS_XATTR_ABSENT(r))
+                                        if (r != -ENOENT && !NERRNO_IS_XATTR_ABSENT(r))
                                                 return r;
 
                                         p = build_auxiliary_path(image, ".usrhash");

@@ -86,7 +86,7 @@ static int user_mkdir_runtime_path(
 
                 r = mount_nofollow_verbose(LOG_DEBUG, "tmpfs", runtime_path, "tmpfs", MS_NODEV|MS_NOSUID, options);
                 if (r < 0) {
-                        if (!ERRNO_IS_PRIVILEGE(r)) {
+                        if (!NERRNO_IS_PRIVILEGE(r)) {
                                 log_error_errno(r, "Failed to mount per-user tmpfs directory %s: %m", runtime_path);
                                 goto fail;
                         }

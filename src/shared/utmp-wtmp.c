@@ -314,7 +314,7 @@ static int write_to_terminal(const char *tty, const char *message) {
 
                 k = fd_wait_for_event(fd, POLLOUT, end - t);
                 if (k < 0) {
-                        if (ERRNO_IS_TRANSIENT(k))
+                        if (NERRNO_IS_TRANSIENT(k))
                                 continue;
                         return k;
                 }
@@ -323,7 +323,7 @@ static int write_to_terminal(const char *tty, const char *message) {
 
                 n = write(fd, p, left);
                 if (n < 0) {
-                        if (ERRNO_IS_TRANSIENT(errno))
+                        if (ERRNO_IS_TRANSIENT())
                                 continue;
 
                         return -errno;

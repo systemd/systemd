@@ -93,7 +93,7 @@ static int managed_journal_file_entry_array_punch_hole(JournalFile *f, uint64_t 
         }
 
         if (fallocate(f->fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, offset, sz) < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(errno))
+                if (ERRNO_IS_NOT_SUPPORTED())
                         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), /* Make recognizable */
                                                "Hole punching not supported by backing file system, skipping.");
 

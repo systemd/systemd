@@ -393,7 +393,7 @@ TEST(cg_get_keyed_attribute) {
         int i, r;
 
         r = cg_get_keyed_attribute("cpu", "/init.scope", "no_such_file", STRV_MAKE("no_such_attr"), &val);
-        if (r == -ENOMEDIUM || ERRNO_IS_PRIVILEGE(r)) {
+        if (r == -ENOMEDIUM || NERRNO_IS_PRIVILEGE(r)) {
                 log_info_errno(r, "Skipping most of %s, /sys/fs/cgroup not accessible: %m", __func__);
                 return;
         }

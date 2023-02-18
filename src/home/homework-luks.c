@@ -96,7 +96,7 @@ int run_mark_dirty(int fd, bool b) {
                         return log_debug_errno(r, "Failed to synchronize image before marking it clean: %m");
 
                 ret = fremovexattr(fd, "user.home-dirty");
-                if (ret < 0 && !ERRNO_IS_XATTR_ABSENT(errno))
+                if (ret < 0 && !ERRNO_IS_XATTR_ABSENT())
                         return log_debug_errno(errno, "Could not mark home directory as clean: %m");
         }
 
@@ -498,7 +498,7 @@ static int acquire_open_luks_device(
                 return r;
 
         r = sym_crypt_init_by_name(&cd, setup->dm_name);
-        if ((ERRNO_IS_DEVICE_ABSENT(r) || r == -EINVAL) && graceful)
+        if ((NERRNO_IS_DEVICE_ABSENT(r) || r == -EINVAL) && graceful)
                 return 0;
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize cryptsetup context for %s: %m", setup->dm_name);
@@ -1079,7 +1079,7 @@ int run_fitrim(int root_fd) {
         assert(root_fd >= 0);
 
         if (ioctl(root_fd, FITRIM, &range) < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(errno) || errno == EBADF) {
+                if (ERRNO_IS_NOT_SUPPORTED() || errno == EBADF) {
                         log_debug_errno(errno, "File system does not support FITRIM, not trimming.");
                         return 0;
                 }
@@ -1116,12 +1116,12 @@ int run_fallocate(int backing_fd, const struct stat *st) {
 
         if (fallocate(backing_fd, FALLOC_FL_KEEP_SIZE, 0, st->st_size) < 0) {
 
-                if (ERRNO_IS_NOT_SUPPORTED(errno)) {
+                if (ERRNO_IS_NOT_SUPPORTED()) {
                         log_debug_errno(errno, "fallocate() not supported on file system, ignoring.");
                         return 0;
                 }
 
-                if (ERRNO_IS_DISK_SPACE(errno)) {
+                if (ERRNO_IS_DISK_SPACE()) {
                         log_debug_errno(errno, "Not enough disk space to fully allocate home.");
                         return -ENOSPC; /* make recognizable */
                 }
@@ -1638,7 +1638,7 @@ int home_deactivate_luks(UserRecord *h, HomeSetup *setup) {
                 cryptsetup_enable_logging(setup->crypt_device);
 
                 r = sym_crypt_deactivate_by_name(setup->crypt_device, setup->dm_name, 0);
-                if (ERRNO_IS_DEVICE_ABSENT(r) || r == -EINVAL)
+                if (NERRNO_IS_DEVICE_ABSENT(r) || r == -EINVAL)
                         log_debug_errno(r, "LUKS device %s is already detached.", setup->dm_node);
                 else if (r < 0)
                         return log_info_errno(r, "LUKS device %s couldn't be deactivated: %m", setup->dm_node);
@@ -2025,7 +2025,7 @@ static int wait_for_devlink(const char *path) {
 
                 r = fd_wait_for_event(inotify_fd, POLLIN, until - w);
                 if (r < 0) {
-                        if (ERRNO_IS_TRANSIENT(r))
+                        if (NERRNO_IS_TRANSIENT(r))
                                 continue;
                         return log_error_errno(r, "Failed to watch inotify: %m");
                 }
@@ -2096,7 +2096,7 @@ static int home_truncate(
         trunc = user_record_luks_discard(h);
         if (!trunc) {
                 r = fallocate(fd, 0, 0, size);
-                if (r < 0 && ERRNO_IS_NOT_SUPPORTED(errno)) {
+                if (r < 0 && ERRNO_IS_NOT_SUPPORTED()) {
                         /* Some file systems do not support fallocate(), let's gracefully degrade
                          * (ZFS, reiserfs, …) and fall back to truncation */
                         log_notice_errno(errno, "Backing file system does not support fallocate(), falling back to ftruncate(), i.e. implicitly using non-discard mode.");
@@ -2108,7 +2108,7 @@ static int home_truncate(
                 r = ftruncate(fd, size);
 
         if (r < 0) {
-                if (ERRNO_IS_DISK_SPACE(errno)) {
+                if (ERRNO_IS_DISK_SPACE()) {
                         log_debug_errno(errno, "Not enough disk space to allocate home of size %s.", FORMAT_BYTES(size));
                         return -ENOSPC; /* make recognizable */
                 }
@@ -2302,7 +2302,7 @@ int home_create_luks(
 
                 r = chattr_full(t, setup->image_fd, FS_NOCOW_FL|FS_NOCOMP_FL, FS_NOCOW_FL|FS_NOCOMP_FL, NULL, NULL, CHATTR_FALLBACK_BITWISE);
                 if (r < 0 && r != -ENOANO) /* ENOANO → some bits didn't work; which we skip logging about because chattr_full() already debug logs about those flags */
-                        log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
+                        log_full_errno(NERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
                                        "Failed to set file attributes on %s, ignoring: %m", setup->temporary_image_path);
 
                 r = calculate_initial_image_size(h, setup->image_fd, fstype, &host_size);
@@ -2961,7 +2961,7 @@ static int resize_fs_loop(
                 if (resize_type == CAN_RESIZE_ONLINE) {
                         r = resize_fs(setup->root_fd, try_fs_size, NULL);
                         if (r < 0) {
-                                if (!ERRNO_IS_DISK_SPACE(r) || new_fs_size > old_fs_size) /* Not a disk space issue? Not trying to shrink? */
+                                if (!NERRNO_IS_DISK_SPACE(r) || new_fs_size > old_fs_size) /* Not a disk space issue? Not trying to shrink? */
                                         return log_error_errno(r, "Failed to resize file system: %m");
 
                                 log_debug_errno(r, "Shrinking from %s to %s didn't work, not enough space for contained data.", FORMAT_BYTES(current_fs_size), FORMAT_BYTES(try_fs_size));
@@ -3045,7 +3045,7 @@ static int resize_image_loop(
 
                 r = home_truncate(h, setup->image_fd, try_image_size);
                 if (r < 0) {
-                        if (!ERRNO_IS_DISK_SPACE(r) || new_image_size < old_image_size) /* Not a disk space issue? Not trying to grow? */
+                        if (!NERRNO_IS_DISK_SPACE(r) || new_image_size < old_image_size) /* Not a disk space issue? Not trying to grow? */
                                 return r;
 
                         log_debug_errno(r, "Growing from %s to %s didn't work, not enough space on backing disk.", FORMAT_BYTES(current_image_size), FORMAT_BYTES(try_image_size));

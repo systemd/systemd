@@ -370,7 +370,7 @@ static int journal_file_init_header(
                 return r;
 
         r = sd_id128_get_machine(&h.machine_id);
-        if (r < 0 && !ERRNO_IS_MACHINE_ID_UNSET(r))
+        if (r < 0 && !NERRNO_IS_MACHINE_ID_UNSET(r))
                 return r; /* If we have no valid machine ID (test environment?), let's simply leave the
                            * machine ID field all zeroes. */
 
@@ -512,7 +512,7 @@ static int journal_file_verify_header(JournalFile *f) {
 
                 r = sd_id128_get_machine(&machine_id);
                 if (r < 0) {
-                        if (!ERRNO_IS_MACHINE_ID_UNSET(r)) /* handle graceful if machine ID is not initialized yet */
+                        if (!NERRNO_IS_MACHINE_ID_UNSET(r)) /* handle graceful if machine ID is not initialized yet */
                                 return r;
 
                         machine_id = SD_ID128_NULL;
@@ -2344,7 +2344,7 @@ int journal_file_append_entry(
 
         r = sd_id128_get_machine(&_machine_id);
         if (r < 0) {
-                if (!ERRNO_IS_MACHINE_ID_UNSET(r))
+                if (!NERRNO_IS_MACHINE_ID_UNSET(r))
                         return r;
 
                 /* If the machine ID is not initialized yet, handle gracefully */

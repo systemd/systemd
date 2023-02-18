@@ -2363,7 +2363,7 @@ static int home_get_disk_status_directory(
         if (IN_SET(h->record->storage, USER_CLASSIC, USER_DIRECTORY, USER_FSCRYPT)) {
                 r = quotactl_path(QCMD_FIXED(Q_GETQUOTA, USRQUOTA), path, h->uid, &req);
                 if (r < 0) {
-                        if (ERRNO_IS_NOT_SUPPORTED(r)) {
+                        if (NERRNO_IS_NOT_SUPPORTED(r)) {
                                 log_debug_errno(r, "No UID quota support on %s.", path);
                                 goto finish;
                         }

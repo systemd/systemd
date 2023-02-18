@@ -198,7 +198,7 @@ static int run(int argc, char *argv[]) {
                 r = sd_bus_process(b, &m);
                 if (r < 0) {
                         /* treat 'connection reset by peer' as clean exit condition */
-                        if (ERRNO_IS_DISCONNECT(r))
+                        if (NERRNO_IS_DISCONNECT(r))
                                 return 0;
 
                         return log_error_errno(r, "Failed to process bus: %m");
@@ -243,7 +243,7 @@ static int run(int argc, char *argv[]) {
 
                 r = ppoll_usec(p, ELEMENTSOF(p), t);
                 if (r < 0) {
-                        if (ERRNO_IS_TRANSIENT(r)) /* don't be bothered by signals, i.e. EINTR */
+                        if (NERRNO_IS_TRANSIENT(r)) /* don't be bothered by signals, i.e. EINTR */
                                 continue;
                         return log_error_errno(r, "ppoll() failed: %m");
                 }

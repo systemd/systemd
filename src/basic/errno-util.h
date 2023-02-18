@@ -84,9 +84,19 @@ static inline int errno_or_else(int fallback) {
         return -abs(fallback);
 }
 
+#define DEFINE_ERRNO_CHECKERS(name)                      \
+        static inline bool _ERRNO_IS_##name(int r);      \
+        static inline bool NERRNO_IS_##name(int r) {     \
+                return r < 0 && _ERRNO_IS_##name(-r);    \
+        }                                                \
+        static inline bool ERRNO_IS_##name(void) {       \
+                return _ERRNO_IS_##name(errno);          \
+        }                                                \
+        static inline bool _ERRNO_IS_##name(int r)
+
 /* For send()/recv() or read()/write(). */
-static inline bool ERRNO_IS_TRANSIENT(int r) {
-        return IN_SET(abs(r),
+DEFINE_ERRNO_CHECKERS(TRANSIENT) {
+        return IN_SET(r,
                       EAGAIN,
                       EINTR);
 }
@@ -98,8 +108,8 @@ static inline bool ERRNO_IS_TRANSIENT(int r) {
  *
  * Hint #3: When asynchronous connect() on TCP fails because the host never acknowledges a single packet,
  *          kernel tells us that with ETIMEDOUT, see tcp(7). */
-static inline bool ERRNO_IS_DISCONNECT(int r) {
-        return IN_SET(abs(r),
+DEFINE_ERRNO_CHECKERS(DISCONNECT) {
+        return IN_SET(r,
                       ECONNABORTED,
                       ECONNREFUSED,
                       ECONNRESET,
@@ -119,23 +129,23 @@ static inline bool ERRNO_IS_DISCONNECT(int r) {
 
 /* Transient errors we might get on accept() that we should ignore. As per error handling comment in
  * the accept(2) man page. */
-static inline bool ERRNO_IS_ACCEPT_AGAIN(int r) {
-        return ERRNO_IS_DISCONNECT(r) ||
-                ERRNO_IS_TRANSIENT(r) ||
-                abs(r) == EOPNOTSUPP;
+DEFINE_ERRNO_CHECKERS(ACCEPT_AGAIN) {
+        return r == EOPNOTSUPP ||
+                _ERRNO_IS_DISCONNECT(r) ||
+                _ERRNO_IS_TRANSIENT(r);
 }
 
 /* Resource exhaustion, could be our fault or general system trouble */
-static inline bool ERRNO_IS_RESOURCE(int r) {
-        return IN_SET(abs(r),
+DEFINE_ERRNO_CHECKERS(RESOURCE) {
+        return IN_SET(r,
                       EMFILE,
                       ENFILE,
                       ENOMEM);
 }
 
 /* Seven different errors for "operation/system call/ioctl/socket feature not supported" */
-static inline bool ERRNO_IS_NOT_SUPPORTED(int r) {
-        return IN_SET(abs(r),
+DEFINE_ERRNO_CHECKERS(NOT_SUPPORTED) {
+        return IN_SET(r,
                       EOPNOTSUPP,
                       ENOTTY,
                       ENOSYS,
@@ -146,23 +156,23 @@ static inline bool ERRNO_IS_NOT_SUPPORTED(int r) {
 }
 
 /* Two different errors for access problems */
-static inline bool ERRNO_IS_PRIVILEGE(int r) {
-        return IN_SET(abs(r),
+DEFINE_ERRNO_CHECKERS(PRIVILEGE) {
+        return IN_SET(r,
                       EACCES,
                       EPERM);
 }
 
 /* Three different errors for "not enough disk space" */
-static inline bool ERRNO_IS_DISK_SPACE(int r) {
-        return IN_SET(abs(r),
+DEFINE_ERRNO_CHECKERS(DISK_SPACE) {
+        return IN_SET(r,
                       ENOSPC,
                       EDQUOT,
                       EFBIG);
 }
 
 /* Three different errors for "this device does not quite exist" */
-static inline bool ERRNO_IS_DEVICE_ABSENT(int r) {
-        return IN_SET(abs(r),
+DEFINE_ERRNO_CHECKERS(DEVICE_ABSENT) {
+        return IN_SET(r,
                       ENODEV,
                       ENXIO,
                       ENOENT);
@@ -170,7 +180,7 @@ static inline bool ERRNO_IS_DEVICE_ABSENT(int r) {
 
 /* Quite often we want to handle cases where the backing FS doesn't support extended attributes at all and
  * where it simply doesn't have the requested xattr the same way */
-static inline bool ERRNO_IS_XATTR_ABSENT(int r) {
-        return abs(r) == ENODATA ||
-                ERRNO_IS_NOT_SUPPORTED(r);
+DEFINE_ERRNO_CHECKERS(XATTR_ABSENT) {
+        return r == ENODATA ||
+                _ERRNO_IS_NOT_SUPPORTED(r);
 }

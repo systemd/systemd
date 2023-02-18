@@ -201,7 +201,7 @@ static int device_wait_for_initialization_internal(
         /* Devlink might already exist, if it does get the device to use the sysname filtering */
         if (!device && devlink) {
                 r = sd_device_new_from_devname(&device, devlink);
-                if (r < 0 && !ERRNO_IS_DEVICE_ABSENT(r))
+                if (r < 0 && !NERRNO_IS_DEVICE_ABSENT(r))
                         return log_error_errno(r, "Failed to create sd-device object from %s: %m", devlink);
         }
 
@@ -266,7 +266,7 @@ static int device_wait_for_initialization_internal(
         /* Check again, maybe things changed. Udev will re-read the db if the device wasn't initialized yet. */
         if (!device && devlink) {
                 r = sd_device_new_from_devname(&device, devlink);
-                if (r < 0 && !ERRNO_IS_DEVICE_ABSENT(r))
+                if (r < 0 && !NERRNO_IS_DEVICE_ABSENT(r))
                         return log_error_errno(r, "Failed to create sd-device object from %s: %m", devlink);
         }
         if (device && sd_device_get_is_initialized(device) > 0) {
@@ -533,7 +533,7 @@ int udev_resolve_subsys_kernel(const char *string, char *result, size_t maxsize,
 
         if (read_value) {
                 r = sd_device_get_sysattr_value(dev, attr, &val);
-                if (r < 0 && !ERRNO_IS_PRIVILEGE(r) && r != -ENOENT)
+                if (r < 0 && !NERRNO_IS_PRIVILEGE(r) && r != -ENOENT)
                         return r;
                 if (r >= 0)
                         strscpy(result, maxsize, val);

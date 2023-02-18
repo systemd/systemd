@@ -111,7 +111,7 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
                  * privileges */
                 r = fchmod_and_chown(fd, 0644, uid, gid);
                 if (r < 0)
-                        log_full_errno(ERRNO_IS_PRIVILEGE(r) ? LOG_DEBUG : LOG_WARNING, r,
+                        log_full_errno(NERRNO_IS_PRIVILEGE(r) ? LOG_DEBUG : LOG_WARNING, r,
                                        "Failed to chmod or chown %s, ignoring: %m", CLOCK_FILE);
 
                 (void) advance_tstamp(fd, &st);

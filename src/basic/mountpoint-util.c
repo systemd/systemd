@@ -216,7 +216,7 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
         if (statx(fd, filename, (FLAGS_SET(flags, AT_SYMLINK_FOLLOW) ? 0 : AT_SYMLINK_NOFOLLOW) |
                                 (flags & AT_EMPTY_PATH) |
                                 AT_NO_AUTOMOUNT, STATX_TYPE, &sx) < 0) {
-                if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
+                if (!ERRNO_IS_NOT_SUPPORTED() && !ERRNO_IS_PRIVILEGE())
                         return -errno;
 
                 /* If statx() is not available or forbidden, fall back to name_to_handle_at() below */
@@ -355,7 +355,7 @@ int path_get_mnt_id(const char *path, int *ret) {
         int r;
 
         if (statx(AT_FDCWD, path, AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT, STATX_MNT_ID, &buf.sx) < 0) {
-                if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
+                if (!ERRNO_IS_NOT_SUPPORTED() && !ERRNO_IS_PRIVILEGE())
                         return -errno;
 
                 /* Fall back to name_to_handle_at() and then fdinfo if statx is not supported or we lack

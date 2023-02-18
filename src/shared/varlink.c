@@ -472,7 +472,7 @@ static int varlink_write(Varlink *v) {
                 if (errno == EAGAIN)
                         return 0;
 
-                if (ERRNO_IS_DISCONNECT(errno)) {
+                if (ERRNO_IS_DISCONNECT()) {
                         /* If we get informed about a disconnect on write, then let's remember that, but not
                          * act on it just yet. Let's wait for read() to report the issue first. */
                         v->write_disconnected = true;
@@ -553,7 +553,7 @@ static int varlink_read(Varlink *v) {
                 if (errno == EAGAIN)
                         return 0;
 
-                if (ERRNO_IS_DISCONNECT(errno)) {
+                if (ERRNO_IS_DISCONNECT()) {
                         v->read_disconnected = true;
                         return 1;
                 }
@@ -1075,7 +1075,7 @@ int varlink_wait(Varlink *v, usec_t timeout) {
                 return events;
 
         r = fd_wait_for_event(fd, events, t);
-        if (r < 0 && ERRNO_IS_TRANSIENT(r)) /* Treat EINTR as not a timeout, but also nothing happened, and
+        if (r < 0 && NERRNO_IS_TRANSIENT(r)) /* Treat EINTR as not a timeout, but also nothing happened, and
                                              * the caller gets a chance to call back into us */
                 return 1;
         if (r <= 0)
@@ -1165,7 +1165,7 @@ int varlink_flush(Varlink *v) {
 
                 r = fd_wait_for_event(v->fd, POLLOUT, USEC_INFINITY);
                 if (r < 0) {
-                        if (ERRNO_IS_TRANSIENT(r))
+                        if (NERRNO_IS_TRANSIENT(r))
                                 continue;
 
                         return varlink_log_errno(v, r, "Poll failed on fd: %m");
@@ -2228,7 +2228,7 @@ static int connect_callback(sd_event_source *source, int fd, uint32_t revents, v
 
         cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
         if (cfd < 0) {
-                if (ERRNO_IS_ACCEPT_AGAIN(errno))
+                if (ERRNO_IS_ACCEPT_AGAIN())
                         return 0;
 
                 return varlink_server_log_errno(ss->server, errno, "Failed to accept incoming socket: %m");

@@ -163,7 +163,7 @@ static int ask_password_keyring(const char *keyname, AskPasswordFlags flags, cha
                  * or allow this" and "no matching key known" doesn't matter. Note that we propagate
                  * EACCESS here (even if EPERM not) since that is used if the keyring is available but
                  * we lack access to the key. */
-                if (ERRNO_IS_NOT_SUPPORTED(r) || r == -EPERM)
+                if (NERRNO_IS_NOT_SUPPORTED(r) || r == -EPERM)
                         return -ENOKEY;
 
                 return r;
@@ -292,7 +292,7 @@ int ask_password_plymouth(
 
                 k = read(fd, buffer + p, sizeof(buffer) - p);
                 if (k < 0) {
-                        if (ERRNO_IS_TRANSIENT(errno))
+                        if (ERRNO_IS_TRANSIENT())
                                 continue;
 
                         return -errno;
@@ -509,7 +509,7 @@ int ask_password_tty(
 
                 n = read(ttyfd >= 0 ? ttyfd : STDIN_FILENO, &c, 1);
                 if (n < 0) {
-                        if (ERRNO_IS_TRANSIENT(errno))
+                        if (ERRNO_IS_TRANSIENT())
                                 continue;
 
                         r = -errno;
@@ -868,7 +868,7 @@ int ask_password_agent(
 
                 n = recvmsg_safe(socket_fd, &msghdr, 0);
                 if (n < 0) {
-                        if (ERRNO_IS_TRANSIENT(n))
+                        if (NERRNO_IS_TRANSIENT(n))
                                 continue;
                         if (n == -EXFULL) {
                                 log_debug("Got message with truncated control data, ignoring.");

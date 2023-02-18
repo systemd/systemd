@@ -1747,7 +1747,7 @@ static int apply_protect_hostname(const Unit *u, const ExecContext *c, int *ret_
 
         if (ns_type_supported(NAMESPACE_UTS)) {
                 if (unshare(CLONE_NEWUTS) < 0) {
-                        if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno)) {
+                        if (!ERRNO_IS_NOT_SUPPORTED() && !ERRNO_IS_PRIVILEGE()) {
                                 *ret_exit_status = EXIT_NAMESPACE;
                                 return log_unit_error_errno(u, errno, "Failed to set up UTS namespacing: %m");
                         }
@@ -2582,7 +2582,7 @@ static int write_credential(
         if (uid_is_valid(uid) && uid != getuid()) {
                 r = fd_add_uid_acl_permission(fd, uid, ACL_READ);
                 if (r < 0) {
-                        if (!ERRNO_IS_NOT_SUPPORTED(r) && !ERRNO_IS_PRIVILEGE(r))
+                        if (!NERRNO_IS_NOT_SUPPORTED(r) && !NERRNO_IS_PRIVILEGE(r))
                                 return r;
 
                         if (!ownership_ok) /* Ideally we use ACLs, since we can neatly express what we want
@@ -2970,7 +2970,7 @@ static int acquire_credentials(
         if (uid_is_valid(uid) && uid != getuid()) {
                 r = fd_add_uid_acl_permission(dfd, uid, ACL_READ | ACL_EXECUTE);
                 if (r < 0) {
-                        if (!ERRNO_IS_NOT_SUPPORTED(r) && !ERRNO_IS_PRIVILEGE(r))
+                        if (!NERRNO_IS_NOT_SUPPORTED(r) && !NERRNO_IS_PRIVILEGE(r))
                                 return r;
 
                         if (!ownership_ok)
@@ -3070,7 +3070,7 @@ static int setup_credentials_internal(
                                 /* If that didn't work, try to make a bind mount from the final to the workspace, so that we can make it writable there. */
                                 r = mount_nofollow_verbose(LOG_DEBUG, final, workspace, NULL, MS_BIND|MS_REC, NULL);
                                 if (r < 0) {
-                                        if (!ERRNO_IS_PRIVILEGE(r)) /* Propagate anything that isn't a permission problem */
+                                        if (!NERRNO_IS_PRIVILEGE(r)) /* Propagate anything that isn't a permission problem */
                                                 return r;
 
                                         if (must_mount) /* If we it's not OK to use the plain directory
@@ -3175,7 +3175,7 @@ static int setup_credentials(
                 _cleanup_free_ char *t = NULL, *u = NULL;
 
                 /* If this is not a privilege or support issue then propagate the error */
-                if (!ERRNO_IS_NOT_SUPPORTED(r) && !ERRNO_IS_PRIVILEGE(r))
+                if (!NERRNO_IS_NOT_SUPPORTED(r) && !NERRNO_IS_PRIVILEGE(r))
                         return r;
 
                 /* Temporary workspace, that remains inaccessible all the time. We prepare stuff there before moving
@@ -3274,7 +3274,7 @@ static int setup_smack(
                 _cleanup_free_ char *exec_label = NULL;
 
                 r = mac_smack_read_fd(executable_fd, SMACK_ATTR_EXEC, &exec_label);
-                if (r < 0 && !ERRNO_IS_XATTR_ABSENT(r))
+                if (r < 0 && !NERRNO_IS_XATTR_ABSENT(r))
                         return r;
 
                 r = mac_smack_apply_pid(0, exec_label ? : manager->default_smack_process_label);
@@ -3812,7 +3812,7 @@ static int setup_keyring(
         if (keyring == -1) {
                 if (errno == ENOSYS)
                         log_unit_debug_errno(u, errno, "Kernel keyring not supported, ignoring.");
-                else if (ERRNO_IS_PRIVILEGE(errno))
+                else if (ERRNO_IS_PRIVILEGE())
                         log_unit_debug_errno(u, errno, "Kernel keyring access prohibited, ignoring.");
                 else if (errno == EDQUOT)
                         log_unit_debug_errno(u, errno, "Out of kernel keyrings to allocate, ignoring.");
@@ -4550,7 +4550,7 @@ static int exec_child(
                 /* When we can't make this change due to EPERM, then let's silently skip over it. User namespaces
                  * prohibit write access to this file, and we shouldn't trip up over that. */
                 r = set_oom_score_adjust(context->oom_score_adjust);
-                if (ERRNO_IS_PRIVILEGE(r))
+                if (NERRNO_IS_PRIVILEGE(r))
                         log_unit_debug_errno(unit, r, "Failed to adjust OOM setting, assuming containerized execution, ignoring: %m");
                 else if (r < 0) {
                         *exit_status = EXIT_OOM_ADJUST;
@@ -4560,7 +4560,7 @@ static int exec_child(
 
         if (context->coredump_filter_set) {
                 r = set_coredump_filter(context->coredump_filter);
-                if (ERRNO_IS_PRIVILEGE(r))
+                if (NERRNO_IS_PRIVILEGE(r))
                         log_unit_debug_errno(unit, r, "Failed to adjust coredump_filter, ignoring: %m");
                 else if (r < 0)
                         return log_unit_error_errno(unit, r, "Failed to adjust coredump_filter: %m");
