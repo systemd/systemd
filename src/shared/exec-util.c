@@ -151,10 +151,9 @@ static int do_execute(
                         t = NULL;
                 } else {
                         r = wait_for_terminate_and_check(t, pid, WAIT_LOG);
-                        if (FLAGS_SET(flags, EXEC_DIR_IGNORE_ERRORS)) {
-                                if (r < 0)
-                                        continue;
-                        } else if (r > 0)
+                        if (r < 0)
+                                return r;
+                        if (!FLAGS_SET(flags, EXEC_DIR_IGNORE_ERRORS) && r > 0)
                                 return r;
 
                         if (callbacks) {
@@ -186,6 +185,8 @@ static int do_execute(
                 assert(t);
 
                 r = wait_for_terminate_and_check(t, pid, WAIT_LOG);
+                if (r < 0)
+                        return r;
                 if (!FLAGS_SET(flags, EXEC_DIR_IGNORE_ERRORS) && r > 0)
                         return r;
         }
