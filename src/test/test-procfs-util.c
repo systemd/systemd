@@ -28,14 +28,14 @@ int main(int argc, char *argv[]) {
 
         pid_max = TASKS_MAX;
         r = procfs_get_pid_max(&pid_max);
-        if (r == -ENOENT || ERRNO_IS_PRIVILEGE(r))
+        if (r == -ENOENT || NERRNO_IS_PRIVILEGE(r))
                 return log_tests_skipped_errno(r, "can't get pid max");
         assert(r >= 0);
         log_info("kernel.pid_max: %"PRIu64, pid_max);
 
         threads_max = TASKS_MAX;
         r = procfs_get_threads_max(&threads_max);
-        if (r == -ENOENT || ERRNO_IS_PRIVILEGE(r))
+        if (r == -ENOENT || NERRNO_IS_PRIVILEGE(r))
                 return log_tests_skipped_errno(r, "can't get threads max");
         assert(r >= 0);
         log_info("kernel.threads-max: %"PRIu64, threads_max);
@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
                 log_info("Reducing limit by one to %"PRIu64"…", limit-1);
 
                 r = procfs_tasks_set_limit(limit-1);
-                if (IN_SET(r, -ENOENT, -EROFS) || ERRNO_IS_PRIVILEGE(r))
+                if (IN_SET(r, -ENOENT, -EROFS) || NERRNO_IS_PRIVILEGE(r))
                         return log_tests_skipped_errno(r, "can't set tasks limit");
                 assert_se(r >= 0);
 

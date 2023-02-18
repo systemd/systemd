@@ -2407,7 +2407,7 @@ _public_ int sd_journal_enumerate_available_data(sd_journal *j, const void **dat
                 r = sd_journal_enumerate_data(j, data, size);
                 if (r >= 0)
                         return r;
-                if (!JOURNAL_ERRNO_IS_UNAVAILABLE_FIELD(r))
+                if (!NERRNO_IS_UNAVAILABLE_JOURNAL_FIELD(r))
                         return r;
                 j->current_field++; /* Try with the next field */
         }
@@ -2618,7 +2618,7 @@ _public_ int sd_journal_process(sd_journal *j) {
 
                 l = read(j->inotify_fd, &buffer, sizeof(buffer));
                 if (l < 0) {
-                        if (ERRNO_IS_TRANSIENT(errno))
+                        if (ERRNO_IS_TRANSIENT())
                                 return got_something ? determine_change(j) : SD_JOURNAL_NOP;
 
                         return -errno;
@@ -2963,7 +2963,7 @@ _public_ int sd_journal_enumerate_available_unique(sd_journal *j, const void **d
                 r = sd_journal_enumerate_unique(j, data, size);
                 if (r >= 0)
                         return r;
-                if (!JOURNAL_ERRNO_IS_UNAVAILABLE_FIELD(r))
+                if (!NERRNO_IS_UNAVAILABLE_JOURNAL_FIELD(r))
                         return r;
                 /* Try with the next field. sd_journal_enumerate_unique() modifies state, so on the next try
                  * we will access the next field. */

@@ -223,7 +223,7 @@ static int udev_ctrl_event_handler(sd_event_source *s, int fd, uint32_t revents,
 
         sock = accept4(fd, NULL, NULL, SOCK_CLOEXEC|SOCK_NONBLOCK);
         if (sock < 0) {
-                if (ERRNO_IS_ACCEPT_AGAIN(errno))
+                if (ERRNO_IS_ACCEPT_AGAIN())
                         return 0;
 
                 return log_error_errno(errno, "Failed to accept ctrl connection: %m");

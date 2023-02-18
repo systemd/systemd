@@ -454,7 +454,7 @@ TEST(write_string_file_verify) {
         int r;
 
         r = read_one_line_file("/proc/version", &buf);
-        if (ERRNO_IS_PRIVILEGE(r))
+        if (NERRNO_IS_PRIVILEGE(r))
                 return;
         assert_se(r >= 0);
         assert_se(buf2 = strjoin(buf, "\n"));
@@ -1016,7 +1016,7 @@ static void test_read_virtual_file_one(size_t max_size) {
                 r = read_virtual_file(filename, max_size, &buf, &size);
                 if (r < 0) {
                         log_info_errno(r, "read_virtual_file(\"%s\", %zu): %m", filename, max_size);
-                        assert_se(ERRNO_IS_PRIVILEGE(r) || /* /proc/kcore is not accessible to unpriv */
+                        assert_se(NERRNO_IS_PRIVILEGE(r) || /* /proc/kcore is not accessible to unpriv */
                                   IN_SET(r,
                                          -ENOENT,  /* Some of the files might be absent */
                                          -EINVAL,  /* too small reads from /proc/self/pagemap trigger EINVAL */

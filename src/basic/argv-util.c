@@ -110,7 +110,7 @@ static int update_argv(const char name[], size_t l) {
 
                 /* Now, let's tell the kernel about this new memory */
                 if (prctl(PR_SET_MM, PR_SET_MM_ARG_START, (unsigned long) nn, 0, 0) < 0) {
-                        if (ERRNO_IS_PRIVILEGE(errno))
+                        if (ERRNO_IS_PRIVILEGE())
                                 return log_debug_errno(errno, "PR_SET_MM_ARG_START failed: %m");
 
                         /* HACK: prctl() API is kind of dumb on this point.  The existing end address may already be

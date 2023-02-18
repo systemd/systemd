@@ -567,7 +567,7 @@ TEST(pidfd) {
         pidfd = pidfd_open(pid, 0);
         if (pidfd < 0) {
                 /* No pidfd_open() supported or blocked? */
-                assert_se(ERRNO_IS_NOT_SUPPORTED(errno) || ERRNO_IS_PRIVILEGE(errno));
+                assert_se(ERRNO_IS_NOT_SUPPORTED() || ERRNO_IS_PRIVILEGE());
                 (void) wait_for_terminate(pid, NULL);
                 return;
         }

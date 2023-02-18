@@ -1104,7 +1104,7 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                                         r = sd_dhcp_client_send_release(client);
                                         if (r < 0)
                                                 log_link_full_errno(link,
-                                                                    ERRNO_IS_DISCONNECT(r) ? LOG_DEBUG : LOG_WARNING,
+                                                                    NERRNO_IS_DISCONNECT(r) ? LOG_DEBUG : LOG_WARNING,
                                                                     r, "Failed to send DHCP RELEASE, ignoring: %m");
                                 }
 

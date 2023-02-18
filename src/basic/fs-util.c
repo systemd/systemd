@@ -83,7 +83,7 @@ int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char
 
         /* renameat2() exists since Linux 3.15, btrfs and FAT added support for it later. If it is not implemented,
          * fall back to a different method. */
-        if (!ERRNO_IS_NOT_SUPPORTED(errno) && errno != EINVAL)
+        if (!ERRNO_IS_NOT_SUPPORTED() && errno != EINVAL)
                 return -errno;
 
         /* Let's try to use linkat()+unlinkat() as fallback. This doesn't work on directories and on some file systems
@@ -100,7 +100,7 @@ int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char
                 return 0;
         }
 
-        if (!ERRNO_IS_NOT_SUPPORTED(errno) && !IN_SET(errno, EINVAL, EPERM)) /* FAT returns EPERM on link()… */
+        if (!ERRNO_IS_NOT_SUPPORTED() && !IN_SET(errno, EINVAL, EPERM)) /* FAT returns EPERM on link()… */
                 return -errno;
 
         /* OK, neither RENAME_NOREPLACE nor linkat()+unlinkat() worked. Let's then fall back to the racy TOCTOU

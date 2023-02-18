@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #include "errno-list.h"
+#include "errno-util.h"
 #include "parse-util.h"
 #include "set.h"
 #include "string-util.h"
@@ -123,8 +124,9 @@ extern uint32_t seccomp_local_archs[];
 /* EACCES: does not have the CAP_SYS_ADMIN or no_new_privs == 1
  * ENOMEM: out of memory, failed to allocate space for a libseccomp structure, or would exceed a defined constant
  * EFAULT: addresses passed as args (by libseccomp) are invalid */
-#define ERRNO_IS_SECCOMP_FATAL(r)                                       \
-        IN_SET(abs(r), EPERM, EACCES, ENOMEM, EFAULT)
+DEFINE_ERRNO_CHECKERS(SECCOMP_FATAL) {
+        return IN_SET(r, EPERM, EACCES, ENOMEM, EFAULT);
+}
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(scmp_filter_ctx, seccomp_release, NULL);
 

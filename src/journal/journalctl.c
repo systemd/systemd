@@ -1879,7 +1879,7 @@ static int setup_keys(void) {
 
         r = chattr_secret(fd, CHATTR_WARN_UNSUPPORTED_FLAGS);
         if (r < 0)
-                log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING,
+                log_full_errno(NERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING,
                                r, "Failed to set file attributes on '%s', ignoring: %m", k);
 
         struct FSSHeader h = {

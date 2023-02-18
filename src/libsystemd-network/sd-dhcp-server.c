@@ -1276,7 +1276,7 @@ static int server_receive_message(sd_event_source *s, int fd,
 
         datagram_size = next_datagram_size_fd(fd);
         if (datagram_size < 0) {
-                if (ERRNO_IS_TRANSIENT(datagram_size) || ERRNO_IS_DISCONNECT(datagram_size))
+                if (NERRNO_IS_TRANSIENT(datagram_size) || NERRNO_IS_DISCONNECT(datagram_size))
                         return 0;
 
                 log_dhcp_server_errno(server, datagram_size, "Failed to determine datagram size to read, ignoring: %m");
@@ -1296,7 +1296,7 @@ static int server_receive_message(sd_event_source *s, int fd,
 
         len = recvmsg_safe(fd, &msg, 0);
         if (len < 0) {
-                if (ERRNO_IS_TRANSIENT(len) || ERRNO_IS_DISCONNECT(len))
+                if (NERRNO_IS_TRANSIENT(len) || NERRNO_IS_DISCONNECT(len))
                         return 0;
 
                 log_dhcp_server_errno(server, len, "Could not receive message, ignoring: %m");

@@ -1028,7 +1028,7 @@ TEST(config_parse_log_filter_patterns) {
                 TEST_PATTERN("~foobar", 0, 1),
         };
 
-        if (ERRNO_IS_NOT_SUPPORTED(dlopen_pcre2()))
+        if (NERRNO_IS_NOT_SUPPORTED(dlopen_pcre2()))
                 return (void) log_tests_skipped("PCRE2 support is not available");
 
         for (size_t i = 0; i < ELEMENTSOF(regex_tests); i++) {

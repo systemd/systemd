@@ -164,7 +164,7 @@ static int smack_fix_fd(
                 r = -errno;
 
                 /* If the FS doesn't support labels, then exit without warning */
-                if (ERRNO_IS_NOT_SUPPORTED(r))
+                if (NERRNO_IS_NOT_SUPPORTED(r))
                         return 0;
 
                 /* It the FS is read-only and we were told to ignore failures caused by that, suppress error */

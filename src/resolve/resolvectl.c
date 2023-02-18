@@ -166,7 +166,7 @@ int ifname_mangle_full(const char *s, bool drop_protocol_specifier) {
         } else
                 r = rtnl_resolve_interface(&rtnl, s);
         if (r < 0) {
-                if (ERRNO_IS_DEVICE_ABSENT(r) && arg_ifindex_permissive) {
+                if (NERRNO_IS_DEVICE_ABSENT(r) && arg_ifindex_permissive) {
                         log_debug_errno(r, "Interface '%s' not found, but -f specified, ignoring: %m", s);
                         return 0; /* done */
                 }

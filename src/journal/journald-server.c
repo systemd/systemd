@@ -1478,7 +1478,7 @@ int server_process_datagram(
 
         n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
         if (n < 0) {
-                if (ERRNO_IS_TRANSIENT(n))
+                if (NERRNO_IS_TRANSIENT(n))
                         return 0;
                 if (n == -EXFULL) {
                         log_ratelimit_warning(JOURNAL_LOG_RATELIMIT,

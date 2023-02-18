@@ -788,7 +788,7 @@ int userdb_iterator_get(UserDBIterator *iterator, UserRecord **ret) {
                                 r = nss_spwd_for_passwd(pw, &spwd, &buffer);
                                 if (r < 0) {
                                         log_debug_errno(r, "Failed to acquire shadow entry for user %s, ignoring: %m", pw->pw_name);
-                                        incomplete = ERRNO_IS_PRIVILEGE(r);
+                                        incomplete = NERRNO_IS_PRIVILEGE(r);
                                 }
                         } else {
                                 r = -EUCLEAN;
@@ -1055,7 +1055,7 @@ int groupdb_iterator_get(UserDBIterator *iterator, GroupRecord **ret) {
                                 r = nss_sgrp_for_group(gr, &sgrp, &buffer);
                                 if (r < 0) {
                                         log_debug_errno(r, "Failed to acquire shadow entry for group %s, ignoring: %m", gr->gr_name);
-                                        incomplete = ERRNO_IS_PRIVILEGE(r);
+                                        incomplete = NERRNO_IS_PRIVILEGE(r);
                                 }
                         } else {
                                 r = -EUCLEAN;
