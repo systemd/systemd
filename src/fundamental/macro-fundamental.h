@@ -376,3 +376,15 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
         (v) = UPDATE_FLAG(v, flag, b)
 #define FLAGS_SET(v, flags) \
         ((~(v) & (flags)) == 0)
+
+/* Declare a flexible array usable in a union.
+ * This is essentially a work-around for a pointless constraint in C99
+ * and might go away in some future version of the standard.
+ *
+ * See https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=3080ea5553cc909b000d1f1d964a9041962f2c5b
+ */
+#define DECLARE_FLEX_ARRAY(type, name)                 \
+        struct {                                       \
+                dummy_t __empty__ ## name;             \
+                type name[];                           \
+        }

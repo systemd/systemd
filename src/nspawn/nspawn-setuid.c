@@ -12,7 +12,6 @@
 #include "mkdir.h"
 #include "nspawn-setuid.h"
 #include "process-util.h"
-#include "rlimit-util.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -29,7 +28,7 @@ static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
         if (pipe2(pipe_fds, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to allocate pipe: %m");
 
-        r = safe_fork("(getent)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        r = safe_fork("(getent)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE, &pid);
         if (r < 0) {
                 safe_close_pair(pipe_fds);
                 return r;
@@ -43,8 +42,6 @@ static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
                         _exit(EXIT_FAILURE);
 
                 (void) close_all_fds(NULL, 0);
-
-                (void) rlimit_nofile_safe();
 
                 execle("/usr/bin/getent", "getent", database, key, NULL, &empty_env);
                 execle("/bin/getent", "getent", database, key, NULL, &empty_env);

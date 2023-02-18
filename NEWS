@@ -1,6 +1,38 @@
 systemd System and Service Manager
 
-CHANGES WITH 253 in spe:
+CHANGES WITH 253:
+
+        Announcements of Future Feature Removals and Incompatible Changes:
+
+        * We intend to remove cgroup v1 support from systemd release after the
+          end of 2023. If you run services that make explicit use of cgroup v1
+          features (i.e. the "legacy hierarchy" with separate hierarchies for
+          each controller), please implement compatibility with cgroup v2 (i.e.
+          the "unified hierarchy") sooner rather than later. Most of Linux
+          userspace has been ported over already.
+
+        * We intend to remove support for split-usr (/usr mounted separately
+          during boot) and unmerged-usr (parallel directories /bin and
+          /usr/bin, /lib and /usr/lib, etc). This will happen in the second
+          half of 2023, in the first release that falls into that time window.
+          For more details, see:
+          https://lists.freedesktop.org/archives/systemd-devel/2022-September/048352.html
+
+        * We intend to change behaviour w.r.t. units of the per-user service
+          manager and sandboxing options, so that they work without having to
+          manually enable PrivateUsers= as well, which is not required for
+          system units. To make this work, we will implicitly enable user
+          namespaces (PrivateUsers=yes) when a sandboxing option is enabled in a
+          user unit. The drawback is that system users will no longer be visible
+          (and appear as 'nobody') to the user unit when a sandboxing option is
+          enabled. By definition a sandboxed user unit should run with reduced
+          privileges, so impact should be small. This will remove a great source
+          of confusion that has been reported by users over the years, due to
+          how these options require an extra setting to be manually enabled when
+          used in the per-user service manager, as opposed as to the system
+          service manager. We plan to enable this change in the next release
+          later this year. For more details, see:
+          https://lists.freedesktop.org/archives/systemd-devel/2022-December/048682.html
 
         Deprecations and incompatible changes:
 
@@ -52,6 +84,13 @@ CHANGES WITH 253 in spe:
           in current kernels, while others are usually more niche, exotic or
           legacy and thus typically do not receive the same level of security
           support and fixes.
+
+        * The default per-link multicast DNS mode is changed to "yes"
+          (that was previously "no"). As the default global multicast DNS mode
+          has been "yes" (but can be changed by the build option), now the
+          multicast DNS is enabled on all links by default. You can disable the
+          multicast DNS on all links by setting MulticastDNS= in resolved.conf,
+          or on an interface by calling "resolvectl mdns INTERFACE no".
 
         New components:
 
@@ -115,7 +154,9 @@ CHANGES WITH 253 in spe:
 
         * When enabling a swap device systemd will now reinitialize the device
           when the page size of the swap space does not match the page size of
-          the running kernel.
+          the running kernel. Note that this requires the 'swapon' utility to
+          provide the '--fixpgsz' option, as implemented by util-linux, and it
+          is not supported by busybox at the time of writing.
 
         * systemd now executes generator programs in a mount namespace
           "sandbox" with most of the file system read-only and write access
@@ -126,7 +167,7 @@ CHANGES WITH 253 in spe:
           yet. (This feature has no security implications, because the code is
           still privileged and can trivially exit the sandbox.)
 
-        * The system manager manager will now parse a new "vmm.notify_socket"
+        * The system manager will now parse a new "vmm.notify_socket"
           system credential, which may be supplied to a VM via SMBIOS. If
           found, the manager will send a "READY=1" notification on the
           specified socket after boot is complete. This allows readiness
@@ -139,7 +180,7 @@ CHANGES WITH 253 in spe:
           with something custom, so this change has limited effect.)
 
         * A new environment variable $SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST
-          can can be used to override the mount units burst late limit for
+          can be used to override the mount units burst late limit for
           parsing '/proc/self/mountinfo', which was introduced in v249.
           Defaults to 5.
 
@@ -559,7 +600,7 @@ CHANGES WITH 253 in spe:
           that systemd tools will silently skip various operations in such an
           environment.
 
-        * "Lockheed Matrin Hardened Security for Intel Processors" (HS SRE)
+        * "Lockheed Martin Hardened Security for Intel Processors" (HS SRE)
           virtualization is now detected.
 
         Changes in the build system:
@@ -586,33 +627,36 @@ CHANGES WITH 253 in spe:
         Bernd Steinhauser, blutch112, cake03, Callum Farmer, Carlo Teubner,
         Charles Hardin, chris, Christian Brauner, Christian Göttsche,
         Cristian Rodríguez, Daan De Meyer, Dan Streetman, DaPigGuy,
-        David Tardon, dependabot[bot], Dirk Su, Dmitry V. Levin, drosdeck,
-        Edson Juliano Drosdeck, edupont, Eric DeVolder, Erik Moqvist,
-        Evgeny Vereshchagin, Felix Riemann, Franck Bui, Frantisek Sumsal,
+        Darrell Kavanagh, David Tardon, dependabot[bot], Dirk Su,
+        Dmitry V. Levin, drosdeck, Edson Juliano Drosdeck, edupont,
+        Eric DeVolder, Erik Moqvist, Evgeny Vereshchagin, Fabian Gurtner,
+        Felix Riemann, Franck Bui, Frantisek Sumsal, Geert Lorang,
         Gerd Hoffmann, Gio, Hannoskaj, Hans de Goede, Hugo Carvalho,
         igo95862, Ilya Leoshkevich, Ivan Shapovalov, Jacek Migacz,
         Jade Lovelace, Jan Engelhardt, Jan Janssen, Jan Macku, January,
-        Jason A. Donenfeld, jcg, Jelle van der Waa, Jeremy Linton,
-        Jian Zhang, Jiayi Chen, Jia Zhang, Joerg Behrmann, Jörg Thalheim,
-        Joshua Goins, joshuazivkovic, Joshua Zivkovic, Kai-Chuan Hsieh,
-        Khem Raj, Koba Ko, Lennart Poettering, lichao, Li kunyu,
-        Luca Boccassi, Luca BRUNO, Ludwig Nussel, Łukasz Stelmach,
-        Lycowolf, marcel151, Marcus Schäfer, Marek Vasut, Mark Laws,
-        Michael Biebl, Michał Kotyla, Michal Koutný, Michal Sekletár,
-        Mike Yuan, MkfsSion, msizanoen1, mvzlb, MVZ Ludwigsburg, Neil Moore,
-        Nick Rosbrook, noodlejetski, Pasha Vorobyev, Peter Cai, p-fpv,
-        Phaedrus Leeds, Philipp Jungkamp, Quentin Deslandes, Ray Strode,
+        Jason A. Donenfeld, jcg, Jean-Tiare Le Bigot, Jelle van der Waa,
+        Jeremy Linton, Jian Zhang, Jiayi Chen, Jia Zhang, Joerg Behrmann,
+        Jörg Thalheim, Joshua Goins, joshuazivkovic, Joshua Zivkovic,
+        Kai-Chuan Hsieh, Khem Raj, Koba Ko, Lennart Poettering, lichao,
+        Li kunyu, Luca Boccassi, Luca BRUNO, Ludwig Nussel,
+        Łukasz Stelmach, Lycowolf, marcel151, Marcus Schäfer, Marek Vasut,
+        Mark Laws, Michael Biebl, Michał Kotyla, Michal Koutný,
+        Michal Sekletár, Mike Gilbert, Mike Yuan, MkfsSion, ml,
+        msizanoen1, mvzlb, MVZ Ludwigsburg, Neil Moore, Nick Rosbrook,
+        noodlejetski, Pasha Vorobyev, Peter Cai, p-fpv, Phaedrus Leeds,
+        Philipp Jungkamp, Quentin Deslandes, Raul Tambre, Ray Strode,
         reuben olinsky, Richard E. van der Luit, Richard Phibel,
         Ricky Tigg, Robin Humble, rogg, Rudi Heitbaum, Sam James,
-        Samuel Thibault, Siddhesh Poyarekar, Space Meyer, Spindle Security,
-        Steve Ramage, Thomas Haller, Tonći Galić, Torsten Hilbrich,
+        Samuel Cabrero, Samuel Thibault, Siddhesh Poyarekar, Simon Brand,
+        Space Meyer, Spindle Security, Steve Ramage, Takashi Sakamoto,
+        Thomas Haller, Tonći Galić, Topi Miettinen, Torsten Hilbrich,
         Tuetuopay, uerdogan, Ulrich Ölmann, Valentin David,
         Vitaly Kuznetsov, Vito Caputo, Waltibaba, Will Fancher,
         William Roberts, wouter bolsterlee, Youfu Zhang, Yu Watanabe,
         Zbigniew Jędrzejewski-Szmek, Дамјан Георгиевски,
         наб
 
-        — Warsaw, 2023-02-02
+        — Warsaw, 2023-02-15
 
 CHANGES WITH 252 🎃:
 
@@ -812,7 +856,7 @@ CHANGES WITH 252 🎃:
           (e.g. comparisons for empty strings). Boot counting is now part of
           the main specification.
 
-        * New PCRs measurements are performed during boot: PCR 11 for the the
+        * New PCRs measurements are performed during boot: PCR 11 for the
           kernel+initrd combo, PCR 13 for any sysext images. If a measurement
           took place this is now reported to userspace via the new
           StubPcrKernelImage and StubPcrInitRDSysExts EFI variables.
@@ -1726,7 +1770,7 @@ CHANGES WITH 251:
 
         * A new build-time configuration setting default-user-shell= can be
           used to set the default shell for user records and nspawn shell
-          invocations (instead of of the default /bin/bash).
+          invocations (instead of the default /bin/bash).
 
         * systemd-timesyncd now provides a D-Bus API for receiving NTP server
           information dynamically at runtime via IPC.
@@ -2414,7 +2458,7 @@ CHANGES WITH 250:
           now also owned by the system group "sgx".
 
         * A new build-time meson option "extra-net-naming-schemes=" has been
-          added to define additional naming schemes schemes for udev's network
+          added to define additional naming schemes for udev's network
           interface naming logic. This is useful for enterprise distributions
           and similar which want to pin the schemes of certain distribution
           releases under a specific name and previously had to patch the

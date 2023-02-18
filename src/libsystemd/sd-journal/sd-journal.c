@@ -42,8 +42,6 @@
 #include "strv.h"
 #include "syslog-util.h"
 
-#define JOURNAL_FILES_MAX 7168
-
 #define JOURNAL_FILES_RECHECK_USEC (2 * USEC_PER_SEC)
 
 /* The maximum size of variable values we'll expand in catalog entries. We bind this to PATH_MAX for now, as
@@ -2166,18 +2164,16 @@ _public_ void sd_journal_close(sd_journal *j) {
 }
 
 _public_ int sd_journal_get_realtime_usec(sd_journal *j, uint64_t *ret) {
-        Object *o;
         JournalFile *f;
+        Object *o;
         int r;
 
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
-        assert_return(ret, -EINVAL);
 
         f = j->current_file;
         if (!f)
                 return -EADDRNOTAVAIL;
-
         if (f->current_offset <= 0)
                 return -EADDRNOTAVAIL;
 
@@ -2185,7 +2181,13 @@ _public_ int sd_journal_get_realtime_usec(sd_journal *j, uint64_t *ret) {
         if (r < 0)
                 return r;
 
-        *ret = le64toh(o->entry.realtime);
+        uint64_t t = le64toh(o->entry.realtime);
+        if (!VALID_REALTIME(t))
+                return -EBADMSG;
+
+        if (ret)
+                *ret = t;
+
         return 0;
 }
 
@@ -2226,6 +2228,37 @@ _public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret, sd_id12
 
         if (ret)
                 *ret = t;
+
+        return 0;
+}
+
+_public_ int sd_journal_get_seqnum(
+                sd_journal *j,
+                uint64_t *ret_seqnum,
+                sd_id128_t *ret_seqnum_id) {
+
+        JournalFile *f;
+        Object *o;
+        int r;
+
+        assert_return(j, -EINVAL);
+        assert_return(!journal_pid_changed(j), -ECHILD);
+
+        f = j->current_file;
+        if (!f)
+                return -EADDRNOTAVAIL;
+
+        if (f->current_offset <= 0)
+                return -EADDRNOTAVAIL;
+
+        r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
+        if (r < 0)
+                return r;
+
+        if (ret_seqnum_id)
+                *ret_seqnum_id = f->header->seqnum_id;
+        if (ret_seqnum)
+                *ret_seqnum = le64toh(o->entry.seqnum);
 
         return 0;
 }
@@ -2608,28 +2641,23 @@ _public_ int sd_journal_wait(sd_journal *j, uint64_t timeout_usec) {
         if (j->inotify_fd < 0) {
                 JournalFile *f;
 
-                /* This is the first invocation, hence create the
-                 * inotify watch */
+                /* This is the first invocation, hence create the inotify watch */
                 r = sd_journal_get_fd(j);
                 if (r < 0)
                         return r;
 
-                /* Server might have done some vacuuming while we weren't watching.
-                   Get rid of the deleted files now so they don't stay around indefinitely. */
+                /* Server might have done some vacuuming while we weren't watching. Get rid of the deleted
+                 * files now so they don't stay around indefinitely. */
                 ORDERED_HASHMAP_FOREACH(f, j->files) {
                         r = journal_file_fstat(f);
                         if (r == -EIDRM)
                                 remove_file_real(j, f);
-                        else if (r < 0) {
-                                log_debug_errno(r,"Failed to fstat() journal file '%s' : %m", f->path);
-                                continue;
-                        }
+                        else if (r < 0)
+                                log_debug_errno(r, "Failed to fstat() journal file '%s', ignoring: %m", f->path);
                 }
 
-                /* The journal might have changed since the context
-                 * object was created and we weren't watching before,
-                 * hence don't wait for anything, and return
-                 * immediately. */
+                /* The journal might have changed since the context object was created and we weren't
+                 * watching before, hence don't wait for anything, and return immediately. */
                 return determine_change(j);
         }
 

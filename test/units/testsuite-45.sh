@@ -86,7 +86,7 @@ LOCAL"
     check_adjtime_not_exist
 
     echo 'UTC set in adjtime file'
-    printf '0.0 0 0\n0\nUTC\n' > /etc/adjtime
+    printf '0.0 0 0\n0\nUTC\n' >/etc/adjtime
     timedatectl set-local-rtc 0
     assert_eq "$(cat /etc/adjtime)" "0.0 0 0
 0
@@ -97,7 +97,7 @@ UTC"
 LOCAL"
 
     echo 'non-zero values in adjtime file'
-    printf '0.1 123 0\n0\nLOCAL\n' > /etc/adjtime
+    printf '0.1 123 0\n0\nLOCAL\n' >/etc/adjtime
     timedatectl set-local-rtc 0
     assert_eq "$(cat /etc/adjtime)" "0.1 123 0
 0
@@ -108,7 +108,7 @@ UTC"
 LOCAL"
 
     echo 'fourth line adjtime file'
-    printf '0.0 0 0\n0\nLOCAL\nsomethingelse\n' > /etc/adjtime
+    printf '0.0 0 0\n0\nLOCAL\nsomethingelse\n' >/etc/adjtime
     timedatectl set-local-rtc 0
     assert_eq "$(cat /etc/adjtime)" "0.0 0 0
 0
@@ -121,60 +121,60 @@ LOCAL
 somethingelse"
 
     echo 'no final newline in adjtime file'
-    printf '0.0 0 0\n0\nUTC' > /etc/adjtime
+    printf '0.0 0 0\n0\nUTC' >/etc/adjtime
     timedatectl set-local-rtc 0
     check_adjtime_not_exist
-    printf '0.0 0 0\n0\nUTC' > /etc/adjtime
+    printf '0.0 0 0\n0\nUTC' >/etc/adjtime
     timedatectl set-local-rtc 1
     assert_eq "$(cat /etc/adjtime)" "0.0 0 0
 0
 LOCAL"
 
     echo 'only one line in adjtime file'
-    printf '0.0 0 0\n' > /etc/adjtime
+    printf '0.0 0 0\n' >/etc/adjtime
     timedatectl set-local-rtc 0
     check_adjtime_not_exist
-    printf '0.0 0 0\n' > /etc/adjtime
+    printf '0.0 0 0\n' >/etc/adjtime
     timedatectl set-local-rtc 1
     assert_eq "$(cat /etc/adjtime)" "0.0 0 0
 0
 LOCAL"
 
     echo 'only one line in adjtime file, no final newline'
-    printf '0.0 0 0' > /etc/adjtime
+    printf '0.0 0 0' >/etc/adjtime
     timedatectl set-local-rtc 0
     check_adjtime_not_exist
-    printf '0.0 0 0' > /etc/adjtime
+    printf '0.0 0 0' >/etc/adjtime
     timedatectl set-local-rtc 1
     assert_eq "$(cat /etc/adjtime)" "0.0 0 0
 0
 LOCAL"
 
     echo 'only two lines in adjtime file'
-    printf '0.0 0 0\n0\n' > /etc/adjtime
+    printf '0.0 0 0\n0\n' >/etc/adjtime
     timedatectl set-local-rtc 0
     check_adjtime_not_exist
-    printf '0.0 0 0\n0\n' > /etc/adjtime
+    printf '0.0 0 0\n0\n' >/etc/adjtime
     timedatectl set-local-rtc 1
     assert_eq "$(cat /etc/adjtime)" "0.0 0 0
 0
 LOCAL"
 
     echo 'only two lines in adjtime file, no final newline'
-    printf '0.0 0 0\n0' > /etc/adjtime
+    printf '0.0 0 0\n0' >/etc/adjtime
     timedatectl set-local-rtc 0
     check_adjtime_not_exist
-    printf '0.0 0 0\n0' > /etc/adjtime
+    printf '0.0 0 0\n0' >/etc/adjtime
     timedatectl set-local-rtc 1
     assert_eq "$(cat /etc/adjtime)" "0.0 0 0
 0
 LOCAL"
 
     echo 'unknown value in 3rd line of adjtime file'
-    printf '0.0 0 0\n0\nFOO\n' > /etc/adjtime
+    printf '0.0 0 0\n0\nFOO\n' >/etc/adjtime
     timedatectl set-local-rtc 0
     check_adjtime_not_exist
-    printf '0.0 0 0\n0\nFOO\n' > /etc/adjtime
+    printf '0.0 0 0\n0\nFOO\n' >/etc/adjtime
     timedatectl set-local-rtc 1
     assert_eq "$(cat /etc/adjtime)" "0.0 0 0
 0

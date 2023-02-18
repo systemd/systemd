@@ -8,8 +8,8 @@
  * option, any later version, incorporated herein by reference.
  */
 
-#ifndef _UAPI_LINUX_AUTO_DEV_IOCTL_H
-#define _UAPI_LINUX_AUTO_DEV_IOCTL_H
+#ifndef _LINUX_AUTO_DEV_IOCTL_H
+#define _LINUX_AUTO_DEV_IOCTL_H
 
 #include <linux/auto_fs.h>
 #include <linux/string.h>
@@ -109,10 +109,10 @@ struct autofs_dev_ioctl {
 		struct args_ismountpoint	ismountpoint;
 	};
 
-	char path[0];
+	char path[];
 };
 
-static inline void init_autofs_dev_ioctl(struct autofs_dev_ioctl *in)
+static __inline__ void init_autofs_dev_ioctl(struct autofs_dev_ioctl *in)
 {
 	memset(in, 0, AUTOFS_DEV_IOCTL_SIZE);
 	in->ver_major = AUTOFS_DEV_IOCTL_VERSION_MAJOR;
@@ -217,4 +217,4 @@ enum {
 	_IOWR(AUTOFS_IOCTL, \
 	      AUTOFS_DEV_IOCTL_ISMOUNTPOINT_CMD, struct autofs_dev_ioctl)
 
-#endif	/* _UAPI_LINUX_AUTO_DEV_IOCTL_H */
+#endif	/* _LINUX_AUTO_DEV_IOCTL_H */

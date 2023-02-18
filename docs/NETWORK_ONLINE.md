@@ -16,7 +16,7 @@ start to be configured. Its primary purpose is for usage with firewall services
 that want to establish a firewall *before* any network interface is up.
 
 `network-pre.target` is a passive unit: it cannot be started directly and it is
-not pulled in by the the network management service, but instead a service that
+not pulled in by the network management service, but instead a service that
 wants to run before it must pull it in. Network management services hence
 should set `After=network-pre.target`, but not `Wants=network-pre.target` or
 `Requires=network-pre.target`. Services that want to be run before the network
@@ -28,7 +28,7 @@ avoiding an unnecessary synchronization point.
 ## Network management services: `network.target`
 
 `network.target` indicates that the network management stack has been started.
-Ordering after it it has little meaning during start-up: whether any network
+Ordering after it has little meaning during start-up: whether any network
 interfaces are already configured when it is reached is not defined.
 
 Its primary purpose is for ordering things properly at shutdown: since the
@@ -252,6 +252,8 @@ established), the following simple service could be used:
 DefaultDependencies=no
 After=nss-lookup.target
 Before=network-online.target
+Type=oneshot
+RemainAfterExit=yes
 
 [Service]
 ExecStart=sh -c 'while ! ping -c 1 example.com; do sleep 1; done'

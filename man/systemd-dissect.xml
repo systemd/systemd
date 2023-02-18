@@ -366,7 +366,7 @@
     <example>
       <title>Generate a tarball from an OS disk image</title>
 
-      <programlisting>$ systemd-dissect --with foo.raw tar cz . > foo.tar.gz</programlisting>
+      <programlisting>$ systemd-dissect --with foo.raw tar cz . >foo.tar.gz</programlisting>
     </example>
   </refsect1>
 

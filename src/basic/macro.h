@@ -248,6 +248,7 @@ static inline int __coverity_check_and_return__(int condition) {
 #define char_array_0(x) x[sizeof(x)-1] = 0;
 
 #define sizeof_field(struct_type, member) sizeof(((struct_type *) 0)->member)
+#define endoffsetof_field(struct_type, member) (offsetof(struct_type, member) + sizeof_field(struct_type, member))
 
 /* Returns the number of chars needed to format variables of the specified type as a decimal string. Adds in
  * extra space for a negative '-' prefix for signed types. Includes space for the trailing NUL. */
@@ -418,7 +419,7 @@ typedef struct {
 
 assert_cc(sizeof(dummy_t) == 0);
 
-/* A little helper for subtracting 1 off a pointer in a safe UB-free way. This is intended to be used for for
+/* A little helper for subtracting 1 off a pointer in a safe UB-free way. This is intended to be used for
  * loops that count down from a high pointer until some base. A naive loop would implement this like this:
  *
  * for (p = end-1; p >= base; p--) …

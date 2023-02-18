@@ -436,7 +436,7 @@ SetCredentialEncrypted=mysql-password: \
       <filename>xyz.service</filename>:</para>
 
       <programlisting># mkdir -p /etc/systemd/system/xyz.service.d
-# systemd-ask-password -n | systemd-creds encrypt --name=mysql-password -p - - > /etc/systemd/system/xyz.service.d/50-password.conf
+# systemd-ask-password -n | systemd-creds encrypt --name=mysql-password -p - - >/etc/systemd/system/xyz.service.d/50-password.conf
 # systemctl daemon-reload
 # systemctl restart xyz.service</programlisting>
     </example>

@@ -684,7 +684,7 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
                  * serialize the sysfs path across reloads/reexecs. Hence, when coming back from a reload/restart we
                  * might have the state valid, but not the sysfs path. Also, there is another possibility; when multiple
                  * devices have the same devlink (e.g. /dev/disk/by-uuid/xxxx), adding/updating/removing one of the
-                 * device causes syspath change. Hence, let's always update sysfs path.*/
+                 * device causes syspath change. Hence, let's always update sysfs path. */
 
                 /* Let's remove all dependencies generated due to udev properties. We'll re-add whatever is configured
                  * now below. */
@@ -892,7 +892,7 @@ static int device_setup_units(Manager *m, sd_device *dev, Set **ready_units, Set
 
         /* First, process the main (that is, points to the syspath) and (real, not symlink) devnode units. */
         if (device_for_action(dev, SD_DEVICE_REMOVE))
-                /* If the device is removed, the main and devnode units units will be removed by
+                /* If the device is removed, the main and devnode units will be removed by
                  * device_update_found_by_sysfs() in device_dispatch_io(). Hence, it is not necessary to
                  * store them to not_ready_units, and we have nothing to do here.
                  *

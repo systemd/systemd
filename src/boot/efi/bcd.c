@@ -204,7 +204,7 @@ static const KeyValue *get_key_value(const uint8_t *bcd, uint32_t bcd_len, const
 /* The BCD store is really just a regular windows registry hive with a rather cryptic internal
  * key structure. On a running system it gets mounted to HKEY_LOCAL_MACHINE\BCD00000000.
  *
- * Of interest to us are the these two keys:
+ * Of interest to us are these two keys:
  * - \Objects\{bootmgr}\Elements\24000001
  *   This key is the "displayorder" property and contains a value of type REG_MULTI_SZ
  *   with the name "Element" that holds a {GUID} list (UTF16, NUL-separated).

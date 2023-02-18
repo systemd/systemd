@@ -14,9 +14,11 @@
 #include "constants.h"
 #include "env-util.h"
 #include "log.h"
+#include "main-func.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "special.h"
+#include "unit-def.h"
 
 static int reload_manager(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -39,6 +41,28 @@ static int reload_manager(sd_bus *bus) {
                 return log_error_errno(r, "Failed to reload daemon: %s", bus_error_message(&error, r));
 
         return 0;
+}
+
+static int default_target_is_inactive(sd_bus *bus) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *path = NULL, *state = NULL;
+        int r;
+
+        path = unit_dbus_path_from_name(SPECIAL_DEFAULT_TARGET);
+        if (!path)
+                return log_oom();
+
+        r = sd_bus_get_property_string(bus,
+                                       "org.freedesktop.systemd1",
+                                       path,
+                                       "org.freedesktop.systemd1.Unit",
+                                       "ActiveState",
+                                       &error,
+                                       &state);
+        if (r < 0)
+                return log_error_errno(r, "Failed to retrieve unit state: %s", bus_error_message(&error, r));
+
+        return streq_ptr(state, "inactive");
 }
 
 static int start_default_target(sd_bus *bus) {
@@ -86,13 +110,12 @@ static void print_mode(const char* mode) {
         fflush(stdout);
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         const char* sulogin_cmdline[] = {
                 SULOGIN,
                 NULL,             /* --force */
                 NULL
         };
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         log_setup();
@@ -103,17 +126,36 @@ int main(int argc, char *argv[]) {
                 /* allows passwordless logins if root account is locked. */
                 sulogin_cmdline[1] = "--force";
 
-        (void) fork_wait(sulogin_cmdline);
+        for (;;) {
+                _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
 
-        r = bus_connect_system_systemd(&bus);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to get D-Bus connection: %m");
-                r = 0;
-        } else {
-                (void) reload_manager(bus);
+                (void) fork_wait(sulogin_cmdline);
 
-                r = start_default_target(bus);
+                r = bus_connect_system_systemd(&bus);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to get D-Bus connection: %m");
+                        goto fallback;
+                }
+
+                if (reload_manager(bus) < 0)
+                        goto fallback;
+
+                r = default_target_is_inactive(bus);
+                if (r < 0)
+                        goto fallback;
+                if (!r) {
+                        log_warning(SPECIAL_DEFAULT_TARGET" is not inactive. Please review the "SPECIAL_DEFAULT_TARGET" setting.\n");
+                        goto fallback;
+                }
+
+                if (start_default_target(bus) >= 0)
+                        break;
+
+        fallback:
+                log_warning("Fallback to the single-user shell.\n");
         }
 
-        return r >= 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);

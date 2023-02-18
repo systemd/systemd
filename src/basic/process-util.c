@@ -596,6 +596,8 @@ int get_process_umask(pid_t pid, mode_t *ret) {
         r = get_proc_field(p, "Umask", WHITESPACE, &m);
         if (r == -ENOENT)
                 return -ESRCH;
+        if (r < 0)
+                return r;
 
         return parse_mode(m, ret);
 }
@@ -1545,6 +1547,31 @@ _noreturn_ void freeze(void) {
         /* waitid() failed with an unexpected error, things are really borked. Freeze now! */
         for (;;)
                 pause();
+}
+
+int get_process_threads(pid_t pid) {
+        _cleanup_free_ char *t = NULL;
+        const char *p;
+        int n, r;
+
+        if (pid < 0)
+                return -EINVAL;
+
+        p = procfs_file_alloca(pid, "status");
+
+        r = get_proc_field(p, "Threads", WHITESPACE, &t);
+        if (r == -ENOENT)
+                return proc_mounted() == 0 ? -ENOSYS : -ESRCH;
+        if (r < 0)
+                return r;
+
+        r = safe_atoi(t, &n);
+        if (r < 0)
+                return r;
+        if (n < 0)
+                return -EINVAL;
+
+        return n;
 }
 
 static const char *const sigchld_code_table[] = {

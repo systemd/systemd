@@ -435,7 +435,7 @@ static int make_partition_devname(
         assert(nr != 0); /* zero is not a valid partition nr */
         assert(ret);
 
-        if (!FLAGS_SET(flags, DISSECT_IMAGE_DISKSEQ_DEVNODE) || diskseq == UINT64_MAX) {
+        if (!FLAGS_SET(flags, DISSECT_IMAGE_DISKSEQ_DEVNODE) || diskseq == 0) {
 
                 /* Given a whole block device node name (e.g. /dev/sda or /dev/loop7) generate a partition
                  * device name (e.g. /dev/sda7 or /dev/loop7p5). The rule the kernel uses is simple: if whole
@@ -499,7 +499,7 @@ static int open_partition(
                 return -ENXIO;
 
         /* Also check diskseq. */
-        if (loop->diskseq > 0) {
+        if (loop->diskseq != 0) {
                 uint64_t diskseq;
 
                 r = fd_get_diskseq(fd, &diskseq);
@@ -573,7 +573,7 @@ static int dissect_image(
          * Returns -ENXIO if we couldn't find any partition suitable as root or /usr partition
          * Returns -ENOTUNIQ if we only found multiple generic partitions and thus don't know what to do with that */
 
-        uint64_t diskseq = m->loop ? m->loop->diskseq : UINT64_MAX;
+        uint64_t diskseq = m->loop ? m->loop->diskseq : 0;
 
         if (verity && verity->root_hash) {
                 sd_id128_t fsuuid, vuuid;
@@ -3315,6 +3315,7 @@ int mount_image_privately_interactively(
                 const char *image,
                 DissectImageFlags flags,
                 char **ret_directory,
+                int *ret_dir_fd,
                 LoopDevice **ret_loop_device) {
 
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
@@ -3332,7 +3333,7 @@ int mount_image_privately_interactively(
         assert(ret_directory);
         assert(ret_loop_device);
 
-        /* We intend to mount this right-away, hence add the partitions if needed and pin them*/
+        /* We intend to mount this right-away, hence add the partitions if needed and pin them. */
         flags |= DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES;
 
@@ -3387,6 +3388,16 @@ int mount_image_privately_interactively(
         r = dissected_image_relinquish(dissected_image);
         if (r < 0)
                 return log_error_errno(r, "Failed to relinquish DM and loopback block devices: %m");
+
+        if (ret_dir_fd) {
+                _cleanup_close_ int dir_fd = -EBADF;
+
+                dir_fd = open(created_dir, O_CLOEXEC|O_DIRECTORY);
+                if (dir_fd < 0)
+                        return log_error_errno(errno, "Failed to open mount point directory: %m");
+
+                *ret_dir_fd = TAKE_FD(dir_fd);
+        }
 
         *ret_directory = TAKE_PTR(created_dir);
         *ret_loop_device = TAKE_PTR(d);

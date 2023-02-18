@@ -20,7 +20,6 @@
 #include "missing_syscall.h"
 #include "path-util.h"
 #include "process-util.h"
-#include "rlimit-util.h"
 #include "serialize.h"
 #include "set.h"
 #include "signal-util.h"
@@ -43,7 +42,7 @@ static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid, b
                 return 0;
         }
 
-        r = safe_fork("(direxec)", FORK_DEATHSIG|FORK_LOG, &_pid);
+        r = safe_fork("(direxec)", FORK_DEATHSIG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE, &_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -54,8 +53,6 @@ static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid, b
                         if (r < 0)
                                 _exit(EXIT_FAILURE);
                 }
-
-                (void) rlimit_nofile_safe();
 
                 if (set_systemd_exec_pid) {
                         r = setenv_systemd_exec_pid(false);
@@ -493,7 +490,7 @@ int fork_agent(const char *name, const int except[], size_t n_except, pid_t *ret
         r = safe_fork_full(name,
                            except,
                            n_except,
-                           FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG,
+                           FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_RLIMIT_NOFILE_SAFE,
                            ret_pid);
         if (r < 0)
                 return r;
@@ -536,8 +533,6 @@ int fork_agent(const char *name, const int except[], size_t n_except, pid_t *ret
                         fd = safe_close_above_stdio(fd);
                 }
         }
-
-        (void) rlimit_nofile_safe();
 
         /* Count arguments */
         va_start(ap, path);

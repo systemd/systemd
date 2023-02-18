@@ -146,9 +146,9 @@ int main(int argc, char* argv[]) {
         test_hostname_lookup(bus, "www.dnssec-bogus.sg", AF_INET, BUS_ERROR_DNSSEC_FAILED);
 
         /* NXDOMAIN in NSEC domain */
-        test_rr_lookup(bus, "hhh.nasa.gov", DNS_TYPE_A, _BUS_ERROR_DNS "NXDOMAIN");
-        test_hostname_lookup(bus, "hhh.nasa.gov", AF_UNSPEC, _BUS_ERROR_DNS "NXDOMAIN");
-        test_rr_lookup(bus, "_pgpkey-https._tcp.hkps.pool.sks-keyservers.net", DNS_TYPE_SRV, _BUS_ERROR_DNS "NXDOMAIN");
+        test_rr_lookup(bus, "hhh.nasa.gov", DNS_TYPE_A, BUS_ERROR_DNS_NXDOMAIN);
+        test_hostname_lookup(bus, "hhh.nasa.gov", AF_UNSPEC, BUS_ERROR_DNS_NXDOMAIN);
+        test_rr_lookup(bus, "_pgpkey-https._tcp.hkps.pool.sks-keyservers.net", DNS_TYPE_SRV, BUS_ERROR_DNS_NXDOMAIN);
 
         /* wildcard, NSEC zone */
         test_rr_lookup(bus, ".wilda.nsec.0skar.cz", DNS_TYPE_A, NULL);
@@ -187,16 +187,16 @@ int main(int argc, char* argv[]) {
         test_hostname_lookup(bus, "herndon.nasa.gov", AF_INET6, BUS_ERROR_NO_SUCH_RR);
 
         /* NXDOMAIN in NSEC root zone: */
-        test_rr_lookup(bus, "jasdhjas.kjkfgjhfjg", DNS_TYPE_A, _BUS_ERROR_DNS "NXDOMAIN");
-        test_hostname_lookup(bus, "jasdhjas.kjkfgjhfjg", AF_UNSPEC, _BUS_ERROR_DNS "NXDOMAIN");
-        test_hostname_lookup(bus, "jasdhjas.kjkfgjhfjg", AF_INET, _BUS_ERROR_DNS "NXDOMAIN");
-        test_hostname_lookup(bus, "jasdhjas.kjkfgjhfjg", AF_INET6, _BUS_ERROR_DNS "NXDOMAIN");
+        test_rr_lookup(bus, "jasdhjas.kjkfgjhfjg", DNS_TYPE_A, BUS_ERROR_DNS_NXDOMAIN);
+        test_hostname_lookup(bus, "jasdhjas.kjkfgjhfjg", AF_UNSPEC, BUS_ERROR_DNS_NXDOMAIN);
+        test_hostname_lookup(bus, "jasdhjas.kjkfgjhfjg", AF_INET, BUS_ERROR_DNS_NXDOMAIN);
+        test_hostname_lookup(bus, "jasdhjas.kjkfgjhfjg", AF_INET6, BUS_ERROR_DNS_NXDOMAIN);
 
         /* NXDOMAIN in NSEC3 .com zone: */
-        test_rr_lookup(bus, "kjkfgjhfjgsdfdsfd.com", DNS_TYPE_A, _BUS_ERROR_DNS "NXDOMAIN");
-        test_hostname_lookup(bus, "kjkfgjhfjgsdfdsfd.com", AF_INET, _BUS_ERROR_DNS "NXDOMAIN");
-        test_hostname_lookup(bus, "kjkfgjhfjgsdfdsfd.com", AF_INET6, _BUS_ERROR_DNS "NXDOMAIN");
-        test_hostname_lookup(bus, "kjkfgjhfjgsdfdsfd.com", AF_UNSPEC, _BUS_ERROR_DNS "NXDOMAIN");
+        test_rr_lookup(bus, "kjkfgjhfjgsdfdsfd.com", DNS_TYPE_A, BUS_ERROR_DNS_NXDOMAIN);
+        test_hostname_lookup(bus, "kjkfgjhfjgsdfdsfd.com", AF_INET, BUS_ERROR_DNS_NXDOMAIN);
+        test_hostname_lookup(bus, "kjkfgjhfjgsdfdsfd.com", AF_INET6, BUS_ERROR_DNS_NXDOMAIN);
+        test_hostname_lookup(bus, "kjkfgjhfjgsdfdsfd.com", AF_UNSPEC, BUS_ERROR_DNS_NXDOMAIN);
 
         /* Unsigned A */
         test_rr_lookup(bus, "poettering.de", DNS_TYPE_A, NULL);
@@ -213,11 +213,11 @@ int main(int argc, char* argv[]) {
 #endif
 
         /* DNAME, pointing to NXDOMAIN */
-        test_rr_lookup(bus, ".ireallyhpoethisdoesnexist.xn--kprw13d.", DNS_TYPE_A, _BUS_ERROR_DNS "NXDOMAIN");
-        test_rr_lookup(bus, ".ireallyhpoethisdoesnexist.xn--kprw13d.", DNS_TYPE_RP, _BUS_ERROR_DNS "NXDOMAIN");
-        test_hostname_lookup(bus, ".ireallyhpoethisdoesntexist.xn--kprw13d.", AF_UNSPEC, _BUS_ERROR_DNS "NXDOMAIN");
-        test_hostname_lookup(bus, ".ireallyhpoethisdoesntexist.xn--kprw13d.", AF_INET, _BUS_ERROR_DNS "NXDOMAIN");
-        test_hostname_lookup(bus, ".ireallyhpoethisdoesntexist.xn--kprw13d.", AF_INET6, _BUS_ERROR_DNS "NXDOMAIN");
+        test_rr_lookup(bus, ".ireallyhpoethisdoesnexist.xn--kprw13d.", DNS_TYPE_A, BUS_ERROR_DNS_NXDOMAIN);
+        test_rr_lookup(bus, ".ireallyhpoethisdoesnexist.xn--kprw13d.", DNS_TYPE_RP, BUS_ERROR_DNS_NXDOMAIN);
+        test_hostname_lookup(bus, ".ireallyhpoethisdoesntexist.xn--kprw13d.", AF_UNSPEC, BUS_ERROR_DNS_NXDOMAIN);
+        test_hostname_lookup(bus, ".ireallyhpoethisdoesntexist.xn--kprw13d.", AF_INET, BUS_ERROR_DNS_NXDOMAIN);
+        test_hostname_lookup(bus, ".ireallyhpoethisdoesntexist.xn--kprw13d.", AF_INET6, BUS_ERROR_DNS_NXDOMAIN);
 
         return 0;
 }

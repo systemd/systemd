@@ -31,7 +31,7 @@ systemd-run --unit=two \
             -p StartLimitBurst=3 \
             -p Type=oneshot \
             -p Restart=on-failure \
-            -p ExecStart="/bin/bash -c \"printf a >>  $TMP_FILE\"" /bin/bash -c "exit 1" \
+            -p ExecStart="/bin/bash -c \"printf a >>$TMP_FILE\"" /bin/bash -c "exit 1" \
     && { echo 'unexpected success'; exit 1; }
 
 # wait for at least 3 restarts

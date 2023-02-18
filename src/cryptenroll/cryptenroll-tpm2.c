@@ -196,16 +196,13 @@ int enroll_tpm2(struct crypt_device *cd,
 
                 log_debug_errno(r, "Failed to read TPM2 PCR public key, proceeding without: %m");
                 pubkey_pcr_mask = 0;
-        } else {
-                /* Also try to load the signature JSON object, to verify that our enrollment will work. This is optional however. */
+        } else if (signature_path) {
+                /* Also try to load the signature JSON object, to verify that our enrollment will work.
+                 * This is optional however, skip it if it's not explicitly provided. */
 
                 r = tpm2_load_pcr_signature(signature_path, &signature_json);
-                if (r < 0) {
-                        if (signature_path || r != -ENOENT)
-                                return log_debug_errno(r, "Failed to read TPM PCR signature: %m");
-
-                        log_debug_errno(r, "Failed to read TPM2 PCR signature, proceeding without: %m");
-                }
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to read TPM PCR signature: %m");
         }
 
         r = tpm2_seal(device,
@@ -232,7 +229,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 return r; /* return existing keyslot, so that wiping won't kill it */
         }
 
-        /* Quick verification that everything is in order, we are not in a hurry after all.*/
+        /* Quick verification that everything is in order, we are not in a hurry after all. */
         if (!pubkey || signature_json) {
                 _cleanup_(erase_and_freep) void *secret2 = NULL;
                 size_t secret2_size;

@@ -761,6 +761,7 @@ int tpm2_get_good_pcr_banks_strv(
                 uint32_t pcr_mask,
                 char ***ret) {
 
+#if HAVE_OPENSSL
         _cleanup_free_ TPMI_ALG_HASH *algs = NULL;
         _cleanup_strv_free_ char **l = NULL;
         int n_algs;
@@ -797,6 +798,9 @@ int tpm2_get_good_pcr_banks_strv(
 
         *ret = TAKE_PTR(l);
         return 0;
+#else /* HAVE_OPENSSL */
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
+#endif
 }
 
 static void hash_pin(const char *pin, size_t len, TPM2B_AUTH *auth) {
@@ -1419,12 +1423,11 @@ int tpm2_seal(const char *device,
         _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
         static const TPML_PCR_SELECTION creation_pcr = {};
         _cleanup_(erase_and_freep) void *secret = NULL;
-        _cleanup_free_ void *blob = NULL, *hash = NULL;
+        _cleanup_free_ void *hash = NULL;
         TPM2B_SENSITIVE_CREATE hmac_sensitive;
         TPMI_ALG_PUBLIC primary_alg;
         TPM2B_PUBLIC hmac_template;
         TPMI_ALG_HASH pcr_bank;
-        size_t k, blob_size;
         usec_t start;
         TSS2_RC rc;
         int r;
@@ -1554,33 +1557,22 @@ int tpm2_seal(const char *device,
 
         log_debug("Marshalling private and public part of HMAC key.");
 
-        k = ALIGN8(sizeof(*private)) + ALIGN8(sizeof(*public)); /* Some roughly sensible start value */
-        for (;;) {
-                _cleanup_free_ void *buf = NULL;
-                size_t offset = 0;
+        _cleanup_free_ void *blob = NULL;
+        size_t max_size = sizeof(*private) + sizeof(*public), blob_size = 0;
 
-                buf = malloc(k);
-                if (!buf)
-                        return log_oom();
+        blob = malloc0(max_size);
+        if (!blob)
+                return log_oom();
 
-                rc = sym_Tss2_MU_TPM2B_PRIVATE_Marshal(private, buf, k, &offset);
-                if (rc == TSS2_RC_SUCCESS) {
-                        rc = sym_Tss2_MU_TPM2B_PUBLIC_Marshal(public, buf, k, &offset);
-                        if (rc == TSS2_RC_SUCCESS) {
-                                blob = TAKE_PTR(buf);
-                                blob_size = offset;
-                                break;
-                        }
-                }
-                if (rc != TSS2_MU_RC_INSUFFICIENT_BUFFER)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Failed to marshal private/public key: %s", sym_Tss2_RC_Decode(rc));
+        rc = sym_Tss2_MU_TPM2B_PRIVATE_Marshal(private, blob, max_size, &blob_size);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to marshal private key: %s", sym_Tss2_RC_Decode(rc));
 
-                if (k > SIZE_MAX / 2)
-                        return log_oom();
-
-                k *= 2;
-        }
+        rc = sym_Tss2_MU_TPM2B_PUBLIC_Marshal(public, blob, max_size, &blob_size);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to marshal public key: %s", sym_Tss2_RC_Decode(rc));
 
         hash = memdup(policy_digest->buffer, policy_digest->size);
         if (!hash)
@@ -1979,9 +1971,8 @@ int tpm2_extend_bytes(
                                 sym_Tss2_RC_Decode(rc));
 
         return 0;
-#else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                               "OpenSSL not supported on this build.");
+#else /* HAVE_OPENSSL */
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
 #endif
 }
 #endif
@@ -2487,6 +2478,7 @@ int tpm2_util_pbkdf2_hmac_sha256(const void *pass,
          */
         static const uint8_t block_cnt[] = { 0, 0, 0, 1 };
 
+        assert (salt);
         assert (saltlen > 0);
         assert (saltlen <= (SIZE_MAX - sizeof(block_cnt)));
         assert (passlen > 0);

@@ -70,7 +70,7 @@ ID=$(journalctl --new-id128 | sed -n 2p)
 printf $'foo' | systemd-cat -t "$ID" --level-prefix false
 journalctl --sync
 journalctl -b -o export --output-fields=MESSAGE,FOO --output-fields=PRIORITY,MESSAGE -t "$ID" >/output
-[[ $(grep -c . /output) -eq 6 ]]
+[[ $(grep -c . /output) -eq 8 ]]
 grep -q '^__CURSOR=' /output
 grep -q '^MESSAGE=foo$' /output
 grep -q '^PRIORITY=6$' /output
@@ -185,8 +185,8 @@ function add_logs_filtering_override() {
     LOG_FILTER=${3:-""}
 
     mkdir -p /etc/systemd/system/"$UNIT".d/
-    echo "[Service]" >/etc/systemd/system/logs-filtering.service.d/"${OVERRIDE_NAME}".conf
-    echo "LogFilterPatterns=$LOG_FILTER" >>/etc/systemd/system/logs-filtering.service.d/"${OVERRIDE_NAME}".conf
+    echo "[Service]" >/etc/systemd/system/"$UNIT".d/"${OVERRIDE_NAME}".conf
+    echo "LogFilterPatterns=$LOG_FILTER" >>/etc/systemd/system/"$UNIT".d/"${OVERRIDE_NAME}".conf
     systemctl daemon-reload
 }
 
@@ -199,7 +199,7 @@ function run_service_and_fetch_logs() {
     journalctl --sync
     END=$(date '+%Y-%m-%d %T.%6N')
 
-    journalctl -q -u "$UNIT" -S "$START" -U "$END" | grep -Pv "systemd\[[0-9]+\]"
+    journalctl -q -u "$UNIT" -S "$START" -U "$END" -p notice
     systemctl stop "$UNIT"
 }
 
@@ -256,7 +256,23 @@ if is_xattr_supported; then
     add_logs_filtering_override "logs-filtering.service" "10-allow-with-escape-char" "\x7emore~"
     [[ -n $(run_service_and_fetch_logs "logs-filtering.service") ]]
 
+    add_logs_filtering_override "delegated-cgroup-filtering.service" "00-allow-all" ".*"
+    [[ -n $(run_service_and_fetch_logs "delegated-cgroup-filtering.service") ]]
+
+    add_logs_filtering_override "delegated-cgroup-filtering.service" "01-discard-hello" "~hello"
+    [[ -z $(run_service_and_fetch_logs "delegated-cgroup-filtering.service") ]]
+
     rm -rf /etc/systemd/system/logs-filtering.service.d
+    rm -rf /etc/systemd/system/delegated-cgroup-filtering.service.d
 fi
+
+# Check that the seqnum field at least superficially works
+systemd-cat echo "ya"
+journalctl --sync
+SEQNUM1=$(journalctl -o export -n 1 | grep -Ea "^__SEQNUM=" | cut -d= -f2)
+systemd-cat echo "yo"
+journalctl --sync
+SEQNUM2=$(journalctl -o export -n 1 | grep -Ea "^__SEQNUM=" | cut -d= -f2)
+test "$SEQNUM2" -gt "$SEQNUM1"
 
 touch /testok

@@ -490,6 +490,10 @@ static int mount_add_default_ordering_dependencies(Mount *m, MountParameters *p,
                 after = NULL;
                 before = isempty(e) ? SPECIAL_INITRD_ROOT_FS_TARGET : SPECIAL_INITRD_FS_TARGET;
 
+        } else if (in_initrd() && path_startswith(m->where, "/sysusr/usr")) {
+                after = NULL;
+                before = SPECIAL_INITRD_USR_FS_TARGET;
+
         } else if (mount_is_network(p)) {
                 after = SPECIAL_REMOTE_FS_PRE_TARGET;
                 before = SPECIAL_REMOTE_FS_TARGET;
@@ -2154,12 +2158,12 @@ static void mount_reset_failed(Unit *u) {
         m->clean_result = MOUNT_SUCCESS;
 }
 
-static int mount_kill(Unit *u, KillWho who, int signo, sd_bus_error *error) {
+static int mount_kill(Unit *u, KillWho who, int signo, int code, int value, sd_bus_error *error) {
         Mount *m = MOUNT(u);
 
         assert(m);
 
-        return unit_kill_common(u, who, signo, -1, m->control_pid, error);
+        return unit_kill_common(u, who, signo, code, value, -1, m->control_pid, error);
 }
 
 static int mount_control_pid(Unit *u) {
