@@ -118,6 +118,7 @@ static int create_edit_temp_file(
                 unsigned *ret_edit_line) {
 
         _cleanup_free_ char *t = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         unsigned ln = 1;
         int r;
 
@@ -148,10 +149,24 @@ static int create_edit_temp_file(
                         mac_selinux_create_file_clear();
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create temporary file for \"%s\": %m", new_path);
+                        if (arg_full){
+                            f = fopen(t, "a");
+                            fseek(f,0,SEEK_END);
+                            fprintf(f,
+                                    "\n"
+                                    EDIT_MARKER_END
+                                    "\n# Editing:  %s\n"
+                                    "# systemctl edit --full <unit-name>\n"
+                                    "# to be used to edit this unit file again.\n\n"
+                                    "# Excluding [--full] option will allow adding/ editing override files.\n\n"
+                                    "# [--user] [--runtime] might be needed to modify user/ runtime unit files.\n\n",
+                                    new_path
+                                   );
+                            fflush_and_check(f);
+                        }
                 }
         } else if (original_unit_paths) {
                 _cleanup_free_ char *new_contents = NULL;
-                _cleanup_fclose_ FILE *f = NULL;
 
                 r = mac_selinux_create_file_prepare(new_path, S_IFREG);
                 if (r < 0)
@@ -208,8 +223,34 @@ static int create_edit_temp_file(
                 r = fflush_and_check(f);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create temporary file \"%s\": %m", t);
+        } else {
+//TODO: unit_template can be used to populate the text in following fprintf
+                    const char *un = unit_type_suffix(new_path);
+                    char unit_template[100];
+                    //snprintf(unit_template,100,"%s.%s","TEMPLATE",un);
+                    UnitType ut = unit_name_to_type(unit_template);
+                    printf("\n"
+                            " new_path: %s\n"
+                            " type: %d\n"
+                            " type_str: %s\n"
+                            " unit_template: %s\n"
+                            "\n",
+                            new_path,
+                            ut, un, unit_template);
+            f = fopen(t, "we");
+            fprintf(f,
+                    "# Creating new unit file: %s\n\n"
+                    EDIT_MARKER_START
+                    "\n\n\n\n"
+                    EDIT_MARKER_END
+                    "\n\n# systemctl edit --full <unit-name>\n"
+                    "# to be used to edit this unit file again.\n"
+                    "# Excluding [--full] option will allow adding/ editing override files.\n\n"
+                    "# [--user] [--runtime] might be needed to modify user/ runtime unit files.\n",
+                    new_path
+                   );
+            fflush_and_check(f);
         }
-
         *ret_tmp_fn = TAKE_PTR(t);
         *ret_edit_line = ln;
 
@@ -476,21 +517,21 @@ static int find_paths_to_edit(
                         return log_oom();
 
                 if (!path) {
-                        if (!arg_force) {
-                                log_info("Run 'systemctl edit%s --force --full %s' to create a new unit.",
-                                         arg_scope == LOOKUP_SCOPE_GLOBAL ? " --global" :
-                                         arg_scope == LOOKUP_SCOPE_USER ? " --user" : "",
-                                         *name);
-                                return -ENOENT;
-                        }
-
+                    char response;
+                    r = ask_char(&response, "yn", "\"%s\" does not exist. Should new unit be created? [(y)es, (n)o] ", *name);
+                    if (r < 0)
+                        return r;
+                    if (response != 'y')
+                        return log_warning_errno(SYNTHETIC_ERRNO(EKEYREJECTED), "Skipped %s unit creation.", *name);
+                    else if (response == 'y') {
                         /* Create a new unit from scratch */
                         r = unit_file_create_new(
-                                        &lp,
-                                        *name,
-                                        arg_full ? NULL : suffix,
-                                        NULL,
-                                        edit_files + n_edit_files);
+                                &lp,
+                                *name,
+                                NULL,
+                                NULL,
+                                edit_files + n_edit_files);
+                    }
                 } else {
                         _cleanup_free_ char *unit_name = NULL;
 
