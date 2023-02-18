@@ -111,10 +111,11 @@ int suggest_passwords(void) {
         int r;
 
         r = pwq_allocate_context(&pwq);
-        if (ERRNO_IS_NOT_SUPPORTED(r))
-                return 0;
-        if (r < 0)
+        if (r < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(r))
+                        return 0;
                 return log_error_errno(r, "Failed to allocate libpwquality context: %m");
+        }
 
         suggestions = new0(char*, N_SUGGESTIONS+1);
         if (!suggestions)
@@ -144,10 +145,11 @@ int quality_check_password(const char *password, const char *username, char **re
         assert(password);
 
         r = pwq_allocate_context(&pwq);
-        if (ERRNO_IS_NOT_SUPPORTED(r))
-                return 0;
-        if (r < 0)
+        if (r < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(r))
+                        return 0;
                 return log_debug_errno(r, "Failed to allocate libpwquality context: %m");
+        }
 
         r = sym_pwquality_check(pwq, password, NULL, username, &auxerror);
         if (r < 0) {

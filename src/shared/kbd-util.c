@@ -147,9 +147,10 @@ int keymap_exists(const char *name) {
                                 });
                 if (r == -ENOENT)
                         continue;
-                if (ERRNO_IS_RESOURCE(r))
-                        return r;
                 if (r < 0) {
+                        if (ERRNO_IS_RESOURCE(r))
+                                return r;
+
                         log_debug_errno(r, "Failed to read keymap list from %s, ignoring: %m", dir);
                         continue;
                 }

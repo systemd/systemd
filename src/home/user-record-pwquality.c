@@ -25,10 +25,11 @@ int user_record_quality_check_password(
         assert(secret);
 
         r = pwq_allocate_context(&pwq);
-        if (ERRNO_IS_NOT_SUPPORTED(r))
-                return 0;
-        if (r < 0)
+        if (r < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(r))
+                        return 0;
                 return log_debug_errno(r, "Failed to allocate libpwquality context: %m");
+        }
 
         /* This is a bit more complex than one might think at first. pwquality_check() would like to know the
          * old password to make security checks. We support arbitrary numbers of passwords however, hence we
