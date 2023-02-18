@@ -160,8 +160,7 @@ static int do_execute(
                                 if (lseek(fd, 0, SEEK_SET) < 0)
                                         return log_error_errno(errno, "Failed to seek on serialization fd: %m");
 
-                                r = callbacks[STDOUT_GENERATE](fd, callback_args[STDOUT_GENERATE]);
-                                fd = -EBADF;
+                                r = callbacks[STDOUT_GENERATE](TAKE_FD(fd), callback_args[STDOUT_GENERATE]);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to process output from %s: %m", *path);
                         }
@@ -250,8 +249,7 @@ int execute_directories(
         if (lseek(fd, 0, SEEK_SET) < 0)
                 return log_error_errno(errno, "Failed to rewind serialization fd: %m");
 
-        r = callbacks[STDOUT_CONSUME](fd, callback_args[STDOUT_CONSUME]);
-        fd = -EBADF;
+        r = callbacks[STDOUT_CONSUME](TAKE_FD(fd), callback_args[STDOUT_CONSUME]);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse returned data: %m");
         return 0;
