@@ -511,7 +511,7 @@ static int find_paths_to_edit(
                                 if (r < 0)
                                         return r;
 
-                                unit_name = tmp_name;
+                                unit_name = TAKE_PTR(tmp_name);
                         }
 
                         if (arg_full)
