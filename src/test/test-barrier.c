@@ -435,7 +435,7 @@ static int intro(void) {
          */
 
         Virtualization v = detect_virtualization();
-        if (v < 0 && ERRNO_IS_PRIVILEGE(v))
+        if (v < 0 && NERRNO_IS_PRIVILEGE(v))
                 return log_tests_skipped("Cannot detect virtualization");
 
         if (v != VIRTUALIZATION_NONE)

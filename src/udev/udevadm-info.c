@@ -127,7 +127,7 @@ static int print_all_attributes(sd_device *device, bool is_parent) {
                         if (len > 0)
                                 continue;
 
-                } else if (ERRNO_IS_PRIVILEGE(r))
+                } else if (NERRNO_IS_PRIVILEGE(r))
                         value = "(not readable)";
                 else
                         continue;

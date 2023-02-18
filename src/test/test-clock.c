@@ -68,7 +68,7 @@ TEST(clock_is_localtime_system) {
                 assert_se(IN_SET(r, 0, 1));
         } else
                 /* default is UTC if there is no /etc/adjtime */
-                assert_se(r == 0 || ERRNO_IS_PRIVILEGE(r));
+                assert_se(r == 0 || NERRNO_IS_PRIVILEGE(r));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

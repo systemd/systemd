@@ -85,7 +85,7 @@ int get_keymaps(char ***ret) {
                 if (r < 0) {
                         if (r == -ENOENT)
                                 continue;
-                        if (ERRNO_IS_RESOURCE(r))
+                        if (NERRNO_IS_RESOURCE(r))
                                 return log_warning_errno(r, "Failed to read keymap list from %s: %m", dir);
 
                         log_debug_errno(r, "Failed to read keymap list from %s, ignoring: %m", dir);
@@ -147,7 +147,7 @@ int keymap_exists(const char *name) {
                                 });
                 if (r == -ENOENT)
                         continue;
-                if (ERRNO_IS_RESOURCE(r))
+                if (NERRNO_IS_RESOURCE(r))
                         return r;
                 if (r < 0) {
                         log_debug_errno(r, "Failed to read keymap list from %s, ignoring: %m", dir);

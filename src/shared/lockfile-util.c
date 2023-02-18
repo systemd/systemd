@@ -49,7 +49,7 @@ int make_lock_file(const char *p, int operation, LockFile *ret) {
                 r = fcntl(fd, (operation & LOCK_NB) ? F_OFD_SETLK : F_OFD_SETLKW, &fl);
                 if (r < 0) {
                         /* If the kernel is too old, use good old BSD locks */
-                        if (errno == EINVAL || ERRNO_IS_NOT_SUPPORTED(errno))
+                        if (errno == EINVAL || ERRNO_IS_NOT_SUPPORTED())
                                 r = flock(fd, operation);
                         if (r < 0)
                                 return errno == EAGAIN ? -EBUSY : -errno;
@@ -118,7 +118,7 @@ void release_lock_file(LockFile *f) {
                         };
 
                         r = fcntl(f->fd, F_OFD_SETLK, &fl);
-                        if (r < 0 && (errno == EINVAL || ERRNO_IS_NOT_SUPPORTED(errno)))
+                        if (r < 0 && (errno == EINVAL || ERRNO_IS_NOT_SUPPORTED()))
                                 r = flock(f->fd, LOCK_EX|LOCK_NB);
 
                         if (r >= 0)

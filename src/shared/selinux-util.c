@@ -138,7 +138,7 @@ int mac_selinux_init(void) {
 
         r = selinux_status_open(/* netlink fallback */ 1);
         if (r < 0) {
-                if (!ERRNO_IS_PRIVILEGE(errno))
+                if (!ERRNO_IS_PRIVILEGE())
                         return log_enforcing_errno(errno, "Failed to open SELinux status page: %m");
                 log_warning_errno(errno, "selinux_status_open() with netlink fallback failed, not checking for policy reloads: %m");
         } else if (r == 1)
@@ -249,7 +249,7 @@ static int selinux_fix_fd(
                 r = -errno;
 
                 /* If the FS doesn't support labels, then exit without warning */
-                if (ERRNO_IS_NOT_SUPPORTED(r))
+                if (NERRNO_IS_NOT_SUPPORTED(r))
                         return 0;
 
                 /* It the FS is read-only and we were told to ignore failures caused by that, suppress error */

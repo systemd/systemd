@@ -334,7 +334,7 @@ static int loop_configure(
                          * errors. Note that the kernel is weird: non-existing ioctls currently return EINVAL
                          * rather than ENOTTY on loopback block devices. They should fix that in the kernel,
                          * but in the meantime we accept both here. */
-                        if (!ERRNO_IS_NOT_SUPPORTED(errno) && errno != EINVAL)
+                        if (!ERRNO_IS_NOT_SUPPORTED() && errno != EINVAL)
                                 return -errno;
 
                         loop_configure_broken = true;
@@ -577,7 +577,7 @@ static int loop_device_make_internal(
                  * device, and called LOOP_CTL_REMOVE on it. Let's retry with a new number.
                  * -EBUSY: a file descriptor is already bound to the loopback block device.
                  * -EUCLEAN: some left-over partition devices that were cleaned up. */
-                if (!ERRNO_IS_DEVICE_ABSENT(r) && !IN_SET(r, -EBUSY, -EUCLEAN))
+                if (!NERRNO_IS_DEVICE_ABSENT(r) && !IN_SET(r, -EBUSY, -EUCLEAN))
                         return r;
 
                 /* OK, this didn't work, let's try again a bit later, but first release the lock on the
@@ -678,7 +678,7 @@ int loop_device_make_by_path(
                 r = -errno;
 
                 /* Retry read-only? */
-                if (open_flags >= 0 || !(ERRNO_IS_PRIVILEGE(r) || r == -EROFS))
+                if (open_flags >= 0 || !(NERRNO_IS_PRIVILEGE(r) || r == -EROFS))
                         return r;
 
                 fd = open(path, basic_flags|direct_flags|O_RDONLY);

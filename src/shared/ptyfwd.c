@@ -213,7 +213,7 @@ static int shovel(PTYForward *f) {
 
                                 if (errno == EAGAIN)
                                         f->stdin_readable = false;
-                                else if (errno == EIO || ERRNO_IS_DISCONNECT(errno)) {
+                                else if (errno == EIO || ERRNO_IS_DISCONNECT()) {
                                         f->stdin_readable = false;
                                         f->stdin_hangup = true;
 
@@ -297,7 +297,7 @@ static int shovel(PTYForward *f) {
 
                                 if (errno == EAGAIN)
                                         f->stdout_writable = false;
-                                else if (errno == EIO || ERRNO_IS_DISCONNECT(errno)) {
+                                else if (errno == EIO || ERRNO_IS_DISCONNECT()) {
                                         f->stdout_writable = false;
                                         f->stdout_hangup = true;
                                         f->stdout_event_source = sd_event_source_unref(f->stdout_event_source);

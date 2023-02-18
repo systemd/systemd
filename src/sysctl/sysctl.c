@@ -99,7 +99,7 @@ static int sysctl_write_or_warn(const char *key, const char *value, bool ignore_
                  * permission problem here, since that's how container managers usually protected their
                  * sysctls.)
                  * In all other cases log an error and make the tool fail. */
-                if (ignore_failure || (!arg_strict && (r == -EROFS || ERRNO_IS_PRIVILEGE(r))))
+                if (ignore_failure || (!arg_strict && (r == -EROFS || NERRNO_IS_PRIVILEGE(r))))
                         log_debug_errno(r, "Couldn't write '%s' to '%s', ignoring: %m", value, key);
                 else if (ignore_enoent && r == -ENOENT)
                         log_warning_errno(r, "Couldn't write '%s' to '%s', ignoring: %m", value, key);
@@ -156,7 +156,7 @@ static int apply_glob_option_with_prefix(OrderedHashmap *sysctl_options, Option 
                         log_debug("No match for glob: %s", option->key);
                         return 0;
                 }
-                if (option->ignore_failure || ERRNO_IS_PRIVILEGE(r)) {
+                if (option->ignore_failure || NERRNO_IS_PRIVILEGE(r)) {
                         log_debug_errno(r, "Failed to resolve glob '%s', ignoring: %m", option->key);
                         return 0;
                 } else

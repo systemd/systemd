@@ -326,7 +326,7 @@ static int intro(void) {
          * that /proc/self/mountinfo is static and constant for the whole time our test runs. */
 
         if (unshare(CLONE_NEWNS) < 0) {
-                if (!ERRNO_IS_PRIVILEGE(errno))
+                if (!ERRNO_IS_PRIVILEGE())
                         return log_error_errno(errno, "Failed to detach mount namespace: %m");
 
                 log_notice("Lacking privilege to create separate mount namespace, proceeding in originating mount namespace.");

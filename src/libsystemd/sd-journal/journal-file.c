@@ -390,7 +390,7 @@ static int journal_file_refresh_header(JournalFile *f) {
 
         r = sd_id128_get_machine(&f->header->machine_id);
         if (r < 0) {
-                if (!ERRNO_IS_MACHINE_ID_UNSET(r))
+                if (!NERRNO_IS_MACHINE_ID_UNSET(r))
                         return r;
 
                 /* don't have a machine-id, let's continue without */

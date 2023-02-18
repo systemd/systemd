@@ -258,7 +258,7 @@ static int verify_fsroot_dir(
         fd = open(path, O_CLOEXEC|O_DIRECTORY|O_PATH);
         if (fd < 0)
                 return log_full_errno((searching && errno == ENOENT) ||
-                                      (unprivileged_mode && ERRNO_IS_PRIVILEGE(errno)) ? LOG_DEBUG : LOG_ERR, errno,
+                                      (unprivileged_mode && ERRNO_IS_PRIVILEGE()) ? LOG_DEBUG : LOG_ERR, errno,
                                       "Failed to open directory \"%s\": %m", path);
 
         /* So, the ESP and XBOOTLDR partition are commonly located on an autofs mount. stat() on the
@@ -268,7 +268,7 @@ static int verify_fsroot_dir(
 
         r = statx_fallback(fd, "", AT_EMPTY_PATH, STATX_TYPE|STATX_INO|STATX_MNT_ID, &sxa.sx);
         if (r < 0)
-                return log_full_errno((unprivileged_mode && ERRNO_IS_PRIVILEGE(r)) ? LOG_DEBUG : LOG_ERR, r,
+                return log_full_errno((unprivileged_mode && NERRNO_IS_PRIVILEGE(r)) ? LOG_DEBUG : LOG_ERR, r,
                                       "Failed to determine block device node of \"%s\": %m", path);
 
         assert(S_ISDIR(sxa.sx.stx_mode)); /* We used O_DIRECTORY above, when opening, so this must hold */
@@ -289,7 +289,7 @@ static int verify_fsroot_dir(
 
         /* Now let's look at the parent */
         r = statx_fallback(fd, "..", 0, STATX_TYPE|STATX_INO|STATX_MNT_ID, &sxb.sx);
-        if (r < 0 && ERRNO_IS_PRIVILEGE(r)) {
+        if (r < 0 && NERRNO_IS_PRIVILEGE(r)) {
                 _cleanup_free_ char *parent = NULL;
 
                 /* If going via ".." didn't work due to EACCESS, then let's determine the parent path
@@ -312,7 +312,7 @@ static int verify_fsroot_dir(
                 r = statx_fallback(AT_FDCWD, parent, AT_SYMLINK_NOFOLLOW, STATX_TYPE|STATX_INO|STATX_MNT_ID, &sxb.sx);
         }
         if (r < 0)
-                return log_full_errno(unprivileged_mode && ERRNO_IS_PRIVILEGE(r) ? LOG_DEBUG : LOG_ERR, r,
+                return log_full_errno(unprivileged_mode && NERRNO_IS_PRIVILEGE(r) ? LOG_DEBUG : LOG_ERR, r,
                                       "Failed to determine block device node of parent of \"%s\": %m", path);
 
         if (statx_inode_same(&sxa.sx, &sxb.sx)) /* for the root dir inode nr for both inodes will be the same */

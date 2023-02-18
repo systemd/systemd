@@ -35,7 +35,7 @@ TEST(raw_clone) {
 
         errno = 0;
         assert_se(raw_clone(CLONE_FS|CLONE_NEWNS) == -1);
-        assert_se(errno == EINVAL || ERRNO_IS_PRIVILEGE(errno)); /* Certain container environments prohibit namespaces to us, don't fail in that case */
+        assert_se(errno == EINVAL || ERRNO_IS_PRIVILEGE()); /* Certain container environments prohibit namespaces to us, don't fail in that case */
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
