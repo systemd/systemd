@@ -201,7 +201,7 @@ static int socket_recv_message(int fd, void *buf, size_t buf_size, uint32_t *ret
         if (n < 0) {
                 if (n == -ENOBUFS)
                         return log_debug_errno(n, "sd-netlink: kernel receive buffer overrun");
-                if (ERRNO_IS_TRANSIENT(n)) {
+                if (NERRNO_IS_TRANSIENT(n)) {
                         if (ret_mcast_group)
                                 *ret_mcast_group = 0;
                         return 0;

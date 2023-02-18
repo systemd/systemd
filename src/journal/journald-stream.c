@@ -600,7 +600,7 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
 
         l = recvmsg(s->fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
         if (l < 0) {
-                if (ERRNO_IS_TRANSIENT(errno))
+                if (ERRNO_IS_TRANSIENT())
                         return 0;
 
                 log_ratelimit_warning_errno(errno, JOURNAL_LOG_RATELIMIT, "Failed to read from stream: %m");
@@ -727,7 +727,7 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
 
         fd = accept4(s->stdout_fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
         if (fd < 0) {
-                if (ERRNO_IS_ACCEPT_AGAIN(errno))
+                if (ERRNO_IS_ACCEPT_AGAIN())
                         return 0;
 
                 return log_ratelimit_error_errno(errno, JOURNAL_LOG_RATELIMIT, "Failed to accept stdout connection: %m");

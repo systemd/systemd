@@ -503,7 +503,7 @@ _public_ int sd_pid_notify_with_fds(
          * ENODEV. Fallback to SOCK_SEQPACKET in that case. */
         fd = socket(address.sockaddr.sa.sa_family, SOCK_DGRAM|SOCK_CLOEXEC, 0);
         if (fd < 0) {
-                if (!(ERRNO_IS_NOT_SUPPORTED(errno) || errno == ENODEV) || address.sockaddr.sa.sa_family != AF_VSOCK) {
+                if (!(ERRNO_IS_NOT_SUPPORTED() || errno == ENODEV) || address.sockaddr.sa.sa_family != AF_VSOCK) {
                         r = -errno;
                         goto finish;
                 }
@@ -515,7 +515,7 @@ _public_ int sd_pid_notify_with_fds(
                 }
 
                 r = vsock_bind_privileged_port(fd);
-                if (r < 0 && !ERRNO_IS_PRIVILEGE(r))
+                if (r < 0 && !NERRNO_IS_PRIVILEGE(r))
                         goto finish;
 
                 if (connect(fd, &address.sockaddr.sa, address.size) < 0) {
@@ -527,7 +527,7 @@ _public_ int sd_pid_notify_with_fds(
                 msghdr.msg_namelen = 0;
         } else if (address.sockaddr.sa.sa_family == AF_VSOCK) {
                 r = vsock_bind_privileged_port(fd);
-                if (r < 0 && !ERRNO_IS_PRIVILEGE(r))
+                if (r < 0 && !NERRNO_IS_PRIVILEGE(r))
                         goto finish;
         }
 

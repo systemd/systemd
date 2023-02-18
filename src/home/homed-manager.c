@@ -531,9 +531,9 @@ static int search_quota(uid_t uid, const char *exclude_quota_path) {
 
                 r = quotactl_devnum(QCMD_FIXED(Q_GETQUOTA, USRQUOTA), st.st_dev, uid, &req);
                 if (r < 0) {
-                        if (ERRNO_IS_NOT_SUPPORTED(r))
+                        if (NERRNO_IS_NOT_SUPPORTED(r))
                                 log_debug_errno(r, "No UID quota support on %s, ignoring.", where);
-                        else if (ERRNO_IS_PRIVILEGE(r))
+                        else if (NERRNO_IS_PRIVILEGE(r))
                                 log_debug_errno(r, "UID quota support for %s prohibited, ignoring.", where);
                         else
                                 log_warning_errno(r, "Failed to query quota on %s, ignoring: %m", where);
@@ -901,7 +901,7 @@ static int manager_assess_image(
 
                                 if (errno == ENODATA)
                                         log_debug_errno(errno, "Determined %s is not fscrypt encrypted.", path);
-                                else if (ERRNO_IS_NOT_SUPPORTED(errno))
+                                else if (ERRNO_IS_NOT_SUPPORTED())
                                         log_debug_errno(errno, "Determined %s is not fscrypt encrypted because kernel or file system doesn't support it.", path);
                                 else
                                         log_debug_errno(errno, "FS_IOC_GET_ENCRYPTION_POLICY failed with unexpected error code on %s, ignoring: %m", path);
@@ -1129,7 +1129,7 @@ static int on_notify_socket(sd_event_source *s, int fd, uint32_t revents, void *
 
         n = read_datagram(fd, &sender, &datagram, &passed_fd);
         if (n < 0) {
-                if (ERRNO_IS_TRANSIENT(n))
+                if (NERRNO_IS_TRANSIENT(n))
                         return 0;
                 return log_error_errno(n, "Failed to read notify datagram: %m");
         }

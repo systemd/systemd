@@ -95,7 +95,7 @@ void random_bytes(void *p, size_t n) {
                         continue; /* Interrupted by a signal; keep going. */
                 } else if (l == 0)
                         break; /* Weird, so fallback to /dev/urandom. */
-                else if (ERRNO_IS_NOT_SUPPORTED(errno)) {
+                else if (ERRNO_IS_NOT_SUPPORTED()) {
                         have_getrandom = false;
                         break; /* No syscall, so fallback to /dev/urandom. */
                 } else if (errno == EINVAL && have_grndinsecure) {
@@ -137,7 +137,7 @@ int crypto_random_bytes(void *p, size_t n) {
                         continue; /* Interrupted by a signal; keep going. */
                 } else if (l == 0)
                         return -EIO; /* Weird, should never happen. */
-                else if (ERRNO_IS_NOT_SUPPORTED(errno)) {
+                else if (ERRNO_IS_NOT_SUPPORTED()) {
                         have_getrandom = false;
                         break; /* No syscall, so fallback to /dev/urandom. */
                 }

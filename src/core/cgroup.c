@@ -802,7 +802,7 @@ static void unit_remove_xattr_graceful(Unit *u, const char *cgroup_path, const c
         }
 
         r = cg_remove_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, name);
-        if (r < 0 && !ERRNO_IS_XATTR_ABSENT(r))
+        if (r < 0 && !NERRNO_IS_XATTR_ABSENT(r))
                 log_unit_debug_errno(u, r, "Failed to remove '%s' xattr flag on control group %s, ignoring: %m", name, empty_to_root(cgroup_path));
 }
 
@@ -2308,7 +2308,7 @@ static int unit_update_cgroup(
                 if (r == 0) {
                         r = cg_path_get_cgroupid(cgroup_full_path, &cgroup_id);
                         if (r < 0)
-                                log_unit_full_errno(u, ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                log_unit_full_errno(u, NERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
                                                     "Failed to get cgroup ID of cgroup %s, ignoring: %m", cgroup_full_path);
                 } else
                         log_unit_warning_errno(u, r, "Failed to get full cgroup path on cgroup %s, ignoring: %m", empty_to_root(u->cgroup_path));
@@ -2445,7 +2445,7 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
                 /* First, attach the PID to the main cgroup hierarchy */
                 r = cg_attach(SYSTEMD_CGROUP_CONTROLLER, p, pid);
                 if (r < 0) {
-                        bool again = MANAGER_IS_USER(u->manager) && ERRNO_IS_PRIVILEGE(r);
+                        bool again = MANAGER_IS_USER(u->manager) && NERRNO_IS_PRIVILEGE(r);
 
                         log_unit_full_errno(u, again ? LOG_DEBUG : LOG_INFO,  r,
                                             "Couldn't move process "PID_FMT" to%s requested cgroup '%s': %m",
@@ -3195,7 +3195,7 @@ int unit_check_oomd_kill(Unit *u) {
                 return 0;
 
         r = cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "user.oomd_ooms", &value);
-        if (r < 0 && !ERRNO_IS_XATTR_ABSENT(r))
+        if (r < 0 && !NERRNO_IS_XATTR_ABSENT(r))
                 return r;
 
         if (!isempty(value)) {
@@ -3383,7 +3383,7 @@ static int on_cgroup_inotify_event(sd_event_source *s, int fd, uint32_t revents,
 
                 l = read(fd, &buffer, sizeof(buffer));
                 if (l < 0) {
-                        if (ERRNO_IS_TRANSIENT(errno))
+                        if (ERRNO_IS_TRANSIENT())
                                 return 0;
 
                         return log_error_errno(errno, "Failed to read control group inotify events: %m");

@@ -248,7 +248,7 @@ TEST(proc_cmdline_key_startswith) {
 }
 
 static int intro(void) {
-        if (access("/proc/cmdline", R_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
+        if (access("/proc/cmdline", R_OK) < 0 && ERRNO_IS_PRIVILEGE())
                 return log_tests_skipped("can't read /proc/cmdline");
 
         return EXIT_SUCCESS;

@@ -81,7 +81,7 @@ int chattr_full(const char *path,
                 errno = EINVAL;
         }
 
-        if ((errno != EINVAL && !ERRNO_IS_NOT_SUPPORTED(errno)) ||
+        if ((errno != EINVAL && !ERRNO_IS_NOT_SUPPORTED()) ||
             !FLAGS_SET(flags, CHATTR_FALLBACK_BITWISE))
                 return -errno;
 
@@ -104,7 +104,7 @@ int chattr_full(const char *path,
                         continue;
 
                 if (ioctl(fd, FS_IOC_SETFLAGS, &new_one) < 0) {
-                        if (errno != EINVAL && !ERRNO_IS_NOT_SUPPORTED(errno))
+                        if (errno != EINVAL && !ERRNO_IS_NOT_SUPPORTED())
                                 return -errno;
 
                         log_full_errno(FLAGS_SET(flags, CHATTR_WARN_UNSUPPORTED_FLAGS) ? LOG_WARNING : LOG_DEBUG,
@@ -113,7 +113,7 @@ int chattr_full(const char *path,
 
                         /* Ensures that we record whether only EOPNOTSUPP&friends are encountered, or if a more serious
                          * error (thus worth logging at a different level, etc) was seen too. */
-                        if (set_flags_errno == 0 || !ERRNO_IS_NOT_SUPPORTED(errno))
+                        if (set_flags_errno == 0 || !ERRNO_IS_NOT_SUPPORTED())
                                 set_flags_errno = -errno;
 
                         continue;
@@ -131,7 +131,7 @@ int chattr_full(const char *path,
         /* -ENOANO indicates that some attributes cannot be set. ERRNO_IS_NOT_SUPPORTED indicates that all
          * encountered failures were due to flags not supported by the FS, so return a specific error in
          * that case, so callers can handle it properly (e.g.: tmpfiles.d can use debug level logging). */
-        return current_attr == new_attr ? 1 : ERRNO_IS_NOT_SUPPORTED(set_flags_errno) ? set_flags_errno : -ENOANO;
+        return current_attr == new_attr ? 1 : NERRNO_IS_NOT_SUPPORTED(set_flags_errno) ? set_flags_errno : -ENOANO;
 }
 
 int read_attr_fd(int fd, unsigned *ret) {

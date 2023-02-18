@@ -285,7 +285,7 @@ int home_resize_directory(
                 return r;
 
         r = home_update_quota_auto(h, NULL);
-        if (ERRNO_IS_NOT_SUPPORTED(r))
+        if (NERRNO_IS_NOT_SUPPORTED(r))
                 return -ESOCKTNOSUPPORT; /* make recognizable */
         if (r < 0)
                 return r;

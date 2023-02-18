@@ -2486,7 +2486,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
 
         n = recvmsg_safe(m->notify_fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC|MSG_TRUNC);
         if (n < 0) {
-                if (ERRNO_IS_TRANSIENT(n))
+                if (NERRNO_IS_TRANSIENT(n))
                         return 0; /* Spurious wakeup, try again */
                 if (n == -EXFULL) {
                         log_warning("Got message with truncated control data (too many fds sent?), ignoring.");
@@ -2754,7 +2754,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
 
         n = read(m->signal_fd, &sfsi, sizeof(sfsi));
         if (n < 0) {
-                if (ERRNO_IS_TRANSIENT(errno))
+                if (ERRNO_IS_TRANSIENT())
                         return 0;
 
                 /* We return an error here, which will kill this handler,
@@ -3219,7 +3219,7 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
         }
 
         if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0) {
-                if (!IN_SET(errno, EAGAIN, ENOENT) && !ERRNO_IS_DISCONNECT(errno))
+                if (!IN_SET(errno, EAGAIN, ENOENT) && !ERRNO_IS_DISCONNECT())
                         log_error_errno(errno, "connect() failed: %m");
                 return;
         }
@@ -3229,7 +3229,7 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
 
         errno = 0;
         if (write(fd, message, n + 1) != n + 1)
-                if (!IN_SET(errno, EAGAIN, ENOENT) && !ERRNO_IS_DISCONNECT(errno))
+                if (!IN_SET(errno, EAGAIN, ENOENT) && !ERRNO_IS_DISCONNECT())
                         log_error_errno(errno, "Failed to write Plymouth message: %m");
 }
 
@@ -3836,7 +3836,7 @@ static int manager_run_generators(Manager *m) {
                 _exit(r >= 0 ? EXIT_SUCCESS : EXIT_FAILURE);
         }
         if (r < 0) {
-                if (!ERRNO_IS_PRIVILEGE(r)) {
+                if (!NERRNO_IS_PRIVILEGE(r)) {
                         log_error_errno(r, "Failed to fork off sandboxing environment for executing generators: %m");
                         goto finish;
                 }
@@ -4475,7 +4475,7 @@ int manager_dispatch_user_lookup_fd(sd_event_source *source, int fd, uint32_t re
 
         l = recv(fd, &buffer, sizeof(buffer), MSG_DONTWAIT);
         if (l < 0) {
-                if (ERRNO_IS_TRANSIENT(errno))
+                if (ERRNO_IS_TRANSIENT())
                         return 0;
 
                 return log_error_errno(errno, "Failed to read from user lookup fd: %m");
@@ -4526,7 +4526,7 @@ static int short_uid_range(const char *path) {
 
         r = uid_range_load_userns(&p, path);
         if (r < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(r))
+                if (NERRNO_IS_NOT_SUPPORTED(r))
                         return false;
                 return log_debug_errno(r, "Failed to load %s: %m", path);
         }

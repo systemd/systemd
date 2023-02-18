@@ -843,7 +843,7 @@ int manager_read_efi_boot_loader_entries(Manager *m) {
                 return 0;
 
         r = efi_loader_get_entries(&m->efi_boot_loader_entries);
-        if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r)) {
+        if (r == -ENOENT || NERRNO_IS_NOT_SUPPORTED(r)) {
                 log_debug_errno(r, "Boot loader reported no entries.");
                 m->efi_boot_loader_entries_set = true;
                 return 0;
