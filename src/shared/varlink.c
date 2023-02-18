@@ -1075,8 +1075,8 @@ int varlink_wait(Varlink *v, usec_t timeout) {
                 return events;
 
         r = fd_wait_for_event(fd, events, t);
-        if (r < 0 && NERRNO_IS_TRANSIENT(r)) /* Treat EINTR as not a timeout, but also nothing happened, and
-                                             * the caller gets a chance to call back into us */
+        if (NERRNO_IS_TRANSIENT(r)) /* Treat EINTR as not a timeout, but also nothing happened, and
+                                     * the caller gets a chance to call back into us */
                 return 1;
         if (r <= 0)
                 return r;

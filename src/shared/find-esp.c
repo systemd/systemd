@@ -289,7 +289,7 @@ static int verify_fsroot_dir(
 
         /* Now let's look at the parent */
         r = statx_fallback(fd, "..", 0, STATX_TYPE|STATX_INO|STATX_MNT_ID, &sxb.sx);
-        if (r < 0 && NERRNO_IS_PRIVILEGE(r)) {
+        if (NERRNO_IS_PRIVILEGE(r)) {
                 _cleanup_free_ char *parent = NULL;
 
                 /* If going via ".." didn't work due to EACCESS, then let's determine the parent path

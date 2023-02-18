@@ -434,7 +434,9 @@ int sd_netlink_wait(sd_netlink *nl, uint64_t timeout_usec) {
                 return 0;
 
         r = netlink_poll(nl, false, timeout_usec);
-        if (r < 0 && NERRNO_IS_TRANSIENT(r)) /* Convert EINTR to "something happened" and give user a chance to run some code before calling back into us */
+        if (NERRNO_IS_TRANSIENT(r))
+                /* Convert EINTR to "something happened" and give user a chance to run some code before
+                 * calling back into us. */
                 return 1;
         return r;
 }

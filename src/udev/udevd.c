@@ -1819,7 +1819,7 @@ static int create_subcgroup(char **ret) {
         }
 
         r = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, cgroup, "trusted.delegate");
-        if (r == 0 || (r < 0 && NERRNO_IS_XATTR_ABSENT(r)))
+        if (r == 0 || NERRNO_IS_XATTR_ABSENT(r))
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "The cgroup %s is not delegated to us.", cgroup);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read trusted.delegate attribute: %m");
