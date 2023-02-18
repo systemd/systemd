@@ -61,6 +61,7 @@ typedef enum MountMode {
         PRIVATE_DEV,
         BIND_DEV,
         EMPTY_DIR,
+        PRIVATE_SYSFS,
         BIND_SYSFS,
         PROCFS,
         READONLY,
@@ -233,6 +234,7 @@ static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
         [PRIVATE_DEV]          = "private-dev",
         [BIND_DEV]             = "bind-dev",
         [EMPTY_DIR]            = "empty",
+        [PRIVATE_SYSFS]        = "private-sysfs",
         [BIND_SYSFS]           = "bind-sysfs",
         [PROCFS]               = "procfs",
         [READONLY]             = "read-only",
@@ -288,7 +290,7 @@ static bool mount_entry_read_only(const MountEntry *p) {
 static bool mount_entry_noexec(const MountEntry *p) {
         assert(p);
 
-        return p->noexec || IN_SET(p->mode, NOEXEC, INACCESSIBLE, BIND_SYSFS, PROCFS);
+        return p->noexec || IN_SET(p->mode, NOEXEC, INACCESSIBLE, PRIVATE_SYSFS, BIND_SYSFS, PROCFS);
 }
 
 static bool mount_entry_exec(const MountEntry *p) {
@@ -1053,6 +1055,29 @@ static int mount_bind_dev(const MountEntry *m) {
         return 1;
 }
 
+static int mount_private_sysfs(const MountEntry *m) {
+        const char *p = mount_entry_path(ASSERT_PTR(m));
+        int r;
+
+        (void) mkdir_p_label(p, 0755);
+
+        r = remount_sysfs(p);
+        if (r < 0 && (ERRNO_IS_PRIVILEGE(r) || ERRNO_IS_NOT_SUPPORTED(r))) {
+                /* Running with an unprivileged user (PrivateUsers=yes), or the kernel seems old. Falling
+                 * back to bind mount the host's version so that we get all child mounts of it, too. */
+
+                log_debug_errno(r, "Failed to remount sysfs on %s, falling back to bind mount: %m", p);
+
+                (void) umount_recursive(p, 0);
+
+                r = mount_nofollow_verbose(LOG_DEBUG, "/sys", p, NULL, MS_BIND|MS_REC, NULL);
+        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to remount sysfs on %s: %m", p);
+
+        return 1;
+}
+
 static int mount_bind_sysfs(const MountEntry *m) {
         int r;
 
@@ -1482,6 +1507,9 @@ static int apply_one_mount(
 
         case BIND_DEV:
                 return mount_bind_dev(m);
+
+        case PRIVATE_SYSFS:
+                return mount_private_sysfs(m);
 
         case BIND_SYSFS:
                 return mount_bind_sysfs(m);
