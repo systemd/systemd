@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <efi.h>
-#include <efilib.h>
-
 #include "console.h"
+#include "proto/graphics-output.h"
 #include "util.h"
 
 #define SYSTEM_FONT_WIDTH 8
