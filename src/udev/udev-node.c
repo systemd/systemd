@@ -181,7 +181,7 @@ static int stack_directory_read_one(int dirfd, const char *id, char **devnode, i
 static int stack_directory_find_prioritized_devnode(sd_device *dev, int dirfd, bool add, char **ret) {
         _cleanup_closedir_ DIR *dir = NULL;
         _cleanup_free_ char *devnode = NULL;
-        int r, priority = 0;
+        int r, priority;
         const char *id;
 
         assert(dev);
