@@ -1722,7 +1722,7 @@ static int create_directory_or_subvolume(
         } else
                 r = 0;
 
-        if (!subvol || ERRNO_IS_NOT_SUPPORTED(r))
+        if (!subvol || (r < 0 && ERRNO_IS_NOT_SUPPORTED(r)))
                 WITH_UMASK(0000)
                         r = mkdirat_label(pfd, bn, mode);
 
@@ -1905,7 +1905,7 @@ static int create_device(Item *i, mode_t file_type) {
                                 r = mknodat_atomic(dfd, bn, i->mode | file_type, i->major_minor);
                                 mac_selinux_create_file_clear();
                         }
-                        if (ERRNO_IS_PRIVILEGE(r))
+                        if (r < 0 && ERRNO_IS_PRIVILEGE(r))
                                 goto handle_privilege;
                         if (IN_SET(r, -EISDIR, -EEXIST, -ENOTEMPTY)) {
                                 r = rm_rf_child(dfd, bn, REMOVE_PHYSICAL);
@@ -3258,9 +3258,9 @@ static int parse_line(
         i.try_replace = try_replace;
 
         r = specifier_printf(path, PATH_MAX-1, specifier_table, arg_root, NULL, &i.path);
-        if (ERRNO_IS_NOINFO(r))
-                return log_unresolvable_specifier(fname, line);
         if (r < 0) {
+                if (ERRNO_IS_NOINFO(r))
+                        return log_unresolvable_specifier(fname, line);
                 if (IN_SET(r, -EINVAL, -EBADSLT))
                         *invalid_config = true;
                 return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to replace specifiers in '%s': %m", path);
@@ -3412,9 +3412,9 @@ static int parse_line(
         if (!unbase64) {
                 /* Do specifier expansion except if base64 mode is enabled */
                 r = specifier_expansion_from_arg(specifier_table, &i);
-                if (ERRNO_IS_NOINFO(r))
-                        return log_unresolvable_specifier(fname, line);
                 if (r < 0) {
+                        if (ERRNO_IS_NOINFO(r))
+                                return log_unresolvable_specifier(fname, line);
                         if (IN_SET(r, -EINVAL, -EBADSLT))
                                 *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to substitute specifiers in argument: %m");
@@ -4219,7 +4219,7 @@ static int run(int argc, char *argv[]) {
                 }
         }
 
-        if (ERRNO_IS_RESOURCE(r))
+        if (r < 0 && ERRNO_IS_RESOURCE(r))
                 return r;
         if (invalid_config)
                 return EX_DATAERR;

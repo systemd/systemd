@@ -3248,11 +3248,13 @@ static int bus_process_internal(sd_bus *bus, sd_bus_message **ret) {
                 assert_not_reached();
         }
 
-        if (ERRNO_IS_DISCONNECT(r)) {
+        if (r < 0) {
+                if (!ERRNO_IS_DISCONNECT(r))
+                        return r;
+
                 bus_enter_closing(bus);
                 r = 1;
-        } else if (r < 0)
-                return r;
+        }
 
         if (ret)
                 *ret = NULL;

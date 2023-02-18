@@ -43,7 +43,7 @@ static int boot_config_load_and_select(
                 _cleanup_strv_free_ char **efi_entries = NULL;
 
                 r = efi_loader_get_entries(&efi_entries);
-                if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
+                if (r == -ENOENT || (r < 0 && ERRNO_IS_NOT_SUPPORTED(r)))
                         log_debug_errno(r, "Boot loader reported no entries.");
                 else if (r < 0)
                         log_warning_errno(r, "Failed to determine entries reported by boot loader, ignoring: %m");

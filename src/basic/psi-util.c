@@ -113,7 +113,7 @@ int is_pressure_supported(void) {
                 int r;
 
                 r = read_virtual_file(p, 0, NULL, NULL);
-                if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
+                if (r == -ENOENT || (r < 0 && ERRNO_IS_NOT_SUPPORTED(r)))
                         return 0;
                 if (r < 0)
                         return r;

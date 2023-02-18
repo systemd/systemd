@@ -1411,25 +1411,23 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
         assert(t->scope);
 
         r = manager_recv(t->scope->manager, fd, DNS_PROTOCOL_DNS, &p);
-        if (ERRNO_IS_DISCONNECT(r)) {
-                usec_t usec;
-
-                /* UDP connection failures get reported via ICMP and then are possibly delivered to us on the
-                 * next recvmsg(). Treat this like a lost packet. */
-
-                log_debug_errno(r, "Connection failure for DNS UDP packet: %m");
-                assert_se(sd_event_now(t->scope->manager->event, CLOCK_BOOTTIME, &usec) >= 0);
-                dns_server_packet_lost(t->server, IPPROTO_UDP, t->current_feature_level);
-
-                dns_transaction_close_connection(t, /* use_graveyard = */ false);
-
-                if (dns_transaction_limited_retry(t)) /* Try a different server */
-                        return 0;
-
-                dns_transaction_complete_errno(t, r);
-                return 0;
-        }
         if (r < 0) {
+                if (ERRNO_IS_DISCONNECT(r)) {
+                        usec_t usec;
+
+                        /* UDP connection failures get reported via ICMP and then are possibly delivered to us on the
+                         * next recvmsg(). Treat this like a lost packet. */
+
+                        log_debug_errno(r, "Connection failure for DNS UDP packet: %m");
+                        assert_se(sd_event_now(t->scope->manager->event, CLOCK_BOOTTIME, &usec) >= 0);
+                        dns_server_packet_lost(t->server, IPPROTO_UDP, t->current_feature_level);
+
+                        dns_transaction_close_connection(t, /* use_graveyard = */ false);
+
+                        if (dns_transaction_limited_retry(t)) /* Try a different server */
+                                return 0;
+                }
+
                 dns_transaction_complete_errno(t, r);
                 return 0;
         }
@@ -2111,7 +2109,7 @@ int dns_transaction_go(DnsTransaction *t) {
                 dns_transaction_complete(t, DNS_TRANSACTION_RR_TYPE_UNSUPPORTED);
                 return 0;
         }
-        if (t->scope->protocol == DNS_PROTOCOL_LLMNR && ERRNO_IS_DISCONNECT(r)) {
+        if (t->scope->protocol == DNS_PROTOCOL_LLMNR && (r < 0 && ERRNO_IS_DISCONNECT(r))) {
                 /* On LLMNR, if we cannot connect to a host via TCP when doing reverse lookups. This means we cannot
                  * answer this request with this protocol. */
                 dns_transaction_complete(t, DNS_TRANSACTION_NOT_FOUND);
