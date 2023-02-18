@@ -632,7 +632,7 @@ int main(int argc, char *argv[]) {
         }
 
         (void) reboot(cmd);
-        if (ERRNO_IS_PRIVILEGE(errno) && in_container) {
+        if (ERRNO_IS_PRIVILEGE() && in_container) {
                 /* If we are in a container, and we lacked CAP_SYS_BOOT just exit, this will kill our
                  * container for good. */
                 log_info("Exiting container.");

@@ -1598,7 +1598,7 @@ int btrfs_subvol_snapshot_fd_full(
                         return -EISDIR;
 
                 r = btrfs_subvol_make(new_path);
-                if (ERRNO_IS_NOT_SUPPORTED(r) && (flags & BTRFS_SNAPSHOT_FALLBACK_DIRECTORY)) {
+                if (NERRNO_IS_NOT_SUPPORTED(r) && (flags & BTRFS_SNAPSHOT_FALLBACK_DIRECTORY)) {
                         /* If the destination doesn't support subvolumes, then use a plain directory, if that's requested. */
                         if (mkdir(new_path, 0755) < 0)
                                 return -errno;

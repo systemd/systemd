@@ -52,7 +52,7 @@ static void test_swap_list_one(const char *fname) {
 
         LIST_HEAD_INIT(mp_list_head);
         r = swap_list_get(fname, &mp_list_head);
-        if (ERRNO_IS_PRIVILEGE(r))
+        if (NERRNO_IS_PRIVILEGE(r))
                 return;
         assert_se(r >= 0);
 

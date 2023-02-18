@@ -123,7 +123,7 @@ static int create_hole(int fd, off_t size) {
 
         if (offset < end &&
             fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, offset, MIN(size, end - offset)) < 0 &&
-            !ERRNO_IS_NOT_SUPPORTED(errno))
+            !ERRNO_IS_NOT_SUPPORTED())
                 return -errno;
 
         if (end - offset >= size) {
@@ -490,7 +490,7 @@ static int fd_copy_symlink(
         if (copy_flags & COPY_MAC_CREATE)
                 mac_selinux_create_file_clear();
         if (r < 0) {
-                if (FLAGS_SET(copy_flags, COPY_GRACEFUL_WARN) && (ERRNO_IS_PRIVILEGE(r) || ERRNO_IS_NOT_SUPPORTED(r))) {
+                if (FLAGS_SET(copy_flags, COPY_GRACEFUL_WARN) && (NERRNO_IS_PRIVILEGE(r) || NERRNO_IS_NOT_SUPPORTED(r))) {
                         log_notice_errno(r, "Failed to copy symlink '%s', ignoring: %m", from);
                         return 0;
                 }
@@ -809,7 +809,7 @@ static int fd_copy_fifo(
         if (copy_flags & COPY_MAC_CREATE)
                 mac_selinux_create_file_clear();
         if (r < 0) {
-                if (FLAGS_SET(copy_flags, COPY_GRACEFUL_WARN) && (ERRNO_IS_PRIVILEGE(r) || ERRNO_IS_NOT_SUPPORTED(r))) {
+                if (FLAGS_SET(copy_flags, COPY_GRACEFUL_WARN) && (NERRNO_IS_PRIVILEGE(r) || NERRNO_IS_NOT_SUPPORTED(r))) {
                         log_notice_errno(r, "Failed to copy fifo '%s', ignoring: %m", from);
                         return 0;
                 }
@@ -863,7 +863,7 @@ static int fd_copy_node(
         if (copy_flags & COPY_MAC_CREATE)
                 mac_selinux_create_file_clear();
         if (r < 0) {
-                if (FLAGS_SET(copy_flags, COPY_GRACEFUL_WARN) && (ERRNO_IS_PRIVILEGE(r) || ERRNO_IS_NOT_SUPPORTED(r))) {
+                if (FLAGS_SET(copy_flags, COPY_GRACEFUL_WARN) && (NERRNO_IS_PRIVILEGE(r) || NERRNO_IS_NOT_SUPPORTED(r))) {
                         log_notice_errno(r, "Failed to copy node '%s', ignoring: %m", from);
                         return 0;
                 }

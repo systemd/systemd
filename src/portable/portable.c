@@ -279,7 +279,7 @@ static int extract_now(
                          * we have to preserve it. Copy it out so that it can be applied later. */
 
                         r = fgetfilecon_raw(fd, &con);
-                        if (r < 0 && !ERRNO_IS_XATTR_ABSENT(errno))
+                        if (r < 0 && !ERRNO_IS_XATTR_ABSENT())
                                 log_debug_errno(errno, "Failed to get SELinux file context from '%s', ignoring: %m", de->d_name);
 #endif
 

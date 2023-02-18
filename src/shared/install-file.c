@@ -45,7 +45,7 @@ int fs_make_very_read_only(int fd) {
                         if (r >= 0)
                                 return 0;
 
-                        if (!ERRNO_IS_NOT_SUPPORTED(r) && r != -EINVAL)
+                        if (!NERRNO_IS_NOT_SUPPORTED(r) && r != -EINVAL)
                                 return r;
                 }
 
@@ -220,7 +220,7 @@ int install_file(int source_atfd, const char *source_name,
 
                                 if (renameat2(source_atfd, source_name, target_atfd, target_name, RENAME_EXCHANGE) < 0) {
 
-                                        if (!ERRNO_IS_NOT_SUPPORTED(errno) && errno != EINVAL)
+                                        if (!ERRNO_IS_NOT_SUPPORTED() && errno != EINVAL)
                                                 return -errno;
 
                                         /* The exchange didn't work, let's remove the target first, and try again */

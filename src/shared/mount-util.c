@@ -152,7 +152,7 @@ int bind_remount_recursive_with_mountinfo(
                          * point inode itself, not a non-mount point inode, and we want to support arbitrary
                          * prefixes here. */
 
-                        if (ERRNO_IS_NOT_SUPPORTED(errno)) /* if not supported, then don't bother at all anymore */
+                        if (ERRNO_IS_NOT_SUPPORTED()) /* if not supported, then don't bother at all anymore */
                                 skip_mount_set_attr = true;
                 } else
                         return 0; /* Nice, this worked! */
@@ -384,7 +384,7 @@ int bind_remount_one_with_mountinfo(
 
                         log_debug_errno(errno, "mount_setattr() didn't work, falling back to classic remounting: %m");
 
-                        if (ERRNO_IS_NOT_SUPPORTED(errno)) /* if not supported, then don't bother at all anymore */
+                        if (ERRNO_IS_NOT_SUPPORTED()) /* if not supported, then don't bother at all anymore */
                                 skip_mount_set_attr = true;
                 } else
                         return 0; /* Nice, this worked! */

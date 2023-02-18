@@ -517,7 +517,7 @@ _public_ int sd_device_new_from_devname(sd_device **ret, const char *devname) {
                 return device_new_from_mode_and_devnum(ret, mode, devnum);
 
         if (stat(devname, &st) < 0)
-                return ERRNO_IS_DEVICE_ABSENT(errno) ? -ENODEV : -errno;
+                return ERRNO_IS_DEVICE_ABSENT() ? -ENODEV : -errno;
 
         return sd_device_new_from_stat_rdev(ret, &st);
 }
@@ -738,7 +738,7 @@ int device_read_uevent_file(sd_device *device) {
         if (r < 0) {
                 /* The uevent files may be write-only, the device may be already removed, or the device
                  * may not have the uevent file. */
-                if (r == -EACCES || ERRNO_IS_DEVICE_ABSENT(r))
+                if (r == -EACCES || NERRNO_IS_DEVICE_ABSENT(r))
                         return 0;
 
                 return log_device_debug_errno(device, r, "sd-device: Failed to read uevent file '%s': %m", path);

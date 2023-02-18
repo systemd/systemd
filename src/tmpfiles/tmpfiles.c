@@ -229,7 +229,7 @@ static const char *const creation_mode_verb_table[_CREATION_MODE_MAX] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(creation_mode_verb, CreationMode);
 
 /* Different kinds of errors that mean that information is not available in the environment. */
-static inline bool ERRNO_IS_NOINFO(int r) {
+static inline bool NERRNO_IS_NOINFO(int r) {
         return IN_SET(abs(r),
                       EUNATCH,    /* os-release or machine-id missing */
                       ENOMEDIUM,  /* machine-id or another file empty */
@@ -326,15 +326,15 @@ static int user_config_paths(char*** ret) {
                 return r;
 
         r = xdg_user_config_dir(&persistent_config, "/user-tmpfiles.d");
-        if (r < 0 && !ERRNO_IS_NOINFO(r))
+        if (r < 0 && !NERRNO_IS_NOINFO(r))
                 return r;
 
         r = xdg_user_runtime_dir(&runtime_config, "/user-tmpfiles.d");
-        if (r < 0 && !ERRNO_IS_NOINFO(r))
+        if (r < 0 && !NERRNO_IS_NOINFO(r))
                 return r;
 
         r = xdg_user_data_dir(&data_home, "/user-tmpfiles.d");
-        if (r < 0 && !ERRNO_IS_NOINFO(r))
+        if (r < 0 && !NERRNO_IS_NOINFO(r))
                 return r;
 
         r = strv_extend_strv_concat(&res, config_dirs, "/user-tmpfiles.d");
@@ -1167,7 +1167,7 @@ static int path_set_acl(
 
         r = acl_set_file(path, type, dup);
         if (r < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(errno))
+                if (ERRNO_IS_NOT_SUPPORTED())
                         /* No error if filesystem doesn't support ACLs. Return negative. */
                         return -errno;
                 else
@@ -1219,7 +1219,7 @@ static int fd_set_acls(
         if (r == 0 && item->acl_default && S_ISDIR(st->st_mode))
                 r = path_set_acl(FORMAT_PROC_FD_PATH(fd), path, ACL_TYPE_DEFAULT, item->acl_default, item->append_or_force);
 
-        if (ERRNO_IS_NOT_SUPPORTED(r)) {
+        if (NERRNO_IS_NOT_SUPPORTED(-abs(r))) {
                 log_debug_errno(r, "ACLs not supported by file system at %s", path);
                 return 0;
         }
@@ -1387,7 +1387,7 @@ static int fd_set_attribute(
                             "previous=0x%08x, current=0x%08x, expected=0x%08x, ignoring.",
                             path, previous, current, (previous & ~item->attribute_mask) | (f & item->attribute_mask));
         else if (r < 0)
-                log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
+                log_full_errno(NERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
                                "Cannot set file attributes for '%s', value=0x%08x, mask=0x%08x, ignoring: %m",
                                path, item->attribute_value, item->attribute_mask);
 
@@ -1722,7 +1722,7 @@ static int create_directory_or_subvolume(
         } else
                 r = 0;
 
-        if (!subvol || ERRNO_IS_NOT_SUPPORTED(r))
+        if (!subvol || NERRNO_IS_NOT_SUPPORTED(r))
                 WITH_UMASK(0000)
                         r = mkdirat_label(pfd, bn, mode);
 
@@ -1883,7 +1883,7 @@ static int create_device(Item *i, mode_t file_type) {
                 /* OK, so opening the inode failed, let's look at the original error then. */
 
                 if (r < 0) {
-                        if (ERRNO_IS_PRIVILEGE(r))
+                        if (NERRNO_IS_PRIVILEGE(r))
                                 goto handle_privilege;
 
                         return log_error_errno(r, "Failed to create device node '%s': %m", i->path);
@@ -1905,7 +1905,7 @@ static int create_device(Item *i, mode_t file_type) {
                                 r = mknodat_atomic(dfd, bn, i->mode | file_type, i->major_minor);
                                 mac_selinux_create_file_clear();
                         }
-                        if (ERRNO_IS_PRIVILEGE(r))
+                        if (NERRNO_IS_PRIVILEGE(r))
                                 goto handle_privilege;
                         if (IN_SET(r, -EISDIR, -EEXIST, -ENOTEMPTY)) {
                                 r = rm_rf_child(dfd, bn, REMOVE_PHYSICAL);
@@ -3258,7 +3258,7 @@ static int parse_line(
         i.try_replace = try_replace;
 
         r = specifier_printf(path, PATH_MAX-1, specifier_table, arg_root, NULL, &i.path);
-        if (ERRNO_IS_NOINFO(r))
+        if (NERRNO_IS_NOINFO(r))
                 return log_unresolvable_specifier(fname, line);
         if (r < 0) {
                 if (IN_SET(r, -EINVAL, -EBADSLT))
@@ -3412,7 +3412,7 @@ static int parse_line(
         if (!unbase64) {
                 /* Do specifier expansion except if base64 mode is enabled */
                 r = specifier_expansion_from_arg(specifier_table, &i);
-                if (ERRNO_IS_NOINFO(r))
+                if (NERRNO_IS_NOINFO(r))
                         return log_unresolvable_specifier(fname, line);
                 if (r < 0) {
                         if (IN_SET(r, -EINVAL, -EBADSLT))
@@ -4219,7 +4219,7 @@ static int run(int argc, char *argv[]) {
                 }
         }
 
-        if (ERRNO_IS_RESOURCE(r))
+        if (NERRNO_IS_RESOURCE(r))
                 return r;
         if (invalid_config)
                 return EX_DATAERR;

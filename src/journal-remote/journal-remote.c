@@ -489,7 +489,7 @@ static int accept_connection(
         log_debug("Accepting new %s connection on fd:%d", type, fd);
         fd2 = accept4(fd, &addr->sockaddr.sa, &addr->size, SOCK_NONBLOCK|SOCK_CLOEXEC);
         if (fd2 < 0) {
-                if (ERRNO_IS_ACCEPT_AGAIN(errno))
+                if (ERRNO_IS_ACCEPT_AGAIN())
                         return -EAGAIN;
 
                 return log_error_errno(errno, "accept() on fd:%d failed: %m", fd);

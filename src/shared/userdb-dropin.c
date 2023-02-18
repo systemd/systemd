@@ -57,7 +57,7 @@ static int load_user(
                 }
 
                 r = json_parse_file(NULL, j, JSON_PARSE_SENSITIVE, &privileged_v, NULL, NULL);
-                if (ERRNO_IS_PRIVILEGE(r))
+                if (NERRNO_IS_PRIVILEGE(r))
                         have_privileged = false;
                 else if (r == -ENOENT)
                         have_privileged = true; /* if the privileged file doesn't exist, we are complete */
@@ -201,7 +201,7 @@ static int load_group(
                 }
 
                 r = json_parse_file(NULL, j, JSON_PARSE_SENSITIVE, &privileged_v, NULL, NULL);
-                if (ERRNO_IS_PRIVILEGE(r))
+                if (NERRNO_IS_PRIVILEGE(r))
                         have_privileged = false;
                 else if (r == -ENOENT)
                         have_privileged = true; /* if the privileged file doesn't exist, we are complete */

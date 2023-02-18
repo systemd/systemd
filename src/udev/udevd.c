@@ -543,7 +543,7 @@ static int worker_lock_whole_disk(sd_device *dev, int *ret_fd) {
 
         fd = sd_device_open(dev_whole_disk, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0) {
-                bool ignore = ERRNO_IS_DEVICE_ABSENT(fd);
+                bool ignore = NERRNO_IS_DEVICE_ABSENT(fd);
 
                 log_device_debug_errno(dev, fd, "Failed to open '%s'%s: %m", val, ignore ? ", ignoring" : "");
                 if (!ignore)
@@ -1421,7 +1421,7 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
 
         l = read(fd, &buffer, sizeof(buffer));
         if (l < 0) {
-                if (ERRNO_IS_TRANSIENT(errno))
+                if (ERRNO_IS_TRANSIENT())
                         return 0;
 
                 return log_error_errno(errno, "Failed to read inotify fd: %m");
@@ -1819,7 +1819,7 @@ static int create_subcgroup(char **ret) {
         }
 
         r = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, cgroup, "trusted.delegate");
-        if (r == 0 || (r < 0 && ERRNO_IS_XATTR_ABSENT(r)))
+        if (r == 0 || NERRNO_IS_XATTR_ABSENT(r))
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "The cgroup %s is not delegated to us.", cgroup);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read trusted.delegate attribute: %m");

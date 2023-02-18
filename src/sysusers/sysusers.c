@@ -1573,18 +1573,18 @@ static int item_equivalent(Item *a, Item *b) {
 
                 r = chase_symlinks(a_shell, arg_root, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &pa, NULL);
                 if (r < 0) {
-                        log_full_errno(ERRNO_IS_RESOURCE(r) ? LOG_ERR : LOG_DEBUG,
+                        log_full_errno(NERRNO_IS_RESOURCE(r) ? LOG_ERR : LOG_DEBUG,
                                        r, "Failed to look up path '%s%s%s': %m",
                                        strempty(arg_root), arg_root ? "/" : "", a_shell);
-                        return ERRNO_IS_RESOURCE(r) ? r : false;
+                        return NERRNO_IS_RESOURCE(r) ? r : false;
                 }
 
                 r = chase_symlinks(b_shell, arg_root, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &pb, NULL);
                 if (r < 0) {
-                        log_full_errno(ERRNO_IS_RESOURCE(r) ? LOG_ERR : LOG_DEBUG,
+                        log_full_errno(NERRNO_IS_RESOURCE(r) ? LOG_ERR : LOG_DEBUG,
                                        r, "Failed to look up path '%s%s%s': %m",
                                        strempty(arg_root), arg_root ? "/" : "", b_shell);
-                        return ERRNO_IS_RESOURCE(r) ? r : false;
+                        return NERRNO_IS_RESOURCE(r) ? r : false;
                 }
 
                 if (!path_equal(pa, pb)) {

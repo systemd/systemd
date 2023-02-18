@@ -84,7 +84,7 @@ static int inotify_handler(sd_event_source *s,
 
         l = read(fd, &buffer, sizeof(buffer));
         if (l < 0) {
-                if (ERRNO_IS_TRANSIENT(errno))
+                if (ERRNO_IS_TRANSIENT())
                         return 0;
 
                 return log_warning_errno(errno, "Lost access to inotify: %m");

@@ -1668,7 +1668,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                 break;
                         if (IN_SET(r, -EACCES, -ENOLCK))
                                 return log_error_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 PIN unlock failed, falling back to traditional unlocking.");
-                        if (ERRNO_IS_NOT_SUPPORTED(r)) /* TPM2 support not compiled in? */
+                        if (NERRNO_IS_NOT_SUPPORTED(r)) /* TPM2 support not compiled in? */
                                 return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 support not available, falling back to traditional unlocking.");
                         /* EAGAIN means: no tpm2 chip found */
                         if (r != -EAGAIN) {
@@ -1732,7 +1732,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                               found_some
                                                               ? "No TPM2 metadata matching the current system state found in LUKS2 header, falling back to traditional unlocking."
                                                               : "No TPM2 metadata enrolled in LUKS2 header, falling back to traditional unlocking.");
-                                if (ERRNO_IS_NOT_SUPPORTED(r))  /* TPM2 support not compiled in? */
+                                if (NERRNO_IS_NOT_SUPPORTED(r))  /* TPM2 support not compiled in? */
                                         return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 support not available, falling back to traditional unlocking.");
                                 if (r < 0)
                                         return r;

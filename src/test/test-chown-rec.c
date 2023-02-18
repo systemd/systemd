@@ -33,7 +33,7 @@ static bool has_xattr(const char *p) {
         char buffer[sizeof(acl) * 4];
 
         if (lgetxattr(p, "system.posix_acl_access", buffer, sizeof(buffer)) < 0)
-                return !ERRNO_IS_XATTR_ABSENT(errno);
+                return !ERRNO_IS_XATTR_ABSENT();
 
         return true;
 }

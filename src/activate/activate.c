@@ -242,7 +242,7 @@ static int do_accept(const char *name, char **argv, int fd) {
 
         fd_accepted = accept4(fd, NULL, NULL, 0);
         if (fd_accepted < 0) {
-                if (ERRNO_IS_ACCEPT_AGAIN(errno))
+                if (ERRNO_IS_ACCEPT_AGAIN())
                         return 0;
 
                 return log_error_errno(errno, "Failed to accept connection on fd:%d: %m", fd);

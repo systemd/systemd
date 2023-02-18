@@ -221,7 +221,7 @@ static int dns_scope_emit_one(DnsScope *s, int fd, int family, DnsPacket *p) {
 
                 /* Acquire the socket's PMDU MTU */
                 r = socket_get_mtu(fd, family, &socket_mtu);
-                if (r < 0 && !ERRNO_IS_DISCONNECT(r)) /* Will return ENOTCONN if no information is available yet */
+                if (r < 0 && !NERRNO_IS_DISCONNECT(r)) /* Will return ENOTCONN if no information is available yet */
                         return log_debug_errno(r, "Failed to read socket MTU: %m");
 
                 /* Determine the appropriate UDP header size */

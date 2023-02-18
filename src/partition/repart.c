@@ -2892,7 +2892,7 @@ static int context_discard_range(
 
         if (S_ISREG(st.st_mode)) {
                 if (fallocate(fd, FALLOC_FL_PUNCH_HOLE|FALLOC_FL_KEEP_SIZE, offset, size) < 0) {
-                        if (ERRNO_IS_NOT_SUPPORTED(errno))
+                        if (ERRNO_IS_NOT_SUPPORTED())
                                 return -EOPNOTSUPP;
 
                         return -errno;
@@ -2918,7 +2918,7 @@ static int context_discard_range(
                         return 0;
 
                 if (ioctl(fd, BLKDISCARD, range) < 0) {
-                        if (ERRNO_IS_NOT_SUPPORTED(errno))
+                        if (ERRNO_IS_NOT_SUPPORTED())
                                 return -EOPNOTSUPP;
 
                         return -errno;
@@ -3166,7 +3166,7 @@ static int partition_target_prepare(
          * also to cut out sections of block devices into new block devices. */
 
         r = loop_device_make(whole_fd, O_RDWR, p->offset, size, 0, 0, LOCK_EX, &d);
-        if (r < 0 && r != -ENOENT && !ERRNO_IS_PRIVILEGE(r))
+        if (r < 0 && r != -ENOENT && !NERRNO_IS_PRIVILEGE(r))
                 return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
         if (r >= 0) {
                 t->loop = TAKE_PTR(d);
@@ -4816,7 +4816,7 @@ static int context_read_seed(Context *context, const char *root) {
                 else {
                         r = id128_read_fd(fd, ID128_FORMAT_PLAIN, &context->seed);
                         if (r < 0) {
-                                if (!ERRNO_IS_MACHINE_ID_UNSET(r))
+                                if (!NERRNO_IS_MACHINE_ID_UNSET(r))
                                         return log_error_errno(r, "Failed to parse machine ID of image: %m");
 
                                 log_info("No machine ID set, using randomized partition UUIDs.");
@@ -5384,7 +5384,7 @@ static int context_minimize(Context *context) {
                                                        FORMAT_BYTES(1024ULL * 1024ULL * 1024ULL * 1024ULL));
 
                         r = loop_device_make(fd, O_RDWR, 0, UINT64_MAX, 0, 0, LOCK_EX, &d);
-                        if (r < 0 && r != -ENOENT && !ERRNO_IS_PRIVILEGE(r))
+                        if (r < 0 && r != -ENOENT && !NERRNO_IS_PRIVILEGE(r))
                                 return log_error_errno(r, "Failed to make loopback device of %s: %m", temp);
 
                         /* We're going to populate this filesystem twice so use a random UUID the first time
@@ -5456,7 +5456,7 @@ static int context_minimize(Context *context) {
                         return log_error_errno(errno, "Failed to truncate temporary file to %s: %m", FORMAT_BYTES(fsz));
 
                 r = loop_device_make(fd, O_RDWR, 0, UINT64_MAX, 0, 0, LOCK_EX, &d);
-                if (r < 0 && r != -ENOENT && !ERRNO_IS_PRIVILEGE(r))
+                if (r < 0 && r != -ENOENT && !NERRNO_IS_PRIVILEGE(r))
                         return log_error_errno(r, "Failed to make loopback device of %s: %m", temp);
 
                 r = make_filesystem(d ? d->node : temp, p->format, strempty(p->new_label), root, p->fs_uuid,
@@ -6022,7 +6022,7 @@ static int parse_efi_variable_factory_reset(void) {
                 return 0;
 
         r = efi_get_variable_string(EFI_SYSTEMD_VARIABLE(FactoryReset), &value);
-        if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
+        if (r == -ENOENT || NERRNO_IS_NOT_SUPPORTED(r))
                 return 0;
         if (r < 0)
                 return log_error_errno(r, "Failed to read EFI variable FactoryReset: %m");
@@ -6042,7 +6042,7 @@ static int remove_efi_variable_factory_reset(void) {
         int r;
 
         r = efi_set_variable(EFI_SYSTEMD_VARIABLE(FactoryReset), NULL, 0);
-        if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
+        if (r == -ENOENT || NERRNO_IS_NOT_SUPPORTED(r))
                 return 0;
         if (r < 0)
                 return log_error_errno(r, "Failed to remove EFI variable FactoryReset: %m");
@@ -6314,7 +6314,7 @@ static int resize_backing_fd(
 
         if (!arg_discard) {
                 if (fallocate(writable_fd, 0, 0, arg_size) < 0) {
-                        if (!ERRNO_IS_NOT_SUPPORTED(errno))
+                        if (!ERRNO_IS_NOT_SUPPORTED())
                                 return log_error_errno(errno, "Failed to grow '%s' from %s to %s by allocation: %m",
                                                        node, FORMAT_BYTES(current_size), FORMAT_BYTES(arg_size));
 

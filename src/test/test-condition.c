@@ -250,7 +250,7 @@ TEST(condition_test_host) {
         int r;
 
         r = sd_id128_get_machine(&id);
-        if (r < 0 && ERRNO_IS_MACHINE_ID_UNSET(r))
+        if (NERRNO_IS_MACHINE_ID_UNSET(r))
                 return (void) log_tests_skipped("/etc/machine-id missing");
         assert_se(r >= 0);
 
@@ -514,7 +514,7 @@ TEST(condition_test_kernel_command_line) {
         condition = condition_new(CONDITION_KERNEL_COMMAND_LINE, "thisreallyshouldntbeonthekernelcommandline", false, false);
         assert_se(condition);
         r = condition_test(condition, environ);
-        if (ERRNO_IS_PRIVILEGE(r))
+        if (NERRNO_IS_PRIVILEGE(r))
                 return;
         assert_se(r == 0);
         condition_free(condition);
@@ -805,7 +805,7 @@ TEST(condition_test_virtualization) {
         condition = condition_new(CONDITION_VIRTUALIZATION, "garbage oifdsjfoidsjoj", false, false);
         assert_se(condition);
         r = condition_test(condition, environ);
-        if (ERRNO_IS_PRIVILEGE(r))
+        if (NERRNO_IS_PRIVILEGE(r))
                 return;
         log_info("ConditionVirtualization=garbage → %i", r);
         assert_se(r == 0);
