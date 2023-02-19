@@ -3834,6 +3834,14 @@ static int manager_run_generators(Manager *m) {
         if (r == 0) {
                 r = manager_execute_generators(m, paths, /* remount_ro= */ true);
                 _exit(r >= 0 ? EXIT_SUCCESS : EXIT_FAILURE);
+
+        } else if (r == -EPERM) {
+                /* Failed to fork with new mount namespace? Maybe, running in a container environment with
+                 * seccomp or so. */
+                log_warning_errno(r,
+                                  "Failed to fork off sandbox for executing generators. "
+                                  "Falling back to execute generators without sandboxing: %m");
+                r = manager_execute_generators(m, paths, /* remount_ro= */ false);
         }
 
 finish:
