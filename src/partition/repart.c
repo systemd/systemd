@@ -4010,6 +4010,35 @@ static int partition_populate_filesystem(Partition *p, const char *node, const S
         return 0;
 }
 
+static int add_exclude_path(const char *path, Set **denylist) {
+        _cleanup_free_ struct stat *st = NULL;
+        int r;
+
+        assert(path);
+        assert(denylist);
+
+        st = new(struct stat, 1);
+        if (!st)
+                return log_oom();
+
+        r = chase_symlinks_and_stat(path, arg_root, CHASE_PREFIX_ROOT, NULL, st, NULL);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to stat source file '%s%s': %m",
+                                        strempty(arg_root), path);
+
+        if (set_contains(*denylist, st))
+                return 0;
+
+        if (set_ensure_put(denylist, &inode_hash_ops, st) < 0)
+                return log_oom();
+
+        TAKE_PTR(st);
+
+        return 0;
+}
+
 static int make_copy_files_denylist(Context *context, const Partition *p, Set **ret) {
         _cleanup_set_free_ Set *denylist = NULL;
         int r;
@@ -4024,50 +4053,19 @@ static int make_copy_files_denylist(Context *context, const Partition *p, Set **
                         continue;
 
                 NULSTR_FOREACH(s, sources) {
-                        _cleanup_free_ char *d = NULL;
-                        struct stat st;
+                        /* Exclude the children of partition mount points so that the nested partition mount
+                         * point itself still ends up in the upper partition. */
 
-                        r = chase_symlinks_and_stat(s, arg_root, CHASE_PREFIX_ROOT, NULL, &st, NULL);
-                        if (r == -ENOENT)
-                                continue;
+                        r = add_exclude_path(s, &denylist);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to stat source file '%s%s': %m",
-                                                       strempty(arg_root), s);
-
-                        if (set_contains(denylist, &st))
-                                continue;
-
-                        d = memdup(&st, sizeof(st));
-                        if (!d)
-                                return log_oom();
-                        if (set_ensure_put(&denylist, &inode_hash_ops, d) < 0)
-                                return log_oom();
-
-                        TAKE_PTR(d);
+                                return r;
                 }
         }
 
         STRV_FOREACH(e, p->exclude_files) {
-                _cleanup_free_ char *d = NULL;
-                struct stat st;
-
-                r = chase_symlinks_and_stat(*e, arg_root, CHASE_PREFIX_ROOT, NULL, &st, NULL);
-                if (r == -ENOENT)
-                        continue;
+                r = add_exclude_path(*e, &denylist);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to stat source file '%s%s': %m",
-                                                strempty(arg_root), *e);
-
-                if (set_contains(denylist, &st))
-                        continue;
-
-                d = memdup(&st, sizeof(st));
-                if (!d)
-                        return log_oom();
-                if (set_ensure_put(&denylist, &inode_hash_ops, d) < 0)
-                        return log_oom();
-
-                TAKE_PTR(d);
+                        return r;
         }
 
         *ret = TAKE_PTR(denylist);
