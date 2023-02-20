@@ -522,10 +522,6 @@ Features:
   would just use the same public key specified with --public-key= (or the one
   automatically derived from --private-key=).
 
-* tmpfiles: add new line type for setting btrfs subvolume attributes (i.e. rw/ro)
-
-* tmpfiles: add new line type for setting fcaps
-
 * push people to use ".sysext.raw" as suffix for sysext DDIs (DDI =
   discoverable disk images, i.e. the new name for gpt disk images following the
   discoverable disk spec). [Also: just ".sysext/" for directory-based sysext]
@@ -2328,6 +2324,7 @@ Features:
 
 * tmpfiles:
   - apply "x" on "D" too (see patch from William Douglas)
+  - allow time-based cleanup in r and R too
   - instead of ignoring unknown fields, reject them.
   - creating new directories/subvolumes/fifos/device nodes
     should not follow symlinks. None of the other adjustment or creation
@@ -2336,6 +2333,8 @@ Features:
   - teach tmpfiles.d q/Q logic something sensible in the context of XFS/ext4
     project quota
   - teach tmpfiles.d m/M to move / atomic move + symlink old -> new
+  - add new line type for setting btrfs subvolume attributes (i.e. rw/ro)
+  - tmpfiles: add new line type for setting fcaps
 
 * udev-link-config:
    - Make sure ID_PATH is always exported and complete for
