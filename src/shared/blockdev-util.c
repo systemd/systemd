@@ -17,6 +17,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "missing_magic.h"
 #include "parse-util.h"
 
@@ -776,4 +777,54 @@ int blockdev_get_sector_size(int fd, uint32_t *ret) {
 
         *ret = ssz;
         return 0;
+}
+
+int blockdev_get_root(int level, dev_t *ret) {
+        _cleanup_free_ char *p = NULL;
+        dev_t devno;
+        int r;
+
+        /* Returns the device node backing the root file system. Traces through
+         * dm-crypt/dm-verity/... Returns > 0 and the devno of the device on success. If there's no block
+         * device (or multiple) returns 0 and a devno of 0. Failure otherwise.
+         *
+         * If the root mount has been replaced by some form of volatile file system (overlayfs), the original
+         * root block device node is symlinked in /run/systemd/volatile-root. Let's read that here. */
+        r = readlink_malloc("/run/systemd/volatile-root", &p);
+        if (r == -ENOENT) { /* volatile-root not found */
+                r = get_block_device_harder("/", &devno);
+                if (r == -EUCLEAN)
+                        return btrfs_log_dev_root(level, r, "root file system");
+                if (r < 0)
+                        return log_full_errno(level, r, "Failed to determine block device of root file system: %m");
+                if (r == 0) { /* Not backed by a single block device. (Could be NFS or so, or could be multi-device RAID or so) */
+                        r = get_block_device_harder("/usr", &devno);
+                        if (r == -EUCLEAN)
+                                return btrfs_log_dev_root(level, r, "/usr");
+                        if (r < 0)
+                                return log_full_errno(level, r, "Failed to determine block device of /usr/ file system: %m");
+                        if (r == 0) { /* /usr/ not backed by single block device, either. */
+                                log_debug("Neither root nor /usr/ file system are on a (single) block device.");
+
+                                if (ret)
+                                        *ret = 0;
+
+                                return 0;
+                        }
+                }
+        } else if (r < 0)
+                return log_full_errno(level, r, "Failed to read symlink /run/systemd/volatile-root: %m");
+        else {
+                mode_t m;
+                r = device_path_parse_major_minor(p, &m, &devno);
+                if (r < 0)
+                        return log_full_errno(level, r, "Failed to parse major/minor device node: %m");
+                if (!S_ISBLK(m))
+                        return log_full_errno(level, SYNTHETIC_ERRNO(ENOTBLK), "Volatile root device is of wrong type.");
+        }
+
+        if (ret)
+                *ret = devno;
+
+        return 1;
 }

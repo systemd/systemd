@@ -2,6 +2,7 @@
 
 #include <getopt.h>
 
+#include "blockdev-util.h"
 #include "bootctl.h"
 #include "bootctl-install.h"
 #include "bootctl-random-seed.h"
@@ -11,6 +12,7 @@
 #include "bootctl-systemd-efi-options.h"
 #include "bootctl-uki.h"
 #include "build.h"
+#include "devnum-util.h"
 #include "dissect-image.h"
 #include "escape.h"
 #include "find-esp.h"
@@ -33,6 +35,7 @@ char *arg_esp_path = NULL;
 char *arg_xbootldr_path = NULL;
 bool arg_print_esp_path = false;
 bool arg_print_dollar_boot_path = false;
+unsigned arg_print_root_device = 0;
 bool arg_touch_variables = true;
 PagerFlags arg_pager_flags = 0;
 bool arg_graceful = false;
@@ -167,8 +170,10 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --image=PATH      Operate on disk image as filesystem root\n"
                "     --install-source=auto|image|host\n"
                "                       Where to pick files when using --root=/--image=\n"
-               "  -p --print-esp-path  Print path to the EFI System Partition\n"
-               "  -x --print-boot-path Print path to the $BOOT partition\n"
+               "  -p --print-esp-path  Print path to the EFI System Partition mount point\n"
+               "  -x --print-boot-path Print path to the $BOOT partition mount point\n"
+               "  -R --print-root-device\n"
+               "                       Print path to the root device node\n"
                "     --no-variables    Don't touch EFI variables\n"
                "     --no-pager        Do not pipe output into a pager\n"
                "     --graceful        Don't fail when the ESP cannot be found or EFI\n"
@@ -227,6 +232,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "print-esp-path",              no_argument,       NULL, 'p'                             },
                 { "print-path",                  no_argument,       NULL, 'p'                             }, /* Compatibility alias */
                 { "print-boot-path",             no_argument,       NULL, 'x'                             },
+                { "print-root-device",           no_argument,       NULL, 'R'                             },
                 { "no-variables",                no_argument,       NULL, ARG_NO_VARIABLES                },
                 { "no-pager",                    no_argument,       NULL, ARG_NO_PAGER                    },
                 { "graceful",                    no_argument,       NULL, ARG_GRACEFUL                    },
@@ -247,7 +253,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hpx", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hpxR", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -295,17 +301,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'p':
-                        if (arg_print_dollar_boot_path)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "--print-boot-path/-x cannot be combined with --print-esp-path/-p");
                         arg_print_esp_path = true;
                         break;
 
                 case 'x':
-                        if (arg_print_esp_path)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "--print-boot-path/-x cannot be combined with --print-esp-path/-p");
                         arg_print_dollar_boot_path = true;
+                        break;
+
+                case 'R':
+                        arg_print_root_device ++;
                         break;
 
                 case ARG_NO_VARIABLES:
@@ -398,6 +402,10 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
+        if (!!arg_print_esp_path + !!arg_print_dollar_boot_path + (arg_print_root_device > 0) > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "--print-esp-path/-p, --print-boot-path/-x, --print-root-device=/-R cannot be combined.");
+
         if ((arg_root || arg_image) && argv[optind] && !STR_IN_SET(argv[optind], "status", "list",
                         "install", "update", "remove", "is-installed", "random-seed", "unlink", "cleanup"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -457,6 +465,32 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (arg_print_root_device > 0) {
+                _cleanup_free_ char *path = NULL;
+                dev_t devno;
+
+                r = blockdev_get_root(LOG_ERR, &devno);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        log_error("Root file system not backed by a (single) whole block device.");
+                        return 80; /* some recognizable error code */
+                }
+
+                if (arg_print_root_device > 1) {
+                        r = block_get_whole_disk(devno, &devno);
+                        if (r < 0)
+                                log_debug_errno(r, "Unable to find whole block device for root block device, ignoring: %m");
+                }
+
+                r = device_path_make_canonical(S_IFBLK, devno, &path);
+                if (r < 0)
+                        return log_oom();
+
+                puts(path);
+                return EXIT_SUCCESS;
+        }
 
         /* Open up and mount the image */
         if (arg_image) {

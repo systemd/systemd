@@ -22,3 +22,20 @@ command -v jq >/dev/null || {
 
 "$bootctl" list --json=pretty | jq . >/dev/null
 "$bootctl" list --json=short | jq . >/dev/null
+
+# bootctl --print-root-device should either succeed or fail with exit status 80
+# (because not backed by a single block device), but not fail otherwise.
+"$bootctl" -R || test "$?" -eq 80
+"$bootctl" -RR || test "$?" -eq 80
+
+if "$bootctl" -R > /dev/null ; then
+    P=$("$bootctl" -R)
+    PP=$("$bootctl" -RR)
+
+    echo "$P vs $PP"
+    test -b "$P"
+    test -b "$PP"
+
+    # $P must be a prefix of $PP
+    [[ $P = $PP* ]]
+fi
