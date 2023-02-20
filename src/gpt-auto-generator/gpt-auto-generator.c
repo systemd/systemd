@@ -773,40 +773,15 @@ static int enumerate_partitions(dev_t devnum) {
 }
 
 static int add_mounts(void) {
-        _cleanup_free_ char *p = NULL;
-        int r;
         dev_t devno;
+        int r;
 
-        /* If the root mount has been replaced by some form of volatile file system (overlayfs), the
-         * original root block device node is symlinked in /run/systemd/volatile-root. Let's read that
-         * here. */
-        r = readlink_malloc("/run/systemd/volatile-root", &p);
-        if (r == -ENOENT) { /* volatile-root not found */
-                r = get_block_device_harder("/", &devno);
-                if (r == -EUCLEAN)
-                        return btrfs_log_dev_root(LOG_ERR, r, "root file system");
-                if (r < 0)
-                        return log_error_errno(r, "Failed to determine block device of root file system: %m");
-                if (r == 0) { /* Not backed by a single block device. (Could be NFS or so, or could be multi-device RAID or so) */
-                        r = get_block_device_harder("/usr", &devno);
-                        if (r == -EUCLEAN)
-                                return btrfs_log_dev_root(LOG_ERR, r, "/usr");
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to determine block device of /usr/ file system: %m");
-                        if (r == 0) { /* /usr/ not backed by single block device, either. */
-                                log_debug("Neither root nor /usr/ file system are on a (single) block device.");
-                                return 0;
-                        }
-                }
-        } else if (r < 0)
-                return log_error_errno(r, "Failed to read symlink /run/systemd/volatile-root: %m");
-        else {
-                mode_t m;
-                r = device_path_parse_major_minor(p, &m, &devno);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse major/minor device node: %m");
-                if (!S_ISBLK(m))
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Volatile root device is of wrong type.");
+        r = blockdev_get_root(LOG_ERR, &devno);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                log_debug("Skipping automatic GPT dissection logic, root file system not backed by a (single) whole block device.");
+                return 0;
         }
 
         return enumerate_partitions(devno);
