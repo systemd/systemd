@@ -14,6 +14,13 @@
 TEST(cap_list) {
         assert_se(!capability_to_name(-1));
         assert_se(!capability_to_name(capability_list_length()));
+        assert_se(!capability_to_name(63));
+        assert_se(!capability_to_name(64));
+
+        assert_se(!CAPABILITY_TO_STRING(-1));
+        if (capability_list_length() <= 62)
+                assert_se(streq(CAPABILITY_TO_STRING(62), "0x3e"));
+        assert_se(!CAPABILITY_TO_STRING(64));
 
         for (int i = 0; i < capability_list_length(); i++) {
                 const char *n;
@@ -21,6 +28,8 @@ TEST(cap_list) {
                 assert_se(n = capability_to_name(i));
                 assert_se(capability_from_name(n) == i);
                 printf("%s = %i\n", n, i);
+
+                assert_se(streq(CAPABILITY_TO_STRING(i), n));
         }
 
         assert_se(capability_from_name("asdfbsd") == -EINVAL);
