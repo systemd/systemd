@@ -35,10 +35,10 @@ int capability_from_name(const char *name) {
         /* Try to parse numeric capability */
         r = safe_atoi(name, &i);
         if (r >= 0) {
-                if (i >= 0 && i < 64)
-                        return i;
-                else
+                if (i < 0 || i >= 63)
                         return -EINVAL;
+
+                return i;
         }
 
         /* Try to parse string capability */
