@@ -453,6 +453,10 @@
         exclude multiple files or directories from host from being copied into the newly formatted file
         system.</para>
 
+        <para>Note that when this option is used to exclude a directory, the directory itself is still
+        copied, but none of its children are copied. This is done so that the directory can still serve as a
+        mountpoint if needed.</para>
+
         <para>When
         <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         is invoked with the <option>--image=</option> or <option>--root=</option> command line switches the
