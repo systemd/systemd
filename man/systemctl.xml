@@ -128,6 +128,26 @@ binfmt_misc /proc/sys/fs/binfmt_misc yes     0            proc-sys-fs-binfmt_mis
         </varlistentry>
 
         <varlistentry>
+          <term><command>list-paths</command> <optional><replaceable>PATTERN</replaceable>…</optional></term>
+
+          <listitem>
+            <para>List path units currently in memory, ordered by path.  If one or more
+            <replaceable>PATTERN</replaceable>s are specified, only path units matching one of them are shown.
+            Produces output similar to
+            <programlisting>
+PATH                           CONDITION         UNIT                               ACTIVATES
+/run/systemd/ask-password      DirectoryNotEmpty systemd-ask-password-plymouth.path systemd-ask-password-plymouth.service
+/run/systemd/ask-password      DirectoryNotEmpty systemd-ask-password-wall.path     systemd-ask-password-wall.service
+/var/cache/cups/org.cups.cupsd PathExists        cups.path                          cups.service
+
+3 paths listed.</programlisting>
+            </para>
+
+            <para>Also see <option>--show-types</option>, <option>--all</option>, and <option>--state=</option>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><command>list-sockets</command> <optional><replaceable>PATTERN</replaceable>…</optional></term>
 
           <listitem>
