@@ -101,6 +101,20 @@ static void output_legend(const char *type, size_t n_items) {
                 printf("Pass --all to see loaded but inactive %ss, too.\n", type);
 }
 
+static int table_add_triggered(Table *table, char **triggered) {
+        assert(table);
+
+        if (strv_isempty(triggered))
+                return table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+        else if (strv_length(triggered) == 1)
+                return table_add_cell(table, NULL, TABLE_STRING, triggered[0]);
+        else
+                /* This should never happen, currently our socket units can only trigger a
+                 * single unit. But let's handle this anyway, who knows what the future
+                 * brings? */
+                return table_add_cell(table, NULL, TABLE_STRV, triggered);
+}
+
 static int output_units_list(const UnitInfo *unit_infos, size_t c) {
         _cleanup_(table_unrefp) Table *table = NULL;
         size_t job_count = 0;
@@ -402,15 +416,7 @@ static int output_sockets_list(struct socket_info *socket_infos, size_t cs) {
                 if (r < 0)
                         return table_log_add_error(r);
 
-                if (strv_isempty(s->triggered))
-                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
-                else if (strv_length(s->triggered) == 1)
-                        r = table_add_cell(table, NULL, TABLE_STRING, s->triggered[0]);
-                else
-                        /* This should never happen, currently our socket units can only trigger a
-                                * single unit. But let's handle this anyway, who knows what the future
-                                * brings? */
-                        r = table_add_cell(table, NULL, TABLE_STRV, s->triggered);
+                r = table_add_triggered(table, s->triggered);
                 if (r < 0)
                         return table_log_add_error(r);
         }
