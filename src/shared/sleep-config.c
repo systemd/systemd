@@ -196,25 +196,31 @@ static int read_battery_capacity_percentage(sd_device *dev) {
         return battery_capacity;
 }
 
-/* If battery percentage capacity is <= 5%, return success */
-int battery_is_low(void) {
+/* If a battery whose percentage capacity is <= 5%, and we're not on AC power, return success */
+int battery_is_present_and_low(void) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         sd_device *dev;
+        bool has_battery = false;
         int r;
 
          /* We have not used battery capacity_level since value is set to full
          * or Normal in case ACPI is not working properly. In case of no battery
          * 0 will be returned and system will be suspended for 1st cycle then hibernated */
 
+        if (on_ac_power())
+                return false;
+
         r = battery_enumerator_new(&e);
         if (r < 0)
                 return log_debug_errno(r, "Failed to initialize battery enumerator: %m");
 
-        FOREACH_DEVICE(e, dev)
+        FOREACH_DEVICE(e, dev) {
+                has_battery = true;
                 if (read_battery_capacity_percentage(dev) > BATTERY_LOW_CAPACITY_LEVEL)
                         return false;
+        }
 
-        return true;
+        return has_battery;
 }
 
 /* Store current capacity of each battery before suspension and timestamp */
