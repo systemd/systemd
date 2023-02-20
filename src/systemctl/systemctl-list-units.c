@@ -398,21 +398,16 @@ static int output_sockets_list(struct socket_info *socket_infos, size_t cs) {
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         for (struct socket_info *s = socket_infos; s < socket_infos + cs; s++) {
-                _cleanup_free_ char *j = NULL;
-                const char *path;
+                _cleanup_free_ char *unit = NULL;
 
-                if (s->machine) {
-                        j = strjoin(s->machine, ":", s->path);
-                        if (!j)
-                                return log_oom();
-                        path = j;
-                } else
-                        path = s->path;
+                unit = format_unit_id(s->id, s->machine);
+                if (!unit)
+                        return log_oom();
 
                 r = table_add_many(table,
-                                        TABLE_STRING, path,
+                                        TABLE_STRING, s->path,
                                         TABLE_STRING, s->type,
-                                        TABLE_STRING, s->id);
+                                        TABLE_STRING, unit);
                 if (r < 0)
                         return table_log_add_error(r);
 
