@@ -3787,7 +3787,29 @@ static int context_copy_blocks(Context *context) {
         return 0;
 }
 
-static int do_copy_files(Partition *p, const char *root, const Set *denylist) {
+static int make_mountpoint(const char *root, const char *mountpoint) {
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        path = path_join(root, mountpoint);
+        if (!path)
+                return log_oom();
+
+        /* Ideally we'd use mode 0000 but this confuses mkfs tools (e.g. mkfs.ext4) so we use 0500 instead. */
+        r = RET_NERRNO(mkdir(path, 0500));
+        if (r == -EEXIST)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to create mountpoint '%s': %m", path);
+
+        /* Ideally we'd chown to nobody:nobody but that requires root privileges and repart needs to be able
+         * to run unprivileged. For the same reason we can't chown to root:root either, though that's not a
+         * big problem since if running as root the files will be owned by root anyway. */
+
+        return 0;
+}
+
+static int do_copy_files(Context *context, Partition *p, const char *root, const Set *denylist) {
         int r;
 
         assert(p);
@@ -3908,6 +3930,28 @@ static int do_copy_files(Partition *p, const char *root, const Set *denylist) {
                 }
         }
 
+        if (p->type.designator == PARTITION_ROOT) {
+                /* Always make sure the mountpoints for other partitions exist in any root partitions we
+                 * populate. This is required for read-only images where we cannot create the mountpoints on
+                 * first boot. */
+
+                for (PartitionDesignator d = 0; d < _PARTITION_DESIGNATOR_MAX; d++) {
+                        /* /var should always be writable so we don't create the /var/tmp mountpoint explicitly. */
+                        if (IN_SET(d, PARTITION_ROOT, PARTITION_TMP))
+                                continue;
+
+                        const char *sources = gpt_partition_type_mountpoint_nulstr((GptPartitionType) { .designator = d });
+                        if (!sources)
+                                continue;
+
+                        NULSTR_FOREACH(s, sources) {
+                                r = make_mountpoint(root, s);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+        }
+
         return 0;
 }
 
@@ -3932,7 +3976,7 @@ static bool partition_needs_populate(Partition *p) {
         return !strv_isempty(p->copy_files) || !strv_isempty(p->make_directories);
 }
 
-static int partition_populate_directory(Partition *p, const Set *denylist, char **ret) {
+static int partition_populate_directory(Context *context, Partition *p, const Set *denylist, char **ret) {
         _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
         const char *vt;
         int r;
@@ -3951,7 +3995,7 @@ static int partition_populate_directory(Partition *p, const Set *denylist, char 
         if (r < 0)
                 return log_error_errno(errno, "Failed to create temporary directory: %m");
 
-        r = do_copy_files(p, root, denylist);
+        r = do_copy_files(context, p, root, denylist);
         if (r < 0)
                 return r;
 
@@ -3963,7 +4007,7 @@ static int partition_populate_directory(Partition *p, const Set *denylist, char 
         return 0;
 }
 
-static int partition_populate_filesystem(Partition *p, const char *node, const Set *denylist) {
+static int partition_populate_filesystem(Context *context, Partition *p, const char *node, const Set *denylist) {
         int r;
 
         assert(p);
@@ -3991,7 +4035,7 @@ static int partition_populate_filesystem(Partition *p, const char *node, const S
                 if (mount_nofollow_verbose(LOG_ERR, node, fs, p->format, MS_NOATIME|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL) < 0)
                         _exit(EXIT_FAILURE);
 
-                if (do_copy_files(p, fs, denylist) < 0)
+                if (do_copy_files(context, p, fs, denylist) < 0)
                         _exit(EXIT_FAILURE);
 
                 if (do_make_directories(p, fs) < 0)
@@ -4126,7 +4170,7 @@ static int context_mkfs(Context *context) {
                                                         "Loop device access is required to populate %s filesystems.",
                                                         p->format);
 
-                        r = partition_populate_directory(p, denylist, &root);
+                        r = partition_populate_directory(context, p, denylist, &root);
                         if (r < 0)
                                 return r;
                 }
@@ -4142,7 +4186,7 @@ static int context_mkfs(Context *context) {
                 if (partition_needs_populate(p) && !root) {
                         assert(t->loop);
 
-                        r = partition_populate_filesystem(p, t->loop->node, denylist);
+                        r = partition_populate_filesystem(context, p, t->loop->node, denylist);
                         if (r < 0)
                                 return r;
                 }
@@ -5460,7 +5504,7 @@ static int context_minimize(Context *context) {
                                                        "Loop device access is required to populate %s filesystems",
                                                        p->format);
 
-                        r = partition_populate_directory(p, denylist, &root);
+                        r = partition_populate_directory(context, p, denylist, &root);
                         if (r < 0)
                                 return r;
                 }
@@ -5481,7 +5525,7 @@ static int context_minimize(Context *context) {
                 if (!root) {
                         assert(d);
 
-                        r = partition_populate_filesystem(p, d->node, denylist);
+                        r = partition_populate_filesystem(context, p, d->node, denylist);
                         if (r < 0)
                                 return r;
                 }
@@ -5527,7 +5571,7 @@ static int context_minimize(Context *context) {
                 if (!root) {
                         assert(d);
 
-                        r = partition_populate_filesystem(p, d->node, denylist);
+                        r = partition_populate_filesystem(context, p, d->node, denylist);
                         if (r < 0)
                                 return r;
                 }
