@@ -280,7 +280,8 @@
           <para>Units may have their children use a default <literal>memory.min</literal> or
           <literal>memory.low</literal> value by specifying <varname>DefaultMemoryMin=</varname> or
           <varname>DefaultMemoryLow=</varname>, which has the same semantics as
-          <varname>MemoryMin=</varname> and <varname>MemoryLow=</varname>.
+          <varname>MemoryMin=</varname> and <varname>MemoryLow=</varname>, or <varname>DefaultStartupMemoryLow=</varname>
+          which has the same semantics as <varname>StartupMemoryLow=</varname>.
           This setting does not affect <literal>memory.min</literal> or <literal>memory.low</literal>
           in the unit itself.
           Using it to set a default child allocation is only useful on kernels older than 5.7,
