@@ -292,7 +292,7 @@ int home_setup_fscrypt(
         if (ioctl(setup->root_fd, FS_IOC_GET_ENCRYPTION_POLICY, &policy) < 0) {
                 if (errno == ENODATA)
                         return log_error_errno(errno, "Home directory %s is not encrypted.", ip);
-                if (ERRNO_IS_NOT_SUPPORTED(errno)) {
+                if (ERRNO_IS_NOT_SUPPORTED()) {
                         log_error_errno(errno, "File system does not support fscrypt: %m");
                         return -ENOLINK; /* make recognizable */
                 }
@@ -505,7 +505,7 @@ int home_create_fscrypt(
                 return log_error_errno(errno, "Failed to open temporary home directory: %m");
 
         if (ioctl(setup->root_fd, FS_IOC_GET_ENCRYPTION_POLICY, &policy) < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(errno)) {
+                if (ERRNO_IS_NOT_SUPPORTED()) {
                         log_error_errno(errno, "File system does not support fscrypt: %m");
                         return -ENOLINK; /* make recognizable */
                 }

@@ -359,7 +359,7 @@ static int ipv4acd_on_packet(
 
         n = recv(fd, &packet, sizeof(struct ether_arp), 0);
         if (n < 0) {
-                if (ERRNO_IS_TRANSIENT(errno) || ERRNO_IS_DISCONNECT(errno))
+                if (ERRNO_IS_TRANSIENT() || ERRNO_IS_DISCONNECT())
                         return 0;
 
                 log_ipv4acd_errno(acd, errno, "Failed to read ARP packet: %m");

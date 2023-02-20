@@ -568,7 +568,7 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
 
         n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
         if (n < 0) {
-                if (ERRNO_IS_TRANSIENT(n))
+                if (NERRNO_IS_TRANSIENT(n))
                         return 0;
                 return (int) n;
         }

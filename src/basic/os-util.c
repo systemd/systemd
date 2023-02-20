@@ -69,7 +69,7 @@ static int extension_release_strict_xattr_value(int extension_release_fd, const 
         _cleanup_free_ char *extension_release_xattr = NULL;
         r = fgetxattr_malloc(extension_release_fd, "user.extension-release.strict", &extension_release_xattr);
         if (r < 0) {
-                if (!ERRNO_IS_XATTR_ABSENT(r))
+                if (!NERRNO_IS_XATTR_ABSENT(r))
                         return log_debug_errno(r,
                                                "%s/%s: Failed to read 'user.extension-release.strict' extended attribute from file, ignoring: %m",
                                                extension_release_dir_path, filename);

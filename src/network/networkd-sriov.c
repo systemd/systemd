@@ -274,11 +274,11 @@ int link_set_sr_iov_ifindices(Link *link) {
         assert(link);
 
         r = link_set_sr_iov_phys_port(link);
-        if (r < 0 && !ERRNO_IS_DEVICE_ABSENT(r))
+        if (r < 0 && !NERRNO_IS_DEVICE_ABSENT(r))
                 return r;
 
         r = link_set_sr_iov_virt_ports(link);
-        if (r < 0 && !ERRNO_IS_DEVICE_ABSENT(r))
+        if (r < 0 && !NERRNO_IS_DEVICE_ABSENT(r))
                 return r;
 
         return 0;

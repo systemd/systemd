@@ -1862,7 +1862,7 @@ static int client_receive_message_udp(
 
         buflen = next_datagram_size_fd(fd);
         if (buflen < 0) {
-                if (ERRNO_IS_TRANSIENT(buflen) || ERRNO_IS_DISCONNECT(buflen))
+                if (NERRNO_IS_TRANSIENT(buflen) || NERRNO_IS_DISCONNECT(buflen))
                         return 0;
 
                 log_dhcp_client_errno(client, buflen, "Failed to determine datagram size to read, ignoring: %m");
@@ -1875,7 +1875,7 @@ static int client_receive_message_udp(
 
         len = recv(fd, message, buflen, 0);
         if (len < 0) {
-                if (ERRNO_IS_TRANSIENT(errno) || ERRNO_IS_DISCONNECT(errno))
+                if (ERRNO_IS_TRANSIENT() || ERRNO_IS_DISCONNECT())
                         return 0;
 
                 log_dhcp_client_errno(client, errno, "Could not receive message from UDP socket, ignoring: %m");
@@ -1955,7 +1955,7 @@ static int client_receive_message_raw(
 
         buflen = next_datagram_size_fd(fd);
         if (buflen < 0) {
-                if (ERRNO_IS_TRANSIENT(buflen) || ERRNO_IS_DISCONNECT(buflen))
+                if (NERRNO_IS_TRANSIENT(buflen) || NERRNO_IS_DISCONNECT(buflen))
                         return 0;
 
                 log_dhcp_client_errno(client, buflen, "Failed to determine datagram size to read, ignoring: %m");
@@ -1970,7 +1970,7 @@ static int client_receive_message_raw(
 
         len = recvmsg_safe(fd, &msg, 0);
         if (len < 0) {
-                if (ERRNO_IS_TRANSIENT(len) || ERRNO_IS_DISCONNECT(len))
+                if (NERRNO_IS_TRANSIENT(len) || NERRNO_IS_DISCONNECT(len))
                         return 0;
 
                 log_dhcp_client_errno(client, len, "Could not receive message from raw socket, ignoring: %m");

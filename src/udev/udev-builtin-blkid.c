@@ -308,7 +308,7 @@ static int builtin_blkid(sd_device *dev, sd_netlink **rtnl, int argc, char *argv
 
         fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0) {
-                bool ignore = ERRNO_IS_DEVICE_ABSENT(fd);
+                bool ignore = NERRNO_IS_DEVICE_ABSENT(fd);
                 log_device_debug_errno(dev, fd, "Failed to open block device %s%s: %m",
                                        devnode, ignore ? ", ignoring" : "");
                 return ignore ? 0 : fd;

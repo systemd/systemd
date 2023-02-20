@@ -406,7 +406,7 @@ int sd_network_monitor_flush(sd_network_monitor *m) {
 
         l = read(fd, &buffer, sizeof(buffer));
         if (l < 0) {
-                if (ERRNO_IS_TRANSIENT(errno))
+                if (ERRNO_IS_TRANSIENT())
                         return 0;
 
                 return -errno;

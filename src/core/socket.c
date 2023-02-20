@@ -1048,14 +1048,14 @@ static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
         if (s->receive_buffer > 0) {
                 r = fd_set_rcvbuf(fd, s->receive_buffer, false);
                 if (r < 0)
-                        log_unit_full_errno(UNIT(s), ERRNO_IS_PRIVILEGE(r) ? LOG_DEBUG : LOG_WARNING, r,
+                        log_unit_full_errno(UNIT(s), NERRNO_IS_PRIVILEGE(r) ? LOG_DEBUG : LOG_WARNING, r,
                                             "SO_RCVBUF/SO_RCVBUFFORCE failed: %m");
         }
 
         if (s->send_buffer > 0) {
                 r = fd_set_sndbuf(fd, s->send_buffer, false);
                 if (r < 0)
-                        log_unit_full_errno(UNIT(s), ERRNO_IS_PRIVILEGE(r) ? LOG_DEBUG : LOG_WARNING, r,
+                        log_unit_full_errno(UNIT(s), NERRNO_IS_PRIVILEGE(r) ? LOG_DEBUG : LOG_WARNING, r,
                                             "SO_SNDBUF/SO_SNDBUFFORCE failed: %m");
         }
 
@@ -1381,7 +1381,7 @@ int socket_load_service_unit(Socket *s, int cfd, Unit **ret) {
 
         if (cfd >= 0) {
                 r = instance_from_socket(cfd, s->n_accepted, &instance);
-                if (ERRNO_IS_DISCONNECT(r))
+                if (NERRNO_IS_DISCONNECT(r))
                         /* ENOTCONN is legitimate if TCP RST was received. Other socket families might return
                          * different errors. This connection is over, but the socket unit lives on. */
                         return log_unit_debug_errno(UNIT(s), r,
@@ -2354,7 +2354,7 @@ static void socket_enter_running(Socket *s, int cfd_in) {
 
                 if (s->max_connections_per_source > 0) {
                         r = socket_acquire_peer(s, cfd, &p);
-                        if (ERRNO_IS_DISCONNECT(r))
+                        if (NERRNO_IS_DISCONNECT(r))
                                 return;
                         if (r < 0) /* We didn't have enough resources to acquire peer information, let's fail. */
                                 goto fail;
@@ -2371,7 +2371,7 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                 }
 
                 r = socket_load_service_unit(s, cfd, &service);
-                if (ERRNO_IS_DISCONNECT(r))
+                if (NERRNO_IS_DISCONNECT(r))
                         return;
                 if (r < 0)
                         goto fail;
@@ -2384,7 +2384,7 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                 s->n_accepted++;
 
                 r = service_set_socket_fd(SERVICE(service), cfd, s, p, s->selinux_context_from_net);
-                if (ERRNO_IS_DISCONNECT(r))
+                if (NERRNO_IS_DISCONNECT(r))
                         return;
                 if (r < 0)
                         goto fail;
@@ -2412,7 +2412,7 @@ refuse:
         return;
 
 fail:
-        if (ERRNO_IS_RESOURCE(r))
+        if (NERRNO_IS_RESOURCE(r))
                 log_unit_warning(UNIT(s), "Failed to queue service startup job: %s",
                                  bus_error_message(&error, r));
         else
@@ -2893,7 +2893,7 @@ static int socket_accept_do(Socket *s, int fd) {
         cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
         if (cfd < 0)
                 /* Convert transient network errors into clean and well-defined EAGAIN */
-                return ERRNO_IS_ACCEPT_AGAIN(errno) ? -EAGAIN : -errno;
+                return ERRNO_IS_ACCEPT_AGAIN() ? -EAGAIN : -errno;
 
         return cfd;
 }

@@ -110,9 +110,9 @@ static int watchdog_set_enable(bool enable) {
                         return log_warning_errno(errno, "Failed to disable hardware watchdog, ignoring: %m");
 
                 /* ENOTTY means the watchdog is always enabled so we're fine */
-                log_full_errno(ERRNO_IS_NOT_SUPPORTED(errno) ? LOG_DEBUG : LOG_WARNING, errno,
+                log_full_errno(ERRNO_IS_NOT_SUPPORTED() ? LOG_DEBUG : LOG_WARNING, errno,
                                "Failed to enable hardware watchdog, ignoring: %m");
-                if (!ERRNO_IS_NOT_SUPPORTED(errno))
+                if (!ERRNO_IS_NOT_SUPPORTED())
                         return -errno;
         }
 
@@ -157,7 +157,7 @@ static int watchdog_read_pretimeout(void) {
 
         if (ioctl(watchdog_fd, WDIOC_GETPRETIMEOUT, &sec) < 0) {
                 watchdog_pretimeout = 0;
-                return log_full_errno(ERRNO_IS_NOT_SUPPORTED(errno) ? LOG_DEBUG : LOG_WARNING, errno, "Failed to get pretimeout value, ignoring: %m");
+                return log_full_errno(ERRNO_IS_NOT_SUPPORTED() ? LOG_DEBUG : LOG_WARNING, errno, "Failed to get pretimeout value, ignoring: %m");
         }
 
         watchdog_pretimeout = sec * USEC_PER_SEC;
@@ -176,7 +176,7 @@ static int watchdog_set_pretimeout(void) {
         if (ioctl(watchdog_fd, WDIOC_SETPRETIMEOUT, &sec) < 0) {
                 watchdog_pretimeout = 0;
 
-                if (ERRNO_IS_NOT_SUPPORTED(errno)) {
+                if (ERRNO_IS_NOT_SUPPORTED()) {
                         log_info("Watchdog does not support pretimeouts.");
                         return 0;
                 }
@@ -270,7 +270,7 @@ static int update_timeout(void) {
         if (watchdog_timeout != USEC_INFINITY) {
                 r = watchdog_set_timeout();
                 if (r < 0) {
-                        if (!ERRNO_IS_NOT_SUPPORTED(r))
+                        if (!NERRNO_IS_NOT_SUPPORTED(r))
                                 return log_error_errno(r, "Failed to set timeout to %s: %m",
                                                        FORMAT_TIMESPAN(watchdog_timeout, 0));
 

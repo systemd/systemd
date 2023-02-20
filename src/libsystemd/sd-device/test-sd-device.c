@@ -123,7 +123,7 @@ static void test_sd_device_one(sd_device *d) {
                         assert_se(streq(syspath, val));
                         dev = sd_device_unref(dev);
                 } else
-                        assert_se(r == -ENODEV || ERRNO_IS_PRIVILEGE(r));
+                        assert_se(r == -ENODEV || NERRNO_IS_PRIVILEGE(r));
 
                 r = sd_device_new_from_path(&dev, devname);
                 if (r >= 0) {
@@ -133,9 +133,9 @@ static void test_sd_device_one(sd_device *d) {
 
                         _cleanup_close_ int fd = -EBADF;
                         fd = sd_device_open(d, O_CLOEXEC| O_NONBLOCK | (is_block ? O_RDONLY : O_NOCTTY | O_PATH));
-                        assert_se(fd >= 0 || ERRNO_IS_PRIVILEGE(fd));
+                        assert_se(fd >= 0 || NERRNO_IS_PRIVILEGE(fd));
                 } else
-                        assert_se(r == -ENODEV || ERRNO_IS_PRIVILEGE(r));
+                        assert_se(r == -ENODEV || NERRNO_IS_PRIVILEGE(r));
         } else
                 assert_se(r == -ENOENT);
 
@@ -189,7 +189,7 @@ static void test_sd_device_one(sd_device *d) {
                 assert_se(r >= 0);
                 assert_se((x > 0) == (r > 0));
         } else
-                assert_se(ERRNO_IS_PRIVILEGE(r) || IN_SET(r, -ENOENT, -EINVAL));
+                assert_se(NERRNO_IS_PRIVILEGE(r) || IN_SET(r, -ENOENT, -EINVAL));
 }
 
 TEST(sd_device_enumerator_devices) {
@@ -451,7 +451,7 @@ TEST(sd_device_enumerator_add_match_parent) {
 
                 r = sd_device_get_parent(dev, &parent);
                 if (r < 0) {
-                        assert_se(ERRNO_IS_DEVICE_ABSENT(r));
+                        assert_se(NERRNO_IS_DEVICE_ABSENT(r));
                         continue;
                 }
 
@@ -497,7 +497,7 @@ TEST(sd_device_get_child) {
 
                 r = sd_device_get_parent(dev, &parent);
                 if (r < 0) {
-                        assert_se(ERRNO_IS_DEVICE_ABSENT(r));
+                        assert_se(NERRNO_IS_DEVICE_ABSENT(r));
                         continue;
                 }
 
@@ -613,7 +613,7 @@ TEST(sd_device_new_from_path) {
                         assert_se(streq(s, syspath));
                         d = sd_device_unref(d);
                 } else
-                        assert_se(r == -ENODEV || ERRNO_IS_PRIVILEGE(r));
+                        assert_se(r == -ENODEV || NERRNO_IS_PRIVILEGE(r));
 
                 assert_se(path = path_join(tmpdir, sysname));
                 assert_se(symlink(syspath, path) >= 0);

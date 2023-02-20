@@ -58,7 +58,7 @@ int client_context_read_log_filter_patterns(ClientContext *c, const char *cgroup
 
         r = cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, unit_cgroup, "user.journald_log_filter_patterns", &xattr);
         if (r < 0) {
-                if (!ERRNO_IS_XATTR_ABSENT(r))
+                if (!NERRNO_IS_XATTR_ABSENT(r))
                         return log_debug_errno(r, "Failed to get user.journald_log_filter_patterns xattr for %s: %m", unit_cgroup);
 
                 client_set_filtering_patterns(c, NULL, NULL);

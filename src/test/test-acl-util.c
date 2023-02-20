@@ -42,7 +42,7 @@ TEST_RET(add_acls_for_user) {
                 uid = getuid();
 
         r = fd_add_uid_acl_permission(fd, uid, ACL_READ);
-        if (ERRNO_IS_NOT_SUPPORTED(r))
+        if (NERRNO_IS_NOT_SUPPORTED(r))
                 return log_tests_skipped("no ACL support on /tmp");
 
         log_info_errno(r, "fd_add_uid_acl_permission(%i, "UID_FMT", ACL_READ): %m", fd, uid);
