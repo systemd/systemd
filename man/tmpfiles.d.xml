@@ -43,9 +43,9 @@ f     /file/to/create                          mode user group -           conte
 f+    /file/to/create-or-truncate              mode user group -           content
 w     /file/to/write-to                        -    -    -     -           content
 w+    /file/to/append-to                       -    -    -     -           content
-d     /directory/to/create-and-cleanup         mode user group cleanup-age -
+d     /directory/to/create-and-clean-up        mode user group cleanup-age -
 D     /directory/to/create-and-remove          mode user group cleanup-age -
-e     /directory/to/cleanup                    mode user group cleanup-age -
+e     /directory/to/clean-up                   mode user group cleanup-age -
 v     /subvolume-or-directory/to/create        mode user group cleanup-age -
 q     /subvolume-or-directory/to/create        mode user group cleanup-age -
 Q     /subvolume-or-directory/to/create        mode user group cleanup-age -
@@ -60,8 +60,8 @@ b+    /dev/block-device-to-[re]create          mode user group -           major
 C     /target/to/create                        -    -    -     cleanup-age /source/to/copy
 x     /path-or-glob/to/ignore/recursively      -    -    -     cleanup-age -
 X     /path-or-glob/to/ignore                  -    -    -     cleanup-age -
-r     /empty/dir/to/remove                     -    -    -     -           -
-R     /dir/to/remove/recursively               -    -    -     -           -
+r     /path-or-glob/to/remove                  -    -    -     -           -
+R     /path-or-glob/to/remove/recursively      -    -    -     -           -
 z     /path-or-glob/to/adjust/mode             mode user group -           -
 Z     /path-or-glob/to/adjust/mode/recursively mode user group -           -
 t     /path-or-glob/to/set/xattrs              -    -    -     -           xattrs
@@ -192,7 +192,7 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
         <varlistentry>
           <term><varname>d</varname></term>
           <listitem><para>Create a directory. The mode and ownership will be adjusted if specified. Contents
-          of this directory are subject to time based cleanup if the age argument is specified.
+          of this directory are subject to time-based cleanup if the age argument is specified.
           </para></listitem>
         </varlistentry>
 
@@ -207,7 +207,7 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
           <listitem><para>Adjust the mode and ownership of existing directories and remove their contents
           based on age.
           Lines of this type accept shell-style globs in place of normal path names. Contents of the
-          directories are subject to time based cleanup if the age argument is specified. If the age argument
+          directories are subject to time-based cleanup if the age argument is specified. If the age argument
           is <literal>0</literal>, contents will be unconditionally deleted every time
           <command>systemd-tmpfiles --clean</command> is run.</para>
 
@@ -334,7 +334,7 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
           skipped. If the argument is omitted, files from the source directory
           <filename>/usr/share/factory/</filename> with the same name
           are copied. Does not follow symlinks. Contents of the directories
-          are subject to time based cleanup if the age argument is specified.
+          are subject to time-based cleanup if the age argument is specified.
           </para></listitem>
         </varlistentry>
 
@@ -781,7 +781,7 @@ t /run/cups - - - - security.SMACK64=printing user.attr-with-spaces="foo bar"
       </programlisting>
 
       <para>The directory will be owned by root and have default mode. Its contents are
-      not subject to time based cleanup, but will be obliterated when
+      not subject to time-based cleanup, but will be obliterated when
       <command>systemd-tmpfiles --remove</command> runs.</para>
     </example>
 
