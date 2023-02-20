@@ -57,7 +57,7 @@ static void test_capability_set_one(uint64_t c, const char *t) {
         _cleanup_free_ char *t1 = NULL;
         uint64_t c1, c_masked = c & all_capabilities();
 
-        assert_se(capability_set_to_string_alloc(c, &t1) == 0);
+        assert_se(capability_set_to_string(c, &t1) == 0);
         assert_se(streq(t1, t));
 
         assert_se(capability_set_from_string(t1, &c1) == 0);

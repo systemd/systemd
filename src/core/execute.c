@@ -6195,7 +6195,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         if (c->capability_bounding_set != CAP_ALL) {
                 _cleanup_free_ char *str = NULL;
 
-                r = capability_set_to_string_alloc(c->capability_bounding_set, &str);
+                r = capability_set_to_string(c->capability_bounding_set, &str);
                 if (r >= 0)
                         fprintf(f, "%sCapabilityBoundingSet: %s\n", prefix, str);
         }
@@ -6203,7 +6203,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         if (c->capability_ambient_set != 0) {
                 _cleanup_free_ char *str = NULL;
 
-                r = capability_set_to_string_alloc(c->capability_ambient_set, &str);
+                r = capability_set_to_string(c->capability_ambient_set, &str);
                 if (r >= 0)
                         fprintf(f, "%sAmbientCapabilities: %s\n", prefix, str);
         }
