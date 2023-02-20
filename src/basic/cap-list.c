@@ -11,6 +11,7 @@
 #include "parse-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 
 static const struct capability_name* lookup_capability(register const char *str, register GPERF_LEN_TYPE len);
 
@@ -99,6 +100,30 @@ int capability_set_to_string(uint64_t set, char **ret) {
         }
 
         *ret = TAKE_PTR(str);
+        return 0;
+}
+
+int capability_set_to_strv(uint64_t set, char ***ret) {
+        _cleanup_strv_free_ char **l = NULL;
+        int r;
+
+        assert(ret);
+
+        for (unsigned i = 0; i <= cap_last_cap(); i++) {
+                const char *p;
+
+                if (!FLAGS_SET(set, UINT64_C(1) << i))
+                        continue;
+
+                p = CAPABILITY_TO_STRING(i);
+                assert(p);
+
+                r = strv_extend(&l, p);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(l);
         return 0;
 }
 
