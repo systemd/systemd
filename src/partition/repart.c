@@ -4045,6 +4045,9 @@ static int make_copy_files_denylist(Context *context, const Partition *p, Set **
         assert(ret);
 
         LIST_FOREACH(partitions, q, context->partitions) {
+                if (p == q)
+                        continue;
+
                 const char *sources = gpt_partition_type_mountpoint_nulstr(q->type);
                 if (!sources)
                         continue;
