@@ -884,8 +884,8 @@ EOF
     mkdir "$imgs/mnt"
     mount -t ext4 "${loop}p1" "$imgs/mnt"
     assert_rc 0 ls "$imgs/mnt/abc"
-    assert_rc 2 ls "$imgs/mnt/usr"
-    mkdir "$imgs/mnt/usr"
+    assert_rc 0 ls "$imgs/mnt/usr"
+    assert_rc 2 ls "$imgs/mnt/usr/def"
     mount -t ext4 "${loop}p2" "$imgs/mnt/usr"
     assert_rc 0 ls "$imgs/mnt/usr/def"
 
