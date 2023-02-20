@@ -1219,7 +1219,7 @@ static int fd_set_acls(
         if (r == 0 && item->acl_default && S_ISDIR(st->st_mode))
                 r = path_set_acl(FORMAT_PROC_FD_PATH(fd), path, ACL_TYPE_DEFAULT, item->acl_default, item->append_or_force);
 
-        if (ERRNO_IS_NOT_SUPPORTED(r)) {
+        if (ERRNO_IS_NOT_SUPPORTED(-abs(r))) {
                 log_debug_errno(r, "ACLs not supported by file system at %s", path);
                 return 0;
         }
