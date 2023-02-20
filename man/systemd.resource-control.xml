@@ -252,7 +252,7 @@
 
       <varlistentry>
         <term><varname>MemoryMin=<replaceable>bytes</replaceable></varname>, <varname>MemoryLow=<replaceable>bytes</replaceable></varname></term>
-        <term><varname>StartupMemoryLow=<replaceable>bytes</replaceable></varname></term>
+        <term><varname>StartupMemoryLow=<replaceable>bytes</replaceable></varname>, <varname>DefaultStartupMemoryLow=<replaceable>bytes</replaceable></varname></term>
 
         <listitem>
           <para>Specify the memory usage protection of the executed processes in this unit.
