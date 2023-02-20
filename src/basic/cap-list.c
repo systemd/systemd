@@ -10,6 +10,7 @@
 #include "macro.h"
 #include "parse-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 
 static const struct capability_name* lookup_capability(register const char *str, register GPERF_LEN_TYPE len);
 
@@ -73,35 +74,27 @@ int capability_list_length(void) {
 
 int capability_set_to_string(uint64_t set, char **ret) {
         _cleanup_free_ char *str = NULL;
-        size_t n = 0;
 
         assert(ret);
 
-        for (unsigned i = 0; i <= cap_last_cap(); i++)
-                if (set & (UINT64_C(1) << i)) {
-                        const char *p;
-                        char buf[2 + 16 + 1];
-                        size_t add;
+        for (unsigned i = 0; i <= cap_last_cap(); i++) {
+                const char *p;
 
-                        p = capability_to_name(i);
-                        if (!p) {
-                                xsprintf(buf, "0x%x", i);
-                                p = buf;
-                        }
+                if (!FLAGS_SET(set, UINT64_C(1) << i))
+                        continue;
 
-                        add = strlen(p);
+                p = CAPABILITY_TO_STRING(i);
+                assert(p);
 
-                        if (!GREEDY_REALLOC(str, n + add + 2))
-                                return -ENOMEM;
+                if (!strextend_with_separator(&str, " ", p))
+                        return -ENOMEM;
+        }
 
-                        strcpy(mempcpy(str + n, p, add), " ");
-                        n += add + 1;
-                }
-
-        if (!GREEDY_REALLOC(str, n + 1))
-                return -ENOMEM;
-
-        str[n > 0 ? n - 1 : 0] = '\0'; /* truncate the last space, if it's there */
+        if (!str) {
+                str = new0(char, 1);
+                if (!str)
+                        return -ENOMEM;
+        }
 
         *ret = TAKE_PTR(str);
         return 0;
