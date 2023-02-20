@@ -4032,6 +4032,12 @@ static int make_copy_files_denylist(Context *context, Partition *p, Set **ret) {
                 }
         }
 
+        FOREACH_STRING(s, "proc", "sys", "dev", "run", "tmp", "var/tmp") {
+                r = exclude_children(s, &denylist);
+                if (r < 0)
+                        return r;
+        }
+
         *ret = TAKE_PTR(denylist);
         return 0;
 }
