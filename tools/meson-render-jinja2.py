@@ -23,7 +23,11 @@ def parse_config_h(filename):
 
 def render(filename, defines):
     text = open(filename).read()
-    template = jinja2.Template(text, trim_blocks=True, undefined=jinja2.StrictUndefined)
+    template = jinja2.Template(text,
+                               trim_blocks=True,
+                               lstrip_blocks=True,
+                               keep_trailing_newline=True,
+                               undefined=jinja2.StrictUndefined)
     return template.render(defines)
 
 if __name__ == '__main__':
@@ -32,6 +36,5 @@ if __name__ == '__main__':
     output = render(sys.argv[3], defines)
     with open(sys.argv[4], 'w') as f:
         f.write(output)
-        f.write('\n')
     info = os.stat(sys.argv[3])
     os.chmod(sys.argv[4], info.st_mode)
