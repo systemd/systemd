@@ -200,6 +200,7 @@ static int read_battery_capacity_percentage(sd_device *dev) {
 int battery_is_low(void) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         sd_device *dev;
+        bool has_battery = false;
         int r;
 
          /* We have not used battery capacity_level since value is set to full
@@ -210,11 +211,13 @@ int battery_is_low(void) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to initialize battery enumerator: %m");
 
-        FOREACH_DEVICE(e, dev)
+        FOREACH_DEVICE(e, dev) {
+                has_battery = true;
                 if (read_battery_capacity_percentage(dev) > BATTERY_LOW_CAPACITY_LEVEL)
                         return false;
+        }
 
-        return true;
+        return has_battery;
 }
 
 /* Store current capacity of each battery before suspension and timestamp */
