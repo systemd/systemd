@@ -8,6 +8,7 @@
 #include "capability-util.h"
 #include "parse-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tests.h"
 
 /* verify the capability parser */
@@ -97,6 +98,23 @@ TEST(capability_set_from_string) {
 
         assert_se(capability_set_from_string("0 1 2 3", &c) > 0);
         assert_se(c == (UINT64_C(1) << 4) - 1);
+}
+
+static void test_capability_set_to_strv_one(uint64_t m, char **l) {
+        _cleanup_strv_free_ char **b = NULL;
+
+        assert_se(capability_set_to_strv(m, &b) >= 0);
+        assert_se(strv_equal(l, b));
+}
+
+TEST(capability_set_to_strv) {
+        test_capability_set_to_strv_one(0, STRV_MAKE(NULL));
+        test_capability_set_to_strv_one(UINT64_C(1) << CAP_MKNOD, STRV_MAKE("cap_mknod"));
+        test_capability_set_to_strv_one((UINT64_C(1) << CAP_MKNOD) |
+                                        (UINT64_C(1) << CAP_NET_BIND_SERVICE), STRV_MAKE("cap_net_bind_service", "cap_mknod"));
+        test_capability_set_to_strv_one((UINT64_C(1) << CAP_MKNOD) |
+                                        (UINT64_C(1) << CAP_NET_BIND_SERVICE) |
+                                        (UINT64_C(1) << CAP_IPC_OWNER), STRV_MAKE("cap_net_bind_service", "cap_ipc_owner", "cap_mknod"));
 }
 
 static void test_capability_set_to_string_invalid(uint64_t invalid_cap_set) {
