@@ -42,6 +42,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "udev-util.h"
 
 #define BATTERY_LOW_CAPACITY_LEVEL 5
 #define DISCHARGE_RATE_FILEPATH "/var/lib/systemd/sleep/battery_discharge_percentage_rate_per_hour"
@@ -196,8 +197,8 @@ static int read_battery_capacity_percentage(sd_device *dev) {
         return battery_capacity;
 }
 
-/* If battery percentage capacity is <= 5%, return success */
-int battery_is_low(void) {
+/* If a battery whose percentage capacity is <= 5% exists, and we're not on AC power, return success */
+int battery_is_discharging_and_low(void) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         sd_device *dev;
         int r;
@@ -205,6 +206,12 @@ int battery_is_low(void) {
          /* We have not used battery capacity_level since value is set to full
          * or Normal in case ACPI is not working properly. In case of no battery
          * 0 will be returned and system will be suspended for 1st cycle then hibernated */
+
+        r = on_ac_power();
+        if (r < 0)
+                log_debug_errno(r, "Failed to check if the system is running on AC, assuming it is not: %m");
+        if (r > 0)
+                return false;
 
         r = battery_enumerator_new(&e);
         if (r < 0)
