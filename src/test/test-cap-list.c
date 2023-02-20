@@ -60,7 +60,7 @@ static void test_capability_set_one(uint64_t c, const char *t) {
         assert_se(capability_set_to_string(c, &t1) == 0);
         assert_se(streq(t1, t));
 
-        assert_se(capability_set_from_string(t1, &c1) == 0);
+        assert_se(capability_set_from_string(t1, &c1) > 0);
         assert_se(c1 == c_masked);
 
         free(t1);
@@ -73,19 +73,19 @@ static void test_capability_set_one(uint64_t c, const char *t) {
 TEST(capability_set_from_string) {
         uint64_t c;
 
-        assert_se(capability_set_from_string(NULL, &c) == 0);
+        assert_se(capability_set_from_string(NULL, &c) > 0);
         assert_se(c == 0);
 
-        assert_se(capability_set_from_string("", &c) == 0);
+        assert_se(capability_set_from_string("", &c) > 0);
         assert_se(c == 0);
 
-        assert_se(capability_set_from_string("0", &c) == 0);
+        assert_se(capability_set_from_string("0", &c) > 0);
         assert_se(c == UINT64_C(1));
 
-        assert_se(capability_set_from_string("1", &c) == 0);
+        assert_se(capability_set_from_string("1", &c) > 0);
         assert_se(c == UINT64_C(1) << 1);
 
-        assert_se(capability_set_from_string("0 1 2 3", &c) == 0);
+        assert_se(capability_set_from_string("0 1 2 3", &c) > 0);
         assert_se(c == (UINT64_C(1) << 4) - 1);
 }
 
