@@ -47,11 +47,11 @@ unsigned cap_last_cap(void) {
                 r = safe_atolu(content, &p);
                 if (r >= 0) {
 
-                        if (p > 63) /* Safety for the future: if one day the kernel learns more than 64 caps,
+                        if (p > 62) /* Safety for the future: if one day the kernel learns more than 64 caps,
                                      * then we are in trouble (since we, as much userspace and kernel space
                                      * store capability masks in uint64_t types). Let's hence protect
                                      * ourselves against that and always cap at 63 for now. */
-                                p = 63;
+                                p = 62;
 
                         saved = p;
                         valid = true;
@@ -60,7 +60,7 @@ unsigned cap_last_cap(void) {
         }
 
         /* fall back to syscall-probing for pre linux-3.2 */
-        p = MIN((unsigned long) CAP_LAST_CAP, 63U);
+        p = MIN((unsigned long) CAP_LAST_CAP, 62U);
 
         if (prctl(PR_CAPBSET_READ, p) < 0) {
 
@@ -72,7 +72,7 @@ unsigned cap_last_cap(void) {
         } else {
 
                 /* Hmm, look upwards, until we find one that doesn't work */
-                for (; p < 63; p++)
+                for (; p < 62; p++)
                         if (prctl(PR_CAPBSET_READ, p+1) < 0)
                                 break;
         }
