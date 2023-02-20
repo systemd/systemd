@@ -445,6 +445,22 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>ExcludeFiles=</varname></term>
+
+        <listitem><para>Takes an absolute file system path referring to a source file or directory on the
+        host. This setting may be used to exclude files or directories from the host from being copied into
+        the file system when <varname>CopyFiles=</varname> is used. This option may be used multiple times to
+        exclude multiple files or directories from host from being copied into the newly formatted file
+        system.</para>
+
+        <para>When
+        <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        is invoked with the <option>--image=</option> or <option>--root=</option> command line switches the
+        paths specified are taken relative to the specified root directory or disk image root.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MakeDirectories=</varname></term>
 
         <listitem><para>Takes one or more absolute paths, separated by whitespace, each declaring a directory
