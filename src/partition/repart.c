@@ -3931,9 +3931,9 @@ static int do_copy_files(Context *context, Partition *p, const char *root, const
         }
 
         if (p->type.designator == PARTITION_ROOT) {
-                /* Always make sure the mountpoints for other partitions exist in any root partitions we
-                 * populate. This is required for read-only images where we cannot create the mountpoints on
-                 * first boot. */
+                /* Always make sure the mountpoints for other partitions and APIVFS filesystems exist in any
+                 * root partitions we populate. This is required for read-only images where we cannot create
+                 * the mountpoints on first boot. */
 
                 for (PartitionDesignator d = 0; d < _PARTITION_DESIGNATOR_MAX; d++) {
                         /* /var should always be writable so we don't create the /var/tmp mountpoint explicitly. */
@@ -3949,6 +3949,12 @@ static int do_copy_files(Context *context, Partition *p, const char *root, const
                                 if (r < 0)
                                         return r;
                         }
+                }
+
+                FOREACH_STRING(s, "proc", "sys", "dev", "tmp", "run") {
+                        r = make_mountpoint(root, s);
+                        if (r < 0)
+                                return r;
                 }
         }
 
@@ -4101,6 +4107,12 @@ static int make_copy_files_denylist(Context *context, const Partition *p, Set **
                         if (r < 0)
                                 return r;
                 }
+        }
+
+        FOREACH_STRING(s, "proc", "sys", "dev", "tmp", "run", "var/tmp") {
+                r = add_exclude_path(s, &denylist);
+                if (r < 0)
+                        return r;
         }
 
         STRV_FOREACH(e, p->exclude_files) {
