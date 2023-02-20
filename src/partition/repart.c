@@ -4065,6 +4065,12 @@ static int make_copy_files_denylist(Context *context, const Partition *p, Hashma
                 }
         }
 
+        FOREACH_STRING(s, "proc", "sys", "dev", "tmp", "run", "var/tmp") {
+                r = add_exclude_path(s, &denylist, DENY_CONTENTS);
+                if (r < 0)
+                        return r;
+        }
+
         STRV_FOREACH(e, p->exclude_files) {
                 r = add_exclude_path(*e, &denylist, endswith(*e, "/") ? DENY_CONTENTS : DENY_INODE);
                 if (r < 0)
