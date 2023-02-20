@@ -47,11 +47,13 @@ unsigned cap_last_cap(void) {
                 r = safe_atolu(content, &p);
                 if (r >= 0) {
 
-                        if (p > 63) /* Safety for the future: if one day the kernel learns more than 64 caps,
-                                     * then we are in trouble (since we, as much userspace and kernel space
-                                     * store capability masks in uint64_t types). Let's hence protect
-                                     * ourselves against that and always cap at 63 for now. */
-                                p = 63;
+                        if (p > CAP_LIMIT) /* Safety for the future: if one day the kernel learns more than
+                                            * 64 caps, then we are in trouble (since we, as much userspace
+                                            * and kernel space store capability masks in uint64_t types). We
+                                            * also want to use UINT64_MAX as marker for "unset". Hence let's
+                                            * hence protect ourselves against that and always cap at 62 for
+                                            * now. */
+                                p = CAP_LIMIT;
 
                         saved = p;
                         valid = true;
@@ -60,7 +62,7 @@ unsigned cap_last_cap(void) {
         }
 
         /* fall back to syscall-probing for pre linux-3.2 */
-        p = MIN((unsigned long) CAP_LAST_CAP, 63U);
+        p = (unsigned long) MIN(CAP_LAST_CAP, CAP_LIMIT);
 
         if (prctl(PR_CAPBSET_READ, p) < 0) {
 
@@ -72,7 +74,7 @@ unsigned cap_last_cap(void) {
         } else {
 
                 /* Hmm, look upwards, until we find one that doesn't work */
-                for (; p < 63; p++)
+                for (; p < CAP_LIMIT; p++)
                         if (prctl(PR_CAPBSET_READ, p+1) < 0)
                                 break;
         }
@@ -281,8 +283,8 @@ static int drop_from_file(const char *fn, uint64_t keep) {
         if (current == after)
                 return 0;
 
-        lo = after & UINT32_C(0xFFFFFFFF);
-        hi = (after >> 32) & UINT32_C(0xFFFFFFFF);
+        lo = after & UINT32_MAX;
+        hi = (after >> 32) & UINT32_MAX;
 
         return write_string_filef(fn, 0, "%" PRIu32 " %" PRIu32, lo, hi);
 }
@@ -405,7 +407,7 @@ bool capability_quintet_mangle(CapabilityQuintet *q) {
 
         combined = q->effective | q->bounding | q->inheritable | q->permitted;
 
-        ambient_supported = q->ambient != UINT64_MAX;
+        ambient_supported = q->ambient != CAP_MASK_UNSET;
         if (ambient_supported)
                 combined |= q->ambient;
 
@@ -437,7 +439,7 @@ int capability_quintet_enforce(const CapabilityQuintet *q) {
         _cleanup_cap_free_ cap_t c = NULL, modified = NULL;
         int r;
 
-        if (q->ambient != UINT64_MAX) {
+        if (q->ambient != CAP_MASK_UNSET) {
                 bool changed = false;
 
                 c = cap_get_proc();
@@ -479,7 +481,7 @@ int capability_quintet_enforce(const CapabilityQuintet *q) {
                         return r;
         }
 
-        if (q->inheritable != UINT64_MAX || q->permitted != UINT64_MAX || q->effective != UINT64_MAX) {
+        if (q->inheritable != CAP_MASK_UNSET || q->permitted != CAP_MASK_UNSET || q->effective != CAP_MASK_UNSET) {
                 bool changed = false;
 
                 if (!c) {
@@ -492,7 +494,7 @@ int capability_quintet_enforce(const CapabilityQuintet *q) {
                         uint64_t m = UINT64_C(1) << i;
                         cap_value_t cv = (cap_value_t) i;
 
-                        if (q->inheritable != UINT64_MAX) {
+                        if (q->inheritable != CAP_MASK_UNSET) {
                                 cap_flag_value_t old_value, new_value;
 
                                 if (cap_get_flag(c, cv, CAP_INHERITABLE, &old_value) < 0) {
@@ -515,7 +517,7 @@ int capability_quintet_enforce(const CapabilityQuintet *q) {
                                 }
                         }
 
-                        if (q->permitted != UINT64_MAX) {
+                        if (q->permitted != CAP_MASK_UNSET) {
                                 cap_flag_value_t old_value, new_value;
 
                                 if (cap_get_flag(c, cv, CAP_PERMITTED, &old_value) < 0) {
@@ -535,7 +537,7 @@ int capability_quintet_enforce(const CapabilityQuintet *q) {
                                 }
                         }
 
-                        if (q->effective != UINT64_MAX) {
+                        if (q->effective != CAP_MASK_UNSET) {
                                 cap_flag_value_t old_value, new_value;
 
                                 if (cap_get_flag(c, cv, CAP_EFFECTIVE, &old_value) < 0) {
@@ -559,7 +561,7 @@ int capability_quintet_enforce(const CapabilityQuintet *q) {
                 if (changed) {
                         /* In order to change the bounding caps, we need to keep CAP_SETPCAP for a bit
                          * longer. Let's add it to our list hence for now. */
-                        if (q->bounding != UINT64_MAX) {
+                        if (q->bounding != CAP_MASK_UNSET) {
                                 cap_value_t cv = CAP_SETPCAP;
 
                                 modified = cap_dup(c);
@@ -587,7 +589,7 @@ int capability_quintet_enforce(const CapabilityQuintet *q) {
                 }
         }
 
-        if (q->bounding != UINT64_MAX) {
+        if (q->bounding != CAP_MASK_UNSET) {
                 r = capability_bounding_set_drop(q->bounding, false);
                 if (r < 0)
                         return r;
