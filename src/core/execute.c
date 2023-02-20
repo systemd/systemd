@@ -5466,7 +5466,7 @@ void exec_context_init(ExecContext *c) {
         for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++)
                 c->directories[t].mode = 0755;
         c->timeout_clean_usec = USEC_INFINITY;
-        c->capability_bounding_set = CAP_ALL;
+        c->capability_bounding_set = CAP_MASK_UNSET;
         assert_cc(NAMESPACE_FLAGS_INITIAL != NAMESPACE_FLAGS_ALL);
         c->restrict_namespaces = NAMESPACE_FLAGS_INITIAL;
         c->log_level_max = -1;
@@ -6192,7 +6192,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                         fprintf(f, "%sSecure Bits: %s\n", prefix, str);
         }
 
-        if (c->capability_bounding_set != CAP_ALL) {
+        if (c->capability_bounding_set != CAP_MASK_UNSET) {
                 _cleanup_free_ char *str = NULL;
 
                 r = capability_set_to_string(c->capability_bounding_set, &str);
