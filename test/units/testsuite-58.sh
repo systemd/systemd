@@ -883,14 +883,14 @@ EOF
     loop=$(losetup -P --show -f "$imgs/zzz")
     udevadm wait --timeout 60 --settle "${loop:?}"
 
-    # Test that the /usr directory did not end up in the root partition but other files did.
+    # Test that /usr/def did not end up in the root partition but other files did.
     mkdir "$imgs/mnt"
     mount -t ext4 "${loop}p1" "$imgs/mnt"
     assert_rc 0 ls "$imgs/mnt/abc"
-    assert_rc 2 ls "$imgs/mnt/usr"
+    assert_rc 0 ls "$imgs/mnt/usr"
+    assert_rc 2 ls "$imgs/mnt/usr/def"
 
-    # Test that the qed file did not end up in the usr partition but other files did.
-    mkdir "$imgs/mnt/usr"
+    # Test that /usr/qed did not end up in the usr partition but /usr/def did.
     mount -t ext4 "${loop}p2" "$imgs/mnt/usr"
     assert_rc 0 ls "$imgs/mnt/usr/def"
     assert_rc 2 ls "$imgs/mnt/usr/qed"

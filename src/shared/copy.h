@@ -30,6 +30,14 @@ typedef enum CopyFlags {
         COPY_GRACEFUL_WARN = 1 << 15, /* Skip copying file types that aren't supported by the target filesystem */
 } CopyFlags;
 
+typedef enum DenyType {
+        DENY_DONT = 0, /* we want INT_TO_PTR(DENY_DONT) to map to NULL */
+        DENY_INODE,
+        DENY_CONTENTS,
+        _DENY_TYPE_MAX,
+        _DENY_TYPE_INVALID = -EINVAL,
+} DenyType;
+
 typedef int (*copy_progress_bytes_t)(uint64_t n_bytes, void *userdata);
 typedef int (*copy_progress_path_t)(const char *path, const struct stat *st, void *userdata);
 
@@ -54,11 +62,11 @@ static inline int copy_file_atomic(const char *from, const char *to, mode_t mode
         return copy_file_atomic_full(from, to, mode, chattr_flags, chattr_mask, copy_flags, NULL, NULL);
 }
 
-int copy_tree_at_full(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, const Set *denylist, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
-static inline int copy_tree_at(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, const Set *denylist) {
+int copy_tree_at_full(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, Hashmap *denylist, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
+static inline int copy_tree_at(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, Hashmap *denylist) {
         return copy_tree_at_full(fdf, from, fdt, to, override_uid, override_gid, copy_flags, denylist, NULL, NULL, NULL);
 }
-static inline int copy_tree(const char *from, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, const Set *denylist) {
+static inline int copy_tree(const char *from, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, Hashmap *denylist) {
         return copy_tree_at_full(AT_FDCWD, from, AT_FDCWD, to, override_uid, override_gid, copy_flags, denylist, NULL, NULL, NULL);
 }
 

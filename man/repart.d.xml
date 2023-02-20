@@ -453,6 +453,10 @@
         exclude multiple files or directories from host from being copied into the newly formatted file
         system.</para>
 
+        <para>If the path is a directory and ends with <literal>/</literal>, only the directory's
+        contents are excluded but not the directory itself. If the path is a directory and does not end with
+        <literal>/</literal>, both the directory and its contents are excluded.</para>
+
         <para>When
         <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         is invoked with the <option>--image=</option> or <option>--root=</option> command line switches the
