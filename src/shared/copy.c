@@ -971,6 +971,11 @@ static int fd_copy_directory(
 
         r = 0;
 
+        if (set_contains(denylist, st)) {
+                log_debug("%s is in the denylist, not recursing", from);
+                goto finish;
+        }
+
         FOREACH_DIRENT_ALL(de, d, return -errno) {
                 const char *child_display_path = NULL;
                 _cleanup_free_ char *dp = NULL;
@@ -998,11 +1003,6 @@ static int fd_copy_directory(
                         r = progress_path(child_display_path, &buf, userdata);
                         if (r < 0)
                                 return r;
-                }
-
-                if (set_contains(denylist, &buf)) {
-                        log_debug("%s/%s is in the denylist, skipping", from, de->d_name);
-                        continue;
                 }
 
                 if (S_ISDIR(buf.st_mode)) {
@@ -1050,6 +1050,7 @@ static int fd_copy_directory(
                         r = q;
         }
 
+finish:
         if (created) {
                 if (fchown(fdt,
                            uid_is_valid(override_uid) ? override_uid : st->st_uid,
@@ -1123,6 +1124,11 @@ static int fd_copy_tree_generic(
                 return fd_copy_directory(df, from, st, dt, to, original_device, depth_left-1, override_uid,
                                          override_gid, copy_flags, denylist, hardlink_context, display_path,
                                          progress_path, progress_bytes, userdata);
+
+        if (set_contains(denylist, st)) {
+                log_debug("%s is in the denylist, ignoring", from);
+                return 0;
+        }
 
         r = fd_copy_leaf(df, from, st, dt, to, override_uid, override_gid, copy_flags, hardlink_context, display_path, progress_bytes, userdata);
         /* We just tried to copy a leaf node of the tree. If it failed because the node already exists *and* the COPY_REPLACE flag has been provided, we should unlink the node and re-copy. */
