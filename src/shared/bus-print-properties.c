@@ -145,7 +145,7 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                 } else if (STR_IN_SET(name, "CapabilityBoundingSet", "AmbientCapabilities")) {
                         _cleanup_free_ char *s = NULL;
 
-                        r = capability_set_to_string_alloc(u, &s);
+                        r = capability_set_to_string(u, &s);
                         if (r < 0)
                                 return r;
 
