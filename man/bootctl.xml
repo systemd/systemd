@@ -342,6 +342,22 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-R</option></term>
+        <term><option>--print-root-device</option></term>
+
+        <listitem><para>Print the path to the block device node backing the root file system of the local
+        OS. This prints a path such as <filename>/dev/nvme0n1p5</filename>. If the root file system is backed
+        by dm-crypt/LUKS or dm-verity the underlying block device is returned. If the root file system is
+        backed by multiple block devices (as supported by btrfs) the operation will fail. If the switch is
+        specified twice (i.e. <option>-RR</option>) and the discovered block device is a partition device the
+        "whole" block device it belongs to is determined and printed
+        (e.g. <filename>/dev/nvme0n1</filename>). If the root file system is <literal>tmpfs</literal> (or a
+        similar in-memory file system), the block device backing <filename>/usr/</filename> is returned if
+        applicable. If the root file system is a network file system (e.g. NFS, CIFS) the operation will
+        fail.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--no-variables</option></term>
         <listitem><para>Do not touch the firmware's boot loader list stored in EFI variables.</para></listitem>
       </varlistentry>
