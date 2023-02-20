@@ -80,7 +80,7 @@ def path_is_readable(s: typing.Optional[str]) -> typing.Optional[pathlib.Path]:
 def pe_next_section_offset(filename):
     import pefile
 
-    pe = pefile.PE(filename)
+    pe = pefile.PE(filename, fast_load=True)
     section = pe.sections[-1]
     return pe.OPTIONAL_HEADER.ImageBase + section.VirtualAddress + section.Misc_VirtualSize
 
@@ -457,7 +457,7 @@ def pairwise(iterable):
 def pe_validate(filename):
     import pefile
 
-    pe = pefile.PE(filename)
+    pe = pefile.PE(filename, fast_load=True)
 
     sections = sorted(pe.sections, key=lambda s: (s.VirtualAddress, s.Misc_VirtualSize))
 
