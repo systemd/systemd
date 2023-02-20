@@ -92,29 +92,30 @@ int capability_set_to_string(uint64_t set, char **ret) {
         return 0;
 }
 
-int capability_set_from_string(const char *s, uint64_t *set) {
+int capability_set_from_string(const char *s, uint64_t *ret) {
         uint64_t val = 0;
-
-        assert(set);
+        bool good = true;
 
         for (const char *p = s;;) {
                 _cleanup_free_ char *word = NULL;
                 int r;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
-                if (r == -ENOMEM)
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX);
+                if (r < 0)
                         return r;
-                if (r <= 0)
+                if (r == 0)
                         break;
 
                 r = capability_from_name(word);
-                if (r < 0)
-                        continue;
-
-                val |= ((uint64_t) UINT64_C(1)) << (uint64_t) r;
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to parse capability '%s', ignoring: %m", word);
+                        good = false;
+                } else
+                        val |= UINT64_C(1) << r;
         }
 
-        *set = val;
+        if (ret)
+                *ret = val;
 
-        return 0;
+        return good;
 }
