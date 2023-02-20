@@ -31,7 +31,7 @@ const char *capability_to_string(int id, char buf[static CAPABILITY_TO_STRING_MA
 
         if (id < 0)
                 return NULL;
-        if (id >= 63) /* refuse caps >= 63 since we can't store them in a uint64_t mask anymore, and still retain UINT64_MAX as marker for "unset" */
+        if (id > CAP_LIMIT) /* refuse caps > 62 since we can't store them in a uint64_t mask anymore, and still retain UINT64_MAX as marker for "unset" */
                 return NULL;
 
         p = capability_to_name(id);
@@ -51,7 +51,7 @@ int capability_from_name(const char *name) {
         /* Try to parse numeric capability */
         r = safe_atoi(name, &i);
         if (r >= 0) {
-                if (i < 0 || i >= 63)
+                if (i < 0 || i > CAP_LIMIT)
                         return -EINVAL;
 
                 return i;
@@ -71,7 +71,7 @@ int capability_from_name(const char *name) {
  * highest supported capability. Hence with everyone agreeing on the same capabilities list, this function
  * will return one higher than cap_last_cap(). */
 int capability_list_length(void) {
-        return (int) MIN(ELEMENTSOF(capability_names), 63U);
+        return MIN((int) ELEMENTSOF(capability_names), CAP_LIMIT + 1);
 }
 
 int capability_set_to_string(uint64_t set, char **ret) {
