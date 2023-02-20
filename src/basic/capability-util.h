@@ -15,6 +15,10 @@
 /* All possible capabilities bits on */
 #define CAP_MASK_ALL UINT64_C(0x7fffffffffffffff)
 
+/* The largest capability we can deal with, given we want to be able to store cap masks in uint64_t but still
+ * be able to use UINT64_MAX as indicator for "not set". The latter makes capability 63 unavailable. */
+#define CAP_LIMIT 62
+
 unsigned cap_last_cap(void);
 int have_effective_cap(int value);
 int capability_gain_cap_setpcap(cap_t *return_caps);
