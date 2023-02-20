@@ -3822,8 +3822,8 @@ static int manager_run_generators(Manager *m) {
         /* If we are the system manager, we fork and invoke the generators in a sanitized mount namespace. If
          * we are the user manager, let's just execute the generators directly. We might not have the
          * necessary privileges, and the system manager has already mounted /tmp/ and everything else for us.
-         */
-        if (MANAGER_IS_USER(m)) {
+         * If we are in initrd, let's also execute the generators directly, as we are in ramfs. */
+        if (MANAGER_IS_USER(m) || in_initrd()) {
                 r = manager_execute_generators(m, paths, /* remount_ro= */ false);
                 goto finish;
         }
