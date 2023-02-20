@@ -115,6 +115,12 @@ static int table_add_triggered(Table *table, char **triggered) {
                 return table_add_cell(table, NULL, TABLE_STRV, triggered);
 }
 
+static char *format_unit_id(const char *unit, const char *machine) {
+        assert(unit);
+
+        return machine ? strjoin(machine, ":", unit) : strdup(unit);
+}
+
 static int output_units_list(const UnitInfo *unit_infos, size_t c) {
         _cleanup_(table_unrefp) Table *table = NULL;
         size_t job_count = 0;
@@ -137,9 +143,8 @@ static int output_units_list(const UnitInfo *unit_infos, size_t c) {
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         for (const UnitInfo *u = unit_infos; unit_infos && (size_t) (u - unit_infos) < c; u++) {
-                _cleanup_free_ char *j = NULL;
-                const char *on_underline = "", *on_loaded = "", *on_active = "";
-                const char *on_circle = "", *id;
+                _cleanup_free_ char *id = NULL;
+                const char *on_underline = "", *on_loaded = "", *on_active = "", *on_circle = "";
                 bool circle = false, underline = false;
 
                 if (u + 1 < unit_infos + c &&
@@ -162,14 +167,9 @@ static int output_units_list(const UnitInfo *unit_infos, size_t c) {
                         on_loaded = on_underline;
                 }
 
-                if (u->machine) {
-                        j = strjoin(u->machine, ":", u->id);
-                        if (!j)
-                                return log_oom();
-
-                        id = j;
-                } else
-                        id = u->id;
+                id = format_unit_id(u->id, u->machine);
+                if (!id)
+                        return log_oom();
 
                 r = table_add_many(table,
                                    TABLE_STRING, circle ? special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE) : " ",
@@ -621,16 +621,11 @@ static int output_timers_list(struct timer_info *timer_infos, size_t n) {
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         for (struct timer_info *t = timer_infos; t < timer_infos + n; t++) {
-                _cleanup_free_ char *j = NULL;
-                const char *unit;
+                _cleanup_free_ char *unit = NULL;
 
-                if (t->machine) {
-                        j = strjoin(t->machine, ":", t->id);
-                        if (!j)
-                                return log_oom();
-                        unit = j;
-                } else
-                        unit = t->id;
+                unit = format_unit_id(t->id, t->machine);
+                if (!unit)
+                        return log_oom();
 
                 r = table_add_many(table,
                                    TABLE_TIMESTAMP, t->next_elapse,
@@ -852,16 +847,11 @@ static int output_automounts_list(struct automount_info *infos, size_t n_infos) 
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         for (struct automount_info *info = infos; info < infos + n_infos; info++) {
-                _cleanup_free_ char *j = NULL;
-                const char *unit;
+                _cleanup_free_ char *unit = NULL;
 
-                if (info->machine) {
-                        j = strjoin(info->machine, ":", info->id);
-                        if (!j)
-                                return log_oom();
-                        unit = j;
-                } else
-                        unit = info->id;
+                unit = format_unit_id(info->id, info->machine);
+                if (!unit)
+                        return log_oom();
 
                 r = table_add_many(table,
                                    TABLE_STRING, info->what,
