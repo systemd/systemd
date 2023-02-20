@@ -405,7 +405,7 @@ bool capability_quintet_mangle(CapabilityQuintet *q) {
 
         combined = q->effective | q->bounding | q->inheritable | q->permitted;
 
-        ambient_supported = q->ambient != UINT64_MAX;
+        ambient_supported = q->ambient != CAP_MASK_UNSET;
         if (ambient_supported)
                 combined |= q->ambient;
 
@@ -437,7 +437,7 @@ int capability_quintet_enforce(const CapabilityQuintet *q) {
         _cleanup_cap_free_ cap_t c = NULL, modified = NULL;
         int r;
 
-        if (q->ambient != UINT64_MAX) {
+        if (q->ambient != CAP_MASK_UNSET) {
                 bool changed = false;
 
                 c = cap_get_proc();
@@ -479,7 +479,7 @@ int capability_quintet_enforce(const CapabilityQuintet *q) {
                         return r;
         }
 
-        if (q->inheritable != UINT64_MAX || q->permitted != UINT64_MAX || q->effective != UINT64_MAX) {
+        if (q->inheritable != CAP_MASK_UNSET || q->permitted != CAP_MASK_UNSET || q->effective != CAP_MASK_UNSET) {
                 bool changed = false;
 
                 if (!c) {
@@ -492,7 +492,7 @@ int capability_quintet_enforce(const CapabilityQuintet *q) {
                         uint64_t m = UINT64_C(1) << i;
                         cap_value_t cv = (cap_value_t) i;
 
-                        if (q->inheritable != UINT64_MAX) {
+                        if (q->inheritable != CAP_MASK_UNSET) {
                                 cap_flag_value_t old_value, new_value;
 
                                 if (cap_get_flag(c, cv, CAP_INHERITABLE, &old_value) < 0) {
@@ -515,7 +515,7 @@ int capability_quintet_enforce(const CapabilityQuintet *q) {
                                 }
                         }
 
-                        if (q->permitted != UINT64_MAX) {
+                        if (q->permitted != CAP_MASK_UNSET) {
                                 cap_flag_value_t old_value, new_value;
 
                                 if (cap_get_flag(c, cv, CAP_PERMITTED, &old_value) < 0) {
@@ -535,7 +535,7 @@ int capability_quintet_enforce(const CapabilityQuintet *q) {
                                 }
                         }
 
-                        if (q->effective != UINT64_MAX) {
+                        if (q->effective != CAP_MASK_UNSET) {
                                 cap_flag_value_t old_value, new_value;
 
                                 if (cap_get_flag(c, cv, CAP_EFFECTIVE, &old_value) < 0) {
@@ -559,7 +559,7 @@ int capability_quintet_enforce(const CapabilityQuintet *q) {
                 if (changed) {
                         /* In order to change the bounding caps, we need to keep CAP_SETPCAP for a bit
                          * longer. Let's add it to our list hence for now. */
-                        if (q->bounding != UINT64_MAX) {
+                        if (q->bounding != CAP_MASK_UNSET) {
                                 cap_value_t cv = CAP_SETPCAP;
 
                                 modified = cap_dup(c);
@@ -587,7 +587,7 @@ int capability_quintet_enforce(const CapabilityQuintet *q) {
                 }
         }
 
-        if (q->bounding != UINT64_MAX) {
+        if (q->bounding != CAP_MASK_UNSET) {
                 r = capability_bounding_set_drop(q->bounding, false);
                 if (r < 0)
                         return r;
