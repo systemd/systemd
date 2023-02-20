@@ -570,7 +570,7 @@ static void on_transaction_stream_error(DnsTransaction *t, int error) {
 
         dns_transaction_close_connection(t, true);
 
-        if (ERRNO_IS_DISCONNECT(error)) {
+        if (ERRNO_IS_DISCONNECT(-error)) {
                 if (t->scope->protocol == DNS_PROTOCOL_LLMNR) {
                         /* If the LLMNR/TCP connection failed, the host doesn't support LLMNR, and we cannot answer the
                          * question on this scope. */
@@ -622,7 +622,7 @@ static int dns_transaction_on_stream_packet(DnsTransaction *t, DnsStream *s, Dns
 static int on_stream_complete(DnsStream *s, int error) {
         assert(s);
 
-        if (ERRNO_IS_DISCONNECT(error) && s->protocol != DNS_PROTOCOL_LLMNR) {
+        if (ERRNO_IS_DISCONNECT(-error) && s->protocol != DNS_PROTOCOL_LLMNR) {
                 log_debug_errno(error, "Connection failure for DNS TCP stream: %m");
 
                 if (s->transactions) {
