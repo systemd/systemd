@@ -283,8 +283,8 @@ static int drop_from_file(const char *fn, uint64_t keep) {
         if (current == after)
                 return 0;
 
-        lo = after & UINT32_C(0xFFFFFFFF);
-        hi = (after >> 32) & UINT32_C(0xFFFFFFFF);
+        lo = after & UINT32_MAX;
+        hi = (after >> 32) & UINT32_MAX;
 
         return write_string_filef(fn, 0, "%" PRIu32 " %" PRIu32, lo, hi);
 }
