@@ -1886,7 +1886,7 @@ int config_parse_capability_set(
                 void *userdata) {
 
         uint64_t *capability_set = ASSERT_PTR(data);
-        uint64_t sum = 0, initial = 0;
+        uint64_t sum = 0, initial, def;
         bool invert = false;
         int r;
 
@@ -1899,9 +1899,11 @@ int config_parse_capability_set(
                 rvalue++;
         }
 
-        if (streq(lvalue, "CapabilityBoundingSet"))
-                initial = CAP_ALL; /* initialized to all bits on */
-        /* else "AmbientCapabilities" initialized to all bits off */
+        if (streq(lvalue, "CapabilityBoundingSet")) {
+                initial = CAP_MASK_ALL; /* initialized to all bits on */
+                def = CAP_MASK_UNSET;   /* not set */
+        } else
+                def = initial = 0; /* All bits off */
 
         r = capability_set_from_string(rvalue, &sum);
         if (r < 0) {
@@ -1909,7 +1911,7 @@ int config_parse_capability_set(
                 return 0;
         }
 
-        if (sum == 0 || *capability_set == initial)
+        if (sum == 0 || *capability_set == def)
                 /* "", "~" or uninitialized data -> replace */
                 *capability_set = invert ? ~sum : sum;
         else {
