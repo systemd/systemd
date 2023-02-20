@@ -621,7 +621,7 @@ static int output_timers_list(struct timer_info *timer_infos, size_t n) {
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         for (struct timer_info *t = timer_infos; t < timer_infos + n; t++) {
-                _cleanup_free_ char *j = NULL, *activates = NULL;
+                _cleanup_free_ char *j = NULL;
                 const char *unit;
 
                 if (t->machine) {
@@ -632,17 +632,16 @@ static int output_timers_list(struct timer_info *timer_infos, size_t n) {
                 } else
                         unit = t->id;
 
-                activates = strv_join(t->triggered, ", ");
-                if (!activates)
-                        return log_oom();
-
                 r = table_add_many(table,
                                    TABLE_TIMESTAMP, t->next_elapse,
                                    TABLE_TIMESTAMP_RELATIVE, t->next_elapse,
                                    TABLE_TIMESTAMP, t->last_trigger,
                                    TABLE_TIMESTAMP_RELATIVE, t->last_trigger,
-                                   TABLE_STRING, unit,
-                                   TABLE_STRING, activates);
+                                   TABLE_STRING, unit);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_triggered(table, t->triggered);
                 if (r < 0)
                         return table_log_add_error(r);
         }
