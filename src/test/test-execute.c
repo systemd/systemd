@@ -583,14 +583,12 @@ static int find_libraries(const char *exec, char ***ret) {
         assert_se(pipe2(outpipe, O_NONBLOCK|O_CLOEXEC) == 0);
         assert_se(pipe2(errpipe, O_NONBLOCK|O_CLOEXEC) == 0);
 
-        r = safe_fork("(spawn-ldd)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        r = safe_fork_full("(spawn-ldd)",
+                           (int[]) { -EBADF, outpipe[1], errpipe[1] },
+                           NULL, 0,
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_REARRANGE_STDIO|FORK_LOG, &pid);
         assert_se(r >= 0);
         if (r == 0) {
-                if (rearrange_stdio(-EBADF, TAKE_FD(outpipe[1]), TAKE_FD(errpipe[1])) < 0)
-                        _exit(EXIT_FAILURE);
-
-                (void) close_all_fds(NULL, 0);
-
                 execlp("ldd", "ldd", exec, NULL);
                 _exit(EXIT_FAILURE);
         }

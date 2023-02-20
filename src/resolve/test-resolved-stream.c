@@ -147,16 +147,14 @@ static void *tls_dns_server(void *p) {
                 fd_tls = fd[1];
         }
 
-        r = safe_fork_full("(test-resolved-stream-tls-openssl)", (int[]) { fd_server, fd_tls }, 2,
-                FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_LOG|FORK_REOPEN_LOG, &openssl_pid);
+        r = safe_fork_full("(test-resolved-stream-tls-openssl)",
+                           (int[]) { fd_tls, fd_tls, STDOUT_FILENO },
+                           NULL, 0,
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_REARRANGE_STDIO|FORK_LOG|FORK_REOPEN_LOG,
+                           &openssl_pid);
         assert_se(r >= 0);
         if (r == 0) {
                 /* Child */
-                assert_se(dup2(fd_tls, STDIN_FILENO) >= 0);
-                assert_se(dup2(fd_tls, STDOUT_FILENO) >= 0);
-                close(TAKE_FD(fd_server));
-                close(TAKE_FD(fd_tls));
-
                 execlp("openssl", "openssl", "s_server", "-accept", bind_str,
                        "-key", key_path, "-cert", cert_path,
                        "-quiet", "-naccept", "1", NULL);
