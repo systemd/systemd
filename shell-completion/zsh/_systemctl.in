@@ -8,6 +8,7 @@
     local -a unit_commands=(
         # Unit Commands
         "list-automounts:List automounts"
+        "list-paths:List paths"
         "list-sockets:List sockets"
         "list-timers:List timers"
         "list-units:List units"
