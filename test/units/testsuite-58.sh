@@ -852,6 +852,8 @@ test_exclude_files() {
     runas testuser mkdir "$root/usr"
     runas testuser touch "$root/usr/def"
     runas testuser touch "$root/usr/qed"
+    runas testuser mkdir "$root/tmp"
+    runas testuser touch "$root/tmp/prs"
 
     runas testuser tee "$defs/00-root.conf" <<EOF
 [Partition]
@@ -888,6 +890,8 @@ EOF
     assert_rc 0 ls "$imgs/mnt/abc"
     assert_rc 0 ls "$imgs/mnt/usr"
     assert_rc 2 ls "$imgs/mnt/usr/def"
+    assert_rc 0 ls "$imgs/mnt/tmp"
+    assert_rc 2 ls "$imgs/mnt/tmp/prs"
     mount -t ext4 "${loop}p2" "$imgs/mnt/usr"
     assert_rc 0 ls "$imgs/mnt/usr/def"
     assert_rc 2 ls "$imgs/mnt/usr/qed"
