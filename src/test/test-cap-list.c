@@ -29,7 +29,8 @@ TEST(cap_list) {
         assert_se(capability_from_name("cAp_aUdIt_rEAd") == CAP_AUDIT_READ);
         assert_se(capability_from_name("0") == 0);
         assert_se(capability_from_name("15") == 15);
-        assert_se(capability_from_name("63") == 63);
+        assert_se(capability_from_name("62") == 62);
+        assert_se(capability_from_name("63") == -EINVAL);
         assert_se(capability_from_name("64") == -EINVAL);
         assert_se(capability_from_name("-1") == -EINVAL);
 
@@ -117,9 +118,9 @@ static void test_capability_set_to_string_invalid(uint64_t invalid_cap_set) {
 TEST(capability_set_to_string) {
         test_capability_set_to_string_invalid(0);
 
-        /* once the kernel supports 63 caps, there are no 'invalid' numbers
+        /* once the kernel supports 62 caps, there are no 'invalid' numbers
          * for us to test with */
-        if (cap_last_cap() < 63)
+        if (cap_last_cap() < 62)
                 test_capability_set_to_string_invalid(all_capabilities() + 1);
 }
 
