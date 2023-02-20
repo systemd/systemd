@@ -59,6 +59,7 @@
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "recurse-dir.h"
 #include "resize-fs.h"
 #include "rm-rf.h"
 #include "sort-util.h"
@@ -3969,40 +3970,75 @@ static int partition_populate_filesystem(Partition *p, const char *node, const S
         return 0;
 }
 
-static int make_copy_files_denylist(Context *context, Set **ret) {
+static int exclude_children(const char *path, Set **denylist) {
+        _cleanup_close_ int dfd = -EBADF;
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        int r;
+
+        assert(path);
+        assert(denylist);
+
+        dfd = chase_symlinks_and_open(path, arg_root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_DIRECTORY, NULL);
+        if (dfd == -ENOENT)
+                return 0;
+        if (dfd < 0)
+                return log_error_errno(dfd, "Failed to stat source '%s%s': %m", strempty(arg_root), path);
+
+        r = readdir_all(dfd, 0, &de);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read '%s%s' contents: %m", strempty(arg_root), path);
+
+        for (size_t i = 0; i < de->n_entries; i++) {
+                _cleanup_free_ char *d = NULL;
+                struct stat st;
+
+                if (fstatat(dfd, de->entries[i]->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0)
+                        return log_error_errno(r, "Failed to stat '%s': %m", de->entries[i]->d_name);
+
+                if (set_contains(*denylist, &st))
+                        continue;
+
+                d = memdup(&st, sizeof(st));
+                if (!d)
+                        return log_oom();
+                if (set_ensure_put(denylist, &inode_hash_ops, d) < 0)
+                        return log_oom();
+
+                TAKE_PTR(d);
+        }
+
+        return 0;
+}
+
+static int make_copy_files_denylist(Context *context, Partition *p, Set **ret) {
         _cleanup_set_free_ Set *denylist = NULL;
         int r;
 
         assert(context);
         assert(ret);
 
-        LIST_FOREACH(partitions, p, context->partitions) {
-                const char *sources = gpt_partition_type_mountpoint_nulstr(p->type);
+        LIST_FOREACH(partitions, q, context->partitions) {
+                if (p == q)
+                        continue;
+
+                const char *sources = gpt_partition_type_mountpoint_nulstr(q->type);
                 if (!sources)
                         continue;
 
                 NULSTR_FOREACH(s, sources) {
-                        _cleanup_free_ char *d = NULL;
-                        struct stat st;
+                        /* Exclude the children of partition mount points so that the nested partition mount
+                         * point itself still ends up in the upper partition. */
 
-                        r = chase_symlinks_and_stat(s, arg_root, CHASE_PREFIX_ROOT, NULL, &st, NULL);
-                        if (r == -ENOENT)
-                                continue;
+                        r = exclude_children(s, &denylist);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to stat source file '%s%s': %m",
-                                                       strempty(arg_root), s);
-
-                        if (set_contains(denylist, &st))
-                                continue;
-
-                        d = memdup(&st, sizeof(st));
-                        if (!d)
-                                return log_oom();
-                        if (set_ensure_put(&denylist, &inode_hash_ops, d) < 0)
-                                return log_oom();
-
-                        TAKE_PTR(d);
+                                return r;
                 }
+        }
+
+        FOREACH_STRING(s, "proc", "sys", "dev", "run", "tmp", "var/tmp") {
+                r = exclude_children(s, &denylist);
+                if (r < 0)
+                        return r;
         }
 
         *ret = TAKE_PTR(denylist);
@@ -4010,18 +4046,14 @@ static int make_copy_files_denylist(Context *context, Set **ret) {
 }
 
 static int context_mkfs(Context *context) {
-        _cleanup_set_free_ Set *denylist = NULL;
         int r;
 
         assert(context);
 
         /* Make a file system */
 
-        r = make_copy_files_denylist(context, &denylist);
-        if (r < 0)
-                return r;
-
         LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_set_free_ Set *denylist = NULL;
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
                 _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
 
@@ -4044,6 +4076,10 @@ static int context_mkfs(Context *context) {
                 assert(p->offset != UINT64_MAX);
                 assert(p->new_size != UINT64_MAX);
                 assert(p->new_size >= (p->encrypt != ENCRYPT_OFF ? LUKS2_METADATA_KEEP_FREE : 0));
+
+                r = make_copy_files_denylist(context, p, &denylist);
+                if (r < 0)
+                        return r;
 
                 /* If we're doing encryption, we make sure we keep free space at the end which is required
                  * for cryptsetup's offline encryption. */
@@ -5327,21 +5363,17 @@ static int fd_apparent_size(int fd, uint64_t *ret) {
 }
 
 static int context_minimize(Context *context) {
-        _cleanup_set_free_ Set *denylist = NULL;
         const char *vt;
         int r;
 
         assert(context);
-
-        r = make_copy_files_denylist(context, &denylist);
-        if (r < 0)
-                return r;
 
         r = var_tmp_dir(&vt);
         if (r < 0)
                 return log_error_errno(r, "Could not determine temporary directory: %m");
 
         LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_set_free_ Set *denylist = NULL;
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
                 _cleanup_(unlink_and_freep) char *temp = NULL;
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
@@ -5365,6 +5397,10 @@ static int context_minimize(Context *context) {
                         continue;
 
                 assert(!p->copy_blocks_path);
+
+                r = make_copy_files_denylist(context, p, &denylist);
+                if (r < 0)
+                        return r;
 
                 r = tempfn_random_child(vt, "repart", &temp);
                 if (r < 0)
