@@ -248,8 +248,10 @@ multi-user.target @47.820s
 
       <para>Without any parameter, this command outputs a (usually very long) human-readable serialization of
       the complete service manager state. Optional glob pattern may be specified, causing the output to be
-      limited to units whose names match one of the patterns. The output format is subject to change without
-      notice and should not be parsed by applications.</para>
+      limited to units whose names match one of the patterns. The special <literal>memory</literal> pattern
+      can be used to request the output of the manager's memory state (as returned by
+      <citerefentry><refentrytitle>malloc_info</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
+      The output format is subject to change without notice and should not be parsed by applications.</para>
 
       <example>
         <title>Show the internal state of user manager</title>

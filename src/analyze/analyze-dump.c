@@ -44,6 +44,28 @@ static int dump_fd_reply(sd_bus_message *message) {
         return 1;  /* Success */
 }
 
+static int dump_memory(sd_bus *bus) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        int r;
+
+        assert(bus);
+
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.systemd1",
+                               "/org/freedesktop/MallocStatus1",
+                               "org.freedesktop.MallocStatus1",
+                               "GetMallocInfo",
+                               &error,
+                               &reply,
+                               "",
+                               NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to call GetMallocInfo: %s", bus_error_message(&error, r));
+
+        return dump_fd_reply(reply);
+}
+
 static int dump(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -65,6 +87,9 @@ static int dump_patterns_fallback(sd_bus *bus, char **patterns) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
         const char *text;
         int r;
+
+        /* This sends down an FD, so it cannot work in the fallback */
+        strv_remove(patterns, "memory");
 
         r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "DumpUnitsMatchingPatterns");
         if (r < 0)
@@ -92,6 +117,17 @@ static int dump_patterns(sd_bus *bus, char **patterns) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
         int r;
 
+        if (strv_contains(patterns, "memory")) {
+                strv_remove(patterns, "memory");
+
+                r = dump_memory(bus);
+                if (r < 0)
+                        return r;
+
+                if (strv_isempty(patterns))
+                        return 1; /* We are done */
+        }
+
         r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "DumpUnitsMatchingPatternsByFileDescriptor");
         if (r < 0)
                 return bus_log_create_error(r);
@@ -112,8 +148,19 @@ static int mangle_patterns(char **args, char ***ret) {
         _cleanup_strv_free_ char **mangled = NULL;
         int r;
 
+        assert(ret);
+
         STRV_FOREACH(arg, args) {
                 char *t;
+
+                if (streq_ptr(*arg, "memory")) {
+                        /* Special case, not a unit */
+                        r = strv_extend(&mangled, *arg);
+                        if (r < 0)
+                                return log_oom();
+
+                        continue;
+                }
 
                 r = unit_name_mangle_with_suffix(*arg, NULL, UNIT_NAME_MANGLE_GLOB, ".service", &t);
                 if (r < 0)
