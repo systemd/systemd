@@ -72,6 +72,9 @@ Within unit files, there are four settings to configure service credentials.
 1. `LoadCredential=` may be used to load a credential from disk, from an
    `AF_UNIX` socket, or propagate them from a system credential.
 
+2. `ImportCredential=` may be used to load one or more (encrypted) credentials
+   from disk or from the credential stores.
+
 2. `SetCredential=` may be used to set a credential to a literal string encoded
    in the unit file. Because unit files are world-readable (both on disk and
    via D-Bus), this should only be used for credentials that aren't sensitive,
@@ -323,7 +326,7 @@ systemd-creds --system cat mycred
 Or propagated to services further down:
 
 ```
-systemd-run -p LoadCredential=mycred -P --wait systemd-creds cat mycred
+systemd-run -p ImportCredential=mycred -P --wait systemd-creds cat mycred
 ```
 
 ## Well-Known Credentials
@@ -430,13 +433,14 @@ a container manager or via qemu) and `/run/credentials/@encrypted/` (for
 credentials that must be decrypted/validated before use, such as those from
 `systemd-stub`).
 
-The `LoadCredential=` and `LoadCredentialEncrypted=` settings when configured
-with a relative source path will search for the source file to read the
-credential from automatically. Primarily, these credentials are searched among
-the credentials passed into the system. If not found there, they are searched
-in `/etc/credstore/`, `/run/credstore/`,
+The `ImportCredential=` setting (and the `LoadCredential=` and
+`LoadCredentialEncrypted=` settings when configured with a relative source path)
+will search for the source file to read the credential from automatically. Primarily,
+these credentials are searched among the credentials passed into the system. If
+not found there, they are searched in `/etc/credstore/`, `/run/credstore/`,
 `/usr/lib/credstore/`. `LoadCredentialEncrypted=` will also search
-`/etc/credstore.encrypted/` and similar directories. These directories are
+`/etc/credstore.encrypted/` and similar directories. `ImportCredential` will search
+both the non-encrypted and encrypted directories. These directories are
 hence a great place to store credentials to load on the system.
 
 ## Conditionalizing Services

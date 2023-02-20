@@ -1463,7 +1463,8 @@ static bool exec_context_has_credentials(const ExecContext *context) {
         assert(context);
 
         return !hashmap_isempty(context->set_credentials) ||
-                !hashmap_isempty(context->load_credentials);
+                !hashmap_isempty(context->load_credentials) ||
+                !set_isempty(context->import_credentials);
 }
 
 #if HAVE_SECCOMP
@@ -2605,19 +2606,26 @@ static int write_credential(
         return 0;
 }
 
-static char **credential_search_path(
-                const ExecParameters *params,
-                bool encrypted) {
+typedef enum CredentialSearchPath {
+        CREDENTIAL_SEARCH_PATH_TRUSTED,
+        CREDENTIAL_SEARCH_PATH_ENCRYPTED,
+        CREDENTIAL_SEARCH_PATH_ALL,
+        _CREDENTIAL_SEARCH_PATH_MAX,
+        _CREDENTIAL_SEARCH_PATH_INVALID = -EINVAL,
+} CredentialSearchPath;
+
+static char **credential_search_path(const ExecParameters *params, CredentialSearchPath path) {
 
         _cleanup_strv_free_ char **l = NULL;
 
         assert(params);
+        assert(path >= 0 && path < _CREDENTIAL_SEARCH_PATH_MAX);
 
-        /* Assemble a search path to find credentials in. We'll look in /etc/credstore/ (and similar
-         * directories in /usr/lib/ + /run/) for all types of credentials. If we are looking for encrypted
-         * credentials, also look in /etc/credstore.encrypted/ (and similar dirs). */
+        /* Assemble a search path to find credentials in. For non-encrypted credentials, We'll look in
+         * /etc/credstore/ (and similar directories in /usr/lib/ + /run/). If we're looking for encrypted
+         * credentials, we'll look in /etc/credstore.encrypted/ (and similar dirs). */
 
-        if (encrypted) {
+        if (IN_SET(path, CREDENTIAL_SEARCH_PATH_ENCRYPTED, CREDENTIAL_SEARCH_PATH_ALL)) {
                 if (strv_extend(&l, params->received_encrypted_credentials_directory) < 0)
                         return NULL;
 
@@ -2625,12 +2633,14 @@ static char **credential_search_path(
                         return NULL;
         }
 
-        if (params->received_credentials_directory)
-                if (strv_extend(&l, params->received_credentials_directory) < 0)
-                        return NULL;
+        if (IN_SET(path, CREDENTIAL_SEARCH_PATH_TRUSTED, CREDENTIAL_SEARCH_PATH_ALL)) {
+                if (params->received_credentials_directory)
+                        if (strv_extend(&l, params->received_credentials_directory) < 0)
+                                return NULL;
 
-        if (strv_extend_strv(&l, CONF_PATHS_STRV("credstore"), /* filter_duplicates= */ true) < 0)
-                return NULL;
+                if (strv_extend_strv(&l, CONF_PATHS_STRV("credstore"), /* filter_duplicates= */ true) < 0)
+                        return NULL;
+        }
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *t = strv_join(l, ":");
@@ -2639,6 +2649,111 @@ static char **credential_search_path(
         }
 
         return TAKE_PTR(l);
+}
+
+static int maybe_decrypt_and_write_credential(
+                int dir_fd,
+                const char *id,
+                bool encrypted,
+                uid_t uid,
+                bool ownership_ok,
+                const char *data,
+                size_t size,
+                uint64_t *left) {
+
+        _cleanup_free_ void *plaintext = NULL;
+        size_t add;
+        int r;
+
+        if (encrypted) {
+                size_t plaintext_size = 0;
+
+                r = decrypt_credential_and_warn(id, now(CLOCK_REALTIME), NULL, NULL, data, size,
+                                                &plaintext, &plaintext_size);
+                if (r < 0)
+                        return r;
+
+                data = plaintext;
+                size = plaintext_size;
+        }
+
+        add = strlen(id) + size;
+        if (add > *left)
+                return -E2BIG;
+
+        r = write_credential(dir_fd, id, data, size, uid, ownership_ok);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write credential '%s': %m", id);
+
+        *left -= add;
+        return 0;
+}
+
+static int load_credential_glob(
+                const char *path,
+                bool encrypted,
+                char **search_path,
+                ReadFullFileFlags flags,
+                int write_dfd,
+                uid_t uid,
+                bool ownership_ok,
+                uint64_t *left) {
+
+        int r;
+
+        STRV_FOREACH(d, search_path) {
+                _cleanup_globfree_ glob_t pglob = {};
+                _cleanup_free_ char *j = NULL;
+
+                j = path_join(*d, path);
+                if (!j)
+                        return -ENOMEM;
+
+                r = safe_glob(j, 0, &pglob);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return r;
+
+                for (unsigned n = 0; n < pglob.gl_pathc; n++) {
+                        _cleanup_free_ char *fn = NULL;
+                        _cleanup_(erase_and_freep) char *data = NULL;
+                        size_t size;
+
+                        /* path is absolute, hence pass AT_FDCWD as nop dir fd here */
+                        r = read_full_file_full(
+                                AT_FDCWD,
+                                pglob.gl_pathv[n],
+                                UINT64_MAX,
+                                encrypted ? CREDENTIAL_ENCRYPTED_SIZE_MAX : CREDENTIAL_SIZE_MAX,
+                                flags,
+                                NULL,
+                                &data, &size);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to read credential '%s': %m",
+                                                        pglob.gl_pathv[n]);
+
+                        r = path_extract_filename(pglob.gl_pathv[n], &fn);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to extract filename from '%s': %m",
+                                                        pglob.gl_pathv[n]);
+
+                        r = maybe_decrypt_and_write_credential(
+                                write_dfd,
+                                fn,
+                                encrypted,
+                                uid,
+                                ownership_ok,
+                                data, size,
+                                left);
+                        if (r == -EEXIST)
+                                continue;
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
 }
 
 static int load_credential(
@@ -2660,7 +2775,7 @@ static int load_credential(
         _cleanup_free_ char *bindname = NULL;
         const char *source = NULL;
         bool missing_ok = true;
-        size_t size, add, maxsz;
+        size_t size, maxsz;
         int r;
 
         assert(context);
@@ -2706,7 +2821,7 @@ static int load_credential(
                  * directory we received ourselves. We don't support the AF_UNIX stuff in this mode, since we
                  * are operating on a credential store, i.e. this is guaranteed to be regular files. */
 
-                search_path = credential_search_path(params, encrypted);
+                search_path = credential_search_path(params, CREDENTIAL_SEARCH_PATH_ALL);
                 if (!search_path)
                         return -ENOMEM;
 
@@ -2762,28 +2877,7 @@ static int load_credential(
         if (r < 0)
                 return log_debug_errno(r, "Failed to read credential '%s': %m", path);
 
-        if (encrypted) {
-                _cleanup_free_ void *plaintext = NULL;
-                size_t plaintext_size = 0;
-
-                r = decrypt_credential_and_warn(id, now(CLOCK_REALTIME), NULL, NULL, data, size, &plaintext, &plaintext_size);
-                if (r < 0)
-                        return r;
-
-                free_and_replace(data, plaintext);
-                size = plaintext_size;
-        }
-
-        add = strlen(id) + size;
-        if (add > *left)
-                return -E2BIG;
-
-        r = write_credential(write_dfd, id, data, size, uid, ownership_ok);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to write credential '%s': %m", id);
-
-        *left -= add;
-        return 0;
+        return maybe_decrypt_and_write_credential(write_dfd, id, encrypted, uid, ownership_ok, data, size, left);
 }
 
 struct load_cred_args {
@@ -2858,6 +2952,7 @@ static int acquire_credentials(
 
         uint64_t left = CREDENTIALS_TOTAL_SIZE_MAX;
         _cleanup_close_ int dfd = -EBADF;
+        const char *ic;
         ExecLoadCredential *lc;
         ExecSetCredential *sc;
         int r;
@@ -2923,8 +3018,47 @@ static int acquire_credentials(
                         return r;
         }
 
-        /* Second, we add in literally specified credentials. If the credentials already exist, we'll not add
-         * them, so that they can act as a "default" if the same credential is specified multiple times. */
+        /* Next, look for system credentials and credentials in the credentials store. Note that these do not
+         * override any credentials found earlier. */
+        SET_FOREACH(ic, context->import_credentials) {
+                _cleanup_free_ char **search_path = NULL;
+
+                search_path = credential_search_path(params, CREDENTIAL_SEARCH_PATH_TRUSTED);
+                if (!search_path)
+                        return -ENOMEM;
+
+                r = load_credential_glob(
+                                ic,
+                                /* encrypted = */ false,
+                                search_path,
+                                READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER,
+                                dfd,
+                                uid,
+                                ownership_ok,
+                                &left);
+                if (r < 0)
+                        return r;
+
+                search_path = strv_free(search_path);
+                search_path = credential_search_path(params, CREDENTIAL_SEARCH_PATH_ENCRYPTED);
+                if (!search_path)
+                        return -ENOMEM;
+
+                r = load_credential_glob(
+                                ic,
+                                /* encrypted = */ true,
+                                search_path,
+                                READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER|READ_FULL_FILE_UNBASE64,
+                                dfd,
+                                uid,
+                                ownership_ok,
+                                &left);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Finally, we add in literally specified credentials. If the credentials already exist, we'll not
+         * add them, so that they can act as a "default" if the same credential is specified multiple times. */
         HASHMAP_FOREACH(sc, context->set_credentials) {
                 _cleanup_(erase_and_freep) void *plaintext = NULL;
                 const char *data;
@@ -5566,6 +5700,7 @@ void exec_context_done(ExecContext *c) {
 
         c->load_credentials = hashmap_free(c->load_credentials);
         c->set_credentials = hashmap_free(c->set_credentials);
+        c->import_credentials = set_free(c->import_credentials);
 }
 
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_prefix) {
