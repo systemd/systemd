@@ -427,5 +427,17 @@ EOF
     systemctl stop issue-24990
 fi
 
+# %J in WantedBy= causes ABRT (#26467)
+cat >/run/systemd/system/test-WantedBy.service <<EOF
+[Service]
+ExecStart=true
+
+[Install]
+WantedBy=user-%i@%J.service
+EOF
+systemctl daemon-reload
+systemctl enable --now test-WantedBy.service || :
+systemctl daemon-reload
+
 touch /testok
 rm /failed
