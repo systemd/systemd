@@ -61,6 +61,9 @@ printf '%b'   '[Service]\n' 'ExecStart=\n' 'ExecStart=sleep 10d' >"+4"
 EDITOR='mv' script -ec 'systemctl edit "$UNIT_NAME"' /dev/null
 printf '%s\n' '[Service]'   'ExecStart='   'ExecStart=sleep 10d' | cmp - "/etc/systemd/system/$UNIT_NAME.d/override.conf"
 
+# Double free when editing a template unit (#26483)
+EDITOR='true' script -ec 'systemctl edit user@0' /dev/null
+
 # Argument help
 systemctl --state help
 systemctl --signal help
