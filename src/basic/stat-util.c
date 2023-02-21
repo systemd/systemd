@@ -404,7 +404,7 @@ int statx_fallback(int dfd, const char *path, int flags, unsigned mask, struct s
 
         if (!avoid_statx) {
                 if (statx(dfd, path, flags, mask, sx) < 0) {
-                        if (!ERRNO_IS_NOT_SUPPORTED(errno) && errno != EPERM)
+                        if (!ERRNO_IS_NOT_SUPPORTED() && errno != EPERM)
                                 return -errno;
 
                         /* If statx() is not supported or if we see EPERM (which might indicate seccomp

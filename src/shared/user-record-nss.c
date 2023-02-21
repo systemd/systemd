@@ -247,7 +247,7 @@ int nss_user_record_by_name(
                 r = nss_spwd_for_passwd(result, &spwd, &sbuf);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to do shadow lookup for user %s, ignoring: %m", name);
-                        incomplete = ERRNO_IS_PRIVILEGE(r);
+                        incomplete = NERRNO_IS_PRIVILEGE(r);
                 } else
                         sresult = &spwd;
         } else
@@ -303,7 +303,7 @@ int nss_user_record_by_uid(
                 r = nss_spwd_for_passwd(result, &spwd, &sbuf);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to do shadow lookup for UID " UID_FMT ", ignoring: %m", uid);
-                        incomplete = ERRNO_IS_PRIVILEGE(r);
+                        incomplete = NERRNO_IS_PRIVILEGE(r);
                 } else
                         sresult = &spwd;
         } else
@@ -461,7 +461,7 @@ int nss_group_record_by_name(
                 r = nss_sgrp_for_group(result, &sgrp, &sbuf);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to do shadow lookup for group %s, ignoring: %m", result->gr_name);
-                        incomplete = ERRNO_IS_PRIVILEGE(r);
+                        incomplete = NERRNO_IS_PRIVILEGE(r);
                 } else
                         sresult = &sgrp;
         } else
@@ -516,7 +516,7 @@ int nss_group_record_by_gid(
                 r = nss_sgrp_for_group(result, &sgrp, &sbuf);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to do shadow lookup for group %s, ignoring: %m", result->gr_name);
-                        incomplete = ERRNO_IS_PRIVILEGE(r);
+                        incomplete = NERRNO_IS_PRIVILEGE(r);
                 } else
                         sresult = &sgrp;
         } else

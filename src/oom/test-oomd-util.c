@@ -59,7 +59,7 @@ static void test_oomd_cgroup_kill(void) {
 
         /* If we don't have permissions to set xattrs we're likely in a userns or missing capabilities */
         r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_test", "test", 4, 0);
-        if (ERRNO_IS_PRIVILEGE(r) || ERRNO_IS_NOT_SUPPORTED(r))
+        if (NERRNO_IS_PRIVILEGE(r) || NERRNO_IS_NOT_SUPPORTED(r))
                 return (void) log_tests_skipped("Cannot set user xattrs");
 
         /* Do this twice to also check the increment behavior on the xattrs */
@@ -434,7 +434,7 @@ static void test_oomd_fetch_cgroup_oom_preference(void) {
         /* If we don't have permissions to set xattrs we're likely in a userns or missing capabilities
          * so skip the xattr portions of the test. */
         r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_test", "1", 1, 0);
-        test_xattrs = !ERRNO_IS_PRIVILEGE(r) && !ERRNO_IS_NOT_SUPPORTED(r);
+        test_xattrs = !NERRNO_IS_PRIVILEGE(r) && !NERRNO_IS_NOT_SUPPORTED(r);
 
         if (test_xattrs) {
                 assert_se(oomd_fetch_cgroup_oom_preference(ctx, NULL) == 0);

@@ -177,7 +177,7 @@ static bool barrier_write(Barrier *b, uint64_t buf) {
         assert(b->me >= 0);
         do {
                 len = write(b->me, &buf, sizeof(buf));
-        } while (len < 0 && ERRNO_IS_TRANSIENT(errno));
+        } while (len < 0 && ERRNO_IS_TRANSIENT());
 
         if (len != sizeof(buf))
                 goto error;
@@ -229,7 +229,7 @@ static bool barrier_read(Barrier *b, int64_t comp) {
 
                         /* events on @them signal new data for us */
                         len = read(b->them, &buf, sizeof(buf));
-                        if (len < 0 && ERRNO_IS_TRANSIENT(errno))
+                        if (len < 0 && ERRNO_IS_TRANSIENT())
                                 continue;
 
                         if (len != sizeof(buf))

@@ -8,6 +8,7 @@
 #include "sd-id128.h"
 #include "sd-journal.h"
 
+#include "errno-util.h"
 #include "hashmap.h"
 #include "journal-def.h"
 #include "journal-file.h"
@@ -133,8 +134,8 @@ void journal_print_header(sd_journal *j);
 
 /* All errors that we might encounter while extracting a field that are not real errors,
  * but only mean that the field is too large or we don't support the compression. */
-static inline bool JOURNAL_ERRNO_IS_UNAVAILABLE_FIELD(int r) {
-        return IN_SET(abs(r),
+DEFINE_ERRNO_CHECKERS(UNAVAILABLE_JOURNAL_FIELD) {
+        return IN_SET(r,
                       ENOBUFS,          /* Field or decompressed field too large */
                       E2BIG,            /* Field too large for pointer width */
                       EPROTONOSUPPORT); /* Unsupported compression */

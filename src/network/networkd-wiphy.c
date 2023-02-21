@@ -215,7 +215,7 @@ int link_rfkilled(Link *link) {
 
         r = link_get_wiphy(link, &w);
         if (r < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_DEVICE_ABSENT(r))
+                if (NERRNO_IS_NOT_SUPPORTED(r) || NERRNO_IS_DEVICE_ABSENT(r))
                         return false; /* Typically, non-wifi interface or running in container */
                 return log_link_debug_errno(link, r, "Could not get phy: %m");
         }
@@ -340,7 +340,7 @@ static int wiphy_update(Wiphy *w) {
 
         r = wiphy_update_device(w);
         if (r < 0) {
-                if (ERRNO_IS_DEVICE_ABSENT(r))
+                if (NERRNO_IS_DEVICE_ABSENT(r))
                         log_wiphy_debug_errno(w, r, "Failed to update wiphy device, ignoring: %m");
                 else
                         return log_wiphy_warning_errno(w, r, "Failed to update wiphy device: %m");
@@ -348,7 +348,7 @@ static int wiphy_update(Wiphy *w) {
 
         r = wiphy_update_rfkill(w);
         if (r < 0) {
-                if (ERRNO_IS_DEVICE_ABSENT(r))
+                if (NERRNO_IS_DEVICE_ABSENT(r))
                         log_wiphy_debug_errno(w, r, "Failed to update rfkill device, ignoring: %m");
                 else
                         return log_wiphy_warning_errno(w, r, "Failed to update rfkill device: %m");

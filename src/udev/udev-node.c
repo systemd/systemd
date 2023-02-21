@@ -634,7 +634,7 @@ int udev_node_apply_permissions(
 
         node_fd = sd_device_open(dev, O_PATH|O_CLOEXEC);
         if (node_fd < 0) {
-                if (ERRNO_IS_DEVICE_ABSENT(node_fd)) {
+                if (NERRNO_IS_DEVICE_ABSENT(node_fd)) {
                         log_device_debug_errno(dev, node_fd, "Device node %s is missing, skipping handling.", devnode);
                         return 0; /* This is necessarily racey, so ignore missing the device */
                 }

@@ -325,7 +325,7 @@ static int server_read_dev_kmsg(Server *s) {
                         return 0;
                 }
 
-                if (ERRNO_IS_TRANSIENT(errno) || errno == EPIPE)
+                if (ERRNO_IS_TRANSIENT() || errno == EPIPE)
                         return 0;
 
                 return log_ratelimit_error_errno(errno, JOURNAL_LOG_RATELIMIT, "Failed to read from /dev/kmsg: %m");

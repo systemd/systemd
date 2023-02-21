@@ -20,7 +20,7 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to resolve \"%s\": %m", name);
 
         r = clean_ipc_by_uid(uid);
-        if (ERRNO_IS_PRIVILEGE(r))
+        if (NERRNO_IS_PRIVILEGE(r))
                 return log_tests_skipped("No privileges");
 
         return r;

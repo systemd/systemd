@@ -203,7 +203,7 @@ int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, 
                         }
 
                         if (stat("/proc/1/ns/net", &b) < 0) {
-                                if (ERRNO_IS_PRIVILEGE(errno))
+                                if (ERRNO_IS_PRIVILEGE())
                                         /* If we can't access PID1's netns info due to permissions, it's fine, this is a
                                          * safety check only after all. */
                                         log_monitor_errno(m, errno, "No permission to stat PID1's netns, unable to determine if we are in host netns, ignoring: %m");
@@ -515,7 +515,7 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
 
         n = next_datagram_size_fd(m->sock);
         if (n < 0) {
-                if (!ERRNO_IS_TRANSIENT(n))
+                if (!NERRNO_IS_TRANSIENT(n))
                         log_monitor_errno(m, n, "Failed to get the received message size: %m");
                 return n;
         }
@@ -534,7 +534,7 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
 
         n = recvmsg(m->sock, &smsg, 0);
         if (n < 0) {
-                if (!ERRNO_IS_TRANSIENT(errno))
+                if (!ERRNO_IS_TRANSIENT())
                         log_monitor_errno(m, errno, "Failed to receive message: %m");
                 return -errno;
         }
