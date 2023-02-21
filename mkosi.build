@@ -244,10 +244,6 @@ CapabilityBoundingSet=~CAP_SYS_TTY_CONFIG
 EOF
 fi
 
-# Make sure services aren't enabled by default on Debian/Ubuntu.
-mkdir -p "$DESTDIR/etc/systemd/system-preset"
-echo "disable *" >"$DESTDIR/etc/systemd/system-preset/99-mkosi.preset"
-
 if [ -d mkosi.kernel/ ]; then
     cd "$SRCDIR/mkosi.kernel"
     mkdir -p "$BUILDDIR/mkosi.kernel"
