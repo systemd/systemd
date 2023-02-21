@@ -1,20 +1,22 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Moo, 2018. #zanata
+# mooo <hazap@hotmail.com>, 2023.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2022-10-20 10:35+0200\n"
-"PO-Revision-Date: 2019-04-08 22:01+0300\n"
-"Last-Translator: Moo\n"
-"Language-Team: Lithuanian\n"
+"PO-Revision-Date: 2023-02-21 23:20+0000\n"
+"Last-Translator: mooo <hazap@hotmail.com>\n"
+"Language-Team: Lithuanian <https://translate.fedoraproject.org/projects/"
+"systemd/master/lt/>\n"
 "Language: lt\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"X-Generator: Poedit 2.2.1\n"
-"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && (n"
-"%100<10 || n%100>=20) ? 1 : 2);\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && ("
+"n%100<10 || n%100>=20) ? 1 : 2);\n"
+"X-Generator: Weblate 4.15.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -176,14 +178,12 @@ msgid "Authentication is required to get hardware serial number."
 msgstr "Norint nustatyti sistemos laiką, reikia nustatyti tapatybę."
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
-#, fuzzy
 msgid "Get system description"
-msgstr "Nustatyti sistemos laiko juostą"
+msgstr "Gauti sistemos aprašą"
 
 #: src/hostname/org.freedesktop.hostname1.policy:72
-#, fuzzy
 msgid "Authentication is required to get system description."
-msgstr "Norint nustatyti sistemos laiko juostą, reikia nustatyti tapatybę."
+msgstr "Norint gauti sistemos aprašą, reikia nustatyti tapatybę."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
@@ -617,7 +617,7 @@ msgstr "Norint nustatyti sienos pranešimą, reikia nustatyti tapatybę"
 
 #: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
-msgstr ""
+msgstr "Keisti seansą"
 
 #: src/login/org.freedesktop.login1.policy:407
 #, fuzzy
@@ -712,15 +712,13 @@ msgstr "Norint nustatyti sistemos laiką, reikia nustatyti tapatybę."
 
 #: src/network/org.freedesktop.network1.policy:33
 #: src/resolve/org.freedesktop.resolve1.policy:44
-#, fuzzy
 msgid "Set DNS servers"
-msgstr "Registruoti DNS-SD tarnybą"
+msgstr "Nustatyti DNS serverius"
 
 #: src/network/org.freedesktop.network1.policy:34
 #: src/resolve/org.freedesktop.resolve1.policy:45
-#, fuzzy
 msgid "Authentication is required to set DNS servers."
-msgstr "Norint registruoti DNS-SD tarnybą, reikia nustatyti tapatybę"
+msgstr "Norint nustatyti DNS serverius, reikia nustatyti tapatybę."
 
 #: src/network/org.freedesktop.network1.policy:44
 #: src/resolve/org.freedesktop.resolve1.policy:55
@@ -736,25 +734,22 @@ msgstr "Norint stabdyti \"$(unit)\", reikia nustatyti tapatybę."
 #: src/network/org.freedesktop.network1.policy:55
 #: src/resolve/org.freedesktop.resolve1.policy:66
 msgid "Set default route"
-msgstr ""
+msgstr "Nustatyti numatytąjį maršrutą"
 
 #: src/network/org.freedesktop.network1.policy:56
 #: src/resolve/org.freedesktop.resolve1.policy:67
-#, fuzzy
 msgid "Authentication is required to set default route."
-msgstr ""
-"Norint nustatyti vietinio serverio pavadinimą, reikia nustatyti tapatybę."
+msgstr "Norint nustatyti numatytąjį maršrutą, reikia nustatyti tapatybę."
 
 #: src/network/org.freedesktop.network1.policy:66
 #: src/resolve/org.freedesktop.resolve1.policy:77
 msgid "Enable/disable LLMNR"
-msgstr ""
+msgstr "Įjungti/išjungti LLMNR"
 
 #: src/network/org.freedesktop.network1.policy:67
 #: src/resolve/org.freedesktop.resolve1.policy:78
-#, fuzzy
 msgid "Authentication is required to enable or disable LLMNR."
-msgstr "Norint užmigdyti sistemą, reikia nustatyti tapatybę."
+msgstr "Norint įjungti ar išjungti LLMNR, reikia nustatyti tapatybę."
 
 #: src/network/org.freedesktop.network1.policy:77
 #: src/resolve/org.freedesktop.resolve1.policy:88
@@ -770,24 +765,22 @@ msgstr "Norint gauti produkto UUID, reikia nustatyti tapatybę."
 #: src/network/org.freedesktop.network1.policy:88
 #: src/resolve/org.freedesktop.resolve1.policy:99
 msgid "Enable/disable DNS over TLS"
-msgstr ""
+msgstr "Įjungti/išjungti DNS per TLS"
 
 #: src/network/org.freedesktop.network1.policy:89
 #: src/resolve/org.freedesktop.resolve1.policy:100
-#, fuzzy
 msgid "Authentication is required to enable or disable DNS over TLS."
-msgstr "Norint registruoti DNS-SD tarnybą, reikia nustatyti tapatybę"
+msgstr "Norint įjungti ar išjungti DNS per TLS, reikia nustatyti tapatybę."
 
 #: src/network/org.freedesktop.network1.policy:99
 #: src/resolve/org.freedesktop.resolve1.policy:110
 msgid "Enable/disable DNSSEC"
-msgstr ""
+msgstr "Įjungti/išjungti DNSSEC"
 
 #: src/network/org.freedesktop.network1.policy:100
 #: src/resolve/org.freedesktop.resolve1.policy:111
-#, fuzzy
 msgid "Authentication is required to enable or disable DNSSEC."
-msgstr "Norint užmigdyti sistemą, reikia nustatyti tapatybę."
+msgstr "Norint įjungti ar išjungti DNSSEC, reikia nustatyti tapatybę."
 
 #: src/network/org.freedesktop.network1.policy:110
 #: src/resolve/org.freedesktop.resolve1.policy:121
