@@ -41,6 +41,9 @@ struct Manager {
 #endif
 
         VarlinkServer *varlink_server;
+
+        sd_event_source *sigrtmin18_event_source;
+        sd_event_source *memory_pressure_event_source;
 };
 
 int manager_add_machine(Manager *m, const char *name, Machine **_machine);

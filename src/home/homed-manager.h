@@ -53,6 +53,9 @@ struct Manager {
 
         sd_event_source *rebalance_event_source;
 
+        sd_event_source *memory_pressure_event_source;
+        sd_event_source *sigrtmin18_event_source;
+
         Home *gc_focus;
 
         VarlinkServer *varlink_server;
