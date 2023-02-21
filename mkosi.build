@@ -20,147 +20,147 @@ export PATH
 # using the current kernel version. This obviously doesn't work in containers. As a workaround, we override
 # the ubuntu script with a symlink to the first bpftool program we can find.
 for bpftool in /usr/lib/linux-tools/*/bpftool; do
-        [ -x "$bpftool" ] || continue
-        ln -sf "$bpftool" "$BUILDDIR"/bpftool
-        break
+    [ -x "$bpftool" ] || continue
+    ln -sf "$bpftool" "$BUILDDIR"/bpftool
+    break
 done
 
 # CentOS Stream 8 includes bpftool 4.18.0 which is lower than what we need. However, they've backported the
 # specific feature we need ("gen skeleton") to this version, so we replace bpftool with a script that reports
 # version 5.6.0 to satisfy meson which makes bpf work on CentOS Stream 8 as well.
 if [ "$(grep '^ID=' /etc/os-release)" = "ID=\"centos\"" ] && [ "$(grep '^VERSION=' /etc/os-release)" = "VERSION=\"8\"" ]; then
-        cat >"$BUILDDIR"/bpftool <<EOF
+    cat >"$BUILDDIR"/bpftool <<EOF
 #!/bin/sh
 if [ "\$1" = --version ]; then
-        echo 5.6.0
+    echo 5.6.0
 else
-        exec /usr/sbin/bpftool \$@
+    exec /usr/sbin/bpftool \$@
 fi
 EOF
-        chmod +x "$BUILDDIR"/bpftool
+    chmod +x "$BUILDDIR"/bpftool
 fi
 
 if [ ! -f "$BUILDDIR"/build.ninja ] ; then
-        sysvinit_path=$(realpath /etc/init.d)
+    sysvinit_path=$(realpath /etc/init.d)
 
-        init_path=$(realpath /sbin/init 2>/dev/null)
-        if [ -z "$init_path" ] ; then
-                rootprefix=""
-        else
-                rootprefix=${init_path%/lib/systemd/systemd}
-                rootprefix=/${rootprefix#/}
-        fi
+    init_path=$(realpath /sbin/init 2>/dev/null)
+    if [ -z "$init_path" ] ; then
+        rootprefix=""
+    else
+        rootprefix=${init_path%/lib/systemd/systemd}
+        rootprefix=/${rootprefix#/}
+    fi
 
-        # On debian-like systems the library directory is not /usr/lib64 but /usr/lib/<arch-triplet>/.
-        # It is important to use the right one especially for cryptsetup plugins, otherwise they will be
-        # installed in the wrong directory and not be found by cryptsetup. Assume native build.
-        if grep -q -e "ID=debian" -e "ID_LIKE=debian" /etc/os-release && command -v dpkg 2>/dev/null; then
-                LIBDIR="-Drootlibdir=/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)"
-                PAMDIR="-Dpamlibdir=/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)/security"
-        fi
+    # On debian-like systems the library directory is not /usr/lib64 but /usr/lib/<arch-triplet>/.
+    # It is important to use the right one especially for cryptsetup plugins, otherwise they will be
+    # installed in the wrong directory and not be found by cryptsetup. Assume native build.
+    if grep -q -e "ID=debian" -e "ID_LIKE=debian" /etc/os-release && command -v dpkg 2>/dev/null; then
+        LIBDIR="-Drootlibdir=/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)"
+        PAMDIR="-Dpamlibdir=/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)/security"
+    fi
 
-        # Cannot quote $LIBDIR and $PAMDIR, because they may be empty, and meson will fail.
-        # shellcheck disable=SC2086
-        meson setup "$BUILDDIR" \
-                ${LIBDIR:-} \
-                ${PAMDIR:-} \
-                -D "sysvinit-path=$sysvinit_path" \
-                -D "rootprefix=$rootprefix" \
-                -D man=false \
-                -D translations=false \
-                -D version-tag="${VERSION_TAG}" \
-                -D mode=developer \
-                -D b_sanitize="${SANITIZERS:-none}" \
-                -D install-tests=true \
-                -D tests=unsafe \
-                -D slow-tests=true \
-                -D utmp=true \
-                -D hibernate=true \
-                -D ldconfig=true \
-                -D resolve=true \
-                -D efi=true \
-                -D tpm=true \
-                -D environment-d=true \
-                -D binfmt=true \
-                -D repart=true \
-                -D sysupdate=true \
-                -D coredump=true \
-                -D pstore=true \
-                -D oomd=true \
-                -D logind=true \
-                -D hostnamed=true \
-                -D localed=true \
-                -D machined=true \
-                -D portabled=true \
-                -D sysext=true \
-                -D userdb=true \
-                -D homed=true \
-                -D networkd=true \
-                -D timedated=true \
-                -D timesyncd=true \
-                -D remote=true \
-                -D nss-myhostname=true \
-                -D nss-mymachines=true \
-                -D nss-resolve=true \
-                -D nss-systemd=true \
-                -D firstboot=true \
-                -D randomseed=true \
-                -D backlight=true \
-                -D vconsole=true \
-                -D quotacheck=true \
-                -D sysusers=true \
-                -D tmpfiles=true \
-                -D importd=true \
-                -D hwdb=true \
-                -D rfkill=true \
-                -D xdg-autostart=true \
-                -D translations=true \
-                -D polkit=true \
-                -D acl=true \
-                -D audit=true \
-                -D blkid=true \
-                -D fdisk=true \
-                -D kmod=true  \
-                -D pam=true \
-                -D pwquality=true \
-                -D microhttpd=true \
-                -D libcryptsetup=true \
-                -D libcurl=true \
-                -D idn=true \
-                -D libidn2=true \
-                -D qrencode=true \
-                -D gcrypt=true \
-                -D gnutls=true \
-                -D openssl=true \
-                -D cryptolib=openssl \
-                -D p11kit=true \
-                -D libfido2=true \
-                -D tpm2=true \
-                -D elfutils=true \
-                -D zstd=true \
-                -D xkbcommon=true \
-                -D pcre2=true \
-                -D glib=true \
-                -D dbus=true \
-                -D gnu-efi=true \
-                -D kernel-install=true \
-                -D analyze=true \
-                -D bpf-framework=true \
-                -D ukify=true
+    # Cannot quote $LIBDIR and $PAMDIR, because they may be empty, and meson will fail.
+    # shellcheck disable=SC2086
+    meson setup "$BUILDDIR" \
+            ${LIBDIR:-} \
+            ${PAMDIR:-} \
+            -D "sysvinit-path=$sysvinit_path" \
+            -D "rootprefix=$rootprefix" \
+            -D man=false \
+            -D translations=false \
+            -D version-tag="${VERSION_TAG}" \
+            -D mode=developer \
+            -D b_sanitize="${SANITIZERS:-none}" \
+            -D install-tests=true \
+            -D tests=unsafe \
+            -D slow-tests=true \
+            -D utmp=true \
+            -D hibernate=true \
+            -D ldconfig=true \
+            -D resolve=true \
+            -D efi=true \
+            -D tpm=true \
+            -D environment-d=true \
+            -D binfmt=true \
+            -D repart=true \
+            -D sysupdate=true \
+            -D coredump=true \
+            -D pstore=true \
+            -D oomd=true \
+            -D logind=true \
+            -D hostnamed=true \
+            -D localed=true \
+            -D machined=true \
+            -D portabled=true \
+            -D sysext=true \
+            -D userdb=true \
+            -D homed=true \
+            -D networkd=true \
+            -D timedated=true \
+            -D timesyncd=true \
+            -D remote=true \
+            -D nss-myhostname=true \
+            -D nss-mymachines=true \
+            -D nss-resolve=true \
+            -D nss-systemd=true \
+            -D firstboot=true \
+            -D randomseed=true \
+            -D backlight=true \
+            -D vconsole=true \
+            -D quotacheck=true \
+            -D sysusers=true \
+            -D tmpfiles=true \
+            -D importd=true \
+            -D hwdb=true \
+            -D rfkill=true \
+            -D xdg-autostart=true \
+            -D translations=true \
+            -D polkit=true \
+            -D acl=true \
+            -D audit=true \
+            -D blkid=true \
+            -D fdisk=true \
+            -D kmod=true  \
+            -D pam=true \
+            -D pwquality=true \
+            -D microhttpd=true \
+            -D libcryptsetup=true \
+            -D libcurl=true \
+            -D idn=true \
+            -D libidn2=true \
+            -D qrencode=true \
+            -D gcrypt=true \
+            -D gnutls=true \
+            -D openssl=true \
+            -D cryptolib=openssl \
+            -D p11kit=true \
+            -D libfido2=true \
+            -D tpm2=true \
+            -D elfutils=true \
+            -D zstd=true \
+            -D xkbcommon=true \
+            -D pcre2=true \
+            -D glib=true \
+            -D dbus=true \
+            -D gnu-efi=true \
+            -D kernel-install=true \
+            -D analyze=true \
+            -D bpf-framework=true \
+            -D ukify=true
 fi
 
 cd "$BUILDDIR"
 ninja "$@"
 if [ "$WITH_TESTS" = 1 ] ; then
-        if [ -n "$SANITIZERS" ]; then
-                export ASAN_OPTIONS="$ASAN_OPTIONS"
-                export UBSAN_OPTIONS="$UBSAN_OPTIONS"
-                TIMEOUT_MULTIPLIER=3
-        else
-                TIMEOUT_MULTIPLIER=1
-        fi
+    if [ -n "$SANITIZERS" ]; then
+        export ASAN_OPTIONS="$ASAN_OPTIONS"
+        export UBSAN_OPTIONS="$UBSAN_OPTIONS"
+        TIMEOUT_MULTIPLIER=3
+    else
+        TIMEOUT_MULTIPLIER=1
+    fi
 
-        meson test --print-errorlogs --timeout-multiplier=$TIMEOUT_MULTIPLIER
+    meson test --print-errorlogs --timeout-multiplier=$TIMEOUT_MULTIPLIER
 fi
 cd "$SRCDIR"
 
@@ -175,42 +175,42 @@ Kernel \r on an \m (\l)
 EOF
 
 if [ -n "$IMAGE_ID" ] ; then
-        mkdir -p "$DESTDIR"/usr/lib
-        sed -n \
-                -e '/^IMAGE_ID=/!p' \
-                -e "\$aIMAGE_ID=$IMAGE_ID" <"/usr/lib/os-release" >"${DESTDIR}/usr/lib/os-release"
+    mkdir -p "$DESTDIR"/usr/lib
+    sed -n \
+        -e '/^IMAGE_ID=/!p' \
+        -e "\$aIMAGE_ID=$IMAGE_ID" <"/usr/lib/os-release" >"${DESTDIR}/usr/lib/os-release"
 
-        OSRELEASEFILE="$DESTDIR"/usr/lib/os-release
+    OSRELEASEFILE="$DESTDIR"/usr/lib/os-release
 else
-        OSRELEASEFILE=/usr/lib/os-release
+    OSRELEASEFILE=/usr/lib/os-release
 fi
 
 
 if [ -n "$IMAGE_VERSION" ] ; then
-        mkdir -p "$DESTDIR"/usr/lib
-        sed -n \
-                -e '/^IMAGE_VERSION=/!p' \
-                -e "\$aIMAGE_VERSION=$IMAGE_VERSION" <$OSRELEASEFILE >"/tmp/os-release.tmp"
+    mkdir -p "$DESTDIR"/usr/lib
+    sed -n \
+        -e '/^IMAGE_VERSION=/!p' \
+        -e "\$aIMAGE_VERSION=$IMAGE_VERSION" <$OSRELEASEFILE >"/tmp/os-release.tmp"
 
-        cat /tmp/os-release.tmp >"$DESTDIR"/usr/lib/os-release
-        rm /tmp/os-release.tmp
+    cat /tmp/os-release.tmp >"$DESTDIR"/usr/lib/os-release
+    rm /tmp/os-release.tmp
 fi
 
 # If $CI_BUILD is set, copy over the CI service which executes a service check
 # after boot and then shuts down the machine
 if [ -n "$CI_BUILD" ]; then
-        mkdir -p "$DESTDIR/usr/lib/systemd/system"
-        cp -v "$SRCDIR/test/mkosi-check-and-shutdown.service" "$DESTDIR/usr/lib/systemd/system/mkosi-check-and-shutdown.service"
-        cp -v "$SRCDIR/test/mkosi-check-and-shutdown.sh" "$DESTDIR/usr/lib/systemd/mkosi-check-and-shutdown.sh"
-        chmod +x "$DESTDIR/usr/lib/systemd/mkosi-check-and-shutdown.sh"
+    mkdir -p "$DESTDIR/usr/lib/systemd/system"
+    cp -v "$SRCDIR/test/mkosi-check-and-shutdown.service" "$DESTDIR/usr/lib/systemd/system/mkosi-check-and-shutdown.service"
+    cp -v "$SRCDIR/test/mkosi-check-and-shutdown.sh" "$DESTDIR/usr/lib/systemd/mkosi-check-and-shutdown.sh"
+    chmod +x "$DESTDIR/usr/lib/systemd/mkosi-check-and-shutdown.sh"
 fi
 
 if [ -n "$SANITIZERS" ]; then
-        LD_PRELOAD=$(ldd "$BUILDDIR"/systemd | grep libasan.so | awk '{print $3}')
+    LD_PRELOAD=$(ldd "$BUILDDIR"/systemd | grep libasan.so | awk '{print $3}')
 
-        mkdir -p "$DESTDIR/etc/systemd/system.conf.d"
+    mkdir -p "$DESTDIR/etc/systemd/system.conf.d"
 
-        cat >"$DESTDIR/etc/systemd/system.conf.d/10-asan.conf" <<EOF
+    cat >"$DESTDIR/etc/systemd/system.conf.d/10-asan.conf" <<EOF
 [Manager]
 ManagerEnvironment=ASAN_OPTIONS=$ASAN_OPTIONS\\
                    UBSAN_OPTIONS=$UBSAN_OPTIONS\\
@@ -220,24 +220,24 @@ DefaultEnvironment=ASAN_OPTIONS=$ASAN_OPTIONS\\
                    LD_PRELOAD=$LD_PRELOAD
 EOF
 
-        # ASAN logs to stderr by default. However, journald's stderr is connected to /dev/null, so we lose
-        # all the ASAN logs. To rectify that, let's connect journald's stdout to the console so that any
-        # sanitizer failures appear directly on the user's console.
-        mkdir -p "$DESTDIR/etc/systemd/system/systemd-journald.service.d"
+    # ASAN logs to stderr by default. However, journald's stderr is connected to /dev/null, so we lose
+    # all the ASAN logs. To rectify that, let's connect journald's stdout to the console so that any
+    # sanitizer failures appear directly on the user's console.
+    mkdir -p "$DESTDIR/etc/systemd/system/systemd-journald.service.d"
 
-        cat >"$DESTDIR/etc/systemd/system/systemd-journald.service.d/10-stdout-tty.conf" <<EOF
+    cat >"$DESTDIR/etc/systemd/system/systemd-journald.service.d/10-stdout-tty.conf" <<EOF
 [Service]
 StandardOutput=tty
 EOF
 
-        # Both systemd and util-linux's login call vhangup() on /dev/console which disconnects all users.
-        # This means systemd-journald can't log to /dev/console even if we configure `StandardOutput=tty`. As
-        # a workaround, we modify console-getty.service to disable systemd's vhangup() and disallow login
-        # from calling vhangup() so that journald's ASAN logs correctly end up in the console.
+    # Both systemd and util-linux's login call vhangup() on /dev/console which disconnects all users.
+    # This means systemd-journald can't log to /dev/console even if we configure `StandardOutput=tty`. As
+    # a workaround, we modify console-getty.service to disable systemd's vhangup() and disallow login
+    # from calling vhangup() so that journald's ASAN logs correctly end up in the console.
 
-        mkdir -p "$DESTDIR/etc/systemd/system/console-getty.service.d"
+    mkdir -p "$DESTDIR/etc/systemd/system/console-getty.service.d"
 
-        cat >"$DESTDIR/etc/systemd/system/console-getty.service.d/10-no-vhangup.conf" <<EOF
+    cat >"$DESTDIR/etc/systemd/system/console-getty.service.d/10-no-vhangup.conf" <<EOF
 [Service]
 TTYVHangup=no
 CapabilityBoundingSet=~CAP_SYS_TTY_CONFIG
@@ -249,26 +249,26 @@ mkdir -p "$DESTDIR/etc/systemd/system-preset"
 echo "disable *" >"$DESTDIR/etc/systemd/system-preset/99-mkosi.preset"
 
 if [ -d mkosi.kernel/ ]; then
-        cd "$SRCDIR/mkosi.kernel"
-        mkdir -p "$BUILDDIR/mkosi.kernel"
+    cd "$SRCDIR/mkosi.kernel"
+    mkdir -p "$BUILDDIR/mkosi.kernel"
 
-        # Ensure fast incremental builds by fixating these values which usually change for each build.
-        export KBUILD_BUILD_TIMESTAMP="Fri Jun  5 15:58:00 CEST 2015"
-        export KBUILD_BUILD_HOST="mkosi"
+    # Ensure fast incremental builds by fixating these values which usually change for each build.
+    export KBUILD_BUILD_TIMESTAMP="Fri Jun  5 15:58:00 CEST 2015"
+    export KBUILD_BUILD_HOST="mkosi"
 
-        scripts/kconfig/merge_config.sh -O "$BUILDDIR/mkosi.kernel" \
-                ../mkosi.kernel.config \
-                tools/testing/selftests/bpf/config.x86_64 \
-                tools/testing/selftests/bpf/config
+    scripts/kconfig/merge_config.sh -O "$BUILDDIR/mkosi.kernel" \
+            ../mkosi.kernel.config \
+            tools/testing/selftests/bpf/config.x86_64 \
+            tools/testing/selftests/bpf/config
 
-        make O="$BUILDDIR/mkosi.kernel" -j "$(nproc)"
+    make O="$BUILDDIR/mkosi.kernel" -j "$(nproc)"
 
-        KERNEL_RELEASE=$(make O="$BUILDDIR"/mkosi.kernel -s kernelrelease)
-        mkdir -p "$DESTDIR/usr/lib/modules/$KERNEL_RELEASE"
-        make O="$BUILDDIR/mkosi.kernel" INSTALL_MOD_PATH="$DESTDIR/usr" modules_install
-        make O="$BUILDDIR/mkosi.kernel" INSTALL_PATH="$DESTDIR/usr/lib/modules/$KERNEL_RELEASE" install
-        mkdir -p "$DESTDIR/usr/lib/kernel/selftests"
-        make -C tools/testing/selftests -j "$(nproc)" O="$BUILDDIR/mkosi.kernel" KSFT_INSTALL_PATH="$DESTDIR/usr/lib/kernel/selftests" SKIP_TARGETS="" install
+    KERNEL_RELEASE=$(make O="$BUILDDIR"/mkosi.kernel -s kernelrelease)
+    mkdir -p "$DESTDIR/usr/lib/modules/$KERNEL_RELEASE"
+    make O="$BUILDDIR/mkosi.kernel" INSTALL_MOD_PATH="$DESTDIR/usr" modules_install
+    make O="$BUILDDIR/mkosi.kernel" INSTALL_PATH="$DESTDIR/usr/lib/modules/$KERNEL_RELEASE" install
+    mkdir -p "$DESTDIR/usr/lib/kernel/selftests"
+    make -C tools/testing/selftests -j "$(nproc)" O="$BUILDDIR/mkosi.kernel" KSFT_INSTALL_PATH="$DESTDIR/usr/lib/kernel/selftests" SKIP_TARGETS="" install
 
-        ln -sf /usr/lib/kernel/selftests/bpf/bpftool "$DESTDIR/usr/bin/bpftool"
+    ln -sf /usr/lib/kernel/selftests/bpf/bpftool "$DESTDIR/usr/bin/bpftool"
 fi
