@@ -252,7 +252,7 @@ fi
 
 export KERNEL_INSTALL_IMAGE_TYPE=""
 if [ -f "$1" ]; then
-    KERNEL_INSTALL_IMAGE_TYPE="$(bootctl kernel-identify "$1")"
+    KERNEL_INSTALL_IMAGE_TYPE="$(bootctl kernel-identify "$1" 2>/dev/null || echo "unknown")"
 fi
 
 if [ "$layout" = "auto" ] || [ -z "$layout" ]; then
