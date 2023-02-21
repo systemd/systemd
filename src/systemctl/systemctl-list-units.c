@@ -6,6 +6,7 @@
 #include "bus-locator.h"
 #include "format-table.h"
 #include "locale-util.h"
+#include "path-util.h"
 #include "set.h"
 #include "sort-util.h"
 #include "systemctl-list-units.h"
@@ -101,6 +102,26 @@ static void output_legend(const char *type, size_t n_items) {
                 printf("Pass --all to see loaded but inactive %ss, too.\n", type);
 }
 
+static int table_add_triggered(Table *table, char **triggered) {
+        assert(table);
+
+        if (strv_isempty(triggered))
+                return table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+        else if (strv_length(triggered) == 1)
+                return table_add_cell(table, NULL, TABLE_STRING, triggered[0]);
+        else
+                /* This should never happen, currently our socket units can only trigger a
+                 * single unit. But let's handle this anyway, who knows what the future
+                 * brings? */
+                return table_add_cell(table, NULL, TABLE_STRV, triggered);
+}
+
+static char *format_unit_id(const char *unit, const char *machine) {
+        assert(unit);
+
+        return machine ? strjoin(machine, ":", unit) : strdup(unit);
+}
+
 static int output_units_list(const UnitInfo *unit_infos, size_t c) {
         _cleanup_(table_unrefp) Table *table = NULL;
         size_t job_count = 0;
@@ -123,9 +144,8 @@ static int output_units_list(const UnitInfo *unit_infos, size_t c) {
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         for (const UnitInfo *u = unit_infos; unit_infos && (size_t) (u - unit_infos) < c; u++) {
-                _cleanup_free_ char *j = NULL;
-                const char *on_underline = "", *on_loaded = "", *on_active = "";
-                const char *on_circle = "", *id;
+                _cleanup_free_ char *id = NULL;
+                const char *on_underline = "", *on_loaded = "", *on_active = "", *on_circle = "";
                 bool circle = false, underline = false;
 
                 if (u + 1 < unit_infos + c &&
@@ -148,14 +168,9 @@ static int output_units_list(const UnitInfo *unit_infos, size_t c) {
                         on_loaded = on_underline;
                 }
 
-                if (u->machine) {
-                        j = strjoin(u->machine, ":", u->id);
-                        if (!j)
-                                return log_oom();
-
-                        id = j;
-                } else
-                        id = u->id;
+                id = format_unit_id(u->id, u->machine);
+                if (!id)
+                        return log_oom();
 
                 r = table_add_many(table,
                                    TABLE_STRING, circle ? special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE) : " ",
@@ -384,33 +399,20 @@ static int output_sockets_list(struct socket_info *socket_infos, size_t cs) {
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         for (struct socket_info *s = socket_infos; s < socket_infos + cs; s++) {
-                _cleanup_free_ char *j = NULL;
-                const char *path;
+                _cleanup_free_ char *unit = NULL;
 
-                if (s->machine) {
-                        j = strjoin(s->machine, ":", s->path);
-                        if (!j)
-                                return log_oom();
-                        path = j;
-                } else
-                        path = s->path;
+                unit = format_unit_id(s->id, s->machine);
+                if (!unit)
+                        return log_oom();
 
                 r = table_add_many(table,
-                                        TABLE_STRING, path,
+                                        TABLE_STRING, s->path,
                                         TABLE_STRING, s->type,
-                                        TABLE_STRING, s->id);
+                                        TABLE_STRING, unit);
                 if (r < 0)
                         return table_log_add_error(r);
 
-                if (strv_isempty(s->triggered))
-                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
-                else if (strv_length(s->triggered) == 1)
-                        r = table_add_cell(table, NULL, TABLE_STRING, s->triggered[0]);
-                else
-                        /* This should never happen, currently our socket units can only trigger a
-                                * single unit. But let's handle this anyway, who knows what the future
-                                * brings? */
-                        r = table_add_cell(table, NULL, TABLE_STRV, s->triggered);
+                r = table_add_triggered(table, s->triggered);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -615,19 +617,10 @@ static int output_timers_list(struct timer_info *timer_infos, size_t n) {
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         for (struct timer_info *t = timer_infos; t < timer_infos + n; t++) {
-                _cleanup_free_ char *j = NULL, *activates = NULL;
-                const char *unit;
+                _cleanup_free_ char *unit = NULL;
 
-                if (t->machine) {
-                        j = strjoin(t->machine, ":", t->id);
-                        if (!j)
-                                return log_oom();
-                        unit = j;
-                } else
-                        unit = t->id;
-
-                activates = strv_join(t->triggered, ", ");
-                if (!activates)
+                unit = format_unit_id(t->id, t->machine);
+                if (!unit)
                         return log_oom();
 
                 r = table_add_many(table,
@@ -635,8 +628,11 @@ static int output_timers_list(struct timer_info *timer_infos, size_t n) {
                                    TABLE_TIMESTAMP_RELATIVE, t->next_elapse,
                                    TABLE_TIMESTAMP, t->last_trigger,
                                    TABLE_TIMESTAMP_RELATIVE, t->last_trigger,
-                                   TABLE_STRING, unit,
-                                   TABLE_STRING, activates);
+                                   TABLE_STRING, unit);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_triggered(table, t->triggered);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -847,16 +843,11 @@ static int output_automounts_list(struct automount_info *infos, size_t n_infos) 
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         for (struct automount_info *info = infos; info < infos + n_infos; info++) {
-                _cleanup_free_ char *j = NULL;
-                const char *unit;
+                _cleanup_free_ char *unit = NULL;
 
-                if (info->machine) {
-                        j = strjoin(info->machine, ":", info->id);
-                        if (!j)
-                                return log_oom();
-                        unit = j;
-                } else
-                        unit = info->id;
+                unit = format_unit_id(info->id, info->machine);
+                if (!unit)
+                        return log_oom();
 
                 r = table_add_many(table,
                                    TABLE_STRING, info->what,
@@ -931,4 +922,216 @@ int verb_list_automounts(int argc, char *argv[], void *userdata) {
         }
 
         return r;
+}
+
+struct path_info {
+        const char *machine;
+        const char *id;
+
+        char *path;
+        char *condition;
+
+        /* Note: triggered is a list here, although it almost certainly will always be one
+         * unit. Nevertheless, dbus API allows for multiple values, so let's follow that. */
+        char** triggered;
+};
+
+struct path_infos {
+        size_t count;
+        struct path_info *items;
+};
+
+static int path_info_compare(const struct path_info *a, const struct path_info *b) {
+        int r;
+
+        assert(a);
+        assert(b);
+
+        r = strcasecmp_ptr(a->machine, b->machine);
+        if (r != 0)
+                return r;
+
+        r = path_compare(a->path, b->path);
+        if (r != 0)
+                return r;
+
+        r = strcmp(a->condition, b->condition);
+        if (r != 0)
+                return r;
+
+        return strcasecmp_ptr(a->id, b->id);
+}
+
+static void path_infos_done(struct path_infos *ps) {
+        assert(ps);
+        assert(ps->items || ps->count == 0);
+
+        for (struct path_info *p = ps->items; p < ps->items + ps->count; p++) {
+                free(p->condition);
+                free(p->path);
+                strv_free(p->triggered);
+        }
+
+        free(ps->items);
+}
+
+static int get_paths(sd_bus *bus, const char *unit_path, char ***ret_conditions, char ***ret_paths) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_strv_free_ char **conditions = NULL, **paths = NULL;
+        const char *condition, *path;
+        int r, n = 0;
+
+        assert(bus);
+        assert(unit_path);
+        assert(ret_conditions);
+        assert(ret_paths);
+
+        r = sd_bus_get_property(bus,
+                                "org.freedesktop.systemd1",
+                                unit_path,
+                                "org.freedesktop.systemd1.Path",
+                                "Paths",
+                                &error,
+                                &reply,
+                                "a(ss)");
+        if (r < 0)
+                return log_error_errno(r, "Failed to get paths: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ss)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        while ((r = sd_bus_message_read(reply, "(ss)", &condition, &path)) > 0) {
+                if (strv_extend(&conditions, condition) < 0)
+                        return log_oom();
+
+                if (strv_extend(&paths, path) < 0)
+                        return log_oom();
+
+                n++;
+        }
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        *ret_conditions = TAKE_PTR(conditions);
+        *ret_paths = TAKE_PTR(paths);
+
+        return n;
+}
+
+static int output_paths_list(struct path_infos *ps) {
+        _cleanup_(table_unrefp) Table *table = NULL;
+        int r;
+
+        assert(ps);
+        assert(ps->items || ps->count == 0);
+
+        table = table_new("path", "condition", "unit", "activates");
+        if (!table)
+                return log_oom();
+
+        table_set_header(table, arg_legend != 0);
+        if (arg_full)
+                table_set_width(table, 0);
+
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+
+        for (struct path_info *p = ps->items; p < ps->items + ps->count; p++) {
+                _cleanup_free_ char *unit = NULL;
+
+                unit = format_unit_id(p->id, p->machine);
+                if (!unit)
+                        return log_oom();
+
+                r = table_add_many(table,
+                                   TABLE_STRING, p->path,
+                                   TABLE_STRING, p->condition,
+                                   TABLE_STRING, unit);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_triggered(table, p->triggered);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        r = output_table(table);
+        if (r < 0)
+                return r;
+
+        if (arg_legend != 0)
+                output_legend("path", ps->count);
+
+        return 0;
+}
+
+int verb_list_paths(int argc, char *argv[], void *userdata) {
+        _cleanup_(message_set_freep) Set *replies = NULL;
+        _cleanup_strv_free_ char **machines = NULL, **units = NULL;
+        _cleanup_free_ UnitInfo *unit_infos = NULL;
+        _cleanup_(path_infos_done) struct path_infos path_infos = {};
+        int r, n;
+        sd_bus *bus;
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
+
+        pager_open(arg_pager_flags);
+
+        r = expand_unit_names(bus, strv_skip(argv, 1), ".path", &units, NULL);
+        if (r < 0)
+                return r;
+
+        if (argc == 1 || units) {
+                n = get_unit_list_recursive(bus, units, &unit_infos, &replies, &machines);
+                if (n < 0)
+                        return n;
+
+                for (const UnitInfo *u = unit_infos; u < unit_infos + n; u++) {
+                        _cleanup_strv_free_ char **conditions = NULL, **paths = NULL, **triggered = NULL;
+                        int c;
+
+                        if (!endswith(u->id, ".path"))
+                                continue;
+
+                        r = get_triggered_units(bus, u->unit_path, &triggered);
+                        if (r < 0)
+                                return r;
+
+                        c = get_paths(bus, u->unit_path, &conditions, &paths);
+                        if (c < 0)
+                                return c;
+
+                        if (!GREEDY_REALLOC(path_infos.items, path_infos.count + c))
+                                return log_oom();
+
+                        for (int i = c - 1; i >= 0; i--) {
+                                char **t;
+
+                                t = strv_copy(triggered);
+                                if (!t)
+                                        return log_oom();
+
+                                path_infos.items[path_infos.count++] = (struct path_info) {
+                                        .machine = u->machine,
+                                        .id = u->id,
+                                        .condition = TAKE_PTR(conditions[i]),
+                                        .path = TAKE_PTR(paths[i]),
+                                        .triggered = t,
+                                };
+                        }
+                }
+
+                typesafe_qsort(path_infos.items, path_infos.count, path_info_compare);
+        }
+
+        output_paths_list(&path_infos);
+
+        return 0;
 }

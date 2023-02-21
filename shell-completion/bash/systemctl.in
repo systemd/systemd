@@ -216,7 +216,7 @@ _systemctl () {
                              suspend-then-hibernate kexec list-jobs list-sockets
                              list-timers list-units list-unit-files poweroff
                              reboot rescue show-environment suspend get-default
-                             is-system-running preset-all list-automounts'
+                             is-system-running preset-all list-automounts list-paths'
         [FILE]='link switch-root bind mount-image'
         [TARGETS]='set-default'
         [MACHINES]='list-machines'
