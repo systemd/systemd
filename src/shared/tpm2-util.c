@@ -748,6 +748,14 @@ size_t tpm2_tpml_pcr_selection_weight(const TPML_PCR_SELECTION *l) {
         return weight;
 }
 
+static void tpm2_log_debug_tpml_pcr_selection(const TPML_PCR_SELECTION *l, const char *msg) {
+        if (!DEBUG_LOGGING || !l)
+                return;
+
+        _cleanup_free_ char *s = tpm2_tpml_pcr_selection_to_string(l);
+        log_debug("%s: %s", msg ?: "PCR selection", strna(s));
+}
+
 static void tpm2_log_debug_buffer(const void *buffer, size_t size, const char *msg) {
         if (!DEBUG_LOGGING || !buffer || size == 0)
                 return;
@@ -796,26 +804,82 @@ static int tpm2_get_policy_digest(
         return 0;
 }
 
-static unsigned find_nth_bit(uint32_t mask, unsigned n) {
-        uint32_t bit = 1;
+static int tpm2_pcr_read(
+                Tpm2Context *c,
+                const TPML_PCR_SELECTION *pcr_selection,
+                TPML_PCR_SELECTION *ret_pcr_selection,
+                TPM2B_DIGEST **ret_pcr_values,
+                size_t *ret_pcr_values_size) {
 
-        assert(n < 32);
+        _cleanup_free_ TPM2B_DIGEST *pcr_values = NULL;
+        TPML_PCR_SELECTION remaining, total_read = {};
+        size_t pcr_values_size = 0;
+        TSS2_RC rc;
 
-        /* Returns the bit index of the nth set bit, e.g. mask=0b101001, n=3 → 5 */
+        assert(c);
+        assert(pcr_selection);
 
-        for (unsigned i = 0; i < sizeof(mask)*8; i++) {
+        remaining = *pcr_selection;
+        while (!tpm2_tpml_pcr_selection_is_empty(&remaining)) {
+                _cleanup_(Esys_Freep) TPML_PCR_SELECTION *current_read = NULL;
+                _cleanup_(Esys_Freep) TPML_DIGEST *current_values = NULL;
 
-                if (bit & mask) {
-                        if (n == 0)
-                                return i;
+                tpm2_log_debug_tpml_pcr_selection(&remaining, "Reading PCR selection");
 
-                        n--;
+                /* Unfortunately, PCR_Read will not return more than 8 values. */
+                rc = sym_Esys_PCR_Read(
+                                c->esys_context,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE,
+                                &remaining,
+                                NULL,
+                                &current_read,
+                                &current_values);
+                if (rc != TSS2_RC_SUCCESS)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to read TPM2 PCRs: %s", sym_Tss2_RC_Decode(rc));
+
+                if (tpm2_tpml_pcr_selection_is_empty(current_read)) {
+                        log_warning("TPM2 refused to read possibly unimplemented PCRs, ignoring.");
+                        break;
                 }
 
-                bit <<= 1;
+                tpm2_tpml_pcr_selection_sub(&remaining, current_read);
+                tpm2_tpml_pcr_selection_add(&total_read, current_read);
+
+                if (!GREEDY_REALLOC(pcr_values, pcr_values_size + current_values->count))
+                        return log_oom();
+
+                memcpy_safe(&pcr_values[pcr_values_size], current_values->digests,
+                            current_values->count * sizeof(TPM2B_DIGEST));
+                pcr_values_size += current_values->count;
+
+                if (DEBUG_LOGGING) {
+                        unsigned i = 0;
+                        FOREACH_PCR_IN_TPML_PCR_SELECTION(pcr, s, current_read) {
+                                assert(i < current_values->count);
+
+                                TPM2B_DIGEST *d = &current_values->digests[i];
+                                i++;
+
+                                TPML_PCR_SELECTION l;
+                                tpm2_tpml_pcr_selection_from_mask(INDEX_TO_MASK(uint32_t, pcr), s->hash, &l);
+
+                                _cleanup_free_ char *desc = tpm2_tpml_pcr_selection_to_string(&l);
+                                tpm2_log_debug_digest(d, strna(desc));
+                        }
+                }
         }
 
-        return UINT_MAX;
+        if (ret_pcr_selection)
+                *ret_pcr_selection = total_read;
+        if (ret_pcr_values)
+                *ret_pcr_values = TAKE_PTR(pcr_values);
+        if (ret_pcr_values_size)
+                *ret_pcr_values_size = pcr_values_size;
+
+        return 0;
 }
 
 static int tpm2_pcr_mask_good(
@@ -823,10 +887,10 @@ static int tpm2_pcr_mask_good(
                 TPMI_ALG_HASH bank,
                 uint32_t mask) {
 
-        _cleanup_(Esys_Freep) TPML_DIGEST *pcr_values = NULL;
+        _cleanup_free_ TPM2B_DIGEST *pcr_values = NULL;
         TPML_PCR_SELECTION selection;
-        bool good = false;
-        TSS2_RC rc;
+        size_t pcr_values_size = 0;
+        int r;
 
         assert(c);
 
@@ -836,38 +900,23 @@ static int tpm2_pcr_mask_good(
 
         tpm2_tpml_pcr_selection_from_mask(mask, bank, &selection);
 
-        rc = sym_Esys_PCR_Read(
-                        c->esys_context,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        &selection,
-                        NULL,
-                        NULL,
-                        &pcr_values);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to read TPM2 PCRs: %s", sym_Tss2_RC_Decode(rc));
+        r = tpm2_pcr_read(c, &selection, &selection, &pcr_values, &pcr_values_size);
+        if (r < 0)
+                return r;
 
         /* If at least one of the selected PCR values is something other than all 0x00 or all 0xFF we are happy. */
-        for (unsigned i = 0; i < pcr_values->count; i++) {
-                if (DEBUG_LOGGING) {
-                        _cleanup_free_ char *h = NULL;
-                        unsigned j;
+        unsigned i = 0;
+        FOREACH_PCR_IN_TPML_PCR_SELECTION(pcr, s, &selection) {
+                assert(i < pcr_values_size);
 
-                        h = hexmem(pcr_values->digests[i].buffer, pcr_values->digests[i].size);
-                        j = find_nth_bit(mask, i);
-                        assert(j != UINT_MAX);
+                if (!memeqbyte(0x00, pcr_values[i].buffer, pcr_values[i].size) &&
+                    !memeqbyte(0xFF, pcr_values[i].buffer, pcr_values[i].size))
+                        return true;
 
-                        log_debug("PCR %u value: %s", j, strna(h));
-                }
-
-                if (!memeqbyte(0x00, pcr_values->digests[i].buffer, pcr_values->digests[i].size) &&
-                    !memeqbyte(0xFF, pcr_values->digests[i].buffer, pcr_values->digests[i].size))
-                        good = true;
+                i++;
         }
 
-        return good;
+        return false;
 }
 
 static int tpm2_bank_has24(const TPMS_PCR_SELECTION *selection) {
