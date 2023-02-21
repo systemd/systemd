@@ -1020,8 +1020,6 @@ endforeach
 conf.set10('ENABLE_DEBUG_HASHMAP', enable_debug_hashmap)
 conf.set10('ENABLE_DEBUG_MMAP_CACHE', enable_debug_mmap_cache)
 conf.set10('ENABLE_DEBUG_SIPHASH', enable_debug_siphash)
-
-conf.set10('VALGRIND', get_option('valgrind'))
 conf.set10('LOG_TRACE', get_option('log-trace'))
 
 default_user_path = get_option('user-path')
@@ -4609,7 +4607,6 @@ foreach tuple : [
         ['debug hashmap'],
         ['debug mmap cache'],
         ['debug siphash'],
-        ['valgrind',               conf.get('VALGRIND') == 1],
         ['trace logging',          conf.get('LOG_TRACE') == 1],
         ['install tests',          install_tests],
         ['link-udev-shared',       get_option('link-udev-shared')],

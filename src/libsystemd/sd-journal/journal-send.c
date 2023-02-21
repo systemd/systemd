@@ -7,7 +7,7 @@
 #include <sys/un.h>
 #include <unistd.h>
 #if HAVE_VALGRIND_VALGRIND_H
-#include <valgrind/valgrind.h>
+#  include <valgrind/valgrind.h>
 #endif
 
 #define SD_JOURNAL_SUPPRESS_LOCATION
@@ -77,9 +77,9 @@ int journal_fd_nonblock(bool nonblock) {
         return fd_nonblock(r, nonblock);
 }
 
-#if VALGRIND
 void close_journal_fd(void) {
-        /* Be nice to valgrind. This is not atomic. This must be used only in tests. */
+#if HAVE_VALGRIND_VALGRIND_H
+        /* Be nice to valgrind. This is not atomic, so it is useful mainly for debugging. */
 
         if (!RUNNING_ON_VALGRIND)
                 return;
@@ -92,8 +92,8 @@ void close_journal_fd(void) {
 
         safe_close(fd_plus_one - 1);
         fd_plus_one = 0;
-}
 #endif
+}
 
 _public_ int sd_journal_print(int priority, const char *format, ...) {
         int r;
