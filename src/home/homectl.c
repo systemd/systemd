@@ -3638,6 +3638,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 r = drop_from_identity("rebalanceWeight");
                                 if (r < 0)
                                         return r;
+                                break;
                         }
 
                         if (streq(optarg, "off"))
@@ -3720,6 +3721,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 r = drop_from_identity("dropCaches");
                                 if (r < 0)
                                         return r;
+                                break;
                         }
 
                         r = parse_boolean_argument("--drop-caches=", optarg, &drop_caches);

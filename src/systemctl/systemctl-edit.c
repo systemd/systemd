@@ -457,7 +457,7 @@ static int find_paths_to_edit(
                 return r;
 
         STRV_FOREACH(name, names) {
-                _cleanup_free_ char *path = NULL, *tmp_name = NULL;
+                _cleanup_free_ char *path = NULL;
                 _cleanup_strv_free_ char **unit_paths = NULL;
 
                 r = unit_find_paths(bus, *name, &lp, false, &cached_name_map, &cached_id_map, &path, &unit_paths);
@@ -501,7 +501,7 @@ static int find_paths_to_edit(
                         /* We follow unit aliases, but we need to propagate the instance */
                         if (unit_name_is_valid(*name, UNIT_NAME_INSTANCE) &&
                             unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
-                                _cleanup_free_ char *instance = NULL;
+                                _cleanup_free_ char *instance = NULL, *tmp_name = NULL;
 
                                 r = unit_name_to_instance(*name, &instance);
                                 if (r < 0)
@@ -511,7 +511,7 @@ static int find_paths_to_edit(
                                 if (r < 0)
                                         return r;
 
-                                unit_name = tmp_name;
+                                free_and_replace(unit_name, tmp_name);
                         }
 
                         if (arg_full)

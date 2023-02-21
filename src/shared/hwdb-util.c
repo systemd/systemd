@@ -21,8 +21,7 @@
 #include "strv.h"
 #include "tmpfile-util.h"
 
-static const char *default_hwdb_bin_dir = "/etc/udev";
-static const char * const conf_file_dirs[] = {
+static const char* const conf_file_dirs[] = {
         "/etc/udev/hwdb.d",
         UDEVLIBEXECDIR "/hwdb.d",
         NULL
@@ -634,7 +633,7 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
         log_debug("strings dedup'ed: %8zu bytes (%8zu)",
                   trie->strings->dedup_len, trie->strings->dedup_count);
 
-        hwdb_bin = path_join(root, hwdb_bin_dir ?: default_hwdb_bin_dir, "hwdb.bin");
+        hwdb_bin = path_join(root, hwdb_bin_dir ?: "/etc/udev", "hwdb.bin");
         if (!hwdb_bin)
                 return -ENOMEM;
 

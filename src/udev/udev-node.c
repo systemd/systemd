@@ -110,12 +110,14 @@ static int stack_directory_read_one(int dirfd, const char *id, char **devnode, i
 
         assert(dirfd >= 0);
         assert(id);
-        assert(devnode);
         assert(priority);
+
+        /* This reads priority and device node from the symlink under /run/udev/links (or udev database).
+         * If 'devnode' is NULL, obtained priority is always set to '*priority'. If 'devnode' is non-NULL,
+         * this updates '*devnode' and '*priority'. */
 
         /* First, let's try to read the entry with the new format, which should replace the old format pretty
          * quickly. */
-
         r = readlinkat_malloc(dirfd, id, &buf);
         if (r >= 0) {
                 char *colon;
@@ -139,6 +141,9 @@ static int stack_directory_read_one(int dirfd, const char *id, char **devnode, i
                 if (r < 0)
                         return r;
 
+                if (!devnode)
+                        goto finalize;
+
                 if (*devnode && tmp_prio <= *priority)
                         return 0; /* Unchanged */
 
@@ -160,6 +165,9 @@ static int stack_directory_read_one(int dirfd, const char *id, char **devnode, i
                 if (r < 0)
                         return r;
 
+                if (!devnode)
+                        goto finalize;
+
                 if (*devnode && tmp_prio <= *priority)
                         return 0; /* Unchanged */
 
@@ -174,6 +182,7 @@ static int stack_directory_read_one(int dirfd, const char *id, char **devnode, i
         } else
                 return r == -ENOENT ? -ENODEV : r;
 
+finalize:
         *priority = tmp_prio;
         return 1; /* Updated */
 }
@@ -181,7 +190,7 @@ static int stack_directory_read_one(int dirfd, const char *id, char **devnode, i
 static int stack_directory_find_prioritized_devnode(sd_device *dev, int dirfd, bool add, char **ret) {
         _cleanup_closedir_ DIR *dir = NULL;
         _cleanup_free_ char *devnode = NULL;
-        int r, priority = 0;
+        int r, priority;
         const char *id;
 
         assert(dev);

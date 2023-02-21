@@ -79,7 +79,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b
-    - uses: systemd/mkosi@4be912b0fa4931403fddf649aa242cd4406471c4
+    - uses: systemd/mkosi@1d131062066fe7b5a83b87319b4464b186adbb1c
 
     - name: Configure
       run: |
@@ -106,12 +106,25 @@ jobs:
       run: mkosi summary
 
     - name: Boot ${{ matrix.distro }} systemd-nspawn
-      run: sudo mkosi boot ${{ env.KERNEL_CMDLINE }} audit=0
+      run: |
+        STATUS=0
+        sudo strace -f -Z -o strace mkosi boot ${{ env.KERNEL_CMDLINE }} audit=0 || STATUS=$?
+        if [ $STATUS -ne 0 ]; then
+          cat strace
+        fi
+        exit $STATUS
       env:
         SYSTEMD_LOG_LEVEL: debug
 
     - name: Check ${{ matrix.distro }} systemd-nspawn
-      run: sudo mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
+      run: |
+        STATUS=0
+        sudo strace -f -Z -o strace mkosi shell bash -c "[[ -e /testok ]] || STATUS=$?"
+        if [ $STATUS -ne 0 ]; then
+          cat /failed-services
+          cat strace
+        fi
+        exit $STATUS
       env:
         SYSTEMD_LOG_LEVEL: debug
 
@@ -119,6 +132,13 @@ jobs:
       run: timeout -k 30 10m mkosi qemu
 
     - name: Check ${{ matrix.distro }} QEMU
-      run: sudo mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
+      run: |
+        STATUS=0
+        sudo strace -f -Z -o strace mkosi shell bash -c "[[ -e /testok ]] || STATUS=$?"
+        if [ $STATUS -ne 0 ]; then
+          cat /failed-services
+          cat strace
+        fi
+        exit $STATUS
       env:
         SYSTEMD_LOG_LEVEL: debug

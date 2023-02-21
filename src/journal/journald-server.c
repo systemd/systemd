@@ -873,10 +873,6 @@ static bool shall_try_append_again(JournalFile *f, int r) {
                 log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Journal file has been deleted, rotating.", f->path);
                 return true;
 
-        case -ETXTBSY:         /* Journal file is from the future */
-                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Journal file is from the future, rotating.", f->path);
-                return true;
-
         case -EREMCHG:         /* Wallclock time (CLOCK_REALTIME) jumped backwards relative to last journal entry */
                 log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Realtime clock jumped backwards relative to last journal entry, rotating.", f->path);
                 return true;
@@ -886,7 +882,7 @@ static bool shall_try_append_again(JournalFile *f, int r) {
                 return true;
 
         case -ENOTNAM:         /* Monotonic time (CLOCK_MONOTONIC) jumped backwards relative to last journal entry */
-                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Montonic clock jumped backwards relative to last journal entry, rotating.", f->path);
+                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Monotonic clock jumped backwards relative to last journal entry, rotating.", f->path);
                 return true;
 
         case -EILSEQ:          /* seqnum ID last used in the file doesn't match the one we'd passed when writing an entry to it */

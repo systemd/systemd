@@ -6,7 +6,8 @@
 #include "tmpfile-util-label.h"
 #include "tmpfile-util.h"
 
-int fopen_temporary_label(
+int fopen_temporary_at_label(
+                int dir_fd,
                 const char *target,
                 const char *path,
                 FILE **f,
@@ -14,13 +15,14 @@ int fopen_temporary_label(
 
         int r;
 
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(path);
 
-        r = mac_selinux_create_file_prepare(target, S_IFREG);
+        r = mac_selinux_create_file_prepare_at(dir_fd, target, S_IFREG);
         if (r < 0)
                 return r;
 
-        r = fopen_temporary(path, f, temp_path);
+        r = fopen_temporary_at(dir_fd, path, f, temp_path);
 
         mac_selinux_create_file_clear();
 

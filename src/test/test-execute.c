@@ -73,7 +73,7 @@ static void wait_for_service_finish(Manager *m, Unit *unit) {
                 n = now(CLOCK_MONOTONIC);
                 if (ts + timeout < n) {
                         log_error("Test timeout when testing %s", unit->id);
-                        r = unit_kill(unit, KILL_ALL, SIGKILL, NULL);
+                        r = unit_kill(unit, KILL_ALL, SIGKILL, SI_USER, 0, NULL);
                         if (r < 0)
                                 log_error_errno(r, "Failed to kill %s: %m", unit->id);
                         exit(EXIT_FAILURE);
@@ -1267,7 +1267,7 @@ static int prepare_ns(const char *process_name) {
                 assert_se(mkdir_p(PRIVATE_UNIT_DIR, 0755) >= 0);
 
                 /* Mount tmpfs on the following directories to make not StateDirectory= or friends disturb the host. */
-                FOREACH_STRING(p, "/root", "/tmp", "/var/tmp", "/var/lib", PRIVATE_UNIT_DIR)
+                FOREACH_STRING(p, "/dev/shm", "/root", "/tmp", "/var/tmp", "/var/lib", PRIVATE_UNIT_DIR)
                         assert_se(mount_nofollow_verbose(LOG_DEBUG, "tmpfs", p, "tmpfs", MS_NOSUID|MS_NODEV, NULL) >= 0);
 
                 /* Copy unit files to make them accessible even when unprivileged. */

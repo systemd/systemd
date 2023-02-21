@@ -1,34 +1,67 @@
 #!/bin/sh
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-if [ "$1" = "final" ]; then
-    if command -v bootctl >/dev/null && [ -d "/efi" ]; then
-        bootctl install
-    fi
-
-    cat >>/root/.gdbinit <<EOF
-set debuginfod enabled off
-set build-id-verbose 0
-EOF
-
-    if [ -n "$SANITIZERS" ]; then
-        # ASAN and syscall filters aren't compatible with each other.
-        find / -name '*.service' -type f -exec sed -i 's/^\(MemoryDeny\|SystemCall\)/# \1/' {} +
-
-        # `systemd-hwdb update` takes > 50s when built with sanitizers so let's not run it by default.
-        systemctl mask systemd-hwdb-update.service
-    fi
-
-    # Make sure dnsmasq.service doesn't start on boot on Debian/Ubuntu.
-    rm -f /etc/systemd/system/multi-user.target.wants/dnsmasq.service
+if [ "$1" = "build" ]; then
+    exit 0
 fi
 
-# Temporary workaround until https://github.com/openSUSE/suse-module-tools/commit/158643414ddb8d8208016a5f03a4484d58944d7a
-# gets into OpenSUSE repos
-if [ "$1" = "final" ] && grep -q openSUSE /etc/os-release; then
-    if [ -e "/usr/lib/systemd/system/boot-sysctl.service" ] && \
-       ! grep -F -q 'ConditionPathExists=/boot/sysctl.conf' "/usr/lib/systemd/system/boot-sysctl.service"; then
-        mkdir -p "/etc/systemd/system/boot-sysctl.service.d/"
-        printf '[Unit]\nConditionPathExists=/boot/sysctl.conf-%%v' >"/etc/systemd/system/boot-sysctl.service.d/99-temporary-workaround.conf"
-    fi
+if [ -n "$SANITIZERS" ]; then
+    LD_PRELOAD=$(ldd /usr/lib/systemd/systemd | grep libasan.so | awk '{print $3}')
+
+    mkdir -p /etc/systemd/system.conf.d
+
+    cat >/etc/systemd/system.conf.d/10-asan.conf <<EOF
+[Manager]
+ManagerEnvironment=ASAN_OPTIONS=$MKOSI_ASAN_OPTIONS\\
+                   UBSAN_OPTIONS=$MKOSI_UBSAN_OPTIONS\\
+                   LD_PRELOAD=$LD_PRELOAD
+DefaultEnvironment=ASAN_OPTIONS=$MKOSI_ASAN_OPTIONS\\
+                   UBSAN_OPTIONS=$MKOSI_UBSAN_OPTIONS\\
+                   LD_PRELOAD=$LD_PRELOAD
+EOF
+
+    # ASAN logs to stderr by default. However, journald's stderr is connected to /dev/null, so we lose
+    # all the ASAN logs. To rectify that, let's connect journald's stdout to the console so that any
+    # sanitizer failures appear directly on the user's console.
+    mkdir -p /etc/systemd/system/systemd-journald.service.d
+    cat >/etc/systemd/system/systemd-journald.service.d/10-stdout-tty.conf <<EOF
+[Service]
+StandardOutput=tty
+EOF
+
+    # Both systemd and util-linux's login call vhangup() on /dev/console which disconnects all users.
+    # This means systemd-journald can't log to /dev/console even if we configure `StandardOutput=tty`. As
+    # a workaround, we modify console-getty.service to disable systemd's vhangup() and disallow login
+    # from calling vhangup() so that journald's ASAN logs correctly end up in the console.
+
+    mkdir -p /etc/systemd/system/console-getty.service.d
+    cat >/etc/systemd/system/console-getty.service.d/10-no-vhangup.conf <<EOF
+[Service]
+TTYVHangup=no
+CapabilityBoundingSet=~CAP_SYS_TTY_CONFIG
+EOF
+    # ASAN and syscall filters aren't compatible with each other.
+    find / -name '*.service' -type f -exec sed -i 's/^\(MemoryDeny\|SystemCall\)/# \1/' {} +
+
+    # `systemd-hwdb update` takes > 50s when built with sanitizers so let's not run it by default.
+    systemctl mask systemd-hwdb-update.service
+fi
+
+# Make sure dnsmasq.service doesn't start on boot on Debian/Ubuntu.
+rm -f /etc/systemd/system/multi-user.target.wants/dnsmasq.service
+
+if [ -n "$IMAGE_ID" ] ; then
+    sed -n \
+        -i \
+        -e '/^IMAGE_ID=/!p' \
+        -e "\$aIMAGE_ID=$IMAGE_ID" \
+        /usr/lib/os-release
+fi
+
+if [ -n "$IMAGE_VERSION" ] ; then
+    sed -n \
+        -i \
+        -e '/^IMAGE_VERSION=/!p' \
+        -e "\$aIMAGE_VERSION=$IMAGE_VERSION" \
+        /usr/lib/os-release
 fi

@@ -78,7 +78,7 @@ static EFI_STATUS tpm2_measure_to_pcr_and_event_log(
                         tcg_event);
 }
 
-static EFI_TCG *tcg1_interface_check(void) {
+static EFI_TCG* tcg1_interface_check(void) {
         EFI_PHYSICAL_ADDRESS event_log_location, event_log_last_entry;
         TCG_BOOT_SERVICE_CAPABILITY capability = {
                 .Size = sizeof(capability),
@@ -109,7 +109,7 @@ static EFI_TCG *tcg1_interface_check(void) {
         return tcg;
 }
 
-static EFI_TCG2 * tcg2_interface_check(void) {
+static EFI_TCG2* tcg2_interface_check(void) {
         EFI_TCG2_BOOT_SERVICE_CAPABILITY capability = {
                 .Size = sizeof(capability),
         };
@@ -146,7 +146,7 @@ EFI_STATUS tpm_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t 
         EFI_TCG2 *tpm2;
         EFI_STATUS err;
 
-        assert(description);
+        assert(description || pcrindex == UINT32_MAX);
 
         /* If EFI_SUCCESS is returned, will initialize ret_measured to true if we actually measured
          * something, or false if measurement was turned off. */

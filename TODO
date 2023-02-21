@@ -129,6 +129,17 @@ Deprecations and removals:
 
 Features:
 
+* landlock: lock down RuntimeDirectory= via landlock, so that services lose
+  ability to write anywehere else below /run/. Similar for
+  StateDirectory=. Benefit would be clear delegation via unit files: services
+  get the directories they get, and nothing else even if they wanted to.
+
+* landlock: for unprivileged systemd (i.e. systemd --user), use landlock to
+  implement ProtectSystem=, ProtectHome= and so on. Landlock does not require
+  privs, and we can implement pretty similar behaviour. Also, maybe add a mode
+  where ProtectSystem= combined with an explicit PrivateMounts=no could request
+  similar behaviour for system services, too.
+
 * Add systemd-mount@.service which is instantiated for a block device and
   invokes systemd-mount and exits. This is then useful to use in
   ENV{SYSTEMD_WANTS} in udev rules, and a bit prettier than using RUN+=
@@ -521,10 +532,6 @@ Features:
 * systemd-measure: add --pcrpkey-auto as an alternative to --pcrpkey=, where it
   would just use the same public key specified with --public-key= (or the one
   automatically derived from --private-key=).
-
-* tmpfiles: add new line type for setting btrfs subvolume attributes (i.e. rw/ro)
-
-* tmpfiles: add new line type for setting fcaps
 
 * push people to use ".sysext.raw" as suffix for sysext DDIs (DDI =
   discoverable disk images, i.e. the new name for gpt disk images following the
@@ -2328,6 +2335,7 @@ Features:
 
 * tmpfiles:
   - apply "x" on "D" too (see patch from William Douglas)
+  - allow time-based cleanup in r and R too
   - instead of ignoring unknown fields, reject them.
   - creating new directories/subvolumes/fifos/device nodes
     should not follow symlinks. None of the other adjustment or creation
@@ -2336,6 +2344,8 @@ Features:
   - teach tmpfiles.d q/Q logic something sensible in the context of XFS/ext4
     project quota
   - teach tmpfiles.d m/M to move / atomic move + symlink old -> new
+  - add new line type for setting btrfs subvolume attributes (i.e. rw/ro)
+  - tmpfiles: add new line type for setting fcaps
 
 * udev-link-config:
    - Make sure ID_PATH is always exported and complete for

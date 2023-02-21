@@ -9,7 +9,15 @@
 #include "macro.h"
 #include "missing_capability.h"
 
-#define CAP_ALL UINT64_MAX
+/* Special marker used when storing a capabilities mask as "unset" */
+#define CAP_MASK_UNSET UINT64_MAX
+
+/* All possible capabilities bits on */
+#define CAP_MASK_ALL UINT64_C(0x7fffffffffffffff)
+
+/* The largest capability we can deal with, given we want to be able to store cap masks in uint64_t but still
+ * be able to use UINT64_MAX as indicator for "not set". The latter makes capability 63 unavailable. */
+#define CAP_LIMIT 62
 
 unsigned cap_last_cap(void);
 int have_effective_cap(int value);
@@ -59,14 +67,14 @@ typedef struct CapabilityQuintet {
 
 assert_cc(CAP_LAST_CAP < 64);
 
-#define CAPABILITY_QUINTET_NULL { UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX }
+#define CAPABILITY_QUINTET_NULL { CAP_MASK_UNSET, CAP_MASK_UNSET, CAP_MASK_UNSET, CAP_MASK_UNSET, CAP_MASK_UNSET }
 
 static inline bool capability_quintet_is_set(const CapabilityQuintet *q) {
-        return q->effective != UINT64_MAX ||
-                q->bounding != UINT64_MAX ||
-                q->inheritable != UINT64_MAX ||
-                q->permitted != UINT64_MAX ||
-                q->ambient != UINT64_MAX;
+        return q->effective != CAP_MASK_UNSET ||
+                q->bounding != CAP_MASK_UNSET ||
+                q->inheritable != CAP_MASK_UNSET ||
+                q->permitted != CAP_MASK_UNSET ||
+                q->ambient != CAP_MASK_UNSET;
 }
 
 /* Mangles the specified caps quintet taking the current bounding set into account:

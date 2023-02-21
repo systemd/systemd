@@ -3829,11 +3829,24 @@ static int manager_run_generators(Manager *m) {
         }
 
         r = safe_fork("(sd-gens)",
-                      FORK_RESET_SIGNALS | FORK_LOG | FORK_WAIT | FORK_NEW_MOUNTNS | FORK_MOUNTNS_SLAVE | FORK_PRIVATE_TMP,
+                      FORK_RESET_SIGNALS | FORK_WAIT | FORK_NEW_MOUNTNS | FORK_MOUNTNS_SLAVE | FORK_PRIVATE_TMP,
                       NULL);
         if (r == 0) {
                 r = manager_execute_generators(m, paths, /* remount_ro= */ true);
                 _exit(r >= 0 ? EXIT_SUCCESS : EXIT_FAILURE);
+        }
+        if (r < 0) {
+                if (!ERRNO_IS_PRIVILEGE(r)) {
+                        log_error_errno(r, "Failed to fork off sandboxing environment for executing generators: %m");
+                        goto finish;
+                }
+
+                /* Failed to fork with new mount namespace? Maybe, running in a container environment with
+                 * seccomp or without capability. */
+                log_debug_errno(r,
+                                "Failed to fork off sandboxing environment for executing generators. "
+                                "Falling back to execute generators without sandboxing: %m");
+                r = manager_execute_generators(m, paths, /* remount_ro= */ false);
         }
 
 finish:

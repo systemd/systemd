@@ -330,8 +330,14 @@ int xsetxattr(int fd,
 
                 if (fd == AT_FDCWD) /* Both unspecified? Then operate on current working directory */
                         path = ".";
-                else
+                else {
+                        r = fd_is_opath(fd);
+                        if (r < 0)
+                                return r;
+
+                        by_procfs = r;
                         path = NULL;
+                }
 
         } else if (fd != AT_FDCWD) {
 
@@ -345,25 +351,14 @@ int xsetxattr(int fd,
                 by_procfs = true; /* fsetxattr() is not going to work, go via /proc/ link right-away */
         }
 
-        for (;;) {
-                if (path)
-                        r = FLAGS_SET(flags, AT_SYMLINK_FOLLOW) ? setxattr(path, name, value, size, 0)
-                                                                : lsetxattr(path, name, value, size, 0);
-                else
-                        r = by_procfs ? setxattr(FORMAT_PROC_FD_PATH(fd), name, value, size, 0)
-                                      : fsetxattr(fd, name, value, size, 0);
-                if (r < 0) {
-                        if (errno == EBADF) {
-                                if (by_procfs || path)
-                                        return -EBADF;
+        if (path)
+                r = FLAGS_SET(flags, AT_SYMLINK_FOLLOW) ? setxattr(path, name, value, size, 0)
+                                                        : lsetxattr(path, name, value, size, 0);
+        else
+                r = by_procfs ? setxattr(FORMAT_PROC_FD_PATH(fd), name, value, size, 0)
+                              : fsetxattr(fd, name, value, size, 0);
+        if (r < 0)
+                return -errno;
 
-                                by_procfs = true; /* Might be an O_PATH fd, try again via /proc/ link */
-                                continue;
-                        }
-
-                        return -errno;
-                }
-
-                return 0;
-        }
+        return 0;
 }

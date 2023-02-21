@@ -430,6 +430,42 @@ TEST(chase_symlinks) {
         assert_se(rm_rf(temp, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }
 
+TEST(chase_symlinks_at) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+        _cleanup_free_ char *result = NULL;
+        const char *p;
+
+        assert_se((tfd = mkdtemp_open(NULL, 0, &t)) >= 0);
+
+        /* Test that AT_FDCWD with CHASE_AT_RESOLVE_IN_ROOT resolves against / and not the current working
+         * directory. */
+
+        assert_se(symlinkat("/usr", tfd, "abc") >= 0);
+
+        p = strjoina(t, "/abc");
+        assert_se(chase_symlinks_at(AT_FDCWD, p, CHASE_AT_RESOLVE_IN_ROOT, &result, NULL) >= 0);
+        assert_se(streq(result, "/usr"));
+        result = mfree(result);
+
+        /* Test that absolute path or not are the same when resolving relative to a directory file
+         * descriptor and that we always get a relative path back. */
+
+        assert_se(fd = openat(tfd, "def", O_CREAT|O_CLOEXEC, 0700) >= 0);
+        fd = safe_close(fd);
+        assert_se(symlinkat("/def", tfd, "qed") >= 0);
+        assert_se(chase_symlinks_at(tfd, "qed", CHASE_AT_RESOLVE_IN_ROOT, &result, NULL) >= 0);
+        assert_se(streq(result, "def"));
+        result = mfree(result);
+        assert_se(chase_symlinks_at(tfd, "/qed", CHASE_AT_RESOLVE_IN_ROOT, &result, NULL) >= 0);
+        assert_se(streq(result, "def"));
+        result = mfree(result);
+
+        /* Valid directory file descriptor without CHASE_AT_RESOLVE_IN_ROOT should resolve symlinks against
+         * host's root. */
+        assert_se(chase_symlinks_at(tfd, "/qed", 0, &result, NULL) == -ENOENT);
+}
+
 TEST(unlink_noerrno) {
         char *name;
         int fd;
