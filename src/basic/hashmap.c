@@ -5,6 +5,9 @@
 #include <pthread.h>
 #include <stdint.h>
 #include <stdlib.h>
+#if HAVE_VALGRIND_VALGRIND_H
+#  include <valgrind/valgrind.h>
+#endif
 
 #include "alloc-util.h"
 #include "fileio.h"
@@ -295,10 +298,11 @@ void hashmap_trim_pools(void) {
         mempool_trim(&ordered_hashmap_pool);
 }
 
-#if VALGRIND
+#if HAVE_VALGRIND_VALGRIND_H
 _destructor_ static void cleanup_pools(void) {
         /* Be nice to valgrind */
-        hashmap_trim_pools();
+        if (RUNNING_ON_VALGRIND)
+                hashmap_trim_pools();
 }
 #endif
 
