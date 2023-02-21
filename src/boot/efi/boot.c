@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <inttypes.h>
-
 #include "bcd.h"
 #include "bootspec-fundamental.h"
 #include "console.h"
@@ -1375,7 +1373,7 @@ static void config_entry_bump_counters(ConfigEntry *entry, EFI_FILE *root_dir) {
         if (err != EFI_SUCCESS)
                 return;
 
-        err = get_file_info_harder(handle, &file_info, &file_info_size);
+        err = get_file_info(handle, &file_info, &file_info_size);
         if (err != EFI_SUCCESS)
                 return;
 
@@ -1648,7 +1646,7 @@ static void config_load_entries(
         for (;;) {
                 _cleanup_free_ char *content = NULL;
 
-                err = readdir_harder(entries_dir, &f, &f_size);
+                err = readdir(entries_dir, &f, &f_size);
                 if (err != EFI_SUCCESS || !f)
                         break;
 
@@ -2117,7 +2115,7 @@ static void config_entry_add_unified(
                 size_t offs[_SECTION_MAX] = {}, szs[_SECTION_MAX] = {}, pos = 0;
                 char *line, *key, *value;
 
-                err = readdir_harder(linux_dir, &f, &f_size);
+                err = readdir(linux_dir, &f, &f_size);
                 if (err != EFI_SUCCESS || !f)
                         break;
 
@@ -2300,7 +2298,7 @@ static EFI_STATUS initrd_prepare(
                         return err;
 
                 _cleanup_free_ EFI_FILE_INFO *info = NULL;
-                err = get_file_info_harder(handle, &info, NULL);
+                err = get_file_info(handle, &info, NULL);
                 if (err != EFI_SUCCESS)
                         return err;
 
@@ -2493,7 +2491,7 @@ static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) 
                 size_t dirent_size = 0;
                 ConfigEntry *entry = NULL;
 
-                err = readdir_harder(keys_basedir, &dirent, &dirent_size);
+                err = readdir(keys_basedir, &dirent, &dirent_size);
                 if (err != EFI_SUCCESS || !dirent)
                         return err;
 
