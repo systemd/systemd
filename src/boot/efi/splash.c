@@ -5,6 +5,7 @@
 
 #include "graphics.h"
 #include "splash.h"
+#include "unaligned-fundamental.h"
 #include "util.h"
 
 struct bmp_file {
@@ -28,7 +29,15 @@ struct bmp_dib {
         int32_t y_pixel_meter;
         uint32_t colors_used;
         uint32_t colors_important;
+        uint32_t channel_mask_r;
+        uint32_t channel_mask_g;
+        uint32_t channel_mask_b;
+        uint32_t channel_mask_a;
 } _packed_;
+
+#define SIZEOF_BMP_DIB offsetof(struct bmp_dib, channel_mask_r)
+#define SIZEOF_BMP_DIB_RGB offsetof(struct bmp_dib, channel_mask_a)
+#define SIZEOF_BMP_DIB_RGBA sizeof(struct bmp_dib)
 
 struct bmp_map {
         uint8_t blue;
@@ -49,7 +58,7 @@ static EFI_STATUS bmp_parse_header(
         assert(ret_map);
         assert(pixmap);
 
-        if (size < sizeof(struct bmp_file) + sizeof(struct bmp_dib))
+        if (size < sizeof(struct bmp_file) + SIZEOF_BMP_DIB)
                 return EFI_INVALID_PARAMETER;
 
         /* check file header */
@@ -63,7 +72,7 @@ static EFI_STATUS bmp_parse_header(
 
         /*  check device-independent bitmap */
         struct bmp_dib *dib = (struct bmp_dib *) (bmp + sizeof(struct bmp_file));
-        if (dib->size < sizeof(struct bmp_dib))
+        if (dib->size < SIZEOF_BMP_DIB)
                 return EFI_UNSUPPORTED;
 
         switch (dib->depth) {
@@ -127,22 +136,21 @@ static void read_channel_maks(
 
         assert(dib);
 
-        if (IN_SET(dib->depth, 16, 32) && dib->size >= sizeof(*dib) + 3 * sizeof(uint32_t)) {
-                uint32_t *mask = (uint32_t *) ((uint8_t *) dib + sizeof(*dib));
-                channel_mask[R] = mask[R];
-                channel_mask[G] = mask[G];
-                channel_mask[B] = mask[B];
-                channel_shift[R] = __builtin_ctz(mask[R]);
-                channel_shift[G] = __builtin_ctz(mask[G]);
-                channel_shift[B] = __builtin_ctz(mask[B]);
-                channel_scale[R] = 0xff / ((1 << __builtin_popcount(mask[R])) - 1);
-                channel_scale[G] = 0xff / ((1 << __builtin_popcount(mask[G])) - 1);
-                channel_scale[B] = 0xff / ((1 << __builtin_popcount(mask[B])) - 1);
+        if (IN_SET(dib->depth, 16, 32) && dib->size >= SIZEOF_BMP_DIB_RGB) {
+                channel_mask[R] = dib->channel_mask_r;
+                channel_mask[G] = dib->channel_mask_g;
+                channel_mask[B] = dib->channel_mask_b;
+                channel_shift[R] = __builtin_ctz(dib->channel_mask_r);
+                channel_shift[G] = __builtin_ctz(dib->channel_mask_g);
+                channel_shift[B] = __builtin_ctz(dib->channel_mask_b);
+                channel_scale[R] = 0xff / ((1 << __builtin_popcount(dib->channel_mask_r)) - 1);
+                channel_scale[G] = 0xff / ((1 << __builtin_popcount(dib->channel_mask_g)) - 1);
+                channel_scale[B] = 0xff / ((1 << __builtin_popcount(dib->channel_mask_b)) - 1);
 
-                if (dib->size >= sizeof(*dib) + 4 * sizeof(uint32_t) && mask[A] != 0) {
-                        channel_mask[A] = mask[A];
-                        channel_shift[A] = __builtin_ctz(mask[A]);
-                        channel_scale[A] = 0xff / ((1 << __builtin_popcount(mask[A])) - 1);
+                if (dib->size >= SIZEOF_BMP_DIB_RGBA && dib->channel_mask_a != 0) {
+                        channel_mask[A] = dib->channel_mask_a;
+                        channel_shift[A] = __builtin_ctz(dib->channel_mask_a);
+                        channel_scale[A] = 0xff / ((1 << __builtin_popcount(dib->channel_mask_a)) - 1);
                 } else {
                         channel_mask[A] = 0;
                         channel_shift[A] = 0;
@@ -233,7 +241,8 @@ static EFI_STATUS bmp_to_blt(
 
                         case 16:
                         case 32: {
-                                uint32_t i = dib->depth == 16 ? *(uint16_t *) in : *(uint32_t *) in;
+                                uint32_t i = dib->depth == 16 ? unaligned_read_ne16(in) :
+                                                                unaligned_read_ne32(in);
 
                                 uint8_t r = ((i & channel_mask[R]) >> channel_shift[R]) * channel_scale[R],
                                         g = ((i & channel_mask[G]) >> channel_shift[G]) * channel_scale[G],
