@@ -189,6 +189,7 @@ efi_cflags = [
         '-std=gnu11',
         '-Wall',
         '-Wextra',
+        '-Wl,-z,noexecstack',
 ] + cc.get_supported_arguments(
         basic_disabled_warnings +
         possible_common_cc_flags + [
