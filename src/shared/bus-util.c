@@ -18,6 +18,8 @@
 #include "bus-internal.h"
 #include "bus-label.h"
 #include "bus-util.h"
+#include "data-fd-util.h"
+#include "fd-util.h"
 #include "path-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
@@ -576,6 +578,62 @@ int bus_reply_pair_array(sd_bus_message *m, char **l) {
                 return r;
 
         return sd_bus_send(NULL, reply, NULL);
+}
+
+static int method_dump_memory_state_by_fd(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
+        _cleanup_free_ char *dump = NULL; /* keep this above dump_file, so that it's freed after */
+        _cleanup_fclose_ FILE *dump_file = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        size_t dump_size;
+        int r;
+
+        assert(message);
+
+        dump_file = open_memstream(&dump, &dump_size);
+        if (!dump_file)
+                return -ENOMEM;
+
+        r = RET_NERRNO(malloc_info(/* options= */ 0, dump_file));
+        if (r < 0)
+                return r;
+
+        dump_file = safe_fclose(dump_file);
+
+        fd = acquire_data_fd(dump, dump_size, 0);
+        if (fd < 0)
+                return fd;
+
+        r = sd_bus_reply_method_return(message, "h", fd);
+        if (r < 0)
+                return r;
+
+        return 1; /* Stop further processing */
+}
+
+/* The default install callback will fail and disconnect the bus if it cannot register the match, but this
+ * is only a debug method, we definitely don't want to fail in case there's some permission issue. */
+static int dummy_install_callback(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
+        return 1;
+}
+
+int bus_register_malloc_status(sd_bus *bus, const char *destination) {
+        const char *match;
+        int r;
+
+        assert(bus);
+        assert(!isempty(destination));
+
+        match = strjoina("type='method_call',"
+                         "interface='org.freedesktop.MemoryAllocation1',"
+                         "path='/org/freedesktop/MemoryAllocation1',"
+                         "destination='", destination, "',",
+                         "member='GetMallocInfo'");
+
+        r = sd_bus_add_match_async(bus, NULL, match, method_dump_memory_state_by_fd, dummy_install_callback, NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to subscribe to GetMallocInfo() calls on MemoryAllocation1 interface: %m");
+
+        return 0;
 }
 
 static void bus_message_unref_wrapper(void *m) {

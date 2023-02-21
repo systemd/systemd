@@ -29,21 +29,6 @@ static int dump_fallback(sd_bus *bus) {
         return 0;
 }
 
-static int dump_fd_reply(sd_bus_message *message) {
-        int fd, r;
-
-        r = sd_bus_message_read(message, "h", &fd);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        fflush(stdout);
-        r = copy_bytes(fd, STDOUT_FILENO, UINT64_MAX, 0);
-        if (r < 0)
-                return r;
-
-        return 1;  /* Success */
-}
-
 static int dump(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
