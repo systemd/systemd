@@ -28,6 +28,7 @@
 #include "lookup3.h"
 #include "memory-util.h"
 #include "path-util.h"
+#include "prioq.h"
 #include "random-util.h"
 #include "set.h"
 #include "sort-util.h"
@@ -503,6 +504,11 @@ static int journal_file_verify_header(JournalFile *f) {
             !VALID64(le64toh(f->header->field_hash_table_offset)) ||
             !VALID64(le64toh(f->header->tail_object_offset)) ||
             !VALID64(le64toh(f->header->entry_array_offset)))
+                return -ENODATA;
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_offset) &&
+            le64toh(f->header->tail_entry_offset) != 0 &&
+            !VALID64(le64toh(f->header->tail_entry_offset)))
                 return -ENODATA;
 
         if (journal_file_writable(f)) {
@@ -2046,6 +2052,8 @@ static int journal_file_link_entry(
 
         f->header->tail_entry_realtime = o->entry.realtime;
         f->header->tail_entry_monotonic = o->entry.monotonic;
+        f->header->tail_entry_offset = offset;
+        f->newest_mtime = 0; /* we have a new tail entry now, explicitly invalidate newest boot id/timestamp info */
 
         /* Link up the items */
         for (uint64_t i = 0; i < n_items; i++) {
@@ -3193,56 +3201,6 @@ void journal_file_save_location(JournalFile *f, Object *o, uint64_t offset) {
         f->current_xor_hash = le64toh(o->entry.xor_hash);
 }
 
-int journal_file_compare_locations(JournalFile *af, JournalFile *bf) {
-        int r;
-
-        assert(af);
-        assert(af->header);
-        assert(bf);
-        assert(bf->header);
-        assert(af->location_type == LOCATION_SEEK);
-        assert(bf->location_type == LOCATION_SEEK);
-
-        /* If contents, timestamps and seqnum match, these entries are
-         * identical. */
-        if (sd_id128_equal(af->current_boot_id, bf->current_boot_id) &&
-            af->current_monotonic == bf->current_monotonic &&
-            af->current_realtime == bf->current_realtime &&
-            af->current_xor_hash == bf->current_xor_hash &&
-            sd_id128_equal(af->header->seqnum_id, bf->header->seqnum_id) &&
-            af->current_seqnum == bf->current_seqnum)
-                return 0;
-
-        if (sd_id128_equal(af->header->seqnum_id, bf->header->seqnum_id)) {
-
-                /* If this is from the same seqnum source, compare
-                 * seqnums */
-                r = CMP(af->current_seqnum, bf->current_seqnum);
-                if (r != 0)
-                        return r;
-
-                /* Wow! This is weird, different data but the same
-                 * seqnums? Something is borked, but let's make the
-                 * best of it and compare by time. */
-        }
-
-        if (sd_id128_equal(af->current_boot_id, bf->current_boot_id)) {
-
-                /* If the boot id matches, compare monotonic time */
-                r = CMP(af->current_monotonic, bf->current_monotonic);
-                if (r != 0)
-                        return r;
-        }
-
-        /* Otherwise, compare UTC time */
-        r = CMP(af->current_realtime, bf->current_realtime);
-        if (r != 0)
-                return r;
-
-        /* Finally, compare by contents */
-        return CMP(af->current_xor_hash, bf->current_xor_hash);
-}
-
 static bool check_properly_ordered(uint64_t new_offset, uint64_t old_offset, direction_t direction) {
 
         /* Consider it an error if any of the two offsets is uninitialized */
@@ -3823,6 +3781,7 @@ int journal_file_open(
                                             DEFAULT_COMPRESS_THRESHOLD :
                                             MAX(MIN_COMPRESS_THRESHOLD, compress_threshold_bytes),
                 .strict_order = FLAGS_SET(file_flags, JOURNAL_STRICT_ORDER),
+                .newest_boot_id_prioq_idx = PRIOQ_IDX_NULL,
         };
 
         if (fname) {

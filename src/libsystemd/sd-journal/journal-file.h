@@ -121,6 +121,14 @@ typedef struct JournalFile {
         void *fsprg_seed;
         size_t fsprg_seed_size;
 #endif
+
+        /* When we insert this file into the per-boot priority queue 'newest_by_boot_id' in sd_journal, then by these keys */
+        sd_id128_t newest_boot_id;
+        sd_id128_t newest_machine_id;
+        uint64_t newest_monotonic_usec;
+        uint64_t newest_realtime_usec;
+        unsigned newest_boot_id_prioq_idx;
+        usec_t newest_mtime;
 } JournalFile;
 
 typedef enum JournalFileFlags {
@@ -275,7 +283,6 @@ int journal_file_find_field_object_with_hash(JournalFile *f, const void *field, 
 
 void journal_file_reset_location(JournalFile *f);
 void journal_file_save_location(JournalFile *f, Object *o, uint64_t offset);
-int journal_file_compare_locations(JournalFile *af, JournalFile *bf);
 int journal_file_next_entry(JournalFile *f, uint64_t p, direction_t direction, Object **ret_object, uint64_t *ret_offset);
 
 int journal_file_next_entry_for_data(JournalFile *f, Object *d, direction_t direction, Object **ret_object, uint64_t *ret_offset);
