@@ -3135,6 +3135,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s IPCNamespacePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s RootImagePolicy = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s MountImagePolicy = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s ExtensionImagePolicy = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s KillMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly i KillSignal = ...;
@@ -3681,6 +3687,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property NetworkNamespacePath is not documented!-->
 
     <!--property IPCNamespacePath is not documented!-->
+
+    <!--property RootImagePolicy is not documented!-->
+
+    <!--property MountImagePolicy is not documented!-->
+
+    <!--property ExtensionImagePolicy is not documented!-->
 
     <!--property KillMode is not documented!-->
 
@@ -4325,6 +4337,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IPCNamespacePath"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootImagePolicy"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MountImagePolicy"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ExtensionImagePolicy"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="KillMode"/>
 
@@ -5079,6 +5097,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s IPCNamespacePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s RootImagePolicy = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s MountImagePolicy = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s ExtensionImagePolicy = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s KillMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly i KillSignal = ...;
@@ -5645,6 +5669,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property NetworkNamespacePath is not documented!-->
 
     <!--property IPCNamespacePath is not documented!-->
+
+    <!--property RootImagePolicy is not documented!-->
+
+    <!--property MountImagePolicy is not documented!-->
+
+    <!--property ExtensionImagePolicy is not documented!-->
 
     <!--property KillMode is not documented!-->
 
@@ -6279,6 +6309,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IPCNamespacePath"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootImagePolicy"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MountImagePolicy"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ExtensionImagePolicy"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="KillMode"/>
 
@@ -6922,6 +6958,12 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s IPCNamespacePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s RootImagePolicy = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s MountImagePolicy = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s ExtensionImagePolicy = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s KillMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly i KillSignal = ...;
@@ -7416,6 +7458,12 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property NetworkNamespacePath is not documented!-->
 
     <!--property IPCNamespacePath is not documented!-->
+
+    <!--property RootImagePolicy is not documented!-->
+
+    <!--property MountImagePolicy is not documented!-->
+
+    <!--property ExtensionImagePolicy is not documented!-->
 
     <!--property KillMode is not documented!-->
 
@@ -7968,6 +8016,12 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IPCNamespacePath"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootImagePolicy"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MountImagePolicy"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ExtensionImagePolicy"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="KillMode"/>
 
@@ -8738,6 +8792,12 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s IPCNamespacePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s RootImagePolicy = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s MountImagePolicy = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s ExtensionImagePolicy = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s KillMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly i KillSignal = ...;
@@ -9218,6 +9278,12 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property NetworkNamespacePath is not documented!-->
 
     <!--property IPCNamespacePath is not documented!-->
+
+    <!--property RootImagePolicy is not documented!-->
+
+    <!--property MountImagePolicy is not documented!-->
+
+    <!--property ExtensionImagePolicy is not documented!-->
 
     <!--property KillMode is not documented!-->
 
@@ -9756,6 +9822,12 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IPCNamespacePath"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootImagePolicy"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MountImagePolicy"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ExtensionImagePolicy"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="KillMode"/>
 

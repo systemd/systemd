@@ -71,6 +71,7 @@ static bool arg_force = false;
 static bool arg_delete_root_password = false;
 static bool arg_root_password_is_hashed = false;
 static bool arg_welcome = true;
+static ImagePolicy *arg_image_policy = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -80,6 +81,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_keymap, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_timezone, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hostname, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_password, erase_and_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 static bool press_any_key(void) {
         char k = 0;
@@ -1013,7 +1015,8 @@ static int help(void) {
                "  -h --help                       Show this help\n"
                "     --version                    Show package version\n"
                "     --root=PATH                  Operate on an alternate filesystem root\n"
-               "     --image=PATH                 Operate on an alternate filesystem image\n"
+               "     --image=PATH                 Operate on disk image as filesystem root\n"
+               "     --image-policy=POLICY        Specify disk image dissection policy\n"
                "     --locale=LOCALE              Set primary locale (LANG=)\n"
                "     --locale-messages=LOCALE     Set message locale (LC_MESSAGES=)\n"
                "     --keymap=KEYMAP              Set keymap\n"
@@ -1082,6 +1085,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FORCE,
                 ARG_DELETE_ROOT_PASSWORD,
                 ARG_WELCOME,
+                ARG_IMAGE_POLICY,
         };
 
         static const struct option options[] = {
@@ -1117,6 +1121,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "force",                   no_argument,       NULL, ARG_FORCE                   },
                 { "delete-root-password",    no_argument,       NULL, ARG_DELETE_ROOT_PASSWORD    },
                 { "welcome",                 required_argument, NULL, ARG_WELCOME                 },
+                { "image-policy",            required_argument, NULL, ARG_IMAGE_POLICY            },
                 {}
         };
 
@@ -1323,6 +1328,17 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_welcome = r;
                         break;
 
+                case ARG_IMAGE_POLICY: {
+                        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
+
+                        r = image_policy_from_string(optarg, &p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse image policy: %s", optarg);
+
+                        image_policy_free(arg_image_policy);
+                        arg_image_policy = TAKE_PTR(p);
+                        break;
+                }
                 case '?':
                         return -EINVAL;
 
@@ -1382,6 +1398,7 @@ static int run(int argc, char *argv[]) {
 
                 r = mount_image_privately_interactively(
                                 arg_image,
+                                arg_image_policy,
                                 DISSECT_IMAGE_GENERIC_ROOT |
                                 DISSECT_IMAGE_REQUIRE_ROOT |
                                 DISSECT_IMAGE_VALIDATE_OS |
