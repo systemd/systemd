@@ -160,45 +160,55 @@ if install_sysconfdir
                                  mkdir_p.format(sysconfdir / 'udev/rules.d'))
 endif
 
+simple_fuzzers += files(
+        'fuzz-udev-rule-parse-value.c',
+)
+
+fuzzer_udev_base = {
+        'link_with' : [libudevd_core, libshared],
+        'dependencies' : [threads, libacl],
+}
+
 fuzzers += [
-        [files('net/fuzz-link-parser.c'),
-         [libudevd_core,
-          libshared],
-         [threads,
-          libacl],
-         udev_includes],
-
-        [files('fuzz-udev-rules.c'),
-         [libudevd_core,
-          libshared],
-         [threads,
-          libacl]],
-
-        [files('fuzz-udev-rule-parse-value.c')],
-
-        [files('fido_id/fuzz-fido-id-desc.c',
-               'fido_id/fido_id_desc.c')],
+        {
+                'sources' : files('net/fuzz-link-parser.c'),
+                'includes' : udev_includes,
+                'base' : fuzzer_udev_base,
+        },
+        {
+                'sources' : files('fuzz-udev-rules.c'),
+                'base' : fuzzer_udev_base,
+        },
+        {
+                'sources' : files(
+                        'fido_id/fuzz-fido-id-desc.c',
+                        'fido_id/fido_id_desc.c',
+                ),
+        },
 ]
 
+test_libudev_base = {
+        'link_with' : [libudevd_core, libshared],
+        'dependencies' : [threads, libacl],
+}
+
 tests += [
-        [files('test-udev-event.c'),
-         [libudevd_core,
-          libshared],
-         [threads,
-          libacl]],
-
-        [files('test-udev-node.c'),
-         [libudevd_core,
-          libshared],
-         [threads,
-          libacl]],
-
-        [files('test-udev-builtin.c'),
-         [libudevd_core,
-          libshared],
-         [threads,
-          libacl]],
-
-        [files('fido_id/test-fido-id-desc.c',
-               'fido_id/fido_id_desc.c')],
+        {
+                'sources' : files(
+                        'fido_id/test-fido-id-desc.c',
+                        'fido_id/fido_id_desc.c',
+                ),
+        },
+        {
+                'sources' : files('test-udev-builtin.c'),
+                'base' : test_libudev_base,
+        },
+        {
+                'sources' : files('test-udev-event.c'),
+                'base' : test_libudev_base,
+        },
+        {
+                'sources' : files('test-udev-node.c'),
+                'base' : test_libudev_base,
+        },
 ]

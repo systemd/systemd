@@ -6,8 +6,11 @@ systemd_shutdown_sources = files(
 )
 
 tests += [
-        [files('test-umount.c',
-               'umount.c'),
-         [],
-         [libmount]],
+        {
+                'sources' : files(
+                        'test-umount.c',
+                        'umount.c',
+                ),
+                'dependencies' : libmount,
+        },
 ]
