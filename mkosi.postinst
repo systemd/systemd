@@ -18,13 +18,3 @@ EOF
     # Make sure dnsmasq.service doesn't start on boot on Debian/Ubuntu.
     rm -f /etc/systemd/system/multi-user.target.wants/dnsmasq.service
 fi
-
-# Temporary workaround until https://github.com/openSUSE/suse-module-tools/commit/158643414ddb8d8208016a5f03a4484d58944d7a
-# gets into OpenSUSE repos
-if [ "$1" = "final" ] && grep -q openSUSE /etc/os-release; then
-    if [ -e "/usr/lib/systemd/system/boot-sysctl.service" ] && \
-       ! grep -F -q 'ConditionPathExists=/boot/sysctl.conf' "/usr/lib/systemd/system/boot-sysctl.service"; then
-        mkdir -p "/etc/systemd/system/boot-sysctl.service.d/"
-        printf '[Unit]\nConditionPathExists=/boot/sysctl.conf-%%v' >"/etc/systemd/system/boot-sysctl.service.d/99-temporary-workaround.conf"
-    fi
-fi
