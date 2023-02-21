@@ -121,6 +121,14 @@ typedef struct JournalFile {
         void *fsprg_seed;
         size_t fsprg_seed_size;
 #endif
+
+        /* When we insert this file into the per-boot priority queue 'newest_by_boot_id' in sd_journal, then by these keys */
+        sd_id128_t newest_boot_id;
+        sd_id128_t newest_machine_id;
+        uint64_t newest_monotonic_usec;
+        uint64_t newest_realtime_usec;
+        unsigned newest_boot_id_prioq_idx;
+        usec_t newest_mtime;
 } JournalFile;
 
 typedef enum JournalFileFlags {
@@ -179,6 +187,9 @@ static inline bool VALID_EPOCH(uint64_t u) {
 
 #define JOURNAL_HEADER_SEALED(h) \
         FLAGS_SET(le32toh((h)->compatible_flags), HEADER_COMPATIBLE_SEALED)
+
+#define JOURNAL_HEADER_TAIL_ENTRY_BOOT_ID(h) \
+        FLAGS_SET(le32toh((h)->compatible_flags), HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID)
 
 #define JOURNAL_HEADER_COMPRESSED_XZ(h) \
         FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_COMPRESSED_XZ)
@@ -272,7 +283,6 @@ int journal_file_find_field_object_with_hash(JournalFile *f, const void *field, 
 
 void journal_file_reset_location(JournalFile *f);
 void journal_file_save_location(JournalFile *f, Object *o, uint64_t offset);
-int journal_file_compare_locations(JournalFile *af, JournalFile *bf);
 int journal_file_next_entry(JournalFile *f, uint64_t p, direction_t direction, Object **ret_object, uint64_t *ret_offset);
 
 int journal_file_next_entry_for_data(JournalFile *f, Object *d, direction_t direction, Object **ret_object, uint64_t *ret_offset);

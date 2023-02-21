@@ -151,7 +151,7 @@ _packed_ struct Header {
         uint8_t reserved[7];
         sd_id128_t file_id;
         sd_id128_t machine_id;
-        sd_id128_t boot_id;    /* last writer */
+        sd_id128_t tail_entry_boot_id;
         sd_id128_t seqnum_id;
         le64_t header_size;
         le64_t arena_size;
@@ -178,8 +178,10 @@ _packed_ struct Header {
         le64_t data_hash_chain_depth;
         le64_t field_hash_chain_depth;
         /* Added in 252 */
-        le32_t tail_entry_array_offset;                 \
-        le32_t tail_entry_array_n_entries;              \
+        le32_t tail_entry_array_offset;
+        le32_t tail_entry_array_n_entries;
+        /* Added in 254 */
+        le64_t tail_entry_offset;
 };
 ```
 
@@ -192,8 +194,18 @@ new one.
 When journal file is first created the **file_id** is randomly and uniquely
 initialized.
 
-When a writer opens a file it shall initialize the **boot_id** to the current
-boot id of the system.
+When a writer creates a file it shall initialize the **tail_entry_boot_id** to
+the current boot ID of the system. When appending an entry it shall update the
+field to the boot ID of that entry, so that it is guaranteed that the
+**tail_entry_monotonic** field refers to a timestamp of the monotonic clock
+associated with the boot with the ID indicated by the **tail_entry_boot_id**
+field. (Compatibility note: in older versions of the journal, the field was
+also supposed to be updated whenever the file was opened for any form of
+writing, including when opened to mark it as archived. This behaviour has been
+deemed problematic since without an associated boot ID the
+**tail_entry_monotonic** field is useless. To indicate whether the boot ID is
+updated only on append the JOURNAL_COMPATIBLE_TAIL_ENTRY_BOOT_ID is set. If it
+is not set, the **tail_entry_monotonic** field is not usable).
 
 The currently used part of the file is the **header_size** plus the
 **arena_size** field of the header. If a writer needs to write to a file where
@@ -222,7 +234,12 @@ timestamp of the last or first entry in the file, respectively, or 0 if no
 entry has been written yet.
 
 **tail_entry_monotonic** is the monotonic timestamp of the last entry in the
-file, referring to monotonic time of the boot identified by **boot_id**.
+file, referring to monotonic time of the boot identified by
+**tail_entry_boot_id**, but only if the
+JOURNAL_COMPATIBLE_TAIL_ENTRY_BOOT_ID feature flag is set, see above. If it
+is not set, this field might refer to a different boot then the one in the
+**tail_entry_boot_id** field, for example when the file was ultimately
+archived.
 
 **data_hash_chain_depth** is a counter of the deepest chain in the data hash
 table, minus one. This is updated whenever a chain is found that is longer than
@@ -236,6 +253,9 @@ field hash table, minus one.
 
 **tail_entry_array_offset** and **tail_entry_array_n_entries** allow immediate
 access to the last entry array in the global entry array chain.
+
+**tail_entry_offset** allow immediate access to the last entry in the journal
+file.
 
 ## Extensibility
 
@@ -268,7 +288,8 @@ enum {
 };
 
 enum {
-        HEADER_COMPATIBLE_SEALED = 1 << 0,
+        HEADER_COMPATIBLE_SEALED             = 1 << 0,
+        HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID = 1 << 1,
 };
 ```
 
@@ -288,6 +309,12 @@ format that uses less space on disk compared to the original format.
 HEADER_COMPATIBLE_SEALED indicates that the file includes TAG objects required
 for Forward Secure Sealing.
 
+HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID indicates whether the
+**tail_entry_boot_id** field is strictly updated on initial creation of the
+file and whenever an entry is updated (in which case the flag is set), or also
+when the file is archived (in which case it is unset). New files should always
+set this flag (and thus not update the **tail_entry_boot_id** except when
+creating the file and when appending an entry to it.
 
 ## Dirty Detection
 
