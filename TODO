@@ -129,6 +129,17 @@ Deprecations and removals:
 
 Features:
 
+* landlock: lock down RuntimeDirectory= via landlock, so that services lose
+  ability to write anywehere else below /run/. Similar for
+  StateDirectory=. Benefit would be clear delegation via unit files: services
+  get the directories they get, and nothing else even if they wanted to.
+
+* landlock: for unprivileged systemd (i.e. systemd --user), use landlock to
+  implement ProtectSystem=, ProtectHome= and so on. Landlock does not require
+  privs, and we can implement pretty similar behaviour. Also, maybe add a mode
+  where ProtectSystem= combined with an explicit PrivateMounts=no could request
+  similar behaviour for system services, too.
+
 * Add systemd-mount@.service which is instantiated for a block device and
   invokes systemd-mount and exits. This is then useful to use in
   ENV{SYSTEMD_WANTS} in udev rules, and a bit prettier than using RUN+=
