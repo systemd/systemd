@@ -20,7 +20,7 @@ indent_style = space
 indent_size = 8
 max_line_length = 109
 
-[*.sh]
+[*.sh,mkosi.build,mkosi.prepare,mkosi.postinst]
 indent_style = space
 indent_size = 4
 
