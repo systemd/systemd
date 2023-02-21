@@ -8,18 +8,6 @@ set -e
 ASAN_OPTIONS=strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1:disable_coredump=0:use_madv_dontdump=1
 UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1
 
-# On Fedora "ld" is (unfortunately — if you ask me) managed via
-# "alternatives". Since we'd like to support building images in environments
-# with only /usr/ around (e.g. mkosi's UsrOnly=1 option), we have the problem
-# that /usr/bin/ld is a symlink that points to a non-existing file in
-# /etc/alternative/ in this mode. Let's work around this for now by manually
-# redirect "ld" to "ld.bfd", i.e. circumventing the /usr/bin/ld symlink.
-if [ ! -x /usr/bin/ld ] && [ -x /usr/bin/ld.bfd ]; then
-        mkdir -p "$HOME"/bin
-        ln -s /usr/bin/ld.bfd "$HOME"/bin/ld
-        PATH="$HOME/bin:$PATH"
-fi
-
 # If mkosi.builddir/ exists mkosi will set $BUILDDIR to it, let's then use it
 # as out-of-tree build dir. Otherwise, let's make up our own builddir.
 [ -z "$BUILDDIR" ] && BUILDDIR="$PWD"/build
