@@ -5,9 +5,6 @@ set -e
 # This is a build script for OS image generation using mkosi (https://github.com/systemd/mkosi).
 # Simply invoke "mkosi" in the project directory to build an OS image.
 
-ASAN_OPTIONS=strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1:disable_coredump=0:use_madv_dontdump=1
-UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1
-
 # If mkosi.builddir/ exists mkosi will set $BUILDDIR to it, let's then use it
 # as out-of-tree build dir. Otherwise, let's make up our own builddir.
 [ -z "$BUILDDIR" ] && BUILDDIR="$PWD"/build
@@ -153,8 +150,8 @@ cd "$BUILDDIR"
 ninja "$@"
 if [ "$WITH_TESTS" = 1 ] ; then
     if [ -n "$SANITIZERS" ]; then
-        export ASAN_OPTIONS="$ASAN_OPTIONS"
-        export UBSAN_OPTIONS="$UBSAN_OPTIONS"
+        export ASAN_OPTIONS="$MKOSI_ASAN_OPTIONS"
+        export UBSAN_OPTIONS="$MKOSI_UBSAN_OPTIONS"
         TIMEOUT_MULTIPLIER=3
     else
         TIMEOUT_MULTIPLIER=1
@@ -165,84 +162,6 @@ fi
 cd "$SRCDIR"
 
 meson install -C "$BUILDDIR" --quiet --no-rebuild --only-changed
-
-mkdir -p "$DESTDIR"/etc
-
-cat >"$DESTDIR"/etc/issue <<EOF
-\S (built from systemd tree)
-Kernel \r on an \m (\l)
-
-EOF
-
-if [ -n "$IMAGE_ID" ] ; then
-    mkdir -p "$DESTDIR"/usr/lib
-    sed -n \
-        -e '/^IMAGE_ID=/!p' \
-        -e "\$aIMAGE_ID=$IMAGE_ID" <"/usr/lib/os-release" >"${DESTDIR}/usr/lib/os-release"
-
-    OSRELEASEFILE="$DESTDIR"/usr/lib/os-release
-else
-    OSRELEASEFILE=/usr/lib/os-release
-fi
-
-
-if [ -n "$IMAGE_VERSION" ] ; then
-    mkdir -p "$DESTDIR"/usr/lib
-    sed -n \
-        -e '/^IMAGE_VERSION=/!p' \
-        -e "\$aIMAGE_VERSION=$IMAGE_VERSION" <$OSRELEASEFILE >"/tmp/os-release.tmp"
-
-    cat /tmp/os-release.tmp >"$DESTDIR"/usr/lib/os-release
-    rm /tmp/os-release.tmp
-fi
-
-# If $CI_BUILD is set, copy over the CI service which executes a service check
-# after boot and then shuts down the machine
-if [ -n "$CI_BUILD" ]; then
-    mkdir -p "$DESTDIR/usr/lib/systemd/system"
-    cp -v "$SRCDIR/test/mkosi-check-and-shutdown.service" "$DESTDIR/usr/lib/systemd/system/mkosi-check-and-shutdown.service"
-    cp -v "$SRCDIR/test/mkosi-check-and-shutdown.sh" "$DESTDIR/usr/lib/systemd/mkosi-check-and-shutdown.sh"
-    chmod +x "$DESTDIR/usr/lib/systemd/mkosi-check-and-shutdown.sh"
-fi
-
-if [ -n "$SANITIZERS" ]; then
-    LD_PRELOAD=$(ldd "$BUILDDIR"/systemd | grep libasan.so | awk '{print $3}')
-
-    mkdir -p "$DESTDIR/etc/systemd/system.conf.d"
-
-    cat >"$DESTDIR/etc/systemd/system.conf.d/10-asan.conf" <<EOF
-[Manager]
-ManagerEnvironment=ASAN_OPTIONS=$ASAN_OPTIONS\\
-                   UBSAN_OPTIONS=$UBSAN_OPTIONS\\
-                   LD_PRELOAD=$LD_PRELOAD
-DefaultEnvironment=ASAN_OPTIONS=$ASAN_OPTIONS\\
-                   UBSAN_OPTIONS=$UBSAN_OPTIONS\\
-                   LD_PRELOAD=$LD_PRELOAD
-EOF
-
-    # ASAN logs to stderr by default. However, journald's stderr is connected to /dev/null, so we lose
-    # all the ASAN logs. To rectify that, let's connect journald's stdout to the console so that any
-    # sanitizer failures appear directly on the user's console.
-    mkdir -p "$DESTDIR/etc/systemd/system/systemd-journald.service.d"
-
-    cat >"$DESTDIR/etc/systemd/system/systemd-journald.service.d/10-stdout-tty.conf" <<EOF
-[Service]
-StandardOutput=tty
-EOF
-
-    # Both systemd and util-linux's login call vhangup() on /dev/console which disconnects all users.
-    # This means systemd-journald can't log to /dev/console even if we configure `StandardOutput=tty`. As
-    # a workaround, we modify console-getty.service to disable systemd's vhangup() and disallow login
-    # from calling vhangup() so that journald's ASAN logs correctly end up in the console.
-
-    mkdir -p "$DESTDIR/etc/systemd/system/console-getty.service.d"
-
-    cat >"$DESTDIR/etc/systemd/system/console-getty.service.d/10-no-vhangup.conf" <<EOF
-[Service]
-TTYVHangup=no
-CapabilityBoundingSet=~CAP_SYS_TTY_CONFIG
-EOF
-fi
 
 if [ -d mkosi.kernel/ ]; then
     cd "$SRCDIR/mkosi.kernel"
