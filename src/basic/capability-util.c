@@ -605,3 +605,28 @@ int capability_quintet_enforce(const CapabilityQuintet *q) {
 
         return 0;
 }
+
+int capability_get_ambient(uint64_t *ret) {
+        uint64_t a = 0;
+        int r;
+
+        assert(ret);
+
+        if (!ambient_capabilities_supported()) {
+                *ret = 0;
+                return 0;
+        }
+
+        for (unsigned i = 0; i <= cap_last_cap(); i++) {
+                r = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, i, 0, 0);
+                if (r < 0)
+                        return -errno;
+
+                if (r)
+                        a |= UINT64_C(1) << i;
+        }
+
+
+        *ret = a;
+        return 1;
+}
