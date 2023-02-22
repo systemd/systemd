@@ -448,7 +448,8 @@ static void print_status_info(
                 printf(" since %s; %s\n",
                        FORMAT_TIMESTAMP_STYLE(timestamp, arg_timestamp_style),
                        FORMAT_TIMESTAMP_RELATIVE(timestamp));
-                if (streq_ptr(i->active_state, "active") && i->runtime_max_sec < USEC_INFINITY) {
+                if (streq_ptr(i->active_state, "active") && i->runtime_max_sec < USEC_INFINITY &&
+                    ENDSWITH_SET(i->id, ".service", ".scope")) {
                         usec_t until_timestamp;
 
                         until_timestamp = usec_add(timestamp, i->runtime_max_sec);
