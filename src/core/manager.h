@@ -377,6 +377,9 @@ struct Manager {
         int default_oom_score_adjust;
         bool default_oom_score_adjust_set;
 
+        CGroupPressureWatch default_memory_pressure_watch;
+        usec_t default_memory_pressure_threshold_usec;
+
         int original_log_level;
         LogTarget original_log_target;
         bool log_level_overridden;
@@ -464,6 +467,8 @@ struct Manager {
 
         /* Allow users to configure a rate limit for Reload() operations */
         RateLimit reload_ratelimit;
+
+        sd_event_source *memory_pressure_event_source;
 };
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
@@ -516,6 +521,8 @@ void manager_clear_jobs(Manager *m);
 void manager_unwatch_pid(Manager *m, pid_t pid);
 
 unsigned manager_dispatch_load_queue(Manager *m);
+
+int manager_setup_memory_pressure_event_source(Manager *m);
 
 int manager_default_environment(Manager *m);
 int manager_transient_environment_add(Manager *m, char **plus);
