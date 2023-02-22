@@ -347,7 +347,7 @@ testcase_simultaneous_events() {
     for i in {0..9}; do
         diskpath="${TESTDIR:?}/simultaneousevents${i}.img"
 
-        dd if=/dev/zero of="$diskpath" bs=1M count=32
+        dd if=/dev/zero of="$diskpath" bs=1M count=128
         qemu_opts+=(
             "-device scsi-hd,drive=drive$i,serial=deadbeeftest$i"
             "-drive format=raw,cache=unsafe,file=$diskpath,if=none,id=drive$i"
