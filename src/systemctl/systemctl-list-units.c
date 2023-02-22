@@ -22,8 +22,7 @@ static int get_unit_list_recursive(
                 sd_bus *bus,
                 char **patterns,
                 UnitInfo **ret_unit_infos,
-                Set **ret_replies,
-                char ***ret_machines) {
+                Set **ret_replies) {
 
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         _cleanup_(message_set_freep) Set *replies = NULL;
@@ -33,7 +32,6 @@ static int get_unit_list_recursive(
         assert(bus);
         assert(ret_replies);
         assert(ret_unit_infos);
-        assert(ret_machines);
 
         replies = set_new(NULL);
         if (!replies)
@@ -76,10 +74,7 @@ static int get_unit_list_recursive(
                                 return log_oom();
                         TAKE_PTR(reply);
                 }
-
-                *ret_machines = TAKE_PTR(machines);
-        } else
-                *ret_machines = NULL;
+        }
 
         *ret_unit_infos = TAKE_PTR(unit_infos);
         *ret_replies = TAKE_PTR(replies);
@@ -237,7 +232,6 @@ static int output_units_list(const UnitInfo *unit_infos, size_t c) {
 int verb_list_units(int argc, char *argv[], void *userdata) {
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         _cleanup_(message_set_freep) Set *replies = NULL;
-        _cleanup_strv_free_ char **machines = NULL;
         sd_bus *bus;
         int r;
 
@@ -254,11 +248,11 @@ int verb_list_units(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
 
-                r = get_unit_list_recursive(bus, names, &unit_infos, &replies, &machines);
+                r = get_unit_list_recursive(bus, names, &unit_infos, &replies);
                 if (r < 0)
                         return r;
         } else {
-                r = get_unit_list_recursive(bus, strv_skip(argv, 1), &unit_infos, &replies, &machines);
+                r = get_unit_list_recursive(bus, strv_skip(argv, 1), &unit_infos, &replies);
                 if (r < 0)
                         return r;
         }
@@ -427,7 +421,6 @@ static int output_sockets_list(struct socket_info *socket_infos, size_t cs) {
 
 int verb_list_sockets(int argc, char *argv[], void *userdata) {
         _cleanup_(message_set_freep) Set *replies = NULL;
-        _cleanup_strv_free_ char **machines = NULL;
         _cleanup_strv_free_ char **sockets_with_suffix = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         _cleanup_free_ struct socket_info *socket_infos = NULL;
@@ -446,7 +439,7 @@ int verb_list_sockets(int argc, char *argv[], void *userdata) {
                 return r;
 
         if (argc == 1 || sockets_with_suffix) {
-                n = get_unit_list_recursive(bus, sockets_with_suffix, &unit_infos, &replies, &machines);
+                n = get_unit_list_recursive(bus, sockets_with_suffix, &unit_infos, &replies);
                 if (n < 0)
                         return n;
 
@@ -675,7 +668,6 @@ usec_t calc_next_elapse(dual_timestamp *nw, dual_timestamp *next) {
 
 int verb_list_timers(int argc, char *argv[], void *userdata) {
         _cleanup_(message_set_freep) Set *replies = NULL;
-        _cleanup_strv_free_ char **machines = NULL;
         _cleanup_strv_free_ char **timers_with_suffix = NULL;
         _cleanup_free_ struct timer_info *timer_infos = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
@@ -695,7 +687,7 @@ int verb_list_timers(int argc, char *argv[], void *userdata) {
                 return r;
 
         if (argc == 1 || timers_with_suffix) {
-                n = get_unit_list_recursive(bus, timers_with_suffix, &unit_infos, &replies, &machines);
+                n = get_unit_list_recursive(bus, timers_with_suffix, &unit_infos, &replies);
                 if (n < 0)
                         return n;
 
@@ -881,7 +873,7 @@ static int output_automounts_list(struct automount_info *infos, size_t n_infos) 
 
 int verb_list_automounts(int argc, char *argv[], void *userdata) {
         _cleanup_(message_set_freep) Set *replies = NULL;
-        _cleanup_strv_free_ char **machines = NULL, **automounts = NULL;
+        _cleanup_strv_free_ char **automounts = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         _cleanup_free_ struct automount_info *automount_infos = NULL;
         size_t c = 0;
@@ -899,7 +891,7 @@ int verb_list_automounts(int argc, char *argv[], void *userdata) {
                 return r;
 
         if (argc == 1 || automounts) {
-                n = get_unit_list_recursive(bus, automounts, &unit_infos, &replies, &machines);
+                n = get_unit_list_recursive(bus, automounts, &unit_infos, &replies);
                 if (n < 0)
                         return n;
 
@@ -1082,7 +1074,7 @@ static int output_paths_list(struct path_infos *ps) {
 
 int verb_list_paths(int argc, char *argv[], void *userdata) {
         _cleanup_(message_set_freep) Set *replies = NULL;
-        _cleanup_strv_free_ char **machines = NULL, **units = NULL;
+        _cleanup_strv_free_ char **units = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         _cleanup_(path_infos_done) struct path_infos path_infos = {};
         int r, n;
@@ -1099,7 +1091,7 @@ int verb_list_paths(int argc, char *argv[], void *userdata) {
                 return r;
 
         if (argc == 1 || units) {
-                n = get_unit_list_recursive(bus, units, &unit_infos, &replies, &machines);
+                n = get_unit_list_recursive(bus, units, &unit_infos, &replies);
                 if (n < 0)
                         return n;
 
