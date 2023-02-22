@@ -3787,7 +3787,7 @@ static int context_copy_blocks(Context *context) {
         return 0;
 }
 
-static int do_copy_files(Partition *p, const char *root, const Set *denylist) {
+static int do_copy_files(Partition *p, const char *root, Hashmap *denylist) {
         int r;
 
         assert(p);
@@ -3932,7 +3932,7 @@ static bool partition_needs_populate(Partition *p) {
         return !strv_isempty(p->copy_files) || !strv_isempty(p->make_directories);
 }
 
-static int partition_populate_directory(Partition *p, const Set *denylist, char **ret) {
+static int partition_populate_directory(Partition *p, Hashmap *denylist, char **ret) {
         _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
         const char *vt;
         int r;
@@ -3963,7 +3963,7 @@ static int partition_populate_directory(Partition *p, const Set *denylist, char 
         return 0;
 }
 
-static int partition_populate_filesystem(Partition *p, const char *node, const Set *denylist) {
+static int partition_populate_filesystem(Partition *p, const char *node, Hashmap *denylist) {
         int r;
 
         assert(p);
@@ -4010,8 +4010,37 @@ static int partition_populate_filesystem(Partition *p, const char *node, const S
         return 0;
 }
 
-static int make_copy_files_denylist(Context *context, const Partition *p, Set **ret) {
-        _cleanup_set_free_ Set *denylist = NULL;
+static int add_exclude_path(const char *path, Hashmap **denylist, DenyType type) {
+        _cleanup_free_ struct stat *st = NULL;
+        int r;
+
+        assert(path);
+        assert(denylist);
+
+        st = new(struct stat, 1);
+        if (!st)
+                return log_oom();
+
+        r = chase_symlinks_and_stat(path, arg_root, CHASE_PREFIX_ROOT, NULL, st, NULL);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to stat source file '%s%s': %m",
+                                        strempty(arg_root), path);
+
+        if (hashmap_contains(*denylist, st))
+                return 0;
+
+        if (hashmap_ensure_put(denylist, &inode_hash_ops, st, INT_TO_PTR(type)) < 0)
+                return log_oom();
+
+        TAKE_PTR(st);
+
+        return 0;
+}
+
+static int make_copy_files_denylist(Context *context, const Partition *p, Hashmap **ret) {
+        _cleanup_hashmap_free_ Hashmap *denylist = NULL;
         int r;
 
         assert(context);
@@ -4019,55 +4048,33 @@ static int make_copy_files_denylist(Context *context, const Partition *p, Set **
         assert(ret);
 
         LIST_FOREACH(partitions, q, context->partitions) {
+                if (p == q)
+                        continue;
+
                 const char *sources = gpt_partition_type_mountpoint_nulstr(q->type);
                 if (!sources)
                         continue;
 
                 NULSTR_FOREACH(s, sources) {
-                        _cleanup_free_ char *d = NULL;
-                        struct stat st;
+                        /* Exclude the children of partition mount points so that the nested partition mount
+                         * point itself still ends up in the upper partition. */
 
-                        r = chase_symlinks_and_stat(s, arg_root, CHASE_PREFIX_ROOT, NULL, &st, NULL);
-                        if (r == -ENOENT)
-                                continue;
+                        r = add_exclude_path(s, &denylist, DENY_CONTENTS);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to stat source file '%s%s': %m",
-                                                       strempty(arg_root), s);
-
-                        if (set_contains(denylist, &st))
-                                continue;
-
-                        d = memdup(&st, sizeof(st));
-                        if (!d)
-                                return log_oom();
-                        if (set_ensure_put(&denylist, &inode_hash_ops, d) < 0)
-                                return log_oom();
-
-                        TAKE_PTR(d);
+                                return r;
                 }
         }
 
-        STRV_FOREACH(e, p->exclude_files) {
-                _cleanup_free_ char *d = NULL;
-                struct stat st;
-
-                r = chase_symlinks_and_stat(*e, arg_root, CHASE_PREFIX_ROOT, NULL, &st, NULL);
-                if (r == -ENOENT)
-                        continue;
+        FOREACH_STRING(s, "proc", "sys", "dev", "tmp", "run", "var/tmp") {
+                r = add_exclude_path(s, &denylist, DENY_CONTENTS);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to stat source file '%s%s': %m",
-                                                strempty(arg_root), *e);
+                        return r;
+        }
 
-                if (set_contains(denylist, &st))
-                        continue;
-
-                d = memdup(&st, sizeof(st));
-                if (!d)
-                        return log_oom();
-                if (set_ensure_put(&denylist, &inode_hash_ops, d) < 0)
-                        return log_oom();
-
-                TAKE_PTR(d);
+        STRV_FOREACH(e, p->exclude_files) {
+                r = add_exclude_path(*e, &denylist, endswith(*e, "/") ? DENY_CONTENTS : DENY_INODE);
+                if (r < 0)
+                        return r;
         }
 
         *ret = TAKE_PTR(denylist);
@@ -4082,7 +4089,7 @@ static int context_mkfs(Context *context) {
         /* Make a file system */
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_set_free_ Set *denylist = NULL;
+                _cleanup_hashmap_free_ Hashmap *denylist = NULL;
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
                 _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
 
@@ -5402,7 +5409,7 @@ static int context_minimize(Context *context) {
                 return log_error_errno(r, "Could not determine temporary directory: %m");
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_set_free_ Set *denylist = NULL;
+                _cleanup_hashmap_free_ Hashmap *denylist = NULL;
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
                 _cleanup_(unlink_and_freep) char *temp = NULL;
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
