@@ -1114,7 +1114,10 @@ static int set_securebits(unsigned bits, unsigned mask) {
         return 1;
 }
 
-static int enforce_user(const ExecContext *context, uid_t uid) {
+static int enforce_user(
+                const ExecContext *context,
+                uid_t uid,
+                uint64_t capability_ambient_set) {
         assert(context);
         int r;
 
@@ -1125,7 +1128,7 @@ static int enforce_user(const ExecContext *context, uid_t uid) {
          * setting secure bits the capability CAP_SETPCAP is required, so we also need keep-caps in this
          * case. */
 
-        if ((context->capability_ambient_set != 0 || context->secure_bits != 0) && uid != 0) {
+        if ((capability_ambient_set != 0 || context->secure_bits != 0) && uid != 0) {
 
                 /* First step: If we need to keep capabilities but drop privileges we need to make sure we
                  * keep our caps, while we drop privileges. Add KEEP_CAPS to the securebits */
@@ -4775,6 +4778,8 @@ static int exec_child(
         else
                 needs_setuid = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID));
 
+        uint64_t capability_ambient_set = context->capability_ambient_set;
+
         if (needs_sandboxing) {
                 /* MAC enablement checks need to be done before a new mount ns is created, as they rely on
                  * /sys being present. The actual MAC context application will happen later, as late as
@@ -4813,6 +4818,20 @@ static int exec_child(
                 if (r < 0) {
                         *exit_status = EXIT_PAM;
                         return log_unit_error_errno(unit, r, "Failed to set up PAM session: %m");
+                }
+
+                if (ambient_capabilities_supported()) {
+                        uint64_t ambient_after_pam;
+
+                        /* PAM modules might have set some ambient caps. Query them here and merge them into
+                         * the caps we want to set in the end, so that we don't end up unsetting them. */
+                        r = capability_get_ambient(&ambient_after_pam);
+                        if (r < 0) {
+                                *exit_status = EXIT_CAPABILITIES;
+                                return log_unit_error_errno(unit, r, "Failed to query ambient caps: %m");
+                        }
+
+                        capability_ambient_set |= ambient_after_pam;
                 }
 
                 ngids_after_pam = getgroups_alloc(&gids_after_pam);
@@ -5043,7 +5062,7 @@ static int exec_child(
                                 (UINT64_C(1) << CAP_SETGID);
 
                 if (!cap_test_all(bset)) {
-                        r = capability_bounding_set_drop(bset, false);
+                        r = capability_bounding_set_drop(bset, /* right_now= */ false);
                         if (r < 0) {
                                 *exit_status = EXIT_CAPABILITIES;
                                 return log_unit_error_errno(unit, r, "Failed to drop capabilities: %m");
@@ -5062,7 +5081,7 @@ static int exec_child(
                  * The requested ambient capabilities are raised in the inheritable set if the second
                  * argument is true. */
                 if (!needs_ambient_hack) {
-                        r = capability_ambient_set_apply(context->capability_ambient_set, true);
+                        r = capability_ambient_set_apply(capability_ambient_set, /* also_inherit= */ true);
                         if (r < 0) {
                                 *exit_status = EXIT_CAPABILITIES;
                                 return log_unit_error_errno(unit, r, "Failed to apply ambient capabilities (before UID change): %m");
@@ -5077,17 +5096,16 @@ static int exec_child(
 
         if (needs_setuid) {
                 if (uid_is_valid(uid)) {
-                        r = enforce_user(context, uid);
+                        r = enforce_user(context, uid, capability_ambient_set);
                         if (r < 0) {
                                 *exit_status = EXIT_USER;
                                 return log_unit_error_errno(unit, r, "Failed to change UID to " UID_FMT ": %m", uid);
                         }
 
-                        if (!needs_ambient_hack &&
-                            context->capability_ambient_set != 0) {
+                        if (!needs_ambient_hack && capability_ambient_set != 0) {
 
                                 /* Raise the ambient capabilities after user change. */
-                                r = capability_ambient_set_apply(context->capability_ambient_set, false);
+                                r = capability_ambient_set_apply(capability_ambient_set, /* also_inherit= */ false);
                                 if (r < 0) {
                                         *exit_status = EXIT_CAPABILITIES;
                                         return log_unit_error_errno(unit, r, "Failed to apply ambient capabilities (after UID change): %m");
