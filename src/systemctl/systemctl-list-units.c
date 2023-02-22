@@ -329,7 +329,7 @@ static int socket_info_compare(const struct socket_info *a, const struct socket_
         if (r != 0)
                 return r;
 
-        r = strcmp(a->path, b->path);
+        r = path_compare(a->path, b->path);
         if (r != 0)
                 return r;
 
