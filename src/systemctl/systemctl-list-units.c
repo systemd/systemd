@@ -27,7 +27,7 @@ static int get_unit_list_recursive(
 
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         _cleanup_(message_set_freep) Set *replies = NULL;
-        sd_bus_message *reply;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int c, r;
 
         assert(bus);
@@ -44,10 +44,9 @@ static int get_unit_list_recursive(
                 return c;
 
         r = set_put(replies, reply);
-        if (r < 0) {
-                sd_bus_message_unref(reply);
+        if (r < 0)
                 return log_oom();
-        }
+        TAKE_PTR(reply);
 
         if (arg_recursive) {
                 _cleanup_strv_free_ char **machines = NULL;
@@ -73,10 +72,9 @@ static int get_unit_list_recursive(
                         c = k;
 
                         r = set_put(replies, reply);
-                        if (r < 0) {
-                                sd_bus_message_unref(reply);
+                        if (r < 0)
                                 return log_oom();
-                        }
+                        TAKE_PTR(reply);
                 }
 
                 *ret_machines = TAKE_PTR(machines);
