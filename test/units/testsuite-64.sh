@@ -485,7 +485,7 @@ testcase_lvm_basic() {
     lvm vgs
     lvm vgchange -ay "$vgroup"
     lvm lvcreate -y -L 4M "$vgroup" -n mypart1
-    lvm lvcreate -y -L 8M "$vgroup" -n mypart2
+    lvm lvcreate -y -L 32M "$vgroup" -n mypart2
     lvm lvs
     udevadm wait --settle --timeout="$timeout" "/dev/$vgroup/mypart1" "/dev/$vgroup/mypart2"
     mkfs.ext4 -L mylvpart1 "/dev/$vgroup/mypart1"
@@ -528,6 +528,42 @@ testcase_lvm_basic() {
     udevadm wait --settle --timeout="$timeout" "/dev/$vgroup/mypart1" "/dev/$vgroup/mypart2"
     helper_check_device_symlinks "/dev/disk" "/dev/$vgroup"
     helper_check_device_units
+
+    # Do not "unready" suspended encrypted devices w/o superblock info
+    # See:
+    #   - https://github.com/systemd/systemd/pull/24177
+    #   - https://bugzilla.redhat.com/show_bug.cgi?id=1985288
+    dd if=/dev/urandom of=/etc/lvm_keyfile bs=64 count=1 iflag=fullblock
+    chmod 0600 /etc/lvm_keyfile
+    # Intentionally use weaker cipher-related settings, since we don't care
+    # about security here as it's a throwaway LUKS partition
+    cryptsetup luksFormat -q --use-urandom --pbkdf pbkdf2 --pbkdf-force-iterations 1000 \
+                          "/dev/$vgroup/mypart2" /etc/lvm_keyfile
+    # Mount the LUKS partition & create a filesystem on it
+    mkdir -p /tmp/lvmluksmnt
+    cryptsetup open --key-file=/etc/lvm_keyfile "/dev/$vgroup/mypart2" "lvmluksmap"
+    udevadm wait --settle --timeout="$timeout" "/dev/mapper/lvmluksmap"
+    mkfs.ext4 -L lvmluksfs "/dev/mapper/lvmluksmap"
+    udevadm wait --settle --timeout="$timeout" "/dev/disk/by-label/lvmluksfs"
+    # Make systemd "interested" in the mount by adding it to /etc/fstab
+    echo "/dev/disk/by-label/lvmluksfs /tmp/lvmluksmnt ext4 defaults 0 2" >>/etc/fstab
+    systemctl daemon-reload
+    mount "/tmp/lvmluksmnt"
+    mountpoint "/tmp/lvmluksmnt"
+    # Temporarily suspend the LUKS device and trigger udev - basically what `cryptsetup resize`
+    # does but in a more deterministic way suitable for a test/reproducer
+    for _ in {0..5}; do
+        dmsetup suspend "/dev/mapper/lvmluksmap"
+        udevadm trigger -v --settle "/dev/mapper/lvmluksmap"
+        dmsetup resume "/dev/mapper/lvmluksmap"
+        # The mount should survive this sequence of events
+        mountpoint "/tmp/lvmluksmnt"
+    done
+    # Cleanup
+    umount "/tmp/lvmluksmnt"
+    cryptsetup close "/dev/mapper/lvmluksmap"
+    sed -i "/lvmluksfs/d" "/etc/fstab"
+    systemctl daemon-reload
 
     # Disable the VG and check symlinks...
     lvm vgchange -an "$vgroup"
