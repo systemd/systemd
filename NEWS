@@ -1,5 +1,23 @@
 systemd System and Service Manager
 
+CHANGES WITH 254 in spe:
+
+        Security relevant changes:
+
+        * pam_systemd will now by default pass the CAP_WAKE_ALARM ambient
+          process capability to invoked session processes of regular users on
+          local seats (as well as to systemd --user), unless configured
+          otherwise via data from JSON user records, or via the PAM module's
+          parameter list. This is useful in order allow desktop tools such as
+          GNOME's Alarm Clock application to set a timer for
+          CLOCK_REALTIME_ALARM that wakes up the system when it elapses. A
+          per-user service unit file may thus use AmbientCapability= to pass
+          the capability to invoked processes. Note that this capability is
+          relatively narrow in focus (in particular compared to other process
+          capabilities such as CAP_SYS_ADMIN) and we already — by default —
+          permit more impactful operations such as system suspend to local
+          users.
+
 CHANGES WITH 253:
 
         Announcements of Future Feature Removals and Incompatible Changes:
