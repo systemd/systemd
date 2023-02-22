@@ -204,15 +204,29 @@ static int protofile_print_item(
                 sx->stx_mode & S_ISGID ? 'g' : '-',
                 (unsigned) (sx->stx_mode & 0777));
 
-        if (S_ISREG(sx->stx_mode))
-                fputs(path, f);
-        else if (S_ISLNK(sx->stx_mode)) {
+        /* The protofile format does not support spaces in filenames as whitespace is used as a token
+         * delimiter. To work around this limitation, mkfs.xfs allows escaping whitespace by using the /
+         * character (which isn't allowed in filenames and as such can be used to escape whitespace). See
+         * https://lore.kernel.org/linux-xfs/20230222090303.h6tujm7y32gjhgal@andromeda/T/#m8066b3e7d62a080ee7434faac4861d944e64493b
+         * for more information.*/
+
+        if (S_ISREG(sx->stx_mode)) {
+                _cleanup_free_ char *p = NULL;
+
+                p = strdup(path);
+                if (!p)
+                        return log_oom();
+
+                string_replace_char(p, ' ', '/');
+                fputs(p, f);
+        } else if (S_ISLNK(sx->stx_mode)) {
                 _cleanup_free_ char *p = NULL;
 
                 r = readlinkat_malloc(dir_fd, de->d_name, &p);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read symlink %s: %m", path);
 
+                string_replace_char(p, ' ', '/');
                 fputs(p, f);
         } else if (S_ISBLK(sx->stx_mode) || S_ISCHR(sx->stx_mode))
                 fprintf(f, "%" PRIu32 " %" PRIu32, sx->stx_rdev_major, sx->stx_rdev_minor);
