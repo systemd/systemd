@@ -2058,6 +2058,7 @@ static int show_one(
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_set_free_ Set *found_properties = NULL;
         _cleanup_(unit_status_info_free) UnitStatusInfo info = {
+                .runtime_max_sec = USEC_INFINITY,
                 .memory_current = UINT64_MAX,
                 .memory_high = CGROUP_LIMIT_MAX,
                 .memory_max = CGROUP_LIMIT_MAX,
