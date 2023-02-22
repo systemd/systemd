@@ -855,9 +855,18 @@ static int output_automounts_list(struct automount_info *infos, size_t n_infos) 
                 r = table_add_many(table,
                                    TABLE_STRING, info->what,
                                    TABLE_STRING, info->where,
-                                   TABLE_BOOLEAN, info->mounted,
-                                   TABLE_TIMESPAN_MSEC, info->timeout_idle_usec,
-                                   TABLE_STRING, unit);
+                                   TABLE_BOOLEAN, info->mounted);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                if (timestamp_is_set(info->timeout_idle_usec))
+                        r = table_add_cell(table, NULL, TABLE_TIMESPAN_MSEC, &info->timeout_idle_usec);
+                else
+                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_cell(table, NULL, TABLE_STRING, unit);
                 if (r < 0)
                         return table_log_add_error(r);
         }
