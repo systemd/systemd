@@ -35,10 +35,9 @@ static void item_seen(Item *item) {
 TEST(set_free_with_destructor) {
         Set *m;
         struct Item items[4] = {};
-        unsigned i;
 
         assert_se(m = set_new(NULL));
-        for (i = 0; i < ELEMENTSOF(items) - 1; i++)
+        for (size_t i = 0; i < ELEMENTSOF(items) - 1; i++)
                 assert_se(set_put(m, items + i) == 1);
 
         m = set_free_with_destructor(m, item_seen);
@@ -53,10 +52,9 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(item_hash_ops, void, trivial_hash_
 TEST(set_free_with_hash_ops) {
         Set *m;
         struct Item items[4] = {};
-        unsigned i;
 
         assert_se(m = set_new(&item_hash_ops));
-        for (i = 0; i < ELEMENTSOF(items) - 1; i++)
+        for (size_t i = 0; i < ELEMENTSOF(items) - 1; i++)
                 assert_se(set_put(m, items + i) == 1);
 
         m = set_free(m);
