@@ -23,7 +23,7 @@ systemctl kill --kill-whom=main --kill-value=32 --signal=SIGRTMIN+7 "$UNIT"
 systemctl kill --kill-whom=main --kill-value=16 --signal=SIGRTMIN+7 "$UNIT"
 
 # We simply check that six signals are queued now. There's no easy way to check
-# from shell wich ones those are, hence we don't check that.
+# from shell which ones those are, hence we don't check that.
 P=$(systemctl show -P MainPID "$UNIT")
 
 test "$(grep SigQ: /proc/"$P"/status | cut -d: -f2 | cut -d/ -f1)" -eq 6
