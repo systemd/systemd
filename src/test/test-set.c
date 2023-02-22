@@ -5,8 +5,6 @@
 #include "strv.h"
 #include "tests.h"
 
-const bool mempool_use_allowed = VALGRIND;
-
 TEST(set_steal_first) {
         _cleanup_set_free_ Set *m = NULL;
         int seen[3] = {};
