@@ -119,6 +119,11 @@ static inline void unload_imagep(EFI_HANDLE *image) {
 #define LOADER_GUID \
         { 0x4a67b082, 0x0a4c, 0x41cf, { 0xb6, 0xc7, 0x44, 0x0b, 0x29, 0xbb, 0x8c, 0x4f } }
 
+/* Note that GUID is evaluated multiple times! */
+#define GUID_FORMAT_STR "%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X"
+#define GUID_FORMAT_VAL(g) (g).Data1, (g).Data2, (g).Data3, (g).Data4[0], (g).Data4[1], \
+        (g).Data4[2], (g).Data4[3], (g).Data4[4], (g).Data4[5], (g).Data4[6], (g).Data4[7]
+
 void print_at(size_t x, size_t y, size_t attr, const char16_t *str);
 void clear_screen(size_t attr);
 
@@ -184,8 +189,6 @@ static inline void beep(unsigned beep_count) {}
 #endif
 
 EFI_STATUS open_volume(EFI_HANDLE device, EFI_FILE **ret_file);
-EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DEVICE_PATH **ret_dp);
-EFI_STATUS device_path_to_str(const EFI_DEVICE_PATH *dp, char16_t **ret);
 
 static inline bool efi_guid_equal(const EFI_GUID *a, const EFI_GUID *b) {
         return memcmp(a, b, sizeof(EFI_GUID)) == 0;

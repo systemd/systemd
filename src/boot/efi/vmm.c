@@ -4,6 +4,7 @@
 #  include <cpuid.h>
 #endif
 
+#include "device-path-util.h"
 #include "drivers.h"
 #include "efi-string.h"
 #include "proto/device-path.h"
@@ -19,7 +20,7 @@
 /* detect direct boot */
 bool is_direct_boot(EFI_HANDLE device) {
         EFI_STATUS err;
-        VENDOR_DEVICE_PATH *dp; /* NB: Alignment of this structure might be quirky! */
+        VENDOR_DEVICE_PATH *dp;
 
         err = BS->HandleProtocol(device, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), (void **) &dp);
         if (err != EFI_SUCCESS)
@@ -28,7 +29,7 @@ bool is_direct_boot(EFI_HANDLE device) {
         /* 'qemu -kernel systemd-bootx64.efi' */
         if (dp->Header.Type == MEDIA_DEVICE_PATH &&
             dp->Header.SubType == MEDIA_VENDOR_DP &&
-            memcmp(&dp->Guid, MAKE_GUID_PTR(QEMU_KERNEL_LOADER_FS_MEDIA), sizeof(EFI_GUID)) == 0) /* Don't change to efi_guid_equal() because EFI device path objects are not necessarily aligned! */
+            memcmp(&dp->Guid, MAKE_GUID_PTR(QEMU_KERNEL_LOADER_FS_MEDIA), sizeof(EFI_GUID)) == 0)
                 return true;
 
         /* loaded from firmware volume (sd-boot added to ovmf) */
@@ -37,27 +38,6 @@ bool is_direct_boot(EFI_HANDLE device) {
                 return true;
 
         return false;
-}
-
-static bool device_path_startswith(const EFI_DEVICE_PATH *dp, const EFI_DEVICE_PATH *start) {
-        if (!start)
-                return true;
-        if (!dp)
-                return false;
-        for (;;) {
-                if (IsDevicePathEnd(start))
-                        return true;
-                if (IsDevicePathEnd(dp))
-                        return false;
-                size_t l1 = DevicePathNodeLength(start);
-                size_t l2 = DevicePathNodeLength(dp);
-                if (l1 != l2)
-                        return false;
-                if (memcmp(dp, start, l1) != 0)
-                        return false;
-                start = NextDevicePathNode(start);
-                dp    = NextDevicePathNode(dp);
-        }
 }
 
 /*
