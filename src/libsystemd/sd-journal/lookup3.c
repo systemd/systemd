@@ -4,6 +4,12 @@
 
 #include "lookup3.h"
 
+#if HAVE_VALGRIND_VALGRIND_H
+#  include <valgrind/valgrind.h>
+#else
+#  define RUNNING_ON_VALGRIND 0
+#endif
+
 /*
 -------------------------------------------------------------------------------
 lookup3.c, by Bob Jenkins, May 2006, Public Domain.
@@ -320,27 +326,28 @@ uint32_t jenkins_hashlittle( const void *key, size_t length, uint32_t initval)
      * still catch it and complain.  The masking trick does make the hash
      * noticeably faster for short strings (like English words).
      */
-#if !VALGRIND && !HAS_FEATURE_ADDRESS_SANITIZER && !HAS_FEATURE_MEMORY_SANITIZER
+#define VALGRIND_LIKE (_unlikely_(HAS_FEATURE_ADDRESS_SANITIZER ||      \
+                                  HAS_FEATURE_MEMORY_SANITIZER ||       \
+                                  RUNNING_ON_VALGRIND))
 
-    switch(length)
-    {
-    case 12: c+=k[2]; b+=k[1]; a+=k[0]; break;
-    case 11: c+=k[2]&0xffffff; b+=k[1]; a+=k[0]; break;
-    case 10: c+=k[2]&0xffff; b+=k[1]; a+=k[0]; break;
-    case 9 : c+=k[2]&0xff; b+=k[1]; a+=k[0]; break;
-    case 8 : b+=k[1]; a+=k[0]; break;
-    case 7 : b+=k[1]&0xffffff; a+=k[0]; break;
-    case 6 : b+=k[1]&0xffff; a+=k[0]; break;
-    case 5 : b+=k[1]&0xff; a+=k[0]; break;
-    case 4 : a+=k[0]; break;
-    case 3 : a+=k[0]&0xffffff; break;
-    case 2 : a+=k[0]&0xffff; break;
-    case 1 : a+=k[0]&0xff; break;
-    case 0 : return c;              /* zero length strings require no mixing */
-    }
-
-#else /* make valgrind happy */
-    {
+    if (!VALGRIND_LIKE) {
+      switch(length)
+      {
+      case 12: c+=k[2]; b+=k[1]; a+=k[0]; break;
+      case 11: c+=k[2]&0xffffff; b+=k[1]; a+=k[0]; break;
+      case 10: c+=k[2]&0xffff; b+=k[1]; a+=k[0]; break;
+      case 9 : c+=k[2]&0xff; b+=k[1]; a+=k[0]; break;
+      case 8 : b+=k[1]; a+=k[0]; break;
+      case 7 : b+=k[1]&0xffffff; a+=k[0]; break;
+      case 6 : b+=k[1]&0xffff; a+=k[0]; break;
+      case 5 : b+=k[1]&0xff; a+=k[0]; break;
+      case 4 : a+=k[0]; break;
+      case 3 : a+=k[0]&0xffffff; break;
+      case 2 : a+=k[0]&0xffff; break;
+      case 1 : a+=k[0]&0xff; break;
+      case 0 : return c;              /* zero length strings require no mixing */
+      }
+    } else {
       const uint8_t *k8 = (const uint8_t *) k;
 
       switch(length)
@@ -360,8 +367,6 @@ uint32_t jenkins_hashlittle( const void *key, size_t length, uint32_t initval)
       case 0 : return c;
       }
     }
-
-#endif /* !valgrind */
 
   } else if (HASH_LITTLE_ENDIAN && ((u.i & 0x1) == 0)) {
     const uint16_t *k = (const uint16_t *)key;         /* read 16-bit chunks */
@@ -505,29 +510,26 @@ void jenkins_hashlittle2(
      * still catch it and complain.  The masking trick does make the hash
      * noticeably faster for short strings (like English words).
      */
-#if !VALGRIND && !HAS_FEATURE_ADDRESS_SANITIZER && !HAS_FEATURE_MEMORY_SANITIZER
-
-    switch(length)
-    {
-    case 12: c+=k[2]; b+=k[1]; a+=k[0]; break;
-    case 11: c+=k[2]&0xffffff; b+=k[1]; a+=k[0]; break;
-    case 10: c+=k[2]&0xffff; b+=k[1]; a+=k[0]; break;
-    case 9 : c+=k[2]&0xff; b+=k[1]; a+=k[0]; break;
-    case 8 : b+=k[1]; a+=k[0]; break;
-    case 7 : b+=k[1]&0xffffff; a+=k[0]; break;
-    case 6 : b+=k[1]&0xffff; a+=k[0]; break;
-    case 5 : b+=k[1]&0xff; a+=k[0]; break;
-    case 4 : a+=k[0]; break;
-    case 3 : a+=k[0]&0xffffff; break;
-    case 2 : a+=k[0]&0xffff; break;
-    case 1 : a+=k[0]&0xff; break;
-    case 0 : *pc=c; *pb=b; return;  /* zero length strings require no mixing */
-    }
-
-#else /* make valgrind happy */
-
-    {
+    if (!VALGRIND_LIKE) {
+      switch(length)
+      {
+      case 12: c+=k[2]; b+=k[1]; a+=k[0]; break;
+      case 11: c+=k[2]&0xffffff; b+=k[1]; a+=k[0]; break;
+      case 10: c+=k[2]&0xffff; b+=k[1]; a+=k[0]; break;
+      case 9 : c+=k[2]&0xff; b+=k[1]; a+=k[0]; break;
+      case 8 : b+=k[1]; a+=k[0]; break;
+      case 7 : b+=k[1]&0xffffff; a+=k[0]; break;
+      case 6 : b+=k[1]&0xffff; a+=k[0]; break;
+      case 5 : b+=k[1]&0xff; a+=k[0]; break;
+      case 4 : a+=k[0]; break;
+      case 3 : a+=k[0]&0xffffff; break;
+      case 2 : a+=k[0]&0xffff; break;
+      case 1 : a+=k[0]&0xff; break;
+      case 0 : *pc=c; *pb=b; return;  /* zero length strings require no mixing */
+      }
+    } else {
       const uint8_t *k8 = (const uint8_t *)k;
+
       switch(length)
       {
       case 12: c+=k[2]; b+=k[1]; a+=k[0]; break;
@@ -545,8 +547,6 @@ void jenkins_hashlittle2(
       case 0 : *pc=c; *pb=b; return;  /* zero length strings require no mixing */
       }
     }
-
-#endif /* !valgrind */
 
   } else if (HASH_LITTLE_ENDIAN && ((u.i & 0x1) == 0)) {
     const uint16_t *k = (const uint16_t *)key;         /* read 16-bit chunks */
@@ -681,29 +681,27 @@ uint32_t jenkins_hashbig( const void *key, size_t length, uint32_t initval)
      * still catch it and complain.  The masking trick does make the hash
      * noticeably faster for short strings (like English words).
      */
-#if !VALGRIND && !HAS_FEATURE_ADDRESS_SANITIZER && !HAS_FEATURE_MEMORY_SANITIZER
 
-    switch(length)
-    {
-    case 12: c+=k[2]; b+=k[1]; a+=k[0]; break;
-    case 11: c+=k[2]&0xffffff00; b+=k[1]; a+=k[0]; break;
-    case 10: c+=k[2]&0xffff0000; b+=k[1]; a+=k[0]; break;
-    case 9 : c+=k[2]&0xff000000; b+=k[1]; a+=k[0]; break;
-    case 8 : b+=k[1]; a+=k[0]; break;
-    case 7 : b+=k[1]&0xffffff00; a+=k[0]; break;
-    case 6 : b+=k[1]&0xffff0000; a+=k[0]; break;
-    case 5 : b+=k[1]&0xff000000; a+=k[0]; break;
-    case 4 : a+=k[0]; break;
-    case 3 : a+=k[0]&0xffffff00; break;
-    case 2 : a+=k[0]&0xffff0000; break;
-    case 1 : a+=k[0]&0xff000000; break;
-    case 0 : return c;              /* zero length strings require no mixing */
-    }
-
-#else  /* make valgrind happy */
-
-    {
+    if (!VALGRIND_LIKE) {
+      switch(length)
+      {
+      case 12: c+=k[2]; b+=k[1]; a+=k[0]; break;
+      case 11: c+=k[2]&0xffffff00; b+=k[1]; a+=k[0]; break;
+      case 10: c+=k[2]&0xffff0000; b+=k[1]; a+=k[0]; break;
+      case 9 : c+=k[2]&0xff000000; b+=k[1]; a+=k[0]; break;
+      case 8 : b+=k[1]; a+=k[0]; break;
+      case 7 : b+=k[1]&0xffffff00; a+=k[0]; break;
+      case 6 : b+=k[1]&0xffff0000; a+=k[0]; break;
+      case 5 : b+=k[1]&0xff000000; a+=k[0]; break;
+      case 4 : a+=k[0]; break;
+      case 3 : a+=k[0]&0xffffff00; break;
+      case 2 : a+=k[0]&0xffff0000; break;
+      case 1 : a+=k[0]&0xff000000; break;
+      case 0 : return c;              /* zero length strings require no mixing */
+      }
+    } else {
       const uint8_t *k8 = (const uint8_t *)k;
+
       switch(length)                   /* all the case statements fall through */
       {
       case 12: c+=k[2]; b+=k[1]; a+=k[0]; break;
@@ -721,8 +719,6 @@ uint32_t jenkins_hashbig( const void *key, size_t length, uint32_t initval)
       case 0 : return c;
       }
     }
-
-#endif /* !VALGRIND */
 
   } else {                        /* need to read the key one byte at a time */
     const uint8_t *k = (const uint8_t *)key;

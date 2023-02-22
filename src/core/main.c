@@ -12,7 +12,7 @@
 #include <seccomp.h>
 #endif
 #if HAVE_VALGRIND_VALGRIND_H
-#include <valgrind/valgrind.h>
+#  include <valgrind/valgrind.h>
 #endif
 
 #include "sd-bus.h"
@@ -1866,8 +1866,8 @@ static int do_reexecute(
                 assert(i <= args_size);
 
                 /*
-                 * We want valgrind to print its memory usage summary before reexecution.  Valgrind won't do
-                 * this is on its own on exec(), but it will do it on exit().  Hence, to ensure we get a
+                 * We want valgrind to print its memory usage summary before reexecution. Valgrind won't do
+                 * this is on its own on exec(), but it will do it on exit(). Hence, to ensure we get a
                  * summary here, fork() off a child, let it exit() cleanly, so that it prints the summary,
                  * and wait() for it in the parent, before proceeding into the exec().
                  */
