@@ -148,23 +148,23 @@ _public_ int sd_journal_printv(int priority, const char *format, va_list ap) {
         return sd_journal_sendv(iov, 2);
 }
 
-_printf_(1, 0) static int fill_iovec_sprintf(const char *format, va_list ap, int extra, struct iovec **_iov) {
+_printf_(1, 0) static int fill_iovec_sprintf(const char *format, va_list ap, size_t extra, struct iovec **ret_iov) {
         PROTECT_ERRNO;
-        int r, n = 0, i = 0, j;
         struct iovec *iov = NULL;
+        size_t i = 0, n = 0;
 
-        assert(_iov);
+        assert(ret_iov);
 
         if (extra > 0) {
-                n = MAX(extra * 2, extra + 4);
-                iov = malloc0(n * sizeof(struct iovec));
-                if (!iov) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
+                n = MAX(extra * 2U, extra + 4U);
+                iov = new0(struct iovec, n);
+                if (!iov)
+                        return -ENOMEM;
 
                 i = extra;
         }
+
+        CLEANUP_ARRAY(iov, i, iovec_array_free);
 
         while (format) {
                 struct iovec *c;
@@ -172,12 +172,10 @@ _printf_(1, 0) static int fill_iovec_sprintf(const char *format, va_list ap, int
                 va_list aq;
 
                 if (i >= n) {
-                        n = MAX(i*2, 4);
+                        n = MAX(i*2U, 4U);
                         c = reallocarray(iov, n, sizeof(struct iovec));
-                        if (!c) {
-                                r = -ENOMEM;
-                                goto fail;
-                        }
+                        if (!c)
+                                return -ENOMEM;
 
                         iov = c;
                 }
@@ -185,8 +183,7 @@ _printf_(1, 0) static int fill_iovec_sprintf(const char *format, va_list ap, int
                 va_copy(aq, ap);
                 if (vasprintf(&buffer, format, aq) < 0) {
                         va_end(aq);
-                        r = -ENOMEM;
-                        goto fail;
+                        return -ENOMEM;
                 }
                 va_end(aq);
 
@@ -199,17 +196,8 @@ _printf_(1, 0) static int fill_iovec_sprintf(const char *format, va_list ap, int
                 format = va_arg(ap, char *);
         }
 
-        *_iov = iov;
-
-        return i;
-
-fail:
-        for (j = 0; j < i; j++)
-                free(iov[j].iov_base);
-
-        free(iov);
-
-        return r;
+        *ret_iov = TAKE_PTR(iov);
+        return (size_t) i;
 }
 
 _public_ int sd_journal_send(const char *format, ...) {

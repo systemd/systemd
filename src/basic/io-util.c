@@ -362,3 +362,13 @@ size_t iovw_size(struct iovec_wrapper *iovw) {
 
         return n;
 }
+
+void iovec_array_free(struct iovec *iov, size_t n) {
+        if (!iov)
+                return;
+
+        for (size_t i = 0; i < n; i++)
+                free(iov[i].iov_base);
+
+        free(iov);
+}
