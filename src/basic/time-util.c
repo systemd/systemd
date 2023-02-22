@@ -418,7 +418,7 @@ char *format_timestamp_style(
         return buf;
 }
 
-char *format_timestamp_relative(char *buf, size_t l, usec_t t) {
+char* format_timestamp_relative_full(char *buf, size_t l, usec_t t, bool implicit_left) {
         const char *s;
         usec_t n, d;
 
@@ -428,17 +428,17 @@ char *format_timestamp_relative(char *buf, size_t l, usec_t t) {
         n = now(CLOCK_REALTIME);
         if (n > t) {
                 d = n - t;
-                s = "ago";
+                s = " ago";
         } else {
                 d = t - n;
-                s = "left";
+                s = implicit_left ? "" : " left";
         }
 
         if (d >= USEC_PER_YEAR) {
                 usec_t years = d / USEC_PER_YEAR;
                 usec_t months = (d % USEC_PER_YEAR) / USEC_PER_MONTH;
 
-                (void) snprintf(buf, l, USEC_FMT " %s " USEC_FMT " %s %s",
+                (void) snprintf(buf, l, USEC_FMT " %s " USEC_FMT " %s%s",
                                 years,
                                 years == 1 ? "year" : "years",
                                 months,
@@ -448,7 +448,7 @@ char *format_timestamp_relative(char *buf, size_t l, usec_t t) {
                 usec_t months = d / USEC_PER_MONTH;
                 usec_t days = (d % USEC_PER_MONTH) / USEC_PER_DAY;
 
-                (void) snprintf(buf, l, USEC_FMT " %s " USEC_FMT " %s %s",
+                (void) snprintf(buf, l, USEC_FMT " %s " USEC_FMT " %s%s",
                                 months,
                                 months == 1 ? "month" : "months",
                                 days,
@@ -458,39 +458,39 @@ char *format_timestamp_relative(char *buf, size_t l, usec_t t) {
                 usec_t weeks = d / USEC_PER_WEEK;
                 usec_t days = (d % USEC_PER_WEEK) / USEC_PER_DAY;
 
-                (void) snprintf(buf, l, USEC_FMT " %s " USEC_FMT " %s %s",
+                (void) snprintf(buf, l, USEC_FMT " %s " USEC_FMT " %s%s",
                                 weeks,
                                 weeks == 1 ? "week" : "weeks",
                                 days,
                                 days == 1 ? "day" : "days",
                                 s);
         } else if (d >= 2*USEC_PER_DAY)
-                (void) snprintf(buf, l, USEC_FMT " days %s", d / USEC_PER_DAY, s);
+                (void) snprintf(buf, l, USEC_FMT " days%s", d / USEC_PER_DAY,s);
         else if (d >= 25*USEC_PER_HOUR)
-                (void) snprintf(buf, l, "1 day " USEC_FMT "h %s",
+                (void) snprintf(buf, l, "1 day " USEC_FMT "h%s",
                                 (d - USEC_PER_DAY) / USEC_PER_HOUR, s);
         else if (d >= 6*USEC_PER_HOUR)
-                (void) snprintf(buf, l, USEC_FMT "h %s",
+                (void) snprintf(buf, l, USEC_FMT "h%s",
                                 d / USEC_PER_HOUR, s);
         else if (d >= USEC_PER_HOUR)
-                (void) snprintf(buf, l, USEC_FMT "h " USEC_FMT "min %s",
+                (void) snprintf(buf, l, USEC_FMT "h " USEC_FMT "min%s",
                                 d / USEC_PER_HOUR,
                                 (d % USEC_PER_HOUR) / USEC_PER_MINUTE, s);
         else if (d >= 5*USEC_PER_MINUTE)
-                (void) snprintf(buf, l, USEC_FMT "min %s",
+                (void) snprintf(buf, l, USEC_FMT "min%s",
                                 d / USEC_PER_MINUTE, s);
         else if (d >= USEC_PER_MINUTE)
-                (void) snprintf(buf, l, USEC_FMT "min " USEC_FMT "s %s",
+                (void) snprintf(buf, l, USEC_FMT "min " USEC_FMT "s%s",
                                 d / USEC_PER_MINUTE,
                                 (d % USEC_PER_MINUTE) / USEC_PER_SEC, s);
         else if (d >= USEC_PER_SEC)
-                (void) snprintf(buf, l, USEC_FMT "s %s",
+                (void) snprintf(buf, l, USEC_FMT "s%s",
                                 d / USEC_PER_SEC, s);
         else if (d >= USEC_PER_MSEC)
-                (void) snprintf(buf, l, USEC_FMT "ms %s",
+                (void) snprintf(buf, l, USEC_FMT "ms%s",
                                 d / USEC_PER_MSEC, s);
         else if (d > 0)
-                (void) snprintf(buf, l, USEC_FMT"us %s",
+                (void) snprintf(buf, l, USEC_FMT"us%s",
                                 d, s);
         else
                 (void) snprintf(buf, l, "now");
@@ -499,7 +499,7 @@ char *format_timestamp_relative(char *buf, size_t l, usec_t t) {
         return buf;
 }
 
-char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
+char* format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
         static const struct {
                 const char *suffix;
                 usec_t usec;
