@@ -54,7 +54,10 @@ typedef struct {
         uint32_t PartitionNumber;
         uint64_t PartitionStart;
         uint64_t PartitionSize;
-        uint8_t Signature[16];
+        union {
+                uint8_t Signature[16];
+                EFI_GUID SignatureGuid;
+        };
         uint8_t MBRType;
         uint8_t SignatureType;
 } _packed_ HARDDRIVE_DEVICE_PATH;

@@ -294,26 +294,7 @@ char16_t *disk_get_part_uuid(EFI_HANDLE *handle) {
                 if (hd.SignatureType != SIGNATURE_TYPE_GUID)
                         continue;
 
-                return xasprintf(
-                                "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
-                                hd.Signature[3],
-                                hd.Signature[2],
-                                hd.Signature[1],
-                                hd.Signature[0],
-
-                                hd.Signature[5],
-                                hd.Signature[4],
-                                hd.Signature[7],
-                                hd.Signature[6],
-
-                                hd.Signature[8],
-                                hd.Signature[9],
-                                hd.Signature[10],
-                                hd.Signature[11],
-                                hd.Signature[12],
-                                hd.Signature[13],
-                                hd.Signature[14],
-                                hd.Signature[15]);
+                return xasprintf(GUID_FORMAT_STR, GUID_FORMAT_VAL(hd.SignatureGuid));
         }
 
         return NULL;
