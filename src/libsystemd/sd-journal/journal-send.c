@@ -21,6 +21,7 @@
 #include "io-util.h"
 #include "journal-send.h"
 #include "memfd-util.h"
+#include "missing_syscall.h"
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
