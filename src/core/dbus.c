@@ -737,6 +737,10 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
                 return 0;
         }
 
+        r = bus_register_malloc_status(bus, "org.freedesktop.systemd1");
+        if (r < 0)
+                log_warning_errno(r, "Failed to register MemoryAllocation1, ignoring: %m");
+
         r = set_ensure_put(&m->private_buses, NULL, bus);
         if (r == -ENOMEM) {
                 log_oom();
@@ -797,6 +801,10 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
         r = sd_bus_request_name_async(bus, NULL, "org.freedesktop.systemd1", SD_BUS_NAME_REPLACE_EXISTING|SD_BUS_NAME_ALLOW_REPLACEMENT, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request name: %m");
+
+        r = bus_register_malloc_status(bus, "org.freedesktop.systemd1");
+        if (r < 0)
+                log_warning_errno(r, "Failed to register MemoryAllocation1, ignoring: %m");
 
         log_debug("Successfully connected to API bus.");
 
