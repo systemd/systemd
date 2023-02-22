@@ -3,6 +3,7 @@
 
 #include "sd-id128.h"
 
+#include "image-policy.h"
 #include "json.h"
 #include "pager.h"
 
@@ -41,6 +42,7 @@ extern char *arg_image;
 extern InstallSource arg_install_source;
 extern char *arg_efi_boot_option_description;
 extern bool arg_dry_run;
+extern ImagePolicy *arg_image_policy;
 
 static inline const char *arg_dollar_boot_path(void) {
         /* $BOOT shall be the XBOOTLDR partition if it exists, and otherwise the ESP */
