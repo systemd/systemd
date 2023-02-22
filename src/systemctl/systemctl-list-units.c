@@ -578,6 +578,21 @@ struct timer_info {
         char** triggered;
 };
 
+struct timer_infos {
+        struct timer_info *timers;
+        size_t n_timers;
+};
+
+static void timer_infos_done(struct timer_infos *ts) {
+        assert(ts);
+        assert(ts->timers || ts->n_timers == 0);
+
+        for (size_t i = 0; i < ts->n_timers; i++)
+                strv_free(ts->timers[i].triggered);
+
+        free(ts->timers);
+}
+
 static int timer_info_compare(const struct timer_info *a, const struct timer_info *b) {
         int r;
 
@@ -595,11 +610,12 @@ static int timer_info_compare(const struct timer_info *a, const struct timer_inf
         return strcmp(a->id, b->id);
 }
 
-static int output_timers_list(struct timer_info *timer_infos, size_t n) {
+static int output_timers_list(const struct timer_infos *ts) {
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;
 
-        assert(timer_infos || n == 0);
+        assert(ts);
+        assert(ts->timers || ts->n_timers == 0);
 
         table = table_new("next", "left", "last", "passed", "unit", "activates");
         if (!table)
@@ -611,7 +627,7 @@ static int output_timers_list(struct timer_info *timer_infos, size_t n) {
 
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
-        for (struct timer_info *t = timer_infos; t < timer_infos + n; t++) {
+        for (const struct timer_info *t = ts->timers; t < ts->timers + ts->n_timers; t++) {
                 _cleanup_free_ char *unit = NULL;
 
                 unit = format_unit_id(t->id, t->machine);
@@ -637,12 +653,12 @@ static int output_timers_list(struct timer_info *timer_infos, size_t n) {
                 return r;
 
         if (arg_legend != 0)
-                output_legend("timer", n);
+                output_legend("timer", ts->n_timers);
 
         return 0;
 }
 
-usec_t calc_next_elapse(dual_timestamp *nw, dual_timestamp *next) {
+usec_t calc_next_elapse(const dual_timestamp *nw, const dual_timestamp *next) {
         usec_t next_elapse;
 
         assert(nw);
@@ -667,15 +683,60 @@ usec_t calc_next_elapse(dual_timestamp *nw, dual_timestamp *next) {
         return next_elapse;
 }
 
+static int add_timer_info(
+                sd_bus *bus,
+                struct timer_infos *ts,
+                const UnitInfo *u,
+                const dual_timestamp *nw) {
+
+        _cleanup_strv_free_ char **triggered = NULL;
+        dual_timestamp next = DUAL_TIMESTAMP_NULL;
+        usec_t m, last = 0;
+        int r;
+
+        assert(bus);
+        assert(ts);
+        assert(u);
+        assert(nw);
+
+        if (!endswith(u->id, ".timer"))
+                return 0;
+
+        r = get_triggered_units(bus, u->unit_path, &triggered);
+        if (r < 0)
+                return r;
+
+        r = get_next_elapse(bus, u->unit_path, &next);
+        if (r < 0)
+                return r;
+
+        r = get_last_trigger(bus, u->unit_path, &last);
+        if (r < 0)
+                return r;
+
+        if (!GREEDY_REALLOC(ts->timers, ts->n_timers + 1))
+                return log_oom();
+
+        m = calc_next_elapse(nw, &next);
+
+        ts->timers[ts->n_timers++] = (struct timer_info) {
+                .machine = u->machine,
+                .id = u->id,
+                .next_elapse = m,
+                .last_trigger = last,
+                .triggered = TAKE_PTR(triggered),
+        };
+
+        return 0;
+}
+
 int verb_list_timers(int argc, char *argv[], void *userdata) {
         _cleanup_(message_set_freep) Set *replies = NULL;
         _cleanup_strv_free_ char **timers_with_suffix = NULL;
-        _cleanup_free_ struct timer_info *timer_infos = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
-        dual_timestamp nw;
-        size_t c = 0;
+        _cleanup_(timer_infos_done) struct timer_infos timer_infos = {};
         sd_bus *bus;
-        int n, r;
+        int r;
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
@@ -688,6 +749,9 @@ int verb_list_timers(int argc, char *argv[], void *userdata) {
                 return r;
 
         if (argc == 1 || timers_with_suffix) {
+                dual_timestamp nw;
+                int n;
+
                 n = get_unit_list_recursive(bus, timers_with_suffix, &unit_infos, &replies);
                 if (n < 0)
                         return n;
@@ -695,49 +759,16 @@ int verb_list_timers(int argc, char *argv[], void *userdata) {
                 dual_timestamp_get(&nw);
 
                 for (const UnitInfo *u = unit_infos; u < unit_infos + n; u++) {
-                        _cleanup_strv_free_ char **triggered = NULL;
-                        dual_timestamp next = DUAL_TIMESTAMP_NULL;
-                        usec_t m, last = 0;
-
-                        if (!endswith(u->id, ".timer"))
-                                continue;
-
-                        r = get_triggered_units(bus, u->unit_path, &triggered);
+                        r = add_timer_info(bus, &timer_infos, u, &nw);
                         if (r < 0)
-                                goto cleanup;
-
-                        r = get_next_elapse(bus, u->unit_path, &next);
-                        if (r < 0)
-                                goto cleanup;
-
-                        get_last_trigger(bus, u->unit_path, &last);
-
-                        if (!GREEDY_REALLOC(timer_infos, c+1)) {
-                                r = log_oom();
-                                goto cleanup;
-                        }
-
-                        m = calc_next_elapse(&nw, &next);
-
-                        timer_infos[c++] = (struct timer_info) {
-                                .machine = u->machine,
-                                .id = u->id,
-                                .next_elapse = m,
-                                .last_trigger = last,
-                                .triggered = TAKE_PTR(triggered),
-                        };
+                                return r;
                 }
-
-                typesafe_qsort(timer_infos, c, timer_info_compare);
         }
 
-        output_timers_list(timer_infos, c);
+        typesafe_qsort(timer_infos.timers, timer_infos.n_timers, timer_info_compare);
+        output_timers_list(&timer_infos);
 
- cleanup:
-        for (struct timer_info *t = timer_infos; t < timer_infos + c; t++)
-                strv_free(t->triggered);
-
-        return r;
+        return 0;
 }
 
 struct automount_info {
