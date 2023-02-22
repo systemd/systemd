@@ -780,6 +780,25 @@ struct automount_info {
         bool mounted;
 };
 
+struct automount_infos {
+        struct automount_info *infos;
+        size_t n_infos;
+};
+
+static void automount_infos_done(struct automount_infos *as) {
+        assert(as);
+        assert(as->infos || as->n_infos == 0);
+
+        for (size_t i = 0; i < as->n_infos; i++) {
+                struct automount_info *a = &as->infos[i];
+
+                free(a->what);
+                free(a->where);
+        }
+
+        free(as->infos);
+}
+
 static int automount_info_compare(const struct automount_info *a, const struct automount_info *b) {
         int r;
 
@@ -790,10 +809,14 @@ static int automount_info_compare(const struct automount_info *a, const struct a
         if (r != 0)
                 return r;
 
-        return strcmp(a->where, b->where);
+        return path_compare(a->where, b->where);
 }
 
-static int collect_automount_info(sd_bus* bus, const UnitInfo* info, struct automount_info *ret_info) {
+static int automount_info_add(
+                sd_bus* bus,
+                struct automount_infos *as,
+                const UnitInfo *info) {
+
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *mount = NULL, *mount_path = NULL, *where = NULL, *what = NULL, *state = NULL;
         usec_t timeout_idle_usec;
@@ -801,8 +824,11 @@ static int collect_automount_info(sd_bus* bus, const UnitInfo* info, struct auto
         int r;
 
         assert(bus);
+        assert(as);
         assert(info);
-        assert(ret_info);
+
+        if (!endswith(info->id, ".automount"))
+                return 0;
 
         locator = (BusLocator) {
                 .destination = "org.freedesktop.systemd1",
@@ -839,7 +865,10 @@ static int collect_automount_info(sd_bus* bus, const UnitInfo* info, struct auto
         if (r < 0)
                 return log_error_errno(r, "Failed to get mount state: %s", bus_error_message(&error, r));
 
-        *ret_info = (struct automount_info) {
+        if (!GREEDY_REALLOC(as->infos, as->n_infos + 1))
+                return log_oom();
+
+        as->infos[as->n_infos++] = (struct automount_info) {
                 .machine = info->machine,
                 .id = info->id,
                 .what = TAKE_PTR(what),
@@ -851,11 +880,12 @@ static int collect_automount_info(sd_bus* bus, const UnitInfo* info, struct auto
         return 0;
 }
 
-static int output_automounts_list(struct automount_info *infos, size_t n_infos) {
+static int output_automounts_list(const struct automount_infos *as) {
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;
 
-        assert(infos || n_infos == 0);
+        assert(as);
+        assert(as->infos || as->n_infos == 0);
 
         table = table_new("what", "where", "mounted", "idle timeout", "unit");
         if (!table)
@@ -867,7 +897,7 @@ static int output_automounts_list(struct automount_info *infos, size_t n_infos) 
 
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
-        for (struct automount_info *info = infos; info < infos + n_infos; info++) {
+        for (struct automount_info *info = as->infos; info < as->infos + as->n_infos; info++) {
                 _cleanup_free_ char *unit = NULL;
 
                 unit = format_unit_id(info->id, info->machine);
@@ -889,7 +919,7 @@ static int output_automounts_list(struct automount_info *infos, size_t n_infos) 
                 return r;
 
         if (arg_legend != 0)
-                output_legend("automount", n_infos);
+                output_legend("automount", as->n_infos);
 
         return 0;
 }
@@ -898,10 +928,9 @@ int verb_list_automounts(int argc, char *argv[], void *userdata) {
         _cleanup_(message_set_freep) Set *replies = NULL;
         _cleanup_strv_free_ char **automounts = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
-        _cleanup_free_ struct automount_info *automount_infos = NULL;
-        size_t c = 0;
-        int r, n;
+        _cleanup_(automount_infos_done) struct automount_infos as = {};
         sd_bus *bus;
+        int r;
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
@@ -914,39 +943,24 @@ int verb_list_automounts(int argc, char *argv[], void *userdata) {
                 return r;
 
         if (argc == 1 || automounts) {
+                int n;
+
                 n = get_unit_list_recursive(bus, automounts, &unit_infos, &replies);
                 if (n < 0)
                         return n;
 
                 for (const UnitInfo *u = unit_infos; u < unit_infos + n; u++) {
-                        if (!endswith(u->id, ".automount"))
-                                continue;
-
-                        if (!GREEDY_REALLOC(automount_infos, c + 1)) {
-                                r = log_oom();
-                                goto cleanup;
-                        }
-
-                        r = collect_automount_info(bus, u, &automount_infos[c]);
+                        r = automount_info_add(bus, &as, u);
                         if (r < 0)
-                                goto cleanup;
-
-                        c++;
+                                return r;
                 }
 
-                typesafe_qsort(automount_infos, c, automount_info_compare);
         }
 
-        output_automounts_list(automount_infos, c);
+        typesafe_qsort(as.infos, as.n_infos, automount_info_compare);
+        output_automounts_list(&as);
 
- cleanup:
-        assert(c == 0 || automount_infos);
-        for (struct automount_info *info = automount_infos; info < automount_infos + c; info++) {
-                free(info->what);
-                free(info->where);
-        }
-
-        return r;
+        return 0;
 }
 
 struct path_info {
