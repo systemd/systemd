@@ -253,7 +253,7 @@ int mac_smack_read_fd(int fd, SmackAttr attr, char **label) {
         return -EOPNOTSUPP;
 }
 
-int mac_smack_apply(const char *path, SmackAttr attr, const char *label) {
+int mac_smack_apply_at(int dir_fd, const char *path, SmackAttr attr, const char *label) {
         return 0;
 }
 
