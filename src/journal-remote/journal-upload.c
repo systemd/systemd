@@ -18,6 +18,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "glob-util.h"
 #include "journal-upload.h"
 #include "log.h"
@@ -116,7 +117,7 @@ static int check_cursor_updating(Uploader *u) {
 }
 
 static int update_cursor_state(Uploader *u) {
-        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -141,12 +142,10 @@ static int update_cursor_state(Uploader *u) {
                 goto fail;
         }
 
+        temp_path = mfree(temp_path);
         return 0;
 
 fail:
-        if (temp_path)
-                (void) unlink(temp_path);
-
         (void) unlink(u->state_file);
 
         return log_error_errno(r, "Failed to save state %s: %m", u->state_file);
