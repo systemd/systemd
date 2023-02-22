@@ -287,20 +287,79 @@ static int get_triggered_units(
         return 0;
 }
 
-static int get_listening(
+typedef struct SocketInfo {
+        const char *machine;
+        const char* id;
+
+        char* type;
+        char* path; /* absolute path or socket address */
+
+        /* Note: triggered is a list here, although it almost certainly will always be one
+         * unit. Nevertheless, dbus API allows for multiple values, so let's follow that. */
+        char** triggered;
+} SocketInfo;
+
+static void socket_info_array_free(SocketInfo *sockets, size_t n_sockets) {
+        assert(sockets || n_sockets == 0);
+
+        for (SocketInfo *s = sockets; s < sockets + n_sockets; s++) {
+                free(s->type);
+                free(s->path);
+                strv_free(s->triggered);
+        }
+
+        free(sockets);
+}
+
+static int socket_info_compare(const SocketInfo *a, const SocketInfo *b) {
+        int r;
+
+        assert(a);
+        assert(b);
+
+        r = strcasecmp_ptr(a->machine, b->machine);
+        if (r != 0)
+                return r;
+
+        r = CMP(path_is_absolute(a->path), path_is_absolute(b->path));
+        if (r != 0)
+                return r;
+
+        r = path_is_absolute(a->path) ? path_compare(a->path, b->path) : strcmp(a->path, b->path);
+        if (r != 0)
+                return r;
+
+        return strcmp(a->type, b->type);
+}
+
+static int socket_info_add(
                 sd_bus *bus,
-                const char* unit_path,
-                char*** listening) {
+                const UnitInfo *u,
+                SocketInfo **sockets,
+                size_t *n_sockets) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_strv_free_ char **triggered = NULL;
         const char *type, *path;
-        int r, n = 0;
+        int r;
+
+        assert(bus);
+        assert(u);
+        assert(sockets);
+        assert(n_sockets);
+
+        if (!endswith(u->id, ".socket"))
+                return 0;
+
+        r = get_triggered_units(bus, u->unit_path, &triggered);
+        if (r < 0)
+                return r;
 
         r = sd_bus_get_property(
                         bus,
                         "org.freedesktop.systemd1",
-                        unit_path,
+                        u->unit_path,
                         "org.freedesktop.systemd1.Socket",
                         "Listen",
                         &error,
@@ -314,16 +373,31 @@ static int get_listening(
                 return bus_log_parse_error(r);
 
         while ((r = sd_bus_message_read(reply, "(ss)", &type, &path)) > 0) {
+                _cleanup_free_ char *type_dup = NULL, *path_dup = NULL;
+                _cleanup_strv_free_ char **triggered_dup = NULL;
 
-                r = strv_extend(listening, type);
-                if (r < 0)
+                type_dup = strdup(type);
+                if (!type_dup)
                         return log_oom();
 
-                r = strv_extend(listening, path);
-                if (r < 0)
+                path_dup = strdup(path);
+                if (!path_dup)
                         return log_oom();
 
-                n++;
+                triggered_dup = strv_copy(triggered);
+                if (!triggered_dup)
+                        return log_oom();
+
+                if (!GREEDY_REALLOC(*sockets, *n_sockets + 1))
+                        return log_oom();
+
+                (*sockets)[(*n_sockets)++] = (SocketInfo) {
+                        .machine = u->machine,
+                        .id = u->id,
+                        .type = TAKE_PTR(type_dup),
+                        .path = TAKE_PTR(path_dup),
+                        .triggered = TAKE_PTR(triggered_dup),
+                };
         }
         if (r < 0)
                 return bus_log_parse_error(r);
@@ -332,46 +406,14 @@ static int get_listening(
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        return n;
+        return 0;
 }
 
-struct socket_info {
-        const char *machine;
-        const char* id;
-
-        char* type;
-        char* path;
-
-        /* Note: triggered is a list here, although it almost certainly will always be one
-         * unit. Nevertheless, dbus API allows for multiple values, so let's follow that. */
-        char** triggered;
-
-        /* The strv above is shared. free is set only in the first one. */
-        bool own_triggered;
-};
-
-static int socket_info_compare(const struct socket_info *a, const struct socket_info *b) {
-        int r;
-
-        assert(a);
-        assert(b);
-
-        r = strcasecmp_ptr(a->machine, b->machine);
-        if (r != 0)
-                return r;
-
-        r = strcmp(a->path, b->path);
-        if (r != 0)
-                return r;
-
-        return strcmp(a->type, b->type);
-}
-
-static int output_sockets_list(struct socket_info *socket_infos, size_t cs) {
+static int output_sockets_list(const SocketInfo *sockets, size_t n_sockets) {
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;
 
-        assert(socket_infos || cs == 0);
+        assert(sockets || n_sockets == 0);
 
         table = table_new("listen", "type", "unit", "activates");
         if (!table)
@@ -390,7 +432,7 @@ static int output_sockets_list(struct socket_info *socket_infos, size_t cs) {
 
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
-        for (struct socket_info *s = socket_infos; s < socket_infos + cs; s++) {
+        for (const SocketInfo *s = sockets; s < sockets + n_sockets; s++) {
                 _cleanup_free_ char *unit = NULL;
 
                 unit = format_unit_id(s->id, s->machine);
@@ -398,9 +440,9 @@ static int output_sockets_list(struct socket_info *socket_infos, size_t cs) {
                         return log_oom();
 
                 r = table_add_many(table,
-                                        TABLE_STRING, s->path,
-                                        TABLE_STRING, s->type,
-                                        TABLE_STRING, unit);
+                                   TABLE_STRING, s->path,
+                                   TABLE_STRING, s->type,
+                                   TABLE_STRING, unit);
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -414,7 +456,7 @@ static int output_sockets_list(struct socket_info *socket_infos, size_t cs) {
                 return r;
 
         if (arg_legend != 0)
-                output_legend("socket", cs);
+                output_legend("socket", n_sockets);
 
         return 0;
 }
@@ -423,10 +465,12 @@ int verb_list_sockets(int argc, char *argv[], void *userdata) {
         _cleanup_(message_set_freep) Set *replies = NULL;
         _cleanup_strv_free_ char **sockets_with_suffix = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
-        _cleanup_free_ struct socket_info *socket_infos = NULL;
-        size_t cs = 0;
-        int r, n;
+        SocketInfo *sockets = NULL;
+        size_t n_sockets = 0;
         sd_bus *bus;
+        int r;
+
+        CLEANUP_ARRAY(sockets, n_sockets, socket_info_array_free);
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
@@ -439,63 +483,23 @@ int verb_list_sockets(int argc, char *argv[], void *userdata) {
                 return r;
 
         if (argc == 1 || sockets_with_suffix) {
+                int n;
+
                 n = get_unit_list_recursive(bus, sockets_with_suffix, &unit_infos, &replies);
                 if (n < 0)
                         return n;
 
                 for (const UnitInfo *u = unit_infos; u < unit_infos + n; u++) {
-                        _cleanup_strv_free_ char **listening = NULL, **triggered = NULL;
-                        int c;
-
-                        if (!endswith(u->id, ".socket"))
-                                continue;
-
-                        r = get_triggered_units(bus, u->unit_path, &triggered);
+                        r = socket_info_add(bus, u, &sockets, &n_sockets);
                         if (r < 0)
-                                goto cleanup;
-
-                        c = get_listening(bus, u->unit_path, &listening);
-                        if (c < 0) {
-                                r = c;
-                                goto cleanup;
-                        }
-
-                        if (!GREEDY_REALLOC(socket_infos, cs + c)) {
-                                r = log_oom();
-                                goto cleanup;
-                        }
-
-                        for (int i = 0; i < c; i++)
-                                socket_infos[cs + i] = (struct socket_info) {
-                                        .machine = u->machine,
-                                        .id = u->id,
-                                        .type = listening[i*2],
-                                        .path = listening[i*2 + 1],
-                                        .triggered = triggered,
-                                        .own_triggered = i==0,
-                                };
-
-                        /* from this point on we will cleanup those socket_infos */
-                        cs += c;
-                        free(listening);
-                        listening = triggered = NULL; /* avoid cleanup */
+                                return r;
                 }
-
-                typesafe_qsort(socket_infos, cs, socket_info_compare);
         }
 
-        output_sockets_list(socket_infos, cs);
+        typesafe_qsort(sockets, n_sockets, socket_info_compare);
+        output_sockets_list(sockets, n_sockets);
 
- cleanup:
-        assert(cs == 0 || socket_infos);
-        for (struct socket_info *s = socket_infos; s < socket_infos + cs; s++) {
-                free(s->type);
-                free(s->path);
-                if (s->own_triggered)
-                        strv_free(s->triggered);
-        }
-
-        return r;
+        return 0;
 }
 
 static int get_next_elapse(
