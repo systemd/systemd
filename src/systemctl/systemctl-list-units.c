@@ -774,7 +774,7 @@ static int automount_info_compare(const struct automount_info *a, const struct a
 static int collect_automount_info(sd_bus* bus, const UnitInfo* info, struct automount_info *ret_info) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *mount = NULL, *mount_path = NULL, *where = NULL, *what = NULL, *state = NULL;
-        usec_t timeout_idle_usec;
+        uint64_t timeout_idle_usec;
         BusLocator locator;
         int r;
 
