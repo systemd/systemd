@@ -9,3 +9,4 @@
         { 0xc12a7328, 0xf81f, 0x11d2, { 0xba, 0x4b, 0x00, 0xa0, 0xc9, 0x3e, 0xc9, 0x3b } }
 
 EFI_STATUS partition_open(const EFI_GUID *type, EFI_HANDLE *device, EFI_HANDLE *ret_device, EFI_FILE **ret_root_dir);
+char16_t *disk_get_part_uuid(EFI_HANDLE *handle);
