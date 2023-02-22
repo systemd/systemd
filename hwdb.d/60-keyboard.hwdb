@@ -1328,6 +1328,11 @@ evdev:input:b0003v046DpC309*
  KEYBOARD_KEY_c01b6=images                              # My Pictures (F11)
  KEYBOARD_KEY_c01b7=audio                               # My Music (F12)
 
+# Logitech USB Receiver Mouse (Lift for Business, left-handed)
+# This left-handed ergonomic mouse swaps the left/right buttons
+evdev:input:b0003v046DpC548e0111*
+ KEYBOARD_KEY_90001=btn_right
+ KEYBOARD_KEY_90002=btn_left
 
 ###########################################################
 # Maxdata
