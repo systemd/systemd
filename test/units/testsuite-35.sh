@@ -573,6 +573,58 @@ EOF
     assert_eq "$(loginctl --no-legend | grep -c "logind-test-user")" 0
 }
 
+test_ambient_caps() {
+    local PAMSERVICE TRANSIENTUNIT SCRIPT
+
+    # Verify that pam_systemd works and assigns ambient caps as it should
+
+    if ! grep -q 'CapAmb:' /proc/self/status ; then
+        echo "ambient caps not available, skipping test." >&2
+        return
+    fi
+
+    typeset -i BND MASK
+
+    # Get PID 1's bounding set
+    BND="0x$(grep 'CapBnd:' /proc/1/status | cut -d: -f2 | tr -d '[:space:]')"
+
+    # CAP_CHOWN | CAP_KILL
+    MASK=$(((1 << 0) | (1 << 5)))
+
+    if [ $(("$BND" & "$MASK")) -ne "$MASK" ] ; then
+        echo "CAP_CHOWN or CAP_KILL not available in bounding set, skipping test." >&2
+        return
+    fi
+
+    PAMSERVICE="pamserv$RANDOM"
+    TRANSIENTUNIT="capwakealarm$RANDOM.service"
+    SCRIPT="/tmp/capwakealarm$RANDOM.sh"
+
+    cat > /etc/pam.d/"$PAMSERVICE" <<EOF
+auth sufficient    pam_unix.so
+auth required      pam_deny.so
+account sufficient pam_unix.so
+account required   pam_permit.so
+session optional   pam_systemd.so default-capability-ambient-set=CAP_CHOWN,CAP_KILL debug
+session required   pam_unix.so
+EOF
+
+    cat > "$SCRIPT" <<'EOF'
+#!/bin/bash
+set -ex
+typeset -i AMB MASK
+AMB="0x$(grep 'CapAmb:' /proc/self/status | cut -d: -f2 | tr -d '[:space:]')"
+MASK=$(((1 << 0) | (1 << 5)))
+test "$AMB" -eq "$MASK"
+EOF
+
+    chmod +x "$SCRIPT"
+
+    systemd-run -u "$TRANSIENTUNIT" -p PAMName="$PAMSERVICE" -p Type=oneshot -p User=logind-test-user -p StandardError=tty "$SCRIPT"
+
+    rm -f "$SCRIPT" "$PAMSERVICE"
+}
+
 : >/failed
 
 setup_test_user
@@ -587,6 +639,7 @@ test_lock_idle_action
 test_session_properties
 test_list_users
 test_stop_idle_session
+test_ambient_caps
 
 touch /testok
 rm /failed
