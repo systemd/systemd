@@ -79,8 +79,6 @@ option('bump-proc-sys-fs-file-max', type : 'boolean',
        description : 'bump /proc/sys/fs/file-max to LONG_MAX')
 option('bump-proc-sys-fs-nr-open', type : 'boolean',
        description : 'bump /proc/sys/fs/nr_open to INT_MAX')
-option('valgrind', type : 'boolean', value : false,
-       description : 'do extra operations to avoid valgrind warnings')
 option('log-trace', type : 'boolean', value : false,
        description : 'enable low level debug logging')
 option('user-path', type : 'string',
