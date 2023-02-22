@@ -7,6 +7,7 @@
 #include "cap-list.h"
 #include "capability-util.h"
 #include "parse-util.h"
+#include "random-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -149,6 +150,28 @@ TEST(capability_set_to_string) {
          * for us to test with */
         if (cap_last_cap() < 62)
                 test_capability_set_to_string_invalid(all_capabilities() + 1);
+}
+
+TEST(capability_set_to_string_negative) {
+
+        for (unsigned i = 0; i < 150; i++) {
+                _cleanup_free_ char *a = NULL, *b = NULL;
+
+                uint64_t m =
+                        random_u64() % (UINT64_C(1) << (cap_last_cap() + 1));
+
+                assert_se(capability_set_to_string(m, &a) >= 0);
+                assert_se(capability_set_to_string_negative(m, &b) >= 0);
+
+                printf("%s (%zu) → ", a, strlen(a));
+
+                if (streq(a, b))
+                        printf("same\n");
+                else
+                        printf("%s (%zu)\n", b, strlen(b));
+
+                assert_se(strlen(b) <= strlen(a));
+        }
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
