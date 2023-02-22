@@ -1258,22 +1258,21 @@ _public_ int sd_event_add_io(
 }
 
 static void initialize_perturb(sd_event *e) {
-        sd_id128_t bootid = {};
+        sd_id128_t id = {};
 
-        /* When we sleep for longer, we try to realign the wakeup to
-           the same time within each minute/second/250ms, so that
-           events all across the system can be coalesced into a single
-           CPU wakeup. However, let's take some system-specific
-           randomness for this value, so that in a network of systems
-           with synced clocks timer events are distributed a
-           bit. Here, we calculate a perturbation usec offset from the
-           boot ID. */
+        /* When we sleep for longer, we try to realign the wakeup to the same time within each
+         * minute/second/250ms, so that events all across the system can be coalesced into a single CPU
+         * wakeup. However, let's take some system-specific randomness for this value, so that in a network
+         * of systems with synced clocks timer events are distributed a bit. Here, we calculate a
+         * perturbation usec offset from the boot ID (or machine ID if failed, e.g. /proc is not mounted). */
 
         if (_likely_(e->perturb != USEC_INFINITY))
                 return;
 
-        if (sd_id128_get_boot(&bootid) >= 0)
-                e->perturb = (bootid.qwords[0] ^ bootid.qwords[1]) % USEC_PER_MINUTE;
+        if (sd_id128_get_boot(&id) >= 0 || sd_id128_get_machine(&id) > 0)
+                e->perturb = (id.qwords[0] ^ id.qwords[1]) % USEC_PER_MINUTE;
+        else
+                e->perturb = 0; /* This is a super early process without /proc and /etc ?? */
 }
 
 static int event_setup_timer_fd(
