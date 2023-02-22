@@ -1095,17 +1095,22 @@ static int enforce_groups(gid_t gid, const gid_t *supplementary_gids, int ngids)
         return 0;
 }
 
-static int set_securebits(int bits, int mask) {
-        int current, applied;
+static int set_securebits(unsigned bits, unsigned mask) {
+        unsigned applied;
+        int current;
+
         current = prctl(PR_GET_SECUREBITS);
         if (current < 0)
                 return -errno;
+
         /* Clear all securebits defined in mask and set bits */
-        applied = (current & ~mask) | bits;
-        if (current == applied)
+        applied = ((unsigned) current & ~mask) | bits;
+        if ((unsigned) current == applied)
                 return 0;
+
         if (prctl(PR_SET_SECUREBITS, applied) < 0)
                 return -errno;
+
         return 1;
 }
 
@@ -1116,33 +1121,26 @@ static int enforce_user(const ExecContext *context, uid_t uid) {
         if (!uid_is_valid(uid))
                 return 0;
 
-        /* Sets (but doesn't look up) the uid and make sure we keep the
-         * capabilities while doing so. For setting secure bits the capability CAP_SETPCAP is
-         * required, so we also need keep-caps in this case.
-         */
+        /* Sets (but doesn't look up) the UIS and makes sure we keep the capabilities while doing so. For
+         * setting secure bits the capability CAP_SETPCAP is required, so we also need keep-caps in this
+         * case. */
 
-        if (context->capability_ambient_set != 0 || context->secure_bits != 0) {
+        if ((context->capability_ambient_set != 0 || context->secure_bits != 0) && uid != 0) {
 
-                /* First step: If we need to keep capabilities but
-                 * drop privileges we need to make sure we keep our
-                 * caps, while we drop privileges. */
-                if (uid != 0) {
-                        /* Add KEEP_CAPS to the securebits */
-                        r = set_securebits(1<<SECURE_KEEP_CAPS, 0);
-                        if (r < 0)
-                                return r;
-                }
+                /* First step: If we need to keep capabilities but drop privileges we need to make sure we
+                 * keep our caps, while we drop privileges. Add KEEP_CAPS to the securebits */
+                r = set_securebits(1U << SECURE_KEEP_CAPS, 0);
+                if (r < 0)
+                        return r;
         }
 
         /* Second step: actually set the uids */
         if (setresuid(uid, uid, uid) < 0)
                 return -errno;
 
-        /* At this point we should have all necessary capabilities but
-           are otherwise a normal user. However, the caps might got
-           corrupted due to the setresuid() so we need clean them up
-           later. This is done outside of this call. */
-
+        /* At this point we should have all necessary capabilities but are otherwise a normal user. However,
+         * the caps might got corrupted due to the setresuid() so we need clean them up later. This is done
+         * outside of this call. */
         return 0;
 }
 
@@ -5042,14 +5040,15 @@ static int exec_child(
 
                 /* Ambient capabilities are cleared during setresuid() (in enforce_user()) even with
                  * keep-caps set.
-                 * To be able to raise the ambient capabilities after setresuid() they have to be
-                 * added to the inherited set and keep caps has to be set (done in enforce_user()).
-                 * After setresuid() the ambient capabilities can be raised as they are present in
-                 * the permitted and inhertiable set. However it is possible that someone wants to
-                 * set ambient capabilities without changing the user, so we also set the ambient
-                 * capabilities here.
-                 * The requested ambient capabilities are raised in the inheritable set if the
-                 * second argument is true. */
+                 *
+                 * To be able to raise the ambient capabilities after setresuid() they have to be added to
+                 * the inherited set and keep caps has to be set (done in enforce_user()).  After setresuid()
+                 * the ambient capabilities can be raised as they are present in the permitted and
+                 * inhertiable set. However it is possible that someone wants to set ambient capabilities
+                 * without changing the user, so we also set the ambient capabilities here.
+                 *
+                 * The requested ambient capabilities are raised in the inheritable set if the second
+                 * argument is true. */
                 if (!needs_ambient_hack) {
                         r = capability_ambient_set_apply(context->capability_ambient_set, true);
                         if (r < 0) {
@@ -5124,19 +5123,22 @@ static int exec_child(
                 }
 #endif
 
-                /* PR_GET_SECUREBITS is not privileged, while PR_SET_SECUREBITS is. So to suppress potential EPERMs
-                 * we'll try not to call PR_SET_SECUREBITS unless necessary. Setting securebits requires
-                 * CAP_SETPCAP. */
+                /* PR_GET_SECUREBITS is not privileged, while PR_SET_SECUREBITS is. So to suppress potential
+                 * EPERMs we'll try not to call PR_SET_SECUREBITS unless necessary. Setting securebits
+                 * requires CAP_SETPCAP. */
                 if (prctl(PR_GET_SECUREBITS) != secure_bits) {
                         /* CAP_SETPCAP is required to set securebits. This capability is raised into the
                          * effective set here.
-                         * The effective set is overwritten during execve  with the following  values:
+                         *
+                         * The effective set is overwritten during execve() with the following values:
+                         *
                          * - ambient set (for non-root processes)
+                         *
                          * - (inheritable | bounding) set for root processes)
                          *
                          * Hence there is no security impact to raise it in the effective set before execve
                          */
-                        r = capability_gain_cap_setpcap(NULL);
+                        r = capability_gain_cap_setpcap(/* return_caps= */ NULL);
                         if (r < 0) {
                                 *exit_status = EXIT_CAPABILITIES;
                                 return log_unit_error_errno(unit, r, "Failed to gain CAP_SETPCAP for setting secure bits");
