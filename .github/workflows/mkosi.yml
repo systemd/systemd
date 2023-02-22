@@ -119,9 +119,8 @@ jobs:
     - name: Check ${{ matrix.distro }} systemd-nspawn
       run: |
         STATUS=0
-        sudo strace -f -Z -o strace mkosi shell bash -c "[[ -e /testok ]] || STATUS=$?"
+        sudo strace -f -Z -o strace mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }" || STATUS=$?
         if [ $STATUS -ne 0 ]; then
-          cat /failed-services
           cat strace
         fi
         exit $STATUS
@@ -134,9 +133,8 @@ jobs:
     - name: Check ${{ matrix.distro }} QEMU
       run: |
         STATUS=0
-        sudo strace -f -Z -o strace mkosi shell bash -c "[[ -e /testok ]] || STATUS=$?"
+        sudo strace -f -Z -o strace mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }" || STATUS=$?
         if [ $STATUS -ne 0 ]; then
-          cat /failed-services
           cat strace
         fi
         exit $STATUS
