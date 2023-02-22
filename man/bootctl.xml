@@ -480,7 +480,7 @@
     <title>Exit status</title>
     <para>On success, 0 is returned, a non-zero failure code otherwise. <command>bootctl
     --print-root-device</command> returns exit status 80 in case the root file system is not backed by single
-    block device, and other non-zero exit statusses on other errors.</para>
+    block device, and other non-zero exit statuses on other errors.</para>
   </refsect1>
 
   <refsect1>

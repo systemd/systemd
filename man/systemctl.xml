@@ -2177,7 +2177,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         system call, rather than <citerefentry
         project='man-pages'><refentrytitle>kill</refentrytitle><manvolnum>3</manvolnum></citerefentry>. The
         specified value must be a 32bit signed integer, and may be specified either in decimal, in
-        hexademical (if prefixed with <literal>0x</literal>), octal (if prefixed with <literal>0o</literal>)
+        hexadecimal (if prefixed with <literal>0x</literal>), octal (if prefixed with <literal>0o</literal>)
         or binary (if prefixed with <literal>0b</literal>)</para>
 
         <para>If this option is used the signal will only be enqueued on the control or main process of the

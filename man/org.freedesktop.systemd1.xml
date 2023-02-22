@@ -1294,10 +1294,11 @@ node /org/freedesktop/systemd1 {
 
       <para><function>QueueSignalUnit()</function> is similar to <function>KillUnit()</function> but may be
       used to enqueue a POSIX Realtime Signal (i.e. <constant>SIGRTMIN+…</constant> and
-      <constant>SIGRTMAX-…</constant>) to the selected process(es). Takes the same paramaters as
+      <constant>SIGRTMAX-…</constant>) to the selected process(es). Takes the same parameters as
       <function>KillUnit()</function> with one additional argument: an integer that is passed in the
-      <varname>sival_int</varname> value accompanying the queued signal. See <citerefentry project="man-pages"><refentrytitle>sigqueue</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
-      details.</para>
+      <varname>sival_int</varname> value accompanying the queued signal. See
+      <citerefentry project="man-pages"><refentrytitle>sigqueue</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      for details.</para>
 
       <para><function>GetJob()</function> returns the job object path for a specific job, identified by its
       id.</para>
