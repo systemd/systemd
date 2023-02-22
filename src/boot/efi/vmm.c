@@ -241,22 +241,18 @@ static const SmbiosHeader *get_smbios_table(uint8_t type, uint64_t *ret_size_lef
 
                 /* Skip over string table. */
                 for (;;) {
-                        while (size > 0 && *p != '\0') {
+                        const uint8_t *e = memchr(p, 0, size);
+                        if (!e)
+                                return NULL;
+
+                        if (e == p) {/* Double NUL byte means we've reached the end of the string table. */
                                 p++;
                                 size--;
-                        }
-                        if (size == 0)
-                                return NULL;
-                        p++;
-                        size--;
-
-                        /* Double NUL terminates string table. */
-                        if (*p == '\0') {
-                                if (size == 0)
-                                        return NULL;
-                                p++;
                                 break;
                         }
+
+                        size -= e + 1 - p;
+                        p = e + 1;
                 }
         }
 
