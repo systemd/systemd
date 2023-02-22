@@ -65,7 +65,7 @@ enum bus_match_scope {
 
 int bus_match_run(sd_bus *bus, struct bus_match_node *root, sd_bus_message *m);
 
-int bus_match_add(struct bus_match_node *root, struct bus_match_component *components, unsigned n_components, struct match_callback *callback);
+int bus_match_add(struct bus_match_node *root, struct bus_match_component *components, size_t n_components, struct match_callback *callback);
 int bus_match_remove(struct bus_match_node *root, struct match_callback *callback);
 
 void bus_match_free(struct bus_match_node *node);
@@ -75,8 +75,8 @@ void bus_match_dump(FILE *out, struct bus_match_node *node, unsigned level);
 const char* bus_match_node_type_to_string(enum bus_match_node_type t, char buf[], size_t l);
 enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n);
 
-int bus_match_parse(const char *match, struct bus_match_component **ret_components, unsigned *ret_n_components);
-void bus_match_parse_free(struct bus_match_component *components, unsigned n_components);
-char *bus_match_to_string(struct bus_match_component *components, unsigned n_components);
+int bus_match_parse(const char *match, struct bus_match_component **ret_components, size_t *ret_n_components);
+void bus_match_parse_free(struct bus_match_component *components, size_t n_components);
+char *bus_match_to_string(struct bus_match_component *components, size_t n_components);
 
-enum bus_match_scope bus_match_get_scope(const struct bus_match_component *components, unsigned n_components);
+enum bus_match_scope bus_match_get_scope(const struct bus_match_component *components, size_t n_components);

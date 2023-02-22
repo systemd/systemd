@@ -2335,6 +2335,8 @@ static int reply_install_changes_and_free(
         bool bad = false, good = false;
         int r;
 
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
         if (install_changes_have_modification(changes, n_changes)) {
                 r = bus_foreach_bus(m, NULL, send_unit_files_changed, NULL);
                 if (r < 0)
@@ -2343,17 +2345,17 @@ static int reply_install_changes_and_free(
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
-                goto fail;
+                return r;
 
         if (carries_install_info >= 0) {
                 r = sd_bus_message_append(reply, "b", carries_install_info);
                 if (r < 0)
-                        goto fail;
+                        return r;
         }
 
         r = sd_bus_message_open_container(reply, 'a', "(sss)");
         if (r < 0)
-                goto fail;
+                return r;
 
         for (size_t i = 0; i < n_changes; i++) {
 
@@ -2368,7 +2370,7 @@ static int reply_install_changes_and_free(
                                 changes[i].path,
                                 changes[i].source);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
                 good = true;
         }
@@ -2376,18 +2378,13 @@ static int reply_install_changes_and_free(
         /* If there was a failed change, and no successful change, then return the first failure as proper
          * method call error. */
         if (bad && !good)
-                return install_error(error, 0, changes, n_changes);
+                return install_error(error, 0, TAKE_PTR(changes), n_changes);
 
         r = sd_bus_message_close_container(reply);
         if (r < 0)
-                goto fail;
+                return r;
 
-        install_changes_free(changes, n_changes);
         return sd_bus_send(NULL, reply, NULL);
-
-fail:
-        install_changes_free(changes, n_changes);
-        return r;
 }
 
 static int method_enable_unit_files_generic(

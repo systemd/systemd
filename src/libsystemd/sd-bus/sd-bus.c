@@ -3505,7 +3505,7 @@ static int bus_add_match_full(
                 void *userdata) {
 
         struct bus_match_component *components = NULL;
-        unsigned n_components = 0;
+        size_t n_components = 0;
         sd_bus_slot *s = NULL;
         int r = 0;
 

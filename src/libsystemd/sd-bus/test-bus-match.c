@@ -38,7 +38,7 @@ static bool mask_contains(unsigned a[], unsigned n) {
 
 static int match_add(sd_bus_slot *slots, struct bus_match_node *root, const char *match, int value) {
         struct bus_match_component *components;
-        unsigned n_components;
+        size_t n_components;
         sd_bus_slot *s;
         int r;
 
@@ -48,22 +48,22 @@ static int match_add(sd_bus_slot *slots, struct bus_match_node *root, const char
         if (r < 0)
                 return r;
 
+        CLEANUP_ARRAY(components, n_components, bus_match_parse_free);
+
         s->userdata = INT_TO_PTR(value);
         s->match_callback.callback = filter;
 
-        r = bus_match_add(root, components, n_components, &s->match_callback);
-        bus_match_parse_free(components, n_components);
-
-        return r;
+        return bus_match_add(root, components, n_components, &s->match_callback);
 }
 
 static void test_match_scope(const char *match, enum bus_match_scope scope) {
         struct bus_match_component *components = NULL;
-        unsigned n_components = 0;
+        size_t n_components = 0;
+
+        CLEANUP_ARRAY(components, n_components, bus_match_parse_free);
 
         assert_se(bus_match_parse(match, &components, &n_components) >= 0);
         assert_se(bus_match_get_scope(components, n_components) == scope);
-        bus_match_parse_free(components, n_components);
 }
 
 int main(int argc, char *argv[]) {
