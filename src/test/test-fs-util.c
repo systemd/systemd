@@ -426,6 +426,17 @@ TEST(chase_symlinks) {
         assert_se(chase_symlinks("top/dot/dot", temp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, NULL, NULL) == -EREMCHG);
         assert_se(chase_symlinks("top/dot/dot", temp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_WARN, NULL, NULL) == -EREMCHG);
 
+        /* Test CHASE_PARENT */
+
+        assert_se(chase_symlinks("/chase/parent", temp, CHASE_PREFIX_ROOT|CHASE_PARENT|CHASE_NONEXISTENT, &result, NULL) >= 0);
+        p = strjoina(temp, "/chase");
+        assert_se(streq(p, result));
+        result = mfree(result);
+        assert_se(chase_symlinks("/chase", temp, CHASE_PREFIX_ROOT|CHASE_PARENT|CHASE_NONEXISTENT, &result, NULL) >= 0);
+        assert_se(streq(temp, result));
+        result = mfree(result);
+        assert_se(chase_symlinks("/", temp, CHASE_PREFIX_ROOT|CHASE_PARENT|CHASE_NONEXISTENT, NULL, NULL) == -EADDRNOTAVAIL);
+
  cleanup:
         assert_se(rm_rf(temp, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }
@@ -464,6 +475,21 @@ TEST(chase_symlinks_at) {
         /* Valid directory file descriptor without CHASE_AT_RESOLVE_IN_ROOT should resolve symlinks against
          * host's root. */
         assert_se(chase_symlinks_at(tfd, "/qed", 0, &result, NULL) == -ENOENT);
+        result = mfree(result);
+
+        /* Test CHASE_MKDIR_0755 */
+
+        assert_se(chase_symlinks_at(tfd, "m/k/d/i/r", CHASE_MKDIR_0755, &result, NULL) >= 0);
+        assert_se(faccessat(tfd, "m/k/d/i/r", F_OK, 0) >= 0);
+        assert_se(streq(result, "m/k/d/i/r"));
+        result = mfree(result);
+
+        assert_se(chase_symlinks_at(tfd, "m/../q", CHASE_MKDIR_0755, &result, NULL) >= 0);
+        assert_se(faccessat(tfd, "q", F_OK, 0) >= 0);
+        assert_se(streq(result, "q"));
+        result = mfree(result);
+
+        assert_se(chase_symlinks_at(tfd, "i/../p", CHASE_MKDIR_0755, NULL, NULL) == -ENOENT);
 }
 
 TEST(unlink_noerrno) {
