@@ -1147,7 +1147,7 @@ int flush_accept(int fd) {
                         if (errno == EAGAIN)
                                 return 0;
 
-                        if (ERRNO_IS_ACCEPT_AGAIN(errno))
+                        if (ERRNO_IS_ACCEPT_AGAIN())
                                 continue;
 
                         return -errno;

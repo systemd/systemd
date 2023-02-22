@@ -2437,7 +2437,7 @@ static int setup_keyring(void) {
         if (keyring == -1) {
                 if (errno == ENOSYS)
                         log_debug_errno(errno, "Kernel keyring not supported, ignoring.");
-                else if (ERRNO_IS_PRIVILEGE(errno))
+                else if (ERRNO_IS_PRIVILEGE())
                         log_debug_errno(errno, "Kernel keyring access prohibited, ignoring.");
                 else
                         return log_error_errno(errno, "Setting up kernel keyring failed: %m");
@@ -2841,7 +2841,7 @@ static int setup_machine_id(const char *directory) {
 
         r = id128_read(etc_machine_id, ID128_FORMAT_PLAIN, &id);
         if (r < 0) {
-                if (!ERRNO_IS_MACHINE_ID_UNSET(r)) /* If the file is missing, empty, or uninitialized, we don't mind */
+                if (!NERRNO_IS_MACHINE_ID_UNSET(r)) /* If the file is missing, empty, or uninitialized, we don't mind */
                         return log_error_errno(r, "Failed to read machine ID from container image: %m");
 
                 if (sd_id128_is_null(arg_uuid)) {
@@ -3417,7 +3417,7 @@ static int inner_child(
                 if (is_seccomp_available()) {
 
                         r = seccomp_load(arg_seccomp);
-                        if (ERRNO_IS_SECCOMP_FATAL(r))
+                        if (NERRNO_IS_SECCOMP_FATAL(r))
                                 return log_error_errno(r, "Failed to install seccomp filter: %m");
                         if (r < 0)
                                 log_debug_errno(r, "Failed to install seccomp filter: %m");
@@ -3822,7 +3822,7 @@ static int outer_child(
             arg_uid_shift != 0) {
 
                 r = remount_idmap(directory, arg_uid_shift, arg_uid_range, UID_INVALID, REMOUNT_IDMAPPING_HOST_ROOT);
-                if (r == -EINVAL || ERRNO_IS_NOT_SUPPORTED(r)) {
+                if (r == -EINVAL || NERRNO_IS_NOT_SUPPORTED(r)) {
                         /* This might fail because the kernel or file system doesn't support idmapping. We
                          * can't really distinguish this nicely, nor do we have any guarantees about the
                          * error codes we see, could be EOPNOTSUPP or EINVAL. */
@@ -4260,7 +4260,7 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
 
         n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
         if (n < 0) {
-                if (ERRNO_IS_TRANSIENT(n))
+                if (NERRNO_IS_TRANSIENT(n))
                         return 0;
                 if (n == -EXFULL) {
                         log_warning("Got message with truncated control data (too many fds sent?), ignoring.");
@@ -5402,7 +5402,7 @@ static int cant_be_in_netns(void) {
 
         r = connect_unix_path(fd, AT_FDCWD, "/run/udev/control");
         if (r < 0) {
-                if (r == -ENOENT || ERRNO_IS_DISCONNECT(r))
+                if (r == -ENOENT || NERRNO_IS_DISCONNECT(r))
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "Sorry, but --image= requires access to the host's /run/ hierarchy, since we need access to udev.");
 

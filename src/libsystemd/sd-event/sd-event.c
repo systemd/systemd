@@ -991,7 +991,7 @@ static sd_event_source* source_free(sd_event_source *s) {
                                         if (pidfd_send_signal(s->child.pidfd, SIGKILL, NULL, 0) < 0) {
                                                 if (errno == ESRCH) /* Already dead */
                                                         sent = true;
-                                                else if (!ERRNO_IS_NOT_SUPPORTED(errno))
+                                                else if (!ERRNO_IS_NOT_SUPPORTED())
                                                         log_debug_errno(errno, "Failed to kill process " PID_FMT " via pidfd_send_signal(), re-trying via kill(): %m",
                                                                         s->child.pid);
                                         } else
@@ -1535,7 +1535,7 @@ _public_ int sd_event_add_child(
                 s->child.pidfd = pidfd_open(pid, 0);
                 if (s->child.pidfd < 0) {
                         /* Propagate errors unless the syscall is not supported or blocked */
-                        if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
+                        if (!ERRNO_IS_NOT_SUPPORTED() && !ERRNO_IS_PRIVILEGE())
                                 return -errno;
                 } else
                         s->child.pidfd_owned = true; /* If we allocate the pidfd we own it by default */
@@ -2849,7 +2849,7 @@ _public_ int sd_event_source_send_child_signal(sd_event_source *s, int sig, cons
 
                 if (pidfd_send_signal(s->child.pidfd, sig, si ? &copy : NULL, 0) < 0) {
                         /* Let's propagate the error only if the system call is not implemented or prohibited */
-                        if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
+                        if (!ERRNO_IS_NOT_SUPPORTED() && !ERRNO_IS_PRIVILEGE())
                                 return -errno;
                 } else
                         return 0;
@@ -3249,7 +3249,7 @@ static int flush_timer(sd_event *e, int fd, uint32_t events, usec_t *next) {
 
         ss = read(fd, &x, sizeof(x));
         if (ss < 0) {
-                if (ERRNO_IS_TRANSIENT(errno))
+                if (ERRNO_IS_TRANSIENT())
                         return 0;
 
                 return -errno;
@@ -3446,7 +3446,7 @@ static int process_signal(sd_event *e, struct signal_data *d, uint32_t events, i
 
                 n = read(d->fd, &si, sizeof(si));
                 if (n < 0) {
-                        if (ERRNO_IS_TRANSIENT(errno))
+                        if (ERRNO_IS_TRANSIENT())
                                 return 0;
 
                         return -errno;
@@ -3500,7 +3500,7 @@ static int event_inotify_data_read(sd_event *e, struct inotify_data *d, uint32_t
 
         n = read(d->fd, &d->buffer, sizeof(d->buffer));
         if (n < 0) {
-                if (ERRNO_IS_TRANSIENT(errno))
+                if (ERRNO_IS_TRANSIENT())
                         return 0;
 
                 return -errno;
@@ -4016,7 +4016,7 @@ static int epoll_wait_usec(
                                  NULL);
                 if (r >= 0)
                         return r;
-                if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
+                if (!ERRNO_IS_NOT_SUPPORTED() && !ERRNO_IS_PRIVILEGE())
                         return -errno; /* Only fallback to old epoll_wait() if the syscall is masked or not
                                         * supported. */
 

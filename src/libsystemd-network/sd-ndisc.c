@@ -209,7 +209,7 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
 
         buflen = next_datagram_size_fd(fd);
         if (buflen < 0) {
-                if (ERRNO_IS_TRANSIENT(buflen) || ERRNO_IS_DISCONNECT(buflen))
+                if (NERRNO_IS_TRANSIENT(buflen) || NERRNO_IS_DISCONNECT(buflen))
                         return 0;
 
                 log_ndisc_errno(nd, buflen, "Failed to determine datagram size to read, ignoring: %m");
@@ -222,7 +222,7 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
 
         r = icmp6_receive(fd, NDISC_ROUTER_RAW(rt), rt->raw_size, &rt->address, &rt->timestamp);
         if (r < 0) {
-                if (ERRNO_IS_TRANSIENT(r) || ERRNO_IS_DISCONNECT(r))
+                if (NERRNO_IS_TRANSIENT(r) || NERRNO_IS_DISCONNECT(r))
                         return 0;
 
                 switch (r) {

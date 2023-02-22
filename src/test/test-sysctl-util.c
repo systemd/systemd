@@ -54,14 +54,14 @@ TEST(sysctl_read) {
         assert_se(STR_IN_SET(s, "0", "1"));
 
         r = sysctl_write_ip_property(AF_INET, "lo", "forwarding", s);
-        assert_se(r >= 0 || ERRNO_IS_PRIVILEGE(r) || r == -EROFS);
+        assert_se(r >= 0 || NERRNO_IS_PRIVILEGE(r) || r == -EROFS);
         s = mfree(s);
 
         assert_se(sysctl_read_ip_property(AF_INET, NULL, "ip_forward", &s));
         assert_se(STR_IN_SET(s, "0", "1"));
 
         r = sysctl_write_ip_property(AF_INET, NULL, "ip_forward", s);
-        assert_se(r >= 0 || ERRNO_IS_PRIVILEGE(r) || r == -EROFS);
+        assert_se(r >= 0 || NERRNO_IS_PRIVILEGE(r) || r == -EROFS);
         s = mfree(s);
 
         assert_se(sysctl_read("kernel/hostname", &s) >= 0);
@@ -69,7 +69,7 @@ TEST(sysctl_read) {
         assert_se(streq_ptr(s, u.nodename));
 
         r = sysctl_write("kernel/hostname", s);
-        assert_se(r >= 0 || ERRNO_IS_PRIVILEGE(r) || r == -EROFS);
+        assert_se(r >= 0 || NERRNO_IS_PRIVILEGE(r) || r == -EROFS);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

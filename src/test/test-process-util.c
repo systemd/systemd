@@ -668,7 +668,7 @@ TEST(setpriority_closest) {
                 if (setrlimit(RLIMIT_NICE, &RLIMIT_MAKE_CONST(30)) < 0) {
                         /* If this fails we are probably unprivileged or in a userns of some kind, let's skip
                          * the full test */
-                        assert_se(ERRNO_IS_PRIVILEGE(errno));
+                        assert_se(ERRNO_IS_PRIVILEGE());
                         full_test = false;
                 } else {
                         assert_se(setresgid(GID_NOBODY, GID_NOBODY, GID_NOBODY) >= 0);
@@ -782,7 +782,7 @@ TEST(set_oom_score_adjust) {
         assert_se(get_oom_score_adjust(&a) >= 0);
 
         r = set_oom_score_adjust(OOM_SCORE_ADJ_MIN);
-        assert_se(r >= 0 || ERRNO_IS_PRIVILEGE(r));
+        assert_se(r >= 0 || NERRNO_IS_PRIVILEGE(r));
 
         if (r >= 0) {
                 assert_se(get_oom_score_adjust(&b) >= 0);

@@ -936,7 +936,7 @@ void emit_bpf_firewall_warning(Unit *u) {
         if (warned || MANAGER_IS_TEST_RUN(u->manager))
                 return;
 
-        bool quiet = ERRNO_IS_PRIVILEGE(bpf_firewall_unsupported_reason) && detect_container() > 0;
+        bool quiet = NERRNO_IS_PRIVILEGE(bpf_firewall_unsupported_reason) && detect_container() > 0;
 
         log_unit_full_errno(u, quiet ? LOG_DEBUG : LOG_WARNING, bpf_firewall_unsupported_reason,
                             "unit configures an IP firewall, but %s.\n"

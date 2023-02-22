@@ -570,7 +570,7 @@ static void on_transaction_stream_error(DnsTransaction *t, int error) {
 
         dns_transaction_close_connection(t, true);
 
-        if (ERRNO_IS_DISCONNECT(error)) {
+        if (NERRNO_IS_DISCONNECT(-error)) {
                 if (t->scope->protocol == DNS_PROTOCOL_LLMNR) {
                         /* If the LLMNR/TCP connection failed, the host doesn't support LLMNR, and we cannot answer the
                          * question on this scope. */
@@ -622,7 +622,7 @@ static int dns_transaction_on_stream_packet(DnsTransaction *t, DnsStream *s, Dns
 static int on_stream_complete(DnsStream *s, int error) {
         assert(s);
 
-        if (ERRNO_IS_DISCONNECT(error) && s->protocol != DNS_PROTOCOL_LLMNR) {
+        if (NERRNO_IS_DISCONNECT(-error) && s->protocol != DNS_PROTOCOL_LLMNR) {
                 log_debug_errno(error, "Connection failure for DNS TCP stream: %m");
 
                 if (s->transactions) {
@@ -1411,7 +1411,7 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
         assert(t->scope);
 
         r = manager_recv(t->scope->manager, fd, DNS_PROTOCOL_DNS, &p);
-        if (ERRNO_IS_DISCONNECT(r)) {
+        if (NERRNO_IS_DISCONNECT(r)) {
                 usec_t usec;
 
                 /* UDP connection failures get reported via ICMP and then are possibly delivered to us on the
@@ -2111,7 +2111,7 @@ int dns_transaction_go(DnsTransaction *t) {
                 dns_transaction_complete(t, DNS_TRANSACTION_RR_TYPE_UNSUPPORTED);
                 return 0;
         }
-        if (t->scope->protocol == DNS_PROTOCOL_LLMNR && ERRNO_IS_DISCONNECT(r)) {
+        if (t->scope->protocol == DNS_PROTOCOL_LLMNR && NERRNO_IS_DISCONNECT(r)) {
                 /* On LLMNR, if we cannot connect to a host via TCP when doing reverse lookups. This means we cannot
                  * answer this request with this protocol. */
                 dns_transaction_complete(t, DNS_TRANSACTION_NOT_FOUND);

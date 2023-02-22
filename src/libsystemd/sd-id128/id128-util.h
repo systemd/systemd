@@ -5,6 +5,7 @@
 
 #include "sd-id128.h"
 
+#include "errno-util.h"
 #include "hash-funcs.h"
 #include "macro.h"
 
@@ -34,8 +35,9 @@ sd_id128_t id128_make_v4_uuid(sd_id128_t id);
 int id128_get_product(sd_id128_t *ret);
 
 /* A helper to check for the three relevant cases of "machine ID not initialized" */
-#define ERRNO_IS_MACHINE_ID_UNSET(r)            \
-        IN_SET(abs(r),                          \
-               ENOENT,                          \
-               ENOMEDIUM,                       \
-               ENOPKG)
+DEFINE_ERRNO_CHECKERS(MACHINE_ID_UNSET) {
+        return IN_SET(r,
+                      ENOENT,
+                      ENOMEDIUM,
+                      ENOPKG);
+}

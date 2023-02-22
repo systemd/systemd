@@ -2768,7 +2768,7 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, ch
 
         WITH_UMASK(0077)
                 if (!mkdtemp(x)) {
-                        if (errno == EROFS || ERRNO_IS_DISK_SPACE(errno))
+                        if (errno == EROFS || ERRNO_IS_DISK_SPACE())
                                 rw = false;
                         else
                                 return -errno;

@@ -1065,7 +1065,7 @@ static int on_dns_stub_stream_internal(sd_event_source *s, int fd, uint32_t reve
 
         cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
         if (cfd < 0) {
-                if (ERRNO_IS_ACCEPT_AGAIN(errno))
+                if (ERRNO_IS_ACCEPT_AGAIN())
                         return 0;
 
                 return -errno;

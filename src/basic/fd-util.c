@@ -284,7 +284,7 @@ static int close_all_fds_special_case(const int except[], size_t n_except) {
                 if (close_range(3, -1, 0) >= 0)
                         return 1;
 
-                if (ERRNO_IS_NOT_SUPPORTED(errno) || ERRNO_IS_PRIVILEGE(errno)) {
+                if (ERRNO_IS_NOT_SUPPORTED() || ERRNO_IS_PRIVILEGE()) {
                         have_close_range = false;
                         return 0;
                 }
@@ -299,7 +299,7 @@ static int close_all_fds_special_case(const int except[], size_t n_except) {
                     (except[0] >= INT_MAX || close_range(MAX(3, except[0]+1), -1, 0) >= 0))
                         return 1;
 
-                if (ERRNO_IS_NOT_SUPPORTED(errno) || ERRNO_IS_PRIVILEGE(errno)) {
+                if (ERRNO_IS_NOT_SUPPORTED() || ERRNO_IS_PRIVILEGE()) {
                         have_close_range = false;
                         return 0;
                 }
@@ -378,7 +378,7 @@ int close_all_fds(const int except[], size_t n_except) {
 
                                 /* Close everything between the start and end fds (both of which shall stay open) */
                                 if (close_range(start + 1, end - 1, 0) < 0) {
-                                        if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
+                                        if (!ERRNO_IS_NOT_SUPPORTED() && !ERRNO_IS_PRIVILEGE())
                                                 return -errno;
 
                                         have_close_range = false;
@@ -395,7 +395,7 @@ int close_all_fds(const int except[], size_t n_except) {
                                 if (close_range(sorted[n_sorted-1] + 1, -1, 0) >= 0)
                                         return 0;
 
-                                if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
+                                if (!ERRNO_IS_NOT_SUPPORTED() && !ERRNO_IS_PRIVILEGE())
                                         return -errno;
 
                                 have_close_range = false;
@@ -460,7 +460,7 @@ int same_fd(int a, int b) {
                 return true;
         if (r > 0)
                 return false;
-        if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
+        if (!ERRNO_IS_NOT_SUPPORTED() && !ERRNO_IS_PRIVILEGE())
                 return -errno;
 
         /* We don't have kcmp(), use fstat() instead. */
@@ -854,7 +854,7 @@ int fd_get_diskseq(int fd, uint64_t *ret) {
                 /* Note that the kernel is weird: non-existing ioctls currently return EINVAL
                  * rather than ENOTTY on loopback block devices. They should fix that in the kernel,
                  * but in the meantime we accept both here. */
-                if (!ERRNO_IS_NOT_SUPPORTED(errno) && errno != EINVAL)
+                if (!ERRNO_IS_NOT_SUPPORTED() && errno != EINVAL)
                         return -errno;
 
                 return -EOPNOTSUPP;

@@ -367,7 +367,7 @@ TEST(copy_atomic) {
         q = strjoina(p, "/fstab");
 
         r = copy_file_atomic("/etc/fstab", q, 0644, 0, 0, COPY_REFLINK);
-        if (r == -ENOENT || ERRNO_IS_PRIVILEGE(r))
+        if (r == -ENOENT || NERRNO_IS_PRIVILEGE(r))
                 return;
 
         assert_se(copy_file_atomic("/etc/fstab", q, 0644, 0, 0, COPY_REFLINK) == -EEXIST);
@@ -406,7 +406,7 @@ TEST_RET(copy_holes) {
         assert_se(fd_copy >= 0);
 
         r = RET_NERRNO(fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, 0, 1));
-        if (ERRNO_IS_NOT_SUPPORTED(r))
+        if (NERRNO_IS_NOT_SUPPORTED(r))
                 return log_tests_skipped("Filesystem doesn't support hole punching");
         assert_se(r >= 0);
 

@@ -188,10 +188,10 @@ static int connection_shovel(
                         if (z > 0) {
                                 *full += z;
                                 shoveled = true;
-                        } else if (z == 0 || ERRNO_IS_DISCONNECT(errno)) {
+                        } else if (z == 0 || ERRNO_IS_DISCONNECT()) {
                                 *from_source = sd_event_source_unref(*from_source);
                                 *from = safe_close(*from);
-                        } else if (!ERRNO_IS_TRANSIENT(errno))
+                        } else if (!ERRNO_IS_TRANSIENT())
                                 return log_error_errno(errno, "Failed to splice: %m");
                 }
 
@@ -200,10 +200,10 @@ static int connection_shovel(
                         if (z > 0) {
                                 *full -= z;
                                 shoveled = true;
-                        } else if (z == 0 || ERRNO_IS_DISCONNECT(errno)) {
+                        } else if (z == 0 || ERRNO_IS_DISCONNECT()) {
                                 *to_source = sd_event_source_unref(*to_source);
                                 *to = safe_close(*to);
-                        } else if (!ERRNO_IS_TRANSIENT(errno))
+                        } else if (!ERRNO_IS_TRANSIENT())
                                 return log_error_errno(errno, "Failed to splice: %m");
                 }
         } while (shoveled);
@@ -513,7 +513,7 @@ static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
         nfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
         if (nfd < 0) {
-                if (!ERRNO_IS_ACCEPT_AGAIN(errno))
+                if (!ERRNO_IS_ACCEPT_AGAIN())
                         log_warning_errno(errno, "Failed to accept() socket: %m");
         } else {
                 (void) getpeername_pretty(nfd, true, &peer);

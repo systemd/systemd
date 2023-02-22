@@ -1506,7 +1506,7 @@ int setpriority_closest(int priority) {
 
         /* Permission failed */
         saved_errno = -errno;
-        if (!ERRNO_IS_PRIVILEGE(saved_errno))
+        if (!NERRNO_IS_PRIVILEGE(saved_errno))
                 return saved_errno;
 
         errno = 0;
