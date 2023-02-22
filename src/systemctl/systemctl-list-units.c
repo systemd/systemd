@@ -616,6 +616,9 @@ static int output_timers_list(struct timer_info *timer_infos, size_t n) {
 
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
+        (void) table_set_align_percent(table, table_get_cell(table, 0, 1), 100);
+        (void) table_set_align_percent(table, table_get_cell(table, 0, 3), 100);
+
         for (struct timer_info *t = timer_infos; t < timer_infos + n; t++) {
                 _cleanup_free_ char *unit = NULL;
 
