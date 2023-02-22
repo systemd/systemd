@@ -13,6 +13,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "logind-seat-dbus.h"
 #include "logind-seat.h"
 #include "logind-session-dbus.h"
@@ -81,7 +82,7 @@ Seat* seat_free(Seat *s) {
 }
 
 int seat_save(Seat *s) {
-        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -146,14 +147,11 @@ int seat_save(Seat *s) {
                 goto fail;
         }
 
+        temp_path = mfree(temp_path);
         return 0;
 
 fail:
         (void) unlink(s->state_file);
-
-        if (temp_path)
-                (void) unlink(temp_path);
-
         return log_error_errno(r, "Failed to save seat data %s: %m", s->state_file);
 }
 

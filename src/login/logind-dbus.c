@@ -2083,7 +2083,7 @@ void manager_load_scheduled_shutdown(Manager *m) {
 }
 
 static int update_schedule_file(Manager *m) {
-        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -2123,10 +2123,10 @@ static int update_schedule_file(Manager *m) {
                 goto fail;
         }
 
+        temp_path = mfree(temp_path);
         return 0;
 
 fail:
-        (void) unlink(temp_path);
         (void) unlink(SHUTDOWN_SCHEDULE_FILE);
 
         return log_error_errno(r, "Failed to write information about scheduled shutdowns: %m");

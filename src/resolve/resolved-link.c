@@ -9,6 +9,7 @@
 #include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "log-link.h"
 #include "mkdir.h"
 #include "netif-util.h"
@@ -1175,7 +1176,7 @@ static bool link_needs_save(Link *l) {
 }
 
 int link_save_user(Link *l) {
-        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *v;
         int r;
@@ -1277,13 +1278,12 @@ int link_save_user(Link *l) {
                 goto fail;
         }
 
+        temp_path = mfree(temp_path);
+
         return 0;
 
 fail:
         (void) unlink(l->state_file);
-
-        if (temp_path)
-                (void) unlink(temp_path);
 
         return log_link_error_errno(l, r, "Failed to save link data %s: %m", l->state_file);
 }
