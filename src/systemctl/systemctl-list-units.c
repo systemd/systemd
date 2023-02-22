@@ -321,7 +321,7 @@ static int socket_info_compare(const SocketInfo *a, const SocketInfo *b) {
         if (r != 0)
                 return r;
 
-        r = strcmp(a->path, b->path);
+        r = path_compare(a->path, b->path);
         if (r != 0)
                 return r;
 
