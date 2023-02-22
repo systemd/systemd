@@ -616,6 +616,9 @@ static int output_timers_list(struct timer_info *timer_infos, size_t n) {
 
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
+        (void) table_set_align_percent(table, table_get_cell(table, 0, 1), 100);
+        (void) table_set_align_percent(table, table_get_cell(table, 0, 3), 100);
+
         for (struct timer_info *t = timer_infos; t < timer_infos + n; t++) {
                 _cleanup_free_ char *unit = NULL;
 
@@ -771,7 +774,7 @@ static int automount_info_compare(const struct automount_info *a, const struct a
 static int collect_automount_info(sd_bus* bus, const UnitInfo* info, struct automount_info *ret_info) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *mount = NULL, *mount_path = NULL, *where = NULL, *what = NULL, *state = NULL;
-        usec_t timeout_idle_usec;
+        uint64_t timeout_idle_usec;
         BusLocator locator;
         int r;
 
@@ -852,9 +855,18 @@ static int output_automounts_list(struct automount_info *infos, size_t n_infos) 
                 r = table_add_many(table,
                                    TABLE_STRING, info->what,
                                    TABLE_STRING, info->where,
-                                   TABLE_BOOLEAN, info->mounted,
-                                   TABLE_TIMESPAN_MSEC, info->timeout_idle_usec,
-                                   TABLE_STRING, unit);
+                                   TABLE_BOOLEAN, info->mounted);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                if (timestamp_is_set(info->timeout_idle_usec))
+                        r = table_add_cell(table, NULL, TABLE_TIMESPAN_MSEC, &info->timeout_idle_usec);
+                else
+                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_cell(table, NULL, TABLE_STRING, unit);
                 if (r < 0)
                         return table_log_add_error(r);
         }
