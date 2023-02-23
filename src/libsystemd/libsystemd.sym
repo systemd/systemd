@@ -812,3 +812,8 @@ global:
         sd_pidfd_get_user_unit;
         sd_journal_get_seqnum;
 } LIBSYSTEMD_252;
+
+LIBSYSTEMD_254 {
+global:
+        sd_session_get_username;
+} LIBSYSTEMD_253;
