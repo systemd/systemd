@@ -705,7 +705,7 @@ int chase_symlinks_and_unlink(
                 char **ret_path) {
 
         _cleanup_free_ char *p = NULL, *rp = NULL, *dir = NULL, *fname = NULL;
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
         assert(path);

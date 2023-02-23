@@ -1915,7 +1915,7 @@ _public_ int sd_event_add_memory_pressure(
 
         _cleanup_free_ char *w = NULL;
         _cleanup_(source_freep) sd_event_source *s = NULL;
-        _cleanup_close_ int path_fd = -1, fd = -1;
+        _cleanup_close_ int path_fd = -EBADF, fd = -EBADF;
         _cleanup_free_ void *write_buffer = NULL;
         const char *watch, *watch_fallback = NULL, *env;
         size_t write_buffer_size = 0;

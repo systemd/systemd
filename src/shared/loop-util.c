@@ -504,7 +504,7 @@ static int loop_device_make_internal(
                          * the underlying block device. */
                         r = blockdev_get_sector_size(fd, &sector_size);
                 else {
-                        _cleanup_close_ int non_direct_io_fd = -1;
+                        _cleanup_close_ int non_direct_io_fd = -EBADF;
                         int probe_fd;
 
                         assert(S_ISREG(st.st_mode));
