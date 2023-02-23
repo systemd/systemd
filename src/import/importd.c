@@ -10,6 +10,7 @@
 #include "bus-get-properties.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
+#include "common-signal.h"
 #include "constants.h"
 #include "env-util.h"
 #include "fd-util.h"
@@ -636,7 +637,23 @@ static int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        sd_event_set_watchdog(m->event, true);
+        (void) sd_event_set_watchdog(m->event, true);
+
+        r = sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_signal(m->event, NULL, SIGRTMIN+18, sigrtmin18_handler, NULL);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_memory_pressure(m->event, NULL, NULL, NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed allocate memory pressure event source, ignoring: %m");
 
         r = sd_bus_default_system(&m->bus);
         if (r < 0)
@@ -1389,7 +1406,7 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGTERM, SIGINT, SIGRTMIN+18, -1) >= 0);
 
         r = manager_new(&m);
         if (r < 0)
