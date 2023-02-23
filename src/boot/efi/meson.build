@@ -130,6 +130,14 @@ foreach ctype : ['color-normal', 'color-entry', 'color-highlight', 'color-edit']
 endforeach
 
 if get_option('sbat-distro') != ''
+        keyval = import('keyval')
+
+        osrel = keyval.load('/usr/lib/os-release')
+        if fs.is_file('/etc/os-release')
+                osrel += keyval.load('/etc/os-release')
+        endif
+        osrel = configuration_data(osrel)
+
         efi_conf.set_quoted('SBAT_PROJECT', meson.project_name())
         efi_conf.set_quoted('PROJECT_VERSION', meson.project_version())
         efi_conf.set('PROJECT_URL', conf.get('PROJECT_URL'))
@@ -137,24 +145,26 @@ if get_option('sbat-distro') != ''
                 error('SBAT Distro Generation must be a positive integer')
         endif
         efi_conf.set('SBAT_DISTRO_GENERATION', get_option('sbat-distro-generation'))
-        foreach sbatvar : [['sbat-distro', 'ID'],
-                           ['sbat-distro-summary', 'NAME'],
-                           ['sbat-distro-url', 'BUG_REPORT_URL']]
 
-                value = get_option(sbatvar[0])
-
-                if get_option('mode') == 'release' and value in ['', 'auto']
-                        error('Auto detection of SBAT information not supported in release mode.')
-                endif
+        sbat = {
+                'sbat-distro' : 'ID',
+                'sbat-distro-summary' : 'NAME',
+                'sbat-distro-url' : 'BUG_REPORT_URL',
+        }
+        foreach sbat_key, osrel_key : sbat
+                value = get_option(sbat_key)
 
                 if value in ['', 'auto']
-                        cmd = 'if [ -e /etc/os-release ]; then . /etc/os-release; else . /usr/lib/os-release; fi; echo $@0@'.format(sbatvar[1])
-                        value = run_command(sh, '-c', cmd, check: true).stdout().strip()
+                        if get_option('mode') == 'release'
+                                error('Auto detection of SBAT information not supported in release mode.')
+                        elif not osrel.has(osrel_key)
+                                error('Required @0@ option not set and autodetection failed'.format(sbat_key))
+                        endif
+
+                        value = osrel.get_unquoted(osrel_key)
                 endif
-                if value == ''
-                        error('Required @0@ option not set and autodetection failed'.format(sbatvar[0]))
-                endif
-                efi_conf.set_quoted(sbatvar[0].underscorify().to_upper(), value)
+
+                efi_conf.set_quoted(sbat_key.underscorify().to_upper(), value)
         endforeach
 
         pkgname = get_option('sbat-distro-pkgname')
