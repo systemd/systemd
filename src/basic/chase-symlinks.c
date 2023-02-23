@@ -380,8 +380,15 @@ int chase_symlinks_at(
                 close_and_replace(fd, child);
         }
 
-        if (ret_path)
+        if (ret_path) {
+                if (!done) {
+                        done = strdup(append_trail_slash ? "./" : ".");
+                        if (!done)
+                                return -ENOMEM;
+                }
+
                 *ret_path = TAKE_PTR(done);
+        }
 
         if (ret_fd) {
                 /* Return the O_PATH fd we currently are looking to the caller. It can translate it to a
@@ -399,6 +406,12 @@ int chase_symlinks_at(
 chased_one:
         if (ret_path) {
                 const char *e;
+
+                if (!done) {
+                        done = strdup(append_trail_slash ? "./" : ".");
+                        if (!done)
+                                return -ENOMEM;
+                }
 
                 /* todo may contain slashes at the beginning. */
                 r = path_find_first_component(&todo, /* accept_dot_dot= */ true, &e);
@@ -488,6 +501,12 @@ int chase_symlinks(
                 char *q = path_join(empty_to_root(root), p);
                 if (!q)
                         return -ENOMEM;
+
+                path_simplify(q);
+
+                if (FLAGS_SET(flags, CHASE_TRAIL_SLASH) && (endswith(path, "/") || endswith(path, "/.")))
+                        if (!strextend(&q, "/"))
+                                return -ENOMEM;
 
                 *ret_path = TAKE_PTR(q);
         }
