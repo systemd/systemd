@@ -1917,7 +1917,7 @@ _public_ int sd_event_add_memory_pressure(
         _cleanup_(source_freep) sd_event_source *s = NULL;
         _cleanup_close_ int path_fd = -1, fd = -1;
         _cleanup_free_ void *write_buffer = NULL;
-        const char *watch, *watch_fallback, *env;
+        const char *watch, *watch_fallback = NULL, *env;
         size_t write_buffer_size = 0;
         struct stat st;
         uint32_t events;
@@ -2028,10 +2028,11 @@ _public_ int sd_event_add_memory_pressure(
                         return locked ? -ENOENT : -EOPNOTSUPP;
 
                 path_fd = open(watch_fallback, O_PATH|O_CLOEXEC);
-                if (errno == ENOENT) /* PSI is not available in the kernel even under the fallback path? */
-                        return -EOPNOTSUPP;
-                if (errno < 0)
+                if (path_fd < 0) {
+                        if (errno == ENOENT) /* PSI is not available in the kernel even under the fallback path? */
+                                return -EOPNOTSUPP;
                         return -errno;
+                }
         }
 
         if (fstat(path_fd, &st) < 0)
