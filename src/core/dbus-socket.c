@@ -380,7 +380,7 @@ static int bus_socket_set_transient_property(
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown Socket type: %s", t);
 
                         if (p->type != SOCKET_SOCKET) {
-                                if (!path_is_valid(a))
+                                if (!path_is_absolute(a) || !path_is_valid(a))
                                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid socket path: %s", a);
 
                                 p->path = strdup(a);
