@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <efi.h>
-
 #include "devicetree.h"
-#include "missing_efi.h"
+#include "proto/dt-fixup.h"
 #include "util.h"
 
 #define FDT_V1_SIZE (7*4)
@@ -81,7 +79,7 @@ EFI_STATUS devicetree_install(struct devicetree_state *state, EFI_FILE *root_dir
         if (err != EFI_SUCCESS)
                 return err;
 
-        err = get_file_info_harder(handle, &info, NULL);
+        err = get_file_info(handle, &info, NULL);
         if (err != EFI_SUCCESS)
                 return err;
         if (info->FileSize < FDT_V1_SIZE || info->FileSize > 32 * 1024 * 1024)

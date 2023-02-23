@@ -60,7 +60,7 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location);
 int can_sleep(SleepOperation operation);
 int can_sleep_disk(char **types);
 int can_sleep_state(char **types);
-int battery_is_low(void);
+int battery_is_discharging_and_low(void);
 int get_total_suspend_interval(Hashmap *last_capacity, usec_t *ret);
 int fetch_batteries_capacity_by_name(Hashmap **ret_current_capacity);
 int get_capacity_by_name(Hashmap *capacities_by_name, const char *name);

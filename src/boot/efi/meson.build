@@ -184,8 +184,6 @@ efi_cflags = [
         '-I', meson.current_source_dir(),
         '-include', efi_config_h,
         '-include', version_h,
-        '-isystem', efi_incdir / efi_arch[1],
-        '-isystem', efi_incdir,
         '-std=gnu11',
         '-Wall',
         '-Wextra',
@@ -257,6 +255,7 @@ efi_ldflags = [
         '-Wl,--warn-common',
         '-Wl,-Bsymbolic',
         '-z', 'nocombreloc',
+        '-z', 'noexecstack',
         efi_crt0,
 ]
 
@@ -333,18 +332,31 @@ efi_headers = files(
         'bcd.h',
         'console.h',
         'cpio.h',
+        'device-path-util.h',
         'devicetree.h',
-        'disk.h',
         'drivers.h',
         'efi-string.h',
+        'efi.h',
         'graphics.h',
         'initrd.h',
         'linux.h',
         'log.h',
         'measure.h',
-        'missing_efi.h',
         'part-discovery.h',
         'pe.h',
+        'proto/block-io.h',
+        'proto/console-control.h',
+        'proto/device-path.h',
+        'proto/dt-fixup.h',
+        'proto/file-io.h',
+        'proto/graphics-output.h',
+        'proto/load-file.h',
+        'proto/loaded-image.h',
+        'proto/rng.h',
+        'proto/security-arch.h',
+        'proto/shell-parameters.h',
+        'proto/simple-text-io.h',
+        'proto/tcg.h',
         'random-seed.h',
         'secure-boot.h',
         'shim.h',
@@ -355,9 +367,9 @@ efi_headers = files(
 
 common_sources = files(
         'console.c',
+        'device-path-util.c',
         'devicetree.c',
         'drivers.c',
-        'disk.c',
         'efi-string.c',
         'graphics.c',
         'initrd.c',
@@ -389,23 +401,47 @@ if efi_arch[1] in ['ia32', 'x86_64']
 endif
 
 tests += [
-        [files('test-efi-string.c', 'efi-string.c')],
+        {
+                'sources' : files(
+                        'test-efi-string.c',
+                        'efi-string.c',
+                )
+        },
 ]
 
 # BCD parser only makes sense on arches that Windows supports.
 if efi_arch[1] in ['ia32', 'x86_64', 'arm', 'aarch64']
         systemd_boot_sources += files('bcd.c')
         tests += [
-                [files('test-bcd.c', 'efi-string.c'),
-                 [],
-                 [libzstd],
-                 [],
-                 'HAVE_ZSTD'],
+                {
+                        'sources' : files(
+                                'test-bcd.c',
+                                'efi-string.c',
+                        ),
+                        'dependencies' : libzstd,
+                        'condition' : 'HAVE_ZSTD',
+                },
         ]
         fuzzers += [
-                [files('fuzz-bcd.c', 'bcd.c', 'efi-string.c')],
-                [files('fuzz-efi-string.c', 'efi-string.c')],
-                [files('fuzz-efi-printf.c', 'efi-string.c')],
+                {
+                        'sources' : files(
+                                'fuzz-bcd.c',
+                                'bcd.c',
+                                'efi-string.c'
+                        ),
+                },
+                {
+                        'sources' : files(
+                                'fuzz-efi-string.c',
+                                'efi-string.c'
+                        ),
+                },
+                {
+                        'sources' : files(
+                                'fuzz-efi-printf.c',
+                                'efi-string.c'
+                        ),
+                },
         ]
 endif
 

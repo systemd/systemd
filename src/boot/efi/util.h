@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <efi.h>
-#include <efilib.h>
-#include <stddef.h>
-
+#include "efi.h"
 #include "log.h"
+#include "proto/file-io.h"
 #include "string-util-fundamental.h"
 
 static inline void free(void *p) {
@@ -113,16 +111,6 @@ static inline void unload_imagep(EFI_HANDLE *image) {
                 (void) BS->UnloadImage(*image);
 }
 
-/* Creates a EFI_GUID pointer suitable for EFI APIs. Use of const allows the compiler to merge multiple
- * uses (although, currently compilers do that regardless). Most EFI APIs declare their EFI_GUID input
- * as non-const, but almost all of them are in fact const. */
-#define MAKE_GUID_PTR(name) ((EFI_GUID *) &(const EFI_GUID) name##_GUID)
-
-/* These allow MAKE_GUID_PTR() to work without requiring an extra _GUID in the passed name. We want to
- * keep the GUID definitions in line with the UEFI spec. */
-#define EFI_GLOBAL_VARIABLE_GUID EFI_GLOBAL_VARIABLE
-#define EFI_FILE_INFO_GUID EFI_FILE_INFO_ID
-
 /*
  * Allocated random UUID, intended to be shared across tools that implement
  * the (ESP)\loader\entries\<vendor>-<revision>.conf convention and the
@@ -131,15 +119,19 @@ static inline void unload_imagep(EFI_HANDLE *image) {
 #define LOADER_GUID \
         { 0x4a67b082, 0x0a4c, 0x41cf, { 0xb6, 0xc7, 0x44, 0x0b, 0x29, 0xbb, 0x8c, 0x4f } }
 
+/* Note that GUID is evaluated multiple times! */
+#define GUID_FORMAT_STR "%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X"
+#define GUID_FORMAT_VAL(g) (g).Data1, (g).Data2, (g).Data3, (g).Data4[0], (g).Data4[1], \
+        (g).Data4[2], (g).Data4[3], (g).Data4[4], (g).Data4[5], (g).Data4[6], (g).Data4[7]
+
 void print_at(size_t x, size_t y, size_t attr, const char16_t *str);
 void clear_screen(size_t attr);
 
 typedef int (*compare_pointer_func_t)(const void *a, const void *b);
 void sort_pointer_array(void **array, size_t n_members, compare_pointer_func_t compare);
 
-EFI_STATUS get_file_info_harder(EFI_FILE *handle, EFI_FILE_INFO **ret, size_t *ret_size);
-
-EFI_STATUS readdir_harder(EFI_FILE *handle, EFI_FILE_INFO **buffer, size_t *buffer_size);
+EFI_STATUS get_file_info(EFI_FILE *handle, EFI_FILE_INFO **ret, size_t *ret_size);
+EFI_STATUS readdir(EFI_FILE *handle, EFI_FILE_INFO **buffer, size_t *buffer_size);
 
 bool is_ascii(const char16_t *f);
 
@@ -197,8 +189,6 @@ static inline void beep(unsigned beep_count) {}
 #endif
 
 EFI_STATUS open_volume(EFI_HANDLE device, EFI_FILE **ret_file);
-EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DEVICE_PATH **ret_dp);
-EFI_STATUS device_path_to_str(const EFI_DEVICE_PATH *dp, char16_t **ret);
 
 static inline bool efi_guid_equal(const EFI_GUID *a, const EFI_GUID *b) {
         return memcmp(a, b, sizeof(EFI_GUID)) == 0;

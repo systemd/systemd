@@ -1,15 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <efi.h>
-#include <efigpt.h>
-#include <efilib.h>
-#include <inttypes.h>
-
 #include "bcd.h"
 #include "bootspec-fundamental.h"
 #include "console.h"
+#include "device-path-util.h"
 #include "devicetree.h"
-#include "disk.h"
 #include "drivers.h"
 #include "efivars-fundamental.h"
 #include "graphics.h"
@@ -18,12 +13,15 @@
 #include "measure.h"
 #include "part-discovery.h"
 #include "pe.h"
-#include "vmm.h"
+#include "proto/block-io.h"
+#include "proto/device-path.h"
+#include "proto/simple-text-io.h"
 #include "random-seed.h"
 #include "secure-boot.h"
 #include "shim.h"
 #include "ticks.h"
 #include "util.h"
+#include "vmm.h"
 
 #ifndef GNU_EFI_USE_MS_ABI
         /* We do not use uefi_call_wrapper() in systemd-boot. As such, we rely on the
@@ -31,8 +29,6 @@
          * to make sure the -DGNU_EFI_USE_MS_ABI was passed to the compiler. */
         #error systemd-boot requires compilation with GNU_EFI_USE_MS_ABI defined.
 #endif
-
-#define TEXT_ATTR_SWAP(c) EFI_TEXT_ATTR(((c) & 0b11110000) >> 4, (c) & 0b1111)
 
 /* Magic string for recognizing our own binaries */
 _used_ _section_(".sdmagic") static const char magic[] =
@@ -152,7 +148,7 @@ static bool line_edit(char16_t **line_in, size_t x_max, size_t y_pos) {
         for (;;) {
                 EFI_STATUS err;
                 uint64_t key;
-                size_t j, cursor_color = TEXT_ATTR_SWAP(COLOR_EDIT);
+                size_t j, cursor_color = EFI_TEXT_ATTR_SWAP(COLOR_EDIT);
 
                 j = MIN(len - first, x_max);
                 memcpy(print, line + first, j * sizeof(char16_t));
@@ -170,7 +166,7 @@ static bool line_edit(char16_t **line_in, size_t x_max, size_t y_pos) {
                 print[cursor+1] = '\0';
                 do {
                         print_at(cursor + 1, y_pos, cursor_color, print + cursor);
-                        cursor_color = TEXT_ATTR_SWAP(cursor_color);
+                        cursor_color = EFI_TEXT_ATTR_SWAP(cursor_color);
 
                         err = console_key_read(&key, 750 * 1000);
                         if (!IN_SET(err, EFI_SUCCESS, EFI_TIMEOUT, EFI_NOT_READY))
@@ -264,7 +260,7 @@ static bool line_edit(char16_t **line_in, size_t x_max, size_t y_pos) {
 
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'w'):
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('w')):
-                case KEYPRESS(EFI_ALT_PRESSED, 0, CHAR_BACKSPACE):
+                case KEYPRESS(EFI_ALT_PRESSED, 0, '\b'):
                         /* backward-kill-word */
                         clear = 0;
                         if ((first + cursor) > 0 && line[first + cursor-1] == ' ') {
@@ -307,17 +303,17 @@ static bool line_edit(char16_t **line_in, size_t x_max, size_t y_pos) {
                         len = first + cursor;
                         continue;
 
-                case KEYPRESS(0, 0, CHAR_LINEFEED):
-                case KEYPRESS(0, 0, CHAR_CARRIAGE_RETURN):
+                case KEYPRESS(0, 0, '\n'):
+                case KEYPRESS(0, 0, '\r'):
                 case KEYPRESS(0, SCAN_F3, 0): /* EZpad Mini 4s firmware sends malformed events */
-                case KEYPRESS(0, SCAN_F3, CHAR_CARRIAGE_RETURN): /* Teclast X98+ II firmware sends malformed events */
+                case KEYPRESS(0, SCAN_F3, '\r'): /* Teclast X98+ II firmware sends malformed events */
                         if (!streq16(line, *line_in)) {
                                 free(*line_in);
                                 *line_in = TAKE_PTR(line);
                         }
                         return true;
 
-                case KEYPRESS(0, 0, CHAR_BACKSPACE):
+                case KEYPRESS(0, 0, '\b'):
                         if (len == 0)
                                 continue;
                         if (first == 0 && cursor == 0)
@@ -828,7 +824,7 @@ static bool menu_run(
 
                 if (firmware_setup) {
                         firmware_setup = false;
-                        if (key == KEYPRESS(0, 0, CHAR_CARRIAGE_RETURN))
+                        if (IN_SET(key, KEYPRESS(0, 0, '\r'), KEYPRESS(0, 0, '\n')))
                                 reboot_into_firmware();
                         continue;
                 }
@@ -877,10 +873,10 @@ static bool menu_run(
                                 idx_highlight = config->entry_count-1;
                         break;
 
-                case KEYPRESS(0, 0, CHAR_LINEFEED):
-                case KEYPRESS(0, 0, CHAR_CARRIAGE_RETURN):
+                case KEYPRESS(0, 0, '\n'):
+                case KEYPRESS(0, 0, '\r'):
                 case KEYPRESS(0, SCAN_F3, 0): /* EZpad Mini 4s firmware sends malformed events */
-                case KEYPRESS(0, SCAN_F3, CHAR_CARRIAGE_RETURN): /* Teclast X98+ II firmware sends malformed events */
+                case KEYPRESS(0, SCAN_F3, '\r'): /* Teclast X98+ II firmware sends malformed events */
                 case KEYPRESS(0, SCAN_RIGHT, 0):
                         exit = true;
                         break;
@@ -1377,7 +1373,7 @@ static void config_entry_bump_counters(ConfigEntry *entry, EFI_FILE *root_dir) {
         if (err != EFI_SUCCESS)
                 return;
 
-        err = get_file_info_harder(handle, &file_info, &file_info_size);
+        err = get_file_info(handle, &file_info, &file_info_size);
         if (err != EFI_SUCCESS)
                 return;
 
@@ -1650,7 +1646,7 @@ static void config_load_entries(
         for (;;) {
                 _cleanup_free_ char *content = NULL;
 
-                err = readdir_harder(entries_dir, &f, &f_size);
+                err = readdir(entries_dir, &f, &f_size);
                 if (err != EFI_SUCCESS || !f)
                         break;
 
@@ -2119,7 +2115,7 @@ static void config_entry_add_unified(
                 size_t offs[_SECTION_MAX] = {}, szs[_SECTION_MAX] = {}, pos = 0;
                 char *line, *key, *value;
 
-                err = readdir_harder(linux_dir, &f, &f_size);
+                err = readdir(linux_dir, &f, &f_size);
                 if (err != EFI_SUCCESS || !f)
                         break;
 
@@ -2302,7 +2298,7 @@ static EFI_STATUS initrd_prepare(
                         return err;
 
                 _cleanup_free_ EFI_FILE_INFO *info = NULL;
-                err = get_file_info_harder(handle, &info, NULL);
+                err = get_file_info(handle, &info, NULL);
                 if (err != EFI_SUCCESS)
                         return err;
 
@@ -2495,7 +2491,7 @@ static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) 
                 size_t dirent_size = 0;
                 ConfigEntry *entry = NULL;
 
-                err = readdir_harder(keys_basedir, &dirent, &dirent_size);
+                err = readdir(keys_basedir, &dirent, &dirent_size);
                 if (err != EFI_SUCCESS || !dirent)
                         return err;
 
@@ -2546,7 +2542,6 @@ static void export_variables(
                 0;
 
         _cleanup_free_ char16_t *infostr = NULL, *typestr = NULL;
-        char16_t uuid[37];
 
         assert(loaded_image);
 
@@ -2565,7 +2560,8 @@ static void export_variables(
         efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderImageIdentifier", loaded_image_path, 0);
 
         /* export the device path this image is started from */
-        if (disk_get_part_uuid(loaded_image->DeviceHandle, uuid) == EFI_SUCCESS)
+        _cleanup_free_ char16_t *uuid = disk_get_part_uuid(loaded_image->DeviceHandle);
+        if (uuid)
                 efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderDevicePartUUID", uuid, 0);
 }
 

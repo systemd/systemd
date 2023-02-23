@@ -7,7 +7,7 @@
 #include <sys/un.h>
 #include <unistd.h>
 #if HAVE_VALGRIND_VALGRIND_H
-#include <valgrind/valgrind.h>
+#  include <valgrind/valgrind.h>
 #endif
 
 #define SD_JOURNAL_SUPPRESS_LOCATION
@@ -21,6 +21,7 @@
 #include "io-util.h"
 #include "journal-send.h"
 #include "memfd-util.h"
+#include "missing_syscall.h"
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -77,9 +78,9 @@ int journal_fd_nonblock(bool nonblock) {
         return fd_nonblock(r, nonblock);
 }
 
-#if VALGRIND
 void close_journal_fd(void) {
-        /* Be nice to valgrind. This is not atomic. This must be used only in tests. */
+#if HAVE_VALGRIND_VALGRIND_H
+        /* Be nice to valgrind. This is not atomic, so it is useful mainly for debugging. */
 
         if (!RUNNING_ON_VALGRIND)
                 return;
@@ -92,8 +93,8 @@ void close_journal_fd(void) {
 
         safe_close(fd_plus_one - 1);
         fd_plus_one = 0;
-}
 #endif
+}
 
 _public_ int sd_journal_print(int priority, const char *format, ...) {
         int r;
@@ -147,93 +148,64 @@ _public_ int sd_journal_printv(int priority, const char *format, va_list ap) {
         return sd_journal_sendv(iov, 2);
 }
 
-_printf_(1, 0) static int fill_iovec_sprintf(const char *format, va_list ap, int extra, struct iovec **_iov) {
+_printf_(1, 0) static int fill_iovec_sprintf(const char *format, va_list ap, size_t extra, struct iovec **ret_iov, size_t *ret_n_iov) {
         PROTECT_ERRNO;
-        int r, n = 0, i = 0, j;
         struct iovec *iov = NULL;
+        size_t n = 0;
 
-        assert(_iov);
+        assert(ret_iov);
+        assert(ret_n_iov);
 
         if (extra > 0) {
-                n = MAX(extra * 2, extra + 4);
-                iov = malloc0(n * sizeof(struct iovec));
-                if (!iov) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
+                if (!GREEDY_REALLOC0(iov, extra))
+                        return -ENOMEM;
 
-                i = extra;
+                n = extra;
         }
 
+        CLEANUP_ARRAY(iov, n, iovec_array_free);
+
         while (format) {
-                struct iovec *c;
-                char *buffer;
+                _cleanup_free_ char *buffer = NULL;
                 va_list aq;
-
-                if (i >= n) {
-                        n = MAX(i*2, 4);
-                        c = reallocarray(iov, n, sizeof(struct iovec));
-                        if (!c) {
-                                r = -ENOMEM;
-                                goto fail;
-                        }
-
-                        iov = c;
-                }
 
                 va_copy(aq, ap);
                 if (vasprintf(&buffer, format, aq) < 0) {
                         va_end(aq);
-                        r = -ENOMEM;
-                        goto fail;
+                        return -ENOMEM;
                 }
                 va_end(aq);
 
                 VA_FORMAT_ADVANCE(format, ap);
-
-                (void) strstrip(buffer); /* strip trailing whitespace, keep prefixing whitespace */
-
-                iov[i++] = IOVEC_MAKE_STRING(buffer);
-
                 format = va_arg(ap, char *);
+
+                if (!GREEDY_REALLOC(iov, n + 1))
+                        return -ENOMEM;
+
+                /* strip trailing whitespace, keep prefixing whitespace */
+                iov[n++] = IOVEC_MAKE_STRING(delete_trailing_chars(TAKE_PTR(buffer), NULL));
         }
 
-        *_iov = iov;
-
-        return i;
-
-fail:
-        for (j = 0; j < i; j++)
-                free(iov[j].iov_base);
-
-        free(iov);
-
-        return r;
+        *ret_iov = TAKE_PTR(iov);
+        *ret_n_iov = n;
+        return 0;
 }
 
 _public_ int sd_journal_send(const char *format, ...) {
-        int r, i, j;
-        va_list ap;
         struct iovec *iov = NULL;
+        size_t n_iov = 0;
+        va_list ap;
+        int r;
+
+        CLEANUP_ARRAY(iov, n_iov, iovec_array_free);
 
         va_start(ap, format);
-        i = fill_iovec_sprintf(format, ap, 0, &iov);
+        r = fill_iovec_sprintf(format, ap, 0, &iov, &n_iov);
         va_end(ap);
+        if (r < 0)
+                return r;
 
-        if (_unlikely_(i < 0)) {
-                r = i;
-                goto finish;
-        }
-
-        r = sd_journal_sendv(iov, i);
-
-finish:
-        for (j = 0; j < i; j++)
-                free(iov[j].iov_base);
-
-        free(iov);
-
-        return r;
+        return sd_journal_sendv(iov, n_iov);
 }
 
 _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
@@ -528,19 +500,19 @@ _public_ int sd_journal_printv_with_location(int priority, const char *file, con
 }
 
 _public_ int sd_journal_send_with_location(const char *file, const char *line, const char *func, const char *format, ...) {
-        _cleanup_free_ struct iovec *iov = NULL;
-        int r, i, j;
+        struct iovec *iov = NULL;
+        size_t n_iov = 0;
         va_list ap;
         char *f;
+        int r;
+
+        CLEANUP_ARRAY(iov, n_iov, iovec_array_free);
 
         va_start(ap, format);
-        i = fill_iovec_sprintf(format, ap, 3, &iov);
+        r = fill_iovec_sprintf(format, ap, 3, &iov, &n_iov);
         va_end(ap);
-
-        if (_unlikely_(i < 0)) {
-                r = i;
-                goto finish;
-        }
+        if (r < 0)
+                return r;
 
         ALLOCA_CODE_FUNC(f, func);
 
@@ -548,11 +520,9 @@ _public_ int sd_journal_send_with_location(const char *file, const char *line, c
         iov[1] = IOVEC_MAKE_STRING(line);
         iov[2] = IOVEC_MAKE_STRING(f);
 
-        r = sd_journal_sendv(iov, i);
+        r = sd_journal_sendv(iov, n_iov);
 
-finish:
-        for (j = 3; j < i; j++)
-                free(iov[j].iov_base);
+        iov[0] = iov[1] = iov[2] = IOVEC_NULL;
 
         return r;
 }

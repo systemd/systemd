@@ -21,6 +21,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "io-util.h"
 #include "logind-dbus.h"
 #include "logind-seat-dbus.h"
@@ -202,7 +203,7 @@ static void session_save_devices(Session *s, FILE *f) {
 }
 
 int session_save(Session *s) {
-        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -349,13 +350,11 @@ int session_save(Session *s) {
                 goto fail;
         }
 
+        temp_path = mfree(temp_path);
         return 0;
 
 fail:
         (void) unlink(s->state_file);
-
-        if (temp_path)
-                (void) unlink(temp_path);
 
         return log_error_errno(r, "Failed to save session data %s: %m", s->state_file);
 }
@@ -710,7 +709,7 @@ static int session_dispatch_stop_on_idle(sd_event_source *source, uint64_t t, vo
 
         idle = session_get_idle_hint(s, &ts);
         if (idle) {
-                log_debug("Session \"%s\" of user \"%s\" is idle, stopping.", s->id, s->user->user_record->user_name);
+                log_info("Session \"%s\" of user \"%s\" is idle, stopping.", s->id, s->user->user_record->user_name);
 
                 return session_stop(s, /* force */ true);
         }

@@ -339,11 +339,8 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
 #define ALIGN2_PTR(p) ((void*) ALIGN2((uintptr_t) p))
 #define ALIGN4_PTR(p) ((void*) ALIGN4((uintptr_t) p))
 #define ALIGN8_PTR(p) ((void*) ALIGN8((uintptr_t) p))
-#if !SD_BOOT
-/* libefi also provides ALIGN, and we do not use them in sd-boot explicitly. */
 #define ALIGN(l)  ALIGN_TO(l, sizeof(void*))
 #define ALIGN_PTR(p) ((void*) ALIGN((uintptr_t) (p)))
-#endif
 
 /* Checks if the specified pointer is aligned as appropriate for the specific type */
 #define IS_ALIGNED16(p) (((uintptr_t) p) % __alignof__(uint16_t) == 0)

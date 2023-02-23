@@ -1,21 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <efi.h>
-#include <efilib.h>
-
 #include "cpio.h"
+#include "device-path-util.h"
 #include "devicetree.h"
-#include "disk.h"
 #include "graphics.h"
 #include "linux.h"
 #include "measure.h"
 #include "part-discovery.h"
 #include "pe.h"
+#include "proto/shell-parameters.h"
 #include "random-seed.h"
 #include "secure-boot.h"
 #include "splash.h"
 #include "tpm-pcr.h"
 #include "util.h"
+#include "vmm.h"
 
 /* magic string to find in the binary image */
 _used_ _section_(".sdmagic") static const char magic[] = "#### LoaderInfo: systemd-stub " GIT_VERSION " ####";
@@ -89,14 +88,14 @@ static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
                 EFI_STUB_FEATURE_RANDOM_SEED |              /* We pass a random seed to the kernel */
                 0;
 
-        char16_t uuid[37];
-
         assert(loaded_image);
 
         /* Export the device path this image is started from, if it's not set yet */
-        if (efivar_get_raw(MAKE_GUID_PTR(LOADER), u"LoaderDevicePartUUID", NULL, NULL) != EFI_SUCCESS)
-                if (disk_get_part_uuid(loaded_image->DeviceHandle, uuid) == EFI_SUCCESS)
+        if (efivar_get_raw(MAKE_GUID_PTR(LOADER), u"LoaderDevicePartUUID", NULL, NULL) != EFI_SUCCESS) {
+                _cleanup_free_ char16_t *uuid = disk_get_part_uuid(loaded_image->DeviceHandle);
+                if (uuid)
                         efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderDevicePartUUID", uuid, 0);
+        }
 
         /* If LoaderImageIdentifier is not set, assume the image with this stub was loaded directly from the
          * UEFI firmware without any boot loader, and hence set the LoaderImageIdentifier ourselves. Note
@@ -275,6 +274,12 @@ static EFI_STATUS run(EFI_HANDLE image) {
                                 (char *) loaded_image->ImageBase + addrs[UNIFIED_SECTION_CMDLINE],
                                 szs[UNIFIED_SECTION_CMDLINE]);
                 mangle_stub_cmdline(cmdline);
+        }
+
+        const char *extra = smbios_find_oem_string("io.systemd.stub.kernel-cmdline-extra");
+        if (extra) {
+                _cleanup_free_ char16_t *tmp = TAKE_PTR(cmdline), *extra16 = xstr8_to_16(extra);
+                cmdline = xasprintf("%ls %ls", tmp, extra16);
         }
 
         export_variables(loaded_image);

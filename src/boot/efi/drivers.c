@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <efi.h>
-#include <efilib.h>
-
+#include "device-path-util.h"
 #include "drivers.h"
 #include "util.h"
 
@@ -90,7 +88,7 @@ EFI_STATUS load_drivers(
                 return log_error_status(err, "Failed to open \\EFI\\systemd\\drivers: %m");
 
         for (;;) {
-                err = readdir_harder(drivers_dir, &dirent, &dirent_size);
+                err = readdir(drivers_dir, &dirent, &dirent_size);
                 if (err != EFI_SUCCESS)
                         return log_error_status(err, "Failed to read extra directory of loaded image: %m");
                 if (!dirent) /* End of directory */

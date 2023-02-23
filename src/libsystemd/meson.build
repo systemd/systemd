@@ -142,116 +142,106 @@ libsystemd_pc = custom_target(
 
 ############################################################
 
+simple_tests += files(
+        'sd-journal/test-audit-type.c',
+        'sd-journal/test-catalog.c',
+        'sd-journal/test-journal-file.c',
+        'sd-journal/test-journal-init.c',
+        'sd-journal/test-journal-match.c',
+        'sd-journal/test-journal-send.c',
+        'sd-journal/test-mmap-cache.c',
+)
+
 tests += [
-        [files('sd-journal/test-journal-file.c')],
-
-        [files('sd-journal/test-journal-send.c')],
-
-        [files('sd-journal/test-journal-match.c')],
-
-        [files('sd-journal/test-journal-enum.c'),
-         [], [], [], '', 'timeout=360'],
-
-        [files('sd-journal/test-journal-init.c')],
-
-        [files('sd-journal/test-mmap-cache.c')],
-
-        [files('sd-journal/test-catalog.c')],
-
-        [files('sd-journal/test-audit-type.c')],
+        {
+                'sources' : files('sd-journal/test-journal-enum.c'),
+                'timeout' : 360,
+        },
 ]
 
 ############################################################
 
+simple_tests += files(
+        'sd-bus/test-bus-creds.c',
+        'sd-bus/test-bus-introspect.c',
+        'sd-bus/test-bus-match.c',
+        'sd-bus/test-bus-vtable.c',
+        'sd-device/test-device-util.c',
+        'sd-device/test-sd-device-monitor.c',
+        'sd-device/test-sd-device.c',
+        'sd-event/test-event.c',
+        'sd-login/test-login.c',
+        'sd-netlink/test-netlink.c',
+)
+
 tests += [
-        [files('sd-bus/test-bus-address.c'),
-         [],
-         [threads]],
-
-        [files('sd-bus/test-bus-marshal.c'),
-         [],
-         [threads,
-          libglib,
-          libgobject,
-          libgio,
-          libdbus,
-          libm]],
-
-        [files('sd-bus/test-bus-signature.c'),
-         [],
-         [threads]],
-
-        [files('sd-bus/test-bus-queue-ref-cycle.c'),
-         [],
-         [threads]],
-
-        [files('sd-bus/test-bus-watch-bind.c'),
-         [],
-         [threads],
-         [], '', 'timeout=120'],
-
-        [files('sd-bus/test-bus-chat.c'),
-         [],
-         [threads]],
-
-        [files('sd-bus/test-bus-cleanup.c'),
-         [],
-         [threads,
-          libseccomp]],
-
-        [files('sd-bus/test-bus-track.c'),
-         [],
-         [libseccomp]],
-
-        [files('sd-bus/test-bus-server.c'),
-         [],
-         [threads]],
-
-        [files('sd-bus/test-bus-objects.c'),
-         [],
-         [threads]],
-
-        [files('sd-bus/test-bus-vtable.c')],
-
-        [files('sd-bus/test-bus-creds.c')],
-
-        [files('sd-bus/test-bus-match.c')],
-
-        [files('sd-bus/test-bus-benchmark.c'),
-         [],
-         [threads],
-         [], '', 'manual'],
-
-        [files('sd-bus/test-bus-introspect.c')],
-
-        [files('sd-event/test-event.c')],
-
-        [files('sd-netlink/test-netlink.c')],
-
-        [files('sd-resolve/test-resolve.c'),
-         [],
-         [threads],
-         [], '', 'timeout=120'],
-
-        [files('sd-login/test-login.c')],
-
-        [files('sd-device/test-sd-device.c')],
-
-        [files('sd-device/test-device-util.c')],
-
-        [files('sd-device/test-sd-device-monitor.c')],
+        {
+                'sources' : files('sd-bus/test-bus-address.c'),
+                'dependencies' : threads
+        },
+        {
+                'sources' : files('sd-bus/test-bus-benchmark.c'),
+                'dependencies' : threads,
+                'type' : 'manual',
+        },
+        {
+                'sources' : files('sd-bus/test-bus-chat.c'),
+                'dependencies' : threads,
+        },
+        {
+                'sources' : files('sd-bus/test-bus-cleanup.c'),
+                'dependencies' : [threads, libseccomp],
+        },
+        {
+                'sources' : files('sd-bus/test-bus-marshal.c'),
+                'dependencies' : [
+                        libdbus,
+                        libgio,
+                        libglib,
+                        libgobject,
+                        libm,
+                        threads,
+                ],
+        },
+        {
+                'sources' : files('sd-bus/test-bus-objects.c'),
+                'dependencies' : threads,
+        },
+        {
+                'sources' : files('sd-bus/test-bus-queue-ref-cycle.c'),
+                'dependencies' : threads,
+        },
+        {
+                'sources' : files('sd-bus/test-bus-server.c'),
+                'dependencies' : threads,
+        },
+        {
+                'sources' : files('sd-bus/test-bus-signature.c'),
+                'dependencies' : threads,
+        },
+        {
+                'sources' : files('sd-bus/test-bus-track.c'),
+                'dependencies' : libseccomp,
+        },
+        {
+                'sources' : files('sd-bus/test-bus-watch-bind.c'),
+                'dependencies' : threads,
+                'timeout' : 120,
+        },
+        {
+                'sources' : files('sd-resolve/test-resolve.c'),
+                'dependencies' : threads,
+                'timeout' : 120,
+        },
 ]
 
 if cxx_cmd != ''
-        tests += [
-                [files('sd-bus/test-bus-vtable-cc.cc')],
-        ]
+        simple_tests += files('sd-bus/test-bus-vtable-cc.cc')
 endif
 
 ############################################################
 
-fuzzers += [
-        [files('sd-bus/fuzz-bus-message.c')],
-
-        [files('sd-bus/fuzz-bus-match.c')],
-]
+simple_fuzzers += files(
+        'sd-bus/fuzz-bus-match.c',
+        'sd-bus/fuzz-bus-message.c',
+)

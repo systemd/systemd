@@ -128,6 +128,26 @@ binfmt_misc /proc/sys/fs/binfmt_misc yes     0            proc-sys-fs-binfmt_mis
         </varlistentry>
 
         <varlistentry>
+          <term><command>list-paths</command> <optional><replaceable>PATTERN</replaceable>…</optional></term>
+
+          <listitem>
+            <para>List path units currently in memory, ordered by path.  If one or more
+            <replaceable>PATTERN</replaceable>s are specified, only path units matching one of them are shown.
+            Produces output similar to
+            <programlisting>
+PATH                           CONDITION         UNIT                               ACTIVATES
+/run/systemd/ask-password      DirectoryNotEmpty systemd-ask-password-plymouth.path systemd-ask-password-plymouth.service
+/run/systemd/ask-password      DirectoryNotEmpty systemd-ask-password-wall.path     systemd-ask-password-wall.service
+/var/cache/cups/org.cups.cupsd PathExists        cups.path                          cups.service
+
+3 paths listed.</programlisting>
+            </para>
+
+            <para>Also see <option>--show-types</option>, <option>--all</option>, and <option>--state=</option>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><command>list-sockets</command> <optional><replaceable>PATTERN</replaceable>…</optional></term>
 
           <listitem>
@@ -821,6 +841,11 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>This command will print information about the file system operations (symlink removals)
             executed. This output may be suppressed by passing <option>--quiet</option>.
             </para>
+
+            <para>When this command is used with <option>--user</option>, the units being operated on might
+            still be enabled in global scope, and thus get started automatically even after a successful
+            disablement in user scope. In this case, a warning about it is shown, which can be suppressed
+            using <option>--no-warn</option>.</para>
 
             <para>This command honors <option>--system</option>, <option>--user</option>, <option>--runtime</option>,
             <option>--global</option> and <option>--no-warn</option> in a similar way as <command>enable</command>.</para>
@@ -2025,7 +2050,11 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             </listitem>
             <listitem>
               <para>when using <command>enable</command> or <command>disable</command> on units without
-              install information (i.e. don't have or have an empty [Install] section).</para>
+              install information (i.e. don't have or have an empty [Install] section),</para>
+            </listitem>
+            <listitem>
+              <para>when using <command>disable</command> combined with <option>--user</option> on units
+              that are enabled in global scope.</para>
             </listitem>
           </itemizedlist>
           </para>
@@ -2157,7 +2186,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         system call, rather than <citerefentry
         project='man-pages'><refentrytitle>kill</refentrytitle><manvolnum>3</manvolnum></citerefentry>. The
         specified value must be a 32bit signed integer, and may be specified either in decimal, in
-        hexademical (if prefixed with <literal>0x</literal>), octal (if prefixed with <literal>0o</literal>)
+        hexadecimal (if prefixed with <literal>0x</literal>), octal (if prefixed with <literal>0o</literal>)
         or binary (if prefixed with <literal>0b</literal>)</para>
 
         <para>If this option is used the signal will only be enqueued on the control or main process of the

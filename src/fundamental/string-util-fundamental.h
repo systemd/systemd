@@ -2,8 +2,7 @@
 #pragma once
 
 #if SD_BOOT
-#  include <efi.h>
-#  include <efilib.h>
+#  include "efi.h"
 #  include "efi-string.h"
 #else
 #  include <string.h>
@@ -59,9 +58,7 @@ static inline size_t strlen_ptr(const sd_char *s) {
 }
 
 sd_char *startswith(const sd_char *s, const sd_char *prefix) _pure_;
-#if !SD_BOOT
 sd_char *startswith_no_case(const sd_char *s, const sd_char *prefix) _pure_;
-#endif
 sd_char *endswith(const sd_char *s, const sd_char *postfix) _pure_;
 sd_char *endswith_no_case(const sd_char *s, const sd_char *postfix) _pure_;
 

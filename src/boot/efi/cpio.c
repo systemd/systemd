@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "cpio.h"
+#include "device-path-util.h"
 #include "measure.h"
+#include "proto/device-path.h"
 #include "util.h"
 
 static char *write_cpio_word(char *p, uint32_t v) {
@@ -309,8 +311,9 @@ static char16_t *get_dropin_dir(const EFI_DEVICE_PATH *file_path) {
          * not create a legal EFI file path that the file protocol can use. */
 
         /* Make sure we really only got file paths. */
-        for (const EFI_DEVICE_PATH *node = file_path; !IsDevicePathEnd(node); node = NextDevicePathNode(node))
-                if (DevicePathType(node) != MEDIA_DEVICE_PATH || DevicePathSubType(node) != MEDIA_FILEPATH_DP)
+        for (const EFI_DEVICE_PATH *node = file_path; !device_path_is_end(node);
+             node = device_path_next_node(node))
+                if (node->Type != MEDIA_DEVICE_PATH || node->SubType != MEDIA_FILEPATH_DP)
                         return NULL;
 
         _cleanup_free_ char16_t *file_path_str = NULL;
@@ -372,7 +375,7 @@ EFI_STATUS pack_cpio(
         for (;;) {
                 _cleanup_free_ char16_t *d = NULL;
 
-                err = readdir_harder(extra_dir, &dirent, &dirent_size);
+                err = readdir(extra_dir, &dirent, &dirent_size);
                 if (err != EFI_SUCCESS)
                         return log_error_status(err, "Failed to read extra directory of loaded image: %m");
                 if (!dirent) /* End of directory */

@@ -39,31 +39,45 @@ systemd_nspawn_sources = files('nspawn.c')
 ############################################################
 
 tests += [
-        [files('test-nspawn-tables.c'),
-         [libnspawn_core,
-          libshared],
-         [libseccomp]],
-
-        [files('test-nspawn-util.c'),
-         [libnspawn_core,
-          libshared],
-         [libseccomp]],
-
-        [files('test-patch-uid.c'),
-         [libnspawn_core,
-          libshared],
-         [libacl],
-         [], '', 'manual'],
+        {
+                'sources' : files('test-nspawn-tables.c'),
+                'link_with' : [
+                        libnspawn_core,
+                        libshared,
+                ],
+                'dependencies' : libseccomp,
+        },
+        {
+                'sources' : files('test-nspawn-util.c'),
+                'link_with' : [
+                        libnspawn_core,
+                        libshared,
+                ],
+                'dependencies' : libseccomp,
+        },
+        {
+                'sources' : files('test-patch-uid.c'),
+                'link_with' : [
+                        libnspawn_core,
+                        libshared,
+                ],
+                'dependencies' : libacl,
+                'type' : 'manual',
+        },
 ]
 
-fuzzers += [
-        [files('fuzz-nspawn-settings.c'),
-         [libshared,
-          libnspawn_core],
-         [libseccomp]],
+fuzzer_nspawn_base = {
+        'link_with' : [libshared, libnspawn_core],
+        'dependencies' : libseccomp
+}
 
-        [files('fuzz-nspawn-oci.c'),
-         [libshared,
-          libnspawn_core],
-         [libseccomp]],
+fuzzers += [
+        {
+                'sources' : files('fuzz-nspawn-settings.c'),
+                'base' : fuzzer_nspawn_base,
+        },
+        {
+                'sources' : files('fuzz-nspawn-oci.c'),
+                'base' : fuzzer_nspawn_base,
+        },
 ]

@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <efi.h>
-#include <uchar.h>
+#include "efi.h"
 
 EFI_STATUS linux_exec(
                 EFI_HANDLE parent,

@@ -1,50 +1,40 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <efi.h>
-#include <efigpt.h>
-#include <efilib.h>
-
+#include "device-path-util.h"
 #include "part-discovery.h"
+#include "proto/block-io.h"
+#include "proto/device-path.h"
 #include "util.h"
 
-union GptHeaderBuffer {
-        EFI_PARTITION_TABLE_HEADER gpt_header;
-        uint8_t space[CONST_ALIGN_TO(sizeof(EFI_PARTITION_TABLE_HEADER), 512)];
-};
+typedef struct {
+        EFI_GUID PartitionTypeGUID;
+        EFI_GUID UniquePartitionGUID;
+        EFI_LBA StartingLBA;
+        EFI_LBA EndingLBA;
+        uint64_t Attributes;
+        char16_t PartitionName[36];
+} EFI_PARTITION_ENTRY;
 
-static EFI_DEVICE_PATH *path_replace_hd(
-                const EFI_DEVICE_PATH *path,
-                const EFI_DEVICE_PATH *node,
-                const HARDDRIVE_DEVICE_PATH *new_node) {
+typedef struct {
+        EFI_TABLE_HEADER Header;
+        EFI_LBA MyLBA;
+        EFI_LBA AlternateLBA;
+        EFI_LBA FirstUsableLBA;
+        EFI_LBA LastUsableLBA;
+        EFI_GUID DiskGUID;
+        EFI_LBA PartitionEntryLBA;
+        uint32_t NumberOfPartitionEntries;
+        uint32_t SizeOfPartitionEntry;
+        uint32_t PartitionEntryArrayCRC32;
+        uint8_t _pad[420];
+} _packed_ GptHeader;
+assert_cc(sizeof(GptHeader) == 512);
 
-        /* Create a new device path as a copy of path, while chopping off the remainder starting at the given
-         * node. If new_node is provided, it is appended at the end of the new path. */
-
-        assert(path);
-        assert(node);
-
-        size_t len = (uint8_t *) node - (uint8_t *) path, new_node_len = 0;
-        if (new_node)
-                new_node_len = DevicePathNodeLength(&new_node->Header);
-
-        EFI_DEVICE_PATH *ret = xmalloc(len + new_node_len + END_DEVICE_PATH_LENGTH);
-        EFI_DEVICE_PATH *end = mempcpy(ret, path, len);
-
-        if (new_node)
-                end = mempcpy(end, new_node, new_node_len);
-
-        SetDevicePathEndNode(end);
-        return ret;
-}
-
-static bool verify_gpt(union GptHeaderBuffer *gpt_header_buffer, EFI_LBA lba_expected) {
-        EFI_PARTITION_TABLE_HEADER *h;
+static bool verify_gpt(/*const*/ GptHeader *h, EFI_LBA lba_expected) {
         uint32_t crc32, crc32_saved;
         EFI_STATUS err;
 
-        assert(gpt_header_buffer);
-
-        h = &gpt_header_buffer->gpt_header;
+        assert(h);
 
         /* Some superficial validation of the GPT header */
         if (memcmp(&h->Header.Signature, "EFI PART", sizeof(h->Header.Signature)) != 0)
@@ -59,7 +49,7 @@ static bool verify_gpt(union GptHeaderBuffer *gpt_header_buffer, EFI_LBA lba_exp
         /* Calculate CRC check */
         crc32_saved = h->Header.CRC32;
         h->Header.CRC32 = 0;
-        err = BS->CalculateCrc32(gpt_header_buffer, h->Header.HeaderSize, &crc32);
+        err = BS->CalculateCrc32(h, h->Header.HeaderSize, &crc32);
         h->Header.CRC32 = crc32_saved;
         if (err != EFI_SUCCESS || crc32 != crc32_saved)
                 return false;
@@ -88,7 +78,7 @@ static EFI_STATUS try_gpt(
                 HARDDRIVE_DEVICE_PATH *ret_hd) {
 
         _cleanup_free_ EFI_PARTITION_ENTRY *entries = NULL;
-        union GptHeaderBuffer gpt;
+        GptHeader gpt;
         EFI_STATUS err;
         uint32_t crc32;
         size_t size;
@@ -107,32 +97,32 @@ static EFI_STATUS try_gpt(
 
         /* Indicate the location of backup LBA even if the rest of the header is corrupt. */
         if (ret_backup_lba)
-                *ret_backup_lba = gpt.gpt_header.AlternateLBA;
+                *ret_backup_lba = gpt.AlternateLBA;
 
         if (!verify_gpt(&gpt, lba))
                 return EFI_NOT_FOUND;
 
         /* Now load the GPT entry table */
-        size = ALIGN_TO((size_t) gpt.gpt_header.SizeOfPartitionEntry * (size_t) gpt.gpt_header.NumberOfPartitionEntries, 512);
+        size = ALIGN_TO((size_t) gpt.SizeOfPartitionEntry * (size_t) gpt.NumberOfPartitionEntries, 512);
         entries = xmalloc(size);
 
         err = block_io->ReadBlocks(
                         block_io,
                         block_io->Media->MediaId,
-                        gpt.gpt_header.PartitionEntryLBA,
+                        gpt.PartitionEntryLBA,
                         size, entries);
         if (err != EFI_SUCCESS)
                 return err;
 
         /* Calculate CRC of entries array, too */
         err = BS->CalculateCrc32(entries, size, &crc32);
-        if (err != EFI_SUCCESS || crc32 != gpt.gpt_header.PartitionEntryArrayCRC32)
+        if (err != EFI_SUCCESS || crc32 != gpt.PartitionEntryArrayCRC32)
                 return EFI_CRC_ERROR;
 
         /* Now we can finally look for xbootloader partitions. */
-        for (size_t i = 0; i < gpt.gpt_header.NumberOfPartitionEntries; i++) {
+        for (size_t i = 0; i < gpt.NumberOfPartitionEntries; i++) {
                 EFI_PARTITION_ENTRY *entry =
-                                (EFI_PARTITION_ENTRY *) ((uint8_t *) entries + gpt.gpt_header.SizeOfPartitionEntry * i);
+                                (EFI_PARTITION_ENTRY *) ((uint8_t *) entries + gpt.SizeOfPartitionEntry * i);
 
                 if (!efi_guid_equal(&entry->PartitionTypeGUID, type))
                         continue;
@@ -144,6 +134,7 @@ static EFI_STATUS try_gpt(
                         .Header = {
                                 .Type = MEDIA_DEVICE_PATH,
                                 .SubType = MEDIA_HARDDRIVE_DP,
+                                .Length = sizeof(HARDDRIVE_DEVICE_PATH),
                         },
                         .PartitionNumber = i + 1,
                         .PartitionStart = entry->StartingLBA,
@@ -152,11 +143,6 @@ static EFI_STATUS try_gpt(
                         .SignatureType = SIGNATURE_TYPE_GUID,
                 };
                 memcpy(ret_hd->Signature, &entry->UniquePartitionGUID, sizeof(ret_hd->Signature));
-
-                /* HARDDRIVE_DEVICE_PATH has padding, which at least OVMF does not like. */
-                SetDevicePathNodeLength(
-                                &ret_hd->Header,
-                                offsetof(HARDDRIVE_DEVICE_PATH, SignatureType) + sizeof(ret_hd->SignatureType));
 
                 return EFI_SUCCESS;
         }
@@ -179,11 +165,9 @@ static EFI_STATUS find_device(const EFI_GUID *type, EFI_HANDLE *device, EFI_DEVI
 
         /* Find the (last) partition node itself. */
         EFI_DEVICE_PATH *part_node = NULL;
-        for (EFI_DEVICE_PATH *node = partition_path; !IsDevicePathEnd(node); node = NextDevicePathNode(node)) {
-                if (DevicePathType(node) != MEDIA_DEVICE_PATH)
-                        continue;
-
-                if (DevicePathSubType(node) != MEDIA_HARDDRIVE_DP)
+        for (EFI_DEVICE_PATH *node = partition_path; !device_path_is_end(node);
+             node = device_path_next_node(node)) {
+                if (node->Type != MEDIA_DEVICE_PATH || node->SubType != MEDIA_HARDDRIVE_DP)
                         continue;
 
                 part_node = node;
@@ -194,7 +178,7 @@ static EFI_STATUS find_device(const EFI_GUID *type, EFI_HANDLE *device, EFI_DEVI
 
         /* Chop off the partition part, leaving us with the full path to the disk itself. */
         _cleanup_free_ EFI_DEVICE_PATH *disk_path = NULL;
-        EFI_DEVICE_PATH *p = disk_path = path_replace_hd(partition_path, part_node, NULL);
+        EFI_DEVICE_PATH *p = disk_path = device_path_replace_node(partition_path, part_node, NULL);
 
         EFI_HANDLE disk_handle;
         EFI_BLOCK_IO_PROTOCOL *block_io;
@@ -248,7 +232,7 @@ static EFI_STATUS find_device(const EFI_GUID *type, EFI_HANDLE *device, EFI_DEVI
                 }
 
                 /* Patch in the data we found */
-                *ret_device_path = path_replace_hd(partition_path, part_node, &hd);
+                *ret_device_path = device_path_replace_node(partition_path, part_node, (EFI_DEVICE_PATH *) &hd);
                 return EFI_SUCCESS;
         }
 
@@ -284,4 +268,31 @@ EFI_STATUS partition_open(const EFI_GUID *type, EFI_HANDLE *device, EFI_HANDLE *
                 *ret_device = new_device;
         *ret_root_dir = root_dir;
         return EFI_SUCCESS;
+}
+
+char16_t *disk_get_part_uuid(EFI_HANDLE *handle) {
+        EFI_STATUS err;
+        EFI_DEVICE_PATH *dp;
+
+        /* export the device path this image is started from */
+
+        if (!handle)
+                return NULL;
+
+        err = BS->HandleProtocol(handle, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), (void **) &dp);
+        if (err != EFI_SUCCESS)
+                return NULL;
+
+        for (; !device_path_is_end(dp); dp = device_path_next_node(dp)) {
+                if (dp->Type != MEDIA_DEVICE_PATH || dp->SubType != MEDIA_HARDDRIVE_DP)
+                        continue;
+
+                HARDDRIVE_DEVICE_PATH *hd = (HARDDRIVE_DEVICE_PATH *) dp;
+                if (hd->SignatureType != SIGNATURE_TYPE_GUID)
+                        continue;
+
+                return xasprintf(GUID_FORMAT_STR, GUID_FORMAT_VAL(hd->SignatureGuid));
+        }
+
+        return NULL;
 }

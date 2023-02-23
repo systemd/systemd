@@ -1095,54 +1095,55 @@ static int enforce_groups(gid_t gid, const gid_t *supplementary_gids, int ngids)
         return 0;
 }
 
-static int set_securebits(int bits, int mask) {
-        int current, applied;
+static int set_securebits(unsigned bits, unsigned mask) {
+        unsigned applied;
+        int current;
+
         current = prctl(PR_GET_SECUREBITS);
         if (current < 0)
                 return -errno;
+
         /* Clear all securebits defined in mask and set bits */
-        applied = (current & ~mask) | bits;
-        if (current == applied)
+        applied = ((unsigned) current & ~mask) | bits;
+        if ((unsigned) current == applied)
                 return 0;
+
         if (prctl(PR_SET_SECUREBITS, applied) < 0)
                 return -errno;
+
         return 1;
 }
 
-static int enforce_user(const ExecContext *context, uid_t uid) {
+static int enforce_user(
+                const ExecContext *context,
+                uid_t uid,
+                uint64_t capability_ambient_set) {
         assert(context);
         int r;
 
         if (!uid_is_valid(uid))
                 return 0;
 
-        /* Sets (but doesn't look up) the uid and make sure we keep the
-         * capabilities while doing so. For setting secure bits the capability CAP_SETPCAP is
-         * required, so we also need keep-caps in this case.
-         */
+        /* Sets (but doesn't look up) the UIS and makes sure we keep the capabilities while doing so. For
+         * setting secure bits the capability CAP_SETPCAP is required, so we also need keep-caps in this
+         * case. */
 
-        if (context->capability_ambient_set != 0 || context->secure_bits != 0) {
+        if ((capability_ambient_set != 0 || context->secure_bits != 0) && uid != 0) {
 
-                /* First step: If we need to keep capabilities but
-                 * drop privileges we need to make sure we keep our
-                 * caps, while we drop privileges. */
-                if (uid != 0) {
-                        /* Add KEEP_CAPS to the securebits */
-                        r = set_securebits(1<<SECURE_KEEP_CAPS, 0);
-                        if (r < 0)
-                                return r;
-                }
+                /* First step: If we need to keep capabilities but drop privileges we need to make sure we
+                 * keep our caps, while we drop privileges. Add KEEP_CAPS to the securebits */
+                r = set_securebits(1U << SECURE_KEEP_CAPS, 0);
+                if (r < 0)
+                        return r;
         }
 
         /* Second step: actually set the uids */
         if (setresuid(uid, uid, uid) < 0)
                 return -errno;
 
-        /* At this point we should have all necessary capabilities but
-           are otherwise a normal user. However, the caps might got
-           corrupted due to the setresuid() so we need clean them up
-           later. This is done outside of this call. */
-
+        /* At this point we should have all necessary capabilities but are otherwise a normal user. However,
+         * the caps might got corrupted due to the setresuid() so we need clean them up later. This is done
+         * outside of this call. */
         return 0;
 }
 
@@ -2025,6 +2026,18 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
         return 0;
 }
 
+bool exec_needs_network_namespace(const ExecContext *context) {
+        assert(context);
+
+        return context->private_network || context->network_namespace_path;
+}
+
+static bool exec_needs_ipc_namespace(const ExecContext *context) {
+        assert(context);
+
+        return context->private_ipc || context->ipc_namespace_path;
+}
+
 bool exec_needs_mount_namespace(
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -2064,7 +2077,8 @@ bool exec_needs_mount_namespace(
                 return true;
 
         if (context->private_devices ||
-            context->private_mounts ||
+            context->private_mounts > 0 ||
+            (context->private_mounts < 0 && exec_needs_network_namespace(context)) ||
             context->protect_system != PROTECT_SYSTEM_NO ||
             context->protect_home != PROTECT_HOME_NO ||
             context->protect_kernel_tunables ||
@@ -2073,8 +2087,7 @@ bool exec_needs_mount_namespace(
             context->protect_control_groups ||
             context->protect_proc != PROTECT_PROC_DEFAULT ||
             context->proc_subset != PROC_SUBSET_ALL ||
-            context->private_ipc ||
-            context->ipc_namespace_path)
+            exec_needs_ipc_namespace(context))
                 return true;
 
         if (context->root_directory) {
@@ -3593,12 +3606,12 @@ static int apply_mount_namespace(
                         .protect_kernel_logs = context->protect_kernel_logs,
                         .protect_hostname = context->protect_hostname,
                         .mount_apivfs = exec_context_get_effective_mount_apivfs(context),
-                        .private_mounts = context->private_mounts,
                         .protect_home = context->protect_home,
                         .protect_system = context->protect_system,
                         .protect_proc = context->protect_proc,
                         .proc_subset = context->proc_subset,
-                        .private_ipc = context->private_ipc || context->ipc_namespace_path,
+                        .private_network = exec_needs_network_namespace(context),
+                        .private_ipc = exec_needs_ipc_namespace(context),
                         /* If NNP is on, we can turn on MS_NOSUID, since it won't have any effect anymore. */
                         .mount_nosuid = context->no_new_privileges && !mac_selinux_use(),
                 };
@@ -4765,6 +4778,8 @@ static int exec_child(
         else
                 needs_setuid = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID));
 
+        uint64_t capability_ambient_set = context->capability_ambient_set;
+
         if (needs_sandboxing) {
                 /* MAC enablement checks need to be done before a new mount ns is created, as they rely on
                  * /sys being present. The actual MAC context application will happen later, as late as
@@ -4805,6 +4820,20 @@ static int exec_child(
                         return log_unit_error_errno(unit, r, "Failed to set up PAM session: %m");
                 }
 
+                if (ambient_capabilities_supported()) {
+                        uint64_t ambient_after_pam;
+
+                        /* PAM modules might have set some ambient caps. Query them here and merge them into
+                         * the caps we want to set in the end, so that we don't end up unsetting them. */
+                        r = capability_get_ambient(&ambient_after_pam);
+                        if (r < 0) {
+                                *exit_status = EXIT_CAPABILITIES;
+                                return log_unit_error_errno(unit, r, "Failed to query ambient caps: %m");
+                        }
+
+                        capability_ambient_set |= ambient_after_pam;
+                }
+
                 ngids_after_pam = getgroups_alloc(&gids_after_pam);
                 if (ngids_after_pam < 0) {
                         *exit_status = EXIT_MEMORY;
@@ -4825,7 +4854,7 @@ static int exec_child(
                 }
         }
 
-        if ((context->private_network || context->network_namespace_path) && runtime && runtime->netns_storage_socket[0] >= 0) {
+        if (exec_needs_network_namespace(context) && runtime && runtime->netns_storage_socket[0] >= 0) {
 
                 if (ns_type_supported(NAMESPACE_NET)) {
                         r = setup_shareable_ns(runtime->netns_storage_socket, CLONE_NEWNET);
@@ -4844,7 +4873,7 @@ static int exec_child(
                         log_unit_warning(unit, "PrivateNetwork=yes is configured, but the kernel does not support network namespaces, ignoring.");
         }
 
-        if ((context->private_ipc || context->ipc_namespace_path) && runtime && runtime->ipcns_storage_socket[0] >= 0) {
+        if (exec_needs_ipc_namespace(context) && runtime && runtime->ipcns_storage_socket[0] >= 0) {
 
                 if (ns_type_supported(NAMESPACE_IPC)) {
                         r = setup_shareable_ns(runtime->ipcns_storage_socket, CLONE_NEWIPC);
@@ -5033,7 +5062,7 @@ static int exec_child(
                                 (UINT64_C(1) << CAP_SETGID);
 
                 if (!cap_test_all(bset)) {
-                        r = capability_bounding_set_drop(bset, false);
+                        r = capability_bounding_set_drop(bset, /* right_now= */ false);
                         if (r < 0) {
                                 *exit_status = EXIT_CAPABILITIES;
                                 return log_unit_error_errno(unit, r, "Failed to drop capabilities: %m");
@@ -5042,16 +5071,17 @@ static int exec_child(
 
                 /* Ambient capabilities are cleared during setresuid() (in enforce_user()) even with
                  * keep-caps set.
-                 * To be able to raise the ambient capabilities after setresuid() they have to be
-                 * added to the inherited set and keep caps has to be set (done in enforce_user()).
-                 * After setresuid() the ambient capabilities can be raised as they are present in
-                 * the permitted and inhertiable set. However it is possible that someone wants to
-                 * set ambient capabilities without changing the user, so we also set the ambient
-                 * capabilities here.
-                 * The requested ambient capabilities are raised in the inheritable set if the
-                 * second argument is true. */
+                 *
+                 * To be able to raise the ambient capabilities after setresuid() they have to be added to
+                 * the inherited set and keep caps has to be set (done in enforce_user()).  After setresuid()
+                 * the ambient capabilities can be raised as they are present in the permitted and
+                 * inhertiable set. However it is possible that someone wants to set ambient capabilities
+                 * without changing the user, so we also set the ambient capabilities here.
+                 *
+                 * The requested ambient capabilities are raised in the inheritable set if the second
+                 * argument is true. */
                 if (!needs_ambient_hack) {
-                        r = capability_ambient_set_apply(context->capability_ambient_set, true);
+                        r = capability_ambient_set_apply(capability_ambient_set, /* also_inherit= */ true);
                         if (r < 0) {
                                 *exit_status = EXIT_CAPABILITIES;
                                 return log_unit_error_errno(unit, r, "Failed to apply ambient capabilities (before UID change): %m");
@@ -5066,17 +5096,16 @@ static int exec_child(
 
         if (needs_setuid) {
                 if (uid_is_valid(uid)) {
-                        r = enforce_user(context, uid);
+                        r = enforce_user(context, uid, capability_ambient_set);
                         if (r < 0) {
                                 *exit_status = EXIT_USER;
                                 return log_unit_error_errno(unit, r, "Failed to change UID to " UID_FMT ": %m", uid);
                         }
 
-                        if (!needs_ambient_hack &&
-                            context->capability_ambient_set != 0) {
+                        if (!needs_ambient_hack && capability_ambient_set != 0) {
 
                                 /* Raise the ambient capabilities after user change. */
-                                r = capability_ambient_set_apply(context->capability_ambient_set, false);
+                                r = capability_ambient_set_apply(capability_ambient_set, /* also_inherit= */ false);
                                 if (r < 0) {
                                         *exit_status = EXIT_CAPABILITIES;
                                         return log_unit_error_errno(unit, r, "Failed to apply ambient capabilities (after UID change): %m");
@@ -5124,19 +5153,22 @@ static int exec_child(
                 }
 #endif
 
-                /* PR_GET_SECUREBITS is not privileged, while PR_SET_SECUREBITS is. So to suppress potential EPERMs
-                 * we'll try not to call PR_SET_SECUREBITS unless necessary. Setting securebits requires
-                 * CAP_SETPCAP. */
+                /* PR_GET_SECUREBITS is not privileged, while PR_SET_SECUREBITS is. So to suppress potential
+                 * EPERMs we'll try not to call PR_SET_SECUREBITS unless necessary. Setting securebits
+                 * requires CAP_SETPCAP. */
                 if (prctl(PR_GET_SECUREBITS) != secure_bits) {
                         /* CAP_SETPCAP is required to set securebits. This capability is raised into the
                          * effective set here.
-                         * The effective set is overwritten during execve  with the following  values:
+                         *
+                         * The effective set is overwritten during execve() with the following values:
+                         *
                          * - ambient set (for non-root processes)
+                         *
                          * - (inheritable | bounding) set for root processes)
                          *
                          * Hence there is no security impact to raise it in the effective set before execve
                          */
-                        r = capability_gain_cap_setpcap(NULL);
+                        r = capability_gain_cap_setpcap(/* return_caps= */ NULL);
                         if (r < 0) {
                                 *exit_status = EXIT_CAPABILITIES;
                                 return log_unit_error_errno(unit, r, "Failed to gain CAP_SETPCAP for setting secure bits");
@@ -5476,6 +5508,7 @@ void exec_context_init(ExecContext *c) {
         c->tty_rows = UINT_MAX;
         c->tty_cols = UINT_MAX;
         numa_policy_reset(&c->numa_policy);
+        c->private_mounts = -1;
 }
 
 void exec_context_done(ExecContext *c) {
@@ -6839,7 +6872,7 @@ static int exec_runtime_make(
         assert(id);
 
         /* It is not necessary to create ExecRuntime object. */
-        if (!c->private_network && !c->private_ipc && !c->private_tmp && !c->network_namespace_path) {
+        if (!exec_needs_network_namespace(c) && !exec_needs_ipc_namespace(c) && !c->private_tmp) {
                 *ret = NULL;
                 return 0;
         }
@@ -6853,12 +6886,12 @@ static int exec_runtime_make(
                         return r;
         }
 
-        if (c->private_network || c->network_namespace_path) {
+        if (exec_needs_network_namespace(c)) {
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, netns_storage_socket) < 0)
                         return -errno;
         }
 
-        if (c->private_ipc || c->ipc_namespace_path) {
+        if (exec_needs_ipc_namespace(c)) {
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, ipcns_storage_socket) < 0)
                         return -errno;
         }

@@ -4213,14 +4213,21 @@ int unit_patch_contexts(Unit *u) {
                         }
 
                         /* If there are encrypted credentials we might need to access the TPM. */
-                        ExecLoadCredential *cred;
-                        HASHMAP_FOREACH(cred, ec->load_credentials)
-                                if (cred->encrypted) {
-                                        r = cgroup_add_device_allow(cc, "/dev/tpmrm0", "rw");
-                                        if (r < 0)
-                                                return r;
+                        bool allow_tpm = false;
+                        ExecLoadCredential *load_cred;
+                        ExecSetCredential *set_cred;
+                        HASHMAP_FOREACH(load_cred, ec->load_credentials)
+                                if ((allow_tpm |= load_cred->encrypted))
                                         break;
-                                }
+                        HASHMAP_FOREACH(set_cred, ec->set_credentials)
+                                if ((allow_tpm |= set_cred->encrypted))
+                                        break;
+
+                        if (allow_tpm) {
+                                r = cgroup_add_device_allow(cc, "/dev/tpmrm0", "rw");
+                                if (r < 0)
+                                        return r;
+                        }
                 }
         }
 
