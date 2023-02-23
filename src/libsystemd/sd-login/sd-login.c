@@ -742,6 +742,10 @@ static int session_get_string(const char *session, const char *field, char **val
         return 0;
 }
 
+_public_ int sd_session_get_username(const char *session, char **username) {
+        return session_get_string(session, "USER", username);
+}
+
 _public_ int sd_session_get_seat(const char *session, char **seat) {
         return session_get_string(session, "SEAT", seat);
 }

@@ -157,6 +157,9 @@ int sd_session_get_state(const char *session, char **state);
 /* Determine user ID of session */
 int sd_session_get_uid(const char *session, uid_t *uid);
 
+/* Determine username of session */
+int sd_session_get_username(const char *session, char **username);
+
 /* Determine seat of session */
 int sd_session_get_seat(const char *session, char **seat);
 
