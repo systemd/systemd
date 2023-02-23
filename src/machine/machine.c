@@ -17,7 +17,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "hashmap.h"
 #include "machine-dbus.h"
 #include "machine.h"
@@ -108,7 +107,7 @@ Machine* machine_free(Machine *m) {
 }
 
 int machine_save(Machine *m) {
-        _cleanup_(unlink_and_freep) char *temp_path = NULL;
+        _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -212,8 +211,6 @@ int machine_save(Machine *m) {
                 goto fail;
         }
 
-        temp_path = mfree(temp_path);
-
         if (m->unit) {
                 char *sl;
 
@@ -228,6 +225,9 @@ int machine_save(Machine *m) {
 
 fail:
         (void) unlink(m->state_file);
+
+        if (temp_path)
+                (void) unlink(temp_path);
 
         return log_error_errno(r, "Failed to save machine data %s: %m", m->state_file);
 }
