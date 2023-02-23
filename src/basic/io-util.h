@@ -105,3 +105,5 @@ int iovw_put_string_field(struct iovec_wrapper *iovw, const char *field, const c
 int iovw_put_string_field_free(struct iovec_wrapper *iovw, const char *field, char *value);
 void iovw_rebase(struct iovec_wrapper *iovw, char *old, char *new);
 size_t iovw_size(struct iovec_wrapper *iovw);
+
+void iovec_array_free(struct iovec *iov, size_t n);
