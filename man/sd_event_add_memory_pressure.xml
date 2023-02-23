@@ -160,6 +160,9 @@
     accessible for invocation at any time (see above). This function will log a structured log message at
     <constant>LOG_DEBUG</constant> level (with message ID f9b0be465ad540d0850ad32172d57c21) about the memory
     pressure operation.</para>
+
+    <para>For further details see <ulink url="https://systemd.io/MEMORY_PRESSURE">Memory Pressure Handling in
+    systemd</ulink>.</para>
   </refsect1>
 
   <refsect1>
