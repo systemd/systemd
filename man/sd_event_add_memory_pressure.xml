@@ -147,7 +147,7 @@
     <literal>full</literal> as second parameter, the latter takes threshold and period times in microseconds
     as parameters. For details about these three parameters see the PSI documentation. Note that these two
     calls must be invoked immediately after allocating the event source, as they must be configured before
-    polling begins. Also note that these calls will fail if memory pressure paramterization has been passed
+    polling begins. Also note that these calls will fail if memory pressure parameterization has been passed
     in via the <varname>$MEMORY_PRESSURE_WATCH</varname>/<varname>$MEMORY_PRESSURE_WRITE</varname>
     environment variables (or in other words: configuration supplied by a service manager wins over internal
     settings).</para>
@@ -221,7 +221,7 @@
 
           <listitem><para>This is returned by <function>sd_event_source_set_memory_pressure_type()</function>
           and <function>sd_event_source_set_memory_pressure_period()</function> if invoked on event sources
-          at a time later than immediately after allocting them.</para></listitem>
+          at a time later than immediately after allocating them.</para></listitem>
         </varlistentry>
 
         <varlistentry>

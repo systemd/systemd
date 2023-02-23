@@ -558,7 +558,7 @@ Support: %SUPPORT_URL%
 Memory of process @_PID@ (@_COMM@) has been trimmed.
 
 Either on user request or as result of a memory pressure event, memory of the
-process has been trimmed, returning unneded allocation caches and other
+process has been trimmed, returning unneeded allocation caches and other
 resources back to the OS kernel, making them available for other components of
 the OS.
 
