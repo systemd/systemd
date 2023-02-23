@@ -35,6 +35,7 @@
 #include "capability-util.h"
 #include "cgroup-util.h"
 #include "chase-symlinks.h"
+#include "common-signal.h"
 #include "copy.h"
 #include "cpu-set-util.h"
 #include "creds-util.h"
@@ -5162,6 +5163,12 @@ static int run_container(
                 (void) sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
         }
 
+        (void) sd_event_add_signal(event, NULL, SIGRTMIN+18, sigrtmin18_handler, NULL);
+
+        r = sd_event_add_memory_pressure(event, NULL, NULL, NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed allocate memory pressure event source, ignoring: %m");
+
         /* Exit when the child exits */
         (void) sd_event_add_signal(event, NULL, SIGCHLD, on_sigchld, PID_TO_PTR(*pid));
 
@@ -5803,7 +5810,7 @@ static int run(int argc, char *argv[]) {
                 log_info("Spawning container %s on %s.\nPress Ctrl-] three times within 1s to kill container.",
                          arg_machine, arg_image ?: arg_directory);
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGWINCH, SIGTERM, SIGINT, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGWINCH, SIGTERM, SIGINT, SIGRTMIN+18, -1) >= 0);
 
         if (prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) < 0) {
                 r = log_error_errno(errno, "Failed to become subreaper: %m");
