@@ -2023,6 +2023,18 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
         return 0;
 }
 
+bool exec_needs_network_namespace(const ExecContext *context) {
+        assert(context);
+
+        return context->private_network || context->network_namespace_path;
+}
+
+static bool exec_needs_ipc_namespace(const ExecContext *context) {
+        assert(context);
+
+        return context->private_ipc || context->ipc_namespace_path;
+}
+
 bool exec_needs_mount_namespace(
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -2062,7 +2074,8 @@ bool exec_needs_mount_namespace(
                 return true;
 
         if (context->private_devices ||
-            context->private_mounts ||
+            context->private_mounts > 0 ||
+            (context->private_mounts < 0 && exec_needs_network_namespace(context)) ||
             context->protect_system != PROTECT_SYSTEM_NO ||
             context->protect_home != PROTECT_HOME_NO ||
             context->protect_kernel_tunables ||
@@ -2071,8 +2084,7 @@ bool exec_needs_mount_namespace(
             context->protect_control_groups ||
             context->protect_proc != PROTECT_PROC_DEFAULT ||
             context->proc_subset != PROC_SUBSET_ALL ||
-            context->private_ipc ||
-            context->ipc_namespace_path)
+            exec_needs_ipc_namespace(context))
                 return true;
 
         if (context->root_directory) {
@@ -3591,12 +3603,12 @@ static int apply_mount_namespace(
                         .protect_kernel_logs = context->protect_kernel_logs,
                         .protect_hostname = context->protect_hostname,
                         .mount_apivfs = exec_context_get_effective_mount_apivfs(context),
-                        .private_mounts = context->private_mounts,
                         .protect_home = context->protect_home,
                         .protect_system = context->protect_system,
                         .protect_proc = context->protect_proc,
                         .proc_subset = context->proc_subset,
-                        .private_ipc = context->private_ipc || context->ipc_namespace_path,
+                        .private_network = exec_needs_network_namespace(context),
+                        .private_ipc = exec_needs_ipc_namespace(context),
                         /* If NNP is on, we can turn on MS_NOSUID, since it won't have any effect anymore. */
                         .mount_nosuid = context->no_new_privileges && !mac_selinux_use(),
                 };
@@ -4823,7 +4835,7 @@ static int exec_child(
                 }
         }
 
-        if ((context->private_network || context->network_namespace_path) && runtime && runtime->netns_storage_socket[0] >= 0) {
+        if (exec_needs_network_namespace(context) && runtime && runtime->netns_storage_socket[0] >= 0) {
 
                 if (ns_type_supported(NAMESPACE_NET)) {
                         r = setup_shareable_ns(runtime->netns_storage_socket, CLONE_NEWNET);
@@ -4842,7 +4854,7 @@ static int exec_child(
                         log_unit_warning(unit, "PrivateNetwork=yes is configured, but the kernel does not support network namespaces, ignoring.");
         }
 
-        if ((context->private_ipc || context->ipc_namespace_path) && runtime && runtime->ipcns_storage_socket[0] >= 0) {
+        if (exec_needs_ipc_namespace(context) && runtime && runtime->ipcns_storage_socket[0] >= 0) {
 
                 if (ns_type_supported(NAMESPACE_IPC)) {
                         r = setup_shareable_ns(runtime->ipcns_storage_socket, CLONE_NEWIPC);
@@ -5478,6 +5490,7 @@ void exec_context_init(ExecContext *c) {
         c->tty_rows = UINT_MAX;
         c->tty_cols = UINT_MAX;
         numa_policy_reset(&c->numa_policy);
+        c->private_mounts = -1;
 }
 
 void exec_context_done(ExecContext *c) {
@@ -6841,7 +6854,7 @@ static int exec_runtime_make(
         assert(id);
 
         /* It is not necessary to create ExecRuntime object. */
-        if (!c->private_network && !c->private_ipc && !c->private_tmp && !c->network_namespace_path) {
+        if (!exec_needs_network_namespace(c) && !exec_needs_ipc_namespace(c) && !c->private_tmp) {
                 *ret = NULL;
                 return 0;
         }
@@ -6855,12 +6868,12 @@ static int exec_runtime_make(
                         return r;
         }
 
-        if (c->private_network || c->network_namespace_path) {
+        if (exec_needs_network_namespace(c)) {
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, netns_storage_socket) < 0)
                         return -errno;
         }
 
-        if (c->private_ipc || c->ipc_namespace_path) {
+        if (exec_needs_ipc_namespace(c)) {
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, ipcns_storage_socket) < 0)
                         return -errno;
         }
