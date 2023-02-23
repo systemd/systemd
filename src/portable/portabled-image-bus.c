@@ -574,7 +574,6 @@ static int normalize_portable_changes(
 
         PortableChange *changes = NULL;
         size_t n_changes = 0;
-        int r = 0;
 
         assert(ret_n_changes);
         assert(ret_changes);
@@ -586,12 +585,13 @@ static int normalize_portable_changes(
         if (!changes)
                 return -ENOMEM;
 
+        CLEANUP_ARRAY(changes, n_changes, portable_changes_free);
+
         /* Corner case: only detached, nothing attached */
         if (n_changes_attached == 0) {
                 memcpy(changes, changes_detached, sizeof(PortableChange) * n_changes_detached);
                 *ret_changes = TAKE_PTR(changes);
                 *ret_n_changes = n_changes_detached;
-
                 return 0;
         }
 
@@ -608,17 +608,13 @@ static int normalize_portable_changes(
                         _cleanup_free_ char *path = NULL, *source = NULL;
 
                         path = strdup(changes_detached[i].path);
-                        if (!path) {
-                                r = -ENOMEM;
-                                goto fail;
-                        }
+                        if (!path)
+                                return -ENOMEM;
 
                         if (changes_detached[i].source) {
                                 source = strdup(changes_detached[i].source);
-                                if (!source) {
-                                        r = -ENOMEM;
-                                        goto fail;
-                                }
+                                if (!source)
+                                        return -ENOMEM;
                         }
 
                         changes[n_changes++] = (PortableChange) {
@@ -633,10 +629,6 @@ static int normalize_portable_changes(
         *ret_changes = TAKE_PTR(changes);
 
         return 0;
-
-fail:
-        portable_changes_free(changes, n_changes);
-        return r;
 }
 
 int bus_image_common_reattach(
