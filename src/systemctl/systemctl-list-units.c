@@ -14,10 +14,6 @@
 #include "systemctl.h"
 #include "terminal-util.h"
 
-static void message_set_freep(Set **set) {
-        set_free_with_destructor(*set, sd_bus_message_unref);
-}
-
 static int get_unit_list_recursive(
                 sd_bus *bus,
                 char **patterns,
@@ -25,7 +21,7 @@ static int get_unit_list_recursive(
                 Set **ret_replies) {
 
         _cleanup_free_ UnitInfo *unit_infos = NULL;
-        _cleanup_(message_set_freep) Set *replies = NULL;
+        _cleanup_set_free_ Set *replies = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int c, r;
 
@@ -33,18 +29,13 @@ static int get_unit_list_recursive(
         assert(ret_replies);
         assert(ret_unit_infos);
 
-        replies = set_new(NULL);
-        if (!replies)
-                return log_oom();
-
         c = get_unit_list(bus, NULL, patterns, &unit_infos, 0, &reply);
         if (c < 0)
                 return c;
 
-        r = set_put(replies, reply);
+        r = set_ensure_consume(&replies, &bus_message_hash_ops, TAKE_PTR(reply));
         if (r < 0)
                 return log_oom();
-        TAKE_PTR(reply);
 
         if (arg_recursive) {
                 _cleanup_strv_free_ char **machines = NULL;
@@ -69,10 +60,9 @@ static int get_unit_list_recursive(
 
                         c = k;
 
-                        r = set_put(replies, reply);
+                        r = set_consume(replies, TAKE_PTR(reply));
                         if (r < 0)
                                 return log_oom();
-                        TAKE_PTR(reply);
                 }
         }
 
@@ -231,7 +221,7 @@ static int output_units_list(const UnitInfo *unit_infos, size_t c) {
 
 int verb_list_units(int argc, char *argv[], void *userdata) {
         _cleanup_free_ UnitInfo *unit_infos = NULL;
-        _cleanup_(message_set_freep) Set *replies = NULL;
+        _cleanup_set_free_ Set *replies = NULL;
         sd_bus *bus;
         int r;
 
@@ -462,7 +452,7 @@ static int output_sockets_list(const SocketInfo *sockets, size_t n_sockets) {
 }
 
 int verb_list_sockets(int argc, char *argv[], void *userdata) {
-        _cleanup_(message_set_freep) Set *replies = NULL;
+        _cleanup_set_free_ Set *replies = NULL;
         _cleanup_strv_free_ char **sockets_with_suffix = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         SocketInfo *sockets = NULL;
@@ -729,7 +719,7 @@ static int add_timer_info(
 }
 
 int verb_list_timers(int argc, char *argv[], void *userdata) {
-        _cleanup_(message_set_freep) Set *replies = NULL;
+        _cleanup_set_free_ Set *replies = NULL;
         _cleanup_strv_free_ char **timers_with_suffix = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         TimerInfo *timers = NULL;
@@ -928,7 +918,7 @@ static int output_automounts_list(const AutomountInfo *infos, size_t n_infos) {
 }
 
 int verb_list_automounts(int argc, char *argv[], void *userdata) {
-        _cleanup_(message_set_freep) Set *replies = NULL;
+        _cleanup_set_free_ Set *replies = NULL;
         _cleanup_strv_free_ char **names = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         AutomountInfo *automounts = NULL;
@@ -1136,7 +1126,7 @@ static int output_paths_list(const PathInfo *paths, size_t n_paths) {
 }
 
 int verb_list_paths(int argc, char *argv[], void *userdata) {
-        _cleanup_(message_set_freep) Set *replies = NULL;
+        _cleanup_set_free_ Set *replies = NULL;
         _cleanup_strv_free_ char **units = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         PathInfo *paths = NULL;
