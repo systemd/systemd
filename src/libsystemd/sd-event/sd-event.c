@@ -2028,10 +2028,11 @@ _public_ int sd_event_add_memory_pressure(
                         return locked ? -ENOENT : -EOPNOTSUPP;
 
                 path_fd = open(watch_fallback, O_PATH|O_CLOEXEC);
-                if (errno == ENOENT) /* PSI is not available in the kernel even under the fallback path? */
-                        return -EOPNOTSUPP;
-                if (errno < 0)
+                if (path_fd < 0) {
+                        if (errno == ENOENT) /* PSI is not available in the kernel even under the fallback path? */
+                                return -EOPNOTSUPP;
                         return -errno;
+                }
         }
 
         if (fstat(path_fd, &st) < 0)
