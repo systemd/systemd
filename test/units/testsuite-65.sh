@@ -9,6 +9,13 @@ set -eux
 systemctl log-level debug
 export SYSTEMD_LOG_LEVEL=debug
 
+mkdir -p /run/systemd/coredump.conf.d/
+cat <<EOF >/run/systemd/coredump.conf.d/50-journal.conf
+[Coredump]
+Storage=journal
+EOF
+systemctl restart systemd-coredump.socket
+
 # Sanity checks
 #
 # We can't really test time, blame, critical-chain and plot verbs here, as
@@ -56,6 +63,7 @@ systemd-analyze dump "*" >/dev/null
 systemd-analyze dump "*.socket" >/dev/null
 systemd-analyze dump "*.socket" "*.service" aaaaaaa ... >/dev/null
 systemd-analyze dump systemd-journald.service >/dev/null
+systemd-analyze malloc
 (! systemd-analyze dump "")
 # unit-files
 systemd-analyze unit-files >/dev/null
