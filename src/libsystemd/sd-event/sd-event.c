@@ -1269,7 +1269,7 @@ static void initialize_perturb(sd_event *e) {
         if (_likely_(e->perturb != USEC_INFINITY))
                 return;
 
-        if (sd_id128_get_boot(&id) >= 0 || sd_id128_get_machine(&id) > 0)
+        if (sd_id128_get_boot(&id) >= 0 || sd_id128_get_machine(&id) >= 0)
                 e->perturb = (id.qwords[0] ^ id.qwords[1]) % USEC_PER_MINUTE;
         else
                 e->perturb = 0; /* This is a super early process without /proc and /etc ?? */
