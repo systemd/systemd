@@ -628,7 +628,7 @@ static int output_timers_list(struct timer_info *timer_infos, size_t n) {
 
                 r = table_add_many(table,
                                    TABLE_TIMESTAMP, t->next_elapse,
-                                   TABLE_TIMESTAMP_RELATIVE, t->next_elapse,
+                                   TABLE_TIMESTAMP_LEFT, t->next_elapse,
                                    TABLE_TIMESTAMP, t->last_trigger,
                                    TABLE_TIMESTAMP_RELATIVE, t->last_trigger,
                                    TABLE_STRING, unit);
