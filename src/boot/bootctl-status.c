@@ -718,7 +718,7 @@ static int cleanup_orphaned_files(
 
         _cleanup_(hashmap_free_free_keyp) Hashmap *known_files = NULL;
         _cleanup_free_ char *full = NULL, *p = NULL;
-        _cleanup_close_ int dir_fd = -1;
+        _cleanup_close_ int dir_fd = -EBADF;
         int r = -1;
 
         assert(config);
