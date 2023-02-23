@@ -14,7 +14,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "io-util.h"
 #include "logind-dbus.h"
 #include "logind-inhibit.h"
@@ -84,7 +83,7 @@ Inhibitor* inhibitor_free(Inhibitor *i) {
 }
 
 static int inhibitor_save(Inhibitor *i) {
-        _cleanup_(unlink_and_freep) char *temp_path = NULL;
+        _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -147,11 +146,13 @@ static int inhibitor_save(Inhibitor *i) {
                 goto fail;
         }
 
-        temp_path = mfree(temp_path);
         return 0;
 
 fail:
         (void) unlink(i->state_file);
+
+        if (temp_path)
+                (void) unlink(temp_path);
 
         return log_error_errno(r, "Failed to save inhibit data %s: %m", i->state_file);
 }
