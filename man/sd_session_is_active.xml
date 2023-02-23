@@ -21,7 +21,9 @@
     <refname>sd_session_is_remote</refname>
     <refname>sd_session_get_state</refname>
     <refname>sd_session_get_uid</refname>
+    <refname>sd_session_get_username</refname>
     <refname>sd_session_get_seat</refname>
+    <refname>sd_session_get_start_time</refname>
     <refname>sd_session_get_service</refname>
     <refname>sd_session_get_type</refname>
     <refname>sd_session_get_class</refname>
@@ -61,9 +63,21 @@
       </funcprototype>
 
       <funcprototype>
+        <funcdef>int <function>sd_session_get_username</function></funcdef>
+        <paramdef>const char *<parameter>session</parameter></paramdef>
+        <paramdef>char **<parameter>username</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
         <funcdef>int <function>sd_session_get_seat</function></funcdef>
         <paramdef>const char *<parameter>session</parameter></paramdef>
         <paramdef>char **<parameter>seat</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_session_get_start_time</function></funcdef>
+        <paramdef>const char *<parameter>session</parameter></paramdef>
+        <paramdef>uint64_t *<parameter>usec</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -155,6 +169,13 @@
     determine the user identifier of the Unix user the session
     identified by the specified session identifier belongs to.</para>
 
+    <para><function>sd_session_get_username()</function> may be used to
+    determine the name of the Unix user the session identified by
+    the specified session identifier belongs to. The returned string
+    needs to be freed with the libc
+    <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    call after use.</para>
+
     <para><function>sd_session_get_seat()</function> may be used to
     determine the seat identifier of the seat the session identified
     by the specified session identifier belongs to. Note that not all
@@ -163,6 +184,10 @@
     to be freed with the libc
     <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     call after use.</para>
+
+    <para><function>sd_session_get_start_time()</function> may be used to
+    determine the start time of the session identified by the specified
+    session identifier belongs to.</para>
 
     <para><function>sd_session_get_service()</function> may be used to
     determine the name of the service (as passed during PAM session
@@ -252,6 +277,7 @@
     positive integer; if it fails, 0.  On success,
     <function>sd_session_get_state()</function>,
     <function>sd_session_get_uid()</function>,
+    <function>sd_session_get_username()</function>,
     <function>sd_session_get_seat()</function>,
     <function>sd_session_get_service()</function>,
     <function>sd_session_get_type()</function>,
