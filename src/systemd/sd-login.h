@@ -163,6 +163,9 @@ int sd_session_get_username(const char *session, char **username);
 /* Determine seat of session */
 int sd_session_get_seat(const char *session, char **seat);
 
+/* Determine the start time of session */
+int sd_session_get_start_time(const char *session, uint64_t *usec);
+
 /* Determine the (PAM) service name this session was registered by. */
 int sd_session_get_service(const char *session, char **service);
 
