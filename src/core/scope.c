@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "cgroup-setup.h"
 #include "dbus-scope.h"
 #include "dbus-unit.h"
 #include "exit-status.h"
