@@ -727,8 +727,8 @@ static int check_object_header(JournalFile *f, Object *o, ObjectType type, uint6
 
         if (s < sizeof(ObjectHeader))
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to move to overly short object: %" PRIu64,
-                                       offset);
+                                       "Attempt to move to overly short object with size %"PRIu64": %" PRIu64,
+                                       s, offset);
 
         if (o->object.type <= OBJECT_UNUSED)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
@@ -737,12 +737,17 @@ static int check_object_header(JournalFile *f, Object *o, ObjectType type, uint6
 
         if (type > OBJECT_UNUSED && o->object.type != type)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to move to object of unexpected type: %" PRIu64,
+                                       "Found %s object while expecting %s object: %" PRIu64,
+                                       journal_object_type_to_string(o->object.type),
+                                       journal_object_type_to_string(type),
                                        offset);
 
         if (s < minimum_header_size(f, o))
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to move to truncated object: %" PRIu64,
+                                       "Size of %s object (%"PRIu64") is smaller than the minimum object size (%"PRIu64"): %" PRIu64,
+                                       journal_object_type_to_string(o->object.type),
+                                       s,
+                                       minimum_header_size(f, o),
                                        offset);
 
         return 0;
@@ -759,13 +764,13 @@ static int check_object(JournalFile *f, Object *o, uint64_t offset) {
         case OBJECT_DATA:
                 if ((le64toh(o->data.entry_offset) == 0) ^ (le64toh(o->data.n_entries) == 0))
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "Bad n_entries: %" PRIu64 ": %" PRIu64,
+                                               "Bad data n_entries: %" PRIu64 ": %" PRIu64,
                                                le64toh(o->data.n_entries),
                                                offset);
 
                 if (le64toh(o->object.size) <= journal_file_data_payload_offset(f))
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "Bad object size (<= %zu): %" PRIu64 ": %" PRIu64,
+                                               "Bad data size (<= %zu): %" PRIu64 ": %" PRIu64,
                                                journal_file_data_payload_offset(f),
                                                le64toh(o->object.size),
                                                offset);
@@ -850,7 +855,7 @@ static int check_object(JournalFile *f, Object *o, uint64_t offset) {
                     (sz - offsetof(Object, hash_table.items)) / sizeof(HashItem) <= 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Invalid %s hash table size: %" PRIu64 ": %" PRIu64,
-                                               o->object.type == OBJECT_DATA_HASH_TABLE ? "data" : "field",
+                                               journal_object_type_to_string(o->object.type),
                                                sz,
                                                offset);
 
@@ -909,13 +914,15 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
         /* Objects may only be located at multiple of 64 bit */
         if (!VALID64(offset))
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to move to object at non-64bit boundary: %" PRIu64,
+                                       "Attempt to move to %s object at non-64bit boundary: %" PRIu64,
+                                       journal_object_type_to_string(type),
                                        offset);
 
         /* Object may not be located in the file header */
         if (offset < le64toh(f->header->header_size))
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to move to object located in file header: %" PRIu64,
+                                       "Attempt to move to %s object located in file header: %" PRIu64,
+                                       journal_object_type_to_string(type),
                                        offset);
 
         r = journal_file_move_to(f, type, false, offset, sizeof(ObjectHeader), (void**) &o);
@@ -954,25 +961,25 @@ int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t of
         /* Objects may only be located at multiple of 64 bit */
         if (!VALID64(offset))
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to read object at non-64bit boundary: %" PRIu64,
-                                       offset);
+                                       "Attempt to read %s object at non-64bit boundary: %" PRIu64,
+                                       journal_object_type_to_string(type), offset);
 
         /* Object may not be located in the file header */
         if (offset < le64toh(f->header->header_size))
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to read object located in file header: %" PRIu64,
-                                       offset);
+                                       "Attempt to read %s object located in file header: %" PRIu64,
+                                       journal_object_type_to_string(type), offset);
 
         /* This will likely read too much data but it avoids having to call pread() twice. */
         n = pread(f->fd, &o, sizeof(o), offset);
         if (n < 0)
-                return log_debug_errno(errno, "Failed to read journal file at offset: %" PRIu64,
-                                       offset);
+                return log_debug_errno(errno, "Failed to read journal %s object at offset: %" PRIu64,
+                                       journal_object_type_to_string(type), offset);
 
         if ((size_t) n < sizeof(o.object))
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to read short object at offset: %" PRIu64,
-                                       offset);
+                                       "Failed to read short %s object at offset: %" PRIu64,
+                                       journal_object_type_to_string(type), offset);
 
         r = check_object_header(f, &o, type, offset);
         if (r < 0)
@@ -980,8 +987,8 @@ int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t of
 
         if ((size_t) n < minimum_header_size(f, &o))
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Short read while reading object: %" PRIu64,
-                                       offset);
+                                       "Short read while reading %s object: %" PRIu64,
+                                       journal_object_type_to_string(type), offset);
 
         r = check_object(f, &o, offset);
         if (r < 0)
