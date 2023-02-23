@@ -74,6 +74,7 @@ static inline bool FILE_SIZE_VALID_OR_INFINITY(uint64_t l) {
 
 }
 
+#define IOVEC_NULL (struct iovec) {}
 #define IOVEC_INIT(base, len) { .iov_base = (base), .iov_len = (len) }
 #define IOVEC_MAKE(base, len) (struct iovec) IOVEC_INIT(base, len)
 #define IOVEC_INIT_STRING(string) IOVEC_INIT((char*) string, strlen(string))
