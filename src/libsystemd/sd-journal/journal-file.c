@@ -2516,7 +2516,8 @@ static int bump_entry_array(
 
         if (direction == DIRECTION_DOWN) {
                 assert(o);
-                return le64toh(o->entry_array.next_entry_array_offset);
+                *ret = le64toh(o->entry_array.next_entry_array_offset);
+                return 0;
         }
 
         /* Entry array chains are a singly linked list, so to find the previous array in the chain, we have
