@@ -4,6 +4,7 @@
 
 #include "sd-daemon.h"
 
+#include "common-signal.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "mkdir.h"
@@ -101,6 +102,14 @@ int manager_new(Manager **ret) {
         r = sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
         if (r < 0)
                 return r;
+
+        r = sd_event_add_signal(m->event, NULL, SIGRTMIN+18, sigrtmin18_handler, NULL);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_memory_pressure(m->event, NULL, NULL, NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed allocate memory pressure event source, ignoring: %m");
 
         (void) sd_event_set_watchdog(m->event, true);
 
