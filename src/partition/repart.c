@@ -3020,7 +3020,11 @@ static int context_discard_gap_after(Context *context, Partition *p) {
         if (p)
                 gap = p->offset + p->new_size;
         else
-                gap = context->start;
+                /* The context start gets rounded up to grain_size, however
+                 * existing partitions may be before that so ensure the gap
+                 * starts at the first actually usable lba
+                 */
+                gap = fdisk_get_first_lba(context->fdisk_context) * context->sector_size;
 
         LIST_FOREACH(partitions, q, context->partitions) {
                 if (q->dropped)
@@ -3037,7 +3041,7 @@ static int context_discard_gap_after(Context *context, Partition *p) {
         }
 
         if (next == UINT64_MAX) {
-                next = context->end;
+                next = (fdisk_get_last_lba(context->fdisk_context) + 1) * context->sector_size;
                 if (gap > next)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Partition end beyond disk end.");
         }
