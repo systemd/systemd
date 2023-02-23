@@ -54,7 +54,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 offset = end ? (size_t) (end - (char*) data + 1) : size;
 
                 struct bus_match_component *components;
-                unsigned n_components;
+                size_t n_components;
                 r = bus_match_parse(line, &components, &n_components);
                 if (IN_SET(r, -EINVAL, -ENOMEM)) {
                         log_debug_errno(r, "Failed to parse line: %m");
@@ -62,11 +62,12 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 }
                 assert_se(r >= 0); /* We only expect EINVAL and ENOMEM errors, or success. */
 
-                log_debug("Parsed %u components.", n_components);
+                CLEANUP_ARRAY(components, n_components, bus_match_parse_free);
+
+                log_debug("Parsed %zu components.", n_components);
 
                 _cleanup_free_ char *again = bus_match_to_string(components, n_components);
                 if (!again) {
-                        bus_match_parse_free(components, n_components);
                         log_oom();
                         break;
                 }
@@ -75,7 +76,6 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                         fprintf(g, "%s\n", again);
 
                 r = bus_match_add(&root, components, n_components, &slot.match_callback);
-                bus_match_parse_free(components, n_components);
                 if (r < 0) {
                         log_error_errno(r, "Failed to add match: %m");
                         break;
