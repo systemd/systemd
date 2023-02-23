@@ -98,8 +98,19 @@ int chase_symlinks_at(
         if ((flags & CHASE_STEP) && ret_fd)
                 return -EINVAL;
 
+        if (FLAGS_SET(flags, CHASE_MKDIR_0755|CHASE_NONEXISTENT))
+                return -EINVAL;
+
         if (isempty(path))
                 path = ".";
+
+        if (flags & CHASE_PARENT) {
+                r = path_extract_directory(path, &buffer);
+                if (r == -EDESTADDRREQ)
+                        path = "."; /* If we don't have a parent directory, fall back to the dir_fd directory. */
+                else if (r < 0)
+                        return r;
+        }
 
         /* This function resolves symlinks of the path relative to the given directory file descriptor. If
          * CHASE_SYMLINKS_RESOLVE_IN_ROOT is specified and a directory file descriptor is provided, symlinks
@@ -162,12 +173,14 @@ int chase_symlinks_at(
          *    the mount point is emitted. CHASE_WARN cannot be used in PID 1.
          */
 
-        if (!(flags & (CHASE_AT_RESOLVE_IN_ROOT|CHASE_NONEXISTENT|CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_STEP)) &&
-                !ret_path && ret_fd) {
+        if (!(flags &
+              (CHASE_AT_RESOLVE_IN_ROOT|CHASE_NONEXISTENT|CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_STEP|
+               CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755)) &&
+            !ret_path && ret_fd) {
 
                 /* Shortcut the ret_fd case if the caller isn't interested in the actual path and has no root
                  * set and doesn't care about any of the other special features we provide either. */
-                r = openat(dir_fd, path, O_PATH|O_CLOEXEC|((flags & CHASE_NOFOLLOW) ? O_NOFOLLOW : 0));
+                r = openat(dir_fd, buffer ?: path, O_PATH|O_CLOEXEC|((flags & CHASE_NOFOLLOW) ? O_NOFOLLOW : 0));
                 if (r < 0)
                         return -errno;
 
@@ -175,18 +188,18 @@ int chase_symlinks_at(
                 return 0;
         }
 
-        buffer = strdup(path);
-        if (!buffer)
-                return -ENOMEM;
+        if (!buffer) {
+                buffer = strdup(path);
+                if (!buffer)
+                        return -ENOMEM;
+        }
 
         /* If we receive an absolute path together with AT_FDCWD, we need to return an absolute path, because
          * a relative path would be interpreted relative to the current working directory. */
         bool need_absolute = dir_fd == AT_FDCWD && path_is_absolute(path);
-        if (need_absolute) {
-                done = strdup("/");
-                if (!done)
-                        return -ENOMEM;
-        }
+        done = strdup(need_absolute ? "/" : ".");
+        if (!done)
+                return -ENOMEM;
 
         /* If we get AT_FDCWD, we always resolve symlinks relative to the host's root. Only if a positive
          * directory file descriptor is provided will we look at CHASE_AT_RESOLVE_IN_ROOT to determine
@@ -242,7 +255,7 @@ int chase_symlinks_at(
 
                         /* If we already are at the top, then going up will not change anything. This is
                          * in-line with how the kernel handles this. */
-                        if (empty_or_root(done) && FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT))
+                        if (STR_IN_SET(done, ".", "/") && FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT))
                                 continue;
 
                         fd_parent = openat(fd, "..", O_CLOEXEC|O_NOFOLLOW|O_PATH|O_DIRECTORY);
@@ -258,9 +271,13 @@ int chase_symlinks_at(
                                 continue;
 
                         r = path_extract_directory(done, &parent);
-                        if (r >= 0 || r == -EDESTADDRREQ)
+                        if (r >= 0)
                                 free_and_replace(done, parent);
-                        else if (IN_SET(r, -EINVAL, -EADDRNOTAVAIL)) {
+                        else if (r == -EDESTADDRREQ) {
+                                r = free_and_strdup(&done, need_absolute ? "/" : ".");
+                                if (r < 0)
+                                        return r;
+                        } else if (IN_SET(r, -EINVAL, -EADDRNOTAVAIL)) {
                                 /* If we're at the top of "dir_fd", start appending ".." to "done". */
                                 if (!path_extend(&done, ".."))
                                         return -ENOMEM;
@@ -283,15 +300,15 @@ int chase_symlinks_at(
                 }
 
                 /* Otherwise let's see what this is. */
-                child = openat(fd, first, O_CLOEXEC|O_NOFOLLOW|O_PATH);
-                if (child < 0) {
-                        if (errno == ENOENT &&
-                            (flags & CHASE_NONEXISTENT) &&
-                            (isempty(todo) || path_is_safe(todo))) {
-                                /* If CHASE_NONEXISTENT is set, and the path does not exist, then
-                                 * that's OK, return what we got so far. But don't allow this if the
-                                 * remaining path contains "../" or something else weird. */
+                child = r = RET_NERRNO(openat(fd, first, O_CLOEXEC|O_NOFOLLOW|O_PATH));
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                return r;
 
+                        if (!isempty(todo) && !path_is_safe(todo))
+                                return r;
+
+                        if (flags & CHASE_NONEXISTENT) {
                                 if (!path_extend(&done, first, todo))
                                         return -ENOMEM;
 
@@ -299,7 +316,12 @@ int chase_symlinks_at(
                                 break;
                         }
 
-                        return -errno;
+                        if (!(flags & CHASE_MKDIR_0755))
+                                return r;
+
+                        child = open_mkdir_at(fd, first, O_CLOEXEC|O_PATH|O_EXCL, 0755);
+                        if (child < 0)
+                                return child;
                 }
 
                 if (fstat(child, &st) < 0)
@@ -351,7 +373,7 @@ int chase_symlinks_at(
                                         previous_stat = st;
                                 }
 
-                                r = free_and_strdup(&done, need_absolute ? "/" : NULL);
+                                r = free_and_strdup(&done, need_absolute ? "/" : ".");
                                 if (r < 0)
                                         return r;
                         }
@@ -378,8 +400,16 @@ int chase_symlinks_at(
                 close_and_replace(fd, child);
         }
 
-        if (ret_path)
+        if (flags & (CHASE_PARENT|CHASE_MKDIR_0755)) {
+                r = fd_verify_directory(fd);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_path) {
+                path_simplify(done);
                 *ret_path = TAKE_PTR(done);
+        }
 
         if (ret_fd) {
                 /* Return the O_PATH fd we currently are looking to the caller. It can translate it to a
@@ -397,6 +427,8 @@ int chase_symlinks_at(
 chased_one:
         if (ret_path) {
                 const char *e;
+
+                path_simplify(done);
 
                 /* todo may contain slashes at the beginning. */
                 r = path_find_first_component(&todo, /* accept_dot_dot= */ true, &e);
@@ -487,6 +519,8 @@ int chase_symlinks(
                 if (!q)
                         return -ENOMEM;
 
+                path_simplify(q);
+
                 *ret_path = TAKE_PTR(q);
         }
 
@@ -510,7 +544,8 @@ int chase_symlinks_and_open(
         if (chase_flags & (CHASE_NONEXISTENT|CHASE_STEP))
                 return -EINVAL;
 
-        if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0) {
+        if (empty_or_root(root) && !ret_path &&
+            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0) {
                 /* Shortcut this call if none of the special features of this call are requested */
                 r = open(path, open_flags | (FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? O_NOFOLLOW : 0));
                 if (r < 0)
@@ -551,7 +586,8 @@ int chase_symlinks_and_opendir(
         if (chase_flags & (CHASE_NONEXISTENT|CHASE_STEP))
                 return -EINVAL;
 
-        if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0) {
+        if (empty_or_root(root) && !ret_path &&
+            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0) {
                 /* Shortcut this call if none of the special features of this call are requested */
                 d = opendir(path);
                 if (!d)
@@ -595,7 +631,8 @@ int chase_symlinks_and_stat(
         if (chase_flags & (CHASE_NONEXISTENT|CHASE_STEP))
                 return -EINVAL;
 
-        if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0 && !ret_fd) {
+        if (empty_or_root(root) && !ret_path &&
+            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0 && !ret_fd) {
                 /* Shortcut this call if none of the special features of this call are requested */
 
                 if (fstatat(AT_FDCWD, path, ret_stat, FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0) < 0)
@@ -637,7 +674,8 @@ int chase_symlinks_and_access(
         if (chase_flags & (CHASE_NONEXISTENT|CHASE_STEP))
                 return -EINVAL;
 
-        if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0 && !ret_fd) {
+        if (empty_or_root(root) && !ret_path &&
+            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0 && !ret_fd) {
                 /* Shortcut this call if none of the special features of this call are requested */
 
                 if (faccessat(AT_FDCWD, path, access_mode, FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0) < 0)
@@ -704,20 +742,17 @@ int chase_symlinks_and_unlink(
                 int unlink_flags,
                 char **ret_path) {
 
-        _cleanup_free_ char *p = NULL, *rp = NULL, *dir = NULL, *fname = NULL;
+        _cleanup_free_ char *p = NULL, *rp = NULL, *fname = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
 
         assert(path);
 
-        r = path_extract_directory(path, &dir);
-        if (r < 0)
-                return r;
         r = path_extract_filename(path, &fname);
         if (r < 0)
                 return r;
 
-        fd = chase_symlinks_and_open(dir, root, chase_flags, O_PATH|O_DIRECTORY|O_CLOEXEC, ret_path ? &p : NULL);
+        fd = chase_symlinks_and_open(path, root, chase_flags|CHASE_PARENT, O_PATH|O_DIRECTORY|O_CLOEXEC, ret_path ? &p : NULL);
         if (fd < 0)
                 return fd;
 
@@ -735,3 +770,38 @@ int chase_symlinks_and_unlink(
 
         return 0;
 }
+
+int chase_symlinks_at_and_open(
+                int dir_fd,
+                const char *path,
+                ChaseSymlinksFlags chase_flags,
+                int open_flags,
+                char **ret_path) {
+
+        _cleanup_close_ int path_fd = -EBADF;
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        if (chase_flags & (CHASE_NONEXISTENT|CHASE_STEP))
+                return -EINVAL;
+
+        if (dir_fd == AT_FDCWD && !ret_path &&
+            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
+                /* Shortcut this call if none of the special features of this call are requested */
+                return RET_NERRNO(openat(dir_fd, path, open_flags | (FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? O_NOFOLLOW : 0)));
+
+        r = chase_symlinks_at(dir_fd, path, chase_flags, ret_path ? &p : NULL, &path_fd);
+        if (r < 0)
+                return r;
+        assert(path_fd >= 0);
+
+        r = fd_reopen(path_fd, open_flags);
+        if (r < 0)
+                return r;
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(p);
+
+        return r;
+}
+
