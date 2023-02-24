@@ -503,6 +503,33 @@ _public_ int sd_uid_get_display(uid_t uid, char **session) {
         return 0;
 }
 
+_public_ int sd_uid_get_login_time(uid_t uid, uint64_t *usec) {
+        _cleanup_free_ char *p = NULL, *s = NULL;
+        usec_t t;
+        int r;
+
+        assert_return(usec, -EINVAL);
+
+        r = file_of_uid(uid, &p);
+        if (r < 0)
+                return r;
+
+        r = parse_env_file(NULL, p, "REALTIME", &s);
+        if (r == -ENOENT)
+                return -ENXIO;
+        if (r < 0)
+                return r;
+        if (isempty(s))
+                return -EIO;
+
+        r = safe_atou64(s, &t);
+        if (r < 0)
+                return r;
+
+        *usec = t;
+        return 0;
+}
+
 static int file_of_seat(const char *seat, char **_p) {
         char *p;
         int r;
