@@ -129,6 +129,19 @@ Deprecations and removals:
 
 Features:
 
+* journald: add varlink service that allows subscribing to certain log events,
+  for example matching by message ID, or log level returns a list of journal
+  cursors as they happen.
+
+* In .socket units, add ConnectStream=, ConnectDatagram=,
+  ConnectSequentialPacket= that create a socket, and then *connect to* rather than
+  listen on some socket. Then, add a new setting WriteData= that takes some
+  base64 data that systemd will write into the socket early on. This can then
+  be used to create connections to arbitrary services and issue requests into
+  them, as long as the data is static. This can then be combined with the
+  aforementioned journald subscription varlink service, to enable
+  activation-by-message id and similar.
+
 * landlock: lock down RuntimeDirectory= via landlock, so that services lose
   ability to write anywehere else below /run/. Similar for
   StateDirectory=. Benefit would be clear delegation via unit files: services
