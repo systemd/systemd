@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 # pylint: disable=missing-docstring,redefined-outer-name,invalid-name
 # pylint: disable=unused-import,import-outside-toplevel,useless-else-on-loop
