@@ -69,4 +69,58 @@ TEST(tpm2_util_pbkdf2_hmac_sha256) {
         }
 }
 
+TEST(marshalling) {
+#ifdef HAVE_TPM2
+        int r;
+
+        TPMA_OBJECT objectAttributes = TPMA_OBJECT_RESTRICTED|TPMA_OBJECT_DECRYPT|TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT|TPMA_OBJECT_SENSITIVEDATAORIGIN|TPMA_OBJECT_USERWITHAUTH;
+
+        TPMT_PUBLIC tpmt_rsa = {
+                .type = TPM2_ALG_RSA,
+                .nameAlg = TPM2_ALG_SHA256,
+                .objectAttributes = objectAttributes,
+                .parameters.rsaDetail = {
+                        .symmetric = {
+                                .algorithm = TPM2_ALG_AES,
+                                .keyBits.aes = 128,
+                                .mode.aes = TPM2_ALG_CFB,
+                        },
+                        .scheme.scheme = TPM2_ALG_NULL,
+                        .keyBits = 2048,
+                },
+        };
+
+        TPMT_PUBLIC tpmt_ecc = {
+                .type = TPM2_ALG_ECC,
+                .nameAlg = TPM2_ALG_SHA256,
+                .objectAttributes = objectAttributes,
+                .parameters.eccDetail = {
+                        .symmetric = {
+                                .algorithm = TPM2_ALG_AES,
+                                .keyBits.aes = 128,
+                                .mode.aes = TPM2_ALG_CFB,
+                        },
+                        .scheme.scheme = TPM2_ALG_NULL,
+                        .curveID = TPM2_ECC_NIST_P256,
+                        .kdf.scheme = TPM2_ALG_NULL,
+                },
+        };
+
+        TPM2B_PUBLIC tpm2b_public = {};
+
+        tpm2b_public.size = sizeof(tpmt_rsa);
+        tpm2b_public.publicArea = tpmt_rsa;
+
+        _cleanup_free_ uint8_t *buf = NULL;
+        size_t size = 0;
+        buf = malloc0(sizeof(tpm2b_public));
+        assert_se(buf);
+        r = tpm2_marshal("Test TPM2B_PUBLIC marshal RSA", &tpm2b_public, buf, sizeof(tpm2b_public), &size);
+        assert_se(r == 0);
+        log_info("marshal RSA size %lu", size);
+#else /* HAVE_TPM2 */
+        log_info("Not compiled with TPM2 support, skipping marshalling tests.");
+#endif
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
