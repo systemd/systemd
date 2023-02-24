@@ -61,7 +61,7 @@ DEFINE_PID_GETTER(user_slice);
 DEFINE_PID_GETTER_FULL(owner_uid, uid_t);
 
 _public_ int sd_pid_get_cgroup(pid_t pid, char **ret_cgroup) {
-        char *c;
+        _cleanup_free_ char *c = NULL;
         int r;
 
         assert_return(pid >= 0, -EINVAL);
@@ -75,14 +75,12 @@ _public_ int sd_pid_get_cgroup(pid_t pid, char **ret_cgroup) {
          * cgroup, let's return the "/" in the public APIs instead, as
          * that's easier and less ambiguous for people to grok. */
         if (isempty(c)) {
-                free(c);
-                c = strdup("/");
-                if (!c)
-                        return -ENOMEM;
-
+                r = free_and_strdup(&c, "/");
+                if (r < 0)
+                        return r;
         }
 
-        *ret_cgroup = c;
+        *ret_cgroup = TAKE_PTR(c);
         return 0;
 }
 
