@@ -1257,7 +1257,7 @@ TEST(condition_test_os_release) {
         condition_free(condition);
 
         /* Some distros (eg: Arch) do not set VERSION_ID */
-        if (parse_os_release(NULL, "VERSION_ID", &version_id) <= 0)
+        if (parse_os_release(NULL, IMAGE_EXTENSION, "VERSION_ID", &version_id) <= 0)
                 return;
 
         key_value_pair = strjoina("VERSION_ID", "=", version_id);
