@@ -1364,7 +1364,7 @@ static int verb_capture(int argc, char **argv, void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Refusing to write message data to console, please redirect output to a file.");
 
-        r = parse_os_release(NULL, "PRETTY_NAME", &osname);
+        r = parse_os_release(NULL, IMAGE_EXTENSION, "PRETTY_NAME", &osname);
         if (r < 0)
                 log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_INFO, r,
                                "Failed to read os-release file, ignoring: %m");
