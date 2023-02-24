@@ -130,6 +130,9 @@ int sd_uid_get_state(uid_t uid, char **state);
 /* Return primary session of user, if there is any */
 int sd_uid_get_display(uid_t uid, char **session);
 
+/* Determine the login time of user */
+int sd_uid_get_login_time(uid_t uid, uint64_t *usec);
+
 /* Return 1 if UID has session on seat. If require_active is true, this will
  * look for active sessions only. */
 int sd_uid_is_on_seat(uid_t uid, int require_active, const char *seat);
