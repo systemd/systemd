@@ -635,8 +635,14 @@ static char** sanitize_environment(char **l) {
                         "LISTEN_FDS",
                         "LISTEN_PID",
                         "LOGS_DIRECTORY",
+                        "LOG_NAMESPACE",
                         "MAINPID",
                         "MANAGERPID",
+                        "MONITOR_EXIT_CODE",
+                        "MONITOR_EXIT_STATUS",
+                        "MONITOR_INVOCATION_ID",
+                        "MONITOR_SERVICE_RESULT",
+                        "MONITOR_UNIT",
                         "NOTIFY_SOCKET",
                         "PIDFILE",
                         "REMOTE_ADDR",
@@ -644,6 +650,11 @@ static char** sanitize_environment(char **l) {
                         "RUNTIME_DIRECTORY",
                         "SERVICE_RESULT",
                         "STATE_DIRECTORY",
+                        "SYSTEMD_EXEC_PID",
+                        "TRIGGER_PATH",
+                        "TRIGGER_TIMER_MONOTONIC_USEC",
+                        "TRIGGER_TIMER_REALTIME_USEC",
+                        "TRIGGER_UNIT",
                         "WATCHDOG_PID",
                         "WATCHDOG_USEC",
                         NULL);
@@ -660,13 +671,11 @@ int manager_default_environment(Manager *m) {
         m->transient_environment = strv_free(m->transient_environment);
 
         if (MANAGER_IS_SYSTEM(m)) {
-                /* The system manager always starts with a clean
-                 * environment for its children. It does not import
-                 * the kernel's or the parents' exported variables.
+                /* The system manager always starts with a clean environment for its children. It does not
+                 * import the kernel's or the parents' exported variables.
                  *
-                 * The initial passed environment is untouched to keep
-                 * /proc/self/environ valid; it is used for tagging
-                 * the init process inside containers. */
+                 * The initial passed environment is untouched to keep /proc/self/environ valid; it is used
+                 * for tagging the init process inside containers. */
                 m->transient_environment = strv_new("PATH=" DEFAULT_PATH);
                 if (!m->transient_environment)
                         return log_oom();
@@ -685,7 +694,6 @@ int manager_default_environment(Manager *m) {
         }
 
         sanitize_environment(m->transient_environment);
-
         return 0;
 }
 
