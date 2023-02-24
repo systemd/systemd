@@ -273,7 +273,7 @@ static int condition_test_osrelease(Condition *c, char **env) {
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                         "Failed to parse parameter, key/value format expected: %m");
 
-                r = parse_os_release(NULL, key, &actual_value);
+                r = parse_os_release(NULL, IMAGE_EXTENSION, key, &actual_value);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse os-release: %m");
 
