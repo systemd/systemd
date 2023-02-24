@@ -26,3 +26,4 @@ TasksMax=infinity
 TimeoutStopSec={{ DEFAULT_USER_TIMEOUT_SEC*4//3 }}s
 KeyringMode=inherit
 OOMScoreAdjust=100
+MemoryPressureWatch=skip
