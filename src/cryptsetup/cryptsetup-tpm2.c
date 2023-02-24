@@ -72,6 +72,8 @@ int acquire_tpm2_key(
                 size_t policy_hash_size,
                 const void *salt,
                 size_t salt_size,
+                const void *srk_buf,
+                size_t srk_buf_size,
                 TPM2Flags flags,
                 usec_t until,
                 bool headless,
@@ -141,6 +143,8 @@ int acquire_tpm2_key(
                                 blob_size,
                                 policy_hash,
                                 policy_hash_size,
+                                srk_buf,
+                                srk_buf_size,
                                 ret_decrypted_key,
                                 ret_decrypted_key_size);
 
@@ -181,6 +185,8 @@ int acquire_tpm2_key(
                                 blob_size,
                                 policy_hash,
                                 policy_hash_size,
+                                srk_buf,
+                                srk_buf_size,
                                 ret_decrypted_key,
                                 ret_decrypted_key_size);
                 /* We get this error in case there is an authentication policy mismatch. This should
@@ -210,6 +216,8 @@ int find_tpm2_auto_data(
                 size_t *ret_policy_hash_size,
                 void **ret_salt,
                 size_t *ret_salt_size,
+                void **ret_srk_buf,
+                size_t *ret_srk_buf_size,
                 TPM2Flags *ret_flags,
                 int *ret_keyslot,
                 int *ret_token) {
@@ -219,9 +227,9 @@ int find_tpm2_auto_data(
         assert(cd);
 
         for (token = start_token; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
-                _cleanup_free_ void *blob = NULL, *policy_hash = NULL, *pubkey = NULL, *salt = NULL;
+                _cleanup_free_ void *blob = NULL, *policy_hash = NULL, *pubkey = NULL, *salt = NULL, *srk_buf = NULL;
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-                size_t blob_size, policy_hash_size, pubkey_size, salt_size = 0;
+                size_t blob_size, policy_hash_size, pubkey_size, salt_size = 0, srk_buf_size = 0;
                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
                 uint16_t pcr_bank, primary_alg;
                 TPM2Flags flags;
@@ -244,6 +252,7 @@ int find_tpm2_auto_data(
                                 &blob, &blob_size,
                                 &policy_hash, &policy_hash_size,
                                 &salt, &salt_size,
+                                &srk_buf, &srk_buf_size,
                                 &flags);
                 if (r == -EUCLEAN) /* Gracefully handle issues in JSON fields not owned by us */
                         continue;
@@ -270,6 +279,8 @@ int find_tpm2_auto_data(
                         *ret_salt_size = salt_size;
                         *ret_keyslot = keyslot;
                         *ret_token = token;
+                        *ret_srk_buf = TAKE_PTR(srk_buf);
+                        *ret_srk_buf_size = srk_buf_size;
                         *ret_flags = flags;
                         return 0;
                 }

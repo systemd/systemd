@@ -142,7 +142,8 @@ int enroll_tpm2(struct crypt_device *cd,
         _cleanup_(erase_and_freep) void *secret = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *signature_json = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
-        size_t secret_size, blob_size, hash_size, pubkey_size = 0;
+        _cleanup_(freep) void *srk_buf = NULL;
+        size_t secret_size, blob_size, hash_size, pubkey_size = 0, srk_buf_size = 0;
         _cleanup_free_ void *blob = NULL, *hash = NULL, *pubkey = NULL;
         uint16_t pcr_bank, primary_alg;
         const char *node;
@@ -214,7 +215,9 @@ int enroll_tpm2(struct crypt_device *cd,
                       &blob, &blob_size,
                       &hash, &hash_size,
                       &pcr_bank,
-                      &primary_alg);
+                      &primary_alg,
+                      &srk_buf,
+                      &srk_buf_size);
         if (r < 0)
                 return r;
 
@@ -245,6 +248,7 @@ int enroll_tpm2(struct crypt_device *cd,
                                 primary_alg,
                                 blob, blob_size,
                                 hash, hash_size,
+                                srk_buf, srk_buf_size,
                                 &secret2, &secret2_size);
                 if (r < 0)
                         return r;
@@ -283,6 +287,7 @@ int enroll_tpm2(struct crypt_device *cd,
                         hash, hash_size,
                         use_pin ? binary_salt : NULL,
                         use_pin ? sizeof(binary_salt) : 0,
+                        srk_buf, srk_buf_size,
                         flags,
                         &v);
         if (r < 0)
