@@ -979,7 +979,7 @@ static int verb_update(int argc, char **argv, void *userdata) {
         if (arg_reboot) {
                 /* If automatic reboot on completion is requested, let's first determine the currently booted image */
 
-                r = parse_os_release(arg_root, "IMAGE_VERSION", &booted_version);
+                r = parse_os_release(arg_root, IMAGE_EXTENSION, "IMAGE_VERSION", &booted_version);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse /etc/os-release: %m");
                 if (!booted_version)
@@ -1036,7 +1036,7 @@ static int verb_pending_or_reboot(int argc, char **argv, void *userdata) {
         if (!context->newest_installed)
                 return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "Couldn't find any suitable installed versions.");
 
-        r = parse_os_release(arg_root, "IMAGE_VERSION", &booted_version);
+        r = parse_os_release(arg_root, IMAGE_EXTENSION, "IMAGE_VERSION", &booted_version);
         if (r < 0) /* yes, arg_root is NULL here, but we have to pass something, and it's a lot more readable
                     * if we see what the first argument is about */
                 return log_error_errno(r, "Failed to parse /etc/os-release: %m");
