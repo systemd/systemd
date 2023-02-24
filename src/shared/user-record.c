@@ -2,6 +2,7 @@
 
 #include <sys/mount.h>
 
+#include "cap-list.h"
 #include "cgroup-util.h"
 #include "dns-domain.h"
 #include "env-util.h"
@@ -165,6 +166,8 @@ static UserRecord* user_record_free(UserRecord *h) {
         free(h->home_directory_auto);
 
         strv_free(h->member_of);
+        strv_free(h->capability_bounding_set);
+        strv_free(h->capability_ambient_set);
 
         free(h->file_system_type);
         free(h->luks_cipher);
@@ -1203,6 +1206,8 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
                 { "uid",                        JSON_VARIANT_UNSIGNED,      json_dispatch_uid_gid,                offsetof(UserRecord, uid),                           0         },
                 { "gid",                        JSON_VARIANT_UNSIGNED,      json_dispatch_uid_gid,                offsetof(UserRecord, gid),                           0         },
                 { "memberOf",                   JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,        offsetof(UserRecord, member_of),                     JSON_RELAX},
+                { "capabilityBoundingSet",      JSON_VARIANT_ARRAY,         json_dispatch_strv,                   offsetof(UserRecord, capability_bounding_set),       JSON_SAFE },
+                { "capabilityAmbientSet",       JSON_VARIANT_ARRAY,         json_dispatch_strv,                   offsetof(UserRecord, capability_ambient_set),        JSON_SAFE },
                 { "fileSystemType",             JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, file_system_type),              JSON_SAFE },
                 { "partitionUuid",              JSON_VARIANT_STRING,        json_dispatch_id128,                  offsetof(UserRecord, partition_uuid),                0         },
                 { "luksUuid",                   JSON_VARIANT_STRING,        json_dispatch_id128,                  offsetof(UserRecord, luks_uuid),                     0         },
@@ -1557,6 +1562,8 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
                 { "uid",                        JSON_VARIANT_UNSIGNED,      json_dispatch_uid_gid,                offsetof(UserRecord, uid),                           0         },
                 { "gid",                        JSON_VARIANT_UNSIGNED,      json_dispatch_uid_gid,                offsetof(UserRecord, gid),                           0         },
                 { "memberOf",                   JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,        offsetof(UserRecord, member_of),                     JSON_RELAX},
+                { "capabilityBoundingSet",      JSON_VARIANT_ARRAY,         json_dispatch_strv,                   offsetof(UserRecord, capability_bounding_set),       JSON_SAFE },
+                { "capabilityAmbientSet",       JSON_VARIANT_ARRAY,         json_dispatch_strv,                   offsetof(UserRecord, capability_ambient_set),        JSON_SAFE },
                 { "fileSystemType",             JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, file_system_type),              JSON_SAFE },
                 { "partitionUuid",              JSON_VARIANT_STRING,        json_dispatch_id128,                  offsetof(UserRecord, partition_uuid),                0         },
                 { "luksUuid",                   JSON_VARIANT_STRING,        json_dispatch_id128,                  offsetof(UserRecord, luks_uuid),                     0         },
@@ -2016,6 +2023,43 @@ uint64_t user_record_rebalance_weight(UserRecord *h) {
                 return REBALANCE_WEIGHT_DEFAULT;
 
         return h->rebalance_weight;
+}
+
+static uint64_t parse_caps_strv(char **l) {
+        uint64_t c = 0;
+        int r;
+
+        STRV_FOREACH(i, l) {
+                r = capability_from_name(*i);
+                if (r < 0)
+                        log_debug_errno(r, "Don't know capability '%s', ignoring: %m", *i);
+                else
+                        c |= UINT64_C(1) << r;
+        }
+
+        return c;
+}
+
+uint64_t user_record_capability_bounding_set(UserRecord *h) {
+        assert(h);
+
+        /* Returns UINT64_MAX if no bounding set is configured (!) */
+
+        if (!h->capability_bounding_set)
+                return UINT64_MAX;
+
+        return parse_caps_strv(h->capability_bounding_set);
+}
+
+uint64_t user_record_capability_ambient_set(UserRecord *h) {
+        assert(h);
+
+        /* Returns UINT64_MAX if no ambient set is configured (!) */
+
+        if (!h->capability_ambient_set)
+                return UINT64_MAX;
+
+        return parse_caps_strv(h->capability_ambient_set) & user_record_capability_bounding_set(h);
 }
 
 uint64_t user_record_ratelimit_next_try(UserRecord *h) {
