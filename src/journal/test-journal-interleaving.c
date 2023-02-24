@@ -158,6 +158,7 @@ static void test_skip_one(void (*setup)(void)) {
          */
         assert_ret(sd_journal_open_directory(&j, t, 0));
         assert_ret(sd_journal_seek_head(j));
+        assert_ret(sd_journal_previous(j) == 0);
         assert_ret(sd_journal_next(j));
         test_check_numbers_down(j, 4);
         sd_journal_close(j);
@@ -166,6 +167,7 @@ static void test_skip_one(void (*setup)(void)) {
          */
         assert_ret(sd_journal_open_directory(&j, t, 0));
         assert_ret(sd_journal_seek_tail(j));
+        assert_ret(sd_journal_next(j) == 0);
         assert_ret(sd_journal_previous(j));
         test_check_numbers_up(j, 4);
         sd_journal_close(j);
@@ -174,6 +176,7 @@ static void test_skip_one(void (*setup)(void)) {
          */
         assert_ret(sd_journal_open_directory(&j, t, 0));
         assert_ret(sd_journal_seek_tail(j));
+        assert_ret(sd_journal_next(j) == 0);
         assert_ret(r = sd_journal_previous_skip(j, 4));
         assert_se(r == 4);
         test_check_numbers_down(j, 4);
@@ -183,6 +186,7 @@ static void test_skip_one(void (*setup)(void)) {
          */
         assert_ret(sd_journal_open_directory(&j, t, 0));
         assert_ret(sd_journal_seek_head(j));
+        assert_ret(sd_journal_previous(j) == 0);
         assert_ret(r = sd_journal_next_skip(j, 4));
         assert_se(r == 4);
         test_check_numbers_up(j, 4);
