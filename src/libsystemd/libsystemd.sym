@@ -817,4 +817,5 @@ LIBSYSTEMD_254 {
 global:
         sd_session_get_username;
         sd_session_get_start_time;
+        sd_uid_get_login_time;
 } LIBSYSTEMD_253;
