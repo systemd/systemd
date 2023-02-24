@@ -142,117 +142,31 @@ _public_ int sd_pidfd_get_owner_uid(int pidfd, uid_t *ret_uid) {
         return 0;
 }
 
-_public_ int sd_peer_get_session(int fd, char **ret_session) {
-        struct ucred ucred = UCRED_INVALID;
-        int r;
+#define DEFINE_PEER_GETTER_FULL(name, type)                     \
+        _public_ int sd_peer_get_##name(int fd, type *ret) {    \
+                struct ucred ucred = UCRED_INVALID;             \
+                int r;                                          \
+                                                                \
+                assert_return(fd >= 0, -EBADF);                 \
+                assert_return(ret, -EINVAL);                    \
+                                                                \
+                r = getpeercred(fd, &ucred);                    \
+                if (r < 0)                                      \
+                        return r;                               \
+                                                                \
+                return sd_pid_get_##name(ucred.pid, ret);       \
+        }
 
-        assert_return(fd >= 0, -EBADF);
-        assert_return(ret_session, -EINVAL);
+#define DEFINE_PEER_GETTER(name) DEFINE_PEER_GETTER_FULL(name, char*)
 
-        r = getpeercred(fd, &ucred);
-        if (r < 0)
-                return r;
-
-        return cg_pid_get_session(ucred.pid, ret_session);
-}
-
-_public_ int sd_peer_get_owner_uid(int fd, uid_t *ret_uid) {
-        struct ucred ucred;
-        int r;
-
-        assert_return(fd >= 0, -EBADF);
-        assert_return(ret_uid, -EINVAL);
-
-        r = getpeercred(fd, &ucred);
-        if (r < 0)
-                return r;
-
-        return cg_pid_get_owner_uid(ucred.pid, ret_uid);
-}
-
-_public_ int sd_peer_get_unit(int fd, char **ret_unit) {
-        struct ucred ucred;
-        int r;
-
-        assert_return(fd >= 0, -EBADF);
-        assert_return(ret_unit, -EINVAL);
-
-        r = getpeercred(fd, &ucred);
-        if (r < 0)
-                return r;
-
-        return cg_pid_get_unit(ucred.pid, ret_unit);
-}
-
-_public_ int sd_peer_get_user_unit(int fd, char **ret_unit) {
-        struct ucred ucred;
-        int r;
-
-        assert_return(fd >= 0, -EBADF);
-        assert_return(ret_unit, -EINVAL);
-
-        r = getpeercred(fd, &ucred);
-        if (r < 0)
-                return r;
-
-        return cg_pid_get_user_unit(ucred.pid, ret_unit);
-}
-
-_public_ int sd_peer_get_machine_name(int fd, char **ret_machine) {
-        struct ucred ucred;
-        int r;
-
-        assert_return(fd >= 0, -EBADF);
-        assert_return(ret_machine, -EINVAL);
-
-        r = getpeercred(fd, &ucred);
-        if (r < 0)
-                return r;
-
-        return cg_pid_get_machine_name(ucred.pid, ret_machine);
-}
-
-_public_ int sd_peer_get_slice(int fd, char **ret_slice) {
-        struct ucred ucred;
-        int r;
-
-        assert_return(fd >= 0, -EBADF);
-        assert_return(ret_slice, -EINVAL);
-
-        r = getpeercred(fd, &ucred);
-        if (r < 0)
-                return r;
-
-        return cg_pid_get_slice(ucred.pid, ret_slice);
-}
-
-_public_ int sd_peer_get_user_slice(int fd, char **ret_slice) {
-        struct ucred ucred;
-        int r;
-
-        assert_return(fd >= 0, -EBADF);
-        assert_return(ret_slice, -EINVAL);
-
-        r = getpeercred(fd, &ucred);
-        if (r < 0)
-                return r;
-
-        return cg_pid_get_user_slice(ucred.pid, ret_slice);
-}
-
-_public_ int sd_peer_get_cgroup(int fd, char **ret_cgroup) {
-        struct ucred ucred;
-        int r;
-
-        assert_return(fd >= 0, -EBADF);
-        assert_return(ret_cgroup, -EINVAL);
-
-        r = getpeercred(fd, &ucred);
-        if (r < 0)
-                return r;
-
-        return sd_pid_get_cgroup(ucred.pid, ret_cgroup);
-}
+DEFINE_PEER_GETTER(session);
+DEFINE_PEER_GETTER(unit);
+DEFINE_PEER_GETTER(user_unit);
+DEFINE_PEER_GETTER(machine_name);
+DEFINE_PEER_GETTER(slice);
+DEFINE_PEER_GETTER(user_slice);
+DEFINE_PEER_GETTER(cgroup);
+DEFINE_PEER_GETTER_FULL(owner_uid, uid_t);
 
 static int file_of_uid(uid_t uid, char **ret) {
 
