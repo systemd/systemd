@@ -187,7 +187,8 @@
 
     <para><function>sd_session_get_start_time()</function> may be used to
     determine the start time of the session identified by the specified
-    session identifier belongs to.</para>
+    session identifier belongs to. The <parameter>usec</parameter>
+    is in microseconds since the epoch (<constant>CLOCK_REALTIME</constant>).</para>
 
     <para><function>sd_session_get_service()</function> may be used to
     determine the name of the service (as passed during PAM session
