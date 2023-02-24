@@ -452,6 +452,17 @@ systemd-dissect --attach --loop-ref=waldo "${image}.raw"
 systemd-dissect --detach "${image}.raw"
 (! systemd-dissect --detach "${image}.raw")
 
+# check for syscfg functionality
+mkdir -p /run/syscfgs/test/etc/syscfg-release.d
+echo "ID=_any" >/run/syscfgs/test/etc/syscfg-release.d/syscfg-release.test
+echo "ARCHITECTURE=_any" >>/run/syscfgs/test/etc/syscfg-release.d/syscfg-release.test
+echo "MARKER_SYSCFG_123" >/run/syscfgs/test/etc/testfile
+systemd-syscfg merge
+grep -q -F "MARKER_SYSCFG_123" /etc/testfile
+systemd-syscfg status
+systemd-syscfg unmerge
+rm -rf /run/syscfgs/
+
 echo OK >/testok
 
 exit 0
