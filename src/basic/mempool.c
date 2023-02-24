@@ -98,9 +98,11 @@ static bool pool_contains(struct mempool *mp, struct pool *p, void *ptr) {
                 return false;
 
         off = (uint8_t*) ptr - (uint8_t*) a;
-        assert(off % mp->tile_size == 0);
+        if (off >= mp->tile_size * p->n_tiles)
+                return false;
 
-        return off < mp->tile_size * p->n_tiles;
+        assert(off % mp->tile_size == 0);
+        return true;
 }
 
 static bool pool_is_unused(struct mempool *mp, struct pool *p) {
