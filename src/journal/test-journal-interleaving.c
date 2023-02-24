@@ -188,24 +188,19 @@ static void test_skip_one(void (*setup)(void)) {
         /* Seek to head, move to previous, then iterate down. */
         assert_ret(sd_journal_open_directory(&j, t, 0));
         assert_ret(sd_journal_seek_head(j));
-        /* FIXME: calling sd_journal_previous() thrice (or >= number of journal files) here works as
-         * mostly equivalent to calling sd_journal_next(). */
-        assert_ret(sd_journal_previous(j));
-        assert_ret(sd_journal_previous(j));
-        assert_ret(sd_journal_previous(j)); /* pointing the first entry */
+        assert_ret(sd_journal_previous(j)); /* no-op */
+        assert_ret(sd_journal_next(j)); /* pointing the first entry */
         test_check_numbers_down(j, 9);
         sd_journal_close(j);
 
         /* Seek to head, walk several steps, then iterate down. */
         assert_ret(sd_journal_open_directory(&j, t, 0));
         assert_ret(sd_journal_seek_head(j));
-        assert_ret(sd_journal_previous(j));
-        assert_ret(sd_journal_previous(j));
-        assert_ret(sd_journal_previous(j)); /* pointing the first entry */
-        assert_ret(sd_journal_next(j));     /* pointing the second entry */
-        /* FIXME: as calling sd_journal_previous() thrice works equivalent to sd_journal_next(),
-         * we need to call sd_journal_previous() here. */
-        assert_ret(sd_journal_previous(j)); /* pointing the first entry */
+        assert_ret(sd_journal_previous(j)); /* no-op */
+        assert_ret(sd_journal_previous(j)); /* no-op */
+        assert_ret(sd_journal_previous(j)); /* no-op */
+        assert_ret(sd_journal_next(j));     /* pointing the first entry */
+        assert_ret(sd_journal_previous(j)); /* no-op */
         assert_ret(sd_journal_previous(j)); /* no-op */
         test_check_numbers_down(j, 9);
         sd_journal_close(j);
@@ -220,22 +215,19 @@ static void test_skip_one(void (*setup)(void)) {
         /* Seek to tail, move to next, then iterate up. */
         assert_ret(sd_journal_open_directory(&j, t, 0));
         assert_ret(sd_journal_seek_tail(j));
-        /* FIXME: calling sd_journal_next() thrice (or >= number of journal files) here works as mostly
-         * equivalent to calling sd_journal_previous(). */
-        assert_ret(sd_journal_next(j));
-        assert_ret(sd_journal_next(j));
-        assert_ret(sd_journal_next(j)); /* pointing the last entry */
+        assert_ret(sd_journal_next(j));     /* no-op */
+        assert_ret(sd_journal_previous(j)); /* pointing the first entry */
         test_check_numbers_up(j, 9);
         sd_journal_close(j);
 
         /* Seek to tail, walk several steps, then iterate up. */
         assert_ret(sd_journal_open_directory(&j, t, 0));
         assert_ret(sd_journal_seek_tail(j));
-        assert_ret(sd_journal_next(j));
-        assert_ret(sd_journal_next(j));
-        assert_ret(sd_journal_next(j));     /* pointing the last entry */
-        assert_ret(sd_journal_previous(j)); /* pointing the previous of the last entry. */
-        assert_ret(sd_journal_next(j));     /* pointing the last entry */
+        assert_ret(sd_journal_next(j));     /* no-op */
+        assert_ret(sd_journal_next(j));     /* no-op */
+        assert_ret(sd_journal_next(j));     /* no-op */
+        assert_ret(sd_journal_previous(j)); /* pointing the last entry. */
+        assert_ret(sd_journal_next(j));     /* no-op */
         assert_ret(sd_journal_next(j));     /* no-op */
         test_check_numbers_up(j, 9);
         sd_journal_close(j);
@@ -251,8 +243,7 @@ static void test_skip_one(void (*setup)(void)) {
         /* Seek to tail, skip to head in a more complext way, then iterate down. */
         assert_ret(sd_journal_open_directory(&j, t, 0));
         assert_ret(sd_journal_seek_tail(j));
-        // FIXME: sd_journal_next() cannot be called here.
-        //assert_ret(sd_journal_next(j));
+        assert_ret(sd_journal_next(j));    /* no-op */
         assert_ret(r = sd_journal_previous_skip(j, 4));
         assert_se(r == 4);
         assert_ret(r = sd_journal_previous_skip(j, 5));
@@ -284,8 +275,7 @@ static void test_skip_one(void (*setup)(void)) {
         /* Seek to head, skip to tail in a more complex way, then iterate up. */
         assert_ret(sd_journal_open_directory(&j, t, 0));
         assert_ret(sd_journal_seek_head(j));
-        // FIXME: sd_journal_previous() cannot be called here.
-        //assert_ret(sd_journal_previous(j));
+        assert_ret(sd_journal_previous(j)); /* no-op */
         assert_ret(r = sd_journal_next_skip(j, 4));
         assert_se(r == 4);
         assert_ret(r = sd_journal_next_skip(j, 5));
