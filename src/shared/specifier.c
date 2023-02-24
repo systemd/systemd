@@ -299,7 +299,7 @@ static int parse_os_release_specifier(const char *root, const char *id, char **r
 
         assert(ret);
 
-        r = parse_os_release(root, id, &v);
+        r = parse_os_release(root, IMAGE_EXTENSION, id, &v);
         if (r >= 0)
                 /* parse_os_release() calls parse_env_file() which only sets the return value for
                  * entries found. Let's make sure we set the return value in all cases. */
