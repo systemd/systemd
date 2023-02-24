@@ -742,8 +742,39 @@ static int session_get_string(const char *session, const char *field, char **val
         return 0;
 }
 
+_public_ int sd_session_get_username(const char *session, char **username) {
+        return session_get_string(session, "USER", username);
+}
+
 _public_ int sd_session_get_seat(const char *session, char **seat) {
         return session_get_string(session, "SEAT", seat);
+}
+
+_public_ int sd_session_get_start_time(const char *session, uint64_t *usec) {
+        _cleanup_free_ char *p = NULL, *s = NULL;
+        usec_t t;
+        int r;
+
+        assert_return(usec, -EINVAL);
+
+        r = file_of_session(session, &p);
+        if (r < 0)
+                return r;
+
+        r = parse_env_file(NULL, p, "REALTIME", &s);
+        if (r == -ENOENT)
+                return -ENXIO;
+        if (r < 0)
+                return r;
+        if (isempty(s))
+                return -EIO;
+
+        r = safe_atou64(s, &t);
+        if (r < 0)
+                return r;
+
+        *usec = t;
+        return 0;
 }
 
 _public_ int sd_session_get_tty(const char *session, char **tty) {
