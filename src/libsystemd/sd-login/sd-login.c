@@ -522,7 +522,7 @@ _public_ int sd_uid_get_login_time(uid_t uid, uint64_t *usec) {
         if (isempty(s) || isempty(rt))
                 return -EIO;
 
-        if (!streq(s, "active") && !streq(s, "online"))
+        if (!STR_IN_SET(s, "active", "online"))
                 return -ENXIO;
 
         r = safe_atou64(rt, &t);
