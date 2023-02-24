@@ -168,60 +168,77 @@ DEFINE_PEER_GETTER(user_slice);
 DEFINE_PEER_GETTER(cgroup);
 DEFINE_PEER_GETTER_FULL(owner_uid, uid_t);
 
-static int file_of_uid(uid_t uid, char **ret) {
+static int uid_get_string(uid_t uid, const char *key, char **ret) {
+        _cleanup_free_ char *p = NULL, *s = NULL;
+        int r;
 
         assert_return(uid_is_valid(uid), -EINVAL);
+        assert(key);
         assert(ret);
 
-        if (asprintf(ret, "/run/systemd/users/" UID_FMT, uid) < 0)
+        if (asprintf(&p, "/run/systemd/users/" UID_FMT, uid) < 0)
                 return -ENOMEM;
 
+        r = parse_env_file(NULL, p, key, &s);
+        if (r == -ENOENT)
+                return -ENXIO;
+        if (r < 0)
+                return r;
+        if (isempty(s))
+                return -ENODATA;
+
+        *ret = TAKE_PTR(s);
         return 0;
 }
 
+static int uid_get_array(uid_t uid, const char *key, char ***ret) {
+        _cleanup_strv_free_ char **a = NULL;
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert(key);
+
+        r = uid_get_string(uid, key, &s);
+        if (r == -ENODATA) {
+                if (ret)
+                        *ret = NULL;
+                return 0;
+        }
+        if (r < 0)
+                return r;
+
+        a = strv_split(s, NULL);
+        if (!a)
+                return -ENOMEM;
+
+        r = (int) strv_length(strv_uniq(a));
+
+        if (ret)
+                *ret = TAKE_PTR(a);
+
+        return r;
+}
+
 _public_ int sd_uid_get_state(uid_t uid, char **ret_state) {
-        _cleanup_free_ char *p = NULL, *s = NULL;
+        _cleanup_free_ char *s = NULL;
         int r;
 
         assert_return(ret_state, -EINVAL);
 
-        r = file_of_uid(uid, &p);
-        if (r < 0)
-                return r;
-
-        r = parse_env_file(NULL, p, "STATE", &s);
-        if (r == -ENOENT)
+        r = uid_get_string(uid, "STATE", &s);
+        if (r == -ENXIO)
                 r = free_and_strdup(&s, "offline");
         if (r < 0)
                 return r;
-        if (isempty(s))
-                return -EIO;
 
         *ret_state = TAKE_PTR(s);
         return 0;
 }
 
 _public_ int sd_uid_get_display(uid_t uid, char **ret_display) {
-        _cleanup_free_ char *p = NULL, *s = NULL;
-        int r;
-
         assert_return(ret_display, -EINVAL);
 
-        r = file_of_uid(uid, &p);
-        if (r < 0)
-                return r;
-
-        r = parse_env_file(NULL, p, "DISPLAY", &s);
-        if (r == -ENOENT)
-                return -ENODATA;
-        if (r < 0)
-                return r;
-        if (isempty(s))
-                return -ENODATA;
-
-        *ret_display = TAKE_PTR(s);
-
-        return 0;
+        return uid_get_string(uid, "DISPLAY", ret_display);
 }
 
 static int file_of_seat(const char *seat, char **ret) {
@@ -275,41 +292,6 @@ _public_ int sd_uid_is_on_seat(uid_t uid, int require_active, const char *seat) 
         xsprintf(t, UID_FMT, uid);
 
         return string_contains_word(content, NULL, t);
-}
-
-static int uid_get_array(uid_t uid, const char *variable, char ***ret) {
-        _cleanup_free_ char *p = NULL, *s = NULL;
-        char **a;
-        int r;
-
-        assert(variable);
-
-        r = file_of_uid(uid, &p);
-        if (r < 0)
-                return r;
-
-        r = parse_env_file(NULL, p, variable, &s);
-        if (r == -ENOENT || (r >= 0 && isempty(s))) {
-                if (ret)
-                        *ret = NULL;
-                return 0;
-        }
-        if (r < 0)
-                return r;
-
-        a = strv_split(s, NULL);
-        if (!a)
-                return -ENOMEM;
-
-        strv_uniq(a);
-        r = (int) strv_length(a);
-
-        if (ret)
-                *ret = a;
-        else
-                strv_free(a);
-
-        return r;
 }
 
 _public_ int sd_uid_get_sessions(uid_t uid, int require_active, char ***ret_sessions) {
