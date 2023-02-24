@@ -810,11 +810,11 @@ global:
         sd_pidfd_get_unit;
         sd_pidfd_get_user_slice;
         sd_pidfd_get_user_unit;
-        sd_journal_get_seqnum;
 } LIBSYSTEMD_252;
 
 LIBSYSTEMD_254 {
 global:
+        sd_journal_get_seqnum;
         sd_session_get_username;
         sd_session_get_start_time;
 } LIBSYSTEMD_253;
