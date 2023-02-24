@@ -126,11 +126,13 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
 
         assert(ret_context);
 
-        context = new0(Tpm2Context, 1);
+        context = new(Tpm2Context, 1);
         if (!context)
                 return log_oom();
 
-        context->n_ref = 1;
+        *context = (Tpm2Context) {
+                .n_ref = 1,
+        };
 
         r = dlopen_tpm2();
         if (r < 0)
@@ -258,12 +260,14 @@ int tpm2_handle_new(Tpm2Context *context, Tpm2Handle **ret_handle) {
 
         assert(ret_handle);
 
-        handle = new0(Tpm2Handle, 1);
+        handle = new(Tpm2Handle, 1);
         if (!handle)
                 return log_oom();
 
-        handle->tpm2_context = tpm2_context_ref(context);
-        handle->esys_handle = ESYS_TR_NONE;
+        *handle = (Tpm2Handle) {
+                .tpm2_context = tpm2_context_ref(context),
+                .esys_handle = ESYS_TR_NONE,
+        };
 
         *ret_handle = TAKE_PTR(handle);
 
