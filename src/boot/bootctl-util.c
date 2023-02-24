@@ -136,6 +136,7 @@ int settle_entry_token(void) {
                         _cleanup_free_ char *id = NULL, *image_id = NULL;
 
                         r = parse_os_release(arg_root,
+                                             IMAGE_EXTENSION,
                                              "IMAGE_ID", &image_id,
                                              "ID", &id);
                         if (r < 0)
@@ -173,7 +174,7 @@ int settle_entry_token(void) {
         case ARG_ENTRY_TOKEN_OS_IMAGE_ID: {
                 _cleanup_free_ char *buf = NULL;
 
-                r = parse_os_release(arg_root, "IMAGE_ID", &buf);
+                r = parse_os_release(arg_root, IMAGE_EXTENSION, "IMAGE_ID", &buf);
                 if (r < 0)
                         return log_error_errno(r, "Failed to load /etc/os-release: %m");
 
@@ -187,7 +188,7 @@ int settle_entry_token(void) {
         case ARG_ENTRY_TOKEN_OS_ID: {
                 _cleanup_free_ char *buf = NULL;
 
-                r = parse_os_release(arg_root, "ID", &buf);
+                r = parse_os_release(arg_root, IMAGE_EXTENSION, "ID", &buf);
                 if (r < 0)
                         return log_error_errno(r, "Failed to load /etc/os-release: %m");
 
