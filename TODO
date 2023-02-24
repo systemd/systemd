@@ -621,6 +621,8 @@ Features:
 
 * pick up creds from EFI vars
 
+* Add and pickup tpm2 metadata for creds structure.
+
 * sd-boot: we probably should include all BootXY EFI variable defined boot
   entries in our menu, and then suppress ourselves. Benefit: instant
   compatibility with all other OSes which register things there, in particular

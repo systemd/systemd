@@ -3389,8 +3389,8 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
                 _cleanup_(erase_and_freep) void *secret = NULL;
                 _cleanup_free_ void *pubkey = NULL;
-                _cleanup_free_ void *blob = NULL, *hash = NULL;
-                size_t secret_size, blob_size, hash_size, pubkey_size = 0;
+                _cleanup_free_ void *blob = NULL, *hash = NULL, *srk_buf = NULL;
+                size_t secret_size, blob_size, hash_size, pubkey_size = 0, srk_buf_size = 0;
                 ssize_t base64_encoded_size;
                 uint16_t pcr_bank, primary_alg;
                 int keyslot;
@@ -3415,7 +3415,9 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
                               &blob, &blob_size,
                               &hash, &hash_size,
                               &pcr_bank,
-                              &primary_alg);
+                              &primary_alg,
+                              &srk_buf,
+                              &srk_buf_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to seal to TPM2: %m");
 
@@ -3447,6 +3449,7 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
                                 blob, blob_size,
                                 hash, hash_size,
                                 NULL, 0, /* no salt because tpm2_seal has no pin */
+                                srk_buf, srk_buf_size,
                                 0,
                                 &v);
                 if (r < 0)
