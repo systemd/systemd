@@ -9,17 +9,10 @@
 #include "hashmap.h"
 #include "lockfile-util.h"
 #include "macro.h"
+#include "os-util.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "time-util.h"
-
-typedef enum ImageClass {
-        IMAGE_MACHINE,
-        IMAGE_PORTABLE,
-        IMAGE_EXTENSION,
-        _IMAGE_CLASS_MAX,
-        _IMAGE_CLASS_INVALID = -EINVAL,
-} ImageClass;
 
 typedef enum ImageType {
         IMAGE_DIRECTORY,
@@ -51,7 +44,7 @@ typedef struct Image {
         sd_id128_t machine_id;
         char **machine_info;
         char **os_release;
-        char **extension_release;
+        char **release_file;
 
         bool metadata_valid:1;
         bool discoverable:1;  /* true if we know for sure that image_find() would find the image given just the short name */
