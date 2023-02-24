@@ -231,6 +231,33 @@ fi
 systemd-dissect --root-hash "${roothash}" "${image}.gpt" | grep -q -F "MARKER=1"
 systemd-dissect --root-hash "${roothash}" "${image}.gpt" | grep -q -F -f <(sed 's/"//g' "$os_release")
 
+# Test image policies
+systemd-dissect --validate "${image}.gpt"
+systemd-dissect --validate "${image}.gpt" --image-policy='*'
+(! systemd-dissect --validate "${image}.gpt" --image-policy='~')
+(! systemd-dissect --validate "${image}.gpt" --image-policy='-')
+(! systemd-dissect --validate "${image}.gpt" --image-policy=root=absent)
+(! systemd-dissect --validate "${image}.gpt" --image-policy=swap=unprotected+encrypted+verity)
+systemd-dissect --validate "${image}.gpt" --image-policy=root=unprotected
+systemd-dissect --validate "${image}.gpt" --image-policy=root=verity
+systemd-dissect --validate "${image}.gpt" --image-policy=root=verity:root-verity-sig=unused+absent
+systemd-dissect --validate "${image}.gpt" --image-policy=root=verity:swap=absent
+systemd-dissect --validate "${image}.gpt" --image-policy=root=verity:swap=absent+unprotected
+(! systemd-dissect --validate "${image}.gpt" --image-policy=root=verity:root-verity=unused+absent)
+systemd-dissect --validate "${image}.gpt" --image-policy=root=signed
+(! systemd-dissect --validate "${image}.gpt" --image-policy=root=signed:root-verity-sig=unused+absent)
+(! systemd-dissect --validate "${image}.gpt" --image-policy=root=signed:root-verity=unused+absent)
+
+# Test RootImagePolicy= unit file setting
+systemd-run --wait -P -p RootImage="${image}.gpt" -p RootHash="${roothash}" -p MountAPIVFS=yes cat /usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run --wait -P -p RootImage="${image}.gpt" -p RootHash="${roothash}" -p RootImagePolicy='*' -p MountAPIVFS=yes cat /usr/lib/os-release | grep -q -F "MARKER=1"
+(! systemd-run --wait -P -p RootImage="${image}.gpt" -p RootHash="${roothash}" -p RootImagePolicy='~' -p MountAPIVFS=yes cat /usr/lib/os-release | grep -q -F "MARKER=1")
+(! systemd-run --wait -P -p RootImage="${image}.gpt" -p RootHash="${roothash}" -p RootImagePolicy='-' -p MountAPIVFS=yes cat /usr/lib/os-release | grep -q -F "MARKER=1")
+(! systemd-run --wait -P -p RootImage="${image}.gpt" -p RootHash="${roothash}" -p RootImagePolicy='root=absent' -p MountAPIVFS=yes cat /usr/lib/os-release | grep -q -F "MARKER=1")
+systemd-run --wait -P -p RootImage="${image}.gpt" -p RootHash="${roothash}" -p RootImagePolicy='root=verity' -p MountAPIVFS=yes cat /usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run --wait -P -p RootImage="${image}.gpt" -p RootHash="${roothash}" -p RootImagePolicy='root=signed' -p MountAPIVFS=yes cat /usr/lib/os-release | grep -q -F "MARKER=1"
+(! systemd-run --wait -P -p RootImage="${image}.gpt" -p RootHash="${roothash}" -p RootImagePolicy='root=encrypted' -p MountAPIVFS=yes cat /usr/lib/os-release | grep -q -F "MARKER=1")
+
 systemd-dissect --root-hash "${roothash}" --mount "${image}.gpt" "${image_dir}/mount"
 grep -q -F -f "$os_release" "${image_dir}/mount/usr/lib/os-release"
 grep -q -F -f "$os_release" "${image_dir}/mount/etc/os-release"
