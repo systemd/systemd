@@ -39,75 +39,26 @@
  *    requested metadata on object is missing → -ENODATA
  */
 
-_public_ int sd_pid_get_session(pid_t pid, char **ret_session) {
-        int r;
+#define DEFINE_PID_GETTER_FULL(name, type) \
+        _public_ int sd_pid_get_##name(pid_t pid, type *ret) {   \
+                int r;                                          \
+                                                                \
+                assert_return(pid >= 0, -EINVAL);               \
+                assert_return(ret, -EINVAL);                    \
+                                                                \
+                r = cg_pid_get_##name(pid, ret);                \
+                return IN_SET(r, -ENXIO, -ENOMEDIUM) ? -ENODATA : r;    \
+        }
 
-        assert_return(pid >= 0, -EINVAL);
-        assert_return(ret_session, -EINVAL);
+#define DEFINE_PID_GETTER(name) DEFINE_PID_GETTER_FULL(name, char*)
 
-        r = cg_pid_get_session(pid, ret_session);
-        return IN_SET(r, -ENXIO, -ENOMEDIUM) ? -ENODATA : r;
-}
-
-_public_ int sd_pid_get_unit(pid_t pid, char **ret_unit) {
-        int r;
-
-        assert_return(pid >= 0, -EINVAL);
-        assert_return(ret_unit, -EINVAL);
-
-        r = cg_pid_get_unit(pid, ret_unit);
-        return IN_SET(r, -ENXIO, -ENOMEDIUM) ? -ENODATA : r;
-}
-
-_public_ int sd_pid_get_user_unit(pid_t pid, char **ret_unit) {
-        int r;
-
-        assert_return(pid >= 0, -EINVAL);
-        assert_return(ret_unit, -EINVAL);
-
-        r = cg_pid_get_user_unit(pid, ret_unit);
-        return IN_SET(r, -ENXIO, -ENOMEDIUM) ? -ENODATA : r;
-}
-
-_public_ int sd_pid_get_machine_name(pid_t pid, char **ret_name) {
-        int r;
-
-        assert_return(pid >= 0, -EINVAL);
-        assert_return(ret_name, -EINVAL);
-
-        r = cg_pid_get_machine_name(pid, ret_name);
-        return IN_SET(r, -ENXIO, -ENOMEDIUM) ? -ENODATA : r;
-}
-
-_public_ int sd_pid_get_slice(pid_t pid, char **ret_slice) {
-        int r;
-
-        assert_return(pid >= 0, -EINVAL);
-        assert_return(ret_slice, -EINVAL);
-
-        r = cg_pid_get_slice(pid, ret_slice);
-        return IN_SET(r, -ENXIO, -ENOMEDIUM) ? -ENODATA : r;
-}
-
-_public_ int sd_pid_get_user_slice(pid_t pid, char **ret_slice) {
-        int r;
-
-        assert_return(pid >= 0, -EINVAL);
-        assert_return(ret_slice, -EINVAL);
-
-        r = cg_pid_get_user_slice(pid, ret_slice);
-        return IN_SET(r, -ENXIO, -ENOMEDIUM) ? -ENODATA : r;
-}
-
-_public_ int sd_pid_get_owner_uid(pid_t pid, uid_t *ret_uid) {
-        int r;
-
-        assert_return(pid >= 0, -EINVAL);
-        assert_return(ret_uid, -EINVAL);
-
-        r = cg_pid_get_owner_uid(pid, ret_uid);
-        return IN_SET(r, -ENXIO, -ENOMEDIUM) ? -ENODATA : r;
-}
+DEFINE_PID_GETTER(session);
+DEFINE_PID_GETTER(unit);
+DEFINE_PID_GETTER(user_unit);
+DEFINE_PID_GETTER(machine_name);
+DEFINE_PID_GETTER(slice);
+DEFINE_PID_GETTER(user_slice);
+DEFINE_PID_GETTER_FULL(owner_uid, uid_t);
 
 _public_ int sd_pid_get_cgroup(pid_t pid, char **ret_cgroup) {
         char *c;
