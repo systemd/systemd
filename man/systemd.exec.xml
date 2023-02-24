@@ -3756,6 +3756,15 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         </varlistentry>
 
         <varlistentry>
+          <term><varname>$REMOTE_ADDR</varname></term>
+          <term><varname>$REMOTE_PORT</varname></term>
+
+          <listitem><para>If this is a unit started via per-connection socket activation (i.e. via a socket
+          unit with <varname>Accept=yes</varname>), these environment variables contain the IP address and
+          port number of the remote peer of the socket connection.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>$TRIGGER_UNIT</varname></term>
           <term><varname>$TRIGGER_PATH</varname></term>
           <term><varname>$TRIGGER_TIMER_REALTIME_USEC</varname></term>
