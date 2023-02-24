@@ -817,4 +817,5 @@ global:
         sd_journal_get_seqnum;
         sd_session_get_username;
         sd_session_get_start_time;
+        sd_uid_get_login_time;
 } LIBSYSTEMD_253;
