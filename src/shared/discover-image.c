@@ -63,6 +63,11 @@ static const char* const image_search_path[_IMAGE_CLASS_MAX] = {
                             "/var/lib/extensions\0"         /* the main place for images */
                             "/usr/local/lib/extensions\0"
                             "/usr/lib/extensions\0",
+
+        [IMAGE_SYSCFG] =    "/run/syscfgs\0"             /* only place symlinks here */
+                            "/var/lib/syscfgs\0"         /* the main place for images */
+                            "/usr/local/lib/syscfgs\0"
+                            "/usr/lib/syscfgs\0",
 };
 
 static Image *image_free(Image *i) {
@@ -74,7 +79,7 @@ static Image *image_free(Image *i) {
         free(i->hostname);
         strv_free(i->machine_info);
         strv_free(i->os_release);
-        strv_free(i->extension_release);
+        strv_free(i->image_release_file);
 
         return mfree(i);
 }
@@ -1144,7 +1149,7 @@ int image_read_metadata(Image *i) {
 
         case IMAGE_SUBVOLUME:
         case IMAGE_DIRECTORY: {
-                _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL, **extension_release = NULL;
+                _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL, **image_release_file = NULL;
                 sd_id128_t machine_id = SD_ID128_NULL;
                 _cleanup_free_ char *hostname = NULL;
                 _cleanup_free_ char *path = NULL;
@@ -1191,7 +1196,7 @@ int image_read_metadata(Image *i) {
                 if (r < 0)
                         log_debug_errno(r, "Failed to read os-release in image, ignoring: %m");
 
-                r = load_extension_release_pairs(i->path, i->name, /* relax_extension_release_check= */ false, &extension_release);
+                r = load_extension_release_pairs(i->path, i->class, i->name, /* relax_extension_release_check= */ false, &image_release_file);
                 if (r < 0)
                         log_debug_errno(r, "Failed to read extension-release in image, ignoring: %m");
 
@@ -1199,7 +1204,7 @@ int image_read_metadata(Image *i) {
                 i->machine_id = machine_id;
                 strv_free_and_replace(i->machine_info, machine_info);
                 strv_free_and_replace(i->os_release, os_release);
-                strv_free_and_replace(i->extension_release, extension_release);
+                strv_free_and_replace(i->image_release_file, image_release_file);
 
                 break;
         }
@@ -1237,7 +1242,7 @@ int image_read_metadata(Image *i) {
                 i->machine_id = m->machine_id;
                 strv_free_and_replace(i->machine_info, m->machine_info);
                 strv_free_and_replace(i->os_release, m->os_release);
-                strv_free_and_replace(i->extension_release, m->extension_release);
+                strv_free_and_replace(i->image_release_file, m->extension_release);
 
                 break;
         }
@@ -1327,6 +1332,7 @@ static const char* const image_class_table[_IMAGE_CLASS_MAX] = {
         [IMAGE_MACHINE] = "machine",
         [IMAGE_PORTABLE] = "portable",
         [IMAGE_EXTENSION] = "extension",
+        [IMAGE_SYSCFG] = "syscfg"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(image_class, ImageClass);
