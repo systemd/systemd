@@ -442,7 +442,7 @@ static int validate_version(
                         host_os_release_version_id,
                         host_os_release_sysext_level,
                         in_initrd() ? "initrd" : "system",
-                        img->extension_release);
+                        img->image_release_file);
         if (r < 0)
                 return log_error_errno(r, "Failed to validate extension release information: %m");
 

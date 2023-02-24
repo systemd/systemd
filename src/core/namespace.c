@@ -1423,7 +1423,7 @@ static int apply_one_mount(
                 if (isempty(host_os_release_id))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "'ID' field not found or empty in 'os-release' data of OS tree '%s': %m", empty_to_root(root_directory));
 
-                r = load_extension_release_pairs(mount_entry_source(m), extension_name, /* relax_extension_release_check= */ false, &extension_release);
+                r = load_extension_release_pairs(mount_entry_source(m), IMAGE_EXTENSION, extension_name, /* relax_extension_release_check= */ false, &extension_release);
                 if (r == -ENOENT && m->ignore)
                         return 0;
                 if (r < 0)
