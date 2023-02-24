@@ -623,7 +623,7 @@ static int extract_image_and_extensions(
                         return r;
 
                 if (validate_sysext) {
-                        r = extension_release_validate(ext->path, id, version_id, sysext_level, "portable", extension_release);
+                        r = extension_release_validate_internal(ext->path, id, version_id, sysext_level, "portable", extension_release, "SYSEXT_LEVEL", "SYSEXT_SCOPE");
                         if (r == 0)
                                 return sd_bus_error_set_errnof(error, SYNTHETIC_ERRNO(ESTALE), "Image %s extension-release metadata does not match the root's", ext->path);
                         if (r < 0)
