@@ -729,7 +729,7 @@ static int image_discover_and_read_metadata(Hashmap **ret_images) {
         if (!images)
                 return log_oom();
 
-        r = image_discover(IMAGE_EXTENSION, arg_root, images);
+        r = image_discover(IMAGE_SYSEXT, arg_root, images);
         if (r < 0)
                 return log_error_errno(r, "Failed to discover extension images: %m");
 
@@ -832,7 +832,7 @@ static int verb_list(int argc, char **argv, void *userdata) {
         if (!images)
                 return log_oom();
 
-        r = image_discover(IMAGE_EXTENSION, arg_root, images);
+        r = image_discover(IMAGE_SYSEXT, arg_root, images);
         if (r < 0)
                 return log_error_errno(r, "Failed to discover extension images: %m");
 

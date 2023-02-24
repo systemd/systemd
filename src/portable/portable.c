@@ -198,7 +198,7 @@ static int extract_now(
         /* First, find os-release/extension-release and send it upstream (or just save it). */
         if (path_is_extension) {
                 os_release_id = strjoina("/usr/lib/extension-release.d/extension-release.", image_name);
-                r = open_extension_release(where, image_name, relax_extension_release_check, &os_release_path, &os_release_fd);
+                r = open_extension_release(where, IMAGE_SYSEXT, image_name, relax_extension_release_check, &os_release_path, &os_release_fd);
         } else {
                 os_release_id = "/etc/os-release";
                 r = open_os_release(where, &os_release_path, &os_release_fd);
@@ -948,17 +948,17 @@ static int append_release_log_fields(
 
         static const char *const field_versions[_IMAGE_CLASS_MAX][4]= {
                  [IMAGE_PORTABLE] = { "IMAGE_VERSION", "VERSION_ID", "BUILD_ID", NULL },
-                 [IMAGE_EXTENSION] = { "SYSEXT_IMAGE_VERSION", "SYSEXT_VERSION_ID", "SYSEXT_BUILD_ID", NULL },
+                 [IMAGE_SYSEXT] = { "SYSEXT_IMAGE_VERSION", "SYSEXT_VERSION_ID", "SYSEXT_BUILD_ID", NULL },
         };
         static const char *const field_ids[_IMAGE_CLASS_MAX][3]= {
                  [IMAGE_PORTABLE] = { "IMAGE_ID", "ID", NULL },
-                 [IMAGE_EXTENSION] = { "SYSEXT_IMAGE_ID", "SYSEXT_ID", NULL },
+                 [IMAGE_SYSEXT] = { "SYSEXT_IMAGE_ID", "SYSEXT_ID", NULL },
         };
         _cleanup_strv_free_ char **fields = NULL;
         const char *id = NULL, *version = NULL;
         int r;
 
-        assert(IN_SET(type, IMAGE_PORTABLE, IMAGE_EXTENSION));
+        assert(IN_SET(type, IMAGE_PORTABLE, IMAGE_SYSEXT));
         assert(!strv_isempty((char *const *)field_ids[type]));
         assert(!strv_isempty((char *const *)field_versions[type]));
         assert(field_name);
@@ -1106,7 +1106,7 @@ static int install_chroot_dropin(
                                  * still be able to identify what applies to what. */
                                 r = append_release_log_fields(&text,
                                                               ordered_hashmap_get(extension_releases, ext->name),
-                                                              IMAGE_EXTENSION,
+                                                              IMAGE_SYSEXT,
                                                               "PORTABLE_EXTENSION_NAME_AND_VERSION");
                                 if (r < 0)
                                         return r;
