@@ -13,6 +13,7 @@
 #include "fs-util.h"
 #include "hexdecoct.h"
 #include "hmac.h"
+#include "lock-util.h"
 #include "memory-util.h"
 #include "openssl-util.h"
 #include "parse-util.h"
@@ -30,6 +31,7 @@ static void *libtss2_mu_dl = NULL;
 
 TSS2_RC (*sym_Esys_Create)(ESYS_CONTEXT *esysContext, ESYS_TR parentHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE_CREATE *inSensitive, const TPM2B_PUBLIC *inPublic, const TPM2B_DATA *outsideInfo, const TPML_PCR_SELECTION *creationPCR, TPM2B_PRIVATE **outPrivate, TPM2B_PUBLIC **outPublic, TPM2B_CREATION_DATA **creationData, TPM2B_DIGEST **creationHash, TPMT_TK_CREATION **creationTicket) = NULL;
 TSS2_RC (*sym_Esys_CreatePrimary)(ESYS_CONTEXT *esysContext, ESYS_TR primaryHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE_CREATE *inSensitive, const TPM2B_PUBLIC *inPublic, const TPM2B_DATA *outsideInfo, const TPML_PCR_SELECTION *creationPCR, ESYS_TR *objectHandle, TPM2B_PUBLIC **outPublic, TPM2B_CREATION_DATA **creationData, TPM2B_DIGEST **creationHash, TPMT_TK_CREATION **creationTicket) = NULL;
+TSS2_RC (*sym_Esys_EvictControl)(ESYS_CONTEXT *esysContext, ESYS_TR auth, ESYS_TR objectHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPMI_DH_PERSISTENT persistentHandle, ESYS_TR *newObjectHandle);
 void (*sym_Esys_Finalize)(ESYS_CONTEXT **context) = NULL;
 TSS2_RC (*sym_Esys_FlushContext)(ESYS_CONTEXT *esysContext, ESYS_TR flushHandle) = NULL;
 void (*sym_Esys_Free)(void *ptr) = NULL;
@@ -44,10 +46,14 @@ TSS2_RC (*sym_Esys_PolicyAuthorize)(ESYS_CONTEXT *esysContext, ESYS_TR policySes
 TSS2_RC (*sym_Esys_PolicyAuthValue)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3) = NULL;
 TSS2_RC (*sym_Esys_PolicyGetDigest)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPM2B_DIGEST **policyDigest) = NULL;
 TSS2_RC (*sym_Esys_PolicyPCR)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_DIGEST *pcrDigest, const TPML_PCR_SELECTION *pcrs) = NULL;
+TSS2_RC (*sym_Esys_ReadPublic)(ESYS_CONTEXT *esysContext, ESYS_TR objectHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPM2B_PUBLIC **outPublic, TPM2B_NAME **name, TPM2B_NAME **qualifiedName);
 TSS2_RC (*sym_Esys_StartAuthSession)(ESYS_CONTEXT *esysContext, ESYS_TR tpmKey, ESYS_TR bind, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_NONCE *nonceCaller, TPM2_SE sessionType, const TPMT_SYM_DEF *symmetric, TPMI_ALG_HASH authHash, ESYS_TR *sessionHandle) = NULL;
 TSS2_RC (*sym_Esys_Startup)(ESYS_CONTEXT *esysContext, TPM2_SU startupType) = NULL;
 TSS2_RC (*sym_Esys_TRSess_SetAttributes)(ESYS_CONTEXT *esysContext, ESYS_TR session, TPMA_SESSION flags, TPMA_SESSION mask);
 TSS2_RC (*sym_Esys_TR_GetName)(ESYS_CONTEXT *esysContext, ESYS_TR handle, TPM2B_NAME **name);
+TSS2_RC (*sym_Esys_TR_Deserialize)(ESYS_CONTEXT *esys_context, uint8_t const *buffer, size_t buffer_size, ESYS_TR *esys_handle);
+TSS2_RC (*sym_Esys_TR_FromTPMPublic)(ESYS_CONTEXT *esysContext, TPM2_HANDLE tpm_handle, ESYS_TR optionalSession1, ESYS_TR optionalSession2, ESYS_TR optionalSession3, ESYS_TR *object);
+TSS2_RC (*sym_Esys_TR_Serialize)(ESYS_CONTEXT *esys_context, ESYS_TR object, uint8_t **buffer, size_t *buffer_size);
 TSS2_RC (*sym_Esys_TR_SetAuth)(ESYS_CONTEXT *esysContext, ESYS_TR handle, TPM2B_AUTH const *authValue) = NULL;
 TSS2_RC (*sym_Esys_Unseal)(ESYS_CONTEXT *esysContext, ESYS_TR itemHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPM2B_SENSITIVE_DATA **outData) = NULL;
 TSS2_RC (*sym_Esys_VerifySignature)(ESYS_CONTEXT *esysContext, ESYS_TR keyHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_DIGEST *digest, const TPMT_SIGNATURE *signature, TPMT_TK_VERIFIED **validation);
@@ -66,6 +72,7 @@ int dlopen_tpm2(void) {
                         &libtss2_esys_dl, "libtss2-esys.so.0", LOG_DEBUG,
                         DLSYM_ARG(Esys_Create),
                         DLSYM_ARG(Esys_CreatePrimary),
+                        DLSYM_ARG(Esys_EvictControl),
                         DLSYM_ARG(Esys_Finalize),
                         DLSYM_ARG(Esys_FlushContext),
                         DLSYM_ARG(Esys_Free),
@@ -80,10 +87,14 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Esys_PolicyAuthValue),
                         DLSYM_ARG(Esys_PolicyGetDigest),
                         DLSYM_ARG(Esys_PolicyPCR),
+                        DLSYM_ARG(Esys_ReadPublic),
                         DLSYM_ARG(Esys_StartAuthSession),
                         DLSYM_ARG(Esys_Startup),
                         DLSYM_ARG(Esys_TRSess_SetAttributes),
+                        DLSYM_ARG(Esys_TR_FromTPMPublic),
                         DLSYM_ARG(Esys_TR_GetName),
+                        DLSYM_ARG(Esys_TR_Deserialize),
+                        DLSYM_ARG(Esys_TR_Serialize),
                         DLSYM_ARG(Esys_TR_SetAuth),
                         DLSYM_ARG(Esys_Unseal),
                         DLSYM_ARG(Esys_VerifySignature));
@@ -249,7 +260,7 @@ Tpm2Handle *tpm2_handle_free(Tpm2Handle *handle) {
                 return NULL;
 
         _cleanup_tpm2_context_ Tpm2Context *context = (Tpm2Context*)handle->tpm2_context;
-        if (context)
+        if (context && !handle->keep)
                 tpm2_handle_flush(context->esys_context, handle->esys_handle);
 
         return mfree(handle);
@@ -334,55 +345,200 @@ static int tpm2_credit_random(Tpm2Context *c) {
         return 0;
 }
 
+const TPM2B_PUBLIC *tpm2_get_primary_template(Tpm2SRKTemplateFlags flags) {
+
+        /*
+         * Set up array so flags can be used directly as an input.
+         *
+         * Templates for SRK come from the spec:
+         *   - https://trustedcomputinggroup.org/wp-content/uploads/TCG-TPM-v2.0-Provisioning-Guidance-Published-v1r1.pdf
+         *
+         * However, note their is some lore here. On Linux, the SRK has it's unique field set to size 0 and
+         * on Windows the SRK has their unique data set to keyLen in bytes of zeros.
+         */
+        assert(flags >= 0);
+        assert(flags <= _TPM2_SRK_TEMPLATE_MAX);
+
+        static const TPM2B_PUBLIC templ[_TPM2_SRK_TEMPLATE_MAX + 1] = {
+                /* index 0 RSA old */
+                [0] = {
+                        .publicArea = {
+                                .type = TPM2_ALG_RSA,
+                                .nameAlg = TPM2_ALG_SHA256,
+                                .objectAttributes = TPMA_OBJECT_RESTRICTED|TPMA_OBJECT_DECRYPT|TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT|TPMA_OBJECT_SENSITIVEDATAORIGIN|TPMA_OBJECT_USERWITHAUTH,
+                                .parameters.rsaDetail = {
+                                        .symmetric = {
+                                                .algorithm = TPM2_ALG_AES,
+                                                .keyBits.aes = 128,
+                                                .mode.aes = TPM2_ALG_CFB,
+                                        },
+                                        .scheme.scheme = TPM2_ALG_NULL,
+                                        .keyBits = 2048,
+                                },
+                        },
+                },
+                [TPM2_SRK_TEMPLATE_ECC] = {
+                        .publicArea = {
+                                .type = TPM2_ALG_ECC,
+                                .nameAlg = TPM2_ALG_SHA256,
+                                .objectAttributes = TPMA_OBJECT_RESTRICTED|TPMA_OBJECT_DECRYPT|TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT|TPMA_OBJECT_SENSITIVEDATAORIGIN|TPMA_OBJECT_USERWITHAUTH,
+                                .parameters.eccDetail = {
+                                        .symmetric = {
+                                                .algorithm = TPM2_ALG_AES,
+                                                .keyBits.aes = 128,
+                                                .mode.aes = TPM2_ALG_CFB,
+                                        },
+                                        .scheme.scheme = TPM2_ALG_NULL,
+                                        .curveID = TPM2_ECC_NIST_P256,
+                                        .kdf.scheme = TPM2_ALG_NULL,
+                                },
+                        },
+                },
+                [TPM2_SRK_TEMPLATE_NEW_STYLE] = {
+                        .publicArea = {
+                                .type = TPM2_ALG_RSA,
+                                .nameAlg = TPM2_ALG_SHA256,
+                                .objectAttributes = TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT|TPMA_OBJECT_SENSITIVEDATAORIGIN|TPMA_OBJECT_RESTRICTED|TPMA_OBJECT_DECRYPT|TPMA_OBJECT_USERWITHAUTH|TPMA_OBJECT_NODA,
+                                .parameters.rsaDetail = {
+                                        .symmetric = {
+                                                .algorithm = TPM2_ALG_AES,
+                                                .keyBits.aes = 128,
+                                                .mode.aes = TPM2_ALG_CFB,
+                                        },
+                                        .scheme.scheme = TPM2_ALG_NULL,
+                                        .keyBits = 2048,
+                                },
+                        },
+                },
+                [TPM2_SRK_TEMPLATE_NEW_STYLE|TPM2_SRK_TEMPLATE_ECC] = {
+                        .publicArea = {
+                                .type = TPM2_ALG_ECC,
+                                .nameAlg = TPM2_ALG_SHA256,
+                                .objectAttributes = TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT|TPMA_OBJECT_SENSITIVEDATAORIGIN|TPMA_OBJECT_RESTRICTED|TPMA_OBJECT_DECRYPT|TPMA_OBJECT_USERWITHAUTH|TPMA_OBJECT_NODA,
+                                .parameters.eccDetail = {
+                                        .symmetric = {
+                                                .algorithm = TPM2_ALG_AES,
+                                                .keyBits.aes = 128,
+                                                .mode.aes = TPM2_ALG_CFB,
+                                        },
+                                        .scheme.scheme = TPM2_ALG_NULL,
+                                        .curveID = TPM2_ECC_NIST_P256,
+                                        .kdf.scheme = TPM2_ALG_NULL,
+                                },
+                        },
+                },
+        };
+
+        return &templ[flags];
+}
+
+/*
+ * Why and what is an SRK?
+ * TL;DR provides a working space for those without owner auth. The user enrolling
+ * the disk may not have access to the TPMs owner hierarchy auth, so they need a
+ * working space. This working space is at the defined address of 0x81000001.
+ * Details can be found here:
+ *   - https://trustedcomputinggroup.org/wp-content/uploads/TCG-TPM-v2.0-Provisioning-Guidance-Published-v1r1.pdf
+ */
+#define SRK_HANDLE UINT32_C(0x81000001)
+
+/*
+ * Retrieves the SRK handle if present. Returns 0 if SRK not present, 1 if present
+ * and < 0 on error
+ */
+static int tpm2_get_srk(
+                Tpm2Context *c,
+                TPMI_ALG_PUBLIC *ret_alg,
+                Tpm2Handle *ret_primary) {
+
+        TPMI_YES_NO more_data;
+        ESYS_TR primary_tr = ESYS_TR_NONE;
+        _cleanup_(Esys_Freep) TPMS_CAPABILITY_DATA *cap_data = NULL;
+
+        assert(c);
+        assert(ret_primary);
+
+        TSS2_RC rc = sym_Esys_GetCapability(c->esys_context,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        TPM2_CAP_HANDLES,
+                        SRK_HANDLE,
+                        1,
+                        &more_data,
+                        &cap_data);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to enumerate handles searching for SRK: %s",
+                                       sym_Tss2_RC_Decode(rc));
+
+        /* Did Not find SRK, indicate this by returning 0 */
+        if (cap_data->data.handles.count == 0 || cap_data->data.handles.handle[0] != SRK_HANDLE) {
+                ret_primary->esys_handle = ESYS_TR_NONE;
+
+                if (ret_alg)
+                        *ret_alg = 0;
+                return 0;
+        }
+
+        log_debug("Found SRK on TPM.");
+
+        /* convert the raw handle to an ESYS_TR */
+        TPM2_HANDLE handle = cap_data->data.handles.handle[0];
+        rc = sym_Esys_TR_FromTPMPublic(c->esys_context,
+                        handle,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        &primary_tr);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                        "Failed to convert ray handle to ESYS_TR for SRK: %s",
+                                        sym_Tss2_RC_Decode(rc));
+
+        /* Get the algorithm if the caller wants it */
+        _cleanup_(Esys_Freep) TPM2B_PUBLIC *out_public = NULL;
+        if (ret_alg) {
+                rc = sym_Esys_ReadPublic(
+                                c->esys_context,
+                                primary_tr,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE,
+                                ESYS_TR_NONE,
+                                &out_public,
+                                NULL,
+                                NULL);
+                if (rc != TSS2_RC_SUCCESS)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                                "Failed to convert ray handle to ESYS_TR for SRK: %s",
+                                                sym_Tss2_RC_Decode(rc));
+        }
+
+        ret_primary->esys_handle = primary_tr;
+
+        if (ret_alg)
+                 *ret_alg = out_public->publicArea.type;
+
+        return 1;
+}
+
 static int tpm2_make_primary(
                 Tpm2Context *c,
-                Tpm2Handle **ret_primary,
                 TPMI_ALG_PUBLIC alg,
-                TPMI_ALG_PUBLIC *ret_alg) {
+                bool use_srk_model,
+                TPMI_ALG_PUBLIC *ret_alg,
+                Tpm2Handle **ret_primary) {
 
         static const TPM2B_SENSITIVE_CREATE primary_sensitive = {};
-        static const TPM2B_PUBLIC primary_template_ecc = {
-                .size = sizeof(TPMT_PUBLIC),
-                .publicArea = {
-                        .type = TPM2_ALG_ECC,
-                        .nameAlg = TPM2_ALG_SHA256,
-                        .objectAttributes = TPMA_OBJECT_RESTRICTED|TPMA_OBJECT_DECRYPT|TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT|TPMA_OBJECT_SENSITIVEDATAORIGIN|TPMA_OBJECT_USERWITHAUTH,
-                        .parameters.eccDetail = {
-                                .symmetric = {
-                                        .algorithm = TPM2_ALG_AES,
-                                        .keyBits.aes = 128,
-                                        .mode.aes = TPM2_ALG_CFB,
-                                },
-                                .scheme.scheme = TPM2_ALG_NULL,
-                                .curveID = TPM2_ECC_NIST_P256,
-                                .kdf.scheme = TPM2_ALG_NULL,
-                        },
-                },
-        };
-        static const TPM2B_PUBLIC primary_template_rsa = {
-                .size = sizeof(TPMT_PUBLIC),
-                .publicArea = {
-                        .type = TPM2_ALG_RSA,
-                        .nameAlg = TPM2_ALG_SHA256,
-                        .objectAttributes = TPMA_OBJECT_RESTRICTED|TPMA_OBJECT_DECRYPT|TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT|TPMA_OBJECT_SENSITIVEDATAORIGIN|TPMA_OBJECT_USERWITHAUTH,
-                        .parameters.rsaDetail = {
-                                .symmetric = {
-                                        .algorithm = TPM2_ALG_AES,
-                                        .keyBits.aes = 128,
-                                        .mode.aes = TPM2_ALG_CFB,
-                                },
-                                .scheme.scheme = TPM2_ALG_NULL,
-                                .keyBits = 2048,
-                        },
-                },
-        };
-
         static const TPML_PCR_SELECTION creation_pcr = {};
+        const TPM2B_PUBLIC *primary_template = NULL;
+        Tpm2SRKTemplateFlags base_flags = use_srk_model ? TPM2_SRK_TEMPLATE_NEW_STYLE : 0;
+        _cleanup_(release_lock_file) LockFile srk_lock = LOCK_FILE_INIT;
         TSS2_RC rc;
         usec_t ts;
         int r;
 
-        log_debug("Creating primary key on TPM.");
+        log_debug("Creating %s on TPM.", use_srk_model ? "SRK" : "Transient Primary Key");
 
         /* So apparently not all TPM2 devices support ECC. ECC is generally preferably, because it's so much
          * faster, noticeably so (~10s vs. ~240ms on my system). Hence, unless explicitly configured let's
@@ -395,7 +551,42 @@ static int tpm2_make_primary(
         if (r < 0)
                 return r;
 
+        /* we only need the SRK lock when making the SRK since its not atomic, transient
+         * primary creations don't even matter if they stomp on each other, the TPM will
+         * keep kicking back the same key.
+         */
+        if (use_srk_model) {
+                r = make_lock_file("/run/systemd/tpm2-srk-init", LOCK_EX, &srk_lock);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to take network zone lock: %m");
+        }
+
+        /* Find existing SRK and use it if present */
+        if (use_srk_model) {
+                TPMI_ALG_PUBLIC got_alg = TPM2_ALG_NULL;
+                r = tpm2_get_srk(c, &got_alg, primary);
+                if (r < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to establish if SRK is present");
+                if (r == 1) {
+                        log_debug("Discovered existing SRK");
+
+                        if (alg != 0 && alg != got_alg)
+                                log_warning("Caller asked for specific algorithm %u, but existing SRK is %u, ignoring",
+                                                alg, got_alg);
+
+                        if (ret_alg)
+                                *ret_alg = alg;
+                        if (ret_primary)
+                                *ret_primary = TAKE_PTR(primary);
+                        return 0;
+                }
+                log_debug("Did not find SRK, generating...");
+        }
+
         if (IN_SET(alg, 0, TPM2_ALG_ECC)) {
+                primary_template = tpm2_get_primary_template(base_flags | TPM2_SRK_TEMPLATE_ECC);
+
                 rc = sym_Esys_CreatePrimary(
                                 c->esys_context,
                                 ESYS_TR_RH_OWNER,
@@ -403,7 +594,7 @@ static int tpm2_make_primary(
                                 ESYS_TR_NONE,
                                 ESYS_TR_NONE,
                                 &primary_sensitive,
-                                &primary_template_ecc,
+                                primary_template,
                                 NULL,
                                 &creation_pcr,
                                 &primary->esys_handle,
@@ -425,6 +616,8 @@ static int tpm2_make_primary(
         }
 
         if (IN_SET(alg, 0, TPM2_ALG_RSA)) {
+                primary_template = tpm2_get_primary_template(base_flags);
+
                 rc = sym_Esys_CreatePrimary(
                                 c->esys_context,
                                 ESYS_TR_RH_OWNER,
@@ -432,7 +625,7 @@ static int tpm2_make_primary(
                                 ESYS_TR_NONE,
                                 ESYS_TR_NONE,
                                 &primary_sensitive,
-                                &primary_template_rsa,
+                                primary_template,
                                 NULL,
                                 &creation_pcr,
                                 &primary->esys_handle,
@@ -452,7 +645,17 @@ static int tpm2_make_primary(
                 log_debug("Successfully created RSA primary key on TPM.");
         }
 
-        log_debug("Generating primary key on TPM2 took %s.", FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - ts, USEC_PER_MSEC));
+        log_debug("Generating %s on the TPM2 took %s.", use_srk_model ? "SRK" : "Transient Primary Key",
+                        FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - ts, USEC_PER_MSEC));
+
+        if (use_srk_model) {
+                rc = sym_Esys_EvictControl(c->esys_context, ESYS_TR_RH_OWNER, primary->esys_handle,
+                                ESYS_TR_PASSWORD, ESYS_TR_NONE, ESYS_TR_NONE, SRK_HANDLE, &primary->esys_handle);
+                if (rc != TSS2_RC_SUCCESS)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to persist SRK within TPM: %s", sym_Tss2_RC_Decode(rc));
+                primary->keep = true;
+        }
 
         if (ret_primary)
                 *ret_primary = TAKE_PTR(primary);
@@ -1752,10 +1955,13 @@ int tpm2_seal(const char *device,
               void **ret_pcr_hash,
               size_t *ret_pcr_hash_size,
               uint16_t *ret_pcr_bank,
-              uint16_t *ret_primary_alg) {
+              uint16_t *ret_primary_alg,
+              void **ret_srk_buf,
+              size_t *ret_srk_buf_size) {
 
         _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
         _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
+        _cleanup_(Esys_Freep) uint8_t *srk_buf = NULL;
         static const TPML_PCR_SELECTION creation_pcr = {};
         _cleanup_(erase_and_freep) void *secret = NULL;
         _cleanup_free_ void *hash = NULL;
@@ -1764,6 +1970,7 @@ int tpm2_seal(const char *device,
         TPM2B_PUBLIC hmac_template;
         usec_t start;
         TSS2_RC rc;
+        size_t srk_buf_size;
         int r;
 
         assert(pubkey || pubkey_size == 0);
@@ -1805,7 +2012,7 @@ int tpm2_seal(const char *device,
                 return r;
 
         _cleanup_tpm2_handle_ Tpm2Handle *primary = NULL;
-        r = tpm2_make_primary(c, &primary, 0, &primary_alg);
+        r = tpm2_make_primary(c, /* alg = */0, !!ret_srk_buf, &primary_alg, &primary);
         if (r < 0)
                 return r;
 
@@ -1914,8 +2121,34 @@ int tpm2_seal(const char *device,
         if (!hash)
                 return log_oom();
 
+        /* serialize the key for storage in the LUKS header. A deserialized ESYS_TR provides both
+         * the raw TPM handle as well as the object name. The object name is used to verify that
+         * the key we use later is the key we expect to establish the session with.
+         */
+        if (ret_srk_buf) {
+                log_debug("Serializing SRK ESYS_TR reference");
+                rc = sym_Esys_TR_Serialize(c->esys_context, primary->esys_handle, &srk_buf, &srk_buf_size);
+                if (rc != TSS2_RC_SUCCESS)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                            "Failed to serialize primary key: %s", sym_Tss2_RC_Decode(rc));
+        }
+
         if (DEBUG_LOGGING)
                 log_debug("Completed TPM2 key sealing in %s.", FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - start, 1));
+
+        if (ret_srk_buf) {
+                /*
+                 * make a copy since we don't want the caller to understand that
+                 * ESYS allocated the pointer. It would make tracking what deallocator
+                 * to use for srk_buf in which context a PITA.
+                 */
+                void *tmp = memdup(srk_buf, srk_buf_size);
+                if (!tmp)
+                        return log_oom();
+
+                *ret_srk_buf = TAKE_PTR(tmp);
+                *ret_srk_buf_size = srk_buf_size;
+        }
 
         *ret_secret = TAKE_PTR(secret);
         *ret_secret_size = hmac_sensitive.sensitive.data.size;
@@ -1944,6 +2177,8 @@ int tpm2_unseal(const char *device,
                 size_t blob_size,
                 const void *known_policy_hash,
                 size_t known_policy_hash_size,
+                const void *srk_buf,
+                size_t srk_buf_size,
                 void **ret_secret,
                 size_t *ret_secret_size) {
 
@@ -1999,18 +2234,39 @@ int tpm2_unseal(const char *device,
         if (r < 0)
                 return r;
 
+        /* If their is a primary key we trust, like an SRK, use it */
         _cleanup_tpm2_handle_ Tpm2Handle *primary = NULL;
-        r = tpm2_make_primary(c, &primary, primary_alg, NULL);
-        if (r < 0)
-                return r;
+        if (srk_buf) {
+
+                r = tpm2_handle_new(c, &primary);
+                if (r < 0)
+                        return r;
+
+                primary->keep = true;
+
+                log_debug("Found existing SRK key to use, deserializing ESYS_TR");
+                rc = sym_Esys_TR_Deserialize(
+                                c->esys_context,
+                                srk_buf,
+                                srk_buf_size,
+                                &primary->esys_handle);
+                if (rc != TSS2_RC_SUCCESS)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to deserialize primary key: %s", sym_Tss2_RC_Decode(rc));
+        /* old callers without an SRK still need to create a key */
+        } else {
+                r = tpm2_make_primary(c, primary_alg, false, NULL, &primary);
+                if (r < 0)
+                        return r;
+        }
 
         log_debug("Loading HMAC key into TPM.");
 
         /*
          * Nothing sensitive on the bus, no need for encryption. Even if an attacker
-         * gives you back a different key, the session initiation will fail if a pin
-         * is provided. If an attacker gives back a bad key, we already lost since
-         * primary key is not verified and they could attack there as well.
+         * gives you back a different key, the session initiation will fail. In the
+         * SRK model, the tpmKey is verified. In the non-srk model, with pin, the bindKey
+         * provides protections.
          */
         _cleanup_tpm2_handle_ Tpm2Handle *hmac_key = NULL;
         r = tpm2_handle_new(c, &hmac_key);
@@ -2439,6 +2695,8 @@ int tpm2_make_luks2_json(
                 size_t policy_hash_size,
                 const void *salt,
                 size_t salt_size,
+                const void *srk_buf,
+                size_t srk_buf_size,
                 TPM2Flags flags,
                 JsonVariant **ret) {
 
@@ -2479,7 +2737,8 @@ int tpm2_make_luks2_json(
                                        JSON_BUILD_PAIR("tpm2-pin", JSON_BUILD_BOOLEAN(flags & TPM2_FLAGS_USE_PIN)),
                                        JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey_pcrs", JSON_BUILD_VARIANT(pkmj)),
                                        JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey", JSON_BUILD_BASE64(pubkey, pubkey_size)),
-                                       JSON_BUILD_PAIR_CONDITION(salt, "tpm2_salt", JSON_BUILD_BASE64(salt, salt_size))));
+                                       JSON_BUILD_PAIR_CONDITION(salt, "tpm2_salt", JSON_BUILD_BASE64(salt, salt_size)),
+                                       JSON_BUILD_PAIR_CONDITION(srk_buf, "tpm2_srk", JSON_BUILD_BASE64(srk_buf, srk_buf_size))));
         if (r < 0)
                 return r;
 
@@ -2504,10 +2763,12 @@ int tpm2_parse_luks2_json(
                 size_t *ret_policy_hash_size,
                 void **ret_salt,
                 size_t *ret_salt_size,
+                void **ret_srk_buf,
+                size_t *ret_srk_buf_size,
                 TPM2Flags *ret_flags) {
 
-        _cleanup_free_ void *blob = NULL, *policy_hash = NULL, *pubkey = NULL, *salt = NULL;
-        size_t blob_size = 0, policy_hash_size = 0, pubkey_size = 0, salt_size = 0;
+        _cleanup_free_ void *blob = NULL, *policy_hash = NULL, *pubkey = NULL, *salt = NULL, *srk_buf = NULL;
+        size_t blob_size = 0, policy_hash_size = 0, pubkey_size = 0, salt_size = 0, srk_buf_size = 0;
         uint32_t hash_pcr_mask = 0, pubkey_pcr_mask = 0;
         uint16_t primary_alg = TPM2_ALG_ECC; /* ECC was the only supported algorithm in systemd < 250, use that as implied default, for compatibility */
         uint16_t pcr_bank = UINT16_MAX; /* default: pick automatically */
@@ -2614,6 +2875,13 @@ int tpm2_parse_luks2_json(
         } else if (pubkey_pcr_mask != 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Public key PCR mask set, but not public key included in JSON data, refusing.");
 
+        w = json_variant_by_key(v, "tpm2_srk");
+        if (w) {
+                r = json_variant_unbase64(w, &srk_buf, &srk_buf_size);
+                if (r < 0)
+                        return log_debug_errno(r, "Invalid base64 data in 'tpm2_srk' field.");
+        }
+
         if (ret_keyslot)
                 *ret_keyslot = keyslot;
         if (ret_hash_pcr_mask)
@@ -2642,6 +2910,10 @@ int tpm2_parse_luks2_json(
                 *ret_salt_size = salt_size;
         if (ret_flags)
                 *ret_flags = flags;
+        if (ret_srk_buf)
+                *ret_srk_buf = TAKE_PTR(srk_buf);
+        if (ret_srk_buf_size)
+                *ret_srk_buf_size = srk_buf_size;
 
         return 0;
 }
