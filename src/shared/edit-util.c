@@ -219,6 +219,68 @@ static int create_edit_temp_file(
         return 0;
 }
 
+static int run_editor_child(const EditFileContext *context) {
+        _cleanup_strv_free_ char **args = NULL;
+        const char *editor;
+        int r;
+
+        /* SYSTEMD_EDITOR takes precedence over EDITOR which takes precedence over VISUAL.
+         * If neither SYSTEMD_EDITOR nor EDITOR nor VISUAL are present, we try to execute
+         * well known editors. */
+        editor = getenv("SYSTEMD_EDITOR");
+        if (!editor)
+                editor = getenv("EDITOR");
+        if (!editor)
+                editor = getenv("VISUAL");
+
+        if (!isempty(editor)) {
+                _cleanup_strv_free_ char **editor_args = NULL;
+
+                editor_args = strv_split(editor, WHITESPACE);
+                if (!editor_args)
+                        return log_oom();
+
+                args = TAKE_PTR(editor_args);
+        }
+
+        if (context->n_files == 1 && context->files[0].line > 1) {
+                /* If editing a single file only, use the +LINE syntax to put cursor on the right line */
+                r = strv_extendf(&args, "+%u", context->files[0].line);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        FOREACH_ARRAY(i, context->files, context->n_files) {
+                r = strv_extend(&args, i->temp);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        if (!isempty(editor))
+                execvp(args[0], (char* const*) args);
+
+        bool prepended = false;
+        FOREACH_STRING(name, "editor", "nano", "vim", "vi") {
+                if (!prepended) {
+                        r = strv_prepend(&args, name);
+                        prepended = true;
+                } else
+                        r = free_and_strdup(&args[0], name);
+                if (r < 0)
+                        return log_oom();
+
+                execvp(args[0], (char* const*) args);
+
+                /* We do not fail if the editor doesn't exist because we want to try each one of them
+                 * before failing. */
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to execute '%s': %m", name);
+        }
+
+        return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                               "Cannot edit files, no editor available. Please set either $SYSTEMD_EDITOR, $EDITOR or $VISUAL.");
+}
+
 static int run_editor(const EditFileContext *context) {
         int r;
 
@@ -227,73 +289,9 @@ static int run_editor(const EditFileContext *context) {
         r = safe_fork("(editor)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG|FORK_WAIT, NULL);
         if (r < 0)
                 return r;
-        if (r == 0) {
-                size_t n_editor_args = 0, i = 1, argc;
-                char **editor_args = NULL, **args;
-                const char *editor;
-
-                /* SYSTEMD_EDITOR takes precedence over EDITOR which takes precedence over VISUAL.  If
-                 * neither SYSTEMD_EDITOR nor EDITOR nor VISUAL are present, we try to execute well known
-                 * editors. */
-                editor = getenv("SYSTEMD_EDITOR");
-                if (!editor)
-                        editor = getenv("EDITOR");
-                if (!editor)
-                        editor = getenv("VISUAL");
-
-                if (isempty(editor))
-                        argc = 1;
-                else {
-                        editor_args = strv_split(editor, WHITESPACE);
-                        if (!editor_args) {
-                                (void) log_oom();
-                                _exit(EXIT_FAILURE);
-                        }
-                        n_editor_args = strv_length(editor_args);
-                        argc = n_editor_args;
-                }
-
-                argc += context->n_files * 2;
-
-                args = newa(char*, argc + 1);
-
-                if (n_editor_args > 0) {
-                        args[0] = editor_args[0];
-                        for (; i < n_editor_args; i++)
-                                args[i] = editor_args[i];
-                }
-
-                if (context->n_files == 1 && context->files[0].line > 1) {
-                        /* If editing a single file only, use the +LINE syntax to put cursor on the right line */
-                        if (asprintf(args + i, "+%u", context->files[0].line) < 0) {
-                                (void) log_oom();
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        i++;
-                        args[i++] = context->files[0].temp;
-                } else
-                        FOREACH_ARRAY(f, context->files, context->n_files)
-                                args[i++] = f->temp;
-
-                args[i] = NULL;
-
-                if (n_editor_args > 0)
-                        execvp(args[0], (char* const*) args);
-
-                FOREACH_STRING(name, "editor", "nano", "vim", "vi") {
-                        args[0] = (char*) name;
-                        execvp(name, (char* const*) args);
-                        /* We do not fail if the editor doesn't exist because we want to try each one of them
-                         * before failing. */
-                        if (errno != ENOENT) {
-                                log_error_errno(errno, "Failed to execute %s: %m", name);
-                                _exit(EXIT_FAILURE);
-                        }
-                }
-
-                log_error("Cannot edit files, no editor available. Please set either $SYSTEMD_EDITOR, $EDITOR or $VISUAL.");
-                _exit(EXIT_FAILURE);
+        if (r == 0) { /* Child */
+                r = run_editor_child(context);
+                _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
 
         return 0;
