@@ -5,27 +5,30 @@
 
 typedef struct EditFile {
         char *path;
-        char *tmp;
+        char *original_path;
+        char **comment_paths;
+        char *temp;
         unsigned line;
 } EditFile;
 
-#define _EDIT_FILE_FOREACH(s, e, i)                                     \
-        for (typeof(*(e)) *s, *i = (e); (s = i) && i->path; i++)
+typedef struct EditFileContext {
+        EditFile *files;
+        size_t n_files;
+        const char *marker_start;
+        const char *marker_end;
+} EditFileContext;
 
-#define EDIT_FILE_FOREACH(s, e)                                         \
-        _EDIT_FILE_FOREACH(s, e, UNIQ_T(i, UNIQ))
+#define EDIT_FILES_FOREACH(s, c)                                        \
+        for (EditFile *s = (c)->files; s < (c)->files + (c)->n_files; s++)
 
-void edit_file_free_all(EditFile **ef);
+void edit_file_context_done(EditFileContext *context);
 
-int create_edit_temp_file(
-                const char *target_path,
+bool edit_files_contains(EditFileContext *context, const char *path);
+
+int edit_files_add(
+                EditFileContext *context,
+                const char *path,
                 const char *original_path,
-                char * const *comment_paths,
-                const char *marker_start,
-                const char *marker_end,
-                char **ret_temp_filename,
-                unsigned *ret_edit_line);
+                char * const *comment_paths);
 
-int run_editor(const EditFile *files);
-
-int trim_edit_markers(const char *path, const char *marker_start, const char *marker_end);
+int do_edit_files_and_install(EditFileContext *context);
