@@ -5,21 +5,28 @@
 
 typedef struct EditFile {
         char *path;
-        char *tmp;
+        char *original_path;
+        char **comment_paths;
+        char *temp;
         unsigned line;
 } EditFile;
 
-void edit_file_free_all(EditFile **ef);
+typedef struct EditFileContext {
+        EditFile *files;
+        size_t n_files;
+        const char *marker_start;
+        const char *marker_end;
+        bool remove_parent;
+} EditFileContext;
 
-int create_edit_temp_file(
-                const char *target_path,
+void edit_file_context_done(EditFileContext *context);
+
+bool edit_files_contains(const EditFileContext *context, const char *path);
+
+int edit_files_add(
+                EditFileContext *context,
+                const char *path,
                 const char *original_path,
-                char * const *comment_paths,
-                const char *marker_start,
-                const char *marker_end,
-                char **ret_temp_filename,
-                unsigned *ret_edit_line);
+                char * const *comment_paths);
 
-int run_editor(const EditFile *files);
-
-int trim_edit_markers(const char *path, const char *marker_start, const char *marker_end);
+int do_edit_files_and_install(EditFileContext *context);

@@ -136,50 +136,43 @@ static int get_file_to_edit(
 }
 
 static int unit_file_create_new(
+                EditFileContext *context,
                 const LookupPaths *paths,
                 const char *unit_name,
                 const char *suffix,
-                char ** const original_unit_paths,
-                EditFile *ret_edit_file) {
+                char * const *original_unit_paths) {
 
-        _cleanup_free_ char *new_path = NULL, *tmp_path = NULL;
-        unsigned edit_line;
+        _cleanup_free_ char *new_path = NULL;
         const char *ending;
         int r;
 
+        assert(context);
         assert(unit_name);
-        assert(ret_edit_file);
 
         ending = strjoina(unit_name, suffix);
         r = get_file_to_edit(paths, ending, &new_path);
         if (r < 0)
                 return r;
 
-        r = create_edit_temp_file(new_path, NULL, original_unit_paths, EDIT_MARKER_START, EDIT_MARKER_END, &tmp_path, &edit_line);
+        r = edit_files_add(context, new_path, NULL, original_unit_paths);
         if (r < 0)
                 return r;
 
-        *ret_edit_file = (EditFile) {
-                .path = TAKE_PTR(new_path),
-                .tmp = TAKE_PTR(tmp_path),
-                .line = edit_line,
-        };
         return 0;
 }
 
 static int unit_file_create_copy(
+                EditFileContext *context,
                 const LookupPaths *paths,
                 const char *unit_name,
-                const char *fragment_path,
-                EditFile *ret_edit_file) {
+                const char *fragment_path) {
 
-        _cleanup_free_ char *new_path = NULL, *tmp_path = NULL;
-        unsigned edit_line;
+        _cleanup_free_ char *new_path = NULL;
         int r;
 
+        assert(context);
         assert(fragment_path);
         assert(unit_name);
-        assert(ret_edit_file);
 
         r = get_file_to_edit(paths, unit_name, &new_path);
         if (r < 0)
@@ -195,33 +188,27 @@ static int unit_file_create_copy(
                         return log_warning_errno(SYNTHETIC_ERRNO(EKEYREJECTED), "%s skipped.", unit_name);
         }
 
-        r = create_edit_temp_file(new_path, fragment_path, NULL, EDIT_MARKER_START, EDIT_MARKER_END, &tmp_path, &edit_line);
+        r = edit_files_add(context, new_path, fragment_path, NULL);
         if (r < 0)
                 return r;
 
-        *ret_edit_file = (EditFile) {
-                .path = TAKE_PTR(new_path),
-                .tmp = TAKE_PTR(tmp_path),
-                .line = edit_line,
-        };
         return 0;
 }
 
 static int find_paths_to_edit(
                 sd_bus *bus,
-                char **names,
-                EditFile **ret_edit_files) {
+                EditFileContext *context,
+                char **names) {
 
         _cleanup_(hashmap_freep) Hashmap *cached_name_map = NULL, *cached_id_map = NULL;
-        _cleanup_(edit_file_free_all) EditFile *edit_files = NULL;
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         _cleanup_free_ char *drop_in_alloc = NULL, *suffix = NULL;
         const char *drop_in;
-        size_t n_edit_files = 0;
         int r;
 
+        assert(bus);
+        assert(context);
         assert(names);
-        assert(ret_edit_files);
 
         if (isempty(arg_drop_in))
                 drop_in = "override.conf";
@@ -261,9 +248,6 @@ static int find_paths_to_edit(
                 if (r < 0)
                         return r;
 
-                if (!GREEDY_REALLOC0(edit_files, n_edit_files + 2))
-                        return log_oom();
-
                 if (!path) {
                         if (!arg_force) {
                                 log_info("Run 'systemctl edit%s --force --full %s' to create a new unit.",
@@ -275,11 +259,11 @@ static int find_paths_to_edit(
 
                         /* Create a new unit from scratch */
                         r = unit_file_create_new(
+                                        context,
                                         &lp,
                                         *name,
                                         arg_full ? NULL : suffix,
-                                        NULL,
-                                        edit_files + n_edit_files);
+                                        NULL);
                 } else {
                         _cleanup_free_ char *unit_name = NULL;
 
@@ -305,35 +289,36 @@ static int find_paths_to_edit(
 
                         if (arg_full)
                                 r = unit_file_create_copy(
+                                                context,
                                                 &lp,
                                                 unit_name,
-                                                path,
-                                                edit_files + n_edit_files);
+                                                path);
                         else {
                                 r = strv_prepend(&unit_paths, path);
                                 if (r < 0)
                                         return log_oom();
 
                                 r = unit_file_create_new(
+                                                context,
                                                 &lp,
                                                 unit_name,
                                                 suffix,
-                                                unit_paths,
-                                                edit_files + n_edit_files);
+                                                unit_paths);
                         }
                 }
                 if (r < 0)
                         return r;
-
-                n_edit_files++;
         }
 
-        *ret_edit_files = n_edit_files > 0 ? TAKE_PTR(edit_files) : NULL;
         return 0;
 }
 
 int verb_edit(int argc, char *argv[], void *userdata) {
-        _cleanup_(edit_file_free_all) EditFile *edit_files = NULL;
+        _cleanup_(edit_file_context_done) EditFileContext context = {
+                .marker_start = EDIT_MARKER_START,
+                .marker_end = EDIT_MARKER_END,
+                .remove_parent = !arg_full,
+        };
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         _cleanup_strv_free_ char **names = NULL;
         sd_bus *bus;
@@ -371,60 +356,18 @@ int verb_edit(int argc, char *argv[], void *userdata) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit %s: unit is masked.", *tmp);
         }
 
-        r = find_paths_to_edit(bus, names, &edit_files);
+        r = find_paths_to_edit(bus, &context, names);
         if (r < 0)
                 return r;
-        if (!edit_files)
-                return -ENOENT;
 
-        r = run_editor(edit_files);
+        r = do_edit_files_and_install(&context);
         if (r < 0)
-                goto end;
-
-        for (EditFile *f = edit_files; f->path; f++) {
-                /* If the temporary file is empty we ignore it. This allows the user to cancel the
-                 * modification. */
-                r = trim_edit_markers(f->tmp, EDIT_MARKER_START, EDIT_MARKER_END);
-                if (r < 0)
-                        goto end;
-                if (r == 0) /* has no actual contents? then ignore it */
-                        continue;
-
-                r = RET_NERRNO(rename(f->tmp, f->path));
-                if (r < 0) {
-                        log_error_errno(r, "Failed to rename \"%s\" to \"%s\": %m", f->tmp, f->path);
-                        goto end;
-                }
-
-                f->tmp = mfree(f->tmp);
-                log_info("Successfully installed edited file '%s'.", f->path);
-        }
-
-        r = 0;
+                return r;
 
         if (!arg_no_reload && !install_client_side()) {
                 r = daemon_reload(ACTION_RELOAD, /* graceful= */ false);
                 if (r > 0)
                         r = 0;
-        }
-
-end:
-        for (EditFile *f = ASSERT_PTR(edit_files); f->path; f++) {
-
-                if (f->tmp)
-                        (void) unlink(f->tmp);
-
-                /* Removing empty dropin dirs */
-                if (!arg_full) {
-                        _cleanup_free_ char *dir = NULL;
-
-                        r = path_extract_directory(f->path, &dir);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to extract directory from '%s': %m", f->path);
-
-                        /* No need to check if the dir is empty, rmdir does nothing if it is not the case. */
-                        (void) rmdir(dir);
-                }
         }
 
         return r;
