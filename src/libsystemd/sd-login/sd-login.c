@@ -268,25 +268,40 @@ static int file_of_seat(const char *seat, char **ret) {
         return 0;
 }
 
+static int seat_get_string(const char *seat, const char *key, char **ret) {
+        _cleanup_free_ char *p = NULL, *s = NULL;
+        int r;
+
+        assert(key);
+        assert(ret);
+
+        r = file_of_seat(seat, &p);
+        if (r < 0)
+                return r;
+
+        r = parse_env_file(NULL, p, key, &s);
+        if (r == -ENOENT)
+                return -ENXIO;
+        if (r < 0)
+                return r;
+        if (isempty(s))
+                return -ENODATA;
+
+        *ret = TAKE_PTR(s);
+        return 0;
+}
+
 _public_ int sd_uid_is_on_seat(uid_t uid, int require_active, const char *seat) {
-        _cleanup_free_ char *filename = NULL, *content = NULL;
+        _cleanup_free_ char *content = NULL;
         int r;
 
         assert_return(uid_is_valid(uid), -EINVAL);
 
-        r = file_of_seat(seat, &filename);
+        r = seat_get_string(seat, require_active ? "ACTIVE_UID" : "UIDS", &content);
+        if (IN_SET(r, -ENXIO, -ENODATA))
+                return false;
         if (r < 0)
                 return r;
-
-        r = parse_env_file(NULL, filename,
-                           require_active ? "ACTIVE_UID" : "UIDS",
-                           &content);
-        if (r == -ENOENT)
-                return 0;
-        if (r < 0)
-                return r;
-        if (isempty(content))
-                return 0;
 
         char t[DECIMAL_STR_MAX(uid_t)];
         xsprintf(t, UID_FMT, uid);
@@ -578,24 +593,15 @@ _public_ int sd_seat_get_sessions(
         return n_sessions;
 }
 
-static int seat_get_can(const char *seat, const char *variable) {
-        _cleanup_free_ char *p = NULL, *s = NULL;
+static int seat_get_boolean(const char *seat, const char *key) {
+        _cleanup_free_ char *s = NULL;
         int r;
 
-        assert(variable);
+        assert(key);
 
-        r = file_of_seat(seat, &p);
+        r = seat_get_string(seat, key, &s);
         if (r < 0)
                 return r;
-
-        r = parse_env_file(NULL, p,
-                           variable, &s);
-        if (r == -ENOENT)
-                return -ENXIO;
-        if (r < 0)
-                return r;
-        if (isempty(s))
-                return -ENODATA;
 
         return parse_boolean(s);
 }
@@ -605,11 +611,11 @@ _public_ int sd_seat_can_multi_session(const char *seat) {
 }
 
 _public_ int sd_seat_can_tty(const char *seat) {
-        return seat_get_can(seat, "CAN_TTY");
+        return seat_get_boolean(seat, "CAN_TTY");
 }
 
 _public_ int sd_seat_can_graphical(const char *seat) {
-        return seat_get_can(seat, "CAN_GRAPHICAL");
+        return seat_get_boolean(seat, "CAN_GRAPHICAL");
 }
 
 _public_ int sd_get_seats(char ***ret_seats) {
