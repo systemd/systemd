@@ -312,11 +312,12 @@ _public_ int sd_uid_get_seats(uid_t uid, int require_active, char ***ret_seats) 
                         ret_seats);
 }
 
-static int file_of_session(const char *session, char **ret) {
-        char *p;
+static int session_get_string(const char *session, const char *key, char **ret) {
+        _cleanup_free_ char *p = NULL, *s = NULL;
         int r;
 
-        assert(ret);
+        assert_return(ret, -EINVAL);
+        assert(key);
 
         if (session) {
                 if (!session_id_valid(session))
@@ -332,108 +333,10 @@ static int file_of_session(const char *session, char **ret) {
 
                 p = path_join("/run/systemd/sessions", buf);
         }
-
         if (!p)
                 return -ENOMEM;
 
-        *ret = p;
-        return 0;
-}
-
-_public_ int sd_session_is_active(const char *session) {
-        _cleanup_free_ char *p = NULL, *s = NULL;
-        int r;
-
-        r = file_of_session(session, &p);
-        if (r < 0)
-                return r;
-
-        r = parse_env_file(NULL, p, "ACTIVE", &s);
-        if (r == -ENOENT)
-                return -ENXIO;
-        if (r < 0)
-                return r;
-        if (isempty(s))
-                return -EIO;
-
-        return parse_boolean(s);
-}
-
-_public_ int sd_session_is_remote(const char *session) {
-        _cleanup_free_ char *p = NULL, *s = NULL;
-        int r;
-
-        r = file_of_session(session, &p);
-        if (r < 0)
-                return r;
-
-        r = parse_env_file(NULL, p, "REMOTE", &s);
-        if (r == -ENOENT)
-                return -ENXIO;
-        if (r < 0)
-                return r;
-        if (isempty(s))
-                return -ENODATA;
-
-        return parse_boolean(s);
-}
-
-_public_ int sd_session_get_state(const char *session, char **ret_state) {
-        _cleanup_free_ char *p = NULL, *s = NULL;
-        int r;
-
-        assert_return(ret_state, -EINVAL);
-
-        r = file_of_session(session, &p);
-        if (r < 0)
-                return r;
-
-        r = parse_env_file(NULL, p, "STATE", &s);
-        if (r == -ENOENT)
-                return -ENXIO;
-        if (r < 0)
-                return r;
-        if (isempty(s))
-                return -EIO;
-
-        *ret_state = TAKE_PTR(s);
-
-        return 0;
-}
-
-_public_ int sd_session_get_uid(const char *session, uid_t *ret_uid) {
-        int r;
-        _cleanup_free_ char *p = NULL, *s = NULL;
-
-        assert_return(ret_uid, -EINVAL);
-
-        r = file_of_session(session, &p);
-        if (r < 0)
-                return r;
-
-        r = parse_env_file(NULL, p, "UID", &s);
-        if (r == -ENOENT)
-                return -ENXIO;
-        if (r < 0)
-                return r;
-        if (isempty(s))
-                return -EIO;
-
-        return parse_uid(s, ret_uid);
-}
-
-static int session_get_string(const char *session, const char *field, char **ret) {
-        _cleanup_free_ char *p = NULL, *s = NULL;
-        int r;
-
-        assert_return(ret, -EINVAL);
-        assert(field);
-
-        r = file_of_session(session, &p);
-        if (r < 0)
-                return r;
-
-        r = parse_env_file(NULL, p, field, &s);
+        r = parse_env_file(NULL, p, key, &s);
         if (r == -ENOENT)
                 return -ENXIO;
         if (r < 0)
@@ -445,6 +348,46 @@ static int session_get_string(const char *session, const char *field, char **ret
         return 0;
 }
 
+_public_ int sd_session_is_active(const char *session) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        r = session_get_string(session, "ACTIVE", &s);
+        if (r < 0)
+                return r;
+
+        return parse_boolean(s);
+}
+
+_public_ int sd_session_is_remote(const char *session) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        r = session_get_string(session, "REMOTE", &s);
+        if (r < 0)
+                return r;
+
+        return parse_boolean(s);
+}
+
+_public_ int sd_session_get_state(const char *session, char **ret_state) {
+        assert_return(ret_state, -EINVAL);
+        return session_get_string(session, "STATE", ret_state);
+}
+
+_public_ int sd_session_get_uid(const char *session, uid_t *ret_uid) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert_return(ret_uid, -EINVAL);
+
+        r = session_get_string(session, "UID", &s);
+        if (r < 0)
+                return r;
+
+        return parse_uid(s, ret_uid);
+}
+
 _public_ int sd_session_get_username(const char *session, char **ret_username) {
         return session_get_string(session, "USER", ret_username);
 }
@@ -454,30 +397,16 @@ _public_ int sd_session_get_seat(const char *session, char **ret_seat) {
 }
 
 _public_ int sd_session_get_start_time(const char *session, uint64_t *ret_usec) {
-        _cleanup_free_ char *p = NULL, *s = NULL;
-        usec_t t;
+        _cleanup_free_ char *s = NULL;
         int r;
 
         assert_return(ret_usec, -EINVAL);
 
-        r = file_of_session(session, &p);
+        r = session_get_string(session, "REALTIME", &s);
         if (r < 0)
                 return r;
 
-        r = parse_env_file(NULL, p, "REALTIME", &s);
-        if (r == -ENOENT)
-                return -ENXIO;
-        if (r < 0)
-                return r;
-        if (isempty(s))
-                return -EIO;
-
-        r = safe_atou64(s, &t);
-        if (r < 0)
-                return r;
-
-        *ret_usec = t;
-        return 0;
+        return safe_atou64(s, ret_usec);
 }
 
 _public_ int sd_session_get_tty(const char *session, char **ret_tty) {
