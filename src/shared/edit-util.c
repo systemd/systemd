@@ -18,16 +18,15 @@
 #include "strv.h"
 #include "tmpfile-util.h"
 
-void edit_file_free_all(EditFile **f) {
-        if (!f || !*f)
-                return;
+void edit_file_free_all(EditFile **ef) {
+        assert(ef);
 
-        for (EditFile *i = *f; i->path; i++) {
+        EDIT_FILE_FOREACH(i, *ef) {
                 free(i->path);
                 free(i->tmp);
         }
 
-        free(*f);
+        *ef = mfree(*ef);
 }
 
 int create_edit_temp_file(
@@ -195,7 +194,7 @@ int run_editor(const EditFile *files) {
                         i++;
                         args[i++] = files[0].tmp;
                 } else
-                        for (const EditFile *f = files; f->path; f++)
+                        EDIT_FILE_FOREACH(f, files)
                                 args[i++] = f->tmp;
 
                 args[i] = NULL;

@@ -9,6 +9,12 @@ typedef struct EditFile {
         unsigned line;
 } EditFile;
 
+#define _EDIT_FILE_FOREACH(s, e, i)                                     \
+        for (typeof(*(e)) *s, *i = (e); (s = i) && i->path; i++)
+
+#define EDIT_FILE_FOREACH(s, e)                                         \
+        _EDIT_FILE_FOREACH(s, e, UNIQ_T(i, UNIQ))
+
 void edit_file_free_all(EditFile **ef);
 
 int create_edit_temp_file(
