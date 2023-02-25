@@ -285,7 +285,7 @@ static int run_editor(const EditFileContext *context) {
                         }
                 }
 
-                log_error("Cannot edit units, no editor available. Please set either $SYSTEMD_EDITOR, $EDITOR or $VISUAL.");
+                log_error("Cannot edit files, no editor available. Please set either $SYSTEMD_EDITOR, $EDITOR or $VISUAL.");
                 _exit(EXIT_FAILURE);
         }
 
