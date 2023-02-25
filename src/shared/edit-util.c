@@ -221,67 +221,76 @@ static int run_editor(const EditFileContext *context) {
         r = safe_fork("(editor)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG|FORK_WAIT, NULL);
         if (r < 0)
                 return r;
-        if (r == 0) {
-                size_t n_editor_args = 0, i = 1, argc;
-                char **editor_args = NULL, **args;
+        if (r == 0) { /* Child */
+                _cleanup_strv_free_ char **args = NULL;
                 const char *editor;
 
-                /* SYSTEMD_EDITOR takes precedence over EDITOR which takes precedence over VISUAL.  If
-                 * neither SYSTEMD_EDITOR nor EDITOR nor VISUAL are present, we try to execute well known
-                 * editors. */
+                /* SYSTEMD_EDITOR takes precedence over EDITOR which takes precedence over VISUAL.
+                 * If neither SYSTEMD_EDITOR nor EDITOR nor VISUAL are present, we try to execute
+                 * well known editors. */
                 editor = getenv("SYSTEMD_EDITOR");
                 if (!editor)
                         editor = getenv("EDITOR");
                 if (!editor)
                         editor = getenv("VISUAL");
 
-                if (isempty(editor))
-                        argc = 1;
-                else {
+                if (!isempty(editor)) {
+                        _cleanup_strv_free_ char **editor_args = NULL;
+
                         editor_args = strv_split(editor, WHITESPACE);
-                        if (!editor_args) {
-                                (void) log_oom();
-                                _exit(EXIT_FAILURE);
-                        }
-                        n_editor_args = strv_length(editor_args);
-                        argc = n_editor_args;
-                }
+                        if (!editor_args)
+                                goto oom;
 
-                argc += context->n_files * 2;
-
-                args = newa(char*, argc + 1);
-
-                if (n_editor_args > 0) {
-                        args[0] = editor_args[0];
-                        for (; i < n_editor_args; i++)
-                                args[i] = editor_args[i];
+                        r = strv_extend_strv(&args, editor_args, /* filter_duplicates = */ false);
+                        if (r < 0)
+                                goto oom;
                 }
 
                 if (context->n_files == 1 && context->files[0].line > 1) {
                         /* If editing a single file only, use the +LINE syntax to put cursor on the right line */
-                        if (asprintf(args + i, "+%u", context->files[0].line) < 0) {
-                                (void) log_oom();
-                                _exit(EXIT_FAILURE);
+                        char l[3];
+
+                        xsprintf(l, "+%u", context->files[0].line);
+
+                        r = strv_extend(&args, l);
+                        if (r < 0)
+                                goto oom;
+
+                        r = strv_extend(&args, context->files[0].temp);
+                        if (r < 0)
+                                goto oom;
+                } else
+                        EDIT_FILES_FOREACH(i, *context) {
+                                r = strv_extend(&args, i->temp);
+                                if (r < 0)
+                                        goto oom;
                         }
 
-                        i++;
-                        args[i++] = context->files[0].temp;
-                } else
-                        EDIT_FILES_FOREACH(f, *context)
-                                args[i++] = f->temp;
-
-                args[i] = NULL;
-
-                if (n_editor_args > 0)
+                if (!isempty(editor))
                         execvp(args[0], (char* const*) args);
 
+                bool prepended = false;
                 FOREACH_STRING(name, "editor", "nano", "vim", "vi") {
-                        args[0] = (char*) name;
-                        execvp(name, (char* const*) args);
+                        _cleanup_free_ char *e = NULL;
+
+                        e = strdup(name);
+                        if (!e)
+                                goto oom;
+
+                        if (!prepended) {
+                                r = strv_prepend(&args, e);
+                                if (r < 0)
+                                        goto oom;
+                                prepended = true;
+                        } else
+                                free_and_replace(args[0], e);
+
+                        execvp(args[0], (char* const*) args);
+
                         /* We do not fail if the editor doesn't exist because we want to try each one of them
                          * before failing. */
                         if (errno != ENOENT) {
-                                log_error_errno(errno, "Failed to execute %s: %m", name);
+                                log_error_errno(errno, "Failed to execute '%s': %m", name);
                                 _exit(EXIT_FAILURE);
                         }
                 }
@@ -291,6 +300,10 @@ static int run_editor(const EditFileContext *context) {
         }
 
         return 0;
+
+oom:
+        log_oom();
+        _exit(EXIT_FAILURE);
 }
 
 static int trim_edit_markers(const char *path, const char *marker_start, const char *marker_end) {
