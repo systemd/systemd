@@ -12,12 +12,12 @@ typedef struct EditFile {
 void edit_file_free_all(EditFile **ef);
 
 int create_edit_temp_file(
-                const char *new_path,
+                const char *target_path,
                 const char *original_path,
-                char ** const original_unit_paths,
+                char * const *comment_paths,
                 const char *marker_start,
                 const char *marker_end,
-                char **ret_tmp_fn,
+                char **ret_temp_filename,
                 unsigned *ret_edit_line);
 
 int run_editor(const EditFile *files);
