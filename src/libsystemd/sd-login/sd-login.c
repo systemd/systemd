@@ -415,7 +415,6 @@ _public_ int sd_session_get_tty(const char *session, char **ret_tty) {
 
 _public_ int sd_session_get_vt(const char *session, unsigned *ret_vtnr) {
         _cleanup_free_ char *vtnr_string = NULL;
-        unsigned u;
         int r;
 
         assert_return(ret_vtnr, -EINVAL);
@@ -424,12 +423,7 @@ _public_ int sd_session_get_vt(const char *session, unsigned *ret_vtnr) {
         if (r < 0)
                 return r;
 
-        r = safe_atou(vtnr_string, &u);
-        if (r < 0)
-                return r;
-
-        *ret_vtnr = u;
-        return 0;
+        return safe_atou(vtnr_string, ret_vtnr);
 }
 
 _public_ int sd_session_get_service(const char *session, char **ret_service) {
