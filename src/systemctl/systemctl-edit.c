@@ -381,7 +381,7 @@ int verb_edit(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 goto end;
 
-        for (EditFile *f = edit_files; f->path; f++) {
+        EDIT_FILE_FOREACH(f, edit_files) {
                 /* If the temporary file is empty we ignore it. This allows the user to cancel the
                  * modification. */
                 r = trim_edit_markers(f->tmp, EDIT_MARKER_START, EDIT_MARKER_END);
@@ -409,8 +409,7 @@ int verb_edit(int argc, char *argv[], void *userdata) {
         }
 
 end:
-        for (EditFile *f = ASSERT_PTR(edit_files); f->path; f++) {
-
+        EDIT_FILE_FOREACH(f, edit_files) {
                 if (f->tmp)
                         (void) unlink(f->tmp);
 
