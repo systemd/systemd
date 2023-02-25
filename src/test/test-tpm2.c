@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "hexdecoct.h"
 #include "tpm2-util.h"
 #include "tests.h"
 
@@ -67,6 +68,165 @@ TEST(tpm2_util_pbkdf2_hmac_sha256) {
                 assert_se(rc == 0);
                 assert_se(memcmp(test_vectors[i].expected, res, SHA256_DIGEST_SIZE) == 0);
         }
+}
+
+#define test_tpm2_marshal(desc, src, expectedbuf, expectedsize)         \
+        ({                                                              \
+                _cleanup_free_ uint8_t *buf = malloc0(sizeof(src));     \
+                size_t size = 0;                                        \
+                assert_se(buf);                                         \
+                r = tpm2_marshal(desc, &src, buf, sizeof(src), &size);  \
+                assert_se(r == 0);                                      \
+                assert_se(size == expectedsize);                        \
+                assert_se(memcmp(buf, expectedbuf, expectedsize) == 0); \
+        })
+
+#define test_tpm2_marshal_size(desc, src, expectedsize)                 \
+        ({                                                              \
+                size_t size = 0;                                        \
+                r = tpm2_marshal_size(desc, &src, &size);               \
+                assert_se(r == 0);                                      \
+                assert_se(size == expectedsize);                        \
+        })
+
+#define test_tpm2_marshal_realloc(desc, src, expectedbuf, expectedsize) \
+        ({                                                              \
+                _cleanup_free_ uint8_t *buf = NULL;                     \
+                size_t size = 0;                                        \
+                r = tpm2_marshal_realloc(desc, &src, &buf, &size);      \
+                assert_se(r == 0);                                      \
+                assert_se(buf);                                         \
+                assert_se(size == expectedsize);                        \
+                assert_se(memcmp(buf, expectedbuf, expectedsize) == 0); \
+                r = tpm2_marshal_realloc(desc, &src, &buf, &size);      \
+                assert_se(r == 0);                                      \
+                assert_se(buf);                                         \
+                assert_se(size == 2 * expectedsize);                    \
+                assert_se(memcmp(&buf[expectedsize], expectedbuf, expectedsize) == 0); \
+        })
+
+#define test_marshal(desc, src, expected)                               \
+        ({                                                              \
+                _cleanup_free_ void *expectedbuf = NULL;                \
+                size_t expectedsize = 0;                                \
+                assert_se(unhexmem(expected, strlen(expected), &expectedbuf, &expectedsize) == 0); \
+                test_tpm2_marshal(desc, src, expectedbuf, expectedsize); \
+                test_tpm2_marshal_size(desc, src, expectedsize);        \
+                test_tpm2_marshal_realloc(desc, src, expectedbuf, expectedsize); \
+        })
+
+#define test_tpm2_unmarshal(desc, buf, size, expectedobj)               \
+        ({                                                              \
+                assert_se(buf);                                         \
+                assert_se(size > 0);                                    \
+                typeof(expectedobj) obj = {};                           \
+                size_t offset = 0;                                      \
+                r = tpm2_unmarshal(desc, buf, size, &offset, &obj);     \
+                assert_se(r == 0);                                      \
+                assert_se(offset == size);                              \
+                assert_se(memcmp(&obj, &expectedobj, sizeof(obj)) == 0); \
+        })
+
+#define test_unmarshal(desc, hex, expectedobj)                          \
+        ({                                                              \
+                _cleanup_free_ void *buf = NULL;                        \
+                size_t size = 0;                                        \
+                assert_se(unhexmem(hex, strlen(hex), &buf, &size) == 0); \
+                test_tpm2_unmarshal(desc, buf, size, expectedobj);      \
+        })
+
+#define FILL_BUFFER(b, s, x)                                            \
+        ({                                                              \
+                _cleanup_free_ void *buf = NULL;                        \
+                size_t size = 0;                                        \
+                assert_se(unhexmem(x, strlen(x), &buf, &size) == 0);    \
+                assert(size < sizeof(b));                               \
+                memcpy_safe(b, buf, size);                              \
+                s = size;                                               \
+        })
+
+#define test_marshal_unmarshal(desc, obj, hex)  \
+        ({                                      \
+                test_marshal(desc, obj, hex);   \
+                test_unmarshal(desc, hex, obj); \
+        })
+
+/* For objects that need their ->size updated between marshal/unmarshal */
+#define test_marshal_unmarshal_set_size(desc, obj, hex) \
+        ({                                              \
+                typeof(obj) o = obj;                    \
+                test_marshal(desc, o, hex);             \
+                typeof(obj) newobj = obj;               \
+                newobj.size = (strlen(hex) / 2) - 2; /* 2 chars per byte, minus 2 bytes for size */ \
+                test_unmarshal(desc, hex, newobj);      \
+        })
+
+#define test_TPM2B_PUBLIC(...) test_marshal_unmarshal_set_size(__VA_ARGS__)
+
+TEST(marshalling) {
+#ifdef HAVE_TPM2
+        TPM2B_PUBLIC tpm2b_public;
+        //TPM2B_PRIVATE tpm2b_private;
+        int r;
+
+        assert_se(dlopen_tpm2() >= 0);
+
+        tpm2b_public.size = sizeof(tpm2b_public.publicArea);
+        tpm2b_public.publicArea = (TPMT_PUBLIC){
+                .type = TPM2_ALG_RSA,
+                .nameAlg = TPM2_ALG_SHA256,
+                .objectAttributes = TPMA_OBJECT_RESTRICTED|TPMA_OBJECT_DECRYPT|TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT|TPMA_OBJECT_SENSITIVEDATAORIGIN|TPMA_OBJECT_USERWITHAUTH,
+                .parameters.rsaDetail = {
+                        .symmetric = {
+                                .algorithm = TPM2_ALG_AES,
+                                .keyBits.aes = 128,
+                                .mode.aes = TPM2_ALG_CFB,
+                        },
+                        .scheme.scheme = TPM2_ALG_NULL,
+                        .keyBits = 2048,
+                },
+        };
+
+        test_TPM2B_PUBLIC("TPM2B_PUBLIC RSA, without unique", tpm2b_public,
+                          "001a0001000b00030072000000060080004300100800000000000000");
+
+        FILL_BUFFER(tpm2b_public.publicArea.unique.rsa.buffer,
+                    tpm2b_public.publicArea.unique.rsa.size,
+                    "40c68886f79677bc4da8f0d7dc5ed26e");
+        test_TPM2B_PUBLIC("TPM2B_PUBLIC RSA, with unique", tpm2b_public,
+                          "002a0001000b0003007200000006008000430010080000000000001040c68886f79677bc4da8f0d7dc5ed26e");
+
+        tpm2b_public.publicArea = (TPMT_PUBLIC){
+                .type = TPM2_ALG_ECC,
+                .nameAlg = TPM2_ALG_SHA256,
+                .objectAttributes = TPMA_OBJECT_RESTRICTED|TPMA_OBJECT_DECRYPT|TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT|TPMA_OBJECT_SENSITIVEDATAORIGIN|TPMA_OBJECT_USERWITHAUTH,
+                .parameters.eccDetail = {
+                        .symmetric = {
+                                .algorithm = TPM2_ALG_AES,
+                                .keyBits.aes = 128,
+                                .mode.aes = TPM2_ALG_CFB,
+                        },
+                        .scheme.scheme = TPM2_ALG_NULL,
+                        .curveID = TPM2_ECC_NIST_P256,
+                        .kdf.scheme = TPM2_ALG_NULL,
+                },
+        };
+
+        test_TPM2B_PUBLIC("TPM2B_PUBLIC ECC, without unique", tpm2b_public,
+                          "001a0023000b00030072000000060080004300100003001000000000");
+
+        FILL_BUFFER(tpm2b_public.publicArea.unique.ecc.x.buffer,
+                    tpm2b_public.publicArea.unique.ecc.x.size,
+                    "57a531256e89e1ac9e4455a8c098f254");
+        FILL_BUFFER(tpm2b_public.publicArea.unique.ecc.x.buffer,
+                    tpm2b_public.publicArea.unique.ecc.x.size,
+                    "0996faba7fc154a8dac28b6e0b05f0fe");
+        test_TPM2B_PUBLIC("TPM2B_PUBLIC ECC, with unique", tpm2b_public,
+                          "002a0023000b00030072000000060080004300100003001000100996faba7fc154a8dac28b6e0b05f0fe0000");
+
+#else /* HAVE_TPM2 */
+        log_info("Not compiled with TPM2 support, skipping marshalling tests.");
+#endif
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
