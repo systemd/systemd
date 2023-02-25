@@ -105,21 +105,24 @@ int verb_cat(int argc, char *argv[], void *userdata) {
 }
 
 static int get_file_to_edit(
-                const LookupPaths *paths,
+                const LookupPaths *lp,
                 const char *name,
                 char **ret_path) {
 
-        _cleanup_free_ char *path = NULL, *run = NULL;
+        _cleanup_free_ char *path = NULL;
 
+        assert(lp);
         assert(name);
         assert(ret_path);
 
-        path = path_join(paths->persistent_config, name);
+        path = path_join(lp->persistent_config, name);
         if (!path)
                 return log_oom();
 
         if (arg_runtime) {
-                run = path_join(paths->runtime_config, name);
+                _cleanup_free_ char *run = NULL;
+
+                run = path_join(lp->runtime_config, name);
                 if (!run)
                         return log_oom();
 
@@ -137,20 +140,23 @@ static int get_file_to_edit(
 
 static int unit_file_create_new(
                 EditFileContext *context,
-                const LookupPaths *paths,
+                const LookupPaths *lp,
                 const char *unit_name,
                 const char *suffix,
                 char * const *original_unit_paths) {
 
-        _cleanup_free_ char *new_path = NULL;
-        const char *ending;
+        _cleanup_free_ char *unit = NULL, *new_path = NULL;
         int r;
 
         assert(context);
+        assert(lp);
         assert(unit_name);
 
-        ending = strjoina(unit_name, suffix);
-        r = get_file_to_edit(paths, ending, &new_path);
+        unit = strjoin(unit_name, suffix);
+        if (!unit)
+                return log_oom();
+
+        r = get_file_to_edit(lp, unit, &new_path);
         if (r < 0)
                 return r;
 
@@ -163,7 +169,7 @@ static int unit_file_create_new(
 
 static int unit_file_create_copy(
                 EditFileContext *context,
-                const LookupPaths *paths,
+                const LookupPaths *lp,
                 const char *unit_name,
                 const char *fragment_path) {
 
@@ -171,10 +177,11 @@ static int unit_file_create_copy(
         int r;
 
         assert(context);
+        assert(lp);
         assert(fragment_path);
         assert(unit_name);
 
-        r = get_file_to_edit(paths, unit_name, &new_path);
+        r = get_file_to_edit(lp, unit_name, &new_path);
         if (r < 0)
                 return r;
 
@@ -184,6 +191,7 @@ static int unit_file_create_copy(
                 r = ask_char(&response, "yn", "\"%s\" already exists. Overwrite with \"%s\"? [(y)es, (n)o] ", new_path, fragment_path);
                 if (r < 0)
                         return r;
+
                 if (response != 'y')
                         return log_warning_errno(SYNTHETIC_ERRNO(EKEYREJECTED), "%s skipped.", unit_name);
         }
@@ -236,17 +244,18 @@ static int find_paths_to_edit(
                 _cleanup_free_ char *path = NULL;
                 _cleanup_strv_free_ char **unit_paths = NULL;
 
-                r = unit_find_paths(bus, *name, &lp, false, &cached_name_map, &cached_id_map, &path, &unit_paths);
+                r = unit_find_paths(bus, *name, &lp, /* force_client_side= */ false, &cached_name_map, &cached_id_map, &path, &unit_paths);
                 if (r == -EKEYREJECTED) {
                         /* If loading of the unit failed server side complete, then the server won't tell us
                          * the unit file path. In that case, find the file client side. */
+
                         log_debug_errno(r, "Unit '%s' was not loaded correctly, retrying client-side.", *name);
-                        r = unit_find_paths(bus, *name, &lp, true, &cached_name_map, &cached_id_map, &path, &unit_paths);
+                        r = unit_find_paths(bus, *name, &lp, /* force_client_side= */ true, &cached_name_map, &cached_id_map, &path, &unit_paths);
                 }
                 if (r == -ERFKILL)
                         return log_error_errno(r, "Unit '%s' masked, cannot edit.", *name);
                 if (r < 0)
-                        return r;
+                        return r; /* Already logged by unit_find_paths() */
 
                 if (!path) {
                         if (!arg_force) {
