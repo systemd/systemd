@@ -31,65 +31,67 @@ void edit_file_free_all(EditFile **f) {
 }
 
 int create_edit_temp_file(
-                const char *new_path,
+                const char *target_path,
                 const char *original_path,
-                char ** const original_unit_paths,
+                char * const *comment_paths,
                 const char *marker_start,
                 const char *marker_end,
-                char **ret_tmp_fn,
+                char **ret_temp_filename,
                 unsigned *ret_edit_line) {
 
-        _cleanup_free_ char *t = NULL;
-        unsigned ln = 1;
+        _cleanup_free_ char *temp = NULL;
+        unsigned line = 1;
         int r;
 
-        assert(new_path);
-        assert(ret_tmp_fn);
-        assert(ret_edit_line);
+        assert(target_path);
+        assert(!comment_paths || (marker_start && marker_end));
+        assert(ret_temp_filename);
 
-        r = tempfn_random(new_path, NULL, &t);
+        r = tempfn_random(target_path, NULL, &temp);
         if (r < 0)
-                return log_error_errno(r, "Failed to determine temporary filename for \"%s\": %m", new_path);
+                return log_error_errno(r, "Failed to determine temporary filename for \"%s\": %m", target_path);
 
-        r = mkdir_parents_label(new_path, 0755);
+        r = mkdir_parents_label(target_path, 0755);
         if (r < 0)
-                return log_error_errno(r, "Failed to create directories for \"%s\": %m", new_path);
+                return log_error_errno(r, "Failed to create parent directories for \"%s\": %m", target_path);
 
         if (original_path) {
-                r = mac_selinux_create_file_prepare(new_path, S_IFREG);
+                r = mac_selinux_create_file_prepare(target_path, S_IFREG);
                 if (r < 0)
                         return r;
 
-                r = copy_file(original_path, t, 0, 0644, 0, 0, COPY_REFLINK);
+                r = copy_file(original_path, temp, 0, 0644, 0, 0, COPY_REFLINK);
                 if (r == -ENOENT) {
-                        r = touch(t);
+                        r = touch(temp);
                         mac_selinux_create_file_clear();
                         if (r < 0)
-                                return log_error_errno(r, "Failed to create temporary file \"%s\": %m", t);
+                                return log_error_errno(r, "Failed to create temporary file \"%s\": %m", temp);
                 } else {
                         mac_selinux_create_file_clear();
                         if (r < 0)
-                                return log_error_errno(r, "Failed to create temporary file for \"%s\": %m", new_path);
+                                return log_error_errno(r, "Failed to create temporary file for \"%s\": %m", target_path);
                 }
-        } else if (original_unit_paths) {
-                _cleanup_free_ char *new_contents = NULL;
+        }
+
+        if (comment_paths) {
+                _cleanup_free_ char *target_contents = NULL;
                 _cleanup_fclose_ FILE *f = NULL;
 
-                r = mac_selinux_create_file_prepare(new_path, S_IFREG);
+                r = mac_selinux_create_file_prepare(target_path, S_IFREG);
                 if (r < 0)
                         return r;
 
-                f = fopen(t, "we");
+                f = fopen(temp, "we");
                 mac_selinux_create_file_clear();
                 if (!f)
-                        return log_error_errno(errno, "Failed to open \"%s\": %m", t);
+                        return log_error_errno(errno, "Failed to open temporary file \"%s\": %m", temp);
 
                 if (fchmod(fileno(f), 0644) < 0)
-                        return log_error_errno(errno, "Failed to change mode of \"%s\": %m", t);
+                        return log_error_errno(errno, "Failed to change mode of temporary file \"%s\": %m", temp);
 
-                r = read_full_file(new_path, &new_contents, NULL);
+                r = read_full_file(target_path, &target_contents, NULL);
                 if (r < 0 && r != -ENOENT)
-                        return log_error_errno(r, "Failed to read \"%s\": %m", new_path);
+                        return log_error_errno(r, "Failed to read target file \"%s\": %m", target_path);
 
                 fprintf(f,
                         "### Editing %s\n"
@@ -98,25 +100,25 @@ int create_edit_temp_file(
                         "%s%s"
                         "\n"
                         "%s\n",
-                        new_path,
-                        strempty(marker_start),
-                        strempty(new_contents),
-                        new_contents && endswith(new_contents, "\n") ? "" : "\n",
-                        strempty(marker_end));
+                        target_path,
+                        marker_start,
+                        strempty(target_contents),
+                        target_contents && endswith(target_contents, "\n") ? "" : "\n",
+                        marker_end);
 
-                ln = 4; /* start editing at the contents */
+                line = 4; /* Start editing at the contents area */
 
-                /* Add a comment with the contents of the original unit files */
-                STRV_FOREACH(path, original_unit_paths) {
+                /* Add a comment with the contents of the original files */
+                STRV_FOREACH(path, comment_paths) {
                         _cleanup_free_ char *contents = NULL;
 
-                        /* Skip the file that's being edited */
-                        if (path_equal(*path, new_path))
+                        /* Skip the file that's being edited, already processed in above */
+                        if (path_equal(*path, target_path))
                                 continue;
 
                         r = read_full_file(*path, &contents, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to read \"%s\": %m", *path);
+                                return log_error_errno(r, "Failed to read original file \"%s\": %m", *path);
 
                         fprintf(f, "\n\n### %s", *path);
                         if (!isempty(contents)) {
@@ -125,17 +127,20 @@ int create_edit_temp_file(
                                 commented_contents = strreplace(strstrip(contents), "\n", "\n# ");
                                 if (!commented_contents)
                                         return log_oom();
+
                                 fprintf(f, "\n# %s", commented_contents);
                         }
                 }
 
                 r = fflush_and_check(f);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to create temporary file \"%s\": %m", t);
+                        return log_error_errno(r, "Failed to create temporary file \"%s\": %m", temp);
         }
 
-        *ret_tmp_fn = TAKE_PTR(t);
-        *ret_edit_line = ln;
+        *ret_temp_filename = TAKE_PTR(temp);
+
+        if (ret_edit_line)
+                *ret_edit_line = line;
 
         return 0;
 }
@@ -214,7 +219,7 @@ int run_editor(const EditFile *files) {
                         }
                 }
 
-                log_error("Cannot edit units, no editor available. Please set either $SYSTEMD_EDITOR, $EDITOR or $VISUAL.");
+                log_error("Cannot edit files, no editor available. Please set either $SYSTEMD_EDITOR, $EDITOR or $VISUAL.");
                 _exit(EXIT_FAILURE);
         }
 
@@ -226,6 +231,8 @@ int trim_edit_markers(const char *path, const char *marker_start, const char *ma
         char *contents_start, *contents_end;
         const char *c = NULL;
         int r;
+
+        assert(!marker_start == !marker_end);
 
         /* Trim out the lines between the two markers */
         r = read_full_file(path, &old_contents, NULL);
