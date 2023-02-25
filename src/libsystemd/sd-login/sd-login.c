@@ -773,7 +773,8 @@ _public_ int sd_machine_get_ifindices(const char *machine, int **ret_ifindices) 
         if (r < 0)
                 return r;
         if (!netif_line) {
-                *ret_ifindices = NULL;
+                if (ret_ifindices)
+                        *ret_ifindices = NULL;
                 return 0;
         }
 
