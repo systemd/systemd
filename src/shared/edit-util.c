@@ -18,19 +18,93 @@
 #include "strv.h"
 #include "tmpfile-util.h"
 
-void edit_file_free_all(EditFile **f) {
-        if (!f || !*f)
-                return;
+void edit_file_context_done(EditFileContext *context) {
+        int r;
 
-        for (EditFile *i = *f; i->path; i++) {
+        assert(context);
+
+        FOREACH_ARRAY(i, context->files, context->n_files) {
+                if (i->temp) {
+                        (void) unlink(i->temp);
+                        free(i->temp);
+                }
+
+                if (context->remove_parent) {
+                        _cleanup_free_ char *parent = NULL;
+
+                        r = path_extract_directory(i->path, &parent);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to extract directory from '%s', ignoring: %m", i->path);
+
+                        /* No need to check if the dir is empty, rmdir does nothing if it is not the case. */
+                        (void) rmdir(parent);
+                }
+
                 free(i->path);
-                free(i->tmp);
+                free(i->original_path);
+                strv_free(i->comment_paths);
         }
 
-        free(*f);
+        context->files = mfree(context->files);
+        context->n_files = 0;
 }
 
-int create_edit_temp_file(
+bool edit_files_contains(const EditFileContext *context, const char *path) {
+        assert(context);
+        assert(path);
+
+        FOREACH_ARRAY(i, context->files, context->n_files)
+                if (streq(i->path, path))
+                        return true;
+
+        return false;
+}
+
+int edit_files_add(
+                EditFileContext *context,
+                const char *path,
+                const char *original_path,
+                char * const *comment_paths) {
+
+        _cleanup_free_ char *new_path = NULL, *new_original_path = NULL;
+        _cleanup_strv_free_ char **new_comment_paths = NULL;
+
+        assert(context);
+        assert(path);
+
+        if (edit_files_contains(context, path))
+                return 0;
+
+        if (!GREEDY_REALLOC0(context->files, context->n_files + 2))
+                return log_oom();
+
+        new_path = strdup(path);
+        if (!new_path)
+                return log_oom();
+
+        if (original_path) {
+                new_original_path = strdup(original_path);
+                if (!new_original_path)
+                        return log_oom();
+        }
+
+        if (comment_paths) {
+                new_comment_paths = strv_copy(comment_paths);
+                if (!new_comment_paths)
+                        return log_oom();
+        }
+
+        context->files[context->n_files] = (EditFile) {
+                .path = TAKE_PTR(new_path),
+                .original_path = TAKE_PTR(new_original_path),
+                .comment_paths = TAKE_PTR(new_comment_paths),
+        };
+        context->n_files++;
+
+        return 1;
+}
+
+static int create_edit_temp_file(
                 const char *target_path,
                 const char *original_path,
                 char * const *comment_paths,
@@ -145,10 +219,10 @@ int create_edit_temp_file(
         return 0;
 }
 
-int run_editor(const EditFile *files) {
+static int run_editor(const EditFileContext *context) {
         int r;
 
-        assert(files);
+        assert(context);
 
         r = safe_fork("(editor)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG|FORK_WAIT, NULL);
         if (r < 0)
@@ -179,8 +253,7 @@ int run_editor(const EditFile *files) {
                         argc = n_editor_args;
                 }
 
-                for (const EditFile *f = files; f->path; f++)
-                        argc += 2;
+                argc += context->n_files * 2;
 
                 args = newa(char*, argc + 1);
 
@@ -190,18 +263,18 @@ int run_editor(const EditFile *files) {
                                 args[i] = editor_args[i];
                 }
 
-                if (files[0].path && files[0].line > 1 && !files[1].path) {
+                if (context->n_files == 1 && context->files[0].line > 1) {
                         /* If editing a single file only, use the +LINE syntax to put cursor on the right line */
-                        if (asprintf(args + i, "+%u", files[0].line) < 0) {
+                        if (asprintf(args + i, "+%u", context->files[0].line) < 0) {
                                 (void) log_oom();
                                 _exit(EXIT_FAILURE);
                         }
 
                         i++;
-                        args[i++] = files[0].tmp;
+                        args[i++] = context->files[0].temp;
                 } else
-                        for (const EditFile *f = files; f->path; f++)
-                                args[i++] = f->tmp;
+                        FOREACH_ARRAY(f, context->files, context->n_files)
+                                args[i++] = f->temp;
 
                 args[i] = NULL;
 
@@ -226,7 +299,7 @@ int run_editor(const EditFile *files) {
         return 0;
 }
 
-int trim_edit_markers(const char *path, const char *marker_start, const char *marker_end) {
+static int trim_edit_markers(const char *path, const char *marker_start, const char *marker_end) {
         _cleanup_free_ char *old_contents = NULL, *new_contents = NULL;
         char *contents_start, *contents_end;
         const char *c = NULL;
@@ -265,4 +338,48 @@ int trim_edit_markers(const char *path, const char *marker_start, const char *ma
                 return log_error_errno(r, "Failed to modify temporary file \"%s\": %m", path);
 
         return 1; /* Changed, but good */
+}
+
+int do_edit_files_and_install(EditFileContext *context) {
+        int r;
+
+        assert(context);
+
+        if (context->n_files == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Got no files to edit.");
+
+        FOREACH_ARRAY(i, context->files, context->n_files)
+                if (isempty(i->temp)) {
+                        r = create_edit_temp_file(i->path,
+                                                  i->original_path,
+                                                  i->comment_paths,
+                                                  context->marker_start,
+                                                  context->marker_end,
+                                                  &i->temp,
+                                                  &i->line);
+                        if (r < 0)
+                                return r;
+                }
+
+        r = run_editor(context);
+        if (r < 0)
+                return r;
+
+        FOREACH_ARRAY(i, context->files, context->n_files) {
+                /* Always call trim_edit_markers to tell if the temp file is empty */
+                r = trim_edit_markers(i->temp, context->marker_start, context->marker_end);
+                if (r < 0)
+                        return r;
+                if (r == 0) /* temp file doesn't carry actual changes, ignoring */
+                        continue;
+
+                r = RET_NERRNO(rename(i->temp, i->path));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to rename \"%s\" to \"%s\": %m", i->temp, i->path);
+                i->temp = mfree(i->temp);
+
+                log_info("Successfully installed edited file '%s'.", i->path);
+        }
+
+        return 0;
 }
