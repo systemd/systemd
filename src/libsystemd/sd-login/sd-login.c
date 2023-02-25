@@ -389,10 +389,12 @@ _public_ int sd_session_get_uid(const char *session, uid_t *ret_uid) {
 }
 
 _public_ int sd_session_get_username(const char *session, char **ret_username) {
+        assert_return(ret_username, -EINVAL);
         return session_get_string(session, "USER", ret_username);
 }
 
 _public_ int sd_session_get_seat(const char *session, char **ret_seat) {
+        assert_return(ret_seat, -EINVAL);
         return session_get_string(session, "SEAT", ret_seat);
 }
 
@@ -410,6 +412,7 @@ _public_ int sd_session_get_start_time(const char *session, uint64_t *ret_usec) 
 }
 
 _public_ int sd_session_get_tty(const char *session, char **ret_tty) {
+        assert_return(ret_tty, -EINVAL);
         return session_get_string(session, "TTY", ret_tty);
 }
 
@@ -427,14 +430,17 @@ _public_ int sd_session_get_vt(const char *session, unsigned *ret_vtnr) {
 }
 
 _public_ int sd_session_get_service(const char *session, char **ret_service) {
+        assert_return(ret_service, -EINVAL);
         return session_get_string(session, "SERVICE", ret_service);
 }
 
 _public_ int sd_session_get_type(const char *session, char **ret_type) {
+        assert_return(ret_type, -EINVAL);
         return session_get_string(session, "TYPE", ret_type);
 }
 
 _public_ int sd_session_get_class(const char *session, char **ret_class) {
+        assert_return(ret_class, -EINVAL);
         return session_get_string(session, "CLASS", ret_class);
 }
 
@@ -456,14 +462,17 @@ _public_ int sd_session_get_desktop(const char *session, char **ret_desktop) {
 }
 
 _public_ int sd_session_get_display(const char *session, char **ret_display) {
+        assert_return(ret_display, -EINVAL);
         return session_get_string(session, "DISPLAY", ret_display);
 }
 
 _public_ int sd_session_get_remote_user(const char *session, char **ret_remote_user) {
+        assert_return(ret_remote_user, -EINVAL);
         return session_get_string(session, "REMOTE_USER", ret_remote_user);
 }
 
 _public_ int sd_session_get_remote_host(const char *session, char **ret_remote_host) {
+        assert_return(ret_remote_host, -EINVAL);
         return session_get_string(session, "REMOTE_HOST", ret_remote_host);
 }
 
