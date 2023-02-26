@@ -32,6 +32,7 @@ libsystemd_network = static_library(
         'systemd-network',
         sources,
         include_directories : includes,
+        dependencies : userspace,
         build_by_default : false)
 
 libsystemd_network_includes = [includes, include_directories('.')]

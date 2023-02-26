@@ -7,6 +7,7 @@ lib_cryptsetup_token_common = static_library(
         'cryptsetup-token-common',
         'cryptsetup-token-util.c',
         include_directories : includes,
+        dependencies : userspace,
         link_with : libshared,
         build_by_default : false)
 

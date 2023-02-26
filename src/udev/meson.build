@@ -108,7 +108,8 @@ libudevd_core = static_library(
         include_directories : udev_includes,
         link_with : udev_link_with,
         dependencies : [libblkid,
-                        libkmod],
+                        libkmod,
+                        userspace],
         build_by_default : false)
 
 udev_progs = [['ata_id/ata_id.c'],
@@ -134,7 +135,8 @@ foreach prog : udev_progs
                 name,
                 prog,
                 include_directories : includes,
-                dependencies : versiondep,
+                dependencies : [userspace,
+                                versiondep],
                 link_with : udev_link_with,
                 install_rpath : udev_rpath,
                 install : true,

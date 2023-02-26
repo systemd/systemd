@@ -22,11 +22,12 @@ libsystemd_journal_remote = static_library(
         libsystemd_journal_remote_sources,
         include_directories : journal_includes,
         link_with : libjournal_core,
-        dependencies : [threads,
+        dependencies : [libgnutls,
+                        liblz4,
                         libmicrohttpd,
-                        libgnutls,
                         libxz,
-                        liblz4],
+                        threads,
+                        userspace],
         build_by_default : false)
 
 systemd_journal_remote_sources = files('journal-remote-main.c')

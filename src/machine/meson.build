@@ -18,7 +18,8 @@ libmachine_core = static_library(
         'machine-core',
         libmachine_core_sources,
         include_directories : includes,
-        dependencies : threads,
+        dependencies : [threads,
+                        userspace],
         build_by_default : false)
 
 if conf.get('ENABLE_MACHINED') == 1

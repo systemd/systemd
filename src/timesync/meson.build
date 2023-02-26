@@ -29,6 +29,7 @@ libtimesyncd_core = static_library(
         'timesyncd-core',
         sources,
         include_directories : includes,
+        dependencies : userspace,
         link_with : timesyncd_link_with,
         build_by_default : false)
 
