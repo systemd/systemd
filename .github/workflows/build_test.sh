@@ -9,7 +9,7 @@ success() { echo >&2 -e "\033[32;1m$1\033[0m"; }
 
 ARGS=(
     "--optimization=0"
-    "--optimization=s -Dgnu-efi=true -Defi-cflags=-m32 -Defi-libdir=/usr/lib32"
+    "--optimization=s -Dbootloader=true -Defi-cflags=-m32"
     "--optimization=3 -Db_lto=true -Ddns-over-tls=false"
     "--optimization=3 -Db_lto=false"
     "--optimization=3 -Ddns-over-tls=openssl"

@@ -1869,6 +1869,7 @@ conf.set10('ENABLE_REMOTE', have)
 foreach term : ['analyze',
                 'backlight',
                 'binfmt',
+                'compat-mutable-uid-boundaries',
                 'coredump',
                 'efi',
                 'environment-d',
@@ -1880,23 +1881,22 @@ foreach term : ['analyze',
                 'idn',
                 'ima',
                 'initrd',
-                'compat-mutable-uid-boundaries',
-                'nscd',
                 'ldconfig',
                 'localed',
                 'logind',
                 'machined',
                 'networkd',
+                'nscd',
                 'nss-myhostname',
                 'nss-systemd',
                 'portabled',
-                'sysext',
                 'pstore',
                 'quotacheck',
                 'randomseed',
                 'resolve',
                 'rfkill',
                 'smack',
+                'sysext',
                 'sysusers',
                 'timedated',
                 'timesyncd',
@@ -1953,20 +1953,36 @@ catalogs = []
 
 ############################################################
 
-# Include these now as they provide gnu-efi detection.
-subdir('src/fundamental')
-subdir('src/boot/efi')
-
-############################################################
-
 pymod = import('python')
 python = pymod.find_installation('python3', required : true, modules : ['jinja2'])
 python_39 = python.language_version().version_compare('>=3.9')
 
+#####################################################################
+
+efi_arch = {
+        'aarch64' : 'aa64',
+        'arm'     : 'arm',
+        'riscv64' : 'riscv64',
+        'x86_64'  : 'x64',
+        'x86'     : 'ia32',
+}.get(host_machine.cpu_family(), '')
+
+if get_option('bootloader') != 'false' and efi_arch != ''
+        conf.set_quoted('EFI_MACHINE_TYPE_NAME', efi_arch)
+elif get_option('bootloader') == 'true' and efi_arch == ''
+        error('EFI not supported for this arch.')
+endif
+conf.set10(
+        'ENABLE_BOOTLOADER',
+        get_option('efi') and
+        get_option('bootloader') in ['auto', 'true'] and
+        efi_arch != '',
+)
+
 if get_option('ukify') == 'auto'
-    want_ukify = python_39  and conf.get('HAVE_GNU_EFI') == 1
-elif get_option('ukify') == 'true' and (not python_39 or conf.get('HAVE_GNU_EFI') != 1)
-    error('ukify requires Python >= 3.9 and GNU EFI')
+    want_ukify = python_39  and conf.get('ENABLE_BOOTLOADER') == 1
+elif get_option('ukify') == 'true' and (not python_39 or conf.get('ENABLE_BOOTLOADER') != 1)
+    error('ukify requires Python >= 3.9 and -Dbootloader=true')
 else
     want_ukify = get_option('ukify') == 'true'
 endif
@@ -2038,6 +2054,7 @@ includes = [libsystemd_includes, include_directories('src/shared')]
 
 subdir('po')
 subdir('catalog')
+subdir('src/fundamental')
 subdir('src/basic')
 subdir('src/libsystemd')
 subdir('src/shared')
@@ -2202,6 +2219,7 @@ subdir('src/libsystemd-network')
 
 subdir('src/analyze')
 subdir('src/boot')
+subdir('src/boot/efi')
 subdir('src/busctl')
 subdir('src/coredump')
 subdir('src/cryptenroll')
@@ -2655,7 +2673,7 @@ if conf.get('HAVE_PAM') == 1
                 install_dir : rootlibexecdir)
 endif
 
-if conf.get('HAVE_BLKID') == 1 and conf.get('HAVE_GNU_EFI') == 1
+if conf.get('HAVE_BLKID') == 1 and conf.get('ENABLE_BOOTLOADER') == 1
         if get_option('link-boot-shared')
                 boot_link_with = [libshared]
         else
@@ -4730,11 +4748,11 @@ foreach tuple : [
         # components
         ['backlight'],
         ['binfmt'],
+        ['bootloader'],
         ['bpf-framework',          conf.get('BPF_FRAMEWORK') == 1],
         ['coredump'],
-        ['environment.d'],
         ['efi'],
-        ['gnu-efi'],
+        ['environment.d'],
         ['firstboot'],
         ['hibernate'],
         ['homed'],

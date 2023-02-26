@@ -139,7 +139,7 @@ if [ ! -f "$BUILDDIR"/build.ninja ] ; then
             -D pcre2=true \
             -D glib=true \
             -D dbus=true \
-            -D gnu-efi=true \
+            -D bootloader=true \
             -D kernel-install=true \
             -D analyze=true \
             -D bpf-framework=true \

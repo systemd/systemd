@@ -23,13 +23,6 @@
 #include "util.h"
 #include "vmm.h"
 
-#ifndef GNU_EFI_USE_MS_ABI
-        /* We do not use uefi_call_wrapper() in systemd-boot. As such, we rely on the
-         * compiler to do the calling convention conversion for us. This is check is
-         * to make sure the -DGNU_EFI_USE_MS_ABI was passed to the compiler. */
-        #error systemd-boot requires compilation with GNU_EFI_USE_MS_ABI defined.
-#endif
-
 /* Magic string for recognizing our own binaries */
 _used_ _section_(".sdmagic") static const char magic[] =
         "#### LoaderInfo: systemd-boot " GIT_VERSION " ####";
@@ -2735,8 +2728,3 @@ out:
 }
 
 DEFINE_EFI_MAIN_FUNCTION(run, "systemd-boot", /*wait_for_debugger=*/false);
-
-/* Fedora has a heavily patched gnu-efi that supports elf constructors. It calls into _entry instead. */
-EFI_STATUS _entry(EFI_HANDLE image, EFI_SYSTEM_TABLE *system_table) {
-        return efi_main(image, system_table);
-}

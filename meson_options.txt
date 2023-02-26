@@ -93,7 +93,7 @@ option('ldconfig', type : 'boolean',
 option('resolve', type : 'boolean',
        description : 'systemd-resolved stack')
 option('efi', type : 'boolean',
-       description : 'enable systemd-boot and bootctl')
+       description : 'enable EFI support')
 option('tpm', type : 'boolean',
        description : 'TPM should be used to log events and extend the registers')
 option('environment-d', type : 'boolean',
@@ -436,18 +436,8 @@ option('glib', type : 'combo', choices : ['auto', 'true', 'false'],
 option('dbus', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libdbus support (for tests only)')
 
-option('gnu-efi', type : 'combo', choices : ['auto', 'true', 'false'],
-       description : 'gnu-efi support for sd-boot')
-option('efi-cflags', type : 'array',
-       description : 'additional flags for EFI compiler')
-# Note that LLD does not support PE/COFF relocations
-# https://lists.llvm.org/pipermail/llvm-dev/2021-March/149234.html
-option('efi-ld', type : 'combo', choices : ['auto', 'bfd', 'gold'],
-       description : 'the linker to use for EFI modules')
-option('efi-libdir', type : 'string',
-       description : 'path to the EFI lib directory')
-option('efi-includedir', type : 'string', value : '/usr/include/efi',
-       description : 'path to the EFI header directory')
+option('bootloader', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : 'sd-boot/stub and userspace tools')
 option('sbat-distro', type : 'string', value : 'auto',
        description : 'SBAT distribution ID, e.g. fedora, or auto for autodetection')
 option('sbat-distro-generation', type : 'integer', value : 1,
