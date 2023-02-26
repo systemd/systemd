@@ -423,8 +423,3 @@ static EFI_STATUS run(EFI_HANDLE image) {
 }
 
 DEFINE_EFI_MAIN_FUNCTION(run, "systemd-stub", /*wait_for_debugger=*/false);
-
-/* See comment in boot.c. */
-EFI_STATUS _entry(EFI_HANDLE image, EFI_SYSTEM_TABLE *system_table) {
-        return efi_main(image, system_table);
-}

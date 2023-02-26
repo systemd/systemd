@@ -1,129 +1,12 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-conf.set10('ENABLE_EFI', get_option('efi'))
-conf.set10('HAVE_GNU_EFI', false)
-
 efi_config_h_dir = meson.current_build_dir()
 
-if not get_option('efi') or get_option('gnu-efi') == 'false'
-        if get_option('gnu-efi') == 'true'
-                error('gnu-efi support requested, but general efi support is disabled')
-        endif
+if conf.get('ENABLE_BOOTLOADER') != 1
         subdir_done()
 endif
-
-efi_arch = host_machine.cpu_family()
-if efi_arch == 'x86' and '-m64' in get_option('efi-cflags')
-        efi_arch = 'x86_64'
-elif efi_arch == 'x86_64' and '-m32' in get_option('efi-cflags')
-        efi_arch = 'x86'
-endif
-efi_arch = {
-        # host_cc_arch: [efi_arch (see Table 3-2 in UEFI spec), obsolete gnu_efi_inc_arch]
-        'x86':     ['ia32', 'ia32'],
-        'x86_64':  ['x64', 'x86_64'],
-        'arm':     ['arm', 'arm'],
-        'aarch64': ['aa64', 'aarch64'],
-        'riscv64': ['riscv64', 'riscv64'],
-}.get(efi_arch, [])
-
-efi_incdir = get_option('efi-includedir')
-found = false
-foreach efi_arch_candidate : efi_arch
-        efi_archdir = efi_incdir / efi_arch_candidate
-        if cc.has_header(efi_archdir / 'efibind.h',
-                         args: get_option('efi-cflags'))
-                found = true
-                break
-        endif
-endforeach
-
-if not found
-        if get_option('gnu-efi') == 'true'
-                error('gnu-efi support requested, but headers not found or efi arch is unknown')
-        endif
-        warning('gnu-efi headers not found or efi arch is unknown, disabling gnu-efi support')
-        subdir_done()
-endif
-
-if not cc.has_header_symbol('efi.h', 'EFI_IMAGE_MACHINE_X64',
-                args: ['-nostdlib', '-ffreestanding', '-fshort-wchar'] + get_option('efi-cflags'),
-                include_directories: include_directories(efi_incdir,
-                                                         efi_archdir))
-
-        if get_option('gnu-efi') == 'true'
-                error('gnu-efi support requested, but found headers are too old (3.0.5+ required)')
-        endif
-        warning('gnu-efi headers are too old (3.0.5+ required), disabling gnu-efi support')
-        subdir_done()
-endif
-
-objcopy = run_command(cc.cmd_array(), '-print-prog-name=objcopy', check: true).stdout().strip()
-objcopy_2_38 = find_program('objcopy', version: '>=2.38', required: false)
-
-efi_ld = get_option('efi-ld')
-if efi_ld == 'auto'
-        efi_ld = cc.get_linker_id().split('.')[1]
-        if efi_ld not in ['bfd', 'gold']
-                message('Not using @0@ as efi-ld, falling back to bfd'.format(efi_ld))
-                efi_ld = 'bfd'
-        endif
-endif
-
-efi_multilib = run_command(
-        cc.cmd_array(), '-print-multi-os-directory', get_option('efi-cflags'),
-        check: false
-).stdout().strip()
-efi_multilib = run_command(
-        'realpath', '-e', '/usr/lib' / efi_multilib,
-        check: false
-).stdout().strip()
-
-efi_libdir = ''
-foreach dir : [get_option('efi-libdir'),
-               '/usr/lib/gnuefi' / efi_arch[0],
-               efi_multilib]
-        if dir != '' and fs.is_dir(dir)
-                efi_libdir = dir
-                break
-        endif
-endforeach
-if efi_libdir == ''
-        if get_option('gnu-efi') == 'true'
-                error('gnu-efi support requested, but efi-libdir was not found')
-        endif
-        warning('efi-libdir was not found, disabling gnu-efi support')
-        subdir_done()
-endif
-
-efi_lds = ''
-foreach location : [ # New locations first introduced with gnu-efi 3.0.11
-                    [efi_libdir / 'efi.lds',
-                     efi_libdir / 'crt0.o'],
-                    # Older locations...
-                    [efi_libdir / 'gnuefi' / 'elf_@0@_efi.lds'.format(efi_arch[1]),
-                     efi_libdir / 'gnuefi' / 'crt0-efi-@0@.o'.format(efi_arch[1])],
-                    [efi_libdir / 'elf_@0@_efi.lds'.format(efi_arch[1]),
-                     efi_libdir / 'crt0-efi-@0@.o'.format(efi_arch[1])]]
-        if fs.is_file(location[0]) and fs.is_file(location[1])
-                efi_lds = location[0]
-                efi_crt0 = location[1]
-                break
-        endif
-endforeach
-if efi_lds == ''
-        if get_option('gnu-efi') == 'true'
-                error('gnu-efi support requested, but cannot find efi.lds')
-        endif
-        warning('efi.lds was not found, disabling gnu-efi support')
-        subdir_done()
-endif
-
-conf.set10('HAVE_GNU_EFI', true)
-conf.set_quoted('EFI_MACHINE_TYPE_NAME', efi_arch[0])
 
 efi_conf = configuration_data()
-efi_conf.set_quoted('EFI_MACHINE_TYPE_NAME', efi_arch[0])
 efi_conf.set10('ENABLE_TPM', get_option('tpm'))
 
 foreach ctype : ['color-normal', 'color-entry', 'color-highlight', 'color-edit']
@@ -174,151 +57,8 @@ elif get_option('sbat-distro') != ''
         endif
 endif
 
-efi_config_h = configure_file(
-        output : 'efi_config.h',
-        configuration : efi_conf)
-
-efi_cflags = [
-        '-DGNU_EFI_USE_MS_ABI',
-        '-DSD_BOOT=1',
-        '-ffreestanding',
-        '-fshort-wchar',
-        '-fvisibility=hidden',
-        '-I', fundamental_path,
-        '-I', meson.current_source_dir(),
-        '-include', efi_config_h,
-        '-include', version_h,
-        '-std=gnu11',
-        '-Wall',
-        '-Wextra',
-] + cc.get_supported_arguments(
-        basic_disabled_warnings +
-        possible_common_cc_flags + [
-                '-fno-stack-protector',
-                '-fno-strict-aliasing',
-                '-fpic',
-                '-fwide-exec-charset=UCS2',
-        ]
-)
-
-efi_cflags += cc.get_supported_arguments({
-        'ia32':   ['-mno-sse', '-mno-mmx'],
-        'x86_64': ['-mno-red-zone', '-mno-sse', '-mno-mmx'],
-        'arm':    ['-mgeneral-regs-only', '-mfpu=none'],
-}.get(efi_arch[1], []))
-
-# We are putting the efi_cc command line together ourselves, so make sure to pull any
-# relevant compiler flags from meson/CFLAGS as povided by the user or distro.
-
-if get_option('werror')
-        efi_cflags += ['-Werror']
-endif
-if get_option('debug') and get_option('mode') == 'developer'
-        efi_cflags += ['-ggdb', '-DEFI_DEBUG']
-endif
-if get_option('optimization') in ['1', '2', '3', 's', 'g']
-        efi_cflags += ['-O' + get_option('optimization')]
-endif
-if get_option('b_ndebug') == 'true' or (
-   get_option('b_ndebug') == 'if-release' and get_option('buildtype') in ['plain', 'release'])
-        efi_cflags += ['-DNDEBUG']
-endif
-if get_option('b_lto')
-        efi_cflags += cc.has_argument('-flto=auto') ? ['-flto=auto'] : ['-flto']
-endif
-
-foreach arg : get_option('c_args')
-        if arg in [
-                '-DNDEBUG',
-                '-fno-lto',
-                '-O1', '-O2', '-O3', '-Og', '-Os',
-                '-Werror',
-           ] or arg.split('=')[0] in [
-                '-ffile-prefix-map',
-                '-flto',
-           ] or (get_option('mode') == 'developer' and arg in [
-                '-DEFI_DEBUG',
-                '-g', '-ggdb',
-           ])
-
-                message('Using "@0@" from c_args for EFI compiler'.format(arg))
-                efi_cflags += arg
-        endif
-endforeach
-
-efi_cflags += get_option('efi-cflags')
-
-efi_ldflags = [
-        '-fuse-ld=' + efi_ld,
-        '-L', efi_libdir,
-        '-nostdlib',
-        '-T', efi_lds,
-        '-Wl,--build-id=sha1',
-        '-Wl,--fatal-warnings',
-        '-Wl,--no-undefined',
-        '-Wl,--warn-common',
-        '-Wl,-Bsymbolic',
-        '-z', 'nocombreloc',
-        '-z', 'noexecstack',
-        efi_crt0,
-]
-
-foreach arg : ['-Wl,--no-warn-execstack',
-               '-Wl,--no-warn-rwx-segments']
-        # We need to check the correct linker for supported args. This is what
-        # cc.has_multi_link_arguments() is for, but it helpfully overrides our
-        # choice of linker by putting its own -fuse-ld= arg after ours.
-        if run_command('bash', '-c',
-                       'exec "$@" -x c -o/dev/null <(echo "int main(void){return 0;}")' +
-                       ' -fuse-ld=' + efi_ld + ' -Wl,--fatal-warnings ' + arg,
-                       'bash', cc.cmd_array(),
-                       check : false).returncode() == 0
-                efi_ldflags += arg
-        endif
-endforeach
-
-# If using objcopy, crt0 must not include the PE/COFF header
-if run_command('grep', '-q', 'coff_header', efi_crt0, check: false).returncode() == 0
-        coff_header_in_crt0 = true
-else
-        coff_header_in_crt0 = false
-endif
-
-if efi_arch[1] in ['arm', 'riscv64'] or (efi_arch[1] == 'aarch64' and (not objcopy_2_38.found() or coff_header_in_crt0))
-        efi_ldflags += ['-shared']
-        # ARM32 and 64bit RISC-V don't have an EFI capable objcopy.
-        # Older objcopy doesn't support Aarch64 either.
-        # Use 'binary' instead, and add required symbols manually.
-        efi_ldflags += ['-Wl,--defsym=EFI_SUBSYSTEM=0xa']
-        efi_format = ['-O', 'binary']
-else
-        efi_ldflags += ['-pie']
-        if efi_ld == 'bfd'
-                efi_ldflags += '-Wl,--no-dynamic-linker'
-        endif
-        efi_format = ['--target=efi-app-@0@'.format(efi_arch[1])]
-endif
-
-if efi_arch[1] == 'arm'
-        # On arm, the compiler (correctly) warns about wchar_t size mismatch. This
-        # is because libgcc is not compiled with -fshort-wchar, but it does not
-        # have any occurrences of wchar_t in its sources or the documentation, so
-        # it is safe to assume that we can ignore this warning.
-        efi_ldflags += ['-Wl,--no-wchar-size-warning']
-endif
-
-if cc.get_id() == 'clang' and cc.version().split('.')[0].to_int() <= 10
-        # clang <= 10 doesn't pass -T to the linker and then even complains about it being unused
-        efi_ldflags += ['-Wl,-T,' + efi_lds, '-Wno-unused-command-line-argument']
-endif
-
-summary({
-        'EFI machine type' :                efi_arch[0],
-        'EFI LD' :                          efi_ld,
-        'EFI lds' :                         efi_lds,
-        'EFI crt0' :                        efi_crt0,
-        'EFI include directory' :           efi_archdir},
-        section : 'Extensible Firmware Interface')
+summary({'UEFI architecture' : efi_arch},
+        section : 'UEFI')
 
 if efi_conf.get('SBAT_DISTRO', '') != ''
         summary({
@@ -327,49 +67,16 @@ if efi_conf.get('SBAT_DISTRO', '') != ''
                 'SBAT distro version':      sbat_distro_version_display,
                 'SBAT distro summary':      efi_conf.get('SBAT_DISTRO_SUMMARY'),
                 'SBAT distro URL':          efi_conf.get('SBAT_DISTRO_URL')},
-                section : 'Extensible Firmware Interface')
+                section : 'UEFI')
 endif
+
+configure_file(
+        output : 'efi_config.h',
+        configuration : efi_conf)
 
 ############################################################
 
-efi_headers = files(
-        'bcd.h',
-        'console.h',
-        'cpio.h',
-        'device-path-util.h',
-        'devicetree.h',
-        'drivers.h',
-        'efi-string.h',
-        'efi.h',
-        'graphics.h',
-        'initrd.h',
-        'linux.h',
-        'log.h',
-        'measure.h',
-        'part-discovery.h',
-        'pe.h',
-        'proto/block-io.h',
-        'proto/console-control.h',
-        'proto/device-path.h',
-        'proto/dt-fixup.h',
-        'proto/file-io.h',
-        'proto/graphics-output.h',
-        'proto/load-file.h',
-        'proto/loaded-image.h',
-        'proto/rng.h',
-        'proto/security-arch.h',
-        'proto/shell-parameters.h',
-        'proto/simple-text-io.h',
-        'proto/tcg.h',
-        'random-seed.h',
-        'secure-boot.h',
-        'shim.h',
-        'splash.h',
-        'ticks.h',
-        'util.h',
-)
-
-common_sources = files(
+libefi_sources = files(
         'console.c',
         'device-path-util.c',
         'devicetree.c',
@@ -400,7 +107,7 @@ stub_sources = files(
         'stub.c',
 )
 
-if efi_arch[1] in ['ia32', 'x86_64']
+if host_machine.cpu_family() in ['x86', 'x86_64']
         stub_sources += files('linux_x86.c')
 endif
 
@@ -414,7 +121,7 @@ tests += [
 ]
 
 # BCD parser only makes sense on arches that Windows supports.
-if efi_arch[1] in ['ia32', 'x86_64', 'arm', 'aarch64']
+if host_machine.cpu_family() in ['aarch64', 'arm', 'x86_64', 'x86']
         systemd_boot_sources += files('bcd.c')
         tests += [
                 {
@@ -448,63 +155,3 @@ if efi_arch[1] in ['ia32', 'x86_64', 'arm', 'aarch64']
                 },
         ]
 endif
-
-systemd_boot_objects = []
-stub_objects = []
-foreach file : fundamental_source_paths + common_sources + systemd_boot_sources + stub_sources
-        # FIXME: replace ''.format(file) with fs.name(file) when meson_version requirement is >= 0.59.0
-        o_file = custom_target('@0@.o'.format(file).split('/')[-1],
-                               input : file,
-                               output : '@0@.o'.format(file).split('/')[-1],
-                               command : [cc.cmd_array(), '-c', '@INPUT@', '-o', '@OUTPUT@', efi_cflags],
-                               depend_files : efi_headers + fundamental_headers)
-        if (fundamental_source_paths + common_sources + systemd_boot_sources).contains(file)
-                systemd_boot_objects += o_file
-        endif
-        if (fundamental_source_paths + common_sources + stub_sources).contains(file)
-                stub_objects += o_file
-        endif
-endforeach
-
-foreach tuple : [['systemd-boot@0@.@1@', systemd_boot_objects, false, 'systemd-boot'],
-                 ['linux@0@.@1@.stub', stub_objects, true, 'systemd-stub']]
-        elf = custom_target(
-                tuple[0].format(efi_arch[0], 'elf'),
-                input : tuple[1],
-                output : tuple[0].format(efi_arch[0], 'elf'),
-                command : [cc.cmd_array(),
-                           '-o', '@OUTPUT@',
-                           efi_cflags,
-                           efi_ldflags,
-                           '@INPUT@',
-                           '-lgnuefi',
-                           '-lgcc'],
-                install : tuple[2],
-                install_tag: tuple[3],
-                install_dir : bootlibdir)
-
-        efi = custom_target(
-                tuple[0].format(efi_arch[0], 'efi'),
-                input : elf,
-                output : tuple[0].format(efi_arch[0], 'efi'),
-                command : [objcopy,
-                           '-j', '.bss*',
-                           '-j', '.data',
-                           '-j', '.dynamic',
-                           '-j', '.dynsym',
-                           '-j', '.osrel',
-                           '-j', '.rel*',
-                           '-j', '.sbat',
-                           '-j', '.sdata',
-                           '-j', '.sdmagic',
-                           '-j', '.text',
-                           '--strip-all',
-                           '--section-alignment=512',
-                           efi_format,
-                           '@INPUT@', '@OUTPUT@'],
-                install : true,
-                install_tag: tuple[3],
-                install_dir : bootlibdir)
-
-        alias_target(tuple[3], efi)
-endforeach
