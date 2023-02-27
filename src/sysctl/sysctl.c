@@ -471,6 +471,10 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to enumerate sysctl.d files: %m");
 
+                /* compat with procps */
+                if (strv_push(&files, strdup("/etc/sysctl.conf")) < 0)
+                        return log_oom();
+
                 if (arg_cat_config) {
                         pager_open(arg_pager_flags);
 
