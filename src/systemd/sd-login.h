@@ -191,7 +191,7 @@ int sd_session_get_remote_host(const char *session, char **remote_host);
 int sd_session_get_remote_user(const char *session, char **remote_user);
 
 /* Determine the TTY of this session. */
-int sd_session_get_tty(const char *session, char **display);
+int sd_session_get_tty(const char *session, char **tty);
 
 /* Determine the VT number of this session. */
 int sd_session_get_vt(const char *session, unsigned *vtnr);
