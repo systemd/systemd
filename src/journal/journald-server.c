@@ -836,7 +836,7 @@ static bool shall_try_append_again(JournalFile *f, int r) {
         case -EFBIG:           /* Hit fs limit                  */
         case -EDQUOT:          /* Quota limit hit               */
         case -ENOSPC:          /* Disk full                     */
-                log_debug("%s: Allocation limit reached, rotating.", f->path);
+                log_debug_errno(r, "%s: Allocation limit reached, rotating.", f->path);
                 return true;
 
         case -EROFS: /* Read-only file system */
@@ -844,56 +844,57 @@ static bool shall_try_append_again(JournalFile *f, int r) {
                  * rotated. If the FS is read-only, rotation will fail and s->system_journal will be set to
                  * NULL. After that, when find_journal will try to open the journal since s->system_journal
                  * will be NULL, it will open the runtime journal. */
-                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Read-only file system, rotating.", f->path);
+                log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT, "%s: Read-only file system, rotating.", f->path);
                 return true;
 
         case -EIO:             /* I/O error of some kind (mmap) */
-                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: IO error, rotating.", f->path);
+                log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT, "%s: IO error, rotating.", f->path);
                 return true;
 
         case -EHOSTDOWN:       /* Other machine                 */
-                log_ratelimit_info(JOURNAL_LOG_RATELIMIT, "%s: Journal file from other machine, rotating.", f->path);
+                log_ratelimit_info_errno(r, JOURNAL_LOG_RATELIMIT, "%s: Journal file from other machine, rotating.", f->path);
                 return true;
 
         case -EBUSY:           /* Unclean shutdown              */
-                log_ratelimit_info(JOURNAL_LOG_RATELIMIT, "%s: Unclean shutdown, rotating.", f->path);
+                log_ratelimit_info_errno(r, JOURNAL_LOG_RATELIMIT, "%s: Unclean shutdown, rotating.", f->path);
                 return true;
 
         case -EPROTONOSUPPORT: /* Unsupported feature           */
-                log_ratelimit_info(JOURNAL_LOG_RATELIMIT, "%s: Unsupported feature, rotating.", f->path);
+                log_ratelimit_info_errno(r, JOURNAL_LOG_RATELIMIT, "%s: Unsupported feature, rotating.", f->path);
                 return true;
 
         case -EBADMSG:         /* Corrupted                     */
         case -ENODATA:         /* Truncated                     */
         case -ESHUTDOWN:       /* Already archived              */
-                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Journal file corrupted, rotating.", f->path);
+                log_ratelimit_info_errno(r, JOURNAL_LOG_RATELIMIT, "%s: Journal file corrupted, rotating.", f->path);
                 return true;
 
         case -EIDRM:           /* Journal file has been deleted */
-                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Journal file has been deleted, rotating.", f->path);
+                log_ratelimit_info_errno(r, JOURNAL_LOG_RATELIMIT, "%s: Journal file has been deleted, rotating.", f->path);
                 return true;
 
         case -EREMCHG:         /* Wallclock time (CLOCK_REALTIME) jumped backwards relative to last journal entry */
-                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Realtime clock jumped backwards relative to last journal entry, rotating.", f->path);
+                log_ratelimit_info_errno(r, JOURNAL_LOG_RATELIMIT, "%s: Realtime clock jumped backwards relative to last journal entry, rotating.", f->path);
                 return true;
 
         case -EREMOTE:         /* Boot ID different from the one of the last entry */
-                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Boot ID changed since last record, rotating.", f->path);
+                log_ratelimit_info_errno(r, JOURNAL_LOG_RATELIMIT, "%s: Boot ID changed since last record, rotating.", f->path);
                 return true;
 
         case -ENOTNAM:         /* Monotonic time (CLOCK_MONOTONIC) jumped backwards relative to last journal entry */
-                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Monotonic clock jumped backwards relative to last journal entry, rotating.", f->path);
+                log_ratelimit_info_errno(r, JOURNAL_LOG_RATELIMIT, "%s: Monotonic clock jumped backwards relative to last journal entry, rotating.", f->path);
                 return true;
 
         case -EILSEQ:          /* seqnum ID last used in the file doesn't match the one we'd passed when writing an entry to it */
-                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Journal file uses a different sequence number ID, rotating.", f->path);
+                log_ratelimit_info_errno(r, JOURNAL_LOG_RATELIMIT, "%s: Journal file uses a different sequence number ID, rotating.", f->path);
                 return true;
 
         case -EAFNOSUPPORT:
-                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: underlying file system does not support memory mapping or another required file system feature.", f->path);
+                log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT, "%s: Underlying file system does not support memory mapping or another required file system feature.", f->path);
                 return false;
 
         default:
+                log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT, "%s: Unexpected error while writing to journal file: %m", f->path);
                 return false;
         }
 }
@@ -968,19 +969,15 @@ static void server_write_to_journal(
                 return;
         }
 
-        if (vacuumed || !shall_try_append_again(f->file, r)) {
-                log_ratelimit_error_errno(r, FAILED_TO_WRITE_ENTRY_RATELIMIT,
-                                          "Failed to write entry (%zu items, %zu bytes), ignoring: %m",
-                                          n, IOVEC_TOTAL_SIZE(iovec, n));
+        log_debug_errno(r, "Failed to write entry to %s (%zu items, %zu bytes): %m", f->file->path, n, IOVEC_TOTAL_SIZE(iovec, n));
+
+        if (!shall_try_append_again(f->file, r))
+                return;
+        if (vacuumed) {
+                log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
+                                            "Suppressing rotation, as we already rotated immediately before write attempt. Giving up.");
                 return;
         }
-
-        if (r == -E2BIG)
-                log_debug("Journal file %s is full, rotating to a new file", f->file->path);
-        else
-                log_ratelimit_info_errno(r, FAILED_TO_WRITE_ENTRY_RATELIMIT,
-                                         "Failed to write entry to %s (%zu items, %zu bytes), rotating before retrying: %m",
-                                         f->file->path, n, IOVEC_TOTAL_SIZE(iovec, n));
 
         server_rotate(s);
         server_vacuum(s, false);
