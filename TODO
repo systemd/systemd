@@ -129,6 +129,8 @@ Deprecations and removals:
 
 Features:
 
+* remove tomoyo support, it's obsolete and unmaintained apparently
+
 * journald: add varlink service that allows subscribing to certain log events,
   for example matching by message ID, or log level returns a list of journal
   cursors as they happen.
