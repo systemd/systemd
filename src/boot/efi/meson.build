@@ -57,7 +57,7 @@ elif get_option('sbat-distro') != ''
         endif
 endif
 
-summary({'UEFI architecture' : efi_arch},
+summary({'UEFI architectures' : efi_arch + (efi_arch_alt == '' ? '' : ', ' + efi_arch_alt)},
         section : 'UEFI')
 
 if efi_conf.get('SBAT_DISTRO', '') != ''
@@ -73,6 +73,97 @@ endif
 configure_file(
         output : 'efi_config.h',
         configuration : efi_conf)
+
+############################################################
+
+efi_includes = [fundamental_include, include_directories('.')]
+
+efi_c_args = [
+        '-DSD_BOOT=1',
+        '-ffreestanding',
+        '-fno-strict-aliasing',
+        '-fshort-wchar',
+        '-include', 'efi_config.h',
+]
+
+efi_c_args += cc.get_supported_arguments(
+        '-fwide-exec-charset=UCS2',
+        # gcc docs says this is required for ms_abi to work correctly.
+        '-maccumulate-outgoing-args',
+)
+
+efi_c_ld_args = [
+        # We only support bfd. gold is going away, lld has issues with LTO on x86
+        # and mold does not support linker scripts.
+        '-fuse-ld=bfd',
+
+        '-lgcc',
+        '-nostdlib',
+        '-static-pie',
+        '-Wl,--entry=efi_main',
+        '-Wl,--fatal-warnings',
+
+        # These flags should be passed by -static-pie, but seem to be missing sometimes.
+        '-Wl,--no-dynamic-linker',
+        '-z', 'text',
+
+        # EFI has 4KiB pages.
+        '-z', 'common-page-size=4096',
+        '-z', 'max-page-size=4096',
+
+        '-z', 'noexecstack',
+        '-z', 'norelro',
+        '-T' + elf2efi_lds,
+]
+
+# efi_c_args is explicitly passed to targets so that they can override distro-provided flags
+# that should not be used for EFI binaries.
+efi_disabled_c_args = cc.get_supported_arguments(
+        '-fcf-protection=none',
+        '-fno-asynchronous-unwind-tables',
+        '-fno-exceptions',
+        '-fno-trapv',
+        '-fno-sanitize=all',
+        '-fno-stack-clash-protection',
+        '-fno-stack-protector',
+        '-fno-unwind-tables',
+)
+efi_c_args += efi_disabled_c_args
+efi_c_ld_args += efi_disabled_c_args
+efi_override_options = [
+        'b_coverage=false',
+        'b_pgo=off',
+        'b_sanitize=none',
+]
+
+if cc.get_id() == 'clang'
+        # clang is too picky sometimes.
+        efi_c_args += '-Wno-unused-command-line-argument'
+        efi_c_ld_args += '-Wno-unused-command-line-argument'
+endif
+
+if host_machine.cpu_family() == 'arm'
+        # libgcc is not compiled with -fshort-wchar, but it does not use it anyways,
+        # so it's fine to link against it.
+        efi_c_ld_args += '-Wl,--no-wchar-size-warning'
+endif
+
+efi_c_args_primary = [efi_c_args, '-DEFI_MACHINE_TYPE_NAME="' + efi_arch + '"']
+efi_c_args_alt = [efi_c_args, '-DEFI_MACHINE_TYPE_NAME="' + efi_arch_alt + '"']
+efi_c_ld_args_primary = efi_c_ld_args
+efi_c_ld_args_alt = efi_c_ld_args
+
+efi_c_args_primary += {
+        'aarch64' : ['-mgeneral-regs-only'],
+        'arm'     : ['-mgeneral-regs-only'],
+        'x86_64'  : ['-march=x86-64', '-mno-red-zone', '-mgeneral-regs-only'],
+        'x86'     : ['-march=i686', '-mgeneral-regs-only'],
+}.get(host_machine.cpu_family(), [])
+
+if efi_arch_alt == 'ia32'
+        efi_c_args_alt += ['-m32', '-march=i686', '-mgeneral-regs-only']
+        efi_c_ld_args_alt += '-m32'
+endif
 
 ############################################################
 
@@ -155,3 +246,86 @@ if host_machine.cpu_family() in ['aarch64', 'arm', 'x86_64', 'x86']
                 },
         ]
 endif
+
+boot_targets = []
+efi_elf_binaries = []
+efi_archspecs = [
+        {
+                'arch' : efi_arch,
+                'c_args' : efi_c_args_primary,
+                'link_args' : efi_c_ld_args_primary,
+        },
+]
+if efi_arch_alt != ''
+        efi_archspecs += {
+                'arch' : efi_arch_alt,
+                'c_args' : efi_c_args_alt,
+                'link_args' : efi_c_ld_args_alt,
+        }
+endif
+
+foreach archspec : efi_archspecs
+        libefi = static_library(
+                'efi' + archspec['arch'],
+                fundamental_sources,
+                libefi_sources,
+                include_directories : efi_includes,
+                c_args : archspec['c_args'],
+                dependencies : versiondep,
+                gnu_symbol_visibility : 'hidden',
+                override_options : efi_override_options,
+                pic : true)
+
+        efi_elf_binaries += executable(
+                'systemd-boot' + archspec['arch'],
+                systemd_boot_sources,
+                include_directories : efi_includes,
+                c_args : archspec['c_args'],
+                link_args : archspec['link_args'],
+                link_with : libefi,
+                link_depends : elf2efi_lds,
+                dependencies : versiondep,
+                gnu_symbol_visibility : 'hidden',
+                override_options : efi_override_options,
+                name_suffix : 'elf',
+                pie : true)
+
+        efi_elf_binaries += executable(
+                'linux' + archspec['arch'],
+                stub_sources,
+                include_directories : efi_includes,
+                c_args : archspec['c_args'],
+                link_args : archspec['link_args'],
+                link_with : libefi,
+                link_depends : elf2efi_lds,
+                dependencies : versiondep,
+                gnu_symbol_visibility : 'hidden',
+                override_options : efi_override_options,
+                name_suffix : 'elf.stub',
+                pie : true)
+endforeach
+
+foreach efi_elf_binary : efi_elf_binaries
+        # FIXME: Use build_tgt.name() with meson >= 0.54.0
+        name = fs.name(efi_elf_binary.full_path()).split('.')[0]
+        name += name.startswith('linux') ? '.efi.stub' : '.efi'
+        boot_targets += custom_target(
+                name,
+                output : name,
+                input : efi_elf_binary,
+                install : true,
+                install_dir : bootlibdir,
+                install_tag : 'systemd-boot',
+                command : [
+                        elf2efi_py,
+                        '--version-major=' + meson.project_version(),
+                        '--version-minor=0',
+                        '--efi-major=1',
+                        '--efi-minor=1',
+                        '--subsystem=10',
+                        '@INPUT@',
+                        '@OUTPUT@',
+                ])
+endforeach
+
+alias_target('systemd-boot', boot_targets)

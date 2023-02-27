@@ -1972,11 +1972,28 @@ if get_option('bootloader') != 'false' and efi_arch != ''
 elif get_option('bootloader') == 'true' and efi_arch == ''
         error('EFI not supported for this arch.')
 endif
+
+efi_arch_alt = ''
+if efi_arch == 'x64' and cc.links('''
+                #include <limits.h>
+                int main(int argc, char *argv[]) {
+                        return __builtin_popcount(argc - CHAR_MAX);
+                }''', args : ['-m32', '-march=i686'], name : '32bit build possible')
+        efi_arch_alt = 'ia32'
+endif
+
+have_pyelftools = pymod.find_installation('python3', required : false, modules : ['elftools']).found()
+if get_option('bootloader') == 'true' and (not python_39 or not have_pyelftools)
+        error('EFI bootloader support requires Python >= 3.9 and pyelftools.')
+endif
+
 conf.set10(
         'ENABLE_BOOTLOADER',
         get_option('efi') and
         get_option('bootloader') in ['auto', 'true'] and
-        efi_arch != '',
+        efi_arch != '' and
+        python_39 and
+        have_pyelftools,
 )
 
 if get_option('ukify') == 'auto'
@@ -1990,18 +2007,20 @@ conf.set10('ENABLE_UKIFY', want_ukify)
 
 ############################################################
 #
+elf2efi_lds = project_source_root / 'tools/elf2efi.lds'
+elf2efi_py = find_program('tools/elf2efi.py')
+export_dbus_interfaces_py = find_program('tools/dbus_exporter.py')
 generate_gperfs = find_program('tools/generate-gperfs.py')
 make_autosuspend_rules_py = find_program('tools/make-autosuspend-rules.py')
 make_directive_index_py = find_program('tools/make-directive-index.py')
 make_man_index_py = find_program('tools/make-man-index.py')
 meson_render_jinja2 = find_program('tools/meson-render-jinja2.py')
 update_dbus_docs_py = find_program('tools/update-dbus-docs.py')
-update_man_rules_py = find_program('tools/update-man-rules.py')
-update_hwdb_sh = find_program('tools/update-hwdb.sh')
 update_hwdb_autosuspend_sh = find_program('tools/update-hwdb-autosuspend.sh')
+update_hwdb_sh = find_program('tools/update-hwdb.sh')
+update_man_rules_py = find_program('tools/update-man-rules.py')
 update_syscall_tables_sh = find_program('tools/update-syscall-tables.sh')
 xml_helper_py = find_program('tools/xml_helper.py')
-export_dbus_interfaces_py = find_program('tools/dbus_exporter.py')
 
 ############################################################
 

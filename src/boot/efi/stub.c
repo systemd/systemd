@@ -14,6 +14,7 @@
 #include "splash.h"
 #include "tpm-pcr.h"
 #include "util.h"
+#include "version.h"
 #include "vmm.h"
 
 /* magic string to find in the binary image */
