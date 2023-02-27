@@ -22,6 +22,7 @@
     <refname>sd_uid_get_sessions</refname>
     <refname>sd_uid_get_seats</refname>
     <refname>sd_uid_get_display</refname>
+    <refname>sd_uid_get_login_time</refname>
     <refpurpose>Determine login state of a specific Unix user ID</refpurpose>
   </refnamediv>
 
@@ -62,6 +63,12 @@
         <paramdef>char **<parameter>session</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
+
+    <funcprototype>
+       <funcdef>int <function>sd_uid_get_login_time</function></funcdef>
+       <paramdef>uid_t <parameter>uid</parameter></paramdef>
+       <paramdef>uint64_t *<parameter>usec</parameter></paramdef>
+    </funcprototype>
   </refsynopsisdiv>
 
   <refsect1>
@@ -126,16 +133,27 @@
     of the "primary" session of a user. If the user has graphical
     sessions, it will be the oldest graphical session. Otherwise, it
     will be the oldest open session.</para>
+
+    <para><function>sd_uid_get_login_time()</function> may be used to
+    determine the time the user's service manager has been invoked,
+    which is the time when the user's first active session, since which
+    they stayed logged in continuously, began. The <parameter>usec</parameter>
+    is in microseconds since the epoch (<constant>CLOCK_REALTIME</constant>).
+    This call will fail with <constant>-ENXIO</constant> if the user is not
+    currently logged in.</para>
   </refsect1>
 
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, <function>sd_uid_get_state()</function> returns 0 or a positive integer. If the test
-    succeeds, <function>sd_uid_is_on_seat()</function> returns a positive integer; if it fails, 0.
-    <function>sd_uid_get_sessions()</function> and <function>sd_uid_get_seats()</function> return the number
-    of entries in the returned arrays. <function>sd_uid_get_display()</function> returns a non-negative code
-    on success. On failure, these calls return a negative errno-style error code.</para>
+    <para>On success, <function>sd_uid_get_state()</function> and
+    <function>sd_uid_get_login_time()</function> returns 0 or a positive
+    integer. If the test succeeds, <function>sd_uid_is_on_seat()</function>
+    returns a positive integer; if it fails, 0. <function>sd_uid_get_sessions()</function>
+    and <function>sd_uid_get_seats()</function> return the number of entries
+    in the returned arrays. <function>sd_uid_get_display()</function>
+    returns a non-negative code on success. On failure, these calls return
+    a negative errno-style error code.</para>
 
     <refsect2>
       <title>Errors</title>
