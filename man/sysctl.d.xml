@@ -24,6 +24,7 @@
     <para><filename>/etc/sysctl.d/*.conf</filename></para>
     <para><filename>/run/sysctl.d/*.conf</filename></para>
     <para><filename>/usr/lib/sysctl.d/*.conf</filename></para>
+    <para><filename>/etc/sysctl.conf</filename></para>
 
     <programlisting>key.name.under.proc.sys = some value
 key/name/under/proc/sys = some value
