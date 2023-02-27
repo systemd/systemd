@@ -24,6 +24,7 @@
     <para><filename>/etc/sysctl.d/*.conf</filename></para>
     <para><filename>/run/sysctl.d/*.conf</filename></para>
     <para><filename>/usr/lib/sysctl.d/*.conf</filename></para>
+    <para><filename>/etc/sysctl.conf</filename></para>
 
     <programlisting>key.name.under.proc.sys = some value
 key/name/under/proc/sys = some value
@@ -100,6 +101,10 @@ key.pattern.overridden.with.glob = custom
   </refsect1>
 
   <xi:include href="standard-conf.xml" xpointer="confd" />
+  <para>
+    In addition the file <filename>/etc/sysctl.conf</filename> is parsed for compatibility with procps'
+    sysctl program. If present, the settings in that file take precedence over all others.
+  </para>
 
   <refsect1>
     <title>Examples</title>
