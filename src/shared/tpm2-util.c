@@ -466,7 +466,7 @@ void tpm2_pcr_mask_to_selection(uint32_t mask, uint16_t bank, TPML_PCR_SELECTION
         assert(ret);
 
         /* We only do 24bit here, as that's what PC TPMs are supposed to support */
-        assert(mask <= 0xFFFFFFU);
+        assert(TPM2_PCR_MASK_VALID(mask));
 
         *ret = (TPML_PCR_SELECTION) {
                 .count = 1,
