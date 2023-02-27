@@ -4000,8 +4000,17 @@ static int source_memory_pressure_write(sd_event_source *s) {
         if (s->memory_pressure.write_buffer_size > 0) {
                 n = write(s->memory_pressure.fd, s->memory_pressure.write_buffer, s->memory_pressure.write_buffer_size);
                 if (n < 0) {
-                        if (!ERRNO_IS_TRANSIENT(errno))
-                                return -errno;
+                        if (!ERRNO_IS_TRANSIENT(errno)) {
+                                /* If kernel is built with CONFIG_PSI_DEFAULT_DISABLED it will expose PSI
+                                 * files, but then generates EOPNOSUPP on read() and write() (instead of on
+                                 * open()!). This sucks hard, since we can only detect this kind of failure
+                                 * so late. Let's make the best of it, and turn off the event source like we
+                                 * do for failed event source handlers. */
+
+                                log_debug_errno(errno, "Writing memory pressure settings to kernel failed, disabling memory pressure event source: %m");
+                                assert_se(sd_event_source_set_enabled(s, SD_EVENT_OFF) >= 0);
+                                return 0;
+                        }
 
                         n = 0;
                 }
