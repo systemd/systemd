@@ -866,27 +866,27 @@ static bool shall_try_append_again(JournalFile *f, int r) {
         case -EBADMSG:         /* Corrupted                     */
         case -ENODATA:         /* Truncated                     */
         case -ESHUTDOWN:       /* Already archived              */
-                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Journal file corrupted, rotating.", f->path);
+                log_ratelimit_info(JOURNAL_LOG_RATELIMIT, "%s: Journal file corrupted, rotating.", f->path);
                 return true;
 
         case -EIDRM:           /* Journal file has been deleted */
-                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Journal file has been deleted, rotating.", f->path);
+                log_ratelimit_info(JOURNAL_LOG_RATELIMIT, "%s: Journal file has been deleted, rotating.", f->path);
                 return true;
 
         case -EREMCHG:         /* Wallclock time (CLOCK_REALTIME) jumped backwards relative to last journal entry */
-                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Realtime clock jumped backwards relative to last journal entry, rotating.", f->path);
+                log_ratelimit_info(JOURNAL_LOG_RATELIMIT, "%s: Realtime clock jumped backwards relative to last journal entry, rotating.", f->path);
                 return true;
 
         case -EREMOTE:         /* Boot ID different from the one of the last entry */
-                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Boot ID changed since last record, rotating.", f->path);
+                log_ratelimit_info(JOURNAL_LOG_RATELIMIT, "%s: Boot ID changed since last record, rotating.", f->path);
                 return true;
 
         case -ENOTNAM:         /* Monotonic time (CLOCK_MONOTONIC) jumped backwards relative to last journal entry */
-                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Monotonic clock jumped backwards relative to last journal entry, rotating.", f->path);
+                log_ratelimit_info(JOURNAL_LOG_RATELIMIT, "%s: Monotonic clock jumped backwards relative to last journal entry, rotating.", f->path);
                 return true;
 
         case -EILSEQ:          /* seqnum ID last used in the file doesn't match the one we'd passed when writing an entry to it */
-                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Journal file uses a different sequence number ID, rotating.", f->path);
+                log_ratelimit_info(JOURNAL_LOG_RATELIMIT, "%s: Journal file uses a different sequence number ID, rotating.", f->path);
                 return true;
 
         case -EAFNOSUPPORT:
