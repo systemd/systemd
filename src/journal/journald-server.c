@@ -969,19 +969,15 @@ static void server_write_to_journal(
                 return;
         }
 
-        if (vacuumed || !shall_try_append_again(f->file, r)) {
-                log_ratelimit_error_errno(r, FAILED_TO_WRITE_ENTRY_RATELIMIT,
-                                          "Failed to write entry (%zu items, %zu bytes), ignoring: %m",
-                                          n, IOVEC_TOTAL_SIZE(iovec, n));
+        log_debug_errno(r, "Failed to write entry to %s (%zu items, %zu bytes): %m", f->file->path, n, IOVEC_TOTAL_SIZE(iovec, n));
+
+        if (!shall_try_append_again(f->file, r))
+                return;
+        if (vacuumed) {
+                log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
+                                            "Suppressing rotation, as we already rotated immediately before write attempt. Giving up.");
                 return;
         }
-
-        if (r == -E2BIG)
-                log_debug("Journal file %s is full, rotating to a new file", f->file->path);
-        else
-                log_ratelimit_info_errno(r, FAILED_TO_WRITE_ENTRY_RATELIMIT,
-                                         "Failed to write entry to %s (%zu items, %zu bytes), rotating before retrying: %m",
-                                         f->file->path, n, IOVEC_TOTAL_SIZE(iovec, n));
 
         server_rotate(s);
         server_vacuum(s, false);
