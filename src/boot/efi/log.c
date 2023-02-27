@@ -5,10 +5,14 @@
 
 static unsigned log_count = 0;
 
-void efi_assert(const char *expr, const char *file, unsigned line, const char *function) {
-        log_error("systemd-boot assertion '%s' failed at %s:%u@%s. Halting.", expr, file, line, function);
+_noreturn_ static void freeze(void) {
         for (;;)
                 BS->Stall(60 * 1000 * 1000);
+}
+
+void efi_assert(const char *expr, const char *file, unsigned line, const char *function) {
+        log_error("systemd-boot assertion '%s' failed at %s:%u@%s. Halting.", expr, file, line, function);
+        freeze();
 }
 
 EFI_STATUS log_internal(EFI_STATUS status, const char *format, ...) {
@@ -39,3 +43,17 @@ void log_wait(void) {
         BS->Stall(MIN(4u, log_count) * 2500 * 1000);
         log_count = 0;
 }
+
+#if defined(__ARM_EABI__)
+/* These override the (weak) div0 handlers from libgcc as they would otherwise call raise() instead. */
+
+_used_ _noreturn_ int __aeabi_idiv0(int return_value) {
+        log_error("Division by zero.");
+        freeze();
+}
+
+_used_ _noreturn_ long long __aeabi_ldiv0(long long return_value) {
+        log_error("Division by zero.");
+        freeze();
+}
+#endif

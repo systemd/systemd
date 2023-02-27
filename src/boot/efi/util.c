@@ -629,9 +629,3 @@ void *find_configuration_table(const EFI_GUID *guid) {
 
         return NULL;
 }
-
-/* libgcc's __aeabi_ldiv0 intrinsic will call raise() on division by zero, so we
- * need to provide one ourselves for now. */
-_used_ _noreturn_ int raise(int sig) {
-        assert_not_reached();
-}
