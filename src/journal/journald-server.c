@@ -890,7 +890,7 @@ static bool shall_try_append_again(JournalFile *f, int r) {
                 return true;
 
         case -EAFNOSUPPORT:
-                log_ratelimit_warning(JOURNAL_LOG_RATELIMIT, "%s: Underlying file system does not support memory mapping or another required file system feature.", f->path);
+                log_ratelimit_error(JOURNAL_LOG_RATELIMIT, "%s: Underlying file system does not support memory mapping or another required file system feature.", f->path);
                 return false;
 
         default:
