@@ -126,7 +126,7 @@ _gnu_printf_(2, 0) _warn_unused_result_ char16_t *xvasprintf_status(EFI_STATUS s
 /* inttypes.h is provided by libc instead of the compiler and is not supposed to be used in freestanding
  * environments. We could use clang __*_FMT*__ constants for this, bug gcc does not have them. :( */
 
-#  if defined(__ILP32__) || defined(__arm__)
+#  if defined(__ILP32__) || defined(__arm__) || defined(__i386__)
 #    define PRI64_PREFIX "ll"
 #  elif defined(__LP64__)
 #    define PRI64_PREFIX "l"

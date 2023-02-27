@@ -216,6 +216,7 @@ REQUIREMENTS:
         awk, sed, grep, and similar tools
         clang >= 10.0, llvm >= 10.0 (optional, required to build BPF programs
                 from source code in C)
+        pyelftools (optional, required for systemd-boot)
 
         During runtime, you need the following additional
         dependencies:

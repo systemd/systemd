@@ -21,6 +21,7 @@
 #include "shim.h"
 #include "ticks.h"
 #include "util.h"
+#include "version.h"
 #include "vmm.h"
 
 /* Magic string for recognizing our own binaries */
