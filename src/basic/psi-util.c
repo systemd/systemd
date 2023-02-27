@@ -106,18 +106,24 @@ int read_resource_pressure(const char *path, PressureType type, ResourcePressure
 }
 
 int is_pressure_supported(void) {
-        /* The pressure files, both under /proc and in cgroups, will exist
-         * even if the kernel has PSI support disabled; we have to read
-         * the file to make sure it doesn't return -EOPNOTSUPP */
-        FOREACH_STRING(p, "/proc/pressure/cpu", "/proc/pressure/io", "/proc/pressure/memory") {
-                int r;
+        static thread_local int cached = -1;
+        int r;
 
+        /* The pressure files, both under /proc/ and in cgroups, will exist even if the kernel has PSI
+         * support disabled; we have to read the file to make sure it doesn't return -EOPNOTSUPP */
+
+        if (cached >= 0)
+                return cached;
+
+        FOREACH_STRING(p, "/proc/pressure/cpu", "/proc/pressure/io", "/proc/pressure/memory") {
                 r = read_virtual_file(p, 0, NULL, NULL);
-                if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
-                        return 0;
-                if (r < 0)
+                if (r < 0) {
+                        if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
+                                return (cached = false);
+
                         return r;
+                }
         }
 
-        return 1;
+        return (cached = true);
 }
