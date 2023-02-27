@@ -984,7 +984,10 @@ static int dissect_image(
                                 if (pflags & SD_GPT_FLAG_NO_AUTO)
                                         continue;
 
-                                fstype = "swap";
+                                /* Note: we don't set fstype = "swap" here, because we still need to probe if
+                                 * it might be encrypted (i.e. fstype "crypt_LUKS") or unencrypted
+                                 * (i.e. fstype "swap"), and the only way to figure that out is via fstype
+                                 * probing. */
 
                         /* We don't have a designator for SD_GPT_LINUX_GENERIC so check the UUID instead. */
                         } else if (sd_id128_equal(type.uuid, SD_GPT_LINUX_GENERIC)) {
