@@ -894,6 +894,7 @@ static bool shall_try_append_again(JournalFile *f, int r) {
                 return false;
 
         default:
+                log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT, "%s: Unexpected error while writing to journal file: %m", f->path);
                 return false;
         }
 }
