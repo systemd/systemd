@@ -21,6 +21,8 @@
 #include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-locator.h"
+#include "cap-list.h"
+#include "capability-util.h"
 #include "cgroup-setup.h"
 #include "devnum-util.h"
 #include "errno-util.h"
@@ -47,20 +49,79 @@
 
 #define LOGIN_SLOW_BUS_CALL_TIMEOUT_USEC (2*USEC_PER_MINUTE)
 
+static int parse_caps(
+                pam_handle_t *handle,
+                const char *value,
+                uint64_t *caps) {
+
+        bool subtract;
+        int r;
+
+        assert(handle);
+        assert(value);
+
+        if (value[0] == '~') {
+                subtract = true;
+                value++;
+        } else
+                subtract = false;
+
+        for (;;) {
+                _cleanup_free_ char *s = NULL;
+                uint64_t b, m;
+                int c;
+
+                /* We can't use spaces as separators here, as PAM's simplistic argument parser doesn't allow
+                 * spaces inside of arguments. We use commas instead (which is similar to cap_from_text(),
+                 * which also uses commas). */
+                r = extract_first_word(&value, &s, ",", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                c = capability_from_name(s);
+                if (c < 0) {
+                        pam_syslog(handle, LOG_WARNING, "Unknown capability, ignoring: %s", s);
+                        continue;
+                }
+
+                m = UINT64_C(1) << c;
+
+                if (!caps)
+                        continue;
+
+                if (*caps == UINT64_MAX)
+                        b = subtract ? all_capabilities() : 0;
+                else
+                        b = *caps;
+
+                if (subtract)
+                        *caps = b & ~m;
+                else
+                        *caps = b | m;
+        }
+
+        return 0;
+}
+
 static int parse_argv(
                 pam_handle_t *handle,
                 int argc, const char **argv,
                 const char **class,
                 const char **type,
                 const char **desktop,
-                bool *debug) {
+                bool *debug,
+                uint64_t *default_capability_bounding_set,
+                uint64_t *default_capability_ambient_set) {
 
-        unsigned i;
+        int r;
 
+        assert(handle);
         assert(argc >= 0);
         assert(argc == 0 || argv);
 
-        for (i = 0; i < (unsigned) argc; i++) {
+        for (int i = 0; i < argc; i++) {
                 const char *p;
 
                 if ((p = startswith(argv[i], "class="))) {
@@ -80,16 +141,24 @@ static int parse_argv(
                                 *debug = true;
 
                 } else if ((p = startswith(argv[i], "debug="))) {
-                        int k;
-
-                        k = parse_boolean(p);
-                        if (k < 0)
+                        r = parse_boolean(p);
+                        if (r < 0)
                                 pam_syslog(handle, LOG_WARNING, "Failed to parse debug= argument, ignoring: %s", p);
                         else if (debug)
-                                *debug = k;
+                                *debug = r;
+
+                } else if ((p = startswith(argv[i], "default-capability-bounding-set="))) {
+                        r = parse_caps(handle, p, default_capability_bounding_set);
+                        if (r < 0)
+                                pam_syslog(handle, LOG_WARNING, "Failed to parse default-capability-bounding-set= argument, ignoring: %s", p);
+
+                } else if ((p = startswith(argv[i], "default-capability-ambient-set="))) {
+                        r = parse_caps(handle, p, default_capability_ambient_set);
+                        if (r < 0)
+                                pam_syslog(handle, LOG_WARNING, "Failed to parse default-capability-ambient-set= argument, ignoring: %s", p);
 
                 } else
-                        pam_syslog(handle, LOG_WARNING, "Unknown parameter '%s', ignoring", argv[i]);
+                        pam_syslog(handle, LOG_WARNING, "Unknown parameter '%s', ignoring.", argv[i]);
         }
 
         return 0;
@@ -531,7 +600,12 @@ static int pam_putenv_and_log(pam_handle_t *handle, const char *e, bool debug) {
         return PAM_SUCCESS;
 }
 
-static int apply_user_record_settings(pam_handle_t *handle, UserRecord *ur, bool debug) {
+static int apply_user_record_settings(
+                pam_handle_t *handle,
+                UserRecord *ur,
+                bool debug,
+                uint64_t default_capability_bounding_set,
+                uint64_t default_capability_ambient_set) {
         int r;
 
         assert(handle);
@@ -645,6 +719,31 @@ static int apply_user_record_settings(pam_handle_t *handle, UserRecord *ur, bool
                                    "Resource limit %s set, based on user record.", rlimit_to_string(rl));
         }
 
+        uint64_t a, b;
+        a = user_record_capability_ambient_set(ur);
+        if (a == UINT64_MAX)
+                a = default_capability_ambient_set;
+
+        b = user_record_capability_bounding_set(ur);
+        if (b == UINT64_MAX)
+                b = default_capability_bounding_set;
+
+        if (a != UINT64_MAX && a != 0) {
+                a &= b;
+
+                r = capability_ambient_set_apply(a, /* also_inherit= */ true);
+                if (r < 0)
+                        pam_syslog_errno(handle, LOG_ERR, r,
+                                         "Failed to set ambient capabilities, ignoring: %m");
+        }
+
+        if (b != UINT64_MAX && !cap_test_all(b)) {
+                r = capability_bounding_set_drop(b, /* right_now= */ false);
+                if (r < 0)
+                        pam_syslog_errno(handle, LOG_ERR, r,
+                                         "Failed to set bounding capabilities, ignoring: %m");
+        }
+
         return PAM_SUCCESS;
 }
 
@@ -669,6 +768,21 @@ static int configure_runtime_directory(
         return export_legacy_dbus_address(handle, rt);
 }
 
+static uint64_t pick_default_capability_ambient_set(
+                UserRecord *ur,
+                const char *service,
+                const char *seat) {
+
+        /* If not configured otherwise, let's enable CAP_WAKE_ALARM for regular users when logging in on a
+         * seat (i.e. when they are present physically on the device), or when invoked for the systemd --user
+         * instances. This allows desktops to install CAP_WAKE_ALARM to implement alarm clock apps without
+         * much fuss. */
+
+        return ur &&
+                user_record_disposition(ur) == USER_REGULAR &&
+                (streq_ptr(service, "systemd-user") || !isempty(seat)) ? (UINT64_C(1) << CAP_WAKE_ALARM) : UINT64_MAX;
+}
+
 _public_ PAM_EXTERN int pam_sm_open_session(
                 pam_handle_t *handle,
                 int flags,
@@ -685,6 +799,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 *type = NULL, *class = NULL,
                 *class_pam = NULL, *type_pam = NULL, *cvtnr = NULL, *desktop = NULL, *desktop_pam = NULL,
                 *memory_max = NULL, *tasks_max = NULL, *cpu_weight = NULL, *io_weight = NULL, *runtime_max_sec = NULL;
+        uint64_t default_capability_bounding_set = UINT64_MAX, default_capability_ambient_set = UINT64_MAX;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
         int session_fd = -EBADF, existing, r;
@@ -699,7 +814,9 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                        &class_pam,
                        &type_pam,
                        &desktop_pam,
-                       &debug) < 0)
+                       &debug,
+                       &default_capability_bounding_set,
+                       &default_capability_ambient_set) < 0)
                 return PAM_SESSION_ERR;
 
         if (debug)
@@ -988,7 +1105,10 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         }
 
 success:
-        r = apply_user_record_settings(handle, ur, debug);
+        if (default_capability_ambient_set == UINT64_MAX)
+                default_capability_ambient_set = pick_default_capability_ambient_set(ur, service, seat);
+
+        r = apply_user_record_settings(handle, ur, debug, default_capability_bounding_set, default_capability_ambient_set);
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -1016,7 +1136,9 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                        NULL,
                        NULL,
                        NULL,
-                       &debug) < 0)
+                       &debug,
+                       NULL,
+                       NULL) < 0)
                 return PAM_SESSION_ERR;
 
         if (debug)

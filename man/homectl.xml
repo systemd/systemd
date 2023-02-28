@@ -272,6 +272,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--capability-bounding-set=</option><replaceable>CAPABILITIES</replaceable></term>
+        <term><option>--capability-ambient-set=</option><replaceable>CAPABILITIES</replaceable></term>
+
+        <listitem><para>These options take a space separated list of process capabilities
+        (e.g. <constant>CAP_WAKE_ALARM</constant>, <constant>CAP_BLOCK_SUSPEND</constant>, …) that shall be
+        set in the capability bounding and ambient sets for all the user's sessions. See <citerefentry
+        project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for details on the capabilities concept. These options may be used more than once, in which case the
+        specified lists are combined. If the parameter begins with a <literal>~</literal> character the
+        effect is inverted: the specified capability is dropped from the specific set.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--skel=</option><replaceable>PATH</replaceable></term>
 
         <listitem><para>Takes a file system path to a directory. Specifies the skeleton directory to
