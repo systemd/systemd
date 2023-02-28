@@ -69,4 +69,51 @@ TEST(tpm2_util_pbkdf2_hmac_sha256) {
         }
 }
 
+#if HAVE_TPM2
+
+static inline void verify_tpms_pcr_selection(TPMS_PCR_SELECTION *s, uint32_t mask, TPMI_ALG_HASH hash) {
+        assert_se(s->hash == hash);
+        assert_se(s->sizeofSelect == 3);
+        assert_se(s->pcrSelect[0] == (mask & 0xff));
+        assert_se(s->pcrSelect[1] == ((mask >> 8) & 0xff));
+        assert_se(s->pcrSelect[2] == ((mask >> 16) & 0xff));
+        assert_se(s->pcrSelect[3] == 0);
+
+        assert_se(tpm2_tpms_pcr_selection_to_mask(s) == mask);
+}
+
+static inline void test_tpms_pcr_selection(uint32_t mask, TPMI_ALG_HASH hash) {
+        TPMS_PCR_SELECTION s = tpm2_tpms_pcr_selection_from_mask(mask, hash);
+        verify_tpms_pcr_selection(&s, mask, hash);
+
+        uint32_t test_masks[] = {
+                0x0, 0x1, 0x100, 0x10000, 0xf0f0f0, 0xaaaaaa, 0xffffff,
+        };
+        for (unsigned i = 0; i < ELEMENTSOF(test_masks); i++) {
+                uint32_t m = test_masks[i];
+                TPMS_PCR_SELECTION a, b;
+                b = tpm2_tpms_pcr_selection_from_mask(m, hash);
+
+                a = s;
+                tpm2_tpms_pcr_selection_add(&a, &b);
+                verify_tpms_pcr_selection(&a, UPDATE_FLAG(mask, m, true), hash);
+
+                a = s;
+                tpm2_tpms_pcr_selection_sub(&a, &b);
+                verify_tpms_pcr_selection(&a, UPDATE_FLAG(mask, m, false), hash);
+        }
+}
+
+static TPMI_ALG_HASH HASH_ALGS[] = { TPM2_ALG_SHA1, TPM2_ALG_SHA256, };
+
+TEST(pcr_select) {
+        for (unsigned i = 0; i < ELEMENTSOF(HASH_ALGS); i++)
+                for (uint32_t m2 = 0; m2 <= 0xffffff; m2 += 0x30000)
+                        for (uint32_t m1 = 0; m1 <= 0xffff; m1 += 0x300)
+                                for (uint32_t m0 = 0; m0 <= 0xff; m0 += 0x3)
+                                        test_tpms_pcr_selection(m0 | m1 | m2, HASH_ALGS[i]);
+}
+
+#endif
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
