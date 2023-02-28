@@ -18,11 +18,11 @@ TEST(path_is_os_tree) {
 TEST(parse_os_release) {
         /* Let's assume that we're running in a valid system, so os-release is available */
         _cleanup_free_ char *id = NULL, *id2 = NULL, *name = NULL, *foobar = NULL;
-        assert_se(parse_os_release(NULL, "ID", &id) == 0);
+        assert_se(parse_os_release(NULL, IMAGE_EXTENSION, "ID", &id) == 0);
         log_info("ID: %s", id);
 
         assert_se(setenv("SYSTEMD_OS_RELEASE", "/dev/null", 1) == 0);
-        assert_se(parse_os_release(NULL, "ID", &id2) == 0);
+        assert_se(parse_os_release(NULL, IMAGE_EXTENSION, "ID", &id2) == 0);
         log_info("ID: %s", strnull(id2));
 
         _cleanup_(unlink_tempfilep) char tmpfile[] = "/tmp/test-os-util.XXXXXX";
@@ -31,7 +31,7 @@ TEST(parse_os_release) {
                                 "NAME=the-name") == 0);
 
         assert_se(setenv("SYSTEMD_OS_RELEASE", tmpfile, 1) == 0);
-        assert_se(parse_os_release(NULL, "ID", &id, "NAME", &name) == 0);
+        assert_se(parse_os_release(NULL, IMAGE_EXTENSION, "ID", &id, "NAME", &name) == 0);
         log_info("ID: %s NAME: %s", id, name);
         assert_se(streq(id, "the-id"));
         assert_se(streq(name, "the-name"));
@@ -43,12 +43,12 @@ TEST(parse_os_release) {
                                 "NAME='the-name'") == 0);
 
         assert_se(setenv("SYSTEMD_OS_RELEASE", tmpfile2, 1) == 0);
-        assert_se(parse_os_release(NULL, "ID", &id, "NAME", &name) == 0);
+        assert_se(parse_os_release(NULL, IMAGE_EXTENSION, "ID", &id, "NAME", &name) == 0);
         log_info("ID: %s NAME: %s", id, name);
         assert_se(streq(id, "the-id"));
         assert_se(streq(name, "the-name"));
 
-        assert_se(parse_os_release(NULL, "FOOBAR", &foobar) == 0);
+        assert_se(parse_os_release(NULL, IMAGE_EXTENSION, "FOOBAR", &foobar) == 0);
         log_info("FOOBAR: %s", strnull(foobar));
         assert_se(foobar == NULL);
 
