@@ -4910,13 +4910,13 @@ static int exec_child(
                         return r;
         }
 
-        if (context->memory_ksm) {
-                if (prctl(PR_SET_MEMORY_MERGE, 1) < 0) {
+        if (context->memory_ksm >= 0) {
+                if (prctl(PR_SET_MEMORY_MERGE, context->memory_ksm) < 0) {
                         if (ERRNO_IS_NOT_SUPPORTED(errno))
                                 log_unit_debug_errno(unit, r, "KSM support not available, ignoring.");
                         else {
                                 *exit_status = EXIT_KSM;
-                                return log_unit_error_errno(unit, errno, "Failed to enable KSM %m");
+                                return log_unit_error_errno(unit, errno, "Failed to set KSM %m");
                         }
                 }
         }
@@ -5521,6 +5521,7 @@ void exec_context_init(ExecContext *c) {
         c->tty_cols = UINT_MAX;
         numa_policy_reset(&c->numa_policy);
         c->private_mounts = -1;
+        c->memory_ksm = -1;
 }
 
 void exec_context_done(ExecContext *c) {
