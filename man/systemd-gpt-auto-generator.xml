@@ -250,6 +250,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.image_policy=</varname></term>
+        <term><varname>rd.systemd.image_policy=</varname></term>
+
+        <listitem><para>Takes an image dissection policy string as argument (as per
+        <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>),
+        and allows enforcing a policy on dissection and use of the automatically discovered GPT partition
+        table entries.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>root=</varname></term>
         <term><varname>rootfstype=</varname></term>
         <term><varname>rootflags=</varname></term>
