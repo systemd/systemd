@@ -92,6 +92,13 @@ efi_c_args += cc.get_supported_arguments(
         '-maccumulate-outgoing-args',
 )
 
+# Debug information has little value in release builds as no normal human being knows
+# how to attach a debugger to EFI binaries running on real hardware. Anyone who does
+# certainly has the means to do their own dev build.
+if get_option('mode') == 'developer' and get_option('debug')
+        efi_c_args += '-DEFI_DEBUG'
+endif
+
 efi_c_ld_args = [
         # We only support bfd. gold is going away, lld has issues with LTO on x86
         # and mold does not support linker scripts.

@@ -51,19 +51,17 @@ case "${BASH_REMATCH[1]}" in
         exit 1
 esac
 
-# system-boot will print out a line like this to inform us where gdb is supposed to
-# look for .text and .data section:
-#        systemd-boot@0x0,0x0
+# system-boot/stub will print out a line like this to inform us where it was loaded:
+#        systemd-boot@0xC0DE
 while read -r line; do
-    if [[ "${line}" =~ ${target}@(0x[[:xdigit:]]+),(0x[[:xdigit:]]+) ]]; then
-        text="${BASH_REMATCH[1]}"
-        data="${BASH_REMATCH[2]}"
+    if [[ "${line}" =~ ${target}@(0x[[:xdigit:]]+) ]]; then
+        loaded_base="${BASH_REMATCH[1]}"
         break
     fi
 done <"${2}"
 
-if [[ -z "${text}" || -z "${data}" ]]; then
-    echo "Could not determine text and data location."
+if [[ -z "${loaded_base}" ]]; then
+    echo "Could not determine loaded image base."
     exit 1
 fi
 
@@ -76,8 +74,8 @@ fi
 
 cat >"${gdb_script}" <<EOF
 file ${binary}
-add-symbol-file ${symbols} ${text} -s .data ${data}
-set architecture ${arch}"
+symbol-file ${symbols} -o ${loaded_base}
+set architecture ${arch}
 EOF
 
 if [[ -z "${3}" ]]; then
