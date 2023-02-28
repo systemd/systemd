@@ -336,6 +336,7 @@ def convert_elf_reloc_table(
         "EM_386": ENUM_RELOC_TYPE_i386["R_386_NONE"],
         "EM_AARCH64": ENUM_RELOC_TYPE_AARCH64["R_AARCH64_NONE"],
         "EM_ARM": ENUM_RELOC_TYPE_ARM["R_ARM_NONE"],
+        "EM_LOONGARCH": 0,
         "EM_RISCV": 0,
         "EM_X86_64": ENUM_RELOC_TYPE_x64["R_X86_64_NONE"],
     }[elf["e_machine"]]
@@ -344,6 +345,7 @@ def convert_elf_reloc_table(
         "EM_386": ENUM_RELOC_TYPE_i386["R_386_RELATIVE"],
         "EM_AARCH64": ENUM_RELOC_TYPE_AARCH64["R_AARCH64_RELATIVE"],
         "EM_ARM": ENUM_RELOC_TYPE_ARM["R_ARM_RELATIVE"],
+        "EM_LOONGARCH": 3,
         "EM_RISCV": 3,
         "EM_X86_64": ENUM_RELOC_TYPE_x64["R_X86_64_RELATIVE"],
     }[elf["e_machine"]]
@@ -465,7 +467,8 @@ def elf2efi(args: argparse.Namespace):
         "EM_386": 0x014C,
         "EM_AARCH64": 0xAA64,
         "EM_ARM": 0x01C2,
-        "EM_RISCV": 0x5064,
+        "EM_LOONGARCH": 0x6232 if elf.elfclass == 32 else 0x6264,
+        "EM_RISCV": 0x5032 if elf.elfclass == 32 else 0x5064,
         "EM_X86_64": 0x8664,
     }.get(elf["e_machine"])
     if pe_arch is None:
