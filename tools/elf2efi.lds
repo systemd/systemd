@@ -1,4 +1,6 @@
 SECTIONS {
+        __ImageBase = .;
+
         /* We skip the first page because the space will be occupied by the PE headers after conversion. */
         . = CONSTANT(MAXPAGESIZE);
         .text ALIGN(CONSTANT(MAXPAGESIZE)) : {
