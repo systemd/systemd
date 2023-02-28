@@ -159,6 +159,11 @@ Features:
   invokes systemd-mount and exits. This is then useful to use in
   ENV{SYSTEMD_WANTS} in udev rules, and a bit prettier than using RUN+=
 
+* udevd: extend memory pressure logic: also kill any idle worker processes
+
+* SIGRTMIN+18 and memory pressure handling should still be added to: hostnamed,
+  localed, oomd, timedated.
+
 * sd-journal puts a limit on parallel journal files to view at once. journald
   should probably honour that same limit (JOURNAL_FILES_MAX) when vacuuming to
   ensure we never generate more files than we can actually view.
