@@ -664,8 +664,8 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultStartLimitInterval",    config_parse_sec,                   0,                        &arg_default_start_limit_interval }, /* obsolete alias */
                 { "Manager", "DefaultStartLimitIntervalSec", config_parse_sec,                   0,                        &arg_default_start_limit_interval },
                 { "Manager", "DefaultStartLimitBurst",       config_parse_unsigned,              0,                        &arg_default_start_limit_burst    },
-                { "Manager", "DefaultEnvironment",           config_parse_environ,               0,                        &arg_default_environment          },
-                { "Manager", "ManagerEnvironment",           config_parse_environ,               0,                        &arg_manager_environment          },
+                { "Manager", "DefaultEnvironment",           config_parse_environ,               arg_system,               &arg_default_environment          },
+                { "Manager", "ManagerEnvironment",           config_parse_environ,               arg_system,               &arg_manager_environment          },
                 { "Manager", "DefaultLimitCPU",              config_parse_rlimit,                RLIMIT_CPU,               arg_default_rlimit                },
                 { "Manager", "DefaultLimitFSIZE",            config_parse_rlimit,                RLIMIT_FSIZE,             arg_default_rlimit                },
                 { "Manager", "DefaultLimitDATA",             config_parse_rlimit,                RLIMIT_DATA,              arg_default_rlimit                },
