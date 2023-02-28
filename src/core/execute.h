@@ -302,6 +302,7 @@ struct ExecContext {
         ProcSubset proc_subset;    /* subset= */
 
         int private_mounts;
+        int memory_ksm;
         bool private_tmp;
         bool private_network;
         bool private_devices;
@@ -316,7 +317,6 @@ struct ExecContext {
         ProtectHome protect_home;
         bool protect_hostname;
         bool mount_apivfs;
-	bool memory_ksm;
 
         bool dynamic_user;
         bool remove_ipc;
