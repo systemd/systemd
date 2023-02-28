@@ -21,6 +21,7 @@ typedef struct Manager Manager;
 #include "resolved-dns-stub.h"
 #include "resolved-dns-trust-anchor.h"
 #include "resolved-link.h"
+#include "resolved-mdns-browse-services.h"
 #include "resolved-socket-graveyard.h"
 
 #define MANAGER_SEARCH_DOMAINS_MAX 256
@@ -156,6 +157,8 @@ struct Manager {
         LIST_HEAD(SocketGraveyard, socket_graveyard);
         SocketGraveyard *socket_graveyard_oldest;
         size_t n_socket_graveyard;
+
+        mDnsServiceSubscriber *dns_service_subscriber;
 };
 
 /* Manager */
@@ -182,7 +185,13 @@ int manager_next_hostname(Manager *m);
 bool manager_packet_from_local_address(Manager *m, DnsPacket *p);
 bool manager_packet_from_our_transaction(Manager *m, DnsPacket *p);
 
-DnsScope* manager_find_scope(Manager *m, DnsPacket *p);
+DnsScope* manager_find_scope_from_protocol(Manager *m, int ifindex, DnsProtocol protocol, int family);
+
+static inline DnsScope* manager_find_scope(Manager *m, DnsPacket *p) {
+        assert(m);
+        assert(p);
+        return manager_find_scope_from_protocol(m, p->ifindex, p->protocol, p->family);
+}
 
 void manager_verify_all(Manager *m);
 
