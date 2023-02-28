@@ -16,8 +16,14 @@
 #  define TARGET_MACHINE_TYPE 0xAA64U
 #elif defined(__arm__)
 #  define TARGET_MACHINE_TYPE 0x01C2U
+#elif defined(__riscv) && __riscv_xlen == 32
+#  define TARGET_MACHINE_TYPE 0x5032U
 #elif defined(__riscv) && __riscv_xlen == 64
 #  define TARGET_MACHINE_TYPE 0x5064U
+#elif defined(__loongarch__) && __loongarch_grlen == 32
+#  define TARGET_MACHINE_TYPE 0x6232U
+#elif defined(__loongarch__) && __loongarch_grlen == 64
+#  define TARGET_MACHINE_TYPE 0x6264U
 #else
 #  error Unknown EFI arch
 #endif
