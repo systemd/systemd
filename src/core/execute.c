@@ -4655,11 +4655,13 @@ static int exec_child(
 
         if (mpol_is_valid(numa_policy_get_type(&context->numa_policy))) {
                 r = apply_numa_policy(&context->numa_policy);
-                if (r == -EOPNOTSUPP)
-                        log_unit_debug_errno(unit, r, "NUMA support not available, ignoring.");
-                else if (r < 0) {
-                        *exit_status = EXIT_NUMA_POLICY;
-                        return log_unit_error_errno(unit, r, "Failed to set NUMA memory policy: %m");
+                if (r < 0) {
+                        if (ERRNO_IS_NOT_SUPPORTED(r))
+                                log_unit_debug_errno(unit, r, "NUMA support not available, ignoring.");
+                        else {
+                                *exit_status = EXIT_NUMA_POLICY;
+                                return log_unit_error_errno(unit, r, "Failed to set NUMA memory policy: %m");
+                        }
                 }
         }
 
@@ -4917,12 +4919,14 @@ static int exec_child(
 
                 if (ns_type_supported(NAMESPACE_NET)) {
                         r = setup_shareable_ns(runtime->netns_storage_socket, CLONE_NEWNET);
-                        if (r == -EPERM)
-                                log_unit_warning_errno(unit, r,
-                                                       "PrivateNetwork=yes is configured, but network namespace setup failed, ignoring: %m");
-                        else if (r < 0) {
-                                *exit_status = EXIT_NETWORK;
-                                return log_unit_error_errno(unit, r, "Failed to set up network namespacing: %m");
+                        if (r < 0) {
+                                if (ERRNO_IS_PRIVILEGE(r))
+                                        log_unit_warning_errno(unit, r,
+                                                               "PrivateNetwork=yes is configured, but network namespace setup failed, ignoring: %m");
+                                else {
+                                        *exit_status = EXIT_NETWORK;
+                                        return log_unit_error_errno(unit, r, "Failed to set up network namespacing: %m");
+                                }
                         }
                 } else if (context->network_namespace_path) {
                         *exit_status = EXIT_NETWORK;
