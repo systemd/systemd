@@ -815,7 +815,7 @@ endif
 time_epoch = get_option('time-epoch')
 if time_epoch <= 0
         time_epoch = run_command(sh, '-c', 'echo "$SOURCE_DATE_EPOCH"', check : true).stdout().strip()
-        if time_epoch == '' and git.found() and fs.exists('.git')
+        if time_epoch == '' and git.found() and fs.is_dir('.git')
                 # If we're in a git repository, use the creation time of the latest git tag.
                 latest_tag = run_command(git, 'describe', '--abbrev=0', '--tags',
                                          check : false)
