@@ -172,6 +172,7 @@ struct UdevRuleLine {
 struct UdevRuleFile {
         char *filename;
         UdevRuleLine *current_line;
+        unsigned int issues;
         LIST_HEAD(UdevRuleLine, rule_lines);
         LIST_FIELDS(UdevRuleFile, rule_files);
 };
@@ -194,6 +195,7 @@ struct UdevRules {
                 UdevRuleLine *_l = _f ? _f->current_line : NULL;        \
                 const char *_n = _f ? _f->filename : NULL;              \
                                                                         \
+                rule_file_mark_issue(_f, level);                        \
                 log_device_full_errno_zerook(                           \
                                 device, level, error, "%s:%u " fmt,     \
                                 strna(_n), _l ? _l->line_number : 0,    \
@@ -253,6 +255,11 @@ struct UdevRules {
         log_token_error_errno(rules, SYNTHETIC_ERRNO(EINVAL),           \
                               "Invalid value \"%s\" for %s (char %zu: %s), ignoring.", \
                               value, key, offset, hint)
+
+static void rule_file_mark_issue(UdevRuleFile *rule_file, uint8_t log_level) {
+        if (rule_file)
+                rule_file->issues |= (1U << log_level);
+}
 
 static void log_unknown_owner(sd_device *dev, UdevRules *rules, int error, const char *entity, const char *name) {
         if (IN_SET(abs(error), ENOENT, ESRCH))
@@ -1152,6 +1159,7 @@ static void rule_resolve_goto(UdevRuleFile *rule_file) {
                 if (!line->goto_line) {
                         log_error("%s:%u: GOTO=\"%s\" has no matching label, ignoring",
                                   rule_file->filename, line->line_number, line->goto_label);
+                        rule_file_mark_issue(rule_file, LOG_ERR);
 
                         SET_FLAG(line->type, LINE_HAS_GOTO, false);
                         line->goto_label = NULL;
@@ -1159,6 +1167,7 @@ static void rule_resolve_goto(UdevRuleFile *rule_file) {
                         if ((line->type & ~LINE_HAS_LABEL) == 0) {
                                 log_notice("%s:%u: The line takes no effect any more, dropping",
                                            rule_file->filename, line->line_number);
+                                rule_file_mark_issue(rule_file, LOG_NOTICE);
                                 if (line->type == LINE_HAS_LABEL)
                                         udev_rule_line_clear_tokens(line);
                                 else
@@ -1262,9 +1271,10 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename) {
                         continue;
                 }
 
-                if (ignore_line)
+                if (ignore_line) {
                         log_error("%s:%u: Line is too long, ignored", filename, line_nr);
-                else if (len > 0)
+                        rule_file_mark_issue(rule_file, LOG_ERR);
+                } else if (len > 0)
                         (void) rule_add_line(rules, line, line_nr);
 
                 continuation = mfree(continuation);
