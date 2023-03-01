@@ -565,6 +565,12 @@ char *tpm2_tpms_pcr_selection_to_string(const TPMS_PCR_SELECTION *s) {
         return strjoin(algstr, "(", maskstr, ")");
 }
 
+size_t tpm2_tpms_pcr_selection_weight(const TPMS_PCR_SELECTION *s) {
+        uint32_t mask;
+        tpm2_tpms_pcr_selection_to_mask(s, &mask);
+        return (size_t)__builtin_popcount(mask);
+}
+
 /* Utility functions for TPML_PCR_SELECTION. */
 
 /* Remove the (0-based) index entry from 'l', shift all following entries, and update the count. */
@@ -639,22 +645,6 @@ void tpm2_tpml_pcr_selection_from_mask(uint32_t mask, TPMI_ALG_HASH hash, TPML_P
         };
 }
 
-static size_t tpm2_tpml_pcr_selection_weight(const TPML_PCR_SELECTION *l) {
-        assert(l);
-        assert(l->count <= sizeof(l->pcrSelections));
-
-        size_t weight = 0;
-        FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(s, l) {
-                size_t w = tpm2_tpms_pcr_selection_weight(s);
-                assert(weight <= SIZE_MAX - w);
-                weight += w;
-        }
-
-        return weight;
-}
-
-#define tpm2_tpml_pcr_selection_is_empty(l) (tpm2_tpml_pcr_selection_weight(l) == 0)
-
 /* Combine all duplicate (same hash) TPMS_PCR_SELECTION entries in 'l'. */
 static void tpm2_tpml_pcr_selection_cleanup(TPML_PCR_SELECTION *l) {
         FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(s, l)
@@ -664,7 +654,7 @@ static void tpm2_tpml_pcr_selection_cleanup(TPML_PCR_SELECTION *l) {
 
 /* Add the PCR selections in 's' to the corresponding hash TPMS_PCR_SELECTION entry in 'l'. Adds a new
  * TPMS_PCR_SELECTION entry for the hash if needed. */
-static void tpm2_tpml_pcr_selection_add_tpms_pcr_selection(TPML_PCR_SELECTION *l, const TPMS_PCR_SELECTION *s) {
+void tpm2_tpml_pcr_selection_add_tpms_pcr_selection(TPML_PCR_SELECTION *l, const TPMS_PCR_SELECTION *s) {
         assert(l);
         assert(s);
 
@@ -682,7 +672,7 @@ static void tpm2_tpml_pcr_selection_add_tpms_pcr_selection(TPML_PCR_SELECTION *l
 }
 
 /* Remove the PCR selections in 's' from the corresponding hash TPMS_PCR_SELECTION entry in 'l'. */
-static void tpm2_tpml_pcr_selection_sub_tpms_pcr_selection(TPML_PCR_SELECTION *l, const TPMS_PCR_SELECTION *s) {
+void tpm2_tpml_pcr_selection_sub_tpms_pcr_selection(TPML_PCR_SELECTION *l, const TPMS_PCR_SELECTION *s) {
         assert(l);
         assert(s);
 
@@ -695,7 +685,7 @@ static void tpm2_tpml_pcr_selection_sub_tpms_pcr_selection(TPML_PCR_SELECTION *l
 }
 
 /* Add all PCR selections in 'b' to 'a'. */
-static void tpm2_tpml_pcr_selection_add(TPML_PCR_SELECTION *a, const TPML_PCR_SELECTION *b) {
+void tpm2_tpml_pcr_selection_add(TPML_PCR_SELECTION *a, const TPML_PCR_SELECTION *b) {
         assert(a);
         assert(b);
 
@@ -704,7 +694,7 @@ static void tpm2_tpml_pcr_selection_add(TPML_PCR_SELECTION *a, const TPML_PCR_SE
 }
 
 /* Remove all PCR selections in 'b' from 'a'. */
-static void tpm2_tpml_pcr_selection_sub(TPML_PCR_SELECTION *a, const TPML_PCR_SELECTION *b) {
+void tpm2_tpml_pcr_selection_sub(TPML_PCR_SELECTION *a, const TPML_PCR_SELECTION *b) {
         assert(a);
         assert(b);
 
@@ -712,7 +702,7 @@ static void tpm2_tpml_pcr_selection_sub(TPML_PCR_SELECTION *a, const TPML_PCR_SE
                 tpm2_tpml_pcr_selection_sub_tpms_pcr_selection(a, selection_b);
 }
 
-static char *tpm2_tpml_pcr_selection_to_string(const TPML_PCR_SELECTION *l) {
+char *tpm2_tpml_pcr_selection_to_string(const TPML_PCR_SELECTION *l) {
         assert(l);
 
         _cleanup_free_ char *banks = NULL;
@@ -726,6 +716,20 @@ static char *tpm2_tpml_pcr_selection_to_string(const TPML_PCR_SELECTION *l) {
         }
 
         return strjoin("[", banks ?: "", "]");
+}
+
+size_t tpm2_tpml_pcr_selection_weight(const TPML_PCR_SELECTION *l) {
+        assert(l);
+        assert(l->count <= sizeof(l->pcrSelections));
+
+        size_t weight = 0;
+        FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(s, l) {
+                size_t w = tpm2_tpms_pcr_selection_weight(s);
+                assert(weight <= SIZE_MAX - w);
+                weight += w;
+        }
+
+        return weight;
 }
 
 static void tpm2_log_debug_buffer(const void *buffer, const size_t size, const char *msg) {
