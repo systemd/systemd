@@ -484,8 +484,7 @@ static char* strcpy_backslash_escaped(char *t, const char *s, const char *bad) {
                                 *(t++) = '\\';
                         *(t++) = *(s++);
                 } else {
-                        memcpy(t, s, l);
-                        t += l;
+                        t = mempcpy(t, s, l);
                         s += l;
                 }
         }
