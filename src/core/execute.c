@@ -4909,6 +4909,19 @@ static int exec_child(
                         return r;
         }
 
+	if (context->memory_ksm) {
+#ifdef PR_SET_MEMORY_MERGE
+		r = prctl(PR_SET_MEMORY_MERGE, 1);
+		if (r < 0) {
+			*exit_status = EXIT_KSM;
+			return log_unit_error_errno(unit, r, "Failed to enable KSM %m");
+		}
+#else
+                *exit_status = EXIT_NOTIMPLEMENTED;
+		return log_unit_error_errno(unit, SYNTHETIC_ERRNO(EOPNOTSUPP), "KSM not supported %m");
+#endif
+	}
+
         /* Drop groups as early as possible.
          * This needs to be done after PrivateDevices=y setup as device nodes should be owned by the host's root.
          * For non-root in a userns, devices will be owned by the user/group before the group change, and nobody. */

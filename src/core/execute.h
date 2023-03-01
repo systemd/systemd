@@ -316,6 +316,7 @@ struct ExecContext {
         ProtectHome protect_home;
         bool protect_hostname;
         bool mount_apivfs;
+	bool memory_ksm;
 
         bool dynamic_user;
         bool remove_ipc;
