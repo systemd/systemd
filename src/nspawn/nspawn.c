@@ -233,6 +233,7 @@ static size_t arg_n_credentials = 0;
 static char **arg_bind_user = NULL;
 static bool arg_suppress_sync = false;
 static char *arg_settings_filename = NULL;
+static Architecture arg_architecture = _ARCHITECTURE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_template, freep);
@@ -3222,7 +3223,6 @@ static int patch_sysctl(void) {
 static int inner_child(
                 Barrier *barrier,
                 const char *directory,
-                bool secondary,
                 int fd_inner_socket,
                 FDSet *fds,
                 char **os_release_pairs) {
@@ -3402,11 +3402,16 @@ static int inner_child(
                 r = safe_personality(arg_personality);
                 if (r < 0)
                         return log_error_errno(r, "personality() failed: %m");
-        } else if (secondary) {
+#ifdef ARCHITECTURE_SECONDARY
+        } else if (arg_architecture == ARCHITECTURE_SECONDARY) {
                 r = safe_personality(PER_LINUX32);
                 if (r < 0)
                         return log_error_errno(r, "personality() failed: %m");
-        }
+#endif
+        } else if (arg_architecture >= 0 && arg_architecture != native_architecture())
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Selected architecture '%s' not supported locally, refusing.",
+                                       architecture_to_string(arg_architecture));
 
         r = setrlimit_closest_all((const struct rlimit *const*) arg_rlimit, &which_failed);
         if (r < 0)
@@ -3636,7 +3641,6 @@ static int outer_child(
                 Barrier *barrier,
                 const char *directory,
                 DissectedImage *dissected_image,
-                bool secondary,
                 int fd_outer_socket,
                 int fd_inner_socket,
                 FDSet *fds,
@@ -4032,7 +4036,7 @@ static int outer_child(
                                 return log_error_errno(r, "Failed to join network namespace: %m");
                 }
 
-                r = inner_child(barrier, directory, secondary, fd_inner_socket, fds, os_release_pairs);
+                r = inner_child(barrier, directory, fd_inner_socket, fds, os_release_pairs);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
@@ -4743,7 +4747,6 @@ static int load_oci_bundle(void) {
 
 static int run_container(
                DissectedImage *dissected_image,
-               bool secondary,
                FDSet *fds,
                char veth_name[IFNAMSIZ], bool *veth_created,
                struct ExposeArgs *expose_args,
@@ -4845,7 +4848,6 @@ static int run_container(
                 r = outer_child(&barrier,
                                 arg_directory,
                                 dissected_image,
-                                secondary,
                                 fd_outer_socket_pair[1],
                                 fd_inner_socket_pair[1],
                                 fds,
@@ -5430,8 +5432,7 @@ static int cant_be_in_netns(void) {
 }
 
 static int run(int argc, char *argv[]) {
-        bool secondary = false, remove_directory = false, remove_image = false,
-                veth_created = false, remove_tmprootdir = false;
+        bool remove_directory = false, remove_image = false, veth_created = false, remove_tmprootdir = false;
         _cleanup_close_ int master = -EBADF;
         _cleanup_fdset_free_ FDSet *fds = NULL;
         int r, n_fd_passed, ret = EXIT_SUCCESS;
@@ -5792,6 +5793,9 @@ static int run(int argc, char *argv[]) {
                 /* Now that we mounted the image, let's try to remove it again, if it is ephemeral */
                 if (remove_image && unlink(arg_image) >= 0)
                         remove_image = false;
+
+                if (arg_architecture < 0)
+                        arg_architecture = dissected_image_architecture(dissected_image);
         }
 
         r = custom_mount_prepare_all(arg_directory, arg_custom_mounts, arg_n_custom_mounts);
@@ -5827,7 +5831,6 @@ static int run(int argc, char *argv[]) {
         }
         for (;;) {
                 r = run_container(dissected_image,
-                                  secondary,
                                   fds,
                                   veth_name, &veth_created,
                                   &expose_args, &master,
