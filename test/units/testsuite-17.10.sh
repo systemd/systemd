@@ -11,10 +11,6 @@ set -o pipefail
 cleanup_17_10() {
         set +e
 
-        rmmod scsi_debug
-        rm -f /etc/udev/hwdb.d/99-test.hwdb
-        systemd-hwdb update
-
         losetup -d "$loopdev"
         rm -f "$blk"
 
@@ -32,14 +28,6 @@ ip link add $netdev type dummy
 blk="$(mktemp)"
 dd if=/dev/null of="$blk" bs=1M count=1
 loopdev="$(losetup --show -f "$blk")"
-
-modprobe scsi_debug
-scsidev=$(readlink -f /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/[0-9]*)
-cat > /etc/udev/hwdb.d/99-test.hwdb <<EOF
-scsi:*
- ID_TEST=test
-EOF
-systemd-hwdb update
 
 udevadm -h
 
@@ -138,13 +126,31 @@ udevadm test-builtin -a unbind net_id /sys/class/net/$netdev
 udevadm test-builtin -a help net_id /sys/class/net/$netdev
 udevadm test-builtin net_setup_link /sys/class/net/$netdev
 udevadm test-builtin blkid "$loopdev"
-udevadm test-builtin hwdb "$scsidev"
 udevadm test-builtin input_id /sys/class/net/$netdev
 udevadm test-builtin keyboard /dev/null
 # udevadm test-builtin kmod /sys/class/net/$netdev
 udevadm test-builtin uaccess /dev/null
 # udevadm test-builtin usb_id dev/null
 (! udevadm test-builtin hello /sys/class/net/$netdev )
+# systemd-hwdb update is extremely slow when combined with sanitizers and run
+# in a VM without acceleration, so let's just skip the one particular test
+# if we detect this combination
+if ! [[ -v ASAN_OPTIONS && "$(systemd-detect-virt -v)" == "qemu" ]]; then
+    modprobe scsi_debug
+    scsidev=$(readlink -f /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/[0-9]*)
+    cat > /etc/udev/hwdb.d/99-test.hwdb <<EOF
+scsi:*
+  ID_TEST=test
+EOF
+    systemd-hwdb update
+
+    udevadm test-builtin hwdb "$scsidev"
+
+    rmmod scsi_debug
+    rm -f /etc/udev/hwdb.d/99-test.hwdb
+    systemd-hwdb update
+fi
+
 
 udevadm trigger
 udevadm trigger /dev/null
