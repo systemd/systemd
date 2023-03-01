@@ -603,6 +603,9 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
 
         printf(" Sec. Size: %" PRIu32 "\n", m->sector_size);
 
+        printf("     Arch.: %s\n",
+               strna(architecture_to_string(dissected_image_architecture(m))));
+
         if (arg_json_format_flags & JSON_FORMAT_OFF)
                 putc('\n', stdout);
 

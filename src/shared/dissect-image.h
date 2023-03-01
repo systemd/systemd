@@ -160,6 +160,8 @@ int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t u
 
 int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_flags);
 
+Architecture dissected_image_architecture(DissectedImage *m);
+
 DecryptedImage* decrypted_image_ref(DecryptedImage *p);
 DecryptedImage* decrypted_image_unref(DecryptedImage *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DecryptedImage*, decrypted_image_unref);
