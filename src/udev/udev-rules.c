@@ -172,6 +172,7 @@ struct UdevRuleLine {
 struct UdevRuleFile {
         char *filename;
         UdevRuleLine *current_line;
+        unsigned issues;
         LIST_HEAD(UdevRuleLine, rule_lines);
         LIST_FIELDS(UdevRuleFile, rule_files);
 };
@@ -190,12 +191,14 @@ struct UdevRules {
 #define log_rule_full_errno_zerook(device, rules, level, error, fmt, ...) \
         ({                                                              \
                 UdevRules *_r = (rules);                                \
+                int _lv = (level);                                      \
                 UdevRuleFile *_f = _r ? _r->current_file : NULL;        \
                 UdevRuleLine *_l = _f ? _f->current_line : NULL;        \
                 const char *_n = _f ? _f->filename : NULL;              \
                                                                         \
+                rule_file_mark_issue(_f, _lv);                          \
                 log_device_full_errno_zerook(                           \
-                                device, level, error, "%s:%u " fmt,     \
+                                device, _lv, error, "%s:%u " fmt,       \
                                 strna(_n), _l ? _l->line_number : 0,    \
                                 ##__VA_ARGS__);                         \
         })
@@ -253,6 +256,48 @@ struct UdevRules {
         log_token_error_errno(rules, SYNTHETIC_ERRNO(EINVAL),           \
                               "Invalid value \"%s\" for %s (char %zu: %s), ignoring.", \
                               value, key, offset, hint)
+
+#define log_line_full_errno_zerook(rule_file, line_nr, level, error, fmt, ...) \
+        ({                                                              \
+                UdevRuleFile *_f = (rule_file);                         \
+                int _lv = (level);                                      \
+                const char *_n = _f ? _f->filename : NULL;              \
+                                                                        \
+                rule_file_mark_issue(_f, _lv);                          \
+                log_device_full_errno_zerook(                           \
+                                NULL, _lv, error, "%s:%u " fmt,         \
+                                strna(_n), line_nr,                     \
+                                ##__VA_ARGS__);                         \
+        })
+
+#define log_line_full_errno(rule_file, line_nr, level, error, fmt, ...) \
+        ({                                                              \
+                int _error = (error);                                   \
+                ASSERT_NON_ZERO(_error);                                \
+                log_line_full_errno_zerook(                             \
+                                rule_file, line_nr, level, _error,      \
+                                fmt, ##__VA_ARGS__);                    \
+        })
+
+#define log_line_full(rule_file, line_nr, level, ...)                   \
+                (void) log_line_full_errno_zerook(rule_file, line_nr, level, 0, __VA_ARGS__)
+
+#define log_line_debug(rule_file, line_nr, ...)   log_line_full(rule_file, line_nr, LOG_DEBUG, __VA_ARGS__)
+#define log_line_info(rule_file, line_nr, ...)    log_line_full(rule_file, line_nr, LOG_INFO, __VA_ARGS__)
+#define log_line_notice(rule_file, line_nr, ...)  log_line_full(rule_file, line_nr, LOG_NOTICE, __VA_ARGS__)
+#define log_line_warning(rule_file, line_nr, ...) log_line_full(rule_file, line_nr, LOG_WARNING, __VA_ARGS__)
+#define log_line_error(rule_file, line_nr, ...)   log_line_full(rule_file, line_nr, LOG_ERR, __VA_ARGS__)
+
+#define log_line_debug_errno(rule_file, line_nr, error, ...)   log_line_full_errno(rule_file, line_nr, LOG_DEBUG, error, __VA_ARGS__)
+#define log_line_info_errno(rule_file, line_nr, error, ...)    log_line_full_errno(rule_file, line_nr, LOG_INFO, error, __VA_ARGS__)
+#define log_line_notice_errno(rule_file, line_nr, error, ...)  log_line_full_errno(rule_file, line_nr, LOG_NOTICE, error, __VA_ARGS__)
+#define log_line_warning_errno(rule_file, line_nr, error, ...) log_line_full_errno(rule_file, line_nr, LOG_WARNING, error, __VA_ARGS__)
+#define log_line_error_errno(rule_file, line_nr, error, ...)   log_line_full_errno(rule_file, line_nr, LOG_ERR, error, __VA_ARGS__)
+
+static void rule_file_mark_issue(UdevRuleFile *rule_file, uint8_t log_level) {
+        if (rule_file)
+                rule_file->issues |= (1U << log_level);
+}
 
 static void log_unknown_owner(sd_device *dev, UdevRules *rules, int error, const char *entity, const char *name) {
         if (IN_SET(abs(error), ENOENT, ESRCH))
@@ -1150,15 +1195,16 @@ static void rule_resolve_goto(UdevRuleFile *rule_file) {
                         }
 
                 if (!line->goto_line) {
-                        log_error("%s:%u: GOTO=\"%s\" has no matching label, ignoring",
-                                  rule_file->filename, line->line_number, line->goto_label);
+                        log_line_error(rule_file, line->line_number,
+                                       "GOTO=\"%s\" has no matching label, ignoring",
+                                       line->goto_label);
 
                         SET_FLAG(line->type, LINE_HAS_GOTO, false);
                         line->goto_label = NULL;
 
                         if ((line->type & ~LINE_HAS_LABEL) == 0) {
-                                log_notice("%s:%u: The line takes no effect any more, dropping",
-                                           rule_file->filename, line->line_number);
+                                log_line_notice(rule_file, line->line_number,
+                                                "The line takes no effect any more, dropping");
                                 if (line->type == LINE_HAS_LABEL)
                                         udev_rule_line_clear_tokens(line);
                                 else
@@ -1263,7 +1309,7 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename) {
                 }
 
                 if (ignore_line)
-                        log_error("%s:%u: Line is too long, ignored", filename, line_nr);
+                        log_line_error(rule_file, line_nr, "Line is too long, ignored");
                 else if (len > 0)
                         (void) rule_add_line(rules, line, line_nr);
 
