@@ -102,6 +102,7 @@ static Virtualization detect_vm_device_tree(void) {
         r = read_one_line_file("/proc/device-tree/hypervisor/compatible", &hvtype);
         if (r == -ENOENT) {
                 _cleanup_closedir_ DIR *dir = NULL;
+                _cleanup_free_ char *compat = NULL;
 
                 if (access("/proc/device-tree/ibm,partition-name", F_OK) == 0 &&
                     access("/proc/device-tree/hmc-managed?", F_OK) == 0 &&
@@ -122,6 +123,14 @@ static Virtualization detect_vm_device_tree(void) {
                                 log_debug("Virtualization QEMU: \"fw-cfg\" present in /proc/device-tree/%s", de->d_name);
                                 return VIRTUALIZATION_QEMU;
                         }
+
+                r = read_one_line_file("/proc/device-tree/compatible", &compat);
+                if (r < 0 && r != -ENOENT)
+                        return r;
+                if (r >= 0 && streq(compat, "qemu,pseries")) {
+                        log_debug("Virtualization %s found in /proc/device-tree/compatible", compat);
+                        return VIRTUALIZATION_QEMU;
+                }
 
                 log_debug("No virtualization found in /proc/device-tree/*");
                 return VIRTUALIZATION_NONE;
