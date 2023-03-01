@@ -474,14 +474,18 @@ char* octescape(const char *s, size_t len) {
 static char* strcpy_backslash_escaped(char *t, const char *s, const char *bad) {
         assert(bad);
 
-        for (; *s; s++)
-                if (char_is_cc(*s))
+        for (; *s; s++) {
+                int l = utf8_encoded_valid_unichar(s, SIZE_MAX);
+
+                if (char_is_cc(*s) || l < 0)
                         t += cescape_char(*s, t);
                 else {
                         if (*s == '\\' || strchr(bad, *s))
                                 *(t++) = '\\';
-                        *(t++) = *s;
+                        memcpy(t, s, l);
+                        t += l;
                 }
+        }
 
         return t;
 }
@@ -510,10 +514,15 @@ char* shell_maybe_quote(const char *s, ShellEscapeFlags flags) {
         if (FLAGS_SET(flags, SHELL_ESCAPE_EMPTY) && isempty(s))
                 return strdup("\"\""); /* We don't use $'' here in the POSIX mode. "" is fine too. */
 
-        for (p = s; *p; p++)
-                if (char_is_cc(*p) ||
+        for (p = s; *p; ) {
+                int l = utf8_encoded_valid_unichar(p, SIZE_MAX);
+
+                if (char_is_cc(*p) || l < 0 ||
                     strchr(WHITESPACE SHELL_NEED_QUOTES, *p))
                         break;
+
+                p += l;
+        }
 
         if (!*p)
                 return strdup(s);
