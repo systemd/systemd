@@ -1960,6 +1960,7 @@ static void config_entry_add_osx(Config *config) {
         }
 }
 
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
 static EFI_STATUS boot_windows_bitlocker(void) {
         _cleanup_free_ EFI_HANDLE *handles = NULL;
         size_t n_handles;
@@ -2040,6 +2041,7 @@ static EFI_STATUS boot_windows_bitlocker(void) {
 
         return EFI_NOT_FOUND;
 }
+#endif
 
 static void config_entry_add_windows(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir) {
 #if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
