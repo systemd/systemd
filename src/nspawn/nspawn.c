@@ -3222,7 +3222,6 @@ static int patch_sysctl(void) {
 
 static int inner_child(
                 Barrier *barrier,
-                const char *directory,
                 int fd_inner_socket,
                 FDSet *fds,
                 char **os_release_pairs) {
@@ -3260,7 +3259,6 @@ static int inner_child(
          * unshare(). See below. */
 
         assert(barrier);
-        assert(directory);
         assert(fd_inner_socket >= 0);
 
         log_debug("Inner child is initializing.");
@@ -4036,7 +4034,7 @@ static int outer_child(
                                 return log_error_errno(r, "Failed to join network namespace: %m");
                 }
 
-                r = inner_child(barrier, directory, fd_inner_socket, fds, os_release_pairs);
+                r = inner_child(barrier, fd_inner_socket, fds, os_release_pairs);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
