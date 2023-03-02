@@ -14,6 +14,7 @@
 #include "locale-util.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -1259,4 +1260,18 @@ char *strdupcspn(const char *a, const char *reject) {
                 return strdup(a);
 
         return strndup(a, strcspn(a, reject));
+}
+
+bool version_is_valid(const char *s) {
+        if (isempty(s))
+                return false;
+
+        if (!filename_is_valid(s))
+                return false;
+
+        /* This is a superset of the characters used by semver. We additionally allow "," and "_". */
+        if (!in_charset(s, ALPHANUMERICAL ".,_-+"))
+                return false;
+
+        return true;
 }
