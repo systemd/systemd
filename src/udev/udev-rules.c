@@ -1285,6 +1285,15 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename) {
         return 0;
 }
 
+unsigned int udev_check_current_rule_file(UdevRules *rules) {
+        assert(rules);
+        assert(rules->current_file);
+
+        UdevRuleFile *rule_file = rules->current_file;
+
+        return rule_file->issues;
+}
+
 UdevRules* udev_rules_new(ResolveNameTiming resolve_name_timing) {
         assert(resolve_name_timing >= 0 && resolve_name_timing < _RESOLVE_NAME_TIMING_MAX);
 
