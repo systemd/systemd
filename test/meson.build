@@ -73,7 +73,7 @@ if install_tests
                                  '../-.mount',
                                  testsuite08_dir + '/local-fs.target.wants/-.mount')
 
-        if conf.get('ENABLE_BOOTLOADER') == 1 and conf.get('HAVE_ZSTD') == 1
+        if conf.get('HAVE_ZSTD') == 1 and efi_arch != ''
                 install_subdir('test-bcd',
                                exclude_files : '.gitattributes',
                                install_dir : testdata_dir)
