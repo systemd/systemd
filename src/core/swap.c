@@ -690,6 +690,7 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
                        &exec_params,
                        s->exec_runtime,
                        &s->dynamic_creds,
+                       &s->cgroup_context,
                        &pid);
         if (r < 0)
                 goto fail;

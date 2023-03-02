@@ -3156,6 +3156,20 @@ finish:
         return r;
 }
 
+Architecture dissected_image_architecture(DissectedImage *img) {
+        assert(img);
+
+        if (img->partitions[PARTITION_ROOT].found &&
+            img->partitions[PARTITION_ROOT].architecture >= 0)
+                return img->partitions[PARTITION_ROOT].architecture;
+
+        if (img->partitions[PARTITION_USR].found &&
+            img->partitions[PARTITION_USR].architecture >= 0)
+                return img->partitions[PARTITION_USR].architecture;
+
+        return _ARCHITECTURE_INVALID;
+}
+
 int dissect_loop_device(
                 LoopDevice *loop,
                 const VeritySettings *verity,
