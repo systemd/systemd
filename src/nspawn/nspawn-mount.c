@@ -598,6 +598,8 @@ int mount_all(const char *dest,
                   MOUNT_FATAL }, /* If /etc/os-release doesn't exist use the version in /usr/lib as fallback */
                 { NULL,                     "/run/host/os-release",         NULL,    NULL,                             MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,
                   MOUNT_FATAL },
+                { NULL,                     "/run/host/os-release",         NULL,    NULL,                             MS_PRIVATE,
+                  MOUNT_FATAL },  /* Turn off propagation (we only want that for the mount propagation tunnel dir) */
                 { NULL,                     "/run/host",                    NULL,    NULL,                             MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,
                   MOUNT_FATAL|MOUNT_IN_USERNS },
 #if HAVE_SELINUX
@@ -605,6 +607,8 @@ int mount_all(const char *dest,
                   MOUNT_MKDIR },  /* Bind mount first (mkdir/chown the mount point in case /sys/ is mounted as minimal skeleton tmpfs) */
                 { NULL,                     "/sys/fs/selinux",              NULL,    NULL,                             MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,
                   0 },            /* Then, make it r/o (don't mkdir/chown the mount point here, the previous entry already did that) */
+                { NULL,                     "/sys/fs/selinux",              NULL,    NULL,                             MS_PRIVATE,
+                  0 },            /* Turn off propagation (we only want that for the mount propagation tunnel dir) */
 #endif
         };
 
