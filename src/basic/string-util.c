@@ -16,6 +16,7 @@
 #include "macro.h"
 #include "memory-util.h"
 #include "memstream-util.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -1295,4 +1296,18 @@ char *startswith_strv(const char *string, char **strv) {
         }
 
         return found;
+}
+
+bool version_is_valid(const char *s) {
+        if (isempty(s))
+                return false;
+
+        if (!filename_part_is_valid(s))
+                return false;
+
+        /* This is a superset of the characters used by semver. We additionally allow "," and "_". */
+        if (!in_charset(s, ALPHANUMERICAL ".,_-+"))
+                return false;
+
+        return true;
 }

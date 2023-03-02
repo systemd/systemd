@@ -24,7 +24,6 @@
 #include "sysupdate-pattern.h"
 #include "sysupdate-resource.h"
 #include "sysupdate-transfer.h"
-#include "sysupdate-util.h"
 #include "sysupdate.h"
 #include "tmpfile-util.h"
 #include "web-util.h"
