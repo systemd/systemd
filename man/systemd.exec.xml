@@ -1746,6 +1746,17 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MemoryKSM=</varname></term>
+
+        <listitem><para>Takes a boolean argument. When set, it enables KSM (kernel samepage merging) for
+        the processes.</para>
+
+        <para>Note that the implementation of this setting might be impossible (for example if KSM is not
+        available or prctl does not yet support enabling KSM at the process level).</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>PrivateUsers=</varname></term>
 
         <listitem><para>Takes a boolean argument. If true, sets up a new user namespace for the executed processes and
