@@ -518,10 +518,15 @@ static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
                 if (errno != ENOENT)
                         return log_error_errno(errno, "Failed to determine whether /efi exists: %m");
 
-                /* Use /boot as fallback, but only if there's no XBOOTLDR partition */
+                /* Use /boot as fallback, but only if there's no XBOOTLDR partition and /boot exists */
                 if (!has_xbootldr) {
-                        esp_path = "/boot";
-                        id = "boot";
+                        if (access("/boot", F_OK) < 0) {
+                                if (errno != ENOENT)
+                                        return log_error_errno(errno, "Failed to determine whether /boot exists: %m");
+                        } else {
+                                esp_path = "/boot";
+                                id = "boot";
+                        }
                 }
         }
         if (!esp_path)
