@@ -164,6 +164,16 @@ Features:
 * SIGRTMIN+18 and memory pressure handling should still be added to: hostnamed,
   localed, oomd, timedated.
 
+* journald: also collect CLOCK_BOOTTIME timestamps per log entry. Then, derive
+  "corrected" CLOCK_REALTIME information on display from that and the timestamp
+  info of the newest entry of the specificy boot (as identified by the boot
+  ID). This way, if a system comes up without a valid clock but acquires a
+  better clock later, we can "fix" older entry timestamps on display, by
+  calculating backwards. We cannot use CLOCK_MONOTONIC for this, since it does
+  not account for suspend phases. This would then also enable us to correct the
+  kmsg timestamping we consume (where we erroneously assume the clock was in
+  CLOCK_MONOTONIC, but it actually is CLOCK_BOOTTIME as per kernel).
+
 * sd-journal puts a limit on parallel journal files to view at once. journald
   should probably honour that same limit (JOURNAL_FILES_MAX) when vacuuming to
   ensure we never generate more files than we can actually view.
