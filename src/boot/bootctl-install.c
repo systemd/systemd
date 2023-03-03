@@ -426,12 +426,14 @@ static int install_binaries(const char *esp_path, const char *arch, bool force) 
 static int install_loader_config(const char *esp_path) {
         _cleanup_(unlink_and_freep) char *t = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        const char *p;
+        _cleanup_free_ char *p = NULL;
         int r;
 
         assert(arg_make_entry_directory >= 0);
 
-        p = prefix_roota(esp_path, "/loader/loader.conf");
+        p = path_join(esp_path, "/loader/loader.conf");
+        if (!p)
+                return log_oom();
         if (access(p, F_OK) >= 0) /* Silently skip creation if the file already exists (early check) */
                 return 0;
 
@@ -447,7 +449,7 @@ static int install_loader_config(const char *esp_path) {
                 fprintf(f, "default %s-*\n", arg_entry_token);
         }
 
-        r = flink_tmpfile(f, t, p);
+        r = flink_tmpfile(f, t, p, /* replace= */ false);
         if (r == -EEXIST)
                 return 0; /* Silently skip creation if the file exists now (recheck) */
         if (r < 0)
@@ -476,7 +478,7 @@ static int install_loader_specification(const char *root) {
 
         fprintf(f, "type1\n");
 
-        r = flink_tmpfile(f, t, p);
+        r = flink_tmpfile(f, t, p, /* replace= */ false);
         if (r == -EEXIST)
                 return 0; /* Silently skip creation if the file exists now (recheck) */
         if (r < 0)
