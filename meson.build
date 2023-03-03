@@ -321,9 +321,30 @@ cc = meson.get_compiler('c')
 meson_build_sh = find_program('tools/meson-build.sh')
 
 want_tests = get_option('tests')
-slow_tests = want_tests != 'false' and get_option('slow-tests')
-fuzz_tests = want_tests != 'false' and get_option('fuzz-tests')
+if want_tests == 'false'
+        slow_tests = false
+        fuzz_tests = false
+else
+        slow_tests = get_option('slow-tests')
+        if slow_tests == 'auto'
+                slow_tests = conf.get('BUILD_MODE_DEVELOPER') == 1
+        else
+                slow_tests = slow_tests == 'true'
+        endif
+
+        fuzz_tests = get_option('fuzz-tests')
+        if fuzz_tests == 'auto'
+                fuzz_tests = conf.get('BUILD_MODE_DEVELOPER') == 1
+        else
+                fuzz_tests = fuzz_tests == 'true'
+        endif
+endif
 install_tests = get_option('install-tests')
+if install_tests == 'auto'
+        install_tests = conf.get('BUILD_MODE_DEVELOPER') == 1
+else
+        install_tests = install_tests == 'true'
+endif
 
 if add_languages('cpp', required : fuzzer_build)
         #  Used only for tests
