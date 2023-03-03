@@ -656,15 +656,17 @@ TEST(format_timestamp_range) {
 }
 
 static void test_parse_timestamp_one(const char *str, usec_t max_diff, usec_t expected) {
-        usec_t usec;
+        usec_t usec = USEC_INFINITY;
+        int r;
 
-        log_debug("/* %s(%s) */", __func__, str);
-        assert_se(parse_timestamp(str, &usec) >= 0);
+        r = parse_timestamp(str, &usec);
+        log_debug("/* %s(%s): max_diff="USEC_FMT", expected="USEC_FMT", result="USEC_FMT"*/", __func__, str, max_diff, expected, usec);
+        assert_se(r >= 0);
         assert_se(usec >= expected);
         assert_se(usec_sub_unsigned(usec, expected) <= max_diff);
 }
 
-TEST(parse_timestamp) {
+static void test_parse_timestamp_impl(const char *tz) {
         usec_t today, now_usec;
 
         /* UTC */
@@ -709,10 +711,9 @@ TEST(parse_timestamp) {
                 test_parse_timestamp_one("70-01-01 09:00:01 Asia/Tokyo", 0, USEC_PER_SEC);
                 test_parse_timestamp_one("70-01-01 09:00:01.001 Asia/Tokyo", 0, USEC_PER_SEC + 1000);
                 test_parse_timestamp_one("70-01-01 09:00:01.0010 Asia/Tokyo", 0, USEC_PER_SEC + 1000);
+        }
 
-                const char *saved_tz = getenv("TZ");
-                assert_se(setenv("TZ", ":Asia/Tokyo", 1) >= 0);
-
+        if (streq_ptr(tz, "Asia/Tokyo")) {
                 /* JST (+0900) */
                 test_parse_timestamp_one("Thu 1970-01-01 09:01 JST", 0, USEC_PER_MINUTE);
                 test_parse_timestamp_one("Thu 1970-01-01 09:00:01 JST", 0, USEC_PER_SEC);
@@ -733,9 +734,6 @@ TEST(parse_timestamp) {
                 test_parse_timestamp_one("70-01-01 09:00:01 JST", 0, USEC_PER_SEC);
                 test_parse_timestamp_one("70-01-01 09:00:01.001 JST", 0, USEC_PER_SEC + 1000);
                 test_parse_timestamp_one("70-01-01 09:00:01.0010 JST", 0, USEC_PER_SEC + 1000);
-
-                assert_se(set_unset_env("TZ", saved_tz, true) == 0);
-                tzset();
         }
 
         if (timezone_is_valid("America/New_York", LOG_DEBUG)) {
@@ -759,10 +757,9 @@ TEST(parse_timestamp) {
                 test_parse_timestamp_one("69-12-31 19:00:01 America/New_York", 0, USEC_PER_SEC);
                 test_parse_timestamp_one("69-12-31 19:00:01.001 America/New_York", 0, USEC_PER_SEC + 1000);
                 test_parse_timestamp_one("69-12-31 19:00:01.0010 America/New_York", 0, USEC_PER_SEC + 1000);
+        }
 
-                const char *saved_tz = getenv("TZ");
-                assert_se(setenv("TZ", ":America/New_York", 1) >= 0);
-
+        if (streq_ptr(tz, "America/New_York")) {
                 /* EST (-0500) */
                 test_parse_timestamp_one("Wed 1969-12-31 19:01 EST", 0, USEC_PER_MINUTE);
                 test_parse_timestamp_one("Wed 1969-12-31 19:00:01 EST", 0, USEC_PER_SEC);
@@ -783,9 +780,6 @@ TEST(parse_timestamp) {
                 test_parse_timestamp_one("69-12-31 19:00:01 EST", 0, USEC_PER_SEC);
                 test_parse_timestamp_one("69-12-31 19:00:01.001 EST", 0, USEC_PER_SEC + 1000);
                 test_parse_timestamp_one("69-12-31 19:00:01.0010 EST", 0, USEC_PER_SEC + 1000);
-
-                assert_se(set_unset_env("TZ", saved_tz, true) == 0);
-                tzset();
         }
 
         /* -06 */
@@ -868,6 +862,66 @@ TEST(parse_timestamp) {
         test_parse_timestamp_one("2weeks left", USEC_PER_MINUTE, now_usec + 2 * USEC_PER_WEEK);
         if (now_usec >= 30 * USEC_PER_MINUTE)
                 test_parse_timestamp_one("30minutes ago", USEC_PER_MINUTE, now_usec - 30 * USEC_PER_MINUTE);
+}
+
+TEST(parse_timestamp) {
+        test_parse_timestamp_impl(NULL);
+}
+
+static void test_parse_timestamp_with_tz_one(const char *name1, const char *name2) {
+        _cleanup_free_ char *buf = NULL, *tz = NULL;
+        const char *name, *saved_tz;
+
+        if (name2)
+                assert_se(buf = path_join(name1, name2));
+        name = buf ?: name1;
+
+        if (!timezone_is_valid(name, LOG_DEBUG))
+                return;
+
+        log_info("/* %s(%s) */", __func__, name);
+
+        saved_tz = getenv("TZ");
+
+        assert_se(tz = strjoin(":", name));
+        assert_se(setenv("TZ", tz, 1) >= 0);
+        tzset();
+        log_debug("%s: tzname[0]=%s, tzname[1]=%s", tz, strempty(tzname[0]), strempty(tzname[1]));
+
+        test_parse_timestamp_impl(tz+1);
+
+        assert_se(set_unset_env("TZ", saved_tz, true) == 0);
+        tzset();
+}
+
+TEST(parse_timestamp_with_tz) {
+        if (!slow_tests_enabled())
+                return (void) log_tests_skipped("slow tests are disabled");
+
+        _cleanup_closedir_ DIR *dir = opendir("/usr/share/zoneinfo");
+        if (!dir)
+                return (void) log_tests_skipped_errno(errno, "Failed to open /usr/share/zoneinfo");
+
+        FOREACH_DIRENT(de, dir, break) {
+                if (de->d_type == DT_REG)
+                        test_parse_timestamp_with_tz_one(de->d_name, NULL);
+
+                else if (de->d_type == DT_DIR) {
+                        if (streq(de->d_name, "right"))
+                                /* The test does not support timezone with leap second info. */
+                                continue;
+
+                        _cleanup_closedir_ DIR *subdir = xopendirat(dirfd(dir), de->d_name, 0);
+                        if (!subdir) {
+                                log_notice_errno(errno, "Failed to open /usr/share/zoneinfo/%s, ignoring: %m", de->d_name);
+                                continue;
+                        }
+
+                        FOREACH_DIRENT(subde, subdir, break)
+                                if (subde->d_type == DT_REG)
+                                        test_parse_timestamp_with_tz_one(de->d_name, subde->d_name);
+                }
+        }
 }
 
 TEST(deserialize_dual_timestamp) {
