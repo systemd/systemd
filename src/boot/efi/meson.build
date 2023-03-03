@@ -19,7 +19,7 @@ elif efi_arch == 'x86_64' and '-m32' in get_option('efi-cflags')
         efi_arch = 'x86'
 endif
 efi_arch = {
-        # host_cc_arch: [efi_arch (see Table 3-2 in UEFI spec), gnu_efi_inc_arch]
+        # host_cc_arch: [efi_arch (see Table 3-2 in UEFI spec), obsolete gnu_efi_inc_arch]
         'x86':     ['ia32', 'ia32'],
         'x86_64':  ['x64', 'x86_64'],
         'arm':     ['arm', 'arm'],
@@ -28,14 +28,17 @@ efi_arch = {
 }.get(efi_arch, [])
 
 efi_incdir = get_option('efi-includedir')
-if efi_arch.length() > 0 and not cc.has_header(
-                '@0@/@1@/efibind.h'.format(efi_incdir, efi_arch[1]),
-                args: get_option('efi-cflags'))
+found = false
+foreach efi_arch_candidate : efi_arch
+        efi_archdir = efi_incdir / efi_arch_candidate
+        if cc.has_header(efi_archdir / 'efibind.h',
+                         args: get_option('efi-cflags'))
+                found = true
+                break
+        endif
+endforeach
 
-        efi_arch = []
-endif
-
-if efi_arch.length() == 0
+if not found
         if get_option('gnu-efi') == 'true'
                 error('gnu-efi support requested, but headers not found or efi arch is unknown')
         endif
@@ -45,7 +48,8 @@ endif
 
 if not cc.has_header_symbol('efi.h', 'EFI_IMAGE_MACHINE_X64',
                 args: ['-nostdlib', '-ffreestanding', '-fshort-wchar'] + get_option('efi-cflags'),
-                include_directories: include_directories(efi_incdir, efi_incdir / efi_arch[1]))
+                include_directories: include_directories(efi_incdir,
+                                                         efi_archdir))
 
         if get_option('gnu-efi') == 'true'
                 error('gnu-efi support requested, but found headers are too old (3.0.5+ required)')
@@ -313,7 +317,7 @@ summary({
         'EFI LD' :                          efi_ld,
         'EFI lds' :                         efi_lds,
         'EFI crt0' :                        efi_crt0,
-        'EFI include directory' :           efi_incdir},
+        'EFI include directory' :           efi_archdir},
         section : 'Extensible Firmware Interface')
 
 if efi_conf.get('SBAT_DISTRO', '') != ''
