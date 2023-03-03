@@ -218,7 +218,7 @@ configure_file(
 ############################################################
 
 update_dbus_docs = custom_target(
-        'update-dbus-docs',
+        'update-dbus-docs-impl',
         output : 'update-dbus-docs',
         command : [update_dbus_docs_py, '--build-dir', project_build_root, '@INPUT@'],
         input : dbus_docs)
@@ -232,7 +232,7 @@ if conf.get('BUILD_MODE_DEVELOPER') == 1
 endif
 
 update_man_rules = custom_target(
-        'update-man-rules',
+        'update-man-rules-impl',
         output : 'update-man-rules',
         command : [update_man_rules_py,
                    '@0@/man/*.xml'.format(project_source_root),
