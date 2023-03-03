@@ -1452,43 +1452,16 @@ int copy_file_atomic_full(
         assert(from);
         assert(to);
 
-        /* We try to use O_TMPFILE here to create the file if we can. Note that this only works if COPY_REPLACE is not
-         * set though as we need to use linkat() for linking the O_TMPFILE file into the file system but that system
-         * call can't replace existing files. Hence, if COPY_REPLACE is set we create a temporary name in the file
-         * system right-away and unconditionally which we then can renameat() to the right name after we completed
-         * writing it. */
-
-        if (copy_flags & COPY_REPLACE) {
-                _cleanup_free_ char *f = NULL;
-
-                r = tempfn_random(to, NULL, &f);
+        if (copy_flags & COPY_MAC_CREATE) {
+                r = mac_selinux_create_file_prepare(to, S_IFREG);
                 if (r < 0)
                         return r;
-
-                if (copy_flags & COPY_MAC_CREATE) {
-                        r = mac_selinux_create_file_prepare(to, S_IFREG);
-                        if (r < 0)
-                                return r;
-                }
-                fdt = open(f, O_CREAT|O_EXCL|O_NOFOLLOW|O_NOCTTY|O_WRONLY|O_CLOEXEC, 0600);
-                if (copy_flags & COPY_MAC_CREATE)
-                        mac_selinux_create_file_clear();
-                if (fdt < 0)
-                        return -errno;
-
-                t = TAKE_PTR(f);
-        } else {
-                if (copy_flags & COPY_MAC_CREATE) {
-                        r = mac_selinux_create_file_prepare(to, S_IFREG);
-                        if (r < 0)
-                                return r;
-                }
-                fdt = open_tmpfile_linkable(to, O_WRONLY|O_CLOEXEC, &t);
-                if (copy_flags & COPY_MAC_CREATE)
-                        mac_selinux_create_file_clear();
-                if (fdt < 0)
-                        return fdt;
         }
+        fdt = open_tmpfile_linkable(to, O_WRONLY|O_CLOEXEC, &t);
+        if (copy_flags & COPY_MAC_CREATE)
+                mac_selinux_create_file_clear();
+        if (fdt < 0)
+                return fdt;
 
         if (chattr_mask != 0)
                 (void) chattr_fd(fdt, chattr_flags, chattr_mask & CHATTR_EARLY_FL, NULL);
@@ -1506,14 +1479,9 @@ int copy_file_atomic_full(
                         return -errno;
         }
 
-        if (copy_flags & COPY_REPLACE) {
-                if (renameat(AT_FDCWD, t, AT_FDCWD, to) < 0)
-                        return -errno;
-        } else {
-                r = link_tmpfile(fdt, t, to);
-                if (r < 0)
-                        return r;
-        }
+        r = link_tmpfile(fdt, t, to, copy_flags & COPY_REPLACE);
+        if (r < 0)
+                return r;
 
         t = mfree(t);
 
