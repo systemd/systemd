@@ -367,6 +367,112 @@ not_found:
         return 0;
 }
 
+int image_pick(
+                const char *toplevel_path,
+                int toplevel_fd,
+                const char *search_basename,
+                const char *search_version,
+                Architecture search_architecture,
+                char **ret_inode_path,
+                int *ret_inode_fd,
+                mode_t *ret_inode_mode,
+                char **ret_version,
+                Architecture *ret_architecture) {
+
+        static const struct LookFor {
+                const char *suffix;
+                int (*pick)(const char *toplevel_path,
+                            int toplevel_fd,
+                            const char *inode_path,
+                            int inode_fd,
+                            mode_t search_mode,
+                            const char *search_basename,
+                            const char *search_version,
+                            Architecture search_architecture,
+                            const char *search_suffix,
+                            char **ret_inode_path,
+                            int *ret_inode_fd,
+                            mode_t *ret_inode_mode,
+                            char **ret_version,
+                            Architecture *ret_architecture);
+                mode_t search_mode;
+                const char *search_suffix;
+        } look_for[] = {
+                {
+                        .pick = select_choice,
+                        .search_mode = S_IFDIR,
+                },
+                {
+                        .suffix = ".raw",
+                        .pick = select_choice,
+                        .search_mode = S_IFREG,
+                },
+                {
+                        .suffix = ".v",
+                        .pick = make_choice,
+                        .search_mode = S_IFDIR,
+                        .search_suffix = "",
+                },
+                {
+                        .suffix = ".v",
+                        .pick = make_choice,
+                        .search_mode = S_IFREG,
+                        .search_suffix = ".raw",
+                },
+        };
+
+        int r;
+
+        assert(toplevel_path);
+        assert(toplevel_fd);
+
+        /* For a given basename tries to find a directory or raw file (i.e. an "image") in .v/ and .b/
+         * hierarchies that match what we need */
+
+        for (size_t i = 0; i < ELEMENTSOF(look_for); i++) {
+                _cleanup_free_ char *object_path = NULL, *name = NULL;
+                _cleanup_close_ int object_fd = -1;
+
+                r = format_fname(search_basename, NULL, _ARCHITECTURE_INVALID, look_for[i].suffix, &name);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to format filename: %m");
+
+                r = chase_symlinks_at(toplevel_fd, name, CHASE_AT_RESOLVE_IN_ROOT, &object_path, &object_fd);
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                return log_debug_errno(r, "Failed to open '%s/%s': %m", toplevel_path, name);
+                } else
+                        return look_for[i].pick(
+                                        toplevel_path,
+                                        toplevel_fd,
+                                        object_path,
+                                        TAKE_FD(object_fd),
+                                        look_for[i].search_mode,
+                                        search_basename,
+                                        search_version,
+                                        search_architecture,
+                                        look_for[i].search_suffix,
+                                        ret_inode_path,
+                                        ret_inode_fd,
+                                        ret_inode_mode,
+                                        ret_version,
+                                        ret_architecture);
+        }
+
+        if (ret_inode_path)
+                *ret_inode_path = NULL;
+        if (ret_inode_fd)
+                *ret_inode_fd = -EBADF;
+        if (ret_inode_mode)
+                *ret_inode_mode = MODE_INVALID;
+        if (ret_version)
+                *ret_version = NULL;
+        if (ret_architecture)
+                *ret_architecture = _ARCHITECTURE_INVALID;
+
+        return 0;
+}
+
 int path_pick(const char *path,
               mode_t search_mode,
               const char *search_basename,
