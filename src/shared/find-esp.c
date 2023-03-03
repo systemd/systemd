@@ -527,7 +527,7 @@ int find_esp_and_warn(
                                flags | VERIFY_ESP_SEARCHING);
                 if (r >= 0)
                         goto found;
-                if (!IN_SET(r, -ENOENT, -EADDRNOTAVAIL, -ENOTDIR)) /* This one is not it */
+                if (!IN_SET(r, -ENOENT, -EADDRNOTAVAIL, -ENOTDIR, -ENOTTY)) /* This one is not it */
                         return r;
 
                 p = mfree(p);
