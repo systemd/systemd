@@ -156,7 +156,6 @@ simple_tests += files(
         'test-strxcpyx.c',
         'test-sysctl-util.c',
         'test-terminal-util.c',
-        'test-time-util.c',
         'test-tmpfile-util.c',
         'test-tmpfiles.c',
         'test-tpm2.c',
@@ -500,6 +499,10 @@ tests += [
                         journal_includes,
                         udev_includes,
                 ],
+        },
+        {
+                'sources' : files('test-time-util.c'),
+                'timeout' : 120,
         },
         {
                 'sources' : files('test-udev.c'),
