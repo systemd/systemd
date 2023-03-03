@@ -189,6 +189,7 @@ shared_sources = files(
         'verbs.c',
         'vlan-util.c',
         'volatile-util.c',
+        'vpick.c',
         'wall.c',
         'watchdog.c',
         'web-util.c',
