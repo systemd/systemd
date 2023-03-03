@@ -20,6 +20,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "fsverity-util.h"
 #include "install.h"
 #include "io-util.h"
 #include "locale-util.h"
@@ -78,7 +79,7 @@ static bool unit_match(const char *unit, char **matches) {
         return false;
 }
 
-static PortableMetadata *portable_metadata_new(const char *name, const char *path, const char *selinux_label, int fd) {
+static PortableMetadata *portable_metadata_new(const char *name, const char *path, const char *selinux_label, int signature_fd, int fd) {
         PortableMetadata *m;
 
         m = malloc0(offsetof(PortableMetadata, name) + strlen(name) + 1);
@@ -103,6 +104,7 @@ static PortableMetadata *portable_metadata_new(const char *name, const char *pat
 
         strcpy(m->name, name);
         m->fd = fd;
+        m->signature_fd = signature_fd;
 
         return TAKE_PTR(m);
 }
@@ -112,6 +114,7 @@ PortableMetadata *portable_metadata_unref(PortableMetadata *i) {
                 return NULL;
 
         safe_close(i->fd);
+        safe_close(i->signature_fd);
         free(i->source);
         free(i->image_path);
         free(i->selinux_label);
@@ -220,7 +223,7 @@ static int extract_now(
                 }
 
                 if (ret_os_release) {
-                        os_release = portable_metadata_new(os_release_id, NULL, NULL, os_release_fd);
+                        os_release = portable_metadata_new(os_release_id, NULL, NULL, /* signature_fd= */ -EBADF, os_release_fd);
                         if (!os_release)
                                 return -ENOMEM;
 
@@ -252,8 +255,9 @@ static int extract_now(
 
                 FOREACH_DIRENT(de, d, return log_debug_errno(errno, "Failed to read directory: %m")) {
                         _cleanup_(portable_metadata_unrefp) PortableMetadata *m = NULL;
+                        _cleanup_close_ int fd = -EBADF, signature_fd = -EBADF;
+                        _cleanup_free_ char *signature_filename = NULL;
                         _cleanup_(mac_selinux_freep) char *con = NULL;
-                        _cleanup_close_ int fd = -EBADF;
 
                         if (!unit_name_is_valid(de->d_name, UNIT_NAME_ANY))
                                 continue;
@@ -283,22 +287,39 @@ static int extract_now(
                                 log_debug_errno(errno, "Failed to get SELinux file context from '%s', ignoring: %m", de->d_name);
 #endif
 
+                        signature_filename = strjoin(de->d_name, ".p7s");
+                        if (!signature_filename)
+                                return -ENOMEM;
+
+                        signature_fd = openat(dirfd(d), signature_filename, O_CLOEXEC|O_RDONLY);
+                        if (signature_fd < 0 && signature_fd != -ENOENT)
+                                log_debug_errno(signature_fd, "Failed to read signature file '%s', ignoring: %m", signature_filename);
+
                         if (socket_fd >= 0) {
                                 struct iovec iov[] = {
                                         IOVEC_MAKE_STRING(de->d_name),
                                         IOVEC_MAKE((char *)"\0", sizeof(char)),
                                         IOVEC_MAKE_STRING(strempty(con)),
+                                        IOVEC_MAKE((char *)"\0", sizeof(char)),
+                                        IOVEC_MAKE((char *)(signature_fd < 0 ? "\0" : "\1"), sizeof(char)),
                                 };
 
                                 r = send_one_fd_iov_with_data_fd(socket_fd, iov, ELEMENTSOF(iov), fd);
                                 if (r < 0)
                                         return log_debug_errno(r, "Failed to send unit metadata to parent: %m");
+
+                                if (signature_fd >= 0) {
+                                        r = send_one_fd_iov_with_data_fd(socket_fd, NULL, 0, signature_fd);
+                                        if (r < 0)
+                                                return log_debug_errno(r, "Failed to send signature: %m");
+                                }
                         }
 
-                        m = portable_metadata_new(de->d_name, where, con, fd);
+                        m = portable_metadata_new(de->d_name, where, con, signature_fd, fd);
                         if (!m)
                                 return -ENOMEM;
                         fd = -EBADF;
+                        signature_fd = -EBADF;
 
                         m->source = path_join(resolved, de->d_name);
                         if (!m->source)
@@ -428,7 +449,7 @@ static int portable_extract_by_path(
 
                 for (;;) {
                         _cleanup_(portable_metadata_unrefp) PortableMetadata *add = NULL;
-                        _cleanup_close_ int fd = -EBADF;
+                        _cleanup_close_ int fd = -EBADF, signature_fd = -EBADF;
                         /* We use NAME_MAX space for the SELinux label here. The kernel currently enforces no limit, but
                          * according to suggestions from the SELinux people this will change and it will probably be
                          * identical to NAME_MAX. For now we use that, but this should be updated one day when the final
@@ -458,10 +479,24 @@ static int portable_extract_by_path(
                         assert(selinux_label);
                         selinux_label++;
 
-                        add = portable_metadata_new(iov_buffer, path, selinux_label, fd);
+                        /* Finally we might get a signature. Given there's no limit on the size (it might
+                         * contain a certificate chain), we send an optional second FD. If we do, there's
+                         * a '1' byte after the SELinux label, otherwise a '0'. */
+                        char *signature = memchr(selinux_label, 0, n - strlen(selinux_label) + 1);
+                        assert(signature);
+                        signature++;
+                        if (signature && *signature == '\1') {
+                                signature_fd = receive_one_fd(seq[0], 0);
+                                if (signature_fd < 0)
+                                        return log_debug_errno(signature_fd,
+                                                               "Failed to receive signature fd: %m");
+                        }
+
+                        add = portable_metadata_new(iov_buffer, path, selinux_label, signature_fd, fd);
                         if (!add)
                                 return -ENOMEM;
                         fd = -EBADF;
+                        signature_fd = -EBADF;
 
                         /* Note that we do not initialize 'add->source' here, as the source path is not usable here as
                          * it refers to a path only valid in the short-living namespaced child process we forked
@@ -1025,9 +1060,15 @@ static int install_chroot_dropin(
                                         return -ENOMEM;
         }
 
-        r = write_string_file(dropin, text, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+        r = write_string_file(dropin, text, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_SYNC);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write '%s': %m", dropin);
+
+        /* Generated on-the-fly so we won't have signature validation, but can still enforce
+         * integrity checks. */
+        r = fsverity_enable(dropin, NULL, 0);
+        if (!IN_SET(r, 0, -EOPNOTSUPP, -ENOTTY))
+                log_debug_errno(r, "Failed to enable fs-verity on '%s', ignoring: %m", dropin);
 
         (void) portable_changes_add(changes, n_changes, PORTABLE_WRITE, dropin, NULL);
 
@@ -1173,6 +1214,8 @@ static int attach_unit_file(
         } else {
                 _cleanup_(unlink_and_freep) char *tmp = NULL;
                 _cleanup_close_ int fd = -EBADF;
+                _cleanup_free_ void *signature = NULL;
+                size_t signature_size = 0;
 
                 (void) mac_selinux_create_file_prepare_label(path, m->selinux_label);
 
@@ -1181,7 +1224,7 @@ static int attach_unit_file(
                 if (fd < 0)
                         return log_debug_errno(fd, "Failed to create unit file '%s': %m", path);
 
-                r = copy_bytes(m->fd, fd, UINT64_MAX, COPY_REFLINK);
+                r = copy_bytes(m->fd, fd, UINT64_MAX, COPY_REFLINK|COPY_FSYNC);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to copy unit file '%s': %m", path);
 
@@ -1193,6 +1236,28 @@ static int attach_unit_file(
                         return log_debug_errno(r, "Failed to install unit file '%s': %m", path);
 
                 tmp = mfree(tmp);
+                fd = safe_close(fd);
+
+                if (m->signature_fd >= 0) {
+                        _cleanup_close_ int dup_fd = -EBADF;
+                        _cleanup_fclose_ FILE *f = NULL;
+
+                        dup_fd = fcntl(m->signature_fd, F_DUPFD_CLOEXEC, 3);
+                        if (dup_fd < 0)
+                                return log_debug_errno(errno, "Failed to duplicate signature FD: %m");
+
+                        f = take_fdopen(&dup_fd, "r");
+                        if (!f)
+                                return log_debug_errno(errno, "Failed to open signature file: %m");
+
+                        r = read_full_stream(f, (char **)&signature, &signature_size);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to read signature file: %m");
+                }
+
+                r = fsverity_enable(path, signature, signature_size);
+                if (!IN_SET(r, 0, -EOPNOTSUPP, -ENOTTY))
+                        log_debug_errno(r, "Failed to enable fs-verity on '%s', ignoring: %m", path);
 
                 (void) portable_changes_add(changes, n_changes, PORTABLE_COPY, path, m->source);
         }
