@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "dirent-util.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -421,23 +420,18 @@ TEST(FORMAT_TIMESTAMP) {
         test_format_timestamp_loop();
 }
 
-static void test_format_timestamp_with_tz_one(const char *name1, const char *name2) {
-        _cleanup_free_ char *buf = NULL, *tz = NULL;
-        const char *name, *saved_tz;
+static void test_format_timestamp_with_tz_one(const char *tz) {
+        const char *saved_tz, *colon_tz;
 
-        if (name2)
-                assert_se(buf = path_join(name1, name2));
-        name = buf ?: name1;
-
-        if (!timezone_is_valid(name, LOG_DEBUG))
+        if (!timezone_is_valid(tz, LOG_DEBUG))
                 return;
 
-        log_info("/* %s(%s) */", __func__, name);
+        log_info("/* %s(%s) */", __func__, tz);
 
         saved_tz = getenv("TZ");
 
-        assert_se(tz = strjoin(":", name));
-        assert_se(setenv("TZ", tz, 1) >= 0);
+        assert_se(colon_tz = strjoina(":", tz));
+        assert_se(setenv("TZ", colon_tz, 1) >= 0);
         tzset();
         log_debug("%s: tzname[0]=%s, tzname[1]=%s", tz, strempty(tzname[0]), strempty(tzname[1]));
 
@@ -448,33 +442,11 @@ static void test_format_timestamp_with_tz_one(const char *name1, const char *nam
 }
 
 TEST(FORMAT_TIMESTAMP_with_tz) {
-        if (!slow_tests_enabled())
-                return (void) log_tests_skipped("slow tests are disabled");
+        _cleanup_strv_free_ char **timezones = NULL;
 
-        _cleanup_closedir_ DIR *dir = opendir("/usr/share/zoneinfo");
-        if (!dir)
-                return (void) log_tests_skipped_errno(errno, "Failed to open /usr/share/zoneinfo");
-
-        FOREACH_DIRENT(de, dir, break) {
-                if (de->d_type == DT_REG)
-                        test_format_timestamp_with_tz_one(de->d_name, NULL);
-
-                else if (de->d_type == DT_DIR) {
-                        if (streq(de->d_name, "right"))
-                                /* The test does not support timezone with leap second info. */
-                                continue;
-
-                        _cleanup_closedir_ DIR *subdir = xopendirat(dirfd(dir), de->d_name, 0);
-                        if (!subdir) {
-                                log_notice_errno(errno, "Failed to open /usr/share/zoneinfo/%s, ignoring: %m", de->d_name);
-                                continue;
-                        }
-
-                        FOREACH_DIRENT(subde, subdir, break)
-                                if (subde->d_type == DT_REG)
-                                        test_format_timestamp_with_tz_one(de->d_name, subde->d_name);
-                }
-        }
+        assert_se(get_timezones(&timezones) >= 0);
+        STRV_FOREACH(tz, timezones)
+                test_format_timestamp_with_tz_one(*tz);
 }
 
 TEST(format_timestamp_relative_full) {
