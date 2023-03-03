@@ -47,6 +47,8 @@ udevadm control --ping
 udevadm control -t 5
 udevadm control -h
 udevadm control -e
+# generate debugging logs after restart
+udevadm control -l debug
 
 udevadm info /dev/null
 udevadm info /sys/class/net/$netdev
