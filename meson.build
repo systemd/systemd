@@ -3930,6 +3930,15 @@ executable(
         install : (conf.get('ENABLE_UTMP') == 1),
         install_dir : rootlibexecdir)
 
+executable(
+        'systemd-vpick',
+        'src/vpick/vpick-tool.c',
+        include_directories : includes,
+        link_with : [libshared],
+        dependencies : [ versiondep],
+        install_rpath : rootpkglibdir,
+        install : true)
+
 if conf.get('HAVE_KMOD') == 1
         executable(
                 'systemd-modules-load',
