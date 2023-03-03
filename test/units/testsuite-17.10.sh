@@ -87,6 +87,7 @@ assert_rc 124 timeout 5 udevadm monitor -t systemd
 assert_rc 124 timeout 5 udevadm monitor --tag-match hello
 udevadm monitor -h
 
+udevadm settle
 udevadm settle -t 5
 udevadm settle -E /sys/class/net/$netdev
 udevadm settle -h
@@ -193,7 +194,9 @@ udevadm trigger --initialized-match
 udevadm trigger --initialized-nomatch
 udevadm trigger -w
 udevadm trigger --uuid /sys/class/net/$netdev
+udevadm settle -t 300
 udevadm trigger --wait-daemon
+udevadm settle -t 300
 udevadm trigger --wait-daemon=5
 udevadm trigger -h
 
