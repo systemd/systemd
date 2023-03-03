@@ -3847,6 +3847,13 @@ udevadm = executable(
         install_dir : rootbindir)
 public_programs += udevadm
 
+if want_tests != 'false'
+        test('udev-rules-check',
+             udevadm,
+             suite : 'dist-check',
+             args : ['verify', '--resolve-names=never', all_rules])
+endif
+
 if conf.get('ENABLE_REPART') == 1
         exe = executable(
                 'systemd-repart',
