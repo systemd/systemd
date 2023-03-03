@@ -52,12 +52,28 @@ TEST(tmpfiles) {
         assert_se(write(fd, "foobar\n", 7) == 7);
 
         assert_se(touch(d) >= 0);
-        assert_se(link_tmpfile(fd, tmp, d) == -EEXIST);
+        assert_se(link_tmpfile(fd, tmp, d, /* replace= */ false) == -EEXIST);
         assert_se(unlink(d) >= 0);
-        assert_se(link_tmpfile(fd, tmp, d) >= 0);
+        assert_se(link_tmpfile(fd, tmp, d, /* replace= */ false) >= 0);
 
         assert_se(read_one_line_file(d, &line) >= 0);
         assert_se(streq(line, "foobar"));
+
+        fd = safe_close(fd);
+        tmp = mfree(tmp);
+
+        fd = open_tmpfile_linkable(d, O_RDWR|O_CLOEXEC, &tmp);
+        assert_se(fd >= 0);
+
+        assert_se(write(fd, "waumiau\n", 8) == 8);
+
+        assert_se(link_tmpfile(fd, tmp, d, /* replace= */ false) == -EEXIST);
+        assert_se(link_tmpfile(fd, tmp, d, /* replace= */ true) >= 0);
+
+        line = mfree(line);
+        assert_se(read_one_line_file(d, &line) >= 0);
+        assert_se(streq(line, "waumiau"));
+
         assert_se(unlink(d) >= 0);
 }
 
