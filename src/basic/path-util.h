@@ -163,6 +163,7 @@ const char *last_path_component(const char *path);
 int path_extract_filename(const char *path, char **ret);
 int path_extract_directory(const char *path, char **ret);
 
+bool filename_part_is_valid(const char *p) _pure_;
 bool filename_is_valid(const char *p) _pure_;
 bool path_is_valid_full(const char *p, bool accept_dot_dot) _pure_;
 static inline bool path_is_valid(const char *p) {
