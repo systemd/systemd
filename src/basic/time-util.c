@@ -679,6 +679,15 @@ static int parse_timestamp_impl(
                 with_tz = true;
         }
 
+        if (utc) {
+                /* glibc accepts gmtoff more than 24 hours, but we refuse it. */
+                if ((usec_t) labs(gmtoff) * USEC_PER_SEC > USEC_PER_DAY)
+                        return -EINVAL;
+        } else {
+                if (gmtoff != 0)
+                        return -EINVAL;
+        }
+
         if (t[0] == '@' && !with_tz)
                 return parse_sec(t + 1, ret);
 
@@ -948,13 +957,8 @@ int parse_timestamp(const char *t, usec_t *ret) {
          * UTC and shift the result. Note, this must be earlier than the timezone check with tzname[], as
          * tzname[] may be in the same format. */
         k = strptime(tz, "%z", &tm);
-        if (k && *k == '\0') {
-                /* glibc accepts gmtoff more than 24 hours, but we refuse it. */
-                if ((usec_t) labs(tm.tm_gmtoff) > USEC_PER_DAY / USEC_PER_SEC)
-                        return -EINVAL;
-
+        if (k && *k == '\0')
                 return parse_timestamp_impl(t, tz_offset, /* utc = */ true, /* isdst = */ -1, /* gmtoff = */ tm.tm_gmtoff, ret);
-        }
 
         /* If the last word is not a timezone file (e.g. Asia/Tokyo), then let's check if it matches
          * tzname[] of the local timezone, e.g. JST or CEST. */
