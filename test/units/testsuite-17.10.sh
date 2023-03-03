@@ -29,14 +29,15 @@ loopdev="$(losetup --show -f "$blk")"
 
 udevadm -h
 
+udevadm control -e
 udevadm control -l emerg
 udevadm control -l alert
 udevadm control -l crit
 udevadm control -l err
 udevadm control -l warning
 udevadm control -l notice
-udevadm control -l debug
 udevadm control --log-level info
+udevadm control --log-level debug
 (! udevadm control -l hello)
 udevadm control -s
 udevadm control -S
@@ -46,7 +47,6 @@ udevadm control -m 42
 udevadm control --ping
 udevadm control -t 5
 udevadm control -h
-udevadm control -e
 
 udevadm info /dev/null
 udevadm info /sys/class/net/$netdev
