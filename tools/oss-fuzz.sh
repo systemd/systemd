@@ -73,7 +73,7 @@ else
     fi
 fi
 
-if ! meson "$build" "-D$fuzzflag" -Db_lundef=false; then
+if ! meson setup "$build" "-D$fuzzflag" -Db_lundef=false; then
     cat "$build/meson-logs/meson-log.txt"
     exit 1
 fi
