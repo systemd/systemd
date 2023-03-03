@@ -4608,6 +4608,8 @@ foreach tuple : [
         ['debug mmap cache'],
         ['debug siphash'],
         ['trace logging',          conf.get('LOG_TRACE') == 1],
+        ['slow tests',             slow_tests],
+        ['fuzz tests',             fuzz_tests],
         ['install tests',          install_tests],
         ['link-udev-shared',       get_option('link-udev-shared')],
         ['link-systemctl-shared',  get_option('link-systemctl-shared')],
