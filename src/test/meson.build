@@ -178,6 +178,7 @@ simple_tests += files(
         'test-user-util.c',
         'test-utf8.c',
         'test-verbs.c',
+        'test-vpick.c',
         'test-web-util.c',
         'test-xattr-util.c',
         'test-xml.c',
