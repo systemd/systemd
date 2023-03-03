@@ -274,7 +274,6 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
 }
 
 struct trie_f {
-        FILE *f;
         struct trie *trie;
         uint64_t strings_off;
 
@@ -295,14 +294,13 @@ static void trie_store_nodes_size(struct trie_f *trie, struct trie_node *node, b
                 trie->strings_off += compat ? sizeof(struct trie_value_entry_f) : sizeof(struct trie_value_entry2_f);
 }
 
-static int64_t trie_store_nodes(struct trie_f *trie, struct trie_node *node, bool compat) {
-        struct trie_node_f n = {
-                .prefix_off = htole64(trie->strings_off + node->prefix_off),
-                .children_count = node->children_count,
-                .values_count = htole64(node->values_count),
-        };
+static int64_t trie_store_nodes(struct trie_f *trie, FILE *f, struct trie_node *node, bool compat) {
         _cleanup_free_ struct trie_child_entry_f *children = NULL;
         int64_t node_off;
+
+        assert(trie);
+        assert(f);
+        assert(node);
 
         if (node->children_count) {
                 children = new(struct trie_child_entry_f, node->children_count);
@@ -314,7 +312,7 @@ static int64_t trie_store_nodes(struct trie_f *trie, struct trie_node *node, boo
         for (uint64_t i = 0; i < node->children_count; i++) {
                 int64_t child_off;
 
-                child_off = trie_store_nodes(trie, node->children[i].child, compat);
+                child_off = trie_store_nodes(trie, f, node->children[i].child, compat);
                 if (child_off < 0)
                         return child_off;
 
@@ -324,14 +322,20 @@ static int64_t trie_store_nodes(struct trie_f *trie, struct trie_node *node, boo
                 };
         }
 
+        struct trie_node_f n = {
+                .prefix_off = htole64(trie->strings_off + node->prefix_off),
+                .children_count = node->children_count,
+                .values_count = htole64(node->values_count),
+        };
+
         /* write node */
-        node_off = ftello(trie->f);
-        fwrite(&n, sizeof(struct trie_node_f), 1, trie->f);
+        node_off = ftello(f);
+        fwrite(&n, sizeof(struct trie_node_f), 1, f);
         trie->nodes_count++;
 
         /* append children array */
         if (node->children_count) {
-                fwrite(children, sizeof(struct trie_child_entry_f), node->children_count, trie->f);
+                fwrite(children, sizeof(struct trie_child_entry_f), node->children_count, f);
                 trie->children_count += node->children_count;
         }
 
@@ -345,7 +349,7 @@ static int64_t trie_store_nodes(struct trie_f *trie, struct trie_node *node, boo
                         .file_priority = htole16(node->values[i].file_priority),
                 };
 
-                fwrite(&v, compat ? sizeof(struct trie_value_entry_f) : sizeof(struct trie_value_entry2_f), 1, trie->f);
+                fwrite(&v, compat ? sizeof(struct trie_value_entry_f) : sizeof(struct trie_value_entry2_f), 1, f);
         }
         trie->values_count += node->values_count;
 
@@ -355,11 +359,26 @@ static int64_t trie_store_nodes(struct trie_f *trie, struct trie_node *node, boo
 static int trie_store(struct trie *trie, const char *filename, bool compat) {
         struct trie_f t = {
                 .trie = trie,
+                .strings_off = sizeof(struct trie_header_f),
         };
-        _cleanup_free_ char *filename_tmp = NULL;
-        int64_t pos;
-        int64_t root_off;
-        int64_t size;
+        _cleanup_(unlink_and_freep) char *filename_tmp = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        int64_t pos, root_off, size;
+        int r;
+
+        assert(trie);
+        assert(filename);
+
+        /* calculate size of header, nodes, children entries, value entries */
+        trie_store_nodes_size(&t, trie->root, compat);
+
+        r = fopen_tmpfile_linkable(filename, O_WRONLY|O_CLOEXEC, &filename_tmp, &f);
+        if (r < 0)
+                return r;
+
+        if (fchmod(fileno(f), 0444) < 0)
+                return -errno;
+
         struct trie_header_f h = {
                 .signature = HWDB_SIG,
                 .tool_version = htole64(PROJECT_VERSION),
@@ -368,48 +387,32 @@ static int trie_store(struct trie *trie, const char *filename, bool compat) {
                 .child_entry_size = htole64(sizeof(struct trie_child_entry_f)),
                 .value_entry_size = htole64(compat ? sizeof(struct trie_value_entry_f) : sizeof(struct trie_value_entry2_f)),
         };
-        int r;
-
-        /* calculate size of header, nodes, children entries, value entries */
-        t.strings_off = sizeof(struct trie_header_f);
-        trie_store_nodes_size(&t, trie->root, compat);
-
-        r = fopen_temporary(filename, &t.f, &filename_tmp);
-        if (r < 0)
-                return r;
-        (void) fchmod(fileno(t.f), 0444);
 
         /* write nodes */
-        if (fseeko(t.f, sizeof(struct trie_header_f), SEEK_SET) < 0)
-                goto error_fclose;
+        if (fseeko(f, sizeof(struct trie_header_f), SEEK_SET) < 0)
+                return -errno;
 
-        root_off = trie_store_nodes(&t, trie->root, compat);
+        root_off = trie_store_nodes(&t, f, trie->root, compat);
         h.nodes_root_off = htole64(root_off);
-        pos = ftello(t.f);
+        pos = ftello(f);
         h.nodes_len = htole64(pos - sizeof(struct trie_header_f));
 
         /* write string buffer */
-        fwrite(trie->strings->buf, trie->strings->len, 1, t.f);
+        fwrite(trie->strings->buf, trie->strings->len, 1, f);
         h.strings_len = htole64(trie->strings->len);
 
         /* write header */
-        size = ftello(t.f);
+        size = ftello(f);
         h.file_size = htole64(size);
-        if (fseeko(t.f, 0, SEEK_SET) < 0)
-                goto error_fclose;
-        fwrite(&h, sizeof(struct trie_header_f), 1, t.f);
+        if (fseeko(f, 0, SEEK_SET) < 0)
+                return -errno;
+        fwrite(&h, sizeof(struct trie_header_f), 1, f);
 
-        if (ferror(t.f))
-                goto error_fclose;
-        if (fflush(t.f) < 0)
-                goto error_fclose;
-        if (fsync(fileno(t.f)) < 0)
-                goto error_fclose;
-        if (rename(filename_tmp, filename) < 0)
-                goto error_fclose;
+        r = flink_tmpfile(f, filename_tmp, filename, /* replace= */ true);
+        if (r < 0)
+                return r;
 
         /* write succeeded */
-        fclose(t.f);
 
         log_debug("=== trie on-disk ===");
         log_debug("size:             %8"PRIi64" bytes", size);
@@ -423,12 +426,6 @@ static int trie_store(struct trie *trie, const char *filename, bool compat) {
         log_debug("string store:     %8zu bytes", trie->strings->len);
         log_debug("strings start:    %8"PRIu64, t.strings_off);
         return 0;
-
- error_fclose:
-        r = -errno;
-        fclose(t.f);
-        (void) unlink(filename_tmp);
-        return r;
 }
 
 static int insert_data(struct trie *trie, char **match_list, char *line, const char *filename,
