@@ -12,3 +12,7 @@
 #define PR_CAP_AMBIENT_LOWER     3
 #define PR_CAP_AMBIENT_CLEAR_ALL 4
 #endif
+
+#ifndef PR_SET_MEMORY_MERGE
+#define PR_SET_MEMORY_MERGE 67
+#endif

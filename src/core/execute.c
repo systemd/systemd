@@ -73,6 +73,7 @@
 #include "memory-util.h"
 #include "missing_fs.h"
 #include "missing_ioprio.h"
+#include "missing_prctl.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -4970,6 +4971,17 @@ static int exec_child(
                 r = apply_protect_hostname(unit, context, exit_status);
                 if (r < 0)
                         return r;
+        }
+
+        if (context->memory_ksm) {
+                if (prctl(PR_SET_MEMORY_MERGE, 1) < 0) {
+                        if (ERRNO_IS_NOT_SUPPORTED(errno))
+                                log_unit_debug_errno(unit, r, "KSM support not available, ignoring.");
+                        else {
+                                *exit_status = EXIT_KSM;
+                                return log_unit_error_errno(unit, errno, "Failed to enable KSM %m");
+                        }
+                }
         }
 
         /* Drop groups as early as possible.
