@@ -841,7 +841,7 @@ from_tm:
         if (gmtoff < 0) {
                 plus = -gmtoff * USEC_PER_SEC;
 
-                /* If gmtoff is negative, the string maye be too old to be parsed as UTC.
+                /* If gmtoff is negative, the string may be too old to be parsed as UTC.
                  * E.g. 1969-12-31 23:00:00 -06 == 1970-01-01 05:00:00 UTC
                  * We assumed that gmtoff is in the range of -24:00…+24:00, hence the only date we need to
                  * handle here is 1969-12-31. So, let's shift the date with one day, then subtract the shift
