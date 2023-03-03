@@ -8,8 +8,18 @@
 #include "set.h"
 #include "string-util.h"
 
+typedef enum PortableMetatadaSignatureType {
+        PORTABLE_METADATA_SIGNATURE_TYPE_NONE,
+        PORTABLE_METADATA_SIGNATURE_TYPE_IMA,
+        PORTABLE_METADATA_SIGNATURE_TYPE_P7S,
+        _PORTABLE_METADATA_SIGNATURE_TYPE_MAX,
+        _PORTABLE_METADATA_SIGNATURE_TYPE_INVALID  = -EINVAL,
+} PortableMetatadaSignatureType;
+
 typedef struct PortableMetadata {
         int fd;
+        int signature_fd;
+        PortableMetatadaSignatureType signature_type;
         char *source;
         char *image_path;
         char *selinux_label;
