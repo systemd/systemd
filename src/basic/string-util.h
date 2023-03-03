@@ -322,3 +322,5 @@ static inline int strdup_or_null(const char *s, char **ret) {
         *ret = c;
         return 1;
 }
+
+char *strrstr(const char *haystack, const char *needle);
