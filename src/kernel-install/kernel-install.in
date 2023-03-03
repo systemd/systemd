@@ -204,6 +204,7 @@ else
     BOOT_ROOT_SEARCH="/efi /boot /boot/efi"
 fi
 
+# First search for existing setups in any of the known directories.
 for pref in $BOOT_ROOT_SEARCH; do
     for suff in $ENTRY_TOKEN_SEARCH; do
         if [ -d "$pref/$suff" ]; then
@@ -226,6 +227,24 @@ for pref in $BOOT_ROOT_SEARCH; do
     done
 done
 
+# If we haven't found anything, and if we have lsblk, use the partition GUID to
+# search for XBOOTLDR (first) or ESP (as a fallback).
+if [ -z "$BOOT_ROOT" ] && command -v lsblk >/dev/null 2>&1; then
+    for guid in bc13c2ff-59e6-4262-a352-b275fd6f7172 c12a7328-f81f-11d2-ba4b-00a0c93ec93b; do
+        eval "$(lsblk --pairs --output MOUNTPOINT,PARTTYPE | grep "$guid")"
+        BOOT_ROOT="$MOUNTPOINT"
+        unset MOUNTPOINT
+        unset PARTTYPE
+
+        if [ -n "$BOOT_ROOT" ]; then
+            log_verbose "$BOOT_ROOT is a mount point for partition GUID $guid, using BOOT_ROOT=$BOOT_ROOT"
+            break
+        fi
+    done
+fi
+
+# Finally if we still haven't found anything, check if /efi or /boot/efi are mountpoints
+# and if so, assume they point to the ESP.
 [ -z "$BOOT_ROOT" ] && for pref in "/efi" "/boot/efi"; do
     if mountpoint -q "$pref"; then
         BOOT_ROOT="$pref"
@@ -236,6 +255,7 @@ done
     fi
 done
 
+# If all else fails, install on /boot.
 if [ -z "$BOOT_ROOT" ]; then
     BOOT_ROOT="/boot"
     log_verbose "KERNEL_INSTALL_BOOT_ROOT autodetection yielded no candidates, using \"$BOOT_ROOT\""
