@@ -473,6 +473,17 @@ Features:
   line, and then generate a mount unit for it using a udev generated symlink
   based on lo_file_name.
 
+* teach systemd-nspawn the boot assessment logic: hook up vpick's try counters
+  with success notifications from nspawn payloads. When this is enabled,
+  automatically support reverting back to older OS versin images if newer ones
+  fail to boot.
+
+* implement new "systemd-fsrebind" tool that works like gpt-auto-generator but
+  looks at a root dir and then applies vpick on various dirs/images to pick a
+  root tree, a /usr/ tree, a /home/, a /srv/, a /var/ tree and so on. Dirs
+  could also be btrfs subvols (combine with btrfs auto-snapshort approach for
+  creating versions like these automatically).
+
 * remove tomoyo support, it's obsolete and unmaintained apparently
 
 * In .socket units, add ConnectStream=, ConnectDatagram=,
@@ -703,17 +714,6 @@ Features:
 
 * automatic boot assessment: add one more default success check that just waits
   for a bit after boot, and blesses the boot if the system stayed up that long.
-
-* implement concept of "versioned" resources inside a dir, and write a spec for
-  it. Make all tools in systemd, in particular
-  RootImage=/RootDirectory=/--image=/--directory= implement this. Idea:
-  directories ending in ".v/" indicate a directory with versioned resources in
-  them. Versioned resources inside a .v dir are always named in the pattern
-  <prefix>_<version>[+<tries-left>[-<tries-done>]].<suffix>
-
-* add support for using this .v/ logic on the root fs itself: in the initrd,
-  after mounting the rootfs, look for root-<arch>.v/ in the root fs, and then
-  apply the logic, moving the switch root logic there.
 
 * systemd-repart: add support for generating ISO9660 images
 
@@ -1169,26 +1169,6 @@ Features:
 * userdb: when synthesizing NSS records, pick "best" password from defined
   passwords, not just the first. i.e. if there are multiple defined, prefer
   unlocked over locked and prefer non-empty over empty.
-
-* maybe add a tool inspired by the GPT auto discovery spec that runs in the
-  initrd and rearranges the rootfs hierarchy via bind mounts, if
-  enabled. Specifically in some top-level dir /@auto/ it will look for
-  dirs/symlinks/subvolumes that are named after their purpose, and optionally
-  encode a version as well as assessment counters, and then mount them into the
-  file system tree to boot into, similar to how we do that for the gpt auto
-  logic. Maybe then bind mount the original root into /.superior or something
-  like that (so that update tools can look there). Further discussion in this
-  thread:
-  https://lists.freedesktop.org/archives/systemd-devel/2021-November/047059.html
-  The GPT dissection logic should automatically enable this tool whenever we
-  detect a specially marked root fs (i.e introduce a new generic root gpt type
-  for this, that is arch independent). The also implement this in the image
-  dissection logic, so that nspawn/RootImage= and so on grok it. Maybe make
-  generic enough so that it can also work for ostrees arrangements.
-
-* if a path ending in ".auto.d/" is set for RootDirectory=/RootImage= then do a
-  strverscmp() of everything inside that dir and use that. i.e. implement very
-  simple version control. Also use this in systemd-nspawn --image= and so on.
 
 * homed: while a home dir is not activated generate slightly different NSS
   records for it, that reports the home dir as "/" and the shell as some binary
