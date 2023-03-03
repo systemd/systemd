@@ -912,12 +912,11 @@ static int parse_timestamp_maybe_with_tz(const char *t, size_t tz_offset, bool v
                 return parse_timestamp_impl(t, tz_offset, /* utc = */ false, /* isdst = */ j, /* gmtoff = */ 0, ret);
         }
 
-        if (valid_tz)
-                /* We know that the specified timezone is a valid zoneinfo (e.g. Asia/Tokyo). So, simply drop
-                 * the timezone and parse the remaining string as a local time. */
-                return parse_timestamp_impl(t, tz_offset, /* utc = */ false, /* isdst = */ -1, /* gmtoff = */ 0, ret);
-
-        return parse_timestamp_impl(t, /* tz_offset = */ SIZE_MAX, /* utc = */ false, /* isdst = */ -1, /* gmtoff = */ 0, ret);
+        /* If we know that the last word is a valid timezone (e.g. Asia/Tokyo), then simply drop the timezone
+         * and parse the remaining string as a local time. If we know that the last word is not a timezone,
+         * then assume that it is a part of the time and try to parse the whole string as a local time. */
+        return parse_timestamp_impl(t, valid_tz ? tz_offset : SIZE_MAX,
+                                    /* utc = */ false, /* isdst = */ -1, /* gmtoff = */ 0, ret);
 }
 
 typedef struct ParseTimestampResult {
@@ -946,7 +945,8 @@ int parse_timestamp(const char *t, usec_t *ret) {
                 return parse_timestamp_impl(t, tz_offset, /* utc = */ true, /* isdst = */ -1, /* gmtoff = */ 0, ret);
 
         /* If the timezone is compatible with RFC-822/ISO 8601 (e.g. +06, or -03:00) then parse the string as
-         * UTC and shift the result. */
+         * UTC and shift the result. Note, this must be earlier than the timezone check with tzname[], as
+         * tzname[] may be in the same format. */
         k = strptime(tz, "%z", &tm);
         if (k && *k == '\0') {
                 /* glibc accepts gmtoff more than 24 hours, but we refuse it. */
