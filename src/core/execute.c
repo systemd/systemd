@@ -108,6 +108,7 @@
 #include "unit-serialize.h"
 #include "user-util.h"
 #include "utmp-wtmp.h"
+#include "vpick.h"
 
 #define IDLE_TIMEOUT_USEC (5*USEC_PER_SEC)
 #define IDLE_TIMEOUT2_USEC (1*USEC_PER_SEC)
@@ -3832,12 +3833,9 @@ static int apply_mount_namespace(
                 const char *memory_pressure_path,
                 char **error_path) {
 
-        _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL,
-                        **read_write_paths_cleanup = NULL;
+        _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL, **read_write_paths_cleanup = NULL;
+        _cleanup_free_ char *root_dir = NULL, *root_image = NULL, *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL, *extension_dir = NULL;
         const char *tmp_dir = NULL, *var_tmp_dir = NULL;
-        const char *root_dir = NULL, *root_image = NULL;
-        _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL,
-                        *extension_dir = NULL;
         char **read_write_paths;
         NamespaceInfo ns_info;
         bool needs_sandboxing;
@@ -3850,10 +3848,41 @@ static int apply_mount_namespace(
         CLEANUP_ARRAY(bind_mounts, n_bind_mounts, bind_mount_free_many);
 
         if (params->flags & EXEC_APPLY_CHROOT) {
-                root_image = context->root_image;
+                if (context->root_image) {
+                        r = path_pick(/* toplevel_path= */ NULL,
+                                      /* toplevel_fd= */ AT_FDCWD,
+                                      context->root_image,
+                                      S_IFREG,
+                                      /* search_basename= */ NULL,
+                                      /* search_version= */ NULL,
+                                      _ARCHITECTURE_INVALID,
+                                      /* search_suffix= */ ".raw",
+                                      &root_image,
+                                      /* ret_inode_fd= */ NULL,
+                                      /* ret_inode_mode= */ NULL,
+                                      /* ret_inode_version= */ NULL,
+                                      /* ret_architecture= */ NULL);
+                        if (r < 0)
+                                return r;
+                }
 
-                if (!root_image)
-                        root_dir = context->root_directory;
+                if (!root_image && context->root_directory) {
+                        r = path_pick(/* toplevel_path= */ NULL,
+                                      /* toplevel_fd= */ AT_FDCWD,
+                                      context->root_directory,
+                                      S_IFDIR,
+                                      /* search_basename= */ NULL,
+                                      /* search_version= */ NULL,
+                                      _ARCHITECTURE_INVALID,
+                                      /* search_suffix= */ NULL,
+                                      &root_dir,
+                                      /* ret_inode_fd= */ NULL,
+                                      /* ret_inode_mode= */ NULL,
+                                      /* ret_inode_version= */ NULL,
+                                      /* ret_architecture= */ NULL);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         r = compile_bind_mounts(context, params, &bind_mounts, &n_bind_mounts, &empty_directories);
