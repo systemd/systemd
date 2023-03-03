@@ -253,3 +253,7 @@ size_t strspn_from_end(const char *str, const char *accept);
 
 char *strdupspn(const char *a, const char *accept);
 char *strdupcspn(const char *a, const char *reject);
+
+bool version_is_valid(const char *s);
+
+char *strrstr(const char *haystack, const char *needle);

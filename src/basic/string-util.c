@@ -14,6 +14,7 @@
 #include "locale-util.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -1259,4 +1260,41 @@ char *strdupcspn(const char *a, const char *reject) {
                 return strdup(a);
 
         return strndup(a, strcspn(a, reject));
+}
+
+bool version_is_valid(const char *s) {
+        if (isempty(s))
+                return false;
+
+        if (!filename_is_valid(s))
+                return false;
+
+        /* This is a superset of the characters used by semver. We additionally allow "," and "_". */
+        if (!in_charset(s, ALPHANUMERICAL ".,_-+"))
+                return false;
+
+        return true;
+}
+
+char *strrstr(const char *haystack, const char *needle) {
+        const char *f = NULL;
+        size_t l;
+
+        /* Like strstr() but returns the last rather than the first occurence of "needle" in "haystack". */
+
+        if (!haystack || !needle)
+                return NULL;
+
+        l = strlen(needle);
+
+        /* Special case: for the empty string we return the very last possible occurence, i.e. *after* the
+         * last char, not before. */
+        if (l == 0)
+                return strchr(haystack, 0);
+
+        for (const char *p = haystack; *p; p++)
+                if (strncmp(p, needle, l) == 0)
+                        f = p;
+
+        return (char*) f;
 }

@@ -8,7 +8,6 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "sysupdate-pattern.h"
-#include "sysupdate-util.h"
 
 typedef enum PatternElementType {
         PATTERN_LITERAL,
