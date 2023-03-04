@@ -2475,19 +2475,21 @@ static int run(int argc, char *argv[]) {
                                 arg_lines = 0;
                 }
 
-        } else if (arg_since_set && !arg_reverse) {
-                r = sd_journal_seek_realtime_usec(j, arg_since);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to seek to date: %m");
+        } else if (arg_until_set && (arg_reverse || arg_lines >= 0)) {
+                /* If both --until and any of --reverse and --lines is specified, things get
+                 * a little tricky. We seek to the place of --until first. If only --reverse or
+                 * --reverse and --lines is specified, we search backwards and let the output
+                 * counter handle --lines for us. If only --lines is used, we just jump backwards
+                 * arg_lines and search afterwards from there. */
 
-                r = sd_journal_next(j);
-
-        } else if (arg_until_set && arg_reverse) {
                 r = sd_journal_seek_realtime_usec(j, arg_until);
                 if (r < 0)
                         return log_error_errno(r, "Failed to seek to date: %m");
 
-                r = sd_journal_previous(j);
+                if (arg_reverse)
+                        r = sd_journal_previous(j);
+                else if (arg_lines >= 0)
+                        r = sd_journal_previous_skip(j, arg_lines);
 
         } else if (arg_reverse) {
                 r = sd_journal_seek_tail(j);
@@ -2502,6 +2504,18 @@ static int run(int argc, char *argv[]) {
                         return log_error_errno(r, "Failed to seek to tail: %m");
 
                 r = sd_journal_previous_skip(j, arg_lines);
+
+        } else if (arg_since_set) {
+                /* This is placed after arg_reverse and arg_lines. If --since is used without
+                 * both, we seek to the place of --since and search afterwards from there.
+                 * If used with --reverse or --lines, we seek to the tail first and check if
+                 * the entry is within the range of --since later. */
+
+                r = sd_journal_seek_realtime_usec(j, arg_since);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to seek to date: %m");
+
+                r = sd_journal_next(j);
 
         } else {
                 r = sd_journal_seek_head(j);
@@ -2552,7 +2566,7 @@ static int run(int argc, char *argv[]) {
                                         break;
                         }
 
-                        if (arg_until_set && !arg_reverse) {
+                        if (arg_until_set && !arg_reverse && arg_lines >= 0) {
                                 usec_t usec;
 
                                 r = sd_journal_get_realtime_usec(j, &usec);
@@ -2562,14 +2576,21 @@ static int run(int argc, char *argv[]) {
                                         break;
                         }
 
-                        if (arg_since_set && arg_reverse) {
+                        if (arg_since_set && (arg_reverse || arg_lines >= 0)) {
                                 usec_t usec;
 
                                 r = sd_journal_get_realtime_usec(j, &usec);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to determine timestamp: %m");
-                                if (usec < arg_since)
-                                        break;
+                                if (usec < arg_since) {
+                                        if (arg_reverse)
+                                                break; /* Reached the earliest entry */
+                                        else { /* arg_lines >= 0 */
+                                                /* We jumped arg_lines back and it seems too much */
+                                                need_seek = true;
+                                                continue;
+                                        }
+                                }
                         }
 
                         if (!arg_merge && !arg_quiet) {
