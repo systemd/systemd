@@ -2482,12 +2482,21 @@ static int run(int argc, char *argv[]) {
 
                 r = sd_journal_next(j);
 
-        } else if (arg_until_set && arg_reverse) {
+        } else if (arg_until_set && (arg_reverse || arg_lines >= 0)) {
+                /* If both --until and any of --reverse and --lines is specified, things get
+                 * a little tricky. We seek to the place of --until first. If only --reverse or
+                 * --reverse and --lines is specified, we search backwards and let the output
+                 * counter handle --lines for us. If only --lines is used, we just jump backwards
+                 * arg_lines and search afterwards from there. */
+
                 r = sd_journal_seek_realtime_usec(j, arg_until);
                 if (r < 0)
                         return log_error_errno(r, "Failed to seek to date: %m");
 
-                r = sd_journal_previous(j);
+                if (arg_reverse)
+                        r = sd_journal_previous(j);
+                else /* arg_lines >= 0 */
+                        r = sd_journal_previous_skip(j, arg_lines);
 
         } else if (arg_reverse) {
                 r = sd_journal_seek_tail(j);
@@ -2552,7 +2561,7 @@ static int run(int argc, char *argv[]) {
                                         break;
                         }
 
-                        if (arg_until_set && !arg_reverse) {
+                        if (arg_until_set && !arg_reverse && arg_lines < 0) {
                                 usec_t usec;
 
                                 r = sd_journal_get_realtime_usec(j, &usec);
