@@ -37,6 +37,8 @@ struct Geneve {
 
         GeneveDF geneve_df;
         union in_addr_union remote;
+
+        bool inherit_inner_protocol;
 };
 
 DEFINE_NETDEV_CAST(GENEVE, Geneve);

@@ -192,19 +192,20 @@ static const NLAPolicy rtnl_link_info_data_can_policies[] = {
 };
 
 static const NLAPolicy rtnl_link_info_data_geneve_policies[] = {
-        [IFLA_GENEVE_ID]                = BUILD_POLICY(U32),
-        [IFLA_GENEVE_REMOTE]            = BUILD_POLICY_WITH_SIZE(IN_ADDR, sizeof(struct in_addr)),
-        [IFLA_GENEVE_TTL]               = BUILD_POLICY(U8),
-        [IFLA_GENEVE_TOS]               = BUILD_POLICY(U8),
-        [IFLA_GENEVE_PORT]              = BUILD_POLICY(U16),
-        [IFLA_GENEVE_COLLECT_METADATA]  = BUILD_POLICY(FLAG),
-        [IFLA_GENEVE_REMOTE6]           = BUILD_POLICY_WITH_SIZE(IN_ADDR, sizeof(struct in6_addr)),
-        [IFLA_GENEVE_UDP_CSUM]          = BUILD_POLICY(U8),
-        [IFLA_GENEVE_UDP_ZERO_CSUM6_TX] = BUILD_POLICY(U8),
-        [IFLA_GENEVE_UDP_ZERO_CSUM6_RX] = BUILD_POLICY(U8),
-        [IFLA_GENEVE_LABEL]             = BUILD_POLICY(U32),
-        [IFLA_GENEVE_TTL_INHERIT]       = BUILD_POLICY(U8),
-        [IFLA_GENEVE_DF]                = BUILD_POLICY(U8),
+        [IFLA_GENEVE_ID]                  = BUILD_POLICY(U32),
+        [IFLA_GENEVE_REMOTE]              = BUILD_POLICY_WITH_SIZE(IN_ADDR, sizeof(struct in_addr)),
+        [IFLA_GENEVE_TTL]                 = BUILD_POLICY(U8),
+        [IFLA_GENEVE_TOS]                 = BUILD_POLICY(U8),
+        [IFLA_GENEVE_PORT]                = BUILD_POLICY(U16),
+        [IFLA_GENEVE_COLLECT_METADATA]    = BUILD_POLICY(FLAG),
+        [IFLA_GENEVE_REMOTE6]             = BUILD_POLICY_WITH_SIZE(IN_ADDR, sizeof(struct in6_addr)),
+        [IFLA_GENEVE_UDP_CSUM]            = BUILD_POLICY(U8),
+        [IFLA_GENEVE_UDP_ZERO_CSUM6_TX]   = BUILD_POLICY(U8),
+        [IFLA_GENEVE_UDP_ZERO_CSUM6_RX]   = BUILD_POLICY(U8),
+        [IFLA_GENEVE_LABEL]               = BUILD_POLICY(U32),
+        [IFLA_GENEVE_TTL_INHERIT]         = BUILD_POLICY(U8),
+        [IFLA_GENEVE_DF]                  = BUILD_POLICY(U8),
+        [IFLA_GENEVE_INNER_PROTO_INHERIT] = BUILD_POLICY(FLAG),
 };
 
 static const NLAPolicy rtnl_link_info_data_gre_policies[] = {
