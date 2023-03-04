@@ -1141,6 +1141,23 @@ Name=dmz0</programlisting>
     </example>
 
     <example>
+      <title>(Re-)applying a .link file to an interface</title>
+
+      <para>After a new .link file has been created, or an exisiting .link file modified, the new settings
+      may be applied to the matching interface with the following commands:</para>
+
+      <programlisting>$ sudo udevadm control --reload
+$ sudo ip link set eth0 down
+$ sudo udevadm trigger --verbose --settle --action add /sys/class/net/eth0</programlisting>
+
+      <para>You may also need to stop the service that manages the network interface, e.g.
+      <filename>systemd-networkd.service</filename> or <filename>NetworkManager.service</filename> before
+      the above operation, and then restart the service after that. For more details about
+      <command>udevadm</command> command, see
+      <citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+    </example>
+
+    <example>
       <title>Debugging <varname>NamePolicy=</varname> assignments</title>
 
       <programlisting>$ sudo SYSTEMD_LOG_LEVEL=debug udevadm test-builtin net_setup_link /sys/class/net/hub0
