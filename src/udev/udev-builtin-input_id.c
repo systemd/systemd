@@ -258,7 +258,7 @@ static bool test_pointers(sd_device *dev,
         if (is_tablet && has_pad_buttons)
                 is_tablet_pad = true;
 
-        if (has_pad_buttons && has_wheel) {
+        if (has_pad_buttons && has_wheel && !has_rel_coordinates) {
                 is_tablet = true;
                 is_tablet_pad = true;
         }
