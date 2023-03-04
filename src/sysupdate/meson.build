@@ -15,8 +15,6 @@ systemd_sysupdate_sources = files(
         'sysupdate-transfer.h',
         'sysupdate-update-set.c',
         'sysupdate-update-set.h',
-        'sysupdate-util.c',
-        'sysupdate-util.h',
         'sysupdate.c',
         'sysupdate.h',
 )
