@@ -2,6 +2,55 @@
 
 efi_config_h_dir = meson.current_build_dir()
 
+if efi_arch != ''
+        libefitest = static_library(
+                'efitest',
+                files(
+                        'bcd.c',
+                        'efi-string.c',
+                ),
+                build_by_default : false,
+                include_directories : [
+                        basic_includes,
+                        include_directories('.'),
+                ],
+                dependencies : userspace)
+
+        efitest_base = {
+                'link_with' : [
+                        libefitest,
+                        libshared,
+                ],
+        }
+
+        tests += [
+                {
+                        'sources' : files('test-bcd.c'),
+                        'dependencies' : libzstd,
+                        'condition' : 'HAVE_ZSTD',
+                        'base' : efitest_base,
+                },
+                {
+                        'sources' : files('test-efi-string.c'),
+                        'base' : efitest_base,
+                },
+        ]
+        fuzzers += [
+                {
+                        'sources' : files('fuzz-bcd.c'),
+                        'base' : efitest_base,
+                },
+                {
+                        'sources' : files('fuzz-efi-string.c'),
+                        'base' : efitest_base,
+                },
+                {
+                        'sources' : files('fuzz-efi-printf.c'),
+                        'base' : efitest_base,
+                },
+        ]
+endif
+
 if conf.get('ENABLE_BOOTLOADER') != 1
         subdir_done()
 endif
@@ -209,49 +258,9 @@ if host_machine.cpu_family() in ['x86', 'x86_64']
         stub_sources += files('linux_x86.c')
 endif
 
-tests += [
-        {
-                'sources' : files(
-                        'test-efi-string.c',
-                        'efi-string.c',
-                )
-        },
-]
-
 # BCD parser only makes sense on arches that Windows supports.
 if host_machine.cpu_family() in ['aarch64', 'arm', 'x86_64', 'x86']
         systemd_boot_sources += files('bcd.c')
-        tests += [
-                {
-                        'sources' : files(
-                                'test-bcd.c',
-                                'efi-string.c',
-                        ),
-                        'dependencies' : libzstd,
-                        'condition' : 'HAVE_ZSTD',
-                },
-        ]
-        fuzzers += [
-                {
-                        'sources' : files(
-                                'fuzz-bcd.c',
-                                'bcd.c',
-                                'efi-string.c'
-                        ),
-                },
-                {
-                        'sources' : files(
-                                'fuzz-efi-string.c',
-                                'efi-string.c'
-                        ),
-                },
-                {
-                        'sources' : files(
-                                'fuzz-efi-printf.c',
-                                'efi-string.c'
-                        ),
-                },
-        ]
 endif
 
 boot_targets = []
