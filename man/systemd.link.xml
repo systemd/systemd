@@ -1111,12 +1111,15 @@
     <example>
       <title>/usr/lib/systemd/network/99-default.link</title>
 
-      <para>The link file <filename>99-default.link</filename> that is
-      shipped with systemd defines the default naming policy for
-      links.</para>
+      <para>The link file <filename>99-default.link</filename> that is shipped with systemd defines the
+      default policies for the interface name, alternative names, and MAC address of links.</para>
 
-      <programlisting>[Link]
-NamePolicy=kernel database on-board slot path
+      <programlisting>[Match]
+OriginalName=*
+
+[Link]
+NamePolicy=keep kernel database onboard slot path
+AlternativeNamesPolicy=database onboard slot path
 MACAddressPolicy=persistent</programlisting>
     </example>
 
@@ -1134,7 +1137,7 @@ Name=dmz0</programlisting>
 
       <para><varname>NamePolicy=</varname> is not set, so <varname>Name=</varname> takes effect. We use the
       <literal>10-</literal> prefix to order this file early in the list. Note that it needs to be before
-      <literal>99-link</literal>, i.e. it needs a numerical prefix, to have any effect at all.</para>
+      <filename>99-default.link</filename>, i.e. it needs a numerical prefix, to have any effect at all.</para>
     </example>
 
     <example>
