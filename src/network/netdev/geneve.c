@@ -89,6 +89,12 @@ static int netdev_geneve_fill_message_create(NetDev *netdev, Link *link, sd_netl
                         return r;
         }
 
+        if (v->inherit_inner_protocol) {
+                r = sd_netlink_message_append_flag(m, IFLA_GENEVE_INNER_PROTO_INHERIT);
+                if (r < 0)
+                        return r;
+        }
+
         if (v->geneve_df != _NETDEV_GENEVE_DF_INVALID) {
                 r = sd_netlink_message_append_u8(m, IFLA_GENEVE_DF, v->geneve_df);
                 if (r < 0)
