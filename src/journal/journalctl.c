@@ -2100,7 +2100,7 @@ static int wait_for_change(sd_journal *j, int poll_fd) {
 static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *unlink_dir = NULL;
-        bool previous_boot_id_valid = false, first_line = true, ellipsized = false, need_seek = false;
+        bool previous_boot_id_valid = false, first_line = true, ellipsized = false, need_seek = false, since_seeked = false;
         bool use_cursor = false, after_cursor = false;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         sd_id128_t previous_boot_id = SD_ID128_NULL, previous_boot_id_output = SD_ID128_NULL;
@@ -2475,13 +2475,6 @@ static int run(int argc, char *argv[]) {
                                 arg_lines = 0;
                 }
 
-        } else if (arg_since_set && !arg_reverse) {
-                r = sd_journal_seek_realtime_usec(j, arg_since);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to seek to date: %m");
-
-                r = sd_journal_next(j);
-
         } else if (arg_until_set && (arg_reverse || arg_lines >= 0)) {
                 /* If both --until and any of --reverse and --lines is specified, things get
                  * a little tricky. We seek to the place of --until first. If only --reverse or
@@ -2511,6 +2504,19 @@ static int run(int argc, char *argv[]) {
                         return log_error_errno(r, "Failed to seek to tail: %m");
 
                 r = sd_journal_previous_skip(j, arg_lines);
+
+        } else if (arg_since_set) {
+                /* This is placed after arg_reverse and arg_lines. If --since is used without
+                 * both, we seek to the place of --since and search afterwards from there.
+                 * If used with --reverse or --lines, we seek to the tail first and check if
+                 * the entry is within the range of --since later. */
+
+                r = sd_journal_seek_realtime_usec(j, arg_since);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to seek to date: %m");
+                since_seeked = true;
+
+                r = sd_journal_next(j);
 
         } else {
                 r = sd_journal_seek_head(j);
@@ -2571,14 +2577,28 @@ static int run(int argc, char *argv[]) {
                                         break;
                         }
 
-                        if (arg_since_set && arg_reverse) {
+                        if (arg_since_set && (arg_reverse || !since_seeked)) {
                                 usec_t usec;
 
                                 r = sd_journal_get_realtime_usec(j, &usec);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to determine timestamp: %m");
-                                if (usec < arg_since)
-                                        break;
+
+                                if (usec < arg_since) {
+                                        if (arg_reverse)
+                                                break; /* Reached the earliest entry */
+
+                                        /* arg_lines >= 0 (!since_seeked):
+                                         * We jumped arg_lines back and it seems to be too much */
+                                        r = sd_journal_seek_realtime_usec(j, arg_since);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to seek to date: %m");
+                                        since_seeked = true;
+
+                                        need_seek = true;
+                                        continue;
+                                }
+                                since_seeked = true; /* We're surely within the range of --since now */
                         }
 
                         if (!arg_merge && !arg_quiet) {
