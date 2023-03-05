@@ -283,7 +283,7 @@ int prepare_boot_loader_entry(void) {
 #endif
 }
 
-int logind_schedule_shutdown(void) {
+int logind_schedule_shutdown(enum action a) {
 
 #if ENABLE_LOGIND
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -295,7 +295,7 @@ int logind_schedule_shutdown(void) {
         if (r < 0)
                 return r;
 
-        action = action_table[arg_action].verb;
+        action = action_table[a].verb;
         if (!action)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Scheduling not supported for this action.");
 
