@@ -584,4 +584,54 @@ TEST(ALIGNED) {
 #endif
 }
 
+TEST(FOREACH_ARRAY) {
+        int a[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+        int b[10] = { 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 };
+        int x, n;
+
+        x = n = 0;
+        FOREACH_ARRAY(i, a, 10) {
+                x += *i;
+                n++;
+        }
+        assert_se(x == 45);
+        assert_se(n == 10);
+
+        x = n = 0;
+        FOREACH_ARRAY(i, a, 10)
+                FOREACH_ARRAY(j, b, 10) {
+                        x += (*i) * (*j);
+                        n++;
+                }
+        assert_se(x == 45 * 45);
+        assert_se(n == 10 * 10);
+
+        x = n = 0;
+        FOREACH_ARRAY(i, a, 5)
+                FOREACH_ARRAY(j, b, 5) {
+                        x += (*i) * (*j);
+                        n++;
+                }
+        assert_se(x == 10 * 35);
+        assert_se(n == 5 * 5);
+
+        x = n = 0;
+        FOREACH_ARRAY(i, a, 0)
+                FOREACH_ARRAY(j, b, 0) {
+                        x += (*i) * (*j);
+                        n++;
+                }
+        assert_se(x == 0);
+        assert_se(n == 0);
+
+        x = n = 0;
+        FOREACH_ARRAY(i, a, -1)
+                FOREACH_ARRAY(j, b, -1) {
+                        x += (*i) * (*j);
+                        n++;
+                }
+        assert_se(x == 0);
+        assert_se(n == 0);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
