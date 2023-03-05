@@ -137,6 +137,7 @@ typedef enum {
         LINE_HAS_GOTO         = 1 << 3, /* has GOTO= */
         LINE_HAS_LABEL        = 1 << 4, /* has LABEL= */
         LINE_UPDATE_SOMETHING = 1 << 5, /* has other TK_A_* or TK_M_IMPORT tokens */
+        LINE_IS_REFERENCED    = 1 << 6, /* is referenced by GOTO */
 } UdevRuleLineType;
 
 typedef struct UdevRuleFile UdevRuleFile;
@@ -1191,6 +1192,7 @@ static void rule_resolve_goto(UdevRuleFile *rule_file) {
                 LIST_FOREACH(rule_lines, i, line->rule_lines_next)
                         if (streq_ptr(i->label, line->goto_label)) {
                                 line->goto_line = i;
+                                SET_FLAG(i->type, LINE_IS_REFERENCED, true);
                                 break;
                         }
 
@@ -1202,10 +1204,11 @@ static void rule_resolve_goto(UdevRuleFile *rule_file) {
                         SET_FLAG(line->type, LINE_HAS_GOTO, false);
                         line->goto_label = NULL;
 
-                        if ((line->type & ~LINE_HAS_LABEL) == 0) {
+                        if ((line->type & ~(LINE_HAS_LABEL|LINE_IS_REFERENCED)) == 0) {
                                 log_line_notice(rule_file, line->line_number,
                                                 "The line takes no effect any more, dropping");
-                                if (line->type == LINE_HAS_LABEL)
+                                /* LINE_IS_REFERENCED implies LINE_HAS_LABEL */
+                                if (line->type & LINE_HAS_LABEL)
                                         udev_rule_line_clear_tokens(line);
                                 else
                                         udev_rule_line_free(line);
@@ -1321,12 +1324,23 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename) {
         return 0;
 }
 
+static void udev_check_rule_line(UdevRuleFile *rule_file, const UdevRuleLine *line) {
+        /* check for unused labels */
+        if (FLAGS_SET(line->type, LINE_HAS_LABEL) &&
+            !FLAGS_SET(line->type, LINE_IS_REFERENCED))
+                log_line_warning(rule_file, line->line_number,
+                                 "LABEL=\"%s\" is unused.", line->label);
+}
+
 unsigned udev_check_current_rule_file(UdevRules *rules) {
         assert(rules);
 
         UdevRuleFile *rule_file = rules->current_file;
         if (!rule_file)
                 return 0;
+
+        LIST_FOREACH(rule_lines, line, rule_file->rule_lines)
+                udev_check_rule_line(rule_file, line);
 
         return rule_file->issues;
 }
