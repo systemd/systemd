@@ -911,7 +911,7 @@ manpages = [
  ['systemd-firstboot', '1', ['systemd-firstboot.service'], 'ENABLE_FIRSTBOOT'],
  ['systemd-fsck@.service',
   '8',
-  ['systemd-fsck', 'systemd-fsck-root.service'],
+  ['systemd-fsck', 'systemd-fsck-root.service', 'systemd-fsck-usr.service'],
   ''],
  ['systemd-fstab-generator', '8', [], ''],
  ['systemd-getty-generator', '8', [], ''],
