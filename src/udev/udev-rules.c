@@ -1287,6 +1287,34 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename) {
         return 0;
 }
 
+static bool token_data_is_string(UdevRuleTokenType type) {
+        if (IN_SET(type, TK_A_ENV, TK_M_ENV, TK_M_CONST, TK_A_ATTR, TK_M_ATTR,
+                         TK_A_SYSCTL, TK_M_SYSCTL, TK_M_PARENTS_ATTR, TK_A_SECLABEL))
+                return true;
+        return false;
+}
+
+static bool token_value_eq(UdevRuleMatchType match_type, const char *a, const char *b) {
+        /* token value is ignored for some match types */
+        if (IN_SET(match_type, MATCH_TYPE_EMPTY, MATCH_TYPE_SUBSYSTEM))
+                return true;
+        return streq_ptr(a, b);
+}
+
+static bool token_data_eq(UdevRuleTokenType type, void *a, void *b) {
+        return token_data_is_string(type) ? streq_ptr(a, b) : (a == b);
+}
+
+/* test whether all fields besides UdevRuleOperatorType of two tokens match */
+static bool tokens_eq(const UdevRuleToken *a, const UdevRuleToken *b) {
+        return a->type == b->type &&
+               a->match_type == b->match_type &&
+               a->attr_subst_type == b->attr_subst_type &&
+               a->attr_match_remove_trailing_whitespace == b->attr_match_remove_trailing_whitespace &&
+               token_value_eq(a->match_type, a->value, b->value) &&
+               token_data_eq(a->type, a->data, b->data);
+}
+
 static void udev_check_rule_line(UdevRuleFile *rule_file, const UdevRuleLine *line) {
         /* check for unused labels */
         if (FLAGS_SET(line->type, LINE_HAS_LABEL) &&
@@ -1294,6 +1322,25 @@ static void udev_check_rule_line(UdevRuleFile *rule_file, const UdevRuleLine *li
                 log_warning("%s:%u: LABEL=\"%s\" is unused",
                             rule_file->filename, line->line_number, line->label);
                 rule_file_mark_issue(rule_file, LOG_WARNING);
+        }
+
+        /* check for duplicate tokens */
+        LIST_FOREACH(tokens, token, line->tokens) {
+                bool duplicates = false;
+
+                LIST_FOREACH(tokens, i, token->tokens_next)
+                        if (token->op == i->op &&
+                            tokens_eq(token, i)) {
+                                duplicates = true;
+                                break;
+                        }
+
+                if (duplicates) {
+                        log_warning("%s:%u: duplicate tokens",
+                                    rule_file->filename, line->line_number);
+                        rule_file_mark_issue(rule_file, LOG_WARNING);
+                        break;
+                }
         }
 }
 
