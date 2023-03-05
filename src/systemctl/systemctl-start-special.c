@@ -197,24 +197,35 @@ int verb_start_special(int argc, char *argv[], void *userdata) {
                            ACTION_POWEROFF,
                            ACTION_REBOOT,
                            ACTION_KEXEC,
-                           ACTION_HALT,
-                           ACTION_SUSPEND,
-                           ACTION_HIBERNATE,
-                           ACTION_HYBRID_SLEEP,
-                           ACTION_SUSPEND_THEN_HIBERNATE)) {
+                           ACTION_HALT)) {
+
+                        if (arg_when == 0)
+                                r = logind_cancel_shutdown();
+                        else if (arg_when != USEC_INFINITY)
+                                r = logind_schedule_shutdown(a);
+                        else
+                                r = logind_reboot(a);
+                        if (r >= 0 || IN_SET(r, -EACCES, -EOPNOTSUPP, -EINPROGRESS))
+                                /* The latter indicates that the requested operation requires auth,
+                                 * is not supported or already in progress, in which cases we ignore the error. */
+                                return r;
+                        else
+                                /* On all other errors, try low-level operation. In order to minimize the difference
+                                 * between operation with and without logind, we explicitly enable non-blocking mode
+                                 * for this, as logind's shutdown operations are always non-blocking. */
+                                arg_no_block = true;
+
+                } else if (IN_SET(a,
+                                  ACTION_SUSPEND,
+                                  ACTION_HIBERNATE,
+                                  ACTION_HYBRID_SLEEP,
+                                  ACTION_SUSPEND_THEN_HIBERNATE)) {
 
                         r = logind_reboot(a);
-                        if (r >= 0)
+                        if (r >= 0 || IN_SET(r, -EACCES, -EOPNOTSUPP, -EINPROGRESS))
                                 return r;
-                        if (IN_SET(r, -EACCES, -EOPNOTSUPP, -EINPROGRESS))
-                                /* Requested operation requires auth, is not supported or already in progress */
-                                return r;
-
-                        /* On all other errors, try low-level operation. In order to minimize the difference
-                         * between operation with and without logind, we explicitly enable non-blocking mode
-                         * for this, as logind's shutdown operations are always non-blocking. */
-
-                        arg_no_block = true;
+                        else
+                                arg_no_block = true;
 
                 } else if (a == ACTION_EXIT)
                         /* Since exit is so close in behaviour to power-off/reboot, let's also make

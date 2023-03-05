@@ -346,7 +346,7 @@ int logind_show_shutdown(void) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         sd_bus *bus;
-        const char *action = NULL;
+        const char *action, *pretty_action = NULL;
         uint64_t elapse;
         int r;
 
@@ -366,17 +366,23 @@ int logind_show_shutdown(void) {
                 return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "No scheduled shutdown.");
 
         if (STR_IN_SET(action, "halt", "poweroff", "exit"))
-                action = "Shutdown";
+                pretty_action = "Shutdown";
         else if (streq(action, "kexec"))
-                action = "Reboot via kexec";
+                pretty_action = "Reboot via kexec";
         else if (streq(action, "reboot"))
-                action = "Reboot";
+                pretty_action = "Reboot";
 
         /* If we don't recognize the action string, we'll show it as-is */
 
-        log_info("%s scheduled for %s, use 'shutdown -c' to cancel.",
-                 action,
-                 FORMAT_TIMESTAMP_STYLE(elapse, arg_timestamp_style));
+        if (arg_action == ACTION_SYSTEMCTL)
+                log_info("%s scheduled for %s, use 'systemctl %s --cancel' to cancel.",
+                         pretty_action ?: action,
+                         FORMAT_TIMESTAMP_STYLE(elapse, arg_timestamp_style),
+                         action);
+        else
+                log_info("%s scheduled for %s, use 'shutdown -c' to cancel.",
+                         pretty_action ?: action,
+                         FORMAT_TIMESTAMP_STYLE(elapse, arg_timestamp_style));
 
         return 0;
 #else
