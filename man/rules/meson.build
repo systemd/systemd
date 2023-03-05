@@ -966,6 +966,7 @@ manpages = [
  ['systemd-makefs@.service',
   '8',
   ['systemd-growfs',
+   'systemd-growfs-root.service',
    'systemd-growfs@.service',
    'systemd-makefs',
    'systemd-mkswap@.service'],
