@@ -18,6 +18,7 @@
   <refnamediv>
     <refname>systemd-fsck@.service</refname>
     <refname>systemd-fsck-root.service</refname>
+    <refname>systemd-fsck-usr.service</refname>
     <refname>systemd-fsck</refname>
     <refpurpose>File system checker logic</refpurpose>
   </refnamediv>
@@ -25,18 +26,20 @@
   <refsynopsisdiv>
     <para><filename>systemd-fsck@.service</filename></para>
     <para><filename>systemd-fsck-root.service</filename></para>
+    <para><filename>systemd-fsck-usr.service</filename></para>
     <para><filename>/usr/lib/systemd/systemd-fsck</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-fsck@.service</filename> and <filename>systemd-fsck-root.service</filename> are
-    services responsible for file system checks. They are instantiated for each device that is configured for
-    file system checking.  <filename>systemd-fsck-root.service</filename> is responsible for file system
-    checks on the root file system, but only if the root filesystem was not checked in the initrd.
-    <filename>systemd-fsck@.service</filename> is used for all other file systems and for the root file
-    system in the initrd.</para>
+    <para><filename>systemd-fsck@.service</filename>, <filename>systemd-fsck-root.service</filename>, and
+    <filename>systemd-fsck-usr.service</filename> are services responsible for file system checks. They are
+    instantiated for each device that is configured for file system checking.
+    <filename>systemd-fsck-root.service</filename> and <filename>systemd-fsck-usr.service</filename> are
+    responsible for file system checks on the root and /usr file system, respectively, but only if the root
+    filesystem was not checked in the initrd. <filename>systemd-fsck@.service</filename> is used for all
+    other file systems and for the root file system in the initrd.</para>
 
     <para>These services are started at boot if
     <option>passno</option> in <filename>/etc/fstab</filename> for the
@@ -52,10 +55,9 @@
     the filesystem should actually be checked based on the time since
     last check, number of mounts, unclean unmount, etc.</para>
 
-    <para><filename>systemd-fsck-root.service</filename> will activate
-    <filename>reboot.target</filename> if <filename>/sbin/fsck</filename>
-    returns the "System should reboot" condition, or
-    <filename>emergency.target</filename> if <filename>/sbin/fsck</filename>
+    <para><filename>systemd-fsck-root.service</filename> and <filename>systemd-fsck-usr.service</filename>
+    will activate <filename>reboot.target</filename> if <filename>/sbin/fsck</filename> returns the "System
+    should reboot" condition, or <filename>emergency.target</filename> if <filename>/sbin/fsck</filename>
     returns the "Filesystem errors left uncorrected" condition.</para>
 
     <para><filename>systemd-fsck@.service</filename> will fail if
