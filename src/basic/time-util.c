@@ -994,8 +994,6 @@ int parse_timestamp(const char *t, usec_t *ret) {
                         _exit(EXIT_FAILURE);
                 }
 
-                tzset();
-
                 shared->return_value = parse_timestamp_maybe_with_tz(t, tz_offset, /* valid_tz = */ true, &shared->usec);
 
                 _exit(EXIT_SUCCESS);
