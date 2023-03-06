@@ -595,6 +595,8 @@ static int loop_device_make_internal(
         }
 
         d->backing_file = TAKE_PTR(backing_file);
+        d->backing_inode = st.st_ino;
+        d->backing_devno = st.st_dev;
 
         log_debug("Successfully acquired %s, devno=%u:%u, nr=%i, diskseq=%" PRIu64,
                   d->node,
@@ -841,11 +843,12 @@ int loop_device_open(
 
         _cleanup_close_ int fd = -EBADF, lock_fd = -EBADF;
         _cleanup_free_ char *node = NULL, *backing_file = NULL;
+        dev_t devnum, backing_devno = 0;
         struct loop_info64 info;
+        ino_t backing_inode = 0;
         uint64_t diskseq = 0;
         LoopDevice *d;
         const char *s;
-        dev_t devnum;
         int r, nr = -1;
 
         assert(dev);
@@ -878,6 +881,9 @@ int loop_device_open(
                         if (!backing_file)
                                 return -ENOMEM;
                 }
+
+                backing_devno = info.lo_device;
+                backing_inode = info.lo_inode;
         }
 
         r = fd_get_diskseq(fd, &diskseq);
@@ -913,6 +919,8 @@ int loop_device_open(
                 .node = TAKE_PTR(node),
                 .dev = sd_device_ref(dev),
                 .backing_file = TAKE_PTR(backing_file),
+                .backing_inode = backing_inode,
+                .backing_devno = backing_devno,
                 .relinquished = true, /* It's not ours, don't try to destroy it when this object is freed */
                 .devno = devnum,
                 .diskseq = diskseq,
@@ -1102,4 +1110,57 @@ int loop_device_sync(LoopDevice *d) {
          * we can check the return value though. */
 
         return RET_NERRNO(fsync(d->fd));
+}
+
+int loop_device_set_autoclear(LoopDevice *d, bool autoclear) {
+        struct loop_info64 info;
+
+        assert(d);
+
+        if (ioctl(d->fd, LOOP_GET_STATUS64, &info) < 0)
+                return -errno;
+
+        if (autoclear == FLAGS_SET(info.lo_flags, LO_FLAGS_AUTOCLEAR))
+                return 0;
+
+        SET_FLAG(info.lo_flags, LO_FLAGS_AUTOCLEAR, autoclear);
+
+        if (ioctl(d->fd, LOOP_SET_STATUS64, &info) < 0)
+                return -errno;
+
+        return 1;
+}
+
+int loop_device_set_filename(LoopDevice *d, const char *name) {
+        struct loop_info64 info;
+
+        assert(d);
+
+        /* Sets the .lo_file_name of the loopback device. This is supposed to contain the path to the file
+         * backing the block device, but is actually just a free-form string you can pass to the kernel. Most
+         * tools that actually care for the backing file path use the sysfs attribute file loop/backing_file
+         * which is a kernel generated string, subject to file system namespaces and such.
+         *
+         * .lo_file_name is useful since userspace can select it freely when creating a loopback block
+         * device, and we can use it for /dev/loop/by-filename/ symlinks, and similar, so that apps can
+         * recognize their own loopback files. */
+
+        if (name && strlen(name) >= sizeof(info.lo_file_name))
+                return -ENOBUFS;
+
+        if (ioctl(d->fd, LOOP_GET_STATUS64, &info) < 0)
+                return -errno;
+
+        if (strneq((char*) info.lo_file_name, strempty(name), sizeof(info.lo_file_name)))
+                return 0;
+
+        if (name)
+                strncpy((char*) info.lo_file_name, name, sizeof(info.lo_file_name));
+        else
+                memzero(info.lo_file_name, sizeof(info.lo_file_name));
+
+        if (ioctl(d->fd, LOOP_SET_STATUS64, &info) < 0)
+                return -errno;
+
+        return 1;
 }
