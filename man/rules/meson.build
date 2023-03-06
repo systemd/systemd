@@ -902,7 +902,7 @@ manpages = [
  ['systemd-debug-generator', '8', [], ''],
  ['systemd-delta', '1', [], ''],
  ['systemd-detect-virt', '1', [], ''],
- ['systemd-dissect', '1', [], 'HAVE_BLKID'],
+ ['systemd-dissect', '1', ['mount.ddi'], 'HAVE_BLKID'],
  ['systemd-environment-d-generator',
   '8',
   ['30-systemd-environment-d-generator'],
