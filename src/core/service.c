@@ -1885,8 +1885,6 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
          * SERVICE_FAILED/SERVICE_DEAD before entering into SERVICE_AUTO_RESTART. */
         s->n_keep_fd_store ++;
 
-        service_set_state(s, end_state);
-
         if (s->will_auto_restart) {
                 s->will_auto_restart = false;
 
@@ -1897,10 +1895,13 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                 }
 
                 service_set_state(s, SERVICE_AUTO_RESTART);
-        } else
+        } else {
+                service_set_state(s, end_state);
+
                 /* If we shan't restart, then flush out the restart counter. But don't do that immediately, so that the
                  * user can still introspect the counter. Do so on the next start. */
                 s->flush_n_restarts = true;
+        }
 
         /* The new state is in effect, let's decrease the fd store ref counter again. Let's also re-add us to the GC
          * queue, so that the fd store is possibly gc'ed again */
