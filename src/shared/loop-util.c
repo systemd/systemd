@@ -595,6 +595,8 @@ static int loop_device_make_internal(
         }
 
         d->backing_file = TAKE_PTR(backing_file);
+        d->backing_inode = st.st_ino;
+        d->backing_devno = st.st_dev;
 
         log_debug("Successfully acquired %s, devno=%u:%u, nr=%i, diskseq=%" PRIu64,
                   d->node,
@@ -841,11 +843,12 @@ int loop_device_open(
 
         _cleanup_close_ int fd = -EBADF, lock_fd = -EBADF;
         _cleanup_free_ char *node = NULL, *backing_file = NULL;
+        dev_t devnum, backing_devno = 0;
         struct loop_info64 info;
+        ino_t backing_inode = 0;
         uint64_t diskseq = 0;
         LoopDevice *d;
         const char *s;
-        dev_t devnum;
         int r, nr = -1;
 
         assert(dev);
@@ -878,6 +881,9 @@ int loop_device_open(
                         if (!backing_file)
                                 return -ENOMEM;
                 }
+
+                backing_devno = info.lo_device;
+                backing_inode = info.lo_inode;
         }
 
         r = fd_get_diskseq(fd, &diskseq);
@@ -913,6 +919,8 @@ int loop_device_open(
                 .node = TAKE_PTR(node),
                 .dev = sd_device_ref(dev),
                 .backing_file = TAKE_PTR(backing_file),
+                .backing_inode = backing_inode,
+                .backing_devno = backing_devno,
                 .relinquished = true, /* It's not ours, don't try to destroy it when this object is freed */
                 .devno = devnum,
                 .diskseq = diskseq,
