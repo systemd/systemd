@@ -221,7 +221,7 @@ the journal instead of only when logging in debug mode.
 
 * `$SYSTEMD_DEVICE_VERIFY_SYSFS` — if set to "0", disables verification that
   devices sysfs path are actually backed by sysfs. Relaxing this verification
-  is useful for testing purposes.
+  is only useful for testing purposes and is disabled in release builds.
 
 `nss-systemd`:
 
