@@ -81,9 +81,11 @@ static bool arg_legend = true;
 static bool arg_rmdir = false;
 static bool arg_in_memory = false;
 static char **arg_argv = NULL;
+static char *arg_loop_filename = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_verity_settings, verity_settings_done);
 STATIC_DESTRUCTOR_REGISTER(arg_argv, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_loop_filename, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -139,6 +141,7 @@ static int help(void) {
                "  -x --copy-from          Copy files from image to host\n"
                "  -a --copy-to            Copy files from host to image\n"
                "     --discover           Discover DDIs in well known directories\n"
+               "     --loop-filename=NAME Set filename string for loopback device\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -214,6 +217,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DISCOVER,
                 ARG_ATTACH,
                 ARG_DETACH,
+                ARG_LOOP_FILENAME,
         };
 
         static const struct option options[] = {
@@ -242,6 +246,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "copy-to",       no_argument,       NULL, 'a'               },
                 { "json",          required_argument, NULL, ARG_JSON          },
                 { "discover",      no_argument,       NULL, ARG_DISCOVER      },
+                { "loop-filename", required_argument, NULL, ARG_LOOP_FILENAME }, /* We prefer the spelling "filename", as Wikipedia prefers it too */
+                { "loop-file-name",required_argument, NULL, ARG_LOOP_FILENAME }, /* Microsoft language style guide prefers "file name" though, hence allow this too */
                 {}
         };
 
@@ -433,6 +439,23 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_DISCOVER:
                         arg_action = ACTION_DISCOVER;
+                        break;
+
+                case ARG_LOOP_FILENAME:
+                        if (isempty(optarg)) {
+                                arg_loop_filename = mfree(arg_loop_filename);
+                                break;
+                        }
+
+                        if (strlen(optarg) >= sizeof_field(struct loop_info64, lo_file_name))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Loop device file name string '%s' is too long.", optarg);
+
+                        if (!path_is_valid(optarg))
+                                log_warning("Loop device file name string '%s' is not a valid path, using anyway.", optarg);
+
+                        r = free_and_strdup_warn(&arg_loop_filename, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case '?':
@@ -1672,6 +1695,12 @@ static int run(int argc, char *argv[]) {
                 r = loop_device_make_by_path(arg_image, open_flags, /* sector_size= */ UINT32_MAX, loop_flags, LOCK_SH, &d);
         if (r < 0)
                 return log_error_errno(r, "Failed to set up loopback device for %s: %m", arg_image);
+
+        if (arg_loop_filename) {
+                r = loop_device_set_filename(d, arg_loop_filename);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set loop filename string to '%s', ignoring: %m", arg_loop_filename);
+        }
 
         r = dissect_loop_device_and_warn(
                         d,
