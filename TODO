@@ -132,6 +132,12 @@ Features:
 * set MS_NOSYMFOLLOW for ESP and XBOOTLDR mounts both in gpt-generator and in
   dissect.c
 
+* rework loopback support in fstab: when "loop" option is used, then
+  instantiate a new systemd-loop@.service for the source path, set the
+  lo_file_name field for it to something recognizable derived from the fstab
+  line, and then generate a mount unit for it using a udev generated symlink
+  based on lo_file_name.
+
 * remove tomoyo support, it's obsolete and unmaintained apparently
 
 * journald: add varlink service that allows subscribing to certain log events,
@@ -276,9 +282,6 @@ Features:
 
 * systemd-sysext: for sysext DDIs picked up via EFI stub, set much stricter
   image policy by default
-
-* systemd-dissect: maybe add "--attach" and "--detach" verbs which
-  synchronously attach a DDI to a loopback device but not actually mount them.
 
 * pam_systemd_home: add module parameter to control whether to only accept
   only password or only pcks11/fido2 auth, and then use this to hook nicely
