@@ -424,6 +424,23 @@ grep -q -F '{"name":"b","type":"raw","class":"portable","ro":false,"path":"/run/
 grep -q -F '{"name":"c","type":"raw","class":"extension","ro":false,"path":"/run/extensions/c.raw"' /tmp/discover.json
 rm /tmp/discover.json /run/machines/a.raw /run/portables/b.raw /run/extensions/c.raw
 
+LOOP="$(systemd-dissect --attach --loop-string=waldo "${image}.raw")"
+
+# Wait until the symlinks we want to test are established
+udevadm trigger -w "$LOOP"
+
+# Check if the /dev/loop/* symlinks really reference the right device
+test /dev/loop/by-filename/waldo -ef "$LOOP"
+test $(stat -c '/dev/loop/by-inode/%Hd:%Ld-%i' "${image}.raw") -ef "$LOOP"
+
+# Detach by loopback device
+systemd-dissect --detach "$LOOP"
+
+# Detach by backing inode
+systemd-dissect --attach --loop-string=waldo "${image}.raw"
+systemd-dissect --detach "${image}.raw"
+(! systemd-dissect --detach "${image}.raw")
+
 echo OK >/testok
 
 exit 0
