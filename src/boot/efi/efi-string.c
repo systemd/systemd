@@ -34,6 +34,7 @@
 
 DEFINE_STRNLEN(char, strnlen8);
 DEFINE_STRNLEN(char16_t, strnlen16);
+DEFINE_STRNLEN(wchar_t, wcsnlen);
 
 #define TOLOWER(c)                                                \
         ({                                                        \
@@ -603,7 +604,6 @@ static bool push_num(FormatContext *ctx, SpecifierContext *sp, uint64_t u) {
 /* This helps unit testing. */
 #if SD_BOOT
 #  define NULLSTR "(null)"
-#  define wcsnlen strnlen16
 #else
 #  define NULLSTR "(nil)"
 #endif
