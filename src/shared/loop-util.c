@@ -1111,3 +1111,22 @@ int loop_device_sync(LoopDevice *d) {
 
         return RET_NERRNO(fsync(d->fd));
 }
+
+int loop_device_set_autoclear(LoopDevice *d, bool autoclear) {
+        struct loop_info64 info;
+
+        assert(d);
+
+        if (ioctl(d->fd, LOOP_GET_STATUS64, &info) < 0)
+                return -errno;
+
+        if (autoclear == FLAGS_SET(info.lo_flags, LO_FLAGS_AUTOCLEAR))
+                return 0;
+
+        SET_FLAG(info.lo_flags, LO_FLAGS_AUTOCLEAR, autoclear);
+
+        if (ioctl(d->fd, LOOP_SET_STATUS64, &info) < 0)
+                return -errno;
+
+        return 1;
+}
