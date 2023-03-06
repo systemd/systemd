@@ -214,7 +214,7 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                 /* Only operate on sysfs, i.e. refuse going down into /sys/fs/cgroup/ or similar places where
                  * things are not arranged as kobjects in kernel, and hence don't necessarily have
                  * kobject/attribute structure. */
-                r = getenv_bool_secure("SYSTEMD_DEVICE_VERIFY_SYSFS");
+                r = BUILD_MODE_DEVELOPER ? getenv_bool_secure("SYSTEMD_DEVICE_VERIFY_SYSFS") : 0;
                 if (r < 0 && r != -ENXIO)
                         log_debug_errno(r, "Failed to parse $SYSTEMD_DEVICE_VERIFY_SYSFS value: %m");
                 if (r != 0) {
