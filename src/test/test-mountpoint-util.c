@@ -321,6 +321,10 @@ TEST(fd_is_mount_point) {
         assert_se(fd_is_mount_point(fd, "", 0) == -EINVAL);
 }
 
+TEST(ms_nosymfollow_supported) {
+        log_info("MS_NOSYMFOLLOW supported: %s", yes_no(ms_nosymfollow_supported()));
+}
+
 static int intro(void) {
         /* let's move into our own mount namespace with all propagation from the host turned off, so
          * that /proc/self/mountinfo is static and constant for the whole time our test runs. */
