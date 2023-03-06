@@ -1718,29 +1718,23 @@ static int run(int argc, char *argv[]) {
         switch (arg_action) {
 
         case ACTION_DISSECT:
-                r = action_dissect(m, d);
-                break;
+                return action_dissect(m, d);
 
         case ACTION_MOUNT:
-                r = action_mount(m, d);
-                break;
+                return action_mount(m, d);
 
         case ACTION_LIST:
         case ACTION_MTREE:
         case ACTION_COPY_FROM:
         case ACTION_COPY_TO:
-                r = action_list_or_mtree_or_copy(m, d);
-                break;
+                return action_list_or_mtree_or_copy(m, d);
 
         case ACTION_WITH:
-                r = action_with(m, d);
-                break;
+                return action_with(m, d);
 
         default:
                 assert_not_reached();
         }
-
-        return r;
 }
 
 DEFINE_MAIN_FUNCTION(run);
