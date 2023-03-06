@@ -8,6 +8,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "missing_threads.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"

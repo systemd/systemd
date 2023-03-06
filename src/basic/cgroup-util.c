@@ -23,6 +23,7 @@
 #include "login-util.h"
 #include "macro.h"
 #include "missing_magic.h"
+#include "missing_threads.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
