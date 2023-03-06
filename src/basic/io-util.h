@@ -75,14 +75,12 @@ static inline bool FILE_SIZE_VALID_OR_INFINITY(uint64_t l) {
 }
 
 #define IOVEC_NULL (struct iovec) {}
-#define IOVEC_INIT(base, len) { .iov_base = (base), .iov_len = (len) }
-#define IOVEC_MAKE(base, len) (struct iovec) IOVEC_INIT(base, len)
-#define IOVEC_INIT_STRING(string)               \
+#define IOVEC_MAKE(base, len) (struct iovec) { .iov_base = (base), .iov_len = (len) }
+#define IOVEC_MAKE_STRING(string)               \
         ({                                      \
                 char *_s = (char*) (string);    \
                 IOVEC_MAKE(_s, strlen(_s));     \
         })
-#define IOVEC_MAKE_STRING(string) IOVEC_INIT_STRING(string)
 
 char* set_iovec_string_field(struct iovec *iovec, size_t *n_iovec, const char *field, const char *value);
 char* set_iovec_string_field_free(struct iovec *iovec, size_t *n_iovec, const char *field, char *value);

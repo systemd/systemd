@@ -248,7 +248,7 @@ TEST(passfd_read) {
 
         /* Parent */
         char buf[64];
-        struct iovec iov = IOVEC_INIT(buf, sizeof(buf)-1);
+        struct iovec iov = IOVEC_MAKE(buf, sizeof(buf)-1);
         _cleanup_close_ int fd;
 
         pair[1] = safe_close(pair[1]);
@@ -275,7 +275,7 @@ TEST(passfd_contents_read) {
 
         if (r == 0) {
                 /* Child */
-                struct iovec iov = IOVEC_INIT_STRING(wire_contents);
+                struct iovec iov = IOVEC_MAKE_STRING(wire_contents);
                 char tmpfile[] = "/tmp/test-socket-util-passfd-contents-read-XXXXXX";
 
                 pair[0] = safe_close(pair[0]);
@@ -292,7 +292,7 @@ TEST(passfd_contents_read) {
 
         /* Parent */
         char buf[64];
-        struct iovec iov = IOVEC_INIT(buf, sizeof(buf)-1);
+        struct iovec iov = IOVEC_MAKE(buf, sizeof(buf)-1);
         _cleanup_close_ int fd;
         ssize_t k;
 
@@ -322,7 +322,7 @@ TEST(receive_nopassfd) {
 
         if (r == 0) {
                 /* Child */
-                struct iovec iov = IOVEC_INIT_STRING(wire_contents);
+                struct iovec iov = IOVEC_MAKE_STRING(wire_contents);
 
                 pair[0] = safe_close(pair[0]);
 
@@ -332,7 +332,7 @@ TEST(receive_nopassfd) {
 
         /* Parent */
         char buf[64];
-        struct iovec iov = IOVEC_INIT(buf, sizeof(buf)-1);
+        struct iovec iov = IOVEC_MAKE(buf, sizeof(buf)-1);
         int fd = -999;
         ssize_t k;
 
@@ -366,7 +366,7 @@ TEST(send_nodata_nofd) {
 
         /* Parent */
         char buf[64];
-        struct iovec iov = IOVEC_INIT(buf, sizeof(buf)-1);
+        struct iovec iov = IOVEC_MAKE(buf, sizeof(buf)-1);
         int fd = -999;
         ssize_t k;
 
@@ -391,7 +391,7 @@ TEST(send_emptydata) {
 
         if (r == 0) {
                 /* Child */
-                struct iovec iov = IOVEC_INIT_STRING("");  /* zero-length iov */
+                struct iovec iov = IOVEC_MAKE_STRING("");  /* zero-length iov */
                 assert_se(iov.iov_len == 0);
 
                 pair[0] = safe_close(pair[0]);
@@ -403,7 +403,7 @@ TEST(send_emptydata) {
 
         /* Parent */
         char buf[64];
-        struct iovec iov = IOVEC_INIT(buf, sizeof(buf)-1);
+        struct iovec iov = IOVEC_MAKE(buf, sizeof(buf)-1);
         int fd = -999;
         ssize_t k;
 

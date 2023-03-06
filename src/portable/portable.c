@@ -434,7 +434,7 @@ static int portable_extract_by_path(
                          * identical to NAME_MAX. For now we use that, but this should be updated one day when the final
                          * limit is known. */
                         char iov_buffer[PATH_MAX + NAME_MAX + 2];
-                        struct iovec iov = IOVEC_INIT(iov_buffer, sizeof(iov_buffer));
+                        struct iovec iov = IOVEC_MAKE(iov_buffer, sizeof(iov_buffer));
 
                         ssize_t n = receive_one_fd_iov(seq[0], &iov, 1, 0, &fd);
                         if (n == -EIO)
