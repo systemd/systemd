@@ -522,6 +522,80 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static int parse_argv_as_mount_helper(int argc, char *argv[]) {
+        const char *options = NULL;
+        bool fake = false;
+        int c, r;
+
+        /* Implements util-linux "external helper" command line interface, as per mount(8) man page. */
+
+        while ((c = getopt(argc, argv, "sfnvN:o:t:")) >= 0) {
+                switch(c) {
+
+                case 'f':
+                        fake = true;
+                        break;
+
+                case 'o':
+                        options = optarg;
+                        break;
+
+                case 't':
+                        if (!streq(optarg, "ddi"))
+                                log_debug("Unexpected file system type '%s', ignoring.", optarg);
+                        break;
+
+                case 's': /* sloppy mount options */
+                case 'n': /* aka --no-mtab */
+                case 'v': /* aka --verbose */
+                        log_debug("Ignoring option -%c, not implemented.", c);
+                        break;
+
+                case 'N': /* aka --namespace= */
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Option -%c is not implemented, refusing.", c);
+
+                case '?':
+                        return -EINVAL;
+                }
+        }
+
+        if (optind + 2 != argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Expected an image file path and target directory as only argument.");
+
+        for (const char *p = options;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, ",", EXTRACT_KEEP_QUOTE);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract mount option: %m");
+                if (r == 0)
+                        break;
+
+                if (streq(word, "ro"))
+                        SET_FLAG(arg_flags, DISSECT_IMAGE_READ_ONLY, true);
+                else if (streq(word, "rw"))
+                        SET_FLAG(arg_flags, DISSECT_IMAGE_READ_ONLY, false);
+                else if (streq(word, "discard"))
+                        SET_FLAG(arg_flags, DISSECT_IMAGE_DISCARD_ANY, true);
+                else if (streq(word, "nodiscard"))
+                        SET_FLAG(arg_flags, DISSECT_IMAGE_DISCARD_ANY, false);
+                else
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Unknown mount option '%s'.", word);
+        }
+
+        if (fake)
+                return 0;
+
+        arg_image = argv[optind];
+        arg_path = argv[optind+1];
+
+        arg_flags |= DISSECT_IMAGE_REQUIRE_ROOT;
+        arg_action = ACTION_MOUNT;
+        return 1;
+}
+
 static int strv_pair_to_json(char **l, JsonVariant **ret) {
         _cleanup_strv_free_ char **jl = NULL;
 
@@ -1420,7 +1494,10 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        if (invoked_as(argv, "mount.ddi"))
+                r = parse_argv_as_mount_helper(argc, argv);
+        else
+                r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
 
