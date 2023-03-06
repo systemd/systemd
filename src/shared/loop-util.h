@@ -49,3 +49,5 @@ int loop_device_refresh_size(LoopDevice *d, uint64_t offset, uint64_t size);
 
 int loop_device_flock(LoopDevice *d, int operation);
 int loop_device_sync(LoopDevice *d);
+
+int loop_device_set_autoclear(LoopDevice *d, bool autoclear);
