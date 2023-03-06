@@ -1305,6 +1305,11 @@ static bool token_data_eq(UdevRuleTokenType type, void *a, void *b) {
         return token_data_is_string(type) ? streq_ptr(a, b) : (a == b);
 }
 
+static bool conflicting_op(UdevRuleOperatorType a, UdevRuleOperatorType b) {
+        return (a == OP_MATCH && b == OP_NOMATCH) ||
+               (a == OP_NOMATCH && b == OP_MATCH);
+}
+
 /* test whether all fields besides UdevRuleOperatorType of two tokens match */
 static bool tokens_eq(const UdevRuleToken *a, const UdevRuleToken *b) {
         return a->type == b->type &&
@@ -1337,6 +1342,25 @@ static void udev_check_rule_line(UdevRuleFile *rule_file, const UdevRuleLine *li
 
                 if (duplicates) {
                         log_warning("%s:%u: duplicate tokens",
+                                    rule_file->filename, line->line_number);
+                        rule_file_mark_issue(rule_file, LOG_WARNING);
+                        break;
+                }
+        }
+
+        /* check for conflicting tokens */
+        LIST_FOREACH(tokens, token, line->tokens) {
+                bool conflicts = false;
+
+                LIST_FOREACH(tokens, i, token->tokens_next)
+                        if (conflicting_op(token->op, i->op) &&
+                            tokens_eq(token, i)) {
+                                conflicts = true;
+                                break;
+                        }
+
+                if (conflicts) {
+                        log_warning("%s:%u: conflicting tokens",
                                     rule_file->filename, line->line_number);
                         rule_file_mark_issue(rule_file, LOG_WARNING);
                         break;
