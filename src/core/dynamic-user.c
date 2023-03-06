@@ -298,8 +298,8 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
                 /* Let's store the user name in the lock file, so that we can use it for looking up the username for a UID */
                 l = pwritev(lock_fd,
                             (struct iovec[2]) {
-                                    IOVEC_INIT_STRING(name),
-                                    IOVEC_INIT((char[1]) { '\n' }, 1),
+                                    IOVEC_MAKE_STRING(name),
+                                    IOVEC_MAKE((char[1]) { '\n' }, 1),
                             }, 2, 0);
                 if (l < 0) {
                         r = -errno;
@@ -320,7 +320,7 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
 
 static int dynamic_user_pop(DynamicUser *d, uid_t *ret_uid, int *ret_lock_fd) {
         uid_t uid = UID_INVALID;
-        struct iovec iov = IOVEC_INIT(&uid, sizeof(uid));
+        struct iovec iov = IOVEC_MAKE(&uid, sizeof(uid));
         int lock_fd;
         ssize_t k;
 
@@ -342,7 +342,7 @@ static int dynamic_user_pop(DynamicUser *d, uid_t *ret_uid, int *ret_lock_fd) {
 }
 
 static int dynamic_user_push(DynamicUser *d, uid_t uid, int lock_fd) {
-        struct iovec iov = IOVEC_INIT(&uid, sizeof(uid));
+        struct iovec iov = IOVEC_MAKE(&uid, sizeof(uid));
 
         assert(d);
 
