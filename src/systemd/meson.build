@@ -59,6 +59,10 @@ if cc.has_argument('-std=iso9899:2017')
         opts += [['c', '-std=iso9899:2017']]
 endif
 
+if cc.has_argument('-std=c2x')
+        opts += [['c', '-std=c2x']]
+endif
+
 if cxx_cmd != ''
         opts += [['c++'],
                  ['c++', '-std=c++98'],
@@ -71,6 +75,9 @@ if cxx_cmd != ''
         endif
         if cxx.has_argument('-std=c++20')
                 opts += [['c++', '-std=c++20']]
+        endif
+        if cxx.has_argument('-std=c++23')
+                opts += [['c++', '-std=c++23']]
         endif
 endif
 
