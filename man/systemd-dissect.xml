@@ -386,6 +386,25 @@
         </para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--loop-ref=</option></term>
+
+        <listitem><para>Configures the "reference" string the kernel shall report as backing file for the
+        loopback block device. While this is supposed to be a path or filename referencing the backing file,
+        this is not enforced and the kernel accepts arbitrary free-form strings, chosen by the user. Accepts
+        arbitrary strings up to a length of 63 characters. This sets the kernel's
+        <literal>.lo_file_name</literal> field for the block device. Note this is distinct from the
+        <filename>/sys/class/block/loopX/loop/backing_file</filename> attribute file that always reports a
+        path referring to the actual backing file. The latter is subject to mount namespace translation, the
+        former is not.</para>
+
+        <para>This setting is particularly useful in combination with the <option>--attach</option> command,
+        as it allows later referencing the allocated loop device via <filename>/dev/loop/by-ref/…</filename>
+        symlinks. Example: first, set up the loopback device via <command>systemd-dissect attach
+        --loop-ref=quux foo.raw</command>, and then reference it in a command via the specified filename:
+        <command>cfdisk /dev/loop/by-ref/quux</command>.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
       <xi:include href="standard-options.xml" xpointer="json" />
