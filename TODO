@@ -129,6 +129,9 @@ Deprecations and removals:
 
 Features:
 
+* set MS_NOSYMFOLLOW for ESP and XBOOTLDR mounts both in gpt-generator and in
+  dissect.c
+
 * remove tomoyo support, it's obsolete and unmaintained apparently
 
 * journald: add varlink service that allows subscribing to certain log events,
