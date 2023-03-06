@@ -134,3 +134,21 @@ int udev_builtin_add_property(sd_device *dev, bool test, const char *key, const 
 
         return 0;
 }
+
+int udev_builtin_add_propertyf(sd_device *dev, bool test, const char *key, const char *valf, ...) {
+        _cleanup_free_ char *val = NULL;
+        va_list ap;
+        int r;
+
+        assert(dev);
+        assert(key);
+        assert(valf);
+
+        va_start(ap, valf);
+        r = vasprintf(&val, valf, ap);
+        va_end(ap);
+        if (r < 0)
+                return log_oom_debug();
+
+        return udev_builtin_add_property(dev, test, key, val);
+}
