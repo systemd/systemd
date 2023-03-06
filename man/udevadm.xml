@@ -490,8 +490,8 @@
           <term><option>--wait-daemon[=<replaceable>SECONDS</replaceable>]</option></term>
           <listitem>
             <para>Before triggering uevents, wait for systemd-udevd daemon to be initialized.
-            Optionally takes timeout value. Default timeout is 5 seconds. This is equivalent to invoke
-            invoking <command>udevadm control --ping</command> before <command>udevadm trigger</command>.</para>
+            Optionally takes timeout value. Default timeout is 5 seconds. This is equivalent to invoking
+            <command>udevadm control --ping</command> before <command>udevadm trigger</command>.</para>
           </listitem>
         </varlistentry>
 

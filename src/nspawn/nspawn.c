@@ -3222,7 +3222,6 @@ static int patch_sysctl(void) {
 
 static int inner_child(
                 Barrier *barrier,
-                const char *directory,
                 int fd_inner_socket,
                 FDSet *fds,
                 char **os_release_pairs) {
@@ -3260,7 +3259,6 @@ static int inner_child(
          * unshare(). See below. */
 
         assert(barrier);
-        assert(directory);
         assert(fd_inner_socket >= 0);
 
         log_debug("Inner child is initializing.");
@@ -3760,6 +3758,19 @@ static int outer_child(
                 directory = "/run/systemd/nspawn-root";
         }
 
+        /* Make sure we always have a mount that we can move to root later on. */
+        r = make_mount_point(directory);
+        if (r < 0)
+                return r;
+
+        /* So the whole tree is now MS_SLAVE, i.e. we'll still receive mount/umount events from the host
+         * mount namespace. For the directory we are going to run our container let's turn this off, so that
+         * we'll live in our own little world from now on, and propagation from the host may only happen via
+         * the mount tunnel dir, or not at all. */
+        r = mount_follow_verbose(LOG_ERR, NULL, directory, NULL, MS_PRIVATE|MS_REC, NULL);
+        if (r < 0)
+                return r;
+
         r = setup_pivot_root(
                         directory,
                         arg_pivot_root_new,
@@ -3814,11 +3825,6 @@ static int outer_child(
                         arg_uid_range,
                         arg_selinux_apifs_context,
                         MOUNT_ROOT_ONLY);
-        if (r < 0)
-                return r;
-
-        /* Make sure we always have a mount that we can move to root later on. */
-        r = make_mount_point(directory);
         if (r < 0)
                 return r;
 
@@ -4036,7 +4042,7 @@ static int outer_child(
                                 return log_error_errno(r, "Failed to join network namespace: %m");
                 }
 
-                r = inner_child(barrier, directory, fd_inner_socket, fds, os_release_pairs);
+                r = inner_child(barrier, fd_inner_socket, fds, os_release_pairs);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 

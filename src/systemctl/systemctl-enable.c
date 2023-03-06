@@ -211,7 +211,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
 
                 if (send_runtime) {
                         if (streq(method, "DisableUnitFilesWithFlagsAndInstallInfo"))
-                                r = sd_bus_message_append(m, "t", arg_runtime ? UNIT_FILE_RUNTIME : 0);
+                                r = sd_bus_message_append(m, "t", arg_runtime ? (uint64_t) UNIT_FILE_RUNTIME : UINT64_C(0));
                         else
                                 r = sd_bus_message_append(m, "b", arg_runtime);
                         if (r < 0)
