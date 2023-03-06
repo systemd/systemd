@@ -424,6 +424,12 @@ grep -q -F '{"name":"b","type":"raw","class":"portable","ro":false,"path":"/run/
 grep -q -F '{"name":"c","type":"raw","class":"extension","ro":false,"path":"/run/extensions/c.raw"' /tmp/discover.json
 rm /tmp/discover.json /run/machines/a.raw /run/portables/b.raw /run/extensions/c.raw
 
+# Check that the /sbin/mount.ddi helper works
+T="/tmp/mounthelper.$RANDOM"
+mount -t ddi "${image}.gpt" "$T" -o ro,X-mount.mkdir,discard
+umount -R "$T"
+rmdir "$T"
+
 echo OK >/testok
 
 exit 0
