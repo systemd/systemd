@@ -166,12 +166,31 @@ test_syntax_error 'GOTO="a" GOTO="b"
 LABEL="a"' 'Contains multiple GOTO keys, ignoring GOTO="b".'
 test_syntax_error 'LABEL{a}="b"' 'Invalid attribute for LABEL.'
 test_syntax_error 'LABEL=="b"' 'Invalid operator for LABEL.'
+test_syntax_error 'LABEL="b"' 'LABEL="b" is unused.'
 test_syntax_error 'a="b"' "Invalid key 'a'"
 
 echo 'GOTO="a"' >sample.rules
 cat >exp <<'EOF'
 sample.rules:1 GOTO="a" has no matching label, ignoring
 sample.rules:1 The line takes no effect any more, dropping
+sample.rules: udev rules check failed
+EOF
+(! udevadm verify sample.rules 2>err)
+diff exp err
+
+cat >sample.rules <<'EOF'
+GOTO="a"
+LABEL="a"
+EOF
+udevadm verify sample.rules
+
+cat >sample.rules <<'EOF'
+GOTO="b"
+LABEL="b"
+LABEL="b"
+EOF
+cat >exp <<'EOF'
+sample.rules:3 LABEL="b" is unused.
 sample.rules: udev rules check failed
 EOF
 (! udevadm verify sample.rules 2>err)
