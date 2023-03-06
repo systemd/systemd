@@ -1130,3 +1130,38 @@ int loop_device_set_autoclear(LoopDevice *d, bool autoclear) {
 
         return 1;
 }
+
+int loop_device_set_filename(LoopDevice *d, const char *name) {
+        struct loop_info64 info;
+
+        assert(d);
+
+        /* Sets the .lo_file_name of the loopback device. This is supposed to contain the path to the file
+         * backing the block device, but is actually just a free-form string you can pass to the kernel. Most
+         * tools that actually care for the backing file path use the sysfs attribute file loop/backing_file
+         * which is a kernel generated string, subject to file system namespaces and such.
+         *
+         * .lo_file_name is useful since userspace can select it freely when creating a loopback block
+         * device, and we can use it for /dev/loop/by-ref/ symlinks, and similar, so that apps can recognize
+         * their own loopback files. */
+
+        if (name && strlen(name) >= sizeof(info.lo_file_name))
+                return -ENOBUFS;
+
+        if (ioctl(d->fd, LOOP_GET_STATUS64, &info) < 0)
+                return -errno;
+
+        if (strneq((char*) info.lo_file_name, strempty(name), sizeof(info.lo_file_name)))
+                return 0;
+
+        if (name) {
+                strncpy((char*) info.lo_file_name, name, sizeof(info.lo_file_name)-1);
+                info.lo_file_name[sizeof(info.lo_file_name)-1] = 0;
+        } else
+                memzero(info.lo_file_name, sizeof(info.lo_file_name));
+
+        if (ioctl(d->fd, LOOP_SET_STATUS64, &info) < 0)
+                return -errno;
+
+        return 1;
+}
