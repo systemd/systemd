@@ -1043,7 +1043,8 @@ static int manager_network_event_handler(sd_event_source *s, int fd, uint32_t re
         sd_network_monitor_flush(m->network_monitor);
 
         /* When manager_network_read_link_servers() failed, we assume that the servers are changed. */
-        changed = manager_network_read_link_servers(m);
+        r = manager_network_read_link_servers(m);
+        changed = r && r != -ENODATA;
 
         /* check if the machine is online */
         online = network_is_online();
