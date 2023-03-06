@@ -51,3 +51,4 @@ int loop_device_flock(LoopDevice *d, int operation);
 int loop_device_sync(LoopDevice *d);
 
 int loop_device_set_autoclear(LoopDevice *d, bool autoclear);
+int loop_device_set_filename(LoopDevice *d, const char *name);
