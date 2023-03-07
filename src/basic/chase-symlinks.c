@@ -135,7 +135,7 @@ int chase_symlinks_at(
          * Algorithmically this operates on two path buffers: "done" are the components of the path we
          * already processed and resolved symlinks, "." and ".." of. "todo" are the components of the path we
          * still need to process. On each iteration, we move one component from "todo" to "done", processing
-         * it's special meaning each time. We always keep an O_PATH fd to the component we are currently
+         * its special meaning each time. We always keep an O_PATH fd to the component we are currently
          * processing, thus keeping lookup races to a minimum.
          *
          * Suggested usage: whenever you want to canonicalize a path, use this function. Pass the absolute

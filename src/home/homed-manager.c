@@ -1626,7 +1626,7 @@ void manager_revalidate_image(Manager *m, Home *h) {
         assert(h);
 
         /* Frees an automatically discovered image, if it's synthetic and its image disappeared. Unmounts any
-         * image if it's mounted but it's image vanished. */
+         * image if it's mounted but its image vanished. */
 
         if (h->current_operation || !ordered_set_isempty(h->pending_operations))
                 return;

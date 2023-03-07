@@ -905,7 +905,7 @@ static int unit_reserve_dependencies(Unit *u, Unit *other) {
         /* Let's reserve some space in the dependency hashmaps so that later on merging the units cannot
          * fail.
          *
-         * First make some room in the per dependency type hashmaps. Using the summed size of both unit's
+         * First make some room in the per dependency type hashmaps. Using the summed size of both units'
          * hashmaps is an estimate that is likely too high since they probably use some of the same
          * types. But it's never too low, and that's all we need. */
 
