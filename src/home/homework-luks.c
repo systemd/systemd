@@ -2980,8 +2980,8 @@ static int resize_fs_loop(
                                 return r;
 
                         /* For now, when we fail to shrink an ext4 image we'll not try again via the
-                         * bisection logic. We might add that later, but give this involves shelling out
-                         * multiple programs it's a bit too cumbersome to my taste. */
+                         * bisection logic. We might add that later, but given this involves shelling out
+                         * multiple programs, it's a bit too cumbersome for my taste. */
 
                         worked = true;
                         current_fs_size = try_fs_size;
