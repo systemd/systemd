@@ -509,9 +509,11 @@ bool fstype_can_umask(const char *fstype) {
 }
 
 bool fstype_can_uid_gid(const char *fstype) {
-
-        /* All file systems that have a uid=/gid= mount option that fixates the owners of all files and directories,
-         * current and future. */
+        /* All file systems that have a uid=/gid= mount option that fixates the owners of all files and
+         * directories, current and future. Note that this does *not* ask the kernel via
+         * mount_option_supported() here because the uid=/gid= setting of various file systems mean different
+         * things: some apply it only to the root dir inode, others to all inodes in the file system. Thus we
+         * maintain the curated list below. 😢 */
 
         return STR_IN_SET(fstype,
                           "adfs",
