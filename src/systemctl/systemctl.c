@@ -983,6 +983,14 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_WHEN:
+                        if (streq(optarg, "show")) {
+                                r = logind_show_shutdown();
+                                if (r < 0 && r != -ENODATA)
+                                        return r;
+
+                                return 0;
+                        }
+
                         r = parse_timestamp(optarg, &arg_when);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --when= argument '%s': %m", optarg);
