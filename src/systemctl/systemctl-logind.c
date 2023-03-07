@@ -283,7 +283,7 @@ int prepare_boot_loader_entry(void) {
 #endif
 }
 
-int logind_schedule_shutdown(void) {
+int logind_schedule_shutdown(enum action a) {
 
 #if ENABLE_LOGIND
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -295,7 +295,7 @@ int logind_schedule_shutdown(void) {
         if (r < 0)
                 return r;
 
-        action = action_table[arg_action].verb;
+        action = action_table[a].verb;
         if (!action)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Scheduling not supported for this action.");
 
@@ -346,7 +346,7 @@ int logind_show_shutdown(void) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         sd_bus *bus;
-        const char *action = NULL;
+        const char *action, *pretty_action;
         uint64_t elapse;
         int r;
 
@@ -366,17 +366,23 @@ int logind_show_shutdown(void) {
                 return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "No scheduled shutdown.");
 
         if (STR_IN_SET(action, "halt", "poweroff", "exit"))
-                action = "Shutdown";
+                pretty_action = "Shutdown";
         else if (streq(action, "kexec"))
-                action = "Reboot via kexec";
+                pretty_action = "Reboot via kexec";
         else if (streq(action, "reboot"))
-                action = "Reboot";
+                pretty_action = "Reboot";
+        else /* If we don't recognize the action string, we'll show it as-is */
+                pretty_action = action;
 
-        /* If we don't recognize the action string, we'll show it as-is */
-
-        log_info("%s scheduled for %s, use 'shutdown -c' to cancel.",
-                 action,
-                 FORMAT_TIMESTAMP_STYLE(elapse, arg_timestamp_style));
+        if (arg_action == ACTION_SYSTEMCTL)
+                log_info("%s scheduled for %s, use 'systemctl %s --cancel' to cancel.",
+                         pretty_action,
+                         FORMAT_TIMESTAMP_STYLE(elapse, arg_timestamp_style),
+                         action);
+        else
+                log_info("%s scheduled for %s, use 'shutdown -c' to cancel.",
+                         pretty_action,
+                         FORMAT_TIMESTAMP_STYLE(elapse, arg_timestamp_style));
 
         return 0;
 #else
