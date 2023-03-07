@@ -50,6 +50,7 @@
     a udev context.</para>
 
     <xi:include href="threads-aware.xml" xpointer="strict"/>
+    <xi:include href="threads-aware.xml" xpointer="getenv"/>
 
     <para>To introspect a local device on a system, a udev device
     object can be created via

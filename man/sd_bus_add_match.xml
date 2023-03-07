@@ -151,11 +151,7 @@
     </para>
   </refsect1>
 
-  <refsect1>
-    <title>Notes</title>
-
-    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
-  </refsect1>
+  <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
     <title>See Also</title>

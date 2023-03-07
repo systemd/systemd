@@ -93,6 +93,7 @@
     <title>Notes</title>
 
     <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
+    <xi:include href="threads-aware.xml" xpointer="getenv"/>
 
     <para>Internally, this function parses the
     <varname>$WATCHDOG_PID</varname> and
