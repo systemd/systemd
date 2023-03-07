@@ -175,10 +175,11 @@
 
     <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
 
-    <para>Internally, these function use a combination of
-    <filename>fstat()</filename> and
-    <filename>getsockname()</filename> to check the file descriptor
-    type and where it is bound to.</para>
+    <para>Internally, these functions use a combination of
+    <citerefentry project='man-pages'><refentrytitle>fstat</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+    and
+    <citerefentry project='man-pages'><refentrytitle>getsockname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+    to check the file descriptor type and where it is bound to.</para>
   </refsect1>
 
   <refsect1>
