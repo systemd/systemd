@@ -23,8 +23,8 @@
 #include "terminal-util.h"
 
 static int files_add(
-                Hashmap *h,
-                Set *masked,
+                Hashmap **h,
+                Set **masked,
                 const char *suffix,
                 const char *root,
                 unsigned flags,
@@ -35,7 +35,7 @@ static int files_add(
         int r;
 
         assert(h);
-        assert((flags & CONF_FILES_FILTER_MASKED) == 0 || masked);
+        assert(masked);
         assert(path);
 
         r = chase_symlinks_and_opendir(path, root, CHASE_PREFIX_ROOT, &dirpath, &dir);
@@ -45,21 +45,21 @@ static int files_add(
                 return log_debug_errno(r, "Failed to open directory '%s/%s': %m", empty_or_root(root) ? "" : root, dirpath);
 
         FOREACH_DIRENT(de, dir, return -errno) {
+                _cleanup_free_ char *n = NULL, *p = NULL;
                 struct stat st;
-                char *p, *key;
 
                 /* Does this match the suffix? */
                 if (suffix && !endswith(de->d_name, suffix))
                         continue;
 
                 /* Has this file already been found in an earlier directory? */
-                if (hashmap_contains(h, de->d_name)) {
+                if (hashmap_contains(*h, de->d_name)) {
                         log_debug("Skipping overridden file '%s/%s'.", dirpath, de->d_name);
                         continue;
                 }
 
                 /* Has this been masked in an earlier directory? */
-                if ((flags & CONF_FILES_FILTER_MASKED) && set_contains(masked, de->d_name)) {
+                if ((flags & CONF_FILES_FILTER_MASKED) && set_contains(*masked, de->d_name)) {
                         log_debug("File '%s/%s' is masked by previous entry.", dirpath, de->d_name);
                         continue;
                 }
@@ -74,10 +74,8 @@ static int files_add(
                 /* Is this a masking entry? */
                 if ((flags & CONF_FILES_FILTER_MASKED))
                         if (null_or_empty(&st)) {
-                                assert(masked);
-
                                 /* Mark this one as masked */
-                                r = set_put_strdup(&masked, de->d_name);
+                                r = set_put_strdup(masked, de->d_name);
                                 if (r < 0)
                                         return r;
 
@@ -104,27 +102,25 @@ static int files_add(
                                 continue;
                         }
 
-                if (flags & CONF_FILES_BASENAME) {
-                        p = strdup(de->d_name);
-                        if (!p)
-                                return -ENOMEM;
+                n = strdup(de->d_name);
+                if (!n)
+                        return -ENOMEM;
 
-                        key = p;
-                } else {
+                if ((flags & CONF_FILES_BASENAME))
+                        r = hashmap_ensure_put(h, &string_hash_ops_free, n, n);
+                else {
                         p = path_join(dirpath, de->d_name);
                         if (!p)
                                 return -ENOMEM;
 
-                        key = basename(p);
+                        r = hashmap_ensure_put(h, &string_hash_ops_free_free, n, p);
                 }
-
-                r = hashmap_put(h, key, p);
-                if (r < 0) {
-                        free(p);
-                        return log_debug_errno(r, "Failed to add item to hashmap: %m");
-                }
-
+                if (r < 0)
+                        return r;
                 assert(r > 0);
+
+                TAKE_PTR(n);
+                TAKE_PTR(p);
         }
 
         return 0;
@@ -142,8 +138,9 @@ static int conf_files_list_strv_internal(
                 char **dirs) {
 
         _cleanup_hashmap_free_ Hashmap *fh = NULL;
-        _cleanup_set_free_free_ Set *masked = NULL;
-        char **files;
+        _cleanup_set_free_ Set *masked = NULL;
+        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free_ char **sv = NULL;
         int r;
 
         assert(ret);
@@ -152,30 +149,25 @@ static int conf_files_list_strv_internal(
         if (!path_strv_resolve_uniq(dirs, root))
                 return -ENOMEM;
 
-        fh = hashmap_new(&path_hash_ops);
-        if (!fh)
-                return -ENOMEM;
-
-        if (flags & CONF_FILES_FILTER_MASKED) {
-                masked = set_new(&path_hash_ops);
-                if (!masked)
-                        return -ENOMEM;
-        }
-
         STRV_FOREACH(p, dirs) {
-                r = files_add(fh, masked, suffix, root, flags, *p);
+                r = files_add(&fh, &masked, suffix, root, flags, *p);
                 if (r == -ENOMEM)
                         return r;
                 if (r < 0)
                         log_debug_errno(r, "Failed to search for files in %s, ignoring: %m", *p);
         }
 
-        files = hashmap_get_strv(fh);
+        sv = hashmap_get_strv(fh);
+        if (!sv)
+                return -ENOMEM;
+
+        /* The entries in the array given by hashmap_get_strv() are still owned by the hashmap. */
+        files = strv_copy(sv);
         if (!files)
                 return -ENOMEM;
 
-        typesafe_qsort(files, hashmap_size(fh), base_cmp);
-        *ret = files;
+        typesafe_qsort(files, strv_length(files), base_cmp);
+        *ret = TAKE_PTR(files);
 
         return 0;
 }
