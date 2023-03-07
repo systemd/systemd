@@ -1567,7 +1567,7 @@ int partition_pick_mount_options(
          * access that actually modifies stuff work on such image files. Or to say this differently: if
          * people want their file systems to be fixed up they should just open them in writable mode, where
          * all these problems don't exist. */
-        if (!rw && STRPTR_IN_SET(fstype, "ext3", "ext4", "xfs", "btrfs"))
+        if (!rw && fstype && fstype_can_norecovery(fstype))
                 if (!strextend_with_separator(&options, ",", "norecovery"))
                         return -ENOMEM;
 
