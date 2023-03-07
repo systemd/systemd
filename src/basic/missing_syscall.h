@@ -591,8 +591,20 @@ static inline int missing_fsopen(const char *fsname, unsigned flags) {
 
 #if !HAVE_FSCONFIG
 
+#ifndef FSCONFIG_SET_FLAG
+#define FSCONFIG_SET_FLAG 0 /* Set parameter, supplying no value */
+#endif
+
 #ifndef FSCONFIG_SET_STRING
 #define FSCONFIG_SET_STRING 1 /* Set parameter, supplying a string value */
+#endif
+
+#ifndef FSCONFIG_SET_FD
+#define FSCONFIG_SET_FD 5 /* Set parameter, supplying an object by fd */
+#endif
+
+#ifndef FSCONFIG_CMD_CREATE
+#define FSCONFIG_CMD_CREATE 6 /* Invoke superblock creation */
 #endif
 
 static inline int missing_fsconfig(int fd, unsigned cmd, const char *key, const void *value, int aux) {
