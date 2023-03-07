@@ -664,3 +664,54 @@ not_supported:
         cache = false;
         return 0;
 }
+
+int mount_option_supported(const char *fstype, const char *key, const char *value) {
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        /* Checks if the specified file system supports a mount option. Returns > 0 if it suppors it, == 0 if
+         * it does not. Return -EAGAIN if we can't determine it. And any other error otherwise. */
+
+        assert(fstype);
+        assert(key);
+
+        fd = fsopen(fstype, FSOPEN_CLOEXEC);
+        if (fd < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(errno))
+                        return -EAGAIN;  /* new mount API not available → don't know */
+
+                return log_debug_errno(errno, "Failed to open superblock context for '%s': %m", fstype);
+        }
+
+        /* Various file systems have not been converted to the new mount API yet. For such file systems
+         * fsconfig() with FSCONFIG_SET_STRING/FSCONFIG_SET_FLAG never fail. Which sucks, because we want to
+         * use it for testing support, after all. Let's hence do a check if the file system got converted yet
+         * first. */
+        if (fsconfig(fd, FSCONFIG_SET_FD, "adefinitelynotexistingmountoption", NULL, fd) < 0) {
+                /* If FSCONFIG_SET_FD is not supported for the fs, then the file system was not converted to
+                 * the new mount API yet. If it returns EINVAL the mount option doesn't exist, but the fstype
+                 * is converted. */
+                if (errno == EOPNOTSUPP)
+                        return -EAGAIN; /* FSCONFIG_SET_FD not supported on the fs, hence not converted to new mount API → don't know */
+                if (errno != EINVAL)
+                        return log_debug_errno(errno, "Failed to check if file system has been converted to new mount API: %m");
+
+                /* So FSCONFIG_SET_FD worked, but the option didn't exist (we got EINVAL), this means the fs
+                 * is converted. Let's now ask the actual question we wonder about. */
+        } else
+                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN), "FSCONFIG_SET_FD worked unexpectedly for '%s', whoa!", fstype);
+
+        if (value)
+                r = fsconfig(fd, FSCONFIG_SET_STRING, key, value, 0);
+        else
+                r = fsconfig(fd, FSCONFIG_SET_FLAG, key, NULL, 0);
+        if (r < 0) {
+                if (errno == EINVAL)
+                        return false; /* EINVAL means option not supported. */
+
+                return log_debug_errno(errno, "Failed to set '%s%s%s' on '%s' superblock context: %m",
+                                       key, value ? "=" : "", strempty(value), fstype);
+        }
+
+        return true; /* works! */
+}
