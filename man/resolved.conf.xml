@@ -75,7 +75,7 @@
 
       <varlistentry>
         <term><varname>Domains=</varname></term>
-        <listitem><para>A space-separated list of domains optionally prefixed with <literal>~</literal>,
+        <listitem><para>A space-separated list of domains, optionally prefixed with <literal>~</literal>,
         used for two distinct purposes described below. Defaults to the empty list.</para>
 
         <para>Any domains <emphasis>not</emphasis> prefixed with <literal>~</literal> are used as search
@@ -86,17 +86,23 @@
         <filename>/etc/resolv.conf</filename> with the <varname>search</varname> keyword are used instead, if
         that file exists and any domains are configured in it.</para>
 
-        <para>The domains prefixed with <literal>~</literal> are called "routing domains". All domains listed
-        here (both search domains and routing domains after removing the <literal>~</literal> prefix) define
-        a search path that preferably directs DNS queries to this interface. This search path has an effect
-        only when suitable per-link DNS servers are known. Such servers may be defined through the
-        <varname>DNS=</varname> setting (see above) and dynamically at run time, for example from DHCP
-        leases. If no per-link DNS servers are known, routing domains have no effect.</para>
+        <para>The domains prefixed with <literal>~</literal> are called "route-only domains". All domains
+        listed here (<emphasis>both search domains and route-only domains</emphasis> after removing the
+        <literal>~</literal> prefix) define a search path that preferably directs DNS queries to this
+        interface. This search path has an effect only when suitable per-link DNS servers are known. Such
+        servers may be defined through the <varname>DNS=</varname> setting (see above) and dynamically at run
+        time, for example from DHCP leases. If no per-link DNS servers are known, route-only domains have no
+        effect.</para>
 
         <para>Use the construct <literal>~.</literal> (which is composed from <literal>~</literal> to
-        indicate a routing domain and <literal>.</literal> to indicate the DNS root domain that is the
+        indicate a route-only domain and <literal>.</literal> to indicate the DNS root domain that is the
         implied suffix of all DNS domains) to use the DNS servers defined for this link preferably for all
-        domains.</para></listitem>
+        domains.</para>
+
+        <para>See "Protocols and Routing" in
+        <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for details of how search and route-only domains are used.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
