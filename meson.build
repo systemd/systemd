@@ -629,6 +629,7 @@ foreach ident : [
         ['open_tree',         '''#include <sys/mount.h>'''],
         ['fsopen',            '''#include <sys/mount.h>'''],
         ['fsconfig',          '''#include <sys/mount.h>'''],
+        ['fsmount',           '''#include <sys/mount.h>'''],
         ['getdents64',        '''#include <dirent.h>'''],
 ]
 
