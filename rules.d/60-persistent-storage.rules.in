@@ -106,6 +106,7 @@ ENV{DEVTYPE}=="partition", ENV{ID_PATH_ATA_COMPAT}=="?*", SYMLINK+="disk/by-path
 KERNEL=="vd*[!0-9]", ENV{ID_PATH}=="pci-*", SYMLINK+="disk/by-path/virtio-$env{ID_PATH}"
 KERNEL=="vd*[0-9]", ENV{ID_PATH}=="pci-*", SYMLINK+="disk/by-path/virtio-$env{ID_PATH}-part%n"
 
+{% if HAVE_BLKID %}
 # allow admin to disable probing the filesystem for slow devices like floppy disk drives
 ENV{UDEV_DISABLE_PERSISTENT_STORAGE_BLKID_FLAG}=="1", GOTO="persistent_storage_blkid_probe_end"
 
@@ -120,6 +121,7 @@ KERNEL=="sr*", ENV{DISK_EJECT_REQUEST}!="?*", ENV{ID_CDROM_MEDIA_TRACK_COUNT_DAT
 KERNEL!="sr*|mmcblk[0-9]boot[0-9]", IMPORT{builtin}="blkid"
 
 LABEL="persistent_storage_blkid_probe_end"
+{% endif %}
 
 # by-label/by-uuid links (filesystem metadata)
 ENV{ID_FS_USAGE}=="filesystem|other|crypto", ENV{ID_FS_UUID_ENC}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID_ENC}"
