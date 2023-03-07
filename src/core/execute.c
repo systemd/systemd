@@ -2598,8 +2598,7 @@ static int write_credential(
                 const char *id,
                 const void *data,
                 size_t size,
-                uid_t uid,
-                bool ownership_ok) {
+                uid_t uid) {
 
         _cleanup_(unlink_and_freep) char *tmp = NULL;
         _cleanup_close_ int fd = -EBADF;
@@ -2624,21 +2623,8 @@ static int write_credential(
 
         if (uid_is_valid(uid) && uid != getuid()) {
                 r = fd_add_uid_acl_permission(fd, uid, ACL_READ);
-                if (r < 0) {
-                        if (!ERRNO_IS_NOT_SUPPORTED(r) && !ERRNO_IS_PRIVILEGE(r))
-                                return r;
-
-                        if (!ownership_ok) /* Ideally we use ACLs, since we can neatly express what we want
-                                            * to express: that the user gets read access and nothing
-                                            * else. But if the backing fs can't support that (e.g. ramfs)
-                                            * then we can use file ownership instead. But that's only safe if
-                                            * we can then re-mount the whole thing read-only, so that the
-                                            * user can no longer chmod() the file to gain write access. */
-                                return r;
-
-                        if (fchown(fd, uid, GID_INVALID) < 0)
-                                return -errno;
-                }
+                if (r < 0)
+                        return r;
         }
 
         if (renameat(dfd, tmp, dfd, id) < 0)
@@ -2694,7 +2680,6 @@ static int load_credential(
                 int read_dfd,
                 int write_dfd,
                 uid_t uid,
-                bool ownership_ok,
                 uint64_t *left) {
 
         ReadFullFileFlags flags = READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER;
@@ -2821,7 +2806,7 @@ static int load_credential(
         if (add > *left)
                 return -E2BIG;
 
-        r = write_credential(write_dfd, id, data, size, uid, ownership_ok);
+        r = write_credential(write_dfd, id, data, size, uid);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write credential '%s': %m", id);
 
@@ -2836,7 +2821,6 @@ struct load_cred_args {
         const char *unit;
         int dfd;
         uid_t uid;
-        bool ownership_ok;
         uint64_t *left;
 };
 
@@ -2883,7 +2867,6 @@ static int load_cred_recurse_dir_cb(
                         dir_fd,
                         args->dfd,
                         args->uid,
-                        args->ownership_ok,
                         args->left);
         if (r < 0)
                 return r;
@@ -2896,8 +2879,7 @@ static int acquire_credentials(
                 const ExecParameters *params,
                 const char *unit,
                 const char *p,
-                uid_t uid,
-                bool ownership_ok) {
+                uid_t uid) {
 
         uint64_t left = CREDENTIALS_TOTAL_SIZE_MAX;
         _cleanup_close_ int dfd = -EBADF;
@@ -2941,7 +2923,6 @@ static int acquire_credentials(
                                         AT_FDCWD,
                                         dfd,
                                         uid,
-                                        ownership_ok,
                                         &left);
                 else
                         /* Directory */
@@ -2959,7 +2940,6 @@ static int acquire_credentials(
                                                 .unit = unit,
                                                 .dfd = dfd,
                                                 .uid = uid,
-                                                .ownership_ok = ownership_ok,
                                                 .left = &left,
                                         });
                 if (r < 0)
@@ -2997,7 +2977,7 @@ static int acquire_credentials(
                 if (add > left)
                         return -E2BIG;
 
-                r = write_credential(dfd, sc->id, data, size, uid, ownership_ok);
+                r = write_credential(dfd, sc->id, data, size, uid);
                 if (r < 0)
                         return r;
 
@@ -3012,166 +2992,8 @@ static int acquire_credentials(
 
         if (uid_is_valid(uid) && uid != getuid()) {
                 r = fd_add_uid_acl_permission(dfd, uid, ACL_READ | ACL_EXECUTE);
-                if (r < 0) {
-                        if (!ERRNO_IS_NOT_SUPPORTED(r) && !ERRNO_IS_PRIVILEGE(r))
-                                return r;
-
-                        if (!ownership_ok)
-                                return r;
-
-                        if (fchown(dfd, uid, GID_INVALID) < 0)
-                                return -errno;
-                }
-        }
-
-        return 0;
-}
-
-static int setup_credentials_internal(
-                const ExecContext *context,
-                const ExecParameters *params,
-                const char *unit,
-                const char *final,        /* This is where the credential store shall eventually end up at */
-                const char *workspace,    /* This is where we can prepare it before moving it to the final place */
-                bool reuse_workspace,     /* Whether to reuse any existing workspace mount if it already is a mount */
-                bool must_mount,          /* Whether to require that we mount something, it's not OK to use the plain directory fall back */
-                uid_t uid) {
-
-        int r, workspace_mounted; /* negative if we don't know yet whether we have/can mount something; true
-                                   * if we mounted something; false if we definitely can't mount anything */
-        bool final_mounted;
-        const char *where;
-
-        assert(context);
-        assert(final);
-        assert(workspace);
-
-        if (reuse_workspace) {
-                r = path_is_mount_point(workspace, NULL, 0);
                 if (r < 0)
                         return r;
-                if (r > 0)
-                        workspace_mounted = true; /* If this is already a mount, and we are supposed to reuse it, let's keep this in mind */
-                else
-                        workspace_mounted = -1; /* We need to figure out if we can mount something to the workspace */
-        } else
-                workspace_mounted = -1; /* ditto */
-
-        r = path_is_mount_point(final, NULL, 0);
-        if (r < 0)
-                return r;
-        if (r > 0) {
-                /* If the final place already has something mounted, we use that. If the workspace also has
-                 * something mounted we assume it's actually the same mount (but with MS_RDONLY
-                 * different). */
-                final_mounted = true;
-
-                if (workspace_mounted < 0) {
-                        /* If the final place is mounted, but the workspace isn't, then let's bind mount
-                         * the final version to the workspace, and make it writable, so that we can make
-                         * changes */
-
-                        r = mount_nofollow_verbose(LOG_DEBUG, final, workspace, NULL, MS_BIND|MS_REC, NULL);
-                        if (r < 0)
-                                return r;
-
-                        r = mount_nofollow_verbose(LOG_DEBUG, NULL, workspace, NULL, MS_BIND|MS_REMOUNT|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL);
-                        if (r < 0)
-                                return r;
-
-                        workspace_mounted = true;
-                }
-        } else
-                final_mounted = false;
-
-        if (workspace_mounted < 0) {
-                /* Nothing is mounted on the workspace yet, let's try to mount something now */
-                for (int try = 0;; try++) {
-
-                        if (try == 0) {
-                                /* Try "ramfs" first, since it's not swap backed */
-                                r = mount_nofollow_verbose(LOG_DEBUG, "ramfs", workspace, "ramfs", MS_NODEV|MS_NOEXEC|MS_NOSUID, "mode=0700");
-                                if (r >= 0) {
-                                        workspace_mounted = true;
-                                        break;
-                                }
-
-                        } else if (try == 1) {
-                                _cleanup_free_ char *opts = NULL;
-
-                                if (asprintf(&opts, "mode=0700,nr_inodes=1024,size=%zu", (size_t) CREDENTIALS_TOTAL_SIZE_MAX) < 0)
-                                        return -ENOMEM;
-
-                                /* Fall back to "tmpfs" otherwise */
-                                r = mount_nofollow_verbose(LOG_DEBUG, "tmpfs", workspace, "tmpfs", MS_NODEV|MS_NOEXEC|MS_NOSUID, opts);
-                                if (r >= 0) {
-                                        workspace_mounted = true;
-                                        break;
-                                }
-
-                        } else {
-                                /* If that didn't work, try to make a bind mount from the final to the workspace, so that we can make it writable there. */
-                                r = mount_nofollow_verbose(LOG_DEBUG, final, workspace, NULL, MS_BIND|MS_REC, NULL);
-                                if (r < 0) {
-                                        if (!ERRNO_IS_PRIVILEGE(r)) /* Propagate anything that isn't a permission problem */
-                                                return r;
-
-                                        if (must_mount) /* If we it's not OK to use the plain directory
-                                                         * fallback, propagate all errors too */
-                                                return r;
-
-                                        /* If we lack privileges to bind mount stuff, then let's gracefully
-                                         * proceed for compat with container envs, and just use the final dir
-                                         * as is. */
-
-                                        workspace_mounted = false;
-                                        break;
-                                }
-
-                                /* Make the new bind mount writable (i.e. drop MS_RDONLY) */
-                                r = mount_nofollow_verbose(LOG_DEBUG, NULL, workspace, NULL, MS_BIND|MS_REMOUNT|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL);
-                                if (r < 0)
-                                        return r;
-
-                                workspace_mounted = true;
-                                break;
-                        }
-                }
-        }
-
-        assert(!must_mount || workspace_mounted > 0);
-        where = workspace_mounted ? workspace : final;
-
-        (void) label_fix_full(AT_FDCWD, where, final, 0);
-
-        r = acquire_credentials(context, params, unit, where, uid, workspace_mounted);
-        if (r < 0)
-                return r;
-
-        if (workspace_mounted) {
-                /* Make workspace read-only now, so that any bind mount we make from it defaults to read-only too */
-                r = mount_nofollow_verbose(LOG_DEBUG, NULL, workspace, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL);
-                if (r < 0)
-                        return r;
-
-                /* And mount it to the final place, read-only */
-                if (final_mounted)
-                        r = umount_verbose(LOG_DEBUG, workspace, MNT_DETACH|UMOUNT_NOFOLLOW);
-                else
-                        r = mount_nofollow_verbose(LOG_DEBUG, workspace, final, NULL, MS_MOVE, NULL);
-                if (r < 0)
-                        return r;
-        } else {
-                _cleanup_free_ char *parent = NULL;
-
-                /* If we do not have our own mount put used the plain directory fallback, then we need to
-                 * open access to the top-level credential directory and the per-service directory now */
-
-                r = path_extract_directory(final, &parent);
-                if (r < 0)
-                        return r;
-                if (chmod(parent, 0755) < 0)
-                        return -errno;
         }
 
         return 0;
@@ -3213,90 +3035,7 @@ static int setup_credentials(
         if (r < 0 && r != -EEXIST)
                 return r;
 
-        r = safe_fork("(sd-mkdcreds)", FORK_DEATHSIG|FORK_WAIT|FORK_NEW_MOUNTNS, NULL);
-        if (r < 0) {
-                _cleanup_free_ char *t = NULL, *u = NULL;
-
-                /* If this is not a privilege or support issue then propagate the error */
-                if (!ERRNO_IS_NOT_SUPPORTED(r) && !ERRNO_IS_PRIVILEGE(r))
-                        return r;
-
-                /* Temporary workspace, that remains inaccessible all the time. We prepare stuff there before moving
-                 * it into place, so that users can't access half-initialized credential stores. */
-                t = path_join(params->prefix[EXEC_DIRECTORY_RUNTIME], "systemd/temporary-credentials");
-                if (!t)
-                        return -ENOMEM;
-
-                /* We can't set up a mount namespace. In that case operate on a fixed, inaccessible per-unit
-                 * directory outside of /run/credentials/ first, and then move it over to /run/credentials/
-                 * after it is fully set up */
-                u = path_join(t, unit);
-                if (!u)
-                        return -ENOMEM;
-
-                FOREACH_STRING(i, t, u) {
-                        r = mkdir_label(i, 0700);
-                        if (r < 0 && r != -EEXIST)
-                                return r;
-                }
-
-                r = setup_credentials_internal(
-                                context,
-                                params,
-                                unit,
-                                p,       /* final mount point */
-                                u,       /* temporary workspace to overmount */
-                                true,    /* reuse the workspace if it is already a mount */
-                                false,   /* it's OK to fall back to a plain directory if we can't mount anything */
-                                uid);
-
-                (void) rmdir(u); /* remove the workspace again if we can. */
-
-                if (r < 0)
-                        return r;
-
-        } else if (r == 0) {
-
-                /* We managed to set up a mount namespace, and are now in a child. That's great. In this case
-                 * we can use the same directory for all cases, after turning off propagation. Question
-                 * though is: where do we turn off propagation exactly, and where do we place the workspace
-                 * directory? We need some place that is guaranteed to be a mount point in the host, and
-                 * which is guaranteed to have a subdir we can mount over. /run/ is not suitable for this,
-                 * since we ultimately want to move the resulting file system there, i.e. we need propagation
-                 * for /run/ eventually. We could use our own /run/systemd/bind mount on itself, but that
-                 * would be visible in the host mount table all the time, which we want to avoid. Hence, what
-                 * we do here instead we use /dev/ and /dev/shm/ for our purposes. We know for sure that
-                 * /dev/ is a mount point and we now for sure that /dev/shm/ exists. Hence we can turn off
-                 * propagation on the former, and then overmount the latter.
-                 *
-                 * Yes it's nasty playing games with /dev/ and /dev/shm/ like this, since it does not exist
-                 * for this purpose, but there are few other candidates that work equally well for us, and
-                 * given that the we do this in a privately namespaced short-lived single-threaded process
-                 * that no one else sees this should be OK to do. */
-
-                r = mount_nofollow_verbose(LOG_DEBUG, NULL, "/dev", NULL, MS_SLAVE|MS_REC, NULL); /* Turn off propagation from our namespace to host */
-                if (r < 0)
-                        goto child_fail;
-
-                r = setup_credentials_internal(
-                                context,
-                                params,
-                                unit,
-                                p,           /* final mount point */
-                                "/dev/shm",  /* temporary workspace to overmount */
-                                false,       /* do not reuse /dev/shm if it is already a mount, under no circumstances */
-                                true,        /* insist that something is mounted, do not allow fallback to plain directory */
-                                uid);
-                if (r < 0)
-                        goto child_fail;
-
-                _exit(EXIT_SUCCESS);
-
-        child_fail:
-                _exit(EXIT_FAILURE);
-        }
-
-        return 0;
+        return acquire_credentials(context, params, unit, p, uid);
 }
 
 #if ENABLE_SMACK
@@ -5715,9 +5454,6 @@ int exec_context_destroy_credentials(const ExecContext *c, const char *runtime_p
         if (!p)
                 return -ENOMEM;
 
-        /* This is either a tmpfs/ramfs of its own, or a plain directory. Either way, let's first try to
-         * unmount it, and afterwards remove the mount point */
-        (void) umount2(p, MNT_DETACH|UMOUNT_NOFOLLOW);
         (void) rm_rf(p, REMOVE_ROOT|REMOVE_CHMOD);
 
         return 0;
