@@ -137,6 +137,7 @@ typedef enum {
         LINE_HAS_GOTO         = 1 << 3, /* has GOTO= */
         LINE_HAS_LABEL        = 1 << 4, /* has LABEL= */
         LINE_UPDATE_SOMETHING = 1 << 5, /* has other TK_A_* or TK_M_IMPORT tokens */
+        LINE_IS_REFERENCED    = 1 << 6, /* is referenced by GOTO */
 } UdevRuleLineType;
 
 typedef struct UdevRuleFile UdevRuleFile;
@@ -172,6 +173,7 @@ struct UdevRuleLine {
 struct UdevRuleFile {
         char *filename;
         UdevRuleLine *current_line;
+        unsigned int issues;
         LIST_HEAD(UdevRuleLine, rule_lines);
         LIST_FIELDS(UdevRuleFile, rule_files);
 };
@@ -194,6 +196,7 @@ struct UdevRules {
                 UdevRuleLine *_l = _f ? _f->current_line : NULL;        \
                 const char *_n = _f ? _f->filename : NULL;              \
                                                                         \
+                rule_file_mark_issue(_f, level);                        \
                 log_device_full_errno_zerook(                           \
                                 device, level, error, "%s:%u " fmt,     \
                                 strna(_n), _l ? _l->line_number : 0,    \
@@ -253,6 +256,11 @@ struct UdevRules {
         log_token_error_errno(rules, SYNTHETIC_ERRNO(EINVAL),           \
                               "Invalid value \"%s\" for %s (char %zu: %s), ignoring.", \
                               value, key, offset, hint)
+
+static void rule_file_mark_issue(UdevRuleFile *rule_file, uint8_t log_level) {
+        if (rule_file)
+                rule_file->issues |= (1U << log_level);
+}
 
 static void log_unknown_owner(sd_device *dev, UdevRules *rules, int error, const char *entity, const char *name) {
         if (IN_SET(abs(error), ENOENT, ESRCH))
@@ -1146,20 +1154,23 @@ static void rule_resolve_goto(UdevRuleFile *rule_file) {
                 LIST_FOREACH(rule_lines, i, line->rule_lines_next)
                         if (streq_ptr(i->label, line->goto_label)) {
                                 line->goto_line = i;
+                                SET_FLAG(i->type, LINE_IS_REFERENCED, true);
                                 break;
                         }
 
                 if (!line->goto_line) {
                         log_error("%s:%u: GOTO=\"%s\" has no matching label, ignoring",
                                   rule_file->filename, line->line_number, line->goto_label);
+                        rule_file_mark_issue(rule_file, LOG_ERR);
 
                         SET_FLAG(line->type, LINE_HAS_GOTO, false);
                         line->goto_label = NULL;
 
-                        if ((line->type & ~LINE_HAS_LABEL) == 0) {
+                        if ((line->type & ~(LINE_HAS_LABEL|LINE_IS_REFERENCED)) == 0) {
                                 log_notice("%s:%u: The line takes no effect any more, dropping",
                                            rule_file->filename, line->line_number);
-                                if (line->type == LINE_HAS_LABEL)
+                                rule_file_mark_issue(rule_file, LOG_NOTICE);
+                                if (line->type & LINE_HAS_LABEL)
                                         udev_rule_line_clear_tokens(line);
                                 else
                                         udev_rule_line_free(line);
@@ -1262,9 +1273,10 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename) {
                         continue;
                 }
 
-                if (ignore_line)
+                if (ignore_line) {
                         log_error("%s:%u: Line is too long, ignored", filename, line_nr);
-                else if (len > 0)
+                        rule_file_mark_issue(rule_file, LOG_ERR);
+                } else if (len > 0)
                         (void) rule_add_line(rules, line, line_nr);
 
                 continuation = mfree(continuation);
@@ -1273,6 +1285,99 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename) {
 
         rule_resolve_goto(rule_file);
         return 0;
+}
+
+static bool token_data_is_string(UdevRuleTokenType type) {
+        if (IN_SET(type, TK_A_ENV, TK_M_ENV, TK_M_CONST, TK_A_ATTR, TK_M_ATTR,
+                         TK_A_SYSCTL, TK_M_SYSCTL, TK_M_PARENTS_ATTR, TK_A_SECLABEL))
+                return true;
+        return false;
+}
+
+static bool token_value_eq(UdevRuleMatchType match_type, const char *a, const char *b) {
+        /* token value is ignored for some match types */
+        if (IN_SET(match_type, MATCH_TYPE_EMPTY, MATCH_TYPE_SUBSYSTEM))
+                return true;
+        return streq_ptr(a, b);
+}
+
+static bool token_data_eq(UdevRuleTokenType type, void *a, void *b) {
+        return token_data_is_string(type) ? streq_ptr(a, b) : (a == b);
+}
+
+static bool conflicting_op(UdevRuleOperatorType a, UdevRuleOperatorType b) {
+        return (a == OP_MATCH && b == OP_NOMATCH) ||
+               (a == OP_NOMATCH && b == OP_MATCH);
+}
+
+/* test whether all fields besides UdevRuleOperatorType of two tokens match */
+static bool tokens_eq(const UdevRuleToken *a, const UdevRuleToken *b) {
+        return a->type == b->type &&
+               a->match_type == b->match_type &&
+               a->attr_subst_type == b->attr_subst_type &&
+               a->attr_match_remove_trailing_whitespace == b->attr_match_remove_trailing_whitespace &&
+               token_value_eq(a->match_type, a->value, b->value) &&
+               token_data_eq(a->type, a->data, b->data);
+}
+
+static void udev_check_rule_line(UdevRuleFile *rule_file, const UdevRuleLine *line) {
+        /* check for unused labels */
+        if (FLAGS_SET(line->type, LINE_HAS_LABEL) &&
+            !FLAGS_SET(line->type, LINE_IS_REFERENCED)) {
+                log_warning("%s:%u: LABEL=\"%s\" is unused",
+                            rule_file->filename, line->line_number, line->label);
+                rule_file_mark_issue(rule_file, LOG_WARNING);
+        }
+
+        /* check for duplicate tokens */
+        LIST_FOREACH(tokens, token, line->tokens) {
+                bool duplicates = false;
+
+                LIST_FOREACH(tokens, i, token->tokens_next)
+                        if (token->op == i->op &&
+                            tokens_eq(token, i)) {
+                                duplicates = true;
+                                break;
+                        }
+
+                if (duplicates) {
+                        log_warning("%s:%u: duplicate tokens",
+                                    rule_file->filename, line->line_number);
+                        rule_file_mark_issue(rule_file, LOG_WARNING);
+                        break;
+                }
+        }
+
+        /* check for conflicting tokens */
+        LIST_FOREACH(tokens, token, line->tokens) {
+                bool conflicts = false;
+
+                LIST_FOREACH(tokens, i, token->tokens_next)
+                        if (conflicting_op(token->op, i->op) &&
+                            tokens_eq(token, i)) {
+                                conflicts = true;
+                                break;
+                        }
+
+                if (conflicts) {
+                        log_warning("%s:%u: conflicting tokens",
+                                    rule_file->filename, line->line_number);
+                        rule_file_mark_issue(rule_file, LOG_WARNING);
+                        break;
+                }
+        }
+}
+
+unsigned int udev_check_current_rule_file(UdevRules *rules) {
+        assert(rules);
+        assert(rules->current_file);
+
+        UdevRuleFile *rule_file = rules->current_file;
+
+        LIST_FOREACH(rule_lines, line, rule_file->rule_lines)
+                udev_check_rule_line(rule_file, line);
+
+        return rule_file->issues;
 }
 
 UdevRules* udev_rules_new(ResolveNameTiming resolve_name_timing) {
