@@ -126,7 +126,7 @@ static int output_units_list(const UnitInfo *unit_infos, size_t c) {
 
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
-        for (const UnitInfo *u = unit_infos; unit_infos && (size_t) (u - unit_infos) < c; u++) {
+        FOREACH_ARRAY(u, unit_infos, c) {
                 _cleanup_free_ char *id = NULL;
                 const char *on_underline = "", *on_loaded = "", *on_active = "", *on_circle = "";
                 bool circle = false, underline = false;
@@ -292,7 +292,7 @@ typedef struct SocketInfo {
 static void socket_info_array_free(SocketInfo *sockets, size_t n_sockets) {
         assert(sockets || n_sockets == 0);
 
-        for (SocketInfo *s = sockets; s < sockets + n_sockets; s++) {
+        FOREACH_ARRAY(s, sockets, n_sockets) {
                 free(s->type);
                 free(s->path);
                 strv_free(s->triggered);
@@ -422,7 +422,7 @@ static int output_sockets_list(const SocketInfo *sockets, size_t n_sockets) {
 
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
-        for (const SocketInfo *s = sockets; s < sockets + n_sockets; s++) {
+        FOREACH_ARRAY(s, sockets, n_sockets) {
                 _cleanup_free_ char *unit = NULL;
 
                 unit = format_unit_id(s->id, s->machine);
@@ -479,7 +479,7 @@ int verb_list_sockets(int argc, char *argv[], void *userdata) {
                 if (n < 0)
                         return n;
 
-                for (const UnitInfo *u = unit_infos; u < unit_infos + n; u++) {
+                FOREACH_ARRAY(u, unit_infos, n) {
                         r = socket_info_add(bus, u, &sockets, &n_sockets);
                         if (r < 0)
                                 return r;
@@ -571,7 +571,7 @@ typedef struct TimerInfo {
 static void timer_info_array_free(TimerInfo *timers, size_t n_timers) {
         assert(timers || n_timers == 0);
 
-        for (TimerInfo *t = timers; t < timers + n_timers; t++)
+        FOREACH_ARRAY(t, timers, n_timers)
                 strv_free(t->triggered);
 
         free(timers);
@@ -613,7 +613,7 @@ static int output_timers_list(const TimerInfo *timers, size_t n_timers) {
         (void) table_set_align_percent(table, table_get_cell(table, 0, 1), 100);
         (void) table_set_align_percent(table, table_get_cell(table, 0, 3), 100);
 
-        for (const TimerInfo *t = timers; t < timers + n_timers; t++) {
+        FOREACH_ARRAY(t, timers, n_timers) {
                 _cleanup_free_ char *unit = NULL;
 
                 unit = format_unit_id(t->id, t->machine);
@@ -749,7 +749,7 @@ int verb_list_timers(int argc, char *argv[], void *userdata) {
 
                 dual_timestamp_get(&nw);
 
-                for (const UnitInfo *u = unit_infos; u < unit_infos + n; u++) {
+                FOREACH_ARRAY(u, unit_infos, n) {
                         r = add_timer_info(bus, u, &nw, &timers, &n_timers);
                         if (r < 0)
                                 return r;
@@ -774,7 +774,7 @@ typedef struct AutomountInfo {
 static void automount_info_array_free(AutomountInfo *automounts, size_t n_automounts) {
         assert(automounts || n_automounts == 0);
 
-        for (AutomountInfo *i = automounts; i < automounts + n_automounts; i++) {
+        FOREACH_ARRAY(i, automounts, n_automounts) {
                 free(i->what);
                 free(i->where);
         }
@@ -881,7 +881,7 @@ static int output_automounts_list(const AutomountInfo *infos, size_t n_infos) {
 
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
-        for (const AutomountInfo *info = infos; info < infos + n_infos; info++) {
+        FOREACH_ARRAY(info, infos, n_infos) {
                 _cleanup_free_ char *unit = NULL;
 
                 unit = format_unit_id(info->id, info->machine);
@@ -945,7 +945,7 @@ int verb_list_automounts(int argc, char *argv[], void *userdata) {
                 if (n < 0)
                         return n;
 
-                for (const UnitInfo *u = unit_infos; u < unit_infos + n; u++) {
+                FOREACH_ARRAY(u, unit_infos, n) {
                         r = automount_info_add(bus, u, &automounts, &n_automounts);
                         if (r < 0)
                                 return r;
@@ -995,7 +995,7 @@ static int path_info_compare(const PathInfo *a, const PathInfo *b) {
 static void path_info_array_free(PathInfo *paths, size_t n_paths) {
         assert(paths || n_paths == 0);
 
-        for (PathInfo *p = paths; p < paths + n_paths; p++) {
+        FOREACH_ARRAY(p, paths, n_paths) {
                 free(p->condition);
                 free(p->path);
                 strv_free(p->triggered);
@@ -1096,7 +1096,7 @@ static int output_paths_list(const PathInfo *paths, size_t n_paths) {
 
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
-        for (const PathInfo *p = paths; p < paths + n_paths; p++) {
+        FOREACH_ARRAY(p, paths, n_paths) {
                 _cleanup_free_ char *unit = NULL;
 
                 unit = format_unit_id(p->id, p->machine);
@@ -1153,7 +1153,7 @@ int verb_list_paths(int argc, char *argv[], void *userdata) {
                 if (n < 0)
                         return n;
 
-                for (const UnitInfo *u = unit_infos; u < unit_infos + n; u++) {
+                FOREACH_ARRAY(u, unit_infos, n) {
                         r = path_info_add(bus, u, &paths, &n_paths);
                         if (r < 0)
                                 return r;
