@@ -1307,7 +1307,7 @@ ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags) {
         return n;
 }
 
-int socket_get_family(int fd, int *ret) {
+int socket_get_family(int fd) {
         int af;
         socklen_t sl = sizeof(af);
 
@@ -1321,12 +1321,11 @@ int socket_get_family(int fd, int *ret) {
 }
 
 int socket_set_recvpktinfo(int fd, int af, bool b) {
-        int r;
 
         if (af == AF_UNSPEC) {
-                r = socket_get_family(fd, &af);
-                if (r < 0)
-                        return r;
+                af = socket_get_family(fd);
+                if (af < 0)
+                        return af;
         }
 
         switch (af) {
@@ -1350,12 +1349,11 @@ int socket_set_recvpktinfo(int fd, int af, bool b) {
 
 int socket_set_unicast_if(int fd, int af, int ifi) {
         be32_t ifindex_be = htobe32(ifi);
-        int r;
 
         if (af == AF_UNSPEC) {
-                r = socket_get_family(fd, &af);
-                if (r < 0)
-                        return r;
+                af = socket_get_family(fd);
+                if (af < 0)
+                        return af;
         }
 
         switch (af) {
@@ -1372,12 +1370,10 @@ int socket_set_unicast_if(int fd, int af, int ifi) {
 }
 
 int socket_set_option(int fd, int af, int opt_ipv4, int opt_ipv6, int val) {
-        int r;
-
         if (af == AF_UNSPEC) {
-                r = socket_get_family(fd, &af);
-                if (r < 0)
-                        return r;
+                af = socket_get_family(fd);
+                if (af < 0)
+                        return af;
         }
 
         switch (af) {
@@ -1397,9 +1393,9 @@ int socket_get_mtu(int fd, int af, size_t *ret) {
         int mtu, r;
 
         if (af == AF_UNSPEC) {
-                r = socket_get_family(fd, &af);
-                if (r < 0)
-                        return r;
+                af = socket_get_family(fd);
+                if (af < 0)
+                        return af;
         }
 
         switch (af) {
