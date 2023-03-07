@@ -74,14 +74,6 @@ int fd_get_path(int fd, char **ret);
 
 int move_fd(int from, int to, int cloexec);
 
-enum {
-        ACQUIRE_NO_DEV_NULL = 1 << 0,
-        ACQUIRE_NO_MEMFD    = 1 << 1,
-        ACQUIRE_NO_PIPE     = 1 << 2,
-        ACQUIRE_NO_TMPFILE  = 1 << 3,
-        ACQUIRE_NO_REGULAR  = 1 << 4,
-};
-
 int fd_move_above_stdio(int fd);
 
 int rearrange_stdio(int original_input_fd, int original_output_fd, int original_error_fd);
