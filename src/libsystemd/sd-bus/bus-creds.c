@@ -661,8 +661,8 @@ static int has_cap(sd_bus_creds *c, size_t offset, int capability) {
         if ((unsigned) capability > lc)
                 return 0;
 
-        /* If the last cap is 63, then there are 64 caps defined, and we need 2 entries á 32bit hence. *
-         * If the last cap is 64, then there are 65 caps defined, and we need 3 entries á 32bit hence. */
+        /* If the last cap is 63, then there are 64 caps defined, and we need 2 entries à 32bit hence. *
+         * If the last cap is 64, then there are 65 caps defined, and we need 3 entries à 32bit hence. */
         sz = DIV_ROUND_UP(lc+1, 32LU);
 
         return !!(c->capability[offset * sz + CAP_TO_INDEX((uint32_t) capability)] & CAP_TO_MASK_CORRECTED((uint32_t) capability));
