@@ -189,6 +189,9 @@ CPUWeight=20   DisableControllers=cpu              /          \
           setting may be controlled with
           <varname>DefaultCPUAccounting=</varname> in
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+          <para>Under the unified cgroup hierarchy, CPU accounting is available for all units and this
+          setting has no effect.</para>
         </listitem>
       </varlistentry>
 

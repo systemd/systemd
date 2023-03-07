@@ -51,7 +51,7 @@
 #DefaultStartLimitIntervalSec=10s
 #DefaultStartLimitBurst=5
 #DefaultEnvironment=
-#DefaultCPUAccounting=no
+#DefaultCPUAccounting=yes
 #DefaultIOAccounting=no
 #DefaultIPAccounting=no
 #DefaultMemoryAccounting={{ 'yes' if MEMORY_ACCOUNTING_DEFAULT else 'no' }}
