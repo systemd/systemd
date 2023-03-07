@@ -1749,9 +1749,9 @@ int socket_disable_pmtud(int fd, int af) {
         assert(fd >= 0);
 
         if (af == AF_UNSPEC) {
-                r = socket_get_family(fd, &af);
-                if (r < 0)
-                        return r;
+                af = socket_get_family(fd);
+                if (af < 0)
+                        return af;
         }
 
         switch (af) {
