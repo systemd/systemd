@@ -52,6 +52,8 @@ static enum {
         ACTION_DISSECT,
         ACTION_MOUNT,
         ACTION_UMOUNT,
+        ACTION_ATTACH,
+        ACTION_DETACH,
         ACTION_LIST,
         ACTION_MTREE,
         ACTION_WITH,
@@ -79,9 +81,11 @@ static bool arg_legend = true;
 static bool arg_rmdir = false;
 static bool arg_in_memory = false;
 static char **arg_argv = NULL;
+static char *arg_loop_filename = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_verity_settings, verity_settings_done);
 STATIC_DESTRUCTOR_REGISTER(arg_argv, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_loop_filename, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -94,6 +98,8 @@ static int help(void) {
         printf("%1$s [OPTIONS...] IMAGE\n"
                "%1$s [OPTIONS...] --mount IMAGE PATH\n"
                "%1$s [OPTIONS...] --umount PATH\n"
+               "%1$s [OPTIONS...] --attach IMAGE\n"
+               "%1$s [OPTIONS...] --detach PATH\n"
                "%1$s [OPTIONS...] --list IMAGE\n"
                "%1$s [OPTIONS...] --mtree IMAGE\n"
                "%1$s [OPTIONS...] --with IMAGE [COMMAND…]\n"
@@ -126,6 +132,8 @@ static int help(void) {
                "  -M                      Shortcut for --mount --mkdir\n"
                "  -u --umount             Unmount the image from the specified directory\n"
                "  -U                      Shortcut for --umount --rmdir\n"
+               "     --attach             Attach the disk image to a loopback block device\n"
+               "     --detach             Detach a loopback block device gain\n"
                "  -l --list               List all the files and directories of the specified\n"
                "                          OS image\n"
                "     --mtree              Show BSD mtree manifest of OS image\n"
@@ -133,6 +141,7 @@ static int help(void) {
                "  -x --copy-from          Copy files from image to host\n"
                "  -a --copy-to            Copy files from host to image\n"
                "     --discover           Discover DDIs in well known directories\n"
+               "     --loop-filename=NAME Set filename string for loopback device\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -206,6 +215,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_JSON,
                 ARG_MTREE,
                 ARG_DISCOVER,
+                ARG_ATTACH,
+                ARG_DETACH,
+                ARG_LOOP_FILENAME,
         };
 
         static const struct option options[] = {
@@ -215,6 +227,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-legend",     no_argument,       NULL, ARG_NO_LEGEND     },
                 { "mount",         no_argument,       NULL, 'm'               },
                 { "umount",        no_argument,       NULL, 'u'               },
+                { "attach",        no_argument,       NULL, ARG_ATTACH        },
+                { "detach",        no_argument,       NULL, ARG_DETACH        },
                 { "with",          no_argument,       NULL, ARG_WITH          },
                 { "read-only",     no_argument,       NULL, 'r'               },
                 { "discard",       required_argument, NULL, ARG_DISCARD       },
@@ -232,6 +246,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "copy-to",       no_argument,       NULL, 'a'               },
                 { "json",          required_argument, NULL, ARG_JSON          },
                 { "discover",      no_argument,       NULL, ARG_DISCOVER      },
+                { "loop-filename", required_argument, NULL, ARG_LOOP_FILENAME }, /* We prefer the spelling "filename", as Wikipedia prefers it too */
+                { "loop-file-name",required_argument, NULL, ARG_LOOP_FILENAME }, /* Microsoft language style guide prefers "file name" though, hence allow this too */
                 {}
         };
 
@@ -289,6 +305,14 @@ static int parse_argv(int argc, char *argv[]) {
                         /* Shortcut combination of the above two */
                         arg_action = ACTION_UMOUNT;
                         arg_rmdir = true;
+                        break;
+
+                case ARG_ATTACH:
+                        arg_action = ACTION_ATTACH;
+                        break;
+
+                case ARG_DETACH:
+                        arg_action = ACTION_DETACH;
                         break;
 
                 case 'l':
@@ -417,6 +441,23 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_action = ACTION_DISCOVER;
                         break;
 
+                case ARG_LOOP_FILENAME:
+                        if (isempty(optarg)) {
+                                arg_loop_filename = mfree(arg_loop_filename);
+                                break;
+                        }
+
+                        if (strlen(optarg) >= sizeof_field(struct loop_info64, lo_file_name))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Loop device file name string '%s' is too long.", optarg);
+
+                        if (!path_is_valid(optarg))
+                                log_warning("Loop device file name string '%s' is not a valid path, using anyway.", optarg);
+
+                        r = free_and_strdup_warn(&arg_loop_filename, optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -452,6 +493,22 @@ static int parse_argv(int argc, char *argv[]) {
                                                "Expected a mount point path as only argument.");
 
                 arg_path = argv[optind];
+                break;
+
+        case ACTION_ATTACH:
+                if (optind + 1 != argc)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Expected an image file path as only argument.");
+
+                arg_image = argv[optind];
+                break;
+
+        case ACTION_DETACH:
+                if (optind + 1 != argc)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Expected an image file path or loopback device as only argument.");
+
+                arg_image = argv[optind];
                 break;
 
         case ACTION_LIST:
@@ -1412,6 +1469,115 @@ static int action_discover(void) {
         return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
 }
 
+static int action_attach(DissectedImage *m, LoopDevice *d) {
+        int r;
+
+        assert(m);
+        assert(d);
+
+        r = loop_device_set_autoclear(d, false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to disable auto-clear logic on loopback device: %m");
+
+        r = dissected_image_relinquish(m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to relinquish DM and loopback block devices: %m");
+
+        puts(d->node);
+        return 0;
+}
+
+static int action_detach(const char *path) {
+        _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        struct stat st;
+        int r;
+
+        fd = open(path, O_PATH|O_CLOEXEC);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to open '%s': %m", path);
+
+        if (fstat(fd, &st) < 0)
+                return log_error_errno(errno, "Failed to stat '%s': %m", path);
+
+        if (S_ISBLK(st.st_mode)) {
+                r = loop_device_open_from_fd(fd, O_RDONLY, LOCK_EX, &loop);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open '%s' as loopback block device: %m", path);
+
+        } else if (S_ISREG(st.st_mode)) {
+                _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+                _cleanup_(loop_device_unrefp) LoopDevice *last_loop = NULL;
+                sd_device *d;
+
+                /* If a regular file is specified, search for a loopback block device that is backed by it */
+
+                r = sd_device_enumerator_new(&e);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate enumerator: %m");
+
+                r = sd_device_enumerator_add_match_subsystem(e, "block", true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to match block devices: %m");
+
+                (void) sd_device_enumerator_allow_uninitialized(e);
+
+                FOREACH_DEVICE(e, d) {
+                        _cleanup_(loop_device_unrefp) LoopDevice *entry_loop = NULL;
+                        const char *name, *devtype;
+
+                        r = sd_device_get_sysname(d, &name);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to get enumerated device's sysname, skipping: %m");
+                                continue;
+                        }
+
+                        if (!startswith(name, "loop"))
+                                continue;
+
+                        r = sd_device_get_devtype(d, &devtype);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to get devtype of '%s', skipping: %m", name);
+                                continue;
+                        }
+
+                        if (!streq(devtype, "disk")) /* Filter out partition block devices */
+                                continue;
+
+                        r = loop_device_open(d, O_RDONLY, LOCK_SH, &entry_loop);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to open loopback block device '%s', skipping: %m", name);
+                                continue;
+                        }
+
+                        if (entry_loop->backing_devno == st.st_dev && entry_loop->backing_inode == st.st_ino) {
+                                /* Found it! The kernel allows attaching a single file to multiple loopback
+                                 * devices. Let's destruct them in reverse order, i.e. find the last matching
+                                 * loopback device here, rather than the first. */
+
+                                loop_device_unref(last_loop);
+                                last_loop = TAKE_PTR(entry_loop);
+                        }
+                }
+
+                if (!last_loop)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "No loopback block device backed by '%s' found.", path);
+
+                loop = TAKE_PTR(last_loop);
+
+                r = loop_device_flock(loop, LOCK_EX);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to upgrade device lock: %m");
+        }
+
+        r = loop_device_set_autoclear(loop, true);
+        if (r < 0)
+                log_warning_errno(r, "Failed to enable autoclear logic on '%s', ignoring: %m", loop->node);
+
+        loop_device_unrelinquish(loop);
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
@@ -1426,6 +1592,8 @@ static int run(int argc, char *argv[]) {
 
         if (arg_action == ACTION_UMOUNT)
                 return action_umount(arg_path);
+        if (arg_action == ACTION_DETACH)
+                return action_detach(arg_image);
         if (arg_action == ACTION_DISCOVER)
                 return action_discover();
 
@@ -1451,6 +1619,12 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set up loopback device for %s: %m", arg_image);
 
+        if (arg_loop_filename) {
+                r = loop_device_set_filename(d, arg_loop_filename);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set loop filename string to '%s', ignoring: %m", arg_loop_filename);
+        }
+
         r = dissect_loop_device_and_warn(
                         d,
                         &arg_verity_settings,
@@ -1459,6 +1633,9 @@ static int run(int argc, char *argv[]) {
                         &m);
         if (r < 0)
                 return r;
+
+        if (arg_action == ACTION_ATTACH)
+                return action_attach(m, d);
 
         r = dissected_image_load_verity_sig_partition(
                         m,
@@ -1470,29 +1647,23 @@ static int run(int argc, char *argv[]) {
         switch (arg_action) {
 
         case ACTION_DISSECT:
-                r = action_dissect(m, d);
-                break;
+                return action_dissect(m, d);
 
         case ACTION_MOUNT:
-                r = action_mount(m, d);
-                break;
+                return action_mount(m, d);
 
         case ACTION_LIST:
         case ACTION_MTREE:
         case ACTION_COPY_FROM:
         case ACTION_COPY_TO:
-                r = action_list_or_mtree_or_copy(m, d);
-                break;
+                return action_list_or_mtree_or_copy(m, d);
 
         case ACTION_WITH:
-                r = action_with(m, d);
-                break;
+                return action_with(m, d);
 
         default:
                 assert_not_reached();
         }
-
-        return r;
 }
 
 DEFINE_MAIN_FUNCTION(run);
