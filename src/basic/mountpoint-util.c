@@ -461,6 +461,15 @@ bool fstype_is_ro(const char *fstype) {
 }
 
 bool fstype_can_discard(const char *fstype) {
+        int r;
+
+        assert(fstype);
+
+        /* On new kernels we can just ask the kernel */
+        r = mount_option_supported(fstype, "discard", NULL);
+        if (r >= 0)
+                return r;
+
         return STR_IN_SET(fstype,
                           "btrfs",
                           "f2fs",
