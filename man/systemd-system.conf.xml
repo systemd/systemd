@@ -444,11 +444,11 @@
         <varname>IPAccounting=</varname>. See
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details on the per-unit settings. <varname>DefaultTasksAccounting=</varname> defaults to yes,
-        <varname>DefaultMemoryAccounting=</varname> to
-        &MEMORY_ACCOUNTING_DEFAULT;. <varname>DefaultCPUAccounting=</varname> defaults to yes if enabling CPU
-        accounting doesn't require the CPU controller to be enabled (Linux 4.15+ using the unified hierarchy
-        for resource control), otherwise it defaults to no. The other three settings default to
-        no.</para></listitem>
+        <varname>DefaultMemoryAccounting=</varname> to &MEMORY_ACCOUNTING_DEFAULT;.
+        <varname>DefaultCPUAccounting=</varname> defaults to yes, but really has no effect if enabling CPU
+        accounting doesn't require the <option>cpu</option> controller to be enabled (Linux 4.15+ using the
+        unified hierarchy for resource control), otherwise it defaults to no. The other three settings
+        default to no.</para></listitem>
       </varlistentry>
 
       <varlistentry>
