@@ -225,6 +225,13 @@ CPUWeight=20   DisableControllers=cpu              /          \
           <varname>CPUWeight=</varname> applies to normal runtime of the system, and if the former is not set also to
           the startup and shutdown phases. Using <varname>StartupCPUWeight=</varname> allows prioritizing specific services at
           boot-up and shutdown differently than during normal runtime.</para>
+
+          <para>In addition to the resource allocation performed by the <option>cpu</option> controller, the
+          kernel may automatically divide resources based on session-id grouping, see "The autogroup feature"
+          in <citerefentry
+          project='man-pages'><refentrytitle>sched</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+          The effect of this feature is similar to the <option>cpu</option> controller with no explicit
+          configuration, so users should be careful to not mistake one for the other.</para>
         </listitem>
       </varlistentry>
 
