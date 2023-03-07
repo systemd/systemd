@@ -152,7 +152,7 @@ For details, see the next question.
 
 ## What does "up" actually mean?
 
-The services that are ordered before `network-online.target` define it's
+The services that are ordered before `network-online.target` define its
 meaning. *Usually* means that all configured network devices are up and have an
 IP address assigned, but details may vary. In particular, configuration may
 affect which interfaces are taken into account.
