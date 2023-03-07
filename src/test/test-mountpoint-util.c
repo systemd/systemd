@@ -361,6 +361,11 @@ TEST(fstype_can_norecovery) {
         assert_se(!fstype_can_norecovery("tmpfs"));
 }
 
+TEST(fstype_can_umask) {
+        assert_se(fstype_can_umask("vfat"));
+        assert_se(!fstype_can_umask("tmpfs"));
+}
+
 static int intro(void) {
         /* let's move into our own mount namespace with all propagation from the host turned off, so
          * that /proc/self/mountinfo is static and constant for the whole time our test runs. */

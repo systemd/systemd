@@ -495,6 +495,19 @@ bool fstype_can_norecovery(const char *fstype) {
                           "btrfs");
 }
 
+bool fstype_can_umask(const char *fstype) {
+        int r;
+
+        assert(fstype);
+
+        /* On new kernels we can just ask the kernel */
+        r = mount_option_supported(fstype, "umask", "0077");
+        if (r >= 0)
+                return r;
+
+        return streq(fstype, "vfat");
+}
+
 bool fstype_can_uid_gid(const char *fstype) {
 
         /* All file systems that have a uid=/gid= mount option that fixates the owners of all files and directories,
