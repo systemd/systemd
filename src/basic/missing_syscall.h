@@ -609,6 +609,26 @@ static inline int missing_fsconfig(int fd, unsigned cmd, const char *key, const 
 
 /* ======================================================================= */
 
+#if !HAVE_FSMOUNT
+
+#ifndef FSMOUNT_CLOEXEC
+#define FSMOUNT_CLOEXEC 0x00000001
+#endif
+
+static inline int missing_fsmount(int fd, unsigned flags, unsigned ms_flags) {
+#  if defined __NR_fsmount && __NR_fsmount >= 0
+        return syscall(__NR_fsmount, fd, flags, ms_flags);
+#  else
+        errno = ENOSYS;
+        return -1;
+#  endif
+}
+
+#  define fsmount missing_fsmount
+#endif
+
+/* ======================================================================= */
+
 #if !HAVE_GETDENTS64
 
 static inline ssize_t missing_getdents64(int fd, void *buffer, size_t length) {
