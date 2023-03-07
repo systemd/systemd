@@ -1523,7 +1523,7 @@ static int mount_partition(
 
         /* Use decrypted node and matching fstype if available, otherwise use the original device */
         node = FORMAT_PROC_FD_PATH(m->mount_node_fd);
-        fstype = m->decrypted_node ? m->decrypted_fstype: m->fstype;
+        fstype = dissected_partition_fstype(m);
 
         if (!fstype)
                 return -EAFNOSUPPORT;
