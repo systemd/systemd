@@ -1372,6 +1372,7 @@ static int os_release_status(void) {
         int r;
 
         r = parse_os_release(NULL,
+                             IMAGE_EXTENSION,
                              "PRETTY_NAME", &pretty_name,
                              "NAME",        &name,
                              "VERSION",     &version,

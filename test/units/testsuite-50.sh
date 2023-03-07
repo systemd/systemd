@@ -430,6 +430,18 @@ mount -t ddi "${image}.gpt" "$T" -o ro,X-mount.mkdir,discard
 umount -R "$T"
 rmdir "$T"
 
+export initdir="/tmp/unittest"
+mkdir -p "$initdir/etc/syscfg-release.d" "$initdir/etc/systemd/system"
+    ( echo "ID=_any"
+      echo "ARCHITECTURE=_any" ) >"$initdir/etc/syscfg-release.d/syscfg-release.unittest"
+echo "MARKER_SYSCFG_123" >"$initdir/etc/systemd/system/syscfg-testfile"
+mkdir -p /etc/syscfgs/unittest
+systemd-syscfg merge
+test ! -e /etc/systemd/system/syscfg-testfile
+systemd-syscfg status
+systemd-syscfg unmerge
+rmdir /etc/syscfgs/unittest
+
 echo OK >/testok
 
 exit 0
