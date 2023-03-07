@@ -50,6 +50,7 @@ bool fstype_is_ro(const char *fsype);
 bool fstype_can_discard(const char *fstype);
 bool fstype_can_uid_gid(const char *fstype);
 bool fstype_can_norecovery(const char *fstype);
+bool fstype_can_umask(const char *fstype);
 
 int dev_is_devtmpfs(void);
 
