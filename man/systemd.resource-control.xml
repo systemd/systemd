@@ -202,14 +202,15 @@ CPUWeight=20   DisableControllers=cpu              /          \
           <para>These options accept an integer value or a the special string "idle":</para>
             <itemizedlist>
               <listitem>
-                <para>If set to an integer value, assign the specified CPU time weight to the processes executed,
-                if the unified control group hierarchy is used on the system. These options control the
-                <literal>cpu.weight</literal> control group attribute. The allowed range is 1 to 10000. Defaults to
-                100. For details about this control group attribute, see <ulink
-                url="https://docs.kernel.org/admin-guide/cgroup-v2.html">Control Groups v2</ulink>
-                and <ulink url="https://docs.kernel.org/scheduler/sched-design-CFS.html">CFS
-                Scheduler</ulink>.  The available CPU time is split up among all units within one slice relative to
-                their CPU time weight. A higher weight means more CPU time, a lower weight means less.</para>
+                <para>If set to an integer value, assign the specified CPU time weight to the processes
+                executed, if the unified control group hierarchy is used on the system. These options control
+                the <literal>cpu.weight</literal> control group attribute. The allowed range is 1 to 10000.
+                Defaults to unset, but the kernel default is 100. For details about this control group
+                attribute, see <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html">Control Groups
+                v2</ulink> and <ulink url="https://docs.kernel.org/scheduler/sched-design-CFS.html">CFS
+                Scheduler</ulink>. The available CPU time is split up among all units within one slice
+                relative to their CPU time weight. A higher weight means more CPU time, a lower weight means
+                less.</para>
               </listitem>
               <listitem>
                 <para>If set to the special string "idle", mark the cgroup for "idle scheduling", which means
@@ -485,17 +486,12 @@ CPUWeight=20   DisableControllers=cpu              /          \
         <listitem>
           <para>This setting controls the <option>pids</option> controller in the unified hierarchy.</para>
 
-          <para>Turn on task accounting for this unit. Takes a
-          boolean argument. If enabled, the system manager will keep
-          track of the number of tasks in the unit. The number of
-          tasks accounted this way includes both kernel threads and
-          userspace processes, with each thread counting
-          individually. Note that turning on tasks accounting for one
-          unit will also implicitly turn it on for all units contained
-          in the same slice and for all its parent slices and the
-          units contained therein. The system default for this setting
-          may be controlled with
-          <varname>DefaultTasksAccounting=</varname> in
+          <para>Turn on task accounting for this unit. Takes a boolean argument. If enabled, the kernel will
+          keep track of the total number of tasks in the unit and its children. This number includes both
+          kernel threads and userspace processes, with each thread counted individually. Note that turning on
+          tasks accounting for one unit will also implicitly turn it on for all units contained in the same
+          slice and for all its parent slices and the units contained therein. The system default for this
+          setting may be controlled with <varname>DefaultTasksAccounting=</varname> in
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>
