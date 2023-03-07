@@ -323,6 +323,9 @@ static int systemctl_help(void) {
                "     --mkdir             Create directory before mounting, if missing\n"
                "     --marked            Restart/reload previously marked units\n"
                "     --drop-in=NAME      Edit unit files using the specified drop-in file name\n"
+               "     --when=TIME         Schedule halt/power-off/reboot/kexec action after\n"
+               "                         a certain timestamp\n"
+               "     --cancel            Cancel the scheduled halt/power-off/reboot/kexec action\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -447,6 +450,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_MARKED,
                 ARG_NO_WARN,
                 ARG_DROP_IN,
+                ARG_WHEN,
+                ARG_CANCEL,
         };
 
         static const struct option options[] = {
@@ -511,6 +516,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "mkdir",               no_argument,       NULL, ARG_MKDIR               },
                 { "marked",              no_argument,       NULL, ARG_MARKED              },
                 { "drop-in",             required_argument, NULL, ARG_DROP_IN             },
+                { "when",                required_argument, NULL, ARG_WHEN                },
+                { "cancel",              no_argument,       NULL, ARG_CANCEL              },
                 {}
         };
 
@@ -973,6 +980,21 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_DROP_IN:
                         arg_drop_in = optarg;
+                        break;
+
+                case ARG_WHEN:
+                        r = parse_timestamp(optarg, &arg_when);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --when= argument '%s': %m", optarg);
+
+                        if (!timestamp_is_set(arg_when))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid timestamp '%s' specified for --when=.", optarg);
+
+                        break;
+
+                case ARG_CANCEL:
+                        arg_when = USEC_INFINIY;
                         break;
 
                 case '.':
