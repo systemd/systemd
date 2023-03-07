@@ -7,7 +7,6 @@
 typedef struct Manager Manager;
 
 #include "hashmap.h"
-#include "varlink.h"
 #include "ratelimit.h"
 
 #define USERDB_WORKERS_MIN 3
