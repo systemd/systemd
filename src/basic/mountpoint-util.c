@@ -478,6 +478,23 @@ bool fstype_can_discard(const char *fstype) {
                           "xfs");
 }
 
+bool fstype_can_norecovery(const char *fstype) {
+        int r;
+
+        assert(fstype);
+
+        /* On new kernels we can just ask the kernel */
+        r = mount_option_supported(fstype, "norecovery", NULL);
+        if (r >= 0)
+                return r;
+
+        return STR_IN_SET(fstype,
+                          "ext3",
+                          "ext4",
+                          "xfs",
+                          "btrfs");
+}
+
 bool fstype_can_uid_gid(const char *fstype) {
 
         /* All file systems that have a uid=/gid= mount option that fixates the owners of all files and directories,
