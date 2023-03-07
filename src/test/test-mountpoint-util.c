@@ -349,6 +349,12 @@ TEST(mount_option_supported) {
         assert_se(r >= 0 || (r < 0 && ERRNO_IS_PRIVILEGE(r)));
 }
 
+TEST(fstype_can_discard) {
+        assert_se(fstype_can_discard("ext4"));
+        assert_se(!fstype_can_discard("squashfs"));
+        assert_se(!fstype_can_discard("iso9660"));
+}
+
 static int intro(void) {
         /* let's move into our own mount namespace with all propagation from the host turned off, so
          * that /proc/self/mountinfo is static and constant for the whole time our test runs. */
