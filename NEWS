@@ -698,7 +698,7 @@ CHANGES WITH 252 🎃:
 
         * ConditionKernelVersion= checks that use the '=' or '!=' operators
           will now do simple string comparisons (instead of version comparisons
-          á la stverscmp()). Version comparisons are still done for the
+          à la stverscmp()). Version comparisons are still done for the
           ordering operators '<', '>', '<=', '>='. Moreover, if no operator is
           specified, a shell-style glob match is now done. This creates a minor
           incompatibility compared to older systemd versions when the '*', '?',
