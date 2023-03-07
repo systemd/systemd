@@ -718,7 +718,7 @@ Features:
   what to do if support ended
 
 * pam_systemd: on interactive logins, maybe show SUPPORT_END information at
-  login time, á la motd
+  login time, à la motd
 
 * sd-boot: instead of unconditionally deriving the ESP to search boot loader
   spec entries in from the paths of sd-boot binary, let's optionally allow it
