@@ -328,6 +328,7 @@
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
+  <xi:include href="threads-aware.xml" xpointer="getenv"/>
 
   <refsect1>
     <title>See Also</title>
