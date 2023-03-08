@@ -547,7 +547,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 ## Types
 
 - Think about the types you use. If a value cannot sensibly be negative, do not
-  use `int`, but use `unsigned`.
+  use `int`, but use `unsigned`.  We prefer `unsigned` form to `unsigned int`.
 
 - Use `char` only for actual characters. Use `uint8_t` or `int8_t` when you
   actually mean a byte-sized signed or unsigned integers. When referring to a
