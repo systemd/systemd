@@ -15,3 +15,5 @@ void release_lock_file(LockFile *f);
 
 /* Open File Description locks with the same interface as flock(). */
 int unposix_lock(int fd, int operation);
+
+void unposix_unlockp(int *fd);
