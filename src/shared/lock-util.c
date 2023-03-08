@@ -147,3 +147,27 @@ int lockf_unposix(int fd, int cmd, off_t len) {
 
         return RET_NERRNO(fcntl(fd, cmd, &fl));
 }
+
+int lockfp(int fd, int *fd_lock) {
+        int r;
+
+        assert(fd >= 0);
+        assert(fd_lock);
+
+        r = lockf_unposix(fd, F_LOCK, 0);
+        if (r < 0)
+                return r;
+
+        *fd_lock = fd;
+        return 0;
+}
+
+void unlockfp(int *fd_lock) {
+        assert(fd_lock);
+
+        if (*fd_lock < 0)
+                return;
+
+        (void) lockf_unposix(*fd_lock, F_ULOCK, 0);
+        *fd_lock = -EBADF;
+}
