@@ -24,6 +24,7 @@
 #include "glyph-util.h"
 #include "label.h"
 #include "list.h"
+#include "lock-util.h"
 #include "loop-util.h"
 #include "loopback-setup.h"
 #include "missing_syscall.h"
@@ -2847,9 +2848,9 @@ int setup_tmp_dirs(const char *id, char **tmp_dir, char **var_tmp_dir) {
         return 0;
 }
 
-int setup_shareable_ns(const int ns_storage_socket[static 2], unsigned long nsflag) {
+int setup_shareable_ns(int ns_storage_socket[static 2], unsigned long nsflag) {
         _cleanup_close_ int ns = -EBADF;
-        int r, q;
+        int r;
         const char *ns_name, *ns_path;
 
         assert(ns_storage_socket);
@@ -2867,57 +2868,47 @@ int setup_shareable_ns(const int ns_storage_socket[static 2], unsigned long nsfl
          *
          * It's a bit crazy, but hey, works great! */
 
-        if (lockf(ns_storage_socket[0], F_LOCK, 0) < 0)
+        r = posix_lock(ns_storage_socket[0], LOCK_EX);
+        if (r < 0)
+                return r;
+
+        CLEANUP_POSIX_UNLOCK(ns_storage_socket[0]);
+
+        ns = receive_one_fd(ns_storage_socket[0], MSG_PEEK|MSG_DONTWAIT);
+        if (ns >= 0) {
+                /* Yay, found something, so let's join the namespace */
+                r = RET_NERRNO(setns(ns, nsflag));
+                if (r < 0)
+                        return r;
+
+                return 0;
+        }
+
+        if (ns != -EAGAIN)
+                return ns;
+
+        /* Nothing stored yet, so let's create a new namespace. */
+
+        if (unshare(nsflag) < 0)
                 return -errno;
 
-        ns = receive_one_fd(ns_storage_socket[0], MSG_DONTWAIT);
-        if (ns == -EAGAIN) {
-                /* Nothing stored yet, so let's create a new namespace. */
+        (void) loopback_setup();
 
-                if (unshare(nsflag) < 0) {
-                        r = -errno;
-                        goto fail;
-                }
+        ns_path = strjoina("/proc/self/ns/", ns_name);
+        ns = open(ns_path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        if (ns < 0)
+                return -errno;
 
-                (void) loopback_setup();
+        r = send_one_fd(ns_storage_socket[1], ns, MSG_DONTWAIT);
+        if (r < 0)
+                return r;
 
-                ns_path = strjoina("/proc/self/ns/", ns_name);
-                ns = open(ns_path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
-                if (ns < 0) {
-                        r = -errno;
-                        goto fail;
-                }
-
-                r = 1;
-
-        } else if (ns < 0) {
-                r = ns;
-                goto fail;
-
-        } else {
-                /* Yay, found something, so let's join the namespace */
-                if (setns(ns, nsflag) < 0) {
-                        r = -errno;
-                        goto fail;
-                }
-
-                r = 0;
-        }
-
-        q = send_one_fd(ns_storage_socket[1], ns, MSG_DONTWAIT);
-        if (q < 0) {
-                r = q;
-                goto fail;
-        }
-
-fail:
-        (void) lockf(ns_storage_socket[0], F_ULOCK, 0);
-        return r;
+        return 1;
 }
 
-int open_shareable_ns_path(const int ns_storage_socket[static 2], const char *path, unsigned long nsflag) {
+int open_shareable_ns_path(int ns_storage_socket[static 2], const char *path, unsigned long nsflag) {
         _cleanup_close_ int ns = -EBADF;
-        int q, r;
+        int r;
 
         assert(ns_storage_socket);
         assert(ns_storage_socket[0] >= 0);
@@ -2928,44 +2919,35 @@ int open_shareable_ns_path(const int ns_storage_socket[static 2], const char *pa
          * it. This is supposed to be called ahead of time, i.e. before setup_shareable_ns() which will
          * allocate a new anonymous ns if needed. */
 
-        if (lockf(ns_storage_socket[0], F_LOCK, 0) < 0)
+        r = posix_lock(ns_storage_socket[0], LOCK_EX);
+        if (r < 0)
+                return r;
+
+        CLEANUP_POSIX_UNLOCK(ns_storage_socket[0]);
+
+        ns = receive_one_fd(ns_storage_socket[0], MSG_PEEK|MSG_DONTWAIT);
+        if (ns >= 0)
+                return 0;
+        if (ns != -EAGAIN)
+                return ns;
+
+        /* Nothing stored yet. Open the file from the file system. */
+
+        ns = open(path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        if (ns < 0)
                 return -errno;
 
-        ns = receive_one_fd(ns_storage_socket[0], MSG_DONTWAIT);
-        if (ns == -EAGAIN) {
-                /* Nothing stored yet. Open the file from the file system. */
+        r = fd_is_ns(ns, nsflag);
+        if (r == 0)
+                return -EINVAL;
+        if (r < 0 && r != -EUCLEAN) /* EUCLEAN: we don't know */
+                return r;
 
-                ns = open(path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-                if (ns < 0) {
-                        r = -errno;
-                        goto fail;
-                }
+        r = send_one_fd(ns_storage_socket[1], ns, MSG_DONTWAIT);
+        if (r < 0)
+                return r;
 
-                r = fd_is_ns(ns, nsflag);
-                if (r == 0) { /* Not a ns of our type? Refuse early. */
-                        r = -EINVAL;
-                        goto fail;
-                }
-                if (r < 0 && r != -EUCLEAN) /* EUCLEAN: we don't know */
-                        goto fail;
-
-                r = 1;
-
-        } else if (ns < 0) {
-                r = ns;
-                goto fail;
-        } else
-                r = 0; /* Already allocated */
-
-        q = send_one_fd(ns_storage_socket[1], ns, MSG_DONTWAIT);
-        if (q < 0) {
-                r = q;
-                goto fail;
-        }
-
-fail:
-        (void) lockf(ns_storage_socket[0], F_ULOCK, 0);
-        return r;
+        return 1;
 }
 
 bool ns_type_supported(NamespaceType type) {
