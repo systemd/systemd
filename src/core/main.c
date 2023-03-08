@@ -1998,6 +1998,8 @@ static int invoke_main_loop(
                                 /* Reloading failed before the point of no return.
                                  * Let's continue running as if nothing happened. */
                                 m->objective = MANAGER_OK;
+                        else
+                                log_info("Reloading finished.");
 
                         continue;
                 }
