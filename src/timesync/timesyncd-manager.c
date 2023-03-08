@@ -973,10 +973,10 @@ static int manager_network_read_link_servers(Manager *m) {
         assert(m);
 
         r = sd_network_get_ntp(&ntp);
-        if (r < 0) {
+        if (r < 0 && r != -ENODATA) {
                 if (r == -ENOMEM)
                         log_oom();
-                else if (r != -ENODATA)
+                else
                         log_debug_errno(r, "Failed to get link NTP servers: %m");
                 goto clear;
         }
