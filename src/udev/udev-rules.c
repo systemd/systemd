@@ -1279,6 +1279,7 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename) {
                 line_nr++;
                 line = skip_leading_chars(buf, NULL);
 
+                /* Lines beginning with '#' are ignored regardless of line continuation. */
                 if (line[0] == '#')
                         continue;
 
@@ -1319,6 +1320,10 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename) {
                 continuation = mfree(continuation);
                 ignore_line = false;
         }
+
+        if (continuation)
+                log_line_error(rule_file, line_nr,
+                               "Unexpected EOF after line continuation, line ignored");
 
         rule_resolve_goto(rule_file);
         return 0;
