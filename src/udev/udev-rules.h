@@ -18,6 +18,7 @@ typedef enum {
 } UdevRuleEscapeType;
 
 int udev_rules_parse_file(UdevRules *rules, const char *filename);
+unsigned udev_check_current_rule_file(UdevRules *rules);
 UdevRules* udev_rules_new(ResolveNameTiming resolve_name_timing);
 int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing);
 UdevRules *udev_rules_free(UdevRules *rules);
