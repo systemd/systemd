@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <errno.h>
 #include <fcntl.h>
 
 typedef struct LockFile {
@@ -17,3 +18,5 @@ void release_lock_file(LockFile *f);
 
 /* Open File Description locks with the same interface as flock(). */
 int unposix_lock(int fd, int operation);
+
+void unposix_unlockp(int *fd);

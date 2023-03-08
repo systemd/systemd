@@ -144,3 +144,12 @@ int unposix_lock(int fd, int operation) {
                 .l_len = 0,
         }));
 }
+
+void unposix_unlockp(int *fd) {
+        assert(fd);
+
+        if (*fd < 0)
+                return;
+
+        (void) unposix_lock(*fd, LOCK_UN);
+}
