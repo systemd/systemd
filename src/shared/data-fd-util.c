@@ -30,7 +30,6 @@ int acquire_data_fd(const void *data, size_t size, unsigned flags) {
         _cleanup_close_ int fd = -EBADF;
         int isz = 0, r;
         ssize_t n;
-        off_t f;
 
         assert(data || size == 0);
 
@@ -58,23 +57,13 @@ int acquire_data_fd(const void *data, size_t size, unsigned flags) {
                 return RET_NERRNO(open("/dev/null", O_RDONLY|O_CLOEXEC|O_NOCTTY));
 
         if ((flags & ACQUIRE_NO_MEMFD) == 0) {
-                fd = memfd_new("data-fd");
-                if (fd < 0)
-                        goto try_pipe;
+                fd = memfd_new_and_seal("data-fd", data, size);
+                if (fd < 0) {
+                        if (ERRNO_IS_NOT_SUPPORTED(fd))
+                                goto try_pipe;
 
-                n = write(fd, data, size);
-                if (n < 0)
-                        return -errno;
-                if ((size_t) n != size)
-                        return -EIO;
-
-                f = lseek(fd, 0, SEEK_SET);
-                if (f != 0)
-                        return -errno;
-
-                r = memfd_set_sealed(fd);
-                if (r < 0)
-                        return r;
+                        return fd;
+                }
 
                 return TAKE_FD(fd);
         }

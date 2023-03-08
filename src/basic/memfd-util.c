@@ -133,3 +133,34 @@ int memfd_new_and_map(const char *name, size_t sz, void **p) {
 
         return TAKE_FD(fd);
 }
+
+int memfd_new_and_seal(const char *name, const void *data, size_t sz) {
+        _cleanup_close_ int fd = -EBADF;
+        ssize_t n;
+        off_t f;
+        int r;
+
+        assert(data || sz == 0);
+
+        fd = memfd_new(name);
+        if (fd < 0)
+                return fd;
+
+        if (sz > 0) {
+                n = write(fd, data, sz);
+                if (n < 0)
+                        return -errno;
+                if ((size_t) n != sz)
+                        return -EIO;
+
+                f = lseek(fd, 0, SEEK_SET);
+                if (f != 0)
+                        return -errno;
+        }
+
+        r = memfd_set_sealed(fd);
+        if (r < 0)
+                return r;
+
+        return TAKE_FD(fd);
+}
