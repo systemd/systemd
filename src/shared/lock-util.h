@@ -15,3 +15,8 @@ void release_lock_file(LockFile *f);
 
 /* Open File Description locks with the same interface as flock(). */
 int unposix_lock(int fd, int operation);
+
+void unposix_unlockpp(int **fd);
+
+#define CLEANUP_UNPOSIX_UNLOCK(fd)                                   \
+        _cleanup_(unposix_unlockpp) _unused_ int *CONCATENATE(_cleanup_unposix_unlock_, UNIQ) = &(fd)

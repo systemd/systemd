@@ -149,3 +149,13 @@ int unposix_lock(int fd, int operation) {
 
         return r;
 }
+
+void unposix_unlockpp(int **fd) {
+        assert(fd);
+
+        if (!*fd || **fd < 0)
+                return;
+
+        (void) unposix_lock(**fd, LOCK_UN);
+        *fd = NULL;
+}
