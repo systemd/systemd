@@ -1973,7 +1973,7 @@ static int invoke_main_loop(
 
                         manager_send_reloading(m);
 
-                        log_info("Reloading.");
+                        log_info("Reloading...");
 
                         /* First, save any overridden log level/target, then parse the configuration file,
                          * which might change the log level to new settings. */
@@ -1998,6 +1998,9 @@ static int invoke_main_loop(
                                 /* Reloading failed before the point of no return.
                                  * Let's continue running as if nothing happened. */
                                 m->objective = MANAGER_OK;
+                        else
+                                log_info("Reloading finished in " USEC_FMT " ms.",
+                                         usec_sub_unsigned(now(CLOCK_MONOTONIC), m->timestamps[MANAGER_TIMESTAMP_UNITS_LOAD].monotonic) / USEC_PER_MSEC);
 
                         continue;
                 }
