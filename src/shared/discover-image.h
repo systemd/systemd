@@ -7,7 +7,7 @@
 #include "sd-id128.h"
 
 #include "hashmap.h"
-#include "lockfile-util.h"
+#include "lock-util.h"
 #include "macro.h"
 #include "path-util.h"
 #include "string-util.h"

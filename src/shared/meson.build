@@ -98,7 +98,7 @@ shared_sources = files(
         'libmount-util.c',
         'local-addresses.c',
         'locale-setup.c',
-        'lockfile-util.c',
+        'lock-util.c',
         'logs-show.c',
         'loop-util.c',
         'loopback-setup.c',

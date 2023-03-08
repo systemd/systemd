@@ -10,7 +10,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
-#include "lockfile-util.h"
+#include "lock-util.h"
 #include "macro.h"
 #include "missing_fcntl.h"
 #include "path-util.h"
