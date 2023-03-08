@@ -614,13 +614,13 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
 
         r = verify_xkb_rmlvo(in.model, in.layout, in.variant, in.options);
         if (r < 0) {
-                log_error_errno(r, "Cannot compile XKB keymap for new x11 keyboard layout ('%s' / '%s' / '%s' / '%s'): %m",
-                                strempty(in.model), strempty(in.layout), strempty(in.variant), strempty(in.options));
+                log_full_errno(r == -EOPNOTSUPP ? LOG_NOTICE : LOG_ERR, r,
+                               "Cannot compile XKB keymap for new x11 keyboard layout ('%s' / '%s' / '%s' / '%s'): %m",
+                               strempty(in.model), strempty(in.layout), strempty(in.variant), strempty(in.options));
 
-                if (r == -EOPNOTSUPP)
-                        return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Local keyboard configuration not supported on this system.");
-
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Specified keymap cannot be compiled, refusing as invalid.");
+                if (r != -EOPNOTSUPP)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Specified keymap cannot be compiled, refusing as invalid.");
         }
 
         r = vconsole_read_data(c, m);
