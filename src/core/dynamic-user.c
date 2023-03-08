@@ -11,6 +11,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "io-util.h"
+#include "lock-util.h"
 #include "nscd-flush.h"
 #include "parse-util.h"
 #include "random-util.h"
@@ -360,20 +361,6 @@ static void unlink_uid_lock(int lock_fd, uid_t uid, const char *name) {
         (void) unlink(lock_path);
 
         (void) make_uid_symlinks(uid, name, false); /* remove direct lookup symlinks */
-}
-
-static int lockfp(int fd, int *fd_lock) {
-        if (lockf(fd, F_LOCK, 0) < 0)
-                return -errno;
-        *fd_lock = fd;
-        return 0;
-}
-
-static void unlockfp(int *fd_lock) {
-        if (*fd_lock < 0)
-                return;
-        lockf(*fd_lock, F_ULOCK, 0);
-        *fd_lock = -EBADF;
 }
 
 static int dynamic_user_realize(
