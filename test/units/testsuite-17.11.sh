@@ -40,10 +40,18 @@ printf 'RUN+="/bin/true"%8175s\\\n' ' ' ' ' >sample.rules
 echo >>sample.rules
 udevadm verify sample.rules
 
-printf 'RUN+="/bin/true"%8176s\\\n' ' ' ' ' >sample.rules
+printf 'RUN+="/bin/true"%8176s\\\n #\n' ' ' ' ' >sample.rules
 echo >>sample.rules
 cat >exp <<'EOF'
-sample.rules:3 Line is too long, ignored
+sample.rules:5 Line is too long, ignored
+sample.rules: udev rules check failed
+EOF
+(! udevadm verify sample.rules 2>err)
+diff exp err
+
+printf '\\\n' >sample.rules
+cat >exp <<'EOF'
+sample.rules:1 Unexpected EOF after line continuation, line ignored
 sample.rules: udev rules check failed
 EOF
 (! udevadm verify sample.rules 2>err)
