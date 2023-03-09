@@ -4092,6 +4092,7 @@ static int context_mkfs(Context *context) {
                 _cleanup_hashmap_free_ Hashmap *denylist = NULL;
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
                 _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
+                _cleanup_strv_free_ char **extra_mkfs_options = NULL;
 
                 if (p->dropped)
                         continue;
@@ -4143,8 +4144,14 @@ static int context_mkfs(Context *context) {
                                 return r;
                 }
 
+                r = mkfs_options_from_env("REPART", p->format, &extra_mkfs_options);
+                if (r < 0)
+                        return log_error_errno(r,
+                                               "Failed to determine mkfs command line options for '%s': %m",
+                                               p->format);
+
                 r = make_filesystem(partition_target_path(t), p->format, strempty(p->new_label), root,
-                                    p->fs_uuid, arg_discard, context->sector_size, NULL);
+                                    p->fs_uuid, arg_discard, context->sector_size, extra_mkfs_options);
                 if (r < 0)
                         return r;
 
@@ -5413,6 +5420,7 @@ static int context_minimize(Context *context) {
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
                 _cleanup_(unlink_and_freep) char *temp = NULL;
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+                _cleanup_strv_free_ char **extra_mkfs_options = NULL;
                 _cleanup_close_ int fd = -EBADF;
                 sd_id128_t fs_uuid;
                 uint64_t fsz;
@@ -5477,8 +5485,14 @@ static int context_minimize(Context *context) {
                                 return r;
                 }
 
+                r = mkfs_options_from_env("REPART", p->format, &extra_mkfs_options);
+                if (r < 0)
+                        return log_error_errno(r,
+                                               "Failed to determine mkfs command line options for '%s': %m",
+                                               p->format);
+
                 r = make_filesystem(d ? d->node : temp, p->format, strempty(p->new_label), root, fs_uuid,
-                                    arg_discard, context->sector_size, NULL);
+                                    arg_discard, context->sector_size, extra_mkfs_options);
                 if (r < 0)
                         return r;
 
@@ -5532,7 +5546,7 @@ static int context_minimize(Context *context) {
                         return log_error_errno(r, "Failed to make loopback device of %s: %m", temp);
 
                 r = make_filesystem(d ? d->node : temp, p->format, strempty(p->new_label), root, p->fs_uuid,
-                                    arg_discard, context->sector_size, NULL);
+                                    arg_discard, context->sector_size, extra_mkfs_options);
                 if (r < 0)
                         return r;
 

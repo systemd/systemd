@@ -520,3 +520,9 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   systemd-stub. Normally, requested measurement of resources is conditionalized
   on kernels that have booted with `systemd-stub`. With this environment
   variable the test for that my be bypassed, for testing purposes.
+
+`systemd-repart`:
+
+* `$SYSTEMD_REPART_MKFS_OPTIONS_<FSTYPE>` – configure additional arguments to use for
+  `mkfs` when formatting partition file systems. There's one variable for each
+  of the supported file systems.
