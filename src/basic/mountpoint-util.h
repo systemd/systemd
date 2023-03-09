@@ -49,6 +49,8 @@ bool fstype_is_blockdev_backed(const char *fstype);
 bool fstype_is_ro(const char *fsype);
 bool fstype_can_discard(const char *fstype);
 bool fstype_can_uid_gid(const char *fstype);
+bool fstype_can_norecovery(const char *fstype);
+bool fstype_can_umask(const char *fstype);
 
 int dev_is_devtmpfs(void);
 
@@ -58,3 +60,7 @@ int mount_nofollow(const char *source, const char *target, const char *filesyste
 const char *mount_propagation_flag_to_string(unsigned long flags);
 int mount_propagation_flag_from_string(const char *name, unsigned long *ret);
 bool mount_propagation_flag_is_valid(unsigned long flag);
+
+unsigned long ms_nosymfollow_supported(void);
+
+int mount_option_supported(const char *fstype, const char *key, const char *value);
