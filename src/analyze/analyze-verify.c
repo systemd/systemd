@@ -66,5 +66,5 @@ int verb_verify(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Couldn't process aliases: %m");
 
-        return verify_units(filenames, arg_scope, arg_man, arg_generators, arg_recursive_errors, arg_root);
+        return verify_units(filenames, arg_runtime_scope, arg_man, arg_generators, arg_recursive_errors, arg_root);
 }

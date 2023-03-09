@@ -609,8 +609,8 @@ static int get_search(uint64_t type, char ***list) {
         case SD_PATH_SYSTEMD_SEARCH_SYSTEM_UNIT:
         case SD_PATH_SYSTEMD_SEARCH_USER_UNIT: {
                 _cleanup_(lookup_paths_free) LookupPaths lp = {};
-                const LookupScope scope = type == SD_PATH_SYSTEMD_SEARCH_SYSTEM_UNIT ?
-                                                    LOOKUP_SCOPE_SYSTEM : LOOKUP_SCOPE_USER;
+                RuntimeScope scope = type == SD_PATH_SYSTEMD_SEARCH_SYSTEM_UNIT ?
+                        RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER;
 
                 r = lookup_paths_init(&lp, scope, 0, NULL);
                 if (r < 0)
@@ -622,9 +622,9 @@ static int get_search(uint64_t type, char ***list) {
 
         case SD_PATH_SYSTEMD_SEARCH_SYSTEM_GENERATOR:
         case SD_PATH_SYSTEMD_SEARCH_USER_GENERATOR: {
+                RuntimeScope scope = type == SD_PATH_SYSTEMD_SEARCH_SYSTEM_GENERATOR ?
+                        RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER;
                 char **t;
-                const LookupScope scope = type == SD_PATH_SYSTEMD_SEARCH_SYSTEM_GENERATOR ?
-                                                    LOOKUP_SCOPE_SYSTEM : LOOKUP_SCOPE_USER;
 
                 t = generator_binary_paths(scope);
                 if (!t)
@@ -638,7 +638,8 @@ static int get_search(uint64_t type, char ***list) {
         case SD_PATH_SYSTEMD_SEARCH_USER_ENVIRONMENT_GENERATOR: {
                 char **t;
 
-                t = env_generator_binary_paths(type == SD_PATH_SYSTEMD_SEARCH_SYSTEM_ENVIRONMENT_GENERATOR);
+                t = env_generator_binary_paths(type == SD_PATH_SYSTEMD_SEARCH_SYSTEM_ENVIRONMENT_GENERATOR ?
+                                               RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER);
                 if (!t)
                         return -ENOMEM;
 

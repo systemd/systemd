@@ -4448,7 +4448,7 @@ static int exec_child(
          * invocations themselves. Also note that while we'll only invoke NSS modules involved in user management they
          * might internally call into other NSS modules that are involved in hostname resolution, we never know. */
         if (setenv("SYSTEMD_ACTIVATION_UNIT", unit->id, true) != 0 ||
-            setenv("SYSTEMD_ACTIVATION_SCOPE", MANAGER_IS_SYSTEM(unit->manager) ? "system" : "user", true) != 0) {
+            setenv("SYSTEMD_ACTIVATION_SCOPE", runtime_scope_to_string(unit->manager->runtime_scope), true) != 0) {
                 *exit_status = EXIT_MEMORY;
                 return log_unit_error_errno(unit, errno, "Failed to update environment: %m");
         }

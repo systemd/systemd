@@ -2665,16 +2665,17 @@ static int offline_security_check(Unit *u,
         return assess(info, overview_table, flags, threshold, policy, pager_flags, json_format_flags);
 }
 
-static int offline_security_checks(char **filenames,
-                                   JsonVariant *policy,
-                                   LookupScope scope,
-                                   bool check_man,
-                                   bool run_generators,
-                                   unsigned threshold,
-                                   const char *root,
-                                   const char *profile,
-                                   PagerFlags pager_flags,
-                                   JsonFormatFlags json_format_flags) {
+static int offline_security_checks(
+                char **filenames,
+                JsonVariant *policy,
+                RuntimeScope scope,
+                bool check_man,
+                bool run_generators,
+                unsigned threshold,
+                const char *root,
+                const char *profile,
+                PagerFlags pager_flags,
+                JsonFormatFlags json_format_flags) {
 
         const ManagerTestRunFlags flags =
                 MANAGER_TEST_RUN_MINIMAL |
@@ -2779,7 +2780,7 @@ static int offline_security_checks(char **filenames,
 static int analyze_security(sd_bus *bus,
                      char **units,
                      JsonVariant *policy,
-                     LookupScope scope,
+                     RuntimeScope scope,
                      bool check_man,
                      bool run_generators,
                      bool offline,
@@ -2937,17 +2938,18 @@ int verb_security(int argc, char *argv[], void *userdata) {
                 }
         }
 
-        return analyze_security(bus,
-                                strv_skip(argv, 1),
-                                policy,
-                                arg_scope,
-                                arg_man,
-                                arg_generators,
-                                arg_offline,
-                                arg_threshold,
-                                arg_root,
-                                arg_profile,
-                                arg_json_format_flags,
-                                arg_pager_flags,
-                                /*flags=*/ 0);
+        return analyze_security(
+                        bus,
+                        strv_skip(argv, 1),
+                        policy,
+                        arg_runtime_scope,
+                        arg_man,
+                        arg_generators,
+                        arg_offline,
+                        arg_threshold,
+                        arg_root,
+                        arg_profile,
+                        arg_json_format_flags,
+                        arg_pager_flags,
+                        /*flags=*/ 0);
 }
