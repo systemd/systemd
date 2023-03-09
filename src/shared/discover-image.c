@@ -27,7 +27,7 @@
 #include "hashmap.h"
 #include "hostname-setup.h"
 #include "id128-util.h"
-#include "lockfile-util.h"
+#include "lock-util.h"
 #include "log.h"
 #include "loop-util.h"
 #include "macro.h"
