@@ -238,7 +238,7 @@ int verb_start_system_special(int argc, char *argv[], void *userdata) {
         if (arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Bad action for %s mode.",
-                                       arg_runtime_scope == RUNTIME_SCOPE_GLOBAL ? "--global" : "--user");
+                                       runtime_scope_cmdline_option_to_string(arg_runtime_scope));
 
         return verb_start_special(argc, argv, userdata);
 }
