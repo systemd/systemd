@@ -115,3 +115,37 @@ void release_lock_file(LockFile *f) {
         f->fd = safe_close(f->fd);
         f->operation = 0;
 }
+
+int unposix_lock(int fd, int operation) {
+        int cmd, type, r;
+
+        assert(fd >= 0);
+
+        cmd = (operation & LOCK_NB) ? F_OFD_SETLK : F_OFD_SETLKW;
+
+        switch (operation & ~LOCK_NB) {
+                case LOCK_EX:
+                        type = F_WRLCK;
+                        break;
+                case LOCK_SH:
+                        type = F_RDLCK;
+                        break;
+                case LOCK_UN:
+                        type = F_UNLCK;
+                        break;
+                default:
+                        assert_not_reached();
+        }
+
+        r = RET_NERRNO(fcntl(fd, cmd, &(struct flock) {
+                .l_type = type,
+                .l_whence = SEEK_SET,
+                .l_start = 0,
+                .l_len = 0,
+        }));
+
+        if (r == -EACCES) /* Treat EACCESS/EAGAIN the same as per man page. */
+                r = -EAGAIN;
+
+        return r;
+}
