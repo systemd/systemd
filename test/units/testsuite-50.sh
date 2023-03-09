@@ -430,6 +430,23 @@ mount -t ddi "${image}.gpt" "$T" -o ro,X-mount.mkdir,discard
 umount -R "$T"
 rmdir "$T"
 
+LOOP="$(systemd-dissect --attach --loop-ref=waldo "${image}.raw")"
+
+# Wait until the symlinks we want to test are established
+udevadm trigger -w "$LOOP"
+
+# Check if the /dev/loop/* symlinks really reference the right device
+test /dev/loop/by-ref/waldo -ef "$LOOP"
+test "$(stat -c '/dev/loop/by-inode/%Hd:%Ld-%i' "${image}.raw")" -ef "$LOOP"
+
+# Detach by loopback device
+systemd-dissect --detach "$LOOP"
+
+# Detach by backing inode
+systemd-dissect --attach --loop-ref=waldo "${image}.raw"
+systemd-dissect --detach "${image}.raw"
+(! systemd-dissect --detach "${image}.raw")
+
 echo OK >/testok
 
 exit 0
