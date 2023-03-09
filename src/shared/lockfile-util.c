@@ -23,13 +23,7 @@ int make_lock_file(const char *p, int operation, LockFile *ret) {
         assert(p);
         assert(ret);
 
-        /*
-         * We use UNPOSIX locks if they are available. They have nice semantics, and are mostly compatible
-         * with NFS. However, they are only available on new kernels. When we detect we are running on an
-         * older kernel, then we fall back to good old BSD locks. They also have nice semantics, but are
-         * slightly problematic on NFS, where they are upgraded to POSIX locks, even though locally they are
-         * orthogonal to POSIX locks.
-         */
+        /* We use UNPOSIX locks as they have nice semantics, and are mostly compatible with NFS. */
 
         t = strdup(p);
         if (!t)
@@ -47,13 +41,8 @@ int make_lock_file(const char *p, int operation, LockFile *ret) {
                         return -errno;
 
                 r = fcntl(fd, (operation & LOCK_NB) ? F_OFD_SETLK : F_OFD_SETLKW, &fl);
-                if (r < 0) {
-                        /* If the kernel is too old, use good old BSD locks */
-                        if (errno == EINVAL || ERRNO_IS_NOT_SUPPORTED(errno))
-                                r = flock(fd, operation);
-                        if (r < 0)
-                                return errno == EAGAIN ? -EBUSY : -errno;
-                }
+                if (r < 0)
+                        return errno == EAGAIN ? -EBUSY : -errno;
 
                 /* If we acquired the lock, let's check if the file still exists in the file system. If not,
                  * then the previous exclusive owner removed it and then closed it. In such a case our
