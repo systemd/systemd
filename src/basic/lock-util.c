@@ -15,16 +15,24 @@
 #include "missing_fcntl.h"
 #include "path-util.h"
 
-int make_lock_file(const char *p, int operation, LockFile *ret) {
-        _cleanup_close_ int fd = -EBADF;
+int make_lock_file_at(int dir_fd, const char *p, int operation, LockFile *ret) {
+        _cleanup_close_ int fd = -EBADF, dfd = -EBADF;
         _cleanup_free_ char *t = NULL;
         int r;
 
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(p);
         assert(IN_SET(operation & ~LOCK_NB, LOCK_EX, LOCK_SH));
         assert(ret);
 
+        if (isempty(p))
+                return -EINVAL;
+
         /* We use UNPOSIX locks as they have nice semantics, and are mostly compatible with NFS. */
+
+        dfd = fd_reopen(dir_fd, O_CLOEXEC|O_PATH|O_DIRECTORY);
+        if (dfd < 0)
+                return dfd;
 
         t = strdup(p);
         if (!t)
@@ -33,7 +41,7 @@ int make_lock_file(const char *p, int operation, LockFile *ret) {
         for (;;) {
                 struct stat st;
 
-                fd = open(p, O_CREAT|O_RDWR|O_NOFOLLOW|O_CLOEXEC|O_NOCTTY, 0600);
+                fd = openat(dfd, p, O_CREAT|O_RDWR|O_NOFOLLOW|O_CLOEXEC|O_NOCTTY, 0600);
                 if (fd < 0)
                         return -errno;
 
@@ -54,6 +62,7 @@ int make_lock_file(const char *p, int operation, LockFile *ret) {
         }
 
         *ret = (LockFile) {
+                .dir_fd = TAKE_FD(dfd),
                 .path = TAKE_PTR(t),
                 .fd = TAKE_FD(fd),
                 .operation = operation,
@@ -100,11 +109,12 @@ void release_lock_file(LockFile *f) {
                         f->operation = LOCK_EX|LOCK_NB;
 
                 if ((f->operation & ~LOCK_NB) == LOCK_EX)
-                        (void) unlink(f->path);
+                        (void) unlinkat(f->dir_fd, f->path, 0);
 
                 f->path = mfree(f->path);
         }
 
+        f->dir_fd = safe_close(f->dir_fd);
         f->fd = safe_close(f->fd);
         f->operation = 0;
 }
