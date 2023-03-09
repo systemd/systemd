@@ -23,11 +23,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         dummy_server_init(&s, NULL, 0);
 
-        sealed_fd = memfd_new(NULL);
+        sealed_fd = memfd_new_and_seal(NULL, data, size);
         assert_se(sealed_fd >= 0);
-        assert_se(write(sealed_fd, data, size) == (ssize_t) size);
-        assert_se(memfd_set_sealed(sealed_fd) >= 0);
-        assert_se(lseek(sealed_fd, 0, SEEK_SET) == 0);
         ucred = (struct ucred) {
                 .pid = getpid_cached(),
                 .uid = geteuid(),
