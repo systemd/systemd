@@ -4101,7 +4101,7 @@ foreach test : tests
         # FIXME: Use fs.stem() with meson >= 0.54.0
         name = '@0@'.format(sources[0]).split('/')[-1].split('.')[0]
 
-        suite = fs.name(fs.parent('@0@'.format(sources[0])))
+        suite = fs.name(fs.parent(sources[0]))
         # FIXME: Use str.replace() with meson >= 0.58.0
         suite = suite.split('sd-')[-1]
 

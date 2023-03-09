@@ -190,16 +190,12 @@ tests += [
                 'condition' : 'HAVE_ACL',
         },
         {
-                'sources' : [
-                        files('test-af-list.c'),
-                        generated_gperf_headers,
-                ],
+                'sources' : files('test-af-list.c') +
+                            generated_gperf_headers,
         },
         {
-                'sources' : [
-                        files('test-arphrd-util.c'),
-                        generated_gperf_headers,
-                ],
+                'sources' : files('test-arphrd-util.c') +
+                            generated_gperf_headers,
         },
         {
                 'sources' : files('test-ask-password-api.c'),
@@ -237,10 +233,8 @@ tests += [
                 'type' : 'manual',
         },
         {
-                'sources' : [
-                        files('test-cap-list.c'),
-                        generated_gperf_headers,
-                ],
+                'sources' : files('test-cap-list.c') +
+                            generated_gperf_headers,
                 'dependencies' : libcap,
         },
         {
@@ -303,10 +297,8 @@ tests += [
                 'base' : test_core_base,
         },
         {
-                'sources' : [
-                        files('test-errno-list.c'),
-                        generated_gperf_headers,
-                ],
+                'sources' : files('test-errno-list.c') +
+                            generated_gperf_headers,
         },
         {
                 'sources' : files('test-execute.c'),
@@ -319,11 +311,12 @@ tests += [
                 'dependencies' : libseccomp,
         },
         {
-                'sources' : [files(
-                        'test-hashmap.c',
-                        'test-hashmap-plain.c'),
-                        test_hashmap_ordered_c,
-                ],
+                'sources' : files(
+                                  'test-hashmap.c',
+                                  'test-hashmap-plain.c',
+                            ) + [
+                                   test_hashmap_ordered_c,
+                            ],
                 'timeout' : 180,
         },
         {
@@ -332,10 +325,8 @@ tests += [
                 'type' : 'manual',
         },
         {
-                'sources' : [
-                        files('test-ip-protocol-list.c'),
-                        shared_generated_gperf_headers,
-                ],
+                'sources' : files('test-ip-protocol-list.c') +
+                            shared_generated_gperf_headers,
         },
         {
                 'sources' : files('test-ipcrm.c'),
