@@ -25,9 +25,7 @@ if ! test -f "$CGROUP"/memory.pressure ; then
 fi
 
 UNIT="test-mempress-$RANDOM.service"
-SCRIPT="/run/bin/mempress-$RANDOM.sh"
-
-mkdir -p "/run/bin"
+SCRIPT="/tmp/mempress-$RANDOM.sh"
 
 cat >"$SCRIPT" <<'EOF'
 #!/bin/bash
@@ -51,11 +49,9 @@ EOF
 
 chmod +x "$SCRIPT"
 
-systemd-run -u "$UNIT" -p Type=exec -p DynamicUser=1 -p MemoryPressureWatch=on -p MemoryPressureThresholdSec=123ms --wait "$SCRIPT"
+systemd-run -u "$UNIT" -p Type=exec -p DynamicUser=1 -p MemoryPressureWatch=on -p MemoryPressureThresholdSec=123ms -p BindPaths=$SCRIPT --wait "$SCRIPT"
 
 rm "$SCRIPT"
-
-rmdir /run/bin ||:
 
 systemd-analyze log-level info
 echo OK >/testok
