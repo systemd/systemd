@@ -145,8 +145,8 @@ EOF
 
     udevadm test-builtin hwdb "$scsidev"
 
-    rmmod scsi_debug
-    rm -f /etc/udev/hwdb.d/99-test.hwdb
+    rmmod scsi_debug || :
+    rm -fv /etc/udev/hwdb.d/99-test.hwdb
     systemd-hwdb update
 fi
 
