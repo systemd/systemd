@@ -115,3 +115,35 @@ void release_lock_file(LockFile *f) {
         f->fd = safe_close(f->fd);
         f->operation = 0;
 }
+
+int lockf_unposix(int fd, int cmd, off_t len) {
+        struct flock fl = {
+                .l_whence = SEEK_CUR,
+                .l_len = len
+        };
+
+        /* A version of lockf() that uses open file description locks instead of regular POSIX locks. OFD
+         * locks are per file descriptor instead of process wide. This function doesn't support F_TEST for
+         * now until we have a use case for it somewhere. */
+
+        assert(fd >= 0);
+
+        switch (cmd) {
+        case F_ULOCK:
+                fl.l_type = F_UNLCK;
+                cmd = F_OFD_SETLK;
+                break;
+        case F_LOCK:
+                fl.l_type = F_WRLCK;
+                cmd = F_OFD_SETLKW;
+                break;
+        case F_TLOCK:
+                fl.l_type = F_WRLCK;
+                cmd = F_OFD_SETLK;
+                break;
+        default:
+                return -EINVAL;
+        }
+
+        return RET_NERRNO(fcntl(fd, cmd, &fl));
+}
