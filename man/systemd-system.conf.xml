@@ -565,7 +565,7 @@
         <varname>MemoryPressureWatch=</varname> and <varname>MemoryPressureThresholdSec=</varname>
         settings. See
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details. Defaults to <literal>auto</literal> and <literal>100ms</literal>, respectively. This
+        for details. Defaults to <literal>auto</literal> and <literal>200ms</literal>, respectively. This
         also sets the memory pressure monitoring threshold for the service manager itself.</para></listitem>
       </varlistentry>
     </variablelist>
