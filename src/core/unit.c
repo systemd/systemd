@@ -4791,6 +4791,7 @@ int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) 
 }
 
 int unit_setup_exec_runtime(Unit *u) {
+        _cleanup_(exec_shared_runtime_unrefp) ExecSharedRuntime *esr = NULL;
         ExecRuntime **rt;
         size_t offset;
         Unit *other;
@@ -4806,12 +4807,26 @@ int unit_setup_exec_runtime(Unit *u) {
 
         /* Try to get it from somebody else */
         UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_JOINS_NAMESPACE_OF) {
-                r = exec_runtime_acquire(u->manager, NULL, other->id, false, rt);
-                if (r == 1)
-                        return 1;
+                r = exec_shared_runtime_acquire(u->manager, NULL, other->id, false, &esr);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        break;
         }
 
-        return exec_runtime_acquire(u->manager, unit_get_exec_context(u), u->id, true, rt);
+        if (!esr) {
+                r = exec_shared_runtime_acquire(u->manager, unit_get_exec_context(u), u->id, true, &esr);
+                if (r < 0)
+                        return r;
+        }
+
+        r = exec_runtime_make(esr, rt);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(esr);
+
+        return r;
 }
 
 int unit_setup_dynamic_creds(Unit *u) {

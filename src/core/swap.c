@@ -170,7 +170,7 @@ static void swap_done(Unit *u) {
         s->parameters_fragment.what = mfree(s->parameters_fragment.what);
         s->parameters_fragment.options = mfree(s->parameters_fragment.options);
 
-        s->exec_runtime = exec_runtime_unref(s->exec_runtime, false);
+        s->exec_runtime = exec_runtime_free(s->exec_runtime, /*destroy=*/ false);
         exec_command_done_array(s->exec_command, _SWAP_EXEC_COMMAND_MAX);
         s->control_command = NULL;
 
@@ -719,7 +719,7 @@ static void swap_enter_dead(Swap *s, SwapResult f) {
         unit_warn_leftover_processes(UNIT(s), unit_log_leftover_process_stop);
         swap_set_state(s, s->result != SWAP_SUCCESS ? SWAP_FAILED : SWAP_DEAD);
 
-        s->exec_runtime = exec_runtime_unref(s->exec_runtime, true);
+        s->exec_runtime = exec_runtime_free(s->exec_runtime, /*destroy=*/true);
 
         unit_destroy_runtime_data(UNIT(s), &s->exec_context);
 

@@ -150,7 +150,7 @@ static void socket_done(Unit *u) {
 
         s->peers_by_address = set_free(s->peers_by_address);
 
-        s->exec_runtime = exec_runtime_unref(s->exec_runtime, false);
+        s->exec_runtime = exec_runtime_free(s->exec_runtime, /*destroy=*/ false);
         exec_command_free_array(s->exec_command, _SOCKET_EXEC_COMMAND_MAX);
         s->control_command = NULL;
 
@@ -1532,16 +1532,18 @@ static int socket_address_listen_in_cgroup(
 
         if (s->exec_context.network_namespace_path &&
             s->exec_runtime &&
-            s->exec_runtime->netns_storage_socket[0] >= 0) {
-                r = open_shareable_ns_path(s->exec_runtime->netns_storage_socket, s->exec_context.network_namespace_path, CLONE_NEWNET);
+            s->exec_runtime->shared &&
+            s->exec_runtime->shared->netns_storage_socket[0] >= 0) {
+                r = open_shareable_ns_path(s->exec_runtime->shared->netns_storage_socket, s->exec_context.network_namespace_path, CLONE_NEWNET);
                 if (r < 0)
                         return log_unit_error_errno(UNIT(s), r, "Failed to open network namespace path %s: %m", s->exec_context.network_namespace_path);
         }
 
         if (s->exec_context.ipc_namespace_path &&
             s->exec_runtime &&
-            s->exec_runtime->ipcns_storage_socket[0] >= 0) {
-                r = open_shareable_ns_path(s->exec_runtime->ipcns_storage_socket, s->exec_context.ipc_namespace_path, CLONE_NEWIPC);
+            s->exec_runtime->shared &&
+            s->exec_runtime->shared->ipcns_storage_socket[0] >= 0) {
+                r = open_shareable_ns_path(s->exec_runtime->shared->ipcns_storage_socket, s->exec_context.ipc_namespace_path, CLONE_NEWIPC);
                 if (r < 0)
                         return log_unit_error_errno(UNIT(s), r, "Failed to open IPC namespace path %s: %m", s->exec_context.ipc_namespace_path);
         }
@@ -1559,10 +1561,11 @@ static int socket_address_listen_in_cgroup(
 
                 if (exec_needs_network_namespace(&s->exec_context) &&
                     s->exec_runtime &&
-                    s->exec_runtime->netns_storage_socket[0] >= 0) {
+                    s->exec_runtime->shared &&
+                    s->exec_runtime->shared->netns_storage_socket[0] >= 0) {
 
                         if (ns_type_supported(NAMESPACE_NET)) {
-                                r = setup_shareable_ns(s->exec_runtime->netns_storage_socket, CLONE_NEWNET);
+                                r = setup_shareable_ns(s->exec_runtime->shared->netns_storage_socket, CLONE_NEWNET);
                                 if (r < 0) {
                                         log_unit_error_errno(UNIT(s), r, "Failed to join network namespace: %m");
                                         _exit(EXIT_NETWORK);
@@ -2049,7 +2052,7 @@ static void socket_enter_dead(Socket *s, SocketResult f) {
 
         socket_set_state(s, s->result != SOCKET_SUCCESS ? SOCKET_FAILED : SOCKET_DEAD);
 
-        s->exec_runtime = exec_runtime_unref(s->exec_runtime, true);
+        s->exec_runtime = exec_runtime_free(s->exec_runtime, /*destroy=*/ true);
 
         unit_destroy_runtime_data(UNIT(s), &s->exec_context);
 

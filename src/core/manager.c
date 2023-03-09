@@ -1555,7 +1555,7 @@ Manager* manager_free(Manager *m) {
         bus_done(m);
         manager_varlink_done(m);
 
-        exec_runtime_vacuum(m);
+        exec_shared_runtime_vacuum(m);
         hashmap_free(m->exec_runtime_by_id);
 
         dynamic_user_vacuum(m, false);
@@ -3459,7 +3459,7 @@ int manager_reload(Manager *m) {
         manager_clear_jobs_and_units(m);
         lookup_paths_flush_generator(&m->lookup_paths);
         lookup_paths_free(&m->lookup_paths);
-        exec_runtime_vacuum(m);
+        exec_shared_runtime_vacuum(m);
         dynamic_user_vacuum(m, false);
         m->uid_refs = hashmap_free(m->uid_refs);
         m->gid_refs = hashmap_free(m->gid_refs);
@@ -4540,7 +4540,7 @@ static void manager_vacuum(Manager *m) {
         manager_vacuum_gid_refs(m);
 
         /* Release any runtimes no longer referenced */
-        exec_runtime_vacuum(m);
+        exec_shared_runtime_vacuum(m);
 }
 
 int manager_dispatch_user_lookup_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
