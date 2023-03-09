@@ -23,6 +23,7 @@ enable systemd-network-generator.service
 enable systemd-resolved.service
 enable systemd-homed.service
 enable systemd-userdbd.socket
+enable systemd-mntfsd.socket
 enable systemd-pstore.service
 enable systemd-boot-update.service
 enable systemd-journald-audit.socket
