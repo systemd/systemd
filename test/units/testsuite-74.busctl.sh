@@ -19,7 +19,10 @@ busctl status
 busctl status --machine=.host --augment-creds=no
 busctl status --user --machine=testuser@.host
 busctl status org.freedesktop.systemd1
-busctl tree
+# Ignore the exit code here, since this runs during machine bootup, so busctl
+# might attempt to introspect a job that already finished and fail, i.e.:
+# Failed to introspect object /org/freedesktop/systemd1/job/335 of service org.freedesktop.systemd1: Unknown object '/org/freedesktop/systemd1/job/335'.
+busctl tree || :
 busctl tree org.freedesktop.login1
 busctl tree --list org.freedesktop.login1
 busctl introspect org.freedesktop.systemd1 /org/freedesktop/systemd1
