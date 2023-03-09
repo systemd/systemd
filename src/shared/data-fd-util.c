@@ -27,7 +27,6 @@
 
 int acquire_data_fd(const void *data, size_t size, unsigned flags) {
         _cleanup_close_pair_ int pipefds[2] = PIPE_EBADF;
-        char pattern[] = "/dev/shm/data-fd-XXXXXX";
         _cleanup_close_ int fd = -EBADF;
         int isz = 0, r;
         ssize_t n;
@@ -135,6 +134,8 @@ try_dev_shm:
 
 try_dev_shm_without_o_tmpfile:
         if ((flags & ACQUIRE_NO_REGULAR) == 0) {
+                char pattern[] = "/dev/shm/data-fd-XXXXXX";
+
                 fd = mkostemp_safe(pattern);
                 if (fd < 0)
                         return fd;
@@ -150,9 +151,7 @@ try_dev_shm_without_o_tmpfile:
                 }
 
                 /* Let's reopen the thing, in order to get an O_RDONLY fd for the original O_RDWR one */
-                r = open(pattern, O_RDONLY|O_CLOEXEC);
-                if (r < 0)
-                        r = -errno;
+                r = fd_reopen(fd, O_RDONLY|O_CLOEXEC);
 
         unlink_and_return:
                 (void) unlink(pattern);
