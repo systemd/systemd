@@ -964,7 +964,7 @@ ExecContext *unit_get_exec_context(const Unit *u) _pure_;
 KillContext *unit_get_kill_context(Unit *u) _pure_;
 CGroupContext *unit_get_cgroup_context(Unit *u) _pure_;
 
-ExecSharedRuntime *unit_get_exec_runtime(Unit *u) _pure_;
+ExecRuntime *unit_get_exec_runtime(Unit *u) _pure_;
 
 int unit_setup_exec_runtime(Unit *u);
 int unit_setup_dynamic_creds(Unit *u);

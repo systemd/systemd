@@ -90,7 +90,7 @@ struct Socket {
         KillContext kill_context;
         CGroupContext cgroup_context;
 
-        ExecSharedRuntime *exec_runtime;
+        ExecRuntime *exec_runtime;
         DynamicCreds dynamic_creds;
 
         /* For Accept=no sockets refers to the one service we'll
