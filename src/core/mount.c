@@ -254,7 +254,7 @@ static void mount_done(Unit *u) {
         mount_parameters_done(&m->parameters_proc_self_mountinfo);
         mount_parameters_done(&m->parameters_fragment);
 
-        m->exec_runtime = exec_shared_runtime_unref(m->exec_runtime, false);
+        m->exec_runtime = exec_runtime_free(m->exec_runtime, /*destroy=*/ false);
         exec_command_done_array(m->exec_command, _MOUNT_EXEC_COMMAND_MAX);
         m->control_command = NULL;
 
@@ -948,7 +948,7 @@ static void mount_enter_dead(Mount *m, MountResult f) {
 
         mount_set_state(m, m->result != MOUNT_SUCCESS ? MOUNT_FAILED : MOUNT_DEAD);
 
-        m->exec_runtime = exec_shared_runtime_unref(m->exec_runtime, true);
+        m->exec_runtime = exec_runtime_free(m->exec_runtime, /*destroy=*/ true);
 
         unit_destroy_runtime_data(UNIT(m), &m->exec_context);
 

@@ -2178,7 +2178,7 @@ static bool exec_needs_ipc_namespace(const ExecContext *context) {
 bool exec_needs_mount_namespace(
                 const ExecContext *context,
                 const ExecParameters *params,
-                const ExecSharedRuntime *runtime) {
+                const ExecRuntime *runtime) {
 
         assert(context);
 
@@ -2210,7 +2210,7 @@ bool exec_needs_mount_namespace(
         if (!IN_SET(context->mount_propagation_flag, 0, MS_SHARED))
                 return true;
 
-        if (context->private_tmp && runtime && (runtime->tmp_dir || runtime->var_tmp_dir))
+        if (context->private_tmp && runtime && runtime->shared && (runtime->shared->tmp_dir || runtime->shared->var_tmp_dir))
                 return true;
 
         if (context->private_devices ||
@@ -3683,7 +3683,7 @@ static int apply_mount_namespace(
                 ExecCommandFlags command_flags,
                 const ExecContext *context,
                 const ExecParameters *params,
-                const ExecSharedRuntime *runtime,
+                const ExecRuntime *runtime,
                 const char *memory_pressure_path,
                 char **error_path) {
 
@@ -3742,16 +3742,16 @@ static int apply_mount_namespace(
                  * that is sticky, and that's the one we want to use here.
                  * This does not apply when we are using /run/systemd/empty as fallback. */
 
-                if (context->private_tmp && runtime) {
-                        if (streq_ptr(runtime->tmp_dir, RUN_SYSTEMD_EMPTY))
-                                tmp_dir = runtime->tmp_dir;
-                        else if (runtime->tmp_dir)
-                                tmp_dir = strjoina(runtime->tmp_dir, "/tmp");
+                if (context->private_tmp && runtime && runtime->shared) {
+                        if (streq_ptr(runtime->shared->tmp_dir, RUN_SYSTEMD_EMPTY))
+                                tmp_dir = runtime->shared->tmp_dir;
+                        else if (runtime->shared->tmp_dir)
+                                tmp_dir = strjoina(runtime->shared->tmp_dir, "/tmp");
 
-                        if (streq_ptr(runtime->var_tmp_dir, RUN_SYSTEMD_EMPTY))
-                                var_tmp_dir = runtime->var_tmp_dir;
-                        else if (runtime->var_tmp_dir)
-                                var_tmp_dir = strjoina(runtime->var_tmp_dir, "/tmp");
+                        if (streq_ptr(runtime->shared->var_tmp_dir, RUN_SYSTEMD_EMPTY))
+                                var_tmp_dir = runtime->shared->var_tmp_dir;
+                        else if (runtime->shared->var_tmp_dir)
+                                var_tmp_dir = strjoina(runtime->shared->var_tmp_dir, "/tmp");
                 }
 
                 ns_info = (NamespaceInfo) {
@@ -4056,7 +4056,7 @@ static void append_socket_pair(int *array, size_t *n, const int pair[static 2]) 
 
 static int close_remaining_fds(
                 const ExecParameters *params,
-                const ExecSharedRuntime *runtime,
+                const ExecRuntime *runtime,
                 const DynamicCreds *dcreds,
                 int user_lookup_fd,
                 int socket_fd,
@@ -4081,9 +4081,9 @@ static int close_remaining_fds(
                 n_dont_close += n_fds;
         }
 
-        if (runtime) {
-                append_socket_pair(dont_close, &n_dont_close, runtime->netns_storage_socket);
-                append_socket_pair(dont_close, &n_dont_close, runtime->ipcns_storage_socket);
+        if (runtime && runtime->shared) {
+                append_socket_pair(dont_close, &n_dont_close, runtime->shared->netns_storage_socket);
+                append_socket_pair(dont_close, &n_dont_close, runtime->shared->ipcns_storage_socket);
         }
 
         if (dcreds) {
@@ -4403,7 +4403,7 @@ static int exec_child(
                 const ExecCommand *command,
                 const ExecContext *context,
                 const ExecParameters *params,
-                ExecSharedRuntime *runtime,
+                ExecRuntime *runtime,
                 DynamicCreds *dcreds,
                 const CGroupContext *cgroup_context,
                 int socket_fd,
@@ -4686,16 +4686,16 @@ static int exec_child(
                 }
         }
 
-        if (context->network_namespace_path && runtime && runtime->netns_storage_socket[0] >= 0) {
-                r = open_shareable_ns_path(runtime->netns_storage_socket, context->network_namespace_path, CLONE_NEWNET);
+        if (context->network_namespace_path && runtime && runtime->shared && runtime->shared->netns_storage_socket[0] >= 0) {
+                r = open_shareable_ns_path(runtime->shared->netns_storage_socket, context->network_namespace_path, CLONE_NEWNET);
                 if (r < 0) {
                         *exit_status = EXIT_NETWORK;
                         return log_unit_error_errno(unit, r, "Failed to open network namespace path %s: %m", context->network_namespace_path);
                 }
         }
 
-        if (context->ipc_namespace_path && runtime && runtime->ipcns_storage_socket[0] >= 0) {
-                r = open_shareable_ns_path(runtime->ipcns_storage_socket, context->ipc_namespace_path, CLONE_NEWIPC);
+        if (context->ipc_namespace_path && runtime && runtime->shared && runtime->shared->ipcns_storage_socket[0] >= 0) {
+                r = open_shareable_ns_path(runtime->shared->ipcns_storage_socket, context->ipc_namespace_path, CLONE_NEWIPC);
                 if (r < 0) {
                         *exit_status = EXIT_NAMESPACE;
                         return log_unit_error_errno(unit, r, "Failed to open IPC namespace path %s: %m", context->ipc_namespace_path);
@@ -5045,10 +5045,10 @@ static int exec_child(
                 }
         }
 
-        if (exec_needs_network_namespace(context) && runtime && runtime->netns_storage_socket[0] >= 0) {
+        if (exec_needs_network_namespace(context) && runtime && runtime->shared && runtime->shared->netns_storage_socket[0] >= 0) {
 
                 if (ns_type_supported(NAMESPACE_NET)) {
-                        r = setup_shareable_ns(runtime->netns_storage_socket, CLONE_NEWNET);
+                        r = setup_shareable_ns(runtime->shared->netns_storage_socket, CLONE_NEWNET);
                         if (r < 0) {
                                 if (ERRNO_IS_PRIVILEGE(r))
                                         log_unit_warning_errno(unit, r,
@@ -5066,10 +5066,10 @@ static int exec_child(
                         log_unit_warning(unit, "PrivateNetwork=yes is configured, but the kernel does not support network namespaces, ignoring.");
         }
 
-        if (exec_needs_ipc_namespace(context) && runtime && runtime->ipcns_storage_socket[0] >= 0) {
+        if (exec_needs_ipc_namespace(context) && runtime && runtime->shared && runtime->shared->ipcns_storage_socket[0] >= 0) {
 
                 if (ns_type_supported(NAMESPACE_IPC)) {
-                        r = setup_shareable_ns(runtime->ipcns_storage_socket, CLONE_NEWIPC);
+                        r = setup_shareable_ns(runtime->shared->ipcns_storage_socket, CLONE_NEWIPC);
                         if (r == -EPERM)
                                 log_unit_warning_errno(unit, r,
                                                        "PrivateIPC=yes is configured, but IPC namespace setup failed, ignoring: %m");
@@ -5549,7 +5549,7 @@ int exec_spawn(Unit *unit,
                ExecCommand *command,
                const ExecContext *context,
                const ExecParameters *params,
-               ExecSharedRuntime *runtime,
+               ExecRuntime *runtime,
                DynamicCreds *dcreds,
                const CGroupContext *cgroup_context,
                pid_t *ret) {
@@ -7440,6 +7440,41 @@ void exec_shared_runtime_vacuum(Manager *m) {
 
                 (void) exec_shared_runtime_free(rt, false);
         }
+}
+
+int exec_runtime_make(ExecSharedRuntime *shared, ExecRuntime **ret) {
+        _cleanup_(exec_runtime_freep) ExecRuntime *rt = NULL;
+
+        assert(ret);
+
+        if (!shared) {
+                *ret = NULL;
+                return 0;
+        }
+
+        rt = new(ExecRuntime, 1);
+        if (!rt)
+                return -ENOMEM;
+
+        *rt = (ExecRuntime) {
+                .shared = shared,
+        };
+
+        *ret = TAKE_PTR(rt);
+        return 1;
+}
+
+ExecRuntime* exec_runtime_free(ExecRuntime *rt, bool destroy) {
+        if (!rt)
+                return NULL;
+
+        exec_shared_runtime_unref(rt->shared, destroy);
+        return mfree(rt);
+}
+
+void exec_runtime_freep(ExecRuntime **rt) {
+        assert(rt);
+        (void) exec_runtime_free(*rt, /*destroy=*/ false);
 }
 
 void exec_params_clear(ExecParameters *p) {
