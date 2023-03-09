@@ -5,6 +5,16 @@ set -o pipefail
 
 # Test for udevadm verify.
 
+cleanup() {
+        cd /
+        rm -rf "${workdir}"
+        workdir=
+}
+
+workdir="$(mktemp -d)"
+trap cleanup EXIT
+cd "${workdir}"
+
 udevadm verify -h
 udevadm verify --help
 udevadm verify -V
