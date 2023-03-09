@@ -2567,7 +2567,12 @@ static int run(int argc, char *argv[]) {
                                         break;
                         }
 
-                        if (arg_until_set && !arg_reverse && arg_lines < 0) {
+                        if (arg_until_set && !arg_reverse && (arg_lines < 0 || arg_since_set)) {
+                                /* If --lines= is set, we usually rely on the n_shown to tell us
+                                 * when to stop. However, if --since= is set too, we may end up
+                                 * having less than --lines= to output. In this case let's also
+                                 * check if the entry is in range. */
+
                                 usec_t usec;
 
                                 r = sd_journal_get_realtime_usec(j, &usec);
