@@ -124,6 +124,8 @@ option('portabled', type : 'boolean',
        description : 'install the systemd-portabled stack')
 option('sysext', type : 'boolean',
        description : 'install the systemd-sysext stack')
+option('mntfsd', type : 'boolean',
+       description : 'install the systemd-mntfsd stack')
 option('userdb', type : 'boolean',
        description : 'install the systemd-userdbd stack')
 option('homed', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
