@@ -66,7 +66,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (!getenv("SYSTEMD_LOG_LEVEL"))
                 log_set_max_level(LOG_CRIT);
 
-        assert_se(manager_new(LOOKUP_SCOPE_SYSTEM, MANAGER_TEST_RUN_MINIMAL, &m) >= 0);
+        assert_se(manager_new(RUNTIME_SCOPE_SYSTEM, MANAGER_TEST_RUN_MINIMAL, &m) >= 0);
 
         name = strjoina("a.", unit_type_to_string(t));
         assert_se(unit_new_for_name(m, unit_vtable[t]->object_size, name, &u) >= 0);
