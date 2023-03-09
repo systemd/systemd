@@ -520,3 +520,24 @@ int make_filesystem(
 
         return 0;
 }
+
+int mkfs_options_from_env(const char *component, const char *fstype, char ***ret) {
+        _cleanup_(strv_freep) char **l = NULL;
+        const char *e;
+        char *n;
+
+        assert(component);
+        assert(fstype);
+        assert(ret);
+
+        n = strjoina("SYSTEMD_", component, "_MKFS_OPTIONS_", fstype);
+        e = getenv(ascii_strupper(n));
+        if (e) {
+                l = strv_split(e, NULL);
+                if (!l)
+                        return -ENOMEM;
+        }
+
+        *ret = TAKE_PTR(l);
+        return 0;
+}
