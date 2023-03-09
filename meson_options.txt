@@ -124,6 +124,8 @@ option('portabled', type : 'boolean',
        description : 'install the systemd-portabled stack')
 option('sysext', type : 'boolean',
        description : 'install the systemd-sysext stack')
+option('mountfsd', type : 'boolean',
+       description : 'install the systemd-mountfsd stack')
 option('userdb', type : 'boolean',
        description : 'install the systemd-userdbd stack')
 option('homed', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
@@ -526,3 +528,6 @@ option('vmlinux-h', type : 'combo', choices : ['auto', 'provided', 'generated', 
        description: 'Which vmlinux.h to use')
 option('vmlinux-h-path', type : 'string', value : '',
        description: 'Path to vmlinux.h to use')
+
+option('default-mountfsd-trusted-directories', type : 'boolean', value: false,
+       description : 'Controls whether mountfsd should apply a relaxed policy on DDIs in system DDI directories')
