@@ -73,6 +73,8 @@
 #DefaultLimitNICE=
 #DefaultLimitRTPRIO=
 #DefaultLimitRTTIME=
+#DefaultMemoryPressureThresholdSec=200ms
+#DefaultMemoryPressureWatch=auto
 #DefaultOOMPolicy=stop
 #DefaultSmackProcessLabel=
 #ReloadLimitIntervalSec=
