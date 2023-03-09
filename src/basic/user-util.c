@@ -18,6 +18,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "lock-util.h"
 #include "macro.h"
 #include "mkdir.h"
 #include "parse-util.h"
@@ -671,12 +672,7 @@ int reset_uid_gid(void) {
 }
 
 int take_etc_passwd_lock(const char *root) {
-        struct flock flock = {
-                .l_type = F_WRLCK,
-                .l_whence = SEEK_SET,
-                .l_start = 0,
-                .l_len = 0,
-        };
+        int r;
 
         /* This is roughly the same as lckpwdf(), but not as awful. We don't want to use alarm() and signals,
          * hence we implement our own trivial version of this.
@@ -695,8 +691,9 @@ int take_etc_passwd_lock(const char *root) {
         if (fd < 0)
                 return log_debug_errno(errno, "Cannot open %s: %m", path);
 
-        if (fcntl(fd, F_SETLKW, &flock) < 0)
-                return log_debug_errno(errno, "Locking %s failed: %m", path);
+        r = unposix_lock(fd, LOCK_EX);
+        if (r < 0)
+                return log_debug_errno(r, "Locking %s failed: %m", path);
 
         return TAKE_FD(fd);
 }
