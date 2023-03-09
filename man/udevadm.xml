@@ -51,7 +51,7 @@
     <cmdsynopsis>
       <command>udevadm verify</command>
       <arg choice="opt" rep="repeat">options</arg>
-      <arg choice="plain" rep="repeat"><replaceable>file</replaceable></arg>
+      <arg choice="opt" rep="repeat"><replaceable>file</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>udevadm wait <optional>options</optional> <replaceable>device|syspath</replaceable></command>
@@ -745,13 +745,15 @@
     <refsect2>
       <title>udevadm verify
       <arg choice="opt"><replaceable>options</replaceable></arg>
-      <arg choice="plain" rep="repeat"><replaceable>file</replaceable></arg>
+      <arg choice="opt" rep="repeat"><replaceable>file</replaceable></arg>
       …
       </title>
 
       <para>Verify syntactic and semantic correctness of udev rules files.</para>
 
-      <para>Positional arguments should be used to specify one or more files to check.</para>
+      <para>Positional arguments could be used to specify one or more files to check.
+      If no files are specified, the udev rules are read from the files located in
+      the same udev/rules.d directories that are processed by the udev daemon.</para>
 
       <para>The exit status is <constant>0</constant> if all specified udev rules files
       are syntactically and semantically correct, and a non-zero error code otherwise.</para>
