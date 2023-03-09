@@ -206,6 +206,18 @@ def test_base64():
 
     assert d == "Piff\nPaff\nPuff \n"
 
+def test_conditionalized_execute_bit():
+    test_line('a /tmp/base64-test - - - - u:nobody:Xwr', user=False, returncode=0)
+    c = subprocess.run(["getfacl", "-Ec", "/tmp/base64-test"],
+                       stdout=subprocess.PIPE, universal_newlines=True)
+    assert "user:nobody:rw-" in c.stdout
+
+    os.chmod("/tmp/base64-test", 755)
+    test_line('a+ /tmp/base64-test - - - - u:nobody:Xwr,g:nobody:X', user=False, returncode=0)
+    c = subprocess.run(["getfacl", "-Ec", "/tmp/base64-test"],
+                       stdout=subprocess.PIPE, universal_newlines=True)
+    assert "user:nobody:rwx" in c.stdout and "group:nobody:--x" in c.stdout
+
 if __name__ == '__main__':
     test_invalids(user=False)
     test_invalids(user=True)
@@ -218,3 +230,5 @@ if __name__ == '__main__':
     test_hard_cleanup(user=True)
 
     test_base64()
+
+    test_conditionalized_execute_bit()
