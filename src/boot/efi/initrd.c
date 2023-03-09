@@ -88,19 +88,28 @@ EFI_STATUS initrd_register(
            where as InstallMultipleProtocolInterfaces only matches identical DevicePaths.
          */
         err = BS->LocateDevicePath(MAKE_GUID_PTR(EFI_LOAD_FILE2_PROTOCOL), &dp, &handle);
-        if (err != EFI_NOT_FOUND) /* InitrdMedia is already registered */
-                return EFI_ALREADY_STARTED;
+        if (err == EFI_SUCCESS && dp->Type == END_DEVICE_PATH_TYPE) {
+                /* InitrdMedia is already registered */
+                *ret_initrd_handle = handle;
+                initrd_unregister ( handle );
+        } else {
+                /* register new InitrdMedia handle */
+                *ret_initrd_handle = NULL;
+                err = BS->InstallMultipleProtocolInterfaces(
+                        ret_initrd_handle, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL),
+                        &efi_initrd_device_path, NULL);
+                if (err != EFI_SUCCESS)
+                        return err;
+        }
 
         efi_initrd_loader.load_file.LoadFile = initrd_load_file;
         efi_initrd_loader.address = initrd_address;
         efi_initrd_loader.length = initrd_length;
 
-        /* create a new handle and register the LoadFile2 protocol with the InitrdMediaPath on it */
+        /* register the LoadFile2 protocol on InitrdMedia handle */
         err = BS->InstallMultipleProtocolInterfaces(
-                        ret_initrd_handle, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL),
-                        &efi_initrd_device_path, MAKE_GUID_PTR(EFI_LOAD_FILE2_PROTOCOL),
-                        &efi_initrd_loader,
-                        NULL);
+                        ret_initrd_handle, MAKE_GUID_PTR(EFI_LOAD_FILE2_PROTOCOL),
+                        &efi_initrd_loader, NULL);
         if (err != EFI_SUCCESS)
                 return err;
 
@@ -113,12 +122,10 @@ EFI_STATUS initrd_unregister(EFI_HANDLE initrd_handle) {
         if (!initrd_handle)
                 return EFI_SUCCESS;
 
-        /* uninstall all protocols thus destroying the handle */
+        /* uninstall LoadFile2 protocol, leaving handle intact since we may not have created it */
         err = BS->UninstallMultipleProtocolInterfaces(
-                        initrd_handle, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL),
-                        &efi_initrd_device_path, MAKE_GUID_PTR(EFI_LOAD_FILE2_PROTOCOL),
-                        &efi_initrd_loader,
-                        NULL);
+                        initrd_handle, MAKE_GUID_PTR(EFI_LOAD_FILE2_PROTOCOL),
+                        &efi_initrd_loader, NULL);
         if (err != EFI_SUCCESS)
                 return err;
 
