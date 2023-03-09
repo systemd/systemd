@@ -33,9 +33,9 @@
 #include "umask-util.h"
 #include "user-util.h"
 
-int unlink_noerrno(const char *path) {
+int unlinkat_noerrno(int dir_fd, const char *path, int flags) {
         PROTECT_ERRNO;
-        return RET_NERRNO(unlink(path));
+        return RET_NERRNO(unlinkat(dir_fd, path, flags));
 }
 
 int rmdir_parents(const char *path, const char *stop) {
