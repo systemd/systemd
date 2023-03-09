@@ -448,7 +448,7 @@ static char *format_cgroup_memory_limit_comparison(char *buf, size_t l, Unit *u,
 }
 
 void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
-        _cleanup_free_ char *disable_controllers_str = NULL, *cpuset_cpus = NULL, *cpuset_mems = NULL, *startup_cpuset_cpus = NULL, *startup_cpuset_mems = NULL;
+        _cleanup_free_ char *disable_controllers_str = NULL, *delegate_controllers_str = NULL, *cpuset_cpus = NULL, *cpuset_mems = NULL, *startup_cpuset_cpus = NULL, *startup_cpuset_mems = NULL;
         CGroupContext *c;
         struct in_addr_prefix *iaai;
 
@@ -472,6 +472,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         prefix = strempty(prefix);
 
         (void) cg_mask_to_string(c->disable_controllers, &disable_controllers_str);
+        (void) cg_mask_to_string(c->delegate_controllers, &delegate_controllers_str);
 
         cpuset_cpus = cpu_set_to_range_string(&c->cpuset_cpus);
         startup_cpuset_cpus = cpu_set_to_range_string(&c->startup_cpuset_cpus);
@@ -559,7 +560,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, tasks_max_resolve(&c->tasks_max),
                 prefix, cgroup_device_policy_to_string(c->device_policy),
                 prefix, strempty(disable_controllers_str),
-                prefix, yes_no(c->delegate),
+                prefix, strempty(delegate_controllers_str),
                 prefix, managed_oom_mode_to_string(c->moom_swap),
                 prefix, managed_oom_mode_to_string(c->moom_mem_pressure),
                 prefix, PERMYRIAD_AS_PERCENT_FORMAT_VAL(UINT32_SCALE_TO_PERMYRIAD(c->moom_mem_pressure_limit)),
@@ -569,16 +570,6 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         if (c->memory_pressure_threshold_usec != USEC_INFINITY)
                 fprintf(f, "%sMemoryPressureThresholdSec: %s\n",
                         prefix, FORMAT_TIMESPAN(c->memory_pressure_threshold_usec, 1));
-
-        if (c->delegate) {
-                _cleanup_free_ char *t = NULL;
-
-                (void) cg_mask_to_string(c->delegate_controllers, &t);
-
-                fprintf(f, "%sDelegateControllers: %s\n",
-                        prefix,
-                        strempty(t));
-        }
 
         LIST_FOREACH(device_allow, a, c->device_allow)
                 fprintf(f,
