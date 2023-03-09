@@ -20,9 +20,10 @@ enable getty@.service
 enable systemd-boot-update.service
 enable systemd-homed.service
 enable systemd-journald-audit.socket
+enable systemd-mntfsd.socket
 enable systemd-network-generator.service
-enable systemd-networkd-wait-online.service
 enable systemd-networkd.service
+enable systemd-networkd-wait-online.service
 enable systemd-nsresourced.socket
 enable systemd-pstore.service
 enable systemd-resolved.service
