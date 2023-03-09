@@ -5,20 +5,13 @@
 
 #include "constants.h"
 #include "macro.h"
+#include "runtime-scope.h"
 
 typedef enum LookupPathsFlags {
         LOOKUP_PATHS_EXCLUDE_GENERATED   = 1 << 0,
         LOOKUP_PATHS_TEMPORARY_GENERATED = 1 << 1,
         LOOKUP_PATHS_SPLIT_USR           = 1 << 2,
 } LookupPathsFlags;
-
-typedef enum LookupScope {
-        LOOKUP_SCOPE_SYSTEM,
-        LOOKUP_SCOPE_GLOBAL,
-        LOOKUP_SCOPE_USER,
-        _LOOKUP_SCOPE_MAX,
-        _LOOKUP_SCOPE_INVALID = -EINVAL,
-} LookupScope;
 
 typedef struct LookupPaths {
         /* Where we look for unit files. This includes the individual special paths below, but also any vendor
@@ -59,8 +52,8 @@ typedef struct LookupPaths {
         char *temporary_dir;
 } LookupPaths;
 
-int lookup_paths_init(LookupPaths *lp, LookupScope scope, LookupPathsFlags flags, const char *root_dir);
-int lookup_paths_init_or_warn(LookupPaths *lp, LookupScope scope, LookupPathsFlags flags, const char *root_dir);
+int lookup_paths_init(LookupPaths *lp, RuntimeScope scope, LookupPathsFlags flags, const char *root_dir);
+int lookup_paths_init_or_warn(LookupPaths *lp, RuntimeScope scope, LookupPathsFlags flags, const char *root_dir);
 
 int xdg_user_dirs(char ***ret_config_dirs, char ***ret_data_dirs);
 int xdg_user_runtime_dir(char **ret, const char *suffix);
@@ -73,8 +66,8 @@ bool path_is_user_config_dir(const char *path);
 void lookup_paths_log(LookupPaths *p);
 void lookup_paths_free(LookupPaths *p);
 
-char **generator_binary_paths(LookupScope scope);
-char **env_generator_binary_paths(bool is_system);
+char **generator_binary_paths(RuntimeScope scope);
+char **env_generator_binary_paths(RuntimeScope scope);
 
 #define NETWORK_DIRS ((const char* const*) CONF_PATHS_STRV("systemd/network"))
 #define NETWORK_DIRS_NULSTR CONF_PATHS_NULSTR("systemd/network")

@@ -44,14 +44,10 @@ int acquire_bus(BusFocus focus, sd_bus **ret) {
                 focus = BUS_FULL;
 
         if (!buses[focus]) {
-                bool user;
-
-                user = arg_scope != LOOKUP_SCOPE_SYSTEM;
-
                 if (focus == BUS_MANAGER)
-                        r = bus_connect_transport_systemd(arg_transport, arg_host, user, &buses[focus]);
+                        r = bus_connect_transport_systemd(arg_transport, arg_host, arg_runtime_scope, &buses[focus]);
                 else
-                        r = bus_connect_transport(arg_transport, arg_host, user, &buses[focus]);
+                        r = bus_connect_transport(arg_transport, arg_host, arg_runtime_scope, &buses[focus]);
                 if (r < 0)
                         return bus_log_connect_error(r, arg_transport);
 
@@ -73,7 +69,7 @@ void ask_password_agent_open_maybe(void) {
         if (arg_dry_run)
                 return;
 
-        if (arg_scope != LOOKUP_SCOPE_SYSTEM)
+        if (arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)
                 return;
 
         ask_password_agent_open_if_enabled(arg_transport, arg_ask_password);
@@ -82,7 +78,7 @@ void ask_password_agent_open_maybe(void) {
 void polkit_agent_open_maybe(void) {
         /* Open the polkit agent as a child process if necessary */
 
-        if (arg_scope != LOOKUP_SCOPE_SYSTEM)
+        if (arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)
                 return;
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
@@ -408,7 +404,7 @@ void warn_unit_file_changed(const char *unit) {
 
         log_warning("Warning: The unit file, source configuration file or drop-ins of %s changed on disk. Run 'systemctl%s daemon-reload' to reload units.",
                     unit,
-                    arg_scope == LOOKUP_SCOPE_SYSTEM ? "" : " --user");
+                    arg_runtime_scope == RUNTIME_SCOPE_SYSTEM ? "" : " --user");
 }
 
 int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **ret_unit_path) {
@@ -844,7 +840,7 @@ bool install_client_side(void) {
         if (!isempty(arg_root))
                 return true;
 
-        if (arg_scope == LOOKUP_SCOPE_GLOBAL)
+        if (arg_runtime_scope == RUNTIME_SCOPE_GLOBAL)
                 return true;
 
         /* Unsupported environment variable, mostly for debugging purposes */

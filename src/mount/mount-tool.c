@@ -54,7 +54,7 @@ static bool arg_full = false;
 static bool arg_ask_password = true;
 static bool arg_quiet = false;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
-static bool arg_user = false;
+static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 static const char *arg_host = NULL;
 static bool arg_discover = false;
 static char *arg_mount_what = NULL;
@@ -223,11 +223,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_USER:
-                        arg_user = true;
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
                 case ARG_SYSTEM:
-                        arg_user = false;
+                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
 
                 case 'H':
@@ -334,12 +334,13 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
-        if (arg_user)
+        if (arg_runtime_scope == RUNTIME_SCOPE_USER) {
                 arg_ask_password = false;
 
-        if (arg_user && arg_transport != BUS_TRANSPORT_LOCAL)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Execution in user context is not supported on non-local systems.");
+                if (arg_transport != BUS_TRANSPORT_LOCAL)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Execution in user context is not supported on non-local systems.");
+        }
 
         if (arg_action == ACTION_LIST) {
                 if (optind < argc)
@@ -1459,7 +1460,7 @@ static int run(int argc, char* argv[]) {
         if (arg_action == ACTION_LIST)
                 return list_devices();
 
-        r = bus_connect_transport_systemd(arg_transport, arg_host, arg_user, &bus);
+        r = bus_connect_transport_systemd(arg_transport, arg_host, arg_runtime_scope, &bus);
         if (r < 0)
                 return bus_log_connect_error(r, arg_transport);
 

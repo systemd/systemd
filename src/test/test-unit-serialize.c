@@ -31,7 +31,7 @@ TEST(deserialize_exec_command) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
-        r = manager_new(LOOKUP_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
+        r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
         if (manager_errno_skip_test(r)) {
                 log_notice_errno(r, "Skipping test: manager_new: %m");
                 return;

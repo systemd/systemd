@@ -12,6 +12,7 @@
 #include "hashmap.h"
 #include "list.h"
 #include "prioq.h"
+#include "runtime-scope.h"
 #include "socket-util.h"
 #include "time-util.h"
 
@@ -201,8 +202,6 @@ struct sd_bus {
         bool nodes_modified:1;
         bool trusted:1;
         bool manual_peer_interface:1;
-        bool is_system:1;
-        bool is_user:1;
         bool allow_interactive_authorization:1;
         bool exit_on_disconnect:1;
         bool exited:1;
@@ -214,6 +213,8 @@ struct sd_bus {
         bool attach_timestamp:1;
         bool connected_signal:1;
         bool close_on_exit:1;
+
+        RuntimeScope runtime_scope;
 
         signed int use_memfd:2;
 
@@ -399,7 +400,7 @@ void bus_close_io_fds(sd_bus *b);
 int bus_set_address_system(sd_bus *bus);
 int bus_set_address_user(sd_bus *bus);
 int bus_set_address_system_remote(sd_bus *b, const char *host);
-int bus_set_address_machine(sd_bus *b, bool user, const char *machine);
+int bus_set_address_machine(sd_bus *b, RuntimeScope runtime_scope, const char *machine);
 
 int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error);
 
