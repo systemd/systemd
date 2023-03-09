@@ -997,6 +997,7 @@ manpages = [
  ['systemd-measure', '1', [], 'HAVE_TPM2 HAVE_BLKID HAVE_OPENSSL'],
  ['systemd-modules-load.service', '8', ['systemd-modules-load'], 'HAVE_KMOD'],
  ['systemd-mount', '1', ['systemd-umount'], ''],
+ ['systemd-mountfsd.service', '8', ['systemd-mountfsd'], 'ENABLE_MOUNTFSD'],
  ['systemd-network-generator.service', '8', ['systemd-network-generator'], ''],
  ['systemd-networkd-wait-online.service',
   '8',
