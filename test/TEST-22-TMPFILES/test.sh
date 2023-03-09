@@ -17,6 +17,8 @@ test_append_files() {
 
         sed -i "s/systemd//g" "$initdir/etc/nsswitch.conf"
     fi
+
+    image_install setfacl
 }
 
 do_test "$@"
