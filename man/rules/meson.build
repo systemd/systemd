@@ -992,6 +992,7 @@ manpages = [
    'systemd-mkswap@.service'],
   ''],
  ['systemd-measure', '1', [], 'ENABLE_BOOTLOADER'],
+ ['systemd-mntfsd.service', '8', ['systemd-mntfsd'], 'ENABLE_MNTFSD'],
  ['systemd-modules-load.service', '8', ['systemd-modules-load'], 'HAVE_KMOD'],
  ['systemd-mount', '1', ['systemd-umount'], ''],
  ['systemd-network-generator.service', '8', ['systemd-network-generator'], ''],
