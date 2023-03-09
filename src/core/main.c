@@ -690,7 +690,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultTasksAccounting",       config_parse_bool,                  0,                        &arg_default_tasks_accounting     },
                 { "Manager", "DefaultTasksMax",              config_parse_tasks_max,             0,                        &arg_default_tasks_max            },
                 { "Manager", "DefaultMemoryPressureThresholdSec", config_parse_sec,              0,                        &arg_default_memory_pressure_threshold_usec },
-                { "Manager", "DefaultMemoryPressureWatch",   config_parse_cgroup_pressure_watch, 0,                        &arg_default_memory_pressure_watch },
+                { "Manager", "DefaultMemoryPressureWatch",   config_parse_memory_pressure_watch, 0,                        &arg_default_memory_pressure_watch },
                 { "Manager", "CtrlAltDelBurstAction",        config_parse_emergency_action,      arg_system,               &arg_cad_burst_action             },
                 { "Manager", "DefaultOOMPolicy",             config_parse_oom_policy,            0,                        &arg_default_oom_policy           },
                 { "Manager", "DefaultOOMScoreAdjust",        config_parse_oom_score_adjust,      0,                        NULL                              },
