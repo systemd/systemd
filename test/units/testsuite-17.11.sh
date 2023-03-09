@@ -147,12 +147,12 @@ test_syntax_error 'OWNER{a}="b"' 'Invalid attribute for OWNER.'
 test_syntax_error 'OWNER-="b"' 'Invalid operator for OWNER.'
 test_syntax_error 'OWNER!="b"' 'Invalid operator for OWNER.'
 test_syntax_error 'OWNER+="0"' "OWNER key takes '=' or ':=' operator, assuming '='."
-test_syntax_error 'OWNER="nosuchuser"' "Unknown user 'nosuchuser', ignoring"
+test_syntax_error 'OWNER=":nosuchuser:"' "Unknown user ':nosuchuser:', ignoring"
 test_syntax_error 'GROUP{a}="b"' 'Invalid attribute for GROUP.'
 test_syntax_error 'GROUP-="b"' 'Invalid operator for GROUP.'
 test_syntax_error 'GROUP!="b"' 'Invalid operator for GROUP.'
 test_syntax_error 'GROUP+="0"' "GROUP key takes '=' or ':=' operator, assuming '='."
-test_syntax_error 'GROUP="nosuchuser"' "Unknown group 'nosuchuser', ignoring"
+test_syntax_error 'GROUP=":nosuchgroup:"' "Unknown group ':nosuchgroup:', ignoring"
 test_syntax_error 'MODE{a}="b"' 'Invalid attribute for MODE.'
 test_syntax_error 'MODE-="b"' 'Invalid operator for MODE.'
 test_syntax_error 'MODE!="b"' 'Invalid operator for MODE.'
