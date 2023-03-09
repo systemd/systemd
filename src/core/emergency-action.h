@@ -3,6 +3,8 @@
 
 #include <errno.h>
 
+#include "runtime-scope.h"
+
 typedef enum EmergencyAction {
         EMERGENCY_ACTION_NONE,
         EMERGENCY_ACTION_REBOOT,
@@ -33,4 +35,4 @@ void emergency_action(Manager *m,
 const char* emergency_action_to_string(EmergencyAction i) _const_;
 EmergencyAction emergency_action_from_string(const char *s) _pure_;
 
-int parse_emergency_action(const char *value, bool system, EmergencyAction *ret);
+int parse_emergency_action(const char *value, RuntimeScope runtime_scope, EmergencyAction *ret);
