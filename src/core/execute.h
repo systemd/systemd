@@ -5,6 +5,7 @@ typedef struct ExecStatus ExecStatus;
 typedef struct ExecCommand ExecCommand;
 typedef struct ExecContext ExecContext;
 typedef struct ExecSharedRuntime ExecSharedRuntime;
+typedef struct ExecRuntime ExecRuntime;
 typedef struct ExecParameters ExecParameters;
 typedef struct Manager Manager;
 
@@ -122,6 +123,10 @@ struct ExecSharedRuntime {
 
         /* Like netns_storage_socket, but the file descriptor is referring to the IPC namespace. */
         int ipcns_storage_socket[2];
+};
+
+struct ExecRuntime {
+        ExecSharedRuntime *shared;
 };
 
 typedef enum ExecDirectoryType {
@@ -439,7 +444,7 @@ int exec_spawn(Unit *unit,
                ExecCommand *command,
                const ExecContext *context,
                const ExecParameters *exec_params,
-               ExecSharedRuntime *runtime,
+               ExecRuntime *runtime,
                DynamicCreds *dynamic_creds,
                const CGroupContext *cgroup_context,
                pid_t *ret);
@@ -486,11 +491,17 @@ void exec_status_reset(ExecStatus *s);
 int exec_shared_runtime_acquire(Manager *m, const ExecContext *c, const char *name, bool create, ExecSharedRuntime **ret);
 ExecSharedRuntime *exec_shared_runtime_destroy(ExecSharedRuntime *r);
 ExecSharedRuntime *exec_shared_runtime_unref(ExecSharedRuntime *r);
+DEFINE_TRIVIAL_CLEANUP_FUNC(ExecSharedRuntime*, exec_shared_runtime_unref);
 
 int exec_shared_runtime_serialize(const Manager *m, FILE *f, FDSet *fds);
 int exec_shared_runtime_deserialize_compat(Unit *u, const char *key, const char *value, FDSet *fds);
 int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds);
 void exec_shared_runtime_vacuum(Manager *m);
+
+int exec_runtime_make(ExecSharedRuntime *shared, ExecRuntime **ret);
+ExecRuntime* exec_runtime_free(ExecRuntime *rt);
+DEFINE_TRIVIAL_CLEANUP_FUNC(ExecRuntime*, exec_runtime_free);
+ExecRuntime* exec_runtime_destroy(ExecRuntime *rt);
 
 void exec_params_clear(ExecParameters *p);
 
@@ -533,5 +544,5 @@ ExecDirectoryType exec_directory_type_symlink_from_string(const char *s) _pure_;
 const char* exec_resource_type_to_string(ExecDirectoryType i) _const_;
 ExecDirectoryType exec_resource_type_from_string(const char *s) _pure_;
 
-bool exec_needs_mount_namespace(const ExecContext *context, const ExecParameters *params, const ExecSharedRuntime *runtime);
+bool exec_needs_mount_namespace(const ExecContext *context, const ExecParameters *params, const ExecRuntime *runtime);
 bool exec_needs_network_namespace(const ExecContext *context);

@@ -383,7 +383,7 @@ static void service_done(Unit *u) {
         s->pid_file = mfree(s->pid_file);
         s->status_text = mfree(s->status_text);
 
-        s->exec_runtime = exec_shared_runtime_unref(s->exec_runtime);
+        s->exec_runtime = exec_runtime_free(s->exec_runtime);
         exec_command_free_array(s->exec_command, _SERVICE_EXEC_COMMAND_MAX);
         s->control_command = NULL;
         s->main_command = NULL;
@@ -1925,7 +1925,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         s->notify_access_override = _NOTIFY_ACCESS_INVALID;
 
         /* We want fresh tmpdirs in case service is started again immediately */
-        s->exec_runtime = exec_shared_runtime_destroy(s->exec_runtime);
+        s->exec_runtime = exec_runtime_destroy(s->exec_runtime);
 
         /* Also, remove the runtime directory */
         unit_destroy_runtime_data(UNIT(s), &s->exec_context);
