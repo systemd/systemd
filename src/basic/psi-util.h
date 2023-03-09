@@ -31,5 +31,5 @@ int is_pressure_supported(void);
 
 /* Default parameters for memory pressure watch logic in sd-event and PID 1 */
 #define MEMORY_PRESSURE_DEFAULT_TYPE "some"
-#define MEMORY_PRESSURE_DEFAULT_THRESHOLD_USEC (100 * USEC_PER_MSEC)
-#define MEMORY_PRESSURE_DEFAULT_WINDOW_USEC USEC_PER_SEC
+#define MEMORY_PRESSURE_DEFAULT_THRESHOLD_USEC (200 * USEC_PER_MSEC)
+#define MEMORY_PRESSURE_DEFAULT_WINDOW_USEC (2 * USEC_PER_SEC)
