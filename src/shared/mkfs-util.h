@@ -20,3 +20,5 @@ int make_filesystem(
                 bool discard,
                 uint64_t sector_size,
                 char * const *extra_mkfs_args);
+
+int mkfs_options_from_env(const char *component, const char *fstype, char ***ret);
