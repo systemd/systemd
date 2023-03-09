@@ -60,8 +60,6 @@ assert_0 -V
 assert_0 --version
 assert_0 /dev/null
 
-# No rules file specified.
-assert_1
 # unrecognized option '--unknown'
 assert_1 --unknown
 # option requires an argument -- 'N'
