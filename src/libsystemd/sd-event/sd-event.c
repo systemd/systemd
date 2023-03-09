@@ -2005,7 +2005,9 @@ _public_ int sd_event_add_memory_pressure(
                  *     some 100000 1000000
                  *     full 100000 1000000
                  *
-                 * We'll default to the middle level that both agree on */
+                 * We'll default to the middle level that both agree on. Except we do it on a 2s window
+                 * (i.e. 200ms per 2s, rather than 100ms per 1s), because that's the window duration the
+                 * kernel will allow us to do unprivileged, also in the future. */
                 if (asprintf((char**) &write_buffer,
                              "%s " USEC_FMT " " USEC_FMT,
                              MEMORY_PRESSURE_DEFAULT_TYPE,

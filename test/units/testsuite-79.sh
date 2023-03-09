@@ -43,7 +43,7 @@ test -w "$MEMORY_PRESSURE_WATCH"
 
 ls -al "$MEMORY_PRESSURE_WATCH"
 
-EXPECTED="$(echo -n -e "some 123000 1000000\x00" | base64)"
+EXPECTED="$(echo -n -e "some 123000 2000000\x00" | base64)"
 
 test "$EXPECTED" = "$MEMORY_PRESSURE_WRITE"
 
