@@ -297,12 +297,14 @@ static inline int __coverity_check_and_return__(int condition) {
              p != (typeof(p)) POINTER_MAX;                                               \
              p = *(++_l))
 
-#define _FOREACH_ARRAY(i, array, num, m, s)                             \
-        for (typeof(num) m = (num); m > 0; m = 0)                       \
-                for (typeof(array[0]) *s = (array), *i = s; s && i < s + m; i++)
+#define _FOREACH_ARRAY(i, array, num, m, end)                           \
+        for (typeof(array[0]) *i = (array), *end = ({                   \
+                                typeof(num) m = (num);                  \
+                                (i && m > 0) ? i + m : NULL;            \
+                        }); end && i < end; i++)
 
 #define FOREACH_ARRAY(i, array, num)                                    \
-        _FOREACH_ARRAY(i, array, num, UNIQ_T(m, UNIQ), UNIQ_T(s, UNIQ))
+        _FOREACH_ARRAY(i, array, num, UNIQ_T(m, UNIQ), UNIQ_T(end, UNIQ))
 
 #define DEFINE_TRIVIAL_DESTRUCTOR(name, type, func)             \
         static inline void name(type *p) {                      \
