@@ -1940,12 +1940,12 @@ EOF
 <!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
         "https://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
 <busconfig>
-    <limit name="service_start_timeout">60000</limit>
+    <limit name="service_start_timeout">120000</limit>
 </busconfig>
 EOF
         # Bump the client-side timeout in sd-bus as well
         mkdir -p "$initdir/etc/systemd/system.conf.d"
-        echo -e '[Manager]\nDefaultEnvironment=SYSTEMD_BUS_TIMEOUT=60' >"$initdir/etc/systemd/system.conf.d/bus-timeout.conf"
+        echo -e '[Manager]\nDefaultEnvironment=SYSTEMD_BUS_TIMEOUT=120' >"$initdir/etc/systemd/system.conf.d/bus-timeout.conf"
     fi
 }
 
