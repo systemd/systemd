@@ -70,6 +70,7 @@ shared_sources = files(
         'firewall-util.c',
         'format-table.c',
         'fstab-util.c',
+        'fsverity-util.c',
         'generator.c',
         'geneve-util.c',
         'gpt.c',
