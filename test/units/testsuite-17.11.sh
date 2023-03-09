@@ -59,6 +59,7 @@ assert_0 --help
 assert_0 -V
 assert_0 --version
 assert_0 /dev/null
+assert_0 --root="${workdir}"
 
 # unrecognized option '--unknown'
 assert_1 --unknown
@@ -74,6 +75,14 @@ assert_1 --resolve-names=now
 assert_1 .
 # Failed to parse rules file .: Is a directory
 assert_1 /dev/null . /dev/null
+# Combination of --root= and FILEs is not supported.
+assert_1 --root="${workdir}" /dev/null
+# open: $PWD/nosuchdir: No such file or directory
+assert_1 --root=nosuchdir
+
+rules_dir='etc/udev/rules.d'
+mkdir -p "$rules_dir"
+cd "$rules_dir"
 
 # UDEV_LINE_SIZE 16384
 printf '%16383s\n' ' ' >"${rules}"
@@ -246,5 +255,11 @@ ${rules}:3 LABEL="b" is unused.
 ${rules}: udev rules check failed
 EOF
 assert_1 "${rules}"
+
+# udevadm verify --root
+sed "s|sample-[0-9]*.rules|$workdir/$rules_dir/&|" sample-*.exp >"${exp}"
+cd -
+mv "${rules_dir}/${exp}" .
+assert_1 --root="${workdir}"
 
 exit 0
