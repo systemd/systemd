@@ -994,6 +994,7 @@ manpages = [
    'systemd-mkswap@.service'],
   ''],
  ['systemd-measure', '1', [], 'HAVE_TPM2'],
+ ['systemd-mountfsd.service', '8', ['systemd-mountfsd'], 'ENABLE_MOUNTFSD'],
  ['systemd-modules-load.service', '8', ['systemd-modules-load'], 'HAVE_KMOD'],
  ['systemd-mount', '1', ['systemd-umount'], ''],
  ['systemd-network-generator.service', '8', ['systemd-network-generator'], ''],
