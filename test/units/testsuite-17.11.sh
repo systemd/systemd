@@ -75,6 +75,21 @@ assert_1 .
 # Failed to parse rules file .: Is a directory
 assert_1 /dev/null . /dev/null
 
+rules_dir='etc/udev/rules.d'
+mkdir -p "${rules_dir}"
+# No rules files found in $PWD
+assert_1 --root="${workdir}"
+
+touch "${rules_dir}/empty.rules"
+assert_0 --root="${workdir}"
+
+# Combination of --root= and FILEs is not supported.
+assert_1 --root="${workdir}" /dev/null
+# No rules files found in nosuchdir
+assert_1 --root=nosuchdir
+
+cd "${rules_dir}"
+
 # UDEV_LINE_SIZE 16384
 printf '%16383s\n' ' ' >"${rules}"
 assert_0 "${rules}"
@@ -246,5 +261,10 @@ ${rules}:3 LABEL="b" is unused.
 ${rules}: udev rules check failed
 EOF
 assert_1 "${rules}"
+
+# udevadm verify --root
+sed "s|sample-[0-9]*.rules|${workdir}/${rules_dir}/&|" sample-*.exp >"${workdir}/${exp}"
+cd -
+assert_1 --root="${workdir}"
 
 exit 0
