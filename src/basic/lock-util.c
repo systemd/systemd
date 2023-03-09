@@ -10,7 +10,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
-#include "lockfile-util.h"
+#include "lock-util.h"
 #include "macro.h"
 #include "missing_fcntl.h"
 #include "path-util.h"
@@ -23,13 +23,7 @@ int make_lock_file(const char *p, int operation, LockFile *ret) {
         assert(p);
         assert(ret);
 
-        /*
-         * We use UNPOSIX locks if they are available. They have nice semantics, and are mostly compatible
-         * with NFS. However, they are only available on new kernels. When we detect we are running on an
-         * older kernel, then we fall back to good old BSD locks. They also have nice semantics, but are
-         * slightly problematic on NFS, where they are upgraded to POSIX locks, even though locally they are
-         * orthogonal to POSIX locks.
-         */
+        /* We use UNPOSIX locks as they have nice semantics, and are mostly compatible with NFS. */
 
         t = strdup(p);
         if (!t)
@@ -47,13 +41,8 @@ int make_lock_file(const char *p, int operation, LockFile *ret) {
                         return -errno;
 
                 r = fcntl(fd, (operation & LOCK_NB) ? F_OFD_SETLK : F_OFD_SETLKW, &fl);
-                if (r < 0) {
-                        /* If the kernel is too old, use good old BSD locks */
-                        if (errno == EINVAL || ERRNO_IS_NOT_SUPPORTED(errno))
-                                r = flock(fd, operation);
-                        if (r < 0)
-                                return errno == EAGAIN ? -EBUSY : -errno;
-                }
+                if (r < 0)
+                        return errno == EAGAIN ? -EBUSY : -errno;
 
                 /* If we acquired the lock, let's check if the file still exists in the file system. If not,
                  * then the previous exclusive owner removed it and then closed it. In such a case our
@@ -99,8 +88,6 @@ int make_lock_file_for(const char *p, int operation, LockFile *ret) {
 }
 
 void release_lock_file(LockFile *f) {
-        int r;
-
         if (!f)
                 return;
 
@@ -117,11 +104,7 @@ void release_lock_file(LockFile *f) {
                                 .l_whence = SEEK_SET,
                         };
 
-                        r = fcntl(f->fd, F_OFD_SETLK, &fl);
-                        if (r < 0 && (errno == EINVAL || ERRNO_IS_NOT_SUPPORTED(errno)))
-                                r = flock(f->fd, LOCK_EX|LOCK_NB);
-
-                        if (r >= 0)
+                        if (fcntl(f->fd, F_OFD_SETLK, &fl) >= 0)
                                 f->operation = LOCK_EX|LOCK_NB;
                 }
 
@@ -133,4 +116,57 @@ void release_lock_file(LockFile *f) {
 
         f->fd = safe_close(f->fd);
         f->operation = 0;
+}
+
+int lockf_sane(int fd, int cmd, off_t len) {
+        struct flock fl = { .l_whence = SEEK_CUR, .l_len = len };
+
+        /* A version of lockf() that uses open file description locks instead of regular POSIX locks. OFD
+         * locks are per file descriptor instead of process wide. This function doesn't support F_TEST for
+         * now until we have a use case for it somewhere. */
+
+        assert(fd >= 0);
+
+        switch (cmd) {
+        case F_ULOCK:
+                fl.l_type = F_UNLCK;
+                cmd = F_OFD_SETLK;
+                break;
+        case F_LOCK:
+                fl.l_type = F_WRLCK;
+                cmd = F_OFD_SETLKW;
+                break;
+        case F_TLOCK:
+                fl.l_type = F_WRLCK;
+                cmd = F_OFD_SETLK;
+                break;
+        default:
+                return -EINVAL;
+        }
+
+        return RET_NERRNO(fcntl(fd, cmd, &fl));
+}
+
+int lockfp(int fd, int *fd_lock) {
+        int r;
+
+        assert(fd >= 0);
+        assert(fd_lock);
+
+        r = lockf_sane(fd, F_LOCK, 0);
+        if (r < 0)
+                return r;
+
+        *fd_lock = fd;
+        return 0;
+}
+
+void unlockfp(int *fd_lock) {
+        assert(fd_lock);
+
+        if (*fd_lock < 0)
+                return;
+
+        (void) lockf_sane(*fd_lock, F_ULOCK, 0);
+        *fd_lock = -EBADF;
 }
