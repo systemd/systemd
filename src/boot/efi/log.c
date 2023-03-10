@@ -79,18 +79,21 @@ void __stack_chk_fail(void) {
 void __stack_chk_fail_local(void) __attribute((alias("__stack_chk_fail")));
 
 /* Called by libgcc for some fatal errors like integer overflow with -ftrapv. */
-_noreturn_ void abort(void) {
+_noreturn_ void abort(void);
+void abort(void) {
         panic(u"systemd-boot: Unknown error, halting.");
 }
 
 #if defined(__ARM_EABI__)
 /* These override the (weak) div0 handlers from libgcc as they would otherwise call raise() instead. */
+_noreturn_ int __aeabi_idiv0(int return_value);
+_noreturn_ long long __aeabi_ldiv0(long long return_value);
 
-_used_ _noreturn_ int __aeabi_idiv0(int return_value) {
+_used_ int __aeabi_idiv0(int return_value) {
         panic(u"systemd-boot: Division by zero, halting.");
 }
 
-_used_ _noreturn_ long long __aeabi_ldiv0(long long return_value) {
+_used_ long long __aeabi_ldiv0(long long return_value) {
         panic(u"systemd-boot: Division by zero, halting.");
 }
 #endif
