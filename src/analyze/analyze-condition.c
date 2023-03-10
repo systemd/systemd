@@ -72,7 +72,7 @@ static int log_helper(void *userdata, int level, int error, const char *file, in
         return r;
 }
 
-static int verify_conditions(char **lines, LookupScope scope, const char *unit, const char *root) {
+static int verify_conditions(char **lines, RuntimeScope scope, const char *unit, const char *root) {
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *u;
         int r, q = 1;
@@ -137,7 +137,7 @@ static int verify_conditions(char **lines, LookupScope scope, const char *unit, 
 int verb_condition(int argc, char *argv[], void *userdata) {
         int r;
 
-        r = verify_conditions(strv_skip(argv, 1), arg_scope, arg_unit, arg_root);
+        r = verify_conditions(strv_skip(argv, 1), arg_runtime_scope, arg_unit, arg_root);
         if (r < 0)
                 return r;
 

@@ -67,9 +67,9 @@ int acquire_boot_times(sd_bus *bus, BootTimes **ret) {
                                        "Please try again later.\n"
                                        "Hint: Use 'systemctl%s list-jobs' to see active jobs",
                                        times.finish_time,
-                                       arg_scope == LOOKUP_SCOPE_SYSTEM ? "" : " --user");
+                                       arg_runtime_scope == RUNTIME_SCOPE_SYSTEM ? "" : " --user");
 
-        if (arg_scope == LOOKUP_SCOPE_SYSTEM && times.security_start_time > 0) {
+        if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM && times.security_start_time > 0) {
                 /* security_start_time is set when systemd is not running under container environment. */
                 if (times.initrd_time > 0)
                         times.kernel_done_time = times.initrd_time;
