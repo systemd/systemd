@@ -951,13 +951,7 @@ static int action_mount(DissectedImage *m, LoopDevice *d) {
 
         assert(m);
         assert(d);
-
-        r = dissected_image_decrypt_interactively(
-                        m, NULL,
-                        &arg_verity_settings,
-                        arg_flags);
-        if (r < 0)
-                return r;
+        assert(arg_action == ACTION_MOUNT);
 
         r = dissected_image_mount_and_warn(m, arg_path, UID_INVALID, UID_INVALID, arg_flags);
         if (r < 0)
@@ -1160,13 +1154,7 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
 
         assert(m);
         assert(d);
-
-        r = dissected_image_decrypt_interactively(
-                        m, NULL,
-                        &arg_verity_settings,
-                        arg_flags);
-        if (r < 0)
-                return r;
+        assert(IN_SET(arg_action, ACTION_LIST, ACTION_MTREE, ACTION_COPY_FROM, ACTION_COPY_TO));
 
         r = detach_mount_namespace();
         if (r < 0)
@@ -1196,7 +1184,9 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
         if (r < 0)
                 return log_error_errno(r, "Failed to relinquish DM and loopback block devices: %m");
 
-        if (arg_action == ACTION_COPY_FROM) {
+        switch (arg_action) {
+
+        case ACTION_COPY_FROM: {
                 _cleanup_close_ int source_fd = -EBADF, target_fd = -EBADF;
 
                 source_fd = chase_symlinks_and_open(arg_source, mounted_dir, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
@@ -1240,8 +1230,10 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
                 (void) copy_times(source_fd, target_fd, 0);
 
                 /* When this is a regular file we don't copy ownership! */
+                return 0;
+        }
 
-        } else if (arg_action == ACTION_COPY_TO) {
+        case ACTION_COPY_TO: {
                 _cleanup_close_ int source_fd = -EBADF, target_fd = -EBADF, dfd = -EBADF;
                 _cleanup_free_ char *dn = NULL, *bn = NULL;
                 bool is_dir;
@@ -1317,8 +1309,11 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
                 (void) copy_times(source_fd, target_fd, 0);
 
                 /* When this is a regular file we don't copy ownership! */
+                return 0;
+        }
 
-        } else {
+        case ACTION_LIST:
+        case ACTION_MTREE: {
                 _cleanup_close_ int dfd = -EBADF;
 
                 dfd = open(mounted_dir, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
@@ -1335,9 +1330,12 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
                         assert_not_reached();
                 if (r < 0)
                         return log_error_errno(r, "Failed to list image: %m");
+                return 0;
         }
 
-        return 0;
+        default:
+                assert_not_reached();
+        }
 }
 
 static int action_umount(const char *path) {
@@ -1406,12 +1404,9 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
         _cleanup_free_ char *temp = NULL;
         int r, rcode;
 
-        r = dissected_image_decrypt_interactively(
-                        m, NULL,
-                        &arg_verity_settings,
-                        arg_flags);
-        if (r < 0)
-                return r;
+        assert(m);
+        assert(d);
+        assert(arg_action == ACTION_WITH);
 
         r = tempfn_random_child(NULL, program_invocation_short_name, &temp);
         if (r < 0)
@@ -1661,12 +1656,20 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        if (arg_action == ACTION_UMOUNT)
+        switch (arg_action) {
+        case ACTION_UMOUNT:
                 return action_umount(arg_path);
-        if (arg_action == ACTION_DETACH)
+
+        case ACTION_DETACH:
                 return action_detach(arg_image);
-        if (arg_action == ACTION_DISCOVER)
+
+        case ACTION_DISCOVER:
                 return action_discover();
+
+        default:
+                /* All other actions need the image dissected */
+                break;
+        }
 
         r = verity_settings_load(
                         &arg_verity_settings,
@@ -1714,6 +1717,15 @@ static int run(int argc, char *argv[]) {
                         &arg_verity_settings);
         if (r < 0)
                 return log_error_errno(r, "Failed to load verity signature partition: %m");
+
+        if (arg_action != ACTION_DISSECT) {
+                r = dissected_image_decrypt_interactively(
+                                m, NULL,
+                                &arg_verity_settings,
+                                arg_flags);
+                if (r < 0)
+                        return r;
+        }
 
         switch (arg_action) {
 
