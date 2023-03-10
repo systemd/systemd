@@ -18,8 +18,10 @@
 int make_lock_file(const char *p, int operation, LockFile *ret) {
         _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *t = NULL;
+        int r;
 
         assert(p);
+        assert(IN_SET(operation & ~LOCK_NB, LOCK_EX, LOCK_SH));
         assert(ret);
 
         /* We use UNPOSIX locks as they have nice semantics, and are mostly compatible with NFS. */
@@ -29,18 +31,15 @@ int make_lock_file(const char *p, int operation, LockFile *ret) {
                 return -ENOMEM;
 
         for (;;) {
-                struct flock fl = {
-                        .l_type = (operation & ~LOCK_NB) == LOCK_EX ? F_WRLCK : F_RDLCK,
-                        .l_whence = SEEK_SET,
-                };
                 struct stat st;
 
                 fd = open(p, O_CREAT|O_RDWR|O_NOFOLLOW|O_CLOEXEC|O_NOCTTY, 0600);
                 if (fd < 0)
                         return -errno;
 
-                if (fcntl(fd, (operation & LOCK_NB) ? F_OFD_SETLK : F_OFD_SETLKW, &fl) < 0)
-                        return errno == EAGAIN ? -EBUSY : -errno;
+                r = unposix_lock(fd, operation);
+                if (r < 0)
+                        return r == -EAGAIN ? -EBUSY : r;
 
                 /* If we acquired the lock, let's check if the file still exists in the file system. If not,
                  * then the previous exclusive owner removed it and then closed it. In such a case our
@@ -96,15 +95,9 @@ void release_lock_file(LockFile *f) {
                  * owner, we can try becoming it. */
 
                 if (f->fd >= 0 &&
-                    (f->operation & ~LOCK_NB) == LOCK_SH) {
-                        static const struct flock fl = {
-                                .l_type = F_WRLCK,
-                                .l_whence = SEEK_SET,
-                        };
-
-                        if (fcntl(f->fd, F_OFD_SETLK, &fl) >= 0)
-                                f->operation = LOCK_EX|LOCK_NB;
-                }
+                    (f->operation & ~LOCK_NB) == LOCK_SH &&
+                    unposix_lock(f->fd, LOCK_EX|LOCK_NB) >= 0)
+                        f->operation = LOCK_EX|LOCK_NB;
 
                 if ((f->operation & ~LOCK_NB) == LOCK_EX)
                         unlink_noerrno(f->path);
