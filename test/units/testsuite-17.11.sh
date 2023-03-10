@@ -262,6 +262,19 @@ ${rules}: udev rules check failed
 EOF
 assert_1 "${rules}"
 
+cat >"${rules}" <<'EOF'
+GOTO="a"
+LABEL="a", LABEL="b"
+EOF
+cat >"${exp}" <<EOF
+${rules}:2 Contains multiple LABEL keys, ignoring LABEL="a".
+${rules}:1 GOTO="a" has no matching label, ignoring
+${rules}:1 The line takes no effect any more, dropping
+${rules}:2 LABEL="b" is unused.
+${rules}: udev rules check failed
+EOF
+assert_1 "${rules}"
+
 # udevadm verify --root
 sed "s|sample-[0-9]*.rules|${workdir}/${rules_dir}/&|" sample-*.exp >"${workdir}/${exp}"
 cd -
