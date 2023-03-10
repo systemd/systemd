@@ -10,8 +10,23 @@ _noreturn_ static void freeze(void) {
                 BS->Stall(60 * 1000 * 1000);
 }
 
+_noreturn_ static void panic(const char16_t *message) {
+        if (ST->ConOut->Mode->CursorColumn > 0)
+                ST->ConOut->OutputString(ST->ConOut, (char16_t *) u"\r\n");
+        ST->ConOut->SetAttribute(ST->ConOut, EFI_TEXT_ATTR(EFI_LIGHTRED, EFI_BLACK));
+        ST->ConOut->OutputString(ST->ConOut, (char16_t *) message);
+        freeze();
+}
+
 void efi_assert(const char *expr, const char *file, unsigned line, const char *function) {
-        log_error("systemd-boot assertion '%s' failed at %s:%u@%s. Halting.", expr, file, line, function);
+        static bool asserting = false;
+
+        /* Let's be paranoid. */
+        if (asserting)
+                panic(u"systemd-boot: Nested assertion failure, halting.");
+
+        asserting = true;
+        log_error("systemd-boot: Assertion '%s' failed at %s:%u@%s, halting.", expr, file, line, function);
         freeze();
 }
 
@@ -48,12 +63,10 @@ void log_wait(void) {
 /* These override the (weak) div0 handlers from libgcc as they would otherwise call raise() instead. */
 
 _used_ _noreturn_ int __aeabi_idiv0(int return_value) {
-        log_error("Division by zero.");
-        freeze();
+        panic(u"systemd-boot: Division by zero, halting.");
 }
 
 _used_ _noreturn_ long long __aeabi_ldiv0(long long return_value) {
-        log_error("Division by zero.");
-        freeze();
+        panic(u"systemd-boot: Division by zero, halting.");
 }
 #endif
