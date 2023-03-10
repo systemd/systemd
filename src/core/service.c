@@ -55,6 +55,8 @@ static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_START] = UNIT_ACTIVATING,
         [SERVICE_START_POST] = UNIT_ACTIVATING,
         [SERVICE_RUNNING] = UNIT_ACTIVE,
+        [SERVICE_PASSIVATE] = UNIT_ACTIVE,
+        [SERVICE_RUNNING_PASSIVE]= UNIT_ACTIVE, /* d'oh */
         [SERVICE_EXITED] = UNIT_ACTIVE,
         [SERVICE_RELOAD] = UNIT_RELOADING,
         [SERVICE_RELOAD_SIGNAL] = UNIT_RELOADING,
@@ -85,6 +87,8 @@ static const UnitActiveState state_translation_table_idle[_SERVICE_STATE_MAX] = 
         [SERVICE_START] = UNIT_ACTIVE,
         [SERVICE_START_POST] = UNIT_ACTIVE,
         [SERVICE_RUNNING] = UNIT_ACTIVE,
+        [SERVICE_PASSIVATE] = UNIT_ACTIVE,
+        [SERVICE_RUNNING_PASSIVE]= UNIT_ACTIVE, /* d'oh */
         [SERVICE_EXITED] = UNIT_ACTIVE,
         [SERVICE_RELOAD] = UNIT_RELOADING,
         [SERVICE_RELOAD_SIGNAL] = UNIT_RELOADING,
@@ -1254,6 +1258,7 @@ static void service_set_state(Service *s, ServiceState state) {
                     SERVICE_START, SERVICE_START_POST,
                     SERVICE_RUNNING,
                     SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY,
+                    SERVICE_PASSIVATE, SERVICE_RUNNING_PASSIVE,
                     SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                     SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL)) {
                 service_unwatch_main_pid(s);
@@ -1263,6 +1268,7 @@ static void service_set_state(Service *s, ServiceState state) {
         if (!IN_SET(state,
                     SERVICE_CONDITION, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
                     SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY,
+                    SERVICE_PASSIVATE, SERVICE_RUNNING_PASSIVE,
                     SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                     SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
                     SERVICE_CLEANING)) {
@@ -2228,6 +2234,45 @@ fail:
                 service_enter_dead(s, SERVICE_FAILURE_RESOURCES, /* allow_restart= */ true);
 }
 
+static void service_enter_passivate(Service *s, ServiceResult f) {
+        int r;
+        // XXX refactor common parts with service_enter_stop?
+        assert(s);
+
+        if (s->result == SERVICE_SUCCESS)
+                s->result = f;
+
+        service_unwatch_control_pid(s);
+        (void) unit_enqueue_rewatch_pids(UNIT(s));
+
+        s->control_command = s->exec_command[SERVICE_EXEC_RESTART_PRE];
+        if (s->control_command) {
+                s->control_command_id = SERVICE_EXEC_RESTART_PRE;
+
+                r = service_spawn(s,
+                                  s->control_command,
+                                  s->timeout_stop_usec, // XXX document or change this, see also service_run_next_control
+                                  EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_SETENV_RESULT|EXEC_CONTROL_CGROUP,
+                                  &s->control_pid);
+                if (r < 0)
+                        goto fail;
+
+        } else {
+                /* implicit passivation, e.g. from a successor generation */
+                r = service_arm_timer(s, /* relative= */ true, s->timeout_stop_usec);
+                // TODO handle the timer
+                if (r < 0)
+                        goto fail;
+        }
+        service_set_state(s, SERVICE_PASSIVATE);
+
+        return;
+
+fail:
+        log_unit_warning_errno(UNIT(s), r, "Failed to run 'passivate' task: %m");
+        service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_RESOURCES);
+}
+
 static void service_enter_stop_by_notify(Service *s) {
         int r;
 
@@ -2330,6 +2375,23 @@ static void service_enter_running(Service *s, ServiceResult f) {
 
         } else if (s->remain_after_exit)
                 service_set_state(s, SERVICE_EXITED);
+        else
+                service_enter_stop(s, SERVICE_SUCCESS);
+}
+
+static void service_enter_running_passive(Service *s, ServiceResult f) {
+        assert(s);
+
+        if (s->result == SERVICE_SUCCESS)
+                s->result = f;
+
+        service_unwatch_control_pid(s);
+
+        if (s->result != SERVICE_SUCCESS)
+                service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
+        else if (service_good(s))
+                service_set_state(s, SERVICE_RUNNING_PASSIVE);
+                // TODO passive state timeout
         else
                 service_enter_stop(s, SERVICE_SUCCESS);
 }
@@ -2701,6 +2763,7 @@ fail:
 }
 
 static void service_run_next_control(Service *s) {
+        // TODO adjust for restart command
         usec_t timeout;
         int r;
 
@@ -2866,6 +2929,7 @@ static int service_stop(Unit *u) {
         case SERVICE_RELOAD_SIGNAL:
         case SERVICE_RELOAD_NOTIFY:
         case SERVICE_STOP_WATCHDOG:
+        case SERVICE_PASSIVATE:
                 /* If there's already something running we go directly into kill mode. */
                 service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_SUCCESS);
                 return 0;
@@ -2877,6 +2941,7 @@ static int service_stop(Unit *u) {
 
         case SERVICE_RUNNING:
         case SERVICE_EXITED:
+        case SERVICE_RUNNING_PASSIVE:
                 service_enter_stop(s, SERVICE_SUCCESS);
                 return 1;
 
@@ -3685,6 +3750,11 @@ static void service_notify_cgroup_empty_event(Unit *u) {
                 service_enter_running(s, SERVICE_SUCCESS);
                 break;
 
+        case SERVICE_RUNNING_PASSIVE:
+                /* same as above, XXX refactor?, can it be really empty? */
+                service_enter_running_passive(s, SERVICE_SUCCESS);
+                break;
+
         case SERVICE_STOP_WATCHDOG:
         case SERVICE_STOP_SIGTERM:
         case SERVICE_STOP_SIGKILL:
@@ -3904,6 +3974,10 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                         service_enter_running(s, f);
                                         break;
 
+                                case SERVICE_RUNNING_PASSIVE:
+                                        service_enter_running_passive(s, f);
+                                        break;
+
                                 case SERVICE_STOP_WATCHDOG:
                                 case SERVICE_STOP_SIGTERM:
                                 case SERVICE_STOP_SIGKILL:
@@ -4085,6 +4159,10 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                         service_set_state(s, SERVICE_RELOAD_NOTIFY);
                                 else
                                         service_enter_running(s, SERVICE_SUCCESS);
+                                break;
+
+                        case SERVICE_PASSIVATE:
+                                service_enter_running_passive(s, SERVICE_SUCCESS);
                                 break;
 
                         case SERVICE_STOP:
@@ -5124,6 +5202,7 @@ static const char* const service_exec_command_table[_SERVICE_EXEC_COMMAND_MAX] =
         [SERVICE_EXEC_START]      = "ExecStart",
         [SERVICE_EXEC_START_POST] = "ExecStartPost",
         [SERVICE_EXEC_RELOAD]     = "ExecReload",
+        [SERVICE_EXEC_RESTART_PRE]= "ExecRestartPre",
         [SERVICE_EXEC_STOP]       = "ExecStop",
         [SERVICE_EXEC_STOP_POST]  = "ExecStopPost",
 };

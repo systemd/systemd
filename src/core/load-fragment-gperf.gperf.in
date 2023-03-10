@@ -408,6 +408,7 @@ Service.ExecStartPre,                    config_parse_exec,                     
 Service.ExecStart,                       config_parse_exec,                           SERVICE_EXEC_START,                 offsetof(Service, exec_command)
 Service.ExecStartPost,                   config_parse_exec,                           SERVICE_EXEC_START_POST,            offsetof(Service, exec_command)
 Service.ExecReload,                      config_parse_exec,                           SERVICE_EXEC_RELOAD,                offsetof(Service, exec_command)
+Service.ExecRestartPre,                  config_parse_exec,                           SERVICE_EXEC_RESTART_PRE,           offsetof(Service, exec_command)
 Service.ExecStop,                        config_parse_exec,                           SERVICE_EXEC_STOP,                  offsetof(Service, exec_command)
 Service.ExecStopPost,                    config_parse_exec,                           SERVICE_EXEC_STOP_POST,             offsetof(Service, exec_command)
 Service.RestartSec,                      config_parse_sec,                            0,                                  offsetof(Service, restart_usec)

@@ -51,6 +51,7 @@ typedef enum ServiceExecCommand {
         SERVICE_EXEC_START,
         SERVICE_EXEC_START_POST,
         SERVICE_EXEC_RELOAD,
+        SERVICE_EXEC_RESTART_PRE,
         SERVICE_EXEC_STOP,
         SERVICE_EXEC_STOP_POST,
         _SERVICE_EXEC_COMMAND_MAX,
