@@ -591,8 +591,20 @@ static inline int missing_fsopen(const char *fsname, unsigned flags) {
 
 #if !HAVE_FSCONFIG
 
+#ifndef FSCONFIG_SET_FLAG
+#define FSCONFIG_SET_FLAG 0 /* Set parameter, supplying no value */
+#endif
+
 #ifndef FSCONFIG_SET_STRING
 #define FSCONFIG_SET_STRING 1 /* Set parameter, supplying a string value */
+#endif
+
+#ifndef FSCONFIG_SET_FD
+#define FSCONFIG_SET_FD 5 /* Set parameter, supplying an object by fd */
+#endif
+
+#ifndef FSCONFIG_CMD_CREATE
+#define FSCONFIG_CMD_CREATE 6 /* Invoke superblock creation */
 #endif
 
 static inline int missing_fsconfig(int fd, unsigned cmd, const char *key, const void *value, int aux) {
@@ -605,6 +617,26 @@ static inline int missing_fsconfig(int fd, unsigned cmd, const char *key, const 
 }
 
 #  define fsconfig missing_fsconfig
+#endif
+
+/* ======================================================================= */
+
+#if !HAVE_FSMOUNT
+
+#ifndef FSMOUNT_CLOEXEC
+#define FSMOUNT_CLOEXEC 0x00000001
+#endif
+
+static inline int missing_fsmount(int fd, unsigned flags, unsigned ms_flags) {
+#  if defined __NR_fsmount && __NR_fsmount >= 0
+        return syscall(__NR_fsmount, fd, flags, ms_flags);
+#  else
+        errno = ENOSYS;
+        return -1;
+#  endif
+}
+
+#  define fsmount missing_fsmount
 #endif
 
 /* ======================================================================= */
