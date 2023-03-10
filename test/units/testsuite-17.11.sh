@@ -5,70 +5,130 @@ set -o pipefail
 
 # Test for udevadm verify.
 
-udevadm verify -h
-udevadm verify --help
-udevadm verify -V
-udevadm verify --version
-udevadm verify /dev/null
+# shellcheck source=test/units/assert.sh
+. "$(dirname "$0")"/assert.sh
 
-# No rules file specified.
-(! udevadm verify)
+cleanup() {
+        cd /
+        rm -rf "${workdir}"
+        workdir=
+}
+
+workdir="$(mktemp -d)"
+trap cleanup EXIT
+cd "${workdir}"
+
+test_number=0
+rules=
+exp=
+err=
+next_test_number() {
+        : $((++test_number))
+
+        local num_str
+        num_str=$(printf %05d "${test_number}")
+
+        rules="sample-${num_str}.rules"
+        exp="sample-${num_str}.exp"
+        err="sample-${num_str}.err"
+}
+
+assert_0() {
+        assert_rc 0 udevadm verify "$@"
+        next_test_number
+}
+
+assert_1() {
+        if [ -f "${exp}" ]; then
+                set +e
+                udevadm verify "$@" 2>"${err}"
+                assert_eq "$?" 1
+                set -e
+                diff "${exp}" "${err}"
+        else
+                set +e
+                udevadm verify "$@"
+                assert_eq "$?" 1
+                set -e
+        fi
+        next_test_number
+}
+
+assert_0 -h
+assert_0 --help
+assert_0 -V
+assert_0 --version
+assert_0 /dev/null
+
 # unrecognized option '--unknown'
-(! udevadm verify --unknown)
+assert_1 --unknown
 # option requires an argument -- 'N'
-(! udevadm verify -N)
+assert_1 -N
 # --resolve-names= takes "early" or "never"
-(! udevadm verify -N now)
+assert_1 -N now
 # option '--resolve-names' requires an argument
-(! udevadm verify --resolve-names)
+assert_1 --resolve-names
 # --resolve-names= takes "early" or "never"
-(! udevadm verify --resolve-names=now)
+assert_1 --resolve-names=now
 # Failed to parse rules file .: Is a directory
-(! udevadm verify .)
+assert_1 .
 # Failed to parse rules file .: Is a directory
-(! udevadm verify /dev/null . /dev/null)
+assert_1 /dev/null . /dev/null
+
+rules_dir='etc/udev/rules.d'
+mkdir -p "${rules_dir}"
+# No rules files found in $PWD
+assert_1 --root="${workdir}"
+
+touch "${rules_dir}/empty.rules"
+assert_0 --root="${workdir}"
+
+# Combination of --root= and FILEs is not supported.
+assert_1 --root="${workdir}" /dev/null
+# No rules files found in nosuchdir
+assert_1 --root=nosuchdir
+
+cd "${rules_dir}"
 
 # UDEV_LINE_SIZE 16384
-printf '%16383s\n' ' ' >sample.rules
-udevadm verify sample.rules
+printf '%16383s\n' ' ' >"${rules}"
+assert_0 "${rules}"
 
-# Failed to parse rules file sample.rules: No buffer space available
-printf '%16384s\n' ' ' >sample.rules
-(! udevadm verify sample.rules)
+# Failed to parse rules file ${rules}: No buffer space available
+printf '%16384s\n' ' ' >"${rules}"
+echo "Failed to parse rules file ${rules}: No buffer space available" >"${exp}"
+assert_1 "${rules}"
 
-printf 'RUN+="/bin/true"%8175s\\\n' ' ' ' ' >sample.rules
-echo >>sample.rules
-udevadm verify sample.rules
+printf 'RUN+="/bin/true"%8175s\\\n' ' ' ' ' >"${rules}"
+echo >>"${rules}"
+assert_0 "${rules}"
 
-printf 'RUN+="/bin/true"%8176s\\\n #\n' ' ' ' ' >sample.rules
-echo >>sample.rules
-cat >exp <<'EOF'
-sample.rules:5 Line is too long, ignored
-sample.rules: udev rules check failed
+printf 'RUN+="/bin/true"%8176s\\\n #\n' ' ' ' ' >"${rules}"
+echo >>"${rules}"
+cat >"${exp}" <<EOF
+${rules}:5 Line is too long, ignored
+${rules}: udev rules check failed
 EOF
-(! udevadm verify sample.rules 2>err)
-diff exp err
+assert_1 "${rules}"
 
-printf '\\\n' >sample.rules
-cat >exp <<'EOF'
-sample.rules:1 Unexpected EOF after line continuation, line ignored
-sample.rules: udev rules check failed
+printf '\\\n' >"${rules}"
+cat >"${exp}" <<EOF
+${rules}:1 Unexpected EOF after line continuation, line ignored
+${rules}: udev rules check failed
 EOF
-(! udevadm verify sample.rules 2>err)
-diff exp err
+assert_1 "${rules}"
 
 test_syntax_error() {
-	local rule msg
-	rule="$1"; shift
-	msg="$1"; shift
+        local rule msg
+        rule="$1"; shift
+        msg="$1"; shift
 
-	printf '%s\n' "$rule" > sample.rules
-	cat >exp <<-EOF
-		sample.rules:1 $msg
-		sample.rules: udev rules check failed
-	EOF
-	(! udevadm verify sample.rules 2>err)
-	diff exp err
+        printf '%s\n' "${rule}" >"${rules}"
+        cat >"${exp}" <<EOF
+${rules}:1 ${msg}
+${rules}: udev rules check failed
+EOF
+        assert_1 "${rules}"
 }
 
 test_syntax_error '=' 'Invalid key/value pair, ignoring.'
@@ -147,12 +207,12 @@ test_syntax_error 'OWNER{a}="b"' 'Invalid attribute for OWNER.'
 test_syntax_error 'OWNER-="b"' 'Invalid operator for OWNER.'
 test_syntax_error 'OWNER!="b"' 'Invalid operator for OWNER.'
 test_syntax_error 'OWNER+="0"' "OWNER key takes '=' or ':=' operator, assuming '='."
-test_syntax_error 'OWNER="nosuchuser"' "Unknown user 'nosuchuser', ignoring"
+test_syntax_error 'OWNER=":nosuchuser:"' "Unknown user ':nosuchuser:', ignoring"
 test_syntax_error 'GROUP{a}="b"' 'Invalid attribute for GROUP.'
 test_syntax_error 'GROUP-="b"' 'Invalid operator for GROUP.'
 test_syntax_error 'GROUP!="b"' 'Invalid operator for GROUP.'
 test_syntax_error 'GROUP+="0"' "GROUP key takes '=' or ':=' operator, assuming '='."
-test_syntax_error 'GROUP="nosuchuser"' "Unknown group 'nosuchuser', ignoring"
+test_syntax_error 'GROUP=":nosuchgroup:"' "Unknown group ':nosuchgroup:', ignoring"
 test_syntax_error 'MODE{a}="b"' 'Invalid attribute for MODE.'
 test_syntax_error 'MODE-="b"' 'Invalid operator for MODE.'
 test_syntax_error 'MODE!="b"' 'Invalid operator for MODE.'
@@ -177,31 +237,47 @@ test_syntax_error 'LABEL=="b"' 'Invalid operator for LABEL.'
 test_syntax_error 'LABEL="b"' 'LABEL="b" is unused.'
 test_syntax_error 'a="b"' "Invalid key 'a'"
 
-echo 'GOTO="a"' >sample.rules
-cat >exp <<'EOF'
-sample.rules:1 GOTO="a" has no matching label, ignoring
-sample.rules:1 The line takes no effect any more, dropping
-sample.rules: udev rules check failed
+echo 'GOTO="a"' >"${rules}"
+cat >"${exp}" <<EOF
+${rules}:1 GOTO="a" has no matching label, ignoring
+${rules}:1 The line takes no effect any more, dropping
+${rules}: udev rules check failed
 EOF
-(! udevadm verify sample.rules 2>err)
-diff exp err
+assert_1 "${rules}"
 
-cat >sample.rules <<'EOF'
+cat >"${rules}" <<'EOF'
 GOTO="a"
 LABEL="a"
 EOF
-udevadm verify sample.rules
+assert_0 "${rules}"
 
-cat >sample.rules <<'EOF'
+cat >"${rules}" <<'EOF'
 GOTO="b"
 LABEL="b"
 LABEL="b"
 EOF
-cat >exp <<'EOF'
-sample.rules:3 LABEL="b" is unused.
-sample.rules: udev rules check failed
+cat >"${exp}" <<EOF
+${rules}:3 LABEL="b" is unused.
+${rules}: udev rules check failed
 EOF
-(! udevadm verify sample.rules 2>err)
-diff exp err
+assert_1 "${rules}"
+
+cat >"${rules}" <<'EOF'
+GOTO="a"
+LABEL="a", LABEL="b"
+EOF
+cat >"${exp}" <<EOF
+${rules}:2 Contains multiple LABEL keys, ignoring LABEL="a".
+${rules}:1 GOTO="a" has no matching label, ignoring
+${rules}:1 The line takes no effect any more, dropping
+${rules}:2 LABEL="b" is unused.
+${rules}: udev rules check failed
+EOF
+assert_1 "${rules}"
+
+# udevadm verify --root
+sed "s|sample-[0-9]*.rules|${workdir}/${rules_dir}/&|" sample-*.exp >"${workdir}/${exp}"
+cd -
+assert_1 --root="${workdir}"
 
 exit 0

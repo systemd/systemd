@@ -7,13 +7,20 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "conf-files.h"
+#include "constants.h"
 #include "log.h"
+#include "parse-argument.h"
 #include "pretty-print.h"
+#include "static-destruct.h"
 #include "strv.h"
 #include "udev-rules.h"
 #include "udevadm.h"
 
 static ResolveNameTiming arg_resolve_name_timing = RESOLVE_NAME_EARLY;
+static char *arg_root = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -23,11 +30,12 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s verify [OPTIONS] FILE...\n"
+        printf("%s verify [OPTIONS] [FILE...]\n"
                "\n%sVerify udev rules files.%s\n\n"
                "  -h --help                            Show this help\n"
                "  -V --version                         Show package version\n"
                "  -N --resolve-names=early|never       When to resolve names\n"
+               "  --root=PATH                          Operate on an alternate filesystem root\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -38,14 +46,18 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        enum {
+                ARG_ROOT = 0x100,
+        };
         static const struct option options[] = {
-                { "help",          no_argument,       NULL, 'h' },
-                { "version",       no_argument,       NULL, 'V' },
-                { "resolve-names", required_argument, NULL, 'N' },
+                { "help",          no_argument,       NULL, 'h'         },
+                { "version",       no_argument,       NULL, 'V'         },
+                { "resolve-names", required_argument, NULL, 'N'         },
+                { "root",          required_argument, NULL, ARG_ROOT    },
                 {}
         };
 
-        int c;
+        int r, c;
 
         assert(argc >= 0);
         assert(argv);
@@ -69,14 +81,21 @@ static int parse_argv(int argc, char *argv[]) {
                         if (arg_resolve_name_timing == RESOLVE_NAME_NEVER)
                                 arg_resolve_name_timing = RESOLVE_NAME_LATE;
                         break;
+                case ARG_ROOT:
+                        r = parse_path_argument(optarg, /* suppress_root= */ true, &arg_root);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case '?':
                         return -EINVAL;
                 default:
                         assert_not_reached();
                 }
 
-        if (optind == argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No rules file specified.");
+        if (arg_root && optind < argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Combination of --root= and FILEs is not supported.");
 
         return 1;
 }
@@ -120,6 +139,20 @@ int verify_main(int argc, char *argv[], void *userdata) {
         rules = udev_rules_new(arg_resolve_name_timing);
         if (!rules)
                 return -ENOMEM;
+
+        if (optind == argc) {
+                const char* const* rules_dirs = STRV_MAKE_CONST(CONF_PATHS("udev/rules.d"));
+                _cleanup_strv_free_ char **files = NULL;
+
+                r = conf_files_list_strv(&files, ".rules", arg_root, 0, rules_dirs);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enumerate rules files: %m");
+                if (arg_root && strv_isempty(files))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                               "No rules files found in %s", arg_root);
+
+                return verify_rules(rules, files);
+        }
 
         return verify_rules(rules, strv_skip(argv, optind));
 }
