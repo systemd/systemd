@@ -81,6 +81,12 @@ void __stack_chk_fail_local(void) {
         __stack_chk_fail();
 }
 
+/* Called by libgcc for some fatal errors like integer overflow with -ftrapv. */
+_used_ _noreturn_ void abort(void);
+void abort(void) {
+        panic(u"systemd-boot: Unknown error, halting.");
+}
+
 #if defined(__ARM_EABI__)
 /* These override the (weak) div0 handlers from libgcc as they would otherwise call raise() instead. */
 
