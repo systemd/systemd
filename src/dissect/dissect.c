@@ -1184,7 +1184,9 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
         if (r < 0)
                 return log_error_errno(r, "Failed to relinquish DM and loopback block devices: %m");
 
-        if (arg_action == ACTION_COPY_FROM) {
+        switch (arg_action) {
+
+        case ACTION_COPY_FROM: {
                 _cleanup_close_ int source_fd = -EBADF, target_fd = -EBADF;
 
                 source_fd = chase_symlinks_and_open(arg_source, mounted_dir, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
@@ -1228,8 +1230,10 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
                 (void) copy_times(source_fd, target_fd, 0);
 
                 /* When this is a regular file we don't copy ownership! */
+                return 0;
+        }
 
-        } else if (arg_action == ACTION_COPY_TO) {
+        case ACTION_COPY_TO: {
                 _cleanup_close_ int source_fd = -EBADF, target_fd = -EBADF, dfd = -EBADF;
                 _cleanup_free_ char *dn = NULL, *bn = NULL;
                 bool is_dir;
@@ -1305,8 +1309,11 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
                 (void) copy_times(source_fd, target_fd, 0);
 
                 /* When this is a regular file we don't copy ownership! */
+                return 0;
+        }
 
-        } else {
+        case ACTION_LIST:
+        case ACTION_MTREE: {
                 _cleanup_close_ int dfd = -EBADF;
 
                 dfd = open(mounted_dir, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
@@ -1323,9 +1330,12 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
                         assert_not_reached();
                 if (r < 0)
                         return log_error_errno(r, "Failed to list image: %m");
+                return 0;
         }
 
-        return 0;
+        default:
+                assert_not_reached();
+        }
 }
 
 static int action_umount(const char *path) {
@@ -1646,12 +1656,20 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        if (arg_action == ACTION_UMOUNT)
+        switch (arg_action) {
+        case ACTION_UMOUNT:
                 return action_umount(arg_path);
-        if (arg_action == ACTION_DETACH)
+
+        case ACTION_DETACH:
                 return action_detach(arg_image);
-        if (arg_action == ACTION_DISCOVER)
+
+        case ACTION_DISCOVER:
                 return action_discover();
+
+        default:
+                /* All other actions need the image dissected */
+                break;
+        }
 
         r = verity_settings_load(
                         &arg_verity_settings,
