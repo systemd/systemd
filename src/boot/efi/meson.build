@@ -180,8 +180,6 @@ efi_disabled_c_args = cc.get_supported_arguments(
         '-fno-exceptions',
         '-fno-trapv',
         '-fno-sanitize=all',
-        '-fno-stack-clash-protection',
-        '-fno-stack-protector',
         '-fno-unwind-tables',
 )
 efi_c_args += efi_disabled_c_args
