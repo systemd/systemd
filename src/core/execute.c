@@ -4198,9 +4198,10 @@ static int get_open_file_fd(Unit *u, const OpenFile *of) {
 
         ofd = open(of->path, O_PATH | O_CLOEXEC);
         if (ofd < 0)
-                return log_error_errno(errno, "Could not open \"%s\": %m", of->path);
+                return log_unit_error_errno(u, errno, "Could not open \"%s\": %m", of->path);
+
         if (fstat(ofd, &st) < 0)
-                return log_error_errno(errno, "Failed to stat %s: %m", of->path);
+                return log_unit_error_errno(u, errno, "Failed to stat %s: %m", of->path);
 
         if (S_ISSOCK(st.st_mode)) {
                 fd = connect_unix_harder(u, of, ofd);
@@ -4208,7 +4209,8 @@ static int get_open_file_fd(Unit *u, const OpenFile *of) {
                         return fd;
 
                 if (FLAGS_SET(of->flags, OPENFILE_READ_ONLY) && shutdown(fd, SHUT_WR) < 0)
-                        return log_error_errno(errno, "Failed to shutdown send for socket %s: %m", of->path);
+                        return log_unit_error_errno(u, errno, "Failed to shutdown send for socket %s: %m",
+                                                    of->path);
 
                 log_unit_debug(u, "socket %s opened (fd=%d)", of->path, fd);
         } else {
