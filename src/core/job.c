@@ -501,7 +501,8 @@ static bool job_is_runnable(Job *j) {
                 return true;
 
         UNIT_FOREACH_DEPENDENCY(other, j->unit, UNIT_ATOM_AFTER)
-                if (other->job && job_compare(j, other->job, UNIT_ATOM_AFTER) > 0) {
+                if ((other->job && job_compare(j, other->job, UNIT_ATOM_AFTER) > 0) ||
+                    (!other->job && unit_will_restart(other))) {
                         log_unit_debug(j->unit,
                                        "starting held back, waiting for: %s",
                                        other->id);
