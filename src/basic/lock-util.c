@@ -10,7 +10,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
-#include "lockfile-util.h"
+#include "lock-util.h"
 #include "macro.h"
 #include "missing_fcntl.h"
 #include "path-util.h"
@@ -21,39 +21,25 @@ int make_lock_file(const char *p, int operation, LockFile *ret) {
         int r;
 
         assert(p);
+        assert(IN_SET(operation & ~LOCK_NB, LOCK_EX, LOCK_SH));
         assert(ret);
 
-        /*
-         * We use UNPOSIX locks if they are available. They have nice semantics, and are mostly compatible
-         * with NFS. However, they are only available on new kernels. When we detect we are running on an
-         * older kernel, then we fall back to good old BSD locks. They also have nice semantics, but are
-         * slightly problematic on NFS, where they are upgraded to POSIX locks, even though locally they are
-         * orthogonal to POSIX locks.
-         */
+        /* We use UNPOSIX locks as they have nice semantics, and are mostly compatible with NFS. */
 
         t = strdup(p);
         if (!t)
                 return -ENOMEM;
 
         for (;;) {
-                struct flock fl = {
-                        .l_type = (operation & ~LOCK_NB) == LOCK_EX ? F_WRLCK : F_RDLCK,
-                        .l_whence = SEEK_SET,
-                };
                 struct stat st;
 
                 fd = open(p, O_CREAT|O_RDWR|O_NOFOLLOW|O_CLOEXEC|O_NOCTTY, 0600);
                 if (fd < 0)
                         return -errno;
 
-                r = fcntl(fd, (operation & LOCK_NB) ? F_OFD_SETLK : F_OFD_SETLKW, &fl);
-                if (r < 0) {
-                        /* If the kernel is too old, use good old BSD locks */
-                        if (errno == EINVAL || ERRNO_IS_NOT_SUPPORTED(errno))
-                                r = flock(fd, operation);
-                        if (r < 0)
-                                return errno == EAGAIN ? -EBUSY : -errno;
-                }
+                r = unposix_lock(fd, operation);
+                if (r < 0)
+                        return r == -EAGAIN ? -EBUSY : r;
 
                 /* If we acquired the lock, let's check if the file still exists in the file system. If not,
                  * then the previous exclusive owner removed it and then closed it. In such a case our
@@ -73,7 +59,7 @@ int make_lock_file(const char *p, int operation, LockFile *ret) {
                 .operation = operation,
         };
 
-        return r;
+        return 0;
 }
 
 int make_lock_file_for(const char *p, int operation, LockFile *ret) {
@@ -99,8 +85,6 @@ int make_lock_file_for(const char *p, int operation, LockFile *ret) {
 }
 
 void release_lock_file(LockFile *f) {
-        int r;
-
         if (!f)
                 return;
 
@@ -111,19 +95,9 @@ void release_lock_file(LockFile *f) {
                  * owner, we can try becoming it. */
 
                 if (f->fd >= 0 &&
-                    (f->operation & ~LOCK_NB) == LOCK_SH) {
-                        static const struct flock fl = {
-                                .l_type = F_WRLCK,
-                                .l_whence = SEEK_SET,
-                        };
-
-                        r = fcntl(f->fd, F_OFD_SETLK, &fl);
-                        if (r < 0 && (errno == EINVAL || ERRNO_IS_NOT_SUPPORTED(errno)))
-                                r = flock(f->fd, LOCK_EX|LOCK_NB);
-
-                        if (r >= 0)
-                                f->operation = LOCK_EX|LOCK_NB;
-                }
+                    (f->operation & ~LOCK_NB) == LOCK_SH &&
+                    unposix_lock(f->fd, LOCK_EX|LOCK_NB) >= 0)
+                        f->operation = LOCK_EX|LOCK_NB;
 
                 if ((f->operation & ~LOCK_NB) == LOCK_EX)
                         unlink_noerrno(f->path);
@@ -133,4 +107,42 @@ void release_lock_file(LockFile *f) {
 
         f->fd = safe_close(f->fd);
         f->operation = 0;
+}
+
+int unposix_lock(int fd, int operation) {
+        int cmd, type;
+
+        assert(fd >= 0);
+
+        cmd = (operation & LOCK_NB) ? F_OFD_SETLK : F_OFD_SETLKW;
+
+        switch (operation & ~LOCK_NB) {
+                case LOCK_EX:
+                        type = F_WRLCK;
+                        break;
+                case LOCK_SH:
+                        type = F_RDLCK;
+                        break;
+                case LOCK_UN:
+                        type = F_UNLCK;
+                        break;
+                default:
+                        assert_not_reached();
+        }
+
+        return RET_NERRNO(fcntl(fd, cmd, &(struct flock) {
+                .l_type = type,
+                .l_whence = SEEK_SET,
+                .l_start = 0,
+                .l_len = 0,
+        }));
+}
+
+void unposix_unlockp(int *fd) {
+        assert(fd);
+
+        if (*fd < 0)
+                return;
+
+        (void) unposix_lock(*fd, LOCK_UN);
 }
