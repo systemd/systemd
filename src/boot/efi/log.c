@@ -89,12 +89,14 @@ void abort(void) {
 
 #if defined(__ARM_EABI__)
 /* These override the (weak) div0 handlers from libgcc as they would otherwise call raise() instead. */
+_used_ _noreturn_ int __aeabi_idiv0(int return_value);
+_used_ _noreturn_ long long __aeabi_ldiv0(long long return_value);
 
-_used_ _noreturn_ int __aeabi_idiv0(int return_value) {
+int __aeabi_idiv0(int return_value) {
         panic(u"systemd-boot: Division by zero, halting.");
 }
 
-_used_ _noreturn_ long long __aeabi_ldiv0(long long return_value) {
+long long __aeabi_ldiv0(long long return_value) {
         panic(u"systemd-boot: Division by zero, halting.");
 }
 #endif
