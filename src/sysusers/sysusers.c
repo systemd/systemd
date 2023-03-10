@@ -99,6 +99,7 @@ static const char *arg_replace = NULL;
 static bool arg_dry_run = false;
 static bool arg_inline = false;
 static PagerFlags arg_pager_flags = 0;
+static ImagePolicy *arg_image_policy = NULL;
 
 static OrderedHashmap *users = NULL, *groups = NULL;
 static OrderedHashmap *todo_uids = NULL, *todo_gids = NULL;
@@ -128,6 +129,7 @@ STATIC_DESTRUCTOR_REGISTER(database_groups, set_free_freep);
 STATIC_DESTRUCTOR_REGISTER(uid_range, uid_range_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 static int errno_is_not_exists(int code) {
         /* See getpwnam(3) and getgrnam(3): those codes and others can be returned if the user or group are
@@ -1964,6 +1966,7 @@ static int help(void) {
                "     --cat-config           Show configuration files\n"
                "     --root=PATH            Operate on an alternate filesystem root\n"
                "     --image=PATH           Operate on disk image as filesystem root\n"
+               "     --image-policy=POLICY  Specify disk image dissection policy\n"
                "     --replace=PATH         Treat arguments as replacement for PATH\n"
                "     --dry-run              Just print what would be done\n"
                "     --inline               Treat arguments as configuration lines\n"
@@ -1986,18 +1989,20 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DRY_RUN,
                 ARG_INLINE,
                 ARG_NO_PAGER,
+                ARG_IMAGE_POLICY,
         };
 
         static const struct option options[] = {
-                { "help",       no_argument,       NULL, 'h'            },
-                { "version",    no_argument,       NULL, ARG_VERSION    },
-                { "cat-config", no_argument,       NULL, ARG_CAT_CONFIG },
-                { "root",       required_argument, NULL, ARG_ROOT       },
-                { "image",      required_argument, NULL, ARG_IMAGE      },
-                { "replace",    required_argument, NULL, ARG_REPLACE    },
-                { "dry-run",    no_argument,       NULL, ARG_DRY_RUN    },
-                { "inline",     no_argument,       NULL, ARG_INLINE     },
-                { "no-pager",   no_argument,       NULL, ARG_NO_PAGER   },
+                { "help",         no_argument,       NULL, 'h'              },
+                { "version",      no_argument,       NULL, ARG_VERSION      },
+                { "cat-config",   no_argument,       NULL, ARG_CAT_CONFIG   },
+                { "root",         required_argument, NULL, ARG_ROOT         },
+                { "image",        required_argument, NULL, ARG_IMAGE        },
+                { "replace",      required_argument, NULL, ARG_REPLACE      },
+                { "dry-run",      no_argument,       NULL, ARG_DRY_RUN      },
+                { "inline",       no_argument,       NULL, ARG_INLINE       },
+                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER     },
+                { "image-policy", required_argument, NULL, ARG_IMAGE_POLICY },
                 {}
         };
 
@@ -2058,6 +2063,17 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
+                case ARG_IMAGE_POLICY: {
+                        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
+
+                        r = image_policy_from_string(optarg, &p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse image policy: %s", optarg);
+
+                        image_policy_free(arg_image_policy);
+                        arg_image_policy = TAKE_PTR(p);
+                        break;
+                }
                 case '?':
                         return -EINVAL;
 
@@ -2173,6 +2189,7 @@ static int run(int argc, char *argv[]) {
 
                 r = mount_image_privately_interactively(
                                 arg_image,
+                                arg_image_policy,
                                 DISSECT_IMAGE_GENERIC_ROOT |
                                 DISSECT_IMAGE_REQUIRE_ROOT |
                                 DISSECT_IMAGE_VALIDATE_OS |
