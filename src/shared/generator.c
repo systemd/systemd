@@ -179,7 +179,7 @@ static int write_fsck_sysroot_service(
         const char *fn;
         int r;
 
-        /* Writes out special versions of systemd-root-fsck.service and systemd-usr-fsck.service for use in
+        /* Writes out special versions of systemd-fsck-root.service and systemd-fsck-usr.service for use in
          * the initrd. The regular statically shipped versions of these unit files use / and /usr for as
          * paths, which doesn't match what we need for the initrd (where the dirs are /sysroot +
          * /sysusr/usr), hence we overwrite those versions here. */
