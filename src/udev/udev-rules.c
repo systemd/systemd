@@ -1014,6 +1014,9 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                         return log_token_invalid_attr(rules, key);
                 if (op != OP_ASSIGN)
                         return log_token_invalid_op(rules, key);
+                if (FLAGS_SET(rule_line->type, LINE_HAS_LABEL))
+                        log_token_warning(rules, "Contains multiple LABEL keys, ignoring LABEL=\"%s\".",
+                                          rule_line->label);
 
                 rule_line->label = value;
                 SET_FLAG(rule_line->type, LINE_HAS_LABEL, true);
