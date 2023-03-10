@@ -951,13 +951,7 @@ static int action_mount(DissectedImage *m, LoopDevice *d) {
 
         assert(m);
         assert(d);
-
-        r = dissected_image_decrypt_interactively(
-                        m, NULL,
-                        &arg_verity_settings,
-                        arg_flags);
-        if (r < 0)
-                return r;
+        assert(arg_action == ACTION_MOUNT);
 
         r = dissected_image_mount_and_warn(m, arg_path, UID_INVALID, UID_INVALID, arg_flags);
         if (r < 0)
@@ -1160,13 +1154,7 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
 
         assert(m);
         assert(d);
-
-        r = dissected_image_decrypt_interactively(
-                        m, NULL,
-                        &arg_verity_settings,
-                        arg_flags);
-        if (r < 0)
-                return r;
+        assert(IN_SET(arg_action, ACTION_LIST, ACTION_MTREE, ACTION_COPY_FROM, ACTION_COPY_TO));
 
         r = detach_mount_namespace();
         if (r < 0)
@@ -1406,12 +1394,9 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
         _cleanup_free_ char *temp = NULL;
         int r, rcode;
 
-        r = dissected_image_decrypt_interactively(
-                        m, NULL,
-                        &arg_verity_settings,
-                        arg_flags);
-        if (r < 0)
-                return r;
+        assert(m);
+        assert(d);
+        assert(arg_action == ACTION_WITH);
 
         r = tempfn_random_child(NULL, program_invocation_short_name, &temp);
         if (r < 0)
@@ -1714,6 +1699,15 @@ static int run(int argc, char *argv[]) {
                         &arg_verity_settings);
         if (r < 0)
                 return log_error_errno(r, "Failed to load verity signature partition: %m");
+
+        if (arg_action != ACTION_DISSECT) {
+                r = dissected_image_decrypt_interactively(
+                                m, NULL,
+                                &arg_verity_settings,
+                                arg_flags);
+                if (r < 0)
+                        return r;
+        }
 
         switch (arg_action) {
 
