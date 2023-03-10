@@ -47,7 +47,7 @@ typedef enum SearchFlags {
 } SearchFlags;
 
 typedef struct {
-        LookupScope scope;
+        RuntimeScope scope;
         OrderedHashmap *will_process;
         OrderedHashmap *have_processed;
 } InstallContext;
@@ -969,7 +969,7 @@ static int find_symlinks(
 }
 
 static int find_symlinks_in_scope(
-                LookupScope scope,
+                RuntimeScope scope,
                 const LookupPaths *lp,
                 const InstallInfo *info,
                 bool match_name,
@@ -1003,7 +1003,7 @@ static int find_symlinks_in_scope(
                         }
 
                         /* look for global enablement of user units */
-                        if (scope == LOOKUP_SCOPE_USER && path_is_user_config_dir(*p)) {
+                        if (scope == RUNTIME_SCOPE_USER && path_is_user_config_dir(*p)) {
                                 *state = UNIT_FILE_ENABLED;
                                 return 1;
                         }
@@ -1881,7 +1881,7 @@ int unit_file_verify_alias(
 }
 
 static int install_info_symlink_alias(
-                LookupScope scope,
+                RuntimeScope scope,
                 InstallInfo *info,
                 const LookupPaths *lp,
                 const char *config_path,
@@ -1933,7 +1933,7 @@ static int install_info_symlink_alias(
 }
 
 static int install_info_symlink_wants(
-                LookupScope scope,
+                RuntimeScope scope,
                 UnitFileFlags file_flags,
                 InstallInfo *info,
                 const LookupPaths *lp,
@@ -2068,7 +2068,7 @@ static int install_info_symlink_link(
 }
 
 static int install_info_apply(
-                LookupScope scope,
+                RuntimeScope scope,
                 UnitFileFlags file_flags,
                 InstallInfo *info,
                 const LookupPaths *lp,
@@ -2245,7 +2245,7 @@ static int install_context_mark_for_removal(
 }
 
 int unit_file_mask(
-                LookupScope scope,
+                RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **names,
@@ -2257,7 +2257,7 @@ int unit_file_mask(
         int r;
 
         assert(scope >= 0);
-        assert(scope < _LOOKUP_SCOPE_MAX);
+        assert(scope < _RUNTIME_SCOPE_MAX);
 
         r = lookup_paths_init(&lp, scope, 0, root_dir);
         if (r < 0)
@@ -2290,7 +2290,7 @@ int unit_file_mask(
 }
 
 int unit_file_unmask(
-                LookupScope scope,
+                RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **names,
@@ -2305,7 +2305,7 @@ int unit_file_unmask(
         int r, q;
 
         assert(scope >= 0);
-        assert(scope < _LOOKUP_SCOPE_MAX);
+        assert(scope < _RUNTIME_SCOPE_MAX);
 
         r = lookup_paths_init(&lp, scope, 0, root_dir);
         if (r < 0)
@@ -2405,7 +2405,7 @@ int unit_file_unmask(
 }
 
 int unit_file_link(
-                LookupScope scope,
+                RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
@@ -2419,7 +2419,7 @@ int unit_file_link(
         int r, q;
 
         assert(scope >= 0);
-        assert(scope < _LOOKUP_SCOPE_MAX);
+        assert(scope < _RUNTIME_SCOPE_MAX);
 
         r = lookup_paths_init(&lp, scope, 0, root_dir);
         if (r < 0)
@@ -2513,7 +2513,7 @@ static int path_shall_revert(const LookupPaths *lp, const char *path) {
 }
 
 int unit_file_revert(
-                LookupScope scope,
+                RuntimeScope scope,
                 const char *root_dir,
                 char **names,
                 InstallChange **changes,
@@ -2669,7 +2669,7 @@ int unit_file_revert(
 }
 
 int unit_file_add_dependency(
-                LookupScope scope,
+                RuntimeScope scope,
                 UnitFileFlags file_flags,
                 const char *root_dir,
                 char **names,
@@ -2685,7 +2685,7 @@ int unit_file_add_dependency(
         int r;
 
         assert(scope >= 0);
-        assert(scope < _LOOKUP_SCOPE_MAX);
+        assert(scope < _RUNTIME_SCOPE_MAX);
         assert(target);
         assert(IN_SET(dep, UNIT_WANTS, UNIT_REQUIRES));
 
@@ -2739,7 +2739,7 @@ int unit_file_add_dependency(
 
 static int do_unit_file_enable(
                 const LookupPaths *lp,
-                LookupScope scope,
+                RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *config_path,
                 char **names_or_paths,
@@ -2770,7 +2770,7 @@ static int do_unit_file_enable(
 }
 
 int unit_file_enable(
-                LookupScope scope,
+                RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **names_or_paths,
@@ -2781,7 +2781,7 @@ int unit_file_enable(
         int r;
 
         assert(scope >= 0);
-        assert(scope < _LOOKUP_SCOPE_MAX);
+        assert(scope < _RUNTIME_SCOPE_MAX);
 
         r = lookup_paths_init(&lp, scope, 0, root_dir);
         if (r < 0)
@@ -2796,7 +2796,7 @@ int unit_file_enable(
 
 static int do_unit_file_disable(
                 const LookupPaths *lp,
-                LookupScope scope,
+                RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *config_path,
                 char **names,
@@ -2838,7 +2838,7 @@ static int do_unit_file_disable(
 }
 
 int unit_file_disable(
-                LookupScope scope,
+                RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
@@ -2849,7 +2849,7 @@ int unit_file_disable(
         int r;
 
         assert(scope >= 0);
-        assert(scope < _LOOKUP_SCOPE_MAX);
+        assert(scope < _RUNTIME_SCOPE_MAX);
 
         r = lookup_paths_init(&lp, scope, 0, root_dir);
         if (r < 0)
@@ -2863,7 +2863,7 @@ int unit_file_disable(
 }
 
 static int normalize_linked_files(
-                LookupScope scope,
+                RuntimeScope scope,
                 const LookupPaths *lp,
                 char **names_or_paths,
                 char ***ret_names,
@@ -2921,7 +2921,7 @@ static int normalize_linked_files(
 }
 
 int unit_file_reenable(
-                LookupScope scope,
+                RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **names_or_paths,
@@ -2933,7 +2933,7 @@ int unit_file_reenable(
         int r;
 
         assert(scope >= 0);
-        assert(scope < _LOOKUP_SCOPE_MAX);
+        assert(scope < _RUNTIME_SCOPE_MAX);
 
         r = lookup_paths_init(&lp, scope, 0, root_dir);
         if (r < 0)
@@ -2957,7 +2957,7 @@ int unit_file_reenable(
 }
 
 int unit_file_set_default(
-                LookupScope scope,
+                RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 const char *name,
@@ -2971,7 +2971,7 @@ int unit_file_set_default(
         int r;
 
         assert(scope >= 0);
-        assert(scope < _LOOKUP_SCOPE_MAX);
+        assert(scope < _RUNTIME_SCOPE_MAX);
         assert(name);
 
         if (unit_name_to_type(name) != UNIT_TARGET) /* this also validates the name */
@@ -2992,7 +2992,7 @@ int unit_file_set_default(
 }
 
 int unit_file_get_default(
-                LookupScope scope,
+                RuntimeScope scope,
                 const char *root_dir,
                 char **name) {
 
@@ -3003,7 +3003,7 @@ int unit_file_get_default(
         int r;
 
         assert(scope >= 0);
-        assert(scope < _LOOKUP_SCOPE_MAX);
+        assert(scope < _RUNTIME_SCOPE_MAX);
         assert(name);
 
         r = lookup_paths_init(&lp, scope, 0, root_dir);
@@ -3027,7 +3027,7 @@ int unit_file_get_default(
 }
 
 int unit_file_lookup_state(
-                LookupScope scope,
+                RuntimeScope scope,
                 const LookupPaths *lp,
                 const char *name,
                 UnitFileState *ret) {
@@ -3125,7 +3125,7 @@ int unit_file_lookup_state(
 }
 
 int unit_file_get_state(
-                LookupScope scope,
+                RuntimeScope scope,
                 const char *root_dir,
                 const char *name,
                 UnitFileState *ret) {
@@ -3134,7 +3134,7 @@ int unit_file_get_state(
         int r;
 
         assert(scope >= 0);
-        assert(scope < _LOOKUP_SCOPE_MAX);
+        assert(scope < _RUNTIME_SCOPE_MAX);
         assert(name);
 
         r = lookup_paths_init(&lp, scope, 0, root_dir);
@@ -3144,7 +3144,7 @@ int unit_file_get_state(
         return unit_file_lookup_state(scope, &lp, name, ret);
 }
 
-int unit_file_exists(LookupScope scope, const LookupPaths *lp, const char *name) {
+int unit_file_exists(RuntimeScope scope, const LookupPaths *lp, const char *name) {
         _cleanup_(install_context_done) InstallContext c = { .scope = scope };
         int r;
 
@@ -3196,17 +3196,17 @@ static int split_pattern_into_name_and_instances(const char *pattern, char **out
         return 0;
 }
 
-static int presets_find_config(LookupScope scope, const char *root_dir, char ***files) {
+static int presets_find_config(RuntimeScope scope, const char *root_dir, char ***files) {
         static const char* const system_dirs[] = {CONF_PATHS("systemd/system-preset"), NULL};
         static const char* const user_dirs[] = {CONF_PATHS_USR("systemd/user-preset"), NULL};
         const char* const* dirs;
 
         assert(scope >= 0);
-        assert(scope < _LOOKUP_SCOPE_MAX);
+        assert(scope < _RUNTIME_SCOPE_MAX);
 
-        if (scope == LOOKUP_SCOPE_SYSTEM)
+        if (scope == RUNTIME_SCOPE_SYSTEM)
                 dirs = system_dirs;
-        else if (IN_SET(scope, LOOKUP_SCOPE_GLOBAL, LOOKUP_SCOPE_USER))
+        else if (IN_SET(scope, RUNTIME_SCOPE_GLOBAL, RUNTIME_SCOPE_USER))
                 dirs = user_dirs;
         else
                 assert_not_reached();
@@ -3214,13 +3214,13 @@ static int presets_find_config(LookupScope scope, const char *root_dir, char ***
         return conf_files_list_strv(files, ".preset", root_dir, 0, dirs);
 }
 
-static int read_presets(LookupScope scope, const char *root_dir, UnitFilePresets *presets) {
+static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePresets *presets) {
         _cleanup_(unit_file_presets_freep) UnitFilePresets ps = {};
         _cleanup_strv_free_ char **files = NULL;
         int r;
 
         assert(scope >= 0);
-        assert(scope < _LOOKUP_SCOPE_MAX);
+        assert(scope < _RUNTIME_SCOPE_MAX);
         assert(presets);
 
         r = presets_find_config(scope, root_dir, &files);
@@ -3394,7 +3394,7 @@ static int query_presets(const char *name, const UnitFilePresets *presets, char 
         }
 }
 
-int unit_file_query_preset(LookupScope scope, const char *root_dir, const char *name, UnitFilePresets *cached) {
+int unit_file_query_preset(RuntimeScope scope, const char *root_dir, const char *name, UnitFilePresets *cached) {
         _cleanup_(unit_file_presets_freep) UnitFilePresets tmp = {};
         int r;
 
@@ -3458,7 +3458,7 @@ static int execute_preset(
 }
 
 static int preset_prepare_one(
-                LookupScope scope,
+                RuntimeScope scope,
                 InstallContext *plus,
                 InstallContext *minus,
                 LookupPaths *lp,
@@ -3511,7 +3511,7 @@ static int preset_prepare_one(
 }
 
 int unit_file_preset(
-                LookupScope scope,
+                RuntimeScope scope,
                 UnitFileFlags file_flags,
                 const char *root_dir,
                 char **names,
@@ -3526,7 +3526,7 @@ int unit_file_preset(
         int r;
 
         assert(scope >= 0);
-        assert(scope < _LOOKUP_SCOPE_MAX);
+        assert(scope < _RUNTIME_SCOPE_MAX);
         assert(mode < _UNIT_FILE_PRESET_MODE_MAX);
 
         r = lookup_paths_init(&lp, scope, 0, root_dir);
@@ -3551,7 +3551,7 @@ int unit_file_preset(
 }
 
 int unit_file_preset_all(
-                LookupScope scope,
+                RuntimeScope scope,
                 UnitFileFlags file_flags,
                 const char *root_dir,
                 UnitFilePresetMode mode,
@@ -3565,7 +3565,7 @@ int unit_file_preset_all(
         int r;
 
         assert(scope >= 0);
-        assert(scope < _LOOKUP_SCOPE_MAX);
+        assert(scope < _RUNTIME_SCOPE_MAX);
         assert(mode < _UNIT_FILE_PRESET_MODE_MAX);
 
         r = lookup_paths_init(&lp, scope, 0, root_dir);
@@ -3626,7 +3626,7 @@ Hashmap* unit_file_list_free(Hashmap *h) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(UnitFileList*, unit_file_list_free_one);
 
 int unit_file_get_list(
-                LookupScope scope,
+                RuntimeScope scope,
                 const char *root_dir,
                 Hashmap *h,
                 char **states,
@@ -3636,7 +3636,7 @@ int unit_file_get_list(
         int r;
 
         assert(scope >= 0);
-        assert(scope < _LOOKUP_SCOPE_MAX);
+        assert(scope < _RUNTIME_SCOPE_MAX);
         assert(h);
 
         r = lookup_paths_init(&lp, scope, 0, root_dir);

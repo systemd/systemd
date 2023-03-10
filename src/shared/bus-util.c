@@ -269,7 +269,7 @@ int bus_connect_user_systemd(sd_bus **ret_bus) {
 int bus_connect_transport(
                 BusTransport transport,
                 const char *host,
-                bool user,
+                RuntimeScope runtime_scope,
                 sd_bus **ret) {
 
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
@@ -280,19 +280,28 @@ int bus_connect_transport(
         assert(ret);
 
         assert_return((transport == BUS_TRANSPORT_LOCAL) == !host, -EINVAL);
-        assert_return(transport != BUS_TRANSPORT_REMOTE || !user, -EOPNOTSUPP);
+        assert_return(transport != BUS_TRANSPORT_REMOTE || runtime_scope == RUNTIME_SCOPE_SYSTEM, -EOPNOTSUPP);
 
         switch (transport) {
 
         case BUS_TRANSPORT_LOCAL:
-                if (user)
+
+                switch (runtime_scope) {
+
+                case RUNTIME_SCOPE_USER:
                         r = sd_bus_default_user(&bus);
-                else {
+                        break;
+
+                case RUNTIME_SCOPE_SYSTEM:
                         if (sd_booted() <= 0)
                                 /* Print a friendly message when the local system is actually not running systemd as PID 1. */
                                 return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
                                                        "System has not been booted with systemd as init system (PID 1). Can't operate.");
                         r = sd_bus_default_system(&bus);
+                        break;
+
+                default:
+                        assert_not_reached();
                 }
                 break;
 
@@ -301,10 +310,21 @@ int bus_connect_transport(
                 break;
 
         case BUS_TRANSPORT_MACHINE:
-                if (user)
+
+                switch (runtime_scope) {
+
+                case RUNTIME_SCOPE_USER:
                         r = sd_bus_open_user_machine(&bus, host);
-                else
+                        break;
+
+                case RUNTIME_SCOPE_SYSTEM:
                         r = sd_bus_open_system_machine(&bus, host);
+                        break;
+
+                default:
+                        assert_not_reached();
+                }
+
                 break;
 
         default:
@@ -321,25 +341,34 @@ int bus_connect_transport(
         return 0;
 }
 
-int bus_connect_transport_systemd(BusTransport transport, const char *host, bool user, sd_bus **bus) {
+int bus_connect_transport_systemd(BusTransport transport, const char *host, RuntimeScope runtime_scope, sd_bus **bus) {
         assert(transport >= 0);
         assert(transport < _BUS_TRANSPORT_MAX);
         assert(bus);
 
         assert_return((transport == BUS_TRANSPORT_LOCAL) == !host, -EINVAL);
-        assert_return(transport == BUS_TRANSPORT_LOCAL || !user, -EOPNOTSUPP);
+        assert_return(transport == BUS_TRANSPORT_LOCAL || runtime_scope == RUNTIME_SCOPE_SYSTEM, -EOPNOTSUPP);
 
         switch (transport) {
 
         case BUS_TRANSPORT_LOCAL:
-                if (user)
+                switch (runtime_scope) {
+
+                case RUNTIME_SCOPE_USER:
                         return bus_connect_user_systemd(bus);
 
-                if (sd_booted() <= 0)
-                        /* Print a friendly message when the local system is actually not running systemd as PID 1. */
-                        return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
-                                               "System has not been booted with systemd as init system (PID 1). Can't operate.");
-                return bus_connect_system_systemd(bus);
+                case RUNTIME_SCOPE_SYSTEM:
+                        if (sd_booted() <= 0)
+                                /* Print a friendly message when the local system is actually not running systemd as PID 1. */
+                                return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
+                                                       "System has not been booted with systemd as init system (PID 1). Can't operate.");
+                        return bus_connect_system_systemd(bus);
+
+                default:
+                        assert_not_reached();
+                }
+
+                break;
 
         case BUS_TRANSPORT_REMOTE:
                 return sd_bus_open_system_remote(bus, host);
