@@ -176,6 +176,7 @@ void hexdump(const char16_t *prefix, const void *data, size_t size);
                 ST = system_table;                                                     \
                 BS = system_table->BootServices;                                       \
                 RT = system_table->RuntimeServices;                                    \
+                __stack_chk_guard_init();                                              \
                 notify_debugger((identity), (wait_for_debugger));                      \
                 EFI_STATUS err = func(image);                                          \
                 log_wait();                                                            \
