@@ -855,19 +855,19 @@ void manager_set_switching_root(Manager *m, bool switching_root) {
         m->switching_root = MANAGER_IS_SYSTEM(m) && switching_root;
 }
 
-int manager_new(LookupScope scope, ManagerTestRunFlags test_run_flags, Manager **_m) {
+int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, Manager **_m) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
         assert(_m);
-        assert(IN_SET(scope, LOOKUP_SCOPE_SYSTEM, LOOKUP_SCOPE_USER));
+        assert(IN_SET(runtime_scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER));
 
         m = new(Manager, 1);
         if (!m)
                 return -ENOMEM;
 
         *m = (Manager) {
-                .unit_file_scope = scope,
+                .runtime_scope = runtime_scope,
                 .objective = _MANAGER_OBJECTIVE_INVALID,
 
                 .status_unit_format = STATUS_UNIT_FORMAT_DEFAULT,
@@ -876,10 +876,10 @@ int manager_new(LookupScope scope, ManagerTestRunFlags test_run_flags, Manager *
                 .default_memory_accounting = MEMORY_ACCOUNTING_DEFAULT,
                 .default_tasks_accounting = true,
                 .default_tasks_max = TASKS_MAX_UNSET,
-                .default_timeout_start_usec = manager_default_timeout(scope == LOOKUP_SCOPE_SYSTEM),
-                .default_timeout_stop_usec = manager_default_timeout(scope == LOOKUP_SCOPE_SYSTEM),
+                .default_timeout_start_usec = manager_default_timeout(runtime_scope),
+                .default_timeout_stop_usec = manager_default_timeout(runtime_scope),
                 .default_restart_usec = DEFAULT_RESTART_USEC,
-                .default_device_timeout_usec = manager_default_timeout(scope == LOOKUP_SCOPE_SYSTEM),
+                .default_device_timeout_usec = manager_default_timeout(runtime_scope),
 
                 .original_log_level = -1,
                 .original_log_target = _LOG_TARGET_INVALID,
@@ -1790,7 +1790,7 @@ static void manager_preset_all(Manager *m) {
         /* If this is the first boot, and we are in the host system, then preset everything */
         UnitFilePresetMode mode = FIRST_BOOT_FULL_PRESET ? UNIT_FILE_PRESET_FULL : UNIT_FILE_PRESET_ENABLE_ONLY;
 
-        r = unit_file_preset_all(LOOKUP_SCOPE_SYSTEM, 0, NULL, mode, NULL, 0);
+        r = unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, 0, NULL, mode, NULL, 0);
         if (r < 0)
                 log_full_errno(r == -EEXIST ? LOG_NOTICE : LOG_WARNING, r,
                                "Failed to populate /etc with preset unit settings, ignoring: %m");
@@ -1839,7 +1839,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
 
         /* If we are running in test mode, we still want to run the generators,
          * but we should not touch the real generator directories. */
-        r = lookup_paths_init_or_warn(&m->lookup_paths, m->unit_file_scope,
+        r = lookup_paths_init_or_warn(&m->lookup_paths, m->runtime_scope,
                                       MANAGER_IS_TEST_RUN(m) ? LOOKUP_PATHS_TEMPORARY_GENERATED : 0,
                                       root);
         if (r < 0)
@@ -3464,7 +3464,7 @@ int manager_reload(Manager *m) {
         m->uid_refs = hashmap_free(m->uid_refs);
         m->gid_refs = hashmap_free(m->gid_refs);
 
-        r = lookup_paths_init_or_warn(&m->lookup_paths, m->unit_file_scope, 0, NULL);
+        r = lookup_paths_init_or_warn(&m->lookup_paths, m->runtime_scope, 0, NULL);
         if (r < 0)
                 return r;
 
@@ -3807,7 +3807,7 @@ static int build_generator_environment(Manager *m, char ***ret) {
         if (!nl)
                 return -ENOMEM;
 
-        r = strv_env_assign(&nl, "SYSTEMD_SCOPE", MANAGER_IS_SYSTEM(m) ? "system" : "user");
+        r = strv_env_assign(&nl, "SYSTEMD_SCOPE", runtime_scope_to_string(m->runtime_scope));
         if (r < 0)
                 return r;
 
@@ -3896,7 +3896,7 @@ static int manager_run_generators(Manager *m) {
         if (MANAGER_IS_TEST_RUN(m) && !(m->test_run_flags & MANAGER_TEST_RUN_GENERATORS))
                 return 0;
 
-        paths = generator_binary_paths(m->unit_file_scope);
+        paths = generator_binary_paths(m->runtime_scope);
         if (!paths)
                 return log_oom();
 

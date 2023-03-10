@@ -21,7 +21,7 @@ int verb_unit_files(int argc, char *argv[], void *userdata) {
         char **v;
         int r;
 
-        r = lookup_paths_init_or_warn(&lp, arg_scope, 0, NULL);
+        r = lookup_paths_init_or_warn(&lp, arg_runtime_scope, 0, NULL);
         if (r < 0)
                 return r;
 

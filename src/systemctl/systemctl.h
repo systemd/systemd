@@ -51,7 +51,7 @@ extern char **arg_properties;
 extern bool arg_all;
 extern enum dependency arg_dependency;
 extern const char *_arg_job_mode;
-extern LookupScope arg_scope;
+extern RuntimeScope arg_runtime_scope;
 extern bool arg_wait;
 extern bool arg_no_block;
 extern int arg_legend;
