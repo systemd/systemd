@@ -1185,7 +1185,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
 
-        r = terminal_urlify_man("systemd-sysupdate", "1", &link);
+        r = terminal_urlify_man("systemd-sysupdate", "8", &link);
         if (r < 0)
                 return log_oom();
 
