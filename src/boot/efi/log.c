@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "log.h"
+#include "proto/rng.h"
 #include "proto/simple-text-io.h"
 
 static unsigned log_count = 0;
@@ -58,6 +59,24 @@ void log_wait(void) {
         BS->Stall(MIN(4u, log_count) * 2500 * 1000);
         log_count = 0;
 }
+
+intptr_t __stack_chk_guard = (intptr_t) 0x70f6967de78acae3;
+
+/* We can only set a random stack canary if this function attribute is available,
+ * otherwise this may create a stack check fail. */
+#if STACK_PROTECTOR_RANDOM
+void __stack_chk_guard_init(void) {
+        EFI_RNG_PROTOCOL *rng;
+        if (BS->LocateProtocol(MAKE_GUID_PTR(EFI_RNG_PROTOCOL), NULL, (void **) &rng) == EFI_SUCCESS)
+                (void) rng->GetRNG(rng, NULL, sizeof(__stack_chk_guard), (void *) &__stack_chk_guard);
+}
+#endif
+
+_noreturn_ void __stack_chk_fail(void);
+void __stack_chk_fail(void) {
+        panic(u"systemd-boot: Stack check failed, halting.");
+}
+void __stack_chk_fail_local(void) __attribute((alias("__stack_chk_fail")));
 
 #if defined(__ARM_EABI__)
 /* These override the (weak) div0 handlers from libgcc as they would otherwise call raise() instead. */
