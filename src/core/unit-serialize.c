@@ -754,7 +754,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f, "%s\tFollowing: %s\n", prefix, following->id);
 
         r = unit_following_set(u, &following_set);
-        if (r >= 0) {
+        if (r > 0) {
                 Unit *other;
 
                 SET_FOREACH(other, following_set)
