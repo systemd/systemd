@@ -48,7 +48,7 @@ static bool arg_slice_inherit = false;
 static bool arg_send_sighup = false;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static const char *arg_host = NULL;
-static bool arg_user = false;
+static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 static const char *arg_service_type = NULL;
 static const char *arg_exec_user = NULL;
 static const char *arg_exec_group = NULL;
@@ -257,11 +257,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_USER:
-                        arg_user = true;
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
                 case ARG_SYSTEM:
-                        arg_user = false;
+                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
 
                 case ARG_SCOPE:
@@ -509,7 +509,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         /* If we are talking to the per-user instance PolicyKit isn't going to help */
-        if (arg_user)
+        if (arg_runtime_scope == RUNTIME_SCOPE_USER)
                 arg_ask_password = false;
 
         with_trigger = !!arg_path_property || !!arg_socket_property || arg_with_timer;
@@ -582,7 +582,7 @@ static int parse_argv(int argc, char *argv[]) {
         } else if (!arg_unit || !with_trigger)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Command line to execute required.");
 
-        if (arg_user && arg_transport == BUS_TRANSPORT_REMOTE)
+        if (arg_runtime_scope == RUNTIME_SCOPE_USER && arg_transport == BUS_TRANSPORT_REMOTE)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Execution in user context is not supported on remote systems.");
 
@@ -656,10 +656,20 @@ static int transient_cgroup_set_properties(sd_bus_message *m) {
         if (arg_slice_inherit) {
                 char *end;
 
-                if (arg_user)
+                switch (arg_runtime_scope) {
+
+                case RUNTIME_SCOPE_USER:
                         r = cg_pid_get_user_slice(0, &name);
-                else
+                        break;
+
+                case RUNTIME_SCOPE_SYSTEM:
                         r = cg_pid_get_slice(0, &name);
+                        break;
+
+                default:
+                        assert_not_reached();
+                }
+
                 if (r < 0)
                         return log_error_errno(r, "Failed to get PID slice: %m");
 
@@ -1228,7 +1238,7 @@ static int start_transient_service(
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = bus_wait_for_jobs_one(w, object, arg_quiet, arg_user ? STRV_MAKE_CONST("--user") : NULL);
+                r = bus_wait_for_jobs_one(w, object, arg_quiet, arg_runtime_scope == RUNTIME_SCOPE_USER ? STRV_MAKE_CONST("--user") : NULL);
                 if (r < 0)
                         return r;
         }
@@ -1464,7 +1474,7 @@ static int start_transient_scope(sd_bus *bus) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = bus_wait_for_jobs_one(w, object, arg_quiet, arg_user ? STRV_MAKE_CONST("--user") : NULL);
+        r = bus_wait_for_jobs_one(w, object, arg_quiet, arg_runtime_scope == RUNTIME_SCOPE_USER ? STRV_MAKE_CONST("--user") : NULL);
         if (r < 0)
                 return r;
 
@@ -1687,7 +1697,7 @@ static int start_transient_trigger(
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = bus_wait_for_jobs_one(w, object, arg_quiet, arg_user ? STRV_MAKE_CONST("--user") : NULL);
+        r = bus_wait_for_jobs_one(w, object, arg_quiet, arg_runtime_scope == RUNTIME_SCOPE_USER ? STRV_MAKE_CONST("--user") : NULL);
         if (r < 0)
                 return r;
 
@@ -1755,10 +1765,10 @@ static int run(int argc, char* argv[]) {
 
         /* If --wait is used connect via the bus, unconditionally, as ref/unref is not supported via the limited direct
          * connection */
-        if (arg_wait || arg_stdio != ARG_STDIO_NONE || (arg_user && arg_transport != BUS_TRANSPORT_LOCAL))
-                r = bus_connect_transport(arg_transport, arg_host, arg_user, &bus);
+        if (arg_wait || arg_stdio != ARG_STDIO_NONE || (arg_runtime_scope == RUNTIME_SCOPE_USER && arg_transport != BUS_TRANSPORT_LOCAL))
+                r = bus_connect_transport(arg_transport, arg_host, arg_runtime_scope, &bus);
         else
-                r = bus_connect_transport_systemd(arg_transport, arg_host, arg_user, &bus);
+                r = bus_connect_transport_systemd(arg_transport, arg_host, arg_runtime_scope, &bus);
         if (r < 0)
                 return bus_log_connect_error(r, arg_transport);
 

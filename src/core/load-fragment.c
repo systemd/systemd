@@ -2744,12 +2744,12 @@ int config_parse_environ(
                 return 0;
         }
 
-        bool is_system = ltype;
-
-        const Specifier table[] = {
+        /* If 'u' is set, we operate on the regular unit specifier table. Otherwise we use a manager-specific
+         * specifier table (in which case ltype must contain the runtime scope). */
+        const Specifier *table = u ? NULL : (const Specifier[]) {
                 COMMON_SYSTEM_SPECIFIERS,
                 COMMON_TMP_SPECIFIERS,
-                COMMON_CREDS_SPECIFIERS(is_system ? LOOKUP_SCOPE_SYSTEM : LOOKUP_SCOPE_USER),
+                COMMON_CREDS_SPECIFIERS(ltype),
                 { 'h', specifier_user_home,  NULL },
                 { 's', specifier_user_shell, NULL },
         };
@@ -2768,10 +2768,10 @@ int config_parse_environ(
                 if (r == 0)
                         return 0;
 
-                if (u)
-                        r = unit_env_printf(u, word, &resolved);
-                else
+                if (table)
                         r = specifier_printf(word, sc_arg_max(), table, NULL, NULL, &resolved);
+                else
+                        r = unit_env_printf(u, word, &resolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to resolve specifiers in %s, ignoring: %m", word);
@@ -5625,7 +5625,7 @@ int config_parse_emergency_action(
                 void *userdata) {
 
         EmergencyAction *x = ASSERT_PTR(data);
-        bool is_system;
+        RuntimeScope runtime_scope;
         int r;
 
         assert(filename);
@@ -5634,16 +5634,16 @@ int config_parse_emergency_action(
 
         /* If we have a unit determine the scope based on it */
         if (unit)
-                is_system = MANAGER_IS_SYSTEM(((Unit*) ASSERT_PTR(userdata))->manager);
+                runtime_scope = ((Unit*) ASSERT_PTR(userdata))->manager->runtime_scope;
         else
-                is_system = ltype; /* otherwise, assume the scope is passed in via ltype */
+                runtime_scope = ltype; /* otherwise, assume the scope is passed in via ltype */
 
-        r = parse_emergency_action(rvalue, is_system, x);
+        r = parse_emergency_action(rvalue, runtime_scope, x);
         if (r < 0) {
                 if (r == -EOPNOTSUPP)
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "%s= specified as %s mode action, ignoring: %s",
-                                   lvalue, is_system ? "user" : "system", rvalue);
+                                   lvalue, runtime_scope_to_string(runtime_scope), rvalue);
                 else
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to parse %s=, ignoring: %s", lvalue, rvalue);

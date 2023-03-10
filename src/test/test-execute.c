@@ -1141,7 +1141,7 @@ typedef struct test_entry {
 
 #define entry(x) {x, #x}
 
-static void run_tests(LookupScope scope, char **patterns) {
+static void run_tests(RuntimeScope scope, char **patterns) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         _cleanup_free_ char *unit_paths = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
@@ -1297,7 +1297,7 @@ TEST(run_tests_root) {
 
         if (prepare_ns("(test-execute-root)") == 0) {
                 can_unshare = true;
-                run_tests(LOOKUP_SCOPE_SYSTEM, filters);
+                run_tests(RUNTIME_SCOPE_SYSTEM, filters);
                 _exit(EXIT_SUCCESS);
         }
 }
@@ -1306,7 +1306,7 @@ TEST(run_tests_without_unshare) {
         if (!have_namespaces()) {
                 /* unshare() is already filtered. */
                 can_unshare = false;
-                run_tests(LOOKUP_SCOPE_SYSTEM, strv_skip(saved_argv, 1));
+                run_tests(RUNTIME_SCOPE_SYSTEM, strv_skip(saved_argv, 1));
                 return;
         }
 
@@ -1334,7 +1334,7 @@ TEST(run_tests_without_unshare) {
                 assert_se(errno == EOPNOTSUPP);
 
                 can_unshare = false;
-                run_tests(LOOKUP_SCOPE_SYSTEM, filters);
+                run_tests(RUNTIME_SCOPE_SYSTEM, filters);
                 _exit(EXIT_SUCCESS);
         }
 #else
@@ -1355,7 +1355,7 @@ TEST(run_tests_unprivileged) {
                 assert_se(capability_bounding_set_drop(0, /* right_now = */ true) >= 0);
 
                 can_unshare = false;
-                run_tests(LOOKUP_SCOPE_USER, filters);
+                run_tests(RUNTIME_SCOPE_USER, filters);
                 _exit(EXIT_SUCCESS);
         }
 }

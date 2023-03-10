@@ -100,7 +100,7 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
                 if (show_preset_for_state(u->state)) {
                         const char *unit_preset_str, *on_preset_color;
 
-                        r = unit_file_query_preset(arg_scope, arg_root, id, &presets);
+                        r = unit_file_query_preset(arg_runtime_scope, arg_root, id, &presets);
                         if (r < 0) {
                                 unit_preset_str = "n/a";
                                 on_preset_color = underline ? on_underline : ansi_normal();
@@ -151,7 +151,7 @@ int verb_list_unit_files(int argc, char *argv[], void *userdata) {
                 if (!h)
                         return log_oom();
 
-                r = unit_file_get_list(arg_scope, arg_root, h, arg_states, strv_skip(argv, 1));
+                r = unit_file_get_list(arg_runtime_scope, arg_root, h, arg_states, strv_skip(argv, 1));
                 if (r < 0) {
                         unit_file_list_free(h);
                         return log_error_errno(r, "Failed to get unit file list: %m");

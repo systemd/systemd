@@ -1993,7 +1993,6 @@ static int bus_set_transient_emergency_action(
         const char *s;
         EmergencyAction v;
         int r;
-        bool system;
 
         assert(p);
 
@@ -2001,8 +2000,7 @@ static int bus_set_transient_emergency_action(
         if (r < 0)
                 return r;
 
-        system = MANAGER_IS_SYSTEM(u->manager);
-        r = parse_emergency_action(s, system, &v);
+        r = parse_emergency_action(s, u->manager->runtime_scope, &v);
         if (r < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          r == -EOPNOTSUPP ? "%s setting invalid for manager type: %s"

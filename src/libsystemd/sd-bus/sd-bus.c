@@ -253,6 +253,7 @@ _public_ int sd_bus_new(sd_bus **ret) {
                 .n_groups = SIZE_MAX,
                 .close_on_exit = true,
                 .ucred = UCRED_INVALID,
+                .runtime_scope = _RUNTIME_SCOPE_INVALID,
         };
 
         /* We guarantee that wqueue always has space for at least one entry */
@@ -1282,8 +1283,10 @@ int bus_set_address_system(sd_bus *b) {
         e = secure_getenv("DBUS_SYSTEM_BUS_ADDRESS");
 
         r = sd_bus_set_address(b, e ?: DEFAULT_SYSTEM_BUS_ADDRESS);
-        if (r >= 0)
-                b->is_system = true;
+        if (r < 0)
+                return r;
+
+        b->runtime_scope = RUNTIME_SCOPE_SYSTEM;
         return r;
 }
 
@@ -1354,8 +1357,10 @@ int bus_set_address_user(sd_bus *b) {
         }
 
         r = sd_bus_set_address(b, a);
-        if (r >= 0)
-                b->is_user = true;
+        if (r < 0)
+                return r;
+
+        b->runtime_scope = RUNTIME_SCOPE_USER;
         return r;
 }
 
@@ -1504,7 +1509,7 @@ _public_ int sd_bus_open_system_remote(sd_bus **ret, const char *host) {
 
         b->bus_client = true;
         b->trusted = false;
-        b->is_system = true;
+        b->runtime_scope = RUNTIME_SCOPE_SYSTEM;
         b->is_local = false;
 
         r = sd_bus_start(b);
@@ -1515,7 +1520,7 @@ _public_ int sd_bus_open_system_remote(sd_bus **ret, const char *host) {
         return 0;
 }
 
-int bus_set_address_machine(sd_bus *b, bool user, const char *machine) {
+int bus_set_address_machine(sd_bus *b, RuntimeScope runtime_scope, const char *machine) {
         _cleanup_free_ char *a = NULL;
         const char *rhs;
 
@@ -1523,7 +1528,7 @@ int bus_set_address_machine(sd_bus *b, bool user, const char *machine) {
         assert(machine);
 
         rhs = strchr(machine, '@');
-        if (rhs || user) {
+        if (rhs || runtime_scope == RUNTIME_SCOPE_USER) {
                 _cleanup_free_ char *u = NULL, *eu = NULL, *erhs = NULL;
 
                 /* If there's an "@" in the container specification, we'll connect as a user specified at its
@@ -1579,7 +1584,7 @@ int bus_set_address_machine(sd_bus *b, bool user, const char *machine) {
                 if (!a)
                         return -ENOMEM;
 
-                if (user) {
+                if (runtime_scope == RUNTIME_SCOPE_USER) {
                         /* Ideally we'd use the "--user" switch to systemd-stdio-bridge here, but it's only
                          * available in recent systemd versions. Using the "-p" switch with the explicit path
                          * is a working alternative, and is compatible with older versions, hence that's what
@@ -1697,12 +1702,12 @@ _public_ int sd_bus_open_system_machine(sd_bus **ret, const char *user_and_machi
         if (r < 0)
                 return r;
 
-        r = bus_set_address_machine(b, false, user_and_machine);
+        r = bus_set_address_machine(b, RUNTIME_SCOPE_SYSTEM, user_and_machine);
         if (r < 0)
                 return r;
 
         b->bus_client = true;
-        b->is_system = true;
+        b->runtime_scope = RUNTIME_SCOPE_SYSTEM;
 
         r = sd_bus_start(b);
         if (r < 0)
@@ -1733,7 +1738,7 @@ _public_ int sd_bus_open_user_machine(sd_bus **ret, const char *user_and_machine
         if (r < 0)
                 return r;
 
-        r = bus_set_address_machine(b, true, user_and_machine);
+        r = bus_set_address_machine(b, RUNTIME_SCOPE_USER, user_and_machine);
         if (r < 0)
                 return r;
 
@@ -4183,12 +4188,8 @@ _public_ int sd_bus_get_description(sd_bus *bus, const char **description) {
 
         if (bus->description)
                 *description = bus->description;
-        else if (bus->is_system)
-                *description = "system";
-        else if (bus->is_user)
-                *description = "user";
         else
-                *description = NULL;
+                *description = runtime_scope_to_string(bus->runtime_scope);
 
         return 0;
 }
@@ -4199,17 +4200,11 @@ _public_ int sd_bus_get_scope(sd_bus *bus, const char **scope) {
         assert_return(scope, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        if (bus->is_user) {
-                *scope = "user";
-                return 0;
-        }
+        if (bus->runtime_scope < 0)
+                return -ENODATA;
 
-        if (bus->is_system) {
-                *scope = "system";
-                return 0;
-        }
-
-        return -ENODATA;
+        *scope = runtime_scope_to_string(bus->runtime_scope);
+        return 0;
 }
 
 _public_ int sd_bus_get_address(sd_bus *bus, const char **address) {

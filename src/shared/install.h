@@ -102,28 +102,28 @@ struct InstallInfo {
 };
 
 int unit_file_enable(
-                LookupScope scope,
+                RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **names_or_paths,
                 InstallChange **changes,
                 size_t *n_changes);
 int unit_file_disable(
-                LookupScope scope,
+                RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **names,
                 InstallChange **changes,
                 size_t *n_changes);
 int unit_file_reenable(
-                LookupScope scope,
+                RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **names_or_paths,
                 InstallChange **changes,
                 size_t *n_changes);
 int unit_file_preset(
-                LookupScope scope,
+                RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **names,
@@ -131,52 +131,52 @@ int unit_file_preset(
                 InstallChange **changes,
                 size_t *n_changes);
 int unit_file_preset_all(
-                LookupScope scope,
+                RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 UnitFilePresetMode mode,
                 InstallChange **changes,
                 size_t *n_changes);
 int unit_file_mask(
-                LookupScope scope,
+                RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **names,
                 InstallChange **changes,
                 size_t *n_changes);
 int unit_file_unmask(
-                LookupScope scope,
+                RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **names,
                 InstallChange **changes,
                 size_t *n_changes);
 int unit_file_link(
-                LookupScope scope,
+                RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 InstallChange **changes,
                 size_t *n_changes);
 int unit_file_revert(
-                LookupScope scope,
+                RuntimeScope scope,
                 const char *root_dir,
                 char **names,
                 InstallChange **changes,
                 size_t *n_changes);
 int unit_file_set_default(
-                LookupScope scope,
+                RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 const char *name,
                 InstallChange **changes,
                 size_t *n_changes);
 int unit_file_get_default(
-                LookupScope scope,
+                RuntimeScope scope,
                 const char *root_dir,
                 char **name);
 int unit_file_add_dependency(
-                LookupScope scope,
+                RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **names,
@@ -186,15 +186,15 @@ int unit_file_add_dependency(
                 size_t *n_changes);
 
 int unit_file_lookup_state(
-                LookupScope scope,
+                RuntimeScope scope,
                 const LookupPaths *paths,
                 const char *name,
                 UnitFileState *ret);
 
-int unit_file_get_state(LookupScope scope, const char *root_dir, const char *filename, UnitFileState *ret);
-int unit_file_exists(LookupScope scope, const LookupPaths *paths, const char *name);
+int unit_file_get_state(RuntimeScope scope, const char *root_dir, const char *filename, UnitFileState *ret);
+int unit_file_exists(RuntimeScope scope, const LookupPaths *paths, const char *name);
 
-int unit_file_get_list(LookupScope scope, const char *root_dir, Hashmap *h, char **states, char **patterns);
+int unit_file_get_list(RuntimeScope scope, const char *root_dir, Hashmap *h, char **states, char **patterns);
 Hashmap* unit_file_list_free(Hashmap *h);
 
 InstallChangeType install_changes_add(InstallChange **changes, size_t *n_changes, InstallChangeType type, const char *path, const char *source);
@@ -217,7 +217,7 @@ typedef struct {
 } UnitFilePresets;
 
 void unit_file_presets_freep(UnitFilePresets *p);
-int unit_file_query_preset(LookupScope scope, const char *root_dir, const char *name, UnitFilePresets *cached);
+int unit_file_query_preset(RuntimeScope scope, const char *root_dir, const char *name, UnitFilePresets *cached);
 
 const char *unit_file_state_to_string(UnitFileState s) _const_;
 UnitFileState unit_file_state_from_string(const char *s) _pure_;

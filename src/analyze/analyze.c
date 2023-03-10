@@ -91,7 +91,7 @@ usec_t arg_fuzz = 0;
 PagerFlags arg_pager_flags = 0;
 BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 const char *arg_host = NULL;
-LookupScope arg_scope = LOOKUP_SCOPE_SYSTEM;
+RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 RecursiveErrors arg_recursive_errors = _RECURSIVE_ERRORS_INVALID;
 bool arg_man = true;
 bool arg_generators = false;
@@ -118,18 +118,17 @@ STATIC_DESTRUCTOR_REGISTER(arg_unit, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_profile, freep);
 
 int acquire_bus(sd_bus **bus, bool *use_full_bus) {
-        bool user = arg_scope != LOOKUP_SCOPE_SYSTEM;
         int r;
 
         if (use_full_bus && *use_full_bus) {
-                r = bus_connect_transport(arg_transport, arg_host, user, bus);
+                r = bus_connect_transport(arg_transport, arg_host, arg_runtime_scope, bus);
                 if (IN_SET(r, 0, -EHOSTDOWN))
                         return r;
 
                 *use_full_bus = false;
         }
 
-        return bus_connect_transport_systemd(arg_transport, arg_host, user, bus);
+        return bus_connect_transport_systemd(arg_transport, arg_host, arg_runtime_scope, bus);
 }
 
 int bus_get_unit_property_strv(sd_bus *bus, const char *path, const char *property, char ***strv) {
@@ -384,15 +383,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SYSTEM:
-                        arg_scope = LOOKUP_SCOPE_SYSTEM;
+                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
 
                 case ARG_USER:
-                        arg_scope = LOOKUP_SCOPE_USER;
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
                 case ARG_GLOBAL:
-                        arg_scope = LOOKUP_SCOPE_GLOBAL;
+                        arg_runtime_scope = RUNTIME_SCOPE_GLOBAL;
                         break;
 
                 case ARG_ORDER:
@@ -540,12 +539,12 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --threshold= is only supported for security right now.");
 
-        if (arg_scope == LOOKUP_SCOPE_GLOBAL &&
+        if (arg_runtime_scope == RUNTIME_SCOPE_GLOBAL &&
             !STR_IN_SET(argv[optind] ?: "time", "dot", "unit-paths", "verify"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --global only makes sense with verbs dot, unit-paths, verify.");
 
-        if (streq_ptr(argv[optind], "cat-config") && arg_scope == LOOKUP_SCOPE_USER)
+        if (streq_ptr(argv[optind], "cat-config") && arg_runtime_scope == RUNTIME_SCOPE_USER)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --user is not supported for cat-config right now.");
 
