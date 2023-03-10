@@ -100,6 +100,12 @@ int fd_is_opath(int fd);
 int read_nr_open(void);
 int fd_get_diskseq(int fd, uint64_t *ret);
 
+/* Determining a file descriptor's path via /proc is not reliable. Only use this function to provide better
+ * log messages when doing fd based path handling! */
+const char *format_fd_path(int fd, char **buf);
+
+int dir_fd_is_root(int dir_fd);
+
 /* The maximum length a buffer for a /proc/self/fd/<fd> path needs */
 #define PROC_FD_PATH_MAX \
         (STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int))
