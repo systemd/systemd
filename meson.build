@@ -366,6 +366,8 @@ possible_common_cc_flags = [
         '-Werror=implicit-int',
         '-Werror=incompatible-pointer-types',
         '-Werror=int-conversion',
+        '-Werror=missing-declarations',
+        '-Werror=missing-prototypes',
         '-Werror=overflow',
         '-Werror=override-init',
         '-Werror=return-type',
@@ -397,6 +399,8 @@ possible_common_cc_flags = [
         '-Wno-error=#warnings',  # clang
         '-Wno-string-plus-int',  # clang
 
+        '-fdiagnostics-show-option',
+        '-fno-common',
         '-fstack-protector',
         '-fstack-protector-strong',
         '-fstrict-flex-arrays',
@@ -460,10 +464,6 @@ if get_option('mode') == 'release'
 endif
 
 possible_cc_flags = [
-        '-Werror=missing-declarations',
-        '-Werror=missing-prototypes',
-        '-fdiagnostics-show-option',
-        '-fno-common',
         '-fno-strict-aliasing',
         '-fstrict-flex-arrays=1',
         '-fvisibility=hidden',
