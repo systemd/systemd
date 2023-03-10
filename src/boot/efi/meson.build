@@ -178,7 +178,6 @@ efi_disabled_c_args = cc.get_supported_arguments(
         '-fcf-protection=none',
         '-fno-asynchronous-unwind-tables',
         '-fno-exceptions',
-        '-fno-trapv',
         '-fno-sanitize=all',
         '-fno-unwind-tables',
 )
