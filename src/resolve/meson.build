@@ -85,6 +85,7 @@ libsystemd_resolve_core = static_library(
         'systemd-resolve-core',
         basic_dns_sources,
         include_directories : includes,
+        dependencies : userspace,
         build_by_default : false)
 
 systemd_resolved_sources += custom_target(

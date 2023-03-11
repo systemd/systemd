@@ -296,7 +296,8 @@ libshared_static = static_library(
         libshared_name,
         shared_sources,
         include_directories : includes,
-        dependencies : libshared_deps,
+        dependencies : [libshared_deps,
+                        userspace],
         c_args : ['-fvisibility=default'],
         build_by_default : false)
 
@@ -310,7 +311,8 @@ libshared = shared_library(
                       libbasic,
                       libbasic_gcrypt,
                       libsystemd_static],
-        dependencies : libshared_deps,
+        dependencies : [libshared_deps,
+                        userspace],
         install : true,
         install_dir : rootpkglibdir)
 
@@ -323,7 +325,8 @@ if get_option('fdisk') != 'false'
                 'shared-fdisk',
                 shared_fdisk_sources,
                 include_directories : includes,
-                dependencies : [libfdisk],
+                dependencies : [libfdisk,
+                                userspace],
                 c_args : ['-fvisibility=default'],
                 build_by_default : false)
 endif

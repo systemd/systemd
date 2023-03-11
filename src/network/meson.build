@@ -146,6 +146,7 @@ libnetworkd_core = static_library(
         'networkd-core',
         sources,
         include_directories : network_includes,
+        dependencies : userspace,
         link_with : networkd_link_with,
         build_by_default : false)
 

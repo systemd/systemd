@@ -25,6 +25,7 @@ libudev_basic = static_library(
         'udev-basic',
         libudev_sources,
         include_directories : includes,
+        dependencies : userspace,
         c_args : ['-fvisibility=default'],
         build_by_default : false)
 

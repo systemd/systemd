@@ -456,7 +456,7 @@ tests += [
         },
         {
                 'sources' : files('test-sbat.c'),
-                'condition' : 'HAVE_GNU_EFI',
+                'condition' : 'ENABLE_BOOTLOADER',
                 'c_args' : '-I@0@'.format(efi_config_h_dir),
         },
         {
