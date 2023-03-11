@@ -113,6 +113,19 @@ TEST(rename_process) {
         test_rename_process_one("foo", 1); /* should always fit */
         test_rename_process_one("this is a really really long process name, followed by some more words", 0); /* unlikely to fit */
         test_rename_process_one("1234567", 1); /* should always fit */
+
+}
+
+
+/* Test for the function argv_looks_like_help */
+static void test_argv_looks_like_help(const char *args, int argc) {
+        char *k[] = {(char*)args};
+        bool expected = true;
+        bool got = argv_looks_like_help(argc, k);
+        assert_se(got == expected);
+    }
+TEST(argv_help){
+        test_argv_looks_like_help("program", 1);   /* Test case 1: No arguments */
 }
 
 static int intro(void) {
