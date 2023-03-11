@@ -377,6 +377,21 @@
       </varlistentry>
 
       <varlistentry>
+        <term><command>edit</command> <replaceable>NAME|FILE</replaceable></term>
+
+        <listitem><para>Edit the settings file of the specified machines. For the format of the settings file, refer to <citerefentry
+        project='man-pages'><refentrytitle>systemd.nspawn</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        If an existing settings file of the given machine can't be found, <command>edit</command> automatically
+        create a new settings file from scratch under <filename>/etc/</filename></para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>cat</command> <replaceable>NAME|FILE</replaceable></term>
+
+        <listitem><para>Show the settings file of the specified machines.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>clone</command> <replaceable>NAME</replaceable> <replaceable>NAME</replaceable></term>
 
         <listitem><para>Clones a container or VM image. The arguments specify the name of the image to clone and the
