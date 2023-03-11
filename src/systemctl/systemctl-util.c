@@ -36,6 +36,9 @@ int acquire_bus(BusFocus focus, sd_bus **ret) {
         assert(focus < _BUS_FOCUS_MAX);
         assert(ret);
 
+        if (!IN_SET(arg_runtime_scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--global is not supported for this operation.");
+
         /* We only go directly to the manager, if we are using a local transport */
         if (arg_transport != BUS_TRANSPORT_LOCAL)
                 focus = BUS_FULL;
