@@ -95,6 +95,7 @@ int edit_files_add(
         }
 
         context->files[context->n_files] = (EditFile) {
+                .context = context,
                 .path = TAKE_PTR(new_path),
                 .original_path = TAKE_PTR(new_original_path),
                 .comment_paths = TAKE_PTR(new_comment_paths),
