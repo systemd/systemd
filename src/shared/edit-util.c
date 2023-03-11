@@ -292,30 +292,38 @@ static int run_editor(const EditFileContext *context) {
         return 0;
 }
 
-static int trim_edit_markers(const char *path, const char *marker_start, const char *marker_end) {
+static int trim_edit_markers(EditFile *e) {
         _cleanup_free_ char *old_contents = NULL, *new_contents = NULL;
-        char *contents_start, *contents_end;
-        const char *c = NULL;
+        const char *c;
         int r;
 
-        assert(!marker_start == !marker_end);
+        assert(e);
+        assert(e->context);
+        assert(e->temp);
 
         /* Trim out the lines between the two markers */
-        r = read_full_file(path, &old_contents, NULL);
+        r = read_full_file(e->temp, &old_contents, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to read temporary file \"%s\": %m", path);
+                return log_error_errno(r, "Failed to read temporary file \"%s\": %m", e->temp);
 
-        contents_start = strstr(old_contents, marker_start);
-        if (contents_start)
-                contents_start += strlen(marker_start);
-        else
-                contents_start = old_contents;
+        if (e->context->marker_start) {
+                char *contents_start, *contents_end;
 
-        contents_end = strstr(contents_start, marker_end);
-        if (contents_end)
-                contents_end[0] = 0;
+                assert(e->context->marker_end);
 
-        c = strstrip(contents_start);
+                contents_start = strstr(old_contents, e->context->marker_start);
+                if (contents_start)
+                        contents_start += strlen(e->context->marker_start);
+                else
+                        contents_start = old_contents;
+
+                contents_end = strstr(contents_start, e->context->marker_end);
+                if (contents_end)
+                        contents_end[0] = 0;
+
+                c = strstrip(contents_start);
+        } else
+                c = strstrip(old_contents);
         if (isempty(c))
                 return 0; /* All gone now */
 
@@ -326,9 +334,9 @@ static int trim_edit_markers(const char *path, const char *marker_start, const c
         if (streq(old_contents, new_contents)) /* Don't touch the file if the above didn't change a thing */
                 return 1; /* Unchanged, but good */
 
-        r = write_string_file(path, new_contents, WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_TRUNCATE | WRITE_STRING_FILE_AVOID_NEWLINE);
+        r = write_string_file(e->temp, new_contents, WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_TRUNCATE | WRITE_STRING_FILE_AVOID_NEWLINE);
         if (r < 0)
-                return log_error_errno(r, "Failed to modify temporary file \"%s\": %m", path);
+                return log_error_errno(r, "Failed to modify temporary file \"%s\": %m", e->temp);
 
         return 1; /* Changed, but good */
 }
@@ -353,7 +361,7 @@ int do_edit_files_and_install(EditFileContext *context) {
 
         FOREACH_ARRAY(i, context->files, context->n_files) {
                 /* Always call trim_edit_markers to tell if the temp file is empty */
-                r = trim_edit_markers(i->temp, context->marker_start, context->marker_end);
+                r = trim_edit_markers(i);
                 if (r < 0)
                         return r;
                 if (r == 0) /* temp file doesn't carry actual changes, ignoring */
