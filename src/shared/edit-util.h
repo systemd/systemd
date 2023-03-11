@@ -3,21 +3,25 @@
 
 #include "path-lookup.h"
 
-typedef struct EditFile {
+typedef struct EditFile EditFile;
+typedef struct EditFileContext EditFileContext;
+
+struct EditFile {
+        EditFileContext *context;
         char *path;
         char *original_path;
         char **comment_paths;
         char *temp;
         unsigned line;
-} EditFile;
+};
 
-typedef struct EditFileContext {
+struct EditFileContext {
         EditFile *files;
         size_t n_files;
         const char *marker_start;
         const char *marker_end;
         bool remove_parent;
-} EditFileContext;
+};
 
 void edit_file_context_done(EditFileContext *context);
 
