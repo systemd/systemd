@@ -24,10 +24,7 @@ void edit_file_context_done(EditFileContext *context) {
         assert(context);
 
         FOREACH_ARRAY(i, context->files, context->n_files) {
-                if (i->temp) {
-                        (void) unlink(i->temp);
-                        free(i->temp);
-                }
+                unlink_and_free(i->temp);
 
                 if (context->remove_parent) {
                         _cleanup_free_ char *parent = NULL;
@@ -35,9 +32,8 @@ void edit_file_context_done(EditFileContext *context) {
                         r = path_extract_directory(i->path, &parent);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to extract directory from '%s', ignoring: %m", i->path);
-
-                        /* No need to check if the dir is empty, rmdir does nothing if it is not the case. */
-                        (void) rmdir(parent);
+                        else /* No need to check if the dir is empty, rmdir does nothing if it is not the case. */
+                            (void) rmdir(parent);
                 }
 
                 free(i->path);
