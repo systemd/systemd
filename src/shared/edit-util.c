@@ -105,37 +105,33 @@ int edit_files_add(
         return 1;
 }
 
-static int create_edit_temp_file(
-                const char *target_path,
-                const char *original_path,
-                char * const *comment_paths,
-                const char *marker_start,
-                const char *marker_end,
-                char **ret_temp_filename,
-                unsigned *ret_edit_line) {
-
+static int create_edit_temp_file(EditFile *e) {
         _cleanup_free_ char *temp = NULL;
         unsigned line = 1;
         int r;
 
-        assert(target_path);
-        assert(!comment_paths || (marker_start && marker_end));
-        assert(ret_temp_filename);
+        assert(e);
+        assert(e->context);
+        assert(e->path);
+        assert(!e->comment_paths || (e->context->marker_start && e->context->marker_end));
 
-        r = tempfn_random(target_path, NULL, &temp);
+        if (e->temp)
+                return 0;
+
+        r = tempfn_random(e->path, NULL, &temp);
         if (r < 0)
-                return log_error_errno(r, "Failed to determine temporary filename for \"%s\": %m", target_path);
+                return log_error_errno(r, "Failed to determine temporary filename for \"%s\": %m", e->path);
 
-        r = mkdir_parents_label(target_path, 0755);
+        r = mkdir_parents_label(e->path, 0755);
         if (r < 0)
-                return log_error_errno(r, "Failed to create parent directories for \"%s\": %m", target_path);
+                return log_error_errno(r, "Failed to create parent directories for \"%s\": %m", e->path);
 
-        if (original_path) {
-                r = mac_selinux_create_file_prepare(target_path, S_IFREG);
+        if (e->original_path) {
+                r = mac_selinux_create_file_prepare(e->path, S_IFREG);
                 if (r < 0)
                         return r;
 
-                r = copy_file(original_path, temp, 0, 0644, 0, 0, COPY_REFLINK);
+                r = copy_file(e->original_path, temp, 0, 0644, 0, 0, COPY_REFLINK);
                 if (r == -ENOENT) {
                         r = touch(temp);
                         mac_selinux_create_file_clear();
@@ -144,15 +140,15 @@ static int create_edit_temp_file(
                 } else {
                         mac_selinux_create_file_clear();
                         if (r < 0)
-                                return log_error_errno(r, "Failed to create temporary file for \"%s\": %m", target_path);
+                                return log_error_errno(r, "Failed to create temporary file for \"%s\": %m", e->path);
                 }
         }
 
-        if (comment_paths) {
+        if (e->comment_paths) {
                 _cleanup_free_ char *target_contents = NULL;
                 _cleanup_fclose_ FILE *f = NULL;
 
-                r = mac_selinux_create_file_prepare(target_path, S_IFREG);
+                r = mac_selinux_create_file_prepare(e->path, S_IFREG);
                 if (r < 0)
                         return r;
 
@@ -164,9 +160,9 @@ static int create_edit_temp_file(
                 if (fchmod(fileno(f), 0644) < 0)
                         return log_error_errno(errno, "Failed to change mode of temporary file \"%s\": %m", temp);
 
-                r = read_full_file(target_path, &target_contents, NULL);
+                r = read_full_file(e->path, &target_contents, NULL);
                 if (r < 0 && r != -ENOENT)
-                        return log_error_errno(r, "Failed to read target file \"%s\": %m", target_path);
+                        return log_error_errno(r, "Failed to read target file \"%s\": %m", e->path);
 
                 fprintf(f,
                         "### Editing %s\n"
@@ -175,20 +171,20 @@ static int create_edit_temp_file(
                         "%s%s"
                         "\n"
                         "%s\n",
-                        target_path,
-                        marker_start,
+                        e->path,
+                        e->context->marker_start,
                         strempty(target_contents),
                         target_contents && endswith(target_contents, "\n") ? "" : "\n",
-                        marker_end);
+                        e->context->marker_end);
 
                 line = 4; /* Start editing at the contents area */
 
                 /* Add a comment with the contents of the original files */
-                STRV_FOREACH(path, comment_paths) {
+                STRV_FOREACH(path, e->comment_paths) {
                         _cleanup_free_ char *contents = NULL;
 
                         /* Skip the file that's being edited, already processed in above */
-                        if (path_equal(*path, target_path))
+                        if (path_equal(*path, e->path))
                                 continue;
 
                         r = read_full_file(*path, &contents, NULL);
@@ -212,10 +208,8 @@ static int create_edit_temp_file(
                         return log_error_errno(r, "Failed to create temporary file \"%s\": %m", temp);
         }
 
-        *ret_temp_filename = TAKE_PTR(temp);
-
-        if (ret_edit_line)
-                *ret_edit_line = line;
+        e->temp = TAKE_PTR(temp);
+        e->line = line;
 
         return 0;
 }
@@ -347,18 +341,11 @@ int do_edit_files_and_install(EditFileContext *context) {
         if (context->n_files == 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Got no files to edit.");
 
-        FOREACH_ARRAY(i, context->files, context->n_files)
-                if (isempty(i->temp)) {
-                        r = create_edit_temp_file(i->path,
-                                                  i->original_path,
-                                                  i->comment_paths,
-                                                  context->marker_start,
-                                                  context->marker_end,
-                                                  &i->temp,
-                                                  &i->line);
-                        if (r < 0)
-                                return r;
-                }
+        FOREACH_ARRAY(i, context->files, context->n_files) {
+                r = create_edit_temp_file(i);
+                if (r < 0)
+                        return r;
+        }
 
         r = run_editor(context);
         if (r < 0)
