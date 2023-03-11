@@ -118,14 +118,14 @@ TEST(rename_process) {
 
 
 TEST(argv_help){
-        char *args[1] = {"program"};/* Test case 1: No argument */
+        char *args[1] = {(char*)"program"};/* Test case 1: No argument */
         assert_se(argv_looks_like_help(1, args) == true);
-        char *args2[2] = {"program", "help"};  /*Test case 2: First argument is "help" */
+        char *args2[2] = {(char*)"program", (char*)"help"};  /*Test case 2: First argument is "help" */
         assert_se(argv_looks_like_help(2, args2) == true);
-        char *args3[3] = {"program", "arg1", "--help"};  /*Test case 3: Second argument is "--help" */
+        char *args3[3] = {(char*)"program", (char*)"arg1", (char*)"--help"};  /*Test case 3: Second argument is "--help" */
         assert_se(argv_looks_like_help(3, args3) == true);
-        char *args5[4] = {"program","arg1", "arg2", "--help"}; /* Test case 5: Third argument is "-help" */
-        assert_se(argv_looks_like_help(4, args5) == true);
+        char *args4[4] = {(char*)"program",(char*)"arg1", (char*)"arg2", (char*)"--help"}; /* Test case 5: Third argument is "-help" */
+        assert_se(argv_looks_like_help(4, args4) == true);
 }
 
 static int intro(void) {
