@@ -106,7 +106,7 @@ int edit_files_add(
 }
 
 static int create_edit_temp_file(EditFile *e) {
-        _cleanup_free_ char *temp = NULL;
+        _cleanup_(unlink_and_freep) char *temp = NULL;
         unsigned line = 1;
         int r;
 
