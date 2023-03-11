@@ -115,6 +115,17 @@ TEST(rename_process) {
         test_rename_process_one("1234567", 1); /* should always fit */
 }
 
+TEST(argv_help) {
+        char *args_a[1] = {(char*)"program"};/* Test case 1: No argument */
+        assert_se(argv_looks_like_help(1, args_a) == true);
+        char *args_b[2] = {(char*)"program", (char*)"help"};  /*Test case 2: First argument is "help" */
+        assert_se(argv_looks_like_help(2, args_b) == true);
+        char *args_c[3] = {(char*)"program", (char*)"arg1", (char*)"--help"};  /*Test case 3: Second argument is "--help" */
+        assert_se(argv_looks_like_help(3, args_c) == true);
+        char *args_d[4] = {(char*)"program",(char*)"arg1", (char*)"arg2", (char*)"--help"}; /* Test case 5: Third argument is "-help" */
+        assert_se(argv_looks_like_help(4, args_d) == true);
+}
+
 static int intro(void) {
         log_show_color(true);
         return EXIT_SUCCESS;
