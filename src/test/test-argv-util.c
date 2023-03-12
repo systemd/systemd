@@ -116,12 +116,12 @@ TEST(rename_process) {
 }
 
 TEST(argv_help) {
-        assert_se(argv_looks_like_help(1, STRV_MAKE("program", NULL))); /* No argument */
-        assert_se(argv_looks_like_help(2, STRV_MAKE("program", "help", NULL))); /* First argument is "help" */
-        assert_se(argv_looks_like_help(3, STRV_MAKE("program", "arg1", "--help", NULL))); /* Second argument is "--help" */
-        assert_se(argv_looks_like_help(4, STRV_MAKE("program", "arg1", "arg2", "-h", NULL))); /* Third argument is "-h" */
-        assert_se(!argv_looks_like_help(2, STRV_MAKE("program", "arg1", NULL))); /* Argument list doesn't contain "help", "--help" or "-h" */
-        assert_se(!argv_looks_like_help(4, STRV_MAKE("program", "arg1", "arg2", "--h", NULL))); /* Argument list doesn't contain "help", "--help" or "-h" */
+        assert_se(argv_looks_like_help(1, STRV_MAKE("program")));
+        assert_se(argv_looks_like_help(2, STRV_MAKE("program", "help")));
+        assert_se(argv_looks_like_help(3, STRV_MAKE("program", "arg1", "--help")));
+        assert_se(argv_looks_like_help(4, STRV_MAKE("program", "arg1", "arg2", "-h")));
+        assert_se(!argv_looks_like_help(2, STRV_MAKE("program", "arg1")));
+        assert_se(!argv_looks_like_help(4, STRV_MAKE("program", "arg1", "arg2", "--h")));
 }
 
 static int intro(void) {
