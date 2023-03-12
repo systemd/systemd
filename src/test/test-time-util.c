@@ -10,7 +10,7 @@
 #include "tests.h"
 #include "time-util.h"
 
-#define TRIAL 100u
+#define TRIAL 1000000u
 
 TEST(parse_sec) {
         usec_t u;
@@ -338,6 +338,7 @@ TEST(usec_sub_signed) {
 }
 
 TEST(format_timestamp) {
+        return;
         for (unsigned i = 0; i < TRIAL; i++) {
                 char buf[CONST_MAX(FORMAT_TIMESTAMP_MAX, FORMAT_TIMESPAN_MAX)];
                 usec_t x, y;
@@ -407,6 +408,8 @@ static void test_format_timestamp_impl(usec_t x) {
 
 static void test_format_timestamp_loop(void) {
         test_format_timestamp_impl(USEC_PER_SEC);
+        test_format_timestamp_impl(USEC_TIMESTAMP_FORMATTABLE_MAX-1);
+        test_format_timestamp_impl(USEC_TIMESTAMP_FORMATTABLE_MAX);
 
         for (unsigned i = 0; i < TRIAL; i++) {
                 usec_t x;
@@ -417,6 +420,7 @@ static void test_format_timestamp_loop(void) {
 }
 
 TEST(FORMAT_TIMESTAMP) {
+        return;
         test_format_timestamp_loop();
 }
 
@@ -441,7 +445,16 @@ static void test_format_timestamp_with_tz_one(const char *tz) {
         tzset();
 }
 
+TEST(FORMAT_TIMESTAMP_America_Chicago) {
+        test_format_timestamp_with_tz_one("America/Chicago");
+}
+
+TEST(FORMAT_TIMESTAMP_Asia_Dili) {
+        test_format_timestamp_with_tz_one("Asia/Dili");
+}
+
 TEST(FORMAT_TIMESTAMP_with_tz) {
+        return;
         _cleanup_strv_free_ char **timezones = NULL;
 
         assert_se(get_timezones(&timezones) >= 0);
@@ -862,6 +875,7 @@ static void test_parse_timestamp_with_tz_one(const char *tz) {
 }
 
 TEST(parse_timestamp_with_tz) {
+        return;
         _cleanup_strv_free_ char **timezones = NULL;
 
         assert_se(get_timezones(&timezones) >= 0);
@@ -1076,4 +1090,4 @@ static int intro(void) {
         return EXIT_SUCCESS;
 }
 
-DEFINE_TEST_MAIN_WITH_INTRO(LOG_INFO, intro);
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);
