@@ -407,6 +407,10 @@ static void test_format_timestamp_impl(usec_t x) {
 
 static void test_format_timestamp_loop(void) {
         test_format_timestamp_impl(USEC_PER_SEC);
+        test_format_timestamp_impl(USEC_TIMESTAMP_FORMATTABLE_MAX_32BIT-1);
+        test_format_timestamp_impl(USEC_TIMESTAMP_FORMATTABLE_MAX_32BIT);
+        test_format_timestamp_impl(USEC_TIMESTAMP_FORMATTABLE_MAX-1);
+        test_format_timestamp_impl(USEC_TIMESTAMP_FORMATTABLE_MAX);
 
         for (unsigned i = 0; i < TRIAL; i++) {
                 usec_t x;
@@ -617,8 +621,8 @@ TEST(format_timestamp_range) {
         test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, TIMESTAMP_US_UTC, "--- XXXX-XX-XX XX:XX:XX.XXXXXX UTC");
         test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, TIMESTAMP_DATE, "--- XXXX-XX-XX");
 #elif SIZEOF_TIME_T == 4
-        test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX, TIMESTAMP_UTC, "Tue 2038-01-19 03:14:07 UTC");
-        test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX, TIMESTAMP_DATE, "Tue 2038-01-19");
+        test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX, TIMESTAMP_UTC, "Mon 2038-01-18 03:14:07 UTC");
+        test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX, TIMESTAMP_DATE, "Mon 2038-01-18");
         test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, TIMESTAMP_UTC, "--- XXXX-XX-XX XX:XX:XX UTC");
         test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, TIMESTAMP_US_UTC, "--- XXXX-XX-XX XX:XX:XX.XXXXXX UTC");
         test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, TIMESTAMP_DATE, "--- XXXX-XX-XX");
@@ -632,10 +636,28 @@ static void test_parse_timestamp_one(const char *str, usec_t max_diff, usec_t ex
         int r;
 
         r = parse_timestamp(str, &usec);
-        log_debug("/* %s(%s): max_diff="USEC_FMT", expected="USEC_FMT", result="USEC_FMT"*/", __func__, str, max_diff, expected, usec);
+        log_debug("/* %s(%s): max_diff="USEC_FMT", expected="USEC_FMT", result="USEC_FMT" */", __func__, str, max_diff, expected, usec);
         assert_se(r >= 0);
         assert_se(usec >= expected);
         assert_se(usec_sub_unsigned(usec, expected) <= max_diff);
+}
+
+static bool time_is_zero(usec_t usec) {
+        const char *s;
+
+        s = FORMAT_TIMESTAMP(usec);
+        return strstr(s, " 00:00:00 ");
+}
+
+static bool timezone_equal(usec_t today, usec_t target) {
+        const char *s, *t, *sz, *tz;
+
+        s = FORMAT_TIMESTAMP(today);
+        t = FORMAT_TIMESTAMP(target);
+        assert_se(sz = strrchr(s, ' '));
+        assert_se(tz = strrchr(t, ' '));
+        log_debug("%s("USEC_FMT", "USEC_FMT") -> %s, %s", __func__, today, target, s, t);
+        return streq(sz, tz);
 }
 
 static void test_parse_timestamp_impl(const char *tz) {
@@ -819,12 +841,17 @@ static void test_parse_timestamp_impl(const char *tz) {
 
         /* without date */
         assert_se(parse_timestamp("today", &today) == 0);
-        test_parse_timestamp_one("00:01", 0, today + USEC_PER_MINUTE);
-        test_parse_timestamp_one("00:00:01", 0, today + USEC_PER_SEC);
-        test_parse_timestamp_one("00:00:01.001", 0, today + USEC_PER_SEC + 1000);
-        test_parse_timestamp_one("00:00:01.0010", 0, today + USEC_PER_SEC + 1000);
-        test_parse_timestamp_one("tomorrow", 0, today + USEC_PER_DAY);
-        test_parse_timestamp_one("yesterday", 0, today - USEC_PER_DAY);
+        if (time_is_zero(today)) {
+                test_parse_timestamp_one("00:01", 0, today + USEC_PER_MINUTE);
+                test_parse_timestamp_one("00:00:01", 0, today + USEC_PER_SEC);
+                test_parse_timestamp_one("00:00:01.001", 0, today + USEC_PER_SEC + 1000);
+                test_parse_timestamp_one("00:00:01.0010", 0, today + USEC_PER_SEC + 1000);
+
+                if (timezone_equal(today, today + USEC_PER_DAY) && time_is_zero(today + USEC_PER_DAY))
+                        test_parse_timestamp_one("tomorrow", 0, today + USEC_PER_DAY);
+                if (timezone_equal(today, today - USEC_PER_DAY) && time_is_zero(today - USEC_PER_DAY))
+                        test_parse_timestamp_one("yesterday", 0, today - USEC_PER_DAY);
+        }
 
         /* relative */
         assert_se(parse_timestamp("now", &now_usec) == 0);
