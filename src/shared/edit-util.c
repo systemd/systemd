@@ -24,10 +24,7 @@ void edit_file_context_done(EditFileContext *context) {
         assert(context);
 
         FOREACH_ARRAY(i, context->files, context->n_files) {
-                if (i->temp) {
-                        (void) unlink(i->temp);
-                        free(i->temp);
-                }
+                unlink_and_free(i->temp);
 
                 if (context->remove_parent) {
                         _cleanup_free_ char *parent = NULL;
@@ -35,9 +32,8 @@ void edit_file_context_done(EditFileContext *context) {
                         r = path_extract_directory(i->path, &parent);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to extract directory from '%s', ignoring: %m", i->path);
-
-                        /* No need to check if the dir is empty, rmdir does nothing if it is not the case. */
-                        (void) rmdir(parent);
+                        else /* No need to check if the dir is empty, rmdir does nothing if it is not the case. */
+                            (void) rmdir(parent);
                 }
 
                 free(i->path);
@@ -126,11 +122,18 @@ static int create_edit_temp_file(EditFile *e) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create parent directories for \"%s\": %m", e->path);
 
-        if (e->original_path) {
-                r = mac_selinux_create_file_prepare(e->path, S_IFREG);
-                if (r < 0)
-                        return r;
+        r = mac_selinux_create_file_prepare(e->path, S_IFREG);
+        if (r < 0)
+                return r;
 
+        if (!e->original_path && !e->comment_paths) {
+                r = touch(temp);
+                mac_selinux_create_file_clear();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create temporary file \"%s\": %m", temp);
+        }
+
+        if (e->original_path) {
                 r = copy_file(e->original_path, temp, 0, 0644, 0, 0, COPY_REFLINK);
                 if (r == -ENOENT) {
                         r = touch(temp);
@@ -147,10 +150,6 @@ static int create_edit_temp_file(EditFile *e) {
         if (e->comment_paths) {
                 _cleanup_free_ char *target_contents = NULL;
                 _cleanup_fclose_ FILE *f = NULL;
-
-                r = mac_selinux_create_file_prepare(e->path, S_IFREG);
-                if (r < 0)
-                        return r;
 
                 f = fopen(temp, "we");
                 mac_selinux_create_file_clear();
