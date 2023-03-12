@@ -21,6 +21,8 @@
 #include "alloc-util.h"
 #include "btrfs-util.h"
 #include "build.h"
+#include "bus-error.h"
+#include "bus-locator.h"
 #include "capability-util.h"
 #include "chase-symlinks.h"
 #include "chattr-util.h"
@@ -4225,6 +4227,30 @@ static int run(int argc, char *argv[]) {
                         if (k < 0 && r >= 0)
                                 r = k;
                 }
+        }
+
+        k = read_credential_bool("tmpfiles.daemon-reload");
+        if (k < 0 && k != -ENOENT)
+                return log_error_errno(k, "Failed to read tmpfiles.reload credential: %m");
+
+        if (k > 0) {
+                _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                log_notice("Requesting daemon reload…");
+
+                k = bus_connect_system_systemd(&bus);
+                if (k < 0)
+                        return log_error_errno(k, "Failed to get D-Bus connection: %m");
+
+                k = sd_bus_set_method_call_timeout(bus, DAEMON_RELOAD_TIMEOUT_SEC);
+                if (k < 0)
+                        return log_error_errno(k, "Failed to set D-Bus method call timeout: %m");
+
+                k = bus_call_method(bus, bus_systemd_mgr, "Reload", &error, NULL, NULL);
+                if (k < 0)
+                        return log_error_errno(k, "Failed to reload daemon: %s", bus_error_message(&error, k));
         }
 
         if (ERRNO_IS_RESOURCE(r))
