@@ -330,6 +330,24 @@
         group ID is preserved for the copy, otherwise all files and directories in the copy will be owned by the root
         user and group (UID/GID 0).</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><command>edit</command> <replaceable>NAME</replaceable></term>
+
+        <listitem><para>Edit the settings file of the specified machines. For the detailed format, see <citerefentry
+        project='man-pages'><refentrytitle>systemd.nspawn</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <para>Normally, if the settings file of the given machine can't be found, <command>edit</command> aborts
+        the operation and exits with failure. When used with <option>--new</option>, it will instead create
+        a new settings file from scratch.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>cat</command> <replaceable>NAME</replaceable></term>
+
+        <listitem><para>Cat the settings file of the specified machines. For the detailed format, see <citerefentry
+        project='man-pages'><refentrytitle>systemd.nspawn</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+      </varlistentry>
     </variablelist></refsect2>
 
     <refsect2><title>Image Commands</title><variablelist>
@@ -826,6 +844,14 @@
         <term><option>--quiet</option></term>
 
         <listitem><para>Suppresses additional informational output while running.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--new</option></term>
+
+        <listitem>
+          <para>When used with <command>edit</command>, create a new settings file for the given machine.</para>
+        </listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="host" />
