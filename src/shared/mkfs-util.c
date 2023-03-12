@@ -352,30 +352,12 @@ int make_filesystem(
                 assert_se(sd_id128_to_uuid_string(uuid, vol_id));
 
         /* When changing this conditional, also adjust the log statement below. */
-        if (streq(fstype, "ext2")) {
+        if (STR_IN_SET(fstype, "ext2", "ext3", "ext4")) {
                 argv = strv_new(mkfs,
                                 "-q",
                                 "-L", label,
                                 "-U", vol_id,
                                 "-I", "256",
-                                "-m", "0",
-                                "-E", discard ? "discard,lazy_itable_init=1" : "nodiscard,lazy_itable_init=1",
-                                "-b", "4096",
-                                "-T", "default",
-                                node);
-                if (!argv)
-                        return log_oom();
-
-                if (root && strv_extend_strv(&argv, STRV_MAKE("-d", root), false) < 0)
-                        return log_oom();
-
-        } else if (STR_IN_SET(fstype, "ext3", "ext4")) {
-                argv = strv_new(mkfs,
-                                "-q",
-                                "-L", label,
-                                "-U", vol_id,
-                                "-I", "256",
-                                "-O", "has_journal",
                                 "-m", "0",
                                 "-E", discard ? "discard,lazy_itable_init=1" : "nodiscard,lazy_itable_init=1",
                                 "-b", "4096",
