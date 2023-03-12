@@ -122,11 +122,18 @@ static int create_edit_temp_file(EditFile *e) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create parent directories for \"%s\": %m", e->path);
 
-        if (e->original_path) {
-                r = mac_selinux_create_file_prepare(e->path, S_IFREG);
-                if (r < 0)
-                        return r;
+        r = mac_selinux_create_file_prepare(e->path, S_IFREG);
+        if (r < 0)
+                return r;
 
+        if (!e->original_path && !e->comment_paths) {
+                r = touch(temp);
+                mac_selinux_create_file_clear();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create temporary file \"%s\": %m", temp);
+        }
+
+        if (e->original_path) {
                 r = copy_file(e->original_path, temp, 0, 0644, 0, 0, COPY_REFLINK);
                 if (r == -ENOENT) {
                         r = touch(temp);
@@ -143,10 +150,6 @@ static int create_edit_temp_file(EditFile *e) {
         if (e->comment_paths) {
                 _cleanup_free_ char *target_contents = NULL;
                 _cleanup_fclose_ FILE *f = NULL;
-
-                r = mac_selinux_create_file_prepare(e->path, S_IFREG);
-                if (r < 0)
-                        return r;
 
                 f = fopen(temp, "we");
                 mac_selinux_create_file_clear();
