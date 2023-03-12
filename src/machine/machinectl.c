@@ -27,6 +27,7 @@
 #include "cgroup-util.h"
 #include "constants.h"
 #include "copy.h"
+#include "edit-util.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "format-table.h"
@@ -84,6 +85,7 @@ static const char* arg_format = NULL;
 static const char *arg_uid = NULL;
 static char **arg_setenv = NULL;
 static unsigned arg_max_addresses = 1;
+static bool arg_new = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_setenv, strv_freep);
@@ -1412,6 +1414,148 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
         return process_forward(event, &forward, master, 0, machine);
 }
 
+static int get_settings_path(const char *machine, char **ret_path, bool *ret_is_var) {
+        _cleanup_free_ char *file = NULL, *path = NULL;
+
+        assert(machine);
+        assert(ret_path);
+
+        file = strjoin(machine, ".nspawn");
+        if (!file)
+                return log_oom();
+
+        FOREACH_STRING(i, "/etc/systemd/nspawn", "/run/systemd/nspawn") {
+                path = path_join(i, file);
+                if (!path)
+                        return log_oom();
+
+                if (access(path, F_OK) >= 0) {
+                        *ret_path = TAKE_PTR(path);
+                        if (ret_is_var)
+                                *ret_is_var = false;
+                        return 0;
+                }
+
+                path = mfree(path);
+        }
+
+        path = path_join("/var/lib/machine", file);
+        if (!path)
+                return log_oom();
+
+        if (access(path, F_OK) >= 0) {
+                *ret_path = TAKE_PTR(path);
+                if (ret_is_var)
+                        *ret_is_var = true;
+                return 0;
+        }
+
+        return -ENOENT;
+}
+
+static int edit_settings(int argc, char *argv[], void *userdata) {
+        _cleanup_(edit_file_context_done) EditFileContext context = {
+                .remove_parent = false,
+        };
+        int r;
+
+        if (!on_tty())
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit machine settings if not on a tty.");
+
+        if (!IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_MACHINE))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Edit is only supported on local machines.");
+
+        r = mac_selinux_init();
+        if (r < 0)
+                return r;
+
+        if (!arg_new) {
+                STRV_FOREACH(machine, argv + 1) {
+                        _cleanup_free_ char *path = NULL;
+                        bool is_var;
+
+                        r = get_settings_path(*machine, &path, &is_var);
+                        if (r < 0)
+                                return log_error_errno(r,
+                                                       "Failed to find existing settings file for machine '%s'.",
+                                                       *machine);
+
+                        if (is_var) {
+                                _cleanup_free_ char *file = NULL, *new_path = NULL;
+
+                                file = strjoin(*machine, ".nspawn");
+                                if (!file)
+                                        return log_oom();
+
+                                new_path = path_join("/etc/systemd/nspawn", file);
+                                if (!new_path)
+                                        return log_oom();
+
+                                r = edit_files_add(&context, new_path, path, NULL);
+                        } else
+                                r = edit_files_add(&context, path, NULL, NULL);
+                        if (r < 0)
+                                return r;
+                }
+
+        } else {
+                STRV_FOREACH(machine, argv + 1) {
+                        _cleanup_free_ char *path = NULL, *file = NULL;
+
+                        r = get_settings_path(*machine, &path, NULL);
+                        if (r >= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                                       "Settings for the specified machine '%s' exists in '%s', refusing.",
+                                                       *machine,
+                                                       path);
+
+                        file = strjoin(*machine, ".nspawn");
+                        if (!file)
+                                return log_oom();
+
+                        path = path_join("/etc/systemd/nspawn", file);
+                        if (!path)
+                                return log_oom();
+
+                        r = edit_files_add(&context, path, NULL, NULL);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return do_edit_files_and_install(&context);
+}
+
+static int cat_settings(int argc, char *argv[], void *userdata) {
+        int r = 0;
+
+        if (!IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_MACHINE))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Cat is only supported on local machines.");
+
+        pager_open(arg_pager_flags);
+
+        STRV_FOREACH(machine, argv + 1) {
+                _cleanup_free_ char *path = NULL;
+                int q;
+
+                q = get_settings_path(*machine, &path, NULL);
+                if (q == -ENOENT) {
+                        r = r < 0 ? r : q;
+                        continue;
+                }
+                if (q < 0)
+                        return r < 0 ? r : q;
+
+                q = cat_files(path, 0, 0);
+                if (q < 0)
+                        return r < 0 ? r : q;
+        }
+
+        return r;
+}
+
 static int remove_image(int argc, char *argv[], void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -2443,8 +2587,10 @@ static int help(int argc, char *argv[], void *userdata) {
                "  kill NAME...                Send signal to processes of a VM/container\n"
                "  copy-to NAME PATH [PATH]    Copy files from the host to a container\n"
                "  copy-from NAME PATH [PATH]  Copy files from a container to the host\n"
-               "  bind NAME PATH [PATH]       Bind mount a path from the host into a container\n\n"
-               "Image Commands:\n"
+               "  bind NAME PATH [PATH]       Bind mount a path from the host into a container\n"
+               "  edit NAME...                Edit settings of one or more VMs/containers\n"
+               "  cat NAME...                 Cat settings of one or more VMs/containers\n"
+               "\nImage Commands:\n"
                "  list-images                 Show available container and VM images\n"
                "  image-status [NAME...]      Show image details\n"
                "  show-image [NAME...]        Show properties of image\n"
@@ -2453,8 +2599,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  read-only NAME [BOOL]       Mark or unmark image read-only\n"
                "  remove NAME...              Remove an image\n"
                "  set-limit [NAME] BYTES      Set image or pool size limit (disk quota)\n"
-               "  clean                       Remove hidden (or all) images\n\n"
-               "Image Transfer Commands:\n"
+               "  clean                       Remove hidden (or all) images\n"
+               "\nImage Transfer Commands:\n"
                "  pull-tar URL [NAME]         Download a TAR container image\n"
                "  pull-raw URL [NAME]         Download a RAW container or VM image\n"
                "  import-tar FILE [NAME]      Import a local TAR container image\n"
@@ -2495,6 +2641,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --force                  Download image even if already exists\n"
                "     --now                    Start or power off container after enabling or\n"
                "                              disabling it\n"
+               "     --new                    Create a new settings file when editing\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -2523,6 +2670,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FORMAT,
                 ARG_UID,
                 ARG_MAX_ADDRESSES,
+                ARG_NEW,
         };
 
         static const struct option options[] = {
@@ -2551,6 +2699,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "uid",             required_argument, NULL, ARG_UID             },
                 { "setenv",          required_argument, NULL, 'E'                 },
                 { "max-addresses",   required_argument, NULL, ARG_MAX_ADDRESSES   },
+                { "new",             no_argument,       NULL, ARG_NEW             },
                 {}
         };
 
@@ -2756,6 +2905,10 @@ static int parse_argv(int argc, char *argv[]) {
                                                        "Invalid number of addresses: %s", optarg);
                         break;
 
+                case ARG_NEW:
+                        arg_new = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -2800,6 +2953,8 @@ static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
                 { "login",           VERB_ANY, 2,        0,            login_machine     },
                 { "shell",           VERB_ANY, VERB_ANY, 0,            shell_machine     },
                 { "bind",            3,        4,        0,            bind_mount        },
+                { "edit",            2,        VERB_ANY, 0,            edit_settings     },
+                { "cat",             2,        VERB_ANY, 0,            cat_settings      },
                 { "copy-to",         3,        4,        0,            copy_files        },
                 { "copy-from",       3,        4,        0,            copy_files        },
                 { "remove",          2,        VERB_ANY, 0,            remove_image      },
