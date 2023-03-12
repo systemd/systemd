@@ -24,10 +24,7 @@ void edit_file_context_done(EditFileContext *context) {
         assert(context);
 
         FOREACH_ARRAY(i, context->files, context->n_files) {
-                if (i->temp) {
-                        (void) unlink(i->temp);
-                        free(i->temp);
-                }
+                unlink_and_free(i->temp);
 
                 if (context->remove_parent) {
                         _cleanup_free_ char *parent = NULL;
@@ -35,9 +32,8 @@ void edit_file_context_done(EditFileContext *context) {
                         r = path_extract_directory(i->path, &parent);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to extract directory from '%s', ignoring: %m", i->path);
-
-                        /* No need to check if the dir is empty, rmdir does nothing if it is not the case. */
-                        (void) rmdir(parent);
+                        else /* No need to check if the dir is empty, rmdir does nothing if it is not the case. */
+                            (void) rmdir(parent);
                 }
 
                 free(i->path);
@@ -128,6 +124,17 @@ static int create_edit_temp_file(
         r = mkdir_parents_label(target_path, 0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to create parent directories for \"%s\": %m", target_path);
+
+        if (!original_path && !comment_paths) {
+                r = mac_selinux_create_file_prepare(target_path, S_IFREG);
+                if (r < 0)
+                        return r;
+
+                r = touch(temp);
+                mac_selinux_create_file_clear();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create temporary file \"%s\": %m", temp);
+        }
 
         if (original_path) {
                 r = mac_selinux_create_file_prepare(target_path, S_IFREG);
