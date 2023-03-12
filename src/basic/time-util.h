@@ -205,13 +205,17 @@ static inline usec_t usec_sub_signed(usec_t timestamp, int64_t delta) {
         return usec_sub_unsigned(timestamp, (usec_t) delta);
 }
 
+/* The last second we can format is 31. Dec 9999, 1s before midnight, because otherwise we'd enter 5 digit
+ * year territory. However, since we want to stay away from this in all timezones we take one day off. */
+#define USEC_TIMESTAMP_FORMATTABLE_MAX_64BIT ((usec_t) 253402214399000000) /* Thu 9999-12-30 23:59:59 UTC */
+/* With a 32bit time_t we can't go beyond 2038...
+ * We parse timestamp with RFC-822/ISO 8601 (e.g. +06, or -03:00) as UTC, hence the upper bound must be off
+ * by USEC_PER_DAY. See parse_timestamp() for more details. */
+#define USEC_TIMESTAMP_FORMATTABLE_MAX_32BIT (((usec_t) INT32_MAX) * USEC_PER_SEC - USEC_PER_DAY)
 #if SIZEOF_TIME_T == 8
-  /* The last second we can format is 31. Dec 9999, 1s before midnight, because otherwise we'd enter 5 digit
-   * year territory. However, since we want to stay away from this in all timezones we take one day off. */
-#  define USEC_TIMESTAMP_FORMATTABLE_MAX ((usec_t) 253402214399000000)
+#  define USEC_TIMESTAMP_FORMATTABLE_MAX USEC_TIMESTAMP_FORMATTABLE_MAX_64BIT
 #elif SIZEOF_TIME_T == 4
-/* With a 32bit time_t we can't go beyond 2038... */
-#  define USEC_TIMESTAMP_FORMATTABLE_MAX ((usec_t) 2147483647000000)
+#  define USEC_TIMESTAMP_FORMATTABLE_MAX USEC_TIMESTAMP_FORMATTABLE_MAX_32BIT
 #else
 #  error "Yuck, time_t is neither 4 nor 8 bytes wide?"
 #endif

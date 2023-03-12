@@ -617,8 +617,8 @@ TEST(format_timestamp_range) {
         test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, TIMESTAMP_US_UTC, "--- XXXX-XX-XX XX:XX:XX.XXXXXX UTC");
         test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, TIMESTAMP_DATE, "--- XXXX-XX-XX");
 #elif SIZEOF_TIME_T == 4
-        test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX, TIMESTAMP_UTC, "Tue 2038-01-19 03:14:07 UTC");
-        test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX, TIMESTAMP_DATE, "Tue 2038-01-19");
+        test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX, TIMESTAMP_UTC, "Mon 2038-01-18 03:14:07 UTC");
+        test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX, TIMESTAMP_DATE, "Mon 2038-01-18");
         test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, TIMESTAMP_UTC, "--- XXXX-XX-XX XX:XX:XX UTC");
         test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, TIMESTAMP_US_UTC, "--- XXXX-XX-XX XX:XX:XX.XXXXXX UTC");
         test_format_timestamp_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, TIMESTAMP_DATE, "--- XXXX-XX-XX");

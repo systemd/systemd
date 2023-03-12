@@ -101,8 +101,8 @@ int main(int argc, char *argv[]) {
         test_should_fail("9999-12-31 00:00:00 UTC");
         test_should_fail("10000-01-01 00:00:00 UTC");
 #elif SIZEOF_TIME_T == 4
-        test_should_pass("2038-01-19 03:14:07 UTC");
-        test_should_fail("2038-01-19 03:14:08 UTC");
+        test_should_pass("2038-01-18 03:14:07 UTC");
+        test_should_fail("2038-01-18 03:14:08 UTC");
 #endif
 
         return 0;
