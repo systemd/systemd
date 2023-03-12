@@ -22,6 +22,7 @@
 #include "memory-util.h"
 #include "mkdir.h"
 #include "openssl-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "random-util.h"
 #include "sparse-endian.h"
@@ -85,6 +86,17 @@ int read_credential(const char *name, void **ret, size_t *ret_size) {
                         READ_FULL_FILE_SECURE,
                         NULL,
                         (char**) ret, ret_size);
+}
+
+int read_credential_bool(const char *name) {
+        _cleanup_free_ void *v = NULL;
+        int r;
+
+        r = read_credential(name, &v, NULL);
+        if (r < 0)
+                return r;
+
+        return parse_boolean(v);
 }
 
 int read_credential_strings_many_internal(

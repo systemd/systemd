@@ -248,6 +248,14 @@
         files read from the file system. The lines in the credential can hence augment existing lines of the
         OS, but not override them.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><literal>tmpfiles.daemon-reload</literal></term>
+
+        <listitem><para>Takes a boolean. If enabled, <filename>systemd-tmpfiles-setup.service</filename> will
+        perform a daemon reload before exiting. This is useful if tmpfiles is used to write systemd units or
+        unit dropins which require a daemon reload.</para></listitem>
+      </varlistentry>
     </variablelist>
 
     <para>Note that by default the <filename>systemd-tmpfiles-setup.service</filename> unit file (and related
