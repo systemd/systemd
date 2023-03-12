@@ -1413,9 +1413,23 @@ static bool udev_check_conflicting_tokens(UdevRuleLine *line) {
         return true;
 }
 
+static void udev_check_duplicate_tokens(UdevRuleLine *line) {
+        assert(line);
+
+        LIST_FOREACH(tokens, token, line->tokens)
+                LIST_FOREACH(tokens, i, token->tokens_next)
+                        if (token->op == i->op &&
+                            tokens_eq(token, i)) {
+                                log_line_warning(line, "duplicate expressions");
+                                return;
+                        }
+}
+
 static void udev_check_rule_line(UdevRuleLine *line) {
         udev_check_unused_labels(line);
-        udev_check_conflicting_tokens(line);
+        if (!udev_check_conflicting_tokens(line))
+                return;
+        udev_check_duplicate_tokens(line);
 }
 
 unsigned udev_rule_file_get_issues(UdevRuleFile *rule_file) {
