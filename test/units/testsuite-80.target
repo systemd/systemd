@@ -1,0 +1,2 @@
+[Unit]
+Requires=testsuite-80-required.service
