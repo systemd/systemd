@@ -19,6 +19,7 @@ __attribute__((no_stack_protector, noinline)) void __stack_chk_guard_init(void);
 #  define __stack_chk_guard_init()
 #endif
 
+_noreturn_ void freeze(void);
 void log_wait(void);
 _gnu_printf_(2, 3) EFI_STATUS log_internal(EFI_STATUS status, const char *format, ...);
 #define log_error_status(status, ...) log_internal(status, __VA_ARGS__)

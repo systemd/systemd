@@ -6,7 +6,7 @@
 
 static unsigned log_count = 0;
 
-_noreturn_ static void freeze(void) {
+void freeze(void) {
         for (;;)
                 BS->Stall(60 * 1000 * 1000);
 }
