@@ -24,6 +24,7 @@ RemainAfterExit=yes
 ExecStart=systemd-tmpfiles --create --remove --boot --exclude-prefix=/dev
 SuccessExitStatus=DATAERR CANTCREAT
 LoadCredential=tmpfiles.extra
+LoadCredential=tmpfiles.daemon-reload
 LoadCredential=login.motd
 LoadCredential=login.issue
 LoadCredential=network.hosts

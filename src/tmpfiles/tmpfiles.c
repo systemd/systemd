@@ -21,6 +21,8 @@
 #include "alloc-util.h"
 #include "btrfs-util.h"
 #include "build.h"
+#include "bus-error.h"
+#include "bus-locator.h"
 #include "capability-util.h"
 #include "chase-symlinks.h"
 #include "chattr-util.h"
@@ -4053,6 +4055,34 @@ static int link_parent(ItemArray *a) {
         return 0;
 }
 
+static int maybe_daemon_reload(void) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        r = read_credential_bool("tmpfiles.daemon-reload");
+        if (r < 0 && r != -ENOENT)
+                return log_error_errno(r, "Failed to read tmpfiles.reload credential: %m");
+        if (r <= 0)
+                return 0;
+
+        log_notice("Requesting daemon reload…");
+
+        r = bus_connect_system_systemd(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get D-Bus connection: %m");
+
+        r = sd_bus_set_method_call_timeout(bus, DAEMON_RELOAD_TIMEOUT_SEC);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set D-Bus method call timeout: %m");
+
+        r = bus_call_method(bus, bus_systemd_mgr, "Reload", &error, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to reload daemon: %s", bus_error_message(&error, r));
+
+        return 1;
+}
+
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(item_array_hash_ops, char, string_hash_func, string_compare_func,
                                               ItemArray, item_array_free);
 
@@ -4226,6 +4256,10 @@ static int run(int argc, char *argv[]) {
                                 r = k;
                 }
         }
+
+        k = maybe_daemon_reload();
+        if (k < 0)
+                return k;
 
         if (ERRNO_IS_RESOURCE(r))
                 return r;
