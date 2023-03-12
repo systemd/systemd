@@ -99,8 +99,11 @@ printf '%16384s\n' ' ' >"${rules}"
 echo "Failed to parse rules file ${rules}: No buffer space available" >"${exp}"
 assert_1 "${rules}"
 
-printf 'RUN+="/bin/true"%8175s\\\n' ' ' ' ' >"${rules}"
-echo >>"${rules}"
+{
+  printf 'RUN+="/bin/true"%8175s\\\n' ' '
+  printf 'RUN+="/bin/false"%8174s\\\n' ' '
+  echo
+} >"${rules}"
 assert_0 "${rules}"
 
 printf 'RUN+="/bin/true"%8176s\\\n #\n' ' ' ' ' >"${rules}"
@@ -236,6 +239,15 @@ test_syntax_error 'LABEL{a}="b"' 'Invalid attribute for LABEL.'
 test_syntax_error 'LABEL=="b"' 'Invalid operator for LABEL.'
 test_syntax_error 'LABEL="b"' 'LABEL="b" is unused.'
 test_syntax_error 'a="b"' "Invalid key 'a'"
+test_syntax_error 'KERNEL=="", KERNEL=="?*", NAME="a"' 'conflicting match expressions, the line takes no effect'
+test_syntax_error 'KERNEL=="abc", KERNEL!="abc", NAME="b"' 'conflicting match expressions, the line takes no effect'
+# shellcheck disable=SC2016
+test_syntax_error 'ENV{DISKSEQ}=="?*", ENV{DEVTYPE}!="partition", ENV{DISKSEQ}!="?*" ENV{ID_IGNORE_DISKSEQ}!="1", SYMLINK+="disk/by-diskseq/$env{DISKSEQ}"' \
+        'conflicting match expressions, the line takes no effect'
+test_syntax_error 'KERNEL!="", KERNEL=="?*", NAME="a"' 'duplicate expressions'
+# shellcheck disable=SC2016
+test_syntax_error 'ENV{DISKSEQ}=="?*", ENV{DEVTYPE}!="partition", ENV{DISKSEQ}=="?*" ENV{ID_IGNORE_DISKSEQ}!="1", SYMLINK+="disk/by-diskseq/$env{DISKSEQ}"' \
+        'duplicate expressions'
 
 echo 'GOTO="a"' >"${rules}"
 cat >"${exp}" <<EOF
@@ -271,6 +283,16 @@ ${rules}:2 Contains multiple LABEL keys, ignoring LABEL="a".
 ${rules}:1 GOTO="a" has no matching label, ignoring
 ${rules}:1 The line takes no effect any more, dropping
 ${rules}:2 LABEL="b" is unused.
+${rules}: udev rules check failed
+EOF
+assert_1 "${rules}"
+
+cat >"${rules}" <<'EOF'
+KERNEL!="", KERNEL=="?*", KERNEL=="", NAME="a"
+EOF
+cat >"${exp}" <<EOF
+${rules}:1 duplicate expressions
+${rules}:1 conflicting match expressions, the line takes no effect
 ${rules}: udev rules check failed
 EOF
 assert_1 "${rules}"
