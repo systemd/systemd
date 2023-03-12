@@ -122,6 +122,17 @@ static int create_edit_temp_file(EditFile *e) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create parent directories for \"%s\": %m", e->path);
 
+        if (!e->original_path && !e->comment_paths) {
+                r = mac_selinux_create_file_prepare(e->path, S_IFREG);
+                if (r < 0)
+                        return r;
+
+                r = touch(temp);
+                mac_selinux_create_file_clear();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create temporary file \"%s\": %m", temp);
+        }
+
         if (e->original_path) {
                 r = mac_selinux_create_file_prepare(e->path, S_IFREG);
                 if (r < 0)
