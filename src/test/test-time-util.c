@@ -407,6 +407,10 @@ static void test_format_timestamp_impl(usec_t x) {
 
 static void test_format_timestamp_loop(void) {
         test_format_timestamp_impl(USEC_PER_SEC);
+        test_format_timestamp_impl(USEC_TIMESTAMP_FORMATTABLE_MAX_32BIT-1);
+        test_format_timestamp_impl(USEC_TIMESTAMP_FORMATTABLE_MAX_32BIT);
+        test_format_timestamp_impl(USEC_TIMESTAMP_FORMATTABLE_MAX-1);
+        test_format_timestamp_impl(USEC_TIMESTAMP_FORMATTABLE_MAX);
 
         for (unsigned i = 0; i < TRIAL; i++) {
                 usec_t x;
@@ -1076,4 +1080,4 @@ static int intro(void) {
         return EXIT_SUCCESS;
 }
 
-DEFINE_TEST_MAIN_WITH_INTRO(LOG_INFO, intro);
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);
