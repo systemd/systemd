@@ -160,11 +160,7 @@ static int unit_file_create_new(
         if (r < 0)
                 return r;
 
-        r = edit_files_add(context, new_path, NULL, original_unit_paths);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return edit_files_add(context, new_path, NULL, original_unit_paths);
 }
 
 static int unit_file_create_copy(
@@ -196,11 +192,7 @@ static int unit_file_create_copy(
                         return log_warning_errno(SYNTHETIC_ERRNO(EKEYREJECTED), "%s skipped.", unit_name);
         }
 
-        r = edit_files_add(context, new_path, fragment_path, NULL);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return edit_files_add(context, new_path, fragment_path, NULL);
 }
 
 static int find_paths_to_edit(
@@ -375,9 +367,9 @@ int verb_edit(int argc, char *argv[], void *userdata) {
 
         if (!arg_no_reload && !install_client_side()) {
                 r = daemon_reload(ACTION_RELOAD, /* graceful= */ false);
-                if (r > 0)
-                        r = 0;
+                if (r < 0)
+                        return r;
         }
 
-        return r;
+        return 0;
 }
