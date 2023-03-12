@@ -17,6 +17,7 @@
 #include "macro.h"
 #include "parse-util.h"
 #include "serialize.h"
+#include "service.h"
 #include "set.h"
 #include "sort-util.h"
 #include "special.h"
@@ -477,6 +478,15 @@ int job_type_merge_and_collapse(JobType *a, JobType b, Unit *u) {
         return 0;
 }
 
+static bool service_will_auto_restart(Unit *u) {
+        Service *s = SERVICE(u);
+
+        if (!s)
+                return false;
+
+        return (s->will_auto_restart || s->state == SERVICE_AUTO_RESTART);
+}
+
 static bool job_is_runnable(Job *j) {
         Unit *other;
 
@@ -501,7 +511,8 @@ static bool job_is_runnable(Job *j) {
                 return true;
 
         UNIT_FOREACH_DEPENDENCY(other, j->unit, UNIT_ATOM_AFTER)
-                if (other->job && job_compare(j, other->job, UNIT_ATOM_AFTER) > 0) {
+                if ((other->job && job_compare(j, other->job, UNIT_ATOM_AFTER) > 0) ||
+                    (!other->job && service_will_auto_restart(other))) {
                         log_unit_debug(j->unit,
                                        "starting held back, waiting for: %s",
                                        other->id);
