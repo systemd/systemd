@@ -24,10 +24,7 @@ void edit_file_context_done(EditFileContext *context) {
         assert(context);
 
         FOREACH_ARRAY(i, context->files, context->n_files) {
-                if (i->temp) {
-                        (void) unlink(i->temp);
-                        free(i->temp);
-                }
+                unlink_and_free(i->temp);
 
                 if (context->remove_parent) {
                         _cleanup_free_ char *parent = NULL;
@@ -35,9 +32,8 @@ void edit_file_context_done(EditFileContext *context) {
                         r = path_extract_directory(i->path, &parent);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to extract directory from '%s', ignoring: %m", i->path);
-
-                        /* No need to check if the dir is empty, rmdir does nothing if it is not the case. */
-                        (void) rmdir(parent);
+                        else /* No need to check if the dir is empty, rmdir does nothing if it is not the case. */
+                            (void) rmdir(parent);
                 }
 
                 free(i->path);
@@ -125,6 +121,17 @@ static int create_edit_temp_file(EditFile *e) {
         r = mkdir_parents_label(e->path, 0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to create parent directories for \"%s\": %m", e->path);
+
+        if (!e->original_path && !e->comment_paths) {
+                r = mac_selinux_create_file_prepare(e->path, S_IFREG);
+                if (r < 0)
+                        return r;
+
+                r = touch(temp);
+                mac_selinux_create_file_clear();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create temporary file \"%s\": %m", temp);
+        }
 
         if (e->original_path) {
                 r = mac_selinux_create_file_prepare(e->path, S_IFREG);
@@ -292,21 +299,21 @@ static int run_editor(const EditFileContext *context) {
         return 0;
 }
 
-static int trim_edit_markers(EditFile *e) {
+static int strip_edit_temp_file(EditFile *e) {
         _cleanup_free_ char *old_contents = NULL, *new_contents = NULL;
-        const char *c;
+        const char *stripped;
         int r;
 
         assert(e);
         assert(e->context);
         assert(e->temp);
 
-        /* Trim out the lines between the two markers */
         r = read_full_file(e->temp, &old_contents, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to read temporary file \"%s\": %m", e->temp);
 
         if (e->context->marker_start) {
+                /* Trim out the lines between the two markers */
                 char *contents_start, *contents_end;
 
                 assert(e->context->marker_end);
@@ -319,26 +326,27 @@ static int trim_edit_markers(EditFile *e) {
 
                 contents_end = strstr(contents_start, e->context->marker_end);
                 if (contents_end)
-                        contents_end[0] = 0;
+                        *contents_end = '\0';
 
-                c = strstrip(contents_start);
+                stripped = strstrip(contents_start);
         } else
-                c = strstrip(old_contents);
-        if (isempty(c))
-                return 0; /* All gone now */
+                stripped = strstrip(old_contents);
+        if (isempty(stripped))
+                return 0; /* File is empty (has no real changes) */
 
-        new_contents = strjoin(c, "\n"); /* Trim prefix and suffix, but ensure suffixed by single newline */
+        /* Trim prefix and suffix, but ensure suffixed by single newline */
+        new_contents = strjoin(stripped, "\n");
         if (!new_contents)
                 return log_oom();
 
         if (streq(old_contents, new_contents)) /* Don't touch the file if the above didn't change a thing */
-                return 1; /* Unchanged, but good */
+                return 1; /* Contents unchanged after stripping but has changes */
 
         r = write_string_file(e->temp, new_contents, WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_TRUNCATE | WRITE_STRING_FILE_AVOID_NEWLINE);
         if (r < 0)
                 return log_error_errno(r, "Failed to modify temporary file \"%s\": %m", e->temp);
 
-        return 1; /* Changed, but good */
+        return 1; /* Contents have real changes and are changed after stripping */
 }
 
 int do_edit_files_and_install(EditFileContext *context) {
@@ -360,8 +368,8 @@ int do_edit_files_and_install(EditFileContext *context) {
                 return r;
 
         FOREACH_ARRAY(i, context->files, context->n_files) {
-                /* Always call trim_edit_markers to tell if the temp file is empty */
-                r = trim_edit_markers(i);
+                /* Always call strip_edit_temp_file which will tell if the temp file has actual changes */
+                r = strip_edit_temp_file(i);
                 if (r < 0)
                         return r;
                 if (r == 0) /* temp file doesn't carry actual changes, ignoring */

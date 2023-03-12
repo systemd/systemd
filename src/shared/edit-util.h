@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "path-lookup.h"
+#include <stdbool.h>
 
 typedef struct EditFile EditFile;
 typedef struct EditFileContext EditFileContext;
