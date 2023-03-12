@@ -236,6 +236,10 @@ test_syntax_error 'LABEL{a}="b"' 'Invalid attribute for LABEL.'
 test_syntax_error 'LABEL=="b"' 'Invalid operator for LABEL.'
 test_syntax_error 'LABEL="b"' 'LABEL="b" is unused.'
 test_syntax_error 'a="b"' "Invalid key 'a'"
+test_syntax_error 'KERNEL=="", KERNEL=="?*", NAME="a"' 'conflicting match expressions, the line takes no effect'
+# shellcheck disable=SC2016
+test_syntax_error 'ENV{DISKSEQ}=="?*", ENV{DEVTYPE}!="partition", ENV{DISKSEQ}!="?*" ENV{ID_IGNORE_DISKSEQ}!="1", SYMLINK+="disk/by-diskseq/$env{DISKSEQ}"' \
+        'conflicting match expressions, the line takes no effect'
 
 echo 'GOTO="a"' >"${rules}"
 cat >"${exp}" <<EOF
