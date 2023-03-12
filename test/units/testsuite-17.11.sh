@@ -99,8 +99,11 @@ printf '%16384s\n' ' ' >"${rules}"
 echo "Failed to parse rules file ${rules}: No buffer space available" >"${exp}"
 assert_1 "${rules}"
 
-printf 'RUN+="/bin/true"%8175s\\\n' ' ' ' ' >"${rules}"
-echo >>"${rules}"
+{
+  printf 'RUN+="/bin/true"%8175s\\\n' ' '
+  printf 'RUN+="/bin/false"%8174s\\\n' ' '
+  echo
+} >"${rules}"
 assert_0 "${rules}"
 
 printf 'RUN+="/bin/true"%8176s\\\n #\n' ' ' ' ' >"${rules}"
@@ -237,9 +240,14 @@ test_syntax_error 'LABEL=="b"' 'Invalid operator for LABEL.'
 test_syntax_error 'LABEL="b"' 'LABEL="b" is unused.'
 test_syntax_error 'a="b"' "Invalid key 'a'"
 test_syntax_error 'KERNEL=="", KERNEL=="?*", NAME="a"' 'conflicting match expressions, the line takes no effect'
+test_syntax_error 'KERNEL!="", KERNEL=="?*", KERNEL=="", NAME="a"' 'conflicting match expressions, the line takes no effect'
 # shellcheck disable=SC2016
 test_syntax_error 'ENV{DISKSEQ}=="?*", ENV{DEVTYPE}!="partition", ENV{DISKSEQ}!="?*" ENV{ID_IGNORE_DISKSEQ}!="1", SYMLINK+="disk/by-diskseq/$env{DISKSEQ}"' \
         'conflicting match expressions, the line takes no effect'
+test_syntax_error 'KERNEL!="", KERNEL=="?*", NAME="a"' 'duplicate expressions'
+# shellcheck disable=SC2016
+test_syntax_error 'ENV{DISKSEQ}=="?*", ENV{DEVTYPE}!="partition", ENV{DISKSEQ}=="?*" ENV{ID_IGNORE_DISKSEQ}!="1", SYMLINK+="disk/by-diskseq/$env{DISKSEQ}"' \
+        'duplicate expressions'
 
 echo 'GOTO="a"' >"${rules}"
 cat >"${exp}" <<EOF
