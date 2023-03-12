@@ -179,16 +179,22 @@ efi_disabled_c_args = cc.get_supported_arguments(
         '-fcf-protection=none',
         '-fno-asynchronous-unwind-tables',
         '-fno-exceptions',
-        '-fno-sanitize=all',
         '-fno-unwind-tables',
 )
-efi_c_args += efi_disabled_c_args
-efi_c_ld_args += efi_disabled_c_args
 efi_override_options = [
         'b_coverage=false',
         'b_pgo=off',
-        'b_sanitize=none',
 ]
+
+if get_option('b_sanitize') == 'undefined'
+        efi_disabled_c_args += cc.get_supported_arguments('-fno-sanitize-link-runtime')
+else
+        efi_disabled_c_args += cc.get_supported_arguments('-fno-sanitize=all')
+        efi_override_options += 'b_sanitize=none'
+endif
+
+efi_c_args += efi_disabled_c_args
+efi_c_ld_args += efi_disabled_c_args
 
 if cc.get_id() == 'clang'
         # clang is too picky sometimes.
@@ -251,6 +257,10 @@ stub_sources = files(
         'splash.c',
         'stub.c',
 )
+
+if get_option('b_sanitize') == 'undefined'
+        libefi_sources += files('ubsan.c')
+endif
 
 if host_machine.cpu_family() in ['x86', 'x86_64']
         stub_sources += files('linux_x86.c')
