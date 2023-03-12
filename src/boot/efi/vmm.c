@@ -214,7 +214,7 @@ static const SmbiosHeader *get_smbios_table(uint8_t type, uint64_t *ret_size_lef
         uint64_t size = 0;
         const uint8_t *p = find_smbios_configuration_table(&size);
         if (!p)
-                return false;
+                return NULL;
 
         for (;;) {
                 if (size < sizeof(SmbiosHeader))
