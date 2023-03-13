@@ -25,6 +25,7 @@
 #include "macro.h"
 #include "missing_sched.h"
 #include "missing_syscall.h"
+#include "namespace-util.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "procfs-util.h"
@@ -244,6 +245,7 @@ TEST(get_process_cmdline_harder) {
         _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *line = NULL;
         pid_t pid;
+        int r;
 
         if (geteuid() != 0) {
                 log_info("Skipping %s: not root", __func__);
@@ -278,11 +280,11 @@ TEST(get_process_cmdline_harder) {
         }
 
         assert_se(pid == 0);
-        assert_se(unshare(CLONE_NEWNS) >= 0);
 
-        if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0) {
-                log_warning_errno(errno, "mount(..., \"/\", MS_SLAVE|MS_REC, ...) failed: %m");
-                assert_se(IN_SET(errno, EPERM, EACCES));
+        r = detach_mount_namespace();
+        if (r < 0) {
+                log_warning_errno(r, "detach mount namespace failed: %m");
+                assert_se(ERRNO_IS_PRIVILEGE(r));
                 return;
         }
 
