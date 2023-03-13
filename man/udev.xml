@@ -514,6 +514,10 @@
             <term><varname>LABEL</varname></term>
             <listitem>
               <para>A named label to which a <varname>GOTO</varname> may jump.</para>
+
+              <para><varname>LABEL</varname> assignments take effect regardless
+              of match conditions.  Multiple <varname>LABEL</varname>
+              assignments in a single rule are not supported.</para>
             </listitem>
           </varlistentry>
 
