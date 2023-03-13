@@ -317,7 +317,7 @@ int chase_symlinks_at(
                         if (!(flags & CHASE_MKDIR_0755))
                                 return r;
 
-                        child = open_mkdir_at(fd, first, O_CLOEXEC|O_PATH|O_EXCL, 0755);
+                        child = open_mkdir_at(fd, first, O_CLOEXEC|O_PATH|O_CREAT|O_EXCL, 0755);
                         if (child < 0)
                                 return child;
                 }

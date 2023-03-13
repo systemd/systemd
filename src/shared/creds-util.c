@@ -339,7 +339,7 @@ int get_credential_host_secret(CredentialSecretFlags flags, void **ret, size_t *
         }
 
         mkdir_parents(dirname, 0755);
-        dfd = open_mkdir_at(AT_FDCWD, dirname, O_CLOEXEC, 0755);
+        dfd = open_mkdir_at(AT_FDCWD, dirname, O_CREAT|O_CLOEXEC, 0755);
         if (dfd < 0)
                 return log_debug_errno(dfd, "Failed to create or open directory '%s': %m", dirname);
 

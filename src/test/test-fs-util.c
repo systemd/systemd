@@ -1049,19 +1049,19 @@ TEST(open_mkdir_at) {
         _cleanup_close_ int fd = -EBADF, subdir_fd = -EBADF, subsubdir_fd = -EBADF;
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
 
-        assert_se(open_mkdir_at(AT_FDCWD, "/proc", O_EXCL|O_CLOEXEC, 0) == -EEXIST);
+        assert_se(open_mkdir_at(AT_FDCWD, "/proc", O_CREAT|O_EXCL|O_CLOEXEC, 0) == -EEXIST);
 
         fd = open_mkdir_at(AT_FDCWD, "/proc", O_CLOEXEC, 0);
         assert_se(fd >= 0);
         fd = safe_close(fd);
 
-        assert_se(open_mkdir_at(AT_FDCWD, "/bin/sh", O_EXCL|O_CLOEXEC, 0) == -EEXIST);
+        assert_se(open_mkdir_at(AT_FDCWD, "/bin/sh", O_CREAT|O_EXCL|O_CLOEXEC, 0) == -EEXIST);
         assert_se(open_mkdir_at(AT_FDCWD, "/bin/sh", O_CLOEXEC, 0) == -EEXIST);
 
         assert_se(mkdtemp_malloc(NULL, &t) >= 0);
 
-        assert_se(open_mkdir_at(AT_FDCWD, t, O_EXCL|O_CLOEXEC, 0) == -EEXIST);
-        assert_se(open_mkdir_at(AT_FDCWD, t, O_PATH|O_EXCL|O_CLOEXEC, 0) == -EEXIST);
+        assert_se(open_mkdir_at(AT_FDCWD, t, O_CREAT|O_EXCL|O_CLOEXEC, 0) == -EEXIST);
+        assert_se(open_mkdir_at(AT_FDCWD, t, O_PATH|O_CREAT|O_EXCL|O_CLOEXEC, 0) == -EEXIST);
 
         fd = open_mkdir_at(AT_FDCWD, t, O_CLOEXEC, 0000);
         assert_se(fd >= 0);
@@ -1070,18 +1070,18 @@ TEST(open_mkdir_at) {
         fd = open_mkdir_at(AT_FDCWD, t, O_PATH|O_CLOEXEC, 0000);
         assert_se(fd >= 0);
 
-        subdir_fd = open_mkdir_at(fd, "xxx", O_PATH|O_EXCL|O_CLOEXEC, 0700);
+        subdir_fd = open_mkdir_at(fd, "xxx", O_PATH|O_CREAT|O_EXCL|O_CLOEXEC, 0700);
         assert_se(subdir_fd >= 0);
 
-        assert_se(open_mkdir_at(fd, "xxx", O_PATH|O_EXCL|O_CLOEXEC, 0) == -EEXIST);
+        assert_se(open_mkdir_at(fd, "xxx", O_PATH|O_CREAT|O_EXCL|O_CLOEXEC, 0) == -EEXIST);
 
-        subsubdir_fd = open_mkdir_at(subdir_fd, "yyy", O_EXCL|O_CLOEXEC, 0700);
+        subsubdir_fd = open_mkdir_at(subdir_fd, "yyy", O_CREAT|O_EXCL|O_CLOEXEC, 0700);
         assert_se(subsubdir_fd >= 0);
         subsubdir_fd = safe_close(subsubdir_fd);
 
-        assert_se(open_mkdir_at(subdir_fd, "yyy", O_EXCL|O_CLOEXEC, 0) == -EEXIST);
+        assert_se(open_mkdir_at(subdir_fd, "yyy", O_CREAT|O_EXCL|O_CLOEXEC, 0) == -EEXIST);
 
-        assert_se(open_mkdir_at(fd, "xxx/yyy", O_EXCL|O_CLOEXEC, 0) == -EEXIST);
+        assert_se(open_mkdir_at(fd, "xxx/yyy", O_CREAT|O_EXCL|O_CLOEXEC, 0) == -EEXIST);
 
         subsubdir_fd = open_mkdir_at(fd, "xxx/yyy", O_CLOEXEC, 0700);
         assert_se(subsubdir_fd >= 0);

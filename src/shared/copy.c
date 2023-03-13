@@ -587,7 +587,7 @@ static int hardlink_context_realize(HardlinkContext *c) {
 
         assert(c->subdir);
 
-        c->dir_fd = open_mkdir_at(c->parent_fd, c->subdir, O_EXCL|O_CLOEXEC, 0700);
+        c->dir_fd = open_mkdir_at(c->parent_fd, c->subdir, O_CREAT|O_EXCL|O_CLOEXEC, 0700);
         if (c->dir_fd < 0)
                 return c->dir_fd;
 
