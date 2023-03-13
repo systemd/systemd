@@ -21,6 +21,8 @@ static int logind_set_wall_message(sd_bus *bus) {
         _cleanup_free_ char *m = NULL;
         int r;
 
+        assert(bus);
+
         m = strv_join(arg_wall, " ");
         if (!m)
                 return log_oom();
@@ -55,7 +57,10 @@ int logind_reboot(enum action a) {
         sd_bus *bus;
         int r;
 
-        if (a < 0 || a >= _ACTION_MAX || !actions[a])
+        assert(a >= 0);
+        assert(a < _ACTION_MAX);
+
+        if (!actions[a])
                 return -EINVAL;
 
         r = acquire_bus(BUS_FULL, &bus);
@@ -105,6 +110,9 @@ int logind_check_inhibitors(enum action a) {
         sd_bus *bus;
         unsigned c = 0;
         int r;
+
+        assert(a >= 0);
+        assert(a < _ACTION_MAX);
 
         if (arg_check_inhibitors == 0 || arg_force > 0)
                 return 0;
