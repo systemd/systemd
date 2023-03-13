@@ -73,6 +73,7 @@
 #include "memory-util.h"
 #include "missing_fs.h"
 #include "missing_ioprio.h"
+#include "missing_prctl.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -4972,6 +4973,17 @@ static int exec_child(
                         return r;
         }
 
+        if (context->memory_ksm >= 0) {
+                if (prctl(PR_SET_MEMORY_MERGE, context->memory_ksm) < 0) {
+                        if (ERRNO_IS_NOT_SUPPORTED(errno))
+                                log_unit_debug_errno(unit, r, "KSM support not available, ignoring.");
+                        else {
+                                *exit_status = EXIT_KSM;
+                                return log_unit_error_errno(unit, errno, "Failed to set KSM %m");
+                        }
+                }
+        }
+
         /* Drop groups as early as possible.
          * This needs to be done after PrivateDevices=y setup as device nodes should be owned by the host's root.
          * For non-root in a userns, devices will be owned by the user/group before the group change, and nobody. */
@@ -5574,6 +5586,7 @@ void exec_context_init(ExecContext *c) {
         c->tty_cols = UINT_MAX;
         numa_policy_reset(&c->numa_policy);
         c->private_mounts = -1;
+        c->memory_ksm = -1;
 }
 
 void exec_context_done(ExecContext *c) {
