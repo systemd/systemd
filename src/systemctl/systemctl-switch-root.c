@@ -21,11 +21,11 @@ static int same_file_in_root(
         struct stat sta, stb;
         int r;
 
-        r = chase_symlinks_and_stat(a, root, CHASE_PREFIX_ROOT, NULL, &sta, NULL);
+        r = chase_symlinks_and_stat(a, root, CHASE_PREFIX_ROOT, NULL, &sta);
         if (r < 0)
                 return r;
 
-        r = chase_symlinks_and_stat(b, root, CHASE_PREFIX_ROOT, NULL, &stb, NULL);
+        r = chase_symlinks_and_stat(b, root, CHASE_PREFIX_ROOT, NULL, &stb);
         if (r < 0)
                 return r;
 

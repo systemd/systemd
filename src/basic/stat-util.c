@@ -145,7 +145,7 @@ int null_or_empty_path_with_root(const char *fn, const char *root) {
         if (path_equal_ptr(path_startswith(fn, root ?: "/"), "dev/null"))
                 return true;
 
-        r = chase_symlinks_and_stat(fn, root, CHASE_PREFIX_ROOT, NULL, &st, NULL);
+        r = chase_symlinks_and_stat(fn, root, CHASE_PREFIX_ROOT, NULL, &st);
         if (r < 0)
                 return r;
 

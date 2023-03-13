@@ -981,7 +981,7 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                         return r;
                 assert(r > 0);
 
-                r = chase_symlinks_and_access(filename, arg_root, CHASE_PREFIX_ROOT, F_OK, &resolved, NULL);
+                r = chase_symlinks_and_access(filename, arg_root, CHASE_PREFIX_ROOT, F_OK, &resolved);
                 if (r < 0)
                         return log_error_errno(r, "Cannot access \"%s%s\": %m", strempty(arg_root), filename);
 
