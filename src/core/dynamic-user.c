@@ -383,11 +383,11 @@ static int dynamic_user_realize(
         /* Acquire a UID for the user name. This will allocate a UID for the user name if the user doesn't exist
          * yet. If it already exists its existing UID/GID will be reused. */
 
-        r = unposix_lock(d->storage_socket[0], LOCK_EX);
+        r = posix_lock(d->storage_socket[0], LOCK_EX);
         if (r < 0)
                 return r;
 
-        CLEANUP_UNPOSIX_UNLOCK(d->storage_socket[0]);
+        CLEANUP_POSIX_UNLOCK(d->storage_socket[0]);
 
         r = dynamic_user_pop(d, &num, &uid_lock_fd);
         if (r < 0) {
@@ -399,7 +399,7 @@ static int dynamic_user_realize(
 
                 /* OK, nothing stored yet, let's try to find something useful. While we are working on this release the
                  * lock however, so that nobody else blocks on our NSS lookups. */
-                r = unposix_lock(d->storage_socket[0], LOCK_UN);
+                r = posix_lock(d->storage_socket[0], LOCK_UN);
                 if (r < 0)
                         return r;
 
@@ -451,7 +451,7 @@ static int dynamic_user_realize(
                 }
 
                 /* So, we found a working UID/lock combination. Let's see if we actually still need it. */
-                r = unposix_lock(d->storage_socket[0], LOCK_EX);
+                r = posix_lock(d->storage_socket[0], LOCK_EX);
                 if (r < 0) {
                         unlink_uid_lock(uid_lock_fd, num, d->name);
                         return r;
@@ -523,11 +523,11 @@ int dynamic_user_current(DynamicUser *d, uid_t *ret) {
         /* Get the currently assigned UID for the user, if there's any. This simply pops the data from the
          * storage socket, and pushes it back in right-away. */
 
-        r = unposix_lock(d->storage_socket[0], LOCK_EX);
+        r = posix_lock(d->storage_socket[0], LOCK_EX);
         if (r < 0)
                 return r;
 
-        CLEANUP_UNPOSIX_UNLOCK(d->storage_socket[0]);
+        CLEANUP_POSIX_UNLOCK(d->storage_socket[0]);
 
         r = dynamic_user_pop(d, &uid, &lock_fd);
         if (r < 0)
@@ -565,11 +565,11 @@ static int dynamic_user_close(DynamicUser *d) {
         /* Release the user ID, by releasing the lock on it, and emptying the storage socket. After this the
          * user is unrealized again, much like it was after it the DynamicUser object was first allocated. */
 
-        r = unposix_lock(d->storage_socket[0], LOCK_EX);
+        r = posix_lock(d->storage_socket[0], LOCK_EX);
         if (r < 0)
                 return r;
 
-        CLEANUP_UNPOSIX_UNLOCK(d->storage_socket[0]);
+        CLEANUP_POSIX_UNLOCK(d->storage_socket[0]);
 
         r = dynamic_user_pop(d, &uid, &lock_fd);
         if (r == -EAGAIN)
