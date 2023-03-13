@@ -477,14 +477,6 @@ static UdevRuleSubstituteType rule_get_substitution_type(const char *str) {
         return SUBST_TYPE_PLAIN;
 }
 
-static void rule_line_append_token(UdevRuleLine *rule_line, UdevRuleToken *token) {
-        assert(rule_line);
-        assert(token);
-
-        token->rule_line = rule_line;
-        LIST_APPEND(tokens, rule_line->tokens, token);
-}
-
 static int rule_line_add_token(UdevRuleLine *rule_line, UdevRuleTokenType type, UdevRuleOperatorType op, char *value, void *data) {
         _cleanup_(udev_rule_token_freep) UdevRuleToken *token = NULL;
         UdevRuleMatchType match_type = _MATCH_TYPE_INVALID;
@@ -571,9 +563,10 @@ static int rule_line_add_token(UdevRuleLine *rule_line, UdevRuleTokenType type, 
                 .match_type = match_type,
                 .attr_subst_type = subst_type,
                 .attr_match_remove_trailing_whitespace = remove_trailing_whitespace,
+                .rule_line = rule_line,
         };
 
-        rule_line_append_token(rule_line, token);
+        LIST_APPEND(tokens, rule_line->tokens, token);
 
         if (token->type == TK_A_NAME)
                 SET_FLAG(rule_line->type, LINE_HAS_NAME, true);
@@ -1139,7 +1132,7 @@ static void sort_tokens(UdevRuleLine *rule_line) {
                                 min_token = t;
 
                 LIST_REMOVE(tokens, old_tokens, min_token);
-                rule_line_append_token(rule_line, min_token);
+                LIST_APPEND(tokens, rule_line->tokens, min_token);
         }
 }
 
