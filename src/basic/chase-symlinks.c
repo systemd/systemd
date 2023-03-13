@@ -522,7 +522,9 @@ int chase_symlinks(
                 return r;
 
         if (ret_path) {
-                char *q = path_join(empty_to_root(root), p);
+                _cleanup_free_ char *q = NULL;
+
+                q = path_join(empty_to_root(root), p);
                 if (!q)
                         return -ENOMEM;
 
