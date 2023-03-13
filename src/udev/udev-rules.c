@@ -332,20 +332,26 @@ static void log_event_truncated(
 
 /*** Other functions ***/
 
-static void udev_rule_token_free(UdevRuleToken *token) {
-        free(token);
+static UdevRuleToken *udev_rule_token_free(UdevRuleToken *token) {
+        if (!token)
+                return NULL;
+
+        if (token->rule_line)
+                LIST_REMOVE(tokens, token->rule_line->tokens, token);
+
+        return mfree(token);
 }
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(UdevRuleToken*, udev_rule_token_free);
 
 static void udev_rule_line_clear_tokens(UdevRuleLine *rule_line) {
         assert(rule_line);
 
         LIST_FOREACH(tokens, i, rule_line->tokens)
                 udev_rule_token_free(i);
-
-        rule_line->tokens = NULL;
 }
 
-static UdevRuleLine* udev_rule_line_free(UdevRuleLine *rule_line) {
+static UdevRuleLine *udev_rule_line_free(UdevRuleLine *rule_line) {
         if (!rule_line)
                 return NULL;
 
@@ -360,16 +366,21 @@ static UdevRuleLine* udev_rule_line_free(UdevRuleLine *rule_line) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(UdevRuleLine*, udev_rule_line_free);
 
-static void udev_rule_file_free(UdevRuleFile *rule_file) {
+static UdevRuleFile *udev_rule_file_free(UdevRuleFile *rule_file) {
         if (!rule_file)
-                return;
+                return NULL;
 
         LIST_FOREACH(rule_lines, i, rule_file->rule_lines)
                 udev_rule_line_free(i);
 
+        if (rule_file->rules)
+                LIST_REMOVE(rule_files, rule_file->rules->rule_files, rule_file);
+
         free(rule_file->filename);
-        free(rule_file);
+        return mfree(rule_file);
 }
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(UdevRuleFile*, udev_rule_file_free);
 
 UdevRules *udev_rules_free(UdevRules *rules) {
         if (!rules)
@@ -475,7 +486,7 @@ static void rule_line_append_token(UdevRuleLine *rule_line, UdevRuleToken *token
 }
 
 static int rule_line_add_token(UdevRuleLine *rule_line, UdevRuleTokenType type, UdevRuleOperatorType op, char *value, void *data) {
-        UdevRuleToken *token;
+        _cleanup_(udev_rule_token_freep) UdevRuleToken *token = NULL;
         UdevRuleMatchType match_type = _MATCH_TYPE_INVALID;
         UdevRuleSubstituteType subst_type = _SUBST_TYPE_INVALID;
         bool remove_trailing_whitespace = false;
@@ -581,6 +592,7 @@ static int rule_line_add_token(UdevRuleLine *rule_line, UdevRuleTokenType type, 
                         TK_M_IMPORT_DB, TK_M_IMPORT_CMDLINE, TK_M_IMPORT_PARENT))
                 SET_FLAG(rule_line->type, LINE_UPDATE_SOMETHING, true);
 
+        TAKE_PTR(token);
         return 0;
 }
 
@@ -1221,9 +1233,9 @@ static void rule_resolve_goto(UdevRuleFile *rule_file) {
 }
 
 int udev_rules_parse_file(UdevRules *rules, const char *filename, UdevRuleFile **ret) {
+        _cleanup_(udev_rule_file_freep) UdevRuleFile *rule_file = NULL;
         _cleanup_free_ char *continuation = NULL, *name = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        UdevRuleFile *rule_file;
         bool ignore_line = false;
         unsigned line_nr = 0;
         struct stat st;
@@ -1333,6 +1345,8 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename, UdevRuleFile *
 
         if (ret)
                 *ret = rule_file;
+
+        TAKE_PTR(rule_file);
         return 1;
 }
 
