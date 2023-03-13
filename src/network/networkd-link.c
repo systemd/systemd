@@ -2138,7 +2138,7 @@ static int link_update_hardware_address(Link *link, sd_netlink_message *message)
                         log_link_debug_errno(link, r, "Failed to manage link by its new hardware address, ignoring: %m");
         }
 
-        r = ipv4ll_update_mac(link);
+        r = ipv4acd_update_mac(link);
         if (r < 0)
                 return log_link_debug_errno(link, r, "Could not update MAC address in IPv4 ACD client: %m");
 
