@@ -2114,7 +2114,7 @@ bool exec_needs_mount_namespace(
         if (!strv_isempty(context->extension_directories))
                 return true;
 
-        if (!IN_SET(context->mount_flags, 0, MS_SHARED))
+        if (!IN_SET(context->mount_propagation_flag, 0, MS_SHARED))
                 return true;
 
         if (context->private_tmp && runtime && (runtime->tmp_dir || runtime->var_tmp_dir))
@@ -3671,7 +3671,7 @@ static int apply_mount_namespace(
         else
                 ns_info = (NamespaceInfo) {};
 
-        if (context->mount_flags == MS_SHARED)
+        if (context->mount_propagation_flag == MS_SHARED)
                 log_unit_debug(u, "shared mount propagation hidden by other fs namespacing unit settings: ignoring");
 
         if (exec_context_has_credentials(context) &&
@@ -3726,7 +3726,7 @@ static int apply_mount_namespace(
                             var_tmp_dir,
                             creds_path,
                             context->log_namespace,
-                            context->mount_flags,
+                            context->mount_propagation_flag,
                             context->root_hash, context->root_hash_size, context->root_hash_path,
                             context->root_hash_sig, context->root_hash_sig_size, context->root_hash_sig_path,
                             context->root_verity,
