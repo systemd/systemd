@@ -35,7 +35,7 @@ static int help(void) {
                "  -h --help                            Show this help\n"
                "  -V --version                         Show package version\n"
                "  -N --resolve-names=early|never       When to resolve names\n"
-               "  --root=PATH                          Operate on an alternate filesystem root\n"
+               "     --root=PATH                       Operate on an alternate filesystem root\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
