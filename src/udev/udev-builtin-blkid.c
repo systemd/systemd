@@ -286,7 +286,7 @@ static int read_loopback_backing_inode(
 #endif
 
         if (isempty((char*) info.lo_file_name) ||
-            strnlen((char*) info.lo_file_name, sizeof(info.lo_file_name)-1) == sizeof(info.lo_file_name)-1)
+            strnlen((char*) info.lo_file_name, sizeof(info.lo_file_name)) >= sizeof(info.lo_file_name))
                 /* Don't pick up file name if it is unset or possibly truncated. (Note: we can't really know
                  * the file file name is truncated if it uses sizeof(info.lo_file_name)-1 as length; it could
                  * also just mean the string is just that long and wasn't truncated — but the fact is simply
