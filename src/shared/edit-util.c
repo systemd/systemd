@@ -50,7 +50,7 @@ bool edit_files_contains(const EditFileContext *context, const char *path) {
         assert(path);
 
         FOREACH_ARRAY(i, context->files, context->n_files)
-                if (streq(i->path, path))
+                if (path_equal(i->path, path))
                         return true;
 
         return false;
