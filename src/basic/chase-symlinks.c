@@ -858,3 +858,55 @@ int chase_symlinks_at_and_open(
         return r;
 }
 
+int chase_symlinks_at_and_open_mkdir(
+                int dir_fd,
+                const char *path,
+                ChaseSymlinksFlags chase_flags,
+                int open_flags,
+                char **ret_path) {
+
+        _cleanup_close_ int path_fd = -EBADF;
+        _cleanup_free_ char *p = NULL, *fname = NULL;
+        int r;
+
+        if (chase_flags & (CHASE_NONEXISTENT|CHASE_STEP))
+                return -EINVAL;
+
+        open_flags |= O_DIRECTORY;
+
+        if (dir_fd == AT_FDCWD && !ret_path &&
+            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
+                /* Shortcut this call if none of the special features of this call are requested */
+                return open_mkdir_at(dir_fd, path, open_flags | (FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? O_NOFOLLOW : 0), 0755);
+
+        r = chase_symlinks_at(dir_fd, path, chase_flags|CHASE_PARENT, ret_path ? &p : NULL, &path_fd);
+        if (r < 0)
+                return r;
+
+        r = path_extract_filename(path, &fname);
+        if (r < 0 && r != -EDESTADDRREQ)
+                return r;
+
+        if (FLAGS_SET(chase_flags, CHASE_PARENT) || r == -EDESTADDRREQ) {
+                r = fd_reopen(path_fd, open_flags);
+                if (r < 0)
+                        return r;
+        } else {
+                r = open_mkdir_at(path_fd, fname, open_flags|O_NOFOLLOW, 0755);
+                if (r < 0)
+                        return -errno;
+
+                if (ret_path) {
+                        if (!path_extend(&p, fname))
+                                return -ENOMEM;
+
+                        path_simplify(p);
+                }
+        }
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(p);
+
+        return r;
+}
+
