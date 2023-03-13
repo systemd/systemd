@@ -301,11 +301,10 @@ static void disk_identify_fixup_uint16 (uint8_t identify[512], unsigned offset_w
  * disk_identify:
  * @fd: File descriptor for the block device.
  * @out_identify: Return location for IDENTIFY data.
- * @out_is_packet_device: Return location for whether returned data is from an IDENTIFY PACKET DEVICE.
  *
  * Sends the IDENTIFY DEVICE or IDENTIFY PACKET DEVICE command to the
  * device represented by @fd. If successful, then the result will be
- * copied into @out_identify and @out_is_packet_device.
+ * copied into @out_identify.
  *
  * This routine is based on code from libatasmart, LGPL v2.1.
  *
@@ -313,14 +312,11 @@ static void disk_identify_fixup_uint16 (uint8_t identify[512], unsigned offset_w
  * non-zero with errno set.
  */
 static int disk_identify(int fd,
-                         uint8_t out_identify[512],
-                         int *out_is_packet_device) {
+                         uint8_t out_identify[512]) {
         int ret;
         uint8_t inquiry_buf[36];
         int peripheral_device_type;
         int all_nul_bytes;
-        int n;
-        int is_packet_device = 0;
 
         /* init results */
         memzero(out_identify, 512);
@@ -352,12 +348,10 @@ static int disk_identify(int fd,
 
         /* SPC-4, section 6.4.2: Standard INQUIRY data */
         peripheral_device_type = inquiry_buf[0] & 0x1f;
-        if (peripheral_device_type == 0x05)
-          {
-            is_packet_device = 1;
-            ret = disk_identify_packet_device_command(fd, out_identify, 512);
-            goto check_nul_bytes;
-          }
+        if (peripheral_device_type == 0x05) {
+                ret = disk_identify_packet_device_command(fd, out_identify, 512);
+                goto check_nul_bytes;
+        }
         if (!IN_SET(peripheral_device_type, 0x00, 0x14)) {
                 ret = -1;
                 errno = EIO;
@@ -372,12 +366,11 @@ static int disk_identify(int fd,
  check_nul_bytes:
          /* Check if IDENTIFY data is all NUL bytes - if so, bail */
         all_nul_bytes = 1;
-        for (n = 0; n < 512; n++) {
+        for (size_t n = 0; n < 512; n++)
                 if (out_identify[n] != '\0') {
                         all_nul_bytes = 0;
                         break;
                 }
-        }
 
         if (all_nul_bytes) {
                 ret = -1;
@@ -386,8 +379,6 @@ static int disk_identify(int fd,
         }
 
 out:
-        if (out_is_packet_device)
-                *out_is_packet_device = is_packet_device;
         return ret;
 }
 
@@ -430,13 +421,10 @@ static int run(int argc, char *argv[]) {
                 uint8_t  byte[512];
                 uint16_t wyde[256];
         } identify;
-        char model[41];
-        char model_enc[256];
-        char serial[21];
-        char revision[9];
+        char model[41], model_enc[256], serial[21], revision[9];
         _cleanup_close_ int fd = -EBADF;
         uint16_t word;
-        int is_packet_device = 0, r;
+        int r;
 
         log_set_target(LOG_TARGET_AUTO);
         udev_parse_config();
@@ -451,7 +439,7 @@ static int run(int argc, char *argv[]) {
         if (fd < 0)
                 return log_error_errno(errno, "Cannot open %s: %m", arg_device);
 
-        if (disk_identify(fd, identify.byte, &is_packet_device) == 0) {
+        if (disk_identify(fd, identify.byte) == 0) {
                 /*
                  * fix up only the fields from the IDENTIFY data that we are going to
                  * use and copy it into the hd_driveid struct for convenience
