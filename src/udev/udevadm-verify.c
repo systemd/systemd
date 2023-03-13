@@ -120,13 +120,29 @@ static int verify_rules_file(UdevRules *rules, const char *fname) {
 }
 
 static int verify_rules(UdevRules *rules, char **files) {
+        size_t fail_count = 0, success_count = 0;
         int r, rv = 0;
 
         STRV_FOREACH(fp, files) {
                 r = verify_rules_file(rules, *fp);
-                if (r < 0 && rv >= 0)
-                        rv = r;
+                if (r < 0) {
+                        fail_count++;
+                        if (rv >= 0)
+                                rv = r;
+                } else
+                        success_count++;
         }
+
+        printf("\n%s%zu udev rules files have been checked.%s\n"
+               "  Success: %zu\n"
+               "%s  Fail:    %zu%s\n",
+               ansi_highlight(),
+               fail_count + success_count,
+               ansi_normal(),
+               success_count,
+               fail_count > 0 ? ansi_highlight_red() : "",
+               fail_count,
+               fail_count > 0 ? ansi_normal() : "");
 
         return rv;
 }
