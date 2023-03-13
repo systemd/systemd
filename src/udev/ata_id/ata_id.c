@@ -59,45 +59,39 @@ static int disk_scsi_inquiry_command(
                 .din_xferp = (uintptr_t) buf,
                 .timeout = COMMAND_TIMEOUT_MSEC,
         };
-        int ret;
 
-        ret = ioctl(fd, SG_IO, &io_v4);
-        if (ret != 0) {
+        if (ioctl(fd, SG_IO, &io_v4) != 0) {
+                if (errno != EINVAL)
+                        return log_debug_errno(errno, "ioctl v4 failed: %m");
+
                 /* could be that the driver doesn't do version 4, try version 3 */
-                if (errno == EINVAL) {
-                        struct sg_io_hdr io_hdr = {
-                                .interface_id = 'S',
-                                .cmdp = (unsigned char*) cdb,
-                                .cmd_len = sizeof (cdb),
-                                .dxferp = buf,
-                                .dxfer_len = buf_len,
-                                .sbp = sense,
-                                .mx_sb_len = sizeof(sense),
-                                .dxfer_direction = SG_DXFER_FROM_DEV,
-                                .timeout = COMMAND_TIMEOUT_MSEC,
-                        };
+                struct sg_io_hdr io_hdr = {
+                        .interface_id = 'S',
+                        .cmdp = (unsigned char*) cdb,
+                        .cmd_len = sizeof (cdb),
+                        .dxferp = buf,
+                        .dxfer_len = buf_len,
+                        .sbp = sense,
+                        .mx_sb_len = sizeof(sense),
+                        .dxfer_direction = SG_DXFER_FROM_DEV,
+                        .timeout = COMMAND_TIMEOUT_MSEC,
+                };
 
-                        ret = ioctl(fd, SG_IO, &io_hdr);
-                        if (ret != 0)
-                                return ret;
+                if (ioctl(fd, SG_IO, &io_hdr) != 0)
+                        return log_debug_errno(errno, "ioctl v3 failed: %m");
 
-                        /* even if the ioctl succeeds, we need to check the return value */
-                        if (!(io_hdr.status == 0 &&
-                              io_hdr.host_status == 0 &&
-                              io_hdr.driver_status == 0)) {
-                                errno = EIO;
-                                return -1;
-                        }
-                } else
-                        return ret;
-        }
+                /* even if the ioctl succeeds, we need to check the return value */
+                if (io_hdr.status != 0 ||
+                    io_hdr.host_status != 0 ||
+                    io_hdr.driver_status != 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "ioctl v3 failed");
 
-        /* even if the ioctl succeeds, we need to check the return value */
-        if (!(io_v4.device_status == 0 &&
-              io_v4.transport_status == 0 &&
-              io_v4.driver_status == 0)) {
-                errno = EIO;
-                return -1;
+        } else {
+                /* even if the ioctl succeeds, we need to check the return value */
+                if (io_v4.device_status != 0 ||
+                    io_v4.transport_status != 0 ||
+                    io_v4.driver_status != 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "ioctl v4 failed");
         }
 
         return 0;
@@ -141,35 +135,30 @@ static int disk_identify_command(
                 .din_xferp = (uintptr_t) buf,
                 .timeout = COMMAND_TIMEOUT_MSEC,
         };
-        int ret;
 
-        ret = ioctl(fd, SG_IO, &io_v4);
-        if (ret != 0) {
+        if (ioctl(fd, SG_IO, &io_v4) != 0) {
+                if (errno != EINVAL)
+                        return log_debug_errno(errno, "ioctl v4 failed: %m");
+
                 /* could be that the driver doesn't do version 4, try version 3 */
-                if (errno == EINVAL) {
-                        struct sg_io_hdr io_hdr = {
-                                .interface_id = 'S',
-                                .cmdp = (unsigned char*) cdb,
-                                .cmd_len = sizeof (cdb),
-                                .dxferp = buf,
-                                .dxfer_len = buf_len,
-                                .sbp = sense,
-                                .mx_sb_len = sizeof (sense),
-                                .dxfer_direction = SG_DXFER_FROM_DEV,
-                                .timeout = COMMAND_TIMEOUT_MSEC,
-                        };
+                struct sg_io_hdr io_hdr = {
+                        .interface_id = 'S',
+                        .cmdp = (unsigned char*) cdb,
+                        .cmd_len = sizeof (cdb),
+                        .dxferp = buf,
+                        .dxfer_len = buf_len,
+                        .sbp = sense,
+                        .mx_sb_len = sizeof (sense),
+                        .dxfer_direction = SG_DXFER_FROM_DEV,
+                        .timeout = COMMAND_TIMEOUT_MSEC,
+                };
 
-                        ret = ioctl(fd, SG_IO, &io_hdr);
-                        if (ret != 0)
-                                return ret;
-                } else
-                        return ret;
-        }
-
-        if (!((sense[0] & 0x7f) == 0x72 && desc[0] == 0x9 && desc[1] == 0x0c) &&
-                !((sense[0] & 0x7f) == 0x70 && sense[12] == 0x00 && sense[13] == 0x1d)) {
-                errno = EIO;
-                return -1;
+                if (ioctl(fd, SG_IO, &io_hdr) != 0)
+                        return log_debug_errno(errno, "ioctl v3 failed: %m");
+        } else {
+                if (!((sense[0] & 0x7f) == 0x72 && desc[0] == 0x9 && desc[1] == 0x0c) &&
+                    !((sense[0] & 0x7f) == 0x70 && sense[12] == 0x00 && sense[13] == 0x1d))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "ioctl v4 failed: %m");
         }
 
         return 0;
@@ -219,34 +208,29 @@ static int disk_identify_packet_device_command(
                 .din_xferp = (uintptr_t) buf,
                 .timeout = COMMAND_TIMEOUT_MSEC,
         };
-        int ret;
 
-        ret = ioctl(fd, SG_IO, &io_v4);
-        if (ret != 0) {
+        if (ioctl(fd, SG_IO, &io_v4) != 0) {
+                if (errno != EINVAL)
+                        return log_debug_errno(errno, "ioctl v4 failed: %m");
+
                 /* could be that the driver doesn't do version 4, try version 3 */
-                if (errno == EINVAL) {
-                        struct sg_io_hdr io_hdr = {
-                                .interface_id = 'S',
-                                .cmdp = (unsigned char*) cdb,
-                                .cmd_len = sizeof (cdb),
-                                .dxferp = buf,
-                                .dxfer_len = buf_len,
-                                .sbp = sense,
-                                .mx_sb_len = sizeof (sense),
-                                .dxfer_direction = SG_DXFER_FROM_DEV,
-                                .timeout = COMMAND_TIMEOUT_MSEC,
-                        };
+                struct sg_io_hdr io_hdr = {
+                        .interface_id = 'S',
+                        .cmdp = (unsigned char*) cdb,
+                        .cmd_len = sizeof (cdb),
+                        .dxferp = buf,
+                        .dxfer_len = buf_len,
+                        .sbp = sense,
+                        .mx_sb_len = sizeof (sense),
+                        .dxfer_direction = SG_DXFER_FROM_DEV,
+                        .timeout = COMMAND_TIMEOUT_MSEC,
+                };
 
-                        ret = ioctl(fd, SG_IO, &io_hdr);
-                        if (ret != 0)
-                                return ret;
-                } else
-                        return ret;
-        }
-
-        if (!((sense[0] & 0x7f) == 0x72 && desc[0] == 0x9 && desc[1] == 0x0c)) {
-                errno = EIO;
-                return -1;
+                if (ioctl(fd, SG_IO, &io_hdr) != 0)
+                        return log_debug_errno(errno, "ioctl v3 failed: %m");
+        } else {
+                if ((sense[0] & 0x7f) != 0x72 || desc[0] != 0x9 || desc[1] != 0x0c)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "ioctl v4 failed: %m");
         }
 
         return 0;
@@ -313,10 +297,8 @@ static void disk_identify_fixup_uint16 (uint8_t identify[512], unsigned offset_w
  */
 static int disk_identify(int fd,
                          uint8_t out_identify[512]) {
-        int ret;
         uint8_t inquiry_buf[36];
-        int peripheral_device_type;
-        int all_nul_bytes;
+        int peripheral_device_type, r;
 
         /* init results */
         memzero(out_identify, 512);
@@ -342,44 +324,39 @@ static int disk_identify(int fd,
          * the original bug-fix and see http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=556635
          * for the original bug-report.)
          */
-        ret = disk_scsi_inquiry_command (fd, inquiry_buf, sizeof (inquiry_buf));
-        if (ret != 0)
-                goto out;
+        r = disk_scsi_inquiry_command(fd, inquiry_buf, sizeof inquiry_buf);
+        if (r < 0)
+                return r;
 
         /* SPC-4, section 6.4.2: Standard INQUIRY data */
         peripheral_device_type = inquiry_buf[0] & 0x1f;
         if (peripheral_device_type == 0x05) {
-                ret = disk_identify_packet_device_command(fd, out_identify, 512);
-                goto check_nul_bytes;
-        }
-        if (!IN_SET(peripheral_device_type, 0x00, 0x14)) {
-                ret = -1;
-                errno = EIO;
-                goto out;
+                r = disk_identify_packet_device_command(fd, out_identify, 512);
+                if (r < 0)
+                        return r;
+
+        } else {
+                if (!IN_SET(peripheral_device_type, 0x00, 0x14))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Unsupported device type.");
+
+                /* OK, now issue the IDENTIFY DEVICE command */
+                r = disk_identify_command(fd, out_identify, 512);
+                if (r < 0)
+                        return r;
         }
 
-        /* OK, now issue the IDENTIFY DEVICE command */
-        ret = disk_identify_command(fd, out_identify, 512);
-        if (ret != 0)
-                goto out;
-
- check_nul_bytes:
          /* Check if IDENTIFY data is all NUL bytes - if so, bail */
-        all_nul_bytes = 1;
+        bool all_nul_bytes = true;
         for (size_t n = 0; n < 512; n++)
                 if (out_identify[n] != '\0') {
-                        all_nul_bytes = 0;
+                        all_nul_bytes = false;
                         break;
                 }
 
-        if (all_nul_bytes) {
-                ret = -1;
-                errno = EIO;
-                goto out;
-        }
+        if (all_nul_bytes)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "IDENTIFY data is all zeroes.");
 
-out:
-        return ret;
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -439,7 +416,7 @@ static int run(int argc, char *argv[]) {
         if (fd < 0)
                 return log_error_errno(errno, "Cannot open %s: %m", arg_device);
 
-        if (disk_identify(fd, identify.byte) == 0) {
+        if (disk_identify(fd, identify.byte) >= 0) {
                 /*
                  * fix up only the fields from the IDENTIFY data that we are going to
                  * use and copy it into the hd_driveid struct for convenience
