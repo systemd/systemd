@@ -447,8 +447,28 @@ fi
 # Detach by loopback device
 systemd-dissect --detach "$LOOP"
 
+# Test long reference name.
+# Note, sizeof_field(struct loop_info64, lo_file_name) == 64,
+# and --loop-ref accepts upto 63 characters, and udev creates symlink
+# based on the name when it has upto _62_ characters.
+name="$(for (( i = 0; i < 62; i++ )); do echo -n 'x'; done)"
+LOOP="$(systemd-dissect --attach --loop-ref="$name" "${image}.raw")"
+udevadm trigger -w "$LOOP"
+
+# Check if the /dev/loop/by-ref/$name symlink really references the right device
+test "/dev/loop/by-ref/$name" -ef "$LOOP"
+
+# Detach by the /dev/loop/by-ref symlink
+systemd-dissect --detach "/dev/loop/by-ref/$name"
+
+name="$(for (( i = 0; i < 63; i++ )); do echo -n 'x'; done)"
+LOOP="$(systemd-dissect --attach --loop-ref="$name" "${image}.raw")"
+udevadm trigger -w "$LOOP"
+
+# Check if the /dev/loop/by-ref/$name symlink does not exist
+test ! -e "/dev/loop/by-ref/$name"
+
 # Detach by backing inode
-systemd-dissect --attach --loop-ref=waldo "${image}.raw"
 systemd-dissect --detach "${image}.raw"
 (! systemd-dissect --detach "${image}.raw")
 
