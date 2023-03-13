@@ -121,7 +121,7 @@ int setup_namespace(
                 const char *var_tmp_dir,
                 const char *creds_path,
                 const char *log_namespace,
-                unsigned long mount_flags,
+                unsigned long mount_propagation_flag,
                 const void *root_hash,
                 size_t root_hash_size,
                 const char *root_hash_path,

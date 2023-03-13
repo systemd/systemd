@@ -2030,7 +2030,7 @@ int setup_namespace(
                 const char* var_tmp_dir,
                 const char *creds_path,
                 const char *log_namespace,
-                unsigned long mount_flags,
+                unsigned long mount_propagation_flag,
                 const void *root_hash,
                 size_t root_hash_size,
                 const char *root_hash_path,
@@ -2076,8 +2076,8 @@ int setup_namespace(
         if (!isempty(propagate_dir) && !isempty(incoming_dir))
                 setup_propagate = true;
 
-        if (mount_flags == 0)
-                mount_flags = MS_SHARED;
+        if (mount_propagation_flag == 0)
+                mount_propagation_flag = MS_SHARED;
 
         if (root_image) {
                 /* Make the whole image read-only if we can determine that we only access it in a read-only fashion. */
@@ -2523,10 +2523,9 @@ int setup_namespace(
                 goto finish;
         }
 
-        /* Remount / as the desired mode. Note that this will not
-         * reestablish propagation from our side to the host, since
-         * what's disconnected is disconnected. */
-        if (mount(NULL, "/", NULL, mount_flags | MS_REC, NULL) < 0) {
+        /* Remount / as the desired mode. Note that this will not reestablish propagation from our side to
+         * the host, since what's disconnected is disconnected. */
+        if (mount(NULL, "/", NULL, mount_propagation_flag | MS_REC, NULL) < 0) {
                 r = log_debug_errno(errno, "Failed to remount '/' with desired mount flags: %m");
                 goto finish;
         }

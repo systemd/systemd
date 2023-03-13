@@ -55,7 +55,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_root_image_options);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_root_hash);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_root_hash_sig);
 CONFIG_PARSER_PROTOTYPE(config_parse_capability_set);
-CONFIG_PARSER_PROTOTYPE(config_parse_exec_mount_flags);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_mount_propagation_flag);
 CONFIG_PARSER_PROTOTYPE(config_parse_timer);
 CONFIG_PARSER_PROTOTYPE(config_parse_trigger_unit);
 CONFIG_PARSER_PROTOTYPE(config_parse_path_spec);

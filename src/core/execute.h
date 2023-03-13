@@ -267,7 +267,7 @@ struct ExecContext {
 
         char **read_write_paths, **read_only_paths, **inaccessible_paths, **exec_paths, **no_exec_paths;
         char **exec_search_path;
-        unsigned long mount_flags;
+        unsigned long mount_propagation_flag;
         BindMount *bind_mounts;
         size_t n_bind_mounts;
         TemporaryFileSystem *temporary_filesystems;
