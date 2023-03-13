@@ -101,7 +101,7 @@ int install_random_seed(const char *esp) {
         if (esp_fd < 0)
                 return log_error_errno(errno, "Failed to open ESP directory '%s': %m", esp);
 
-        loader_dir_fd = open_mkdir_at(esp_fd, "loader", O_DIRECTORY|O_RDONLY|O_CLOEXEC|O_NOFOLLOW, 0775);
+        loader_dir_fd = open_mkdir_at(esp_fd, "loader", O_CREAT|O_DIRECTORY|O_RDONLY|O_CLOEXEC|O_NOFOLLOW, 0775);
         if (loader_dir_fd < 0)
                 return log_error_errno(loader_dir_fd, "Failed to open loader directory '%s/loader': %m", esp);
 

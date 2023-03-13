@@ -996,11 +996,12 @@ int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode) {
         bool made;
         int r;
 
-        /* Creates a directory with mkdirat() and then opens it, in the "most atomic" fashion we can
-         * do. Guarantees that the returned fd refers to a directory. If O_EXCL is specified will fail if the
-         * dir already exists. Otherwise will open an existing dir, but only if it is one.  */
+        /* Creates a directory with mkdirat() if requested with O_CREAT and then opens it, in the
+         * "most atomic" fashion we can do. Guarantees that the returned fd refers to a directory. If
+         * O_EXCL is specified will fail if the dir already exists. Otherwise will open an existing dir, but
+         * only if it is one.  */
 
-        if (flags & ~(O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_EXCL|O_NOATIME|O_NOFOLLOW|O_PATH))
+        if (flags & ~(O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_CREAT|O_EXCL|O_NOATIME|O_NOFOLLOW|O_PATH))
                 return -EINVAL;
         if ((flags & O_ACCMODE) != O_RDONLY)
                 return -EINVAL;
@@ -1033,18 +1034,20 @@ int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode) {
                 path = fname;
         }
 
-        r = RET_NERRNO(mkdirat(dirfd, path, mode));
-        if (r == -EEXIST) {
-                if (FLAGS_SET(flags, O_EXCL))
-                        return -EEXIST;
+        if (FLAGS_SET(flags, O_CREAT)) {
+                r = RET_NERRNO(mkdirat(dirfd, path, mode));
+                if (r == -EEXIST) {
+                        if (FLAGS_SET(flags, O_EXCL))
+                                return -EEXIST;
 
-                made = false;
-        } else if (r < 0)
-                return r;
-        else
-                made = true;
+                        made = false;
+                } else if (r < 0)
+                        return r;
+                else
+                        made = true;
+        }
 
-        fd = RET_NERRNO(openat(dirfd, path, (flags & ~O_EXCL)|O_DIRECTORY|O_NOFOLLOW));
+        fd = RET_NERRNO(openat(dirfd, path, (flags & ~(O_EXCL|O_CREAT))|O_DIRECTORY|O_NOFOLLOW));
         if (fd < 0) {
                 if (fd == -ENOENT)  /* We got ENOENT? then someone else immediately removed it after we
                                      * created it. In that case let's return immediately without unlinking
