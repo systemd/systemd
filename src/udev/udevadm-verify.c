@@ -101,13 +101,16 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int verify_rules_file(UdevRules *rules, const char *fname) {
+        UdevRuleFile *file;
         int r;
 
-        r = udev_rules_parse_file(rules, fname);
+        r = udev_rules_parse_file(rules, fname, &file);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse rules file %s: %m", fname);
+        if (r == 0) /* empty file. */
+                return 0;
 
-        unsigned issues = udev_check_current_rule_file(rules);
+        unsigned issues = udev_rule_file_get_issues(file);
         unsigned mask = (1U << LOG_ERR) | (1U << LOG_WARNING);
         if (issues & mask)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
