@@ -2426,7 +2426,8 @@ int setup_namespace(
 
         if (unshare(CLONE_NEWNS) < 0) {
                 r = log_debug_errno(errno, "Failed to unshare the mount namespace: %m");
-                if (IN_SET(r, -EACCES, -EPERM, -EOPNOTSUPP, -ENOSYS))
+                if (ERRNO_IS_PRIVILEGE(r) ||
+                    ERRNO_IS_NOT_SUPPORTED(r))
                         /* If the kernel doesn't support namespaces, or when there's a MAC or seccomp filter
                          * in place that doesn't allow us to create namespaces (or a missing cap), then
                          * propagate a recognizable error back, which the caller can use to detect this case
