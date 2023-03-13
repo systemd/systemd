@@ -20,6 +20,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <mtd/mtd-user.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,31 +30,61 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "build.h"
 #include "fd-util.h"
+#include "main-func.h"
 #include "mtd_probe.h"
 
-int main(int argc, char** argv) {
+static const char *arg_device = NULL;
+
+static int parse_argv(int argc, char *argv[]) {
+        static const struct option options[] = {
+                { "help",     no_argument, NULL, 'h' },
+                { "version",  no_argument, NULL, 'v' },
+                {}
+        };
+        int c;
+
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+                switch (c) {
+                case 'h':
+                        printf("%s /dev/mtd[n]\n\n"
+                               "  -h --help     Show this help text\n"
+                               "     --version  Show package version\n",
+                               program_invocation_short_name);
+                        return 0;
+                case 'v':
+                        return version();
+                case '?':
+                        return -EINVAL;
+                default:
+                        assert_not_reached();
+                }
+
+        if (argc > 2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Error: unexpected argument.");
+
+        arg_device = argv[optind];
+        return 1;
+}
+
+static int run(int argc, char** argv) {
         _cleanup_close_ int mtd_fd = -EBADF;
         mtd_info_t mtd_info;
+        int r;
 
-        if (argc != 2) {
-                printf("usage: mtd_probe /dev/mtd[n]\n");
-                return EXIT_FAILURE;
-        }
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r;
 
         mtd_fd = open(argv[1], O_RDONLY|O_CLOEXEC|O_NOCTTY);
-        if (mtd_fd < 0) {
-                log_error_errno(errno, "Failed to open: %m");
-                return EXIT_FAILURE;
-        }
+        if (mtd_fd < 0)
+                return log_error_errno(errno, "Failed to open: %m");
 
-        if (ioctl(mtd_fd, MEMGETINFO, &mtd_info) < 0) {
-                log_error_errno(errno, "Failed to issue MEMGETINFO ioctl: %m");
-                return EXIT_FAILURE;
-        }
+        if (ioctl(mtd_fd, MEMGETINFO, &mtd_info) < 0)
+                return log_error_errno(errno, "MEMGETINFO ioctl failed: %m");
 
-        if (probe_smart_media(mtd_fd, &mtd_info) < 0)
-                return EXIT_FAILURE;
-
-        return EXIT_SUCCESS;
+        return probe_smart_media(mtd_fd, &mtd_info);
 }
+
+DEFINE_MAIN_FUNCTION(run);
