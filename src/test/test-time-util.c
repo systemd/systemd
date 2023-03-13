@@ -663,6 +663,10 @@ static bool timezone_equal(usec_t today, usec_t target) {
 static void test_parse_timestamp_impl(const char *tz) {
         usec_t today, now_usec;
 
+        /* Invalid */
+        assert_se(parse_timestamp("show", NULL) == -EINVAL);
+        assert_se(parse_timestamp("cancel", NULL) == -EINVAL);
+
         /* UTC */
         test_parse_timestamp_one("Thu 1970-01-01 00:01 UTC", 0, USEC_PER_MINUTE);
         test_parse_timestamp_one("Thu 1970-01-01 00:00:01 UTC", 0, USEC_PER_SEC);
