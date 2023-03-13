@@ -35,7 +35,7 @@ static int help(void) {
                "  -h --help                            Show this help\n"
                "  -V --version                         Show package version\n"
                "  -N --resolve-names=early|never       When to resolve names\n"
-               "  --root=PATH                          Operate on an alternate filesystem root\n"
+               "     --root=PATH                       Operate on an alternate filesystem root\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -101,13 +101,16 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int verify_rules_file(UdevRules *rules, const char *fname) {
+        UdevRuleFile *file;
         int r;
 
-        r = udev_rules_parse_file(rules, fname);
+        r = udev_rules_parse_file(rules, fname, &file);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse rules file %s: %m", fname);
+        if (r == 0) /* empty file. */
+                return 0;
 
-        unsigned issues = udev_check_current_rule_file(rules);
+        unsigned issues = udev_rule_file_get_issues(file);
         unsigned mask = (1U << LOG_ERR) | (1U << LOG_WARNING);
         if (issues & mask)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -125,6 +128,7 @@ static int verify_rules(UdevRules *rules, char **files) {
                         rv = r;
         }
 
+        log_notice("%zu udev rules files are loaded and verified.", strv_length(files));
         return rv;
 }
 
