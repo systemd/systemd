@@ -769,6 +769,9 @@
             parsed. When set to <constant>never</constant>, names will
             never be resolved.</para>
           </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><option>--root=<replaceable>PATH</replaceable></option></term>
           <listitem>
             <para>When looking for udev rules files located in udev/rules.d directories,
