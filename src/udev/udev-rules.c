@@ -196,12 +196,15 @@ struct UdevRules {
 #define log_udev_rule_internal(device, file, line_nr, level, error, fmt, ...) \
         ({                                                              \
                 int _lv = (level);                                      \
+                sd_device *_dev = (device);                             \
                 UdevRuleFile *_f = (file);                              \
                 const char *_n = _f ? _f->filename : NULL;              \
                                                                         \
-                rule_file_mark_issue(_f, _lv);                          \
+                if (!_dev && _f)                                        \
+                        _f->issues |= (1U << _lv);                      \
+                                                                        \
                 log_device_full_errno_zerook(                           \
-                                device, _lv, error, "%s:%u " fmt,       \
+                                _dev, _lv, error, "%s:%u " fmt,         \
                                 strna(_n), line_nr,                     \
                                 ##__VA_ARGS__);                         \
         })
@@ -294,11 +297,6 @@ struct UdevRules {
         log_line_error_errno(line, SYNTHETIC_ERRNO(EINVAL),             \
                              "Invalid value \"%s\" for %s (char %zu: %s), ignoring.", \
                              value, key, offset, hint)
-
-static void rule_file_mark_issue(UdevRuleFile *rule_file, uint8_t log_level) {
-        if (rule_file)
-                rule_file->issues |= (1U << log_level);
-}
 
 static void log_unknown_owner(sd_device *dev, UdevRuleLine *line, int error, const char *entity, const char *name) {
         assert(line);
