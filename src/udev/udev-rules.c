@@ -312,6 +312,26 @@ static void log_unknown_owner(sd_device *dev, UdevRuleLine *line, int error, con
                                        "Failed to resolve %s '%s', ignoring: %m", entity, name);
 }
 
+static void log_event_truncated(
+                sd_device *dev,
+                UdevRuleToken *token,
+                const char *what,
+                const char *format,
+                const char *key,
+                bool is_match) {
+
+        if (is_match)
+                log_event_debug(dev, token,
+                                "The %s is truncated while substituting into '%s', "
+                                "assuming the %s key does not match.",
+                                what, format, key);
+        else
+                log_event_warning(dev, token,
+                                  "The %s is truncated while substituting into '%s', "
+                                  "refusing to apply the %s key.",
+                                  what, format, key);
+}
+
 /*** Other functions ***/
 
 static void udev_rule_token_free(UdevRuleToken *token) {
@@ -1461,10 +1481,8 @@ static bool token_match_attr(UdevRuleToken *token, sd_device *dev, UdevEvent *ev
         case SUBST_TYPE_FORMAT:
                 (void) udev_event_apply_format(event, name, nbuf, sizeof(nbuf), false, &truncated);
                 if (truncated) {
-                        log_event_debug(dev, token,
-                                        "The sysfs attribute name '%s' is truncated while substituting into '%s', "
-                                        "assuming the %s key does not match.", nbuf, name,
-                                        token->type == TK_M_ATTR ? "ATTR" : "ATTRS");
+                        log_event_truncated(dev, token, "sysfs attribute name", name,
+                                            token->type == TK_M_ATTR ? "ATTR" : "ATTRS", /* is_match = */ true);
                         return false;
                 }
 
@@ -1730,9 +1748,7 @@ static int udev_rule_apply_token_to_event(
 
                 (void) udev_event_apply_format(event, token->data, buf, sizeof(buf), false, &truncated);
                 if (truncated) {
-                        log_event_debug(dev, token,
-                                        "The sysctl entry name '%s' is truncated while substituting into '%s', "
-                                        "assuming the SYSCTL key does not match.", buf, (const char*) token->data);
+                        log_event_truncated(dev, token, "sysctl entry name", token->data, "SYSCTL", /* is_match = */ true);
                         return false;
                 }
 
@@ -1750,9 +1766,7 @@ static int udev_rule_apply_token_to_event(
 
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
                 if (truncated) {
-                        log_event_debug(dev, token,
-                                        "The file name '%s' is truncated while substituting into '%s', "
-                                        "assuming the TEST key does not match", buf, token->value);
+                        log_event_truncated(dev, token, "file name", token->value, "TEST", /* is_match = */ true);
                         return false;
                 }
 
@@ -1795,9 +1809,7 @@ static int udev_rule_apply_token_to_event(
                 event->program_result = mfree(event->program_result);
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
                 if (truncated) {
-                        log_event_debug(dev, token,
-                                        "The command '%s' is truncated while substituting into '%s', "
-                                        "assuming the PROGRAM key does not match.", buf, token->value);
+                        log_event_truncated(dev, token, "command", token->value, "PROGRAM", /* is_match = */ true);
                         return false;
                 }
 
@@ -1829,9 +1841,7 @@ static int udev_rule_apply_token_to_event(
 
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
                 if (truncated) {
-                        log_event_debug(dev, token,
-                                        "The file name '%s' to be imported is truncated while substituting into '%s', "
-                                        "assuming the IMPORT key does not match.", buf, token->value);
+                        log_event_truncated(dev, token, "file name to be imported", token->value, "IMPORT", /* is_match = */ true);
                         return false;
                 }
 
@@ -1882,9 +1892,7 @@ static int udev_rule_apply_token_to_event(
 
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
                 if (truncated) {
-                        log_event_debug(dev, token,
-                                        "The command '%s' is truncated while substituting into '%s', "
-                                        "assuming the IMPORT key does not match.", buf, token->value);
+                        log_event_truncated(dev, token, "command", token->value, "IMPORT", /* is_match = */ true);
                         return false;
                 }
 
@@ -1963,9 +1971,7 @@ static int udev_rule_apply_token_to_event(
 
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
                 if (truncated) {
-                        log_event_debug(dev, token,
-                                        "The builtin command '%s' is truncated while substituting into '%s', "
-                                        "assuming the IMPORT key does not match", buf, token->value);
+                        log_event_truncated(dev, token, "builtin command", token->value, "IMPORT", /* is_match = */ true);
                         return false;
                 }
 
@@ -2021,9 +2027,7 @@ static int udev_rule_apply_token_to_event(
 
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
                 if (truncated) {
-                        log_event_debug(dev, token,
-                                        "The property name '%s' is truncated while substituting into '%s', "
-                                        "assuming the IMPORT key does not match.", buf, token->value);
+                        log_event_truncated(dev, token, "property name", token->value, "IMPORT", /* is_match = */ true);
                         return false;
                 }
 
@@ -2084,9 +2088,7 @@ static int udev_rule_apply_token_to_event(
 
                 (void) udev_event_apply_format(event, token->value, owner, sizeof(owner), false, &truncated);
                 if (truncated) {
-                        log_event_warning(dev, token,
-                                          "The user name '%s' is truncated while substituting into '%s', "
-                                          "refusing to apply the OWNER key.", owner, token->value);
+                        log_event_truncated(dev, token, "user name", token->value, "OWNER", /* is_match = */ false);
                         break;
                 }
 
@@ -2109,9 +2111,7 @@ static int udev_rule_apply_token_to_event(
 
                 (void) udev_event_apply_format(event, token->value, group, sizeof(group), false, &truncated);
                 if (truncated) {
-                        log_event_warning(dev, token,
-                                          "The group name '%s' is truncated while substituting into '%s', "
-                                          "refusing to apply the GROUP key.", group, token->value);
+                        log_event_truncated(dev, token, "group name", token->value, "GROUP", /* is_match = */ false);
                         break;
                 }
 
@@ -2133,9 +2133,7 @@ static int udev_rule_apply_token_to_event(
 
                 (void) udev_event_apply_format(event, token->value, mode_str, sizeof(mode_str), false, &truncated);
                 if (truncated) {
-                        log_event_warning(dev, token,
-                                          "The mode '%s' is truncated while substituting into %s, "
-                                          "refusing to apply the MODE key.", mode_str, token->value);
+                        log_event_truncated(dev, token, "mode", token->value, "MODE", /* is_match = */ false);
                         break;
                 }
 
@@ -2187,9 +2185,7 @@ static int udev_rule_apply_token_to_event(
 
                 (void) udev_event_apply_format(event, token->value, label_str, sizeof(label_str), false, &truncated);
                 if (truncated) {
-                        log_event_warning(dev, token,
-                                          "The security label '%s' is truncated while substituting into '%s', "
-                                          "refusing to apply the SECLABEL key.", label_str, token->value);
+                        log_event_truncated(dev, token, "security label", token->value, "SECLABEL", /* is_match = */ false);
                         break;
                 }
 
@@ -2243,9 +2239,9 @@ static int udev_rule_apply_token_to_event(
 
                 (void) udev_event_apply_format(event, token->value, p, l, false, &truncated);
                 if (truncated) {
-                        log_event_warning(dev, token,
-                                          "The property value '%s' is truncated while substituting into '%s', "
-                                          "refusing to add property '%s'.", p, token->value, name);
+                        _cleanup_free_ char *key_with_name = strjoin("ENV{", name, "}");
+                        log_event_truncated(dev, token, "property value", token->value,
+                                            key_with_name ?: "ENV", /* is_match = */ false);
                         break;
                 }
 
@@ -2268,10 +2264,7 @@ static int udev_rule_apply_token_to_event(
 
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
                 if (truncated) {
-                        log_event_warning(dev, token,
-                                          "The tag name '%s' is truncated while substituting into '%s',"
-                                          "refusing to %s the tag.", buf, token->value,
-                                          token->op == OP_REMOVE ? "remove" : "add");
+                        log_event_truncated(dev, token, "tag name", token->value, "TAG", /* is_match = */ false);
                         break;
                 }
 
@@ -2310,9 +2303,7 @@ static int udev_rule_apply_token_to_event(
 
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
                 if (truncated) {
-                        log_event_warning(dev, token,
-                                          "The network interface name '%s' is truncated while substituting into '%s', "
-                                          "refusing to set the name.", buf, token->value);
+                        log_event_truncated(dev, token, "network interface name", token->value, "NAME", /* is_match = */ false);
                         break;
                 }
 
@@ -2350,9 +2341,7 @@ static int udev_rule_apply_token_to_event(
                 /* allow multiple symlinks separated by spaces */
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), event->esc != ESCAPE_NONE, &truncated);
                 if (truncated) {
-                        log_event_warning(dev, token,
-                                          "The symbolic link path '%s' is truncated while substituting into '%s', "
-                                          "refusing to add the device symbolic link.", buf, token->value);
+                        log_event_truncated(dev, token, "symbolic link path", token->value, "SYMLINK", /* is_match = */ false);
                         break;
                 }
 
@@ -2419,9 +2408,7 @@ static int udev_rule_apply_token_to_event(
                 }
                 (void) udev_event_apply_format(event, token->value, value, sizeof(value), false, &truncated);
                 if (truncated) {
-                        log_event_warning(dev, token,
-                                          "The attribute value '%s' is truncated while substituting into '%s', "
-                                          "refusing to set the attribute '%s'", value, token->value, buf);
+                        log_event_truncated(dev, token, "attribute value", token->value, "ATTR", /* is_match = */ false);
                         break;
                 }
 
@@ -2441,17 +2428,15 @@ static int udev_rule_apply_token_to_event(
 
                 (void) udev_event_apply_format(event, token->data, buf, sizeof(buf), false, &truncated);
                 if (truncated) {
-                        log_event_warning(dev, token,
-                                          "The sysctl entry name '%s' is truncated while substituting into '%s', "
-                                          "refusing to set the sysctl entry.", buf, (const char*) token->data);
+                        log_event_truncated(dev, token, "sysctl entry name", token->data, "SYSCTL", /* is_match = */ false);
                         break;
                 }
 
                 (void) udev_event_apply_format(event, token->value, value, sizeof(value), false, &truncated);
                 if (truncated) {
-                        log_event_warning(dev, token,
-                                          "The sysctl value '%s' is truncated while substituting into '%s', "
-                                          "refusing to set the sysctl entry '%s'", value, token->value, buf);
+                        _cleanup_free_ char *key_with_name = strjoin("SYSCTL{", buf, "}");
+                        log_event_truncated(dev, token, "sysctl value", token->value,
+                                            key_with_name ?: "SYSCTL", /* is_match = */ false);
                         break;
                 }
 
@@ -2478,9 +2463,9 @@ static int udev_rule_apply_token_to_event(
 
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
                 if (truncated) {
-                        log_event_warning(dev, token,
-                                          "The command '%s' is truncated while substituting into '%s', "
-                                          "refusing to invoke the command.", buf, token->value);
+                        log_event_truncated(dev, token, "command", token->value,
+                                            token->type == TK_A_RUN_BUILTIN ? "RUN{builtin}" : "RUN{program}",
+                                            /* is_match = */ false);
                         break;
                 }
 
