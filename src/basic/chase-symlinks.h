@@ -21,7 +21,7 @@ typedef enum ChaseSymlinksFlags {
                                              * relative to the given directory fd instead of root. */
         CHASE_PROHIBIT_SYMLINKS  = 1 << 9,  /* Refuse all symlinks */
         CHASE_PARENT             = 1 << 10, /* Chase the parent directory of the given path. */
-        CHASE_MKDIR_0755         = 1 << 11, /* Create any missing directories in the given path. */
+        CHASE_MKDIR_0755         = 1 << 11, /* Create any missing parent directories in the given path. */
 } ChaseSymlinksFlags;
 
 bool unsafe_transition(const struct stat *a, const struct stat *b);
@@ -40,3 +40,4 @@ int chase_symlinks_and_unlink(const char *path, const char *root, ChaseSymlinksF
 
 int chase_symlinks_at(int dir_fd, const char *path, ChaseSymlinksFlags flags, char **ret_path, int *ret_fd);
 int chase_symlinks_at_and_open(int dir_fd, const char *path, ChaseSymlinksFlags chase_flags, int open_flags, char **ret_path);
+int chase_symlinks_at_and_open_mkdir(int dir_fd, const char *path, ChaseSymlinksFlags chase_flags, int open_flags, char **ret_path);
