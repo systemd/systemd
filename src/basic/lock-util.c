@@ -109,12 +109,15 @@ void release_lock_file(LockFile *f) {
         f->operation = 0;
 }
 
-int unposix_lock(int fd, int operation) {
+static int fcntl_lock(int fd, int operation, bool ofd) {
         int cmd, type, r;
 
         assert(fd >= 0);
 
-        cmd = (operation & LOCK_NB) ? F_OFD_SETLK : F_OFD_SETLKW;
+        if (ofd)
+                cmd = (operation & LOCK_NB) ? F_OFD_SETLK : F_OFD_SETLKW;
+        else
+                cmd = (operation & LOCK_NB) ? F_SETLK : F_SETLKW;
 
         switch (operation & ~LOCK_NB) {
                 case LOCK_EX:
@@ -143,12 +146,30 @@ int unposix_lock(int fd, int operation) {
         return r;
 }
 
+int posix_lock(int fd, int operation) {
+        return fcntl_lock(fd, operation, /*ofd=*/ false);
+}
+
+int unposix_lock(int fd, int operation) {
+        return fcntl_lock(fd, operation, /*ofd=*/ true);
+}
+
+void posix_unlockpp(int **fd) {
+        assert(fd);
+
+        if (!*fd || **fd < 0)
+                return;
+
+        (void) fcntl_lock(**fd, LOCK_UN, /*ofd=*/ false);
+        *fd = NULL;
+}
+
 void unposix_unlockpp(int **fd) {
         assert(fd);
 
         if (!*fd || **fd < 0)
                 return;
 
-        (void) unposix_lock(**fd, LOCK_UN);
+        (void) fcntl_lock(**fd, LOCK_UN, /*ofd=*/ true);
         *fd = NULL;
 }
