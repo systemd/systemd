@@ -104,14 +104,6 @@ int chase_symlinks_at(
         if (isempty(path))
                 path = ".";
 
-        if (flags & CHASE_PARENT) {
-                r = path_extract_directory(path, &buffer);
-                if (r == -EDESTADDRREQ)
-                        path = "."; /* If we don't have a parent directory, fall back to the dir_fd directory. */
-                else if (r < 0)
-                        return r;
-        }
-
         /* This function resolves symlinks of the path relative to the given directory file descriptor. If
          * CHASE_SYMLINKS_RESOLVE_IN_ROOT is specified and a directory file descriptor is provided, symlinks
          * are resolved relative to the given directory file descriptor. Otherwise, they are resolved
@@ -255,6 +247,9 @@ int chase_symlinks_at(
                         _cleanup_free_ char *parent = NULL;
                         _cleanup_close_ int fd_parent = -EBADF;
 
+                        if (FLAGS_SET(flags, CHASE_PARENT) && isempty(todo))
+                                break;
+
                         /* If we already are at the top, then going up will not change anything. This is
                          * in-line with how the kernel handles this. */
                         if (empty_or_root(done) && FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT))
@@ -306,9 +301,23 @@ int chase_symlinks_at(
                         if (!isempty(todo) && !path_is_safe(todo))
                                 return r;
 
+                        if (FLAGS_SET(flags, CHASE_PARENT) && isempty(todo))
+                                break;
+
                         if (flags & CHASE_NONEXISTENT) {
-                                if (!path_extend(&done, first, todo))
-                                        return -ENOMEM;
+                                if (FLAGS_SET(flags, CHASE_PARENT)) {
+                                        _cleanup_free_ char *parent = NULL;
+
+                                        r = path_extract_directory(todo, &parent);
+                                        if (r < 0 && r != -EDESTADDRREQ)
+                                                return r;
+
+                                        if (!path_extend(&done, first, parent))
+                                                return -ENOMEM;
+                                } else {
+                                        if (!path_extend(&done, first, todo))
+                                                return -ENOMEM;
+                                }
 
                                 exists = false;
                                 break;
@@ -389,6 +398,9 @@ int chase_symlinks_at(
 
                         continue;
                 }
+
+                if (FLAGS_SET(flags, CHASE_PARENT) && isempty(todo))
+                        break;
 
                 /* If this is not a symlink, then let's just add the name we read to what we already verified. */
                 if (!path_extend(&done, first))
@@ -763,7 +775,7 @@ int chase_symlinks_and_unlink(
         if (r < 0)
                 return r;
 
-        fd = chase_symlinks_and_open(path, root, chase_flags|CHASE_PARENT, O_PATH|O_DIRECTORY|O_CLOEXEC, ret_path ? &p : NULL);
+        fd = chase_symlinks_and_open(path, root, chase_flags|CHASE_PARENT|CHASE_NOFOLLOW, O_PATH|O_DIRECTORY|O_CLOEXEC, ret_path ? &p : NULL);
         if (fd < 0)
                 return fd;
 
