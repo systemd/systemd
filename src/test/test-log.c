@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "format-util.h"
+#include "io-util.h"
 #include "log.h"
 #include "process-util.h"
 #include "string-util.h"
@@ -133,6 +134,28 @@ static void test_log_context(void) {
 
                 assert_se(log_context_num_contexts() == 1);
                 assert_se(log_context_num_fields() == 2);
+        }
+
+        {
+                /* Test that everything still works with a mixed strv and iov. */
+                struct iovec iov[] = {
+                        IOVEC_MAKE_STRING("ABC=def"),
+                        IOVEC_MAKE_STRING("GHI=jkl"),
+                };
+                _cleanup_free_ struct iovec_wrapper *iovw = iovw_new();
+                assert_se(iovw);
+                assert_se(iovw_consume(iovw, strdup("MNO=pqr"), STRLEN("MNO=pqr") + 1) == 0);
+
+                LOG_CONTEXT_PUSH_IOV(iov, ELEMENTSOF(iov));
+                LOG_CONTEXT_CONSUME_IOV(iovw->iovec, iovw->count);
+                LOG_CONTEXT_PUSH("STU=vwx");
+
+                assert_se(log_context_num_contexts() == 3);
+                assert_se(log_context_num_fields() == 4);
+
+                test_log_struct();
+                test_long_lines();
+                test_log_syntax();
         }
 
         assert_se(log_context_num_contexts() == 0);
