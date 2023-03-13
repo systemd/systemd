@@ -23,6 +23,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "build.h"
 #include "device-nodes.h"
 #include "fd-util.h"
 #include "log.h"
@@ -361,8 +362,9 @@ static int disk_identify(int fd,
 
 static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
-                { "export", no_argument, NULL, 'x' },
-                { "help",   no_argument, NULL, 'h' },
+                { "export",   no_argument, NULL, 'x' },
+                { "help",     no_argument, NULL, 'h' },
+                { "version",  no_argument, NULL, 'v' },
                 {}
         };
         int c;
@@ -375,9 +377,12 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'h':
                         printf("%s [OPTIONS...] DEVICE\n\n"
                                "  -x --export    Print values as environment keys\n"
-                               "  -h --help      Show this help text\n",
+                               "  -h --help      Show this help text\n"
+                               "     --version   Show package version\n",
                                program_invocation_short_name);
                         return 0;
+                case 'v':
+                        return version();
                 case '?':
                         return -EINVAL;
                 default:
