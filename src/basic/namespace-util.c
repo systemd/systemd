@@ -206,6 +206,54 @@ int detach_mount_namespace(void) {
         return 0;
 }
 
+int detach_mount_namespace_harder(uid_t target_uid, gid_t target_gid) {
+        int r;
+
+        /* Tried detach_mount_namespace() first. If that doesn't work due to permissions, opens up an
+         * unprivileged user namespace with a mapping of the originating UID/GID to the specified target
+         * UID/GID. Then, tries detach_mount_namespace() again.
+         *
+         * Or in other words: tries much harder to get a mount namespace, making use of unprivileged user
+         * namespaces if need be.
+         *
+         * Note that after this function completed:
+         *
+         *    → if we had privs, afterwards uids/gids on files and processes are as before
+         *
+         *    → if we had no privs, our own id and all our files will show up owned by target_uid/target_gid,
+         *    and everything else owned by nobody.
+         *
+         * Yes, that's quite a difference. */
+
+        if (!uid_is_valid(target_uid))
+                return -EINVAL;
+        if (!gid_is_valid(target_gid))
+                return -EINVAL;
+
+        r = detach_mount_namespace();
+        if (r != -EPERM)
+                return r;
+
+        if (unshare(CLONE_NEWUSER) < 0)
+                return log_debug_errno(errno, "Failed to acquire user namespace: %m");
+
+        r = write_string_filef("/proc/self/uid_map", 0,
+                               UID_FMT " " UID_FMT " 1\n", target_uid, getuid());
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write uid map: %m");
+
+        r = write_string_file("/proc/self/setgroups", "deny", 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write setgroups file: %m");
+
+        r = write_string_filef("/proc/self/gid_map", 0,
+                              GID_FMT " " GID_FMT " 1\n", target_gid, getgid());
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write gid map: %m");
+
+        return detach_mount_namespace();
+}
+
 int userns_acquire(const char *uid_map, const char *gid_map) {
         char path[STRLEN("/proc//uid_map") + DECIMAL_STR_MAX(pid_t) + 1];
         _cleanup_(sigkill_waitp) pid_t pid = 0;
@@ -241,7 +289,6 @@ int userns_acquire(const char *uid_map, const char *gid_map) {
                 return log_error_errno(r, "Failed to open userns fd: %m");
 
         return TAKE_FD(userns_fd);
-
 }
 
 int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type) {
