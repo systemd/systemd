@@ -194,6 +194,9 @@ assert_cc(TASKS_MAX <= (unsigned long) PID_T_MAX);
 int pidfd_get_pid(int fd, pid_t *ret);
 int pidfd_verify_pid(int pidfd, pid_t pid);
 
+int pidfd_get_procfs(int fd);
+int pidfd_from_procfs(int dir_fd);
+
 int setpriority_closest(int priority);
 
 _noreturn_ void freeze(void);
