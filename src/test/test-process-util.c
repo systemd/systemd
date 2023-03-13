@@ -20,6 +20,7 @@
 #include "errno-list.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "ioprio-util.h"
 #include "log.h"
 #include "macro.h"
@@ -889,6 +890,46 @@ TEST(get_process_threads) {
 
                 _exit(EXIT_SUCCESS);
         }
+}
+
+TEST(pidfd_get_procfs) {
+        _cleanup_close_ int pid_fd = -EBADF, dir_fd = -EBADF, pid_fd2 = -EBADF;
+        _cleanup_free_ char *e1 = NULL, *e2 = NULL;
+        size_t e1_size, e2_size;
+        pid_t pid;
+
+        /* Let's test the full translation matrix:
+         *
+         * |              | pid          | pidfd              | procfs dirfd        |
+         * +--------------+--------------+--------------------+---------------------+
+         * | pid          | -            | pidfd_get_pid()    | (missing)           |
+         * | pidfd        | pidfd_open() | -                  | pidfd_from_procfs() |
+         * | procfs dirfd | (missing)    | pidfd_get_procfs() | -                   |
+         */
+
+        pid_fd = pidfd_open(getpid(), 0);
+        if (pid_fd < 0) {
+                assert_se(ERRNO_IS_NOT_SUPPORTED(errno));
+                log_notice("Skipping pidfd_get_procfs() test, lacking pidfd support.");
+                return;
+        }
+
+        dir_fd = pidfd_get_procfs(pid_fd);
+        assert_se(dir_fd >= 0);
+
+        /* Let's verify that we are talking about the same proces shere. We use a very superficial test: if
+         * it has the same cmdline as as */
+        assert_se(read_virtual_file_at(dir_fd, "cmdline", SIZE_MAX, &e1, &e1_size) >= 0);
+        assert_se(read_virtual_file_at(AT_FDCWD, "/proc/self/cmdline", SIZE_MAX, &e2, &e2_size) >= 0);
+        assert_se(memcmp_nn(e1, e1_size, e2, e2_size) == 0);
+
+        /* Roundtrippin' */
+        pid_fd2 = pidfd_from_procfs(dir_fd);
+        assert_se(pid_fd2 >= 0);
+
+        /* Is this still us? */
+        assert_se(pidfd_get_pid(pid_fd2, &pid) >= 0);
+        assert_se(pid == getpid());
 }
 
 static int intro(void) {

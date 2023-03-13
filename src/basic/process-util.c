@@ -34,6 +34,7 @@
 #include "log.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "missing_magic.h"
 #include "missing_sched.h"
 #include "missing_syscall.h"
 #include "missing_threads.h"
@@ -1519,6 +1520,99 @@ int pidfd_verify_pid(int pidfd, pid_t pid) {
                 return r;
 
         return current_pid != pid ? -ESRCH : 0;
+}
+
+int pidfd_get_procfs(int fd) {
+        _cleanup_close_ int dir_fd = -EBADF;
+        _cleanup_free_ char *p = NULL;
+        pid_t pid;
+        int r;
+
+        /* Converts a pidfd into a /proc/$PID/ directory fd */
+
+        r = pidfd_get_pid(fd, &pid);
+        if (r < 0)
+                return r;
+
+        if (asprintf(&p, "/proc/" PID_FMT "/", pid) < 0)
+                return -ENOMEM;
+
+        dir_fd = open(p, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        if (dir_fd < 0)
+                return -errno;
+
+        r = pidfd_verify_pid(fd, pid);
+        if (r < 0)
+                return r;
+
+        return TAKE_FD(dir_fd);
+}
+
+int pidfd_from_procfs(int dir_fd) {
+        _cleanup_close_ int fd = -EBADF, verify_dir_fd = -EBADF;
+        _cleanup_free_ char *buffer = NULL;
+        struct stat st1, st2;
+        pid_t pid;
+        char *p;
+        int r;
+
+        /* Returns:
+         *
+         *  -ESRCH   → process this dir refers to is gone
+         *  -ENOTDIR → not a directory
+         *  -ENOTTY  → not on procfs
+         *  -ENOENT  → not a process dir on procfs
+         */
+
+        if (fstat(dir_fd, &st1) < 0)
+                return -errno;
+        r = stat_verify_directory(&st1);
+        if (r < 0)
+                return r;
+
+        r = read_virtual_file_at(dir_fd, "status", SIZE_MAX, &buffer, NULL);
+        if (r == -ENOENT) {
+                /* Hmm, the file doesnt exist? Let's see if this is a procfs at all? */
+                r = fd_is_fs_type(dir_fd, PROC_SUPER_MAGIC);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -ENOTTY; /* completely wrong fs */
+
+                return -ENOENT; /* not actually referring to a process */
+        }
+        if (r < 0)
+                return r;
+
+        p = find_line_startswith(buffer, "Pid:");
+        if (!p)
+                return -ENOTTY; /* not a procfs dir? */
+
+        p += strspn(p, WHITESPACE);
+        p[strcspn(p, WHITESPACE)] = 0;
+
+        r = parse_pid(p, &pid);
+        if (r < 0)
+                return r;
+
+        fd = pidfd_open(pid, 0);
+        if (fd < 0)
+                return -errno;
+
+        /* The process might have died between the time we read the pid off procfs, and turned into a
+         * pidfd. Hence let's verify things by converting the pidfd back to a dirfd, and comparing if the
+         * inodes match. */
+
+        verify_dir_fd = pidfd_get_procfs(fd);
+        if (verify_dir_fd < 0)
+                return verify_dir_fd;
+
+        if (fstat(verify_dir_fd, &st2) < 0)
+                return -errno;
+        if (!stat_inode_same(&st1, &st2))
+                return -ESRCH;
+
+        return TAKE_FD(fd);
 }
 
 static int rlimit_to_nice(rlim_t limit) {
