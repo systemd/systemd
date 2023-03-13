@@ -20,8 +20,10 @@ typedef enum ChaseSymlinksFlags {
         CHASE_AT_RESOLVE_IN_ROOT = 1 << 8,  /* Same as openat2()'s RESOLVE_IN_ROOT flag, symlinks are resolved
                                              * relative to the given directory fd instead of root. */
         CHASE_PROHIBIT_SYMLINKS  = 1 << 9,  /* Refuse all symlinks */
-        CHASE_PARENT             = 1 << 10, /* Chase the parent directory of the given path. */
-        CHASE_MKDIR_0755         = 1 << 11, /* Create any missing directories in the given path. */
+        CHASE_PARENT             = 1 << 10, /* Chase the parent directory of the given path. Note that the
+                                             * full path is still stored in ret_path and only the returned
+                                             * file descriptor will point to the parent directory. */
+        CHASE_MKDIR_0755         = 1 << 11, /* Create any missing parent directories in the given path. */
 } ChaseSymlinksFlags;
 
 bool unsafe_transition(const struct stat *a, const struct stat *b);

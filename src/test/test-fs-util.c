@@ -331,10 +331,10 @@ TEST(chase_symlinks) {
         }
 
         assert_se(lstat(p, &st) >= 0);
-        r = chase_symlinks_and_unlink(p, NULL, 0, 0,  &result);
+        r = chase_symlinks_and_unlink(p, NULL, 0, 0, &result);
+        assert_se(r == 0);
         assert_se(path_equal(result, p));
         result = mfree(result);
-        assert_se(r == 0);
         assert_se(lstat(p, &st) == -1 && errno == ENOENT);
 
         /* Test CHASE_NOFOLLOW */
@@ -426,18 +426,6 @@ TEST(chase_symlinks) {
         assert_se(chase_symlinks("top/dot/dot", temp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, NULL, NULL) == -EREMCHG);
         assert_se(chase_symlinks("top/dot/dot", temp, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_WARN, NULL, NULL) == -EREMCHG);
 
-        /* Test CHASE_PARENT */
-
-        assert_se(chase_symlinks("/chase/parent", temp, CHASE_PREFIX_ROOT|CHASE_PARENT|CHASE_NONEXISTENT, &result, NULL) >= 0);
-        p = strjoina(temp, "/chase");
-        assert_se(streq(p, result));
-        result = mfree(result);
-        assert_se(chase_symlinks("/chase", temp, CHASE_PREFIX_ROOT|CHASE_PARENT|CHASE_NONEXISTENT, &result, NULL) >= 0);
-        assert_se(streq(temp, result));
-        result = mfree(result);
-        assert_se(chase_symlinks("/", temp, CHASE_PREFIX_ROOT|CHASE_PARENT|CHASE_NONEXISTENT, NULL, NULL) == -EADDRNOTAVAIL);
-        assert_se(chase_symlinks(".", temp, CHASE_PREFIX_ROOT|CHASE_PARENT|CHASE_NONEXISTENT, NULL, NULL) == -EADDRNOTAVAIL);
-
  cleanup:
         assert_se(rm_rf(temp, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }
@@ -479,23 +467,51 @@ TEST(chase_symlinks_at) {
 
         /* Test CHASE_PARENT */
 
-        assert_se(chase_symlinks_at(tfd, "chase/parent", CHASE_NONEXISTENT|CHASE_PARENT, &result, NULL) >= 0);
-        assert_se(streq(result, "chase"));
+        assert_se((fd = open_mkdir_at(tfd, "chase", O_CLOEXEC, 0755)) >= 0);
+        assert_se(symlinkat("/def", fd, "parent") >= 0);
+        fd = safe_close(fd);
+
+        /* Make sure that when we chase a symlink parent directory, that we chase the parent directory of the
+         * symlink target and not the symlink itself. But if we add CHASE_NOFOLLOW, we get the parent
+         * directory of the symlink itself. */
+
+        assert_se(chase_symlinks_at(tfd, "chase/parent", CHASE_PARENT|CHASE_AT_RESOLVE_IN_ROOT, &result, &fd) >= 0);
+        assert_se(faccessat(fd, "def", F_OK, 0) >= 0);
+        assert_se(streq(result, "def"));
+        fd = safe_close(fd);
         result = mfree(result);
 
-        assert_se(chase_symlinks_at(tfd, "chase", CHASE_NONEXISTENT|CHASE_PARENT, &result, NULL) >= 0);
+        assert_se(chase_symlinks_at(tfd, "chase/parent", CHASE_AT_RESOLVE_IN_ROOT|CHASE_PARENT|CHASE_NOFOLLOW, &result, &fd) >= 0);
+        assert_se(faccessat(fd, "parent", F_OK, AT_SYMLINK_NOFOLLOW) >= 0);
+        assert_se(streq(result, "chase/parent"));
+        fd = safe_close(fd);
+        result = mfree(result);
+
+        assert_se(chase_symlinks_at(tfd, "chase", CHASE_PARENT|CHASE_AT_RESOLVE_IN_ROOT, &result, &fd) >= 0);
+        assert_se(faccessat(fd, "chase", F_OK, 0) >= 0);
+        assert_se(streq(result, "chase"));
+        fd = safe_close(fd);
+        result = mfree(result);
+
+        assert_se(chase_symlinks_at(tfd, "/", CHASE_PARENT|CHASE_AT_RESOLVE_IN_ROOT, &result, NULL) >= 0);
+        assert_se(streq(result, "."));
+        result = mfree(result);
+
+        assert_se(chase_symlinks_at(tfd, ".", CHASE_PARENT|CHASE_AT_RESOLVE_IN_ROOT, &result, NULL) >= 0);
         assert_se(streq(result, "."));
         result = mfree(result);
 
         /* Test CHASE_MKDIR_0755 */
 
-        assert_se(chase_symlinks_at(tfd, "m/k/d/i/r", CHASE_MKDIR_0755, &result, NULL) >= 0);
-        assert_se(faccessat(tfd, "m/k/d/i/r", F_OK, 0) >= 0);
+        assert_se(chase_symlinks_at(tfd, "m/k/d/i/r", CHASE_MKDIR_0755|CHASE_NONEXISTENT, &result, NULL) >= 0);
+        assert_se(faccessat(tfd, "m/k/d/i", F_OK, 0) >= 0);
+        assert_se(RET_NERRNO(faccessat(tfd, "m/k/d/i/r", F_OK, 0)) == -ENOENT);
         assert_se(streq(result, "m/k/d/i/r"));
         result = mfree(result);
 
-        assert_se(chase_symlinks_at(tfd, "m/../q", CHASE_MKDIR_0755, &result, NULL) >= 0);
-        assert_se(faccessat(tfd, "q", F_OK, 0) >= 0);
+        assert_se(chase_symlinks_at(tfd, "m/../q", CHASE_MKDIR_0755|CHASE_NONEXISTENT, &result, NULL) >= 0);
+        assert_se(faccessat(tfd, "m", F_OK, 0) >= 0);
+        assert_se(RET_NERRNO(faccessat(tfd, "q", F_OK, 0)) == -ENOENT);
         assert_se(streq(result, "q"));
         result = mfree(result);
 
@@ -503,8 +519,14 @@ TEST(chase_symlinks_at) {
 
         /* Test chase_symlinks_at_and_open() */
 
-        fd = chase_symlinks_at_and_open(tfd, "o/p/e/n", CHASE_MKDIR_0755, O_CLOEXEC, NULL);
+        fd = chase_symlinks_at_and_open(tfd, "o/p/e/n/f/i/l/e", CHASE_MKDIR_0755, O_CREAT|O_EXCL|O_CLOEXEC, NULL);
         assert_se(fd >= 0);
+        assert_se(fd_verify_regular(fd) >= 0);
+        fd = safe_close(fd);
+
+        fd = chase_symlinks_at_and_open(tfd, "o/p/e/n/d/i/r", CHASE_MKDIR_0755, O_DIRECTORY|O_CREAT|O_EXCL|O_CLOEXEC, NULL);
+        assert_se(fd >= 0);
+        assert_se(fd_verify_directory(fd) >= 0);
         fd = safe_close(fd);
 }
 
