@@ -121,8 +121,7 @@ static int run(int argc, char *argv[]) {
                 return run_udevd(argc, argv);
 
         udev_parse_config();
-        log_parse_environment();
-        log_open();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
