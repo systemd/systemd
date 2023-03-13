@@ -761,6 +761,9 @@ int chase_symlinks_and_unlink(
 
         assert(path);
 
+        if (chase_flags & CHASE_PARENT)
+                return -EINVAL;
+
         r = path_extract_filename(path, &fname);
         if (r < 0)
                 return r;
