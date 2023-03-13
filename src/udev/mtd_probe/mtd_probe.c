@@ -30,6 +30,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "build.h"
 #include "fd-util.h"
 #include "main-func.h"
 #include "mtd_probe.h"
@@ -38,7 +39,8 @@ static const char *arg_device = NULL;
 
 static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
-                { "help",   no_argument, NULL, 'h' },
+                { "help",     no_argument, NULL, 'h' },
+                { "version",  no_argument, NULL, 'v' },
                 {}
         };
         int c;
@@ -47,9 +49,12 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
                 case 'h':
                         printf("%s /dev/mtd[n]\n\n"
-                               "  -h --help     Show this help text\n",
+                               "  -h --help     Show this help text\n"
+                               "     --version  Show package version\n",
                                program_invocation_short_name);
                         return 0;
+                case 'v':
+                        return version();
                 case '?':
                         return -EINVAL;
                 default:
