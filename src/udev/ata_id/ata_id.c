@@ -26,6 +26,7 @@
 #include "device-nodes.h"
 #include "fd-util.h"
 #include "log.h"
+#include "main-func.h"
 #include "memory-util.h"
 #include "udev-util.h"
 
@@ -423,7 +424,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         struct hd_driveid id;
         union {
                 uint8_t  byte[512];
@@ -444,13 +445,11 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                return r < 0 ? 1 : 0;
+                return r;
 
         fd = open(ASSERT_PTR(arg_device), O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
-        if (fd < 0) {
-                log_error_errno(errno, "Cannot open %s: %m", arg_device);
-                return 1;
-        }
+        if (fd < 0)
+                return log_error_errno(errno, "Cannot open %s: %m", arg_device);
 
         if (disk_identify(fd, identify.byte, &is_packet_device) == 0) {
                 /*
@@ -482,10 +481,8 @@ int main(int argc, char *argv[]) {
                 memcpy(&id, identify.byte, sizeof id);
         } else {
                 /* If this fails, then try HDIO_GET_IDENTITY */
-                if (ioctl(fd, HDIO_GET_IDENTITY, &id) != 0) {
-                        log_debug_errno(errno, "%s: HDIO_GET_IDENTITY failed: %m", arg_device);
-                        return 2;
-                }
+                if (ioctl(fd, HDIO_GET_IDENTITY, &id) != 0)
+                        return log_debug_errno(errno, "%s: HDIO_GET_IDENTITY failed: %m", arg_device);
         }
 
         memcpy(model, id.model, 40);
@@ -656,3 +653,5 @@ int main(int argc, char *argv[]) {
 
         return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);
