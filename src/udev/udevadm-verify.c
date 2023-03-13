@@ -128,6 +128,7 @@ static int verify_rules(UdevRules *rules, char **files) {
                         rv = r;
         }
 
+        log_notice("%zu udev rules files are loaded and verified.", strv_length(files));
         return rv;
 }
 
