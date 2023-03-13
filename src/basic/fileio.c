@@ -17,6 +17,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "fsverity-util.h"
 #include "hexdecoct.h"
 #include "log.h"
 #include "macro.h"
@@ -252,6 +253,21 @@ static int write_string_file_atomic_at(
                         return r;
         }
 
+        if (flags & WRITE_STRING_FILE_ENABLE_FS_VERITY) {
+                _cleanup_close_ int read_only_fd = -EBADF;
+
+                /* fsverity IOCTLs require an exclusive, read-only file descriptor, and fail otherwise. */
+                read_only_fd = openat(dir_fd, fn, O_RDONLY|O_CLOEXEC|O_NOCTTY |
+                        (FLAGS_SET(flags, WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0));
+                if (read_only_fd < 0)
+                        return log_debug_errno(errno, "Failed to open '%s' to enable fs-verity, ignoring: %m", fn);
+                f = safe_fclose(f);
+
+                r = fsverity_enable(read_only_fd, fn, /* signature= */ NULL, /* signature_size= */ 0);
+                if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(r))
+                        log_debug_errno(r, "Failed to enable fs-verity on '%s', ignoring: %m", fn);
+        }
+
         return 0;
 
 fail:
@@ -274,6 +290,10 @@ int write_string_file_ts_at(
 
         /* We don't know how to verify whether the file contents was already on-disk. */
         assert(!((flags & WRITE_STRING_FILE_VERIFY_ON_FAILURE) && (flags & WRITE_STRING_FILE_SYNC)));
+
+        /* If we need to enable fs-verity, then sync immediately, otherwise the ioctl will fail. */
+        if (flags & WRITE_STRING_FILE_ENABLE_FS_VERITY)
+                flags |= WRITE_STRING_FILE_SYNC;
 
         if (flags & WRITE_STRING_FILE_MKDIR_0755) {
                 r = mkdirat_parents(dir_fd, fn, 0755);
@@ -316,6 +336,22 @@ int write_string_file_ts_at(
         r = write_string_stream_ts(f, line, flags, ts);
         if (r < 0)
                 goto fail;
+
+        if (flags & WRITE_STRING_FILE_ENABLE_FS_VERITY) {
+                _cleanup_close_ int read_only_fd = -EBADF;
+
+                /* fsverity IOCTLs require an exclusive, read-only file descriptor, and fail otherwise. */
+                read_only_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (read_only_fd < 0) {
+                        r = read_only_fd;
+                        goto fail;
+                }
+                f = safe_fclose(f);
+
+                r = fsverity_enable(read_only_fd, fn, /* signature= */ NULL, /* signature_size= */ 0);
+                if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(r))
+                        log_debug_errno(r, "Failed to enable fs-verity on '%s', ignoring: %m", fn);
+        }
 
         return 0;
 
