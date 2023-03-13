@@ -103,16 +103,16 @@
       <listitem>
         <para><parameter>normal-dir</parameter></para>
         <para>In normal use this is <filename>/run/systemd/generator</filename> in case of the system
-        generators and <filename>$XDG_RUNTIME_DIR/generator</filename> in case of the user generators. Unit
-        files placed in this directory take precedence over vendor unit configuration but not over native
-        user/administrator unit configuration.
+        generators and <filename>$XDG_RUNTIME_DIR/systemd/generator</filename> in case of the user
+        generators. Unit files placed in this directory take precedence over vendor unit configuration but
+        not over native user/administrator unit configuration.
         </para>
       </listitem>
 
       <listitem>
         <para><parameter>early-dir</parameter></para>
         <para>In normal use this is <filename>/run/systemd/generator.early</filename> in case of the system
-        generators and <filename>$XDG_RUNTIME_DIR/generator.early</filename> in case of the user
+        generators and <filename>$XDG_RUNTIME_DIR/systemd/generator.early</filename> in case of the user
         generators. Unit files placed in this directory override unit files in <filename>/usr/</filename>,
         <filename>/run/</filename> and <filename>/etc/</filename>. This means that unit files placed in this
         directory take precedence over all normal configuration, both vendor and user/administrator.</para>
@@ -121,7 +121,7 @@
       <listitem>
         <para><parameter>late-dir</parameter></para>
         <para>In normal use this is <filename>/run/systemd/generator.late</filename> in case of the system
-        generators and <filename>$XDG_RUNTIME_DIR/generator.late</filename> in case of the user
+        generators and <filename>$XDG_RUNTIME_DIR/systemd/generator.late</filename> in case of the user
         generators. This directory may be used to extend the unit file tree without overriding any other unit
         files. Any native configuration files supplied by the vendor or user/administrator take
         precedence.</para>
