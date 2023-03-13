@@ -631,21 +631,19 @@ int chase_symlinks_and_stat(
                 const char *root,
                 ChaseSymlinksFlags chase_flags,
                 char **ret_path,
-                struct stat *ret_stat,
-                int *ret_fd) {
+                struct stat *ret_stat) {
 
         _cleanup_close_ int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r;
 
         assert(path);
-        assert(ret_stat);
 
         if (chase_flags & (CHASE_NONEXISTENT|CHASE_STEP))
                 return -EINVAL;
 
         if (empty_or_root(root) && !ret_path &&
-            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0 && !ret_fd) {
+            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0) {
                 /* Shortcut this call if none of the special features of this call are requested */
 
                 if (fstatat(AT_FDCWD, path, ret_stat, FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0) < 0)
@@ -664,8 +662,6 @@ int chase_symlinks_and_stat(
 
         if (ret_path)
                 *ret_path = TAKE_PTR(p);
-        if (ret_fd)
-                *ret_fd = TAKE_FD(path_fd);
 
         return 1;
 }
@@ -675,8 +671,7 @@ int chase_symlinks_and_access(
                 const char *root,
                 ChaseSymlinksFlags chase_flags,
                 int access_mode,
-                char **ret_path,
-                int *ret_fd) {
+                char **ret_path) {
 
         _cleanup_close_ int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
@@ -688,7 +683,7 @@ int chase_symlinks_and_access(
                 return -EINVAL;
 
         if (empty_or_root(root) && !ret_path &&
-            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0 && !ret_fd) {
+            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0) {
                 /* Shortcut this call if none of the special features of this call are requested */
 
                 if (faccessat(AT_FDCWD, path, access_mode, FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0) < 0)
@@ -708,8 +703,6 @@ int chase_symlinks_and_access(
 
         if (ret_path)
                 *ret_path = TAKE_PTR(p);
-        if (ret_fd)
-                *ret_fd = TAKE_FD(path_fd);
 
         return 1;
 }
