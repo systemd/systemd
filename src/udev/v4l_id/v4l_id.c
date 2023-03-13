@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <linux/videodev2.h>
 
+#include "build.h"
 #include "fd-util.h"
 #include "main-func.h"
 
@@ -33,7 +34,8 @@ static const char *arg_device = NULL;
 
 static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
-                { "help", no_argument, NULL, 'h' },
+                { "help",     no_argument, NULL, 'h' },
+                { "version",  no_argument, NULL, 'v' },
                 {}
         };
         int c;
@@ -43,9 +45,12 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'h':
                         printf("%s [OPTIONS...] DEVICE\n\n"
                                "Video4Linux device identification.\n\n"
-                               "  -h --help     Show this help text\n",
+                               "  -h --help     Show this help text\n"
+                               "     --version  Show package version\n",
                                program_invocation_short_name);
                         return 0;
+                case 'v':
+                        return version();
                 case '?':
                         return -EINVAL;
                 default:
