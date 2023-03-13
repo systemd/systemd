@@ -62,8 +62,8 @@ static enum {
         ACTION_COPY_TO,
         ACTION_DISCOVER,
 } arg_action = ACTION_DISSECT;
-static const char *arg_image = NULL;
-static const char *arg_path = NULL;
+static char *arg_image = NULL;
+static char *arg_path = NULL;
 static const char *arg_source = NULL;
 static const char *arg_target = NULL;
 static DissectImageFlags arg_flags =
@@ -84,6 +84,8 @@ static bool arg_in_memory = false;
 static char **arg_argv = NULL;
 static char *arg_loop_ref = NULL;
 
+STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_verity_settings, verity_settings_done);
 STATIC_DESTRUCTOR_REGISTER(arg_argv, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_loop_ref, freep);
@@ -470,7 +472,10 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Expected an image file path as only argument.");
 
-                arg_image = argv[optind];
+                r = parse_path_argument(argv[optind], /* suppress_root= */ false, &arg_image);
+                if (r < 0)
+                        return r;
+
                 arg_flags |= DISSECT_IMAGE_READ_ONLY;
                 break;
 
@@ -479,8 +484,14 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Expected an image file path and mount point path as only arguments.");
 
-                arg_image = argv[optind];
-                arg_path = argv[optind + 1];
+                r = parse_path_argument(argv[optind], /* suppress_root= */ false, &arg_image);
+                if (r < 0)
+                        return r;
+
+                r = parse_path_argument(argv[optind+1], /* suppress_root= */ false, &arg_path);
+                if (r < 0)
+                        return r;
+
                 arg_flags |= DISSECT_IMAGE_REQUIRE_ROOT;
                 break;
 
@@ -489,7 +500,9 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Expected a mount point path as only argument.");
 
-                arg_path = argv[optind];
+                r = parse_path_argument(argv[optind], /* suppress_root= */ false, &arg_path);
+                if (r < 0)
+                        return r;
                 break;
 
         case ACTION_ATTACH:
@@ -497,7 +510,9 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Expected an image file path as only argument.");
 
-                arg_image = argv[optind];
+                r = parse_path_argument(argv[optind], /* suppress_root= */ false, &arg_image);
+                if (r < 0)
+                        return r;
                 break;
 
         case ACTION_DETACH:
@@ -505,7 +520,9 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Expected an image file path or loopback device as only argument.");
 
-                arg_image = argv[optind];
+                r = parse_path_argument(argv[optind], /* suppress_root= */ false, &arg_image);
+                if (r < 0)
+                        return r;
                 break;
 
         case ACTION_LIST:
@@ -514,7 +531,10 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Expected an image file path as only argument.");
 
-                arg_image = argv[optind];
+                r = parse_path_argument(argv[optind], /* suppress_root= */ false, &arg_image);
+                if (r < 0)
+                        return r;
+
                 arg_flags |= DISSECT_IMAGE_READ_ONLY | DISSECT_IMAGE_REQUIRE_ROOT;
                 break;
 
@@ -523,7 +543,9 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Expected an image file path, a source path and an optional destination path as only arguments.");
 
-                arg_image = argv[optind];
+                r = parse_path_argument(argv[optind], /* suppress_root= */ false, &arg_image);
+                if (r < 0)
+                        return r;
                 arg_source = argv[optind + 1];
                 arg_target = argc > optind + 2 ? argv[optind + 2] : "-" /* this means stdout */ ;
 
@@ -535,7 +557,9 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Expected an image file path, an optional source path and a destination path as only arguments.");
 
-                arg_image = argv[optind];
+                r = parse_path_argument(argv[optind], /* suppress_root= */ false, &arg_image);
+                if (r < 0)
+                        return r;
 
                 if (argc > optind + 2) {
                         arg_source = argv[optind + 1];
@@ -553,7 +577,10 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Expected an image file path and an optional command line.");
 
-                arg_image = argv[optind];
+                r = parse_path_argument(argv[optind], /* suppress_root= */ false, &arg_image);
+                if (r < 0)
+                        return r;
+
                 if (argc > optind + 1) {
                         arg_argv = strv_copy(argv + optind + 1);
                         if (!arg_argv)
@@ -642,8 +669,13 @@ static int parse_argv_as_mount_helper(int argc, char *argv[]) {
         if (fake)
                 return 0;
 
-        arg_image = argv[optind];
-        arg_path = argv[optind+1];
+        r = parse_path_argument(argv[optind], /* suppress_root= */ false, &arg_image);
+        if (r < 0)
+                return r;
+
+        r = parse_path_argument(argv[optind+1], /* suppress_root= */ false, &arg_path);
+        if (r < 0)
+                return r;
 
         arg_flags |= DISSECT_IMAGE_REQUIRE_ROOT;
         arg_action = ACTION_MOUNT;
@@ -908,7 +940,7 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                         return table_log_add_error(r);
 
                 if (p->partno < 0) /* no partition table, naked file system */ {
-                        r = table_add_cell(t, NULL, TABLE_STRING, arg_image);
+                        r = table_add_cell(t, NULL, TABLE_PATH_BASENAME, arg_image);
                         if (r < 0)
                                 return table_log_add_error(r);
 
