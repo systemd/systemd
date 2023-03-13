@@ -938,6 +938,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 case 'h':
                         return help();
+                case '?':
+                        return -EINVAL;
                 default:
                         assert_not_reached();
                 }
