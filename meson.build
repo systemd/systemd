@@ -3932,6 +3932,12 @@ if conf.get('ENABLE_TMPFILES') == 1
                 install_dir : rootbindir)
         public_programs += exe
 
+        foreach dir : [systemgeneratordir, usergeneratordir]
+                meson.add_install_script(meson_make_symlink,
+                                         bindir / 'systemd-tmpfiles',
+                                         dir / 'systemd-tmpfiles-generator')
+        endforeach
+
         if want_tests != 'false'
                 test('test-systemd-tmpfiles',
                      test_systemd_tmpfiles_py,

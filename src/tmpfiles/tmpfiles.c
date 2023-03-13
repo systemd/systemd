@@ -38,6 +38,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "generator.h"
 #include "glob-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
@@ -4071,11 +4072,35 @@ static int run(int argc, char *argv[]) {
         } phase;
         int r, k;
 
-        r = parse_argv(argc, argv);
-        if (r <= 0)
-                return r;
+        if (invoked_as(argv, "systemd-tmpfiles-generator")) {
+                if (!IN_SET(strv_length(argv), 2, 4))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "This program takes one or three arguments.");
 
-        log_setup();
+                arg_operation = OPERATION_CREATE;
+                arg_boot = true;
+
+                if (strv_extend(&arg_include_prefixes, argv[1]) < 0)
+                        return log_oom();
+
+                if (argc > 2) {
+                        if (strv_extend(&arg_include_prefixes, argv[2]) < 0)
+                                return log_oom();
+
+                        if (strv_extend(&arg_include_prefixes, argv[3]) < 0)
+                                return log_oom();
+                }
+
+                optind = argc;
+
+                log_setup_generator();
+        } else {
+                r = parse_argv(argc, argv);
+                if (r <= 0)
+                        return r;
+
+                log_setup();
+        }
 
         /* We require /proc/ for a lot of our operations, i.e. for adjusting access modes, for anything
          * SELinux related, for recursive operation, for xattr, acl and chattr handling, for btrfs stuff and
