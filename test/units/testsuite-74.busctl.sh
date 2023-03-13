@@ -38,6 +38,11 @@ busctl call --json=pretty \
 busctl call --json=short \
             org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager \
             ListUnitsByNames as 2 "systemd-journald.service" "systemd-logind.service" | jq
+# Get all properties on the org.freedesktop.systemd1.Manager interface and dump
+# them as JSON to exercise the internal JSON transformations
+busctl call -j \
+            org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.DBus.Properties \
+            GetAll s "org.freedesktop.systemd1.Manager" | jq -c
 busctl call --verbose --timeout=60 --expect-reply=yes \
             org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager \
             ListUnitsByPatterns asas 1 "active" 2 "systemd-*.socket" "*.mount"
