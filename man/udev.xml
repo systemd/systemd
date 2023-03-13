@@ -526,6 +526,9 @@
             <term><varname>GOTO</varname></term>
             <listitem>
               <para>Jumps to the next <varname>LABEL</varname> with a matching name.</para>
+
+              <para>In each rule only the first <varname>GOTO</varname> key takes effect,
+              all the rest are discarded.</para>
             </listitem>
           </varlistentry>
 
