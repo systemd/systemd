@@ -33,7 +33,7 @@ void edit_file_context_done(EditFileContext *context) {
                         if (r < 0)
                                 log_debug_errno(r, "Failed to extract directory from '%s', ignoring: %m", i->path);
                         else /* No need to check if the dir is empty, rmdir does nothing if it is not the case. */
-                            (void) rmdir(parent);
+                                (void) rmdir(parent);
                 }
 
                 free(i->path);
@@ -50,7 +50,7 @@ bool edit_files_contains(const EditFileContext *context, const char *path) {
         assert(path);
 
         FOREACH_ARRAY(i, context->files, context->n_files)
-                if (streq(i->path, path))
+                if (path_equal(i->path, path))
                         return true;
 
         return false;
