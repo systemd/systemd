@@ -514,6 +514,11 @@
             <term><varname>LABEL</varname></term>
             <listitem>
               <para>A named label to which a <varname>GOTO</varname> may jump.</para>
+
+              <para>Although <varname>LABEL</varname> keys are assignments,
+              they are processed before all other keys. In each rule only the
+              last <varname>LABEL</varname> key takes effect, all the rest are
+              ignored.</para>
             </listitem>
           </varlistentry>
 
