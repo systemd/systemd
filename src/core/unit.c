@@ -2580,7 +2580,7 @@ static bool unit_process_job(Job *j, UnitActiveState ns, UnitNotifyFlags flags) 
                                 else
                                         result = JOB_DONE;
 
-                                job_finish_and_invalidate(j, result, true, false);
+                                job_finish_and_invalidate(j, result, !(flags & UNIT_NOTIFY_WILL_AUTO_RESTART), false);
                         }
                 }
 
