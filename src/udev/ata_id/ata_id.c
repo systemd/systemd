@@ -31,6 +31,9 @@
 
 #define COMMAND_TIMEOUT_MSEC (30 * 1000)
 
+static bool arg_export = false;
+static const char *arg_device = NULL;
+
 static int disk_scsi_inquiry_command(
                 int fd,
                 void *buf,
@@ -387,6 +390,39 @@ out:
         return ret;
 }
 
+static int parse_argv(int argc, char *argv[]) {
+        static const struct option options[] = {
+                { "export", no_argument, NULL, 'x' },
+                { "help",   no_argument, NULL, 'h' },
+                {}
+        };
+        int c;
+
+        while ((c = getopt_long(argc, argv, "xh", options, NULL)) >= 0)
+                switch (c) {
+                case 'x':
+                        arg_export = true;
+                        break;
+                case 'h':
+                        printf("%s [OPTIONS...] DEVICE\n\n"
+                               "  -x --export    Print values as environment keys\n"
+                               "  -h --help      Show this help text\n",
+                               program_invocation_short_name);
+                        return 0;
+                case '?':
+                        return -EINVAL;
+                default:
+                        assert_not_reached();
+                }
+
+        if (!argv[optind])
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "DEVICE argument missing.");
+
+        arg_device = argv[optind];
+        return 1;
+}
+
 int main(int argc, char *argv[]) {
         struct hd_driveid id;
         union {
@@ -397,51 +433,22 @@ int main(int argc, char *argv[]) {
         char model_enc[256];
         char serial[21];
         char revision[9];
-        const char *node = NULL;
-        int export = 0;
         _cleanup_close_ int fd = -EBADF;
         uint16_t word;
-        int is_packet_device = 0;
-        static const struct option options[] = {
-                { "export", no_argument, NULL, 'x' },
-                { "help", no_argument, NULL, 'h' },
-                {}
-        };
+        int is_packet_device = 0, r;
 
         log_set_target(LOG_TARGET_AUTO);
         udev_parse_config();
         log_parse_environment();
         log_open();
 
-        for (;;) {
-                int option;
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r < 0 ? 1 : 0;
 
-                option = getopt_long(argc, argv, "xh", options, NULL);
-                if (option == -1)
-                        break;
-
-                switch (option) {
-                case 'x':
-                        export = 1;
-                        break;
-                case 'h':
-                        printf("Usage: %s [--export] [--help] <device>\n"
-                               "  -x,--export    print values as environment keys\n"
-                               "  -h,--help      print this help text\n\n",
-                               program_invocation_short_name);
-                        return 0;
-                }
-        }
-
-        node = argv[optind];
-        if (!node) {
-                log_error("no node specified");
-                return 1;
-        }
-
-        fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+        fd = open(ASSERT_PTR(arg_device), O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
         if (fd < 0) {
-                log_error("unable to open '%s'", node);
+                log_error_errno(errno, "Cannot open %s: %m", arg_device);
                 return 1;
         }
 
@@ -476,7 +483,7 @@ int main(int argc, char *argv[]) {
         } else {
                 /* If this fails, then try HDIO_GET_IDENTITY */
                 if (ioctl(fd, HDIO_GET_IDENTITY, &id) != 0) {
-                        log_debug_errno(errno, "HDIO_GET_IDENTITY failed for '%s': %m", node);
+                        log_debug_errno(errno, "%s: HDIO_GET_IDENTITY failed: %m", arg_device);
                         return 2;
                 }
         }
@@ -491,7 +498,7 @@ int main(int argc, char *argv[]) {
         udev_replace_whitespace((char *) id.fw_rev, revision, 8);
         udev_replace_chars(revision, NULL);
 
-        if (export) {
+        if (arg_export) {
                 /* Set this to convey the disk speaks the ATA protocol */
                 printf("ID_ATA=1\n");
 
