@@ -113,7 +113,10 @@ typedef enum UnlinkDeallocateFlags {
 
 int unlinkat_deallocate(int fd, const char *name, UnlinkDeallocateFlags flags);
 
-int open_parent(const char *path, int flags, mode_t mode);
+int open_parent_at(int dir_fd, const char *path, int flags, mode_t mode);
+static inline int open_parent(const char *path, int flags, mode_t mode) {
+        return open_parent_at(AT_FDCWD, path, flags, mode);
+}
 
 int conservative_renameat(int olddirfd, const char *oldpath, int newdirfd, const char *newpath);
 static inline int conservative_rename(const char *oldpath, const char *newpath) {
