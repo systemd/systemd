@@ -3681,6 +3681,7 @@ static int outer_child(
                                 directory,
                                 arg_uid_shift,
                                 arg_uid_range,
+                                /* userns_fd= */ -EBADF,
                                 DISSECT_IMAGE_MOUNT_ROOT_ONLY|
                                 DISSECT_IMAGE_DISCARD_ON_LOOP|
                                 DISSECT_IMAGE_USR_NO_ROOT|
@@ -3845,6 +3846,7 @@ static int outer_child(
                                 directory,
                                 arg_uid_shift,
                                 arg_uid_range,
+                                /* userns_fd= */ -EBADF,
                                 DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY|
                                 DISSECT_IMAGE_DISCARD_ON_LOOP|
                                 DISSECT_IMAGE_USR_NO_ROOT|
