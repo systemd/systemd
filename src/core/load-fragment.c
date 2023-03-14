@@ -6217,7 +6217,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_unit_requires_mounts_for,
                                                       "PATH [...]" },
                 { config_parse_exec_mount_propagation_flag,
-                                                      "MOUNTFLAG [...]" },
+                                                      "MOUNTFLAG" },
                 { config_parse_unit_string_printf,    "STRING" },
                 { config_parse_trigger_unit,          "UNIT" },
                 { config_parse_timer,                 "TIMER" },
