@@ -46,6 +46,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
+#include "uid-alloc-range.h"
 #include "user-util.h"
 
 static enum {
@@ -1018,6 +1019,19 @@ static int get_file_sha256(int inode_fd, uint8_t ret[static SHA256_DIGEST_SIZE])
         return 0;
 }
 
+static const char *pick_color_for_uid_gid(uid_t uid) {
+        if (uid == UID_NOBODY)
+                return ansi_highlight_yellow4(); /* files should never be owned by 'nobody' (but might happen due to userns mapping) */
+        if (uid_is_system(uid))
+                return ansi_normal();            /* files in disk images are typically owned by root and other system users, no issue there */
+        if (uid_is_dynamic(uid))
+                return ansi_highlight_red();     /* files should never be owned persistently by dynamic users, and there are just no execuses */
+        if (uid_is_container(uid))
+                return ansi_highlight_cyan();
+
+        return ansi_highlight();
+}
+
 static int mtree_print_item(
                 RecurseDirEvent event,
                 const char *path,
@@ -1076,16 +1090,18 @@ static int mtree_print_item(
                        (unsigned) (sx->stx_mode & 0777));
 
         if (FLAGS_SET(sx->stx_mask, STATX_UID))
-                printf(" %suid=%s" UID_FMT,
+                printf(" %suid=%s" UID_FMT "%s",
                        ansi_grey(),
-                       ansi_normal(),
-                       sx->stx_uid);
+                       pick_color_for_uid_gid(sx->stx_uid),
+                       sx->stx_uid,
+                       ansi_normal());
 
         if (FLAGS_SET(sx->stx_mask, STATX_GID))
-                printf(" %sgid=%s" GID_FMT,
+                printf(" %sgid=%s" GID_FMT "%s",
                        ansi_grey(),
-                       ansi_normal(),
-                       sx->stx_gid);
+                       pick_color_for_uid_gid(sx->stx_gid),
+                       sx->stx_gid,
+                       ansi_normal());
 
         if (FLAGS_SET(sx->stx_mask, STATX_TYPE|STATX_SIZE) && S_ISREG(sx->stx_mode)) {
                 printf(" %ssize=%s%" PRIu64,
