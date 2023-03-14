@@ -20,7 +20,6 @@ extern const BusLocator* const bus_resolve_mgr;
 extern const BusLocator* const bus_systemd_mgr;
 extern const BusLocator* const bus_timedate;
 extern const BusLocator* const bus_hostname;
-extern const BusLocator* const bus_systemd_loc;
 
 /* Shorthand flavors of the sd-bus convenience helpers with destination,path,interface strings encapsulated
  * within a single struct. */
