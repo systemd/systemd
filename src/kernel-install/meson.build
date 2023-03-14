@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-kernel_install_in = files('kernel-install.in')
 loaderentry_install_in = files('90-loaderentry.install.in')
 
 loaderentry_install = custom_target(
