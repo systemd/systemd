@@ -2474,7 +2474,13 @@ int setup_namespace(
 
         if (root_image) {
                 /* A root image is specified, mount it to the right place */
-                r = dissected_image_mount(dissected_image, root, UID_INVALID, UID_INVALID, dissect_image_flags);
+                r = dissected_image_mount(
+                                dissected_image,
+                                root,
+                                /* uid_shift= */ UID_INVALID,
+                                /* uid_range= */ UID_INVALID,
+                                /* userns_fd= */ -EBADF,
+                                dissect_image_flags);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to mount root image: %m");
                         goto finish;
