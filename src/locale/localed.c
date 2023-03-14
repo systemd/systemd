@@ -14,6 +14,7 @@
 
 #include "alloc-util.h"
 #include "bus-error.h"
+#include "bus-locator.h"
 #include "bus-log-control-api.h"
 #include "bus-message.h"
 #include "bus-polkit.h"
@@ -60,14 +61,7 @@ static int vconsole_reload(sd_bus *bus) {
 
         assert(bus);
 
-        r = sd_bus_call_method(bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "RestartUnit",
-                        &error,
-                        NULL,
-                        "ss", "systemd-vconsole-setup.service", "replace");
+        r = bus_call_method(bus, bus_systemd_mgr, "RestartUnit", &error, NULL, "ss", "systemd-vconsole-setup.service", "replace");
 
         if (r < 0)
                 return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
