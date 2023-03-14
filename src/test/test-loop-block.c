@@ -101,7 +101,13 @@ static void* thread_func(void *ptr) {
 
                 verify_dissected_image(dissected);
 
-                r = dissected_image_mount(dissected, mounted, UID_INVALID, UID_INVALID, DISSECT_IMAGE_READ_ONLY);
+                r = dissected_image_mount(
+                                dissected,
+                                mounted,
+                                /* uid_shift= */ UID_INVALID,
+                                /* uid_range= */ UID_INVALID,
+                                /* userns_fd= */ -EBADF,
+                                DISSECT_IMAGE_READ_ONLY);
                 log_notice_errno(r, "Mounted %s → %s: %m", loop->node, mounted);
                 assert_se(r >= 0);
 
@@ -291,7 +297,13 @@ static int run(int argc, char *argv[]) {
         assert_se(detach_mount_namespace() >= 0);
 
         /* This first (writable) mount will initialize the mount point dirs, so that the subsequent read-only ones can work */
-        assert_se(dissected_image_mount(dissected, mounted, UID_INVALID, UID_INVALID, 0) >= 0);
+        assert_se(dissected_image_mount(
+                                  dissected,
+                                  mounted,
+                                  /* uid_shift= */ UID_INVALID,
+                                  /* uid_range= */ UID_INVALID,
+                                  /* usernfs_fd= */ -EBADF,
+                                  0) >= 0);
 
         /* Now we mounted everything, the partitions are pinned. Now it's fine to release the lock
          * fully. This means udev could now issue BLKRRPART again, but that's OK given this will fail because
