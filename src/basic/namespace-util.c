@@ -254,6 +254,26 @@ int detach_mount_namespace_harder(uid_t target_uid, gid_t target_gid) {
         return detach_mount_namespace();
 }
 
+int userns_acquire_empty(void) {
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_close_ int userns_fd = -EBADF;
+
+        int r;
+
+        r = safe_fork("(sd-mkuserns)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_NEW_USERNS, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                /* Child. We do nothing here, just freeze until somebody kills us. */
+                freeze();
+
+        r = namespace_open(pid, NULL, NULL, NULL, &userns_fd, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open userns fd: %m");
+
+        return TAKE_FD(userns_fd);
+}
+
 int userns_acquire(const char *uid_map, const char *gid_map) {
         char path[STRLEN("/proc//uid_map") + DECIMAL_STR_MAX(pid_t) + 1];
         _cleanup_(sigkill_waitp) pid_t pid = 0;
