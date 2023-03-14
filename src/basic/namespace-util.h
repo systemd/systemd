@@ -45,5 +45,7 @@ static inline bool userns_shift_range_valid(uid_t shift, uid_t range) {
         return true;
 }
 
+int userns_acquire_empty(void);
 int userns_acquire(const char *uid_map, const char *gid_map);
+
 int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type);
