@@ -31,4 +31,6 @@ static inline bool uid_range_contains(const UidRange *range, uid_t uid) {
         return uid_range_covers(range, uid, 1);
 }
 
+bool uid_range_overlaps(const UidRange *range, uid_t start, uid_t nr);
+
 int uid_range_load_userns(UidRange **ret, const char *path);
