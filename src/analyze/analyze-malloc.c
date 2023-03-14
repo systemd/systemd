@@ -6,6 +6,7 @@
 #include "analyze.h"
 #include "bus-error.h"
 #include "bus-internal.h"
+#include "bus-locator.h"
 
 static int dump_malloc_info(sd_bus *bus, char *service) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -15,14 +16,18 @@ static int dump_malloc_info(sd_bus *bus, char *service) {
         assert(bus);
         assert(service);
 
-        r = sd_bus_call_method(bus,
-                               service,
-                               "/org/freedesktop/MemoryAllocation1",
-                               "org.freedesktop.MemoryAllocation1",
-                               "GetMallocInfo",
-                               &error,
-                               &reply,
-                               NULL);
+        const BusLocator* const bus_host = &(BusLocator){
+        .destination = service,
+        .path = "/org/freedesktop/MemoryAllocation1",
+        .interface = "org.freedesktop.MemoryAllocation1"
+};
+
+        r= bus_call_method(bus,
+                           bus_host,
+                           "GetMallocInfo",
+                           &error,
+                           &reply,
+                           NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to call GetMallocInfo on '%s': %s", service, bus_error_message(&error, r));
 
