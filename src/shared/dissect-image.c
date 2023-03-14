@@ -1985,7 +1985,13 @@ static int mount_partition(
                 (void) fs_grow(node, p);
 
         if (remap_uid_gid) {
-                r = remount_idmap(p, uid_shift, uid_range, UID_INVALID, REMOUNT_IDMAPPING_HOST_ROOT);
+                _cleanup_close_ int userns_fd = -EBADF;
+
+                userns_fd = make_userns(uid_shift, uid_range, UID_INVALID, REMOUNT_IDMAPPING_HOST_ROOT);
+                if (userns_fd < 0)
+                        return userns_fd;
+
+                r = remount_idmap(p, userns_fd);
                 if (r < 0)
                         return r;
         }
