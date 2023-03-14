@@ -986,7 +986,13 @@ static int action_mount(DissectedImage *m, LoopDevice *d) {
         assert(d);
         assert(arg_action == ACTION_MOUNT);
 
-        r = dissected_image_mount_and_warn(m, arg_path, UID_INVALID, UID_INVALID, arg_flags);
+        r = dissected_image_mount_and_warn(
+                        m,
+                        arg_path,
+                        /* uid_shift= */ UID_INVALID,
+                        /* uid_range= */ UID_INVALID,
+                        /* userns_fd= */ -EBADF,
+                        arg_flags);
         if (r < 0)
                 return r;
 
@@ -1218,7 +1224,13 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
 
         created_dir = TAKE_PTR(temp);
 
-        r = dissected_image_mount_and_warn(m, created_dir, UID_INVALID, UID_INVALID, arg_flags);
+        r = dissected_image_mount_and_warn(
+                        m,
+                        created_dir,
+                        /* uid_shift= */ UID_INVALID,
+                        /* uid_range= */ UID_INVALID,
+                        /* userns_fd= */ -EBADF,
+                        arg_flags);
         if (r < 0)
                 return r;
 
@@ -1466,7 +1478,13 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
 
         created_dir = TAKE_PTR(temp);
 
-        r = dissected_image_mount_and_warn(m, created_dir, UID_INVALID, UID_INVALID, arg_flags);
+        r = dissected_image_mount_and_warn(
+                        m,
+                        created_dir,
+                        /* uid_shift= */ UID_INVALID,
+                        /* uid_range= */ UID_INVALID,
+                        /* userns_fd= */ -EBADF,
+                        arg_flags);
         if (r < 0)
                 return r;
 
