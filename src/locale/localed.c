@@ -31,6 +31,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
+#include "bus-locator.h"
 
 static int reload_system_manager(sd_bus *bus) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
@@ -60,14 +61,7 @@ static int vconsole_reload(sd_bus *bus) {
 
         assert(bus);
 
-        r = sd_bus_call_method(bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "RestartUnit",
-                        &error,
-                        NULL,
-                        "ss", "systemd-vconsole-setup.service", "replace");
+        r = bus_call_method(bus, bus_systemd_loc, "RestartUnit", &error, NULL, "ss", "systemd-vconsole-setup.service", "replace");
 
         if (r < 0)
                 return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));

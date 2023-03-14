@@ -31,6 +31,7 @@
 #include "socket-util.h"
 #include "special.h"
 #include "stdio-util.h"
+#include "bus-locator.h"
 
 static bool arg_skip = false;
 static bool arg_force = false;
@@ -53,14 +54,7 @@ static void start_target(const char *target, const char *mode) {
         log_info("Requesting %s/start/%s", target, mode);
 
         /* Start this unit only if we can replace basic.target with it */
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.systemd1",
-                               "/org/freedesktop/systemd1",
-                               "org.freedesktop.systemd1.Manager",
-                               "StartUnitReplace",
-                               &error,
-                               NULL,
-                               "sss", "basic.target", target, mode);
+        r = bus_call_method(bus, bus_systemd_loc, "StartUnitReplace", &error, NULL, "sss", "basic.target", target, mode);
 
         /* Don't print a warning if we aren't called during startup */
         if (r < 0 && !sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_JOB))

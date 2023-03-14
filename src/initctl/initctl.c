@@ -26,6 +26,7 @@
 #include "process-util.h"
 #include "reboot-util.h"
 #include "special.h"
+#include "bus-locator.h"
 
 #define SERVER_FD_MAX 16
 #define TIMEOUT_MSEC ((int) (DEFAULT_EXIT_USEC/USEC_PER_MSEC))
@@ -106,15 +107,7 @@ static int change_runlevel(Server *s, int runlevel) {
 
         log_debug("Requesting %s/start/%s", target, mode);
 
-        r = sd_bus_call_method(
-                        s->bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "StartUnit",
-                        &error,
-                        NULL,
-                        "ss", target, mode);
+        r = bus_call_method(s->bus, bus_systemd_loc, "StartUnit", &error, NULL, "ss", target, mode);
         if (r < 0)
                 return log_error_errno(r, "Failed to change runlevel: %s", bus_error_message(&error, r));
 

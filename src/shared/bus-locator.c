@@ -69,6 +69,12 @@ const BusLocator* const bus_hostname = &(BusLocator){
         .interface = "org.freedesktop.hostname1"
 };
 
+const BusLocator* const bus_systemd_loc = &(BusLocator){
+        .destination = "org.freedesktop.systemd1",
+        .path = "/org/freedesktop/systemd1",
+        .interface = "org.freedesktop.systemd1.Manager"
+};
+
 /* Shorthand flavors of the sd-bus convenience helpers with destination,path,interface strings encapsulated
  * within a single struct. */
 int bus_call_method_async(
