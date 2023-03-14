@@ -136,3 +136,5 @@ int trigger_automount_at(int dir_fd, const char *path);
 
 unsigned long credentials_fs_mount_flags(bool ro);
 int mount_credentials_fs(const char *path, size_t size, bool ro);
+
+int make_fsmount(int error_log_level, const char *what, const char *type, unsigned long flags, const char *options, int userns_fd);
