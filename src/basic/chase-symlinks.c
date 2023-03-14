@@ -89,6 +89,8 @@ int chase_symlinks_at(
 
         assert(path);
         assert(!FLAGS_SET(flags, CHASE_PREFIX_ROOT));
+        assert(!FLAGS_SET(flags, CHASE_STEP|CHASE_EXTRACT_FILENAME));
+        assert(!FLAGS_SET(flags, CHASE_TRAIL_SLASH|CHASE_EXTRACT_FILENAME));
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
         /* Either the file may be missing, or we return an fd to the final object, but both make no sense */
@@ -97,6 +99,9 @@ int chase_symlinks_at(
 
         if ((flags & CHASE_STEP))
                 assert(!ret_fd);
+
+        if ((flags & CHASE_EXTRACT_FILENAME))
+                assert(ret_path);
 
         if (isempty(path))
                 path = ".";
@@ -403,6 +408,17 @@ int chase_symlinks_at(
         }
 
         if (ret_path) {
+                if (FLAGS_SET(flags, CHASE_EXTRACT_FILENAME) && done) {
+                        _cleanup_free_ char *f = NULL;
+
+                        r = path_extract_filename(done, &f);
+                        if (r < 0 && r != -EDESTADDRREQ)
+                                return r;
+
+                        /* If we get EDESTADDRREQ we clear done and it will get reinitialized by the next block. */
+                        free_and_replace(done, f);
+                }
+
                 if (!done) {
                         done = strdup(append_trail_slash ? "./" : ".");
                         if (!done)
@@ -520,19 +536,23 @@ int chase_symlinks(
                 return r;
 
         if (ret_path) {
-                _cleanup_free_ char *q = NULL;
+                if (!FLAGS_SET(flags, CHASE_EXTRACT_FILENAME)) {
+                        _cleanup_free_ char *q = NULL;
 
-                q = path_join(empty_to_root(root), p);
-                if (!q)
-                        return -ENOMEM;
-
-                path_simplify(q);
-
-                if (FLAGS_SET(flags, CHASE_TRAIL_SLASH) && ENDSWITH_SET(path, "/", "/."))
-                        if (!strextend(&q, "/"))
+                        q = path_join(empty_to_root(root), p);
+                        if (!q)
                                 return -ENOMEM;
 
-                *ret_path = TAKE_PTR(q);
+                        path_simplify(q);
+
+                        if (FLAGS_SET(flags, CHASE_TRAIL_SLASH) && ENDSWITH_SET(path, "/", "/."))
+                                if (!strextend(&q, "/"))
+                                        return -ENOMEM;
+
+                        free_and_replace(p, q);
+                }
+
+                *ret_path = TAKE_PTR(p);
         }
 
         if (ret_fd)

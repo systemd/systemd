@@ -517,6 +517,28 @@ TEST(chase_symlinks_at) {
 
         assert_se(chase_symlinks_at(tfd, "i/../p", CHASE_MKDIR_0755, NULL, NULL) == -ENOENT);
 
+        /* Test CHASE_FILENAME */
+
+        assert_se(chase_symlinks_at(tfd, "chase/parent", CHASE_AT_RESOLVE_IN_ROOT|CHASE_PARENT|CHASE_NOFOLLOW|CHASE_EXTRACT_FILENAME, &result, &fd) >= 0);
+        assert_se(faccessat(fd, result, F_OK, AT_SYMLINK_NOFOLLOW) >= 0);
+        assert_se(streq(result, "parent"));
+        fd = safe_close(fd);
+        result = mfree(result);
+
+        assert_se(chase_symlinks_at(tfd, "chase", CHASE_PARENT|CHASE_AT_RESOLVE_IN_ROOT|CHASE_EXTRACT_FILENAME, &result, &fd) >= 0);
+        assert_se(faccessat(fd, result, F_OK, 0) >= 0);
+        assert_se(streq(result, "chase"));
+        fd = safe_close(fd);
+        result = mfree(result);
+
+        assert_se(chase_symlinks_at(tfd, "/", CHASE_PARENT|CHASE_AT_RESOLVE_IN_ROOT|CHASE_EXTRACT_FILENAME, &result, NULL) >= 0);
+        assert_se(streq(result, "."));
+        result = mfree(result);
+
+        assert_se(chase_symlinks_at(tfd, ".", CHASE_PARENT|CHASE_AT_RESOLVE_IN_ROOT|CHASE_EXTRACT_FILENAME, &result, NULL) >= 0);
+        assert_se(streq(result, "."));
+        result = mfree(result);
+
         /* Test chase_symlinks_at_and_open() */
 
         fd = chase_symlinks_at_and_open(tfd, "o/p/e/n/f/i/l/e", CHASE_MKDIR_0755, O_CREAT|O_EXCL|O_CLOEXEC, NULL);
