@@ -864,3 +864,20 @@ int fd_get_diskseq(int fd, uint64_t *ret) {
 
         return 0;
 }
+
+int dir_fd_is_root(int dir_fd) {
+        _cleanup_close_ int pfd = -EBADF;
+        struct stat st, rst;
+
+        assert(dir_fd >= 0);
+
+        pfd = openat(dir_fd, "..", O_CLOEXEC|O_DIRECTORY|O_PATH);
+        if (pfd < 0)
+                return -errno;
+
+        if (fstat(dir_fd, &st) < 0 || fstat(pfd, &rst) < 0)
+                return -errno;
+
+        /* If we opened the same directory, that means the directory fd points to the host root directory */
+        return stat_inode_same(&st, &rst);
+}
