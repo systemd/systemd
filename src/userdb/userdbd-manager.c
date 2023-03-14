@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/mount.h>
 #include <sys/wait.h>
 
 #include "sd-daemon.h"
@@ -12,13 +13,18 @@
 #include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "stat-util.h"
 #include "stdio-util.h"
+#include "strv.h"
 #include "umask-util.h"
 #include "userdbd-manager.h"
+#include "recurse-dir.h"
 
 #define LISTEN_TIMEOUT_USEC (25 * USEC_PER_SEC)
 
 static int start_workers(Manager *m, bool explicit_request);
+
+static int manager_registry_scan(Manager *m);
 
 static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
@@ -141,6 +147,8 @@ Manager* manager_free(Manager *m) {
         sd_event_source_disable_unref(m->sigusr2_event_source);
         sd_event_source_disable_unref(m->sigchld_event_source);
 
+        hashmap_free(m->registry_pidfds);
+
         sd_event_unref(m->event);
 
         return mfree(m);
@@ -257,6 +265,178 @@ static int start_workers(Manager *m, bool explicit_request) {
         return 0;
 }
 
+static int on_pid_dead(sd_event_source *s, int fd, uint32_t events, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+
+        (void) manager_registry_scan(m);
+        return 0;
+}
+
+static int on_registry_inotify(sd_event_source *s, const struct inotify_event *ev, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+
+        (void) manager_registry_scan(m);
+        return 0;
+}
+
+DEFINE_PRIVATE_HASH_OPS_FULL(stat_event_source_hash_ops, struct stat, inode_hash_func, inode_compare_func, free, sd_event_source, sd_event_source_disable_unref);
+
+typedef enum WatchResult {
+        WATCH_RESULT_ALREADY,
+        WATCH_RESULT_DEAD,
+        WATCH_RESULT_NOT_MOUNTED,
+        WATCH_RESULT_ADDED,
+        _WATCH_RESULT_MAX,
+        _WATCH_RESULT_INVALID = -EINVAL,
+        _WATCH_RESULT_ERRNO_MAX = -ERRNO_MAX,
+} WatchResult;
+
+static WatchResult manager_watch_process(Manager *m, int proc_dir_fd, const struct stat *st) {
+        _cleanup_(sd_event_source_disable_unrefp) sd_event_source *s = NULL;
+        _cleanup_free_ struct stat *cst = NULL;
+        _cleanup_close_ int pid_fd = -EBADF;
+        int r;
+
+        assert(m);
+        assert(proc_dir_fd >= 0);
+        assert(st);
+
+        if (hashmap_contains(m->registry_pidfds, st)) {
+                log_debug("Process already tracked, skipping.");
+                return WATCH_RESULT_ALREADY;
+        }
+
+        pid_fd = pidfd_from_procfs(proc_dir_fd);
+        if (pid_fd == -ESRCH)
+                return WATCH_RESULT_DEAD;
+        if (pid_fd == -ENOTTY)
+                return WATCH_RESULT_NOT_MOUNTED;
+        if (pid_fd < 0)
+                return log_error_errno(pid_fd, "Failed to convert procfs directory fd to pidfd: %m");
+
+        r = sd_event_add_io(m->event, &s, pid_fd, EPOLLIN, on_pid_dead, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate IO event for pidfd: %m");
+
+        r = sd_event_source_set_io_fd_own(s, true);
+        if (r < 0)
+                return log_error_errno(r, "Unable ot pass child fd ownership to event source: %m");
+
+        r = sd_event_source_set_enabled(s, SD_EVENT_ONESHOT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set event source to oneshot mode: %m");
+
+        TAKE_FD(pid_fd);
+
+        cst = newdup(struct stat, st, 1);
+        if (!cst)
+                return log_oom();
+
+        if (hashmap_ensure_put(&m->registry_pidfds, &stat_event_source_hash_ops, cst, s) < 0)
+                return log_oom();
+
+        TAKE_PTR(cst);
+        TAKE_PTR(s);
+
+        return WATCH_RESULT_ADDED;
+}
+
+static void manager_unwatch_process(Manager *m, const struct stat *st) {
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_free_ struct stat *cst = NULL;
+
+        assert(m);
+        assert(st);
+
+        s = hashmap_remove2(m->registry_pidfds, st, (void**) &cst);
+}
+
+static int manager_registry_scan(Manager *m) {
+        _cleanup_close_ int registry_fd = -EBADF;
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        int r;
+
+        registry_fd = open("/run/systemd/userdbd/registry", O_DIRECTORY|O_CLOEXEC);
+        if (registry_fd < 0)
+                return log_error_errno(errno, "Failed to open registry fd: %m");
+
+        r = readdir_all(registry_fd, RECURSE_DIR_IGNORE_DOT, &de);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate registry.");
+
+        for (size_t i = 0; i < de->n_entries; i++) {
+                struct dirent *entry = de->entries[i];
+                _cleanup_close_ int inode_fd = -EBADF;
+                _cleanup_free_ char *p = NULL, *f = NULL;
+                bool valid_procfs;
+                struct stat st;
+                const char *e;
+
+                e = endswith(entry->d_name, ".process");
+                if (!e)
+                        continue;
+
+                /* We open as O_PATH which will work even if the process is dead */
+                inode_fd = openat(registry_fd, entry->d_name, O_PATH|O_CLOEXEC|O_NOFOLLOW|O_DIRECTORY);
+                if (inode_fd < 0) {
+                        log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                                       "Failed to open inode /run/systemd/userdbd/registry/%s, skipping: %m", entry->d_name);
+                        continue;
+                }
+
+                if (fstatat(inode_fd, ".", &st, AT_SYMLINK_NOFOLLOW) < 0) {
+                        if (errno != ESRCH) {
+                                log_warning_errno(errno, "Unable to validate /run/systemd/userdbd/registry/%s, skipping: %m", entry->d_name);
+                                continue;
+                        }
+
+                        /* Failed with ESRCH? Then the proc mount points to a dead process, clean it up */
+                        valid_procfs = true;
+                } else {
+                        WatchResult wr;
+
+                        wr = manager_watch_process(m, inode_fd, &st);
+                        if (wr < 0)
+                                return wr;
+                        if (IN_SET(wr, WATCH_RESULT_ALREADY, WATCH_RESULT_ADDED))
+                                continue;
+
+                        /* Watching the process failed because the process is not there anymore, clean it up */
+                        valid_procfs = wr == WATCH_RESULT_DEAD;
+                }
+
+                /* It's dead, Jim! */
+
+                if (valid_procfs) {
+                        manager_unwatch_process(m, &st);
+
+                        if (umount2(FORMAT_PROC_FD_PATH(inode_fd), MNT_DETACH) < 0) {
+                                log_warning_errno(errno, "Failed to unmount '/run/systemd/userdbd/registry/%s', skipping: %m", entry->d_name);
+                                continue;
+                        }
+                }
+
+                if (unlinkat(registry_fd, entry->d_name, AT_REMOVEDIR) < 0)
+                        log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                                       "Failed to remove directory '/run/systemd/userdbd/registry/%s', ignoring: %m", entry->d_name);
+
+                f = strndup(entry->d_name, e - entry->d_name);
+                if (!f)
+                        return log_oom();
+
+                if (!strextend(&f, ".uidrange"))
+                        return log_oom();
+
+                if (unlinkat(registry_fd, f, 0) < 0)
+                        log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                                       "Failed to remove directory '/run/systemd/userdbd/registry/%s', ignoring: %m", f);
+
+                log_debug("Cleaned up mapping '%s'", f);
+        }
+
+        return 0;
+}
+
 int manager_startup(Manager *m) {
         int n, r;
 
@@ -290,15 +470,15 @@ int manager_startup(Manager *m) {
                         if (bind(m->listen_fd, &sockaddr.sa, SOCKADDR_UN_LEN(sockaddr.un)) < 0)
                                 return log_error_errno(errno, "Failed to bind socket: %m");
 
-                r = symlink_idempotent("io.systemd.Multiplexer",
-                                       "/run/systemd/userdb/io.systemd.NameServiceSwitch", false);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to bind io.systemd.Multiplexer: %m");
+                FOREACH_STRING(alias,
+                               "/run/systemd/userdb/io.systemd.NameServiceSwitch",
+                               "/run/systemd/userdb/io.systemd.DropIn",
+                               "/run/systemd/userdb/io.systemd.Registry") {
 
-                r = symlink_idempotent("io.systemd.Multiplexer",
-                                       "/run/systemd/userdb/io.systemd.DropIn", false);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to bind io.systemd.Multiplexer: %m");
+                        r = symlink_idempotent("io.systemd.Multiplexer", alias, false);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to symlink '%s': %m", alias);
+                }
 
                 if (listen(m->listen_fd, SOMAXCONN) < 0)
                         return log_error_errno(errno, "Failed to listen on socket: %m");
@@ -309,5 +489,19 @@ int manager_startup(Manager *m) {
         if (setsockopt(m->listen_fd, SOL_SOCKET, SO_RCVTIMEO, TIMEVAL_STORE(LISTEN_TIMEOUT_USEC), sizeof(struct timeval)) < 0)
                 return log_error_errno(errno, "Failed to se SO_RCVTIMEO: %m");
 
-        return start_workers(m, false);
+        r = mkdir_p("/run/systemd/userdbd/registry", 0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create /run/systemd/userdb/registry: %m");
+
+        /* We watch the registry directory so that we pick new allocations whose owning processes we want to watch */
+        r = sd_event_add_inotify(m->event, NULL, "/run/systemd/userdbd/registry", IN_CLOSE_WRITE|IN_DELETE|IN_MOVED_FROM|IN_MOVED_TO|IN_ONLYDIR, on_registry_inotify, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create inotify watch for registry directory: %m");
+
+        r = start_workers(m, /* explicit_request= */ false);
+        if (r < 0)
+                return r;
+
+        (void) manager_registry_scan(m);
+        return 0;
 }
