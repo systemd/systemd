@@ -19,6 +19,7 @@ test_append_files() {
         image_install -o mkfs.erofs
     fi
 
+    inst_binary setpriv
     inst_binary mcopy
     if command -v openssl >/dev/null 2>&1; then
         inst_binary openssl
