@@ -1343,13 +1343,82 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename, UdevRuleFile *
         return 1;
 }
 
-static void udev_check_rule_line(UdevRuleLine *line) {
+static bool token_data_is_string(UdevRuleTokenType type) {
+        return IN_SET(type, TK_M_ENV,
+                            TK_M_CONST,
+                            TK_M_ATTR,
+                            TK_M_SYSCTL,
+                            TK_M_PARENTS_ATTR,
+                            TK_A_SECLABEL,
+                            TK_A_ENV,
+                            TK_A_ATTR,
+                            TK_A_SYSCTL);
+}
+
+static bool token_data_eq(UdevRuleTokenType type, void *a, void *b) {
+        return token_data_is_string(type) ? streq_ptr(a, b) : (a == b);
+}
+
+static bool token_value_eq(UdevRuleMatchType match_type, const char *a, const char *b) {
+        /* token value is ignored for certain match types */
+        if (IN_SET(match_type, MATCH_TYPE_EMPTY, MATCH_TYPE_SUBSYSTEM))
+                return true;
+        return streq_ptr(a, b);
+}
+
+static bool conflicting_op(UdevRuleOperatorType a, UdevRuleOperatorType b) {
+        return (a == OP_MATCH && b == OP_NOMATCH) ||
+               (a == OP_NOMATCH && b == OP_MATCH);
+}
+
+/* test whether all fields besides UdevRuleOperatorType of two tokens match */
+static bool tokens_eq(const UdevRuleToken *a, const UdevRuleToken *b) {
+        return a->type == b->type &&
+               a->match_type == b->match_type &&
+               a->attr_subst_type == b->attr_subst_type &&
+               a->attr_match_remove_trailing_whitespace == b->attr_match_remove_trailing_whitespace &&
+               token_value_eq(a->match_type, a->value, b->value) &&
+               token_data_eq(a->type, a->data, b->data);
+}
+
+static void udev_check_unused_labels(UdevRuleLine *line) {
         assert(line);
 
-        /* check for unused labels */
         if (FLAGS_SET(line->type, LINE_HAS_LABEL) &&
             !FLAGS_SET(line->type, LINE_IS_REFERENCED))
                 log_line_warning(line, "LABEL=\"%s\" is unused.", line->label);
+}
+
+static bool udev_check_conflicting_tokens(UdevRuleLine *line) {
+        assert(line);
+
+        LIST_FOREACH(tokens, token, line->tokens)
+                LIST_FOREACH(tokens, i, token->tokens_next)
+                        if (conflicting_op(token->op, i->op) &&
+                            tokens_eq(token, i)) {
+                                log_line_error(line, "conflicting match expressions, the line takes no effect");
+                                return false;
+                        }
+        return true;
+}
+
+static void udev_check_duplicate_tokens(UdevRuleLine *line) {
+        assert(line);
+
+        LIST_FOREACH(tokens, token, line->tokens)
+                LIST_FOREACH(tokens, i, token->tokens_next)
+                        if (token->op == i->op &&
+                            tokens_eq(token, i)) {
+                                log_line_warning(line, "duplicate expressions");
+                                return;
+                        }
+}
+
+static void udev_check_rule_line(UdevRuleLine *line) {
+        udev_check_unused_labels(line);
+        if (!udev_check_conflicting_tokens(line))
+                return;
+        udev_check_duplicate_tokens(line);
 }
 
 unsigned udev_rule_file_get_issues(UdevRuleFile *rule_file) {
