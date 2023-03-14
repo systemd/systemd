@@ -1293,7 +1293,8 @@ int copy_directory_full(
         return 0;
 }
 
-int copy_file_fd_full(
+int copy_file_fd_at_full(
+                int dir_fdf,
                 const char *from,
                 int fdt,
                 CopyFlags copy_flags,
@@ -1304,10 +1305,11 @@ int copy_file_fd_full(
         struct stat st;
         int r;
 
+        assert(dir_fdf >= 0 || dir_fdf == AT_FDCWD);
         assert(from);
         assert(fdt >= 0);
 
-        fdf = open(from, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        fdf = openat(dir_fdf, from, O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fdf < 0)
                 return -errno;
 
@@ -1435,8 +1437,10 @@ fail:
         return r;
 }
 
-int copy_file_atomic_full(
+int copy_file_atomic_at_full(
+                int dir_fdf,
                 const char *from,
+                int dir_fdt,
                 const char *to,
                 mode_t mode,
                 unsigned chattr_flags,
@@ -1453,11 +1457,11 @@ int copy_file_atomic_full(
         assert(to);
 
         if (copy_flags & COPY_MAC_CREATE) {
-                r = mac_selinux_create_file_prepare(to, S_IFREG);
+                r = mac_selinux_create_file_prepare_at(dir_fdt, to, S_IFREG);
                 if (r < 0)
                         return r;
         }
-        fdt = open_tmpfile_linkable(to, O_WRONLY|O_CLOEXEC, &t);
+        fdt = open_tmpfile_linkable_at(dir_fdt, to, O_WRONLY|O_CLOEXEC, &t);
         if (copy_flags & COPY_MAC_CREATE)
                 mac_selinux_create_file_clear();
         if (fdt < 0)
@@ -1466,7 +1470,7 @@ int copy_file_atomic_full(
         if (chattr_mask != 0)
                 (void) chattr_fd(fdt, chattr_flags, chattr_mask & CHATTR_EARLY_FL, NULL);
 
-        r = copy_file_fd_full(from, fdt, copy_flags, progress_bytes, userdata);
+        r = copy_file_fd_at_full(dir_fdf, from, fdt, copy_flags, progress_bytes, userdata);
         if (r < 0)
                 return r;
 
@@ -1479,7 +1483,7 @@ int copy_file_atomic_full(
                         return -errno;
         }
 
-        r = link_tmpfile(fdt, t, to, copy_flags & COPY_REPLACE);
+        r = link_tmpfile_at(fdt, dir_fdt, t, to, copy_flags & COPY_REPLACE);
         if (r < 0)
                 return r;
 
@@ -1494,7 +1498,7 @@ int copy_file_atomic_full(
 
         if (copy_flags & COPY_FSYNC_FULL) {
                 /* Sync the parent directory */
-                r = fsync_parent_at(AT_FDCWD, to);
+                r = fsync_parent_at(dir_fdt, to);
                 if (r < 0)
                         goto fail;
         }
@@ -1502,7 +1506,7 @@ int copy_file_atomic_full(
         return 0;
 
 fail:
-        (void) unlink(to);
+        (void) unlinkat(dir_fdt, to, 0);
         return r;
 }
 
