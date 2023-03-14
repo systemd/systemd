@@ -29,6 +29,7 @@ int fd_is_ns(int fd, unsigned long nsflag);
 
 int detach_mount_namespace(void);
 int detach_mount_namespace_harder(uid_t target_uid, gid_t target_gid);
+int detach_mount_namespace_userns(int userns_fd);
 
 static inline bool userns_shift_range_valid(uid_t shift, uid_t range) {
         /* Checks that the specified userns range makes sense, i.e. contains at least one UID, and the end
