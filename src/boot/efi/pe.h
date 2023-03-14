@@ -16,4 +16,7 @@ EFI_STATUS pe_file_locate_sections(
                 size_t *offsets,
                 size_t *sizes);
 
-EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address);
+EFI_STATUS pe_kernel_info(
+                const void *base,
+                uint32_t *ret_compat_address,
+                bool *ret_supports_initrd_lf2_protocol);

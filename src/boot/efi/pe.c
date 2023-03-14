@@ -217,9 +217,14 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
         return 0;
 }
 
-EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address) {
+EFI_STATUS pe_kernel_info(
+                const void *base,
+                uint32_t *ret_compat_address,
+                bool *ret_supports_initrd_lf2_protocol) {
+
         assert(base);
         assert(ret_compat_address);
+        assert(ret_supports_initrd_lf2_protocol);
 
         const DosFileHeader *dos = (const DosFileHeader *) base;
         if (!verify_dos(dos))
@@ -229,12 +234,17 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address) {
         if (!verify_pe(pe, /* allow_compatibility= */ true))
                 return EFI_LOAD_ERROR;
 
-        /* Support for LINUX_INITRD_MEDIA_GUID was added in kernel stub 1.0. */
+        /* Support for LINUX_EFI_INITRD_MEDIA_GUID_GUID was added in kernel stub 1.0. */
         if (pe->OptionalHeader.MajorImageVersion < 1)
                 return EFI_UNSUPPORTED;
 
+        /* LINUX_EFI_INITRD_LF2_PROTOCOL */
+        bool initrd_lf2 = pe->OptionalHeader.MajorImageVersion > 1 ||
+                        pe->OptionalHeader.MinorImageVersion >= 2;
+
         if (pe->FileHeader.Machine == TARGET_MACHINE_TYPE) {
                 *ret_compat_address = 0;
+                *ret_supports_initrd_lf2_protocol = initrd_lf2;
                 return EFI_SUCCESS;
         }
 
@@ -244,6 +254,7 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address) {
                 return EFI_UNSUPPORTED;
 
         *ret_compat_address = compat_address;
+        *ret_supports_initrd_lf2_protocol = initrd_lf2;
         return EFI_SUCCESS;
 }
 
