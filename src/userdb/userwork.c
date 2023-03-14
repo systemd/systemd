@@ -1,18 +1,29 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <poll.h>
+#include <fcntl.h>
+#include <sys/eventfd.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 
 #include "sd-daemon.h"
 
 #include "env-util.h"
 #include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
 #include "group-record.h"
 #include "io-util.h"
+#include "lock-util.h"
 #include "main-func.h"
+#include "missing_mount.h"
+#include "missing_syscall.h"
+#include "mount-util.h"
+#include "namespace-util.h"
 #include "process-util.h"
+#include "random-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "uid-range.h"
 #include "user-record-nss.h"
 #include "user-record.h"
 #include "user-util.h"
@@ -352,9 +363,9 @@ static int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, Va
 
 static int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
         static const JsonDispatch dispatch_table[] = {
-                { "userName",  JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(LookupParameters, user_name), 0 },
+                { "userName",  JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(LookupParameters, user_name),  0 },
                 { "groupName", JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(LookupParameters, group_name), 0 },
-                { "service",   JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(LookupParameters, service),   0 },
+                { "service",   JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(LookupParameters, service),    0 },
                 {}
         };
 
@@ -424,6 +435,371 @@ static int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, Var
                                               JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(last_group_name))));
 }
 
+static int uid_is_available(
+                int registry_dir_fd,
+                uid_t candidate) {
+
+        _cleanup_free_ char *fn = NULL;
+        int r;
+
+        assert(registry_dir_fd >= 0);
+
+        log_debug("Checking if UID " UID_FMT " is available.", candidate);
+
+        if (asprintf(&fn, UID_FMT ".uidrange", candidate) < 0)
+                return -ENOMEM;
+
+        if (faccessat(registry_dir_fd, fn, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
+                if (errno != ENOENT)
+                        return -errno;
+        } else
+                return false;
+
+        if (asprintf(&fn, UID_FMT ".process", candidate) < 0)
+                return -ENOMEM;
+
+        if (faccessat(registry_dir_fd, fn, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
+                if (errno != ENOENT)
+                        return -errno;
+        } else
+                return false;
+
+        r = userdb_by_uid(candidate, USERDB_AVOID_MULTIPLEXER, NULL);
+        if (r >= 0)
+                return false;
+        if (r != -ESRCH)
+                return r;
+
+        r = groupdb_by_gid(candidate, USERDB_AVOID_MULTIPLEXER, NULL);
+        if (r >= 0)
+                return false;
+        if (r != -ESRCH)
+                return r;
+
+        log_debug("UID " UID_FMT " is available.", candidate);
+
+        return true;
+}
+
+static int allocate_now(
+                int registry_dir_fd,
+                const char *name,
+                uid_t size,
+                uid_t *ret_start,
+                LockFile *ret_lock_file) {
+
+        static const uint8_t hash_key[16] = {
+                0xd4, 0xd7, 0x33, 0xa7, 0x4d, 0xd3, 0x42, 0xcd,
+                0xaa, 0xe9, 0x45, 0xd0, 0xfb, 0xec, 0x79, 0xee,
+        };
+
+        _cleanup_(uid_range_freep) UidRange *valid_range = NULL;
+        uid_t candidate, uidmin, uidmax, uidmask;
+        unsigned n_tries = 100;
+        int r;
+
+        assert(registry_dir_fd >= 0);
+        assert(name);
+
+        switch (size) {
+
+        case 0x10000U:
+                uidmin = CONTAINER_UID_BASE_MIN;
+                uidmax = CONTAINER_UID_BASE_MAX;
+                uidmask = (uid_t) UINT32_C(0xFFFF0000);
+                break;
+
+        case 1U:
+                uidmin = DYNAMIC_UID_MIN;
+                uidmax = DYNAMIC_UID_MAX;
+                uidmask = (uid_t) UINT32_C(0xFFFFFFFF);
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        r = uid_range_load_userns(&valid_range, /* path= */ NULL);
+        if (r < 0)
+                return r;
+
+        /* Check early whether we have any chance at all given our own uid range */
+        if (!uid_range_overlaps(valid_range, uidmin, uidmax))
+                return log_debug_errno(SYNTHETIC_ERRNO(EHOSTDOWN), "Relevant UID range not delegated, can't allocate.");
+
+        (void) mkdir("/run/systemd/userdbd/lock/", 0755);
+
+        for (candidate = siphash24_string(name, hash_key) & UINT32_MAX;; /* Start from a hash of the input name */
+             candidate = random_u32()) {                                 /* Use random values afterwards */
+                _cleanup_free_ char *lock_path = NULL;
+                _cleanup_(release_lock_file) LockFile lf = LOCK_FILE_INIT;
+
+                if (--n_tries <= 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "Try limit hit, no UIDs available.");
+
+                candidate = (candidate % (uidmax - uidmin)) + uidmin;
+                candidate &= uidmask;
+
+                if (!uid_range_covers(valid_range, candidate, size))
+                        continue;
+
+                if (asprintf(&lock_path, "/run/systemd/userdbd/lock/" UID_FMT ".lock", candidate) < 0)
+                        return -ENOMEM;
+
+                r = make_lock_file(lock_path, LOCK_EX|LOCK_NB, &lf);
+                if (r == -EBUSY) /* Being checked by some other worker or other process, let's not bother */
+                        continue;
+                if (r < 0)
+                        return r;
+
+                /* We only check the base UID for each range (!) */
+                r = uid_is_available(registry_dir_fd, candidate);
+                if (r < 0)
+                        return log_debug_errno(r, "Can't determine if UID range " UID_FMT " is available: %m", candidate);
+                if (r > 0) {
+                        if (ret_lock_file) {
+                                *ret_lock_file = lf;
+                                lf = (struct LockFile) LOCK_FILE_INIT;
+                        }
+                        if (ret_start)
+                                *ret_start = candidate;
+
+                        log_debug("Allocating UID range " UID_FMT "…" UID_FMT, candidate, candidate + size - 1);
+                        return 0;
+                }
+
+                log_debug("UID range " UID_FMT " already taken.", candidate);
+        }
+}
+
+static int write_userns(int usernsfd, uid_t target, uid_t start, uid_t size) {
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_close_ int efd = -EBADF;
+        uint64_t u;
+        int r;
+
+        assert(usernsfd >= 0);
+        assert(uid_is_valid(target));
+        assert(uid_is_valid(start));
+        assert(size > 0);
+        assert(size <= UINT32_MAX - start);
+
+        efd = eventfd(0, EFD_CLOEXEC);
+        if (efd < 0)
+                return log_error_errno(errno, "Failed to allocate eventfd(): %m");
+
+        r = safe_fork("(sd-userns)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* child */
+
+                if (setns(usernsfd, CLONE_NEWUSER) < 0) {
+                        log_error_errno(errno, "Failed to join user namespace: %m");
+                        goto child_fail;
+                }
+
+                if (eventfd_write(efd, 1) < 0) {
+                        log_error_errno(errno, "Failed to ping event fd: %m");
+                        goto child_fail;
+                }
+
+                freeze();
+
+        child_fail:
+                _exit(EXIT_FAILURE);
+        }
+
+        /* Wait until child joined the user namespace */
+        if (eventfd_read(efd, &u) < 0)
+                return log_error_errno(errno, "Failed to wait for event fd: %m");
+
+        /* Now write mapping */
+
+        _cleanup_free_ char *pmap = NULL;
+
+        if (asprintf(&pmap, "/proc/" PID_FMT "/uid_map", pid) < 0)
+                return log_oom();
+
+        r = write_string_filef(pmap, 0, UID_FMT " " UID_FMT " " UID_FMT "\n", target, start, size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write 'uid_map' file of user namespace: %m");
+
+        pmap = mfree(pmap);
+        if (asprintf(&pmap, "/proc/" PID_FMT "/gid_map", pid) < 0)
+                return log_oom();
+
+        r = write_string_filef(pmap, 0, GID_FMT " " GID_FMT " " GID_FMT "\n", (gid_t) target, (gid_t) start, (gid_t) size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write 'gid_map' file of user namespace: %m");
+
+        /* We are done! */
+
+        log_debug("Successfully configured user namespace.");
+        return 0;
+}
+
+typedef struct AllocateParameters {
+        const char *name;
+        unsigned size;
+        unsigned userns_fd_idx;
+        unsigned pid_fd_idx;
+        unsigned target;
+} AllocateParameters;
+
+static int vl_method_allocate_user_range(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+
+        static const JsonDispatch dispatch_table[] = {
+                { "name",                        JSON_VARIANT_STRING,   json_dispatch_const_string, offsetof(AllocateParameters, name),           JSON_MANDATORY },
+                { "size",                        JSON_VARIANT_UNSIGNED, json_dispatch_uint,         offsetof(AllocateParameters, size),           JSON_MANDATORY },
+                { "target",                      JSON_VARIANT_UNSIGNED, json_dispatch_uint,         offsetof(AllocateParameters, target),         0              },
+                { "userNamespaceFileDescriptor", JSON_VARIANT_UNSIGNED, json_dispatch_uint,         offsetof(AllocateParameters, userns_fd_idx),  JSON_MANDATORY },
+                { "processFileDescriptor",       JSON_VARIANT_UNSIGNED, json_dispatch_uint,         offsetof(AllocateParameters, pid_fd_idx),     JSON_MANDATORY },
+                {}
+        };
+
+        _cleanup_close_ int userns_fd = -EBADF, registry_dir_fd = -EBADF, pid_fd = -EBADF, proc_dir_fd = -EBADF, proc_mountpoint_fd = -EBADF;
+        _cleanup_free_ char *def_buf = NULL, *def_fn = NULL, *process_fn = NULL;
+        bool made_mountpoint = false, mounted = false, written = false;
+        _cleanup_(release_lock_file) LockFile lf = LOCK_FILE_INIT;
+        _cleanup_(json_variant_unrefp) JsonVariant *def = NULL;
+        uid_t start;
+        AllocateParameters p = {
+                .size = UINT_MAX,
+                .userns_fd_idx = UINT_MAX,
+                .pid_fd_idx = UINT_MAX,
+        };
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = json_dispatch(parameters, dispatch_table, NULL, 0, &p);
+        if (r < 0)
+                return r;
+
+        userns_fd = varlink_take_fd(link, p.userns_fd_idx);
+        if (userns_fd < 0)
+                return userns_fd;
+
+        pid_fd = varlink_take_fd(link, p.pid_fd_idx);
+        if (pid_fd < 0)
+                return pid_fd;
+
+        r = varlink_drop_fd(link, MAX(p.userns_fd_idx, p.pid_fd_idx) + 1);
+        if (r < 0)
+                return r;
+
+        if (!valid_user_group_name(p.name, 0))
+                return varlink_error(link, "io.systemd.UserDatabase.InvalidAllocationName", NULL);
+
+        if (!IN_SET(p.size, 1U, 0x10000))
+                return varlink_error(link, "io.systemd.UserDatabase.InvalidAllocationSize", NULL);
+
+        if (p.target > UINT32_MAX - p.size)
+                return varlink_error(link, "io.systemd.UserDatabase.InvalidAllocationTarget", NULL);
+
+        /* Validate this is actually a valid user namespace fd */
+        r = fd_is_ns(userns_fd, CLONE_NEWUSER);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return varlink_error(link, "io.systemd.UserDatabase.UserNamespaceInvalid", NULL);
+
+        /* Validate this is actually a valid pidfd */
+        if (pidfd_send_signal(pid_fd, 0, NULL, 0) < 0)
+                return -errno;
+
+        proc_dir_fd = pidfd_get_procfs(pid_fd);
+        if (proc_dir_fd < 0)
+                return proc_dir_fd;
+
+        registry_dir_fd = open("/run/systemd/userdbd/registry", O_CLOEXEC|O_NOFOLLOW|O_DIRECTORY, 0755);
+        if (registry_dir_fd < 0)
+                return -errno;
+
+        r = allocate_now(registry_dir_fd, p.name, p.size, &start, &lf);
+        if (r == -EHOSTDOWN) /* The needed UID range is not delegated to us */
+                return varlink_error(link, "io.systemd.UserDatabase.DynamicRangeUnavailable", NULL);
+        if (r == -EBUSY)     /* All used up */
+                return varlink_error(link, "io.systemd.UserDatabase.NoDynamicRange", NULL);
+        if (r < 0)
+                return r;
+
+        r = json_build(&def, JSON_BUILD_OBJECT(
+                                       JSON_BUILD_PAIR("name", JSON_BUILD_STRING(p.name)),
+                                       JSON_BUILD_PAIR("start", JSON_BUILD_UNSIGNED(start)),
+                                       JSON_BUILD_PAIR("size", JSON_BUILD_UNSIGNED(p.size)),
+                                       JSON_BUILD_PAIR("target", JSON_BUILD_UNSIGNED(p.target))));
+        if (r < 0)
+                return r;
+
+        r = json_variant_format(def, 0, &def_buf);
+        if (r < 0)
+                return r;
+
+        if (asprintf(&process_fn, UID_FMT ".process", start) < 0)
+                return -ENOMEM;
+
+        if (asprintf(&def_fn, UID_FMT ".uidrange", start) < 0)
+                return -ENOMEM;
+
+        proc_mountpoint_fd = open_mkdir_at(registry_dir_fd, process_fn, O_CLOEXEC|O_EXCL, 0000);
+        if (proc_mountpoint_fd < 0)
+                return proc_mountpoint_fd;
+
+        made_mountpoint = true;
+
+        /* Now pin the process to watch, so that we can recover when coming back */
+        r = mount_follow_verbose(
+                        LOG_DEBUG,
+                        FORMAT_PROC_FD_PATH(proc_dir_fd),
+                        FORMAT_PROC_FD_PATH(proc_mountpoint_fd),
+                        /* fstype= */ NULL,
+                        MS_BIND,
+                        /* options= */ NULL);
+        if (r < 0)
+                goto fail;
+
+        mounted = true;
+
+        r = write_string_file_at(registry_dir_fd, def_fn, def_buf, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+        if (r < 0)
+                goto fail;
+
+        written = true;
+
+        r = write_userns(userns_fd, p.target, start, p.size);
+        if (r < 0)
+                goto fail;
+
+        /* Note, we'll not return return UID values from the host, since the child might not run in the same
+         * user namespace as us. If they want to know the ranges they should read them off the userns fd, so
+         * that they are translated into their PoV */
+
+        return varlink_replyb(link, JSON_BUILD_EMPTY_OBJECT);
+
+fail:
+        if (written) {
+                assert(registry_dir_fd >= 0);
+                assert(def_fn);
+                (void) unlinkat(registry_dir_fd, def_fn, 0);
+        }
+
+        if (mounted) {
+                assert(proc_mountpoint_fd >= 0);
+                (void) umount_verbose(LOG_DEBUG, FORMAT_PROC_FD_PATH(proc_mountpoint_fd), UMOUNT_NOFOLLOW|MNT_DETACH);
+        }
+
+        if (made_mountpoint) {
+                assert(registry_dir_fd >= 0);
+                assert(process_fn);
+                (void) unlinkat(registry_dir_fd, process_fn, AT_REMOVEDIR);
+        }
+
+        return r;
+}
+
 static int process_connection(VarlinkServer *server, int fd) {
         _cleanup_(varlink_close_unrefp) Varlink *vl = NULL;
         int r;
@@ -435,6 +811,14 @@ static int process_connection(VarlinkServer *server, int fd) {
         }
 
         vl = varlink_ref(vl);
+
+        r = varlink_set_allow_fd_passing_input(vl, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable fd passing for read: %m");
+
+        r = varlink_set_allow_fd_passing_output(vl, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable fd passing for write: %m");
 
         for (;;) {
                 r = varlink_process(vl);
@@ -485,9 +869,10 @@ static int run(int argc, char *argv[]) {
 
         r = varlink_server_bind_method_many(
                         server,
-                        "io.systemd.UserDatabase.GetUserRecord",  vl_method_get_user_record,
-                        "io.systemd.UserDatabase.GetGroupRecord", vl_method_get_group_record,
-                        "io.systemd.UserDatabase.GetMemberships", vl_method_get_memberships);
+                        "io.systemd.UserRegistry.AllocateUserRange", vl_method_allocate_user_range,
+                        "io.systemd.UserDatabase.GetUserRecord",     vl_method_get_user_record,
+                        "io.systemd.UserDatabase.GetGroupRecord",    vl_method_get_group_record,
+                        "io.systemd.UserDatabase.GetMemberships",    vl_method_get_memberships);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind methods: %m");
 
