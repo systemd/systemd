@@ -287,12 +287,14 @@ static int read_loopback_backing_inode(
 
         if (isempty((char*) info.lo_file_name) ||
             strnlen((char*) info.lo_file_name, sizeof(info.lo_file_name)-1) == sizeof(info.lo_file_name)-1)
-                /* Don't pick up file name if it is unset or possibly truncated. (Note: we can't really know
-                 * the file file name is truncated if it uses sizeof(info.lo_file_name)-1 as length; it could
-                 * also just mean the string is just that long and wasn't truncated — but the fact is simply
-                 * that we cannot know in that case if it was truncated or not, hence we assume the worst and
-                 * suppress — at least for now. For shorter strings we know for sure it wasn't truncated,
-                 * hence that's always safe.) */
+                /* Don't pick up file name if it is unset or possibly truncated. (Note: the kernel silently
+                 * truncates the string passed from userspace by LOOP_SET_STATUS64 ioctl. See
+                 * loop_set_status_from_info() in drivers/block/loop.c. Hence, we can't really know the file
+                 * name is truncated if it uses sizeof(info.lo_file_name)-1 as length; it could also mean the
+                 * string is just that long and wasn't truncated — but the fact is simply that we cannot know
+                 * in that case if it was truncated or not. Thus, we assume the worst and suppress — at least
+                 * for now. For shorter strings we know for sure it wasn't truncated, hence that's always
+                 * safe.) */
                 fn = NULL;
         else {
                 fn = memdup_suffix0(info.lo_file_name, sizeof(info.lo_file_name));
