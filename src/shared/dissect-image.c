@@ -1650,6 +1650,22 @@ int dissect_image_file_and_warn(
                         verity);
 }
 
+void dissected_image_close(DissectedImage *m) {
+        if (!m)
+                return;
+
+        /* Closes all fds we keep open assocated with this, but nothing else */
+
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+                DissectedPartition* p = m->partitions + i;
+
+                p->mount_node_fd = safe_close(p->mount_node_fd);
+                p->fsmount_fd = safe_close(p->fsmount_fd);
+        }
+
+        m->loop = loop_device_unref(m->loop);
+}
+
 DissectedImage* dissected_image_unref(DissectedImage *m) {
         if (!m)
                 return NULL;
