@@ -2273,7 +2273,7 @@ static EFI_STATUS initrd_prepare(
         /* Note that order of initrds matters. The kernel will only look for microcode updates in the very
          * first one it sees. */
 
-        /* Add initrd= to options for older kernels that do not support LINUX_INITRD_MEDIA. Should be dropped
+        /* Add initrd= to options for older kernels that do not support LINUX_EFI_INITRD_MEDIA_GUID. Should be dropped
          * if linux_x86.c is dropped. */
         _cleanup_free_ char16_t *options = NULL;
 

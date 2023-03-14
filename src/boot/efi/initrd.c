@@ -6,7 +6,7 @@
 #include "proto/load-file.h"
 #include "util.h"
 
-#define LINUX_INITRD_MEDIA_GUID \
+#define LINUX_EFI_INITRD_MEDIA_GUID \
         GUID_DEF(0x5568e427, 0x68fc, 0x4f3d, 0xac, 0x74, 0xca, 0x55, 0x52, 0x31, 0xcc, 0x68)
 
 /* extend LoadFileProtocol */
@@ -16,7 +16,7 @@ struct initrd_loader {
         size_t length;
 };
 
-/* static structure for LINUX_INITRD_MEDIA device path
+/* static structure for LINUX_EFI_INITRD_MEDIA device path
    see https://github.com/torvalds/linux/blob/v5.13/drivers/firmware/efi/libstub/efi-stub-helper.c
  */
 static const struct {
@@ -29,7 +29,7 @@ static const struct {
                         .SubType = MEDIA_VENDOR_DP,
                         .Length = sizeof(efi_initrd_device_path.vendor),
                 },
-                .Guid = LINUX_INITRD_MEDIA_GUID
+                .Guid = LINUX_EFI_INITRD_MEDIA_GUID
         },
         .end = {
                 .Type = END_DEVICE_PATH_TYPE,
@@ -82,7 +82,7 @@ EFI_STATUS initrd_register(
         if (!initrd_address || initrd_length == 0)
                 return EFI_SUCCESS;
 
-        /* check if a LINUX_INITRD_MEDIA_GUID DevicePath is already registered.
+        /* check if a LINUX_EFI_INITRD_MEDIA_GUID DevicePath is already registered.
            LocateDevicePath checks for the "closest DevicePath" and returns its handle,
            where as InstallMultipleProtocolInterfaces only matches identical DevicePaths.
          */

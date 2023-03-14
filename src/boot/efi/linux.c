@@ -2,7 +2,7 @@
 
 /*
  * Generic Linux boot protocol using the EFI/PE entry point of the kernel. Passes
- * initrd with the LINUX_INITRD_MEDIA_GUID DevicePath and cmdline with
+ * initrd with the LINUX_EFI_INITRD_MEDIA_GUID_GUID DevicePath and cmdline with
  * EFI LoadedImageProtocol.
  *
  * This method works for Linux 5.8 and newer on ARM/Aarch64, x86/x68_64 and RISC-V.
@@ -108,7 +108,7 @@ EFI_STATUS linux_exec(
         err = pe_kernel_info(linux_buffer, &compat_address);
 #if defined(__i386__) || defined(__x86_64__)
         if (err == EFI_UNSUPPORTED)
-                /* Kernel is too old to support LINUX_INITRD_MEDIA_GUID, try the deprecated EFI handover
+                /* Kernel is too old to support LINUX_EFI_INITRD_MEDIA, try the deprecated EFI handover
                  * protocol. */
                 return linux_exec_efi_handover(
                                 parent,

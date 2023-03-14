@@ -229,7 +229,7 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address) {
         if (!verify_pe(pe, /* allow_compatibility= */ true))
                 return EFI_LOAD_ERROR;
 
-        /* Support for LINUX_INITRD_MEDIA_GUID was added in kernel stub 1.0. */
+        /* Support for LINUX_EFI_INITRD_MEDIA_GUID_GUID was added in kernel stub 1.0. */
         if (pe->OptionalHeader.MajorImageVersion < 1)
                 return EFI_UNSUPPORTED;
 

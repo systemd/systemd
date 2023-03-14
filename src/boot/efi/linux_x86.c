@@ -3,7 +3,7 @@
 /*
  * x86 specific code to for EFI handover boot protocol
  * Linux kernels version 5.8 and newer support providing the initrd by
- * LINUX_INITRD_MEDIA_GUID DevicePath. In order to support older kernels too,
+ * LINUX_EFI_INITRD_MEDIA_GUID_GUID DevicePath. In order to support older kernels too,
  * this x86 specific linux_exec function passes the initrd by setting the
  * corresponding fields in the setup_header struct.
  *
