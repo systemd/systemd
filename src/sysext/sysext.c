@@ -614,8 +614,9 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                         r = dissected_image_mount_and_warn(
                                         m,
                                         p,
-                                        UID_INVALID,
-                                        UID_INVALID,
+                                        /* uid_shift= */ UID_INVALID,
+                                        /* uid_range= */ UID_INVALID,
+                                        /* userns_fd= */ -EBADF,
                                         flags);
                         if (r < 0 && r != -ENOMEDIUM)
                                 return r;
