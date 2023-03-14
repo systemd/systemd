@@ -129,6 +129,11 @@ Deprecations and removals:
 
 Features:
 
+* mount /tmp/ and /var/tmp with a uidmap applied that blocks out "nobody" user
+  among other things such as dynamic uid ranges for containers and so on. That
+  way noone can create files there with these uids and we enforce they are only
+  used transiently, never persistently.
+
 * set MS_NOSYMFOLLOW for ESP and XBOOTLDR mounts both in gpt-generator and in
   dissect.c
 
