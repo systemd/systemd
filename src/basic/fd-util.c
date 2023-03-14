@@ -21,6 +21,7 @@
 #include "missing_fcntl.h"
 #include "missing_fs.h"
 #include "missing_syscall.h"
+#include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -863,4 +864,23 @@ int fd_get_diskseq(int fd, uint64_t *ret) {
         *ret = diskseq;
 
         return 0;
+}
+
+int dir_fd_is_root(int dir_fd) {
+        STRUCT_NEW_STATX_DEFINE(st);
+        STRUCT_NEW_STATX_DEFINE(pst);
+        int r;
+
+        assert(dir_fd >= 0);
+
+        r = statx_fallback(dir_fd, "", AT_EMPTY_PATH, STATX_TYPE|STATX_MODE, &st.sx);
+        if (r < 0)
+                return r;
+
+        r = statx_fallback(dir_fd, "..", 0, STATX_TYPE|STATX_MODE, &pst.sx);
+        if (r < 0)
+                return r;
+
+        /* If the parent directory has a different mount ID, we opened the root directory. */
+        return statx_inode_same(&st.sx, &pst.sx);
 }
