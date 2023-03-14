@@ -180,6 +180,23 @@ bool uid_range_covers(const UidRange *range, uid_t start, uid_t nr) {
         return false;
 }
 
+bool uid_range_overlaps(const UidRange *range, uid_t start, uid_t nr) {
+
+        /* Avoid overflow */
+        if (start > UINT32_MAX - nr)
+                nr = UINT32_MAX - start;
+
+        if (nr == 0)
+                return false;
+
+        for (size_t i = 0; i < range->n_entries; i++)
+                if (start < range->entries[i].start + range->entries[i].nr &&
+                    start + nr >= range->entries[i].start)
+                        return true;
+
+        return false;
+}
+
 int uid_range_load_userns(UidRange **ret, const char *path) {
         _cleanup_(uid_range_freep) UidRange *range = NULL;
         _cleanup_fclose_ FILE *f = NULL;
