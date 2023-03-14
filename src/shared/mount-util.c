@@ -1375,3 +1375,81 @@ int make_mount_point_inode_from_path(const char *source, const char *dest, mode_
 
         return make_mount_point_inode_from_stat(&st, dest, mode);
 }
+
+int make_fsmount(
+                int error_log_level,
+                const char *what,
+                const char *type,
+                unsigned long flags,
+                const char *options,
+                int userns_fd) {
+
+        _cleanup_close_ int fs_fd = -EBADF, mnt_fd = -EBADF;
+        _cleanup_free_ char *fl = NULL, *o = NULL;
+        unsigned long f;
+        int r;
+
+        assert(type);
+
+        r = mount_option_mangle(options, flags, &f, &o);
+        if (r < 0)
+                return log_full_errno(
+                                error_log_level, r, "Failed to mangle mount options %s: %m",
+                                strempty(options));
+
+
+        (void) mount_flags_to_string(f, &fl);
+
+        log_debug("Creating mount fd for %s (%s) (%s \"%s\")...",
+                  strna(what), strna(type), strnull(fl), strempty(o));
+
+        fs_fd = fsopen(type, FSOPEN_CLOEXEC);
+        if (fs_fd < 0)
+                return log_full_errno(error_log_level, errno, "Failed to open superblock for \"%s\": %m", type);
+
+        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "source", what, 0) < 0)
+                return log_full_errno(error_log_level, errno, "Failed to set mount source for \"%s\" to \"%s\": %m", type, what);
+
+        if (FLAGS_SET(f, MS_RDONLY))
+                if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, "ro", NULL, 0) < 0)
+                        return log_full_errno(error_log_level, errno, "Failed to set read only mount flag for \"%s\": %m", type);
+
+        for (const char *p = o;;) {
+                _cleanup_free_ char *word = NULL;
+                char *eq;
+
+                r = extract_first_word(&p, &word, ",", EXTRACT_KEEP_QUOTE);
+                if (r < 0)
+                        return log_full_errno(error_log_level, r, "Failed to parse mount option string \"%s\": %m", o);
+                if (r == 0)
+                        break;
+
+                eq = strchr(word, '=');
+                if (eq) {
+                        *eq = 0;
+                        eq++;
+
+                        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, word, eq, 0) < 0)
+                                return log_full_errno(error_log_level, errno, "Failed to set mount option \"%s=%s\" for \"%s\": %m", word, eq, type);
+                } else {
+                        if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, word, NULL, 0) < 0)
+                                return log_full_errno(error_log_level, errno, "Failed to set mount flag \"%s\" for \"%s\": %m", word, type);
+                }
+        }
+
+        if (fsconfig(fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) < 0)
+                return log_full_errno(error_log_level, errno, "Failed to realize fs fd for \"%s\" (\"%s\"): %m", what, type);
+
+        mnt_fd = fsmount(fs_fd, FSMOUNT_CLOEXEC, 0);
+        if (mnt_fd < 0)
+                return log_full_errno(error_log_level, errno, "Failed to create mount fd for \"%s\" (\"%s\"): %m", what, type);
+
+        if (mount_setattr(mnt_fd, "", AT_EMPTY_PATH|AT_RECURSIVE,
+                          &(struct mount_attr) {
+                                  .attr_set = ms_flags_to_mount_attr(f) | (userns_fd >= 0 ? MOUNT_ATTR_IDMAP : 0),
+                                  .userns_fd = userns_fd,
+                          }, MOUNT_ATTR_SIZE_VER0) < 0)
+                return log_full_errno(error_log_level, errno, "Failed to set mount flags for \"%s\" (\"%s\"): %m", what, type);
+
+        return TAKE_FD(mnt_fd);
+}
