@@ -36,10 +36,10 @@
 typedef struct Group {
         char *path;
 
-        bool n_tasks_valid:1;
-        bool cpu_valid:1;
-        bool memory_valid:1;
-        bool io_valid:1;
+        bool n_tasks_valid;
+        bool cpu_valid;
+        bool memory_valid;
+        bool io_valid;
 
         uint64_t n_tasks;
 
