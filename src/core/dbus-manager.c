@@ -1530,7 +1530,7 @@ static void log_caller(sd_bus_message *message, Manager *manager, const char *me
         log_info("%s requested from client PID " PID_FMT "%s%s%s%s%s%s...",
                  method, pid,
                  comm ? " ('" : "", strempty(comm), comm ? "')" : "",
-                 caller ? " (unit " : "", caller ? caller->id : NULL, caller ? ")" : "");
+                 caller ? " (unit " : "", caller ? caller->id : "", caller ? ")" : "");
 }
 
 static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
