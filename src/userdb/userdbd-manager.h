@@ -24,6 +24,8 @@ struct Manager {
         int listen_fd;
 
         RateLimit worker_ratelimit;
+
+        Hashmap *registry_pidfds; /* struct stat → sd_event_source */
 };
 
 int manager_new(Manager **ret);
