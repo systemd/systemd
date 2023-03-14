@@ -9,7 +9,7 @@ typedef struct Manager Manager;
 #include "hashmap.h"
 #include "ratelimit.h"
 
-#define MNTFS_WORKERS_MIN 3
+#define MNTFS_WORKERS_MIN 1
 #define MNTFS_WORKERS_MAX 4096
 
 struct Manager {
