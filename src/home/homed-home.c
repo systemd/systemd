@@ -23,7 +23,9 @@
 #include "home-util.h"
 #include "homed-home-bus.h"
 #include "homed-home.h"
+#include "memfd-util.h"
 #include "missing_magic.h"
+#include "missing_mman.h"
 #include "missing_syscall.h"
 #include "mkdir.h"
 #include "path-util.h"
@@ -1175,9 +1177,9 @@ static int home_start_work(Home *h, const char *verb, UserRecord *hr, UserRecord
 
         log_debug("Sending to worker: %s", formatted);
 
-        stdout_fd = memfd_create("homework-stdout", MFD_CLOEXEC);
+        stdout_fd = memfd_create_wrapper("homework-stdout", MFD_CLOEXEC | MFD_NOEXEC_SEAL);
         if (stdout_fd < 0)
-                return -errno;
+                return stdout_fd;
 
         r = safe_fork_full("(sd-homework)",
                            (int[]) { stdin_fd, stdout_fd, STDERR_FILENO },

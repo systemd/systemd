@@ -65,7 +65,7 @@ int memfd_new(const char *name) {
                 }
         }
 
-        return RET_NERRNO(memfd_create(name, MFD_ALLOW_SEALING | MFD_CLOEXEC));
+        return memfd_create_wrapper(name, MFD_ALLOW_SEALING | MFD_CLOEXEC | MFD_NOEXEC_SEAL);
 }
 
 int memfd_map(int fd, uint64_t offset, size_t size, void **p) {

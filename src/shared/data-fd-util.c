@@ -339,7 +339,8 @@ finish:
 
 int memfd_clone_fd(int fd, const char *name, int mode) {
         _cleanup_close_ int mfd = -EBADF;
-        bool ro;
+        struct stat st;
+        bool ro, exec;
         int r;
 
         /* Creates a clone of a regular file in a memfd. Unlike copy_data_fd() this returns strictly a memfd
@@ -351,13 +352,18 @@ int memfd_clone_fd(int fd, const char *name, int mode) {
         assert(IN_SET(mode & O_ACCMODE, O_RDONLY, O_RDWR));
         assert((mode & ~(O_RDONLY|O_RDWR|O_CLOEXEC)) == 0);
 
-        ro = (mode & O_ACCMODE) == O_RDONLY;
-
-        mfd = memfd_create(name,
-                           ((FLAGS_SET(mode, O_CLOEXEC) || ro) ? MFD_CLOEXEC : 0) |
-                           (ro ? MFD_ALLOW_SEALING : 0));
-        if (mfd < 0)
+        if (fstat(fd, &st) < 0)
                 return -errno;
+
+        ro = (mode & O_ACCMODE) == O_RDONLY;
+        exec = st.st_mode & 0111;
+
+        mfd = memfd_create_wrapper(name,
+                                   ((FLAGS_SET(mode, O_CLOEXEC) || ro) ? MFD_CLOEXEC : 0) |
+                                   (ro ? MFD_ALLOW_SEALING : 0) |
+                                   (exec ? MFD_EXEC : MFD_NOEXEC_SEAL));
+        if (mfd < 0)
+                return mfd;
 
         r = copy_bytes(fd, mfd, UINT64_MAX, COPY_REFLINK);
         if (r < 0)
