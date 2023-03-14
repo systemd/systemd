@@ -28,6 +28,7 @@
 #include "user-util.h"
 #include "userdb.h"
 #include "utmp-wtmp.h"
+#include "bus-locator.h"
 
 void manager_reset_config(Manager *m) {
         assert(m);
@@ -542,15 +543,8 @@ int manager_spawn_autovt(Manager *m, unsigned vtnr) {
         }
 
         xsprintf(name, "autovt@tty%u.service", vtnr);
-        r = sd_bus_call_method(
-                        m->bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "StartUnit",
-                        &error,
-                        NULL,
-                        "ss", name, "fail");
+        r = bus_call_method(
+                        m->bus, bus_systemd_loc, "StartUnit", &error, NULL, "ss", name, "fail");
         if (r < 0)
                 return log_error_errno(r, "Failed to start %s: %s", name, bus_error_message(&error, r));
 
