@@ -1486,6 +1486,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <option>--force</option> is specified twice the halt operation is executed by <command>systemctl</command>
             itself, and the system manager is not contacted. This means the command should succeed even when the system
             manager has crashed.</para>
+
+            <para>If combined with <option>--when=</option>, shutdown will be scheduled after the given timestamp.
+            And <option>--when=cancel</option> will cancel the shutdown.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1497,13 +1500,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             users. This command is asynchronous; it will return after the power-off operation is enqueued, without
             waiting for it to complete.</para>
 
-            <para>If combined with <option>--force</option>, shutdown of all running services is skipped, however all
-            processes are killed and all file systems are unmounted or mounted read-only, immediately followed by the
-            powering off. If <option>--force</option> is specified twice, the operation is immediately executed without
-            terminating any processes or unmounting any file systems. This may result in data loss. Note that when
-            <option>--force</option> is specified twice the power-off operation is executed by
-            <command>systemctl</command> itself, and the system manager is not contacted. This means the command should
-            succeed even when the system manager has crashed.</para>
+            <para>This command honors <option>--force</option> and <option>--when=</option> in a similar way
+            as <command>halt</command>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1517,14 +1515,6 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             users. This command is asynchronous; it will return after the reboot operation is enqueued,
             without waiting for it to complete.</para>
 
-            <para>If combined with <option>--force</option>, shutdown of all running services is skipped, however all
-            processes are killed and all file systems are unmounted or mounted read-only, immediately followed by the
-            reboot. If <option>--force</option> is specified twice, the operation is immediately executed without
-            terminating any processes or unmounting any file systems. This may result in data loss. Note that when
-            <option>--force</option> is specified twice the reboot operation is executed by
-            <command>systemctl</command> itself, and the system manager is not contacted. This means the command should
-            succeed even when the system manager has crashed.</para>
-
             <para>If the switch <option>--reboot-argument=</option> is given, it will be passed as the optional
             argument to the <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
             system call.</para>
@@ -1532,6 +1522,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>Options <option>--boot-loader-entry=</option>, <option>--boot-loader-menu=</option>, and
             <option>--firmware-setup</option> can be used to select what to do <emphasis>after</emphasis> the
             reboot. See the descriptions of those options for details.</para>
+
+            <para>This command honors <option>--force</option> and <option>--when=</option> in a similar way
+            as <command>halt</command>.</para>
           </listitem>
         </varlistentry>
 
@@ -1544,9 +1537,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             asynchronous; it will return after the reboot operation is enqueued, without waiting for it to
             complete.</para>
 
-            <para>If combined with <option>--force</option>, shutdown of all running services is skipped, however all
-            processes are killed and all file systems are unmounted or mounted read-only, immediately followed by the
-            reboot.</para>
+            <para>This command honors <option>--force</option> and <option>--when=</option> in a similar way
+            as <command>halt</command>.</para>
           </listitem>
         </varlistentry>
 
@@ -2474,6 +2466,19 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <listitem>
           <para>When used with <command>edit</command>, use the given drop-in file name instead of
           <filename>override.conf</filename>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--when=</option></term>
+
+        <listitem>
+          <para>When used with <command>halt</command>, <command>poweroff</command>, <command>reboot</command>
+          or <command>kexec</command>, schedule the action to be performed at the given timestamp,
+          which should adhere to the syntax documented in <citerefentry
+          project='man-pages'><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+          section "PARSING TIMESTAMPS". Specially, if <literal>show</literal> is given, the currently scheduled
+          action will be shown, which can be canceled by passing an empty string or <literal>cancel</literal>.</para>
         </listitem>
       </varlistentry>
 
