@@ -3346,6 +3346,7 @@ static int setup_smack(
 static int compile_bind_mounts(
                 const ExecContext *context,
                 const ExecParameters *params,
+                const char *memory_pressure_path,
                 BindMount **ret_bind_mounts,
                 size_t *ret_n_bind_mounts,
                 char ***ret_empty_directories) {
@@ -3369,6 +3370,11 @@ static int compile_bind_mounts(
                 for (size_t i = 0; i < context->directories[t].n_items; i++)
                         n += !context->directories[t].items[i].only_create;
         }
+
+        /* We need to make the pressure path writable even if /sys/fs/cgroups is made read-only, as the
+         * service will need to write to it in order to start the notifications. */
+        if (context->protect_control_groups && memory_pressure_path && !streq(memory_pressure_path, "/dev/null"))
+                ++n;
 
         if (n <= 0) {
                 *ret_bind_mounts = NULL;
@@ -3473,6 +3479,27 @@ static int compile_bind_mounts(
                                 .ignore_enoent = false,
                         };
                 }
+        }
+
+        if (context->protect_control_groups && memory_pressure_path && !streq(memory_pressure_path, "/dev/null")) {
+                _cleanup_free_ char *s = NULL, *d = NULL;
+
+                s = strdup(memory_pressure_path);
+                if (!s) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                d = strdup(memory_pressure_path);
+                if (!d) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                bind_mounts[h++] = (BindMount) {
+                        .source = TAKE_PTR(s),
+                        .destination = TAKE_PTR(d),
+                };
         }
 
         assert(h == n);
@@ -3591,6 +3618,7 @@ static int apply_mount_namespace(
                 const ExecContext *context,
                 const ExecParameters *params,
                 const ExecRuntime *runtime,
+                const char *memory_pressure_path,
                 char **error_path) {
 
         _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL;
@@ -3613,7 +3641,7 @@ static int apply_mount_namespace(
                         root_dir = context->root_directory;
         }
 
-        r = compile_bind_mounts(context, params, &bind_mounts, &n_bind_mounts, &empty_directories);
+        r = compile_bind_mounts(context, params, memory_pressure_path, &bind_mounts, &n_bind_mounts, &empty_directories);
         if (r < 0)
                 return r;
 
@@ -4974,7 +5002,7 @@ static int exec_child(
         if (needs_mount_namespace) {
                 _cleanup_free_ char *error_path = NULL;
 
-                r = apply_mount_namespace(unit, command->flags, context, params, runtime, &error_path);
+                r = apply_mount_namespace(unit, command->flags, context, params, runtime, memory_pressure_path, &error_path);
                 if (r < 0) {
                         *exit_status = EXIT_NAMESPACE;
                         return log_unit_error_errno(unit, r, "Failed to set up mount namespacing%s%s: %m",
