@@ -254,6 +254,21 @@ int detach_mount_namespace_harder(uid_t target_uid, gid_t target_gid) {
         return detach_mount_namespace();
 }
 
+int detach_mount_namespace_userns(int userns_fd) {
+        int r;
+
+        assert(userns_fd >= 0);
+
+        if (setns(userns_fd, CLONE_NEWUSER) < 0)
+                return log_debug_errno(errno, "Failed to join user namespace: %m");
+
+        r = reset_uid_gid();
+        if (r < 0)
+                return log_debug_errno(r, "Failed to become root in user namespace: %m");
+
+        return detach_mount_namespace();
+}
+
 int userns_acquire_empty(void) {
         _cleanup_(sigkill_waitp) pid_t pid = 0;
         _cleanup_close_ int userns_fd = -EBADF;
