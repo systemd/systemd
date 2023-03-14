@@ -24,7 +24,7 @@
 #include "unit-name.h"
 
 static PagerFlags arg_pager_flags = 0;
-static OutputFlags arg_output_flags = OUTPUT_CGROUP_XATTRS | OUTPUT_CGROUP_ID;
+static OutputFlags arg_output_flags = 0;
 
 static enum {
         SHOW_UNIT_NONE,
