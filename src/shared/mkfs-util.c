@@ -455,14 +455,16 @@ int make_filesystem(
                                 "-U", vol_id,
                                 node);
 
-        else if (streq(fstype, "squashfs"))
+        else if (streq(fstype, "squashfs")) {
 
                 argv = strv_new(mkfs,
                                 root, node,
-                                "-quiet",
                                 "-noappend");
 
-        else if (streq(fstype, "erofs"))
+                /* mksquashfs -quiet option is pretty new so let's redirect stdout to /dev/null instead. */
+                stdio_fds[1] = -EBADF;
+
+        } else if (streq(fstype, "erofs"))
 
                 argv = strv_new(mkfs,
                                 "-U", vol_id,
