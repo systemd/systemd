@@ -39,7 +39,7 @@ TEST(copy_file) {
 
         assert_se(write_string_file(fn, "foo bar bar bar foo", WRITE_STRING_FILE_CREATE) == 0);
 
-        assert_se(copy_file(fn, fn_copy, 0, 0644, 0, 0, COPY_REFLINK) == 0);
+        assert_se(copy_file(fn, fn_copy, 0, 0644, COPY_REFLINK) == 0);
 
         assert_se(read_full_file(fn_copy, &buf, &sz) == 0);
         assert_se(streq(buf, "foo bar bar bar foo\n"));
@@ -366,13 +366,13 @@ TEST(copy_atomic) {
 
         q = strjoina(p, "/fstab");
 
-        r = copy_file_atomic("/etc/fstab", q, 0644, 0, 0, COPY_REFLINK);
+        r = copy_file_atomic("/etc/fstab", q, 0644, COPY_REFLINK);
         if (r == -ENOENT || ERRNO_IS_PRIVILEGE(r))
                 return;
 
-        assert_se(copy_file_atomic("/etc/fstab", q, 0644, 0, 0, COPY_REFLINK) == -EEXIST);
+        assert_se(copy_file_atomic("/etc/fstab", q, 0644, COPY_REFLINK) == -EEXIST);
 
-        assert_se(copy_file_atomic("/etc/fstab", q, 0644, 0, 0, COPY_REPLACE) >= 0);
+        assert_se(copy_file_atomic("/etc/fstab", q, 0644, COPY_REPLACE) >= 0);
 }
 
 TEST(copy_proc) {
@@ -383,7 +383,7 @@ TEST(copy_proc) {
 
         assert_se(mkdtemp_malloc(NULL, &p) >= 0);
         assert_se(f = path_join(p, "version"));
-        assert_se(copy_file("/proc/version", f, 0, MODE_INVALID, 0, 0, 0) >= 0);
+        assert_se(copy_file("/proc/version", f, 0, MODE_INVALID, 0) >= 0);
 
         assert_se(read_one_line_file("/proc/version", &a) >= 0);
         assert_se(read_one_line_file(f, &b) >= 0);

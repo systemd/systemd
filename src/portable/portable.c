@@ -1072,7 +1072,7 @@ static int install_profile_dropin(
 
         if (flags & PORTABLE_PREFER_COPY) {
 
-                r = copy_file_atomic(from, dropin, 0644, 0, 0, COPY_REFLINK);
+                r = copy_file_atomic(from, dropin, 0644, COPY_REFLINK);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to copy %s %s %s: %m", from, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), dropin);
 
