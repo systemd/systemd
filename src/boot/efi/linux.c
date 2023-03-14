@@ -137,8 +137,8 @@ EFI_STATUS linux_exec(
                 loaded_image->LoadOptionsSize = strsize16(loaded_image->LoadOptions);
         }
 
-        _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
-        err = initrd_register(initrd_buffer, initrd_length, &initrd_handle);
+        _cleanup_(cleanup_initrd) InitrdLoader *initrd_loader = NULL;
+        err = initrd_register(initrd_buffer, initrd_length, &initrd_loader);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error registering initrd: %m");
 

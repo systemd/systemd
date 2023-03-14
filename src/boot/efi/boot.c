@@ -2367,8 +2367,8 @@ static EFI_STATUS image_start(
                         return log_error_status(err, "Error loading %ls: %m", entry->devicetree);
         }
 
-        _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
-        err = initrd_register(initrd, initrd_size, &initrd_handle);
+        _cleanup_(cleanup_initrd) InitrdLoader *initrd_loader = NULL;
+        err = initrd_register(initrd, initrd_size, &initrd_loader);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error registering initrd: %m");
 
