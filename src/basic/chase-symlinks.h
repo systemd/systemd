@@ -24,6 +24,7 @@ typedef enum ChaseSymlinksFlags {
                                              * full path is still stored in ret_path and only the returned
                                              * file descriptor will point to the parent directory. */
         CHASE_MKDIR_0755         = 1 << 11, /* Create any missing parent directories in the given path. */
+        CHASE_EXTRACT_FILENAME   = 1 << 12, /* Only return the last component of the resolved path */
 } ChaseSymlinksFlags;
 
 bool unsafe_transition(const struct stat *a, const struct stat *b);
