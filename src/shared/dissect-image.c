@@ -51,6 +51,7 @@
 #include "import-util.h"
 #include "io-util.h"
 #include "missing_mount.h"
+#include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -543,6 +544,7 @@ static void dissected_partition_done(DissectedPartition *p) {
         free(p->decrypted_node);
         free(p->mount_options);
         safe_close(p->mount_node_fd);
+        safe_close(p->fsmount_fd);
 
         *p = DISSECTED_PARTITION_NULL;
 }
@@ -864,6 +866,7 @@ static int dissect_image(
                                 .mount_node_fd = TAKE_FD(mount_node_fd),
                                 .offset = 0,
                                 .size = UINT64_MAX,
+                                .fsmount_fd = -EBADF,
                         };
 
                         return 0;
@@ -1277,6 +1280,7 @@ static int dissect_image(
                                         .offset = (uint64_t) start * 512,
                                         .size = (uint64_t) size * 512,
                                         .gpt_flags = pflags,
+                                        .fsmount_fd = -EBADF,
                                 };
                         }
 
@@ -1351,6 +1355,7 @@ static int dissect_image(
                                         .mount_node_fd = TAKE_FD(mount_node_fd),
                                         .offset = (uint64_t) start * 512,
                                         .size = (uint64_t) size * 512,
+                                        .fsmount_fd = -EBADF,
                                 };
 
                                 break;
@@ -1441,6 +1446,7 @@ static int dissect_image(
                                         .mount_node_fd = TAKE_FD(mount_node_fd),
                                         .offset = UINT64_MAX,
                                         .size = UINT64_MAX,
+                                        .fsmount_fd = -EBADF,
                                 };
                         }
                 }
@@ -1756,10 +1762,14 @@ static int run_fsck(int node_fd, const char *fstype) {
         return 0;
 }
 
-static int fs_grow(const char *node_path, const char *mount_path) {
-        _cleanup_close_ int mount_fd = -EBADF, node_fd = -EBADF;
+static int fs_grow(const char *node_path, int mount_fd, const char *mount_path) {
+        _cleanup_close_ int _mount_fd = -EBADF, node_fd = -EBADF;
         uint64_t size, newsize;
+        const char *id;
         int r;
+
+        assert(node_path);
+        assert(mount_fd >= 0 || mount_path);
 
         node_fd = open(node_path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (node_fd < 0)
@@ -1768,22 +1778,34 @@ static int fs_grow(const char *node_path, const char *mount_path) {
         if (ioctl(node_fd, BLKGETSIZE64, &size) != 0)
                 return log_debug_errno(errno, "Failed to get block device size of %s: %m", node_path);
 
-        mount_fd = open(mount_path, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
-        if (mount_fd < 0)
-                return log_debug_errno(errno, "Failed to open mountd file system %s: %m", mount_path);
+        if (mount_fd < 0) {
+                assert(mount_path);
 
-        log_debug("Resizing \"%s\" to %"PRIu64" bytes...", mount_path, size);
+                _mount_fd = open(mount_path, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+                if (_mount_fd < 0)
+                        return log_debug_errno(errno, "Failed to open mounted file system %s: %m", mount_path);
+
+                mount_fd = _mount_fd;
+        } else {
+                mount_fd = fd_reopen_condition(mount_fd, O_RDONLY|O_DIRECTORY|O_CLOEXEC, O_RDONLY|O_DIRECTORY|O_CLOEXEC, &_mount_fd);
+                if (mount_fd < 0)
+                        return log_debug_errno(errno, "Failed to reopen mount node: %m");
+        }
+
+        id = mount_path ?: node_path;
+
+        log_debug("Resizing \"%s\" to %"PRIu64" bytes...", id, size);
         r = resize_fs(mount_fd, size, &newsize);
         if (r < 0)
-                return log_debug_errno(r, "Failed to resize \"%s\" to %"PRIu64" bytes: %m", mount_path, size);
+                return log_debug_errno(r, "Failed to resize \"%s\" to %"PRIu64" bytes: %m", id, size);
 
         if (newsize == size)
                 log_debug("Successfully resized \"%s\" to %s bytes.",
-                          mount_path, FORMAT_BYTES(newsize));
+                          id, FORMAT_BYTES(newsize));
         else {
                 assert(newsize < size);
                 log_debug("Successfully resized \"%s\" to %s bytes (%"PRIu64" bytes lost due to blocksize).",
-                          mount_path, FORMAT_BYTES(newsize), size - newsize);
+                          id, FORMAT_BYTES(newsize), size - newsize);
         }
 
         return 0;
@@ -1880,6 +1902,14 @@ int partition_pick_mount_options(
         return 0;
 }
 
+static bool need_user_mapping(uid_t uid_shift, uid_t uid_range) {
+
+        if (!uid_is_valid(uid_shift))
+                return false;
+
+        return uid_shift != 0 || uid_range != UINT32_MAX;
+}
+
 static int mount_partition(
                 PartitionDesignator d,
                 DissectedPartition *m,
@@ -1887,81 +1917,92 @@ static int mount_partition(
                 const char *directory,
                 uid_t uid_shift,
                 uid_t uid_range,
+                int userns_fd,
                 DissectImageFlags flags) {
 
         _cleanup_free_ char *chased = NULL, *options = NULL;
-        bool rw, discard, remap_uid_gid = false;
-        const char *p, *node, *fstype;
+        const char *p = NULL, *node, *fstype = NULL;
+        bool rw, discard, grow;
         unsigned long ms_flags;
         int r;
 
         assert(m);
-        assert(where);
 
-        if (m->mount_node_fd < 0)
+        if (!m->found)
                 return 0;
 
-        /* Use decrypted node and matching fstype if available, otherwise use the original device */
-        node = FORMAT_PROC_FD_PATH(m->mount_node_fd);
-        fstype = dissected_partition_fstype(m);
+        /* Check the various combinations when we can't do anything anymore */
+        if (m->fsmount_fd < 0 && m->mount_node_fd < 0)
+                return 0;
+        if (m->fsmount_fd >= 0 && !where)
+                return 0;
+        if (!where && m->mount_node_fd < 0)
+                return 0;
 
-        if (!fstype)
-                return -EAFNOSUPPORT;
+        if (m->fsmount_fd < 0) {
+                fstype = dissected_partition_fstype(m);
+                if (!fstype)
+                        return -EAFNOSUPPORT;
 
-        /* We are looking at an encrypted partition? This either means stacked encryption, or the caller
-         * didn't call dissected_image_decrypt() beforehand. Let's return a recognizable error for this
-         * case. */
-        if (streq(fstype, "crypto_LUKS"))
-                return -EUNATCH;
+                /* We are looking at an encrypted partition? This either means stacked encryption, or the
+                 * caller didn't call dissected_image_decrypt() beforehand. Let's return a recognizable error
+                 * for this case. */
+                if (streq(fstype, "crypto_LUKS"))
+                        return -EUNATCH;
 
-        r = dissect_fstype_ok(fstype);
-        if (r < 0)
-                return r;
-        if (!r)
-                return -EIDRM; /* Recognizable error */
+                r = dissect_fstype_ok(fstype);
+                if (r < 0)
+                        return r;
+                if (!r)
+                        return -EIDRM; /* Recognizable error */
+        }
 
+        node = m->mount_node_fd < 0 ? NULL : FORMAT_PROC_FD_PATH(m->mount_node_fd);
         rw = m->rw && !(flags & DISSECT_IMAGE_MOUNT_READ_ONLY);
 
         discard = ((flags & DISSECT_IMAGE_DISCARD) ||
-                   ((flags & DISSECT_IMAGE_DISCARD_ON_LOOP) && is_loop_device(m->node) > 0));
+                   ((flags & DISSECT_IMAGE_DISCARD_ON_LOOP) && (m->node && is_loop_device(m->node) > 0)));
 
-        if (FLAGS_SET(flags, DISSECT_IMAGE_FSCK) && rw) {
+        grow = rw && m->growfs && FLAGS_SET(flags, DISSECT_IMAGE_GROWFS);
+
+        if (FLAGS_SET(flags, DISSECT_IMAGE_FSCK) && rw && m->mount_node_fd >= 0 && m->fsmount_fd < 0) {
                 r = run_fsck(m->mount_node_fd, fstype);
                 if (r < 0)
                         return r;
         }
 
-        if (directory) {
-                /* Automatically create missing mount points inside the image, if necessary. */
-                r = mkdir_p_root(where, directory, uid_shift, (gid_t) uid_shift, 0755);
-                if (r < 0 && r != -EROFS)
-                        return r;
+        if (where) {
+                if (directory) {
+                        /* Automatically create missing mount points inside the image, if necessary. */
+                        r = mkdir_p_root(where, directory, uid_shift, (gid_t) uid_shift, 0755);
+                        if (r < 0 && r != -EROFS)
+                                return r;
 
-                r = chase(directory, where, CHASE_PREFIX_ROOT, &chased, NULL);
+                        r = chase(directory, where, CHASE_PREFIX_ROOT, &chased, NULL);
+                        if (r < 0)
+                                return r;
+
+                        p = chased;
+                } else {
+                        /* Create top-level mount if missing – but only if this is asked for. This won't modify the
+                         * image (as the branch above does) but the host hierarchy, and the created directory might
+                         * survive our mount in the host hierarchy hence. */
+                        if (FLAGS_SET(flags, DISSECT_IMAGE_MKDIR)) {
+                                r = mkdir_p(where, 0755);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        p = where;
+                }
+        }
+
+        if (m->fsmount_fd < 0) {
+                r = partition_pick_mount_options(d, fstype, rw, discard, &options, &ms_flags);
                 if (r < 0)
                         return r;
 
-                p = chased;
-        } else {
-                /* Create top-level mount if missing – but only if this is asked for. This won't modify the
-                 * image (as the branch above does) but the host hierarchy, and the created directory might
-                 * survive our mount in the host hierarchy hence. */
-                if (FLAGS_SET(flags, DISSECT_IMAGE_MKDIR)) {
-                        r = mkdir_p(where, 0755);
-                        if (r < 0)
-                                return r;
-                }
-
-                p = where;
-        }
-
-        r = partition_pick_mount_options(d, dissected_partition_fstype(m), rw, discard, &options, &ms_flags);
-        if (r < 0)
-                return r;
-
-        if (uid_is_valid(uid_shift) && uid_shift != 0) {
-
-                if (fstype_can_uid_gid(fstype)) {
+                if (need_user_mapping(uid_shift, uid_range) && fstype_can_uid_gid(fstype)) {
                         _cleanup_free_ char *uid_option = NULL;
 
                         if (asprintf(&uid_option, "uid=" UID_FMT ",gid=" GID_FMT, uid_shift, (gid_t) uid_shift) < 0)
@@ -1969,31 +2010,56 @@ static int mount_partition(
 
                         if (!strextend_with_separator(&options, ",", uid_option))
                                 return -ENOMEM;
-                } else if (FLAGS_SET(flags, DISSECT_IMAGE_MOUNT_IDMAPPED))
-                        remap_uid_gid = true;
+
+                        userns_fd = -EBADF; /* Not needed */
+                }
+
+                if (!isempty(m->mount_options))
+                        if (!strextend_with_separator(&options, ",", m->mount_options))
+                                return -ENOMEM;
         }
 
-        if (!isempty(m->mount_options))
-                if (!strextend_with_separator(&options, ",", m->mount_options))
-                        return -ENOMEM;
+        if (p) {
+                if (m->fsmount_fd >= 0) {
+                        /* Case #1: Attach existing fsmount fd to the file system */
 
-        r = mount_nofollow_verbose(LOG_DEBUG, node, p, fstype, ms_flags, options);
-        if (r < 0)
-                return r;
+                        if (move_mount(m->fsmount_fd, "", -EBADF, p, MOVE_MOUNT_F_EMPTY_PATH) < 0)
+                                return -errno;
 
-        if (rw && m->growfs && FLAGS_SET(flags, DISSECT_IMAGE_GROWFS))
-                (void) fs_grow(node, p);
+                } else {
+                        assert(node);
 
-        if (remap_uid_gid) {
-                r = remount_idmap(p, uid_shift, uid_range, UID_INVALID, REMOUNT_IDMAPPING_HOST_ROOT);
-                if (r < 0)
-                        return r;
+                        /* Case #2: Mount directly into place */
+                        r = mount_nofollow_verbose(LOG_DEBUG, node, p, fstype, ms_flags, options);
+                        if (r < 0)
+                                return r;
+
+                        if (grow)
+                                (void) fs_grow(node, -EBADF, p);
+
+                        if (userns_fd >= 0) {
+                                r = remount_idmap_fd(p, userns_fd);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+        } else {
+                assert(node);
+
+                /* Case #3: Create fsmount fd */
+
+                m->fsmount_fd = make_fsmount(LOG_DEBUG, node, fstype, ms_flags, options, userns_fd);
+                if (m->fsmount_fd < 0)
+                        return m->fsmount_fd;
+
+                if (grow)
+                        (void) fs_grow(node, m->fsmount_fd, NULL);
         }
 
         return 1;
 }
 
-static int mount_root_tmpfs(const char *where, uid_t uid_shift, DissectImageFlags flags) {
+static int mount_root_tmpfs(const char *where, uid_t uid_shift, uid_t uid_range, DissectImageFlags flags) {
         _cleanup_free_ char *options = NULL;
         int r;
 
@@ -2007,7 +2073,7 @@ static int mount_root_tmpfs(const char *where, uid_t uid_shift, DissectImageFlag
                         return r;
         }
 
-        if (uid_is_valid(uid_shift)) {
+        if (need_user_mapping(uid_shift, uid_range)) {
                 if (asprintf(&options, "uid=" UID_FMT ",gid=" GID_FMT, uid_shift, (gid_t) uid_shift) < 0)
                         return -ENOMEM;
         }
@@ -2024,14 +2090,25 @@ int dissected_image_mount(
                 const char *where,
                 uid_t uid_shift,
                 uid_t uid_range,
+                int userns_fd,
                 DissectImageFlags flags) {
 
+        _cleanup_close_ int my_userns_fd = -EBADF;
         int r, xbootldr_mounted;
 
         assert(m);
-        assert(where);
 
-        /* Returns:
+        /* If 'where' is NULL then we'll use the new mount API to create fsmount() fds for the mounts and
+         * store them in DissectedPartition.fsmount_fd.
+         *
+         * If 'where' is not NULL then we'll either mount the partitions to the right places ourselves,
+         * or use DissectedPartition.fsmount_fd and bind it to the right places.
+         *
+         * This allows splitting the setting up up the superblocks and the binding to file systems paths into
+         * two distinct and differently privileged components: one that gets the fsmount fds, and the other
+         * that then applies them.
+         *
+         * Returns:
          *
          *  -ENXIO        → No root partition found
          *  -EMEDIUMTYPE  → DISSECT_IMAGE_VALIDATE_OS set but no os-release/extension-release file found
@@ -2042,116 +2119,131 @@ int dissected_image_mount(
          *  -EIDRM        → File system is not among allowlisted "common" file systems
          */
 
+        if (!where && (flags & (DISSECT_IMAGE_VALIDATE_OS|DISSECT_IMAGE_VALIDATE_OS_EXT)) != 0)
+                return -EOPNOTSUPP; /* for now, not supported */
+
         if (!(m->partitions[PARTITION_ROOT].found ||
               (m->partitions[PARTITION_USR].found && FLAGS_SET(flags, DISSECT_IMAGE_USR_NO_ROOT))))
                 return -ENXIO; /* Require a root fs or at least a /usr/ fs (the latter is subject to a flag of its own) */
 
+        if (userns_fd < 0 && need_user_mapping(uid_shift, uid_range) && FLAGS_SET(flags, DISSECT_IMAGE_MOUNT_IDMAPPED)) {
+
+                my_userns_fd = make_userns(uid_shift, uid_range, UID_INVALID, REMOUNT_IDMAPPING_HOST_ROOT);
+                if (my_userns_fd < 0)
+                        return my_userns_fd;
+
+                userns_fd = my_userns_fd;
+        }
+
         if ((flags & DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY) == 0) {
 
                 /* First mount the root fs. If there's none we use a tmpfs. */
-                if (m->partitions[PARTITION_ROOT].found)
-                        r = mount_partition(PARTITION_ROOT, m->partitions + PARTITION_ROOT, where, NULL, uid_shift, uid_range, flags);
-                else
-                        r = mount_root_tmpfs(where, uid_shift, flags);
-                if (r < 0)
-                        return r;
+                if (m->partitions[PARTITION_ROOT].found) {
+                        r = mount_partition(PARTITION_ROOT, m->partitions + PARTITION_ROOT, where, NULL, uid_shift, uid_range, userns_fd, flags);
+                        if (r < 0)
+                                return r;
+
+                } else if (where) {
+                        r = mount_root_tmpfs(where, uid_shift, uid_range, flags);
+                        if (r < 0)
+                                return r;
+                }
 
                 /* For us mounting root always means mounting /usr as well */
-                r = mount_partition(PARTITION_USR, m->partitions + PARTITION_USR, where, "/usr", uid_shift, uid_range, flags);
+                r = mount_partition(PARTITION_USR, m->partitions + PARTITION_USR, where, "/usr", uid_shift, uid_range, userns_fd, flags);
                 if (r < 0)
                         return r;
+        }
 
-                if ((flags & (DISSECT_IMAGE_VALIDATE_OS|DISSECT_IMAGE_VALIDATE_OS_EXT)) != 0) {
-                        /* If either one of the validation flags are set, ensure that the image qualifies
-                         * as one or the other (or both). */
-                        bool ok = false;
+        if ((flags & DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY) == 0 &&
+            (flags & (DISSECT_IMAGE_VALIDATE_OS|DISSECT_IMAGE_VALIDATE_OS_EXT)) != 0) {
+                /* If either one of the validation flags are set, ensure that the image qualifies as
+                 * one or the other (or both). */
+                bool ok = false;
 
-                        if (FLAGS_SET(flags, DISSECT_IMAGE_VALIDATE_OS)) {
-                                r = path_is_os_tree(where);
+                assert(where);
+
+                if (FLAGS_SET(flags, DISSECT_IMAGE_VALIDATE_OS)) {
+                        r = path_is_os_tree(where);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                ok = true;
+                }
+                if (!ok && FLAGS_SET(flags, DISSECT_IMAGE_VALIDATE_OS_EXT)) {
+                        r = extension_has_forbidden_content(where);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
+                                r = path_is_extension_tree(IMAGE_SYSEXT, where, m->image_name, FLAGS_SET(flags, DISSECT_IMAGE_RELAX_SYSEXT_CHECK));
                                 if (r < 0)
                                         return r;
                                 if (r > 0)
                                         ok = true;
                         }
-                        if (!ok && FLAGS_SET(flags, DISSECT_IMAGE_VALIDATE_OS_EXT)) {
-                                r = extension_has_forbidden_content(where);
-                                if (r < 0)
-                                        return r;
-                                if (r == 0) {
-                                        r = path_is_extension_tree(IMAGE_SYSEXT, where, m->image_name, FLAGS_SET(flags, DISSECT_IMAGE_RELAX_SYSEXT_CHECK));
-                                        if (r < 0)
-                                                return r;
-                                        if (r > 0)
-                                                ok = true;
-                                }
-                        }
-
-                        if (!ok)
-                                return -ENOMEDIUM;
                 }
+
+                if (!ok)
+                        return -ENOMEDIUM;
         }
 
         if (flags & DISSECT_IMAGE_MOUNT_ROOT_ONLY)
                 return 0;
 
-        r = mount_partition(PARTITION_HOME, m->partitions + PARTITION_HOME, where, "/home", uid_shift, uid_range, flags);
+        r = mount_partition(PARTITION_HOME, m->partitions + PARTITION_HOME, where, "/home", uid_shift, uid_range, userns_fd, flags);
         if (r < 0)
                 return r;
 
-        r = mount_partition(PARTITION_SRV, m->partitions + PARTITION_SRV, where, "/srv", uid_shift, uid_range, flags);
+        r = mount_partition(PARTITION_SRV, m->partitions + PARTITION_SRV, where, "/srv", uid_shift, uid_range, userns_fd, flags);
         if (r < 0)
                 return r;
 
-        r = mount_partition(PARTITION_VAR, m->partitions + PARTITION_VAR, where, "/var", uid_shift, uid_range, flags);
+        r = mount_partition(PARTITION_VAR, m->partitions + PARTITION_VAR, where, "/var", uid_shift, uid_range, userns_fd, flags);
         if (r < 0)
                 return r;
 
-        r = mount_partition(PARTITION_TMP, m->partitions + PARTITION_TMP, where, "/var/tmp", uid_shift, uid_range, flags);
+        r = mount_partition(PARTITION_TMP, m->partitions + PARTITION_TMP, where, "/var/tmp", uid_shift, uid_range, userns_fd, flags);
         if (r < 0)
                 return r;
 
-        xbootldr_mounted = mount_partition(PARTITION_XBOOTLDR, m->partitions + PARTITION_XBOOTLDR, where, "/boot", uid_shift, uid_range, flags);
+        xbootldr_mounted = mount_partition(PARTITION_XBOOTLDR, m->partitions + PARTITION_XBOOTLDR, where, "/boot", uid_shift, uid_range, userns_fd, flags);
         if (xbootldr_mounted < 0)
                 return xbootldr_mounted;
 
         if (m->partitions[PARTITION_ESP].found) {
-                int esp_done = false;
+                const char* esp_dir = NULL;
 
-                /* Mount the ESP to /efi if it exists. If it doesn't exist, use /boot instead, but only if it
-                 * exists and is empty, and we didn't already mount the XBOOTLDR partition into it. */
+                if (where && !xbootldr_mounted) {
+                        /* Mount the ESP to /efi/ if it exists. If it doesn't exist, use /boot instead, but
+                         * only if it exists and is empty, and we didn't already mount the XBOOTLDR partition
+                         * into it. */
 
-                r = chase("/efi", where, CHASE_PREFIX_ROOT, NULL, NULL);
-                if (r < 0) {
-                        if (r != -ENOENT)
-                                return r;
-
-                        /* /efi doesn't exist. Let's see if /boot is suitable then */
-
-                        if (!xbootldr_mounted) {
+                        r = chase("/efi", where, CHASE_PREFIX_ROOT, NULL, NULL);
+                        if (r < 0) {
                                 _cleanup_free_ char *p = NULL;
+
+                                if (r != -ENOENT)
+                                        return r;
+
+                                /* /efi doesn't exist. Let's see if /boot is suitable then */
 
                                 r = chase("/boot", where, CHASE_PREFIX_ROOT, &p, NULL);
                                 if (r < 0) {
                                         if (r != -ENOENT)
                                                 return r;
-                                } else if (dir_is_empty(p, /* ignore_hidden_or_backup= */ false) > 0) {
+                                } else if (dir_is_empty(p, /* ignore_hidden_or_backup= */ false) > 0)
                                         /* It exists and is an empty directory. Let's mount the ESP there. */
-                                        r = mount_partition(PARTITION_ESP, m->partitions + PARTITION_ESP, where, "/boot", uid_shift, uid_range, flags);
-                                        if (r < 0)
-                                                return r;
-
-                                        esp_done = true;
-                                }
+                                        esp_dir = "/boot";
                         }
                 }
 
-                if (!esp_done) {
-                        /* OK, let's mount the ESP now to /efi (possibly creating the dir if missing) */
+                /* OK, let's mount the ESP now to /efi (possibly creating the dir if missing) */
+                if (!esp_dir)
+                        esp_dir = "/efi";
 
-                        r = mount_partition(PARTITION_ESP, m->partitions + PARTITION_ESP, where, "/efi", uid_shift, uid_range, flags);
-                        if (r < 0)
-                                return r;
-                }
+                r = mount_partition(PARTITION_ESP, m->partitions + PARTITION_ESP, where, esp_dir, uid_shift, uid_range, userns_fd, flags);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -2162,14 +2254,14 @@ int dissected_image_mount_and_warn(
                 const char *where,
                 uid_t uid_shift,
                 uid_t uid_range,
+                int userns_fd,
                 DissectImageFlags flags) {
 
         int r;
 
         assert(m);
-        assert(where);
 
-        r = dissected_image_mount(m, where, uid_shift, uid_range, flags);
+        r = dissected_image_mount(m, where, uid_shift, uid_range, userns_fd, flags);
         if (r == -ENXIO)
                 return log_error_errno(r, "Not root file system found in image.");
         if (r == -EMEDIUMTYPE)
@@ -3310,8 +3402,9 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                 r = dissected_image_mount(
                                 m,
                                 t,
-                                UID_INVALID,
-                                UID_INVALID,
+                                /* uid_shift= */ UID_INVALID,
+                                /* uid_range= */ UID_INVALID,
+                                /* userns_fd= */ -EBADF,
                                 extra_flags |
                                 DISSECT_IMAGE_READ_ONLY |
                                 DISSECT_IMAGE_MOUNT_ROOT_ONLY |
@@ -3729,7 +3822,13 @@ int mount_image_privately_interactively(
 
         created_dir = TAKE_PTR(temp);
 
-        r = dissected_image_mount_and_warn(dissected_image, created_dir, UID_INVALID, UID_INVALID, flags);
+        r = dissected_image_mount_and_warn(
+                        dissected_image,
+                        created_dir,
+                        /* uid_shift= */ UID_INVALID,
+                        /* uid_range= */ UID_INVALID,
+                        /* userns_fd= */ -EBADF,
+                        flags);
         if (r < 0)
                 return r;
 
@@ -3849,7 +3948,13 @@ int verity_dissect_and_mount(
         if (r < 0)
                 return log_debug_errno(r, "Failed to umount under destination directory %s: %m", dest);
 
-        r = dissected_image_mount(dissected_image, dest, UID_INVALID, UID_INVALID, dissect_image_flags);
+        r = dissected_image_mount(
+                        dissected_image,
+                        dest,
+                        /* uid_shift= */ UID_INVALID,
+                        /* uid_range= */ UID_INVALID,
+                        /* userns_fd= */ -EBADF,
+                        dissect_image_flags);
         if (r < 0)
                 return log_debug_errno(r, "Failed to mount image: %m");
 
