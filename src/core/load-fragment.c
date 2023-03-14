@@ -3978,12 +3978,12 @@ int config_parse_delegate(
                 return 0;
         }
 
-        /* We either accept a boolean value, which may be used to turn on delegation for all controllers, or turn it
-         * off for all. Or it takes a list of controller names, in which case we add the specified controllers to the
-         * mask to delegate. */
+        /* We either accept a boolean value, which may be used to turn on delegation for all controllers, or
+         * turn it off for all. Or it takes a list of controller names, in which case we add the specified
+         * controllers to the mask to delegate. Delegate= enables delegation without any controllers. */
 
         if (isempty(rvalue)) {
-                /* An empty string resets controllers and set Delegate=yes. */
+                /* An empty string resets controllers and sets Delegate=yes. */
                 c->delegate = true;
                 c->delegate_controllers = 0;
                 return 0;

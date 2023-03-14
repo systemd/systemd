@@ -96,8 +96,8 @@
       system.slice                       user.slice
         /       \                          /      \
        /         \                        /        \
-      /           \              user@0.service   user@1000.service
-     /             \             Delegate=yes     Delegate=yes
+      /           \              user@42.service  user@1000.service
+     /             \             Delegate=        Delegate=yes
 a.service       b.slice                             /        \
 CPUWeight=20   DisableControllers=cpu              /          \
                  /  \                      app.slice      session.slice
@@ -115,7 +115,9 @@ CPUWeight=20   DisableControllers=cpu              /          \
         <filename>user@1000.service</filename>. Assuming that there is no futher configuration of resources
         or delegation below slices <filename>app.slice</filename> or <filename>session.slice</filename>, the
         <option>cpu</option> controller would not be enabled for units in those slices and CPU resources
-        would be further allocated using other mechanisms, e.g. based on nice levels.</para>
+        would be further allocated using other mechanisms, e.g. based on nice levels. The manager for user
+        42 has delegation enabled without any controllers, i.e. it can manipulate its subtree of the cgroup
+        hierarchy, but without resource control.</para>
 
         <para>In the slice <filename>system.slice</filename>, CPU resources are split 1:6 for service
         <filename>a.service</filename>, and 5:6 for slice <filename>b.slice</filename>, because slice
@@ -1153,19 +1155,19 @@ DeviceAllow=/dev/loop-control
 
           <para>When enabled the service manager will refrain from manipulating control groups or moving
           processes below the unit's control group, so that a clear concept of ownership is established: the
-          control group tree above the unit's control group (i.e. towards the root control group) is owned
-          and managed by the service manager of the host, while the control group tree below the unit's
-          control group is owned and managed by the unit itself.</para>
+          control group tree at the level of the unit's control group and above (i.e. towards the root
+          control group) is owned and managed by the service manager of the host, while the control group
+          tree below the unit's control group is owned and managed by the unit itself.</para>
 
-          <para>Takes either a boolean argument or a list of control group controller names. If true,
-          delegation is turned on, and all supported controllers are enabled for the unit, making them
-          available to the unit's processes for management. If false, delegation is turned off entirely (and
-          no additional controllers are enabled). If set to a list of controllers, delegation is turned on,
-          and the specified controllers are enabled for the unit. Note that additional controllers other than
-          the ones specified might be made available as well, depending on configuration of the containing
-          slice unit or other units contained in it. Note that assigning the empty string will enable
+          <para>Takes either a boolean argument or a (possibly empty) list of control group controller names.
+          If true, delegation is turned on, and all supported controllers are enabled for the unit, making
+          them available to the unit's processes for management. If false, delegation is turned off entirely
+          (and no additional controllers are enabled). If set to a list of controllers, delegation is turned
+          on, and the specified controllers are enabled for the unit. Assigning the empty string will enable
           delegation, but reset the list of controllers, and all assignments prior to this will have no
-          effect. Defaults to false.</para>
+          effect. Note that additional controllers other than the ones specified might be made available as
+          well, depending on configuration of the containing slice unit or other units contained in it.
+          Defaults to false.</para>
 
           <para>Note that controller delegation to less privileged code is only safe on the unified control
           group hierarchy. Accordingly, access to the specified controllers will not be granted to
