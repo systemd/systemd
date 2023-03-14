@@ -3591,13 +3591,16 @@ static int apply_mount_namespace(
                 const ExecContext *context,
                 const ExecParameters *params,
                 const ExecRuntime *runtime,
+                const char *memory_pressure_path,
                 char **error_path) {
 
-        _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL;
+        _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL,
+                        **read_write_paths_cleanup = NULL;
         const char *tmp_dir = NULL, *var_tmp_dir = NULL;
         const char *root_dir = NULL, *root_image = NULL;
         _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL,
                         *extension_dir = NULL;
+        char **read_write_paths;
         NamespaceInfo ns_info;
         bool needs_sandboxing;
         BindMount *bind_mounts = NULL;
@@ -3621,6 +3624,23 @@ static int apply_mount_namespace(
         r = compile_symlinks(context, params, &symlinks);
         if (r < 0)
                 goto finalize;
+
+        /* We need to make the pressure path writable even if /sys/fs/cgroups is made read-only, as the
+         * service will need to write to it in order to start the notifications. */
+        if (context->protect_control_groups && memory_pressure_path && !streq(memory_pressure_path, "/dev/null")) {
+                read_write_paths_cleanup = strv_copy(context->read_write_paths);
+                if (!read_write_paths_cleanup) {
+                        r = -ENOMEM;
+                        goto finalize;
+                }
+
+                r = strv_extend(&read_write_paths_cleanup, memory_pressure_path);
+                if (r < 0)
+                        goto finalize;
+
+                read_write_paths = read_write_paths_cleanup;
+        } else
+                read_write_paths = context->read_write_paths;
 
         needs_sandboxing = (params->flags & EXEC_APPLY_SANDBOXING) && !(command_flags & EXEC_COMMAND_FULLY_PRIVILEGED);
         if (needs_sandboxing) {
@@ -3709,7 +3729,7 @@ static int apply_mount_namespace(
                 }
 
         r = setup_namespace(root_dir, root_image, context->root_image_options,
-                            &ns_info, context->read_write_paths,
+                            &ns_info, read_write_paths,
                             needs_sandboxing ? context->read_only_paths : NULL,
                             needs_sandboxing ? context->inaccessible_paths : NULL,
                             needs_sandboxing ? context->exec_paths : NULL,
@@ -4974,7 +4994,7 @@ static int exec_child(
         if (needs_mount_namespace) {
                 _cleanup_free_ char *error_path = NULL;
 
-                r = apply_mount_namespace(unit, command->flags, context, params, runtime, &error_path);
+                r = apply_mount_namespace(unit, command->flags, context, params, runtime, memory_pressure_path, &error_path);
                 if (r < 0) {
                         *exit_status = EXIT_NAMESPACE;
                         return log_unit_error_errno(unit, r, "Failed to set up mount namespacing%s%s: %m",
