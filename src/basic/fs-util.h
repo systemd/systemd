@@ -22,7 +22,10 @@
 #define PTR_TO_MODE(p) ((mode_t) ((uintptr_t) (p)-1))
 #define MODE_TO_PTR(u) ((void *) ((uintptr_t) (u)+1))
 
-int unlink_noerrno(const char *path);
+int unlinkat_noerrno(int dir_fd, const char *path, int flags);
+static inline int unlink_noerrno(const char *path) {
+        return unlinkat_noerrno(AT_FDCWD, path, 0);
+}
 
 int rmdir_parents(const char *path, const char *stop);
 
@@ -115,6 +118,7 @@ typedef enum UnlinkDeallocateFlags {
 
 int unlinkat_deallocate(int fd, const char *name, UnlinkDeallocateFlags flags);
 
+int open_parent_at(int dir_fd, const char *path, int flags, mode_t mode);
 int open_parent(const char *path, int flags, mode_t mode);
 
 int conservative_renameat(int olddirfd, const char *oldpath, int newdirfd, const char *newpath);
