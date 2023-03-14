@@ -92,11 +92,11 @@ int chase_symlinks_at(
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
         /* Either the file may be missing, or we return an fd to the final object, but both make no sense */
-        if ((flags & CHASE_NONEXISTENT) && ret_fd)
-                return -EINVAL;
+        if ((flags & CHASE_NONEXISTENT))
+                assert(!ret_fd);
 
-        if ((flags & CHASE_STEP) && ret_fd)
-                return -EINVAL;
+        if ((flags & CHASE_STEP))
+                assert(!ret_fd);
 
         if (isempty(path))
                 path = ".";
@@ -554,8 +554,7 @@ int chase_symlinks_and_open(
         const char *q;
         int r;
 
-        if (chase_flags & (CHASE_NONEXISTENT|CHASE_STEP))
-                return -EINVAL;
+        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
 
         if (empty_or_root(root) && !ret_path &&
             (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
@@ -602,10 +601,8 @@ int chase_symlinks_and_opendir(
         DIR *d;
         int r;
 
-        if (!ret_dir)
-                return -EINVAL;
-        if (chase_flags & (CHASE_NONEXISTENT|CHASE_STEP))
-                return -EINVAL;
+        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
+        assert(ret_dir);
 
         if (empty_or_root(root) && !ret_path &&
             (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0) {
@@ -646,9 +643,8 @@ int chase_symlinks_and_stat(
         int r;
 
         assert(path);
-
-        if (chase_flags & (CHASE_NONEXISTENT|CHASE_STEP))
-                return -EINVAL;
+        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
+        assert(ret_stat);
 
         if (empty_or_root(root) && !ret_path &&
             (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0) {
@@ -686,9 +682,7 @@ int chase_symlinks_and_access(
         int r;
 
         assert(path);
-
-        if (chase_flags & (CHASE_NONEXISTENT|CHASE_STEP))
-                return -EINVAL;
+        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
 
         if (empty_or_root(root) && !ret_path &&
             (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0) {
@@ -728,6 +722,7 @@ int chase_symlinks_and_fopen_unlocked(
         int mode_flags, r;
 
         assert(path);
+        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_PARENT)));
         assert(open_flags);
         assert(ret_file);
 
@@ -761,6 +756,7 @@ int chase_symlinks_and_unlink(
         int r;
 
         assert(path);
+        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_PARENT)));
 
         fd = chase_symlinks_and_open(path, root, chase_flags|CHASE_PARENT|CHASE_NOFOLLOW, O_PATH|O_DIRECTORY|O_CLOEXEC, &p);
         if (fd < 0)
@@ -791,8 +787,7 @@ int chase_symlinks_at_and_open(
         mode_t mode = open_flags & O_DIRECTORY ? 0755 : 0644;
         int r;
 
-        if (chase_flags & (CHASE_NONEXISTENT|CHASE_STEP))
-                return -EINVAL;
+        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
 
         if (dir_fd == AT_FDCWD && !ret_path &&
             (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
