@@ -93,7 +93,7 @@ int manager_new(Manager **ret) {
                 .listen_fd = -EBADF,
                 .worker_ratelimit = {
                         .interval = 2 * USEC_PER_SEC,
-                        .burst = 2500,
+                        .burst = 250,
                 },
                 .registry_fd = -EBADF,
         };
@@ -214,7 +214,8 @@ static int start_one_worker(Manager *m) {
                         _exit(EXIT_FAILURE);
                 }
 
-                /* execl("/home/lennart/projects/systemd/build/systemd-userwork", "systemd-userwork", "xxxxxxxxxxxxxxxx", NULL); /\* With some extra space rename_process() can make use of *\/ */
+                // FIXME
+                execl("/home/lennart/projects/systemd/build/systemd-userwork", "systemd-userwork", "xxxxxxxxxxxxxxxx", NULL); /* With some extra space rename_process() can make use of */
                 /* execl("/usr/bin/valgrind", "valgrind", "/home/lennart/projects/systemd/build/systemd-userwork", "systemd-userwork", "xxxxxxxxxxxxxxxx", NULL); /\* With some extra space rename_process() can make use of *\/ */
 
                 execl(SYSTEMD_USERWORK_PATH, "systemd-userwork", "xxxxxxxxxxxxxxxx", NULL); /* With some extra space rename_process() can make use of */

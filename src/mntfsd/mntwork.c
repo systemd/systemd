@@ -516,6 +516,7 @@ static int run(int argc, char *argv[]) {
         int m, listen_fd, r;
 
         log_setup();
+        log_set_max_level(LOG_DEBUG);
 
         m = sd_listen_fds(false);
         if (m < 0)
