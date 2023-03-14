@@ -116,3 +116,5 @@ int remount_sysfs(const char *where);
 /* Creates a mount point (not parents) based on the source path or stat - ie, a file or a directory */
 int make_mount_point_inode_from_stat(const struct stat *st, const char *dest, mode_t mode);
 int make_mount_point_inode_from_path(const char *source, const char *dest, mode_t mode);
+
+int make_fsmount(int error_log_level, const char *what, const char *type, unsigned long flags, const char *options, int userns_fd);
