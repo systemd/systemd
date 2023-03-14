@@ -864,3 +864,15 @@ int fd_get_diskseq(int fd, uint64_t *ret) {
 
         return 0;
 }
+
+int dir_fd_is_root(int dir_fd) {
+        struct stat st, rst;
+
+        assert(dir_fd >= 0);
+
+        if (fstat(dir_fd, &st) < 0 || lstat("/", &rst) < 0)
+                return -errno;
+
+        /* If we opened the same directory, that means the directory fd points to the host root directory */
+        return stat_inode_same(&st, &rst);
+}
