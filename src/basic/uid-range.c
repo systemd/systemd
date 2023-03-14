@@ -253,3 +253,23 @@ int uid_range_load_userns(UIDRange **ret, const char *path) {
         *ret = TAKE_PTR(range);
         return 0;
 }
+
+bool uid_range_overlaps(const UIDRange *range, uid_t start, uid_t nr) {
+
+        if (!range)
+                return false;
+
+        /* Avoid overflow */
+        if (start > UINT32_MAX - nr)
+                nr = UINT32_MAX - start;
+
+        if (nr == 0)
+                return false;
+
+        FOREACH_ARRAY(entry, range->entries, range->n_entries)
+                if (start < entry->start + entry->nr &&
+                    start + nr >= entry->start)
+                        return true;
+
+        return false;
+}
