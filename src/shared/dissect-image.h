@@ -35,6 +35,7 @@ struct DissectedPartition {
         uint64_t size;
         uint64_t offset;
         uint64_t gpt_flags;
+        int fsmount_fd;
 };
 
 #define DISSECTED_PARTITION_NULL                                        \
@@ -42,6 +43,7 @@ struct DissectedPartition {
                 .partno = -1,                                           \
                 .architecture = _ARCHITECTURE_INVALID,                  \
                 .mount_node_fd = -EBADF,                                \
+                .fsmount_fd = -EBADF,                                   \
         })
 #define TAKE_PARTITION(p)                                       \
         ({                                                      \
@@ -158,8 +160,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DissectedImage*, dissected_image_unref);
 
 int dissected_image_decrypt(DissectedImage *m, const char *passphrase, const VeritySettings *verity, DissectImageFlags flags);
 int dissected_image_decrypt_interactively(DissectedImage *m, const char *passphrase, const VeritySettings *verity, DissectImageFlags flags);
-int dissected_image_mount(DissectedImage *m, const char *dest, uid_t uid_shift, uid_t uid_range, DissectImageFlags flags);
-int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t uid_shift, uid_t uid_range, DissectImageFlags flags);
+int dissected_image_mount(DissectedImage *m, const char *dest, uid_t uid_shift, uid_t uid_range, int userns_fd, DissectImageFlags flags);
+int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t uid_shift, uid_t uid_range, int userns_fd, DissectImageFlags flags);
 
 int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_flags);
 
