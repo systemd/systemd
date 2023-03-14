@@ -828,7 +828,13 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
         }
 
         if (idmapping != REMOUNT_IDMAPPING_NONE) {
-                r = remount_idmap(where, uid_shift, uid_range, source_st.st_uid, idmapping);
+                _cleanup_close_ int userns_fd = -EBADF;
+
+                userns_fd = make_userns(uid_shift, uid_range, source_st.st_uid, idmapping);
+                if (userns_fd < 0)
+                        return log_error_errno(r, "Failed to allocate user namespace: %m");
+
+                r = remount_idmap(where, userns_fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to map ids for bind mount %s: %m", where);
         }
