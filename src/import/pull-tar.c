@@ -275,7 +275,6 @@ static int tar_pull_make_local_copy(TarPull *i) {
                                 i->settings_path,
                                 local_settings,
                                 0664,
-                                0, 0,
                                 COPY_REFLINK |
                                 (FLAGS_SET(i->flags, PULL_FORCE) ? COPY_REPLACE : 0) |
                                 (FLAGS_SET(i->flags, PULL_SYNC) ? COPY_FSYNC_FULL : 0));
