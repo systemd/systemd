@@ -29,7 +29,6 @@ Conflicts=shutdown.target
 [Service]
 Type=oneshot
 ExecStart={{ROOTLIBEXECDIR}}/systemd-time-wait-sync
-TimeoutStartSec=infinity
 RemainAfterExit=yes
 
 [Install]
