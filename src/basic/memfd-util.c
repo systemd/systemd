@@ -20,6 +20,17 @@
 #include "string-util.h"
 #include "utf8.h"
 
+int memfd_create_wrapper(const char *name, unsigned mode) {
+        int mfd;
+
+        mfd = memfd_create(name, mode);
+
+        if (mfd < 0 && errno == EINVAL)
+                mfd = memfd_create(name, mode & ~(MFD_EXEC | MFD_NOEXEC_SEAL));
+
+        return mfd;
+}
+
 int memfd_new(const char *name) {
         _cleanup_free_ char *g = NULL;
 
