@@ -2367,11 +2367,6 @@ static EFI_STATUS image_start(
                         return log_error_status(err, "Error loading %ls: %m", entry->devicetree);
         }
 
-        _cleanup_(cleanup_initrd) InitrdLoader *initrd_loader = NULL;
-        err = initrd_register(initrd, initrd_size, &initrd_loader);
-        if (err != EFI_SUCCESS)
-                return log_error_status(err, "Error registering initrd: %m");
-
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
         if (err != EFI_SUCCESS)
@@ -2386,6 +2381,23 @@ static EFI_STATUS image_start(
                 (void) tpm_log_load_options(options, NULL);
         }
 
+        uint32_t compat_address = 0;
+        bool supports_initrd_lf2_protocol = false;
+        if (entry->type == LOADER_LINUX) {
+                err = pe_kernel_info(loaded_image->ImageBase, &compat_address, &supports_initrd_lf2_protocol);
+                if (!IN_SET(err, EFI_SUCCESS, EFI_UNSUPPORTED))
+                        return log_error_status(err, "Error finding kernel compat entry address: %m");
+        }
+
+        _cleanup_(cleanup_initrd) InitrdLoader *initrd_loader = NULL;
+        err = initrd_register(
+                        initrd,
+                        initrd_size,
+                        supports_initrd_lf2_protocol ? image : NULL,
+                        &initrd_loader);
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Error registering initrd: %m");
+
         efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeExecUSec", 0);
         err = BS->StartImage(image, NULL, NULL);
         graphics_mode(false);
@@ -2393,23 +2405,14 @@ static EFI_STATUS image_start(
                 return EFI_SUCCESS;
 
         /* Try calling the kernel compat entry point if one exists. */
-        if (err == EFI_UNSUPPORTED && entry->type == LOADER_LINUX) {
-                uint32_t compat_address;
-
-                err = pe_kernel_info(loaded_image->ImageBase, &compat_address);
-                if (err != EFI_SUCCESS) {
-                        if (err != EFI_UNSUPPORTED)
-                                return log_error_status(err, "Error finding kernel compat entry address: %m");
-                } else if (compat_address > 0) {
-                        EFI_IMAGE_ENTRY_POINT kernel_entry =
+        if (err == EFI_UNSUPPORTED && compat_address > 0) {
+                EFI_IMAGE_ENTRY_POINT kernel_entry =
                                 (EFI_IMAGE_ENTRY_POINT) ((uint8_t *) loaded_image->ImageBase + compat_address);
 
-                        err = kernel_entry(image, ST);
-                        graphics_mode(false);
-                        if (err == EFI_SUCCESS)
-                                return EFI_SUCCESS;
-                } else
-                        err = EFI_UNSUPPORTED;
+                err = kernel_entry(image, ST);
+                graphics_mode(false);
+                if (err == EFI_SUCCESS)
+                        return EFI_SUCCESS;
         }
 
         return log_error_status(err, "Failed to execute %ls (%ls): %m", entry->title_show, entry->loader);

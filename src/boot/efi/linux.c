@@ -100,12 +100,13 @@ EFI_STATUS linux_exec(
 
         uint32_t compat_address;
         EFI_STATUS err;
+        bool supports_initrd_lf2_protocol = false;
 
         assert(parent);
         assert(linux_buffer && linux_length > 0);
         assert(initrd_buffer || initrd_length == 0);
 
-        err = pe_kernel_info(linux_buffer, &compat_address);
+        err = pe_kernel_info(linux_buffer, &compat_address, &supports_initrd_lf2_protocol);
 #if defined(__i386__) || defined(__x86_64__)
         if (err == EFI_UNSUPPORTED)
                 /* Kernel is too old to support LINUX_EFI_INITRD_MEDIA, try the deprecated EFI handover
@@ -138,7 +139,11 @@ EFI_STATUS linux_exec(
         }
 
         _cleanup_(cleanup_initrd) InitrdLoader *initrd_loader = NULL;
-        err = initrd_register(initrd_buffer, initrd_length, &initrd_loader);
+        err = initrd_register(
+                        initrd_buffer,
+                        initrd_length,
+                        supports_initrd_lf2_protocol ? kernel_image : NULL,
+                        &initrd_loader);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error registering initrd: %m");
 
