@@ -41,9 +41,15 @@ typedef enum DenyType {
 typedef int (*copy_progress_bytes_t)(uint64_t n_bytes, void *userdata);
 typedef int (*copy_progress_path_t)(const char *path, const struct stat *st, void *userdata);
 
-int copy_file_fd_full(const char *from, int to, CopyFlags copy_flags, copy_progress_bytes_t progress, void *userdata);
+int copy_file_fd_at_full(int dir_fdf, const char *from, int to, CopyFlags copy_flags, copy_progress_bytes_t progress, void *userdata);
+static inline int copy_file_fd_at(int dir_fdf, const char *from, int to, CopyFlags copy_flags, copy_progress_bytes_t progress, void *userdata) {
+        return copy_file_fd_at_full(dir_fdf, from, to, copy_flags, progress, userdata);
+}
+static inline int copy_file_fd_full(const char *from, int to, CopyFlags copy_flags) {
+        return copy_file_fd_at_full(AT_FDCWD, from, to, copy_flags, NULL, NULL);
+}
 static inline int copy_file_fd(const char *from, int to, CopyFlags copy_flags) {
-        return copy_file_fd_full(from, to, copy_flags, NULL, NULL);
+        return copy_file_fd_at(AT_FDCWD, from, to, copy_flags, NULL, NULL);
 }
 
 int copy_file_at_full(int dir_fdf, const char *from, int dir_fdt, const char *to, int open_flags, mode_t mode, unsigned chattr_flags, unsigned chattr_mask, CopyFlags copy_flags, copy_progress_bytes_t progress, void *userdata);
@@ -57,7 +63,13 @@ static inline int copy_file(const char *from, const char *to, int open_flags, mo
         return copy_file_at(AT_FDCWD, from, AT_FDCWD, to, open_flags, mode, copy_flags);
 }
 
-int copy_file_atomic_full(const char *from, const char *to, mode_t mode, unsigned chattr_flags, unsigned chattr_mask, CopyFlags copy_flags, copy_progress_bytes_t progress, void *userdata);
+int copy_file_atomic_at_full(int dir_fdf, const char *from, int dir_fdt, const char *to, mode_t mode, unsigned chattr_flags, unsigned chattr_mask, CopyFlags copy_flags, copy_progress_bytes_t progress, void *userdata);
+static inline int copy_file_atomic_at(int dir_fdf, const char *from, int dir_fdt, const char *to, mode_t mode, CopyFlags copy_flags) {
+        return copy_file_atomic_at_full(dir_fdf, from, dir_fdt, to, mode, 0, 0, copy_flags, NULL, NULL);
+}
+static inline int copy_file_atomic_full(const char *from, const char *to, mode_t mode, unsigned chattr_flags, unsigned chattr_mask, CopyFlags copy_flags, copy_progress_bytes_t progress, void *userdata) {
+        return copy_file_atomic_at_full(AT_FDCWD, from, AT_FDCWD, to, mode, 0, 0, copy_flags, NULL, NULL);
+}
 static inline int copy_file_atomic(const char *from, const char *to, mode_t mode, CopyFlags copy_flags) {
         return copy_file_atomic_full(from, to, mode, 0, 0, copy_flags, NULL, NULL);
 }
