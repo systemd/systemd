@@ -100,7 +100,7 @@ void release_lock_file(LockFile *f) {
                         f->operation = LOCK_EX|LOCK_NB;
 
                 if ((f->operation & ~LOCK_NB) == LOCK_EX)
-                        unlink_noerrno(f->path);
+                        (void) unlink(f->path);
 
                 f->path = mfree(f->path);
         }
