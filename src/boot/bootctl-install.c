@@ -262,13 +262,14 @@ static int copy_file_with_version_check(const char *from, const char *to, bool f
 
         r = fsync_full(fd_to);
         if (r < 0) {
-                (void) unlink_noerrno(t);
+                (void) unlink(t);
                 return log_error_errno(r, "Failed to copy data from \"%s\" to \"%s\": %m", from, t);
         }
 
-        if (renameat(AT_FDCWD, t, AT_FDCWD, to) < 0) {
-                (void) unlink_noerrno(t);
-                return log_error_errno(errno, "Failed to rename \"%s\" to \"%s\": %m", t, to);
+        r = RET_NERRNO(renameat(AT_FDCWD, t, AT_FDCWD, to));
+        if (r < 0) {
+                (void) unlink(t);
+                return log_error_errno(r, "Failed to rename \"%s\" to \"%s\": %m", t, to);
         }
 
         log_info("Copied \"%s\" to \"%s\".", from, to);
