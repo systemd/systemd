@@ -716,7 +716,7 @@ static const sd_bus_vtable locale_vtable[] = {
         SD_BUS_PROPERTY("VConsoleKeymapToggle", "s", property_get_vconsole, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
 
         SD_BUS_METHOD_WITH_ARGS("SetLocale",
-                                SD_BUS_ARGS("a", locale, "sb", interactive),
+                                SD_BUS_ARGS("as", locale, "b", interactive),
                                 SD_BUS_NO_RESULT,
                                 method_set_locale,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
