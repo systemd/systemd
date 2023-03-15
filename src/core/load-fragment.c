@@ -202,7 +202,7 @@ bool contains_instance_specifier_superset(const char *s) {
                 return false;
 
         /* %i, %n and %N all expand to the instance or a superset of it. */
-        for (; p < q; p++) {
+        for (; p < q; p++)
                 if (*p == '%')
                         percent = !percent;
                 else if (percent) {
@@ -210,7 +210,6 @@ bool contains_instance_specifier_superset(const char *s) {
                                 return true;
                         percent = false;
                 }
-        }
 
         return false;
 }
@@ -4382,15 +4381,13 @@ int config_parse_io_limit(
                 }
 
         if (!l) {
-                CGroupIOLimitType ttype;
-
                 l = new0(CGroupIODeviceLimit, 1);
                 if (!l)
                         return log_oom();
 
                 l->path = TAKE_PTR(resolved);
-                for (ttype = 0; ttype < _CGROUP_IO_LIMIT_TYPE_MAX; ttype++)
-                        l->limits[ttype] = cgroup_io_limit_defaults[ttype];
+                for (CGroupIOLimitType i = 0; i < _CGROUP_IO_LIMIT_TYPE_MAX; i++)
+                        l->limits[i] = cgroup_io_limit_defaults[i];
 
                 LIST_PREPEND(device_limits, c->io_device_limits, l);
         }
