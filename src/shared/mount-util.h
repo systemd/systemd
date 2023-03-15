@@ -103,7 +103,9 @@ typedef enum RemountIdmapping {
         _REMOUNT_IDMAPPING_INVALID = -EINVAL,
 } RemountIdmapping;
 
-int remount_idmap(const char *p, uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping idmapping);
+int make_userns(uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping idmapping);
+
+int remount_idmap(const char *p, int userns_fd);
 
 int remount_and_move_sub_mounts(
                 const char *what,
@@ -116,3 +118,5 @@ int remount_sysfs(const char *where);
 /* Creates a mount point (not parents) based on the source path or stat - ie, a file or a directory */
 int make_mount_point_inode_from_stat(const struct stat *st, const char *dest, mode_t mode);
 int make_mount_point_inode_from_path(const char *source, const char *dest, mode_t mode);
+
+int make_fsmount(int error_log_level, const char *what, const char *type, unsigned long flags, const char *options, int userns_fd);
