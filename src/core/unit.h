@@ -1078,7 +1078,13 @@ Condition *unit_find_failed_condition(Unit *u);
         ({                                                              \
                 const Unit *_u = (unit);                                \
                 const int _l = (level);                                 \
-                (log_get_max_level() < LOG_PRI(_l) || (_u && !unit_log_level_test(_u, _l))) ? -ERRNO_VALUE(error) : \
+                bool _do_log = !(log_get_max_level() < LOG_PRI(_l) ||   \
+                        (_u && !unit_log_level_test(_u, _l)));          \
+                const ExecContext *_c = _do_log && _u ?                 \
+                        unit_get_exec_context(_u) : NULL;               \
+                LOG_CONTEXT_PUSH_IOV(_c ? _c->log_extra_fields : NULL,  \
+                                     _c ? _c->n_log_extra_fields : 0);  \
+                !_do_log ? -ERRNO_VALUE(error) :                        \
                         _u ? log_object_internal(_l, error, PROJECT_FILE, __LINE__, __func__, _u->manager->unit_log_field, _u->id, _u->manager->invocation_log_field, _u->invocation_id_string, ##__VA_ARGS__) : \
                                 log_internal(_l, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
         })
@@ -1116,7 +1122,12 @@ Condition *unit_find_failed_condition(Unit *u);
         ({                                                              \
                 const Unit *_u = (unit);                                \
                 const int _l = (level);                                 \
-                unit_log_level_test(_u, _l) ?                           \
+                bool _do_log = unit_log_level_test(_u, _l);             \
+                const ExecContext *_c = _do_log && _u ?                 \
+                        unit_get_exec_context(_u) : NULL;               \
+                LOG_CONTEXT_PUSH_IOV(_c ? _c->log_extra_fields : NULL,  \
+                                     _c ? _c->n_log_extra_fields : 0);  \
+                _do_log ?                                               \
                         log_struct_errno(_l, error, __VA_ARGS__, LOG_UNIT_ID(_u)) : \
                         -ERRNO_VALUE(error);                            \
         })
@@ -1125,8 +1136,14 @@ Condition *unit_find_failed_condition(Unit *u);
 
 #define log_unit_struct_iovec_errno(unit, level, error, iovec, n_iovec) \
         ({                                                              \
+                const Unit *_u = (unit);                                \
                 const int _l = (level);                                 \
-                unit_log_level_test(unit, _l) ?                         \
+                bool _do_log = unit_log_level_test(_u, _l);             \
+                const ExecContext *_c = _do_log && _u ?                 \
+                        unit_get_exec_context(_u) : NULL;               \
+                LOG_CONTEXT_PUSH_IOV(_c ? _c->log_extra_fields : NULL,  \
+                                     _c ? _c->n_log_extra_fields : 0);  \
+                _do_log ?                                               \
                         log_struct_iovec_errno(_l, error, iovec, n_iovec) : \
                         -ERRNO_VALUE(error);                            \
         })

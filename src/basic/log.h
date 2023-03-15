@@ -461,10 +461,12 @@ LogContext* log_context_attach(LogContext *c);
 LogContext* log_context_detach(LogContext *c);
 
 LogContext* log_context_new(char **fields, bool owned);
+LogContext* log_context_newv(struct iovec *input_iovec, size_t n_input_iovec, bool owned);
 LogContext* log_context_free(LogContext *c);
 
-/* Same as log_context_new(), but frees the given fields strv on failure. */
+/* Same as log_context_new(), but frees the given fields strv/iovec on failure. */
 LogContext* log_context_new_consume(char **fields);
+LogContext* log_context_new_consumev(struct iovec *input_iovec, size_t n_input_iovec);
 
 /* Returns the number of attached log context objects. */
 size_t log_context_num_contexts(void);
@@ -486,8 +488,15 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(LogContext*, log_context_free);
 #define LOG_CONTEXT_PUSH_STRV(strv) \
         _LOG_CONTEXT_PUSH_STRV(strv, UNIQ_T(c, UNIQ))
 
-/* LOG_CONTEXT_CONSUME_STR()/LOG_CONTEXT_CONSUME_STRV() are identical to
- * LOG_CONTEXT_PUSH_STR()/LOG_CONTEXT_PUSH_STRV() except they take ownership of the given str/strv argument.
+#define _LOG_CONTEXT_PUSH_IOV(input_iovec, n_input_iovec, c) \
+        _unused_ _cleanup_(log_context_freep) LogContext *c = log_context_newv(input_iovec, n_input_iovec, /*owned=*/ false);
+
+#define LOG_CONTEXT_PUSH_IOV(input_iovec, n_input_iovec) \
+        _LOG_CONTEXT_PUSH_IOV(input_iovec, n_input_iovec, UNIQ_T(c, UNIQ))
+
+/* LOG_CONTEXT_CONSUME_STR()/LOG_CONTEXT_CONSUME_STRV()/LOG_CONTEXT_CONSUME_IOV() are identical to
+ * LOG_CONTEXT_PUSH_STR()/LOG_CONTEXT_PUSH_STRV()/LOG_CONTEXT_PUSH_IOV() except they take ownership of the
+ * given str/strv argument.
  */
 
 #define _LOG_CONTEXT_CONSUME_STR(s, c, strv) \
@@ -504,3 +513,9 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(LogContext*, log_context_free);
 
 #define LOG_CONTEXT_CONSUME_STRV(strv) \
         _LOG_CONTEXT_CONSUME_STRV(strv, UNIQ_T(c, UNIQ))
+
+#define _LOG_CONTEXT_CONSUME_IOV(input_iovec, n_input_iovec, c) \
+        _unused_ _cleanup_(log_context_freep) LogContext *c = log_context_new_consumev(input_iovec, n_input_iovec);
+
+#define LOG_CONTEXT_CONSUME_IOV(input_iovec, n_input_iovec) \
+        _LOG_CONTEXT_CONSUME_IOV(input_iovec, n_input_iovec, UNIQ_T(c, UNIQ))
