@@ -126,6 +126,12 @@ EOF
 
             mksquashfs /tmp/minimal_0 /tmp/minimal_0.raw
 
+            # DBG
+            keyctl list %keyring:.fs-verity
+            fsverity digest --hash-alg=sha256 --for-builtin-sig --compact /tmp/minimal_0/usr/lib/systemd/system/minimal-app0.service
+            file /tmp/minimal_0/usr/lib/systemd/system/minimal-app0.service.p7s
+            ls -lh /tmp/minimal_0/usr/lib/systemd/system/minimal-app0.service.p7s
+
             timeout "$TIMEOUT" portablectl "${ARGS[@]}" attach --copy=symlink --now /tmp/minimal_0.raw minimal-app0
 
             systemctl is-active minimal-app0.service
