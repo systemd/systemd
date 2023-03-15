@@ -715,33 +715,21 @@ static const sd_bus_vtable locale_vtable[] = {
         SD_BUS_PROPERTY("VConsoleKeymap", "s", property_get_vconsole, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("VConsoleKeymapToggle", "s", property_get_vconsole, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
 
-        SD_BUS_METHOD_WITH_NAMES("SetLocale",
-                                 "asb",
-                                 SD_BUS_PARAM(locale)
-                                 SD_BUS_PARAM(interactive),
-                                 NULL,,
-                                 method_set_locale,
-                                 SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD_WITH_NAMES("SetVConsoleKeyboard",
-                                 "ssbb",
-                                 SD_BUS_PARAM(keymap)
-                                 SD_BUS_PARAM(keymap_toggle)
-                                 SD_BUS_PARAM(convert)
-                                 SD_BUS_PARAM(interactive),
-                                 NULL,,
-                                 method_set_vc_keyboard,
-                                 SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD_WITH_NAMES("SetX11Keyboard",
-                                 "ssssbb",
-                                 SD_BUS_PARAM(layout)
-                                 SD_BUS_PARAM(model)
-                                 SD_BUS_PARAM(variant)
-                                 SD_BUS_PARAM(options)
-                                 SD_BUS_PARAM(convert)
-                                 SD_BUS_PARAM(interactive),
-                                 NULL,,
-                                 method_set_x11_keyboard,
-                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetLocale",
+                                SD_BUS_ARGS("as", locale, "b", interactive),
+                                SD_BUS_NO_RESULT,
+                                method_set_locale,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetVConsoleKeyboard",
+                                SD_BUS_ARGS("s", keymap, "s", keymap_toggle, "b", convert, "b", interactive),
+                                SD_BUS_NO_RESULT,
+                                method_set_vc_keyboard,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetX11Keyboard",
+                                SD_BUS_ARGS("s", layout, "s", model, "s", variant, "s", options, "b", convert, "b", interactive),
+                                SD_BUS_NO_RESULT,
+                                method_set_x11_keyboard,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_VTABLE_END
 };
