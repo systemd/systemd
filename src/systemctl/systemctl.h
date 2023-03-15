@@ -5,6 +5,7 @@
 
 #include "bus-print-properties.h"
 #include "bus-util.h"
+#include "image-policy.h"
 #include "install.h"
 #include "output-mode.h"
 #include "pager.h"
@@ -100,6 +101,7 @@ extern bool arg_read_only;
 extern bool arg_mkdir;
 extern bool arg_marked;
 extern const char *arg_drop_in;
+extern ImagePolicy *arg_image_policy;
 
 static inline const char* arg_job_mode(void) {
         return _arg_job_mode ?: "replace";

@@ -38,6 +38,7 @@
 #include "analyze-unit-paths.h"
 #include "analyze-compare-versions.h"
 #include "analyze-verify.h"
+#include "analyze-image-policy.h"
 #include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -108,6 +109,7 @@ bool arg_quiet = false;
 char *arg_profile = NULL;
 bool arg_legend = true;
 bool arg_table = false;
+ImagePolicy *arg_image_policy = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_dot_from_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_dot_to_patterns, strv_freep);
@@ -116,6 +118,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_security_policy, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_unit, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_profile, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 int acquire_bus(sd_bus **bus, bool *use_full_bus) {
         int r;
@@ -266,6 +269,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -q --quiet                 Do not emit hints\n"
                "     --root=PATH             Operate on an alternate filesystem root\n"
                "     --image=PATH            Operate on disk image as filesystem root\n"
+               "     --image-policy=POLICY   Specify disk image dissection policy\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -305,6 +309,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PROFILE,
                 ARG_TABLE,
                 ARG_NO_LEGEND,
+                ARG_IMAGE_POLICY,
         };
 
         static const struct option options[] = {
@@ -337,6 +342,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "profile",          required_argument, NULL, ARG_PROFILE          },
                 { "table",            optional_argument, NULL, ARG_TABLE            },
                 { "no-legend",        optional_argument, NULL, ARG_NO_LEGEND        },
+                { "image-policy",     required_argument, NULL, ARG_IMAGE_POLICY     },
                 {}
         };
 
@@ -520,6 +526,18 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_legend = false;
                         break;
 
+                case ARG_IMAGE_POLICY: {
+                        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
+
+                        r = image_policy_from_string(optarg, &p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse image policy: %s", optarg);
+
+                        image_policy_free(arg_image_policy);
+                        arg_image_policy = TAKE_PTR(p);
+                        break;
+                }
+
                 case '?':
                         return -EINVAL;
 
@@ -620,6 +638,7 @@ static int run(int argc, char *argv[]) {
                 { "security",          VERB_ANY, VERB_ANY, 0,            verb_security          },
                 { "inspect-elf",       2,        VERB_ANY, 0,            verb_elf_inspection    },
                 { "malloc",            VERB_ANY, VERB_ANY, 0,            verb_malloc            },
+                { "image-policy",      2,        2,        0,            verb_image_policy      },
                 {}
         };
 
@@ -640,6 +659,7 @@ static int run(int argc, char *argv[]) {
 
                 r = mount_image_privately_interactively(
                                 arg_image,
+                                arg_image_policy,
                                 DISSECT_IMAGE_GENERIC_ROOT |
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |
                                 DISSECT_IMAGE_READ_ONLY,

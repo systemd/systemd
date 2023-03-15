@@ -12,6 +12,7 @@ systemd_analyze_sources = files(
         'analyze-dump.c',
         'analyze-exit-status.c',
         'analyze-filesystems.c',
+        'analyze-image-policy.c',
         'analyze-inspect-elf.c',
         'analyze-log-control.c',
         'analyze-malloc.c',
