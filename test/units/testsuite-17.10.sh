@@ -137,6 +137,7 @@ udevadm test-builtin uaccess /dev/null
 if ! [[ -v ASAN_OPTIONS && "$(systemd-detect-virt -v)" == "qemu" ]]; then
     modprobe scsi_debug
     scsidev=$(readlink -f /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/[0-9]*)
+    mkdir -p /etc/udev/hwdb.d
     cat >/etc/udev/hwdb.d/99-test.hwdb <<EOF
 scsi:*
   ID_TEST=test
