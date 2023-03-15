@@ -33,11 +33,6 @@
 #include "umask-util.h"
 #include "user-util.h"
 
-int unlink_noerrno(const char *path) {
-        PROTECT_ERRNO;
-        return RET_NERRNO(unlink(path));
-}
-
 int rmdir_parents(const char *path, const char *stop) {
         char *p;
         int r;
@@ -674,7 +669,7 @@ void unlink_tempfilep(char (*p)[]) {
          * successfully created. We ignore both the rare case where the
          * original suffix is used and unlink failures. */
         if (!endswith(*p, ".XXXXXX"))
-                (void) unlink_noerrno(*p);
+                (void) unlink(*p);
 }
 
 int unlinkat_deallocate(int fd, const char *name, UnlinkDeallocateFlags flags) {
