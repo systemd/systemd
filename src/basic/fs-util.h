@@ -22,8 +22,6 @@
 #define PTR_TO_MODE(p) ((mode_t) ((uintptr_t) (p)-1))
 #define MODE_TO_PTR(u) ((void *) ((uintptr_t) (u)+1))
 
-int unlink_noerrno(const char *path);
-
 int rmdir_parents(const char *path, const char *stop);
 
 int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath);
@@ -99,7 +97,7 @@ static inline char* unlink_and_free(char *p) {
         if (!p)
                 return NULL;
 
-        (void) unlink_noerrno(p);
+        (void) unlink(p);
         return mfree(p);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, unlink_and_free);
