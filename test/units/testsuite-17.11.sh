@@ -9,9 +9,9 @@ set -o pipefail
 . "$(dirname "$0")"/assert.sh
 
 cleanup() {
-        cd /
-        rm -rf "${workdir}"
-        workdir=
+    cd /
+    rm -rf "${workdir}"
+    workdir=
 }
 
 workdir="$(mktemp -d)"
@@ -23,35 +23,35 @@ rules=
 exp=
 err=
 next_test_number() {
-        : $((++test_number))
+    : $((++test_number))
 
-        local num_str
-        num_str=$(printf %05d "${test_number}")
+    local num_str
+    num_str=$(printf %05d "${test_number}")
 
-        rules="sample-${num_str}.rules"
-        exp="sample-${num_str}.exp"
-        err="sample-${num_str}.err"
+    rules="sample-${num_str}.rules"
+    exp="sample-${num_str}.exp"
+    err="sample-${num_str}.err"
 }
 
 assert_0() {
-        assert_rc 0 udevadm verify "$@"
-        next_test_number
+    assert_rc 0 udevadm verify "$@"
+    next_test_number
 }
 
 assert_1() {
-        if [ -f "${exp}" ]; then
-                set +e
-                udevadm verify "$@" 2>"${err}"
-                assert_eq "$?" 1
-                set -e
-                diff "${exp}" "${err}"
-        else
-                set +e
-                udevadm verify "$@"
-                assert_eq "$?" 1
-                set -e
-        fi
-        next_test_number
+    if [ -f "${exp}" ]; then
+        set +e
+        udevadm verify "$@" 2>"${err}"
+        assert_eq "$?" 1
+        set -e
+        diff "${exp}" "${err}"
+    else
+        set +e
+        udevadm verify "$@"
+        assert_eq "$?" 1
+        set -e
+    fi
+    next_test_number
 }
 
 assert_0 -h
@@ -100,9 +100,9 @@ echo "Failed to parse rules file ${rules}: No buffer space available" >"${exp}"
 assert_1 "${rules}"
 
 {
-  printf 'RUN+="/bin/true"%8175s\\\n' ' '
-  printf 'RUN+="/bin/false"%8174s\\\n' ' '
-  echo
+    printf 'RUN+="/bin/true"%8175s\\\n' ' '
+    printf 'RUN+="/bin/false"%8174s\\\n' ' '
+    echo
 } >"${rules}"
 assert_0 "${rules}"
 
@@ -122,16 +122,17 @@ EOF
 assert_1 "${rules}"
 
 test_syntax_error() {
-        local rule msg
-        rule="$1"; shift
-        msg="$1"; shift
+    local rule msg
 
-        printf '%s\n' "${rule}" >"${rules}"
-        cat >"${exp}" <<EOF
+    rule="$1"; shift
+    msg="$1"; shift
+
+    printf '%s\n' "${rule}" >"${rules}"
+    cat >"${exp}" <<EOF
 ${rules}:1 ${msg}
 ${rules}: udev rules check failed
 EOF
-        assert_1 "${rules}"
+    assert_1 "${rules}"
 }
 
 test_syntax_error '=' 'Invalid key/value pair, ignoring.'
@@ -243,11 +244,11 @@ test_syntax_error 'KERNEL=="", KERNEL=="?*", NAME="a"' 'conflicting match expres
 test_syntax_error 'KERNEL=="abc", KERNEL!="abc", NAME="b"' 'conflicting match expressions, the line takes no effect'
 # shellcheck disable=SC2016
 test_syntax_error 'ENV{DISKSEQ}=="?*", ENV{DEVTYPE}!="partition", ENV{DISKSEQ}!="?*" ENV{ID_IGNORE_DISKSEQ}!="1", SYMLINK+="disk/by-diskseq/$env{DISKSEQ}"' \
-        'conflicting match expressions, the line takes no effect'
+                  'conflicting match expressions, the line takes no effect'
 test_syntax_error 'KERNEL!="", KERNEL=="?*", NAME="a"' 'duplicate expressions'
 # shellcheck disable=SC2016
 test_syntax_error 'ENV{DISKSEQ}=="?*", ENV{DEVTYPE}!="partition", ENV{DISKSEQ}=="?*" ENV{ID_IGNORE_DISKSEQ}!="1", SYMLINK+="disk/by-diskseq/$env{DISKSEQ}"' \
-        'duplicate expressions'
+                  'duplicate expressions'
 
 echo 'GOTO="a"' >"${rules}"
 cat >"${exp}" <<EOF
