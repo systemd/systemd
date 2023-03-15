@@ -188,7 +188,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         _cleanup_(devicetree_cleanup) struct devicetree_state dt_state = {};
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         size_t addrs[_UNIFIED_SECTION_MAX] = {}, szs[_UNIFIED_SECTION_MAX] = {};
-        _cleanup_free_ char16_t *cmdline = NULL;
+        _cleanup_free_ char16_t *cmdline = NULL, *extra = NULL;
         int sections_measured = -1, parameters_measured = -1;
         bool sysext_measured = false, m;
         uint64_t loader_features = 0;
@@ -277,10 +277,12 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 mangle_stub_cmdline(cmdline);
         }
 
-        const char *extra = smbios_find_oem_string("io.systemd.stub.kernel-cmdline-extra");
+        err = smbios_find_oem_string_join("io.systemd.stub.kernel-cmdline-extra", &extra);
+        if (!IN_SET(err, EFI_SUCCESS, EFI_NOT_FOUND))
+                return log_error_status(err, "Failed to read extra cmdline arguments from SMBIOS: %m");
         if (extra) {
-                _cleanup_free_ char16_t *tmp = TAKE_PTR(cmdline), *extra16 = xstr8_to_16(extra);
-                cmdline = xasprintf("%ls %ls", tmp, extra16);
+                _cleanup_free_ char16_t *tmp = TAKE_PTR(cmdline);
+                cmdline = xasprintf("%ls %ls", tmp, extra);
         }
 
         export_variables(loaded_image);

@@ -8,4 +8,4 @@ EFI_STATUS vmm_open(EFI_HANDLE *ret_qemu_dev, EFI_FILE **ret_qemu_dir);
 
 bool in_hypervisor(void);
 
-const char* smbios_find_oem_string(const char *name);
+EFI_STATUS smbios_find_oem_string_join(const char *name, char16_t **ret);

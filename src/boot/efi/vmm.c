@@ -278,14 +278,16 @@ bool in_hypervisor(void) {
         return cache;
 }
 
-const char* smbios_find_oem_string(const char *name) {
+EFI_STATUS smbios_find_oem_string_join(const char *name, char16_t **ret) {
+        _cleanup_free_ char16_t *c = NULL;
         uint64_t left;
 
         assert(name);
+        assert(ret);
 
         const SmbiosTableType11 *type11 = (const SmbiosTableType11 *) get_smbios_table(11, &left);
         if (!type11 || type11->header.length < sizeof(SmbiosTableType11))
-                return NULL;
+                return EFI_BUFFER_TOO_SMALL;
 
         assert(left >= type11->header.length);
 
@@ -298,11 +300,17 @@ const char* smbios_find_oem_string(const char *name) {
                         break;
 
                 const char *eq = startswith8(p, name);
-                if (eq && *eq == '=')
-                        return eq + 1;
+                if (eq && *eq == '=') {
+                        _cleanup_free_ char16_t *tmp = TAKE_PTR(c);
+                        c = xasprintf("%ls %s", tmp ?: L"", eq + 1);
+                }
 
                 p = e + 1;
         }
 
-        return NULL;
+        if (!c)
+                return EFI_NOT_FOUND;
+
+        *ret = TAKE_PTR(c);
+        return EFI_SUCCESS;
 }
