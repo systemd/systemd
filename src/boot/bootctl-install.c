@@ -664,7 +664,7 @@ static int install_variables(
                 return 0;
         }
 
-        r = chase_symlinks_and_access(path, esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, F_OK, NULL, NULL);
+        r = chase_symlinks_and_access(path, esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, F_OK, NULL);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)

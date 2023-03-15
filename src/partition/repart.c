@@ -4021,7 +4021,7 @@ static int add_exclude_path(const char *path, Hashmap **denylist, DenyType type)
         if (!st)
                 return log_oom();
 
-        r = chase_symlinks_and_stat(path, arg_root, CHASE_PREFIX_ROOT, NULL, st, NULL);
+        r = chase_symlinks_and_stat(path, arg_root, CHASE_PREFIX_ROOT, NULL, st);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
