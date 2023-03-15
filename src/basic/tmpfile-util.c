@@ -272,7 +272,7 @@ int open_tmpfile_unlinkable(const char *directory, int flags) {
         return fd;
 }
 
-int open_tmpfile_linkable(const char *target, int flags, char **ret_path) {
+int open_tmpfile_linkable_at(int dir_fd, const char *target, int flags, char **ret_path) {
         _cleanup_free_ char *tmp = NULL;
         int r, fd;
 
@@ -286,7 +286,7 @@ int open_tmpfile_linkable(const char *target, int flags, char **ret_path) {
          * which case "ret_path" will be returned as NULL. If not possible the temporary path name used is returned in
          * "ret_path". Use link_tmpfile() below to rename the result after writing the file in full. */
 
-        fd = open_parent(target, O_TMPFILE|flags, 0640);
+        fd = open_parent_at(dir_fd, target, O_TMPFILE|flags, 0640);
         if (fd >= 0) {
                 *ret_path = NULL;
                 return fd;
@@ -298,7 +298,7 @@ int open_tmpfile_linkable(const char *target, int flags, char **ret_path) {
         if (r < 0)
                 return r;
 
-        fd = open(tmp, O_CREAT|O_EXCL|O_NOFOLLOW|O_NOCTTY|flags, 0640);
+        fd = openat(dir_fd, tmp, O_CREAT|O_EXCL|O_NOFOLLOW|O_NOCTTY|flags, 0640);
         if (fd < 0)
                 return -errno;
 
@@ -349,11 +349,12 @@ static int link_fd(int fd, int newdirfd, const char *newpath) {
         return RET_NERRNO(linkat(fd, "", newdirfd, newpath, AT_EMPTY_PATH));
 }
 
-int link_tmpfile(int fd, const char *path, const char *target, bool replace) {
+int link_tmpfile_at(int fd, int dir_fd, const char *path, const char *target, bool replace) {
         _cleanup_free_ char *tmp = NULL;
         int r;
 
         assert(fd >= 0);
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(target);
 
         /* Moves a temporary file created with open_tmpfile() above into its final place. If "path" is NULL
@@ -362,12 +363,12 @@ int link_tmpfile(int fd, const char *path, const char *target, bool replace) {
 
         if (path) {
                 if (replace)
-                        return RET_NERRNO(rename(path, target));
+                        return RET_NERRNO(renameat(dir_fd, path, dir_fd, target));
 
-                return rename_noreplace(AT_FDCWD, path, AT_FDCWD, target);
+                return rename_noreplace(dir_fd, path, dir_fd, target);
         }
 
-        r = link_fd(fd, AT_FDCWD, target);
+        r = link_fd(fd, dir_fd, target);
         if (r != -EEXIST || !replace)
                 return r;
 
@@ -381,12 +382,12 @@ int link_tmpfile(int fd, const char *path, const char *target, bool replace) {
         if (r < 0)
                 return r;
 
-        if (link_fd(fd, AT_FDCWD, tmp) < 0)
+        if (link_fd(fd, dir_fd, tmp) < 0)
                 return -EEXIST; /* propagate original error */
 
-        r = RET_NERRNO(rename(tmp, target));
+        r = RET_NERRNO(renameat(dir_fd, tmp, dir_fd, target));
         if (r < 0) {
-                (void) unlink(tmp);
+                (void) unlinkat(dir_fd, tmp, 0);
                 return r;
         }
 
