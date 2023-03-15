@@ -28,6 +28,9 @@ policy:
           - name: delta
             keys: ['systemd-delta']
 
+          - name: dissect
+            keys: ['systemd-dissect']
+
           - name: env
             keys: ['systemd-env-generator']
 

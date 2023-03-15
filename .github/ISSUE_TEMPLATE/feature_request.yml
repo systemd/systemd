@@ -43,6 +43,7 @@ body:
         - 'systemd-coredump'
         - 'systemd-cryptsetup'
         - 'systemd-delta'
+        - 'systemd-dissect'
         - 'systemd-env-generator'
         - 'systemd-fsck'
         - 'systemd-gpt-auto-generator'
