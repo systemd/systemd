@@ -21,6 +21,7 @@
 #include "missing_fcntl.h"
 #include "missing_fs.h"
 #include "missing_syscall.h"
+#include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -863,4 +864,55 @@ int fd_get_diskseq(int fd, uint64_t *ret) {
         *ret = diskseq;
 
         return 0;
+}
+
+int dir_fd_is_root(int dir_fd) {
+        STRUCT_NEW_STATX_DEFINE(st);
+        STRUCT_NEW_STATX_DEFINE(pst);
+        int r;
+
+        assert(dir_fd >= 0);
+
+        r = statx_fallback(dir_fd, ".", 0, STATX_TYPE|STATX_INO|STATX_MNT_ID, &st.sx);
+        if (r == -ENOTDIR)
+                return false;
+        if (r < 0)
+                return r;
+
+        if (!FLAGS_SET(st.nsx.stx_mask, STATX_MNT_ID)) {
+                int mntid;
+
+                r = path_get_mnt_id_at(dir_fd, "", &mntid);
+                if (r < 0)
+                        return r;
+                assert(mntid >= 0);
+
+                st.nsx.stx_mnt_id = mntid;
+                st.nsx.stx_mask |= STATX_MNT_ID;
+        }
+
+        r = statx_fallback(dir_fd, "..", 0, STATX_TYPE|STATX_INO|STATX_MNT_ID, &pst.sx);
+        if (r < 0)
+                return r;
+
+        if (!FLAGS_SET(pst.nsx.stx_mask, STATX_MNT_ID)) {
+                int mntid;
+
+                r = path_get_mnt_id_at(dir_fd, "..", &mntid);
+                if (r < 0)
+                        return r;
+                assert(mntid >= 0);
+
+                pst.nsx.stx_mnt_id = mntid;
+                pst.nsx.stx_mask |= STATX_MNT_ID;
+        }
+
+        /* If the parent directory is the same inode, the fd points to the root directory "/". We also check
+         * that the mount ids are the same. Otherwise, a construct like the following could be used to trick
+         * us:
+         *
+         * $ mkdir /tmp/x /tmp/x/y
+         * $ mount --bind /tmp/x /tmp/x/y
+         */
+        return statx_inode_same(&st.sx, &pst.sx) && statx_mount_same(&st.nsx, &pst.nsx);
 }
