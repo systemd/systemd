@@ -95,15 +95,11 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
+        r = sd_event_set_signal_exit(m->event, true);
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
-        if (r < 0)
-                return r;
-
-        r = sd_event_add_signal(m->event, NULL, SIGRTMIN+18, sigrtmin18_handler, NULL);
+        r = sd_event_add_signal(m->event, NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, NULL);
         if (r < 0)
                 return r;
 
@@ -111,7 +107,9 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 log_debug_errno(r, "Failed allocate memory pressure event source, ignoring: %m");
 
-        (void) sd_event_set_watchdog(m->event, true);
+        r = sd_event_set_watchdog(m->event, true);
+        if (r < 0)
+                log_debug_errno(r, "Failed to enable watchdog handling, ignoring: %m");
 
         m->workers_fixed = set_new(NULL);
         m->workers_dynamic = set_new(NULL);
@@ -119,11 +117,11 @@ int manager_new(Manager **ret) {
         if (!m->workers_fixed || !m->workers_dynamic)
                 return -ENOMEM;
 
-        r = sd_event_add_signal(m->event, &m->sigusr2_event_source, SIGUSR2, on_sigusr2, m);
+        r = sd_event_add_signal(m->event, NULL, SIGUSR2|SD_EVENT_SIGNAL_PROCMASK, on_sigusr2, m);
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(m->event, &m->sigchld_event_source, SIGCHLD, on_sigchld, m);
+        r = sd_event_add_signal(m->event, NULL, SIGCHLD|SD_EVENT_SIGNAL_PROCMASK, on_sigchld, m);
         if (r < 0)
                 return r;
 
@@ -137,9 +135,6 @@ Manager* manager_free(Manager *m) {
 
         set_free(m->workers_fixed);
         set_free(m->workers_dynamic);
-
-        sd_event_source_disable_unref(m->sigusr2_event_source);
-        sd_event_source_disable_unref(m->sigchld_event_source);
 
         sd_event_unref(m->event);
 
