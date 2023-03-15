@@ -18,10 +18,24 @@ workdir="$(mktemp -d)"
 trap cleanup EXIT
 cd "${workdir}"
 
+cat >"${workdir}/default_output_1_success" <<EOF
+
+1 udev rules files have been checked.
+  Success: 1
+  Fail:    0
+EOF
+cat >"${workdir}/default_output_1_fail" <<EOF
+
+1 udev rules files have been checked.
+  Success: 0
+  Fail:    1
+EOF
+
 test_number=0
 rules=
 exp=
 err=
+out=
 next_test_number() {
     : $((++test_number))
 
@@ -31,28 +45,38 @@ next_test_number() {
     rules="sample-${num_str}.rules"
     exp="sample-${num_str}.exp"
     err="sample-${num_str}.err"
+    exo="sample-${num_str}.exo"
+    out="sample-${num_str}.out"
 }
 
 assert_0() {
-    assert_rc 0 udevadm verify "$@"
+    udevadm verify "$@" >"${out}"
+    if [ -f "${rules}" ]; then
+       diff -u "${workdir}/default_output_1_success" "${out}"
+    fi
+
     next_test_number
 }
 
 assert_1() {
+    set +e
+    udevadm verify "$@" >"${out}" 2>"${err}"
+    assert_eq "$?" 1
+    set -e
+
     if [ -f "${exp}" ]; then
-        set +e
-        udevadm verify "$@" 2>"${err}"
-        assert_eq "$?" 1
-        set -e
-        diff "${exp}" "${err}"
-    else
-        set +e
-        udevadm verify "$@"
-        assert_eq "$?" 1
-        set -e
+        diff -u "${exp}" "${err}"
     fi
+
+    if [ -f "${exo}" ]; then
+        diff -u "${exo}" "${out}"
+    fi
+
     next_test_number
 }
+
+# initialize variables
+next_test_number
 
 assert_0 -h
 assert_0 --help
@@ -71,8 +95,15 @@ assert_1 --resolve-names
 # --resolve-names= takes "early" or "never"
 assert_1 --resolve-names=now
 # Failed to parse rules file .: Is a directory
+cp "${workdir}/default_output_1_fail" "${exo}"
 assert_1 .
 # Failed to parse rules file .: Is a directory
+cat >"${exo}" <<EOF
+
+3 udev rules files have been checked.
+  Success: 2
+  Fail:    1
+EOF
 assert_1 /dev/null . /dev/null
 
 rules_dir='etc/udev/rules.d'
@@ -97,6 +128,7 @@ assert_0 "${rules}"
 # Failed to parse rules file ${rules}: No buffer space available
 printf '%16384s\n' ' ' >"${rules}"
 echo "Failed to parse rules file ${rules}: No buffer space available" >"${exp}"
+cp "${workdir}/default_output_1_fail" "${exo}"
 assert_1 "${rules}"
 
 {
@@ -112,6 +144,7 @@ cat >"${exp}" <<EOF
 ${rules}:5 Line is too long, ignored
 ${rules}: udev rules check failed
 EOF
+cp "${workdir}/default_output_1_fail" "${exo}"
 assert_1 "${rules}"
 
 printf '\\\n' >"${rules}"
@@ -119,6 +152,7 @@ cat >"${exp}" <<EOF
 ${rules}:1 Unexpected EOF after line continuation, line ignored
 ${rules}: udev rules check failed
 EOF
+cp "${workdir}/default_output_1_fail" "${exo}"
 assert_1 "${rules}"
 
 test_syntax_error() {
@@ -132,6 +166,7 @@ test_syntax_error() {
 ${rules}:1 ${msg}
 ${rules}: udev rules check failed
 EOF
+    cp "${workdir}/default_output_1_fail" "${exo}"
     assert_1 "${rules}"
 }
 
@@ -256,6 +291,7 @@ ${rules}:1 GOTO="a" has no matching label, ignoring
 ${rules}:1 The line takes no effect any more, dropping
 ${rules}: udev rules check failed
 EOF
+cp "${workdir}/default_output_1_fail" "${exo}"
 assert_1 "${rules}"
 
 cat >"${rules}" <<'EOF'
@@ -273,6 +309,7 @@ cat >"${exp}" <<EOF
 ${rules}:3 LABEL="b" is unused.
 ${rules}: udev rules check failed
 EOF
+cp "${workdir}/default_output_1_fail" "${exo}"
 assert_1 "${rules}"
 
 cat >"${rules}" <<'EOF'
@@ -286,6 +323,7 @@ ${rules}:1 The line takes no effect any more, dropping
 ${rules}:2 LABEL="b" is unused.
 ${rules}: udev rules check failed
 EOF
+cp "${workdir}/default_output_1_fail" "${exo}"
 assert_1 "${rules}"
 
 cat >"${rules}" <<'EOF'
@@ -296,6 +334,7 @@ ${rules}:1 duplicate expressions
 ${rules}:1 conflicting match expressions, the line takes no effect
 ${rules}: udev rules check failed
 EOF
+cp "${workdir}/default_output_1_fail" "${exo}"
 assert_1 "${rules}"
 
 # udevadm verify --root
