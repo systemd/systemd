@@ -474,6 +474,9 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         (void) cg_mask_to_string(c->disable_controllers, &disable_controllers_str);
         (void) cg_mask_to_string(c->delegate_controllers, &delegate_controllers_str);
 
+        /* "Delegate=" means "yes, but no controllers". Show this as "(none)". */
+        const char *delegate_str = delegate_controllers_str ?: c->delegate ? "(none)" : "no";
+
         cpuset_cpus = cpu_set_to_range_string(&c->cpuset_cpus);
         startup_cpuset_cpus = cpu_set_to_range_string(&c->startup_cpuset_cpus);
         cpuset_mems = cpu_set_to_range_string(&c->cpuset_mems);
@@ -560,7 +563,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, tasks_max_resolve(&c->tasks_max),
                 prefix, cgroup_device_policy_to_string(c->device_policy),
                 prefix, strempty(disable_controllers_str),
-                prefix, strempty(delegate_controllers_str),
+                prefix, delegate_str,
                 prefix, managed_oom_mode_to_string(c->moom_swap),
                 prefix, managed_oom_mode_to_string(c->moom_mem_pressure),
                 prefix, PERMYRIAD_AS_PERCENT_FORMAT_VAL(UINT32_SCALE_TO_PERMYRIAD(c->moom_mem_pressure_limit)),
