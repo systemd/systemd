@@ -20,6 +20,22 @@
 #include "string-util.h"
 #include "utf8.h"
 
+int memfd_create_wrapper(const char *name, unsigned mode) {
+        unsigned mode_compat;
+        int mfd;
+
+        mfd = RET_NERRNO(memfd_create(name, mode));
+        if (mfd != -EINVAL)
+                return mfd;
+
+        mode_compat = mode & ~(MFD_EXEC | MFD_NOEXEC_SEAL);
+
+        if (mode == mode_compat)
+                return mfd;
+
+        return RET_NERRNO(memfd_create(name, mode_compat));
+}
+
 int memfd_new(const char *name) {
         _cleanup_free_ char *g = NULL;
 
@@ -49,7 +65,7 @@ int memfd_new(const char *name) {
                 }
         }
 
-        return RET_NERRNO(memfd_create(name, MFD_ALLOW_SEALING | MFD_CLOEXEC));
+        return memfd_create_wrapper(name, MFD_ALLOW_SEALING | MFD_CLOEXEC | MFD_NOEXEC_SEAL);
 }
 
 int memfd_map(int fd, uint64_t offset, size_t size, void **p) {

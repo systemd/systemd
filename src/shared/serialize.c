@@ -6,6 +6,7 @@
 #include "env-util.h"
 #include "escape.h"
 #include "fileio.h"
+#include "memfd-util.h"
 #include "missing_mman.h"
 #include "missing_syscall.h"
 #include "parse-util.h"
@@ -197,7 +198,7 @@ int deserialize_environment(const char *value, char ***list) {
 int open_serialization_fd(const char *ident) {
         int fd;
 
-        fd = memfd_create(ident, MFD_CLOEXEC);
+        fd = memfd_create_wrapper(ident, MFD_CLOEXEC | MFD_NOEXEC_SEAL);
         if (fd < 0) {
                 const char *path;
 
