@@ -2436,6 +2436,8 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
                         r = journal_file_next_entry(f, 0, DIRECTION_UP, &o, NULL);
                         if (r < 0)
                                 return r;
+                        if (r == 0)
+                                return -ENODATA;
 
                         id = o->entry.boot_id;
                         mo = le64toh(o->entry.monotonic);
