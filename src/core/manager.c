@@ -3777,7 +3777,7 @@ static int manager_run_environment_generators(Manager *m) {
         if (MANAGER_IS_TEST_RUN(m) && !(m->test_run_flags & MANAGER_TEST_RUN_ENV_GENERATORS))
                 return 0;
 
-        paths = env_generator_binary_paths(MANAGER_IS_SYSTEM(m));
+        paths = env_generator_binary_paths(m->runtime_scope);
         if (!paths)
                 return log_oom();
 
