@@ -627,14 +627,7 @@ static int do_daemon_reload(void) {
         FOREACH_STRING(unit, SPECIAL_INITRD_FS_TARGET, SPECIAL_SWAP_TARGET) {
                 log_info("Requesting %s/start/replace...", unit);
 
-                k = sd_bus_call_method(bus,
-                                       "org.freedesktop.systemd1",
-                                       "/org/freedesktop/systemd1",
-                                       "org.freedesktop.systemd1.Manager",
-                                       "StartUnit",
-                                       &error,
-                                       NULL,
-                                       "ss", unit, "replace");
+                k = bus_call_method(bus, bus_systemd_mgr, "StartUnit", &error, NULL, "ss", unit, "replace");
                 if (k < 0) {
                         log_error_errno(k, "Failed to (re)start %s: %s", unit, bus_error_message(&error, r));
                         if (r == 0)
