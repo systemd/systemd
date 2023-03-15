@@ -355,11 +355,19 @@ int path_is_mount_point(const char *t, const char *root, int flags) {
         return fd_is_mount_point(fd, last_path_component(t), flags);
 }
 
-int path_get_mnt_id(const char *path, int *ret) {
+int path_get_mnt_id_at(int dir_fd, const char *path, int *ret) {
         STRUCT_NEW_STATX_DEFINE(buf);
         int r;
 
-        if (statx(AT_FDCWD, path, AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT, STATX_MNT_ID, &buf.sx) < 0) {
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(path);
+        assert(ret);
+
+        if (statx(dir_fd,
+                  path,
+                  AT_NO_AUTOMOUNT|(isempty(path) ? AT_EMPTY_PATH : AT_SYMLINK_NOFOLLOW),
+                  STATX_MNT_ID,
+                  &buf.sx) < 0) {
                 if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
                         return -errno;
 
@@ -371,11 +379,11 @@ int path_get_mnt_id(const char *path, int *ret) {
                 return 0;
         }
 
-        r = name_to_handle_at_loop(AT_FDCWD, path, NULL, ret, 0);
+        r = name_to_handle_at_loop(dir_fd, path, NULL, ret, isempty(path) ? AT_EMPTY_PATH : 0);
         if (r == 0 || is_name_to_handle_at_fatal_error(r))
                 return r;
 
-        return fd_fdinfo_mnt_id(AT_FDCWD, path, 0, ret);
+        return fd_fdinfo_mnt_id(dir_fd, path, isempty(path) ? AT_EMPTY_PATH : 0, ret);
 }
 
 bool fstype_is_network(const char *fstype) {
